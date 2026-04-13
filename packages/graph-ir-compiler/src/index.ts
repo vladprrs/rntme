@@ -3,6 +3,7 @@ import { parseAuthoringSpec } from './parse/parse.js';
 import { PdmSchema, type Pdm } from './types/pdm.js';
 import { QsmSchema, type Qsm } from './types/qsm.js';
 import { validateStructural } from './validate/structural/index.js';
+import { validateSemantic } from './validate/semantic/index.js';
 import { normalize } from './canonical/normalize.js';
 import { buildSemanticPlan } from './semantic-plan/build.js';
 import { buildRelational } from './relational/build.js';
@@ -74,6 +75,9 @@ export function compile(
     ]);
   }
   const graph = graphs[graphIds[0]!]!;
+
+  const semR = validateSemantic(graph, pdm, qsm);
+  if (!semR.ok) return semR;
 
   const planR = buildSemanticPlan(graph, pdm, qsm);
   if (!planR.ok) return planR;

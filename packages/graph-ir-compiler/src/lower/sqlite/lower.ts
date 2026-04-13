@@ -1,5 +1,6 @@
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
+import { lowerExpr } from './expr.js';
 
 export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 
@@ -34,9 +35,41 @@ function toSelect(rel: RelOp, paramOrder: string[]): SqlSelect {
           : paramPlaceholder(rel.count.$param, paramOrder);
       return child;
     }
+    case 'Filter': {
+      const child = toSelect(rel.child, paramOrder);
+      const scanMeta = findScanMeta(rel);
+      const predicate = lowerExpr(rel.predicate, {
+        alias: scanMeta.alias,
+        columnOf: (path) => columnOfFromScan(path, scanMeta),
+        paramOrder,
+      });
+      child.where = child.where ? { kind: 'op', op: 'and', args: [child.where, predicate] } : predicate;
+      return child;
+    }
     default:
       throw new Error(`lowerToSqlite: operator ${rel.op} not yet supported`);
   }
+}
+
+type ScanMeta = { alias: string; fields: RelScan['fields'] };
+
+function findScanMeta(rel: RelOp): ScanMeta {
+  let cur: RelOp = rel;
+  while (cur.op !== 'Scan') {
+    if (cur.op === 'Join') cur = cur.left;
+    else if ('child' in cur) cur = cur.child;
+    else throw new Error('no scan found');
+  }
+  return { alias: cur.alias, fields: cur.fields };
+}
+
+function columnOfFromScan(path: string, meta: ScanMeta): { table: string; column: string } {
+  const [head, rest] = path.split('.', 2);
+  if (head === meta.alias && rest) {
+    const f = meta.fields.find((x) => x.name === rest);
+    if (f) return { table: meta.alias, column: f.column };
+  }
+  throw new Error(`lower: cannot resolve field path "${path}"`);
 }
 
 function paramPlaceholder(name: string, paramOrder: string[]): SqlExpr {
