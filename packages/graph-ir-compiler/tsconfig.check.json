@@ -3,7 +3,9 @@
   "compilerOptions": {
     "rootDir": ".",
     "noEmit": true,
-    "composite": false
+    "composite": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist", "node_modules"]
