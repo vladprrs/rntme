@@ -1,0 +1,15 @@
+{
+  "projections": {
+    "CategorySalesProjection": {
+      "grain": ["categoryId"],
+      "keys": ["categoryId"],
+      "exposed": ["revenue", "lineCount", "categoryName"],
+      "source": { "entity": "OrderItem", "pathPrefix": "orderItem.product.category" }
+    }
+  },
+  "relationRoles": {
+    "OrderItem.order": "fact",
+    "OrderItem.product": "dimension",
+    "Product.category": "dimension"
+  }
+}
