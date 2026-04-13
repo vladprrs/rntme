@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.pnpm-store/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Local agent / editor config
+/.claude/
+
+# Internal specs and planning docs — not committed
+/graph_ir_rc_7.md
+/docs/superpowers/
