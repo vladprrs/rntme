@@ -52,7 +52,9 @@ export function compileApplyPlan(input: {
       if (handler.op.kind === 'insert') {
         handlersByEventType.set(handler.eventType, compileInsert(spec, handler, entity, eventSpec));
       }
-      // update compiled in Task 6
+      if (handler.op.kind === 'update') {
+        handlersByEventType.set(handler.eventType, compileUpdate(spec, handler, entity));
+      }
     }
   }
 
@@ -174,4 +176,70 @@ function sqlTypeOf(field: ResolvedField): 'INTEGER' | 'TEXT' | 'REAL' {
 
 function q(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
+}
+
+function compileUpdate(
+  spec: ProjectionHandlerSpec,
+  handler: EventHandler,
+  entity: ResolvedEntity,
+): CompiledHandler {
+  if (handler.op.kind !== 'update') {
+    throw new ApplyCompileError(
+      'PC_MISSING_ENTITY_FIELD',
+      'compileUpdate called with non-update handler',
+      {},
+    );
+  }
+  const keyColumn = spec.keyColumns[0]!;
+  const fieldByColumn = new Map(entity.fields.map((f) => [f.column, f]));
+  const fieldByName = new Map(entity.fields.map((f) => [f.name, f]));
+
+  const setParts: string[] = [];
+  const bindings: ColumnBinding[] = [];
+  for (let i = 0; i < handler.op.setColumns.length; i++) {
+    const col = handler.op.setColumns[i]!;
+    const fieldName = handler.op.setFields[i]!;
+    if (!fieldByColumn.has(col)) {
+      throw new ApplyCompileError(
+        'PC_MISSING_ENTITY_FIELD',
+        `setColumn "${col}" not in entity "${entity.name}" while compiling update handler for projection "${spec.projectionName}".`,
+        { column: col, entity: entity.name, projection: spec.projectionName },
+      );
+    }
+    setParts.push(`${q(col)} = ?`);
+    bindings.push({ kind: 'payloadField', fieldName });
+  }
+  for (const field of entity.fields) {
+    if (field.generated === 'updatedAt') {
+      setParts.push(`${q(field.column)} = ?`);
+      bindings.push({ kind: 'generatedOccurred' });
+    }
+  }
+  setParts.push(`${q('last_event_id')} = ?`);
+  bindings.push({ kind: 'eventId' });
+  setParts.push(`${q('last_event_version')} = ?`);
+  bindings.push({ kind: 'eventVersion' });
+  setParts.push(`${q('applied_at')} = ?`);
+  bindings.push({ kind: 'appliedAt' });
+
+  const keyFieldName = entity.keys[0]!;
+  const keyField = fieldByName.get(keyFieldName)!;
+  bindings.push({ kind: 'aggregateId', sqlType: sqlTypeOf(keyField) });
+  bindings.push({ kind: 'eventVersion' });
+
+  const sql =
+    `UPDATE ${q(spec.tableName)}\n` +
+    `SET ${setParts.join(', ')}\n` +
+    `WHERE ${q(keyColumn)} = ? AND ${q('last_event_version')} < ?`;
+
+  return {
+    kind: 'update',
+    projectionName: spec.projectionName,
+    tableName: spec.tableName,
+    aggregateType: spec.aggregateType,
+    eventType: handler.eventType,
+    keyColumn,
+    sql,
+    bindings,
+  };
 }
