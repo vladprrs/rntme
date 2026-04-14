@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../../src/index.js';
-import { PdmSchema } from '../../src/types/pdm.js';
-import { QsmSchema } from '../../src/types/qsm.js';
+import { loadValidatedPdmAndQsm } from '../load-validated.js';
 import pdm from '../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+const { pdm: P, qsm: Q } = loadValidatedPdmAndQsm(pdm, qsm);
 
 const spec = {
   version: '1.0-rc7' as const,

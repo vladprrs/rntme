@@ -1,7 +1,9 @@
 import type Database from 'better-sqlite3';
+import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
+import { parseQsm, validateQsm } from '@rntme/qsm';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { parseAuthoringSpec } from './parse/parse.js';
-import { PdmSchema, type Pdm } from './types/pdm.js';
-import { QsmSchema, type Qsm } from './types/qsm.js';
 import { validateStructural } from './validate/structural/index.js';
 import { validateSemantic } from './validate/semantic/index.js';
 import { normalize } from './canonical/normalize.js';
@@ -15,11 +17,59 @@ import type { ExplainArtifacts, ExplainOutput } from './explain/explain.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
-export type { Pdm } from './types/pdm.js';
-export type { Qsm } from './types/qsm.js';
+export type { ValidatedPdm } from '@rntme/pdm';
+export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
 export const VERSION = '0.0.0';
+
+function parseValidatedArtifacts(
+  rawPdm: unknown,
+  rawQsm: unknown,
+): Result<{ pdm: ValidatedPdm; qsm: ValidatedQsm }> {
+  const pdmParse = parsePdm(rawPdm);
+  if (!pdmParse.ok) {
+    return err([
+      {
+        layer: 'parse',
+        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+        message: 'PDM failed schema validation',
+      },
+    ]);
+  }
+  const pdmVal = validatePdm(pdmParse.value);
+  if (!pdmVal.ok) {
+    return err([
+      {
+        layer: 'parse',
+        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+        message: pdmVal.errors[0]?.message ?? 'PDM validation failed',
+      },
+    ]);
+  }
+  const pdm = pdmVal.value;
+  const qsmParse = parseQsm(rawQsm);
+  if (!qsmParse.ok) {
+    return err([
+      {
+        layer: 'parse',
+        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+        message: 'QSM failed schema validation',
+      },
+    ]);
+  }
+  const qsmVal = validateQsm(qsmParse.value, createPdmResolver(pdm));
+  if (!qsmVal.ok) {
+    return err([
+      {
+        layer: 'parse',
+        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+        message: qsmVal.errors[0]?.message ?? 'QSM validation failed',
+      },
+    ]);
+  }
+  return ok({ pdm, qsm: qsmVal.value });
+}
 
 export type CompileOptions = { target?: 'sqlite' };
 
@@ -40,29 +90,9 @@ export function compile(
   const specR = parseAuthoringSpec(rawSpec);
   if (!specR.ok) return specR;
 
-  const pdmR = PdmSchema.safeParse(rawPdm);
-  if (!pdmR.success) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'PDM failed schema validation',
-      },
-    ]);
-  }
-  const qsmR = QsmSchema.safeParse(rawQsm);
-  if (!qsmR.success) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'QSM failed schema validation',
-      },
-    ]);
-  }
-
-  const pdm: Pdm = pdmR.data;
-  const qsm: Qsm = qsmR.data;
+  const artifactsR = parseValidatedArtifacts(rawPdm, rawQsm);
+  if (!artifactsR.ok) return artifactsR;
+  const { pdm, qsm } = artifactsR.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
@@ -138,37 +168,11 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
   if (!specR.ok) return { ok: false, artifacts, errors: specR.errors };
   artifacts.parsed = specR.value;
 
-  const pdmR = PdmSchema.safeParse(rawPdm);
-  if (!pdmR.success) {
-    return {
-      ok: false,
-      artifacts,
-      errors: [
-        {
-          layer: 'parse',
-          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-          message: 'PDM failed schema validation',
-        },
-      ],
-    };
+  const artifactsR = parseValidatedArtifacts(rawPdm, rawQsm);
+  if (!artifactsR.ok) {
+    return { ok: false, artifacts, errors: artifactsR.errors };
   }
-  const qsmR = QsmSchema.safeParse(rawQsm);
-  if (!qsmR.success) {
-    return {
-      ok: false,
-      artifacts,
-      errors: [
-        {
-          layer: 'parse',
-          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-          message: 'QSM failed schema validation',
-        },
-      ],
-    };
-  }
-
-  const pdm: Pdm = pdmR.data;
-  const qsm: Qsm = qsmR.data;
+  const { pdm, qsm } = artifactsR.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };

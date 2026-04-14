@@ -1,6 +1,6 @@
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { ok, err, type Result } from '../../types/result.js';
 import { checkIds } from './ids.js';
 import { checkRefs } from './refs.js';
@@ -14,8 +14,8 @@ import { checkTier1Expr } from './tier1-expr.js';
 
 export function validateStructural(
   spec: AuthoringSpecOutput,
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): Result<AuthoringSpecOutput> {
   const errors = [
     ...checkIds(spec),

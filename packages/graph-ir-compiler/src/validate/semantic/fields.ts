@@ -1,4 +1,4 @@
-import type { Pdm, PdmEntity } from '../../types/pdm.js';
+import type { Entity, ValidatedPdm } from '@rntme/pdm';
 import type { Scope } from './scope.js';
 import { ERROR_CODES, err, ok, type Result } from '../../types/result.js';
 
@@ -15,7 +15,7 @@ function errField(msg: string) {
   return err([{ layer: 'semantic' as const, code: ERROR_CODES.SEM_FIELD_NOT_FOUND, message: msg }]);
 }
 
-export function resolveField(path: string, scope: Scope, pdm: Pdm): Result<ResolvedField> {
+export function resolveField(path: string, scope: Scope, pdm: ValidatedPdm): Result<ResolvedField> {
   const parts = path.split('.');
   const head = parts[0];
   if (!head) return errField(`empty field path`);
@@ -51,11 +51,11 @@ export function resolveField(path: string, scope: Scope, pdm: Pdm): Result<Resol
     });
   }
 
-  let curEntity: PdmEntity = entity;
+  let curEntity: Entity = entity;
   const chain = [head];
   for (let i = 1; i < parts.length - 1; i++) {
     const step = parts[i]!;
-    const rel = curEntity.relations[step];
+    const rel = curEntity.relations?.[step];
     if (!rel) {
       return errField(`relation "${step}" not on entity "${curEntity.table}"`);
     }

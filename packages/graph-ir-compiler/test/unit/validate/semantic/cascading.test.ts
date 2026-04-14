@@ -2,14 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import { validateSemantic } from '../../../../src/validate/semantic/index.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
-import { QsmSchema } from '../../../../src/types/qsm.js';
+import { loadValidatedPdmAndQsm } from '../../../load-validated.js';
 import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+const { pdm: P, qsm: Q } = loadValidatedPdmAndQsm(pdm, qsm);
 
 describe('cascading-error suppression', () => {
   it('reports SEM_FIELD_NOT_FOUND once even if downstream nodes would also complain', () => {

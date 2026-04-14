@@ -1,11 +1,15 @@
 import type { CanonicalGraph, CanonicalNode } from '../types/canonical.js';
-import type { Pdm } from '../types/pdm.js';
-import type { Qsm } from '../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import type { PlanStep, SemanticPlan } from '../types/semantic-plan.js';
 import { err, ok, ERROR_CODES, type Result, type GraphIrError } from '../types/result.js';
 import { resolveSources, type SourceMap } from '../validate/semantic/sources.js';
 
-export function buildSemanticPlan(graph: CanonicalGraph, pdm: Pdm, qsm: Qsm): Result<SemanticPlan> {
+export function buildSemanticPlan(
+  graph: CanonicalGraph,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
+): Result<SemanticPlan> {
   const sourcesR = resolveSources(graph, pdm, qsm);
   if (!sourcesR.ok) return sourcesR;
   const sources = sourcesR.value;
@@ -34,7 +38,7 @@ export function buildSemanticPlan(graph: CanonicalGraph, pdm: Pdm, qsm: Qsm): Re
   });
 }
 
-function lower(node: CanonicalNode, sources: SourceMap, pdm: Pdm): PlanStep | undefined {
+function lower(node: CanonicalNode, sources: SourceMap, pdm: ValidatedPdm): PlanStep | undefined {
   switch (node.kind) {
     case 'findMany': {
       const src = sources.get(node.id);

@@ -1,6 +1,6 @@
 import type { CanonicalGraph, CanonicalMap } from '../../types/canonical.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import { inferExprType, type ParamMap } from './types.js';
 import type { Scope } from './scope.js';
@@ -10,8 +10,8 @@ import type { SourceMap } from './sources.js';
 function shapeFields(
   name: string,
   shapes: AuthoringSpecOutput['shapes'],
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): Record<string, { type: string; nullable: boolean }> | undefined {
   if (name in shapes) {
     const s = shapes[name as keyof typeof shapes];
@@ -45,8 +45,8 @@ function compatible(actual: string, expected: string): boolean {
 export function checkMapShapeConformance(
   graph: CanonicalGraph,
   shapes: AuthoringSpecOutput['shapes'] | undefined,
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
   params: ParamMap,
   sources: SourceMap,
 ): GraphIrError[] {

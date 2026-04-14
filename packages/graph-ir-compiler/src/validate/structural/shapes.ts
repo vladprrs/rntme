@@ -1,18 +1,22 @@
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
 
 export function shapeExists(
   name: string,
   spec: Pick<AuthoringSpecOutput, 'shapes'>,
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): boolean {
   return name in spec.shapes || name in pdm.entities || name in qsm.projections;
 }
 
-export function checkShapes(spec: AuthoringSpecOutput, pdm: Pdm, qsm: Qsm): GraphIrError[] {
+export function checkShapes(
+  spec: AuthoringSpecOutput,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
+): GraphIrError[] {
   const errs: GraphIrError[] = [];
   for (const graph of Object.values(spec.graphs)) {
     for (const node of graph.nodes) {

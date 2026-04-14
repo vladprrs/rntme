@@ -1,6 +1,6 @@
 import type { CanonicalGraph } from '../../types/canonical.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import { resolveSources } from './sources.js';
 import { checkMapShapeConformance } from './shape-conformance.js';
@@ -12,8 +12,8 @@ import type { Scope } from './scope.js';
 
 export function validateSemantic(
   graph: CanonicalGraph,
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
   shapes?: AuthoringSpecOutput['shapes'],
 ): Result<CanonicalGraph> {
   const sourcesR = resolveSources(graph, pdm, qsm);

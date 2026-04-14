@@ -1,4 +1,4 @@
-import type { Pdm, PdmEntity, PdmRelation } from '../../types/pdm.js';
+import type { Entity, Relation, ValidatedPdm } from '@rntme/pdm';
 import type { SqlExpr, SqlJoin } from './ast.js';
 
 export type JoinChain = {
@@ -13,16 +13,22 @@ export type JoinChain = {
 };
 
 /** Build a relation chain from a path prefix `[rootAlias, rel1, rel2, ...]`. */
-export function expandChain(startAlias: string, startEntity: string, path: string[], pdm: Pdm): JoinChain {
+export function expandChain(
+  startAlias: string,
+  startEntity: string,
+  path: string[],
+  pdm: ValidatedPdm,
+): JoinChain {
   const start = pdm.entities[startEntity];
   if (!start) throw new Error(`expandChain: unknown entity ${startEntity}`);
-  let curEntity: PdmEntity = start;
+  let curEntity: Entity = start;
   const steps: JoinChain['steps'] = [];
   for (let i = 1; i < path.length; i++) {
     const relName = path[i]!;
-    const rel: PdmRelation | undefined = curEntity.relations[relName];
+    const rels = curEntity.relations;
+    const rel: Relation | undefined = rels?.[relName];
     if (!rel) throw new Error(`expandChain: relation "${relName}" missing on ${curEntity.table}`);
-    const next: PdmEntity | undefined = pdm.entities[rel.to];
+    const next: Entity | undefined = pdm.entities[rel.to];
     if (!next) throw new Error(`expandChain: entity ${rel.to} missing`);
     const localField = curEntity.fields[rel.localKey];
     const foreignField = next.fields[rel.foreignKey];
@@ -41,7 +47,7 @@ export function expandChain(startAlias: string, startEntity: string, path: strin
   return { from: startAlias, steps };
 }
 
-export function chainToSqlJoins(chain: JoinChain, pdm: Pdm): SqlJoin[] {
+export function chainToSqlJoins(chain: JoinChain, pdm: ValidatedPdm): SqlJoin[] {
   const joins: SqlJoin[] = [];
   let fromAlias = chain.from;
   for (const step of chain.steps) {

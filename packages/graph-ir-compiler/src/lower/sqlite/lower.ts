@@ -1,4 +1,4 @@
-import type { Pdm, PdmEntity, PdmRelation } from '../../types/pdm.js';
+import type { Entity, Relation, ValidatedPdm } from '@rntme/pdm';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
@@ -9,7 +9,7 @@ export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 
 export type LowerContext = {
   predicateOptionalParams: Set<string>;
-  pdm?: Pdm;
+  pdm?: ValidatedPdm;
 };
 
 export function lowerToSqlite(
@@ -270,12 +270,13 @@ function makeColumnOf(
       const leafField = parts[parts.length - 1]!;
       const rootEnt = context.pdm.entities[scan.entity];
       if (!rootEnt) throw new Error(`lower: unknown entity ${scan.entity}`);
-      let curEnt: PdmEntity = rootEnt;
+      let curEnt: Entity = rootEnt;
       for (let i = 1; i < parts.length - 1; i++) {
         const stepName = parts[i]!;
-        const stepRel: PdmRelation | undefined = curEnt.relations[stepName];
+        const rels = curEnt.relations;
+        const stepRel: Relation | undefined = rels?.[stepName];
         if (!stepRel) throw new Error(`lower: missing relation ${stepName}`);
-        const nextEnt: PdmEntity | undefined = context.pdm.entities[stepRel.to];
+        const nextEnt: Entity | undefined = context.pdm.entities[stepRel.to];
         if (!nextEnt) throw new Error(`lower: missing entity ${stepRel.to}`);
         curEnt = nextEnt;
       }

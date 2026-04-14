@@ -1,13 +1,13 @@
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
 
 function resolveShapeFieldNames(
   name: string,
   spec: AuthoringSpecOutput,
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): string[] | undefined {
   if (name in spec.shapes) {
     const shape = spec.shapes[name];
@@ -19,7 +19,7 @@ function resolveShapeFieldNames(
   }
   if (name in qsm.projections) {
     const proj = qsm.projections[name];
-    return proj ? proj.exposed : undefined;
+    return proj ? [...proj.exposed] : undefined;
   }
   return undefined;
 }
@@ -33,7 +33,11 @@ function diff(expected: string[], actual: string[]): { missing: string[]; extra:
   };
 }
 
-export function checkMapReduceCoverage(spec: AuthoringSpecOutput, pdm: Pdm, qsm: Qsm): GraphIrError[] {
+export function checkMapReduceCoverage(
+  spec: AuthoringSpecOutput,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
+): GraphIrError[] {
   const errs: GraphIrError[] = [];
   for (const graph of Object.values(spec.graphs)) {
     for (const node of graph.nodes) {

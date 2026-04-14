@@ -3,11 +3,9 @@ import { checkShapes } from '../../../../src/validate/structural/shapes.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
-import { PdmSchema } from '../../../../src/types/pdm.js';
-import { QsmSchema } from '../../../../src/types/qsm.js';
+import { loadValidatedPdmAndQsm } from '../../../load-validated.js';
 
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+const { pdm: P, qsm: Q } = loadValidatedPdmAndQsm(pdm, qsm);
 
 function spec(shapes: AuthoringSpecOutput['shapes'], from = 'paged'): AuthoringSpecOutput {
   return {

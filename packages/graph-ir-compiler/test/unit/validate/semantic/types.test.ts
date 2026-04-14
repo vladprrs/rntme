@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { inferExprType } from '../../../../src/validate/semantic/types.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
+import { loadValidatedPdm } from '../../../load-validated.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
 import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 
-const P = PdmSchema.parse(pdm);
+const P = loadValidatedPdm(pdm);
 const scope: Scope = { aliases: new Map([['orderItem', { entity: 'OrderItem' }]]) };
 const params = new Map<string, { type: string; nullable: boolean }>([
   ['minPrice', { type: 'decimal', nullable: false }],

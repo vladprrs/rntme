@@ -1,10 +1,12 @@
 {
   "projections": {
-    "CategorySalesProjection": {
-      "grain": ["categoryId"],
-      "keys": ["categoryId"],
-      "exposed": ["revenue", "lineCount", "categoryName"],
-      "source": { "entity": "OrderItem", "pathPrefix": "orderItem.product.category" }
+    "CategorySalesMirror": {
+      "backing": "entity-mirror",
+      "source": { "entity": "OrderItem" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": ["id", "orderId", "productId", "quantity", "unitPrice", "lineState"],
+      "table": "order_items"
     }
   },
   "relationRoles": {
