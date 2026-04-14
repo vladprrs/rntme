@@ -11,11 +11,13 @@ import { lowerToSqlite } from './lower/sqlite/lower.js';
 import { emitSql } from './lower/sqlite/emit.js';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, ERROR_CODES, type Result } from './types/result.js';
+import type { ExplainArtifacts, ExplainOutput } from './explain/explain.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
 export type { Pdm } from './types/pdm.js';
 export type { Qsm } from './types/qsm.js';
+export type { ExplainOutput } from './explain/explain.js';
 
 export const VERSION = '0.0.0';
 
@@ -127,4 +129,97 @@ export function run(
     throw Object.assign(new Error('compile failed'), { errors: r.errors });
   }
   return execute(r.value, paramValues, db);
+}
+
+export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): ExplainOutput {
+  const artifacts: ExplainArtifacts = {};
+
+  const specR = parseAuthoringSpec(rawSpec);
+  if (!specR.ok) return { ok: false, artifacts, errors: specR.errors };
+  artifacts.parsed = specR.value;
+
+  const pdmR = PdmSchema.safeParse(rawPdm);
+  if (!pdmR.success) {
+    return {
+      ok: false,
+      artifacts,
+      errors: [
+        {
+          layer: 'parse',
+          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+          message: 'PDM failed schema validation',
+        },
+      ],
+    };
+  }
+  const qsmR = QsmSchema.safeParse(rawQsm);
+  if (!qsmR.success) {
+    return {
+      ok: false,
+      artifacts,
+      errors: [
+        {
+          layer: 'parse',
+          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
+          message: 'QSM failed schema validation',
+        },
+      ],
+    };
+  }
+
+  const pdm: Pdm = pdmR.data;
+  const qsm: Qsm = qsmR.data;
+
+  const sv = validateStructural(specR.value, pdm, qsm);
+  if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };
+
+  const canonical = normalize(sv.value);
+  artifacts.canonical = canonical;
+
+  const graphIds = Object.keys(canonical.graphs);
+  if (graphIds.length !== 1) {
+    return {
+      ok: false,
+      artifacts,
+      errors: [
+        {
+          layer: 'canonical',
+          code: ERROR_CODES.STRUCT_DUPLICATE_GRAPH_ID,
+          message: 'Tier 1 MVP compiles exactly one graph per call',
+        },
+      ],
+    };
+  }
+  const graph = canonical.graphs[graphIds[0]!]!;
+
+  const semR = validateSemantic(graph, pdm, qsm, sv.value.shapes);
+  if (!semR.ok) return { ok: false, artifacts, errors: semR.errors };
+
+  const planR = buildSemanticPlan(graph, pdm, qsm);
+  if (!planR.ok) return { ok: false, artifacts, errors: planR.errors };
+  artifacts.semanticPlan = planR.value;
+
+  const rel = buildRelational(planR.value);
+  artifacts.relational = rel;
+
+  const predicateOptionalParams = new Set<string>(
+    Object.entries(graph.signature.inputs)
+      .filter(([, i]) => i.mode === 'predicate_optional')
+      .map(([name]) => name),
+  );
+
+  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm });
+  const sql = emitSql(ast);
+
+  return {
+    ok: true,
+    value: {
+      parsed: specR.value,
+      canonical,
+      semanticPlan: planR.value,
+      relational: rel,
+      sql,
+      paramOrder,
+    },
+  };
 }
