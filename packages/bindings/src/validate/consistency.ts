@@ -6,6 +6,7 @@ import type {
 } from '../types/artifact.js';
 import type { GraphInput, GraphSignature, InputMode, InputType } from '../types/resolvers.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
+import { COMMAND_RESULT_SHAPE_NAME } from '../openapi/command-result.js';
 
 const REQUIRED_BY_MODE: Record<InputMode, readonly boolean[]> = {
   required: [true],
@@ -17,6 +18,7 @@ const REQUIRED_BY_MODE: Record<InputMode, readonly boolean[]> = {
 
 function checkGraphShape(
   id: string,
+  kind: 'query' | 'command',
   signature: GraphSignature,
   errors: BindingsError[],
 ): boolean {
@@ -35,14 +37,49 @@ function checkGraphShape(
     }
   }
 
-  if (signature.output.type.kind !== 'rowset') {
+  const role = signature.role ?? 'query';
+
+  if (kind === 'command' && role !== 'command') {
     errors.push({
       layer: 'consistency',
-      code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
-      message: `Graph "${signature.id}" output kind "${signature.output.type.kind}" is not bindable — must be rowset`,
+      code: ERROR_CODES.BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH,
+      message: `Binding "${id}" has kind="command" but graph "${signature.id}" has role="${role}"`,
       path: basePath,
     });
     fatal = true;
+  }
+  if (kind === 'query' && role === 'command') {
+    errors.push({
+      layer: 'consistency',
+      code: ERROR_CODES.BINDINGS_QUERY_ON_COMMAND_GRAPH,
+      message: `Binding "${id}" has kind="query" (default) but graph "${signature.id}" has role="command"`,
+      path: basePath,
+    });
+    fatal = true;
+  }
+
+  if (kind === 'command') {
+    const out = signature.output.type;
+    const isCommandResultRow = out.kind === 'row' && out.shape === COMMAND_RESULT_SHAPE_NAME;
+    if (!isCommandResultRow) {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
+        message: `Command graph "${signature.id}" must output row<${COMMAND_RESULT_SHAPE_NAME}>, got ${out.kind === 'scalar' ? 'scalar' : `${out.kind}<${out.shape}>`}`,
+        path: basePath,
+      });
+      fatal = true;
+    }
+  } else {
+    if (signature.output.type.kind !== 'rowset') {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
+        message: `Graph "${signature.id}" output kind "${signature.output.type.kind}" is not bindable — must be rowset`,
+        path: basePath,
+      });
+      fatal = true;
+    }
   }
 
   return !fatal;
@@ -124,7 +161,8 @@ export function validateConsistency(resolved: ResolvedBindings): Result<Validate
   const errors: BindingsError[] = [];
 
   for (const [id, binding] of Object.entries(resolved.resolved)) {
-    const shapeOk = checkGraphShape(id, binding.signature, errors);
+    const kind = binding.entry.kind ?? 'query';
+    const shapeOk = checkGraphShape(id, kind, binding.signature, errors);
     if (!shapeOk) continue; // don't run parameter checks against unbindable graph
 
     checkParameters(id, binding.entry, binding.signature, errors);

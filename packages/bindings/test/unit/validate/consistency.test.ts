@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { validateConsistency } from '../../../src/validate/consistency.js';
 import type { ResolvedBindings, ResolvedBinding } from '../../../src/types/artifact.js';
 import type { GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
+import { COMMAND_RESULT_SHAPE_NAME, commandResultShape } from '../../../src/openapi/command-result.js';
 
 const outputShape: ResolvedShape = {
   name: 'Row',
@@ -40,6 +41,51 @@ const makeResolved = (over: Partial<ResolvedBinding> = {}): ResolvedBindings => 
       bindings: { primary: entry },
     },
     resolved: { primary: binding },
+  } as unknown as ResolvedBindings;
+};
+
+const makeCommandResolved = (over: {
+  signatureOverrides?: Partial<GraphSignature>;
+  entryOverrides?: Partial<ResolvedBinding['entry']>;
+} = {}): ResolvedBindings => {
+  const baseSig: GraphSignature = {
+    id: 'g',
+    role: 'command',
+    inputs: {
+      id: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+      actor: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+    },
+    output: { type: { kind: 'row', shape: COMMAND_RESULT_SHAPE_NAME }, from: 'emitX' },
+  };
+  const signature: GraphSignature = { ...baseSig, ...(over.signatureOverrides ?? {}) };
+  const baseEntry = {
+    kind: 'command' as const,
+    graph: 'g',
+    target: { engine: 'sqlite', dialect: 'sqlite' },
+    http: {
+      method: 'POST' as const,
+      path: '/v1/things/{id}/do',
+      parameters: [
+        { name: 'id', in: 'path' as const, bindTo: 'id', required: true },
+        { name: 'actor', in: 'body' as const, bindTo: 'actor', required: true },
+      ],
+    },
+  };
+  const entry = { ...baseEntry, ...(over.entryOverrides ?? {}) };
+  const binding: ResolvedBinding = {
+    entry,
+    signature,
+    outputShape: commandResultShape(),
+  };
+  return {
+    artifact: {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: { cmd: entry },
+    },
+    resolved: { cmd: binding },
   } as unknown as ResolvedBindings;
 };
 
@@ -192,5 +238,56 @@ describe('validateConsistency', () => {
     };
     const r = validateConsistency(makeResolved({ signature: sig, entry }));
     expect(r.ok).toBe(true);
+  });
+
+  it('accepts a well-formed command binding', () => {
+    const r = validateConsistency(makeCommandResolved());
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects kind=command on a non-command graph role', () => {
+    const r = validateConsistency(
+      makeCommandResolved({ signatureOverrides: { role: 'query' } }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH')).toBe(true);
+  });
+
+  it('rejects kind=query on a command-role graph', () => {
+    const sig: GraphSignature = {
+      id: 'g',
+      role: 'command',
+      inputs: {
+        limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 },
+      },
+      output: { type: { kind: 'rowset', shape: 'Row' }, from: 't' },
+    };
+    const r = validateConsistency(makeResolved({ signature: sig }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_QUERY_ON_COMMAND_GRAPH')).toBe(true);
+  });
+
+  it('rejects command with output != row<CommandResult>', () => {
+    const r = validateConsistency(
+      makeCommandResolved({
+        signatureOverrides: {
+          output: { type: { kind: 'rowset', shape: 'AnythingElse' }, from: 'x' },
+        },
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_UNSUPPORTED_OUTPUT_TYPE')).toBe(true);
+  });
+
+  it('rejects command with output row<SomeOtherShape>', () => {
+    const r = validateConsistency(
+      makeCommandResolved({
+        signatureOverrides: {
+          output: { type: { kind: 'row', shape: 'SomeOtherShape' }, from: 'x' },
+        },
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_UNSUPPORTED_OUTPUT_TYPE')).toBe(true);
   });
 });
