@@ -123,8 +123,17 @@ function toGraphSignature(g: GraphJson): GraphSignature {
     const base = { type: parseInputType(decl.type), mode: decl.mode };
     inputs[name] = decl.default !== undefined ? { ...base, default: decl.default } : base;
   }
+  const hasEmit =
+    Array.isArray(g.nodes) &&
+    g.nodes.some(
+      (n) =>
+        typeof n === 'object' &&
+        n !== null &&
+        (n as { type?: string }).type === 'emit',
+    );
   return {
     id: g.id,
+    ...(hasEmit ? { role: 'command' as const } : {}),
     inputs,
     output: { type: parseOutputType(g.signature.output.type), from: g.signature.output.from },
   };
