@@ -1,6 +1,8 @@
 export const VERSION = '0.0.0';
 
 export { compileApplyPlan } from './apply/compile.js';
+export { bindValues } from './apply/bind.js';
+export { applyEvent } from './apply/apply-event.js';
 export type {
   ApplyPlan, CompiledHandler, ColumnBinding, ApplyResult,
 } from './types/apply.js';
