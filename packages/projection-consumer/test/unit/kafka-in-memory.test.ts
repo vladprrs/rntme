@@ -1,69 +1,72 @@
 import { describe, it, expect } from 'vitest';
 import type { EventEnvelope } from '@rntme/event-store';
+import type { ConsumedMessage } from '../../src/types/consumer.js';
 import { createInMemoryKafkaConsumer } from '../../src/kafka/in-memory.js';
 
 function envelope(overrides?: Partial<EventEnvelope>): EventEnvelope {
   return {
     eventId: 'e1',
-    eventType: 'Test',
-    aggregateType: 'Thing',
+    eventType: 'IssueReport',
+    aggregateType: 'Issue',
     aggregateId: '1',
-    stream: 'Thing-1',
+    stream: 'Issue-1',
     version: 1,
     occurredAt: new Date().toISOString(),
-    actor: { kind: 'system', id: 'test' },
-    payload: {},
+    actor: { kind: 'user', id: 'alice' },
+    payload: { before: null, after: { status: 'draft' } },
     schemaVersion: 1,
     ...overrides,
   };
 }
 
 describe('createInMemoryKafkaConsumer', () => {
-  it('yields batches whose messages use envelope.stream as partition key', async () => {
-    const kafka = createInMemoryKafkaConsumer({ pollIntervalMs: 5 });
-    const env = envelope({ stream: 'Order-42' });
-    kafka.produce({ topic: 'rntme.order.v1', partition: 0, envelope: env });
+  it('produces yields batches until stop()', async () => {
+    const kafka = createInMemoryKafkaConsumer();
+    kafka.produce(envelope({ eventId: 'a' }));
+    kafka.produce(envelope({ eventId: 'b' }));
     const it = kafka[Symbol.asyncIterator]();
-    const { done, value: batch } = await it.next();
-    expect(done).toBe(false);
-    expect(batch!.messages).toHaveLength(1);
-    const m = batch!.messages[0]!;
-    expect(m.key).toBe('Order-42');
-    expect(m.envelope).toEqual(env);
-    expect(m.topic).toBe('rntme.order.v1');
-    expect(m.partition).toBe(0);
-    expect(typeof m.offset).toBe('string');
+    const r1 = await it.next();
+    expect(r1.done).toBe(false);
+    expect(r1.value!.messages.map((m: ConsumedMessage) => m.envelope.eventId)).toEqual(['a', 'b']);
+    kafka.stop();
+    const r2 = await it.next();
+    expect(r2.done).toBe(true);
+  });
+
+  it('subsequent produce between batches', async () => {
+    const kafka = createInMemoryKafkaConsumer();
+    kafka.produce(envelope({ eventId: 'a' }));
+    const it = kafka[Symbol.asyncIterator]();
+    const r1 = await it.next();
+    expect(r1.value!.messages).toHaveLength(1);
+    expect(r1.value!.messages[0]!.envelope.eventId).toBe('a');
+    kafka.produce(envelope({ eventId: 'b' }));
+    const r2 = await it.next();
+    expect(r2.value!.messages).toHaveLength(1);
+    expect(r2.value!.messages[0]!.envelope.eventId).toBe('b');
     kafka.stop();
     await it.next();
   });
 
-  it('keeps commit history on `committed` only after await commitOffsets', async () => {
-    const kafka = createInMemoryKafkaConsumer({ pollIntervalMs: 5 });
-    kafka.produce({ topic: 't', partition: 0, envelope: envelope() });
+  it('commitOffsets records last commit per batch', async () => {
+    const kafka = createInMemoryKafkaConsumer();
+    kafka.produce(envelope({ eventId: 'a' }));
     const it = kafka[Symbol.asyncIterator]();
     const { value: batch } = await it.next();
-    expect(kafka.committed).toHaveLength(0);
     await kafka.commitOffsets(batch!);
-    expect(kafka.committed).toHaveLength(1);
-    expect(kafka.committed[0]).toBe(batch);
+    expect(kafka.committed.map((m: ConsumedMessage) => m.envelope.eventId)).toEqual(['a']);
     kafka.stop();
     await it.next();
   });
 
-  it('returns done from the async iterator after stop()', async () => {
-    const kafka = createInMemoryKafkaConsumer({ pollIntervalMs: 5 });
-    kafka.stop();
+  it('monotonic offsets 0,1 and partition 0', async () => {
+    const kafka = createInMemoryKafkaConsumer();
+    kafka.produce(envelope({ eventId: 'x' }));
+    kafka.produce(envelope({ eventId: 'y' }));
     const it = kafka[Symbol.asyncIterator]();
-    const r = await it.next();
-    expect(r.done).toBe(true);
-  });
-
-  it('yields an empty batch when the poll finds no queued messages', async () => {
-    const kafka = createInMemoryKafkaConsumer({ pollIntervalMs: 5 });
-    const it = kafka[Symbol.asyncIterator]();
-    const { done, value: batch } = await it.next();
-    expect(done).toBe(false);
-    expect(batch!.messages).toEqual([]);
+    const { value: batch } = await it.next();
+    expect(batch!.messages.map((m: ConsumedMessage) => m.offset)).toEqual(['0', '1']);
+    expect(batch!.messages.every((m: ConsumedMessage) => m.partition === 0)).toBe(true);
     kafka.stop();
     await it.next();
   });

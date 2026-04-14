@@ -1,60 +1,61 @@
 import type { EventEnvelope } from '@rntme/event-store';
 import type { ConsumedMessage, KafkaBatch, KafkaConsumer } from '../types/consumer.js';
 
-export type InMemoryKafkaConsumer = KafkaConsumer & {
-  readonly committed: readonly KafkaBatch[];
-  produce(opts: { topic: string; partition: number; envelope: EventEnvelope }): void;
-  stop(): void;
-};
+function defaultTopicOf(aggregateType: string): string {
+  return `rntme.${aggregateType.toLowerCase()}.v1`;
+}
 
-export function createInMemoryKafkaConsumer(opts?: {
-  pollIntervalMs?: number;
-}): InMemoryKafkaConsumer {
-  const pollIntervalMs = opts?.pollIntervalMs ?? 50;
+export type InMemoryKafkaConsumer = KafkaConsumer &
+  Readonly<{
+    produce(envelope: EventEnvelope): void;
+    stop(): void;
+    readonly committed: readonly ConsumedMessage[];
+  }>;
+
+export function createInMemoryKafkaConsumer(
+  options: { topicOf?: (aggregateType: string) => string; pollIntervalMs?: number } = {},
+): InMemoryKafkaConsumer {
+  const topicOf = options.topicOf ?? defaultTopicOf;
+  const pollIntervalMs = options.pollIntervalMs ?? 2;
   const queue: ConsumedMessage[] = [];
-  const committed: KafkaBatch[] = [];
+  const committed: ConsumedMessage[] = [];
   let stopped = false;
-  let offsetSeq = 0;
+  let nextOffset = 0;
 
-  const sleep = (): Promise<void> =>
-    new Promise((resolve) => {
-      setTimeout(resolve, pollIntervalMs);
-    });
+  async function* iterate(): AsyncGenerator<KafkaBatch> {
+    while (!stopped) {
+      if (queue.length === 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, pollIntervalMs);
+        });
+        continue;
+      }
+      const messages = queue.splice(0, queue.length);
+      yield { messages };
+    }
+  }
 
   const consumer: InMemoryKafkaConsumer = {
-    get committed(): readonly KafkaBatch[] {
+    get committed(): readonly ConsumedMessage[] {
       return committed;
     },
-    produce(opts: { topic: string; partition: number; envelope: EventEnvelope }): void {
-      const offset = String(offsetSeq++);
+    produce(envelope: EventEnvelope): void {
       queue.push({
-        topic: opts.topic,
-        partition: opts.partition,
-        offset,
-        key: opts.envelope.stream,
-        envelope: opts.envelope,
+        topic: topicOf(envelope.aggregateType),
+        partition: 0,
+        offset: String(nextOffset++),
+        key: envelope.stream,
+        envelope,
       });
     },
     stop(): void {
       stopped = true;
     },
     async commitOffsets(batch: KafkaBatch): Promise<void> {
-      committed.push(batch);
+      committed.push(...batch.messages);
     },
     [Symbol.asyncIterator](): AsyncIterator<KafkaBatch> {
-      return {
-        async next(): Promise<IteratorResult<KafkaBatch>> {
-          if (stopped) {
-            return { done: true, value: undefined };
-          }
-          await sleep();
-          if (stopped) {
-            return { done: true, value: undefined };
-          }
-          const messages = queue.splice(0, queue.length);
-          return { done: false, value: { messages } };
-        },
-      };
+      return iterate();
     },
   };
 
