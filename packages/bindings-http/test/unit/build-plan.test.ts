@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateBindings, parseBindingArtifact } from '@rntme/bindings';
 import type { BindingResolvers, ValidatedBindings } from '@rntme/bindings';
-import { buildPlan } from '../../src/startup/compile-plan.js';
+import { buildPlan, type CommandBindingPlan } from '../../src/startup/compile-plan.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -80,19 +80,140 @@ describe('buildPlan', () => {
     const validated = makeValidated();
     const plan = buildPlan(validated, spec, pdm, qsm);
     expect(Object.keys(plan)).toEqual(['getCategorySalesHttp']);
-    expect(plan.getCategorySalesHttp!.compiled.sql.length).toBeGreaterThan(0);
-    expect(plan.getCategorySalesHttp!.bindToMap).toEqual({
+    const bp = plan.getCategorySalesHttp!;
+    expect(bp.kind).toBe('query');
+    expect(bp.compiled.sql.length).toBeGreaterThan(0);
+    expect(bp.bindToMap).toEqual({
       dateFrom: 'dateFrom',
       dateTo: 'dateTo',
       minRevenue: 'minRevenue',
       limit: 'limit',
     });
-    expect(plan.getCategorySalesHttp!.schemas.querySchema).toBeDefined();
+    expect(bp.schemas.querySchema).toBeDefined();
   });
 
   it('throws BindingsRuntimeError when compile fails', () => {
     const validated = makeValidated();
     const brokenSpec = { version: '1.0-rc7', pdmRef: 'x', qsmRef: 'y', shapes: {}, graphs: {} };
     expect(() => buildPlan(validated, brokenSpec, pdm, qsm)).toThrow(BindingsRuntimeError);
+  });
+});
+
+describe('buildPlan — command bindings', () => {
+  const pdmIt = loadJson(
+    join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json'),
+  );
+  const qsmIt = loadJson(
+    join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json'),
+  );
+  const commandSpec = {
+    version: '1.0-rc7',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    shapes: {},
+    graphs: {
+      reportIssue: {
+        id: 'reportIssue',
+        signature: {
+          inputs: {
+            issueId: { type: 'integer', mode: 'required' },
+            projectId: { type: 'integer', mode: 'required' },
+            reporterId: { type: 'integer', mode: 'required' },
+            title: { type: 'string', mode: 'required' },
+            priority: { type: 'string', mode: 'required' },
+            storyPoints: { type: 'integer', mode: 'required' },
+          },
+          output: { type: 'row<CommandResult>', from: 'e' },
+        },
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $param: 'issueId' },
+              transition: 'report',
+              payload: {
+                title: { $param: 'title' },
+                projectId: { $param: 'projectId' },
+                reporterId: { $param: 'reporterId' },
+                priority: { $param: 'priority' },
+                storyPoints: { $param: 'storyPoints' },
+              },
+            },
+          },
+        ],
+      },
+    },
+  };
+  const cmdResolvers: BindingResolvers = {
+    resolveGraphSignature: (id) =>
+      id === 'reportIssue'
+        ? {
+            id,
+            role: 'command',
+            inputs: {
+              issueId: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+              projectId: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+              reporterId: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+              title: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+              priority: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+              storyPoints: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+            },
+            output: { type: { kind: 'row', shape: 'CommandResult' }, from: 'e' },
+          }
+        : null,
+    resolveShape: (name) =>
+      name === 'CommandResult'
+        ? {
+            name,
+            origin: 'custom',
+            fields: {
+              aggregateId: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
+              version: { type: { kind: 'scalar', primitive: 'integer' }, nullable: false },
+              eventIds: { type: { kind: 'array', element: 'string' }, nullable: false },
+            },
+          }
+        : null,
+  };
+  const cmdArtifact = {
+    version: '1.0',
+    graphSpecRef: 'x',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    bindings: {
+      reportIssueHttp: {
+        kind: 'command',
+        graph: 'reportIssue',
+        target: { engine: 'sqlite', dialect: 'sqlite' },
+        http: {
+          method: 'POST',
+          path: '/v1/issues/{issueId}/actions/report',
+          parameters: [
+            { name: 'issueId', in: 'path', bindTo: 'issueId', required: true },
+            { name: 'projectId', in: 'body', bindTo: 'projectId', required: true },
+            { name: 'reporterId', in: 'body', bindTo: 'reporterId', required: true },
+            { name: 'title', in: 'body', bindTo: 'title', required: true },
+            { name: 'priority', in: 'body', bindTo: 'priority', required: true },
+            { name: 'storyPoints', in: 'body', bindTo: 'storyPoints', required: true },
+          ],
+        },
+      },
+    },
+  };
+
+  it('produces a CommandBindingPlan with compiled emits', () => {
+    const parsed = parseBindingArtifact(cmdArtifact);
+    if (!parsed.ok) throw new Error('parse fail');
+    const v = validateBindings(parsed.value, cmdResolvers);
+    if (!v.ok) throw new Error('validate fail');
+    const plan = buildPlan(v.value, commandSpec, pdmIt, qsmIt);
+    const bp = plan.reportIssueHttp;
+    expect(bp).toBeDefined();
+    expect(bp!.kind).toBe('command');
+    const cmd = bp as CommandBindingPlan;
+    expect(cmd.compiled.aggregate).toBe('Issue');
+    expect(cmd.compiled.emits.length).toBe(1);
+    expect(cmd.compiled.emits[0]!.eventType).toContain('Issue');
   });
 });

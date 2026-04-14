@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
 import { execute } from '@rntme/graph-ir-compiler';
-import type { BindingPlan } from '../startup/compile-plan.js';
+import type { QueryBindingPlan } from '../startup/compile-plan.js';
 import {
   validationErrorBody,
   invalidBodyErrorBody,
@@ -17,7 +17,7 @@ export type HandlerDeps = {
 
 type Handler = (c: Context) => Promise<Response>;
 
-export function makeHandler(plan: BindingPlan, deps: HandlerDeps): Handler {
+export function makeHandler(plan: QueryBindingPlan, deps: HandlerDeps): Handler {
   const declaredQueryParams = plan.entry.http.parameters.filter((p) => p.in === 'query');
   const hasBody = plan.bodyParamNames.length > 0;
 

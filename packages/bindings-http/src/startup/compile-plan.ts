@@ -1,4 +1,9 @@
-import { compile, type CompileResult } from '@rntme/graph-ir-compiler';
+import {
+  compile,
+  compileCommand,
+  type CompileResult as QueryCompileResult,
+  type CompiledCommand,
+} from '@rntme/graph-ir-compiler';
 import type { Result } from '@rntme/graph-ir-compiler';
 import type {
   ValidatedBindings,
@@ -12,23 +17,37 @@ import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
 import { buildBindToMap, type BindToMap } from '../runtime/remap.js';
 
+type SingleGraphSpec = { graphs?: Record<string, unknown>; [k: string]: unknown };
+
+function sliceSpec(rawSpec: unknown, graphId: string): unknown {
+  const spec = rawSpec as SingleGraphSpec;
+  const graphs = spec?.graphs ?? {};
+  const target = graphs[graphId];
+  return {
+    ...spec,
+    graphs: target === undefined ? {} : { [graphId]: target },
+  };
+}
+
 export function compileForGraph(
   rawSpec: unknown,
   graphId: string,
   pdm: unknown,
   qsm: unknown,
-): Result<CompileResult> {
-  const spec = rawSpec as { graphs?: Record<string, unknown>; [k: string]: unknown };
-  const graphs = spec?.graphs ?? {};
-  const target = graphs[graphId];
-  const singleGraphSpec = {
-    ...spec,
-    graphs: target === undefined ? {} : { [graphId]: target },
-  };
-  return compile(singleGraphSpec, pdm, qsm);
+): Result<QueryCompileResult> {
+  return compile(sliceSpec(rawSpec, graphId), pdm, qsm);
 }
 
-export type BindingPlan = {
+export function compileCommandForGraph(
+  rawSpec: unknown,
+  graphId: string,
+  pdm: unknown,
+  qsm: unknown,
+): Result<CompiledCommand> {
+  return compileCommand(sliceSpec(rawSpec, graphId), pdm, qsm);
+}
+
+type BindingPlanCommon = {
   bindingId: string;
   entry: BindingEntry;
   signature: GraphSignature;
@@ -38,8 +57,19 @@ export type BindingPlan = {
   listParamNames: Set<string>;
   pathParamNames: string[];
   bodyParamNames: string[];
-  compiled: CompileResult;
 };
+
+export type QueryBindingPlan = BindingPlanCommon & {
+  kind: 'query';
+  compiled: QueryCompileResult;
+};
+
+export type CommandBindingPlan = BindingPlanCommon & {
+  kind: 'command';
+  compiled: CompiledCommand;
+};
+
+export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
 
 export function buildPlan(
   validated: ValidatedBindings,
@@ -47,34 +77,37 @@ export function buildPlan(
   pdm: unknown,
   qsm: unknown,
 ): Record<string, BindingPlan> {
-  const uniqueGraphIds = new Set<string>();
+  const queryGraphIds = new Set<string>();
+  const commandGraphIds = new Set<string>();
   for (const r of Object.values(validated.resolved)) {
-    uniqueGraphIds.add(r.entry.graph);
+    const kind = r.entry.kind ?? 'query';
+    if (kind === 'command') commandGraphIds.add(r.entry.graph);
+    else queryGraphIds.add(r.entry.graph);
   }
 
-  const compileCache = new Map<string, CompileResult>();
+  const queryCache = new Map<string, QueryCompileResult>();
+  const commandCache = new Map<string, CompiledCommand>();
   const errors: RuntimeErrorEntry[] = [];
 
-  for (const graphId of uniqueGraphIds) {
+  for (const graphId of queryGraphIds) {
     const r = compileForGraph(graphSpec, graphId, pdm, qsm);
-    if (r.ok) {
-      compileCache.set(graphId, r.value);
-    } else {
-      for (const cause of r.errors) {
-        errors.push({ graphId, cause });
-      }
-    }
+    if (r.ok) queryCache.set(graphId, r.value);
+    else for (const cause of r.errors) errors.push({ graphId, cause });
+  }
+  for (const graphId of commandGraphIds) {
+    const r = compileCommandForGraph(graphSpec, graphId, pdm, qsm);
+    if (r.ok) commandCache.set(graphId, r.value);
+    else for (const cause of r.errors) errors.push({ graphId, cause });
   }
 
-  if (errors.length > 0) {
-    throw new BindingsRuntimeError(errors);
-  }
+  if (errors.length > 0) throw new BindingsRuntimeError(errors);
 
   const plan: Record<string, BindingPlan> = {};
   for (const [bindingId, resolved] of Object.entries(validated.resolved)) {
     const { entry, signature, outputShape } = resolved;
+    const kind = entry.kind ?? 'query';
     const schemas = buildSchemas(entry.http.parameters, signature);
-    plan[bindingId] = {
+    const common: BindingPlanCommon = {
       bindingId,
       entry,
       signature,
@@ -84,8 +117,11 @@ export function buildPlan(
       listParamNames: collectListParams(entry.http.parameters, signature),
       pathParamNames: entry.http.parameters.filter((p) => p.in === 'path').map((p) => p.name),
       bodyParamNames: entry.http.parameters.filter((p) => p.in === 'body').map((p) => p.name),
-      compiled: compileCache.get(entry.graph)!,
     };
+    plan[bindingId] =
+      kind === 'command'
+        ? { ...common, kind: 'command', compiled: commandCache.get(entry.graph)! }
+        : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
   }
   return plan;
 }
