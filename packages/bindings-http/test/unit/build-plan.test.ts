@@ -81,7 +81,7 @@ describe('buildPlan', () => {
     const plan = buildPlan(validated, spec, pdm, qsm);
     expect(Object.keys(plan)).toEqual(['getCategorySalesHttp']);
     const bp = plan.getCategorySalesHttp!;
-    expect(bp.kind).toBe('query');
+    if (bp.kind !== 'query') throw new Error('expected query plan');
     expect(bp.compiled.sql.length).toBeGreaterThan(0);
     expect(bp.bindToMap).toEqual({
       dateFrom: 'dateFrom',

@@ -8,6 +8,12 @@ describe('public API surface', () => {
   it('exports BindingsRuntimeError', () => {
     expect(typeof api.BindingsRuntimeError).toBe('function');
   });
+  it('exports commandErrorBody', () => {
+    expect(typeof api.commandErrorBody).toBe('function');
+  });
+  it('exports commandErrorStatus', () => {
+    expect(typeof api.commandErrorStatus).toBe('function');
+  });
   it('exports VERSION', () => {
     expect(typeof api.VERSION).toBe('string');
   });
