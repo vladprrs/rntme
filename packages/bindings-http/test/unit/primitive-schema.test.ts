@@ -102,3 +102,32 @@ describe('primitiveSchema — decimal', () => {
     expect(s.safeParse('abc').success).toBe(false);
   });
 });
+
+describe('primitiveSchema — list<integer>', () => {
+  const s = primitiveSchema({ kind: 'list', element: 'integer' });
+  it('accepts array of numeric strings', () => {
+    expect(s.safeParse(['1', '2', '3'])).toMatchObject({
+      success: true,
+      data: [1, 2, 3],
+    });
+  });
+  it('wraps single scalar into array', () => {
+    expect(s.safeParse('42')).toMatchObject({ success: true, data: [42] });
+  });
+  it('rejects non-integer element', () => {
+    expect(s.safeParse(['1', 'abc']).success).toBe(false);
+  });
+  it('accepts empty array', () => {
+    expect(s.safeParse([])).toMatchObject({ success: true, data: [] });
+  });
+});
+
+describe('primitiveSchema — list<string>', () => {
+  const s = primitiveSchema({ kind: 'list', element: 'string' });
+  it('accepts array of strings', () => {
+    expect(s.safeParse(['a', 'b'])).toMatchObject({
+      success: true,
+      data: ['a', 'b'],
+    });
+  });
+});
