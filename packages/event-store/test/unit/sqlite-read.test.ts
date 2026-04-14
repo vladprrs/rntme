@@ -59,3 +59,30 @@ describe('SqliteEventStore.readStream', () => {
     expect(env!.actor).toBeNull();
   });
 });
+
+describe('SqliteEventStore.readFrom', () => {
+  it('returns events with id > afterId in id order, capped by limit', () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendEvents([
+      makeRequest('Issue-1', [makeEvent({ eventId: 'a', aggregateId: '1' })]),
+      makeRequest('Issue-2', [makeEvent({ eventId: 'b', aggregateId: '2' })]),
+      makeRequest('Issue-1', [makeEvent({ eventId: 'c', aggregateId: '1' })]),
+    ]);
+
+    const all = store.readFrom({ afterId: 0, limit: 10 });
+    expect(all.map((e) => e.eventId)).toEqual(['a', 'b', 'c']);
+
+    const capped = store.readFrom({ afterId: 0, limit: 2 });
+    expect(capped.map((e) => e.eventId)).toEqual(['a', 'b']);
+
+    // get the last stored id via raw and continue
+    const lastId = (store.rawDb().prepare('SELECT MAX(id) AS m FROM event_log').get() as { m: number }).m;
+    const after = store.readFrom({ afterId: lastId - 1, limit: 10 });
+    expect(after.map((e) => e.eventId)).toEqual(['c']);
+  });
+
+  it('returns empty array when no events beyond cursor', () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    expect(store.readFrom({ afterId: 0, limit: 100 })).toEqual([]);
+  });
+});

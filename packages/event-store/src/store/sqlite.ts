@@ -100,8 +100,11 @@ export class SqliteEventStore implements EventStore {
       .all(stream) as EventLogRow[];
     return rows.map(rowToEnvelope);
   }
-  readFrom(_opts: ReadFromOptions): EventEnvelope[] {
-    throw new Error('not implemented — Task 9');
+  readFrom(opts: ReadFromOptions): EventEnvelope[] {
+    const rows = this.db
+      .prepare('SELECT * FROM event_log WHERE id > ? ORDER BY id ASC LIMIT ?')
+      .all(opts.afterId, opts.limit) as EventLogRow[];
+    return rows.map(rowToEnvelope);
   }
   readCursor(_relayId: string): number {
     throw new Error('not implemented — Task 10');
