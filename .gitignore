@@ -15,6 +15,7 @@ coverage/
 # Local agent / editor config
 /.claude/
 /.cursor/
+/.worktrees/
 
 # Stray npm lockfiles — repo uses pnpm
 package-lock.json
