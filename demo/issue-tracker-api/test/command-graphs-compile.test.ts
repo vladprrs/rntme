@@ -26,3 +26,16 @@ describe('command graphs compile', () => {
     expect(r.value.emits[0]!.aggregate).toBe('Issue');
   });
 });
+
+describe('assignIssueWithCapacityGuard composite graph', () => {
+  it('compiles with a readPrelude + single emit', () => {
+    const r = compileCommand(
+      { ...graphSpec, graphs: { assignIssueWithCapacityGuard: graphSpec.graphs['assignIssueWithCapacityGuard'] } },
+      pdm,
+      qsm,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.errors, null, 2));
+    expect(r.value.readPrelude).not.toBeNull();
+    expect(r.value.emits).toHaveLength(1);
+  });
+});

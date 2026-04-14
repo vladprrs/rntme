@@ -28,5 +28,10 @@
       "issueCount": { "type": "integer", "nullable": false },
       "totalStoryPoints": { "type": "integer", "nullable": false }
     }
+  },
+  "LoadCount": {
+    "fields": {
+      "count": { "type": "integer", "nullable": false }
+    }
   }
 }
