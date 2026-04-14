@@ -66,7 +66,7 @@ export function collectRequestBody(
 
   const schema: JsonSchema = { type: 'object', required, properties };
   return {
-    required: bodyParams.some((p) => p.required),
+    required: true,
     content: { 'application/json': { schema } },
   };
 }

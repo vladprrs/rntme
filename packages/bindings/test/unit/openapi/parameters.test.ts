@@ -93,12 +93,12 @@ describe('collectRequestBody', () => {
     });
   });
 
-  it('marks body required=false when no body param is required', () => {
+  it('marks body required=true whenever body is present (§7.8)', () => {
     const result = collectRequestBody(
       [{ name: 'note', in: 'body', bindTo: 'note', required: false }],
       { note: { type: { kind: 'scalar', primitive: 'string' }, mode: 'nullable' } },
       options,
     );
-    expect(result?.required).toBe(false);
+    expect(result?.required).toBe(true);
   });
 });
