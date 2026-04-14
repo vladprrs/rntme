@@ -106,11 +106,27 @@ export class SqliteEventStore implements EventStore {
       .all(opts.afterId, opts.limit) as EventLogRow[];
     return rows.map(rowToEnvelope);
   }
-  readCursor(_relayId: string): number {
-    throw new Error('not implemented — Task 10');
+  readCursor(relayId: string): number {
+    const row = this.db
+      .prepare('SELECT last_event_id AS v FROM publish_cursor WHERE relay_id = ?')
+      .get(relayId) as { v: number } | undefined;
+    return row?.v ?? 0;
   }
-  writeCursor(_relayId: string, _lastEventId: number): void {
-    throw new Error('not implemented — Task 10');
+
+  writeCursor(relayId: string, lastEventId: number): void {
+    const existing = this.readCursor(relayId);
+    if (lastEventId < existing) {
+      throw new Error(
+        `publish_cursor[${relayId}] must be monotonic: tried ${lastEventId} < existing ${existing}`,
+      );
+    }
+    this.db.prepare(`
+      INSERT INTO publish_cursor (relay_id, last_event_id, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(relay_id) DO UPDATE SET
+        last_event_id = excluded.last_event_id,
+        updated_at = excluded.updated_at
+    `).run(relayId, lastEventId, new Date().toISOString());
   }
 }
 
