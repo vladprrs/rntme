@@ -1,14 +1,13 @@
-import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
-import type { KafkaConsumer } from './types/consumer.js';
-import type { ApplyPlan } from './types/apply.js';
+import type { Database } from 'better-sqlite3';
 import { applyEvent } from './apply/apply-event.js';
+import type { ApplyPlan } from './types/apply.js';
+import type { KafkaBatch, KafkaConsumer } from './types/consumer.js';
 
 export type ProjectionConsumerOptions = Readonly<{
   kafka: KafkaConsumer;
   plan: ApplyPlan;
-  db: BetterSqliteDatabase;
-  /** Called when a batch fails and is rolled back. Default: log + stop. */
-  onError?: (err: unknown) => void;
+  db: Database;
+  onError?: (err: unknown, batch: KafkaBatch) => void;
 }>;
 
 export type ProjectionConsumer = Readonly<{
@@ -16,49 +15,48 @@ export type ProjectionConsumer = Readonly<{
   stop(): Promise<void>;
 }>;
 
-export function createProjectionConsumer(opts: ProjectionConsumerOptions): ProjectionConsumer {
-  const onError = opts.onError ?? ((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[projection-consumer] batch failed, rolled back:', err);
-  });
+/**
+ * Batch consumer loop (spec §6.4): `BEGIN IMMEDIATE` → apply each envelope →
+ * `COMMIT` → `commitOffsets(batch)` after the DB transaction succeeds.
+ */
+export function createProjectionConsumer(options: ProjectionConsumerOptions): ProjectionConsumer {
+  const { kafka, plan, db, onError } = options;
+  let loop: Promise<void> | null = null;
 
-  let running = false;
-  let donePromise: Promise<void> | null = null;
-
-  async function loop(): Promise<void> {
-    for await (const batch of opts.kafka) {
-      if (!running) break;
-      if (batch.messages.length === 0) continue;
-      try {
-        opts.db.exec('BEGIN IMMEDIATE');
-        for (const msg of batch.messages) {
-          applyEvent(opts.db, opts.plan, msg.envelope);
+  async function run(): Promise<void> {
+    try {
+      for await (const batch of kafka) {
+        if (batch.messages.length === 0) continue;
+        try {
+          db.prepare('BEGIN IMMEDIATE').run();
+          try {
+            for (const m of batch.messages) {
+              applyEvent(db, plan, m.envelope);
+            }
+            db.prepare('COMMIT').run();
+          } catch (err) {
+            db.prepare('ROLLBACK').run();
+            throw err;
+          }
+          await kafka.commitOffsets(batch);
+        } catch (err) {
+          if (onError) onError(err, batch);
+          else throw err;
         }
-        opts.db.exec('COMMIT');
-      } catch (err) {
-        try { opts.db.exec('ROLLBACK'); } catch { /* noop */ }
-        onError(err);
-        continue; // don't commit offsets; next poll will re-deliver
       }
-      await opts.kafka.commitOffsets(batch);
+    } finally {
+      loop = null;
     }
   }
 
   return {
-    start(): void {
-      if (running) return;
-      running = true;
-      donePromise = loop().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('[projection-consumer] loop crashed:', err);
-      });
+    start() {
+      if (loop) return;
+      loop = run();
     },
-    async stop(): Promise<void> {
-      running = false;
-      const maybeStop = (opts.kafka as { stop?: () => void }).stop;
-      if (typeof maybeStop === 'function') maybeStop.call(opts.kafka);
-      if (donePromise) await donePromise;
-      donePromise = null;
+    async stop() {
+      kafka.stop?.();
+      await loop;
     },
   };
 }

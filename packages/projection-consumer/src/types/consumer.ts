@@ -35,4 +35,6 @@ export type KafkaBatch = Readonly<{
 export interface KafkaConsumer {
   [Symbol.asyncIterator](): AsyncIterator<KafkaBatch>;
   commitOffsets(batch: KafkaBatch): Promise<void>;
+  /** Test harness / adapter hook to end the async iterator cleanly. */
+  stop?(): void;
 }
