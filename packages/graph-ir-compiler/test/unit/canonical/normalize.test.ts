@@ -38,6 +38,14 @@ describe('normalize', () => {
     expect(g.outputFrom).toBe('paged');
   });
 
+  it('produces deterministic scope ids across calls', () => {
+    const result1 = normalize(spec);
+    const result2 = normalize(spec);
+    const scopes1 = result1.graphs.g!.nodes.map((n) => n.scope);
+    const scopes2 = result2.graphs.g!.nodes.map((n) => n.scope);
+    expect(scopes1).toEqual(scopes2);
+  });
+
   it('fills default dir/nulls on sort keys', () => {
     const s: AuthoringSpecOutput = {
       ...spec,

@@ -15,12 +15,11 @@ function sourceAlias(source: { entity: string } | { projection: string }): strin
   return camelCase('entity' in source ? source.entity : source.projection);
 }
 
-let scopeCounter = 0;
-const freshScope = (): string => `s${++scopeCounter}`;
-
 export function normalize(
   spec: AuthoringSpecOutput,
 ): { graphs: Record<string, CanonicalGraph> } {
+  let scopeCounter = 0;
+  const freshScope = (): string => `s${++scopeCounter}`;
   const out: Record<string, CanonicalGraph> = {};
 
   for (const [key, graph] of Object.entries(spec.graphs)) {
