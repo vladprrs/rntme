@@ -19,6 +19,15 @@ function checkBinding(
   const basePath = `bindings.${id}.http`;
   const paramPath = (i: number) => `${basePath}.parameters[${i}]`;
   const { method, path, parameters } = entry.http;
+  const isCommand = entry.kind === 'command';
+  if (isCommand && method !== 'POST') {
+    errors.push({
+      layer: 'structural',
+      code: ERROR_CODES.BINDINGS_COMMAND_METHOD_NOT_POST,
+      message: `Command binding "${id}" must use method=POST (got ${method})`,
+      path: `${basePath}.method`,
+    });
+  }
 
   // (in, name) uniqueness
   const seenName = new Set<string>();
@@ -59,6 +68,15 @@ function checkBinding(
         layer: 'structural',
         code: ERROR_CODES.BINDINGS_BODY_ON_GET,
         message: `GET binding "${id}" cannot have body parameters`,
+        path: paramPath(i),
+      });
+    }
+
+    if (isCommand && p.in === 'query') {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN,
+        message: `Command binding "${id}" cannot have query parameters (parameter "${p.name}")`,
         path: paramPath(i),
       });
     }

@@ -153,4 +153,41 @@ describe('validateStructural', () => {
       expect(codes).toContain('BINDINGS_DUPLICATE_BIND_TO');
     }
   });
+
+  it('rejects command bindings with method !== POST', () => {
+    const bad = clone(base);
+    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.path = '/v1/things/{id}';
+    bad.bindings.primary!.http.parameters = [
+      { name: 'id', in: 'path', bindTo: 'id', required: true },
+    ];
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_METHOD_NOT_POST')).toBe(true);
+  });
+
+  it('rejects command bindings with any in=query parameter', () => {
+    const bad = clone(base);
+    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.method = 'POST';
+    bad.bindings.primary!.http.parameters = [
+      { name: 'limit', in: 'query', bindTo: 'limit', required: false },
+    ];
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN')).toBe(true);
+  });
+
+  it('accepts command bindings with POST + path + body only', () => {
+    const good = clone(base);
+    good.bindings.primary!.kind = 'command';
+    good.bindings.primary!.http.method = 'POST';
+    good.bindings.primary!.http.path = '/v1/things/{id}/actions/do';
+    good.bindings.primary!.http.parameters = [
+      { name: 'id', in: 'path', bindTo: 'id', required: true },
+      { name: 'actor', in: 'body', bindTo: 'actor', required: true },
+    ];
+    const r = validateStructural(good);
+    expect(r.ok).toBe(true);
+  });
 });
