@@ -1,0 +1,34 @@
+{
+  "id": "listIssues",
+  "signature": {
+    "inputs": {
+      "status": { "type": "string", "mode": "predicate_optional" },
+      "limit": { "type": "integer", "mode": "defaulted", "default": 20 }
+    },
+    "output": { "type": "rowset<Issue>", "from": "paged" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["issue.status", { "$param": "status" }] }
+      }
+    },
+    {
+      "id": "sorted",
+      "type": "sort",
+      "config": {
+        "input": "filtered",
+        "by": [{ "field": "issue.createdAt", "dir": "desc", "nulls": "last" }]
+      }
+    },
+    {
+      "id": "paged",
+      "type": "limit",
+      "config": { "input": "sorted", "count": { "$param": "limit" } }
+    }
+  ]
+}

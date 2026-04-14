@@ -1,0 +1,24 @@
+{
+  "id": "issuesByProject",
+  "signature": {
+    "inputs": {},
+    "output": { "type": "rowset<ProjectStats>", "from": "grouped" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "grouped",
+      "type": "reduce",
+      "config": {
+        "input": "items",
+        "into": "ProjectStats",
+        "group": { "projectKey": "issue.project.key" },
+        "measures": {
+          "issueCount": { "fn": "count" },
+          "totalStoryPoints": { "fn": "sum", "expr": "issue.storyPoints" },
+          "avgStoryPoints": { "fn": "avg", "expr": "issue.storyPoints" }
+        }
+      }
+    }
+  ]
+}

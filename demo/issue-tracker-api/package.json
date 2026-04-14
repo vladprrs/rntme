@@ -1,0 +1,28 @@
+{
+  "name": "@rntme/issue-tracker-api-demo",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Demo: issue tracker REST API built on @rntme graph-ir-compiler + bindings + bindings-http.",
+  "scripts": {
+    "seed": "tsx src/db/seed.ts",
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@rntme/bindings": "workspace:*",
+    "@rntme/bindings-http": "workspace:*",
+    "@rntme/graph-ir-compiler": "workspace:*",
+    "better-sqlite3": "^11.0.0",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}
