@@ -56,13 +56,25 @@ export type CanonicalLimit = {
   count: number | { $param: string };
 };
 
+export type CanonicalEmit = {
+  kind: 'emit';
+  id: string;
+  scope: ScopeId;
+  aggregate: string;
+  aggregateId: Expr;
+  transition: string;
+  payload: Record<string, Expr>;
+  actor?: Expr;
+};
+
 export type CanonicalNode =
   | CanonicalFindMany
   | CanonicalFilter
   | CanonicalMap
   | CanonicalReduce
   | CanonicalSort
-  | CanonicalLimit;
+  | CanonicalLimit
+  | CanonicalEmit;
 
 export type CanonicalGraph = {
   id: string;

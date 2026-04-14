@@ -4,6 +4,7 @@ import type {
   CanonicalNode,
   CanonicalFindMany,
   CanonicalMeasure,
+  CanonicalEmit,
 } from '../types/canonical.js';
 import type { Expr, FieldExpr } from '../types/authoring.js';
 
@@ -85,6 +86,19 @@ export function normalize(
           };
         case 'limit':
           return { kind: 'limit', id: n.id, scope, input: n.config.input, count: n.config.count };
+        case 'emit': {
+          const out: CanonicalEmit = {
+            kind: 'emit',
+            id: n.id,
+            scope,
+            aggregate: n.config.aggregate,
+            aggregateId: n.config.aggregateId as Expr,
+            transition: n.config.transition,
+            payload: n.config.payload as Record<string, Expr>,
+          };
+          if (n.config.actor !== undefined) out.actor = n.config.actor as Expr;
+          return out;
+        }
         default:
           throw new Error(`unsupported node type in canonical normalize: ${(n as { type: string }).type}`);
       }
