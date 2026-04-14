@@ -1,0 +1,40 @@
+export type Layer = 'parse' | 'structural' | 'references' | 'consistency' | 'internal';
+
+export type BindingsError = {
+  layer: Layer;
+  code: BindingsErrorCode;
+  message: string;
+  path?: string;
+  hint?: string;
+};
+
+export type Ok<T> = { ok: true; value: T };
+export type Err = { ok: false; errors: BindingsError[] };
+export type Result<T> = Ok<T> | Err;
+
+export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
+export const err = (errors: BindingsError[]): Err => ({ ok: false, errors });
+export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
+export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+
+export const ERROR_CODES = {
+  BINDINGS_PARSE_SCHEMA_VIOLATION: 'BINDINGS_PARSE_SCHEMA_VIOLATION',
+  BINDINGS_DUPLICATE_BINDING_ID: 'BINDINGS_DUPLICATE_BINDING_ID',
+  BINDINGS_DUPLICATE_METHOD_PATH: 'BINDINGS_DUPLICATE_METHOD_PATH',
+  BINDINGS_DUPLICATE_PARAM_NAME: 'BINDINGS_DUPLICATE_PARAM_NAME',
+  BINDINGS_DUPLICATE_BIND_TO: 'BINDINGS_DUPLICATE_BIND_TO',
+  BINDINGS_PATH_PLACEHOLDER_MISMATCH: 'BINDINGS_PATH_PLACEHOLDER_MISMATCH',
+  BINDINGS_BODY_ON_GET: 'BINDINGS_BODY_ON_GET',
+  BINDINGS_PATH_NOT_REQUIRED: 'BINDINGS_PATH_NOT_REQUIRED',
+  BINDINGS_UNRESOLVED_GRAPH: 'BINDINGS_UNRESOLVED_GRAPH',
+  BINDINGS_UNKNOWN_BIND_TO: 'BINDINGS_UNKNOWN_BIND_TO',
+  BINDINGS_UNRESOLVED_OUTPUT_SHAPE: 'BINDINGS_UNRESOLVED_OUTPUT_SHAPE',
+  BINDINGS_GRAPH_HAS_ROOT_INPUT: 'BINDINGS_GRAPH_HAS_ROOT_INPUT',
+  BINDINGS_UNSUPPORTED_OUTPUT_TYPE: 'BINDINGS_UNSUPPORTED_OUTPUT_TYPE',
+  BINDINGS_REQUIRED_MISMATCH: 'BINDINGS_REQUIRED_MISMATCH',
+  BINDINGS_TYPE_LOCATION_INVALID: 'BINDINGS_TYPE_LOCATION_INVALID',
+  BINDINGS_UNBOUND_INPUT: 'BINDINGS_UNBOUND_INPUT',
+  BINDINGS_INTERNAL: 'BINDINGS_INTERNAL',
+} as const;
+
+export type BindingsErrorCode = keyof typeof ERROR_CODES;
