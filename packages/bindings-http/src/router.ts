@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
@@ -38,7 +39,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   }
 
   const now = opts.now ?? ((): string => new Date().toISOString());
-  const nextId = opts.nextId ?? ((): string => crypto.randomUUID());
+  const nextId = opts.nextId ?? ((): string => randomUUID());
   const actorFromRequest = opts.actorFromRequest ?? ((): ActorRef | null => null);
 
   for (const bp of Object.values(plan)) {

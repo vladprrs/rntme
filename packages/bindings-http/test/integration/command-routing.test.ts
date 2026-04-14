@@ -221,12 +221,14 @@ describe('createBindingsRouter — command routing', () => {
 
   it('chains report → submit and version increments per transition', async () => {
     const post = (path: string, body: object): Promise<Response> =>
-      ctx.router.fetch(
-        new Request(`http://x${path}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        }),
+      Promise.resolve(
+        ctx.router.fetch(
+          new Request(`http://x${path}`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
+        ),
       );
     const r1 = await post('/v1/issues/42/actions/report', {
       projectId: 1,
