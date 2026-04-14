@@ -29,3 +29,12 @@ export type {
   PdmError,
   PdmErrorCode,
 } from './result.js';
+
+export type {
+  PdmResolver,
+  ResolvedEntity,
+  ResolvedField,
+  ResolvedRelation,
+  ResolvedStateMachine,
+  ResolvedTransition,
+} from './resolvers.js';
