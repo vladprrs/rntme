@@ -1,12 +1,22 @@
 import { describe, it, expect } from 'vitest';
+import { createPdmResolver } from '@rntme/pdm';
+import { parseQsm, validateQsm } from '@rntme/qsm';
+import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import { resolveSources } from '../../../../src/validate/semantic/sources.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
-import { loadValidatedPdmAndQsm } from '../../../load-validated.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
+import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';
+import QSM_BASE from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 
-const { pdm: P, qsm: Q } = loadValidatedPdmAndQsm(pdm, qsm);
+function assertOk<T>(r: { ok: true; value: T } | { ok: false; errors?: unknown }, label: string): T {
+  if (!r.ok) throw new Error(`${label}: ${JSON.stringify(r.errors)}`);
+  return r.value;
+}
+
+function validateQsmArtifact(artifact: QsmArtifact): ValidatedQsm {
+  const parsed = assertOk(parseQsm(artifact), 'parseQsm');
+  return assertOk(validateQsm(parsed, createPdmResolver(P)), 'validateQsm');
+}
 
 const good: AuthoringSpecOutput = {
   version: '1.0-rc7',
@@ -27,7 +37,56 @@ describe('resolveSources', () => {
     const { graphs } = normalize(good);
     const r = resolveSources(graphs.g!, P, Q);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.get('items')).toMatchObject({ kind: 'entity', table: 'order_items' });
+    if (r.ok) {
+      expect(r.value.get('items')).toMatchObject({
+        kind: 'entity',
+        entity: 'OrderItem',
+        table: 'order_items',
+      });
+    }
+  });
+
+  it('resolves entity source to QSM entity-mirror projection table when present', () => {
+    const qsm = validateQsmArtifact({
+      ...QSM_BASE,
+      projections: {
+        OrderItemMirror: {
+          backing: 'entity-mirror',
+          source: { entity: 'OrderItem' },
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['id', 'orderId', 'productId', 'quantity', 'unitPrice'],
+          table: 'projection_order_item',
+        },
+      },
+    } as QsmArtifact);
+    const { graphs } = normalize(good);
+    const r = resolveSources(graphs.g!, P, qsm);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.get('items')).toMatchObject({
+        kind: 'entity',
+        entity: 'OrderItem',
+        table: 'projection_order_item',
+      });
+    }
+  });
+
+  it('resolves entity source to PDM entity.table when no entity-mirror exists', () => {
+    const qsm = validateQsmArtifact({
+      projections: {},
+      relationRoles: {},
+    } as QsmArtifact);
+    const { graphs } = normalize(good);
+    const r = resolveSources(graphs.g!, P, qsm);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.get('items')).toMatchObject({
+        kind: 'entity',
+        entity: 'OrderItem',
+        table: 'order_items',
+      });
+    }
   });
 
   it('returns SEM_SOURCE_NOT_FOUND for unknown entity', () => {

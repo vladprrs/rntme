@@ -1,8 +1,4 @@
 import type Database from 'better-sqlite3';
-import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
-import { parseQsm, validateQsm } from '@rntme/qsm';
-import type { ValidatedPdm } from '@rntme/pdm';
-import type { ValidatedQsm } from '@rntme/qsm';
 import { parseAuthoringSpec } from './parse/parse.js';
 import { validateStructural } from './validate/structural/index.js';
 import { validateSemantic } from './validate/semantic/index.js';
@@ -13,7 +9,17 @@ import { lowerToSqlite } from './lower/sqlite/lower.js';
 import { emitSql } from './lower/sqlite/emit.js';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, ERROR_CODES, type Result } from './types/result.js';
-import type { ExplainArtifacts, ExplainOutput } from './explain/explain.js';
+import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from './explain/explain.js';
+import { compileCommand } from './command-runtime/compile.js';
+import { executeCommand, type ExecuteCommandContext } from './command-runtime/execute.js';
+import type { CommandResult } from './types/command.js';
+
+export { compileCommand };
+export { executeCommand, type ExecuteCommandContext };
+export { CommandExecutionError } from './command-runtime/errors.js';
+export type { CommandResult, CompiledCommand, EmitPlan } from './types/command.js';
+export { inferRole, type GraphRole } from './role/infer.js';
+export { deriveEventTypeName } from './emit/event-type.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
@@ -22,54 +28,6 @@ export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
 export const VERSION = '0.0.0';
-
-function parseValidatedArtifacts(
-  rawPdm: unknown,
-  rawQsm: unknown,
-): Result<{ pdm: ValidatedPdm; qsm: ValidatedQsm }> {
-  const pdmParse = parsePdm(rawPdm);
-  if (!pdmParse.ok) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'PDM failed schema validation',
-      },
-    ]);
-  }
-  const pdmVal = validatePdm(pdmParse.value);
-  if (!pdmVal.ok) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: pdmVal.errors[0]?.message ?? 'PDM validation failed',
-      },
-    ]);
-  }
-  const pdm = pdmVal.value;
-  const qsmParse = parseQsm(rawQsm);
-  if (!qsmParse.ok) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'QSM failed schema validation',
-      },
-    ]);
-  }
-  const qsmVal = validateQsm(qsmParse.value, createPdmResolver(pdm));
-  if (!qsmVal.ok) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: qsmVal.errors[0]?.message ?? 'QSM validation failed',
-      },
-    ]);
-  }
-  return ok({ pdm, qsm: qsmVal.value });
-}
 
 export type CompileOptions = { target?: 'sqlite' };
 
@@ -90,9 +48,9 @@ export function compile(
   const specR = parseAuthoringSpec(rawSpec);
   if (!specR.ok) return specR;
 
-  const artifactsR = parseValidatedArtifacts(rawPdm, rawQsm);
-  if (!artifactsR.ok) return artifactsR;
-  const { pdm, qsm } = artifactsR.value;
+  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
+  if (!pq.ok) return pq;
+  const { pdm, qsm } = pq.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
@@ -161,6 +119,18 @@ export function run(
   return execute(r.value, paramValues, db);
 }
 
+export function runCommand(
+  rawSpec: unknown,
+  rawPdm: unknown,
+  rawQsm: unknown,
+  paramValues: Record<string, unknown>,
+  ctx: ExecuteCommandContext,
+): CommandResult {
+  const r = compileCommand(rawSpec, rawPdm, rawQsm);
+  if (!r.ok) throw Object.assign(new Error('compile failed'), { errors: r.errors });
+  return executeCommand(r.value, paramValues, ctx);
+}
+
 export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): ExplainOutput {
   const artifacts: ExplainArtifacts = {};
 
@@ -168,11 +138,10 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
   if (!specR.ok) return { ok: false, artifacts, errors: specR.errors };
   artifacts.parsed = specR.value;
 
-  const artifactsR = parseValidatedArtifacts(rawPdm, rawQsm);
-  if (!artifactsR.ok) {
-    return { ok: false, artifacts, errors: artifactsR.errors };
-  }
-  const { pdm, qsm } = artifactsR.value;
+  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
+  if (!pq.ok) return { ok: false, artifacts, errors: pq.errors };
+
+  const { pdm, qsm } = pq.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };

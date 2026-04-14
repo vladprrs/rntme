@@ -13,20 +13,14 @@ export type JoinChain = {
 };
 
 /** Build a relation chain from a path prefix `[rootAlias, rel1, rel2, ...]`. */
-export function expandChain(
-  startAlias: string,
-  startEntity: string,
-  path: string[],
-  pdm: ValidatedPdm,
-): JoinChain {
+export function expandChain(startAlias: string, startEntity: string, path: string[], pdm: ValidatedPdm): JoinChain {
   const start = pdm.entities[startEntity];
   if (!start) throw new Error(`expandChain: unknown entity ${startEntity}`);
   let curEntity: Entity = start;
   const steps: JoinChain['steps'] = [];
   for (let i = 1; i < path.length; i++) {
     const relName = path[i]!;
-    const rels = curEntity.relations;
-    const rel: Relation | undefined = rels?.[relName];
+    const rel: Relation | undefined = curEntity.relations?.[relName];
     if (!rel) throw new Error(`expandChain: relation "${relName}" missing on ${curEntity.table}`);
     const next: Entity | undefined = pdm.entities[rel.to];
     if (!next) throw new Error(`expandChain: entity ${rel.to} missing`);

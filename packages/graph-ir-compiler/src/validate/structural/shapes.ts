@@ -12,11 +12,7 @@ export function shapeExists(
   return name in spec.shapes || name in pdm.entities || name in qsm.projections;
 }
 
-export function checkShapes(
-  spec: AuthoringSpecOutput,
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
-): GraphIrError[] {
+export function checkShapes(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
   const errs: GraphIrError[] = [];
   for (const graph of Object.values(spec.graphs)) {
     for (const node of graph.nodes) {

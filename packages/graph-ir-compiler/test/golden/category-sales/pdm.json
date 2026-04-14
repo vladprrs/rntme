@@ -8,19 +8,7 @@
         "productId": { "type": "integer", "nullable": false, "column": "product_id" },
         "unitPrice": { "type": "decimal", "nullable": false, "column": "unit_price" },
         "quantity": { "type": "integer", "nullable": false, "column": "quantity" },
-        "lineState": { "type": "string", "nullable": false, "column": "line_state" }
-      },
-      "stateMachine": {
-        "stateField": "lineState",
-        "initial": null,
-        "states": ["active"],
-        "transitions": {
-          "seed": {
-            "from": null,
-            "to": "active",
-            "affects": ["orderId", "productId", "unitPrice", "quantity", "lineState"]
-          }
-        }
+        "status": { "type": "string", "nullable": false, "column": "status" }
       },
       "relations": {
         "order": {
@@ -36,7 +24,19 @@
           "foreignKey": "id"
         }
       },
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active"],
+        "transitions": {
+          "place": {
+            "from": null,
+            "to": "active",
+            "affects": ["orderId", "productId", "unitPrice", "quantity"]
+          }
+        }
+      }
     },
     "Order": {
       "table": "orders",

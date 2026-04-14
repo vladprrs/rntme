@@ -1,12 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { validateSemantic } from '../../../../src/validate/semantic/index.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
-import { loadValidatedPdmAndQsm } from '../../../load-validated.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
-
-const { pdm: P, qsm: Q } = loadValidatedPdmAndQsm(pdm, qsm);
+import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';
 
 function specWithFilter(expr: unknown, inputs: Record<string, unknown> = {}): AuthoringSpecOutput {
   return {

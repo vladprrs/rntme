@@ -20,7 +20,7 @@ CREATE TABLE order_items (
   product_id INTEGER NOT NULL REFERENCES products(id),
   unit_price NUMERIC NOT NULL,
   quantity   INTEGER NOT NULL,
-  line_state TEXT NOT NULL DEFAULT 'active'
+  status     TEXT NOT NULL DEFAULT 'active'
 );
 
 INSERT INTO categories (id, name) VALUES

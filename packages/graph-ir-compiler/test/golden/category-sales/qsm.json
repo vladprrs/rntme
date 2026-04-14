@@ -5,7 +5,7 @@
       "source": { "entity": "OrderItem" },
       "keys": ["id"],
       "grain": ["id"],
-      "exposed": ["id", "orderId", "productId", "quantity", "unitPrice", "lineState"],
+      "exposed": ["id", "orderId", "productId", "quantity", "unitPrice"],
       "table": "order_items"
     }
   },

@@ -273,8 +273,7 @@ function makeColumnOf(
       let curEnt: Entity = rootEnt;
       for (let i = 1; i < parts.length - 1; i++) {
         const stepName = parts[i]!;
-        const rels = curEnt.relations;
-        const stepRel: Relation | undefined = rels?.[stepName];
+        const stepRel: Relation | undefined = curEnt.relations?.[stepName];
         if (!stepRel) throw new Error(`lower: missing relation ${stepName}`);
         const nextEnt: Entity | undefined = context.pdm.entities[stepRel.to];
         if (!nextEnt) throw new Error(`lower: missing entity ${stepRel.to}`);

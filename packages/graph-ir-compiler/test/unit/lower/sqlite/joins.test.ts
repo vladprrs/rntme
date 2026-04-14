@@ -3,10 +3,7 @@ import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
 import type { Expr } from '../../../../src/types/authoring.js';
-import { loadValidatedPdm } from '../../../load-validated.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-
-const P = loadValidatedPdm(pdm);
+import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
 
 describe('JOIN synthesis via dot-navigation', () => {
   it('adds JOIN orders when filter uses orderItem.order.createdAt', () => {

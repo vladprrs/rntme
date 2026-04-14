@@ -33,11 +33,7 @@ function diff(expected: string[], actual: string[]): { missing: string[]; extra:
   };
 }
 
-export function checkMapReduceCoverage(
-  spec: AuthoringSpecOutput,
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
-): GraphIrError[] {
+export function checkMapReduceCoverage(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
   const errs: GraphIrError[] = [];
   for (const graph of Object.values(spec.graphs)) {
     for (const node of graph.nodes) {

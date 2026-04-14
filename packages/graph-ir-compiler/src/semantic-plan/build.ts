@@ -5,11 +5,7 @@ import type { PlanStep, SemanticPlan } from '../types/semantic-plan.js';
 import { err, ok, ERROR_CODES, type Result, type GraphIrError } from '../types/result.js';
 import { resolveSources, type SourceMap } from '../validate/semantic/sources.js';
 
-export function buildSemanticPlan(
-  graph: CanonicalGraph,
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
-): Result<SemanticPlan> {
+export function buildSemanticPlan(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: ValidatedQsm): Result<SemanticPlan> {
   const sourcesR = resolveSources(graph, pdm, qsm);
   if (!sourcesR.ok) return sourcesR;
   const sources = sourcesR.value;
@@ -17,6 +13,7 @@ export function buildSemanticPlan(
   const steps: PlanStep[] = [];
 
   for (const node of graph.nodes) {
+    if (node.kind === 'emit') continue;
     const step = lower(node, sources, pdm);
     if (step) steps.push(step);
     else
@@ -40,6 +37,8 @@ export function buildSemanticPlan(
 
 function lower(node: CanonicalNode, sources: SourceMap, pdm: ValidatedPdm): PlanStep | undefined {
   switch (node.kind) {
+    case 'emit':
+      return undefined;
     case 'findMany': {
       const src = sources.get(node.id);
       if (!src) return undefined;

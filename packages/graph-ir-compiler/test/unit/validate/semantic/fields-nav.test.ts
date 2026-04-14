@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveField } from '../../../../src/validate/semantic/fields.js';
-import { loadValidatedPdm } from '../../../load-validated.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
-
-const P = loadValidatedPdm(pdm);
+import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
 const scope: Scope = { aliases: new Map([['orderItem', { entity: 'OrderItem' }]]) };
 
 describe('dot-navigation resolveField', () => {
