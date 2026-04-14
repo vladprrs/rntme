@@ -12,8 +12,12 @@ export default [
       parser: tsParser,
       parserOptions: { sourceType: 'module', ecmaVersion: 2022 },
       globals: {
+        clearTimeout: 'readonly',
         console: 'readonly',
         process: 'readonly',
+        setImmediate: 'readonly',
+        setTimeout: 'readonly',
+        structuredClone: 'readonly',
       },
     },
     plugins: {

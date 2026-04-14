@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "Consumes event-store projections (SQLite-backed read models).",
+  "description": "Idempotent Kafka → SQLite projection consumer for the event-sourced read-side. Applies event envelopes to QSM entity-mirror projections using handler specs derived from PDM stateMachine.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
