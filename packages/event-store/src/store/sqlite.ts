@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { AppendRequest, AppendResult } from '../types/append.js';
+import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
 import type { EventStore, ReadFromOptions } from './interface.js';
 import { applyEventStoreSchema } from './schema.js';
 
@@ -49,25 +50,32 @@ export class SqliteEventStore implements EventStore {
     const run = this.db.transaction((reqs: readonly AppendRequest[]): AppendResult[] => {
       const out: AppendResult[] = [];
       for (const req of reqs) {
-        const row = selectMax.get(req.stream) as { v: number };
-        const current = row.v;
+        const { v: current } = selectMax.get(req.stream) as { v: number };
+        if (req.expectedVersion !== undefined && req.expectedVersion !== current) {
+          throw new ConcurrencyConflict(req.stream, req.expectedVersion, current);
+        }
         const appended: { eventId: string; version: number; id: number }[] = [];
         for (let i = 0; i < req.events.length; i++) {
           const e = req.events[i]!;
           const version = current + i + 1;
-          const info = insert.run({
-            stream: req.stream,
-            aggregate_type: e.aggregateType,
-            aggregate_id: e.aggregateId,
-            version,
-            event_type: e.eventType,
-            event_id: e.eventId,
-            actor_kind: e.actor?.kind ?? null,
-            actor_id: e.actor?.id ?? null,
-            occurred_at: e.occurredAt,
-            payload_json: JSON.stringify(e.payload),
-            schema_version: e.schemaVersion,
-          });
+          let info: Database.RunResult;
+          try {
+            info = insert.run({
+              stream: req.stream,
+              aggregate_type: e.aggregateType,
+              aggregate_id: e.aggregateId,
+              version,
+              event_type: e.eventType,
+              event_id: e.eventId,
+              actor_kind: e.actor?.kind ?? null,
+              actor_id: e.actor?.id ?? null,
+              occurred_at: e.occurredAt,
+              payload_json: JSON.stringify(e.payload),
+              schema_version: e.schemaVersion,
+            });
+          } catch (err) {
+            throw mapSqliteError(err, req.stream, req.expectedVersion, version, e.eventId);
+          }
           appended.push({
             eventId: e.eventId,
             version,
@@ -97,4 +105,25 @@ export class SqliteEventStore implements EventStore {
   writeCursor(_relayId: string, _lastEventId: number): void {
     throw new Error('not implemented — Task 10');
   }
+}
+
+export function mapSqliteError(
+  err: unknown,
+  stream: string,
+  expectedVersion: number | undefined,
+  attemptedVersion: number,
+  eventId?: string,
+): Error {
+  if (!(err instanceof Error)) return new Error(String(err));
+  const code = (err as Error & { code?: string }).code ?? '';
+  const msg = err.message;
+  if (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') {
+    if (/event_id/.test(msg)) {
+      return new DuplicateEventId(eventId ?? '<unknown>');
+    }
+    if (/stream.*version|version.*stream/.test(msg)) {
+      return new ConcurrencyConflict(stream, expectedVersion, attemptedVersion);
+    }
+  }
+  return err;
 }

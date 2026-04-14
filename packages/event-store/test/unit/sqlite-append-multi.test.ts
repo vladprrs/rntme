@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { SqliteEventStore } from '../../src/store/sqlite.js';
+import { DuplicateEventId } from '../../src/types/errors.js';
 import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
 
 let store: SqliteEventStore | null = null;
@@ -25,20 +26,21 @@ describe('SqliteEventStore.appendEvents — multi stream', () => {
   });
 
   it('rolls back both streams when the second stream violates UNIQUE(event_id)', () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
-    store.appendEvents([
+    const st = new SqliteEventStore({ filename: ':memory:' });
+    store = st;
+    st.appendEvents([
       makeRequest('Issue-2', [makeEvent({ eventId: 'dup', aggregateId: '2' })]),
     ]);
 
     expect(() =>
-      store.appendEvents([
+      st.appendEvents([
         makeRequest('Issue-1', [makeEvent({ eventId: 'ok', aggregateId: '1' })]),
         makeRequest('Issue-2', [makeEvent({ eventId: 'dup', aggregateId: '2' })]),
       ]),
-    ).toThrow(/UNIQUE/);
+    ).toThrow(DuplicateEventId);
 
     // 'ok' must NOT have been persisted — txn rolled back
-    const row = store.rawDb()
+    const row = st.rawDb()
       .prepare('SELECT 1 FROM event_log WHERE event_id = ?')
       .get('ok');
     expect(row).toBeUndefined();
