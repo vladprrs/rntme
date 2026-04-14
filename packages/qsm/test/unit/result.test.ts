@@ -32,9 +32,9 @@ describe('Result', () => {
     }
   });
 
-  it('includes all layer codes', () => {
+  it('includes at least one code per layer', () => {
     expect(ERROR_CODES.QSM_PARSE_SCHEMA_VIOLATION).toBeDefined();
-    expect(ERROR_CODES.QSM_STRUCT_DUPLICATE_PROJECTION).toBeDefined();
+    expect(ERROR_CODES.QSM_STRUCT_PROJECTION_KEYS_EMPTY).toBeDefined();
     expect(ERROR_CODES.QSM_XREF_SOURCE_UNKNOWN_ENTITY).toBeDefined();
     expect(ERROR_CODES.QSM_BACKING_DERIVED_NOT_SUPPORTED).toBeDefined();
     expect(ERROR_CODES.QSM_INTERNAL).toBeDefined();

@@ -79,6 +79,16 @@ export function validateCrossRef(
         });
       }
 
+      if (!setEqual(proj.grain, proj.keys)) {
+        errors.push({
+          layer: 'cross-ref',
+          code: ERROR_CODES.QSM_XREF_ENTITY_MIRROR_GRAIN_MISMATCH,
+          message: `projection "${projName}": entity-mirror grain must equal keys (keys: [${proj.keys.join(', ')}], grain: [${proj.grain.join(', ')}])`,
+          path: `${pPath}.grain`,
+          hint: 'Entity-mirror projections have per-key granularity by construction.',
+        });
+      }
+
       const existingMirror = mirrorsByEntity.get(entity.name);
       if (existingMirror !== undefined) {
         errors.push({

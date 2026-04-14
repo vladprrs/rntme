@@ -1,6 +1,7 @@
 import type { PdmResolver, ResolvedEntity, ScalarPrimitive } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
 import { defaultTableName } from '../validate/structural.js';
+import { invariantViolated } from '../common/invariant.js';
 
 export type SqlType = 'INTEGER' | 'TEXT' | 'REAL';
 
@@ -40,7 +41,9 @@ export function generateProjectionDdl(
 
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const entity = pdm.resolveEntity(proj.source.entity);
-    if (!entity) continue; // impossible after validation, defensive
+    if (!entity) {
+      throw invariantViolated(`entity "${proj.source.entity}" not in PDM for projection "${projName}"`);
+    }
     specs.push(buildSpec(projName, proj, entity));
   }
 
@@ -72,9 +75,16 @@ function buildSpec(
     }
   }
 
-  const createTableSql = renderCreateTable(tableName, columns, IDEMPOTENCY_COLUMNS);
+  const keyColumnNames = proj.keys.map((k) => {
+    const col = entity.fields.find((f) => f.name === k)?.column;
+    if (!col) {
+      throw invariantViolated(`key "${k}" missing column mapping on entity "${entity.name}"`);
+    }
+    return col;
+  });
+  const createTableSql = renderCreateTable(tableName, columns, IDEMPOTENCY_COLUMNS, keyColumnNames);
   const createIndexSql = indexes.map((i) =>
-    `CREATE INDEX ${i.name} ON ${tableName}(${i.columns.join(', ')});`,
+    `CREATE INDEX ${q(i.name)} ON ${q(tableName)} (${i.columns.map(q).join(', ')});`,
   );
 
   return {
@@ -107,15 +117,24 @@ function renderCreateTable(
   tableName: string,
   columns: readonly ColumnSpec[],
   idempotency: readonly ColumnSpec[],
+  keyColumnNames: readonly string[],
 ): string {
+  const composite = keyColumnNames.length > 1;
   const all = [...columns, ...idempotency];
-  const lines = all.map(renderColumn);
-  return `CREATE TABLE ${tableName} (\n  ${lines.join(',\n  ')}\n);`;
+  const lines = all.map((c) => renderColumn(c, composite));
+  if (composite) {
+    lines.push(`PRIMARY KEY (${keyColumnNames.map(q).join(', ')})`);
+  }
+  return `CREATE TABLE ${q(tableName)} (\n  ${lines.join(',\n  ')}\n);`;
 }
 
-function renderColumn(c: ColumnSpec): string {
-  const parts = [c.name, c.sqlType];
+function renderColumn(c: ColumnSpec, compositeKey: boolean): string {
+  const parts = [q(c.name), c.sqlType];
   if (!c.nullable) parts.push('NOT NULL');
-  if (c.primaryKey) parts.push('PRIMARY KEY');
+  if (c.primaryKey && !compositeKey) parts.push('PRIMARY KEY');
   return parts.join(' ');
+}
+
+function q(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
 }

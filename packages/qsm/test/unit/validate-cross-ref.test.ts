@@ -195,6 +195,24 @@ describe('validateCrossRef', () => {
     }
   });
 
+  it('rejects entity-mirror whose grain differs from keys', () => {
+    const r = runXref({
+      projections: {
+        X: {
+          backing: 'entity-mirror',
+          source: { entity: 'Issue' },
+          keys: ['id'],
+          grain: ['id', 'title'],
+          exposed: ['id', 'title'],
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_XREF_ENTITY_MIRROR_GRAIN_MISMATCH)).toBe(true);
+    }
+  });
+
   it('rejects two entity-mirror projections on the same entity', () => {
     const r = runXref({
       projections: {

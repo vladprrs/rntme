@@ -1,6 +1,7 @@
 import type { PdmResolver, ResolvedEntity, EventTypeSpec } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
 import { defaultTableName } from '../validate/structural.js';
+import { invariantViolated } from '../common/invariant.js';
 
 export type HandlerOp =
   | Readonly<{
@@ -53,7 +54,9 @@ export function deriveProjectionHandler(
     if (backing !== 'entity-mirror') continue;
 
     const entity = pdm.resolveEntity(proj.source.entity);
-    if (!entity) continue;
+    if (!entity) {
+      throw invariantViolated(`entity "${proj.source.entity}" not in PDM for projection "${projName}"`);
+    }
 
     specs.push(buildSpec(projName, proj, entity, eventTypes));
   }
@@ -73,7 +76,9 @@ function buildSpec(
 
   const keyColumns = entity.keys.map((k) => {
     const col = columnOfField.get(k);
-    if (!col) throw new Error(`qsm:derive-handler: key "${k}" missing column mapping on "${entity.name}"`);
+    if (!col) {
+      throw invariantViolated(`key "${k}" missing column mapping on entity "${entity.name}"`);
+    }
     return col;
   });
 
@@ -110,7 +115,9 @@ function buildEventHandler(
 
   const setColumns = e.affects.map((fieldName) => {
     const col = columnOfField.get(fieldName);
-    if (!col) throw new Error(`qsm:derive-handler: affected field "${fieldName}" has no column mapping`);
+    if (!col) {
+      throw invariantViolated(`affected field "${fieldName}" has no column mapping`);
+    }
     return col;
   });
 

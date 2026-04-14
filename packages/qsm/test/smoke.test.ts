@@ -39,7 +39,7 @@ describe('smoke: @rntme/qsm end-to-end', () => {
     if (!pdm.ok) return;
     const pdmResolver = createPdmResolver(pdm.value);
     const events = deriveEventTypes(pdm.value);
-    expect(events).toHaveLength(7);
+    expect(events.filter((e) => e.aggregateType === 'Issue')).toHaveLength(7);
 
     // QSM pipeline
     const qsmRaw = parseQsm(read('issue-tracker.qsm.json'));
@@ -52,8 +52,8 @@ describe('smoke: @rntme/qsm end-to-end', () => {
     const ddls = generateProjectionDdl(qsm.value, pdmResolver);
     expect(ddls).toHaveLength(1);
     expect(ddls[0]!.tableName).toBe('projection_issue');
-    expect(ddls[0]!.createTableSql).toContain('status TEXT NOT NULL');
-    expect(ddls[0]!.createIndexSql[0]).toContain('idx_projection_issue_status');
+    expect(ddls[0]!.createTableSql).toContain('"status" TEXT NOT NULL');
+    expect(ddls[0]!.createIndexSql[0]).toContain('"idx_projection_issue_status"');
 
     const handlers = deriveProjectionHandler(qsm.value, pdmResolver, events);
     expect(handlers).toHaveLength(1);

@@ -9,6 +9,7 @@ import type {
   ResolvedRelationRole,
 } from '../types/resolvers.js';
 import { defaultTableName } from '../validate/structural.js';
+import { invariantViolated } from '../common/invariant.js';
 
 export function createQsmResolver(artifact: ValidatedQsm): QsmResolver {
   const projectionNames = Object.keys(artifact.projections);
@@ -19,9 +20,13 @@ export function createQsmResolver(artifact: ValidatedQsm): QsmResolver {
 
   const mirrorByEntity = new Map<string, ResolvedProjection>();
   for (const rp of resolvedByName.values()) {
-    if (rp.backing === 'entity-mirror') {
-      mirrorByEntity.set(rp.source.entity, rp);
+    if (rp.backing !== 'entity-mirror') continue;
+    if (mirrorByEntity.has(rp.source.entity)) {
+      throw invariantViolated(
+        `multiple entity-mirror projections on "${rp.source.entity}" — cross-ref validator should have rejected this`,
+      );
     }
+    mirrorByEntity.set(rp.source.entity, rp);
   }
 
   const roles: ResolvedRelationRole[] = Object.entries(artifact.relationRoles).flatMap(

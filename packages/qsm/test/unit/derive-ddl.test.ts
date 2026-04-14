@@ -110,19 +110,62 @@ describe('generateProjectionDdl', () => {
   it('rendered createTableSql contains all mirror + idempotency columns', () => {
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
-    expect(ddl.createTableSql).toContain('CREATE TABLE projection_issueview');
-    expect(ddl.createTableSql).toContain('id INTEGER NOT NULL PRIMARY KEY');
-    expect(ddl.createTableSql).toContain('status TEXT NOT NULL');
-    expect(ddl.createTableSql).toContain('last_event_id TEXT NOT NULL');
-    expect(ddl.createTableSql).toContain('last_event_version INTEGER NOT NULL');
-    expect(ddl.createTableSql).toContain('applied_at TEXT NOT NULL');
+    expect(ddl.createTableSql).toContain('CREATE TABLE "projection_issueview"');
+    expect(ddl.createTableSql).toContain('"id" INTEGER NOT NULL PRIMARY KEY');
+    expect(ddl.createTableSql).toContain('"status" TEXT NOT NULL');
+    expect(ddl.createTableSql).toContain('"last_event_id" TEXT NOT NULL');
+    expect(ddl.createTableSql).toContain('"last_event_version" INTEGER NOT NULL');
+    expect(ddl.createTableSql).toContain('"applied_at" TEXT NOT NULL');
   });
 
   it('rendered createIndexSql matches indexes array', () => {
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
     expect(ddl.createIndexSql).toHaveLength(1);
-    expect(ddl.createIndexSql[0]).toBe('CREATE INDEX idx_projection_issueview_status ON projection_issueview(status);');
+    expect(ddl.createIndexSql[0]).toBe(
+      'CREATE INDEX "idx_projection_issueview_status" ON "projection_issueview" ("status");',
+    );
+  });
+
+  it('quotes SQL identifiers with double quotes to tolerate reserved words', () => {
+    const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
+    const ddl = generateProjectionDdl(qsm, resolver)[0]!;
+    expect(ddl.createTableSql).toContain('CREATE TABLE "projection_issueview"');
+    expect(ddl.createTableSql).toContain('"id" INTEGER NOT NULL PRIMARY KEY');
+    expect(ddl.createTableSql).toContain('"status" TEXT NOT NULL');
+    expect(ddl.createTableSql).toContain('"last_event_id" TEXT NOT NULL');
+    expect(ddl.createIndexSql[0]).toBe(
+      'CREATE INDEX "idx_projection_issueview_status" ON "projection_issueview" ("status");',
+    );
+  });
+
+  it('emits composite PRIMARY KEY clause when entity has multi-column keys', () => {
+    const { qsm, resolver } = setup({
+      projections: {
+        AssignmentView: {
+          backing: 'entity-mirror',
+          source: { entity: 'IssueAssignment' },
+          keys: ['issueId', 'userId'],
+          grain: ['issueId', 'userId'],
+          exposed: ['issueId', 'userId', 'role', 'status'],
+        },
+      },
+      relationRoles: {},
+    });
+    const ddl = generateProjectionDdl(qsm, resolver)[0]!;
+
+    // No inline PRIMARY KEY per key column
+    expect(ddl.createTableSql).not.toMatch(/issue_id\b[^,]*PRIMARY KEY/);
+    expect(ddl.createTableSql).not.toMatch(/user_id\b[^,]*PRIMARY KEY/);
+
+    // Trailing composite PRIMARY KEY constraint
+    expect(ddl.createTableSql).toMatch(/PRIMARY KEY\s*\(\s*"?issue_id"?\s*,\s*"?user_id"?\s*\)/);
+
+    // Key columns still marked in ColumnSpec
+    const issueId = ddl.columns.find((c) => c.name === 'issue_id')!;
+    const userId = ddl.columns.find((c) => c.name === 'user_id')!;
+    expect(issueId.primaryKey).toBe(true);
+    expect(userId.primaryKey).toBe(true);
   });
 
   it('maps PDM types to SQL types correctly', () => {

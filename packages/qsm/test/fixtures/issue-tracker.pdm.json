@@ -76,6 +76,26 @@
         "joinedAt": { "type": "datetime", "nullable": false, "column": "joined_at" }
       },
       "keys": ["id"]
+    },
+    "IssueAssignment": {
+      "table": "issue_assignments",
+      "fields": {
+        "issueId":  { "type": "integer", "nullable": false, "column": "issue_id" },
+        "userId":   { "type": "integer", "nullable": false, "column": "user_id" },
+        "role":     { "type": "string",  "nullable": false, "column": "role" },
+        "status":   { "type": "string",  "nullable": false, "column": "status" }
+      },
+      "keys": ["issueId", "userId"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["pending", "active", "revoked"],
+        "transitions": {
+          "assign":   { "from": null,      "to": "pending", "affects": ["role"] },
+          "activate": { "from": "pending", "to": "active" },
+          "revoke":   { "from": "active",  "to": "revoked" }
+        }
+      }
     }
   }
 }
