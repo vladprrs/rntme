@@ -5,6 +5,7 @@ import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import { resolveSources } from './sources.js';
 import { checkMapShapeConformance } from './shape-conformance.js';
 import { checkReduce } from './aggregate-phase.js';
+import { checkParamContext } from './param-context.js';
 import { inferExprType, type ParamMap } from './types.js';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
 import type { Scope } from './scope.js';
@@ -68,6 +69,8 @@ export function validateSemantic(
   );
 
   errors.push(...checkMapShapeConformance(graph, shapes, pdm, qsm, params, sourcesR.value));
+
+  errors.push(...checkParamContext(graph));
 
   return errors.length ? err(errors) : ok(graph);
 }
