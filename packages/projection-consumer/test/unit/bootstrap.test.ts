@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -10,66 +10,83 @@ import { bootstrapProjections } from '../../src/store/bootstrap.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
 
-function readFixture(name: string): string {
-  return readFileSync(join(fixtureDir, name), 'utf8');
-}
+let db: InstanceType<typeof Database> | undefined;
 
-function loadIssueTrackerDdls() {
-  const pdmRaw = parsePdm(readFixture('issue-tracker.pdm.json'));
+afterEach(() => {
+  db?.close();
+  db = undefined;
+});
+
+function setup() {
+  const pdmRaw = parsePdm(readFileSync(join(fixtureDir, 'issue-tracker.pdm.json'), 'utf8'));
   if (!pdmRaw.ok) throw new Error(JSON.stringify(pdmRaw.errors));
   const pdm = validatePdm(pdmRaw.value);
   if (!pdm.ok) throw new Error(JSON.stringify(pdm.errors));
   const resolver = createPdmResolver(pdm.value);
 
-  const qsmRaw = parseQsm(readFixture('issue-tracker.qsm.json'));
+  const qsmRaw = parseQsm(readFileSync(join(fixtureDir, 'issue-tracker.qsm.json'), 'utf8'));
   if (!qsmRaw.ok) throw new Error(JSON.stringify(qsmRaw.errors));
   const qsm = validateQsm(qsmRaw.value, resolver);
   if (!qsm.ok) throw new Error(JSON.stringify(qsm.errors));
 
-  return generateProjectionDdl(qsm.value, resolver);
+  return { ddls: generateProjectionDdl(qsm.value, resolver) };
 }
 
 describe('bootstrapProjections', () => {
-  it('creates the projection table from issue-tracker ProjectionDdlSpec', () => {
-    const db = new Database(':memory:');
-    const ddls = loadIssueTrackerDdls();
+  it('creates one table per projection with the declared name', () => {
+    db = new Database(':memory:');
+    const { ddls } = setup();
     bootstrapProjections(db, ddls);
-    const row = db
-      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
-      .get(ddls[0]!.tableName) as { name: string } | undefined;
-    expect(row?.name).toBe('projection_issue');
-    db.close();
+    const tables = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
+      .all() as { name: string }[];
+    expect(tables.map((t) => t.name)).toContain('projection_issue');
   });
 
-  it('is idempotent when run twice (IF NOT EXISTS)', () => {
-    const db = new Database(':memory:');
-    const ddls = loadIssueTrackerDdls();
+  it('projection table has all mirror columns plus idempotency', () => {
+    db = new Database(':memory:');
+    const { ddls } = setup();
     bootstrapProjections(db, ddls);
-    expect(() => bootstrapProjections(db, ddls)).not.toThrow();
-    db.close();
+    const tableName = ddls[0]!.tableName;
+    const cols = db.prepare(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
+    const names = cols.map((c) => c.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'id',
+        'project_id',
+        'reporter_id',
+        'assignee_id',
+        'sprint_id',
+        'title',
+        'status',
+        'priority',
+        'story_points',
+        'resolved_at',
+        'created_at',
+        'last_event_id',
+        'last_event_version',
+        'applied_at',
+      ]),
+    );
   });
 
-  it('creates indexes from createIndexSql on the projection table', () => {
-    const db = new Database(':memory:');
-    const ddls = loadIssueTrackerDdls();
+  it('creates declared indexes', () => {
+    db = new Database(':memory:');
+    const { ddls } = setup();
     bootstrapProjections(db, ddls);
-    const indexes = db
+    const idx = db
       .prepare(
         `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_autoindex%'`,
       )
       .all(ddls[0]!.tableName) as { name: string }[];
-    expect(indexes.length).toBe(ddls[0]!.createIndexSql.length);
-    expect(indexes.some((i) => i.name.includes('status'))).toBe(true);
-    db.close();
+    expect(idx.map((r) => r.name)).toContain('idx_projection_issue_status');
   });
 
-  it('materializes idempotency columns on the mirrored table', () => {
-    const db = new Database(':memory:');
-    const ddls = loadIssueTrackerDdls();
-    bootstrapProjections(db, ddls);
-    const cols = db.prepare(`PRAGMA table_info(${ddls[0]!.tableName})`).all() as { name: string }[];
-    const names = cols.map((c) => c.name);
-    expect(names).toEqual(expect.arrayContaining(['last_event_id', 'last_event_version', 'applied_at']));
-    db.close();
+  it('idempotent twice', () => {
+    const conn = new Database(':memory:');
+    db = conn;
+    const { ddls } = setup();
+    bootstrapProjections(conn, ddls);
+    expect(() => bootstrapProjections(conn, ddls)).not.toThrow();
   });
 });

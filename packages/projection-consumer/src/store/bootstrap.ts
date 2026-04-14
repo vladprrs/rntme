@@ -1,21 +1,17 @@
 import type { Database } from 'better-sqlite3';
 import type { ProjectionDdlSpec } from '@rntme/qsm';
 
-/** `CREATE TABLE …` → `CREATE TABLE IF NOT EXISTS …` */
-export function toIfNotExistsCreateTable(sql: string): string {
-  return sql.replace(/^\s*CREATE\s+TABLE\s+/i, 'CREATE TABLE IF NOT EXISTS ');
-}
-
-/** `CREATE INDEX …` → `CREATE INDEX IF NOT EXISTS …` */
-export function toIfNotExistsCreateIndex(sql: string): string {
-  return sql.replace(/^\s*CREATE\s+INDEX\s+/i, 'CREATE INDEX IF NOT EXISTS ');
+function toIfNotExists(sql: string): string {
+  return sql
+    .replace(/^CREATE TABLE(?!\s+IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS')
+    .replace(/^CREATE INDEX(?!\s+IF NOT EXISTS)/i, 'CREATE INDEX IF NOT EXISTS');
 }
 
 export function bootstrapProjections(db: Database, ddls: readonly ProjectionDdlSpec[]): void {
-  for (const ddl of ddls) {
-    db.exec(toIfNotExistsCreateTable(ddl.createTableSql));
-    for (const indexSql of ddl.createIndexSql) {
-      db.exec(toIfNotExistsCreateIndex(indexSql));
+  for (const spec of ddls) {
+    db.exec(toIfNotExists(spec.createTableSql));
+    for (const indexSql of spec.createIndexSql) {
+      db.exec(toIfNotExists(indexSql));
     }
   }
 }
