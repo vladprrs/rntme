@@ -48,7 +48,6 @@ export function createRelay(opts: RelayOptions): Relay {
       for (const rec of records) {
         if (!running) break;
         let backoff = 10;
-        // eslint-disable-next-line no-constant-condition
         while (true) {
           try {
             await opts.kafka.send({
