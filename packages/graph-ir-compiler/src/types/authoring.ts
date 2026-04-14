@@ -122,6 +122,18 @@ export type LookupOneNode = {
   };
 };
 
+export type EmitNode = {
+  id: string;
+  type: 'emit';
+  config: {
+    aggregate: string;
+    aggregateId: Expr;
+    transition: string;
+    payload: Record<string, Expr>;
+    actor?: Expr;
+  };
+};
+
 export type GraphNode =
   | FindManyNode
   | FilterNode
@@ -130,7 +142,7 @@ export type GraphNode =
   | SortNode
   | LimitNode;
 
-export type AnyGraphNode = GraphNode | DistinctNode | LookupOneNode;
+export type AnyGraphNode = GraphNode | DistinctNode | LookupOneNode | EmitNode;
 
 export type GraphDecl = {
   id: string;

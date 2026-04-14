@@ -180,6 +180,22 @@ const lookupOneNode = z
   })
   .strict();
 
+const emitNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('emit'),
+    config: z
+      .object({
+        aggregate: z.string(),
+        aggregateId: expr,
+        transition: z.string(),
+        payload: z.record(expr),
+        actor: expr.optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
 const graphNode = z.discriminatedUnion('type', [
   findManyNode,
   filterNode,
@@ -189,6 +205,7 @@ const graphNode = z.discriminatedUnion('type', [
   limitNode,
   distinctNode,
   lookupOneNode,
+  emitNode,
 ]);
 
 const graphDecl = z
