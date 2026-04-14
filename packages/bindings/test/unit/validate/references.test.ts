@@ -105,4 +105,44 @@ describe('validateReferences', () => {
       expect(r.errors[0]?.code).toBe('BINDINGS_UNRESOLVED_GRAPH');
     }
   });
+
+  it('resolves reserved CommandResult shape without consulting resolver', () => {
+    const cmdArtifact = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        cmd: {
+          kind: 'command' as const,
+          graph: 'g',
+          target: { engine: 'sqlite', dialect: 'sqlite' },
+          http: {
+            method: 'POST' as const,
+            path: '/v1/cmd',
+            parameters: [{ name: 'actor', in: 'body' as const, bindTo: 'actor', required: true }],
+          },
+        },
+      },
+    } as unknown as StructurallyValid;
+
+    const cmdSig: GraphSignature = {
+      id: 'g',
+      role: 'command',
+      inputs: { actor: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' } },
+      output: { type: { kind: 'row', shape: 'CommandResult' }, from: 'emitX' },
+    };
+
+    const resolvers: BindingResolvers = {
+      resolveGraphSignature: (id) => (id === 'g' ? cmdSig : null),
+      resolveShape: (name) => {
+        if (name === 'CommandResult') throw new Error('resolver must not be consulted for CommandResult');
+        return null;
+      },
+    };
+
+    const r = validateReferences(cmdArtifact, resolvers);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.resolved.cmd?.outputShape.name).toBe('CommandResult');
+  });
 });

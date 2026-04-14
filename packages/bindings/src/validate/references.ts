@@ -6,6 +6,7 @@ import type {
 } from '../types/artifact.js';
 import type { BindingResolvers, ResolvedShape } from '../types/resolvers.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
+import { COMMAND_RESULT_SHAPE_NAME, commandResultShape } from '../openapi/command-result.js';
 
 const PLACEHOLDER_SHAPE: ResolvedShape = {
   name: '__placeholder__',
@@ -47,17 +48,21 @@ function resolveBinding(
   let outputShape = PLACEHOLDER_SHAPE;
   const { output } = sig;
   if (output.type.kind === 'rowset' || output.type.kind === 'row') {
-    const shape = resolvers.resolveShape(output.type.shape);
-    if (shape === null) {
-      errors.push({
-        layer: 'references',
-        code: ERROR_CODES.BINDINGS_UNRESOLVED_OUTPUT_SHAPE,
-        message: `Graph "${entry.graph}" output references unknown shape "${output.type.shape}"`,
-        path: `${basePath}.graph`,
-      });
-      return null;
+    if (output.type.shape === COMMAND_RESULT_SHAPE_NAME) {
+      outputShape = commandResultShape();
+    } else {
+      const shape = resolvers.resolveShape(output.type.shape);
+      if (shape === null) {
+        errors.push({
+          layer: 'references',
+          code: ERROR_CODES.BINDINGS_UNRESOLVED_OUTPUT_SHAPE,
+          message: `Graph "${entry.graph}" output references unknown shape "${output.type.shape}"`,
+          path: `${basePath}.graph`,
+        });
+        return null;
+      }
+      outputShape = shape;
     }
-    outputShape = shape;
   }
 
   return { entry, signature: sig, outputShape };
