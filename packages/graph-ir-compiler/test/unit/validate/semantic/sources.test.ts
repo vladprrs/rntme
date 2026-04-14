@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createPdmResolver } from '@rntme/pdm';
 import { parseQsm, validateQsm } from '@rntme/qsm';
-import type { ValidatedQsm } from '@rntme/qsm';
+import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import { resolveSources } from '../../../../src/validate/semantic/sources.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
@@ -13,7 +13,7 @@ function assertOk<T>(r: { ok: true; value: T } | { ok: false; errors?: unknown }
   return r.value;
 }
 
-function validateQsmArtifact(artifact: typeof QSM_BASE): ValidatedQsm {
+function validateQsmArtifact(artifact: QsmArtifact): ValidatedQsm {
   const parsed = assertOk(parseQsm(artifact), 'parseQsm');
   return assertOk(validateQsm(parsed, createPdmResolver(P)), 'validateQsm');
 }
@@ -59,7 +59,7 @@ describe('resolveSources', () => {
           table: 'projection_order_item',
         },
       },
-    });
+    } as QsmArtifact);
     const { graphs } = normalize(good);
     const r = resolveSources(graphs.g!, P, qsm);
     expect(r.ok).toBe(true);
@@ -73,7 +73,10 @@ describe('resolveSources', () => {
   });
 
   it('resolves entity source to PDM entity.table when no entity-mirror exists', () => {
-    const qsm = validateQsmArtifact({ projections: {}, relationRoles: {} });
+    const qsm = validateQsmArtifact({
+      projections: {},
+      relationRoles: {},
+    } as QsmArtifact);
     const { graphs } = normalize(good);
     const r = resolveSources(graphs.g!, P, qsm);
     expect(r.ok).toBe(true);
