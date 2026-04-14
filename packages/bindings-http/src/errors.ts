@@ -1,4 +1,5 @@
 import type { ZodError } from 'zod';
+import type { CommandExecutionError } from '@rntme/graph-ir-compiler';
 
 export type RuntimeErrorEntry = {
   bindingId?: string;
@@ -46,4 +47,16 @@ export function invalidBodyErrorBody(message: string): ErrorResponseBody {
 
 export function internalErrorBody(): ErrorResponseBody {
   return { code: 'INTERNAL_ERROR', message: 'Internal server error' };
+}
+
+export type CommandErrorStatus = 409 | 422;
+
+export function commandErrorStatus(err: CommandExecutionError): CommandErrorStatus {
+  return err.code === 'COMMAND_CONCURRENCY_CONFLICT' ? 409 : 422;
+}
+
+export function commandErrorBody(err: CommandExecutionError): ErrorResponseBody {
+  const body: ErrorResponseBody = { code: err.code, message: err.message };
+  if (err.detail !== undefined) body.details = err.detail;
+  return body;
 }
