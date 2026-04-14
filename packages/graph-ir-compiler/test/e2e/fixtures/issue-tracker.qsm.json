@@ -1,0 +1,23 @@
+{
+  "projections": {
+    "IssueView": {
+      "backing": "entity-mirror",
+      "source": { "entity": "Issue" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": [
+        "id",
+        "title",
+        "status",
+        "priority",
+        "storyPoints",
+        "assigneeId",
+        "reporterId",
+        "projectId",
+        "resolvedAt"
+      ],
+      "table": "projection_issue"
+    }
+  },
+  "relationRoles": {}
+}
