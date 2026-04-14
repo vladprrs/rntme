@@ -1,9 +1,8 @@
 import type { CanonicalGraph } from '../../types/canonical.js';
-import type { Expr } from '../../types/authoring.js';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
 
 /**
- * Walk an EXPR tree and yield each `{ $param: string }` name encountered.
+ * Walk an EXPR (or FieldExpr) tree and yield each `{ $param: string }` name encountered.
  * This is a depth-first recursive generator over the EXPR grammar.
  */
 function* walkExprParams(expr: unknown): Generator<string> {
@@ -14,6 +13,15 @@ function* walkExprParams(expr: unknown): Generator<string> {
   if ('$param' in obj && typeof obj['$param'] === 'string') {
     yield obj['$param'] as string;
     return; // $param nodes have no sub-expressions
+  }
+
+  if ('$literal' in obj) {
+    return; // $literal carries no Expr sub-trees
+  }
+
+  // FieldExpr.lookup: entity/path/match/field/optional — no Expr sub-trees
+  if ('lookup' in obj) {
+    return;
   }
 
   if ('$list' in obj && Array.isArray(obj['$list'])) {
@@ -27,14 +35,14 @@ function* walkExprParams(expr: unknown): Generator<string> {
   }
 
   if ('case' in obj && obj['case'] !== null && typeof obj['case'] === 'object') {
-    const c = obj['case'] as { when?: unknown[]; else?: unknown };
+    const c = obj['case'] as { when?: unknown[]; else: unknown };
     if (Array.isArray(c.when)) {
       for (const [cond, val] of c.when as [unknown, unknown][]) {
         yield* walkExprParams(cond);
         yield* walkExprParams(val);
       }
     }
-    if (c.else !== undefined) yield* walkExprParams(c.else);
+    yield* walkExprParams(c.else);
     return;
   }
 
@@ -76,12 +84,12 @@ export function checkParamContext(graph: CanonicalGraph): GraphIrError[] {
 
     if (node.kind === 'map') {
       for (const [fieldName, fieldExpr] of Object.entries(node.fields)) {
-        for (const paramName of walkExprParams(fieldExpr as Expr)) {
+        for (const paramName of walkExprParams(fieldExpr)) {
           if (predicateOptional.has(paramName)) {
             errs.push({
               layer: 'semantic',
               code: ERROR_CODES.SEM_PARAM_CONTEXT,
-              message: `predicate_optional param "${paramName}" used outside a filter predicate`,
+              message: `predicate_optional param "${paramName}" used outside a filter expr`,
               location: { graphId: graph.id, nodeId: node.id, path: `fields.${fieldName}` },
             });
           }
@@ -93,12 +101,12 @@ export function checkParamContext(graph: CanonicalGraph): GraphIrError[] {
     if (node.kind === 'reduce') {
       for (const [measureKey, measure] of Object.entries(node.measures)) {
         if (measure.expr !== undefined) {
-          for (const paramName of walkExprParams(measure.expr as Expr)) {
+          for (const paramName of walkExprParams(measure.expr)) {
             if (predicateOptional.has(paramName)) {
               errs.push({
                 layer: 'semantic',
                 code: ERROR_CODES.SEM_PARAM_CONTEXT,
-                message: `predicate_optional param "${paramName}" used outside a filter predicate`,
+                message: `predicate_optional param "${paramName}" used outside a filter expr`,
                 location: { graphId: graph.id, nodeId: node.id, path: `measures.${measureKey}` },
               });
             }
@@ -116,7 +124,7 @@ export function checkParamContext(graph: CanonicalGraph): GraphIrError[] {
           errs.push({
             layer: 'semantic',
             code: ERROR_CODES.SEM_PARAM_CONTEXT,
-            message: `predicate_optional param "${paramName}" used outside a filter predicate`,
+            message: `predicate_optional param "${paramName}" used outside a filter expr`,
             location: { graphId: graph.id, nodeId: node.id, path: 'count' },
           });
         }

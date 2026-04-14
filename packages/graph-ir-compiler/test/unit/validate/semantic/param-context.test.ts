@@ -236,4 +236,80 @@ describe('checkParamContext', () => {
     expect(errs).toHaveLength(1);
     expect(errs[0]?.code).toBe('SEM_PARAM_CONTEXT');
   });
+
+  // --- Walker coverage: case expr inside map.fields ---
+  it('rejects predicate_optional param inside case expr in map.fields', () => {
+    const s = baseSpec({
+      graphs: {
+        g: {
+          id: 'g',
+          signature: {
+            inputs: PREDICATE_OPTIONAL_INPUT,
+            output: { type: 'rowset<Mapped>', from: 'm' },
+          },
+          nodes: [
+            { id: 'items', type: 'findMany', config: { source: { entity: 'OrderItem' } } },
+            {
+              id: 'm',
+              type: 'map',
+              config: {
+                input: 'items',
+                into: 'Mapped',
+                fields: {
+                  label: {
+                    case: {
+                      when: [[{ gte: ['orderItem.unitPrice', { $param: 'minPrice' }] }, 'high']],
+                      else: 'low',
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    const { graphs } = normalize(s);
+    const errs = checkParamContext(graphs.g!);
+    expect(errs).toHaveLength(1);
+    expect(errs[0]?.code).toBe('SEM_PARAM_CONTEXT');
+  });
+
+  // --- Walker coverage: exists.where inside map.fields ---
+  it('rejects predicate_optional param inside exists.where in map.fields', () => {
+    const s = baseSpec({
+      graphs: {
+        g: {
+          id: 'g',
+          signature: {
+            inputs: PREDICATE_OPTIONAL_INPUT,
+            output: { type: 'rowset<Mapped>', from: 'm' },
+          },
+          nodes: [
+            { id: 'items', type: 'findMany', config: { source: { entity: 'OrderItem' } } },
+            {
+              id: 'm',
+              type: 'map',
+              config: {
+                input: 'items',
+                into: 'Mapped',
+                fields: {
+                  hasMatch: {
+                    exists: {
+                      relation: 'orderItem.tags',
+                      where: { gte: ['tag.score', { $param: 'minPrice' }] },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    const { graphs } = normalize(s);
+    const errs = checkParamContext(graphs.g!);
+    expect(errs).toHaveLength(1);
+    expect(errs[0]?.code).toBe('SEM_PARAM_CONTEXT');
+  });
 });
