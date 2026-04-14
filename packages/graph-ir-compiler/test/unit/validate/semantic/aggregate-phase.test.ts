@@ -1,14 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { validateSemantic } from '../../../../src/validate/semantic/index.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
-import { QsmSchema } from '../../../../src/types/qsm.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
-
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';
 
 type ReduceFn = 'count' | 'count_distinct' | 'sum' | 'avg' | 'min' | 'max' | 'group_array';
 

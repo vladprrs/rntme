@@ -1,14 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolveSources } from '../../../../src/validate/semantic/sources.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
-import { QsmSchema } from '../../../../src/types/qsm.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
-
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';
 
 const good: AuthoringSpecOutput = {
   version: '1.0-rc7',
@@ -60,7 +54,7 @@ describe('resolveSources', () => {
             {
               id: 'rows',
               type: 'findMany',
-              config: { source: { projection: 'CategorySalesProjection' } },
+              config: { source: { projection: 'CategorySalesMirror' } },
             },
           ],
         },
@@ -72,10 +66,10 @@ describe('resolveSources', () => {
     if (r.ok) {
       expect(r.value.get('rows')).toMatchObject({
         kind: 'projection',
-        projection: 'CategorySalesProjection',
+        projection: 'CategorySalesMirror',
         entity: 'OrderItem',
         table: 'order_items',
-        alias: 'categorySalesProjection',
+        alias: 'categorySalesMirror',
       });
     }
   });

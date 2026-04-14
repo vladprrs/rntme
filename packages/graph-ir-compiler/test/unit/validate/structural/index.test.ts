@@ -1,13 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateStructural } from '../../../../src/validate/structural/index.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
-import { QsmSchema } from '../../../../src/types/qsm.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-import qsm from '../../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
-
-const P = PdmSchema.parse(pdm);
-const Q = QsmSchema.parse(qsm);
+import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';
 
 const good: AuthoringSpecOutput = {
   version: '1.0-rc7',

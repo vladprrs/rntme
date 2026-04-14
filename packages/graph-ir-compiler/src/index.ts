@@ -1,7 +1,5 @@
 import type Database from 'better-sqlite3';
 import { parseAuthoringSpec } from './parse/parse.js';
-import { PdmSchema, type Pdm } from './types/pdm.js';
-import { QsmSchema, type Qsm } from './types/qsm.js';
 import { validateStructural } from './validate/structural/index.js';
 import { validateSemantic } from './validate/semantic/index.js';
 import { normalize } from './canonical/normalize.js';
@@ -11,12 +9,12 @@ import { lowerToSqlite } from './lower/sqlite/lower.js';
 import { emitSql } from './lower/sqlite/emit.js';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, ERROR_CODES, type Result } from './types/result.js';
-import type { ExplainArtifacts, ExplainOutput } from './explain/explain.js';
+import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from './explain/explain.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
-export type { Pdm } from './types/pdm.js';
-export type { Qsm } from './types/qsm.js';
+export type { ValidatedPdm } from '@rntme/pdm';
+export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
 export const VERSION = '0.0.0';
@@ -40,29 +38,9 @@ export function compile(
   const specR = parseAuthoringSpec(rawSpec);
   if (!specR.ok) return specR;
 
-  const pdmR = PdmSchema.safeParse(rawPdm);
-  if (!pdmR.success) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'PDM failed schema validation',
-      },
-    ]);
-  }
-  const qsmR = QsmSchema.safeParse(rawQsm);
-  if (!qsmR.success) {
-    return err([
-      {
-        layer: 'parse',
-        code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-        message: 'QSM failed schema validation',
-      },
-    ]);
-  }
-
-  const pdm: Pdm = pdmR.data;
-  const qsm: Qsm = qsmR.data;
+  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
+  if (!pq.ok) return pq;
+  const { pdm, qsm } = pq.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
@@ -138,37 +116,10 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
   if (!specR.ok) return { ok: false, artifacts, errors: specR.errors };
   artifacts.parsed = specR.value;
 
-  const pdmR = PdmSchema.safeParse(rawPdm);
-  if (!pdmR.success) {
-    return {
-      ok: false,
-      artifacts,
-      errors: [
-        {
-          layer: 'parse',
-          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-          message: 'PDM failed schema validation',
-        },
-      ],
-    };
-  }
-  const qsmR = QsmSchema.safeParse(rawQsm);
-  if (!qsmR.success) {
-    return {
-      ok: false,
-      artifacts,
-      errors: [
-        {
-          layer: 'parse',
-          code: ERROR_CODES.PARSE_SCHEMA_VIOLATION,
-          message: 'QSM failed schema validation',
-        },
-      ],
-    };
-  }
+  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
+  if (!pq.ok) return { ok: false, artifacts, errors: pq.errors };
 
-  const pdm: Pdm = pdmR.data;
-  const qsm: Qsm = qsmR.data;
+  const { pdm, qsm } = pq.value;
 
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };

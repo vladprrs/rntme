@@ -1,6 +1,6 @@
 import type { CanonicalGraph } from '../../types/canonical.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import type { Scope } from './scope.js';
 import { inferExprType, type ParamMap } from './types.js';
@@ -33,8 +33,8 @@ function aggReturnType(fn: string, inType: string): string | undefined {
 function targetFieldsForInto(
   into: string,
   shapes: AuthoringSpecOutput['shapes'],
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): Record<string, { type: string; nullable: boolean }> {
   const fromShapes = shapes[into];
   if (fromShapes?.fields) {
@@ -58,8 +58,8 @@ function targetFieldsForInto(
 export function checkReduce(
   graph: CanonicalGraph,
   shapes: AuthoringSpecOutput['shapes'],
-  pdm: Pdm,
-  qsm: Qsm,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
   scopeFor: (nodeId: string) => Scope,
   params: ParamMap,
 ): GraphIrError[] {

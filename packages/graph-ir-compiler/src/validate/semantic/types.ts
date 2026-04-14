@@ -1,4 +1,4 @@
-import type { Pdm } from '../../types/pdm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
 import type { Scope } from './scope.js';
 import { resolveField } from './fields.js';
 import { ERROR_CODES, err, ok, type GraphIrError, type Result } from '../../types/result.js';
@@ -28,7 +28,7 @@ const VARIADIC_LOGIC = new Set(['and', 'or']);
 export function inferExprType(
   expr: unknown,
   scope: Scope,
-  pdm: Pdm,
+  pdm: ValidatedPdm,
   params: ParamMap,
 ): Result<ExprType> {
   if (expr === null) return ok({ type: 'null', nullable: true });
@@ -170,7 +170,7 @@ export function inferExprType(
 function await2(
   args: unknown[],
   scope: Scope,
-  pdm: Pdm,
+  pdm: ValidatedPdm,
   params: ParamMap,
 ): [Result<ExprType>, Result<ExprType>] {
   return [inferExprType(args[0], scope, pdm, params), inferExprType(args[1], scope, pdm, params)];

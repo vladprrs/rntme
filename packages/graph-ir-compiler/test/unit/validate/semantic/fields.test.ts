@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveField } from '../../../../src/validate/semantic/fields.js';
-import { PdmSchema } from '../../../../src/types/pdm.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
-import pdm from '../../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
-
-const P = PdmSchema.parse(pdm);
+import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
 
 describe('resolveField (single-level)', () => {
   const scope: Scope = {

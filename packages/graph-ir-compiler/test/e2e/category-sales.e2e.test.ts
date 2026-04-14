@@ -6,6 +6,7 @@ import { compile, execute } from '../../src/index.js';
 import { makeDb, loadJson } from './helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
+/** Graph `getCategorySales` roots on `findMany` with `source: { entity: 'OrderItem' }` (not a QSM projection). */
 const spec = JSON.parse(readFileSync(join(here, '..', 'golden', 'category-sales', 'graph.json'), 'utf8'));
 const pdm = loadJson('commerce.pdm.json');
 const qsm = loadJson('commerce.qsm.json');

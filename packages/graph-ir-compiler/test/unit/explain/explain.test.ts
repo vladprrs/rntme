@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { explain } from '../../../src/index.js';
+import type { GraphIrError } from '../../../src/types/result.js';
 import pdm from '../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 
@@ -26,7 +27,7 @@ describe('explain', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.value.canonical.graphs.g!.nodes[0]!.kind).toBe('findMany');
-      expect(r.value.semanticPlan.steps.map((s) => s.kind)).toEqual(['scan', 'limit']);
+      expect(r.value.semanticPlan.steps.map((s: { kind: string }) => s.kind)).toEqual(['scan', 'limit']);
       expect(r.value.relational.op).toBe('Limit');
       expect(r.value.sql).toContain('SELECT');
       expect(r.value.paramOrder).toEqual([]);
@@ -48,7 +49,7 @@ describe('explain', () => {
     if (!r.ok) {
       expect(r.artifacts.parsed?.version).toBe('1.0-rc7');
       expect(r.artifacts.canonical).toBeUndefined();
-      expect(r.errors.some((e) => e.code === 'STRUCT_INVALID_OUTPUT_FROM')).toBe(true);
+      expect(r.errors.some((e: GraphIrError) => e.code === 'STRUCT_INVALID_OUTPUT_FROM')).toBe(true);
     }
   });
 });

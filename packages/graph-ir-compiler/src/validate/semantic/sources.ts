@@ -1,6 +1,6 @@
 import type { CanonicalGraph } from '../../types/canonical.js';
-import type { Pdm } from '../../types/pdm.js';
-import type { Qsm } from '../../types/qsm.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
 
 export type EntitySource = { kind: 'entity'; entity: string; table: string; alias: string };
@@ -15,7 +15,7 @@ export type ResolvedSource = EntitySource | ProjectionSource;
 
 export type SourceMap = Map<string, ResolvedSource>;
 
-export function resolveSources(graph: CanonicalGraph, pdm: Pdm, qsm: Qsm): Result<SourceMap> {
+export function resolveSources(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: ValidatedQsm): Result<SourceMap> {
   const errors: GraphIrError[] = [];
   const map: SourceMap = new Map();
 
