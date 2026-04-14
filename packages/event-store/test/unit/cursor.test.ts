@@ -28,8 +28,9 @@ describe('publish_cursor', () => {
 
   it('writeCursor rejects non-monotonic values', () => {
     store = new SqliteEventStore({ filename: ':memory:' });
-    store.writeCursor('kafka-main', 50);
-    expect(() => store.writeCursor('kafka-main', 10)).toThrow(/monotonic/i);
-    expect(store.readCursor('kafka-main')).toBe(50);
+    const s = store;
+    s.writeCursor('kafka-main', 50);
+    expect(() => s.writeCursor('kafka-main', 10)).toThrow(/monotonic/i);
+    expect(s.readCursor('kafka-main')).toBe(50);
   });
 });

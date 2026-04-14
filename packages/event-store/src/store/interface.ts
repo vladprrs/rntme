@@ -6,10 +6,16 @@ export type ReadFromOptions = Readonly<{
   limit: number;
 }>;
 
+export type EventRecord = Readonly<{
+  id: number;
+  envelope: EventEnvelope;
+}>;
+
 export interface EventStore {
   appendEvents(requests: readonly AppendRequest[]): AppendResult[];
   readStream(stream: string): EventEnvelope[];
   readFrom(opts: ReadFromOptions): EventEnvelope[];
+  readRecordsFrom(opts: ReadFromOptions): EventRecord[];
   readCursor(relayId: string): number;
   writeCursor(relayId: string, lastEventId: number): void;
 }

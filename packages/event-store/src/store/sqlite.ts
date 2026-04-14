@@ -3,7 +3,7 @@ import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { AppendRequest, AppendResult } from '../types/append.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
-import type { EventStore, ReadFromOptions } from './interface.js';
+import type { EventRecord, EventStore, ReadFromOptions } from './interface.js';
 import { applyEventStoreSchema } from './schema.js';
 import { rowToEnvelope, type EventLogRow } from './row-mapper.js';
 
@@ -105,6 +105,12 @@ export class SqliteEventStore implements EventStore {
       .prepare('SELECT * FROM event_log WHERE id > ? ORDER BY id ASC LIMIT ?')
       .all(opts.afterId, opts.limit) as EventLogRow[];
     return rows.map(rowToEnvelope);
+  }
+  readRecordsFrom(opts: ReadFromOptions): EventRecord[] {
+    const rows = this.db
+      .prepare('SELECT * FROM event_log WHERE id > ? ORDER BY id ASC LIMIT ?')
+      .all(opts.afterId, opts.limit) as EventLogRow[];
+    return rows.map((row) => ({ id: row.id, envelope: rowToEnvelope(row) }));
   }
   readCursor(relayId: string): number {
     const row = this.db
