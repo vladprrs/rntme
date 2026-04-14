@@ -5,10 +5,22 @@ import {
   parsePdm,
   validatePdm,
   createPdmResolver,
+  deriveEventTypes,
   isErr,
   type PdmResolver,
   type ValidatedPdm,
+  type EventTypeSpec,
 } from '@rntme/pdm';
+import {
+  parseQsm,
+  validateQsm,
+  createQsmResolver,
+  generateProjectionDdl,
+  isErr as isQsmErr,
+  type QsmResolver,
+  type ValidatedQsm,
+  type ProjectionDdlSpec,
+} from '@rntme/qsm';
 import type {
   BindingResolvers,
   GraphSignature,
@@ -32,50 +44,43 @@ type ShapesJson = Record<string, { fields: Record<string, { type: string; nullab
 
 const here = dirname(fileURLToPath(import.meta.url));
 const artifactsDir = join(here, 'artifacts');
-
 const readText = (name: string): string => readFileSync(join(artifactsDir, name), 'utf8');
 const readJson = <T>(name: string): T => JSON.parse(readText(name)) as T;
 
+// ---- PDM -----------------------------------------------------------------
 const pdmParsed = parsePdm(readText('pdm.json'));
 if (isErr(pdmParsed)) {
   throw new Error(`PDM parse failed: ${JSON.stringify(pdmParsed.errors, null, 2)}`);
 }
-const pdmValidated = validatePdm(pdmParsed.value);
-if (isErr(pdmValidated)) {
-  throw new Error(`PDM validation failed: ${JSON.stringify(pdmValidated.errors, null, 2)}`);
+const pdmValidatedR = validatePdm(pdmParsed.value);
+if (isErr(pdmValidatedR)) {
+  throw new Error(`PDM validation failed: ${JSON.stringify(pdmValidatedR.errors, null, 2)}`);
 }
-export const pdmResolver: PdmResolver = createPdmResolver(pdmValidated.value);
+export const validatedPdm: ValidatedPdm = pdmValidatedR.value;
+export const pdmResolver: PdmResolver = createPdmResolver(validatedPdm);
+/** Raw PDM passed to graph-ir-compiler; compiler re-parses via @rntme/pdm, so the full object is fine. */
+export const pdm: ValidatedPdm = validatedPdm;
 
-/**
- * PDM exported for use by graph-ir-compiler (via createBindingsRouter).
- * graph-ir-compiler uses a strict Zod schema, so `generated` and `stateMachine`
- * fields must be stripped before passing. We project the validated PDM to only
- * include `table`, `fields` (type/nullable/column only), `relations`, and `keys`.
- * Typed as ValidatedPdm so existing callers that read `pdm.entities` still work.
- */
-function stripForCompiler(validated: ValidatedPdm): ValidatedPdm {
-  const entities: Record<string, unknown> = {};
-  for (const [entityName, entity] of Object.entries(validated.entities)) {
-    const fields: Record<string, unknown> = {};
-    for (const [fieldName, field] of Object.entries(entity.fields)) {
-      fields[fieldName] = { type: field.type, nullable: field.nullable, column: field.column };
-    }
-    entities[entityName] = {
-      table: entity.table,
-      fields,
-      relations: entity.relations ?? {},
-      keys: entity.keys,
-    };
-  }
-  return { entities } as unknown as ValidatedPdm;
+// ---- QSM -----------------------------------------------------------------
+const qsmRaw = readJson<unknown>('qsm.json');
+const qsmParsed = parseQsm(qsmRaw);
+if (isQsmErr(qsmParsed)) {
+  throw new Error(`QSM parse failed: ${JSON.stringify(qsmParsed.errors, null, 2)}`);
 }
+const qsmValidatedR = validateQsm(qsmParsed.value, pdmResolver);
+if (isQsmErr(qsmValidatedR)) {
+  throw new Error(`QSM validation failed: ${JSON.stringify(qsmValidatedR.errors, null, 2)}`);
+}
+export const validatedQsm: ValidatedQsm = qsmValidatedR.value;
+export const qsmResolver: QsmResolver = createQsmResolver(validatedQsm);
+export const qsm: ValidatedQsm = validatedQsm;
 
-// TODO(follow-up/graph-ir-compiler-schema): remove stripForCompiler once graph-ir-compiler's
-// PdmSchema accepts the `generated` field on Field and the `stateMachine` block on Entity.
-// Once that lands, replace with: export const pdm: ValidatedPdm = pdmValidated.value;
-export const pdm: ValidatedPdm = stripForCompiler(pdmValidated.value);
+// ---- Derived specs --------------------------------------------------------
+export const projectionDdls: readonly ProjectionDdlSpec[] =
+  generateProjectionDdl(validatedQsm, pdmResolver);
+export const eventTypes: readonly EventTypeSpec[] = deriveEventTypes(validatedPdm);
 
-export const qsm = readJson<Record<string, unknown>>('qsm.json');
+// ---- Bindings + graph spec ------------------------------------------------
 export const bindingsArtifact = readJson<Record<string, unknown>>('bindings.json');
 export const shapes = readJson<ShapesJson>('shapes.json');
 
@@ -95,6 +100,7 @@ export const graphSpec = {
   graphs: graphsById,
 };
 
+// ---- Resolvers for @rntme/bindings ---------------------------------------
 function parseInputType(raw: string): InputType {
   if (
     raw === 'integer' || raw === 'decimal' || raw === 'string' ||
