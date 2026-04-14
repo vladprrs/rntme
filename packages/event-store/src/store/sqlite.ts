@@ -5,6 +5,7 @@ import type { AppendRequest, AppendResult } from '../types/append.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
 import type { EventStore, ReadFromOptions } from './interface.js';
 import { applyEventStoreSchema } from './schema.js';
+import { rowToEnvelope, type EventLogRow } from './row-mapper.js';
 
 export type SqliteEventStoreOptions = Readonly<{
   filename: string;
@@ -93,8 +94,11 @@ export class SqliteEventStore implements EventStore {
 
     return run.immediate(requests);
   }
-  readStream(_stream: string): EventEnvelope[] {
-    throw new Error('not implemented — Task 8');
+  readStream(stream: string): EventEnvelope[] {
+    const rows = this.db
+      .prepare('SELECT * FROM event_log WHERE stream = ? ORDER BY version ASC')
+      .all(stream) as EventLogRow[];
+    return rows.map(rowToEnvelope);
   }
   readFrom(_opts: ReadFromOptions): EventEnvelope[] {
     throw new Error('not implemented — Task 9');

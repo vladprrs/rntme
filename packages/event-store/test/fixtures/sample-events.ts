@@ -9,7 +9,7 @@ export function makeEvent(
     aggregateType: overrides.aggregateType ?? 'Issue',
     aggregateId: overrides.aggregateId ?? '1',
     occurredAt: overrides.occurredAt ?? '2026-04-14T10:00:00.000Z',
-    actor: overrides.actor ?? { kind: 'user', id: 'alice' },
+    actor: 'actor' in overrides ? overrides.actor : { kind: 'user', id: 'alice' },
     payload: overrides.payload ?? { before: null, after: { status: 'draft' } },
     schemaVersion: overrides.schemaVersion ?? 1,
   };
