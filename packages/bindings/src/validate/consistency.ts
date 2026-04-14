@@ -1,0 +1,139 @@
+import type {
+  BindingEntry,
+  HttpParameter,
+  ResolvedBindings,
+  ValidatedBindings,
+} from '../types/artifact.js';
+import type { GraphInput, GraphSignature, InputMode, InputType } from '../types/resolvers.js';
+import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
+
+const REQUIRED_BY_MODE: Record<InputMode, readonly boolean[]> = {
+  required: [true],
+  defaulted: [false],
+  predicate_optional: [false],
+  nullable: [true, false],
+  root: [],
+};
+
+function checkGraphShape(
+  id: string,
+  signature: GraphSignature,
+  errors: BindingsError[],
+): boolean {
+  const basePath = `bindings.${id}.graph`;
+  let fatal = false;
+
+  for (const [inputName, input] of Object.entries(signature.inputs)) {
+    if (input.mode === 'root') {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_GRAPH_HAS_ROOT_INPUT,
+        message: `Graph "${signature.id}" has root input "${inputName}" and cannot be bound as HTTP endpoint`,
+        path: basePath,
+      });
+      fatal = true;
+    }
+  }
+
+  if (signature.output.type.kind !== 'rowset') {
+    errors.push({
+      layer: 'consistency',
+      code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
+      message: `Graph "${signature.id}" output kind "${signature.output.type.kind}" is not bindable — must be rowset`,
+      path: basePath,
+    });
+    fatal = true;
+  }
+
+  return !fatal;
+}
+
+function checkTypeLocation(input: InputType, location: HttpParameter['in']): boolean {
+  switch (input.kind) {
+    case 'scalar':
+      return true; // valid everywhere
+    case 'list':
+      return location !== 'path';
+    case 'row':
+    case 'rowset':
+      return false; // forbidden anywhere (root would have been caught earlier)
+  }
+}
+
+function checkParameters(
+  id: string,
+  entry: BindingEntry,
+  signature: GraphSignature,
+  errors: BindingsError[],
+): void {
+  const paramPath = (i: number) => `bindings.${id}.http.parameters[${i}]`;
+
+  entry.http.parameters.forEach((p, i) => {
+    const input = signature.inputs[p.bindTo];
+    if (input === undefined) return; // already caught by reference layer
+
+    const allowed = REQUIRED_BY_MODE[input.mode];
+    if (!allowed.includes(p.required)) {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_REQUIRED_MISMATCH,
+        message:
+          `Parameter "${p.name}" in binding "${id}" has required=${p.required}, ` +
+          `but input "${p.bindTo}" has mode=${input.mode} (allowed required: [${allowed.join(', ')}])`,
+        path: `${paramPath(i)}.required`,
+      });
+    }
+
+    if (!checkTypeLocation(input.type, p.in)) {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_TYPE_LOCATION_INVALID,
+        message: `Parameter "${p.name}" binds input of kind "${input.type.kind}" to location "${p.in}", which is not allowed`,
+        path: `${paramPath(i)}.in`,
+      });
+    }
+  });
+}
+
+function checkUnbound(
+  id: string,
+  entry: BindingEntry,
+  signature: GraphSignature,
+  errors: BindingsError[],
+): void {
+  const basePath = `bindings.${id}.http.parameters`;
+  const boundTargets = new Set(entry.http.parameters.map((p) => p.bindTo));
+
+  for (const [inputName, input] of Object.entries(signature.inputs)) {
+    if (input.mode === 'root') continue;
+    if (input.mode !== 'required' && input.mode !== 'nullable') continue;
+    if (!boundTargets.has(inputName)) {
+      errors.push({
+        layer: 'consistency',
+        code: ERROR_CODES.BINDINGS_UNBOUND_INPUT,
+        message:
+          `Input "${inputName}" of graph "${signature.id}" has mode=${input.mode} ` +
+          `and must be bound by binding "${id}"`,
+        path: basePath,
+      });
+    }
+  }
+}
+
+export function validateConsistency(resolved: ResolvedBindings): Result<ValidatedBindings> {
+  const errors: BindingsError[] = [];
+
+  for (const [id, binding] of Object.entries(resolved.resolved)) {
+    const shapeOk = checkGraphShape(id, binding.signature, errors);
+    if (!shapeOk) continue; // don't run parameter checks against unbindable graph
+
+    checkParameters(id, binding.entry, binding.signature, errors);
+    checkUnbound(id, binding.entry, binding.signature, errors);
+  }
+
+  if (errors.length > 0) return err(errors);
+  return ok(resolved as unknown as ValidatedBindings);
+}
+
+// Re-exports used in tests/doc only; keep within this file's surface.
+export type { GraphInput };
