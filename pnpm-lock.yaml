@@ -22,6 +22,9 @@ importers:
       '@rntme/graph-ir-compiler':
         specifier: workspace:*
         version: link:../../packages/graph-ir-compiler
+      '@rntme/pdm':
+        specifier: workspace:*
+        version: link:../../packages/pdm
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0

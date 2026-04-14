@@ -12,7 +12,7 @@
         "status": { "type": "string", "nullable": false, "column": "status" },
         "priority": { "type": "string", "nullable": false, "column": "priority" },
         "storyPoints": { "type": "integer", "nullable": false, "column": "story_points" },
-        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at" },
+        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
         "resolvedAt": { "type": "datetime", "nullable": true, "column": "resolved_at" }
       },
       "relations": {
@@ -41,7 +41,21 @@
           "foreignKey": "id"
         }
       },
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["draft", "open", "in_progress", "resolved", "closed"],
+        "transitions": {
+          "report":   { "from": null,            "to": "draft",        "affects": ["title", "projectId", "reporterId", "priority", "storyPoints"] },
+          "submit":   { "from": "draft",         "to": "open" },
+          "assign":   { "from": "open",          "to": "in_progress",  "affects": ["assigneeId"] },
+          "reassign": { "from": "in_progress",   "to": "in_progress",  "affects": ["assigneeId"] },
+          "resolve":  { "from": "in_progress",   "to": "resolved",     "affects": ["resolvedAt"] },
+          "reopen":   { "from": "resolved",      "to": "open" },
+          "close":    { "from": "resolved",      "to": "closed" }
+        }
+      }
     },
     "Project": {
       "table": "projects",
