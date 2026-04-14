@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { generateOpenApi } from '../../../src/openapi/emit.js';
 import type { ValidatedBindings } from '../../../src/types/artifact.js';
 import type { BindingResolvers, GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
+import {
+  COMMAND_RESULT_SHAPE_NAME,
+  commandResultJsonSchema,
+  commandResultShape,
+} from '../../../src/openapi/command-result.js';
 
 const row: ResolvedShape = {
   name: 'Row',
@@ -85,7 +90,7 @@ describe('generateOpenApi', () => {
       type: 'array',
       items: { $ref: '#/components/schemas/Row' },
     });
-    expect(Object.keys(op?.responses ?? {})).toEqual(['200', '400', '422', '500']);
+    expect(Object.keys(op?.responses ?? {}).sort()).toEqual(['200', '400', '422', '500']);
   });
 
   it('uses http.operationId override when set', () => {
@@ -172,5 +177,64 @@ describe('generateOpenApi', () => {
     const r = generateOpenApi(v, resolvers);
     if (!r.ok) throw new Error('expected ok');
     expect(Object.keys(r.value.components.schemas).sort()).toEqual(['ErrorResponse', 'Row']);
+  });
+
+  it('emits a command binding with single-object response + 409 + CommandResult schema', () => {
+    const cmdSig: GraphSignature = {
+      id: 'assignIssue',
+      role: 'command',
+      inputs: {
+        issueId: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
+        assigneeId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+        actor: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+      },
+      output: { type: { kind: 'row', shape: COMMAND_RESULT_SHAPE_NAME }, from: 'emitAssign' },
+    };
+
+    const cmdEntry = {
+      kind: 'command' as const,
+      graph: 'assignIssue',
+      target: { engine: 'sqlite', dialect: 'sqlite' },
+      http: {
+        method: 'POST' as const,
+        path: '/v1/issues/{issueId}/actions/assign',
+        parameters: [
+          { name: 'issueId', in: 'path' as const, bindTo: 'issueId', required: true },
+          { name: 'assigneeId', in: 'body' as const, bindTo: 'assigneeId', required: true },
+          { name: 'actor', in: 'body' as const, bindTo: 'actor', required: true },
+        ],
+        tags: ['issues'],
+        summary: 'Assign an issue',
+      },
+    };
+
+    const v: ValidatedBindings = {
+      artifact: {
+        version: '1.0',
+        graphSpecRef: 'x',
+        pdmRef: 'y',
+        qsmRef: 'z',
+        bindings: { assignIssue: cmdEntry },
+      } as unknown as ValidatedBindings['artifact'],
+      resolved: {
+        assignIssue: { entry: cmdEntry, signature: cmdSig, outputShape: commandResultShape() },
+      },
+    } as unknown as ValidatedBindings;
+
+    const cmdResolvers: BindingResolvers = {
+      resolveGraphSignature: (id) => (id === 'assignIssue' ? cmdSig : null),
+      resolveShape: () => null,
+    };
+
+    const r = generateOpenApi(v, cmdResolvers);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const op = r.value.paths['/v1/issues/{issueId}/actions/assign']?.post;
+    expect(op?.operationId).toBe('assignIssue');
+    expect(op?.responses['200']?.content?.['application/json']?.schema).toEqual({
+      $ref: `#/components/schemas/${COMMAND_RESULT_SHAPE_NAME}`,
+    });
+    expect(Object.keys(op?.responses ?? {}).sort()).toEqual(['200', '400', '409', '422', '500']);
+    expect(r.value.components.schemas.CommandResult).toEqual(commandResultJsonSchema());
   });
 });

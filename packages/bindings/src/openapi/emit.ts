@@ -14,6 +14,7 @@ import type { Result } from '../types/result.js';
 import { ok } from '../types/result.js';
 import { shapeToJsonSchema, type ShapeEmitOptions } from './shapes.js';
 import { collectRequestBody, inputToParameter } from './parameters.js';
+import { COMMAND_RESULT_SHAPE_NAME, commandResultJsonSchema } from './command-result.js';
 import { successResponse } from './responses.js';
 import {
   ERROR_RESPONSE_SCHEMA_NAME,
@@ -57,6 +58,9 @@ function buildOperation(
 ): OperationObject {
   const { entry, signature, outputShape } = binding;
   const { http } = entry;
+  const kind = entry.kind ?? 'query';
+  const outputKind: 'row' | 'rowset' =
+    signature.output.type.kind === 'row' ? 'row' : 'rowset';
 
   const baseParameters: ParameterObject[] = http.parameters
     .filter((p) => p.in !== 'body')
@@ -79,10 +83,10 @@ function buildOperation(
   const requestBody = collectRequestBody(http.parameters, signature.inputs, shapeOptions);
 
   const responses: Record<string, ResponseObject> = {
-    '200': successResponse(outputShape.name),
+    '200': successResponse(outputShape.name, outputKind),
   };
   if (includeStandardErrors) {
-    Object.assign(responses, standardErrorResponses());
+    Object.assign(responses, standardErrorResponses({ commandErrors: kind === 'command' }));
   }
 
   const operation: OperationObject = {
@@ -121,7 +125,11 @@ export function generateOpenApi(
     pathItem[methodKey] = op;
     paths[binding.entry.http.path] = pathItem;
 
-    schemas[binding.outputShape.name] = shapeToJsonSchema(binding.outputShape, shapeOptions);
+    if ((binding.entry.kind ?? 'query') === 'command') {
+      schemas[COMMAND_RESULT_SHAPE_NAME] = commandResultJsonSchema();
+    } else {
+      schemas[binding.outputShape.name] = shapeToJsonSchema(binding.outputShape, shapeOptions);
+    }
   }
 
   if (includeStandardErrors) {

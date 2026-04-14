@@ -25,10 +25,22 @@ function errorResponse(description: string): ResponseObject {
   };
 }
 
-export function standardErrorResponses(): Record<'400' | '422' | '500', ResponseObject> {
-  return {
+export function conflictResponse(): ResponseObject {
+  return errorResponse('Concurrency conflict. Retry the command.');
+}
+
+export type StandardErrorOptions = { commandErrors?: boolean };
+
+export function standardErrorResponses(
+  options: StandardErrorOptions = {},
+): Record<string, ResponseObject> {
+  const base: Record<string, ResponseObject> = {
     '400': errorResponse('Validation error'),
     '422': errorResponse('Semantic error'),
     '500': errorResponse('Internal error'),
   };
+  if (options.commandErrors === true) {
+    base['409'] = conflictResponse();
+  }
+  return base;
 }

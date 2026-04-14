@@ -1,14 +1,14 @@
 import type { ResponseObject } from '../types/openapi.js';
 
-export function successResponse(shapeName: string): ResponseObject {
+export type SuccessResponseKind = 'row' | 'rowset';
+
+export function successResponse(shapeName: string, kind: SuccessResponseKind): ResponseObject {
+  const ref = { $ref: `#/components/schemas/${shapeName}` };
   return {
     description: 'OK',
     content: {
       'application/json': {
-        schema: {
-          type: 'array',
-          items: { $ref: `#/components/schemas/${shapeName}` },
-        },
+        schema: kind === 'row' ? ref : { type: 'array', items: ref },
       },
     },
   };
