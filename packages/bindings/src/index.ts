@@ -27,6 +27,7 @@ export type {
 export type {
   BindingArtifact,
   BindingEntry,
+  BindingKind,
   HttpBinding,
   HttpParameter,
   HttpMethod,
@@ -43,6 +44,7 @@ export type {
 export type {
   BindingResolvers,
   GraphSignature,
+  GraphRole,
   GraphInput,
   InputMode,
   InputType,

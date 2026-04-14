@@ -33,8 +33,11 @@ export type OutputType =
   | { kind: 'row'; shape: string }
   | { kind: 'scalar'; primitive: ScalarPrimitive };
 
+export type GraphRole = 'query' | 'command';
+
 export type GraphSignature = {
   id: string;
+  role?: GraphRole;
   inputs: Record<string, GraphInput>;
   output: { type: OutputType; from: string };
 };

@@ -26,7 +26,10 @@ export type HttpBinding = {
   openapi?: OperationPassthrough;
 };
 
+export type BindingKind = 'query' | 'command';
+
 export type BindingEntry = {
+  kind?: BindingKind;
   graph: string;
   target: { engine: string; dialect: string };
   http: HttpBinding;
