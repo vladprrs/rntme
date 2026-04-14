@@ -36,6 +36,49 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)
 
+  packages/bindings-http:
+    dependencies:
+      '@rntme/bindings':
+        specifier: workspace:*
+        version: link:../bindings
+      '@rntme/graph-ir-compiler':
+        specifier: workspace:*
+        version: link:../graph-ir-compiler
+      hono:
+        specifier: ^4.6.0
+        version: 4.12.12
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.11
+        version: 7.6.13
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4)(typescript@5.9.3))(eslint@9.39.4)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4)(typescript@5.9.3)
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4
+      prettier:
+        specifier: ^3.3.3
+        version: 3.8.2
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)
+
   packages/graph-ir-compiler:
     dependencies:
       better-sqlite3:
@@ -740,6 +783,10 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  hono@4.12.12:
+    resolution: {integrity: sha512-p1JfQMKaceuCbpJKAPKVqyqviZdS0eUxH9v82oWo1kb9xjQ5wA6iP3FNVAPDFlz5/p7d45lO+BpSk1tuSZMF4Q==}
+    engines: {node: '>=16.9.0'}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -1727,6 +1774,8 @@ snapshots:
   globals@14.0.0: {}
 
   has-flag@4.0.0: {}
+
+  hono@4.12.12: {}
 
   ieee754@1.2.1: {}
 
