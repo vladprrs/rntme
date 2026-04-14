@@ -15,6 +15,7 @@
     "@rntme/bindings": "workspace:*",
     "@rntme/bindings-http": "workspace:*",
     "@rntme/graph-ir-compiler": "workspace:*",
+    "@rntme/pdm": "workspace:*",
     "better-sqlite3": "^11.0.0",
     "hono": "^4.6.0"
   },

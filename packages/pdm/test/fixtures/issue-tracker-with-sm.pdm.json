@@ -16,30 +16,10 @@
         "resolvedAt": { "type": "datetime", "nullable": true, "column": "resolved_at" }
       },
       "relations": {
-        "project": {
-          "to": "Project",
-          "cardinality": "one",
-          "localKey": "projectId",
-          "foreignKey": "id"
-        },
-        "reporter": {
-          "to": "User",
-          "cardinality": "one",
-          "localKey": "reporterId",
-          "foreignKey": "id"
-        },
-        "assignee": {
-          "to": "User",
-          "cardinality": "one",
-          "localKey": "assigneeId",
-          "foreignKey": "id"
-        },
-        "sprint": {
-          "to": "Sprint",
-          "cardinality": "one",
-          "localKey": "sprintId",
-          "foreignKey": "id"
-        }
+        "project": { "to": "Project", "cardinality": "one", "localKey": "projectId", "foreignKey": "id" },
+        "reporter": { "to": "User", "cardinality": "one", "localKey": "reporterId", "foreignKey": "id" },
+        "assignee": { "to": "User", "cardinality": "one", "localKey": "assigneeId", "foreignKey": "id" },
+        "sprint": { "to": "Sprint", "cardinality": "one", "localKey": "sprintId", "foreignKey": "id" }
       },
       "keys": ["id"],
       "stateMachine": {
@@ -67,12 +47,7 @@
         "createdAt": { "type": "datetime", "nullable": false, "column": "created_at" }
       },
       "relations": {
-        "lead": {
-          "to": "User",
-          "cardinality": "one",
-          "localKey": "leadId",
-          "foreignKey": "id"
-        }
+        "lead": { "to": "User", "cardinality": "one", "localKey": "leadId", "foreignKey": "id" }
       },
       "keys": ["id"]
     },
@@ -87,12 +62,7 @@
         "endsAt": { "type": "datetime", "nullable": false, "column": "ends_at" }
       },
       "relations": {
-        "project": {
-          "to": "Project",
-          "cardinality": "one",
-          "localKey": "projectId",
-          "foreignKey": "id"
-        }
+        "project": { "to": "Project", "cardinality": "one", "localKey": "projectId", "foreignKey": "id" }
       },
       "keys": ["id"]
     },
@@ -105,7 +75,6 @@
         "role": { "type": "string", "nullable": false, "column": "role" },
         "joinedAt": { "type": "datetime", "nullable": false, "column": "joined_at" }
       },
-      "relations": {},
       "keys": ["id"]
     }
   }

@@ -1,6 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  parsePdm,
+  validatePdm,
+  createPdmResolver,
+  isErr,
+  type PdmResolver,
+  type ValidatedPdm,
+} from '@rntme/pdm';
 import type {
   BindingResolvers,
   GraphSignature,
@@ -20,25 +28,56 @@ type GraphJson = {
   nodes: unknown[];
 };
 
-type PdmEntity = {
-  table: string;
-  fields: Record<string, { type: string; nullable: boolean; column: string }>;
-  relations: Record<string, unknown>;
-  keys: string[];
-};
-
-type PdmJson = { entities: Record<string, PdmEntity> };
 type ShapesJson = Record<string, { fields: Record<string, { type: string; nullable: boolean }> }>;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const artifactsDir = join(here, 'artifacts');
 
-const read = <T>(name: string): T => JSON.parse(readFileSync(join(artifactsDir, name), 'utf8')) as T;
+const readText = (name: string): string => readFileSync(join(artifactsDir, name), 'utf8');
+const readJson = <T>(name: string): T => JSON.parse(readText(name)) as T;
 
-export const pdm = read<PdmJson>('pdm.json');
-export const qsm = read<Record<string, unknown>>('qsm.json');
-export const bindingsArtifact = read<Record<string, unknown>>('bindings.json');
-export const shapes = read<ShapesJson>('shapes.json');
+const pdmParsed = parsePdm(readText('pdm.json'));
+if (isErr(pdmParsed)) {
+  throw new Error(`PDM parse failed: ${JSON.stringify(pdmParsed.errors, null, 2)}`);
+}
+const pdmValidated = validatePdm(pdmParsed.value);
+if (isErr(pdmValidated)) {
+  throw new Error(`PDM validation failed: ${JSON.stringify(pdmValidated.errors, null, 2)}`);
+}
+export const pdmResolver: PdmResolver = createPdmResolver(pdmValidated.value);
+
+/**
+ * PDM exported for use by graph-ir-compiler (via createBindingsRouter).
+ * graph-ir-compiler uses a strict Zod schema, so `generated` and `stateMachine`
+ * fields must be stripped before passing. We project the validated PDM to only
+ * include `table`, `fields` (type/nullable/column only), `relations`, and `keys`.
+ * Typed as ValidatedPdm so existing callers that read `pdm.entities` still work.
+ */
+function stripForCompiler(validated: ValidatedPdm): ValidatedPdm {
+  const entities: Record<string, unknown> = {};
+  for (const [entityName, entity] of Object.entries(validated.entities)) {
+    const fields: Record<string, unknown> = {};
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      fields[fieldName] = { type: field.type, nullable: field.nullable, column: field.column };
+    }
+    entities[entityName] = {
+      table: entity.table,
+      fields,
+      relations: entity.relations ?? {},
+      keys: entity.keys,
+    };
+  }
+  return { entities } as unknown as ValidatedPdm;
+}
+
+// TODO(follow-up/graph-ir-compiler-schema): remove stripForCompiler once graph-ir-compiler's
+// PdmSchema accepts the `generated` field on Field and the `stateMachine` block on Entity.
+// Once that lands, replace with: export const pdm: ValidatedPdm = pdmValidated.value;
+export const pdm: ValidatedPdm = stripForCompiler(pdmValidated.value);
+
+export const qsm = readJson<Record<string, unknown>>('qsm.json');
+export const bindingsArtifact = readJson<Record<string, unknown>>('bindings.json');
+export const shapes = readJson<ShapesJson>('shapes.json');
 
 const graphsDir = join(artifactsDir, 'graphs');
 const graphFiles = readdirSync(graphsDir).filter((f) => f.endsWith('.json'));
@@ -57,8 +96,10 @@ export const graphSpec = {
 };
 
 function parseInputType(raw: string): InputType {
-  if (raw === 'integer' || raw === 'decimal' || raw === 'string' ||
-      raw === 'boolean' || raw === 'date' || raw === 'datetime') {
+  if (
+    raw === 'integer' || raw === 'decimal' || raw === 'string' ||
+    raw === 'boolean' || raw === 'date' || raw === 'datetime'
+  ) {
     return { kind: 'scalar', primitive: raw };
   }
   throw new Error(`Unsupported input type in demo: "${raw}"`);
@@ -83,18 +124,23 @@ function toGraphSignature(g: GraphJson): GraphSignature {
   };
 }
 
-function entityToShape(entityName: string, entity: PdmEntity): ResolvedShape {
+function entityToShape(entityName: string): ResolvedShape | null {
+  const e = pdmResolver.resolveEntity(entityName);
+  if (!e) return null;
   const fields: ResolvedShape['fields'] = {};
-  for (const [fieldName, decl] of Object.entries(entity.fields)) {
-    fields[fieldName] = {
-      type: { kind: 'scalar', primitive: decl.type as ScalarPrimitive },
-      nullable: decl.nullable,
+  for (const f of e.fields) {
+    fields[f.name] = {
+      type: { kind: 'scalar', primitive: f.type as ScalarPrimitive },
+      nullable: f.nullable,
     };
   }
   return { name: entityName, origin: 'pdm', fields };
 }
 
-function customShape(name: string, def: { fields: Record<string, { type: string; nullable: boolean }> }): ResolvedShape {
+function customShape(
+  name: string,
+  def: { fields: Record<string, { type: string; nullable: boolean }> },
+): ResolvedShape {
   const fields: ResolvedShape['fields'] = {};
   for (const [fieldName, f] of Object.entries(def.fields)) {
     fields[fieldName] = {
@@ -112,8 +158,6 @@ export const resolvers: BindingResolvers = {
   },
   resolveShape: (name) => {
     if (shapes[name]) return customShape(name, shapes[name]);
-    const entity = pdm.entities[name];
-    if (entity) return entityToShape(name, entity);
-    return null;
+    return entityToShape(name);
   },
 };
