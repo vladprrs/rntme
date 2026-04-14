@@ -11,6 +11,8 @@ import { checkShapes } from './shapes.js';
 import { checkMapReduceCoverage } from './map-reduce.js';
 import { checkTier1Nodes } from './tier1-nodes.js';
 import { checkTier1Expr } from './tier1-expr.js';
+import { checkCommandShape } from './command-shape.js';
+import { checkGraphRole } from './role.js';
 
 export function validateStructural(
   spec: AuthoringSpecOutput,
@@ -27,6 +29,8 @@ export function validateStructural(
     ...checkMapReduceCoverage(spec, pdm, qsm),
     ...checkTier1Nodes(spec),
     ...checkTier1Expr(spec),
+    ...checkCommandShape(spec),
+    ...checkGraphRole(spec),
   ];
   return errors.length ? err(errors) : ok(spec);
 }
