@@ -47,7 +47,14 @@ function lower(node: CanonicalNode, sources: SourceMap, pdm: Pdm): PlanStep | un
         type: f.type,
         nullable: f.nullable,
       }));
-      return { kind: 'scan', nodeId: node.id, table: src.table, alias: node.alias, fields };
+      return {
+        kind: 'scan',
+        nodeId: node.id,
+        table: src.table,
+        alias: node.alias,
+        entity: src.entity,
+        fields,
+      };
     }
     case 'limit':
       return { kind: 'limit', nodeId: node.id, count: node.count };

@@ -1,11 +1,16 @@
+import type { Pdm, PdmEntity, PdmRelation } from '../../types/pdm.js';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
+import { chainToSqlJoins, expandChain } from './joins.js';
 import { lowerExpr, type ExprLowerCtx } from './expr.js';
 import type { Expr } from '../../types/authoring.js';
 
 export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 
-export type LowerContext = { predicateOptionalParams: Set<string> };
+export type LowerContext = {
+  predicateOptionalParams: Set<string>;
+  pdm?: Pdm;
+};
 
 export function lowerToSqlite(
   rel: RelOp,
@@ -68,9 +73,10 @@ function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlS
     case 'Filter': {
       const child = toSelect(rel.child, paramOrder, context);
       const scanMeta = findScanMeta(rel);
+      const columnOf = makeColumnOf(scanMeta, child, context, relOutputColumns(rel.child));
       const predicateSql = lowerExpr(rel.predicate as Expr, {
         alias: scanMeta.alias,
-        columnOf: (path) => columnOfFromScan(path, scanMeta),
+        columnOf,
         paramOrder,
       });
       const guarded = wrapPredicateOptional(
@@ -79,15 +85,22 @@ function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlS
         paramOrder,
         context.predicateOptionalParams,
       );
-      child.where = child.where ? { kind: 'op', op: 'and', args: [child.where, guarded] } : guarded;
+      if (rel.child.op === 'Aggregate') {
+        child.having = child.having
+          ? { kind: 'op', op: 'and', args: [child.having, guarded] }
+          : guarded;
+      } else {
+        child.where = child.where ? { kind: 'op', op: 'and', args: [child.where, guarded] } : guarded;
+      }
       return child;
     }
     case 'Project': {
       const child = toSelect(rel.child, paramOrder, context);
       const scanMeta = findScanMeta(rel);
+      const columnOf = makeColumnOf(scanMeta, child, context, relOutputColumns(rel.child));
       const ctx = {
         alias: scanMeta.alias,
-        columnOf: (path: string) => columnOfFromScan(path, scanMeta),
+        columnOf,
         paramOrder,
       };
       child.columns = Object.entries(rel.cols).map(([name, c]) => ({
@@ -99,9 +112,10 @@ function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlS
     case 'Aggregate': {
       const child = toSelect(rel.child, paramOrder, context);
       const scanMeta = findScanMeta(rel);
+      const columnOf = makeColumnOf(scanMeta, child, context, relOutputColumns(rel.child));
       const ctx = {
         alias: scanMeta.alias,
-        columnOf: (path: string) => columnOfFromScan(path, scanMeta),
+        columnOf,
         paramOrder,
       };
       const groupKeys: SqlExpr[] = Object.entries(rel.group).map(([, path]) =>
@@ -124,9 +138,10 @@ function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlS
     case 'Sort': {
       const child = toSelect(rel.child, paramOrder, context);
       const scan = findScanMeta(rel);
+      const columnOf = makeColumnOf(scan, child, context, relOutputColumns(rel.child));
       const ctx = {
         alias: scan.alias,
-        columnOf: (p: string) => columnOfFromScan(p, scan),
+        columnOf,
         paramOrder,
       };
       child.orderBy = rel.keys.map((k) => ({
@@ -188,7 +203,7 @@ function uniqueInOrder(names: string[]): string[] {
   return out;
 }
 
-type ScanMeta = { alias: string; fields: RelScan['fields'] };
+type ScanMeta = { alias: string; fields: RelScan['fields']; entity?: string };
 
 function findScanMeta(rel: RelOp): ScanMeta {
   let cur: RelOp = rel;
@@ -197,16 +212,79 @@ function findScanMeta(rel: RelOp): ScanMeta {
     else if ('child' in cur) cur = cur.child;
     else throw new Error('no scan found');
   }
-  return { alias: cur.alias, fields: cur.fields };
+  const scan = cur;
+  const base: ScanMeta = { alias: scan.alias, fields: scan.fields };
+  return scan.entity !== undefined ? { ...base, entity: scan.entity } : base;
 }
 
-function columnOfFromScan(path: string, meta: ScanMeta): { table: string; column: string } {
-  const [head, rest] = path.split('.', 2);
-  if (head === meta.alias && rest) {
-    const f = meta.fields.find((x) => x.name === rest);
-    if (f) return { table: meta.alias, column: f.column };
+function relOutputColumns(rel: RelOp): Set<string> {
+  switch (rel.op) {
+    case 'Scan':
+      return new Set(rel.fields.map((f) => f.name));
+    case 'Project':
+      return new Set(Object.keys(rel.cols));
+    case 'Aggregate':
+      return new Set([...Object.keys(rel.group), ...Object.keys(rel.measures)]);
+    case 'Filter':
+    case 'Sort':
+    case 'Limit':
+      return relOutputColumns(rel.child);
+    case 'Join':
+      throw new Error('lower: relOutputColumns not implemented for Join');
   }
-  throw new Error(`lower: cannot resolve field path "${path}"`);
+}
+
+function makeColumnOf(
+  scan: ScanMeta,
+  child: SqlSelect,
+  context: LowerContext,
+  outputCols: Set<string>,
+): (path: string) => { table?: string; column: string } {
+  const addedAliases = new Set<string>([scan.alias]);
+  return (path: string) => {
+    if (!path.includes('.')) {
+      if (outputCols.has(path)) return { column: path };
+    }
+    const parts = path.split('.');
+    if (parts.length === 2) {
+      const [head, name] = parts as [string, string];
+      if (head === scan.alias) {
+        const f = scan.fields.find((x) => x.name === name);
+        if (f) return { table: head, column: f.column };
+      }
+    }
+    if (parts.length > 2 && context.pdm && scan.entity) {
+      if (parts[0] !== scan.alias) {
+        throw new Error(`lower: path "${path}" root alias does not match scan`);
+      }
+      const prefix = parts.slice(0, -1);
+      const joinChain = expandChain(scan.alias, scan.entity, prefix, context.pdm);
+      const joins = chainToSqlJoins(joinChain, context.pdm);
+      for (const j of joins) {
+        if (!addedAliases.has(j.alias)) {
+          child.joins.push(j);
+          addedAliases.add(j.alias);
+        }
+      }
+      const leafAlias = parts[parts.length - 2]!;
+      const leafField = parts[parts.length - 1]!;
+      const rootEnt = context.pdm.entities[scan.entity];
+      if (!rootEnt) throw new Error(`lower: unknown entity ${scan.entity}`);
+      let curEnt: PdmEntity = rootEnt;
+      for (let i = 1; i < parts.length - 1; i++) {
+        const stepName = parts[i]!;
+        const stepRel: PdmRelation | undefined = curEnt.relations[stepName];
+        if (!stepRel) throw new Error(`lower: missing relation ${stepName}`);
+        const nextEnt: PdmEntity | undefined = context.pdm.entities[stepRel.to];
+        if (!nextEnt) throw new Error(`lower: missing entity ${stepRel.to}`);
+        curEnt = nextEnt;
+      }
+      const col = curEnt.fields[leafField]?.column;
+      if (!col) throw new Error(`lower: missing field ${leafField}`);
+      return { table: leafAlias, column: col };
+    }
+    throw new Error(`lower: cannot resolve field path "${path}"`);
+  };
 }
 
 function paramPlaceholder(name: string, paramOrder: string[]): SqlExpr {

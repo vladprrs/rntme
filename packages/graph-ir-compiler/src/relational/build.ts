@@ -6,7 +6,13 @@ export function buildRelational(plan: SemanticPlan): RelOp {
   for (const step of plan.steps) {
     switch (step.kind) {
       case 'scan':
-        acc = { op: 'Scan', table: step.table, alias: step.alias, fields: step.fields };
+        acc = {
+          op: 'Scan',
+          table: step.table,
+          alias: step.alias,
+          fields: step.fields,
+          entity: step.entity,
+        };
         break;
       case 'filter':
         if (!acc) throw new Error('filter without prior step');

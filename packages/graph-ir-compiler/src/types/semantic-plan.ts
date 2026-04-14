@@ -7,6 +7,8 @@ export type ScanStep = {
   nodeId: string;
   table: string;
   alias: string;
+  /** PDM entity name for the scan root (dot-navigation / JOIN synthesis). */
+  entity: string;
   fields: Array<{ name: string; column: string; type: string; nullable: boolean }>;
 };
 

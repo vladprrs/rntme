@@ -3,9 +3,8 @@ import type { SqlExpr } from './ast.js';
 
 export type ExprLowerCtx = {
   alias: string;
-  columnOf: (path: string) => { table: string; column: string };
+  columnOf: (path: string) => { table?: string; column: string };
   paramOrder: string[];
-  predicateOptionalParams?: Set<string>;
 };
 
 export function lowerExpr(e: Expr, ctx: ExprLowerCtx): SqlExpr {
@@ -13,8 +12,10 @@ export function lowerExpr(e: Expr, ctx: ExprLowerCtx): SqlExpr {
   if (typeof e === 'boolean') return { kind: 'bool', value: e };
   if (typeof e === 'number') return { kind: 'num', value: e };
   if (typeof e === 'string') {
-    const { table, column } = ctx.columnOf(e);
-    return { kind: 'col', table, column };
+    const ref = ctx.columnOf(e);
+    return ref.table !== undefined
+      ? { kind: 'col', table: ref.table, column: ref.column }
+      : { kind: 'col', column: ref.column };
   }
   if (typeof e === 'object') {
     if ('$literal' in e) return { kind: 'str', value: (e as { $literal: string }).$literal };

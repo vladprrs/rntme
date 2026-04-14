@@ -47,6 +47,7 @@ function operator(op: string, args: SqlExpr[]): string {
     div: '/',
     like: 'LIKE',
   };
+  if (op === '*' && args.length === 0) return '*';
   if (op in binOps && args.length === 2) {
     return `(${expr(args[0]!)} ${binOps[op]} ${expr(args[1]!)})`;
   }

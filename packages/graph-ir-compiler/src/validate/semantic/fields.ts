@@ -1,4 +1,4 @@
-import type { Pdm } from '../../types/pdm.js';
+import type { Pdm, PdmEntity } from '../../types/pdm.js';
 import type { Scope } from './scope.js';
 import { ERROR_CODES, err, ok, type Result } from '../../types/result.js';
 
@@ -7,54 +7,73 @@ export type ResolvedField = {
   nullable: boolean;
   column: string;
   table: string;
+  /** Alias chain from root through relations (join synthesis). Empty for shape fields. */
+  path: string[];
 };
 
-export function resolveField(path: string, scope: Scope, pdm: Pdm): Result<ResolvedField> {
-  const [head, ...rest] = path.split('.');
-  if (!head) {
-    return err([{ layer: 'semantic', code: ERROR_CODES.SEM_FIELD_NOT_FOUND, message: `empty field path` }]);
-  }
+function errField(msg: string) {
+  return err([{ layer: 'semantic' as const, code: ERROR_CODES.SEM_FIELD_NOT_FOUND, message: msg }]);
+}
 
-  if (scope.shapeFields?.has(head) && rest.length === 0) {
+export function resolveField(path: string, scope: Scope, pdm: Pdm): Result<ResolvedField> {
+  const parts = path.split('.');
+  const head = parts[0];
+  if (!head) return errField(`empty field path`);
+
+  if (scope.shapeFields?.has(head) && parts.length === 1) {
     const f = scope.shapeFields.get(head)!;
-    return ok({ type: f.type, nullable: f.nullable, column: head, table: '' });
+    return ok({ type: f.type, nullable: f.nullable, column: head, table: '', path: [] });
   }
 
   const alias = scope.aliases.get(head);
   if (!alias) {
-    return err([
-      { layer: 'semantic', code: ERROR_CODES.SEM_FIELD_NOT_FOUND, message: `alias "${head}" not in scope` },
-    ]);
-  }
-  if (rest.length === 0) {
-    return err([
-      {
-        layer: 'semantic',
-        code: ERROR_CODES.SEM_FIELD_NOT_FOUND,
-        message: `field path "${path}" missing field name after alias`,
-      },
-    ]);
-  }
-  const fieldName = rest[0]!;
-  if (rest.length > 1) {
-    return err([
-      {
-        layer: 'semantic',
-        code: ERROR_CODES.SEM_FIELD_NOT_FOUND,
-        message: `dot-navigation (${path}) is not supported until Task 57`,
-      },
-    ]);
+    return errField(`alias "${head}" not in scope`);
   }
   const entity = pdm.entities[alias.entity];
-  const f = entity?.fields[fieldName];
-  if (!f) {
-    return err([
-      {
-        layer: 'semantic',
-        code: ERROR_CODES.SEM_FIELD_NOT_FOUND,
-        message: `field "${fieldName}" not found on entity "${alias.entity}"`,
-      },
-    ]);
+  if (!entity) return errField(`entity "${alias.entity}" not in PDM`);
+
+  if (parts.length === 1) {
+    return errField(`field path "${path}" missing field name after alias`);
   }
-  return ok({ type: f.type, nullable: f.nullable, column: f.column, table: head });
+
+  if (parts.length === 2) {
+    const fieldName = parts[1]!;
+    const f = entity.fields[fieldName];
+    if (!f) {
+      return errField(`field "${fieldName}" not found on entity "${alias.entity}"`);
+    }
+    return ok({
+      type: f.type,
+      nullable: f.nullable,
+      column: f.column,
+      table: head,
+      path: [head],
+    });
+  }
+
+  let curEntity: PdmEntity = entity;
+  const chain = [head];
+  for (let i = 1; i < parts.length - 1; i++) {
+    const step = parts[i]!;
+    const rel = curEntity.relations[step];
+    if (!rel) {
+      return errField(`relation "${step}" not on entity "${curEntity.table}"`);
+    }
+    const next = pdm.entities[rel.to];
+    if (!next) return errField(`related entity "${rel.to}" not in PDM`);
+    chain.push(step);
+    curEntity = next;
+  }
+  const leaf = parts[parts.length - 1]!;
+  const f = curEntity.fields[leaf];
+  if (!f) return errField(`field "${leaf}" not on entity "${curEntity.table}"`);
+
+  const navigatedNullable = parts.length > 2;
+  return ok({
+    type: f.type,
+    nullable: f.nullable || navigatedNullable,
+    column: f.column,
+    table: chain[chain.length - 1]!,
+    path: chain,
+  });
 }

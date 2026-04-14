@@ -7,6 +7,8 @@ export type RelScan = {
   table: string;
   alias: string;
   fields: RelField[];
+  /** Root PDM entity; required for multi-segment field paths in lowering. */
+  entity?: string;
 };
 
 export type RelFilter = { op: 'Filter'; child: RelOp; predicate: Expr };

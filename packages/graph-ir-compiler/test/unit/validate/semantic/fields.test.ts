@@ -14,7 +14,15 @@ describe('resolveField (single-level)', () => {
   it('resolves alias.field to entity field type', () => {
     const r = resolveField('orderItem.unitPrice', scope, P);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value).toMatchObject({ type: 'decimal', nullable: false, column: 'unit_price', table: 'orderItem' });
+    if (r.ok) {
+      expect(r.value).toMatchObject({
+        type: 'decimal',
+        nullable: false,
+        column: 'unit_price',
+        table: 'orderItem',
+        path: ['orderItem'],
+      });
+    }
   });
 
   it('returns err for unknown field', () => {

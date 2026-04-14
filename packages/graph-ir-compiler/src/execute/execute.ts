@@ -5,6 +5,8 @@ export type ParamValues = Record<string, unknown>;
 export type CompiledForExecute = {
   sql: string;
   paramOrder: string[];
+  optionalParams?: string[];
+  paramDefaults?: Record<string, unknown>;
 };
 
 export function executeCompiled(
@@ -12,14 +14,23 @@ export function executeCompiled(
   paramValues: ParamValues,
   db: BetterSqlite3.Database,
 ): unknown[] {
+  const optionalSet = compiled.optionalParams?.length ? new Set(compiled.optionalParams) : undefined;
+  const defaults = compiled.paramDefaults ?? {};
+
   const positional = compiled.paramOrder.map((name) => {
-    if (!(name in paramValues)) {
-      throw Object.assign(new Error(`missing required param "${name}"`), {
-        code: 'RUNTIME_MISSING_REQUIRED_PARAM',
-      });
+    if (Object.prototype.hasOwnProperty.call(paramValues, name)) {
+      const v = paramValues[name];
+      return v === undefined ? null : v;
     }
-    const v = paramValues[name];
-    return v === undefined ? null : v;
+    if (Object.hasOwn(defaults, name)) {
+      return defaults[name];
+    }
+    if (optionalSet?.has(name)) {
+      return null;
+    }
+    throw Object.assign(new Error(`missing required param "${name}"`), {
+      code: 'RUNTIME_MISSING_REQUIRED_PARAM',
+    });
   });
   try {
     const stmt = db.prepare(compiled.sql);

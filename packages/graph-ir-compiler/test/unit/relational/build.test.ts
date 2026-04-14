@@ -13,6 +13,7 @@ const plan: SemanticPlan = {
       nodeId: 'items',
       table: 'order_items',
       alias: 'orderItem',
+      entity: 'OrderItem',
       fields: [{ name: 'id', column: 'id', type: 'integer', nullable: false }],
     },
     { kind: 'limit', nodeId: 'paged', count: 10 },

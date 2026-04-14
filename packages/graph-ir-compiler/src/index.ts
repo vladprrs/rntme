@@ -25,6 +25,8 @@ export type CompileResult = {
   sql: string;
   paramOrder: string[];
   shape: { name: string };
+  optionalParams: string[];
+  paramDefaults: Record<string, unknown>;
 };
 
 export function compile(
@@ -76,17 +78,32 @@ export function compile(
   }
   const graph = graphs[graphIds[0]!]!;
 
-  const semR = validateSemantic(graph, pdm, qsm);
+  const semR = validateSemantic(graph, pdm, qsm, sv.value.shapes);
   if (!semR.ok) return semR;
 
   const planR = buildSemanticPlan(graph, pdm, qsm);
   if (!planR.ok) return planR;
   const rel = buildRelational(planR.value);
-  const { ast, paramOrder } = lowerToSqlite(rel);
+
+  const predicateOptionalParams = new Set<string>(
+    Object.entries(graph.signature.inputs)
+      .filter(([, i]) => i.mode === 'predicate_optional')
+      .map(([name]) => name),
+  );
+  const optionalParams = [...predicateOptionalParams];
+
+  const paramDefaults: Record<string, unknown> = {};
+  for (const [name, decl] of Object.entries(graph.signature.inputs)) {
+    if (decl.mode === 'defaulted' && decl.default !== undefined) {
+      paramDefaults[name] = decl.default;
+    }
+  }
+
+  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm });
   const sql = emitSql(ast);
 
   const shapeName = graph.signature.output.type.replace(/^rowset<|^row<|>$/g, '');
-  return ok({ sql, paramOrder, shape: { name: shapeName } });
+  return ok({ sql, paramOrder, shape: { name: shapeName }, optionalParams, paramDefaults });
 }
 
 export function execute(
