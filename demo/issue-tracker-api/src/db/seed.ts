@@ -2,6 +2,8 @@ import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bootstrapProjections } from '@rntme/projection-consumer';
+import { projectionDdls } from '../artifacts.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -14,11 +16,13 @@ export function createSeededDb(options: SeedOptions = {}): Database.Database {
   const ddl = readFileSync(join(here, 'schema.sql'), 'utf8');
   db.exec(ddl);
 
+  bootstrapProjections(db, projectionDdls);
+
   const tx = db.transaction(() => {
     insertUsers(db);
     insertProjects(db);
     insertSprints(db);
-    insertIssues(db);
+    insertProjectionIssues(db);
   });
   tx();
 
@@ -56,25 +60,23 @@ function insertSprints(db: Database.Database): void {
 }
 
 type IssueRow = [
-  number,     // id
-  number,     // project_id
-  number,     // reporter_id
-  number | null, // assignee_id
-  number | null, // sprint_id
-  string,     // title
-  string,     // status (open | in_progress | done | closed)
-  string,     // priority (low | medium | high | critical)
-  number,     // story_points
-  string,     // created_at
-  string | null, // resolved_at
+  number, number, number, number | null, number | null,
+  string, string, string, number, string, string | null,
 ];
 
-function insertIssues(db: Database.Database): void {
+function mapLegacyStatus(s: string): string {
+  return s === 'done' ? 'resolved' : s;
+}
+
+function insertProjectionIssues(db: Database.Database): void {
   const stmt = db.prepare(
-    `INSERT INTO issues
-     (id, project_id, reporter_id, assignee_id, sprint_id, title, status, priority, story_points, created_at, resolved_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO projection_issue
+       (id, project_id, reporter_id, assignee_id, sprint_id, title, status, priority,
+        story_points, created_at, resolved_at,
+        last_event_id, last_event_version, applied_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed', 0, ?)`,
   );
+  const appliedAt = '2026-04-14T00:00:00Z';
 
   const rows: IssueRow[] = [
     [101, 1, 1, 2, 10, 'Login page returns 500 on invalid email', 'done', 'high', 5, '2026-01-20T09:00:00Z', '2026-02-10T17:30:00Z'],
@@ -90,7 +92,6 @@ function insertIssues(db: Database.Database): void {
     [111, 1, 4, 4, 11, 'OpenAPI doc missing tags', 'done', 'low', 2, '2026-02-15T11:00:00Z', '2026-02-25T15:00:00Z'],
     [112, 1, 3, null, null, 'Track down memory leak in worker pool', 'open', 'critical', 13, '2026-02-20T13:00:00Z', null],
     [113, 1, 2, 3, null, 'Upgrade Node to LTS 22', 'open', 'medium', 8, '2026-02-22T14:00:00Z', null],
-
     [201, 2, 2, 4, 20, 'Crash on Android 12 when opening settings', 'open', 'critical', 8, '2026-02-28T09:00:00Z', null],
     [202, 2, 2, 3, 20, 'Push token refresh not persisted', 'in_progress', 'high', 5, '2026-03-01T10:00:00Z', null],
     [203, 2, 1, 2, 20, 'iOS dark mode colors off', 'open', 'low', 2, '2026-03-02T11:00:00Z', null],
@@ -105,7 +106,11 @@ function insertIssues(db: Database.Database): void {
     [212, 2, 4, 3, null, 'Add accessibility labels to main nav', 'closed', 'medium', 3, '2026-03-20T13:00:00Z', '2026-03-30T16:00:00Z'],
   ];
 
-  for (const r of rows) stmt.run(...r);
+  for (const r of rows) {
+    const normalised: IssueRow = [...r];
+    normalised[6] = mapLegacyStatus(r[6]);
+    stmt.run(...normalised, appliedAt);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -115,7 +120,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     users: (db.prepare(`SELECT COUNT(*) AS n FROM users`).get() as { n: number }).n,
     projects: (db.prepare(`SELECT COUNT(*) AS n FROM projects`).get() as { n: number }).n,
     sprints: (db.prepare(`SELECT COUNT(*) AS n FROM sprints`).get() as { n: number }).n,
-    issues: (db.prepare(`SELECT COUNT(*) AS n FROM issues`).get() as { n: number }).n,
+    issues: (db.prepare(`SELECT COUNT(*) AS n FROM projection_issue`).get() as { n: number }).n,
   };
   db.close();
   // eslint-disable-next-line no-console
