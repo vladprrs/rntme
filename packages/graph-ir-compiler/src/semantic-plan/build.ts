@@ -13,6 +13,7 @@ export function buildSemanticPlan(graph: CanonicalGraph, pdm: ValidatedPdm, qsm:
   const steps: PlanStep[] = [];
 
   for (const node of graph.nodes) {
+    if (node.kind === 'emit') continue;
     const step = lower(node, sources, pdm);
     if (step) steps.push(step);
     else
@@ -36,6 +37,8 @@ export function buildSemanticPlan(graph: CanonicalGraph, pdm: ValidatedPdm, qsm:
 
 function lower(node: CanonicalNode, sources: SourceMap, pdm: ValidatedPdm): PlanStep | undefined {
   switch (node.kind) {
+    case 'emit':
+      return undefined;
     case 'findMany': {
       const src = sources.get(node.id);
       if (!src) return undefined;
