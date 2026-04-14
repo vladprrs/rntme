@@ -1,0 +1,55 @@
+export type Layer =
+  | 'parse'
+  | 'structural'
+  | 'canonical'
+  | 'semantic'
+  | 'semantic-plan'
+  | 'relational'
+  | 'lowering'
+  | 'runtime';
+
+export type GraphIrError = {
+  layer: Layer;
+  code: string;
+  message: string;
+  location?: { graphId?: string; nodeId?: string; path?: string };
+  hint?: string;
+};
+
+export type Ok<T> = { ok: true; value: T };
+export type Err = { ok: false; errors: GraphIrError[] };
+export type Result<T> = Ok<T> | Err;
+
+export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
+export const err = (errors: GraphIrError[]): Err => ({ ok: false, errors });
+export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
+export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+
+export const ERROR_CODES = {
+  PARSE_INVALID_JSON: 'PARSE_INVALID_JSON',
+  PARSE_SCHEMA_VIOLATION: 'PARSE_SCHEMA_VIOLATION',
+  STRUCT_DUPLICATE_GRAPH_ID: 'STRUCT_DUPLICATE_GRAPH_ID',
+  STRUCT_DUPLICATE_NODE_ID: 'STRUCT_DUPLICATE_NODE_ID',
+  STRUCT_INVALID_INPUT_REF: 'STRUCT_INVALID_INPUT_REF',
+  STRUCT_DAG_CYCLE: 'STRUCT_DAG_CYCLE',
+  STRUCT_INVALID_OUTPUT_FROM: 'STRUCT_INVALID_OUTPUT_FROM',
+  STRUCT_MULTIPLE_ROOT_INPUTS: 'STRUCT_MULTIPLE_ROOT_INPUTS',
+  STRUCT_ROOT_INPUT_TYPE: 'STRUCT_ROOT_INPUT_TYPE',
+  STRUCT_ROOT_REF_WITHOUT_ROOT_INPUT: 'STRUCT_ROOT_REF_WITHOUT_ROOT_INPUT',
+  STRUCT_UNKNOWN_SHAPE: 'STRUCT_UNKNOWN_SHAPE',
+  STRUCT_MAP_SHAPE_COVERAGE: 'STRUCT_MAP_SHAPE_COVERAGE',
+  STRUCT_REDUCE_SHAPE_COVERAGE: 'STRUCT_REDUCE_SHAPE_COVERAGE',
+  TIER1_UNSUPPORTED_NODE: 'TIER1_UNSUPPORTED_NODE',
+  TIER1_UNSUPPORTED_EXPR: 'TIER1_UNSUPPORTED_EXPR',
+  SEM_SOURCE_NOT_FOUND: 'SEM_SOURCE_NOT_FOUND',
+  SEM_FIELD_NOT_FOUND: 'SEM_FIELD_NOT_FOUND',
+  SEM_TYPE_MISMATCH: 'SEM_TYPE_MISMATCH',
+  SEM_SHAPE_MISMATCH: 'SEM_SHAPE_MISMATCH',
+  SEM_NULLABILITY_VIOLATION: 'SEM_NULLABILITY_VIOLATION',
+  SEM_PARAM_UNKNOWN: 'SEM_PARAM_UNKNOWN',
+  SEM_PARAM_CONTEXT: 'SEM_PARAM_CONTEXT',
+  RUNTIME_MISSING_REQUIRED_PARAM: 'RUNTIME_MISSING_REQUIRED_PARAM',
+  RUNTIME_SQLITE_ERROR: 'RUNTIME_SQLITE_ERROR',
+} as const;
+
+export type ErrorCode = keyof typeof ERROR_CODES;
