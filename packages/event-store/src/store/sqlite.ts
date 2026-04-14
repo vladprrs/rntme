@@ -33,8 +33,57 @@ export class SqliteEventStore implements EventStore {
     return this.db;
   }
 
-  appendEvents(_requests: readonly AppendRequest[]): AppendResult[] {
-    throw new Error('not implemented — Task 5');
+  appendEvents(requests: readonly AppendRequest[]): AppendResult[] {
+    const selectMax = this.db.prepare(
+      'SELECT COALESCE(MAX(version), 0) AS v FROM event_log WHERE stream = ?',
+    );
+    const insert = this.db.prepare(`
+      INSERT INTO event_log
+        (stream, aggregate_type, aggregate_id, version, event_type, event_id,
+         actor_kind, actor_id, occurred_at, payload_json, schema_version)
+      VALUES
+        (@stream, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
+         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version)
+    `);
+
+    const run = this.db.transaction((reqs: readonly AppendRequest[]): AppendResult[] => {
+      const out: AppendResult[] = [];
+      for (const req of reqs) {
+        const row = selectMax.get(req.stream) as { v: number };
+        const current = row.v;
+        const appended: { eventId: string; version: number; id: number }[] = [];
+        for (let i = 0; i < req.events.length; i++) {
+          const e = req.events[i]!;
+          const version = current + i + 1;
+          const info = insert.run({
+            stream: req.stream,
+            aggregate_type: e.aggregateType,
+            aggregate_id: e.aggregateId,
+            version,
+            event_type: e.eventType,
+            event_id: e.eventId,
+            actor_kind: e.actor?.kind ?? null,
+            actor_id: e.actor?.id ?? null,
+            occurred_at: e.occurredAt,
+            payload_json: JSON.stringify(e.payload),
+            schema_version: e.schemaVersion,
+          });
+          appended.push({
+            eventId: e.eventId,
+            version,
+            id: Number(info.lastInsertRowid),
+          });
+        }
+        out.push({
+          stream: req.stream,
+          lastVersion: current + req.events.length,
+          appendedEvents: appended,
+        });
+      }
+      return out;
+    });
+
+    return run.immediate(requests);
   }
   readStream(_stream: string): EventEnvelope[] {
     throw new Error('not implemented — Task 8');
