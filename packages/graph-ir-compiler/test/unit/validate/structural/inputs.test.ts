@@ -41,6 +41,6 @@ describe('checkInputs', () => {
 
   it('rejects root with non-row/rowset type', () => {
     const errs = checkInputs(spec({ bad: { type: 'integer', mode: 'root' } }));
-    expect(errs[0]?.code).toBe('STRUCT_MULTIPLE_ROOT_INPUTS');
+    expect(errs[0]?.code).toBe('STRUCT_ROOT_INPUT_TYPE');
   });
 });

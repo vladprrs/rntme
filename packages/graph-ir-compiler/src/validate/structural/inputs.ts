@@ -21,7 +21,7 @@ export function checkInputs(spec: AuthoringSpecOutput): GraphIrError[] {
       if (!isRowOrRowset(decl.type)) {
         errs.push({
           layer: 'structural',
-          code: ERROR_CODES.STRUCT_MULTIPLE_ROOT_INPUTS,
+          code: ERROR_CODES.STRUCT_ROOT_INPUT_TYPE,
           message: `root input "${name}" must have type row<T> or rowset<T>`,
           location: { graphId: graph.id, path: `signature.inputs.${name}` },
         });
