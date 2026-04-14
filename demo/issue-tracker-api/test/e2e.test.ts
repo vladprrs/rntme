@@ -3,16 +3,16 @@ import { buildApp } from '../src/server.js';
 import type { Hono } from 'hono';
 
 let app: Hono;
-let cleanup: () => void;
+let stop: () => Promise<void>;
 
 beforeAll(() => {
   const built = buildApp();
   app = built.app;
-  cleanup = built.cleanup;
+  stop = built.stop;
 });
 
-afterAll(() => {
-  cleanup();
+afterAll(async () => {
+  await stop();
 });
 
 async function get(path: string): Promise<{ status: number; body: unknown }> {

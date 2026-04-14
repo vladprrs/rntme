@@ -1,12 +1,14 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import {
   parseBindingArtifact,
   validateBindings,
   generateOpenApi,
 } from '@rntme/bindings';
 import { createBindingsRouter } from '@rntme/bindings-http';
-import { createSeededDb } from './db/seed.js';
+import type { ActorRef } from '@rntme/event-store';
+import { buildEventPipeline } from './events.js';
 import {
   bindingsArtifact,
   graphSpec,
@@ -15,7 +17,13 @@ import {
   resolvers,
 } from './artifacts.js';
 
-export function buildApp(): { app: Hono; cleanup: () => void } {
+function actorFromRequest(c: Context): ActorRef | null {
+  const actorId = c.req.header('x-actor-id');
+  if (!actorId) return null;
+  return { kind: 'user', id: actorId };
+}
+
+export function buildApp(): { app: Hono; stop: () => Promise<void> } {
   const parsed = parseBindingArtifact(bindingsArtifact);
   if (!parsed.ok) {
     throw new Error(`Binding parse failed: ${JSON.stringify(parsed.errors)}`);
@@ -31,14 +39,17 @@ export function buildApp(): { app: Hono; cleanup: () => void } {
     throw new Error(`OpenAPI generation failed: ${JSON.stringify(openapi.errors)}`);
   }
 
-  const db = createSeededDb();
+  const pipeline = buildEventPipeline();
+  pipeline.start();
 
   const router = createBindingsRouter({
     validated: validated.value,
     graphSpec,
     pdm,
     qsm,
-    db,
+    db: pipeline.qsmDb,
+    eventStore: pipeline.eventStore,
+    actorFromRequest,
     openApiDoc: openapi.value,
   });
 
@@ -47,18 +58,26 @@ export function buildApp(): { app: Hono; cleanup: () => void } {
     c.json({
       name: 'issue-tracker-api-demo',
       routes: [
-        'GET /v1/issues?status=&limit=',
-        'GET /v1/issues/:id',
-        'GET /v1/issues/search?q=&from=&to=&priority=&limit=',
-        'GET /v1/stats/by-project',
-        'GET /v1/sprints/:sprintId/burndown',
-        'GET /openapi.json',
+        'GET  /v1/issues?status=&limit=',
+        'GET  /v1/issues/:id',
+        'GET  /v1/issues/search?q=&from=&to=&priority=&limit=',
+        'GET  /v1/stats/by-project',
+        'GET  /v1/sprints/:sprintId/burndown',
+        'POST /v1/issues',
+        'POST /v1/issues/:issueId/actions/submit',
+        'POST /v1/issues/:issueId/actions/assign',
+        'POST /v1/issues/:issueId/actions/assign-with-guard',
+        'POST /v1/issues/:issueId/actions/reassign',
+        'POST /v1/issues/:issueId/actions/resolve',
+        'POST /v1/issues/:issueId/actions/reopen',
+        'POST /v1/issues/:issueId/actions/close',
+        'GET  /openapi.json',
       ],
     }),
   );
   app.route('/', router);
 
-  return { app, cleanup: () => db.close() };
+  return { app, stop: () => pipeline.stop() };
 }
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -68,13 +87,13 @@ const isMain =
   process.argv[1]?.endsWith('/server.ts') === true;
 
 if (isMain) {
-  const { app, cleanup } = buildApp();
+  const { app, stop } = buildApp();
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     // eslint-disable-next-line no-console
     console.log(`issue-tracker-api-demo listening on http://localhost:${info.port}`);
   });
-  const shutdown = (): void => {
-    cleanup();
+  const shutdown = async (): Promise<void> => {
+    await stop();
     process.exit(0);
   };
   process.on('SIGINT', shutdown);
