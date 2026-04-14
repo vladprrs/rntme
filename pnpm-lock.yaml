@@ -152,6 +152,15 @@ importers:
 
   packages/graph-ir-compiler:
     dependencies:
+      '@rntme/event-store':
+        specifier: workspace:*
+        version: link:../event-store
+      '@rntme/pdm':
+        specifier: workspace:*
+        version: link:../pdm
+      '@rntme/qsm':
+        specifier: workspace:*
+        version: link:../qsm
       better-sqlite3:
         specifier: ^11.3.0
         version: 11.10.0
