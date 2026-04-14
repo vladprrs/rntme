@@ -76,4 +76,62 @@ describe('BindingArtifactSchema', () => {
     bad.bindings.primary.http.parameters[0].name = '';
     expect(BindingArtifactSchema.safeParse(bad).success).toBe(false);
   });
+
+  it('defaults BindingEntry.kind to "query" when omitted', () => {
+    const input = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        a: {
+          graph: 'g',
+          target: { engine: 'sqlite', dialect: 'sqlite' },
+          http: { method: 'GET', path: '/v1/things', parameters: [] },
+        },
+      },
+    };
+    const r = BindingArtifactSchema.safeParse(input);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.bindings.a?.kind).toBe('query');
+  });
+
+  it('accepts BindingEntry.kind === "command"', () => {
+    const input = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        cmd: {
+          kind: 'command',
+          graph: 'g',
+          target: { engine: 'sqlite', dialect: 'sqlite' },
+          http: { method: 'POST', path: '/v1/cmd', parameters: [] },
+        },
+      },
+    };
+    const r = BindingArtifactSchema.safeParse(input);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.bindings.cmd?.kind).toBe('command');
+  });
+
+  it('rejects unknown kind values', () => {
+    const input = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        bad: {
+          kind: 'mutation',
+          graph: 'g',
+          target: { engine: 'sqlite', dialect: 'sqlite' },
+          http: { method: 'POST', path: '/v1/cmd', parameters: [] },
+        },
+      },
+    };
+    const r = BindingArtifactSchema.safeParse(input);
+    expect(r.success).toBe(false);
+  });
 });

@@ -34,6 +34,7 @@ const httpSchema = z
 
 const bindingEntrySchema = z
   .object({
+    kind: z.enum(['query', 'command']).default('query'),
     graph: nonEmptyString,
     target: z
       .object({
