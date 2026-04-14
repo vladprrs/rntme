@@ -10,6 +10,12 @@ export { generateOpenApi } from './openapi/emit.js';
 export type { OpenApiGenOptions } from './openapi/emit.js';
 
 export {
+  COMMAND_RESULT_SHAPE_NAME,
+  commandResultShape,
+  commandResultJsonSchema,
+} from './openapi/command-result.js';
+
+export {
   ok,
   err,
   isOk,
