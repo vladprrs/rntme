@@ -12,6 +12,7 @@ describe('executeCompiled', () => {
         throw new Error('expected throw');
       } catch (e) {
         expect((e as { code?: string }).code).toBe('RUNTIME_SQLITE_ERROR');
+        expect((e as Error).message).toMatch(/syntax/i);
       }
     } finally {
       db.close();

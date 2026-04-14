@@ -42,6 +42,7 @@ describe('checkDag', () => {
       { id: 'b', type: 'limit', config: { input: 'a', count: 1 } },
     ]);
     const errs = checkDag(s);
+    expect(errs.length).toBeGreaterThan(0);
     expect(errs[0]?.code).toBe('STRUCT_DAG_CYCLE');
   });
 });
