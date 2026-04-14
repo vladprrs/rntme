@@ -35,4 +35,13 @@ describe('checkDag', () => {
       checkDag(spec([{ id: 'a', type: 'findMany', config: { source: { entity: 'X' } } }])),
     ).toEqual([]);
   });
+
+  it('detects a cycle between two nodes', () => {
+    const s = spec([
+      { id: 'a', type: 'limit', config: { input: 'b', count: 1 } },
+      { id: 'b', type: 'limit', config: { input: 'a', count: 1 } },
+    ]);
+    const errs = checkDag(s);
+    expect(errs[0]?.code).toBe('STRUCT_DAG_CYCLE');
+  });
 });

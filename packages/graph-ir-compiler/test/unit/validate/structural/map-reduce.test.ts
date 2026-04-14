@@ -50,4 +50,34 @@ describe('checkMapReduceCoverage', () => {
     const s = spec({ a: { type: 'integer', nullable: false } }, { a: 'items.id', z: 'items.id' });
     expect(checkMapReduceCoverage(s, P, Q)[0]?.code).toBe('STRUCT_MAP_SHAPE_COVERAGE');
   });
+
+  it("rejects reduce group+measures keys that don't match into shape", () => {
+    const s: AuthoringSpecOutput = {
+      version: '1.0-rc7',
+      pdmRef: 'x',
+      qsmRef: 'y',
+      shapes: { R: { fields: { total: { type: 'decimal', nullable: false }, cnt: { type: 'integer', nullable: false } } } },
+      graphs: {
+        g: {
+          id: 'g',
+          signature: { inputs: {}, output: { type: 'rowset<R>', from: 'r' } },
+          nodes: [
+            { id: 'items', type: 'findMany', config: { source: { entity: 'OrderItem' } } },
+            {
+              id: 'r',
+              type: 'reduce',
+              config: {
+                input: 'items',
+                into: 'R',
+                group: { total: 'orderItem.unitPrice' },
+                measures: { extraKey: { fn: 'count' } },
+              },
+            },
+          ],
+        },
+      },
+    };
+    const errs = checkMapReduceCoverage(s, P, Q);
+    expect(errs[0]?.code).toBe('STRUCT_REDUCE_SHAPE_COVERAGE');
+  });
 });

@@ -54,7 +54,13 @@ describe('E2E: filter with required param', () => {
     try {
       const r = compile(spec, pdm, qsm);
       if (!r.ok) throw new Error('compile failed');
-      expect(() => execute(r.value, {}, db)).toThrow(/minPrice/);
+      try {
+        execute(r.value, {}, db);
+        throw new Error('expected throw');
+      } catch (e) {
+        expect((e as { code?: string }).code).toBe('RUNTIME_MISSING_REQUIRED_PARAM');
+        expect((e as Error).message).toMatch(/minPrice/);
+      }
     } finally {
       db.close();
     }
