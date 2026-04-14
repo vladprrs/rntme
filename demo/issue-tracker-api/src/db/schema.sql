@@ -22,21 +22,3 @@ CREATE TABLE sprints (
   starts_at  TEXT NOT NULL,
   ends_at    TEXT NOT NULL
 );
-
-CREATE TABLE issues (
-  id           INTEGER PRIMARY KEY,
-  project_id   INTEGER NOT NULL REFERENCES projects(id),
-  reporter_id  INTEGER NOT NULL REFERENCES users(id),
-  assignee_id  INTEGER REFERENCES users(id),
-  sprint_id    INTEGER REFERENCES sprints(id),
-  title        TEXT NOT NULL,
-  status       TEXT NOT NULL,
-  priority     TEXT NOT NULL,
-  story_points INTEGER NOT NULL,
-  created_at   TEXT NOT NULL,
-  resolved_at  TEXT
-);
-
-CREATE INDEX idx_issues_project ON issues(project_id);
-CREATE INDEX idx_issues_sprint  ON issues(sprint_id);
-CREATE INDEX idx_issues_status  ON issues(status);
