@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@rntme/bindings": "workspace:*",
+    "@rntme/event-store": "workspace:*",
     "@rntme/graph-ir-compiler": "workspace:*",
     "hono": "^4.6.0",
     "zod": "^3.23.8"

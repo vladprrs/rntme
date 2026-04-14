@@ -81,6 +81,9 @@ importers:
       '@rntme/bindings':
         specifier: workspace:*
         version: link:../bindings
+      '@rntme/event-store':
+        specifier: workspace:*
+        version: link:../event-store
       '@rntme/graph-ir-compiler':
         specifier: workspace:*
         version: link:../graph-ir-compiler
