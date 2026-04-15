@@ -16,6 +16,7 @@ coverage/
 /.claude/
 /.cursor/
 /.worktrees/
+/research/
 
 # Stray npm lockfiles — repo uses pnpm
 package-lock.json
