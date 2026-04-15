@@ -66,6 +66,9 @@ export function validateSeed(
     }
   }
 
+  const invariantErrors = checkIntraFileInvariants(artifact.events);
+  errors.push(...invariantErrors);
+
   const smErrors = simulateStateMachines(artifact.events, ctx);
   errors.push(...smErrors);
 
@@ -221,6 +224,71 @@ function simulateStateMachines(
       current = spec.to;
     }
   }
+  return errors;
+}
+
+function checkIntraFileInvariants(events: readonly SeedEventInput[]): SeedError[] {
+  const errors: SeedError[] = [];
+
+  // Duplicate (stream, version)
+  const seen = new Map<string, number>();
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const key = `${e.stream}@v${e.version}`;
+    const prior = seen.get(key);
+    if (prior !== undefined) {
+      errors.push({
+        code: 'SEED_STREAM_VERSION_DUPLICATE',
+        message: `Duplicate (stream="${e.stream}", version=${e.version}) at events[${i}] — first seen at events[${prior}].`,
+        path: `events[${i}]`,
+        details: { stream: e.stream, version: String(e.version), firstIndex: String(prior) },
+      });
+    } else {
+      seen.set(key, i);
+    }
+  }
+
+  // Per-stream contiguous versions starting at 1
+  const byStream = new Map<string, number[]>();
+  for (const e of events) {
+    const arr = byStream.get(e.stream) ?? [];
+    arr.push(e.version);
+    byStream.set(e.stream, arr);
+  }
+  for (const [stream, versions] of byStream) {
+    const sorted = [...versions].sort((a, b) => a - b);
+    let expected = 1;
+    for (const v of sorted) {
+      if (v !== expected) {
+        errors.push({
+          code: 'SEED_STREAM_VERSION_GAP',
+          message: `Stream "${stream}" must have contiguous versions starting at 1; got gap at v${v} (expected v${expected}).`,
+          details: { stream, expected: String(expected), got: String(v) },
+        });
+        break;
+      }
+      expected++;
+    }
+  }
+
+  // Duplicate eventId (including defaulted)
+  const eventIdSeen = new Map<string, number>();
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const id = e.eventId ?? `seed:${e.aggregateType}:${e.aggregateId}:v${e.version}`;
+    const prior = eventIdSeen.get(id);
+    if (prior !== undefined) {
+      errors.push({
+        code: 'SEED_EVENT_ID_DUPLICATE',
+        message: `Duplicate eventId "${id}" at events[${i}] (first seen at events[${prior}]).`,
+        path: `events[${i}]`,
+        details: { eventId: id, firstIndex: String(prior) },
+      });
+    } else {
+      eventIdSeen.set(id, i);
+    }
+  }
+
   return errors;
 }
 
