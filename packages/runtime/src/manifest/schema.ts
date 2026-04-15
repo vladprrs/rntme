@@ -54,5 +54,11 @@ export const ManifestSchema = z
       })
       .strict()
       .optional(),
+    seed: z
+      .object({
+        path: z.string().min(1),
+      })
+      .strict()
+      .optional(),
   })
   .strict();

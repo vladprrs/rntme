@@ -16,6 +16,8 @@ describe('loadService (happy path)', () => {
     expect(r.value.openApiDoc.openapi).toBe('3.1.0');
     expect(r.value.projectionDdls.length).toBeGreaterThan(0);
     expect(r.value.eventTypes.length).toBeGreaterThan(0);
+    expect(r.value.seed).not.toBeNull();
+    expect(r.value.seed!.events.length).toBeGreaterThan(0);
     expect(r.value.graphSpec.pdmRef).toBe('issue-tracker-api.domain.1.0.0');
     expect(r.value.graphSpec.qsmRef).toBe('issue-tracker-api.read.1.0.0');
   });

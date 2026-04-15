@@ -13,6 +13,7 @@ const base: ValidatedManifest = {
     health: { path: '/health' },
     metrics: { path: '/metrics' },
   },
+  seed: null,
 };
 
 describe('applyEnvOverrides', () => {

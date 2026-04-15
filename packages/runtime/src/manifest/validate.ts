@@ -83,6 +83,7 @@ export function validateManifest(
       health: { path: parsed.observability?.health?.path ?? '/health' },
       metrics: { path: parsed.observability?.metrics?.path ?? '/metrics' },
     },
+    seed: parsed.seed !== undefined ? { path: parsed.seed.path } : null,
   };
   return { ok: true, value: v };
 }

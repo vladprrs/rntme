@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import {
   parsePdm,
   validatePdm,
@@ -29,6 +30,7 @@ import {
 } from '@rntme/bindings';
 import { validateUi, type ValidatedUiArtifact } from '@rntme/ui';
 import { compileApplyPlan } from '@rntme/projection-consumer';
+import { loadSeed, type ValidatedSeed } from '@rntme/seed';
 import { buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime';
 import { parseManifest } from '../manifest/parse.js';
 import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
@@ -146,6 +148,18 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
   }
 
+  const eventTypes = deriveEventTypes(validatedPdm);
+
+  let validatedSeed: ValidatedSeed | null = null;
+  if (manifest.seed !== null) {
+    const seedPath = join(dir, manifest.seed.path);
+    const seedResult = loadSeed(seedPath, { pdm: pdmResolver, events: eventTypes });
+    if (!seedResult.ok) {
+      return { ok: false, errors: [{ code: 'SEED_INVALID', details: seedResult.errors }] };
+    }
+    validatedSeed = seedResult.value;
+  }
+
   // 4. Graphs + shapes
   let graphsById: Record<string, GraphJson>;
   let shapes: GraphSpec['shapes'];
@@ -243,7 +257,6 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
 
   // 9. Derived projection specs + apply plan
   const projectionDdls = generateProjectionDdl(validatedQsm, pdmResolver);
-  const eventTypes = deriveEventTypes(validatedPdm);
   const projectionApplyPlan = compileApplyPlan({
     pdm: pdmResolver,
     qsm: validatedQsm,
@@ -263,6 +276,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       projectionApplyPlan,
       projectionDdls,
       eventTypes,
+      seed: validatedSeed,
     },
   };
 }

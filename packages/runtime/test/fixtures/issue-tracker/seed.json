@@ -1,0 +1,21 @@
+{
+  "seedVersion": 1,
+  "events": [
+    {
+      "stream": "Issue-1",
+      "aggregateType": "Issue",
+      "aggregateId": "1",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "status": "draft",
+        "title": "Seeded issue",
+        "projectId": 1,
+        "reporterId": 1,
+        "priority": "medium",
+        "storyPoints": 1
+      },
+      "occurredAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

@@ -300,6 +300,9 @@ importers:
       '@rntme/qsm':
         specifier: workspace:*
         version: link:../qsm
+      '@rntme/seed':
+        specifier: workspace:^
+        version: link:../seed
       '@rntme/ui':
         specifier: workspace:*
         version: link:../ui
