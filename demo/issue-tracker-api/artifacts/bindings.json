@@ -69,8 +69,20 @@
         "summary": "Search issues by title (LIKE), date range, and optional priority.",
         "parameters": [
           { "name": "q", "in": "query", "bindTo": "q", "required": true },
-          { "name": "from", "in": "query", "bindTo": "from", "required": true },
-          { "name": "to", "in": "query", "bindTo": "to", "required": true },
+          {
+            "name": "from",
+            "in": "query",
+            "bindTo": "from",
+            "required": false,
+            "description": "Range start (ISO-8601). Defaults to 1970-01-01T00:00:00.000Z when omitted."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "bindTo": "to",
+            "required": false,
+            "description": "Range end (ISO-8601). Defaults to 9999-12-31T23:59:59.999Z when omitted."
+          },
           { "name": "priority", "in": "query", "bindTo": "priority", "required": false },
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
