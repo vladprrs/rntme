@@ -13,3 +13,4 @@ export { validateSeed } from './validate.js';
 export type { ValidateCtx } from './validate.js';
 export { seedBuilder } from './builder.js';
 export type { SeedBuilder } from './builder.js';
+export { loadSeed } from './load.js';
