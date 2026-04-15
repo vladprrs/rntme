@@ -115,3 +115,43 @@ describe('validateStructural — layouts/Slot', () => {
     expect(res.ok).toBe(true);
   });
 });
+
+describe('validateStructural — tree references', () => {
+  it('rejects action reference in tree with no declared action', () => {
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.routes['/a'].page.elements.n.props = { action: 'submit' };
+    const res = validateStructural(prep(bad));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_UNKNOWN_ACTION')).toBe(true);
+  });
+
+  it('accepts built-in setState action', () => {
+    const ok_ = JSON.parse(JSON.stringify(base));
+    ok_.routes['/a'].page.elements.n.props = { action: 'setState' };
+    const res = validateStructural(prep(ok_));
+    expect(res.ok).toBe(true);
+  });
+
+  it('rejects $state on unknown dataset', () => {
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.routes['/a'].page.elements.n.props = { rows: { $state: '/data/ghost' } };
+    const res = validateStructural(prep(bad));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_STATE_PATH_UNKNOWN_DATASET')).toBe(true);
+  });
+
+  it('rejects $state on unknown action status', () => {
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.routes['/a'].page.elements.n.props = { msg: { $state: '/actions/__status/bogus' } };
+    const res = validateStructural(prep(bad));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_STATE_PATH_UNKNOWN_ACTION')).toBe(true);
+  });
+
+  it('accepts free-zone /form/* state paths', () => {
+    const ok_ = JSON.parse(JSON.stringify(base));
+    ok_.routes['/a'].page.elements.n.props = { value: { $state: '/form/title' } };
+    const res = validateStructural(prep(ok_));
+    expect(res.ok).toBe(true);
+  });
+});

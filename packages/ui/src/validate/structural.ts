@@ -4,6 +4,9 @@ import { err, ok, UI_ERROR_CODES, type Result, type UiError } from '../types/res
 const PATH_RE =
   /^\/([A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*)(\/([A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*))*\/?$/;
 const ROOT_PATH_RE = /^\/$/;
+const BUILTIN_ACTIONS = new Set(['setState']);
+const DATA_PREFIX_RE = /^\/data(\/__status|\/__error)?\/([^/]+)/;
+const ACTION_PREFIX_RE = /^\/actions(\/__status|\/__error)\/([^/]+)/;
 
 export type StructurallyValid = UiArtifactParsed & { __structural: true };
 
@@ -24,6 +27,48 @@ export function validateStructural(a: UiArtifactParsed): Result<StructurallyVali
   for (const [path, route] of Object.entries(a.routes)) {
     if (route !== undefined) {
       checkSpec(route.page, `routes["${path}"].page`, errors);
+
+      const declaredActions = new Set(Object.keys(route.actions ?? {}));
+      const declaredData = new Set(Object.keys(route.data ?? {}));
+      const { actions: usedActions, statePaths } = collectActionsAndStatePaths(route.page);
+
+      for (const actionId of usedActions) {
+        if (BUILTIN_ACTIONS.has(actionId)) continue;
+        if (!declaredActions.has(actionId)) {
+          errors.push({
+            layer: 'structural',
+            code: UI_ERROR_CODES.UI_UNKNOWN_ACTION,
+            message: `Tree references action "${actionId}" which is not declared in route.actions`,
+            path: `routes["${path}"].page`,
+          });
+        }
+      }
+      for (const sp of statePaths) {
+        const d = DATA_PREFIX_RE.exec(sp);
+        if (d) {
+          const dsId = d[2];
+          if (dsId && !declaredData.has(dsId)) {
+            errors.push({
+              layer: 'structural',
+              code: UI_ERROR_CODES.UI_STATE_PATH_UNKNOWN_DATASET,
+              message: `State path "${sp}" references dataset "${dsId}" not declared in route.data`,
+              path: `routes["${path}"].page`,
+            });
+          }
+        }
+        const ac = ACTION_PREFIX_RE.exec(sp);
+        if (ac) {
+          const acId = ac[2];
+          if (acId && !BUILTIN_ACTIONS.has(acId) && !declaredActions.has(acId)) {
+            errors.push({
+              layer: 'structural',
+              code: UI_ERROR_CODES.UI_STATE_PATH_UNKNOWN_ACTION,
+              message: `State path "${sp}" references action "${acId}" not declared in route.actions`,
+              path: `routes["${path}"].page`,
+            });
+          }
+        }
+      }
     }
   }
   for (const [id, layout] of Object.entries(a.layouts)) {
@@ -62,6 +107,40 @@ export function validateStructural(a: UiArtifactParsed): Result<StructurallyVali
 
 type JsonSpec = UiArtifactParsed['routes'][string];
 type PageSpec = NonNullable<JsonSpec>['page'];
+
+function collectActionsAndStatePaths(
+  spec: PageSpec,
+): { actions: Set<string>; statePaths: Set<string> } {
+  const actions = new Set<string>();
+  const statePaths = new Set<string>();
+  const visitValue = (v: unknown): void => {
+    if (v === null || v === undefined) return;
+    if (typeof v !== 'object') return;
+    if (Array.isArray(v)) {
+      v.forEach(visitValue);
+      return;
+    }
+    const obj = v as Record<string, unknown>;
+    if (typeof obj.$state === 'string') statePaths.add(obj.$state);
+    for (const [k, value] of Object.entries(obj)) {
+      if (k === 'action' && typeof value === 'string') actions.add(value);
+      visitValue(value);
+    }
+  };
+  for (const el of Object.values(spec.elements)) {
+    visitValue(el.props);
+    if (el.watch) {
+      for (const w of Object.values(
+        el.watch as Record<string, { action: string; params?: Record<string, unknown> }>,
+      )) {
+        actions.add(w.action);
+        if (w.params) visitValue(w.params);
+      }
+    }
+    if (el.visible !== undefined) visitValue(el.visible);
+  }
+  return { actions, statePaths };
+}
 
 function checkSpec(spec: PageSpec, basePath: string, errors: UiError[]): void {
   if (!Object.prototype.hasOwnProperty.call(spec.elements, spec.root)) {
