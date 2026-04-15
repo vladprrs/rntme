@@ -43,3 +43,6 @@ export type {
 export { parseUiArtifact } from './parse/parse.js';
 export { UiArtifactSchema } from './parse/schema.js';
 export type { UiArtifactParsed } from './parse/schema.js';
+
+export { validateStructural } from './validate/structural.js';
+export type { StructurallyValid } from './validate/structural.js';
