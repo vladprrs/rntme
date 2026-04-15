@@ -12,6 +12,10 @@ function cloneFixtureWithSeed(seed: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), 'runtime-seed-load-'));
   cpSync(FIXTURE, dir, { recursive: true });
   writeFileSync(join(dir, 'seed.json'), JSON.stringify(seed));
+  const manifestPath = join(dir, 'manifest.json');
+  const m = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  m.seed = { ...(m.seed ?? {}), enabled: true };
+  writeFileSync(manifestPath, JSON.stringify(m));
   return dir;
 }
 

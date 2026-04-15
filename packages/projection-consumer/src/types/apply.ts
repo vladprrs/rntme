@@ -7,6 +7,7 @@
  * - `generatedOccurred` — `envelope.occurredAt` (for `generated: "createdAt" | "updatedAt"`)
  * - `generatedActor`    — `envelope.actor?.id ?? null`
  * - `nullable`          — literal NULL (column nullable + not in affects + not generated)
+ * - `literalString`     — compile-time string (e.g. creation transition target for state column)
  * - `eventId`           — idempotency column `last_event_id`
  * - `eventVersion`      — idempotency column `last_event_version`
  * - `appliedAt`         — idempotency column `applied_at` = new Date().toISOString()
@@ -17,6 +18,7 @@ export type ColumnBinding =
   | Readonly<{ kind: 'generatedOccurred' }>
   | Readonly<{ kind: 'generatedActor' }>
   | Readonly<{ kind: 'nullable' }>
+  | Readonly<{ kind: 'literalString'; value: string }>
   | Readonly<{ kind: 'eventId' }>
   | Readonly<{ kind: 'eventVersion' }>
   | Readonly<{ kind: 'appliedAt' }>;
