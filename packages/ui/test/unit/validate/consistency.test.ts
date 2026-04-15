@@ -214,7 +214,7 @@ describe('validateConsistency — enum variance (typesCompatible argument order)
     resolveRoute: () => true,
   };
 
-  const narrowR: UiResolvers = {
+  const _narrowR: UiResolvers = {
     resolveBinding: (id) =>
       id === 'enumItems' ? enumNarrowBinding : id === 'narrowCmd' ? enumNarrowCmd : undefined,
     resolveComponent: () => ({ propsSchema: z.any(), childrenModel: 'list' }),

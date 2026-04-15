@@ -51,3 +51,5 @@ export { validateReferences } from './validate/references.js';
 export type { ResolvedUi } from './validate/references.js';
 
 export { validateConsistency } from './validate/consistency.js';
+
+export { validateUi } from './validate/index.js';
