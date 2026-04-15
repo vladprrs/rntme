@@ -32,6 +32,31 @@ export function validateStructural(a: UiArtifactParsed): Result<StructurallyVali
     }
   }
 
+  const usedLayouts = new Set<string>();
+  for (const route of Object.values(a.routes)) {
+    if (route.layout) usedLayouts.add(route.layout);
+  }
+  for (const layoutId of usedLayouts) {
+    const layout = a.layouts[layoutId];
+    if (!layout) continue; // reported by references layer
+    const slots = Object.entries(layout.spec.elements).filter(([, e]) => e.type === 'Slot');
+    if (slots.length === 0) {
+      errors.push({
+        layer: 'structural',
+        code: UI_ERROR_CODES.UI_LAYOUT_SLOT_MISSING,
+        message: `Layout "${layoutId}" is used but has no Slot element`,
+        path: `layouts["${layoutId}"].spec`,
+      });
+    } else if (slots.length > 1) {
+      errors.push({
+        layer: 'structural',
+        code: UI_ERROR_CODES.UI_LAYOUT_SLOT_DUPLICATE,
+        message: `Layout "${layoutId}" has ${slots.length} Slot elements; exactly one is required`,
+        path: `layouts["${layoutId}"].spec`,
+      });
+    }
+  }
+
   return errors.length > 0 ? err(errors) : ok(a as StructurallyValid);
 }
 
