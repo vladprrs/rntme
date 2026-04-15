@@ -12,15 +12,15 @@
 |-----|-------------|---------|---------|
 | **D1** | `event_log` + immutable log + `delivery_tracking` telemetry table | `event_log` + `publish_cursor` only | ⚠️ partial — delivery telemetry missing |
 | **D2** | sync write-behind | sync write-behind | ✅ match |
-| **D3** | SQLite = per-service SoT; Kafka = long-retained inter-service integration SoT | SQLite = SoT; Kafka = ephemeral (in-memory demo) | ⚠️ retention contract undocumented |
+| **D3** | SQLite = per-service SoT; Kafka = long-retained integration SoT; ksqlDB = cross-service read layer | SQLite = SoT; Kafka = ephemeral (in-memory demo); no ksqlDB | ⚠️ retention contract undocumented; ksqlDB absent |
 | **D4** | at-least-once + idempotent consumer | at-least-once + idempotent consumer | ✅ match |
 | **D5** | hybrid: per-row `last_event_version` (mirror) **+** `seen_events(event_id)` (non-mirror) | per-row `last_event_version` only | ❌ gap — blocks non-mirror projections |
 | **D6** | topic per aggregate type; partition key = stream; versioned topic name | topic per aggregate type; partition key = stream | ⚠️ topic naming missing service name |
 | **D7** | polling + in-process condvar for low latency | polling only (100 ms) | ⚠️ tail-latency optimization missing |
 | **D8** | per-event JSON Schema files + CI BACKWARD-compat gate | none (int `schemaVersion` field, nothing else) | ❌ gap — silent breakage possible |
 | **D9** | CloudEvents 1.0 envelope end-to-end + correlationid / causationid | custom envelope; Kafka headers carry only `event-id`, `event-type`, `schema-version` | ❌ major gap — blocker for Zeebe |
-| **D10** | max-attempts + `delivery_tracking.dlq_at` parking; broker-DLQ as opt-in | infinite retry + `console.error` | ❌ gap — poison events silently block relay |
-| **D11** | generated per-service schema registry (JSON Schema files from PDM + graphs) | no registry; shapes scattered across artifacts | ❌ gap — no authoritative event-shape source |
+| **D10** | max-attempts + dedicated Kafka DLQ topic (`{topic}.dlq`) | infinite retry + `console.error` | ❌ gap — poison events silently block relay |
+| **D11** | generated per-service schema registry (JSON Schema files from PDM alone via `deriveEventTypes`) | derivation function exists; serializer + committed files absent | ❌ gap — registry artifact missing though derivation is in-package |
 | **D12** | `Idempotency-Key` header → `(commandId, key)` response cache | none; OCC-only | ❌ gap — HTTP retry unsafe |
 
 Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
@@ -46,7 +46,7 @@ Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 2. Extend relay loop `packages/event-store/src/relay/loop.ts:47-77` to `UPSERT` into `delivery_tracking` before each attempt (`attempt_count += 1`, `last_attempt_at = now`); on success write `delivered_at`; on terminal failure write `dlq_at`, `last_error` (see D10).
 3. Ops surface: `GET /_ops/relay-dlq`, `GET /_ops/relay-lag` (ties D10 remediation).
 
-**Priority.** P1 — prerequisite for D10 parking behaviour.
+**Priority.** P1 — prerequisite for D10 DLQ behaviour (attempt_count, last_error, dlq_at all live here).
 
 ---
 
@@ -62,25 +62,27 @@ Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 
 ---
 
-## D3 · Source-of-truth scope — ⚠️ contract undocumented
+## D3 · Source-of-truth scope — ⚠️ contract undocumented, ksqlDB layer absent
 
-**Best design (ADR D3).** SQLite = per-service command SoT. Kafka = inter-service integration SoT with long retention or compaction; new consumers backfill from Kafka history.
+**Best design (ADR D3).** Three-layer SoT model: SQLite = per-service command SoT; Kafka topics = inter-service integration SoT with long retention / compaction; ksqlDB = cross-service read layer (new services typically consume ksqlDB-derived streams/tables rather than raw Kafka topics; cross-service joins and aggregations live in ksqlDB, not in individual rntme services).
 
-**Current state.** SQLite is treated as SoT by construction (relay reads from it, never writes back). Kafka topic naming (`packages/event-store/src/relay/topic.ts:1-3` — `rntme.{aggregateType.toLowerCase()}.v1`) is per-aggregate-type, consistent with D6. The demo runs an **in-memory Kafka bridge** (`docs/gaps/commands-and-transactions-gaps.md` references the swap point); production retention policy is not specified anywhere in the code or docs.
+**Current state.** SQLite is treated as SoT by construction (relay reads from it, never writes back). Kafka topic naming (`packages/event-store/src/relay/topic.ts:1-3` — `rntme.{aggregateType.toLowerCase()}.v1`) is per-aggregate-type, consistent with D6. The demo runs an **in-memory Kafka bridge** (`docs/gaps/commands-and-transactions-gaps.md` references the swap point); production retention policy is not specified anywhere in the code or docs. **No ksqlDB integration exists** — neither in the platform infrastructure nor in rntme's operational story.
 
 **Delta.**
 
-- The split "SQLite = write SoT, Kafka = inter-service SoT" is implicit. No deployment doc says "production Kafka topics MUST have retention or compaction configured as follows".
-- If a new service subscribes to an existing service's topic after retention expiry, it cannot backfill. This breaks the canon contract silently.
-- Demo runtime uses zero-retention in-memory bridge; test coverage therefore never exercises "new-consumer-joins-after-producer-has-events" flow.
+- The split "SQLite = write SoT, Kafka = inter-service SoT, ksqlDB = cross-service read" is implicit. No deployment doc says "production Kafka topics MUST have retention or compaction configured as follows" and no doc says "cross-service projections go to ksqlDB, not to rntme QSM".
+- If a new service subscribes to an existing service's topic after retention expiry, it cannot backfill. Canonical mitigation: ksqlDB materialized tables (which persist derived state independently of the source topic's retention policy). Without ksqlDB, rntme has no good answer for "new consumer joins long after producer existed".
+- Demo runtime uses zero-retention in-memory bridge; test coverage never exercises "new-consumer-joins-after-producer-has-events".
+- The QSM-only projection model may be tempted to solve cross-service read models inside a rntme service (joining another service's events into this service's QSM). This is the wrong answer — cross-service reads belong in ksqlDB — but rntme has no boundary enforcement or guidance.
 
 **Remediation sketch.**
 
-1. Add `docs/adr/2026-04-15-event-driven-architecture.md` production-deployment appendix (or separate `docs/operability/kafka-retention.md`) specifying per-topic retention / compaction policy per aggregate kind.
-2. `@rntme/runtime` adds a startup assertion or warning if `KafkaProducer` is configured against a broker with default (short) retention.
-3. Demo can keep in-memory bridge but documentation marks it "demo-only; zero retention".
+1. Add production-deployment appendix to the ADR (or separate `docs/operability/kafka-retention.md`) specifying per-topic retention / compaction policy per aggregate kind.
+2. Add platform-level doc specifying ksqlDB as the cross-service read layer. Document what belongs in rntme QSM (service-local read of service-own events) vs what belongs in ksqlDB (cross-service joins, windowed aggregations, enrichment across services).
+3. `@rntme/runtime` adds a startup assertion or warning if `KafkaProducer` is configured against a broker with default (short) retention.
+4. Demo keeps in-memory bridge but documentation marks it "demo-only; zero retention; no ksqlDB wired".
 
-**Priority.** P2 — affects platform contract, not current functionality. Must be resolved before the second production service is deployed.
+**Priority.** P2 — affects platform contract, not current functionality. Must be resolved before the second production service is deployed OR before the first cross-service read-model requirement lands.
 
 ---
 
@@ -255,7 +257,7 @@ No `source`, no `specversion`, no `correlationid`, no `causationid`, no `datacon
 
 ## D10 · Failure handling in relay — ❌ gap
 
-**Best design (ADR D10).** Default: max-attempts + parking in `delivery_tracking.dlq_at`. Optional broker-DLQ mode via runtime flag.
+**Best design (ADR D10).** Max-attempts + dedicated DLQ Kafka topic (`{originalTopic}.dlq`). `delivery_tracking.dlq_at` records local auditability; authoritative DLQ lives in Kafka.
 
 **Current state.** `packages/event-store/src/relay/loop.ts:50-70`:
 
@@ -278,50 +280,54 @@ Unbounded retry. No attempt counter. Default `onErr` is `console.error`. If a si
 **Delta.**
 
 - One poison event halts the entire relay indefinitely.
-- No operator-facing record of which events are stuck.
+- No `max_attempts` config.
+- No DLQ topic provisioning or producer path.
+- No attempt counter or error metadata persisted (requires D1 `delivery_tracking` first).
 - `console.error` is the only operator signal — buried in service logs.
-- No tooling to inspect, replay, or drop parked events.
 
 **Remediation sketch.**
 
 1. After D1 `delivery_tracking` lands, record attempt count per send.
-2. On `attempt_count >= max_attempts`, relay writes `dlq_at = now()`, `last_error = …`, advances cursor **past the parked event**, continues with the next.
-3. Ops endpoints: `GET /_ops/relay-dlq` (list parked), `POST /_ops/relay-dlq/{event_id}/replay` (retry with attempt counter reset), `POST /_ops/relay-dlq/{event_id}/drop` (delete from delivery_tracking; event stays in event_log for audit).
-4. Runtime flag `RNTME_RELAY_DLQ_MODE = "parking" | "broker"` toggles; `broker` mode sends to `topicOf(rec) + ".dlq"` instead of parking.
-5. CLI: `rntme relay dlq list|replay|drop`.
+2. On `attempt_count >= max_attempts` (default 10): relay produces the failed envelope + error metadata (`last_error`, `first_attempt_at`, `attempt_count`) to Kafka topic `{topicOf(rec)}.dlq`. On successful DLQ produce, mark `delivery_tracking.dlq_at = now()`, advance `publish_cursor`, continue.
+3. Poison-event classification: retryable = connection refused, broker unavailable, timeout. Terminal = schema violations, serialization errors, authorization failures, message-too-large → DLQ on first attempt.
+4. D6 topic generator emits DLQ topic alongside primary topic; platform provisioning picks it up.
+5. Operator tooling uses standard Kafka consumer against `*.dlq` topics (not rntme-specific CLI) — aligns with D3's "Kafka is the cross-service surface".
+6. Local ops diagnostic `GET /_ops/relay-dlq-count` returns `count(delivery_tracking WHERE dlq_at IS NOT NULL)` for quick service-level visibility; authoritative inspection happens on the Kafka topic.
 
 **Priority.** P0 — current behaviour is a silent operational hazard. Any real-world event whose schema fails broker-side validation halts the service.
 
 ---
 
-## D11 · Event-shape registry — ❌ gap
+## D11 · Event-shape registry — ❌ gap (but 90 % done in-package)
 
-**Best design (ADR D11).** A per-service registry of JSON Schema files, generated at build time from PDM stateMachine transitions + graph emit nodes. Committed to the repo. Source for D8's compat-checker and for external consumers (Zeebe, dashboards, other services).
+**Best design (ADR D11).** A per-service registry of JSON Schema files, generated at build time from **PDM alone** (not graphs — graphs are the runtime binding for how to populate a payload, not the schema). Committed to the repo. Source for D8's compat-checker and for external consumers (Zeebe, dashboards, other services, ksqlDB DDL generators).
 
-**Current state.** None. Event shapes live implicitly across:
+**Current state.** The derivation function **already exists**: `packages/pdm/src/derive/event-types.ts:25` — `deriveEventTypes(pdm: ValidatedPdm) → EventTypeSpec[]`, producing per-transition specs with `eventType`, `aggregateType`, `transition`, `from/to`, `affects`, and `payloadFields: { [field]: { type, nullable } }`. The derivation is clean, PDM-only, no graph input.
 
-- PDM stateMachine transitions (per-aggregate).
-- Graph-IR `emit` nodes (one per command).
-- The payload expression evaluated at runtime in `packages/graph-ir-compiler/src/emit/payload.ts`.
+What is missing:
 
-To know what `IssueCreated` v2 contains, a reviewer must read the aggregate PDM, find the transition that emits it, read the `emit` node in the command graph, and mentally simulate `derivePayload`. No single file describes the shape.
+- **Serializer.** Nothing today converts `EventTypeSpec` to JSON Schema. The structure is trivial — `payloadFields` maps 1:1 to `properties` with `type` / `nullable`.
+- **Build step.** No script writes `schemas/*.json` on build.
+- **Committed files.** No `schemas/` directory exists in any service.
+- **External packaging.** No npm package publishes schemas for downstream consumers.
 
 **Delta.**
 
-- No consolidated event shape documentation.
-- External consumer integration requires reading rntme source.
-- Schema compat-checker (D8) has no input.
-- LLM-agent cannot read "what does this event look like today" from one place.
+- No consolidated event shape documentation readable without running code.
+- External consumer integration (Zeebe, ksqlDB `CREATE STREAM … WITH (VALUE_SCHEMA_ID=…)`) requires reading rntme source instead of a standard JSON Schema URL.
+- Schema compat-checker (D8) has no input file.
+- LLM-agent cannot read "what does this event look like today" from one place — must re-derive via compiler.
 
-**Remediation sketch.** (Same package work as D8 remediation; listed separately because it is the data surface that D8 governs.)
+**Remediation sketch.** (Smaller than D8's framing suggested — the data is already in-package.)
 
-1. New module in `@rntme/pdm` (or new `@rntme/schema-codec`): `generateEventSchemas(pdm, graphs) → Map<EventTypeFQN, JSONSchema>`.
-2. `pnpm build` writes `schemas/{EventType}.v{major}.json` per service, committed.
-3. Publishable as `@rntme/{service-name}-schemas` npm package for external consumers.
-4. CloudEvents `dataschema` (D9) points to the URL of these schema files.
-5. Runtime opt-in: projection consumer can validate `envelope.data` against `dataschema` in dev mode; off in production for perf.
+1. New function in `@rntme/pdm`: `eventTypeSpecToJsonSchema(spec: EventTypeSpec): JSONSchema` — mechanical map of `payloadFields` to JSON Schema `properties`, required list = fields where `nullable: false`.
+2. New script `pnpm --filter @rntme/<service> schemas:generate` that calls `deriveEventTypes(pdm)` → map each `EventTypeSpec` through the serializer → writes `schemas/<EventType>.v{major}.json` per service.
+3. Hook into `pnpm build` so schemas regenerate with compile.
+4. Commit schemas; CI rejects PRs where generated schemas differ from committed (LLM-agent must regenerate).
+5. CloudEvents `dataschema` (D9) points to the repo-relative path or, later, the URL of a published package.
+6. Runtime opt-in: projection consumer validates `envelope.data` against `dataschema` in dev mode; off in production for perf.
 
-**Priority.** P1 — paired with D8 (same delivery unit).
+**Priority.** P1 — paired with D8. Smaller than originally scoped: the hard work (deriving shapes from PDM) is done; only serialization + build-step plumbing + committed files remain.
 
 ---
 
@@ -391,7 +397,7 @@ The `schemaVersion` field is set to `1` on every event everywhere in the codebas
 Ordered by (priority, dependency):
 
 1. **P0 / D9** — CloudEvents envelope migration + correlationid / causationid propagation. Blocks Zeebe. Forces a breaking change anyway; bundle D6 topic naming fix with it.
-2. **P0 / D10** — DLQ parking via `delivery_tracking.dlq_at` (requires D1 table first).
+2. **P0 / D10** — DLQ Kafka topic (`{topic}.dlq`) + max-attempts + `delivery_tracking.dlq_at` for local audit (requires D1 table first).
 3. **P1 / D1** — `delivery_tracking` table. Prerequisite for D10.
 4. **P1 / D5** — hybrid idempotency; unblock non-mirror projections.
 5. **P1 / D8 + D11** — schema registry generator + BACKWARD compat CI gate (single work unit).

@@ -1,10 +1,12 @@
 # ADR 2026-04-15 · Event-Driven Architecture of rntme
 
-**Status:** Proposed
+**Status:** Proposed — analysis artifact.
 **Scope:** command path, event store, relay, projection consumer, Kafka surface, schema evolution.
 **Non-goals:** cross-service saga orchestration (Zeebe territory), read-side SQL dialect (covered by Turso ADR), UI artifact format.
 
 This ADR defines the canonical event-driven architecture for a rntme service. Each decision answers one design question with alternatives explicitly weighed. Where the best design differs from the current implementation, that delta is captured in the companion gap audit (`docs/gaps/2026-04-15-event-driven-canonical-audit.md`) — not smoothed over here.
+
+**Note on implementation commitment.** This document is an analysis artifact. Accepting or scheduling any specific decision is a separate product-value call made per decision, per release, against the gaps backlog. The ADR does not obligate the platform to implement every decision; it records what the canonical design looks like so product prioritization has an honest baseline.
 
 ---
 
@@ -43,7 +45,7 @@ Canon references (Confluent, Kleppmann, Stopford, CloudEvents) are cited per dec
 - Schema additions: one new table; no changes to `event_log`.
 - Relay writes `delivery_tracking` rows on each attempt; transactional coupling is not required (delivery state is derived, not authoritative).
 - Dashboards can compute `relay_lag = max(event_log.id) - publish_cursor.last_event_id` and `parked_count = count(delivery_tracking) WHERE dlq_at IS NOT NULL`.
-- Interacts with D10 (failure handling) — DLQ parking writes `dlq_at`.
+- Interacts with D10 (failure handling) — after a message is produced to the `.dlq` topic, the relay writes `dlq_at` for local auditability.
 
 **Canon refs.** Stopford, *Designing Event-Driven Systems* ch. 2. Kleppmann, "Turning the database inside-out". Confluent developer course, "Transactional Outbox" — Waldron explicitly notes that event sourcing eliminates the need for a separate outbox table.
 
@@ -88,26 +90,29 @@ Canon references (Confluent, Kleppmann, Stopford, CloudEvents) are cited per dec
 - **(b)** Kafka = SoT everywhere. SQLite is disposable materialized view (Kleppmann "inside-out"). Commands take LtY path.
 - **(c)** SQLite = SoT. Kafka = ephemeral transport. New consumers ask the producing service to replay from its SQLite event_log back into Kafka.
 
-**Decision.** **(a).** Two layers, two authorities:
+**Decision.** **(a), with ksqlDB as the canonical cross-service read layer.** Three authorities:
 
 - **Write-side per-service SoT: SQLite `event_log`.** Owns causal history of this service's aggregates. Source for state rebuild, local queries, audit.
-- **Inter-service integration SoT: Kafka topics** (configured with long retention, compacted where appropriate). This is the contract surface other services consume. New consumers backfill from Kafka, not by calling the producing service.
+- **Inter-service integration SoT: Kafka topics** (configured with long retention, compacted where appropriate). This is the raw integration layer — the durable, replayable log of every domain event emitted by every service.
+- **Inter-service read model: ksqlDB** streams and tables. New services consuming another service's events do not typically subscribe to raw Kafka topics — they query ksqlDB streams/tables derived from those topics. ksqlDB owns the joins, windowed aggregations, and enrichment that individual services would otherwise re-implement.
 
 **Rationale.**
 
 - (b) conflicts with D2 (requires LtY) and with rntme's SQLite-first boot model.
 - (c) creates a hidden coupling: every producer must expose a replay endpoint and every new consumer must negotiate backfill. That is the anti-pattern the whitepaper explicitly calls out ("expose an endpoint on the producer side, and use this endpoint to regenerate the desired events … we cannot guarantee that these events will be identical"). It also pushes the producer to re-emit, which violates immutability guarantees of the log.
 - (a) is Confluent canon: Kafka as central log between services, producer-service owns its local state. It cleanly lets a new service join the ecosystem by subscribing to the right topic from offset-0, without asking any producer to do anything.
+- Adding ksqlDB as the default cross-service read layer matches the Confluent whitepaper's four-layer model (native client / Kafka Connect / Kafka Streams / ksqlDB) and keeps cross-service projections out of rntme. A rntme service's QSM is strictly its OWN read-side. Cross-service read models (a dashboard joining OrderPlaced with CustomerCreated from another service, a risk score combining payment + inventory signals) live in ksqlDB, not inside a rntme service.
 
-**Consequences — retention becomes a contract.**
+**Consequences — retention becomes a contract; ksqlDB becomes platform infrastructure.**
 
 - Production Kafka config: `retention.ms = -1` (infinite) OR compacted topics for aggregate-current-state events. This must be a platform-level deployment policy, not per-service tuning.
 - Compacted topics require a stable key per aggregate (see D6 — `key = stream`).
 - For events that are not compact-able (command-driven business events where every occurrence matters), configure long retention + tiered storage (if available on the broker).
-- Service can rebuild its OWN state from its own SQLite (faster, local). Other services rebuild their view of this service's events from Kafka.
-- Demo runtime uses in-memory Kafka → no retention → zero-history for new consumers. Document this as "demo-only". Production must have retention.
+- Service can rebuild its OWN state from its own SQLite (faster, local). Other services see this service's events through Kafka and, typically, through ksqlDB-derived streams/tables rather than raw topics.
+- rntme's projection-consumer remains service-local. Cross-service projections are ksqlDB's job — explicitly out of scope for rntme artifacts. This boundary clarifies why QSM stays entity-mirror-focused and why cross-aggregate joins belong one layer up.
+- Demo runtime uses in-memory Kafka → no retention → zero-history for new consumers. Document this as "demo-only". Production must have retention. ksqlDB is not wired in the demo; production platform provides it.
 
-**Canon refs.** Stopford, *Designing Event-Driven Systems* ch. 4-5 ("Kafka as central nervous system"). Confluent whitepaper (Narkhede), ingestion + retention discussion. Kleppmann, "Making sense of stream processing".
+**Canon refs.** Stopford, *Designing Event-Driven Systems* ch. 4-5 ("Kafka as central nervous system"). Confluent whitepaper (2020), §"The Four Layers of Abstraction" — ksqlDB as streaming-SQL layer. Kleppmann, "Making sense of stream processing".
 
 ---
 
@@ -316,22 +321,23 @@ Extensions (lowercase alpha, per CE spec):
 - **(b)** Max-attempts + dedicated DLQ Kafka topic. Canonical.
 - **(c)** Max-attempts + parking in `delivery_tracking` (SQLite row marked `dlq_at`, `last_error`). Single-node model.
 
-**Decision.** **(c) as default, (b) as production escalation path.** Default: `max_attempts = 10`, exp backoff capped at 30 s, after exhaustion relay parks the event (sets `delivery_tracking.dlq_at`, stores `last_error`), advances `publish_cursor`, continues. Operator tools: `rntme relay dlq list`, `rntme relay dlq replay <event_id>`, `rntme relay dlq drop <event_id>`. Runtime config flag `RNTME_RELAY_DLQ_TOPIC` switches to (b) when a broker-level DLQ is operationally preferred.
+**Decision.** **(b).** Dedicated DLQ Kafka topic is the canonical pattern and the default for rntme. Default config: `max_attempts = 10`, exp backoff capped at 30 s, after exhaustion relay produces the failed envelope (plus error metadata — `last_error`, `attempt_count`, `first_attempt_at`) to a DLQ topic named `{originalTopic}.dlq`, marks `delivery_tracking.dlq_at`, advances `publish_cursor`, continues. Operator tooling consumes the DLQ topic (standard Kafka consumer) rather than reading SQLite rows.
 
 **Rationale.**
 
-- (a) lets one poison event silently halt the entire relay. Lag grows unbounded. Detectable only via external monitoring. Unacceptable at any scale.
-- (b) is canonical for multi-broker Kafka deployments with dedicated ops teams. Requires DLQ topic provisioning, monitoring, replay pipeline. Overhead disproportionate for per-service runtime with one node.
-- (c) keeps everything in the SQLite file — no new infra. Operator sees parked events in one query. Replay is a local operation. Fits the per-service model and Turso.
+- (a) lets one poison event silently halt the entire relay. Lag grows unbounded. Unacceptable at any scale.
+- (b) is Kafka-canonical. Kafka Connect defines DLQ semantics natively (`errors.tolerance = all`, `errors.deadletterqueue.topic.name`). Any downstream tooling (ksqlDB DLQ dashboards, Kafka monitoring stacks, replay scripts) speaks this dialect. Aligns with D3 — DLQ is itself an inter-service contract surface, belongs in Kafka.
+- (c) local parking was considered because rntme is per-service SQLite. Rejected: it fragments DLQ tooling across services, makes cross-service DLQ dashboards impossible, and offers no real advantage over (b) once a real broker is assumed (and D3 already assumes one for production).
 
 **Consequences.**
 
 - Relay loop advances past poison events; subsequent events are not blocked.
-- `delivery_tracking` surfaces DLQ state. `GET /_ops/relay-dlq` HTTP diagnostic route (auth-gated).
-- Poison-event classification: any send-error not in a retry-allow list (connection refused, broker unavailable, which we do retry). Schema violations, serialization errors, authorization failures → DLQ on first attempt.
-- If a production deployment prefers broker-DLQ, switching is a config change — no code migration.
+- DLQ topic is part of service deployment. Provisioning automation (from D6 topic generator) emits the DLQ topic alongside the primary topic.
+- `delivery_tracking.dlq_at` still set for local auditability — but the authoritative DLQ is the Kafka topic.
+- Poison-event classification: retryable = connection refused, broker unavailable, timeout. Terminal = schema violations, serialization errors, authorization failures, message-too-large → DLQ on first attempt.
+- Demo runtime's in-memory Kafka bridge must implement DLQ topic semantics (or the demo tests must accept retries without DLQ). Platform contract: real brokers have DLQ; demo bridge is best-effort.
 
-**Canon refs.** Confluent, "Handling failure with Kafka dead letter queues". Kafka Connect default DLQ semantics.
+**Canon refs.** Confluent, "Handling failure with Kafka dead letter queues". Kafka Connect default DLQ semantics (`errors.deadletterqueue.*`). Stopford, *Designing Event-Driven Systems* — failure-handling chapter.
 
 ---
 
@@ -341,25 +347,27 @@ Extensions (lowercase alpha, per CE spec):
 
 **Alternatives considered.**
 
-- **(a)** Implicit — events derived on-the-fly from PDM stateMachine transitions and graph `emit` nodes. No standalone registry.
-- **(b)** Per-service registry generated at build time: JSON Schema files per `(eventType, majorVersion)`, committed to the repo.
+- **(a)** Implicit — event shapes live only in PDM stateMachine transitions; no standalone readable artifact. The compiler derives them on every run.
+- **(b)** Per-service registry generated at build time from PDM: JSON Schema files per `(eventType, majorVersion)`, committed to the repo.
 - **(c)** Central platform Schema Registry server (Confluent or compatible).
 
-**Decision.** **(b).** Build step generates `schemas/<EventType>.v{N}.json` from PDM stateMachine + graph emit nodes. Files are committed. They are the source of truth for event shape — compat-checker (D8) reads them; runtime validator (optional) reads them; external consumers, Zeebe, and downstream services read them.
+**Decision.** **(b).** Build step generates `schemas/<EventType>.v{N}.json` **from PDM alone** — specifically from `deriveEventTypes(pdm)` in `packages/pdm/src/derive/event-types.ts`, which already produces `EventTypeSpec[]` with full `payloadFields` shape per transition. The registry is a thin serializer: `EventTypeSpec → JSON Schema`, one file per event type, committed to the repo.
 
 **Rationale.**
 
-- The user's point — "the fact that events are derived from artifacts doesn't mean we can't and shouldn't have a registry under the hood" — is decisive here. (a) scatters shape definitions across PDM + graphs and forces anyone (LLM-agent, reviewer, downstream consumer) to run the compiler mentally to know what `IssueCreated` v2 looks like. A registry is additive: nothing stops artifacts from being the source, but the registry is the *readable artifact* for governance and external contracts.
-- (c) is the right cross-service solution. Too heavy for a per-service pre-Zeebe runtime. Introduce when platform-wide governance exists.
+- Event shape is determined by the PDM stateMachine transition that produces the event — `transition.affects` + state-field + entity field types. Graph `emit` nodes reference these event types and bind runtime expressions to their fields; they do NOT alter the shape. Including graphs in registry generation would be wrong — they are the *how* (how to populate a payload at runtime), not the *what* (what fields exist).
+- (a) scatters nothing (PDM is already the single source) but forces anyone — LLM-agent, reviewer, downstream consumer — to run `deriveEventTypes()` mentally to know what an event type contains. A file-on-disk registry makes the shape readable, diff-able, and externally linkable (see CloudEvents `dataschema` in D9).
+- (c) is the right cross-service solution. Too heavy for a per-service pre-Zeebe runtime. Introduce when platform-wide governance exists and multiple services need runtime enforcement of contracts.
 
 **Consequences.**
 
-- New package: `@rntme/schema-registry-local` (or extended `@rntme/pdm`) with a generator that reads PDM + graphs and writes JSON Schemas.
-- `pnpm build` produces `schemas/`; CI commits them via a gate (PR must include regenerated schemas if artifacts change).
-- Consumers outside rntme (Zeebe, dashboards, other services) read `schemas/*.json` directly or via a published package.
+- Thin new module in `@rntme/pdm` (or sibling `@rntme/schema-codec`): `eventTypeSpecToJsonSchema(spec: EventTypeSpec) → JSONSchema`.
+- `pnpm build` produces `schemas/<EventType>.v{major}.json` per service. Committed to repo; CI gate (D8) enforces they match PDM.
+- Consumers outside rntme (Zeebe, dashboards, other services, ksqlDB DDL generators) read `schemas/*.json` directly or via a published npm package.
 - Ties into D8: schema files are the input to the BACKWARD compat-checker.
+- Ties into D9: CloudEvents `dataschema` URI points to the schema file.
 
-**Canon refs.** Confluent Schema Registry (concept, not server — we adopt the structure, defer the service). CloudEvents `dataschema` attribute (D9).
+**Canon refs.** Confluent Schema Registry (concept, not server — we adopt the structure, defer the service). CloudEvents `dataschema` attribute (D9). `packages/pdm/src/derive/event-types.ts` — existing derivation used as input.
 
 ---
 
