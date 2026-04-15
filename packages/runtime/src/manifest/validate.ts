@@ -141,7 +141,7 @@ export function applyEnvOverrides(
     persistence = { mode: 'ephemeral' };
   }
 
-  const bus: ValidatedManifest['bus'] = { mode: 'in-memory' };
+  const bus: ValidatedManifest['bus'] = v.bus;
 
   const auth: ValidatedManifest['auth'] = {
     mode: 'header',

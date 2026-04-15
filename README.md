@@ -148,8 +148,8 @@ Each library package exposes the same scripts. Run them across all packages from
 | `pnpm -r run test` | `vitest run` in every package (unit + integration + e2e + golden). |
 | `pnpm -r run lint` | ESLint on `src/**` and `test/**`. |
 | `pnpm -F <name> test:watch` | Vitest watch mode for one package. |
-| `pnpm -F @rntme/issue-tracker-api-demo start` | Start the demo server (`tsx src/server.ts`, `PORT` env var). |
-| `pnpm -F @rntme/issue-tracker-api-demo seed [path]` | Seed the read-side DB (default `:memory:`; pass a path for on-disk). |
+| `pnpm -F @rntme/issue-tracker-api-demo start` | Start the demo via `@rntme/runtime` (`tsx src/server.ts`; override port with `RNTME_HTTP_PORT`). |
+| `pnpm -F @rntme/issue-tracker-api-demo start:runtime-cli` | Start via the `rntme-runtime start ./artifacts` CLI. |
 
 CI runs `build → typecheck → test → lint` on every push and PR to `main` (see `.github/workflows/ci.yml`).
 

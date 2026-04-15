@@ -35,7 +35,8 @@ import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';
 import { readJsonFile, readTextFile, readGraphsDir } from './read-dir.js';
 
-// Runtime's own version — must match package.json major.
+// Manifest schema version accepted by this runtime. Bumped manually on
+// breaking manifest schema changes — NOT tied to the npm package semver.
 const RUNTIME_VERSION = { major: 1, minor: 0, patch: 0 };
 
 type GraphJson = {
