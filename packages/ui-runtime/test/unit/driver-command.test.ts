@@ -61,3 +61,38 @@ describe('driver.command', () => {
     expect(store.get('/form/title')).toBe('hi');
   });
 });
+
+describe('driver.command — onSuccess.navigateTo with clearFormState overlap', () => {
+  const withNav = JSON.parse(JSON.stringify(artifact));
+  withNav.routes['/a'].actions = {
+    submit: {
+      kind: 'command',
+      binding: 'reportIssue',
+      paramsFromState: { id: '/form/id' },
+      onSuccess: { clearFormState: ['/form'], navigateTo: '/detail/:id' },
+    },
+  };
+  withNav.routes['/detail/:id'] = {
+    page: { root: 'n', elements: { n: { type: 'Stack', props: {}, children: [] } } },
+  };
+
+  it('resolves navigateTo placeholders from paramsFromState before clearFormState runs', async () => {
+    const store = createStateStore();
+    store.set('/form/id', '42');
+    const onNavigate = vi.fn();
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ version: 1 }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const driver = createUiDriver({
+      artifact: withNav as ValidatedUiArtifact,
+      bindingsHttpBaseUrl: '',
+      fetch: fetchMock as unknown as typeof fetch,
+      stateStore: store,
+      bindingHttpByName: { reportIssue: { method: 'POST', path: '/v1/issues' } },
+      onNavigate,
+    });
+    await driver.invokeAction('/a', 'submit');
+    expect(onNavigate).toHaveBeenCalledWith('/detail/42'); // NOT '/detail/:id'
+    expect(store.get('/form')).toBeUndefined(); // clearFormState still ran
+  });
+});

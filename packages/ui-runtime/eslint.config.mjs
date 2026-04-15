@@ -20,6 +20,7 @@ export default [
         fetch: 'readonly',
         Request: 'readonly',
         RequestInfo: 'readonly',
+        RequestInit: 'readonly',
         Response: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',

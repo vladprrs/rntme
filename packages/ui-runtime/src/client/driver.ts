@@ -9,6 +9,7 @@ export type CreateUiDriverOptions = {
   fetch?: typeof globalThis.fetch | undefined;
   stateStore?: StateStore | undefined;
   bindingHttpByName: Record<string, HttpEntry>;
+  onNavigate?: ((path: string) => void) | undefined;
 };
 
 export type UiDriver = {
@@ -80,7 +81,23 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
     if (!route) return;
     const action = route.actions?.[actionId];
     if (!action) return;
-    if (action.kind !== 'command') return; // nav handled in Task 20
+    if (action.kind === 'navigation') {
+      const values: Record<string, string> = {};
+      for (const [k, sp] of Object.entries(action.paramsFromState ?? {})) {
+        const raw = store.get(sp);
+        if (raw === undefined || raw === null) return; // missing placeholder — abort
+        values[k] = String(raw);
+      }
+      const target = action.navigateTo.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, name: string) => {
+        const v = values[name];
+        if (v === undefined) throw new Error(`invokeAction: missing :${name}`);
+        return v;
+      });
+      opts.onNavigate?.(target);
+      return;
+    }
+
+    if (action.kind !== 'command') return;
 
     const http = opts.bindingHttpByName[action.binding];
     if (!http || http.method !== 'POST') return;
@@ -106,8 +123,36 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
       }
       store.set(`/actions/__status/${actionId}`, 'success');
       const onSuccess = action.onSuccess;
+
+      // Pre-capture placeholder values BEFORE clearFormState may delete them.
+      let navTarget: string | undefined;
+      if (opts.onNavigate && onSuccess?.navigateTo) {
+        const values: Record<string, string> = {};
+        for (const [k, sp] of Object.entries(action.paramsFromState)) {
+          const raw = store.get(sp);
+          if (raw === undefined || raw === null) continue;
+          values[k] = String(raw);
+        }
+        const placeholders = Array.from(
+          onSuccess.navigateTo.matchAll(/:([A-Za-z][A-Za-z0-9_]*)/g),
+          (m) => m[1] as string,
+        );
+        let allResolved = true;
+        for (const ph of placeholders) {
+          if (values[ph] === undefined) { allResolved = false; break; }
+        }
+        if (allResolved) {
+          navTarget = onSuccess.navigateTo.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, name: string) => {
+            const v = values[name];
+            if (v === undefined) throw new Error(`invokeAction: missing :${name}`);
+            return v;
+          });
+        }
+      }
+
       if (onSuccess?.clearFormState) for (const p of onSuccess.clearFormState) store.reset(p);
       if (onSuccess?.refetchData) for (const ds of onSuccess.refetchData) runQuery(routePath, ds);
+      if (navTarget !== undefined) opts.onNavigate?.(navTarget);
     } catch (e) {
       store.set(`/actions/__error/${actionId}`, { httpStatus: 0, message: String(e) });
       store.set(`/actions/__status/${actionId}`, 'error');
