@@ -41,8 +41,6 @@ export {
   type HealthProbe,
 } from './plugins/observability.js';
 
-export {
-  runDbDriverContract,
-  runEventBusContract,
-  runSurfaceContract,
-} from './plugins/contract-tests.js';
+// contract-tests intentionally NOT re-exported from the main entry point
+// (they import vitest which must not load in non-test processes).
+// Import directly from '@rntme/runtime/src/plugins/contract-tests.js' in test files.

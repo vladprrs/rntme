@@ -10,46 +10,10 @@ importers:
 
   demo/issue-tracker-api:
     dependencies:
-      '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.14(hono@4.12.12)
-      '@rntme/bindings':
+      '@rntme/runtime':
         specifier: workspace:*
-        version: link:../../packages/bindings
-      '@rntme/bindings-http':
-        specifier: workspace:*
-        version: link:../../packages/bindings-http
-      '@rntme/event-store':
-        specifier: workspace:*
-        version: link:../../packages/event-store
-      '@rntme/graph-ir-compiler':
-        specifier: workspace:*
-        version: link:../../packages/graph-ir-compiler
-      '@rntme/pdm':
-        specifier: workspace:*
-        version: link:../../packages/pdm
-      '@rntme/projection-consumer':
-        specifier: workspace:*
-        version: link:../../packages/projection-consumer
-      '@rntme/qsm':
-        specifier: workspace:*
-        version: link:../../packages/qsm
-      '@rntme/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@rntme/ui-runtime':
-        specifier: workspace:*
-        version: link:../../packages/ui-runtime
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
-      hono:
-        specifier: ^4.6.0
-        version: 4.12.12
+        version: link:../../packages/runtime
     devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.11
-        version: 7.6.13
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39

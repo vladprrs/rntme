@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { loadService } from '../../src/load/load-service.js';
@@ -39,7 +40,7 @@ describe('issue-tracker e2e via @rntme/runtime', () => {
     });
     expect(create.status).toBe(200);
 
-    await new Promise((r) => setTimeout(r, 100));
+    await setTimeout(100);
 
     const list = await fetch(`${base}/v1/issues?limit=100`);
     expect(list.status).toBe(200);
