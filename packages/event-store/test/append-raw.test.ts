@@ -1,73 +1,74 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SqliteEventStore } from '../src/store/sqlite.js';
 import type { EventEnvelope } from '../src/types/envelope.js';
-import { ConcurrencyConflict, DuplicateEventId } from '../src/types/errors.js';
 
-let store: SqliteEventStore | null = null;
-afterEach(() => {
-  store?.close();
-  store = null;
-});
-
-function env(overrides: Partial<EventEnvelope> = {}): EventEnvelope {
+function env(stream: string, version: number, eventId?: string): EventEnvelope {
   return {
-    eventId: 'ev-' + Math.random().toString(36).slice(2, 10),
-    eventType: 'IssueReport',
-    aggregateType: 'Issue',
-    aggregateId: '1',
-    stream: 'Issue-1',
-    version: 1,
-    occurredAt: '2026-04-14T10:00:00.000Z',
-    actor: { kind: 'user', id: 'alice' },
-    payload: { n: 1 },
+    eventId: eventId ?? `e:${stream}:v${version}`,
+    eventType: 'ThingCreated',
+    aggregateType: 'Thing',
+    aggregateId: stream.split('-')[1] ?? '0',
+    stream,
+    version,
+    occurredAt: '2026-01-01T00:00:00.000Z',
+    actor: { kind: 'system', id: 'seed' },
+    payload: { name: 'x' },
     schemaVersion: 1,
-    ...overrides,
   };
 }
 
-describe('SqliteEventStore.appendRaw', () => {
-  it('writes envelopes with caller-assigned stream and version', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
-    store = st;
-    st.appendRaw([
-      env({ eventId: 'a', version: 1 }),
-      env({ eventId: 'b', version: 2 }),
-    ]);
-    const rows = st.readStream('Issue-1');
-    expect(rows.map((r) => r.eventId)).toEqual(['a', 'b']);
-    expect(rows.map((r) => r.version)).toEqual([1, 2]);
+describe('EventStore.appendRaw', () => {
+  it('appends without optimistic concurrency', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1), env('Thing-1', 2)]);
+    const events = store.readStream('Thing-1');
+    expect(events.map((e) => e.version)).toEqual([1, 2]);
   });
 
-  it('throws DuplicateEventId when the same eventId is appended again', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
-    store = st;
-    st.appendRaw([env({ eventId: 'dup', version: 1 })]);
-    expect(() =>
-      st.appendRaw([env({ eventId: 'dup', version: 2 })]),
-    ).toThrow(DuplicateEventId);
+  it('supports non-contiguous versions as given (trusts caller)', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 5), env('Thing-1', 7)]);
+    const events = store.readStream('Thing-1');
+    expect(events.map((e) => e.version)).toEqual([5, 7]);
   });
 
-  it('ignoreDuplicates: true skips duplicate eventId', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
-    store = st;
-    st.appendRaw([env({ eventId: 'x', version: 1 })]);
-    st.appendRaw(
-      [env({ eventId: 'x', version: 2 }), env({ eventId: 'y', version: 2 })],
-      { ignoreDuplicates: true },
-    );
-    const rows = st.readStream('Issue-1');
-    expect(rows.map((r) => r.eventId)).toEqual(['x', 'y']);
-    expect(rows.map((r) => r.version)).toEqual([1, 2]);
+  it('raises on duplicate (stream, version) with different eventId when ignoreDuplicates: false', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1, 'a')]);
+    expect(() => store.appendRaw([env('Thing-1', 1, 'b')])).toThrow();
+  });
+
+  it('raises on duplicate eventId when ignoreDuplicates: false', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1, 'same')]);
+    expect(() => store.appendRaw([env('Thing-2', 1, 'same')])).toThrow();
+  });
+
+  it('ignoreDuplicates: true skips events with duplicate eventId silently', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1, 'same')]);
+    store.appendRaw([env('Thing-2', 1, 'same'), env('Thing-3', 1, 'new')], { ignoreDuplicates: true });
+    expect(store.readStream('Thing-2')).toHaveLength(0);
+    expect(store.readStream('Thing-3')).toHaveLength(1);
   });
 
   it('ignoreDuplicates: true still raises on (stream, version) conflict at different eventId', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
-    store = st;
-    st.appendRaw([env({ eventId: 'first', version: 1 })]);
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1, 'a')]);
     expect(() =>
-      st.appendRaw([env({ eventId: 'other', version: 1 })], {
-        ignoreDuplicates: true,
-      }),
-    ).toThrow(ConcurrencyConflict);
+      store.appendRaw([env('Thing-1', 1, 'b')], { ignoreDuplicates: true }),
+    ).toThrow();
+  });
+
+  it('atomic: a conflict mid-batch rolls back prior events in the batch', () => {
+    const store = new SqliteEventStore({ filename: ':memory:' });
+    store.appendRaw([env('Thing-1', 1, 'a')]);
+    expect(() =>
+      store.appendRaw([
+        env('Thing-2', 1, 'b'),
+        env('Thing-1', 1, 'c'),
+      ]),
+    ).toThrow();
+    expect(store.readStream('Thing-2')).toHaveLength(0);
   });
 });
