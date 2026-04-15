@@ -8,6 +8,8 @@ import {
 } from '@rntme/bindings';
 import { createBindingsRouter } from '@rntme/bindings-http';
 import type { ActorRef } from '@rntme/event-store';
+import { validateUi } from '@rntme/ui';
+import { createUiApp, buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime';
 import { buildEventPipeline } from './events.js';
 import {
   bindingsArtifact,
@@ -16,6 +18,7 @@ import {
   qsm,
   resolvers,
 } from './artifacts.js';
+import { ui } from './ui.js';
 
 function actorFromRequest(c: Context): ActorRef | null {
   const actorId = c.req.header('x-actor-id');
@@ -32,6 +35,15 @@ export function buildApp(): { app: Hono; stop: () => Promise<void> } {
   const validated = validateBindings(parsed.value, resolvers);
   if (!validated.ok) {
     throw new Error(`Binding validation failed: ${JSON.stringify(validated.errors)}`);
+  }
+
+  const uiValidated = validateUi(ui, {
+    resolveBinding: buildBindingResolver(validated.value, resolvers.resolveShape),
+    resolveComponent: buildComponentResolver(),
+    resolveRoute: (p) => p in ui.routes,
+  });
+  if (!uiValidated.ok) {
+    throw new Error(`UI validation failed: ${JSON.stringify(uiValidated.errors)}`);
   }
 
   const openapi = generateOpenApi(validated.value, resolvers);
@@ -76,6 +88,7 @@ export function buildApp(): { app: Hono; stop: () => Promise<void> } {
     }),
   );
   app.route('/', router);
+  app.route('/', createUiApp({ artifact: uiValidated.value }));
 
   return { app, stop: () => pipeline.stop() };
 }
