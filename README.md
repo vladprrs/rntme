@@ -16,11 +16,11 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 
 ```
             Authoring artifacts (JSON; validated, resolved)
-            ┌──────┐  ┌──────┐  ┌──────────────┐  ┌───────────┐
-            │ PDM  │  │ QSM  │  │   Graph IR   │  │ Bindings  │
-            └──┬───┘  └──┬───┘  └──────┬───────┘  └─────┬─────┘
-               │         │             │                │
-               ▼         ▼             ▼                ▼
+            ┌──────┐  ┌──────┐  ┌──────────────┐  ┌───────────┐  ┌─────┐
+            │ PDM  │  │ QSM  │  │   Graph IR   │  │ Bindings  │  │ UI  │
+            └──┬───┘  └──┬───┘  └──────┬───────┘  └─────┬─────┘  └──┬──┘
+               │         │             │                │           │
+               ▼         ▼             ▼                ▼           ▼
            ┌─────────────────────────────────────────────────┐
            │              Compilers / validators              │
            │  @rntme/pdm · @rntme/qsm · @rntme/graph-ir-     │
@@ -62,6 +62,8 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 | [`@rntme/graph-ir-compiler`](packages/graph-ir-compiler) | Graph IR → SQLite compiler (query path) and state-machine-gated command runtime (command path). |
 | [`@rntme/bindings`](packages/bindings) | HTTP bindings artifact + four-layer validator + OpenAPI 3.1 emitter. |
 | [`@rntme/bindings-http`](packages/bindings-http) | Hono sub-router that executes queries and commands described by a validated bindings artifact. |
+| [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; fifth per-service authoring artifact. |
+| [`@rntme/ui-runtime`](packages/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
 
 ### Demo
 
@@ -78,9 +80,9 @@ qsm ◀──────┐   │
 event-store◀┼─◀│──────── projection-consumer
  ▲         │   │
  │         │   │
- └──── graph-ir-compiler ◀──── bindings-http ──▶ bindings
-                                      ▲              ▲
-                                      └── demo ──────┘
+ └──── graph-ir-compiler ◀──── bindings-http ──▶ bindings ◀── ui ──▶ ui-runtime
+                                      ▲              ▲                          ▲
+                                      └── demo ──────┴──────────────────────────┘
 ```
 
 `pdm`, `event-store` and `bindings` have no internal dependencies. Everything else layers on top.
@@ -150,6 +152,10 @@ What ships today:
 - One graph compiled per `compile()` call.
 - Query nodes: `findMany`, `filter`, `map`, `reduce`, `sort`, `limit`. Command path adds `emit`.
 - JSON authoring; no YAML yet.
+- A fifth per-service UI artifact (`@rntme/ui`) + runtime (`@rntme/ui-runtime`):
+  shadcn-catalog-based SPA with route-local `data` (query bindings) and
+  `actions` (command or navigation bindings), 4-layer validation,
+  `NextAppSpec`-compatible format. No SSR; see the UI design doc.
 
 Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, auth/authz, multi-tenancy, schema registry / breaking schema evolution, DLQ.
 
