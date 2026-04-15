@@ -11,6 +11,10 @@ export type EventRecord = Readonly<{
   envelope: EventEnvelope;
 }>;
 
+export type AppendRawOptions = Readonly<{
+  ignoreDuplicates?: boolean;
+}>;
+
 export interface EventStore {
   appendEvents(requests: readonly AppendRequest[]): AppendResult[];
   readStream(stream: string): EventEnvelope[];
@@ -18,4 +22,5 @@ export interface EventStore {
   readRecordsFrom(opts: ReadFromOptions): EventRecord[];
   readCursor(relayId: string): number;
   writeCursor(relayId: string, lastEventId: number): void;
+  appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void;
 }
