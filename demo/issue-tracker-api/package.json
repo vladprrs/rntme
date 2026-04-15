@@ -5,6 +5,7 @@
   "private": true,
   "description": "Demo: issue tracker service built from artifacts + @rntme/runtime.",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "start": "tsx src/server.ts",
     "start:runtime-cli": "rntme-runtime start ./artifacts",
     "test": "vitest run",
