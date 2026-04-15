@@ -186,8 +186,8 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       const e = pdmResolver.resolveEntity(name);
       if (e === null || e === undefined) return null;
       const fields: ResolvedShape['fields'] = {};
-      for (const [fieldName, f] of Object.entries(e.fields)) {
-        fields[fieldName] = {
+      for (const f of e.fields) {
+        fields[f.name] = {
           type: { kind: 'scalar', primitive: f.type as ScalarPrimitive },
           nullable: f.nullable,
         };

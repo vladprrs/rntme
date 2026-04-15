@@ -36,7 +36,6 @@ export type ServiceError =
   | { code: 'QSM_INVALID'; details: unknown[] }
   | { code: 'BINDINGS_INVALID'; details: unknown[] }
   | { code: 'UI_INVALID'; details: unknown[] }
-  | { code: 'GRAPH_INVALID'; details: unknown[] }
   | { code: 'OPENAPI_INVALID'; details: unknown[] }
   | { code: 'IO_ERROR'; details: { message: string } };
 
