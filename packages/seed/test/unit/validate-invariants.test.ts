@@ -54,8 +54,10 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
       ctx(),
     );
     expect(result.ok).toBe(false);
-    if (!result.ok)
+    if (!result.ok) {
       expect(result.errors.some((e) => e.code === 'SEED_STREAM_VERSION_DUPLICATE')).toBe(true);
+      expect(result.errors.some((e) => e.code === 'SEED_STREAM_VERSION_GAP')).toBe(false);
+    }
   });
 
   it('rejects SEED_EVENT_ID_DUPLICATE', () => {

@@ -256,9 +256,9 @@ function checkIntraFileInvariants(events: readonly SeedEventInput[]): SeedError[
     byStream.set(e.stream, arr);
   }
   for (const [stream, versions] of byStream) {
-    const sorted = [...versions].sort((a, b) => a - b);
+    const sortedUnique = [...new Set(versions)].sort((a, b) => a - b);
     let expected = 1;
-    for (const v of sorted) {
+    for (const v of sortedUnique) {
       if (v !== expected) {
         errors.push({
           code: 'SEED_STREAM_VERSION_GAP',
