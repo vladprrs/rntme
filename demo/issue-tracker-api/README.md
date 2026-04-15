@@ -6,10 +6,11 @@ End-to-end demo: a small **issue tracker REST API** that exercises every package
 
 - **PDM with stateMachine.** The `Issue` aggregate has a state-field `status` and transitions `report → submit → assign → reassign → resolve → reopen → close` (plus `assign-with-guard`, an illustrative capacity-gate variant).
 - **QSM entity-mirror projection.** One projection (`issues_projection`) mirrors the `Issue` entity; bootstrap DDL includes idempotency columns.
-- **Graph IR — queries + commands.** 13 graphs under `src/artifacts/graphs/`: five queries and eight commands. `assignIssueWithCapacityGuard` additionally uses a read-prelude for a pre-transition guard.
+- **Graph IR — queries + commands.** 14 graphs under `src/artifacts/graphs/`: six queries and eight commands. `listIssuesUi` is a UI-friendly list query (no `predicate_optional` inputs). `assignIssueWithCapacityGuard` additionally uses a read-prelude for a pre-transition guard.
 - **Bindings → OpenAPI 3.1.** `src/artifacts/bindings.json` maps every graph to an HTTP operation; the server serves the generated document at `GET /openapi.json`.
 - **Full event pipeline with in-memory Kafka bridge.** `event-store → createRelay → in-memory Kafka bridge → createProjectionConsumer → QSM DB`. No external broker required.
 - **Hono runtime.** `@rntme/bindings-http`'s router is mounted into a Hono app; an `x-actor-id` header is captured into the command envelope's `actor`.
+- **Declarative UI.** `@rntme/ui` artifact (`src/ui.ts`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle). The SPA calls the same REST API; the demo sets a default `x-actor-id: alice` on browser `fetch` so commands work without extra headers.
 
 ## Architecture
 
@@ -50,7 +51,11 @@ pnpm install                                                 # once, at repo roo
 
 pnpm -F @rntme/issue-tracker-api-demo start
 # ➜ issue-tracker-api-demo listening on http://localhost:3000
+```
 
+Open **[http://localhost:3000/ui](http://localhost:3000/ui)** in a browser to use the demo UI: home (stats by project), browse issues, report a new issue, open an issue by id and run lifecycle actions (submit / assign / resolve / close).
+
+```bash
 # Custom port:
 PORT=4000 pnpm -F @rntme/issue-tracker-api-demo start
 
@@ -64,6 +69,7 @@ The server uses `:memory:` SQLite for both the event log and the read-side DB. T
 
 | Method & path | Graph | Description |
 | ------------- | ----- | ----------- |
+| `GET  /v1/ui/issues?limit=` | `listIssuesUi` | Recent issues for the SPA (no predicate-optional params). |
 | `GET  /v1/issues?status=&limit=` | `listIssues` | Paginated projection read. |
 | `GET  /v1/issues/:id` | `issueDetail` | Single-row fetch. |
 | `GET  /v1/issues/search?q=&from=&to=&priority=&limit=` | `searchIssues` | Free-text + optional filters (predicate-optional params). |
@@ -79,8 +85,9 @@ The server uses `:memory:` SQLite for both the event log and the read-side DB. T
 | `POST /v1/issues/:issueId/actions/close` | `closeIssue` | Terminal transition. |
 | `GET  /openapi.json` | — | Generated OpenAPI 3.1 document. |
 | `GET  /` | — | JSON index of all routes. |
+| `GET  /ui` | — | Issue tracker SPA (see `@rntme/ui-runtime`). |
 
-All `POST`s require an `x-actor-id` request header — the server turns it into `{ kind: 'user', id }` and stamps every event envelope's `actor` with it.
+All `POST`s require an `x-actor-id` request header — the server turns it into `{ kind: 'user', id }` and stamps every event envelope's `actor` with it. The browser UI sends `x-actor-id: alice` by default (see `createUiApp` in `src/server.ts`).
 
 ## Example calls
 
@@ -117,8 +124,9 @@ src/
     qsm.json                     # issues_projection (entity-mirror)
     bindings.json                # HTTP surface
     shapes.json                  # Custom output shapes (PaginatedIssues, etc.)
-    graphs/                      # 13 graphs
+    graphs/                      # 14 graphs
       listIssues.json
+      listIssuesUi.json
       issueDetail.json
       issuesByProject.json
       searchIssues.json

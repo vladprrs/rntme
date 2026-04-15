@@ -10,6 +10,8 @@ export type CreateUiDriverOptions = {
   stateStore?: StateStore | undefined;
   bindingHttpByName: Record<string, HttpEntry>;
   onNavigate?: ((path: string) => void) | undefined;
+  /** Appended to every HTTP request (e.g. `x-actor-id` for command demos). */
+  defaultHeaders?: Record<string, string> | undefined;
 };
 
 export type UiDriver = {
@@ -18,9 +20,51 @@ export type UiDriver = {
   stateStore: StateStore;
 };
 
+/** Substitute `{param}` segments (OpenAPI-style binding paths) and collect which keys were bound. */
+function substitutePath(
+  pathTemplate: string,
+  values: Record<string, unknown>,
+): { path: string; pathKeys: Set<string> } {
+  const pathKeys = new Set<string>();
+  const re = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
+  const path = pathTemplate.replace(re, (_, name: string) => {
+    const v = values[name];
+    if (v === undefined || v === null) return `{${name}}`;
+    pathKeys.add(name);
+    return encodeURIComponent(String(v));
+  });
+  return { path, pathKeys };
+}
+
+function collectDatasetParams(
+  defs: Record<string, unknown>,
+  store: StateStore,
+): Record<string, unknown> {
+  const flat: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(defs)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
+      const resolved = store.get((v as { $state: string }).$state);
+      if (resolved !== undefined && resolved !== null) flat[k] = resolved;
+    } else {
+      flat[k] = v;
+    }
+  }
+  return flat;
+}
+
 export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
   const store = opts.stateStore ?? createStateStore();
   const fetchFn = opts.fetch ?? globalThis.fetch;
+  const baseHeaders = opts.defaultHeaders ?? {};
+
+  function mergeHeaders(init?: HeadersInit): Headers {
+    const h = new Headers(init);
+    for (const [k, v] of Object.entries(baseHeaders)) {
+      if (!h.has(k)) h.set(k, v);
+    }
+    return h;
+  }
 
   function runQuery(routePath: string, datasetId: string): void {
     const route = opts.artifact.routes[routePath];
@@ -30,22 +74,21 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
     const http = opts.bindingHttpByName[def.binding];
     if (!http || http.method !== 'GET') return;
 
-    const params = def.params ?? {};
+    const flat = collectDatasetParams((def.params ?? {}) as Record<string, unknown>, store);
+    const { path, pathKeys } = substitutePath(http.path, flat);
     const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v === null || v === undefined) continue;
-      if (typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
-        const resolved = store.get((v as { $state: string }).$state);
-        if (resolved === undefined || resolved === null) continue;
-        qs.set(k, String(resolved));
-      } else {
-        qs.set(k, String(v));
-      }
+    for (const [k, v] of Object.entries(flat)) {
+      if (pathKeys.has(k)) continue;
+      if (v === undefined || v === null) continue;
+      const s = String(v);
+      if (s === '') continue;
+      qs.set(k, s);
     }
-    const url = `${opts.bindingsHttpBaseUrl}${http.path}${qs.toString() ? `?${qs}` : ''}`;
+    const q = qs.toString();
+    const url = `${opts.bindingsHttpBaseUrl}${path}${q ? `?${q}` : ''}`;
 
     store.set(`/data/__status/${datasetId}`, 'pending');
-    fetchFn(url, { method: 'GET' })
+    fetchFn(url, { method: 'GET', headers: mergeHeaders() })
       .then((res) => {
         if (!res.ok) {
           const status = res.status;
@@ -85,7 +128,7 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
       const values: Record<string, string> = {};
       for (const [k, sp] of Object.entries(action.paramsFromState ?? {})) {
         const raw = store.get(sp);
-        if (raw === undefined || raw === null) return; // missing placeholder — abort
+        if (raw === undefined || raw === null) return;
         values[k] = String(raw);
       }
       const target = action.navigateTo.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, name: string) => {
@@ -102,16 +145,24 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
     const http = opts.bindingHttpByName[action.binding];
     if (!http || http.method !== 'POST') return;
 
-    const body: Record<string, unknown> = {};
+    const bodyFlat: Record<string, unknown> = {};
     for (const [k, sp] of Object.entries(action.paramsFromState)) {
-      body[k] = store.get(sp);
+      bodyFlat[k] = store.get(sp);
+    }
+
+    const { path, pathKeys } = substitutePath(http.path, bodyFlat);
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(bodyFlat)) {
+      if (pathKeys.has(k)) continue;
+      if (v === undefined) continue;
+      body[k] = v;
     }
 
     store.set(`/actions/__status/${actionId}`, 'pending');
     try {
-      const res = await fetchFn(`${opts.bindingsHttpBaseUrl}${http.path}`, {
+      const res = await fetchFn(`${opts.bindingsHttpBaseUrl}${path}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: mergeHeaders({ 'content-type': 'application/json' }),
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -124,7 +175,6 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
       store.set(`/actions/__status/${actionId}`, 'success');
       const onSuccess = action.onSuccess;
 
-      // Pre-capture placeholder values BEFORE clearFormState may delete them.
       let navTarget: string | undefined;
       if (opts.onNavigate && onSuccess?.navigateTo) {
         const values: Record<string, string> = {};
@@ -139,7 +189,10 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
         );
         let allResolved = true;
         for (const ph of placeholders) {
-          if (values[ph] === undefined) { allResolved = false; break; }
+          if (values[ph] === undefined) {
+            allResolved = false;
+            break;
+          }
         }
         if (allResolved) {
           navTarget = onSuccess.navigateTo.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, name: string) => {

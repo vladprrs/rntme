@@ -2,39 +2,63 @@ import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ValidatedUiArtifact } from '@rntme/ui';
 import { createStateStore } from './state-store.js';
-import { createRouter, type RouteEvent } from './router.js';
+import { createRouter, matchRoute, stripMountPath, fullMountPath } from './router.js';
 import { createUiDriver, type UiDriver } from './driver.js';
 import { buildHandlers } from './handlers.js';
-import { buildRegistry } from './registry.js';
+import { RouteView } from './minimal-render.js';
+
+declare global {
+  interface Window {
+    __RNTME_UI_MOUNT__?: string;
+  }
+}
+
+type HttpEntry = { method: 'GET' | 'POST'; path: string };
 
 type ArtifactPayload = {
   artifact: ValidatedUiArtifact;
-  config: { bindingsHttpOrigin: string };
+  config: {
+    bindingsHttpOrigin: string;
+    mountPath: string;
+    resolvedHttp: Record<string, HttpEntry>;
+    defaultHeaders: Record<string, string>;
+  };
 };
 
-type HttpEntry = { method: 'GET' | 'POST'; path: string };
+function resolveInitialRoute(patterns: string[], pathname: string, mountPath: string): string {
+  const fallback = patterns.includes('/') ? '/' : patterns[0] ?? '/';
+  const stripped = stripMountPath(pathname || '/', mountPath);
+  if (stripped === '/' || stripped === '') return fallback;
+  if (matchRoute(patterns, stripped)) return stripped;
+  return fallback;
+}
 
 export async function hydrateApp(opts: { rootSelector: string }): Promise<void> {
   const container = document.querySelector(opts.rootSelector);
   if (!container) throw new Error(`hydrateApp: ${opts.rootSelector} not found`);
 
-  const payload = (await (await fetch('/ui/__artifact.json')).json()) as ArtifactPayload;
+  const mountFromShell = typeof window !== 'undefined' && window.__RNTME_UI_MOUNT__ ? window.__RNTME_UI_MOUNT__ : '/ui';
+  const artifactUrl = fullMountPath(mountFromShell, '/__artifact.json');
+  const payload = (await (await fetch(artifactUrl)).json()) as ArtifactPayload;
 
-  const bindingHttpByName: Record<string, HttpEntry> =
-    (payload as unknown as { resolvedHttp?: Record<string, HttpEntry> }).resolvedHttp ?? {};
+  const bindingHttpByName: Record<string, HttpEntry> = payload.config.resolvedHttp ?? {};
+  const mountPath = payload.config.mountPath ?? '/ui';
 
   const store = createStateStore();
-  let currentRoute = Object.keys(payload.artifact.routes)[0] ?? '/';
+  const patterns = Object.keys(payload.artifact.routes);
+  let currentRoute = patterns[0] ?? '/';
 
-  // Forward-declare driver so the router callback can reference it before assignment.
-  // The callback is invoked at runtime (after both are constructed), so no TDZ error.
   let driver: UiDriver;
 
   const router = createRouter({
-    patterns: Object.keys(payload.artifact.routes),
-    onRoute: (e: RouteEvent) => {
+    patterns,
+    mountPath,
+    onRoute: (e) => {
       currentRoute = e.pattern;
-      store.set('/route/params', e.params);
+      store.reset('/route/params');
+      for (const [k, v] of Object.entries(e.params)) {
+        store.set(`/route/params/${k}`, v);
+      }
       driver.enterRoute(e.pattern);
       rerender();
     },
@@ -45,37 +69,51 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
     bindingsHttpBaseUrl: payload.config.bindingsHttpOrigin,
     stateStore: store,
     bindingHttpByName,
+    defaultHeaders: payload.config.defaultHeaders,
     onNavigate: (path) => router.navigate(path),
   });
 
-  const { registry } = buildRegistry();
-  const handlers = buildHandlers(driver, () => currentRoute);
+  const initial = resolveInitialRoute(patterns, window.location.pathname, mountPath);
+  const m = matchRoute(patterns, initial);
+  if (m) {
+    currentRoute = m.pattern;
+    store.reset('/route/params');
+    for (const [k, v] of Object.entries(m.params)) {
+      store.set(`/route/params/${k}`, v);
+    }
+    driver.enterRoute(m.pattern);
+    const full = fullMountPath(mountPath, initial);
+    if (window.location.pathname !== full) {
+      window.history.replaceState({}, '', full);
+    }
+  }
+
   const root = createRoot(container);
 
   function rerender(): void {
     const route = payload.artifact.routes[currentRoute];
     if (!route) return;
-    // Minimal render: dump the JSON spec for now.
-    // Task 22 exercises the full driver pipeline with a proper renderer stub.
-    // The real @json-render Renderer can be wired here once the workspace upgrades
-    // to zod@^4 / react@^19 (matching @json-render@0.17 peer deps).
+    const layoutId = route.layout;
+    const layout = layoutId ? payload.artifact.layouts[layoutId] : undefined;
+    const handlers = buildHandlers(driver, () => currentRoute);
     root.render(
-      React.createElement(
-        'pre',
-        {},
-        JSON.stringify(
-          {
-            route: currentRoute,
-            spec: route.page,
-            handlers: Object.keys(handlers),
-            registry: typeof registry,
-          },
-          null,
-          2,
-        ),
-      ),
+      React.createElement(RouteView, {
+        route,
+        layout,
+        store,
+        handlers,
+      }),
     );
   }
 
-  router.navigate(window.location.pathname || '/');
+  rerender();
 }
+
+void hydrateApp({ rootSelector: '#root' }).catch((err: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error('[rntme ui-runtime]', err);
+  const el = document.querySelector('#root');
+  if (el) {
+    el.textContent = err instanceof Error ? err.message : String(err);
+  }
+});
