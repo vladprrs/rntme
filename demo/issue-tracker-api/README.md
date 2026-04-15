@@ -38,6 +38,10 @@ read-side SQLite  @rntme/event-store
 
 `src/server.ts` is ~12 lines: resolve `./artifacts`, call `loadService`, call `startService`. All artifact loading, validation, pipeline wiring, and Hono mounting is owned by `@rntme/runtime`.
 
+## Known issues
+
+Several read-side endpoints currently fail on the happy path — `GET /v1/issues/:id`, `GET /v1/stats/by-project` return 500, and `GET /v1/issues/search` rejects requests without `from`/`to`. Fixes are deferred until upstream seed-loading and `graph-ir-compiler#predicate_optional` work land. See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) for full root-cause analysis, what still works, and the planned resolution.
+
 ## Run it
 
 Requirements: Node.js ≥ 20, pnpm ≥ 9.
