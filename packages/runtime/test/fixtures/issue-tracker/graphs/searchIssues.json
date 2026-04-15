@@ -1,0 +1,50 @@
+{
+  "id": "searchIssues",
+  "signature": {
+    "inputs": {
+      "q": { "type": "string", "mode": "required" },
+      "from": { "type": "datetime", "mode": "required" },
+      "to": { "type": "datetime", "mode": "required" },
+      "priority": { "type": "string", "mode": "predicate_optional" },
+      "limit": { "type": "integer", "mode": "defaulted", "default": 20 }
+    },
+    "output": { "type": "rowset<Issue>", "from": "paged" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "baseFiltered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": {
+          "and": [
+            { "like": ["issue.title", { "$param": "q" }] },
+            { "between": ["issue.createdAt", { "$param": "from" }, { "$param": "to" }] }
+          ]
+        }
+      }
+    },
+    {
+      "id": "priorityFiltered",
+      "type": "filter",
+      "config": {
+        "input": "baseFiltered",
+        "expr": { "eq": ["issue.priority", { "$param": "priority" }] }
+      }
+    },
+    {
+      "id": "sorted",
+      "type": "sort",
+      "config": {
+        "input": "priorityFiltered",
+        "by": [{ "field": "issue.createdAt", "dir": "desc", "nulls": "last" }]
+      }
+    },
+    {
+      "id": "paged",
+      "type": "limit",
+      "config": { "input": "sorted", "count": { "$param": "limit" } }
+    }
+  ]
+}
