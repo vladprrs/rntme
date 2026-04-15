@@ -12,7 +12,7 @@ export const ManifestSchema = z
         http: z
           .object({
             enabled: z.boolean().optional(),
-            port: z.number().int().positive().max(65535).optional(),
+            port: z.number().int().min(0).max(65535).optional(),
           })
           .strict()
           .optional(),
