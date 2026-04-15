@@ -274,7 +274,6 @@ export const ui: UiArtifact = {
           },
           onSuccess: {
             navigateTo: '/issues/browse',
-            refetchData: ['issues'],
           },
           onError: { showAlert: true },
         },

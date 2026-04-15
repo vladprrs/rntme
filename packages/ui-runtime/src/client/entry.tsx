@@ -26,11 +26,11 @@ type ArtifactPayload = {
 };
 
 function resolveInitialRoute(patterns: string[], pathname: string, mountPath: string): string {
-  const first = patterns[0] ?? '/';
+  const fallback = patterns.includes('/') ? '/' : patterns[0] ?? '/';
   const stripped = stripMountPath(pathname || '/', mountPath);
-  if (stripped === '/' || stripped === '') return first;
+  if (stripped === '/' || stripped === '') return fallback;
   if (matchRoute(patterns, stripped)) return stripped;
-  return first;
+  return fallback;
 }
 
 export async function hydrateApp(opts: { rootSelector: string }): Promise<void> {
@@ -38,7 +38,8 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
   if (!container) throw new Error(`hydrateApp: ${opts.rootSelector} not found`);
 
   const mountFromShell = typeof window !== 'undefined' && window.__RNTME_UI_MOUNT__ ? window.__RNTME_UI_MOUNT__ : '/ui';
-  const payload = (await (await fetch(`${mountFromShell}/__artifact.json`)).json()) as ArtifactPayload;
+  const artifactUrl = fullMountPath(mountFromShell, '/__artifact.json');
+  const payload = (await (await fetch(artifactUrl)).json()) as ArtifactPayload;
 
   const bindingHttpByName: Record<string, HttpEntry> = payload.config.resolvedHttp ?? {};
   const mountPath = payload.config.mountPath ?? '/ui';

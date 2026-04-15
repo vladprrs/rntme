@@ -63,12 +63,12 @@ function renderElement(elId: string, ctx: RenderCtx): React.ReactNode {
     }
     case 'Heading': {
       const level = Number(props.level ?? 2);
-      const text = String(props.text ?? '');
+      const text = String(resolveValue(props.text, ctx.store) ?? '');
       const tag = `h${Math.min(6, Math.max(1, level))}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
       return React.createElement(tag, { style: { margin: 0 } }, text);
     }
     case 'Text': {
-      const text = String(props.text ?? '');
+      const text = String(resolveValue(props.text, ctx.store) ?? '');
       return <p style={{ margin: 0 }}>{text}</p>;
     }
     case 'Divider':
