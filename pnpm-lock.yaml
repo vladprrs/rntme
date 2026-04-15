@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@rntme/seed':
+        specifier: workspace:*
+        version: link:packages/seed
 
   demo/issue-tracker-api:
     dependencies:
