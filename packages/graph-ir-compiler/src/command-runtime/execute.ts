@@ -67,7 +67,6 @@ export function executeCommand(
 
   const events: AppendEventInput[] = [];
   let runningState = state;
-  let runningVersion = version;
 
   for (const plan of compiled.emits) {
     const stateField = stateFieldForPlan(plan);
@@ -84,7 +83,6 @@ export function executeCommand(
       schemaVersion: 1,
     });
     runningState = { ...(runningState ?? {}), ...payload.after };
-    runningVersion += 1;
   }
 
   const req: AppendRequest = { stream, expectedVersion: version, events };
