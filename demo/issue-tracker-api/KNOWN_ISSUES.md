@@ -1,11 +1,6 @@
 # Known Issues — `@rntme/issue-tracker-api-demo`
 
-Status: **deferred** — the demo boots and the event-sourced write side works end-to-end, but several read-side endpoints 500 and one 400s on the happy path. Fixing them properly requires two upstream pieces of work that we've chosen to scope separately:
-
-1. a principled seed / reference-data design in `@rntme/runtime` (or elsewhere);
-2. a fix to `wrapPredicateOptional` in `@rntme/graph-ir-compiler`.
-
-Until both land, this document is the authoritative catalogue of what's broken and why. The demo README links here from its "Run it" section.
+Status: **partially deferred** — the demo boots with declarative seeding and most previously tracked read-side gaps are closed. One **compiler** issue (`wrapPredicateOptional` in `@rntme/graph-ir-compiler`) remains open; see Finding 3 below. The demo README links here from its "Run it" section.
 
 **Last verified against HEAD:** 2026-04-15.
 
@@ -19,31 +14,17 @@ Until both land, this document is the authoritative catalogue of what's broken a
 - Concurrency + guard errors: `422 COMMAND_ILLEGAL_TRANSITION`, `409 COMMAND_CONCURRENCY_CONFLICT`, `400 VALIDATION_ERROR`.
 - `assign-with-guard` (read-prelude capacity gate).
 - `GET /v1/issues`, `GET /v1/ui/issues` (projection reads that do not traverse any relation).
+- **Declarative seed:** [`artifacts/seed.json`](./artifacts/seed.json) is loaded by `@rntme/runtime` (see manifest `seed` options) using `@rntme/seed`, after PDM/QSM validation, so reference entities (`Project`, `User`, `Sprint`) are populated through the normal event → projection path. Design: [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md).
 
 ## What's broken
 
-### 1. Reference-JOIN endpoints return 500 — missing `projects` / `users` / `sprints` tables
+### 1. Reference-JOIN endpoints return 500 — missing `projects` / `users` / `sprints` tables — **CLOSED**
 
-Affected routes:
+**Resolution:** The `@rntme/seed` package and runtime integration apply a validated `seed.json` of event envelopes before the relay starts; the demo’s PDM declares reference aggregates whose events project into QSM tables named like the PDM `table` fields (`projects`, `users`, `sprints`), so `chainToSqlJoins` can resolve `issue.project.key` and related paths. The catalogue of seeded streams lives in [`artifacts/seed.json`](./artifacts/seed.json). For behaviour and invariants, see [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md).
 
-| Route | Graph | Missing tables |
-|---|---|---|
-| `GET /v1/issues/:id` | `issueDetail` | `projects`, `users` |
-| `GET /v1/stats/by-project` | `issuesByProject` | `projects` |
+### 2. `GET /v1/issues/search` — `from` and `to` are required, README suggests otherwise — **CLOSED**
 
-**Symptom:** `500 {"code":"INTERNAL_ERROR"}`. Server-side error (surfaced via a temporary `onError` hook during triage): `Error: no such table: projects` (or `users`).
-
-**Root cause:** The PDM (`artifacts/pdm.json`) declares `Project`, `User`, `Sprint` as reference entities with relations from `Issue`. The QSM (`artifacts/qsm.json`) only declares an entity-mirror projection for `Issue` (`projection_issue`). `@rntme/graph-ir-compiler`'s `chainToSqlJoins` (see `packages/graph-ir-compiler/src/lower/sqlite/joins.ts:48`) lowers every relation traversal to a `LEFT JOIN <pdm.entities[target].table>`, so `issue.project.key` compiles to a join against a table named `projects` — which the runtime never creates and nothing populates.
-
-**Why we can't just add QSM projections for Project/User/Sprint:** projections materialise from events, but there are no commands (or state machine transitions) for these reference entities in the PDM. They're conceptually *reference data*, not event-sourced aggregates, so nothing would ever write rows. Closing this gap properly means introducing a seed / fixtures mechanism.
-
-### 2. `GET /v1/issues/search` — `from` and `to` are required, README suggests otherwise
-
-**Symptom:** calling `?q=foo` alone returns `400 VALIDATION_ERROR` with `path=from` / `path=to` / `code=invalid_type`. The current README note about "predicate-optional params" is misleading for this endpoint.
-
-**Root cause:** `artifacts/graphs/searchIssues.json` declares `q`, `from`, `to` as `"mode": "required"` (only `priority` is `predicate_optional`, `limit` is `defaulted`). The HTTP binding faithfully builds a Zod schema from the graph signature, so Zod rejects a request without the two required timestamps.
-
-This is a **docs-vs-artifact mismatch**, not a runtime bug. It would be a one-line artifact edit (flip `from`/`to` to `defaulted` with wide bounds like `1970-01-01T00:00:00.000Z` / `9999-12-31T23:59:59.999Z`). Bundled with the rest of the deferred demo changes (see below) rather than landing alone.
+**Resolution:** [`artifacts/graphs/searchIssues.json`](./artifacts/graphs/searchIssues.json) now uses `"mode": "defaulted"` for `from` and `to` with wide bounds; the HTTP binding and [`demo/issue-tracker-api/README.md`](./README.md) describe optional range parameters consistent with the artifact.
 
 ### 3. `wrapPredicateOptional` — latent correctness bug in the compiler
 
@@ -65,47 +46,21 @@ This is a **docs-vs-artifact mismatch**, not a runtime bug. It would be a one-li
 
 This fix belongs in `@rntme/graph-ir-compiler` and is out of scope here.
 
-### 4. README example for `/resolve` is stale
+### 4. README example for `/resolve` is stale — **CLOSED**
 
-`README.md` shows:
-
-```bash
-curl -s -X POST .../v1/issues/7001/actions/resolve -H 'x-actor-id: alice' -d '{}' | jq
-```
-
-The current PDM requires `resolvedAt` on the `resolve` transition, so the example returns `400 VALIDATION_ERROR` with `path=resolvedAt`. Passing `-d '{"resolvedAt":"<iso-8601>"}'` works.
-
-Trivial to fix; bundled with the other README changes below.
+**Resolution:** [`README.md`](./README.md) documents `POST .../resolve` with a JSON body including `resolvedAt`, matching the PDM transition payload.
 
 ---
 
-## Deferred fix — what a full resolution looks like
+## Deferred fix — remaining upstream work
 
-Once the two upstream pieces below land, the demo-side change is small and mechanical:
-
-1. **Seed mechanism in `@rntme/runtime` (or a deliberately chosen alternative).** A declarative way to populate reference tables at boot, idempotent against re-starts, and correctly interleaved with QSM bootstrap and the event pipeline. We considered three in-band options during brainstorming (full runtime `seed.json` loader, tiny `beforeHttpStart` lifecycle hook, demo-side composition of internals) and deferred the choice until the feature can be designed in isolation rather than under demo-fix pressure.
-2. **Compiler fix for `wrapPredicateOptional`** (see Finding 3).
-
-Once both are in place, the demo-side changes are:
-
-- Add QSM entity-mirror projections for `Project`, `User`, `Sprint`. Their `"table"` field **must** equal the PDM `table` value (`projects`, `users`, `sprints`) — not `projection_project` etc. — because `chainToSqlJoins` joins against the PDM table name, not the projection name. Scan and JOIN must end up at the same table.
-- Add `artifacts/seed.json` with a small set of Projects, Users, Sprints whose ids match those used in demo curls / smoke tests.
-- Flip `from`/`to` in `searchIssues.json` to `"mode": "defaulted"` with wide bounds, so `?q=foo` works without dates.
-- Update the `/resolve` curl example in the README.
-- Extend `test/smoke.test.ts` to exercise all query endpoints (not just `/health` + `/openapi.json`).
+The only remaining upstream item for this demo’s original “full resolution” checklist is the **compiler fix for `wrapPredicateOptional`** (Finding 3). Once that lands, follow-up work is mainly regression coverage in `@rntme/graph-ir-compiler` and optionally simplifying the demo’s `searchIssues` graph if the single-filter form becomes safe.
 
 ---
 
 ## Running the demo today — what you can exercise
 
-Everything in "What works today". If you `curl` the broken endpoints you'll get `500` (Findings 1) or `400` (Finding 2). The SPA at `/ui` will render the "recent issues" list (which uses `listIssuesUi`, not `issueDetail`), but opening a single issue in the SPA hits `issueDetail` and will show the error state.
-
-If you want a local short-term workaround without waiting for the proper fix, the quickest is:
-
-1. Create `projects`, `users`, `sprints` tables manually after startup by attaching to the SQLite DB via the running process — only viable with `persistence.mode: "persistent"` in `artifacts/manifest.json`.
-2. Or: monkey-patch `src/server.ts` to pull `qsmDb` out of runtime internals and `INSERT` rows before the first request. This is exactly the shape of the deferred seed feature.
-
-Neither workaround is recommended for anything other than a one-off local exploration.
+Everything in "What works today". The SPA at `/ui` can list and open issues; JOIN-backed routes are satisfied by seeded projection rows. If you need to disable seeding for experiments, set `seed.enabled` to `false` in `artifacts/manifest.json` (see runtime seed options in [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md)).
 
 ---
 
@@ -115,4 +70,5 @@ Neither workaround is recommended for anything other than a one-off local explor
 - Memory: `rntme_turso_target.md` — relevant to the seed design: whatever we build must stay SQLite-compatible for the planned Turso migration.
 - Compiler: `packages/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`, `packages/graph-ir-compiler/src/lower/sqlite/joins.ts:48`, `packages/graph-ir-compiler/src/validate/semantic/sources.ts:37`.
 - Runtime: `packages/runtime/src/start/start-service.ts`, `packages/runtime/src/start/wire-event-pipeline.ts`.
-- Demo artifacts: `demo/issue-tracker-api/artifacts/{pdm,qsm,bindings}.json`, `demo/issue-tracker-api/artifacts/graphs/{issueDetail,issuesByProject,searchIssues}.json`.
+- Seed: `packages/seed/README.md`, `packages/runtime/src/load/load-service.ts`.
+- Demo artifacts: `demo/issue-tracker-api/artifacts/{pdm,qsm,bindings,seed}.json`, `demo/issue-tracker-api/artifacts/graphs/{issueDetail,issuesByProject,searchIssues}.json`.

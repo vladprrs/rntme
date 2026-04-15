@@ -58,6 +58,7 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 | [`@rntme/pdm`](packages/pdm) | Platform Domain Model: entities, fields, relations and an optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares read-side tables, generates DDL and event-handler specs. |
 | [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
+| [`@rntme/seed`](packages/seed) | Declarative `seed.json`: parse and validate envelopes against the PDM, append to the event store (used by `@rntme/runtime` for reference data). |
 | [`@rntme/projection-consumer`](packages/projection-consumer) | Kafka → SQLite projection updater with three-layer idempotency and batch transactions. |
 | [`@rntme/graph-ir-compiler`](packages/graph-ir-compiler) | Graph IR → SQLite compiler (query path) and state-machine-gated command runtime (command path). |
 | [`@rntme/bindings`](packages/bindings) | HTTP bindings artifact + four-layer validator + OpenAPI 3.1 emitter. |
@@ -81,11 +82,16 @@ qsm ◀──────┐   │
 event-store◀┼─◀│──────── projection-consumer
  ▲         │   │
  │         │   │
+seed ◀─────┘   │
+ ▲             │
+ │             │
  └──── graph-ir-compiler ◀──── bindings-http ──▶ bindings ◀── ui ──▶ ui-runtime
                                       ▲              ▲                          ▲
                                       └── runtime ───┴──────────────────────────┤
                                              ▲                                  │
                                              └── demo ─────────────────────────┘
+
+event-store ◀──── @rntme/seed ◀──── @rntme/runtime   (seed validates against PDM; runtime loads seed before relay)
 ```
 
 `pdm`, `event-store` and `bindings` have no internal dependencies. Everything else layers on top. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package.
