@@ -17,7 +17,22 @@ describe('demo ui.ts validateUi', () => {
     const res = validateUi(ui, {
       resolveBinding: buildBindingResolver(v.value, bindingsResolvers.resolveShape),
       resolveComponent: buildComponentResolver(),
-      resolveRoute: (p) => p in ui.routes,
+      resolveRoute: (p) => {
+        if (p in ui.routes) return true;
+        const segs = p.split('/').filter(Boolean);
+        return Object.keys(ui.routes).some((pattern) => {
+          const ps = pattern.split('/').filter(Boolean);
+          if (ps.length !== segs.length) return false;
+          for (let i = 0; i < ps.length; i++) {
+            const a = ps[i];
+            const b = segs[i];
+            if (a === undefined || b === undefined) return false;
+            if (a.startsWith(':')) continue;
+            if (a !== b) return false;
+          }
+          return true;
+        });
+      },
     });
     if (!res.ok) {
       // eslint-disable-next-line no-console

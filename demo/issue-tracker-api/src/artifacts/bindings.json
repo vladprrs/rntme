@@ -14,6 +14,25 @@
     ]
   },
   "bindings": {
+    "listIssuesUi": {
+      "graph": "listIssuesUi",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/v1/ui/issues",
+        "tags": ["issues", "ui"],
+        "summary": "Recent issues for the SPA (no predicate_optional params; UI-safe).",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "bindTo": "limit",
+            "required": false,
+            "description": "Max rows (default 50)."
+          }
+        ]
+      }
+    },
     "listIssues": {
       "graph": "listIssues",
       "target": { "engine": "sqlite", "dialect": "sqlite" },

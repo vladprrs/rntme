@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ValidatedBindings } from '@rntme/bindings';
 import type { ValidatedUiArtifact } from '@rntme/ui';
+import { buildResolvedHttp, type HttpBindingEntry } from '../resolvers/http-map.js';
 import { buildHtmlShell } from './static-shell.js';
 import { mountArtifactRoute } from './artifact-route.js';
 
@@ -11,6 +13,12 @@ export type CreateUiAppOptions = {
   mountPath?: string | undefined;
   bindingsHttpOrigin?: string | undefined;
   assetsDir?: string | undefined;
+  /** When set, the SPA receives `resolvedHttp` for the driver unless `resolvedHttp` is passed explicitly. */
+  validatedBindings?: ValidatedBindings | undefined;
+  /** Binding name → HTTP method + path template; overrides auto-build from `validatedBindings`. */
+  resolvedHttp?: Record<string, HttpBindingEntry> | undefined;
+  /** Merged into client fetch (e.g. `x-actor-id` for demos that require an actor header). */
+  defaultHeaders?: Record<string, string> | undefined;
 };
 
 export function createUiApp(opts: CreateUiAppOptions): Hono {
@@ -18,6 +26,10 @@ export function createUiApp(opts: CreateUiAppOptions): Hono {
   const assetsDir =
     opts.assetsDir ??
     join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'build');
+
+  const resolvedHttp =
+    opts.resolvedHttp ??
+    (opts.validatedBindings !== undefined ? buildResolvedHttp(opts.validatedBindings) : undefined);
 
   const app = new Hono();
   const shell = buildHtmlShell({ mountPath });
@@ -29,6 +41,8 @@ export function createUiApp(opts: CreateUiAppOptions): Hono {
     ...(opts.bindingsHttpOrigin !== undefined
       ? { bindingsHttpOrigin: opts.bindingsHttpOrigin }
       : {}),
+    ...(resolvedHttp !== undefined ? { resolvedHttp } : {}),
+    ...(opts.defaultHeaders !== undefined ? { defaultHeaders: opts.defaultHeaders } : {}),
   });
 
   app.get(`${mountPath}/assets/:file`, (c) => {

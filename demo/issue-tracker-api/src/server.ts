@@ -10,6 +10,7 @@ import { createBindingsRouter } from '@rntme/bindings-http';
 import type { ActorRef } from '@rntme/event-store';
 import { validateUi } from '@rntme/ui';
 import { createUiApp, buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime';
+import type { UiArtifact } from '@rntme/ui';
 import { buildEventPipeline } from './events.js';
 import {
   bindingsArtifact,
@@ -19,6 +20,31 @@ import {
   resolvers,
 } from './artifacts.js';
 import { ui } from './ui.js';
+
+function resolveUiRoutePath(path: string, routes: UiArtifact['routes']): boolean {
+  if (path in routes) return true;
+  const pathSegs = path.split('/').filter(Boolean);
+  for (const pattern of Object.keys(routes)) {
+    const ps = pattern.split('/').filter(Boolean);
+    if (ps.length !== pathSegs.length) continue;
+    let ok = true;
+    for (let i = 0; i < ps.length; i++) {
+      const a = ps[i];
+      const b = pathSegs[i];
+      if (a === undefined || b === undefined) {
+        ok = false;
+        break;
+      }
+      if (a.startsWith(':')) continue;
+      if (a !== b) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
 
 function actorFromRequest(c: Context): ActorRef | null {
   const actorId = c.req.header('x-actor-id');
@@ -40,7 +66,7 @@ export function buildApp(): { app: Hono; stop: () => Promise<void> } {
   const uiValidated = validateUi(ui, {
     resolveBinding: buildBindingResolver(validated.value, resolvers.resolveShape),
     resolveComponent: buildComponentResolver(),
-    resolveRoute: (p) => p in ui.routes,
+    resolveRoute: (p) => resolveUiRoutePath(p, ui.routes),
   });
   if (!uiValidated.ok) {
     throw new Error(`UI validation failed: ${JSON.stringify(uiValidated.errors)}`);
@@ -69,6 +95,7 @@ export function buildApp(): { app: Hono; stop: () => Promise<void> } {
   app.get('/', (c) =>
     c.json({
       name: 'issue-tracker-api-demo',
+      ui: 'GET /ui — SPA (issue list, create issue, detail actions)',
       routes: [
         'GET  /v1/issues?status=&limit=',
         'GET  /v1/issues/:id',
@@ -88,7 +115,14 @@ export function buildApp(): { app: Hono; stop: () => Promise<void> } {
     }),
   );
   app.route('/', router);
-  app.route('/', createUiApp({ artifact: uiValidated.value }));
+  app.route(
+    '/',
+    createUiApp({
+      artifact: uiValidated.value,
+      validatedBindings: validated.value,
+      defaultHeaders: { 'x-actor-id': 'alice' },
+    }),
+  );
 
   return { app, stop: () => pipeline.stop() };
 }

@@ -36,4 +36,11 @@ describe('createRouter', () => {
     router.navigate('/a');
     expect(cb).toHaveBeenCalledWith({ pattern: '/a', params: {}, path: '/a' });
   });
+
+  it('prefixes the browser URL when mountPath is set', () => {
+    const cb = vi.fn();
+    const router = createRouter({ patterns: ['/a'], mountPath: '/ui', onRoute: cb });
+    router.navigate('/a');
+    expect(cb).toHaveBeenCalledWith({ pattern: '/a', params: {}, path: '/ui/a' });
+  });
 });

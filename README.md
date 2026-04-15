@@ -67,7 +67,7 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 
 ### Demo
 
-[`demo/issue-tracker-api`](demo/issue-tracker-api) is an end-to-end issue tracker that wires every package together: PDM with a stateMachine, QSM entity-mirror projections, 13 graphs (queries + commands), bindings → OpenAPI, a full event pipeline with the in-memory Kafka bridge, and a Hono HTTP server.
+[`demo/issue-tracker-api`](demo/issue-tracker-api) is an end-to-end issue tracker that wires every package together: PDM with a stateMachine, QSM entity-mirror projections, 14 graphs (queries + commands), bindings → OpenAPI, a full event pipeline with the in-memory Kafka bridge, a Hono HTTP server, and a declarative UI served at `GET /ui`.
 
 ### Dependency graph
 
@@ -102,6 +102,7 @@ pnpm -r run test
 ```bash
 pnpm -F @rntme/issue-tracker-api-demo start
 # ➜ issue-tracker-api-demo listening on http://localhost:3000
+# UI: http://localhost:3000/ui
 ```
 
 ```bash

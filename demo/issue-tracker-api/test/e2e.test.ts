@@ -33,6 +33,14 @@ describe('issue-tracker-api demo — full REST surface', () => {
     expect(rows[0]).toHaveProperty('status');
   });
 
+  it('GET /v1/ui/issues returns rows (listIssuesUi binding for SPA)', async () => {
+    const { status, body } = await get('/v1/ui/issues?limit=2');
+    expect(status).toBe(200);
+    const rows = body as Array<Record<string, unknown>>;
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.length).toBe(2);
+  });
+
   it('GET /v1/issues?status=open applies predicate_optional filter', async () => {
     const { status, body } = await get('/v1/issues?status=open&limit=100');
     expect(status).toBe(200);

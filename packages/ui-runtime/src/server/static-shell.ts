@@ -9,6 +9,7 @@ export function buildHtmlShell(options: { mountPath: string }): string {
   </head>
   <body>
     <div id="root"></div>
+    <script>window.__RNTME_UI_MOUNT__=${JSON.stringify(options.mountPath)};</script>
     <script type="module" src="${options.mountPath}/assets/main.js"></script>
   </body>
 </html>`;
