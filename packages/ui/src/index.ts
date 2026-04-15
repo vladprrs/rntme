@@ -39,3 +39,7 @@ export type {
   InputType,
   InputMode,
 } from './types/resolvers.js';
+
+export { parseUiArtifact } from './parse/parse.js';
+export { UiArtifactSchema } from './parse/schema.js';
+export type { UiArtifactParsed } from './parse/schema.js';
