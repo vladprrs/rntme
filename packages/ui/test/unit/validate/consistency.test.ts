@@ -94,3 +94,170 @@ describe('validateConsistency — datasets', () => {
     if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_TYPE_MISMATCH')).toBe(true);
   });
 });
+
+describe('validateConsistency — commands & typed state paths', () => {
+  const base = (action: Record<string, unknown>) => ({
+    version: '1.0-rc1',
+    pdmRef: 'x', qsmRef: 'x', graphSpecRef: 'x', bindingsRef: 'x',
+    metadata: { title: { default: 'Demo' } },
+    layouts: {},
+    routes: {
+      '/a': {
+        data: { issuesList: { binding: 'listIssues', params: { status: 'open', limit: 10, q: 'x' } } },
+        actions: { submit: action },
+        page: {
+          root: 'n',
+          elements: {
+            n: { type: 'Table', props: { rows: { $state: '/data/issuesList' } }, children: [] },
+          },
+        },
+      },
+    },
+  });
+
+  const cmd: ResolvedBinding = {
+    kind: 'command',
+    inputs: [
+      { name: 'title', type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+      { name: 'assigneeId', type: { kind: 'scalar', primitive: 'number' }, mode: 'required' },
+    ],
+    outputShape: { id: 'CmdResult', kind: 'object', fields: [{ name: 'version', type: { kind: 'scalar', primitive: 'number' } }] },
+    http: { method: 'POST', path: '/v1/issues' },
+  };
+
+  const r: UiResolvers = {
+    resolveBinding: (id) => (id === 'listIssues' ? listIssues : id === 'reportIssue' ? cmd : undefined),
+    resolveComponent: (t) => ({
+      propsSchema: z.any(),
+      childrenModel: 'list',
+      ...(t === 'Table' ? { knownListProps: ['rows'] as const } : {}),
+    }),
+    resolveRoute: () => true,
+  };
+
+  it('rejects command with uncovered required input', () => {
+    const bad = base({ kind: 'command', binding: 'reportIssue', paramsFromState: { title: '/form/title' } });
+    const res = validateConsistency(prep(bad, r), r);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_UNCOVERED_COMMAND_INPUT')).toBe(true);
+  });
+
+  it('accepts command with all inputs covered', () => {
+    const good = base({
+      kind: 'command', binding: 'reportIssue',
+      paramsFromState: { title: '/form/title', assigneeId: '/form/assigneeId' },
+    });
+    const res = validateConsistency(prep(good, r), r);
+    expect(res.ok).toBe(true);
+  });
+
+  it('rejects paramsFromState path pointing at wrong-shape dataset field', () => {
+    const bad = base({
+      kind: 'command', binding: 'reportIssue',
+      paramsFromState: { title: '/data/issuesList/id', assigneeId: '/form/assigneeId' }, // id is number, title expects string
+    });
+    const res = validateConsistency(prep(bad, r), r);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_TYPE_MISMATCH')).toBe(true);
+  });
+});
+
+describe('validateConsistency — enum variance (typesCompatible argument order)', () => {
+  // Dataset has a field typed enum(['open']) — a strict subset of what the command accepts.
+  const enumNarrowBinding: ResolvedBinding = {
+    kind: 'query',
+    inputs: [],
+    outputShape: {
+      id: 'EL', kind: 'list',
+      element: {
+        id: 'E', kind: 'object',
+        fields: [{ name: 'status', type: { kind: 'enum', variants: ['open'] } }],
+      },
+    },
+    http: { method: 'GET', path: '/v1/items' },
+  };
+
+  // Command binding accepts enum(['open', 'closed']).
+  const enumWideCmd: ResolvedBinding = {
+    kind: 'command',
+    inputs: [{ name: 'status', type: { kind: 'enum', variants: ['open', 'closed'] }, mode: 'required' }],
+    outputShape: { id: 'CmdOk', kind: 'object', fields: [] },
+    http: { method: 'POST', path: '/v1/items' },
+  };
+
+  // Command binding accepts only enum(['open']).
+  const enumNarrowCmd: ResolvedBinding = {
+    kind: 'command',
+    inputs: [{ name: 'status', type: { kind: 'enum', variants: ['open'] }, mode: 'required' }],
+    outputShape: { id: 'CmdOk2', kind: 'object', fields: [] },
+    http: { method: 'POST', path: '/v1/items' },
+  };
+
+  const enumBase = (action: Record<string, unknown>) => ({
+    version: '1.0-rc1',
+    pdmRef: 'x', qsmRef: 'x', graphSpecRef: 'x', bindingsRef: 'x',
+    metadata: { title: { default: 'Demo' } },
+    layouts: {},
+    routes: {
+      '/b': {
+        data: { items: { binding: 'enumItems', params: {} } },
+        actions: { doAction: action },
+        page: { root: 'n', elements: { n: { type: 'Stack', props: {}, children: [] } } },
+      },
+    },
+  });
+
+  const wideR: UiResolvers = {
+    resolveBinding: (id) =>
+      id === 'enumItems' ? enumNarrowBinding : id === 'wideCmd' ? enumWideCmd : undefined,
+    resolveComponent: () => ({ propsSchema: z.any(), childrenModel: 'list' }),
+    resolveRoute: () => true,
+  };
+
+  const narrowR: UiResolvers = {
+    resolveBinding: (id) =>
+      id === 'enumItems' ? enumNarrowBinding : id === 'narrowCmd' ? enumNarrowCmd : undefined,
+    resolveComponent: () => ({ propsSchema: z.any(), childrenModel: 'list' }),
+    resolveRoute: () => true,
+  };
+
+  it('accepts: dataset produces enum(open), command accepts enum(open|closed) — subset is fine', () => {
+    // UI can only emit 'open'; binding accepts both 'open' and 'closed' → should pass.
+    const good = enumBase({
+      kind: 'command', binding: 'wideCmd',
+      paramsFromState: { status: '/data/items/status' },
+    });
+    const res = validateConsistency(prep(good, wideR), wideR);
+    expect(res.ok).toBe(true);
+  });
+
+  it('rejects: dataset produces enum(open|closed), command accepts only enum(open) — superset is wrong', () => {
+    // Dataset field is enum(['open','closed']) but binding only accepts enum(['open']).
+    // Build a custom narrow dataset binding that has the wider enum field.
+    const wideDataBinding: ResolvedBinding = {
+      kind: 'query',
+      inputs: [],
+      outputShape: {
+        id: 'EL2', kind: 'list',
+        element: {
+          id: 'E2', kind: 'object',
+          fields: [{ name: 'status', type: { kind: 'enum', variants: ['open', 'closed'] } }],
+        },
+      },
+      http: { method: 'GET', path: '/v1/items2' },
+    };
+    const mixedR: UiResolvers = {
+      resolveBinding: (id) =>
+        id === 'enumItems' ? wideDataBinding : id === 'narrowCmd' ? enumNarrowCmd : undefined,
+      resolveComponent: () => ({ propsSchema: z.any(), childrenModel: 'list' }),
+      resolveRoute: () => true,
+    };
+    const bad = enumBase({
+      kind: 'command', binding: 'narrowCmd',
+      paramsFromState: { status: '/data/items/status' },
+    });
+    const res = validateConsistency(prep(bad, mixedR), mixedR);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_TYPE_MISMATCH')).toBe(true);
+  });
+});
