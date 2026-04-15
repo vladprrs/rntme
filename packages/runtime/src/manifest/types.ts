@@ -15,7 +15,7 @@ export type ParsedManifest = {
     health?: { path?: string };
     metrics?: { path?: string };
   };
-  seed?: { path: string };
+  seed?: { enabled?: boolean; path?: string };
 };
 
 export type ValidatedManifest = {
@@ -31,7 +31,7 @@ export type ValidatedManifest = {
     health: { path: string };
     metrics: { path: string };
   };
-  seed: { path: string } | null;
+  seed: { enabled: boolean; path: string };
 };
 
 export type ManifestErrorCode =

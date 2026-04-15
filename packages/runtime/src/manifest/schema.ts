@@ -56,7 +56,8 @@ export const ManifestSchema = z
       .optional(),
     seed: z
       .object({
-        path: z.string().min(1),
+        enabled: z.boolean().optional(),
+        path: z.string().min(1).optional(),
       })
       .strict()
       .optional(),

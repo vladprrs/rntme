@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   parsePdm,
@@ -151,8 +152,8 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   const eventTypes = deriveEventTypes(validatedPdm);
 
   let validatedSeed: ValidatedSeed | null = null;
-  if (manifest.seed !== null) {
-    const seedPath = join(dir, manifest.seed.path);
+  const seedPath = join(dir, manifest.seed.path);
+  if (manifest.seed.enabled && existsSync(seedPath)) {
     const seedResult = loadSeed(seedPath, { pdm: pdmResolver, events: eventTypes });
     if (!seedResult.ok) {
       return { ok: false, errors: [{ code: 'SEED_INVALID', details: seedResult.errors }] };
