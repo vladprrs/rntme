@@ -1,2 +1,10 @@
-// Public exports populated as tasks add them.
-export {};
+export type {
+  SeedArtifact,
+  SeedEventInput,
+  ValidatedSeed,
+  SeedError,
+  SeedErrorCode,
+  Result,
+  ApplyMode,
+  ApplyResult,
+} from './types.js';
