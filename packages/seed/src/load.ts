@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import { parseSeed } from './parse.js';
 import { validateSeed, type ValidateCtx } from './validate.js';

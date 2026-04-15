@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parsePdm, validatePdm, createPdmResolver, deriveEventTypes } from '@rntme/pdm';
 import { validateSeed } from '../../src/validate.js';
 import type { SeedArtifact } from '../../src/types.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const pdmRaw = JSON.parse(
   readFileSync(resolve(__dirname, '../fixtures/minimal-pdm.json'), 'utf8'),
