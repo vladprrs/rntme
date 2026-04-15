@@ -31,10 +31,10 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
     const result = validateSeed(
       seed([
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'x' },
           occurredAt: '2026-01-01T00:00:00.000Z' },
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 3,
-          eventType: 'ThingRenamed', payload: { name: 'y' },
+          eventType: 'ThingRenamed', payload: { name: 'y', status: 'active' },
           occurredAt: '2026-01-02T00:00:00.000Z' },
       ]),
       ctx(),
@@ -48,10 +48,10 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
     const result = validateSeed(
       seed([
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'x' },
           occurredAt: '2026-01-01T00:00:00.000Z' },
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'x' },
           occurredAt: '2026-01-01T00:00:01.000Z' },
       ]),
       ctx(),
@@ -67,10 +67,10 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
     const result = validateSeed(
       seed([
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'x' },
           occurredAt: '2026-01-01T00:00:00.000Z', eventId: 'same' },
         { stream: 'Thing-2', aggregateType: 'Thing', aggregateId: '2', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'y', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'y' },
           occurredAt: '2026-01-01T00:00:01.000Z', eventId: 'same' },
       ]),
       ctx(),
@@ -84,10 +84,10 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
     const result = validateSeed(
       seed([
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'x' },
           occurredAt: '2026-01-01T00:00:00.000Z' },
         { stream: 'Thing-2', aggregateType: 'Thing', aggregateId: '2', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'y', status: 'active' },
+          eventType: 'ThingCreated', payload: { name: 'y' },
           occurredAt: '2026-01-01T00:00:01.000Z' },
         { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 2,
           eventType: 'ThingRenamed', payload: { name: 'x2', status: 'active' },

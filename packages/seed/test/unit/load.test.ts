@@ -34,7 +34,7 @@ const minimalSeed: SeedArtifact = {
       aggregateId: '1',
       version: 1,
       eventType: 'ThingCreated',
-      payload: { name: 'x', status: 'active' },
+      payload: { name: 'x' },
       occurredAt: '2026-01-01T00:00:00.000Z',
     },
   ],
