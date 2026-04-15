@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "Thing": {
+      "table": "things",
+      "keys": ["id"],
+      "fields": {
+        "id": { "type": "integer", "nullable": false, "column": "id" },
+        "name": { "type": "string", "nullable": false, "column": "name" },
+        "status": { "type": "string", "nullable": false, "column": "status" }
+      },
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active", "archived"],
+        "transitions": {
+          "created": { "from": null, "to": "active", "affects": ["name"] },
+          "renamed": { "from": "active", "to": "active", "affects": ["name"] },
+          "archived": { "from": "active", "to": "archived" }
+        }
+      }
+    }
+  }
+}

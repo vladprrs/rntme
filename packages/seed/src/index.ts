@@ -9,3 +9,5 @@ export type {
   ApplyResult,
 } from './types.js';
 export { parseSeed } from './parse.js';
+export { validateSeed } from './validate.js';
+export type { ValidateCtx } from './validate.js';
