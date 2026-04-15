@@ -1,16 +1,15 @@
 # @rntme/issue-tracker-api-demo
 
-End-to-end demo: a small **issue tracker REST API** that exercises every package in the rntme monorepo. Boots an event-sourced write side, an eventually-consistent read side, and a Hono HTTP surface — all driven by four JSON artifacts.
+End-to-end demo: a small **issue tracker REST API** that exercises every package in the rntme monorepo. Boots an event-sourced write side, an eventually-consistent read side, and a Hono HTTP surface — all driven by four JSON artifacts, loaded and validated by [`@rntme/runtime`](../../packages/runtime) with zero hand-written wiring.
 
 ## What it demonstrates
 
 - **PDM with stateMachine.** The `Issue` aggregate has a state-field `status` and transitions `report → submit → assign → reassign → resolve → reopen → close` (plus `assign-with-guard`, an illustrative capacity-gate variant).
 - **QSM entity-mirror projection.** One projection (`issues_projection`) mirrors the `Issue` entity; bootstrap DDL includes idempotency columns.
-- **Graph IR — queries + commands.** 14 graphs under `src/artifacts/graphs/`: six queries and eight commands. `listIssuesUi` is a UI-friendly list query (no `predicate_optional` inputs). `assignIssueWithCapacityGuard` additionally uses a read-prelude for a pre-transition guard.
-- **Bindings → OpenAPI 3.1.** `src/artifacts/bindings.json` maps every graph to an HTTP operation; the server serves the generated document at `GET /openapi.json`.
+- **Graph IR — queries + commands.** 14 graphs under `artifacts/graphs/`: six queries and eight commands. `listIssuesUi` is a UI-friendly list query (no `predicate_optional` inputs). `assignIssueWithCapacityGuard` additionally uses a read-prelude for a pre-transition guard.
+- **Bindings → OpenAPI 3.1.** `artifacts/bindings.json` maps every graph to an HTTP operation; the server serves the generated document at `GET /openapi.json`.
 - **Full event pipeline with in-memory Kafka bridge.** `event-store → createRelay → in-memory Kafka bridge → createProjectionConsumer → QSM DB`. No external broker required.
-- **Hono runtime.** `@rntme/bindings-http`'s router is mounted into a Hono app; an `x-actor-id` header is captured into the command envelope's `actor`.
-- **Declarative UI.** `@rntme/ui` artifact (`src/ui.ts`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle). The SPA calls the same REST API; the demo sets a default `x-actor-id: alice` on browser `fetch` so commands work without extra headers.
+- **Declarative UI.** `@rntme/ui` artifact (`artifacts/ui.json`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle). The SPA calls the same REST API.
 
 ## Architecture
 
@@ -18,52 +17,50 @@ End-to-end demo: a small **issue tracker REST API** that exercises every package
 client
    │  HTTP
    ▼
-┌──────────────────────────┐
-│    Hono app              │
-│  + @rntme/bindings-http  │
-└──┬──────────────────┬────┘
-   │                  │
-   │ query path       │ command path
-   ▼                  ▼
-graph-ir-compiler   graph-ir-compiler
- (compile + exec)    (compile + exec command)
-   │                  │
-   ▼                  ▼
-read-side SQLite   @rntme/event-store
-(QSM projections)    │  (SqliteEventStore)
-   ▲                  │
-   │                  │ createRelay (at-least-once)
-   │                  ▼
-   │             in-memory Kafka bridge
-   │                  │
-   │                  ▼
+┌──────────────────────┐
+│  @rntme/runtime       │
+│  loadService(dir) →  │
+│  startService(...)   │
+└──┬───────────────┬────┘
+   │               │
+   │ query path    │ command path
+   ▼               ▼
+read-side SQLite  @rntme/event-store
+(QSM projections)   │  (SqliteEventStore)
+   ▲                │
+   │                │ createRelay (at-least-once)
+   │                ▼
+   │           in-memory Kafka bridge
+   │                │
+   │                ▼
    └── projection-consumer (BEGIN IMMEDIATE / apply / COMMIT / commitOffsets)
 ```
 
-`src/events.ts` builds the pipeline; `src/server.ts` mounts the router and `GET /` index, `src/artifacts.ts` loads, parses and validates every JSON artifact at boot.
+`src/server.ts` is ~12 lines: resolve `./artifacts`, call `loadService`, call `startService`. All artifact loading, validation, pipeline wiring, and Hono mounting is owned by `@rntme/runtime`.
 
 ## Run it
 
-Requirements: Node.js ≥ 20, pnpm ≥ 9 (covered by the repo's root instructions).
+Requirements: Node.js ≥ 20, pnpm ≥ 9.
 
 ```bash
 pnpm install                                                 # once, at repo root
 
 pnpm -F @rntme/issue-tracker-api-demo start
-# ➜ issue-tracker-api-demo listening on http://localhost:3000
+# ➜ binds whichever port artifacts/manifest.json says (default 3000)
 ```
 
-Open **[http://localhost:3000/ui](http://localhost:3000/ui)** in a browser to use the demo UI: home (stats by project), browse issues, report a new issue, open an issue by id and run lifecycle actions (submit / assign / resolve / close).
+Open **[http://localhost:3000/ui](http://localhost:3000/ui)** in a browser to use the demo UI: home (stats by project), browse issues, report a new issue, open an issue by id and run lifecycle actions.
 
 ```bash
-# Custom port:
-PORT=4000 pnpm -F @rntme/issue-tracker-api-demo start
+# Custom port via env (overrides the manifest):
+RNTME_HTTP_PORT=4000 pnpm -F @rntme/issue-tracker-api-demo start
 
-# Seed an on-disk DB instead of :memory: (useful for inspection):
-pnpm -F @rntme/issue-tracker-api-demo seed ./app.db
+# Run via the CLI instead of embedding:
+pnpm -F @rntme/issue-tracker-api-demo start:runtime-cli
+# equivalent to: rntme-runtime start ./artifacts
 ```
 
-The server uses `:memory:` SQLite for both the event log and the read-side DB. The seed script preloads users (alice, bob, carol, dave, …), projects, sprints and ~22 projection rows so queries return non-empty results immediately.
+The runtime uses `:memory:` SQLite for both the event log and the read-side DB by default. Set `persistence.mode: "persistent"` in `artifacts/manifest.json` (plus `eventStorePath` and `qsmPath`) for on-disk storage.
 
 ## Route inventory
 
@@ -84,32 +81,30 @@ The server uses `:memory:` SQLite for both the event log and the read-side DB. T
 | `POST /v1/issues/:issueId/actions/reopen` | `reopenIssue` | `resolved → open`. |
 | `POST /v1/issues/:issueId/actions/close` | `closeIssue` | Terminal transition. |
 | `GET  /openapi.json` | — | Generated OpenAPI 3.1 document. |
-| `GET  /` | — | JSON index of all routes. |
+| `GET  /` | — | JSON service identity (name + version). |
+| `GET  /health`, `GET /metrics` | — | Observability endpoints owned by `@rntme/runtime`. |
 | `GET  /ui` | — | Issue tracker SPA (see `@rntme/ui-runtime`). |
 
-All `POST`s require an `x-actor-id` request header — the server turns it into `{ kind: 'user', id }` and stamps every event envelope's `actor` with it. The browser UI sends `x-actor-id: alice` by default (see `createUiApp` in `src/server.ts`).
+All `POST`s require an `x-actor-id` request header — the runtime turns it into `{ kind: 'user', id }` (header name and actor kind are configurable via `manifest.auth`) and stamps every event envelope's `actor` with it.
 
 ## Example calls
 
 ```bash
-# 1. List open issues
-curl -s 'http://localhost:3000/v1/issues?status=open&limit=5' | jq
-
-# 2. Report a new issue (creation transition)
+# 1. Report a new issue (creation transition)
 curl -s -X POST http://localhost:3000/v1/issues \
   -H 'content-type: application/json' \
   -H 'x-actor-id: alice' \
   -d '{"issueId":7001,"title":"Demo bug","projectId":1,"reporterId":1,"priority":"high","storyPoints":3}' | jq
 # → { "version": 1 }
 
-# 3. Move it through its lifecycle
+# 2. Move it through its lifecycle
 curl -s -X POST http://localhost:3000/v1/issues/7001/actions/submit  -H 'x-actor-id: alice' -d '{}' | jq
 curl -s -X POST http://localhost:3000/v1/issues/7001/actions/assign \
   -H 'content-type: application/json' -H 'x-actor-id: alice' \
   -d '{"assigneeId":2}' | jq
 curl -s -X POST http://localhost:3000/v1/issues/7001/actions/resolve -H 'x-actor-id: alice' -d '{}' | jq
 
-# 4. Inspect the projection (updates arrive asynchronously via the relay + consumer)
+# 3. Inspect the projection (updates arrive asynchronously via the relay + consumer)
 curl -s 'http://localhost:3000/v1/issues/7001' | jq
 ```
 
@@ -118,43 +113,23 @@ Command responses are `{ version: <n> }`. Version-conflict retries surface as `4
 ## Source map
 
 ```
+artifacts/
+  manifest.json                  # rntme runtime config (service name, port, persistence, auth)
+  pdm.json                       # Issue entity + stateMachine
+  qsm.json                       # issues_projection (entity-mirror)
+  bindings.json                  # HTTP surface
+  shapes.json                    # Custom output shapes (PaginatedIssues, etc.)
+  ui.json                        # Declarative UI artifact consumed by @rntme/ui-runtime
+  graphs/                        # 14 graphs — queries + commands
+    ...
 src/
-  artifacts/
-    pdm.json                     # Issue entity + stateMachine
-    qsm.json                     # issues_projection (entity-mirror)
-    bindings.json                # HTTP surface
-    shapes.json                  # Custom output shapes (PaginatedIssues, etc.)
-    graphs/                      # 14 graphs
-      listIssues.json
-      listIssuesUi.json
-      issueDetail.json
-      issuesByProject.json
-      searchIssues.json
-      sprintBurndown.json
-      reportIssue.json
-      submitIssue.json
-      assignIssue.json
-      assignIssueWithCapacityGuard.json
-      reassignIssue.json
-      resolveIssue.json
-      reopenIssue.json
-      closeIssue.json
-  artifacts.ts                   # load + validate + build resolvers
-  events.ts                      # SqliteEventStore + relay + in-memory kafka + projection consumer
-  server.ts                      # Hono app + bindings-http router + GET / index
-  db/
-    schema.sql                   # read-side auxiliary tables (users, projects, sprints, …)
-    seed.ts                      # seeded DB factory (:memory: by default, or pass a path)
+  server.ts                      # loadService + startService; ~12 lines
 test/
-  artifacts-exports.test.ts
-  bindings-validate.test.ts
-  command-graphs-compile.test.ts
-  e2e.test.ts                    # query-side e2e
-  events.test.ts                 # pipeline integration
-  mutations-e2e.test.ts          # lifecycle: report → submit → assign → reassign → resolve → close + guard
-  seed-projection.test.ts
-  server-command-wiring.test.ts
+  smoke.test.ts                  # subprocess boot + /health + /openapi.json
+Dockerfile                       # FROM ghcr.io/vladprrs/rntme-runtime:1.0 + COPY artifacts
 ```
+
+All artifact-loading, pipeline wiring, and pipeline teardown now lives in `@rntme/runtime`. The runtime's own test suite (`packages/runtime/test`) exercises the happy path, every manifest error code, graceful shutdown, `/health` + `/metrics`, plugin contracts, the CLI, and the issue-tracker e2e using the fixture under `packages/runtime/test/fixtures/issue-tracker/` (copied from `demo/issue-tracker-api/artifacts/`).
 
 ## Tests
 
@@ -163,11 +138,24 @@ pnpm -F @rntme/issue-tracker-api-demo test
 pnpm -F @rntme/issue-tracker-api-demo typecheck
 ```
 
-The e2e suites boot `buildApp()` in-process (no OS listener), exercise queries and the full command lifecycle, and assert that projections reflect the appends after the relay drains.
+The smoke test spawns `tsx src/server.ts` as a subprocess, waits for `/health`, and asserts `/openapi.json` serves the generated document. Fuller coverage of query paths and command lifecycles lives in the runtime's own e2e + fixture suite.
+
+## Run in Docker
+
+```bash
+# Base image with artifacts mounted at /srv/artifacts
+docker run --rm -p 3000:3000 \
+  -v "$(pwd)/artifacts:/srv/artifacts:ro" \
+  ghcr.io/vladprrs/rntme-runtime:1.0
+
+# Or bake them in:
+docker build -t issue-tracker-api-demo:dev .
+docker run --rm -p 3000:3000 issue-tracker-api-demo:dev
+```
 
 ## Caveats (Tier 1)
 
 - Single-writer SQLite event log. Horizontal scaling on the write side is not in MVP.
-- Kafka is an in-process bridge — swap `createInMemoryKafkaProducer/Consumer` for a real broker in prod; nothing else changes.
+- Kafka is an in-process bridge — swap `@rntme/runtime`'s `InMemoryBus` for a future `@rntme/bus-kafka` adapter via `RuntimeConfig.bus` when the package lands.
 - No auth, no rate limiting, no multi-tenancy.
-- In-memory DB by default — each start loses state. Use `seed ./app.db` + point the server at the path for persistence.
+- In-memory DB by default — each start loses state. Switch `persistence.mode` in `artifacts/manifest.json` for persistence.

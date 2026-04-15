@@ -1,0 +1,58 @@
+{
+  "id": "assignIssueWithCapacityGuard",
+  "signature": {
+    "inputs": {
+      "issueId":    { "type": "integer", "mode": "required" },
+      "assigneeId": { "type": "integer", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    {
+      "id": "currentLoad",
+      "type": "findMany",
+      "config": { "source": { "entity": "Issue" } }
+    },
+    {
+      "id": "filteredLoad",
+      "type": "filter",
+      "config": {
+        "input": "currentLoad",
+        "expr": {
+          "and": [
+            { "eq": ["issue.assigneeId", { "$param": "assigneeId" }] },
+            { "eq": ["issue.status", { "$literal": "in_progress" }] }
+          ]
+        }
+      }
+    },
+    {
+      "id": "loadCount",
+      "type": "reduce",
+      "config": {
+        "input": "filteredLoad",
+        "into": "LoadCount",
+        "group": {},
+        "measures": { "count": { "fn": "count" } }
+      }
+    },
+    {
+      "id": "guardCapacity",
+      "type": "filter",
+      "config": {
+        "input": "loadCount",
+        "expr": { "lt": ["count", 3] }
+      }
+    },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Issue",
+        "aggregateId": { "$param": "issueId" },
+        "transition": "assign",
+        "payload": { "assigneeId": { "$param": "assigneeId" } }
+      }
+    }
+  ]
+}

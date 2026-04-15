@@ -64,6 +64,7 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 | [`@rntme/bindings-http`](packages/bindings-http) | Hono sub-router that executes queries and commands described by a validated bindings artifact. |
 | [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; fifth per-service authoring artifact. |
 | [`@rntme/ui-runtime`](packages/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
+| [`@rntme/runtime`](packages/runtime) | Service runtime: reads a folder of artifacts + `manifest.json` and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 
 ### Demo
 
@@ -82,10 +83,12 @@ event-store◀┼─◀│──────── projection-consumer
  │         │   │
  └──── graph-ir-compiler ◀──── bindings-http ──▶ bindings ◀── ui ──▶ ui-runtime
                                       ▲              ▲                          ▲
-                                      └── demo ──────┴──────────────────────────┘
+                                      └── runtime ───┴──────────────────────────┤
+                                             ▲                                  │
+                                             └── demo ─────────────────────────┘
 ```
 
-`pdm`, `event-store` and `bindings` have no internal dependencies. Everything else layers on top.
+`pdm`, `event-store` and `bindings` have no internal dependencies. Everything else layers on top. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package.
 
 ## Quick start
 
@@ -95,6 +98,24 @@ Requirements: **Node.js ≥ 20**, **pnpm ≥ 9** (CI uses pnpm 9.12.0).
 pnpm install
 pnpm -r run build
 pnpm -r run test
+```
+
+### Run a service with the runtime
+
+The runtime is the production face of the project. Given a folder of artifacts it boots the whole stack with no user code:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -v "$(pwd)/demo/issue-tracker-api/artifacts:/srv/artifacts:ro" \
+  ghcr.io/vladprrs/rntme-runtime:1.0
+```
+
+Or embed it (the demo does this):
+
+```ts
+import { loadService, startService } from '@rntme/runtime';
+const loaded = loadService('./artifacts');
+if (loaded.ok) await startService(loaded.value);
 ```
 
 ### Run the demo
@@ -127,8 +148,8 @@ Each library package exposes the same scripts. Run them across all packages from
 | `pnpm -r run test` | `vitest run` in every package (unit + integration + e2e + golden). |
 | `pnpm -r run lint` | ESLint on `src/**` and `test/**`. |
 | `pnpm -F <name> test:watch` | Vitest watch mode for one package. |
-| `pnpm -F @rntme/issue-tracker-api-demo start` | Start the demo server (`tsx src/server.ts`, `PORT` env var). |
-| `pnpm -F @rntme/issue-tracker-api-demo seed [path]` | Seed the read-side DB (default `:memory:`; pass a path for on-disk). |
+| `pnpm -F @rntme/issue-tracker-api-demo start` | Start the demo via `@rntme/runtime` (`tsx src/server.ts`; override port with `RNTME_HTTP_PORT`). |
+| `pnpm -F @rntme/issue-tracker-api-demo start:runtime-cli` | Start via the `rntme-runtime start ./artifacts` CLI. |
 
 CI runs `build → typecheck → test → lint` on every push and PR to `main` (see `.github/workflows/ci.yml`).
 

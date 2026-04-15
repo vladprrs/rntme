@@ -1,0 +1,21 @@
+{
+  "id": "reopenIssue",
+  "signature": {
+    "inputs": {
+      "issueId": { "type": "integer", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Issue",
+        "aggregateId": { "$param": "issueId" },
+        "transition": "reopen",
+        "payload": {}
+      }
+    }
+  ]
+}
