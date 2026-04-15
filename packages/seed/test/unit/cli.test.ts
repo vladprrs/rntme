@@ -75,3 +75,71 @@ describe('rntme-seed validate', () => {
     expect(r.status).toBe(0);
   });
 });
+
+describe('rntme-seed apply', () => {
+  it('applies to a fresh file-backed event store and prints applied count', () => {
+    const dir = scaffoldArtifacts({
+      seedVersion: 1,
+      events: [
+        {
+          stream: 'Thing-1',
+          aggregateType: 'Thing',
+          aggregateId: '1',
+          version: 1,
+          eventType: 'ThingCreated',
+          payload: { name: 'x', status: 'active' },
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const storePath = join(dir, 'event-store.db');
+    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/applied=1 skipped=0/);
+  });
+
+  it('--dry-run does not write', () => {
+    const dir = scaffoldArtifacts({
+      seedVersion: 1,
+      events: [
+        {
+          stream: 'Thing-1',
+          aggregateType: 'Thing',
+          aggregateId: '1',
+          version: 1,
+          eventType: 'ThingCreated',
+          payload: { name: 'x', status: 'active' },
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const storePath = join(dir, 'event-store.db');
+    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath, '--dry-run'], {
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/would apply 1 events/);
+  });
+
+  it('second apply with upsert mode skips all', () => {
+    const dir = scaffoldArtifacts({
+      seedVersion: 1,
+      events: [
+        {
+          stream: 'Thing-1',
+          aggregateType: 'Thing',
+          aggregateId: '1',
+          version: 1,
+          eventType: 'ThingCreated',
+          payload: { name: 'x', status: 'active' },
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const storePath = join(dir, 'event-store.db');
+    spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
+    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/applied=0 skipped=1/);
+  });
+});
