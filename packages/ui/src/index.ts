@@ -46,3 +46,6 @@ export type { UiArtifactParsed } from './parse/schema.js';
 
 export { validateStructural } from './validate/structural.js';
 export type { StructurallyValid } from './validate/structural.js';
+
+export { validateReferences } from './validate/references.js';
+export type { ResolvedUi } from './validate/references.js';
