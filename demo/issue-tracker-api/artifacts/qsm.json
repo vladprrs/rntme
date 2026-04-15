@@ -18,6 +18,52 @@
         "resolvedAt"
       ],
       "table": "projection_issue"
+    },
+    "project_mirror": {
+      "backing": "entity-mirror",
+      "source": { "entity": "Project" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": [
+        "id",
+        "key",
+        "name",
+        "leadId",
+        "status",
+        "description"
+      ],
+      "table": "projects"
+    },
+    "user_mirror": {
+      "backing": "entity-mirror",
+      "source": { "entity": "User" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "status",
+        "joinedAt"
+      ],
+      "table": "users"
+    },
+    "sprint_mirror": {
+      "backing": "entity-mirror",
+      "source": { "entity": "Sprint" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": [
+        "id",
+        "projectId",
+        "name",
+        "goal",
+        "startsAt",
+        "endsAt",
+        "status"
+      ],
+      "table": "sprints"
     }
   },
   "relationRoles": {}
