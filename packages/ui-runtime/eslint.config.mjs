@@ -15,6 +15,14 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        // Browser / Web API globals used by client code and tests
+        window: 'readonly',
+        fetch: 'readonly',
+        Request: 'readonly',
+        RequestInfo: 'readonly',
+        Response: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {
