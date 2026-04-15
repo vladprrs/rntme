@@ -8,3 +8,4 @@ export type {
   ApplyMode,
   ApplyResult,
 } from './types.js';
+export { parseSeed } from './parse.js';
