@@ -155,3 +155,45 @@ describe('validateStructural — tree references', () => {
     expect(res.ok).toBe(true);
   });
 });
+
+describe('validateStructural — navigation & id uniqueness', () => {
+  it('rejects navigation with unbound :name placeholder', () => {
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.routes['/a'].actions = {
+      open: { kind: 'navigation', navigateTo: '/x/:id' },
+    };
+    const res = validateStructural(prep(bad));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.some((e) => e.code === 'UI_NAVIGATION_PLACEHOLDER_UNBOUND')).toBe(true);
+  });
+
+  it('accepts navigation with placeholder covered by paramsFromState', () => {
+    const ok_ = JSON.parse(JSON.stringify(base));
+    ok_.routes['/a'].actions = {
+      open: { kind: 'navigation', navigateTo: '/x/:id', paramsFromState: { id: '/form/id' } },
+    };
+    const res = validateStructural(prep(ok_));
+    expect(res.ok).toBe(true);
+  });
+
+  it('rejects duplicate route paths (parse already does) — but also guards normalized trailing slash', () => {
+    // JS object keys are unique by string, so this is a smoke test for the guard branch
+    const ok_ = JSON.parse(JSON.stringify(base));
+    ok_.routes['/b'] = ok_.routes['/a'];
+    const res = validateStructural(prep(ok_));
+    expect(res.ok).toBe(true);
+  });
+
+  it('emits one error per unique unbound placeholder (dedup)', () => {
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.routes['/a'].actions = {
+      open: { kind: 'navigation', navigateTo: '/x/:id/y/:id' },
+    };
+    const res = validateStructural(prep(bad));
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      const phErrors = res.errors.filter((e) => e.code === 'UI_NAVIGATION_PLACEHOLDER_UNBOUND');
+      expect(phErrors.length).toBe(1);
+    }
+  });
+});

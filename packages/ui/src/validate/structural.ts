@@ -43,6 +43,25 @@ export function validateStructural(a: UiArtifactParsed): Result<StructurallyVali
           });
         }
       }
+      for (const [actionId, action] of Object.entries(route.actions ?? {})) {
+        if (action.kind !== 'navigation') continue;
+        const placeholders = new Set<string>();
+        for (const m of action.navigateTo.matchAll(/:([A-Za-z][A-Za-z0-9_]*)/g)) {
+          if (m[1]) placeholders.add(m[1]);
+        }
+        const bound = new Set(Object.keys(action.paramsFromState ?? {}));
+        for (const ph of placeholders) {
+          if (!bound.has(ph)) {
+            errors.push({
+              layer: 'structural',
+              code: UI_ERROR_CODES.UI_NAVIGATION_PLACEHOLDER_UNBOUND,
+              message: `Navigation action "${actionId}" references placeholder ":${ph}" with no paramsFromState entry`,
+              path: `routes["${path}"].actions["${actionId}"].navigateTo`,
+            });
+          }
+        }
+      }
+
       for (const sp of statePaths) {
         const d = DATA_PREFIX_RE.exec(sp);
         if (d) {
