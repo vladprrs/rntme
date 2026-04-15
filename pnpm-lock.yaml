@@ -34,6 +34,12 @@ importers:
       '@rntme/qsm':
         specifier: workspace:*
         version: link:../../packages/qsm
+      '@rntme/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@rntme/ui-runtime':
+        specifier: workspace:*
+        version: link:../../packages/ui-runtime
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0

@@ -4,8 +4,8 @@ import { buildComponentResolver } from '../../src/resolvers/from-shadcn.js';
 
 describe('buildBindingResolver', () => {
   it('returns ResolvedBinding shape from a validated bindings fixture', async () => {
-    const { validated } = await import('../fixtures/bindings-fixtures.js');
-    const resolve = buildBindingResolver(validated);
+    const { validated, mockResolveShape } = await import('../fixtures/bindings-fixtures.js');
+    const resolve = buildBindingResolver(validated, mockResolveShape);
     const got = resolve('listIssues');
     expect(got).toBeDefined();
     if (got) {

@@ -4,7 +4,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "composite": false,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@rntme/bindings": ["../bindings/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
 }

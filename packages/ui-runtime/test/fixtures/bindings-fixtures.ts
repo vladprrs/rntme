@@ -1,30 +1,79 @@
-// Minimal ValidatedBindings-shaped stub matching what buildBindingResolver needs.
-// Keep this narrow: we only use `listIssues` in these tests.
+// Real ValidatedBindings-shaped stub for use in ui-runtime tests.
+// Matches the actual @rntme/bindings ValidatedBindings shape.
+// Only `listIssues` is needed for resolver tests.
+
+import type {
+  ValidatedBindings,
+  BindingResolvers,
+  ResolvedShape,
+} from '@rntme/bindings';
+
+// Shape stub for IssueList / Issue used by listIssues
+const issueShape: ResolvedShape = {
+  name: 'Issue',
+  origin: 'pdm',
+  fields: {
+    id: { type: { kind: 'scalar', primitive: 'integer' }, nullable: false },
+    title: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
+    status: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
+  },
+};
+
+export const mockResolveShape: BindingResolvers['resolveShape'] = (name) => {
+  if (name === 'Issue') return issueShape;
+  return null;
+};
+
+// Minimal ValidatedBindings cast — brands are private unique symbols so we
+// use a type assertion; this is fine in test code.
 export const validated = {
-  bindings: {
-    listIssues: {
-      kind: 'query' as const,
-      graph: 'listIssues',
-      http: {
-        method: 'GET' as const,
-        path: '/v1/issues',
-        parameters: [
-          { name: 'status', in: 'query' as const, bindTo: 'status', required: false, type: { kind: 'scalar' as const, primitive: 'string' as const } },
-        ],
-      },
-      passthrough: {
-        resolvedInputs: [
-          { name: 'status', type: { kind: 'scalar' as const, primitive: 'string' as const }, mode: 'nullable' as const },
-        ],
-        resolvedOutputShape: {
-          id: 'IssueList',
-          kind: 'list' as const,
-          element: { id: 'Issue', kind: 'object' as const, fields: [{ name: 'id', type: { kind: 'scalar' as const, primitive: 'number' as const } }] },
+  artifact: {
+    version: '1.0',
+    graphSpecRef: 'test.graphs.v1',
+    pdmRef: 'test.domain.v1',
+    qsmRef: 'test.read.v1',
+    bindings: {
+      listIssues: {
+        graph: 'listIssues',
+        target: { engine: 'sqlite', dialect: 'sqlite' },
+        http: {
+          method: 'GET' as const,
+          path: '/v1/issues',
+          parameters: [
+            { name: 'status', in: 'query' as const, bindTo: 'status', required: false },
+          ],
         },
       },
     },
   },
-};
-
-export type ValidatedBindings = typeof validated;
-export type ResolvedBinding = unknown;
+  resolved: {
+    listIssues: {
+      entry: {
+        graph: 'listIssues',
+        target: { engine: 'sqlite', dialect: 'sqlite' },
+        http: {
+          method: 'GET' as const,
+          path: '/v1/issues',
+          parameters: [
+            { name: 'status', in: 'query' as const, bindTo: 'status', required: false },
+          ],
+        },
+      },
+      signature: {
+        id: 'listIssues',
+        role: 'query' as const,
+        inputs: {
+          status: {
+            type: { kind: 'scalar' as const, primitive: 'string' as const },
+            mode: 'nullable' as const,
+          },
+        },
+        output: {
+          type: { kind: 'rowset' as const, shape: 'Issue' },
+          from: 'paged',
+        },
+      },
+      outputShape: issueShape,
+    },
+  },
+} as unknown as ValidatedBindings;
