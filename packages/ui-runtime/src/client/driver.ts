@@ -13,6 +13,7 @@ export type CreateUiDriverOptions = {
 
 export type UiDriver = {
   enterRoute(path: string): void;
+  invokeAction(routePath: string, actionId: string): Promise<void>;
   stateStore: StateStore;
 };
 
@@ -74,5 +75,44 @@ export function createUiDriver(opts: CreateUiDriverOptions): UiDriver {
     }
   }
 
-  return { enterRoute, stateStore: store };
+  async function invokeAction(routePath: string, actionId: string): Promise<void> {
+    const route = opts.artifact.routes[routePath];
+    if (!route) return;
+    const action = route.actions?.[actionId];
+    if (!action) return;
+    if (action.kind !== 'command') return; // nav handled in Task 20
+
+    const http = opts.bindingHttpByName[action.binding];
+    if (!http || http.method !== 'POST') return;
+
+    const body: Record<string, unknown> = {};
+    for (const [k, sp] of Object.entries(action.paramsFromState)) {
+      body[k] = store.get(sp);
+    }
+
+    store.set(`/actions/__status/${actionId}`, 'pending');
+    try {
+      const res = await fetchFn(`${opts.bindingsHttpBaseUrl}${http.path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody: unknown = await res.json().catch(() => ({}));
+        const bodyObj = typeof errBody === 'object' && errBody !== null ? errBody : {};
+        store.set(`/actions/__error/${actionId}`, { httpStatus: res.status, ...bodyObj });
+        store.set(`/actions/__status/${actionId}`, 'error');
+        return;
+      }
+      store.set(`/actions/__status/${actionId}`, 'success');
+      const onSuccess = action.onSuccess;
+      if (onSuccess?.clearFormState) for (const p of onSuccess.clearFormState) store.reset(p);
+      if (onSuccess?.refetchData) for (const ds of onSuccess.refetchData) runQuery(routePath, ds);
+    } catch (e) {
+      store.set(`/actions/__error/${actionId}`, { httpStatus: 0, message: String(e) });
+      store.set(`/actions/__status/${actionId}`, 'error');
+    }
+  }
+
+  return { enterRoute, invokeAction, stateStore: store };
 }
