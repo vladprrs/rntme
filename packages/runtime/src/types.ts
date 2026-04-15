@@ -3,6 +3,7 @@ import type { ValidatedQsm, ProjectionDdlSpec } from '@rntme/qsm';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { ValidatedUiArtifact } from '@rntme/ui';
 import type { ApplyPlan } from '@rntme/projection-consumer';
+import type { SeedError, ValidatedSeed } from '@rntme/seed';
 import type { ValidatedManifest, ManifestError } from './manifest/types.js';
 
 export type RuntimeOk<T> = { ok: true; value: T };
@@ -28,6 +29,7 @@ export type ValidatedService = {
   projectionApplyPlan: ApplyPlan;
   projectionDdls: readonly ProjectionDdlSpec[];
   eventTypes: readonly EventTypeSpec[];
+  seed: ValidatedSeed | null;
 };
 
 export type ServiceError =
@@ -37,6 +39,7 @@ export type ServiceError =
   | { code: 'BINDINGS_INVALID'; details: unknown[] }
   | { code: 'UI_INVALID'; details: unknown[] }
   | { code: 'OPENAPI_INVALID'; details: unknown[] }
+  | { code: 'SEED_INVALID'; details: readonly SeedError[] }
   | { code: 'IO_ERROR'; details: { message: string } };
 
 export type RunningService = {

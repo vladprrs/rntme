@@ -15,6 +15,7 @@ import type {
   Surface,
 } from '../plugins/interfaces.js';
 import type { RunningService, ValidatedService } from '../types.js';
+import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 
@@ -24,6 +25,8 @@ export type RuntimeConfig = {
   surfaces?: Surface[];
   actorFromRequest?: (c: Context) => ActorRef | null;
   onReady?: (info: { port: number }) => void;
+  seedMode?: ApplyMode;
+  skipSeed?: boolean;
 };
 
 export async function startService(
@@ -38,6 +41,28 @@ export async function startService(
   if (bus.start) await bus.start();
 
   const pipeline = wireEventPipeline(service, db, bus);
+
+  if (service.seed !== null && !config.skipSeed) {
+    try {
+      await applySeed(service.seed, pipeline.eventStore, {
+        mode: config.seedMode ?? 'strict',
+      });
+    } catch (err) {
+      const code =
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code?: string }).code;
+      if (code === 'SEED_STORE_NOT_EMPTY') {
+        // Second boot with persistent store: strict mode skips when log already has events.
+      } else {
+        await pipeline.stop();
+        if (bus.stop) await bus.stop();
+        throw err;
+      }
+    }
+  }
+
   pipeline.start();
 
   const metrics = createMetrics(service.manifest.service.name);

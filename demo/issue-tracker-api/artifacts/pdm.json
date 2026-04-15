@@ -64,7 +64,9 @@
         "key": { "type": "string", "nullable": false, "column": "key" },
         "name": { "type": "string", "nullable": false, "column": "name" },
         "leadId": { "type": "integer", "nullable": false, "column": "lead_id" },
-        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at" }
+        "status": { "type": "string", "nullable": false, "column": "status" },
+        "description": { "type": "string", "nullable": true, "column": "description" },
+        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
       },
       "relations": {
         "lead": {
@@ -74,7 +76,20 @@
           "foreignKey": "id"
         }
       },
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active", "closed"],
+        "transitions": {
+          "create": {
+            "from": null,
+            "to": "active",
+            "affects": ["key", "name", "leadId", "description"]
+          },
+          "close": { "from": "active", "to": "closed" }
+        }
+      }
     },
     "Sprint": {
       "table": "sprints",
@@ -84,7 +99,8 @@
         "name": { "type": "string", "nullable": false, "column": "name" },
         "goal": { "type": "string", "nullable": true, "column": "goal" },
         "startsAt": { "type": "datetime", "nullable": false, "column": "starts_at" },
-        "endsAt": { "type": "datetime", "nullable": false, "column": "ends_at" }
+        "endsAt": { "type": "datetime", "nullable": false, "column": "ends_at" },
+        "status": { "type": "string", "nullable": false, "column": "status" }
       },
       "relations": {
         "project": {
@@ -94,7 +110,21 @@
           "foreignKey": "id"
         }
       },
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["planned", "started", "completed"],
+        "transitions": {
+          "plan": {
+            "from": null,
+            "to": "planned",
+            "affects": ["projectId", "name", "goal", "startsAt", "endsAt"]
+          },
+          "start": { "from": "planned", "to": "started" },
+          "complete": { "from": "started", "to": "completed" }
+        }
+      }
     },
     "User": {
       "table": "users",
@@ -103,10 +133,24 @@
         "username": { "type": "string", "nullable": false, "column": "username" },
         "email": { "type": "string", "nullable": false, "column": "email" },
         "role": { "type": "string", "nullable": false, "column": "role" },
+        "status": { "type": "string", "nullable": false, "column": "status" },
         "joinedAt": { "type": "datetime", "nullable": false, "column": "joined_at" }
       },
       "relations": {},
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active", "deactivated"],
+        "transitions": {
+          "create": {
+            "from": null,
+            "to": "active",
+            "affects": ["username", "email", "role", "joinedAt"]
+          },
+          "deactivate": { "from": "active", "to": "deactivated" }
+        }
+      }
     }
   }
 }

@@ -15,7 +15,11 @@
   "bin": {
     "rntme-runtime": "./dist/bin/runtime.js"
   },
-  "files": ["dist", "README.md", "Dockerfile.template"],
+  "files": [
+    "dist",
+    "README.md",
+    "Dockerfile.template"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -33,6 +37,7 @@
     "@rntme/pdm": "workspace:*",
     "@rntme/projection-consumer": "workspace:*",
     "@rntme/qsm": "workspace:*",
+    "@rntme/seed": "workspace:^",
     "@rntme/ui": "workspace:*",
     "@rntme/ui-runtime": "workspace:*",
     "hono": "^4.6.0",

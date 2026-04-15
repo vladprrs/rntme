@@ -3,7 +3,12 @@ import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { AppendRequest, AppendResult } from '../types/append.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
-import type { EventRecord, EventStore, ReadFromOptions } from './interface.js';
+import type {
+  AppendRawOptions,
+  EventRecord,
+  EventStore,
+  ReadFromOptions,
+} from './interface.js';
 import { applyEventStoreSchema } from './schema.js';
 import { rowToEnvelope, type EventLogRow } from './row-mapper.js';
 
@@ -94,6 +99,51 @@ export class SqliteEventStore implements EventStore {
 
     return run.immediate(requests);
   }
+
+  appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void {
+    const insert = this.db.prepare(`
+      INSERT INTO event_log
+        (stream, aggregate_type, aggregate_id, version, event_type, event_id,
+         actor_kind, actor_id, occurred_at, payload_json, schema_version)
+      VALUES
+        (@stream, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
+         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version)
+    `);
+
+    const run = this.db.transaction((items: readonly EventEnvelope[]): void => {
+      for (const e of items) {
+        try {
+          insert.run({
+            stream: e.stream,
+            aggregate_type: e.aggregateType,
+            aggregate_id: e.aggregateId,
+            version: e.version,
+            event_type: e.eventType,
+            event_id: e.eventId,
+            actor_kind: e.actor?.kind ?? null,
+            actor_id: e.actor?.id ?? null,
+            occurred_at: e.occurredAt,
+            payload_json: JSON.stringify(e.payload),
+            schema_version: e.schemaVersion,
+          });
+        } catch (err) {
+          const code = (err as Error & { code?: string }).code ?? '';
+          const msg = err instanceof Error ? err.message : String(err);
+          if (
+            opts?.ignoreDuplicates &&
+            (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') &&
+            /event_id/.test(msg)
+          ) {
+            continue;
+          }
+          throw mapSqliteError(err, e.stream, undefined, e.version, e.eventId);
+        }
+      }
+    });
+
+    run.immediate(envelopes);
+  }
+
   readStream(stream: string): EventEnvelope[] {
     const rows = this.db
       .prepare('SELECT * FROM event_log WHERE stream = ? ORDER BY version ASC')

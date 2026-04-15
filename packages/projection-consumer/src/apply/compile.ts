@@ -50,7 +50,10 @@ export function compileApplyPlan(input: {
         );
       }
       if (handler.op.kind === 'insert') {
-        handlersByEventType.set(handler.eventType, compileInsert(spec, handler, entity, eventSpec));
+        handlersByEventType.set(
+          handler.eventType,
+          compileInsert(spec, handler, entity, eventSpec),
+        );
       }
       if (handler.op.kind === 'update') {
         handlersByEventType.set(handler.eventType, compileUpdate(spec, handler, entity));
@@ -68,7 +71,7 @@ function compileInsert(
   spec: ProjectionHandlerSpec,
   handler: EventHandler,
   entity: ResolvedEntity,
-  _eventSpec: EventTypeSpec,
+  eventSpec: EventTypeSpec,
 ): CompiledHandler {
   if (handler.op.kind !== 'insert') {
     throw new ApplyCompileError(
@@ -86,7 +89,16 @@ function compileInsert(
   const bindings: ColumnBinding[] = [];
   for (const col of mirrorColumns) {
     bindings.push(
-      bindingForInsertColumn(col, keyColumn, entity, fieldByColumn, fieldByName, payloadFields, spec.projectionName),
+      bindingForInsertColumn(
+        col,
+        keyColumn,
+        entity,
+        fieldByColumn,
+        fieldByName,
+        payloadFields,
+        spec.projectionName,
+        eventSpec,
+      ),
     );
   }
   // Idempotency columns always appended in this fixed order:
@@ -127,6 +139,7 @@ function bindingForInsertColumn(
   fieldByName: Map<string, ResolvedField>,
   payloadFields: Set<string>,
   projectionName: string,
+  eventSpec: EventTypeSpec,
 ): ColumnBinding {
   if (column === keyColumn) {
     const keyFieldName = entity.keys[0]!;
@@ -143,6 +156,13 @@ function bindingForInsertColumn(
   }
   if (payloadFields.has(field.name)) {
     return { kind: 'payloadField', fieldName: field.name };
+  }
+  if (
+    eventSpec.isCreation &&
+    entity.stateMachine !== null &&
+    field.name === entity.stateMachine.stateField
+  ) {
+    return { kind: 'literalString', value: eventSpec.to };
   }
   if (field.generated === 'createdAt' || field.generated === 'updatedAt') {
     return { kind: 'generatedOccurred' };

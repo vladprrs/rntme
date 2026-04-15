@@ -108,7 +108,7 @@ function buildEventHandler(
       op: {
         kind: 'insert',
         columns: allMirrorColumns,
-        payloadFields: [...e.affects],
+        payloadFields: Object.keys(e.payloadFields),
       },
     };
   }

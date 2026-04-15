@@ -1,0 +1,637 @@
+{
+  "seedVersion": 1,
+  "events": [
+    {
+      "stream": "User-1",
+      "aggregateType": "User",
+      "aggregateId": "1",
+      "version": 1,
+      "eventType": "UserCreate",
+      "payload": {
+        "username": "alice",
+        "email": "alice@example.com",
+        "role": "lead",
+        "joinedAt": "2026-01-01T09:00:00.000Z"
+      },
+      "occurredAt": "2026-04-15T08:00:00.000Z"
+    },
+    {
+      "stream": "User-2",
+      "aggregateType": "User",
+      "aggregateId": "2",
+      "version": 1,
+      "eventType": "UserCreate",
+      "payload": {
+        "username": "bob",
+        "email": "bob@example.com",
+        "role": "developer",
+        "joinedAt": "2026-01-02T09:00:00.000Z"
+      },
+      "occurredAt": "2026-04-15T08:01:00.000Z"
+    },
+    {
+      "stream": "User-3",
+      "aggregateType": "User",
+      "aggregateId": "3",
+      "version": 1,
+      "eventType": "UserCreate",
+      "payload": {
+        "username": "carol",
+        "email": "carol@example.com",
+        "role": "developer",
+        "joinedAt": "2026-01-03T09:00:00.000Z"
+      },
+      "occurredAt": "2026-04-15T08:02:00.000Z"
+    },
+    {
+      "stream": "User-4",
+      "aggregateType": "User",
+      "aggregateId": "4",
+      "version": 1,
+      "eventType": "UserCreate",
+      "payload": {
+        "username": "dan",
+        "email": "dan@example.com",
+        "role": "qa",
+        "joinedAt": "2026-01-04T09:00:00.000Z"
+      },
+      "occurredAt": "2026-04-15T08:03:00.000Z"
+    },
+    {
+      "stream": "Project-1",
+      "aggregateType": "Project",
+      "aggregateId": "1",
+      "version": 1,
+      "eventType": "ProjectCreate",
+      "payload": {
+        "key": "ALP",
+        "name": "Alpha",
+        "leadId": 1
+      },
+      "occurredAt": "2026-04-15T09:00:00.000Z"
+    },
+    {
+      "stream": "Project-2",
+      "aggregateType": "Project",
+      "aggregateId": "2",
+      "version": 1,
+      "eventType": "ProjectCreate",
+      "payload": {
+        "key": "BET",
+        "name": "Beta",
+        "leadId": 2,
+        "description": "Beta program"
+      },
+      "occurredAt": "2026-04-15T09:01:00.000Z"
+    },
+    {
+      "stream": "Project-3",
+      "aggregateType": "Project",
+      "aggregateId": "3",
+      "version": 1,
+      "eventType": "ProjectCreate",
+      "payload": {
+        "key": "GAM",
+        "name": "Gamma",
+        "leadId": 3
+      },
+      "occurredAt": "2026-04-15T09:02:00.000Z"
+    },
+    {
+      "stream": "Sprint-1",
+      "aggregateType": "Sprint",
+      "aggregateId": "1",
+      "version": 1,
+      "eventType": "SprintPlan",
+      "payload": {
+        "projectId": 1,
+        "name": "2026.04a",
+        "goal": "Ship MVP",
+        "startsAt": "2026-04-01T00:00:00.000Z",
+        "endsAt": "2026-04-14T23:59:59.000Z"
+      },
+      "occurredAt": "2026-04-15T10:00:00.000Z"
+    },
+    {
+      "stream": "Sprint-1",
+      "aggregateType": "Sprint",
+      "aggregateId": "1",
+      "version": 2,
+      "eventType": "SprintStart",
+      "payload": { "status": "started" },
+      "occurredAt": "2026-04-15T10:01:00.000Z"
+    },
+    {
+      "stream": "Sprint-1",
+      "aggregateType": "Sprint",
+      "aggregateId": "1",
+      "version": 3,
+      "eventType": "SprintComplete",
+      "payload": { "status": "completed" },
+      "occurredAt": "2026-04-15T10:02:00.000Z"
+    },
+    {
+      "stream": "Sprint-2",
+      "aggregateType": "Sprint",
+      "aggregateId": "2",
+      "version": 1,
+      "eventType": "SprintPlan",
+      "payload": {
+        "projectId": 2,
+        "name": "2026.04b",
+        "startsAt": "2026-04-15T00:00:00.000Z",
+        "endsAt": "2026-04-28T23:59:59.000Z"
+      },
+      "occurredAt": "2026-04-15T10:10:00.000Z"
+    },
+    {
+      "stream": "Sprint-2",
+      "aggregateType": "Sprint",
+      "aggregateId": "2",
+      "version": 2,
+      "eventType": "SprintStart",
+      "payload": { "status": "started" },
+      "occurredAt": "2026-04-15T10:11:00.000Z"
+    },
+    {
+      "stream": "Issue-7001",
+      "aggregateType": "Issue",
+      "aggregateId": "7001",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Full lifecycle",
+        "projectId": 1,
+        "reporterId": 1,
+        "priority": "high",
+        "storyPoints": 8
+      },
+      "occurredAt": "2026-04-15T11:00:00.000Z"
+    },
+    {
+      "stream": "Issue-7001",
+      "aggregateType": "Issue",
+      "aggregateId": "7001",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T11:01:00.000Z"
+    },
+    {
+      "stream": "Issue-7001",
+      "aggregateType": "Issue",
+      "aggregateId": "7001",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 2 },
+      "occurredAt": "2026-04-15T11:02:00.000Z"
+    },
+    {
+      "stream": "Issue-7001",
+      "aggregateType": "Issue",
+      "aggregateId": "7001",
+      "version": 4,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T11:03:00.000Z"
+      },
+      "occurredAt": "2026-04-15T11:03:00.000Z"
+    },
+    {
+      "stream": "Issue-7001",
+      "aggregateType": "Issue",
+      "aggregateId": "7001",
+      "version": 5,
+      "eventType": "IssueClose",
+      "payload": { "status": "closed" },
+      "occurredAt": "2026-04-15T11:04:00.000Z"
+    },
+    {
+      "stream": "Issue-7002",
+      "aggregateType": "Issue",
+      "aggregateId": "7002",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Resolved not closed",
+        "projectId": 1,
+        "reporterId": 2,
+        "priority": "medium",
+        "storyPoints": 3
+      },
+      "occurredAt": "2026-04-15T11:10:00.000Z"
+    },
+    {
+      "stream": "Issue-7002",
+      "aggregateType": "Issue",
+      "aggregateId": "7002",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T11:11:00.000Z"
+    },
+    {
+      "stream": "Issue-7002",
+      "aggregateType": "Issue",
+      "aggregateId": "7002",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 3 },
+      "occurredAt": "2026-04-15T11:12:00.000Z"
+    },
+    {
+      "stream": "Issue-7002",
+      "aggregateType": "Issue",
+      "aggregateId": "7002",
+      "version": 4,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T11:13:00.000Z"
+      },
+      "occurredAt": "2026-04-15T11:13:00.000Z"
+    },
+    {
+      "stream": "Issue-7003",
+      "aggregateType": "Issue",
+      "aggregateId": "7003",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "In progress",
+        "projectId": 2,
+        "reporterId": 3,
+        "priority": "low",
+        "storyPoints": 2
+      },
+      "occurredAt": "2026-04-15T11:20:00.000Z"
+    },
+    {
+      "stream": "Issue-7003",
+      "aggregateType": "Issue",
+      "aggregateId": "7003",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T11:21:00.000Z"
+    },
+    {
+      "stream": "Issue-7003",
+      "aggregateType": "Issue",
+      "aggregateId": "7003",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 4 },
+      "occurredAt": "2026-04-15T11:22:00.000Z"
+    },
+    {
+      "stream": "Issue-7004",
+      "aggregateType": "Issue",
+      "aggregateId": "7004",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Open only",
+        "projectId": 3,
+        "reporterId": 4,
+        "priority": "high",
+        "storyPoints": 5
+      },
+      "occurredAt": "2026-04-15T11:30:00.000Z"
+    },
+    {
+      "stream": "Issue-7004",
+      "aggregateType": "Issue",
+      "aggregateId": "7004",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T11:31:00.000Z"
+    },
+    {
+      "stream": "Issue-7005",
+      "aggregateType": "Issue",
+      "aggregateId": "7005",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Draft",
+        "projectId": 1,
+        "reporterId": 1,
+        "priority": "low",
+        "storyPoints": 1
+      },
+      "occurredAt": "2026-04-15T11:40:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Reassign path",
+        "projectId": 2,
+        "reporterId": 2,
+        "priority": "medium",
+        "storyPoints": 5
+      },
+      "occurredAt": "2026-04-15T11:50:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T11:51:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 3 },
+      "occurredAt": "2026-04-15T11:52:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 4,
+      "eventType": "IssueReassign",
+      "payload": { "status": "in_progress", "assigneeId": 4 },
+      "occurredAt": "2026-04-15T11:53:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 5,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T11:54:00.000Z"
+      },
+      "occurredAt": "2026-04-15T11:54:00.000Z"
+    },
+    {
+      "stream": "Issue-7006",
+      "aggregateType": "Issue",
+      "aggregateId": "7006",
+      "version": 6,
+      "eventType": "IssueClose",
+      "payload": { "status": "closed" },
+      "occurredAt": "2026-04-15T11:55:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Reopen then close",
+        "projectId": 1,
+        "reporterId": 3,
+        "priority": "high",
+        "storyPoints": 8
+      },
+      "occurredAt": "2026-04-15T12:00:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:01:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 2 },
+      "occurredAt": "2026-04-15T12:02:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 4,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T12:03:00.000Z"
+      },
+      "occurredAt": "2026-04-15T12:03:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 5,
+      "eventType": "IssueReopen",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:04:00.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 6,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 2 },
+      "occurredAt": "2026-04-15T12:04:30.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 7,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T12:04:45.000Z"
+      },
+      "occurredAt": "2026-04-15T12:04:45.000Z"
+    },
+    {
+      "stream": "Issue-7007",
+      "aggregateType": "Issue",
+      "aggregateId": "7007",
+      "version": 8,
+      "eventType": "IssueClose",
+      "payload": { "status": "closed" },
+      "occurredAt": "2026-04-15T12:05:00.000Z"
+    },
+    {
+      "stream": "Issue-7008",
+      "aggregateType": "Issue",
+      "aggregateId": "7008",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Reopen stop open",
+        "projectId": 3,
+        "reporterId": 1,
+        "priority": "medium",
+        "storyPoints": 4
+      },
+      "occurredAt": "2026-04-15T12:10:00.000Z"
+    },
+    {
+      "stream": "Issue-7008",
+      "aggregateType": "Issue",
+      "aggregateId": "7008",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:11:00.000Z"
+    },
+    {
+      "stream": "Issue-7008",
+      "aggregateType": "Issue",
+      "aggregateId": "7008",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 2 },
+      "occurredAt": "2026-04-15T12:12:00.000Z"
+    },
+    {
+      "stream": "Issue-7008",
+      "aggregateType": "Issue",
+      "aggregateId": "7008",
+      "version": 4,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T12:13:00.000Z"
+      },
+      "occurredAt": "2026-04-15T12:13:00.000Z"
+    },
+    {
+      "stream": "Issue-7008",
+      "aggregateType": "Issue",
+      "aggregateId": "7008",
+      "version": 5,
+      "eventType": "IssueReopen",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:14:00.000Z"
+    },
+    {
+      "stream": "Issue-7009",
+      "aggregateType": "Issue",
+      "aggregateId": "7009",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Double assign dance",
+        "projectId": 2,
+        "reporterId": 4,
+        "priority": "low",
+        "storyPoints": 3
+      },
+      "occurredAt": "2026-04-15T12:20:00.000Z"
+    },
+    {
+      "stream": "Issue-7009",
+      "aggregateType": "Issue",
+      "aggregateId": "7009",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:21:00.000Z"
+    },
+    {
+      "stream": "Issue-7009",
+      "aggregateType": "Issue",
+      "aggregateId": "7009",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 1 },
+      "occurredAt": "2026-04-15T12:22:00.000Z"
+    },
+    {
+      "stream": "Issue-7009",
+      "aggregateType": "Issue",
+      "aggregateId": "7009",
+      "version": 4,
+      "eventType": "IssueReassign",
+      "payload": { "status": "in_progress", "assigneeId": 3 },
+      "occurredAt": "2026-04-15T12:23:00.000Z"
+    },
+    {
+      "stream": "Issue-7009",
+      "aggregateType": "Issue",
+      "aggregateId": "7009",
+      "version": 5,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T12:24:00.000Z"
+      },
+      "occurredAt": "2026-04-15T12:24:00.000Z"
+    },
+    {
+      "stream": "Issue-7010",
+      "aggregateType": "Issue",
+      "aggregateId": "7010",
+      "version": 1,
+      "eventType": "IssueReport",
+      "payload": {
+        "title": "Sprint-tagged",
+        "projectId": 1,
+        "reporterId": 2,
+        "priority": "high",
+        "storyPoints": 5
+      },
+      "occurredAt": "2026-04-15T12:30:00.000Z"
+    },
+    {
+      "stream": "Issue-7010",
+      "aggregateType": "Issue",
+      "aggregateId": "7010",
+      "version": 2,
+      "eventType": "IssueSubmit",
+      "payload": { "status": "open" },
+      "occurredAt": "2026-04-15T12:31:00.000Z"
+    },
+    {
+      "stream": "Issue-7010",
+      "aggregateType": "Issue",
+      "aggregateId": "7010",
+      "version": 3,
+      "eventType": "IssueAssign",
+      "payload": { "status": "in_progress", "assigneeId": 3 },
+      "occurredAt": "2026-04-15T12:32:00.000Z"
+    },
+    {
+      "stream": "Issue-7010",
+      "aggregateType": "Issue",
+      "aggregateId": "7010",
+      "version": 4,
+      "eventType": "IssueResolve",
+      "payload": {
+        "status": "resolved",
+        "resolvedAt": "2026-04-15T12:33:00.000Z"
+      },
+      "occurredAt": "2026-04-15T12:33:00.000Z"
+    },
+    {
+      "stream": "Issue-7010",
+      "aggregateType": "Issue",
+      "aggregateId": "7010",
+      "version": 5,
+      "eventType": "IssueClose",
+      "payload": { "status": "closed" },
+      "occurredAt": "2026-04-15T12:34:00.000Z"
+    }
+  ]
+}

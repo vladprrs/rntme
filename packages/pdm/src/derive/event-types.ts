@@ -53,8 +53,12 @@ function buildSpec(
   const resolved = resolveAffects(declared, sm.stateField);
   const affectsWithState = includeStateField(resolved, sm.stateField);
 
+  // Creation payloads use only declared affects: the new state comes from the transition `to`,
+  // not the event payload (see projection-consumer INSERT binding for the state column).
+  const fieldsForPayload = isCreation ? resolved : affectsWithState;
+
   const payloadFields: Record<string, EventFieldSpec> = {};
-  for (const fieldName of affectsWithState) {
+  for (const fieldName of fieldsForPayload) {
     const f = entity.fields[fieldName];
     if (!f) continue;
     payloadFields[fieldName] = { type: f.type, nullable: f.nullable };

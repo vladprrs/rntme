@@ -11,6 +11,17 @@ End-to-end demo: a small **issue tracker REST API** that exercises every package
 - **Full event pipeline with in-memory Kafka bridge.** `event-store → createRelay → in-memory Kafka bridge → createProjectionConsumer → QSM DB`. No external broker required.
 - **Declarative UI.** `@rntme/ui` artifact (`artifacts/ui.json`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle). The SPA calls the same REST API.
 
+## Seed
+
+The runtime loads [`demo/issue-tracker-api/artifacts/seed.json`](./artifacts/seed.json) on startup (unless `seed.enabled` is set to `false` in `artifacts/manifest.json`). It replays deterministic events so the read model includes users, projects, and sample issues (including **`7001`**) without manual setup.
+
+From the repository root:
+
+```bash
+pnpm install
+pnpm -F @rntme/issue-tracker-api-demo start
+```
+
 ## Architecture
 
 ```
@@ -40,7 +51,7 @@ read-side SQLite  @rntme/event-store
 
 ## Known issues
 
-Several read-side endpoints currently fail on the happy path — `GET /v1/issues/:id`, `GET /v1/stats/by-project` return 500, and `GET /v1/issues/search` rejects requests without `from`/`to`. Fixes are deferred until upstream seed-loading and `graph-ir-compiler#predicate_optional` work land. See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) for full root-cause analysis, what still works, and the planned resolution.
+Some read-side edge cases may still surface as 500s while upstream work lands. See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) for details.
 
 ## Run it
 
@@ -73,7 +84,7 @@ The runtime uses `:memory:` SQLite for both the event log and the read-side DB b
 | `GET  /v1/ui/issues?limit=` | `listIssuesUi` | Recent issues for the SPA (no predicate-optional params). |
 | `GET  /v1/issues?status=&limit=` | `listIssues` | Paginated projection read. |
 | `GET  /v1/issues/:id` | `issueDetail` | Single-row fetch. |
-| `GET  /v1/issues/search?q=&from=&to=&priority=&limit=` | `searchIssues` | Free-text + optional filters (predicate-optional params). |
+| `GET  /v1/issues/search?q=&from=&to=&priority=&limit=` | `searchIssues` | Free-text + date range (`from` / `to` default to full range when omitted) + optional filters. |
 | `GET  /v1/stats/by-project` | `issuesByProject` | Aggregate count + breakdown per project. |
 | `GET  /v1/sprints/:sprintId/burndown` | `sprintBurndown` | Per-day burndown for a sprint. |
 | `POST /v1/issues` | `reportIssue` | Create a new Issue (transition `report`). |
@@ -106,7 +117,10 @@ curl -s -X POST http://localhost:3000/v1/issues/7001/actions/submit  -H 'x-actor
 curl -s -X POST http://localhost:3000/v1/issues/7001/actions/assign \
   -H 'content-type: application/json' -H 'x-actor-id: alice' \
   -d '{"assigneeId":2}' | jq
-curl -s -X POST http://localhost:3000/v1/issues/7001/actions/resolve -H 'x-actor-id: alice' -d '{}' | jq
+curl -s -X POST http://localhost:3000/v1/issues/7001/actions/resolve \
+  -H 'content-type: application/json' \
+  -H 'x-actor-id: alice' \
+  -d '{"resolvedAt":"2026-04-15T12:30:00.000Z"}' | jq
 
 # 3. Inspect the projection (updates arrive asynchronously via the relay + consumer)
 curl -s 'http://localhost:3000/v1/issues/7001' | jq

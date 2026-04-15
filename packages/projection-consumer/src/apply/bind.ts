@@ -29,6 +29,8 @@ function resolveBinding(
       return envelope.actor?.id ?? null;
     case 'nullable':
       return null;
+    case 'literalString':
+      return b.value;
     case 'eventId':
       return envelope.eventId;
     case 'eventVersion':
@@ -39,6 +41,13 @@ function resolveBinding(
 }
 
 function getAfter(envelope: EventEnvelope): Record<string, unknown> {
-  const p = envelope.payload as { after?: Record<string, unknown> } | null;
-  return (p && typeof p === 'object' && p.after) ? p.after : {};
+  const p = envelope.payload;
+  if (p === null || typeof p !== 'object' || Array.isArray(p)) return {};
+  const rec = p as Record<string, unknown>;
+  const inner = rec.after;
+  if (inner !== undefined && inner !== null && typeof inner === 'object' && !Array.isArray(inner)) {
+    return inner as Record<string, unknown>;
+  }
+  const { before: _before, ...rest } = rec;
+  return rest;
 }
