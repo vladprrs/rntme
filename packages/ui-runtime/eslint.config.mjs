@@ -16,6 +16,7 @@ export default [
         process: 'readonly',
         structuredClone: 'readonly',
         // Browser / Web API globals used by client code and tests
+        document: 'readonly',
         window: 'readonly',
         fetch: 'readonly',
         Request: 'readonly',
