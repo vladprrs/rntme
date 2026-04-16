@@ -4,8 +4,8 @@ export const testLayout: CompiledScreen = {
   spec: {
     root: 'shell',
     elements: {
-      shell: { type: 'Stack', props: { direction: 'vertical' }, children: ['slot-main'] },
-      'slot-main': { type: 'Slot', props: { name: 'main' } },
+      shell: { type: 'Stack', props: { direction: 'vertical', gap: 'lg' }, children: ['header'] },
+      header: { type: 'Heading', props: { level: 1, text: 'Test App' } },
     },
   },
 };
