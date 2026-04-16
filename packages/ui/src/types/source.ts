@@ -34,7 +34,7 @@ export type DataBinding = {
 export type ParamValue = string | number | boolean | StateRef;
 export type StateRef = { $state: string };
 
-export type ActionDef = NavigationAction | CommandAction;
+export type ActionDef = NavigationAction | CommandAction | RefetchAction;
 
 export type NavigationAction = {
   kind: 'navigation';
@@ -48,6 +48,11 @@ export type CommandAction = {
   paramsFromState: Record<string, string>;
   onSuccess?: { navigateTo?: string; refetchData?: string[]; clearFormState?: string[] };
   onError?: { showAlert?: boolean };
+};
+
+export type RefetchAction = {
+  kind: 'refetch';
+  targets: string[];
 };
 
 /**

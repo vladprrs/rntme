@@ -1,0 +1,14 @@
+{
+  "version": "2.0",
+  "pdmRef": "test.domain.v1",
+  "qsmRef": "test.read.v1",
+  "graphSpecRef": "test.graphs.v1",
+  "bindingsRef": "test.bindings.v1",
+  "metadata": { "title": "Refetch Test" },
+  "layouts": {
+    "main": "layouts/main"
+  },
+  "routes": {
+    "/": { "layout": "main", "screen": "screens/home" }
+  }
+}

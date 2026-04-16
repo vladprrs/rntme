@@ -1,0 +1,6 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": { "type": "Heading", "props": { "level": 1, "text": "Test" } }
+  }
+}

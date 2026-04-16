@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { resolve } from '../../src/resolve/resolve.js';
 import { expand } from '../../src/expand/expand.js';
 import { emit } from '../../src/emit/emit.js';
+import { compile } from '../../src/compile.js';
 
 const fixtures = join(import.meta.dirname, '..', 'fixtures');
 
@@ -56,5 +57,27 @@ describe('emit', () => {
     const main = result.value.layouts['main'];
     expect(main).toBeDefined();
     expect(main!.spec.root).toBe('shell');
+  });
+
+  it('passes through refetch actions in compiled output', () => {
+    const result = compile({
+      sourceDir: join(fixtures, 'refetch-app'),
+      httpMap: {
+        searchItems: { method: 'GET', path: '/api/search' },
+      },
+      resolvers: {
+        resolveBinding: () => ({}),
+        resolveComponent: () => ({ childrenModel: 'list' }),
+        resolveRoute: () => true,
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const home = result.value.screens['home']!;
+    expect(home.actions).toBeDefined();
+    const doSearch = home.actions!['doSearch'] as { kind: string; targets: string[] };
+    expect(doSearch.kind).toBe('refetch');
+    expect(doSearch.targets).toEqual(['/data/results']);
   });
 });

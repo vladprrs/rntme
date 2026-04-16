@@ -50,7 +50,8 @@ export type CompiledAction =
       paramsFromState: Record<string, string>;
       onSuccess?: { navigateTo?: string; refetchData?: string[]; clearFormState?: string[] };
       onError?: { showAlert?: boolean };
-    };
+    }
+  | { kind: 'refetch'; targets: string[] };
 
 /** Full compiled artifact — all files in one structure (used by compiler internally) */
 export type CompiledArtifact = {

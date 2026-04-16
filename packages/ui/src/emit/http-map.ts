@@ -33,6 +33,8 @@ export function resolveScreenHttp(
     for (const [actionId, action] of Object.entries(screen.actions)) {
       if (action.kind === 'navigation') {
         actions[actionId] = { ...action };
+      } else if (action.kind === 'refetch') {
+        actions[actionId] = { ...action };
       } else {
         const http = httpMap[action.binding];
         if (!http) continue;

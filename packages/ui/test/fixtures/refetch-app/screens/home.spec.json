@@ -1,0 +1,6 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Heading", "props": { "level": 2, "text": "Home" } }
+  }
+}

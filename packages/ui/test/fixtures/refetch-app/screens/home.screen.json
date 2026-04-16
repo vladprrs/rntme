@@ -1,0 +1,15 @@
+{
+  "metadata": { "title": "Home" },
+  "data": {
+    "/data/results": {
+      "binding": "searchItems",
+      "params": { "q": { "$state": "/form/q" } }
+    }
+  },
+  "actions": {
+    "doSearch": {
+      "kind": "refetch",
+      "targets": ["/data/results"]
+    }
+  }
+}
