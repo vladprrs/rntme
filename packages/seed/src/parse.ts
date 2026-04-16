@@ -15,7 +15,7 @@ function zodToSeedErrors(err: ZodError): SeedError[] {
 }
 
 function issueToSeedError(issue: ZodIssue): SeedError {
-  const path = issue.path.length === 0 ? undefined : formatPath(issue.path);
+  const path = issue.path.length === 0 ? undefined : formatPath(issue.path as (string | number)[]);
   const code = issue.code === 'unrecognized_keys' ? 'SEED_SYNTAX_UNKNOWN_FIELD' : 'SEED_SYNTAX_INVALID';
   const base = {
     code,

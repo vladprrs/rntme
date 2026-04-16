@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ValidatedBindings } from '@rntme/bindings';
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 import { buildResolvedHttp, type HttpBindingEntry } from '../resolvers/http-map.js';
 import { buildHtmlShell } from './static-shell.js';
 import { mountArtifactRoute } from './artifact-route.js';

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ResolvedComponent, UiResolvers } from '@rntme/ui';
+import type { ResolvedComponent, UiResolvers } from '@rntme/ui-legacy';
 
 // The full shadcn catalog exposed by @json-render/shadcn. We inline a whitelist here
 // because the exact import path depends on the @json-render/shadcn API — adjust the
@@ -20,7 +20,7 @@ const NAMES = [
 
 export function buildComponentResolver(): UiResolvers['resolveComponent'] {
   const fallback: ResolvedComponent = {
-    propsSchema: z.record(z.unknown()),
+    propsSchema: z.record(z.string(), z.unknown()),
     childrenModel: 'list',
   };
 

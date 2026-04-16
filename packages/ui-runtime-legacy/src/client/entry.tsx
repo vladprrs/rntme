@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 import { createStateStore } from './state-store.js';
 import { createRouter, matchRoute, stripMountPath, fullMountPath } from './router.js';
 import { createUiDriver, type UiDriver } from './driver.js';

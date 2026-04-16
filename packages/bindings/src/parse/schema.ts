@@ -6,7 +6,7 @@ const pathString = z
   .string()
   .regex(/^\/[^?#]*$/, 'path must start with "/" and contain no "?" or "#"');
 
-const passthrough = z.record(z.unknown());
+const passthrough = z.record(z.string(), z.unknown());
 
 const parameterSchema = z
   .object({
@@ -76,7 +76,7 @@ export const BindingArtifactSchema = z
     pdmRef: nonEmptyString,
     qsmRef: nonEmptyString,
     openapi: openApiDefaultsSchema.optional(),
-    bindings: z.record(bindingEntrySchema),
+    bindings: z.record(z.string(), bindingEntrySchema),
   })
   .strict();
 

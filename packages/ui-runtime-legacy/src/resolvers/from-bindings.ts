@@ -1,4 +1,4 @@
-import type { UiResolvers, ResolvedBinding, ResolvedShape, InputType, ShapeField } from '@rntme/ui';
+import type { UiResolvers, ResolvedBinding, ResolvedShape, InputType, ShapeField } from '@rntme/ui-legacy';
 import type {
   ValidatedBindings,
   BindingResolvers,

@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 import type { HttpBindingEntry } from '../resolvers/http-map.js';
 
 export type ArtifactPayloadConfig = {

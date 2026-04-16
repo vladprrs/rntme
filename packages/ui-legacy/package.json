@@ -1,5 +1,5 @@
 {
-  "name": "@rntme/ui",
+  "name": "@rntme/ui-legacy",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -18,7 +18,7 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write ."
   },
-  "dependencies": { "zod": "^3.23.8" },
+  "dependencies": { "zod": "^4.0.0" },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",

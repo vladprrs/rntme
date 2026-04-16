@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
 import { createBindingsRouter } from '@rntme/bindings-http';
-import { createUiApp } from '@rntme/ui-runtime';
+import { createUiApp } from '@rntme/ui-runtime-legacy';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
 

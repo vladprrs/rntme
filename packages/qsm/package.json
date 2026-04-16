@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@rntme/pdm": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

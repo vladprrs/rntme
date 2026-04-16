@@ -14,7 +14,7 @@ export const SeedEventInputSchema = z
     aggregateId: z.string().min(1),
     version: z.number().int().min(1),
     eventType: z.string().min(1),
-    payload: z.record(z.unknown()),
+    payload: z.record(z.string(), z.unknown()),
     occurredAt: z.string().datetime({ offset: true }),
     eventId: z.string().min(1).optional(),
     actor: ActorSchema.optional(),

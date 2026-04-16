@@ -29,10 +29,10 @@ import {
   type InputMode,
   type ValidatedBindings,
 } from '@rntme/bindings';
-import { validateUi, type ValidatedUiArtifact } from '@rntme/ui';
+import { validateUi, type ValidatedUiArtifact } from '@rntme/ui-legacy';
 import { compileApplyPlan } from '@rntme/projection-consumer';
 import { loadSeed, type ValidatedSeed } from '@rntme/seed';
-import { buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime';
+import { buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime-legacy';
 import { parseManifest } from '../manifest/parse.js';
 import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';

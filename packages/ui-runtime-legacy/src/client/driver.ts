@@ -1,4 +1,4 @@
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 import { createStateStore, type StateStore } from './state-store.js';
 
 type HttpEntry = { method: 'GET' | 'POST'; path: string };

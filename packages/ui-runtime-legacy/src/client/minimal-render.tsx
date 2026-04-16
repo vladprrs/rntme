@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { JsonRenderElement, JsonRenderSpec, LayoutSpec, RouteSpec } from '@rntme/ui';
+import type { JsonRenderElement, JsonRenderSpec, LayoutSpec, RouteSpec } from '@rntme/ui-legacy';
 import type { StateStore } from './state-store.js';
 
 export type ActionHandlers = Record<string, (params?: unknown) => void | Promise<void>>;

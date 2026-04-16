@@ -18,7 +18,7 @@ const inputDecl = z.object({
 });
 
 const fieldDecl = z.object({ type: primitiveType, nullable: z.boolean() });
-const namedShape = z.object({ fields: z.record(fieldDecl) }).strict();
+const namedShape = z.object({ fields: z.record(z.string(), fieldDecl) }).strict();
 
 const expr: z.ZodType<unknown> = z.lazy(() =>
   z.union([
@@ -55,7 +55,7 @@ const fieldExpr = z.union([
         .object({
           entity: z.string(),
           path: z.string().optional(),
-          match: z.record(z.string()),
+          match: z.record(z.string(), z.string()),
           field: z.string(),
           optional: z.boolean().optional(),
         })
@@ -101,7 +101,7 @@ const mapNode = z
       .object({
         input: z.string(),
         into: z.string(),
-        fields: z.record(fieldExpr),
+        fields: z.record(z.string(), fieldExpr),
       })
       .strict(),
   })
@@ -122,8 +122,8 @@ const reduceNode = z
       .object({
         input: z.string(),
         into: z.string(),
-        group: z.record(z.string()),
-        measures: z.record(measureSpec),
+        group: z.record(z.string(), z.string()),
+        measures: z.record(z.string(), measureSpec),
       })
       .strict(),
   })
@@ -172,7 +172,7 @@ const lookupOneNode = z
         input: z.string(),
         entity: z.string(),
         as: z.string(),
-        match: z.record(z.string()),
+        match: z.record(z.string(), z.string()),
         optional: z.boolean().optional(),
         path: z.string().optional(),
       })
@@ -189,7 +189,7 @@ const emitNode = z
         aggregate: z.string(),
         aggregateId: expr,
         transition: z.string(),
-        payload: z.record(expr),
+        payload: z.record(z.string(), expr),
         actor: expr.optional(),
       })
       .strict(),
@@ -213,7 +213,7 @@ const graphDecl = z
     id: z.string(),
     signature: z
       .object({
-        inputs: z.record(inputDecl),
+        inputs: z.record(z.string(), inputDecl),
         output: z.object({ type: z.string(), from: z.string() }).strict(),
       })
       .strict(),
@@ -226,8 +226,8 @@ export const AuthoringSpecSchema = z
     version: z.literal('1.0-rc7'),
     pdmRef: z.string(),
     qsmRef: z.string(),
-    shapes: z.record(namedShape),
-    graphs: z.record(graphDecl),
+    shapes: z.record(z.string(), namedShape),
+    graphs: z.record(z.string(), graphDecl),
   })
   .strict();
 

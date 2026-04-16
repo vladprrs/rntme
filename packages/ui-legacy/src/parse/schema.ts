@@ -7,14 +7,15 @@ export const ParamValueSchema = z.union([LiteralSchema, StateRefSchema]);
 export const ElementSchema: z.ZodTypeAny = z
   .object({
     type: z.string().min(1),
-    props: z.record(z.unknown()).default({}),
+    props: z.record(z.string(), z.unknown()).default({}),
     children: z.array(z.string()).default([]),
     visible: z.unknown().optional(),
     watch: z
       .record(
+        z.string(),
         z.object({
           action: z.string(),
-          params: z.record(z.unknown()).optional(),
+          params: z.record(z.string(), z.unknown()).optional(),
         }),
       )
       .optional(),
@@ -24,14 +25,14 @@ export const ElementSchema: z.ZodTypeAny = z
 export const JsonRenderSpecSchema = z
   .object({
     root: z.string().min(1),
-    elements: z.record(ElementSchema),
+    elements: z.record(z.string(), ElementSchema),
   })
   .strict();
 
 export const DatasetDefSchema = z
   .object({
     binding: z.string().min(1),
-    params: z.record(ParamValueSchema).optional(),
+    params: z.record(z.string(), ParamValueSchema).optional(),
     refetchOn: z.array(z.enum(['mount', 'params'])).optional(),
   })
   .strict();
@@ -40,7 +41,7 @@ export const CommandActionSchema = z
   .object({
     kind: z.literal('command'),
     binding: z.string().min(1),
-    paramsFromState: z.record(z.string().startsWith('/')),
+    paramsFromState: z.record(z.string(), z.string().startsWith('/')),
     onSuccess: z
       .object({
         navigateTo: z.string().optional(),
@@ -57,7 +58,7 @@ export const NavigationActionSchema = z
   .object({
     kind: z.literal('navigation'),
     navigateTo: z.string().min(1),
-    paramsFromState: z.record(z.string().startsWith('/')).optional(),
+    paramsFromState: z.record(z.string(), z.string().startsWith('/')).optional(),
   })
   .strict();
 
@@ -73,8 +74,8 @@ export const RouteSpecSchema = z
     layout: z.string().optional(),
     metadata: z.object({ title: z.string().optional() }).strict().optional(),
     page: JsonRenderSpecSchema,
-    data: z.record(DatasetDefSchema).optional(),
-    actions: z.record(ActionDefSchema).optional(),
+    data: z.record(z.string(), DatasetDefSchema).optional(),
+    actions: z.record(z.string(), ActionDefSchema).optional(),
   })
   .strict();
 
@@ -91,9 +92,9 @@ export const UiArtifactSchema = z
         description: z.string().optional(),
       })
       .strict(),
-    layouts: z.record(LayoutSpecSchema),
-    routes: z.record(RouteSpecSchema),
+    layouts: z.record(z.string(), LayoutSpecSchema),
+    routes: z.record(z.string(), RouteSpecSchema),
   })
   .strict();
 
-export type UiArtifactParsed = z.infer<typeof UiArtifactSchema>;
+export type { UiArtifact as UiArtifactParsed } from '../types/artifact.js';

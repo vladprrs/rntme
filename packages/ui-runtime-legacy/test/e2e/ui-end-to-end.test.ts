@@ -5,7 +5,7 @@ import { createUiApp } from '../../src/server/index.js';
 import { createUiDriver } from '../../src/client/driver.js';
 import { createStateStore } from '../../src/client/state-store.js';
 import { artifact as baseArtifact } from '../fixtures/validated-artifact.js';
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 
 function buildTestApp() {
   const app = new Hono();

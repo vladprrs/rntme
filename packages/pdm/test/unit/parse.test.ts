@@ -82,7 +82,7 @@ describe('parsePdm', () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errors.some((e) => e.message.includes('transition name'))).toBe(true);
+      expect(r.errors.some((e) => e.message.includes('transition name') || e.message.includes('Invalid key'))).toBe(true);
     }
   });
 

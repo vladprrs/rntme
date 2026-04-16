@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createUiDriver } from '../../src/client/driver.js';
 import { createStateStore } from '../../src/client/state-store.js';
 import { artifact } from '../fixtures/validated-artifact.js';
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 
 const withCommand = JSON.parse(JSON.stringify(artifact));
 withCommand.routes['/a'].actions = {

@@ -1,4 +1,4 @@
-import type { ValidatedUiArtifact } from '@rntme/ui';
+import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
 
 export const artifact = {
   version: '1.0-rc1',

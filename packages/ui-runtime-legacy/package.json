@@ -1,5 +1,5 @@
 {
-  "name": "@rntme/ui-runtime",
+  "name": "@rntme/ui-runtime-legacy",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -25,11 +25,11 @@
     "@json-render/core": "^0.17.0",
     "@json-render/react": "^0.17.0",
     "@json-render/shadcn": "^0.17.0",
-    "@rntme/ui": "workspace:*",
+    "@rntme/ui-legacy": "workspace:*",
     "hono": "^4.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.23.8"
+    "zod": "^4.0.0"
   },
   "peerDependencies": {
     "@rntme/bindings": "workspace:*"

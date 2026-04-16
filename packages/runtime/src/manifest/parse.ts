@@ -11,14 +11,19 @@ function zodIssueToError(issue: ZodIssue): ManifestError {
       message: `unknown key(s): ${(issue as unknown as { keys: string[] }).keys.join(', ')}`,
     };
   }
-  if (issue.code === 'invalid_type' && issue.received === 'undefined') {
-    return { code: 'MANIFEST_MISSING_FIELD', path, message: issue.message };
-  }
   if (issue.code === 'invalid_type') {
+    // In zod v3 `received` was a field; in v4 it's embedded in the message.
+    const received = (issue as unknown as { received?: string }).received;
+    if (received === 'undefined' || issue.message.includes('received undefined')) {
+      return { code: 'MANIFEST_MISSING_FIELD', path, message: issue.message };
+    }
     return { code: 'MANIFEST_INVALID_TYPE', path, message: issue.message };
   }
-  if (issue.code === 'too_small' && issue.type === 'number') {
-    return { code: 'MANIFEST_INVALID_PORT', path, message: issue.message };
+  if (issue.code === 'too_small') {
+    const issueType = (issue as unknown as { type?: string }).type;
+    if (issueType === 'number' || issue.message.includes('number')) {
+      return { code: 'MANIFEST_INVALID_PORT', path, message: issue.message };
+    }
   }
   return { code: 'MANIFEST_INVALID_TYPE', path, message: issue.message };
 }
