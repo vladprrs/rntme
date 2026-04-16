@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 const port = 3011;
 const base = `http://127.0.0.1:${port}`;
+const api = `${base}/api`;
 
 let child: ChildProcess;
 
@@ -33,32 +34,32 @@ afterAll(() => child?.kill('SIGTERM'));
 
 describe('demo smoke via @rntme/runtime', () => {
   it('serves openapi, UI list, issue detail, stats, search without date bounds, and POST /v1/issues', async () => {
-    const openapi = await fetch(`${base}/openapi.json`);
+    const openapi = await fetch(`${api}/openapi.json`);
     expect(openapi.status).toBe(200);
     expect(((await openapi.json()) as { openapi: string }).openapi).toBe('3.1.0');
 
-    const uiIssues = await fetch(`${base}/v1/ui/issues?limit=10`);
+    const uiIssues = await fetch(`${api}/v1/ui/issues?limit=10`);
     expect(uiIssues.status).toBe(200);
     const uiRows = (await uiIssues.json()) as unknown[];
     expect(uiRows.length).toBeGreaterThan(0);
 
-    const issue7001 = await fetch(`${base}/v1/issues/7001`);
+    const issue7001 = await fetch(`${api}/v1/issues/7001`);
     expect(issue7001.status).toBe(200);
     const detailRows = (await issue7001.json()) as Array<{ id: number }>;
     expect(detailRows[0]?.id).toBe(7001);
 
-    const stats = await fetch(`${base}/v1/stats/by-project`);
+    const stats = await fetch(`${api}/v1/stats/by-project`);
     expect(stats.status).toBe(200);
     expect(Array.isArray(await stats.json())).toBe(true);
 
     const searchNoBounds = await fetch(
-      `${base}/v1/issues/search?q=${encodeURIComponent('%lifecycle%')}&limit=10`,
+      `${api}/v1/issues/search?q=${encodeURIComponent('%lifecycle%')}&limit=10`,
     );
     expect(searchNoBounds.status).toBe(200);
     const searchRows = (await searchNoBounds.json()) as Array<{ id?: number }>;
     expect(searchRows.some((r) => r.id === 7001)).toBe(true);
 
-    const created = await fetch(`${base}/v1/issues`, {
+    const created = await fetch(`${api}/v1/issues`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

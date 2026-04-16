@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import { createBindingsRouter } from '@rntme/bindings-http';
 import { createUiApp } from '@rntme/ui-runtime-legacy';
+import { createApp as createUiAppV2 } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
 
@@ -25,11 +26,6 @@ export class HttpSurface implements Surface {
       actorFromRequest: ctx.actorFromRequest,
       openApiDoc: ctx.service.openApiDoc,
     });
-    const uiApp = createUiApp({
-      artifact: ctx.service.ui,
-      validatedBindings: ctx.service.bindings,
-      defaultHeaders: {},
-    });
 
     app.get('/', (c) =>
       c.json({
@@ -44,7 +40,20 @@ export class HttpSurface implements Surface {
       probe: this.opts.healthProbe,
       metrics: this.opts.metrics,
     });
-    app.route('/', router);
-    app.route('/', uiApp);
+
+    // Mount bindings router under /api for v2, at root for legacy
+    if (ctx.service.compiledUi) {
+      const uiApp = createUiAppV2({ artifact: ctx.service.compiledUi });
+      app.route('/api', router);
+      app.route('/', uiApp);
+    } else {
+      const uiApp = createUiApp({
+        artifact: ctx.service.ui,
+        validatedBindings: ctx.service.bindings,
+        defaultHeaders: {},
+      });
+      app.route('/', router);
+      app.route('/', uiApp);
+    }
   }
 }

@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 const port = 3012;
 const base = `http://127.0.0.1:${port}`;
+const api = `${base}/api`;
 
 let child: ChildProcess;
 
@@ -33,7 +34,7 @@ afterAll(() => child?.kill('SIGTERM'));
 
 describe('seed-e2e — seeded aggregate mutations + burndown', () => {
   it('assigns a seeded open issue (7004: open → in_progress)', async () => {
-    const res = await fetch(`${base}/v1/issues/7004/actions/assign`, {
+    const res = await fetch(`${api}/v1/issues/7004/actions/assign`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-actor-id': 'alice' },
       body: JSON.stringify({ assigneeId: 1 }),
@@ -44,7 +45,7 @@ describe('seed-e2e — seeded aggregate mutations + burndown', () => {
   });
 
   it('submits a seeded draft issue (7005: draft → open)', async () => {
-    const res = await fetch(`${base}/v1/issues/7005/actions/submit`, {
+    const res = await fetch(`${api}/v1/issues/7005/actions/submit`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-actor-id': 'alice' },
       body: JSON.stringify({}),
@@ -55,7 +56,7 @@ describe('seed-e2e — seeded aggregate mutations + burndown', () => {
   });
 
   it('rejects illegal transition on seeded closed issue (7001)', async () => {
-    const res = await fetch(`${base}/v1/issues/7001/actions/submit`, {
+    const res = await fetch(`${api}/v1/issues/7001/actions/submit`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-actor-id': 'alice' },
       body: JSON.stringify({}),
@@ -66,7 +67,7 @@ describe('seed-e2e — seeded aggregate mutations + burndown', () => {
   });
 
   it('returns burndown data for sprint 1 with >= 2 status buckets', async () => {
-    const res = await fetch(`${base}/v1/sprints/1/burndown`);
+    const res = await fetch(`${api}/v1/sprints/1/burndown`);
     expect(res.status).toBe(200);
     const rows = (await res.json()) as Array<{ status: string; issueCount: number; totalStoryPoints: number }>;
     expect(rows.length).toBeGreaterThanOrEqual(2);
@@ -76,7 +77,7 @@ describe('seed-e2e — seeded aggregate mutations + burndown', () => {
   });
 
   it('returns empty burndown for non-existent sprint', async () => {
-    const res = await fetch(`${base}/v1/sprints/999/burndown`);
+    const res = await fetch(`${api}/v1/sprints/999/burndown`);
     expect(res.status).toBe(200);
     const rows = (await res.json()) as unknown[];
     expect(rows).toEqual([]);

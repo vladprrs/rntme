@@ -2,6 +2,7 @@ import type { ValidatedPdm, EventTypeSpec } from '@rntme/pdm';
 import type { ValidatedQsm, ProjectionDdlSpec } from '@rntme/qsm';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { ValidatedUiArtifact } from '@rntme/ui-legacy';
+import type { CompiledArtifact } from '@rntme/ui';
 import type { ApplyPlan } from '@rntme/projection-consumer';
 import type { SeedError, ValidatedSeed } from '@rntme/seed';
 import type { ValidatedManifest, ManifestError } from './manifest/types.js';
@@ -24,6 +25,7 @@ export type ValidatedService = {
   qsm: ValidatedQsm;
   bindings: ValidatedBindings;
   ui: ValidatedUiArtifact;
+  compiledUi: CompiledArtifact | null;
   graphSpec: GraphSpec;
   openApiDoc: OpenApiDoc;
   projectionApplyPlan: ApplyPlan;

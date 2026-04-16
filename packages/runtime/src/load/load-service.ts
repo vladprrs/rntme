@@ -30,6 +30,7 @@ import {
   type ValidatedBindings,
 } from '@rntme/bindings';
 import { validateUi, type ValidatedUiArtifact } from '@rntme/ui-legacy';
+import { compile, type CompiledArtifact } from '@rntme/ui';
 import { compileApplyPlan } from '@rntme/projection-consumer';
 import { loadSeed, type ValidatedSeed } from '@rntme/seed';
 import { buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime-legacy';
@@ -250,6 +251,34 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
   }
 
+  // 7b. UI v2 — compile from new source format (if ui/ directory exists)
+  let compiledUi: CompiledArtifact | null = null;
+  const uiSourceDir = join(dir, 'ui');
+  if (existsSync(uiSourceDir)) {
+    try {
+      const httpMap: Record<string, { method: 'GET' | 'POST'; path: string }> = {};
+      for (const [id, rb] of Object.entries(validatedBindings.resolved)) {
+        httpMap[id] = { method: rb.entry.http.method, path: rb.entry.http.path };
+      }
+
+      const uiResult = compile({
+        sourceDir: uiSourceDir,
+        httpMap,
+        resolvers: {
+          resolveBinding: (id) => validatedBindings.resolved[id] ?? undefined,
+          resolveComponent: () => ({ childrenModel: 'list' as const }),
+          resolveRoute: () => true,
+        },
+      });
+      if (!uiResult.ok) {
+        return { ok: false, errors: [{ code: 'UI_INVALID', details: uiResult.errors }] };
+      }
+      compiledUi = uiResult.value;
+    } catch (e) {
+      return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    }
+  }
+
   // 8. OpenAPI
   const openapi = generateOpenApi(validatedBindings, bindingResolvers);
   if (!openapi.ok) {
@@ -272,6 +301,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       qsm: validatedQsm,
       bindings: validatedBindings,
       ui: validatedUi,
+      compiledUi,
       graphSpec,
       openApiDoc: openapi.value,
       projectionApplyPlan,

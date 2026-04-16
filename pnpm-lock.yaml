@@ -307,9 +307,15 @@ importers:
       '@rntme/seed':
         specifier: workspace:^
         version: link:../seed
+      '@rntme/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@rntme/ui-legacy':
         specifier: workspace:*
         version: link:../ui-legacy
+      '@rntme/ui-runtime':
+        specifier: workspace:*
+        version: link:../ui-runtime
       '@rntme/ui-runtime-legacy':
         specifier: workspace:*
         version: link:../ui-runtime-legacy
