@@ -13,12 +13,7 @@
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": {
-          "and": [
-            { "eq": ["issue.sprintId", { "$param": "sprintId" }] },
-            { "neq": ["issue.status", { "$literal": "closed" }] }
-          ]
-        }
+        "expr": { "eq": ["issue.sprintId", { "$param": "sprintId" }] }
       }
     },
     {

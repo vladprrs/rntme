@@ -152,7 +152,8 @@
           { "name": "projectId",   "in": "body", "bindTo": "projectId",   "required": true },
           { "name": "reporterId",  "in": "body", "bindTo": "reporterId",  "required": true },
           { "name": "priority",    "in": "body", "bindTo": "priority",    "required": true },
-          { "name": "storyPoints", "in": "body", "bindTo": "storyPoints", "required": true }
+          { "name": "storyPoints", "in": "body", "bindTo": "storyPoints", "required": true },
+          { "name": "sprintId",    "in": "body", "bindTo": "sprintId",    "required": false }
         ]
       }
     },

@@ -7,7 +7,8 @@
       "projectId":   { "type": "integer", "mode": "required" },
       "reporterId":  { "type": "integer", "mode": "required" },
       "priority":    { "type": "string",  "mode": "required" },
-      "storyPoints": { "type": "integer", "mode": "required" }
+      "storyPoints": { "type": "integer", "mode": "required" },
+      "sprintId":    { "type": "integer", "mode": "nullable" }
     },
     "output": { "type": "row<CommandResult>", "from": "emit" }
   },
@@ -24,7 +25,8 @@
           "projectId":   { "$param": "projectId" },
           "reporterId":  { "$param": "reporterId" },
           "priority":    { "$param": "priority" },
-          "storyPoints": { "$param": "storyPoints" }
+          "storyPoints": { "$param": "storyPoints" },
+          "sprintId":    { "$param": "sprintId" }
         }
       }
     }

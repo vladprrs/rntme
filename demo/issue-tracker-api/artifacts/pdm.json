@@ -47,7 +47,7 @@
         "initial": null,
         "states": ["draft", "open", "in_progress", "resolved", "closed"],
         "transitions": {
-          "report":   { "from": null,            "to": "draft",        "affects": ["title", "projectId", "reporterId", "priority", "storyPoints"] },
+          "report":   { "from": null,            "to": "draft",        "affects": ["title", "projectId", "reporterId", "priority", "storyPoints", "sprintId"] },
           "submit":   { "from": "draft",         "to": "open" },
           "assign":   { "from": "open",          "to": "in_progress",  "affects": ["assigneeId"] },
           "reassign": { "from": "in_progress",   "to": "in_progress",  "affects": ["assigneeId"] },
