@@ -100,7 +100,7 @@ The runtime uses `:memory:` SQLite for both the event log and the read-side DB b
 | `GET  /health`, `GET /metrics` | — | Observability endpoints owned by `@rntme/runtime`. |
 | `GET  /ui` | — | Issue tracker SPA (see `@rntme/ui-runtime`). |
 
-All `POST`s require an `x-actor-id` request header — the runtime turns it into `{ kind: 'user', id }` (header name and actor kind are configurable via `manifest.auth`) and stamps every event envelope's `actor` with it.
+All `POST`s accept an optional `x-actor-id` request header — the runtime turns it into `{ kind: 'user', id }` and stamps every event envelope's `actor` with it. If omitted, `actor` is `null`. Header name and actor kind are configurable via `manifest.auth`.
 
 ## Example calls
 
