@@ -1,0 +1,19 @@
+{
+  "metadata": { "title": "Report Issue" },
+  "actions": {
+    "submit": {
+      "kind": "command",
+      "binding": "reportIssue",
+      "paramsFromState": {
+        "issueId": "/form/issueId",
+        "title": "/form/title",
+        "projectId": "/form/projectId",
+        "reporterId": "/form/reporterId",
+        "priority": "/form/priority",
+        "storyPoints": "/form/storyPoints"
+      },
+      "onSuccess": { "navigateTo": "/issues/browse" },
+      "onError": { "showAlert": true }
+    }
+  }
+}

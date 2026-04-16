@@ -1,18 +1,26 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import type { CompiledManifest, CompiledScreen, CompiledDataEndpoint } from '@rntme/ui';
+import { createStateStore } from '@json-render/core';
 import { matchRoute } from './router.js';
 import { createScreenLoader } from './screen-loader.js';
-import { createStateStore } from './state-store.js';
 import { createRegistry } from './registry.js';
 import { AppShell } from './layout-manager.js';
 
+function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
+  if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
+    return stateGetter?.((v as { $state: string }).$state);
+  }
+  return v;
+}
+
 function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: (path: string) => unknown): string {
   let url = path;
-  // Replace path params like {id} with actual values
+  // Replace path params like {id} with actual values (resolving $state refs)
   url = url.replace(/\{([^}]+)\}/g, (_, key: string) => {
-    const value = params?.[key];
-    if (value !== undefined) return String(value);
+    const raw = params?.[key];
+    const value = resolveParamValue(raw, stateGetter);
+    if (value !== undefined && value !== null) return String(value);
     return `{${key}}`;
   });
 
@@ -20,14 +28,9 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
   const queryParams: Record<string, unknown> = {};
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      // Skip params that were used as path params
       if (path.includes(`{${k}}`)) continue;
-      // Resolve $state references
-      if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
-        queryParams[k] = stateGetter?.((v as { $state: string }).$state);
-      } else {
-        queryParams[k] = v;
-      }
+      const resolved = resolveParamValue(v, stateGetter);
+      if (resolved !== undefined) queryParams[k] = resolved;
     }
   }
 
@@ -136,7 +139,15 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
   store.subscribe(() => rerender());
 
   const initialPath = window.location.pathname || '/';
-  await enterRoute(initialPath);
+  const initialMatch = matchRoute(patterns, initialPath);
+  if (!initialMatch) {
+    // No matching route — redirect to the first route in the manifest
+    const defaultRoute = patterns[0] ?? '/';
+    window.history.replaceState({}, '', defaultRoute);
+    await enterRoute(defaultRoute);
+  } else {
+    await enterRoute(initialPath);
+  }
 
   window.addEventListener('popstate', () => {
     void enterRoute(window.location.pathname);

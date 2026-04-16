@@ -9,7 +9,7 @@ End-to-end demo: a small **issue tracker REST API** that exercises every package
 - **Graph IR — queries + commands.** 14 graphs under `artifacts/graphs/`: six queries and eight commands. `listIssuesUi` is a UI-friendly list query (no `predicate_optional` inputs). `assignIssueWithCapacityGuard` additionally uses a read-prelude for a pre-transition guard.
 - **Bindings → OpenAPI 3.1.** `artifacts/bindings.json` maps every graph to an HTTP operation; the server serves the generated document at `GET /openapi.json`.
 - **Full event pipeline with in-memory Kafka bridge.** `event-store → createRelay → in-memory Kafka bridge → createProjectionConsumer → QSM DB`. No external broker required.
-- **Declarative UI.** `@rntme/ui` artifact (`artifacts/ui.json`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle). The SPA calls the same REST API.
+- **Declarative UI.** `@rntme/ui` compiler (`artifacts/ui/`) + `@rntme/ui-runtime` serve a SPA at **`GET /ui`** (static shell + client bundle via json-render/shadcn). The SPA calls the same REST API.
 
 ## Seed
 
@@ -81,24 +81,24 @@ The runtime uses `:memory:` SQLite for both the event log and the read-side DB b
 
 | Method & path | Graph | Description |
 | ------------- | ----- | ----------- |
-| `GET  /v1/ui/issues?limit=` | `listIssuesUi` | Recent issues for the SPA (no predicate-optional params). |
-| `GET  /v1/issues?status=&limit=` | `listIssues` | Paginated projection read. |
-| `GET  /v1/issues/:id` | `issueDetail` | Single-row fetch. |
-| `GET  /v1/issues/search?q=&from=&to=&priority=&limit=` | `searchIssues` | Free-text + date range (`from` / `to` default to full range when omitted) + optional filters. |
-| `GET  /v1/stats/by-project` | `issuesByProject` | Aggregate count + breakdown per project. |
-| `GET  /v1/sprints/:sprintId/burndown` | `sprintBurndown` | Per-day burndown for a sprint. |
-| `POST /v1/issues` | `reportIssue` | Create a new Issue (transition `report`). |
-| `POST /v1/issues/:issueId/actions/submit` | `submitIssue` | `draft → open`. |
-| `POST /v1/issues/:issueId/actions/assign` | `assignIssue` | Assign to a user. |
-| `POST /v1/issues/:issueId/actions/assign-with-guard` | `assignIssueWithCapacityGuard` | Assign with a read-prelude capacity check. |
-| `POST /v1/issues/:issueId/actions/reassign` | `reassignIssue` | Change assignee. |
-| `POST /v1/issues/:issueId/actions/resolve` | `resolveIssue` | `in_progress → resolved`. |
-| `POST /v1/issues/:issueId/actions/reopen` | `reopenIssue` | `resolved → open`. |
-| `POST /v1/issues/:issueId/actions/close` | `closeIssue` | Terminal transition. |
-| `GET  /openapi.json` | — | Generated OpenAPI 3.1 document. |
+| `GET  /api/v1/ui/issues?limit=` | `listIssuesUi` | Recent issues for the SPA (no predicate-optional params). |
+| `GET  /api/v1/issues?status=&limit=` | `listIssues` | Paginated projection read. |
+| `GET  /api/v1/issues/:id` | `issueDetail` | Single-row fetch. |
+| `GET  /api/v1/issues/search?q=&from=&to=&priority=&limit=` | `searchIssues` | Free-text + date range (`from` / `to` default to full range when omitted) + optional filters. |
+| `GET  /api/v1/stats/by-project` | `issuesByProject` | Aggregate count + breakdown per project. |
+| `GET  /api/v1/sprints/:sprintId/burndown` | `sprintBurndown` | Per-day burndown for a sprint. |
+| `POST /api/v1/issues` | `reportIssue` | Create a new Issue (transition `report`). |
+| `POST /api/v1/issues/:issueId/actions/submit` | `submitIssue` | `draft → open`. |
+| `POST /api/v1/issues/:issueId/actions/assign` | `assignIssue` | Assign to a user. |
+| `POST /api/v1/issues/:issueId/actions/assign-with-guard` | `assignIssueWithCapacityGuard` | Assign with a read-prelude capacity check. |
+| `POST /api/v1/issues/:issueId/actions/reassign` | `reassignIssue` | Change assignee. |
+| `POST /api/v1/issues/:issueId/actions/resolve` | `resolveIssue` | `in_progress → resolved`. |
+| `POST /api/v1/issues/:issueId/actions/reopen` | `reopenIssue` | `resolved → open`. |
+| `POST /api/v1/issues/:issueId/actions/close` | `closeIssue` | Terminal transition. |
+| `GET  /api/openapi.json` | — | Generated OpenAPI 3.1 document. |
 | `GET  /` | — | JSON service identity (name + version). |
 | `GET  /health`, `GET /metrics` | — | Observability endpoints owned by `@rntme/runtime`. |
-| `GET  /ui` | — | Issue tracker SPA (see `@rntme/ui-runtime`). |
+| `GET  /issues` | — | Issue tracker SPA (see `@rntme/ui-runtime`). |
 
 All `POST`s accept an optional `x-actor-id` request header — the runtime turns it into `{ kind: 'user', id }` and stamps every event envelope's `actor` with it. If omitted, `actor` is `null`. Header name and actor kind are configurable via `manifest.auth`.
 
@@ -106,24 +106,24 @@ All `POST`s accept an optional `x-actor-id` request header — the runtime turns
 
 ```bash
 # 1. Report a new issue (creation transition)
-curl -s -X POST http://localhost:3000/v1/issues \
+curl -s -X POST http://localhost:3000/api/v1/issues \
   -H 'content-type: application/json' \
   -H 'x-actor-id: alice' \
   -d '{"issueId":7001,"title":"Demo bug","projectId":1,"reporterId":1,"priority":"high","storyPoints":3}' | jq
 # → { "version": 1 }
 
 # 2. Move it through its lifecycle
-curl -s -X POST http://localhost:3000/v1/issues/7001/actions/submit  -H 'x-actor-id: alice' -d '{}' | jq
-curl -s -X POST http://localhost:3000/v1/issues/7001/actions/assign \
+curl -s -X POST http://localhost:3000/api/v1/issues/7001/actions/submit  -H 'x-actor-id: alice' -d '{}' | jq
+curl -s -X POST http://localhost:3000/api/v1/issues/7001/actions/assign \
   -H 'content-type: application/json' -H 'x-actor-id: alice' \
   -d '{"assigneeId":2}' | jq
-curl -s -X POST http://localhost:3000/v1/issues/7001/actions/resolve \
+curl -s -X POST http://localhost:3000/api/v1/issues/7001/actions/resolve \
   -H 'content-type: application/json' \
   -H 'x-actor-id: alice' \
   -d '{"resolvedAt":"2026-04-15T12:30:00.000Z"}' | jq
 
 # 3. Inspect the projection (updates arrive asynchronously via the relay + consumer)
-curl -s 'http://localhost:3000/v1/issues/7001' | jq
+curl -s 'http://localhost:3000/api/v1/issues/7001' | jq
 ```
 
 Command responses are `{ version: <n> }`. Version-conflict retries surface as `409 COMMAND_CONCURRENCY_CONFLICT`; an illegal transition or guard rejection surfaces as `422`.
@@ -137,7 +137,7 @@ artifacts/
   qsm.json                       # issues_projection (entity-mirror)
   bindings.json                  # HTTP surface
   shapes.json                    # Custom output shapes (PaginatedIssues, etc.)
-  ui.json                        # Declarative UI artifact consumed by @rntme/ui-runtime
+  ui/                            # Declarative UI source (manifest + screens + layouts + fragments)
   graphs/                        # 14 graphs — queries + commands
     ...
 src/

@@ -4,7 +4,7 @@ import { shadcnComponentDefinitions } from '@json-render/shadcn/catalog';
 import { shadcnComponents } from '@json-render/shadcn';
 import { z } from 'zod';
 import type { CompiledScreen, CompiledAction, CompiledDataEndpoint } from '@rntme/ui';
-import type { StateStore } from './state-store.js';
+import type { StateStore } from '@json-render/core';
 
 export type RuntimeBridge = {
   onNavigate: (path: string) => void;

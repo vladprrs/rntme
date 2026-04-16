@@ -1,0 +1,48 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["heading", "form-fields", "submit-btn"]
+    },
+    "heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Report a New Issue" }
+    },
+    "form-fields": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["field-issueId", "field-title", "field-projectId", "field-reporterId", "field-priority", "field-storyPoints"]
+    },
+    "field-issueId": {
+      "type": "Input",
+      "props": { "label": "Issue ID", "name": "issueId", "type": "number", "value": { "$bindState": "/form/issueId" } }
+    },
+    "field-title": {
+      "type": "Input",
+      "props": { "label": "Title", "name": "title", "value": { "$bindState": "/form/title" } }
+    },
+    "field-projectId": {
+      "type": "Input",
+      "props": { "label": "Project ID", "name": "projectId", "type": "number", "value": { "$bindState": "/form/projectId" } }
+    },
+    "field-reporterId": {
+      "type": "Input",
+      "props": { "label": "Reporter ID", "name": "reporterId", "type": "number", "value": { "$bindState": "/form/reporterId" } }
+    },
+    "field-priority": {
+      "type": "Input",
+      "props": { "label": "Priority", "name": "priority", "value": { "$bindState": "/form/priority" } }
+    },
+    "field-storyPoints": {
+      "type": "Input",
+      "props": { "label": "Story Points", "name": "storyPoints", "type": "number", "value": { "$bindState": "/form/storyPoints" } }
+    },
+    "submit-btn": {
+      "type": "Button",
+      "props": { "label": "Submit", "variant": "primary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "submit" } } }
+    }
+  }
+}

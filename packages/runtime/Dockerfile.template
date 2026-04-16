@@ -1,5 +1,5 @@
 # Copy this file into a directory that contains your artifacts (pdm.json,
-# qsm.json, bindings.json, shapes.json, ui.json, manifest.json, graphs/*.json)
+# qsm.json, bindings.json, shapes.json, ui/, manifest.json, graphs/*.json)
 # and run:
 #   docker build -t myorg/my-service:VERSION .
 

@@ -23,7 +23,7 @@ describe('issue-tracker e2e via @rntme/runtime', () => {
     running = await startService(loaded.value);
     const base = `http://127.0.0.1:${running.httpPort}`;
 
-    const create = await fetch(`${base}/v1/issues`, {
+    const create = await fetch(`${base}/api/v1/issues`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -42,7 +42,7 @@ describe('issue-tracker e2e via @rntme/runtime', () => {
 
     await setTimeout(100);
 
-    const list = await fetch(`${base}/v1/issues?limit=100`);
+    const list = await fetch(`${base}/api/v1/issues?limit=100`);
     expect(list.status).toBe(200);
     const rows = (await list.json()) as { title: string }[];
     expect(rows.some((row) => row.title === 'e2e via runtime')).toBe(true);

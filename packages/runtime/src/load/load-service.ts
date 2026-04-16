@@ -29,11 +29,9 @@ import {
   type InputMode,
   type ValidatedBindings,
 } from '@rntme/bindings';
-import { validateUi, type ValidatedUiArtifact } from '@rntme/ui-legacy';
 import { compile, type CompiledArtifact } from '@rntme/ui';
 import { compileApplyPlan } from '@rntme/projection-consumer';
 import { loadSeed, type ValidatedSeed } from '@rntme/seed';
-import { buildBindingResolver, buildComponentResolver } from '@rntme/ui-runtime-legacy';
 import { parseManifest } from '../manifest/parse.js';
 import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';
@@ -230,53 +228,33 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
   }
 
-  // 7. UI — validateUi handles parsing internally
-  let validatedUi: ValidatedUiArtifact;
+  // 7. UI v2 — compile from source format (ui/ directory)
+  let compiledUi: CompiledArtifact;
+  const uiSourceDir = join(dir, 'ui');
+  if (!existsSync(uiSourceDir)) {
+    return { ok: false, errors: [{ code: 'UI_INVALID', details: [{ message: 'ui/ source directory not found' }] }] };
+  }
   try {
-    const uRaw = readJsonFile(dir, 'ui.json');
-    const uiResolvers = {
-      resolveBinding: buildBindingResolver(validatedBindings, bindingResolvers.resolveShape),
-      resolveComponent: buildComponentResolver(),
-      resolveRoute: (p: string) => {
-        const uiRoutes = (uRaw as { routes?: Record<string, unknown> }).routes;
-        return uiRoutes !== undefined && p in uiRoutes;
-      },
-    };
-    const v = validateUi(uRaw, uiResolvers);
-    if (!v.ok) {
-      return { ok: false, errors: [{ code: 'UI_INVALID', details: v.errors }] };
+    const httpMap: Record<string, { method: 'GET' | 'POST'; path: string }> = {};
+    for (const [id, rb] of Object.entries(validatedBindings.resolved)) {
+      httpMap[id] = { method: rb.entry.http.method, path: `/api${rb.entry.http.path}` };
     }
-    validatedUi = v.value;
+
+    const uiResult = compile({
+      sourceDir: uiSourceDir,
+      httpMap,
+      resolvers: {
+        resolveBinding: (id) => validatedBindings.resolved[id] ?? undefined,
+        resolveComponent: () => ({ childrenModel: 'list' as const }),
+        resolveRoute: () => true,
+      },
+    });
+    if (!uiResult.ok) {
+      return { ok: false, errors: [{ code: 'UI_INVALID', details: uiResult.errors }] };
+    }
+    compiledUi = uiResult.value;
   } catch (e) {
     return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
-  }
-
-  // 7b. UI v2 — compile from new source format (if ui/ directory exists)
-  let compiledUi: CompiledArtifact | null = null;
-  const uiSourceDir = join(dir, 'ui');
-  if (existsSync(uiSourceDir)) {
-    try {
-      const httpMap: Record<string, { method: 'GET' | 'POST'; path: string }> = {};
-      for (const [id, rb] of Object.entries(validatedBindings.resolved)) {
-        httpMap[id] = { method: rb.entry.http.method, path: `/api${rb.entry.http.path}` };
-      }
-
-      const uiResult = compile({
-        sourceDir: uiSourceDir,
-        httpMap,
-        resolvers: {
-          resolveBinding: (id) => validatedBindings.resolved[id] ?? undefined,
-          resolveComponent: () => ({ childrenModel: 'list' as const }),
-          resolveRoute: () => true,
-        },
-      });
-      if (!uiResult.ok) {
-        return { ok: false, errors: [{ code: 'UI_INVALID', details: uiResult.errors }] };
-      }
-      compiledUi = uiResult.value;
-    } catch (e) {
-      return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
-    }
   }
 
   // 8. OpenAPI
@@ -300,7 +278,6 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       pdm: validatedPdm,
       qsm: validatedQsm,
       bindings: validatedBindings,
-      ui: validatedUi,
       compiledUi,
       graphSpec,
       openApiDoc: openapi.value,

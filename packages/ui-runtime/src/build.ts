@@ -9,19 +9,7 @@ const buildDir = join(__dirname, '..', 'build');
 
 if (!existsSync(buildDir)) mkdirSync(buildDir, { recursive: true });
 
-// Build CSS with Tailwind CSS 4
-try {
-  execSync(
-    `npx @tailwindcss/cli -i ${join(__dirname, 'client', 'styles.css')} -o ${join(buildDir, 'main.css')} --minify`,
-    { stdio: 'inherit' },
-  );
-  console.log('CSS built → build/main.css');
-} catch {
-  console.warn('Tailwind CSS build failed — generating empty main.css');
-  writeFileSync(join(buildDir, 'main.css'), '/* tailwind css build failed */\n');
-}
-
-// Build JS with esbuild
+// 1. Build JS first — Tailwind needs the bundle to scan for class names
 await build({
   entryPoints: [join(__dirname, 'client', 'entry.tsx')],
   outfile: join(buildDir, 'main.js'),
@@ -35,5 +23,16 @@ await build({
   },
   external: [],
 });
-
 console.log('JS built → build/main.js');
+
+// 2. Build CSS with Tailwind CSS 4 — scans build/main.js via @source directive
+try {
+  execSync(
+    `npx @tailwindcss/cli -i ${join(__dirname, 'client', 'styles.css')} -o ${join(buildDir, 'main.css')} --minify`,
+    { stdio: 'inherit' },
+  );
+  console.log('CSS built → build/main.css');
+} catch {
+  console.warn('Tailwind CSS build failed — generating empty main.css');
+  writeFileSync(join(buildDir, 'main.css'), '/* tailwind css build failed */\n');
+}

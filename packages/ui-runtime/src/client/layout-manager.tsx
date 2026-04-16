@@ -1,8 +1,8 @@
 import * as React from 'react';
 import type { CompiledSpec } from '@rntme/ui';
-import { Renderer, StateProvider, ActionProvider, VisibilityProvider } from '@json-render/react';
+import { Renderer, StateProvider, ActionProvider, VisibilityProvider, ValidationProvider } from '@json-render/react';
 import type { Spec } from '@json-render/react';
-import type { StateStore } from './state-store.js';
+import type { StateStore } from '@json-render/core';
 import type { ComponentRegistry } from '@json-render/react';
 
 export type AppShellProps = {
@@ -21,26 +21,25 @@ export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, sto
   const layoutRendererSpec = layoutSpec as unknown as Spec | null;
   const screenRendererSpec = screenSpec as unknown as Spec;
 
+  const content = React.createElement(
+    'div',
+    { id: 'rntme-app', style: { maxWidth: 960, margin: '0 auto', padding: 24 } },
+    layoutRendererSpec
+      ? React.createElement('div', { id: 'rntme-layout', key: 'layout' },
+          React.createElement(Renderer, { spec: layoutRendererSpec, registry }),
+        )
+      : null,
+    React.createElement('div', { id: 'rntme-screen', key: 'screen' },
+      React.createElement(Renderer, { spec: screenRendererSpec, registry }),
+    ),
+  );
+
   return React.createElement(
-    StateProvider,
-    { store, children: null } as React.ComponentProps<typeof StateProvider>,
-    React.createElement(
-      ActionProvider,
-      { handlers: actionHandlers, children: null } as React.ComponentProps<typeof ActionProvider>,
-      React.createElement(
-        VisibilityProvider,
-        { children: null } as React.ComponentProps<typeof VisibilityProvider>,
-        React.createElement(
-          'div',
-          { id: 'rntme-app', style: { maxWidth: 960, margin: '0 auto', padding: 24 } },
-          layoutRendererSpec
-            ? React.createElement('div', { id: 'rntme-layout', key: 'layout' },
-                React.createElement(Renderer, { spec: layoutRendererSpec, registry }),
-              )
-            : null,
-          React.createElement('div', { id: 'rntme-screen', key: 'screen' },
-            React.createElement(Renderer, { spec: screenRendererSpec, registry }),
-          ),
+    StateProvider, { store, children: null } as React.ComponentProps<typeof StateProvider>,
+    React.createElement(ActionProvider, { handlers: actionHandlers, children: null } as React.ComponentProps<typeof ActionProvider>,
+      React.createElement(VisibilityProvider, { children: null } as React.ComponentProps<typeof VisibilityProvider>,
+        React.createElement(ValidationProvider, { children: null } as React.ComponentProps<typeof ValidationProvider>,
+          content,
         ),
       ),
     ),

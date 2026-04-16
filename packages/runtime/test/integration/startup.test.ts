@@ -34,7 +34,7 @@ describe('startService', () => {
     running = await startService(loaded.value);
     const root = await (await fetch(`http://127.0.0.1:${running.httpPort}/`)).json();
     expect((root as { name: string }).name).toBe('issue-tracker-api');
-    const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/openapi.json`)).json();
+    const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
 });

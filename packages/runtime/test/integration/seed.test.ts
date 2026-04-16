@@ -31,7 +31,7 @@ function cloneIssueTracker(overrides: (m: Record<string, unknown>, dir: string) 
 async function waitForIssues(base: string, minRows: number): Promise<Record<string, unknown>[]> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    const res = await fetch(`${base}/v1/issues?limit=10`);
+    const res = await fetch(`${base}/api/v1/issues?limit=10`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as unknown;
     if (Array.isArray(body) && body.length >= minRows) {
@@ -89,7 +89,7 @@ describe('startService — seed', () => {
     const loaded = loadService(dir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
     running = await startService(loaded.value, { skipSeed: true });
-    const res = await fetch(`http://127.0.0.1:${running.httpPort}/v1/issues?limit=10`);
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues?limit=10`);
     expect(res.status).toBe(200);
     const rows = (await res.json()) as { id?: number }[];
     expect(Array.isArray(rows)).toBe(true);

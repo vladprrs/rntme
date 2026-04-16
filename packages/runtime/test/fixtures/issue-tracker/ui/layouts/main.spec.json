@@ -1,0 +1,39 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["header", "nav"]
+    },
+    "header": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "Issue Tracker" }
+    },
+    "nav": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": "sm" },
+      "children": ["nav-home", "nav-browse", "nav-new", "nav-search"]
+    },
+    "nav-home": {
+      "type": "Button",
+      "props": { "label": "Home", "variant": "secondary" },
+      "on": { "press": { "action": "navigate", "params": { "to": "/issues" } } }
+    },
+    "nav-browse": {
+      "type": "Button",
+      "props": { "label": "Browse", "variant": "secondary" },
+      "on": { "press": { "action": "navigate", "params": { "to": "/issues/browse" } } }
+    },
+    "nav-new": {
+      "type": "Button",
+      "props": { "label": "New Issue", "variant": "secondary" },
+      "on": { "press": { "action": "navigate", "params": { "to": "/issues/new" } } }
+    },
+    "nav-search": {
+      "type": "Button",
+      "props": { "label": "Search", "variant": "secondary" },
+      "on": { "press": { "action": "navigate", "params": { "to": "/issues/search" } } }
+    }
+  }
+}

@@ -15,7 +15,8 @@ The artifacts directory must contain:
 ```
 artifacts/
   manifest.json
-  pdm.json qsm.json bindings.json shapes.json ui.json
+  pdm.json qsm.json bindings.json shapes.json ui/
+
   graphs/*.json
 ```
 

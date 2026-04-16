@@ -1,0 +1,10 @@
+{
+  "metadata": { "title": "Browse" },
+  "data": {
+    "/data/issues": {
+      "binding": "listIssuesUi",
+      "params": { "limit": 50 },
+      "refetchOn": ["mount"]
+    }
+  }
+}
