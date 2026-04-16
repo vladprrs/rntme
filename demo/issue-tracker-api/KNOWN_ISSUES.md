@@ -15,6 +15,7 @@ Status: **all resolved** — the demo boots with declarative seeding and all pre
 - `assign-with-guard` (read-prelude capacity gate).
 - `GET /v1/issues`, `GET /v1/ui/issues` (projection reads that do not traverse any relation).
 - **Declarative seed:** [`artifacts/seed.json`](./artifacts/seed.json) is loaded by `@rntme/runtime` (see manifest `seed` options) using `@rntme/seed`, after PDM/QSM validation, so reference entities (`Project`, `User`, `Sprint`) are populated through the normal event → projection path. Design: [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md).
+- **Seeded aggregate mutations:** Commands against seeded issues (7001–7011) work correctly — `wrapPayloads()` in `@rntme/seed` normalizes flat seed payloads to `{before, after}` format during validation, so `replayAggregateState()` reconstructs state correctly.
 
 ## What's broken
 
