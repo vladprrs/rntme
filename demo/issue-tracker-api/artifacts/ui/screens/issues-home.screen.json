@@ -1,0 +1,19 @@
+{
+  "metadata": { "title": "Home" },
+  "data": {
+    "/data/stats": {
+      "binding": "issuesByProject",
+      "refetchOn": ["mount"]
+    }
+  },
+  "actions": {
+    "goBrowse": {
+      "kind": "navigation",
+      "navigateTo": "/issues/browse"
+    },
+    "goNew": {
+      "kind": "navigation",
+      "navigateTo": "/issues/new"
+    }
+  }
+}

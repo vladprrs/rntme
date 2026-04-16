@@ -1,0 +1,40 @@
+{
+  "metadata": { "title": "Issue detail" },
+  "data": {
+    "/data/detail": {
+      "binding": "issueDetail",
+      "params": { "id": { "$state": "/route/params/id" } },
+      "refetchOn": ["mount"]
+    }
+  },
+  "actions": {
+    "cmdSubmit": {
+      "kind": "command",
+      "binding": "submitIssue",
+      "paramsFromState": { "issueId": "/route/params/id" },
+      "onSuccess": { "refetchData": ["detail"] },
+      "onError": { "showAlert": true }
+    },
+    "cmdAssign": {
+      "kind": "command",
+      "binding": "assignIssue",
+      "paramsFromState": { "issueId": "/route/params/id", "assigneeId": "/form/assigneeId" },
+      "onSuccess": { "refetchData": ["detail"] },
+      "onError": { "showAlert": true }
+    },
+    "cmdResolve": {
+      "kind": "command",
+      "binding": "resolveIssue",
+      "paramsFromState": { "issueId": "/route/params/id", "resolvedAt": "/form/resolvedAt" },
+      "onSuccess": { "refetchData": ["detail"] },
+      "onError": { "showAlert": true }
+    },
+    "cmdClose": {
+      "kind": "command",
+      "binding": "closeIssue",
+      "paramsFromState": { "issueId": "/route/params/id" },
+      "onSuccess": { "refetchData": ["detail"] },
+      "onError": { "showAlert": true }
+    }
+  }
+}

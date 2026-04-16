@@ -1,0 +1,48 @@
+{
+  "root": "form-root",
+  "elements": {
+    "form-root": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 4 },
+      "children": ["form-heading", "issue-form"]
+    },
+    "form-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Report a New Issue" }
+    },
+    "issue-form": {
+      "type": "Form",
+      "props": { "statePath": "/form" },
+      "children": ["field-issueId", "field-title", "field-projectId", "field-reporterId", "field-priority", "field-storyPoints", "submit-btn"]
+    },
+    "field-issueId": {
+      "type": "FormField",
+      "props": { "name": "issueId", "label": "Issue ID", "type": "number" }
+    },
+    "field-title": {
+      "type": "FormField",
+      "props": { "name": "title", "label": "Title", "type": "text" }
+    },
+    "field-projectId": {
+      "type": "FormField",
+      "props": { "name": "projectId", "label": "Project ID", "type": "number" }
+    },
+    "field-reporterId": {
+      "type": "FormField",
+      "props": { "name": "reporterId", "label": "Reporter ID", "type": "number" }
+    },
+    "field-priority": {
+      "type": "FormField",
+      "props": { "name": "priority", "label": "Priority", "type": "text" }
+    },
+    "field-storyPoints": {
+      "type": "FormField",
+      "props": { "name": "storyPoints", "label": "Story Points", "type": "number" }
+    },
+    "submit-btn": {
+      "type": "Button",
+      "props": { "label": "Submit", "variant": "primary" },
+      "on": { "press": { "action": "submit" } }
+    }
+  }
+}

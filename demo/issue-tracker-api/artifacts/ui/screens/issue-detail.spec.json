@@ -1,0 +1,73 @@
+{
+  "root": "detail-root",
+  "elements": {
+    "detail-root": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 4 },
+      "children": ["detail-heading", "detail-table", "detail-actions", "form-submit", "form-assign", "form-resolve", "row-close"]
+    },
+    "detail-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Issue" }
+    },
+    "detail-table": {
+      "type": "Table",
+      "props": {
+        "rows": { "$state": "/data/detail" },
+        "columns": ["id", "title", "status", "priority", "projectKey", "assigneeUsername", "reporterUsername"]
+      }
+    },
+    "detail-actions": {
+      "type": "Text",
+      "props": { "text": "Lifecycle: Submit (draft\u2192open), Assign, Resolve (in progress\u2192resolved), Close (resolved\u2192closed)." }
+    },
+    "form-submit": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": 2 },
+      "children": ["btn-submit"]
+    },
+    "btn-submit": {
+      "type": "Button",
+      "props": { "label": "Submit (draft \u2192 open)" },
+      "on": { "press": { "action": "cmdSubmit" } }
+    },
+    "form-assign": {
+      "type": "Form",
+      "props": { "statePath": "/form" },
+      "children": ["field-assignee", "btn-assign"]
+    },
+    "field-assignee": {
+      "type": "FormField",
+      "props": { "name": "assigneeId", "label": "Assignee user ID", "type": "number" }
+    },
+    "btn-assign": {
+      "type": "Button",
+      "props": { "label": "Assign / reassign", "variant": "primary" },
+      "on": { "press": { "action": "cmdAssign" } }
+    },
+    "form-resolve": {
+      "type": "Form",
+      "props": { "statePath": "/form" },
+      "children": ["field-resolvedAt", "btn-resolve"]
+    },
+    "field-resolvedAt": {
+      "type": "FormField",
+      "props": { "name": "resolvedAt", "label": "Resolved at (ISO-8601)", "type": "text" }
+    },
+    "btn-resolve": {
+      "type": "Button",
+      "props": { "label": "Resolve" },
+      "on": { "press": { "action": "cmdResolve" } }
+    },
+    "row-close": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": 2 },
+      "children": ["btn-close"]
+    },
+    "btn-close": {
+      "type": "Button",
+      "props": { "label": "Close" },
+      "on": { "press": { "action": "cmdClose" } }
+    }
+  }
+}

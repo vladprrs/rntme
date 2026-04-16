@@ -1,0 +1,49 @@
+{
+  "root": "browse-root",
+  "elements": {
+    "browse-root": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 4 },
+      "children": ["btn-home", "browse-heading", "browse-hint", "open-form", "list-table"]
+    },
+    "btn-home": {
+      "type": "Button",
+      "props": { "label": "\u2190 Home" },
+      "on": { "press": { "action": "goHome" } }
+    },
+    "browse-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Recent issues" }
+    },
+    "browse-hint": {
+      "type": "Text",
+      "props": { "text": "Open an issue by ID (seeded ids include 101\u2013122)." }
+    },
+    "open-form": {
+      "type": "Form",
+      "props": { "statePath": "/form" },
+      "children": ["open-row"]
+    },
+    "open-row": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": 2 },
+      "children": ["field-open-id", "btn-open"]
+    },
+    "field-open-id": {
+      "type": "FormField",
+      "props": { "name": "openId", "label": "Issue ID", "type": "number" }
+    },
+    "btn-open": {
+      "type": "Button",
+      "props": { "label": "Open", "variant": "primary" },
+      "on": { "press": { "action": "goDetail" } }
+    },
+    "list-table": {
+      "type": "Table",
+      "props": {
+        "rows": { "$state": "/data/issues" },
+        "columns": ["id", "title", "status", "priority", "storyPoints"]
+      }
+    }
+  }
+}

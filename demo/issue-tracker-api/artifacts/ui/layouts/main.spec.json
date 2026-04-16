@@ -1,0 +1,18 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 4 },
+      "children": ["header", "slot-main"]
+    },
+    "header": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "Issue Tracker" }
+    },
+    "slot-main": {
+      "type": "Slot",
+      "props": { "name": "main" }
+    }
+  }
+}

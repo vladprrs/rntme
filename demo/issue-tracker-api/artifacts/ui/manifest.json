@@ -1,0 +1,31 @@
+{
+  "version": "2.0",
+  "pdmRef": "issue-tracker.domain.v1",
+  "qsmRef": "issue-tracker.read.v1",
+  "graphSpecRef": "issue-tracker.graphs.v1",
+  "bindingsRef": "issue-tracker.bindings.v1",
+  "metadata": {
+    "title": "Issue Tracker"
+  },
+  "layouts": {
+    "main": "layouts/main"
+  },
+  "routes": {
+    "/issues": {
+      "layout": "main",
+      "screen": "screens/issues-home"
+    },
+    "/issues/browse": {
+      "layout": "main",
+      "screen": "screens/issues-browse"
+    },
+    "/issues/new": {
+      "layout": "main",
+      "screen": "screens/issues-new"
+    },
+    "/issues/:id": {
+      "layout": "main",
+      "screen": "screens/issue-detail"
+    }
+  }
+}

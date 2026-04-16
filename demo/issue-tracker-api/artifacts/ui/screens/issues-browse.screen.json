@@ -1,0 +1,21 @@
+{
+  "metadata": { "title": "Browse" },
+  "data": {
+    "/data/issues": {
+      "binding": "listIssuesUi",
+      "params": { "limit": 50 },
+      "refetchOn": ["mount"]
+    }
+  },
+  "actions": {
+    "goHome": {
+      "kind": "navigation",
+      "navigateTo": "/issues"
+    },
+    "goDetail": {
+      "kind": "navigation",
+      "navigateTo": "/issues/:id",
+      "paramsFromState": { "id": "/form/openId" }
+    }
+  }
+}

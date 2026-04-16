@@ -1,0 +1,36 @@
+{
+  "root": "page-root",
+  "elements": {
+    "page-root": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 4 },
+      "children": ["issues-heading", "nav-row", "stats-table"]
+    },
+    "issues-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Issues by Project" }
+    },
+    "nav-row": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": 2 },
+      "children": ["btn-browse", "btn-new"]
+    },
+    "btn-browse": {
+      "type": "Button",
+      "props": { "label": "Browse issues" },
+      "on": { "press": { "action": "goBrowse" } }
+    },
+    "btn-new": {
+      "type": "Button",
+      "props": { "label": "Report issue", "variant": "primary" },
+      "on": { "press": { "action": "goNew" } }
+    },
+    "stats-table": {
+      "type": "Table",
+      "props": {
+        "rows": { "$state": "/data/stats" },
+        "columns": ["projectKey", "issueCount", "totalStoryPoints"]
+      }
+    }
+  }
+}
