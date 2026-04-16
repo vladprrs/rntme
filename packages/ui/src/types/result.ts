@@ -14,7 +14,6 @@ export type UiErrorCode =
   | 'ORPHAN_ELEMENT'
   | 'BAD_CHILD_REF'
   | 'SLOT_NOT_IN_LAYOUT'
-  | 'SLOT_DUPLICATE'
   // Validate — references
   | 'UNRESOLVED_BINDING'
   | 'BINDING_KIND_MISMATCH'

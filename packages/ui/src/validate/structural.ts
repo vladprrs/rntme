@@ -65,17 +65,5 @@ export function validateStructural(
     }
   }
 
-  // Layout must have at least one Slot
-  if (isLayout) {
-    const hasSlot = Object.values(elements).some((el) => el.type === 'Slot');
-    if (!hasSlot) {
-      errors.push({
-        code: 'SLOT_DUPLICATE',
-        message: `Layout ${context} has no Slot element`,
-        path: context,
-      });
-    }
-  }
-
   return errors;
 }

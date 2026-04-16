@@ -62,4 +62,14 @@ describe('validate', () => {
     if (result.ok) return;
     expect(result.errors.some((e) => e.code === 'BAD_CHILD_REF')).toBe(true);
   });
+
+  it('accepts layout without Slot element', () => {
+    const expanded = loadExpanded('minimal-app');
+    // The minimal-app layout fixture has no Slot — verify it passes validation
+    const layout = expanded.layouts['main']!;
+    const hasSlot = Object.values(layout.spec.elements).some((el) => el.type === 'Slot');
+    expect(hasSlot).toBe(false);
+    const result = validate(expanded, noopResolvers);
+    expect(result.ok).toBe(true);
+  });
 });

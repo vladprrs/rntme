@@ -4,12 +4,11 @@
     "shell": {
       "type": "Stack",
       "props": { "direction": "vertical" },
-      "children": ["slot-main"]
+      "children": ["header"]
     },
-    "slot-main": {
-      "type": "Slot",
-      "props": { "name": "main" },
-      "children": []
+    "header": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "Test App" }
     }
   }
 }
