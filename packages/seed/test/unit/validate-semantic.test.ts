@@ -225,4 +225,41 @@ describe('validateSeed — layer 2 (semantic)', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('normalizes flat payloads to {before, after} in validated output', () => {
+    const result = validateSeed(
+      seed([
+        {
+          stream: 'Thing-1',
+          aggregateType: 'Thing',
+          aggregateId: '1',
+          version: 1,
+          eventType: 'ThingCreated',
+          payload: { name: 'x' },
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          stream: 'Thing-1',
+          aggregateType: 'Thing',
+          aggregateId: '1',
+          version: 2,
+          eventType: 'ThingRenamed',
+          payload: { name: 'y', status: 'active' },
+          occurredAt: '2026-01-02T00:00:00.000Z',
+        },
+      ]),
+      ctx(),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const e1 = result.value.events[0]!;
+    const p1 = e1.payload as { before: unknown; after: Record<string, unknown> };
+    expect(p1.before).toBeNull();
+    expect(p1.after).toEqual({ name: 'x', status: 'active' });
+
+    const e2 = result.value.events[1]!;
+    const p2 = e2.payload as { before: Record<string, unknown>; after: Record<string, unknown> };
+    expect(p2.before).toEqual({ status: 'active', name: 'x' });
+    expect(p2.after).toEqual({ name: 'y', status: 'active' });
+  });
 });

@@ -7,6 +7,7 @@ import type {
   SeedEventInput,
   ValidatedSeed,
 } from './types.js';
+import { wrapPayloads } from './wrap-payloads.js';
 
 export type ValidateCtx = Readonly<{
   pdm: PdmResolver;
@@ -73,7 +74,7 @@ export function validateSeed(
   errors.push(...smErrors);
 
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, value: { events: normalized } };
+  return { ok: true, value: { events: wrapPayloads(normalized, ctx) } };
 }
 
 function checkPayloadShape(
