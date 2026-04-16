@@ -258,7 +258,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     try {
       const httpMap: Record<string, { method: 'GET' | 'POST'; path: string }> = {};
       for (const [id, rb] of Object.entries(validatedBindings.resolved)) {
-        httpMap[id] = { method: rb.entry.http.method, path: rb.entry.http.path };
+        httpMap[id] = { method: rb.entry.http.method, path: `/api${rb.entry.http.path}` };
       }
 
       const uiResult = compile({
