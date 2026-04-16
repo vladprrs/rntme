@@ -1,8 +1,8 @@
 # Known Issues — `@rntme/issue-tracker-api-demo`
 
-Status: **partially deferred** — the demo boots with declarative seeding and most previously tracked read-side gaps are closed. One **compiler** issue (`wrapPredicateOptional` in `@rntme/graph-ir-compiler`) remains open; see Finding 3 below. The demo README links here from its "Run it" section.
+Status: **all resolved** — the demo boots with declarative seeding and all previously tracked issues are now closed. The **compiler** issue (`wrapPredicateOptional` in `@rntme/graph-ir-compiler`) has been fixed; see Finding 3 below. The demo README links here from its "Run it" section.
 
-**Last verified against HEAD:** 2026-04-15.
+**Last verified against HEAD:** 2026-04-16.
 
 ---
 
@@ -26,7 +26,9 @@ Status: **partially deferred** — the demo boots with declarative seeding and m
 
 **Resolution:** [`artifacts/graphs/searchIssues.json`](./artifacts/graphs/searchIssues.json) now uses `"mode": "defaulted"` for `from` and `to` with wide bounds; the HTTP binding and [`demo/issue-tracker-api/README.md`](./README.md) describe optional range parameters consistent with the artifact.
 
-### 3. `wrapPredicateOptional` — latent correctness bug in the compiler
+### 3. `wrapPredicateOptional` — latent correctness bug in the compiler — **CLOSED**
+
+**Resolution:** Swapped OR argument order in `wrapPredicateOptional` (`args: [acc, isNull]`) so inner `?` precedes guard `?` in emitted SQL, aligning with `paramOrder` push order. Regression tests added at unit and e2e level with mixed required + predicate_optional params.
 
 **Where:** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`.
 
@@ -54,7 +56,7 @@ This fix belongs in `@rntme/graph-ir-compiler` and is out of scope here.
 
 ## Deferred fix — remaining upstream work
 
-The only remaining upstream item for this demo’s original “full resolution” checklist is the **compiler fix for `wrapPredicateOptional`** (Finding 3). Once that lands, follow-up work is mainly regression coverage in `@rntme/graph-ir-compiler` and optionally simplifying the demo’s `searchIssues` graph if the single-filter form becomes safe.
+All upstream items for this demo are now resolved. The compiler fix for `wrapPredicateOptional` landed in `@rntme/graph-ir-compiler`. The demo’s `searchIssues` graph workaround (split filter nodes) remains valid but is no longer required.
 
 ---
 
