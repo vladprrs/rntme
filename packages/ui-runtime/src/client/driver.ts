@@ -92,6 +92,12 @@ export function createDriver(opts: DriverOptions): Driver {
         return;
       }
 
+      if (action.kind === 'refetch') {
+        // Refetch actions are handled by the registry's dispatch handler.
+        // The driver does not handle them directly.
+        return;
+      }
+
       // Command action
       const params: Record<string, unknown> = {};
       if (action.paramsFromState && stateGetter) {
