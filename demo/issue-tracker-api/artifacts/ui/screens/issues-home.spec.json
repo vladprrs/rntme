@@ -1,36 +1,43 @@
 {
-  "root": "page-root",
+  "root": "page",
   "elements": {
-    "page-root": {
+    "page": {
       "type": "Stack",
-      "props": { "direction": "vertical", "gap": 4 },
-      "children": ["issues-heading", "nav-row", "stats-table"]
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["heading", "stats-list", "burndown-link"]
     },
-    "issues-heading": {
+    "heading": {
       "type": "Heading",
       "props": { "level": 2, "text": "Issues by Project" }
     },
-    "nav-row": {
+    "stats-list": {
       "type": "Stack",
-      "props": { "direction": "horizontal", "gap": 2 },
-      "children": ["btn-browse", "btn-new"]
+      "props": { "direction": "vertical", "gap": "sm" },
+      "children": ["stat-card"],
+      "repeat": { "statePath": "/data/stats" }
     },
-    "btn-browse": {
+    "stat-card": {
+      "type": "Card",
+      "props": { "title": { "$item": "projectKey" } },
+      "children": ["stat-badges"]
+    },
+    "stat-badges": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": "sm" },
+      "children": ["badge-count", "badge-points"]
+    },
+    "badge-count": {
+      "type": "Badge",
+      "props": { "text": { "$template": "${$item.issueCount} issues" } }
+    },
+    "badge-points": {
+      "type": "Badge",
+      "props": { "text": { "$template": "${$item.totalStoryPoints} pts" }, "variant": "secondary" }
+    },
+    "burndown-link": {
       "type": "Button",
-      "props": { "label": "Browse issues" },
-      "on": { "press": { "action": "goBrowse" } }
-    },
-    "btn-new": {
-      "type": "Button",
-      "props": { "label": "Report issue", "variant": "primary" },
-      "on": { "press": { "action": "goNew" } }
-    },
-    "stats-table": {
-      "type": "Table",
-      "props": {
-        "rows": { "$state": "/data/stats" },
-        "columns": ["projectKey", "issueCount", "totalStoryPoints"]
-      }
+      "props": { "label": "Sprint Burndown (Sprint 1)", "variant": "secondary" },
+      "on": { "press": { "action": "navigate", "params": { "to": "/sprints/1" } } }
     }
   }
 }
