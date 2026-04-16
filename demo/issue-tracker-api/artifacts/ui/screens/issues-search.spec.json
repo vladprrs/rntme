@@ -1,0 +1,82 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["heading", "search-form", "search-btn", "results-list"]
+    },
+    "heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Search Issues" }
+    },
+    "search-form": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["field-q", "field-from", "field-to", "field-priority", "field-limit"]
+    },
+    "field-q": {
+      "type": "Input",
+      "props": { "label": "Query (title search)", "name": "q", "value": { "$bindState": "/form/q" } }
+    },
+    "field-from": {
+      "type": "Input",
+      "props": { "label": "From date (ISO-8601)", "name": "from", "placeholder": "2025-01-01T00:00:00.000Z", "value": { "$bindState": "/form/from" } }
+    },
+    "field-to": {
+      "type": "Input",
+      "props": { "label": "To date (ISO-8601)", "name": "to", "placeholder": "2026-12-31T23:59:59.999Z", "value": { "$bindState": "/form/to" } }
+    },
+    "field-priority": {
+      "type": "Input",
+      "props": { "label": "Priority (optional)", "name": "priority", "value": { "$bindState": "/form/priority" } }
+    },
+    "field-limit": {
+      "type": "Input",
+      "props": { "label": "Max results", "name": "limit", "type": "number", "value": { "$bindState": "/form/limit" } }
+    },
+    "search-btn": {
+      "type": "Button",
+      "props": { "label": "Search", "variant": "primary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "search" } } }
+    },
+    "results-list": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "sm" },
+      "children": ["result-card"],
+      "repeat": { "statePath": "/data/results" }
+    },
+    "result-card": {
+      "type": "Card",
+      "props": { "title": { "$item": "title" } },
+      "children": ["result-meta"]
+    },
+    "result-meta": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": "sm" },
+      "children": ["result-badge-id", "result-badge-status", "result-badge-priority", "result-link"]
+    },
+    "result-badge-id": {
+      "type": "Badge",
+      "props": { "text": { "$template": "#${$item.id}" }, "variant": "outline" }
+    },
+    "result-badge-status": {
+      "type": "Badge",
+      "props": { "text": { "$item": "status" } }
+    },
+    "result-badge-priority": {
+      "type": "Badge",
+      "props": { "text": { "$item": "priority" }, "variant": "secondary" }
+    },
+    "result-link": {
+      "type": "Link",
+      "props": { "label": "View →" },
+      "on": {
+        "press": {
+          "action": "navigate",
+          "params": { "to": "/issues/:id", "id": { "$item": "id" } }
+        }
+      }
+    }
+  }
+}
