@@ -17,7 +17,34 @@ describe('predicate_optional lifting', () => {
     };
     const { ast, paramOrder } = lowerFilterWithLifting(rel, new Set(['minPrice']));
     const sql = emitSql(ast);
-    expect(sql).toContain('(? IS NULL) OR ("orderItem"."unit_price" >= ?)');
+    expect(sql).toContain('("orderItem"."unit_price" >= ?) OR (? IS NULL)');
     expect(paramOrder).toEqual(['minPrice', 'minPrice']);
+  });
+
+  it('aligns param positions when required and predicate_optional params are mixed', () => {
+    const rel: RelOp = {
+      op: 'Filter',
+      predicate: {
+        and: [
+          { eq: ['orderItem.status', { $param: 'status' }] },
+          { gte: ['orderItem.unitPrice', { $param: 'minPrice' }] },
+        ],
+      } as never,
+      child: {
+        op: 'Scan',
+        table: 'order_items',
+        alias: 'orderItem',
+        fields: [
+          { name: 'status', column: 'status', type: 'string', nullable: false },
+          { name: 'unitPrice', column: 'unit_price', type: 'decimal', nullable: false },
+        ],
+      },
+    };
+    const { ast, paramOrder } = lowerFilterWithLifting(rel, new Set(['minPrice']));
+    const sql = emitSql(ast);
+    expect(paramOrder).toEqual(['status', 'minPrice', 'minPrice']);
+    expect(sql).toContain(
+      '(("orderItem"."status" = ?) AND ("orderItem"."unit_price" >= ?)) OR (? IS NULL)',
+    );
   });
 });

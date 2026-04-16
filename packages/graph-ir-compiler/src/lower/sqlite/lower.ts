@@ -171,7 +171,7 @@ function wrapPredicateOptional(
     return {
       kind: 'op',
       op: 'or',
-      args: [{ kind: 'op', op: 'is_null', args: [{ kind: 'param', ordinal }] }, acc],
+      args: [acc, { kind: 'op', op: 'is_null', args: [{ kind: 'param', ordinal }] }],
     };
   }, predicateSql);
 }
