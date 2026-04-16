@@ -23,9 +23,17 @@
       "layout": "main",
       "screen": "screens/issues-new"
     },
+    "/issues/search": {
+      "layout": "main",
+      "screen": "screens/issues-search"
+    },
     "/issues/:id": {
       "layout": "main",
       "screen": "screens/issue-detail"
+    },
+    "/sprints/:sprintId": {
+      "layout": "main",
+      "screen": "screens/sprint-burndown"
     }
   }
 }
