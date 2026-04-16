@@ -1,0 +1,16 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical" },
+      "children": ["greeting"]
+    },
+    "greeting": {
+      "$ref": "fragments/greeting",
+      "bind": {
+        "name": "World"
+      }
+    }
+  }
+}

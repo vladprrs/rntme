@@ -1,0 +1,10 @@
+{
+  "root": "wrap",
+  "elements": {
+    "wrap": {
+      "type": "Text",
+      "props": { "text": { "$param": "name" } },
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Stack",
+      "props": { "direction": "vertical" },
+      "children": ["slot-main"]
+    },
+    "slot-main": {
+      "type": "Slot",
+      "props": { "name": "main" },
+      "children": []
+    }
+  }
+}

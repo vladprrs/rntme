@@ -1,0 +1,14 @@
+{
+  "root": "wrap",
+  "elements": {
+    "wrap": {
+      "type": "Stack",
+      "props": {},
+      "children": ["nested"]
+    },
+    "nested": {
+      "$ref": "fragments/b",
+      "bind": {}
+    }
+  }
+}

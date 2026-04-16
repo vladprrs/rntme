@@ -1,0 +1,14 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": {},
+      "children": ["a"]
+    },
+    "a": {
+      "$ref": "fragments/a",
+      "bind": {}
+    }
+  }
+}

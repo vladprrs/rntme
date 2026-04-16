@@ -1,0 +1,10 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "Home" },
+      "children": []
+    }
+  }
+}
