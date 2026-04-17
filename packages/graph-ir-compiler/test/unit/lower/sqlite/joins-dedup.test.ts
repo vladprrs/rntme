@@ -7,136 +7,13 @@
  * join to be silently skipped and the column to resolve against the wrong table.
  */
 import { describe, it, expect } from 'vitest';
-import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
-import { validateQsm } from '@rntme/qsm';
-import type { ValidatedPdm } from '@rntme/pdm';
-import type { ValidatedQsm } from '@rntme/qsm';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
+import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
 import type { Expr } from '../../../../src/types/authoring.js';
+import { issueSprintProjectFixtures } from './fixtures/issue-sprint-project.js';
 
-// ── Fixtures ─────────────────────────────────────────────────────────────────
-
-const rawPdm = {
-  entities: {
-    Issue: {
-      table: 'issues',
-      fields: {
-        id: { type: 'integer', nullable: false, column: 'id' },
-        projectId: { type: 'integer', nullable: false, column: 'project_id' },
-        sprintId: { type: 'integer', nullable: false, column: 'sprint_id' },
-        title: { type: 'string', nullable: false, column: 'title' },
-        status: { type: 'string', nullable: false, column: 'status' },
-      },
-      relations: {
-        project: { to: 'Project', cardinality: 'one', localKey: 'projectId', foreignKey: 'id' },
-        sprint: { to: 'Sprint', cardinality: 'one', localKey: 'sprintId', foreignKey: 'id' },
-      },
-      keys: ['id'],
-      stateMachine: {
-        stateField: 'status',
-        initial: null,
-        states: ['open'],
-        transitions: { create: { from: null, to: 'open', affects: ['projectId', 'title'] } },
-      },
-    },
-    Project: {
-      table: 'projects',
-      fields: {
-        id: { type: 'integer', nullable: false, column: 'id' },
-        name: { type: 'string', nullable: false, column: 'name' },
-        key: { type: 'string', nullable: false, column: 'key' },
-        status: { type: 'string', nullable: false, column: 'status' },
-      },
-      relations: {},
-      keys: ['id'],
-      stateMachine: {
-        stateField: 'status',
-        initial: null,
-        states: ['active'],
-        transitions: { create: { from: null, to: 'active', affects: ['name'] } },
-      },
-    },
-    Sprint: {
-      table: 'sprints',
-      fields: {
-        id: { type: 'integer', nullable: false, column: 'id' },
-        projectId: { type: 'integer', nullable: false, column: 'project_id' },
-        name: { type: 'string', nullable: false, column: 'name' },
-        status: { type: 'string', nullable: false, column: 'status' },
-      },
-      relations: {
-        project: { to: 'Project', cardinality: 'one', localKey: 'projectId', foreignKey: 'id' },
-      },
-      keys: ['id'],
-      stateMachine: {
-        stateField: 'status',
-        initial: null,
-        states: ['active'],
-        transitions: { create: { from: null, to: 'active', affects: ['name'] } },
-      },
-    },
-  },
-};
-
-const rawQsm = {
-  projections: {
-    IssueView: {
-      backing: 'entity-mirror' as const,
-      source: { entity: 'Issue' },
-      keys: ['id'],
-      grain: ['id'],
-      exposed: ['id', 'projectId', 'sprintId', 'title'],
-    },
-    ProjMirror: {
-      backing: 'entity-mirror' as const,
-      source: { entity: 'Project' },
-      keys: ['id'],
-      grain: ['id'],
-      exposed: ['id', 'name', 'key'],
-    },
-    SprintMirror: {
-      backing: 'entity-mirror' as const,
-      source: { entity: 'Sprint' },
-      keys: ['id'],
-      grain: ['id'],
-      exposed: ['id', 'projectId', 'name'],
-    },
-  },
-  relations: {
-    'IssueView.project': {
-      to: 'ProjMirror',
-      localKey: 'projectId',
-      foreignKey: 'id',
-      cardinality: 'one' as const,
-    },
-    'IssueView.sprint': {
-      to: 'SprintMirror',
-      localKey: 'sprintId',
-      foreignKey: 'id',
-      cardinality: 'one' as const,
-    },
-    'SprintMirror.project': {
-      to: 'ProjMirror',
-      localKey: 'projectId',
-      foreignKey: 'id',
-      cardinality: 'one' as const,
-    },
-  },
-};
-
-function buildFixtures(): { pdm: ValidatedPdm; qsm: ValidatedQsm } {
-  const pdmParsed = parsePdm(rawPdm);
-  if (!pdmParsed.ok) throw new Error(`parsePdm: ${JSON.stringify(pdmParsed.errors)}`);
-  const pdmVal = validatePdm(pdmParsed.value);
-  if (!pdmVal.ok) throw new Error(`validatePdm: ${JSON.stringify(pdmVal.errors)}`);
-  const pdm = pdmVal.value;
-  const qsmVal = validateQsm(rawQsm, createPdmResolver(pdm));
-  if (!qsmVal.ok) throw new Error(`validateQsm: ${JSON.stringify(qsmVal.errors)}`);
-  return { pdm, qsm: qsmVal.value };
-}
-
-const { pdm, qsm } = buildFixtures();
+const { pdm, qsm } = issueSprintProjectFixtures;
 
 const issueScan: RelOp = {
   op: 'Scan',
@@ -246,5 +123,13 @@ describe('bug_007: alias collision — issue.sprint.project vs issue.project', (
     expect(aliases).toContain('project');
     expect(new Set(aliases).size).toBe(aliases.length); // all unique
     expect(aliases).toHaveLength(3);
+
+    // Verify the leafAlias fix: the sprint path's final hop must be qualified by
+    // "sprint_project", not "project". Without the fix at lower.ts:290, both paths
+    // would use alias "project" and the WHERE clause would reference the wrong table.
+    const sql = emitSql(ast);
+    expect(sql).toContain('"sprint_project"."name"');
+    // The direct path must still be qualified by "project"
+    expect(sql).toContain('"project"."name"');
   });
 });
