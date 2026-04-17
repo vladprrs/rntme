@@ -91,7 +91,7 @@ export function validateStructural(
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.QSM_RELATION_KEY_MALFORMED,
-        message: `relation key "${key}" must match "<ProjectionName>.<relationName>"`,
+        message: `relation key "${key}" must match "<projectionName>.<relationName>" (identifier.identifier, no digit-leading segments)`,
         path: rPath,
       });
       continue; // further checks are meaningless if key malformed
