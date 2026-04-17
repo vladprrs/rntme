@@ -216,8 +216,16 @@ export class SqliteEventStore implements EventStore {
     };
   }
 
-  recordDeliveryAttempt(_eventId: string, _nowIso: string): void {
-    throw new Error('recordDeliveryAttempt: not implemented yet');
+  recordDeliveryAttempt(eventId: string, nowIso: string): void {
+    this.db.prepare(`
+      INSERT INTO delivery_tracking
+        (event_id, first_attempt_at, last_attempt_at, attempt_count,
+         last_error, delivered_at, dlq_at)
+      VALUES (?, ?, ?, 1, NULL, NULL, NULL)
+      ON CONFLICT(event_id) DO UPDATE SET
+        attempt_count   = attempt_count + 1,
+        last_attempt_at = excluded.last_attempt_at
+    `).run(eventId, nowIso, nowIso);
   }
 
   updateLastError(_eventId: string, _message: string | null): void {
