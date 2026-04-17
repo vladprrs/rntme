@@ -72,6 +72,8 @@ export function createRelay(opts: RelayOptions): Relay {
             opts.store.markDelivered(eventId, new Date().toISOString());
             break;
           } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            opts.store.updateLastError(eventId, truncate(msg, 1024));
             onErr(err, rec.envelope, attempts);
             await sleep(backoff);
             backoff = Math.min(backoff * 2, maxBackoff);
@@ -105,4 +107,12 @@ export function createRelay(opts: RelayOptions): Relay {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function truncate(s: string, maxBytes: number): string {
+  // Byte-bounded truncation: TextEncoder would be most accurate, but for
+  // error messages a char-count upper bound is a safe lower-bound guard.
+  // We accept that multi-byte chars may yield strings slightly over maxBytes;
+  // the 1024 target is a header-size heuristic, not a hard broker limit.
+  return s.length > maxBytes ? s.slice(0, maxBytes) : s;
 }

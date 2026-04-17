@@ -37,4 +37,24 @@ describe('relay — delivery_tracking (happy path)', () => {
     expect(row?.dlqAt).toBeNull();
     expect(row?.lastError).toBeNull();
   });
+
+  it('increments attempt_count per retry and retains last_error after eventual success', async () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    const kafka = createInMemoryKafkaProducer();
+    const relay = createRelay({
+      store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+    });
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+    kafka.failNext(2, new Error('transient broker hiccup'));
+
+    relay.start();
+    expect(await waitUntil(() => kafka.sent.length >= 1)).toBe(true);
+    await relay.stop();
+
+    const row = store.readDeliveryAttempt('a');
+    expect(row?.attemptCount).toBe(3);
+    expect(row?.deliveredAt).not.toBeNull();
+    expect(row?.dlqAt).toBeNull();
+    expect(row?.lastError).toBe('transient broker hiccup');
+  });
 });
