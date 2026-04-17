@@ -7,7 +7,7 @@ import {
   type QsmError,
 } from '../types/result.js';
 
-const RELATION_KEY_RE = /^[A-Z][A-Za-z0-9]*\.[a-zA-Z][a-zA-Z0-9]*$/;
+const RELATION_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function validateStructural(
   artifact: QsmArtifact,

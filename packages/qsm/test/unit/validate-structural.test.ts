@@ -168,6 +168,34 @@ describe('validateStructural', () => {
     }
   });
 
+  it('accepts snake_case projection name in relation key (e.g. project_mirror.lead)', () => {
+    const r = parseAndStructural({
+      projections: {
+        project_mirror: {
+          source: { entity: 'Project' },
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['id', 'lead'],
+        },
+      },
+      relations: {
+        'project_mirror.lead': { to: 'UserView', localKey: 'leadId', foreignKey: 'id', cardinality: 'one' },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects a malformed relation key with a digit-leading segment (e.g. 1bad.name)', () => {
+    const r = parseAndStructural({
+      projections: {},
+      relations: { '1bad.name': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one' } },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_RELATION_KEY_MALFORMED)).toBe(true);
+    }
+  });
+
   it('aggregates multiple structural errors across projections', () => {
     const r = parseAndStructural({
       projections: {

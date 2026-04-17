@@ -30,13 +30,27 @@ describe('validateStructural — relations', () => {
     }
   });
 
-  it('flags lowercase-start ProjectionName in key', () => {
+  it('accepts lowercase-start projection name in key (snake_case projections are valid)', () => {
+    // RELATION_KEY_RE was relaxed to allow snake_case projection names such as
+    // issue_view, project_mirror, etc. — lowercase-start is therefore permitted.
+    const r = validateStructural({
+      projections: {
+        issue_view: { source: { entity: 'Issue' }, keys: ['id'], grain: ['id'], exposed: ['id'] },
+      },
+      relations: {
+        'issue_view.project': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one' },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('flags digit-leading segment in relation key', () => {
     const r = validateStructural({
       projections: {
         IssueView: { source: { entity: 'Issue' }, keys: ['id'], grain: ['id'], exposed: ['id'] },
       },
       relations: {
-        'issueView.project': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one' },
+        '1issueView.project': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one' },
       },
     });
     expect(r.ok).toBe(false);
