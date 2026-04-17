@@ -53,16 +53,16 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
   it('three always-failing events each DLQ after maxAttempts; cursor advances past all three', async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-poison-'));
     const dbPath = join(tmpDir, 'events.db');
-    store = new SqliteEventStore({ filename: dbPath });
+    store = new SqliteEventStore({ filename: dbPath, serviceName: 'test-service' });
 
     const kafka = makePoisonProducer(new Error('broker-side schema violation'));
 
     store.appendEvents([makeRequest('Issue-1', [
-      makeEvent({ eventId: 'a', aggregateId: '1' }),
-      makeEvent({ eventId: 'b', aggregateId: '1' }),
+      makeEvent({ id: 'a', rntAggregateId: '1' }),
+      makeEvent({ id: 'b', rntAggregateId: '1' }),
     ])]);
     store.appendEvents([makeRequest('Issue-2', [
-      makeEvent({ eventId: 'c', aggregateId: '2' }),
+      makeEvent({ id: 'c', rntAggregateId: '2' }),
     ])]);
 
     const relay = createRelay({
@@ -105,13 +105,13 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
   it('attempt_count persists across relay restart: poison event DLQ after exactly maxAttempts total attempts', async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-restart-'));
     const dbPath = join(tmpDir, 'events.db');
-    store = new SqliteEventStore({ filename: dbPath });
+    store = new SqliteEventStore({ filename: dbPath, serviceName: 'test-service' });
 
     const kafka = createInMemoryKafkaProducer();
     kafka.failNext(10, new Error('broker unreachable'));
 
     store.appendEvents([makeRequest('Issue-1', [
-      makeEvent({ eventId: 'a', aggregateId: '1' }),
+      makeEvent({ id: 'a', rntAggregateId: '1' }),
     ])]);
 
     const relay1 = createRelay({
@@ -160,7 +160,7 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
   it('DLQ persistently down: relay stays alive (no zombie state), stop() returns cleanly, dlq_at not marked, cursor not advanced', async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-dlq-down-'));
     const dbPath = join(tmpDir, 'events.db');
-    store = new SqliteEventStore({ filename: dbPath });
+    store = new SqliteEventStore({ filename: dbPath, serviceName: 'test-service' });
 
     // Both primary AND DLQ topics permanently fail. Per spec §D-DLQ-RETRY,
     // the relay must keep retrying the DLQ send forever rather than zombify.
@@ -178,7 +178,7 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
     };
 
     store.appendEvents([makeRequest('Issue-1', [
-      makeEvent({ eventId: 'a', aggregateId: '1' }),
+      makeEvent({ id: 'a', rntAggregateId: '1' }),
     ])]);
 
     const relay = createRelay({
@@ -227,7 +227,7 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
   it('start() after stop() resumes cleanly when DLQ recovers', async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-dlq-recover-'));
     const dbPath = join(tmpDir, 'events.db');
-    store = new SqliteEventStore({ filename: dbPath });
+    store = new SqliteEventStore({ filename: dbPath, serviceName: 'test-service' });
 
     let dlqShouldFail = true;
     const sent: KafkaMessage[] = [];
@@ -244,7 +244,7 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
     };
 
     store.appendEvents([makeRequest('Issue-1', [
-      makeEvent({ eventId: 'a', aggregateId: '1' }),
+      makeEvent({ id: 'a', rntAggregateId: '1' }),
     ])]);
 
     const relay1 = createRelay({

@@ -7,14 +7,14 @@ afterEach(() => { store?.close(); store = null; });
 describe('SqliteEventStore — delivery tracking', () => {
   describe('readDeliveryAttempt', () => {
     it('returns null when no row exists for eventId', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       expect(store.readDeliveryAttempt('nope')).toBeNull();
     });
   });
 
   describe('recordDeliveryAttempt', () => {
     it('creates a new row with attempt_count=1 and both timestamps set to nowIso', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
 
       const row = store.readDeliveryAttempt('ev-1');
@@ -30,7 +30,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('increments attempt_count and updates last_attempt_at on subsequent calls; first_attempt_at is preserved', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:05.000Z');
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:10.000Z');
@@ -44,7 +44,7 @@ describe('SqliteEventStore — delivery tracking', () => {
 
   describe('updateLastError', () => {
     it('sets last_error when given a non-null string', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
       store.updateLastError('ev-1', 'connection refused');
 
@@ -52,7 +52,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('clears last_error when given null', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
       store.updateLastError('ev-1', 'boom');
       store.updateLastError('ev-1', null);
@@ -61,7 +61,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('does nothing when the row does not exist (no row creation, no throw)', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       expect(() => store!.updateLastError('ghost', 'x')).not.toThrow();
       expect(store.readDeliveryAttempt('ghost')).toBeNull();
     });
@@ -69,7 +69,7 @@ describe('SqliteEventStore — delivery tracking', () => {
 
   describe('markDelivered / markDlq', () => {
     it('markDelivered sets delivered_at without touching dlq_at', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
       store.markDelivered('ev-1', '2026-04-17T10:00:03.000Z');
 
@@ -79,7 +79,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('markDlq sets dlq_at without touching delivered_at', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
       store.markDlq('ev-1', '2026-04-17T10:00:03.000Z');
 
@@ -89,7 +89,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('markDelivered throws when no delivery_tracking row exists', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       expect(() => store!.markDelivered('ghost', '2026-04-17T10:00:00.000Z')).toThrow(
         /markDelivered failed: no delivery_tracking row exists for eventId="ghost"/,
       );
@@ -97,7 +97,7 @@ describe('SqliteEventStore — delivery tracking', () => {
     });
 
     it('markDlq throws when no delivery_tracking row exists', () => {
-      store = new SqliteEventStore({ filename: ':memory:' });
+      store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
       expect(() => store!.markDlq('ghost', '2026-04-17T10:00:00.000Z')).toThrow(
         /markDlq failed: no delivery_tracking row exists for eventId="ghost"/,
       );

@@ -12,6 +12,10 @@ async function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function newStore(): SqliteEventStore {
+  return new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+}
+
 describe('defaultTopicOf', () => {
   it('returns rntme.<lower>.v1 for a PascalCase aggregate type', () => {
     expect(defaultTopicOf('Issue')).toBe('rntme.issue.v1');
@@ -21,7 +25,7 @@ describe('defaultTopicOf', () => {
 
 describe('createRelay', () => {
   it('publishes all events in event_log in id order and advances publish_cursor', async () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
+    store = newStore();
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store,
@@ -33,11 +37,11 @@ describe('createRelay', () => {
 
     store.appendEvents([
       makeRequest('Issue-1', [
-        makeEvent({ eventId: 'a', aggregateId: '1' }),
-        makeEvent({ eventId: 'b', aggregateId: '1' }),
+        makeEvent({ id: 'a', rntAggregateId: '1' }),
+        makeEvent({ id: 'b', rntAggregateId: '1' }),
       ]),
       makeRequest('Issue-2', [
-        makeEvent({ eventId: 'c', aggregateId: '2' }),
+        makeEvent({ id: 'c', rntAggregateId: '2' }),
       ]),
     ]);
 
@@ -53,11 +57,11 @@ describe('createRelay', () => {
     expect(kafka.sent.map((m) => m.topic)).toEqual([
       'rntme.issue.v1', 'rntme.issue.v1', 'rntme.issue.v1',
     ]);
-    const values = kafka.sent.map((m) => JSON.parse(m.value) as { eventId: string; version: number });
-    expect(values.map((v) => v.eventId)).toEqual(['a', 'b', 'c']);
-    expect(values[0]!.version).toBe(1);
-    expect(values[1]!.version).toBe(2);
-    expect(values[2]!.version).toBe(1);
+    const values = kafka.sent.map((m) => JSON.parse(m.value) as { id: string; rntVersion: number });
+    expect(values.map((v) => v.id)).toEqual(['a', 'b', 'c']);
+    expect(values[0]!.rntVersion).toBe(1);
+    expect(values[1]!.rntVersion).toBe(2);
+    expect(values[2]!.rntVersion).toBe(1);
 
     // Cursor advanced beyond the last id
     const cursor = store.readCursor('kafka-main');
@@ -65,13 +69,13 @@ describe('createRelay', () => {
   });
 
   it('sends event-id, event-type, schema-version as Kafka headers', async () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
+    store = newStore();
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
     });
     store.appendEvents([makeRequest('Issue-1', [
-      makeEvent({ eventId: 'a', eventType: 'IssueReport', schemaVersion: 1 }),
+      makeEvent({ id: 'a', eventType: 'IssueReport', rntSchemaVersion: 1 }),
     ])]);
     relay.start();
     const deadline = Date.now() + 1000;
@@ -85,13 +89,13 @@ describe('createRelay', () => {
   });
 
   it('retries after a transient Kafka failure (at-least-once, cursor only advances on success)', async () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
+    store = newStore();
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
     });
 
-    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
 
     // First send() will fail; relay should retry and eventually publish.
     kafka.failNext(1, new Error('kafka transient'));
@@ -106,7 +110,7 @@ describe('createRelay', () => {
   });
 
   it('stop() resolves and prevents further publication', async () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
+    store = newStore();
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
@@ -114,7 +118,7 @@ describe('createRelay', () => {
     relay.start();
     await relay.stop();
 
-    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
     await wait(30);
     expect(kafka.sent).toEqual([]);
   });

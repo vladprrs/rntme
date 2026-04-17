@@ -22,13 +22,14 @@ export type {
   ReadFromOptions,
   EventRecord,
   DeliveryAttemptRow,
+  AppendRawOptions,
 } from './store/interface.js';
 export {
   SqliteEventStore,
   mapSqliteError,
 } from './store/sqlite.js';
 export type { SqliteEventStoreOptions } from './store/sqlite.js';
-export { applyEventStoreSchema } from './store/schema.js';
+export { applyEventStoreSchema, assertSchemaD9Compatible } from './store/schema.js';
 export { rowToEnvelope } from './store/row-mapper.js';
 export type { EventLogRow } from './store/row-mapper.js';
 

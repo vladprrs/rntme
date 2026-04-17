@@ -3,7 +3,7 @@ import type { ActorRef } from '../types/actor.js';
 
 export type EventLogRow = Readonly<{
   id: number;
-  stream: string;
+  subject: string;
   aggregate_type: string;
   aggregate_id: string;
   version: number;
@@ -14,27 +14,41 @@ export type EventLogRow = Readonly<{
   occurred_at: string;
   payload_json: string;
   schema_version: number;
+  correlation_id: string;
+  causation_id: string | null;
+  command_id: string | null;
+  traceparent: string | null;
 }>;
 
-export function rowToEnvelope(row: EventLogRow): EventEnvelope {
+export function rowToEnvelope(row: EventLogRow, serviceName: string): EventEnvelope {
+  const source = `rntme://${serviceName}/${row.aggregate_type}`;
+  const type = `${serviceName}.${row.aggregate_type}.${row.event_type}`;
+  const dataSchema = `rntme://schemas/${serviceName}/${row.event_type}.v${row.schema_version}.json`;
+  const actorKind = toActorKind(row.actor_kind);
   return {
-    eventId: row.event_id,
+    id: row.event_id,
+    source,
     eventType: row.event_type,
-    aggregateType: row.aggregate_type,
-    aggregateId: row.aggregate_id,
-    stream: row.stream,
-    version: row.version,
-    occurredAt: row.occurred_at,
-    actor: toActor(row.actor_kind, row.actor_id),
-    payload: JSON.parse(row.payload_json) as unknown,
-    schemaVersion: row.schema_version,
+    type,
+    time: row.occurred_at,
+    subject: row.subject,
+    dataContentType: 'application/json',
+    dataSchema,
+    data: JSON.parse(row.payload_json) as unknown,
+    correlationId: row.correlation_id,
+    causationId: row.causation_id,
+    commandId: row.command_id,
+    rntAggregateType: row.aggregate_type,
+    rntAggregateId: row.aggregate_id,
+    rntVersion: row.version,
+    rntSchemaVersion: row.schema_version,
+    rntActorKind: actorKind,
+    rntActorId: actorKind === null ? null : row.actor_id,
+    traceparent: row.traceparent,
   };
 }
 
-function toActor(kind: string | null, id: string | null): ActorRef | null {
-  if (kind === null || id === null) return null;
-  if (kind === 'user' || kind === 'system' || kind === 'service') {
-    return { kind, id };
-  }
+function toActorKind(kind: string | null): ActorRef['kind'] | null {
+  if (kind === 'user' || kind === 'system' || kind === 'service') return kind;
   return null;
 }

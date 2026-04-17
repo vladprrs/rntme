@@ -10,19 +10,25 @@ import type {
   EventStore,
   ReadFromOptions,
 } from './interface.js';
-import { applyEventStoreSchema } from './schema.js';
+import { applyEventStoreSchema, assertSchemaD9Compatible } from './schema.js';
 import { rowToEnvelope, type EventLogRow } from './row-mapper.js';
 
 export type SqliteEventStoreOptions = Readonly<{
   filename: string;
+  serviceName: string;
   applySchema?: boolean;
   busyTimeoutMs?: number;
 }>;
 
 export class SqliteEventStore implements EventStore {
   private readonly db: BetterSqliteDatabase;
+  private readonly serviceName: string;
 
   constructor(options: SqliteEventStoreOptions) {
+    if (!options.serviceName || options.serviceName.length === 0) {
+      throw new Error('SqliteEventStore: serviceName is required');
+    }
+    this.serviceName = options.serviceName;
     this.db = new Database(options.filename);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma(`busy_timeout = ${options.busyTimeoutMs ?? 5000}`);
@@ -30,6 +36,7 @@ export class SqliteEventStore implements EventStore {
     if (options.applySchema !== false) {
       applyEventStoreSchema(this.db);
     }
+    assertSchemaD9Compatible(this.db);
   }
 
   close(): void {
@@ -43,54 +50,60 @@ export class SqliteEventStore implements EventStore {
 
   appendEvents(requests: readonly AppendRequest[]): AppendResult[] {
     const selectMax = this.db.prepare(
-      'SELECT COALESCE(MAX(version), 0) AS v FROM event_log WHERE stream = ?',
+      'SELECT COALESCE(MAX(version), 0) AS v FROM event_log WHERE subject = ?',
     );
     const insert = this.db.prepare(`
       INSERT INTO event_log
-        (stream, aggregate_type, aggregate_id, version, event_type, event_id,
-         actor_kind, actor_id, occurred_at, payload_json, schema_version)
+        (subject, aggregate_type, aggregate_id, version, event_type, event_id,
+         actor_kind, actor_id, occurred_at, payload_json, schema_version,
+         correlation_id, causation_id, command_id, traceparent)
       VALUES
-        (@stream, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
-         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version)
+        (@subject, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
+         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version,
+         @correlation_id, @causation_id, @command_id, @traceparent)
     `);
 
     const run = this.db.transaction((reqs: readonly AppendRequest[]): AppendResult[] => {
       const out: AppendResult[] = [];
       for (const req of reqs) {
-        const { v: current } = selectMax.get(req.stream) as { v: number };
+        const { v: current } = selectMax.get(req.subject) as { v: number };
         if (req.expectedVersion !== undefined && req.expectedVersion !== current) {
-          throw new ConcurrencyConflict(req.stream, req.expectedVersion, current);
+          throw new ConcurrencyConflict(req.subject, req.expectedVersion, current);
         }
-        const appended: { eventId: string; version: number; id: number }[] = [];
+        const appended: { id: string; version: number; rowId: number }[] = [];
         for (let i = 0; i < req.events.length; i++) {
           const e = req.events[i]!;
           const version = current + i + 1;
           let info: Database.RunResult;
           try {
             info = insert.run({
-              stream: req.stream,
-              aggregate_type: e.aggregateType,
-              aggregate_id: e.aggregateId,
+              subject: req.subject,
+              aggregate_type: e.rntAggregateType,
+              aggregate_id: e.rntAggregateId,
               version,
               event_type: e.eventType,
-              event_id: e.eventId,
+              event_id: e.id,
               actor_kind: e.actor?.kind ?? null,
               actor_id: e.actor?.id ?? null,
-              occurred_at: e.occurredAt,
-              payload_json: JSON.stringify(e.payload),
-              schema_version: e.schemaVersion,
+              occurred_at: e.time,
+              payload_json: JSON.stringify(e.data),
+              schema_version: e.rntSchemaVersion,
+              correlation_id: e.correlationId,
+              causation_id: e.causationId,
+              command_id: e.commandId,
+              traceparent: e.traceparent,
             });
           } catch (err) {
-            throw mapSqliteError(err, req.stream, req.expectedVersion, version, e.eventId);
+            throw mapSqliteError(err, req.subject, req.expectedVersion, version, e.id);
           }
           appended.push({
-            eventId: e.eventId,
+            id: e.id,
             version,
-            id: Number(info.lastInsertRowid),
+            rowId: Number(info.lastInsertRowid),
           });
         }
         out.push({
-          stream: req.stream,
+          subject: req.subject,
           lastVersion: current + req.events.length,
           appendedEvents: appended,
         });
@@ -104,28 +117,34 @@ export class SqliteEventStore implements EventStore {
   appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void {
     const insert = this.db.prepare(`
       INSERT INTO event_log
-        (stream, aggregate_type, aggregate_id, version, event_type, event_id,
-         actor_kind, actor_id, occurred_at, payload_json, schema_version)
+        (subject, aggregate_type, aggregate_id, version, event_type, event_id,
+         actor_kind, actor_id, occurred_at, payload_json, schema_version,
+         correlation_id, causation_id, command_id, traceparent)
       VALUES
-        (@stream, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
-         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version)
+        (@subject, @aggregate_type, @aggregate_id, @version, @event_type, @event_id,
+         @actor_kind, @actor_id, @occurred_at, @payload_json, @schema_version,
+         @correlation_id, @causation_id, @command_id, @traceparent)
     `);
 
     const run = this.db.transaction((items: readonly EventEnvelope[]): void => {
       for (const e of items) {
         try {
           insert.run({
-            stream: e.stream,
-            aggregate_type: e.aggregateType,
-            aggregate_id: e.aggregateId,
-            version: e.version,
+            subject: e.subject,
+            aggregate_type: e.rntAggregateType,
+            aggregate_id: e.rntAggregateId,
+            version: e.rntVersion,
             event_type: e.eventType,
-            event_id: e.eventId,
-            actor_kind: e.actor?.kind ?? null,
-            actor_id: e.actor?.id ?? null,
-            occurred_at: e.occurredAt,
-            payload_json: JSON.stringify(e.payload),
-            schema_version: e.schemaVersion,
+            event_id: e.id,
+            actor_kind: e.rntActorKind,
+            actor_id: e.rntActorId,
+            occurred_at: e.time,
+            payload_json: JSON.stringify(e.data),
+            schema_version: e.rntSchemaVersion,
+            correlation_id: e.correlationId,
+            causation_id: e.causationId,
+            command_id: e.commandId,
+            traceparent: e.traceparent,
           });
         } catch (err) {
           const code = (err as Error & { code?: string }).code ?? '';
@@ -137,7 +156,7 @@ export class SqliteEventStore implements EventStore {
           ) {
             continue;
           }
-          throw mapSqliteError(err, e.stream, undefined, e.version, e.eventId);
+          throw mapSqliteError(err, e.subject, undefined, e.rntVersion, e.id);
         }
       }
     });
@@ -145,23 +164,23 @@ export class SqliteEventStore implements EventStore {
     run.immediate(envelopes);
   }
 
-  readStream(stream: string): EventEnvelope[] {
+  readStream(subject: string): EventEnvelope[] {
     const rows = this.db
-      .prepare('SELECT * FROM event_log WHERE stream = ? ORDER BY version ASC')
-      .all(stream) as EventLogRow[];
-    return rows.map(rowToEnvelope);
+      .prepare('SELECT * FROM event_log WHERE subject = ? ORDER BY version ASC')
+      .all(subject) as EventLogRow[];
+    return rows.map((r) => rowToEnvelope(r, this.serviceName));
   }
   readFrom(opts: ReadFromOptions): EventEnvelope[] {
     const rows = this.db
       .prepare('SELECT * FROM event_log WHERE id > ? ORDER BY id ASC LIMIT ?')
       .all(opts.afterId, opts.limit) as EventLogRow[];
-    return rows.map(rowToEnvelope);
+    return rows.map((r) => rowToEnvelope(r, this.serviceName));
   }
   readRecordsFrom(opts: ReadFromOptions): EventRecord[] {
     const rows = this.db
       .prepare('SELECT * FROM event_log WHERE id > ? ORDER BY id ASC LIMIT ?')
       .all(opts.afterId, opts.limit) as EventLogRow[];
-    return rows.map((row) => ({ id: row.id, envelope: rowToEnvelope(row) }));
+    return rows.map((row) => ({ id: row.id, envelope: rowToEnvelope(row, this.serviceName) }));
   }
   readCursor(relayId: string): number {
     const row = this.db
@@ -259,7 +278,7 @@ export class SqliteEventStore implements EventStore {
 
 export function mapSqliteError(
   err: unknown,
-  stream: string,
+  subject: string,
   expectedVersion: number | undefined,
   attemptedVersion: number,
   eventId?: string,
@@ -271,8 +290,8 @@ export function mapSqliteError(
     if (/event_id/.test(msg)) {
       return new DuplicateEventId(eventId ?? '<unknown>');
     }
-    if (/stream.*version|version.*stream/.test(msg)) {
-      return new ConcurrencyConflict(stream, expectedVersion, attemptedVersion);
+    if (/subject.*version|version.*subject/.test(msg)) {
+      return new ConcurrencyConflict(subject, expectedVersion, attemptedVersion);
     }
   }
   return err;

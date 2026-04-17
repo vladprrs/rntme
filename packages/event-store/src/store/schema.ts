@@ -3,7 +3,7 @@ import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 const DDL = `
 CREATE TABLE IF NOT EXISTS event_log (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  stream          TEXT    NOT NULL,
+  subject         TEXT    NOT NULL,
   aggregate_type  TEXT    NOT NULL,
   aggregate_id    TEXT    NOT NULL,
   version         INTEGER NOT NULL,
@@ -14,11 +14,18 @@ CREATE TABLE IF NOT EXISTS event_log (
   occurred_at     TEXT    NOT NULL,
   payload_json    TEXT    NOT NULL,
   schema_version  INTEGER NOT NULL DEFAULT 1,
-  UNIQUE (stream, version)
+  correlation_id  TEXT    NOT NULL,
+  causation_id    TEXT,
+  command_id      TEXT,
+  traceparent     TEXT,
+  UNIQUE (subject, version)
 );
 
-CREATE INDEX IF NOT EXISTS idx_event_log_stream       ON event_log(stream, version);
+CREATE INDEX IF NOT EXISTS idx_event_log_subject      ON event_log(subject, version);
 CREATE INDEX IF NOT EXISTS idx_event_log_undelivered  ON event_log(id);
+CREATE INDEX IF NOT EXISTS idx_event_log_correlation  ON event_log(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_causation    ON event_log(causation_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_command      ON event_log(command_id);
 
 CREATE TABLE IF NOT EXISTS publish_cursor (
   relay_id        TEXT PRIMARY KEY,
@@ -39,4 +46,23 @@ CREATE TABLE IF NOT EXISTS delivery_tracking (
 
 export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
   db.exec(DDL);
+}
+
+/**
+ * Guards against running a post-D9 build against a pre-D9 event_log schema.
+ * If the table exists but is missing any of the required D9 columns, throws
+ * with error message starting `EVENT_STORE_SCHEMA_INCOMPATIBLE`. If the table
+ * does not exist yet, this is a no-op (applyEventStoreSchema will create it).
+ */
+export function assertSchemaD9Compatible(db: BetterSqliteDatabase): void {
+  const cols = db.prepare("PRAGMA table_info(event_log)").all() as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  const required = ['subject', 'correlation_id', 'causation_id', 'command_id', 'traceparent'];
+  const missing = required.filter((n) => !names.has(n));
+  if (missing.length > 0 && cols.length > 0) {
+    throw new Error(
+      `EVENT_STORE_SCHEMA_INCOMPATIBLE: event_log missing columns [${missing.join(', ')}]. ` +
+      `This build is post-D9; drop the sqlite file and re-run with a fresh database.`,
+    );
+  }
 }

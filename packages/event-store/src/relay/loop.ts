@@ -47,7 +47,7 @@ export function createRelay(opts: RelayOptions): Relay {
   const onDlqErr = opts.onDlqError ?? ((err, envelope, attempt) => {
     // eslint-disable-next-line no-console
     console.error(
-      `[relay] DLQ send failed for ${envelope.eventId} (attempt ${attempt}), will retry:`,
+      `[relay] DLQ send failed for ${envelope.id} (attempt ${attempt}), will retry:`,
       err,
     );
   });
@@ -70,13 +70,13 @@ export function createRelay(opts: RelayOptions): Relay {
       let highestDeliveredId = cursor;
       for (const rec of records) {
         if (!running) break;
-        const eventId = rec.envelope.eventId;
+        const eventId = rec.envelope.id;
         const existing = opts.store.readDeliveryAttempt(eventId);
         if (existing && (existing.deliveredAt !== null || existing.dlqAt !== null)) {
           highestDeliveredId = rec.id;
           continue;
         }
-        const primaryTopic = topicOf(rec.envelope.aggregateType);
+        const primaryTopic = topicOf(rec.envelope.rntAggregateType);
 
         // Short-circuit on restart: if attemptCount already reached the cap
         // (relay crashed mid-DLQ-emit, leaving counter == maxAttempts and dlq_at NULL),
@@ -108,11 +108,11 @@ export function createRelay(opts: RelayOptions): Relay {
           try {
             await opts.kafka.send({
               topic: primaryTopic,
-              key: rec.envelope.stream,
+              key: rec.envelope.subject,
               headers: {
-                'event-id': rec.envelope.eventId,
+                'event-id': rec.envelope.id,
                 'event-type': rec.envelope.eventType,
-                'schema-version': String(rec.envelope.schemaVersion),
+                'schema-version': String(rec.envelope.rntSchemaVersion),
               },
               value: JSON.stringify(rec.envelope),
             });
@@ -211,11 +211,11 @@ async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
     try {
       await o.kafka.send({
         topic: `${o.primaryTopic}.dlq`,
-        key: o.rec.envelope.stream,
+        key: o.rec.envelope.subject,
         headers: {
-          'event-id': o.rec.envelope.eventId,
+          'event-id': o.rec.envelope.id,
           'event-type': o.rec.envelope.eventType,
-          'schema-version': String(o.rec.envelope.schemaVersion),
+          'schema-version': String(o.rec.envelope.rntSchemaVersion),
           'x-dlq-reason': 'max-attempts-exceeded',
           'x-dlq-attempts': String(o.attempts),
           'x-dlq-first-attempt-at': o.firstAttemptAt,
