@@ -52,8 +52,12 @@ export function createRelay(opts: RelayOptions): Relay {
       let highestDeliveredId = cursor;
       for (const rec of records) {
         if (!running) break;
+        const eventId = rec.envelope.eventId;
+        let attempts = 0;
         let backoff = 10;
-        while (true) {
+        while (running) {
+          attempts += 1;
+          opts.store.recordDeliveryAttempt(eventId, new Date().toISOString());
           try {
             await opts.kafka.send({
               topic: topicOf(rec.envelope.aggregateType),
@@ -65,9 +69,10 @@ export function createRelay(opts: RelayOptions): Relay {
               },
               value: JSON.stringify(rec.envelope),
             });
+            opts.store.markDelivered(eventId, new Date().toISOString());
             break;
           } catch (err) {
-            onErr(err, rec.envelope, 1);
+            onErr(err, rec.envelope, attempts);
             await sleep(backoff);
             backoff = Math.min(backoff * 2, maxBackoff);
             if (!running) return;
