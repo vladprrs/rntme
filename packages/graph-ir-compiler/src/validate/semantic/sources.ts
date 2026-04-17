@@ -104,6 +104,103 @@ export type ResolvedSource = EntitySource | ProjectionSource;
 
 export type SourceMap = Map<string, ResolvedSource>;
 
+/**
+ * Semantic validator: walks every dot-nav path (>= 3 parts) against QSM.relations and emits
+ * NAV_NOT_ALLOWED (relation key missing) or NAV_FAN_OUT_NOT_ALLOWED (cardinality "many").
+ *
+ * Complements checkNavProjectionRequired: that check handles "no entity-mirror exists for the
+ * scan's entity"; this check handles "mirror exists but a hop in the path is missing/fan-out".
+ * Aliases that have no entity-mirror projection are skipped here to avoid double-reporting.
+ */
+export function checkNavRelations(
+  graph: CanonicalGraph,
+  qsm: ValidatedQsm,
+  sources: SourceMap,
+): GraphIrError[] {
+  const qsmResolver = createQsmResolver(qsm);
+
+  // Build alias → starting-projection-name map for aliases that HAVE an entity-mirror projection.
+  // Aliases without a mirror are filtered out (checkNavProjectionRequired handles those).
+  const aliasToStartProj = new Map<string, string>();
+  for (const src of sources.values()) {
+    if (src.kind === 'entity') {
+      const mirror = qsmResolver.findEntityMirror(src.entity);
+      if (mirror) {
+        aliasToStartProj.set(src.alias, mirror.name);
+      }
+      // If no mirror: skip (checkNavProjectionRequired already handles this case)
+    } else {
+      // kind === 'projection': projection name is already known
+      aliasToStartProj.set(src.alias, src.projection);
+    }
+  }
+
+  if (aliasToStartProj.size === 0) return [];
+
+  const errors: GraphIrError[] = [];
+
+  for (const node of graph.nodes) {
+    // Collect dot-nav paths from all relevant node kinds (same set as checkNavProjectionRequired)
+    let paths: string[] = [];
+    if (node.kind === 'map') {
+      paths = collectDotNavPaths(node.fields);
+    } else if (node.kind === 'filter') {
+      paths = collectDotNavPaths(node.expr);
+    } else if (node.kind === 'sort') {
+      paths = collectDotNavPaths(node.by);
+    } else if (node.kind === 'reduce') {
+      paths = collectDotNavPaths(node.group);
+      paths = paths.concat(collectDotNavPaths(node.measures));
+    }
+
+    for (const path of paths) {
+      const parts = path.split('.');
+      const alias = parts[0]!;
+
+      const startProjName = aliasToStartProj.get(alias);
+      if (!startProjName) continue; // no entity-mirror for this alias — skip
+
+      // Walk hops: parts[1] .. parts[length-2] are relation hops; parts[last] is the field name.
+      // A path of length 3: [alias, relation, field] → one hop (parts[1]).
+      // A path of length 4: [alias, rel1, rel2, field] → two hops (parts[1], parts[2]).
+      let curProjName = startProjName;
+      let foundError = false;
+      for (let i = 1; i <= parts.length - 2; i++) {
+        const relName = parts[i]!;
+        const key = `${curProjName}.${relName}`;
+        const rel = qsm.relations[key];
+
+        if (!rel) {
+          errors.push({
+            layer: 'semantic',
+            code: ERROR_CODES.NAV_NOT_ALLOWED,
+            message: `relation "${key}" not declared in QSM.relations`,
+            location: { graphId: graph.id, nodeId: node.id, path },
+          });
+          foundError = true;
+          break;
+        }
+
+        if (rel.cardinality === 'many') {
+          errors.push({
+            layer: 'semantic',
+            code: ERROR_CODES.NAV_FAN_OUT_NOT_ALLOWED,
+            message: `relation "${key}" has cardinality "many"`,
+            location: { graphId: graph.id, nodeId: node.id, path },
+          });
+          foundError = true;
+          break;
+        }
+
+        curProjName = rel.to;
+      }
+      void foundError; // used to break early; no further action needed
+    }
+  }
+
+  return errors;
+}
+
 export function resolveSources(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: ValidatedQsm): Result<SourceMap> {
   const errors: GraphIrError[] = [];
   const map: SourceMap = new Map();

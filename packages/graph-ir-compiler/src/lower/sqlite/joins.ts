@@ -36,9 +36,13 @@ export function expandChain(
     const key = `${curProjName}.${relName}`;
     const rel: QsmRelation | undefined = qsm.relations[key];
     if (!rel) {
+      // Defensive: semantic validator (checkNavRelations) should have caught this.
+      // If we're here, lowerToSqlite was called without going through the semantic layer.
       throw new Error(`NAV_NOT_ALLOWED: relation "${key}" not declared in QSM.relations`);
     }
     if (rel.cardinality === 'many') {
+      // Defensive: semantic validator (checkNavRelations) should have caught this.
+      // If we're here, lowerToSqlite was called without going through the semantic layer.
       throw new Error(`NAV_FAN_OUT_NOT_ALLOWED: relation "${key}" has cardinality "many"`);
     }
 

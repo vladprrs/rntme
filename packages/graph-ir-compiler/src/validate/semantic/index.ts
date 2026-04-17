@@ -2,7 +2,7 @@ import type { CanonicalGraph } from '../../types/canonical.js';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
-import { resolveSources, checkNavProjectionRequired } from './sources.js';
+import { resolveSources, checkNavProjectionRequired, checkNavRelations } from './sources.js';
 import { checkMapShapeConformance } from './shape-conformance.js';
 import { checkReduce } from './aggregate-phase.js';
 import { checkParamContext } from './param-context.js';
@@ -70,6 +70,8 @@ export function validateSemantic(
   );
 
   errors.push(...checkNavProjectionRequired(graph, qsm, sourcesR.value));
+
+  errors.push(...checkNavRelations(graph, qsm, sourcesR.value));
 
   errors.push(...checkMapShapeConformance(graph, shapes, pdm, qsm, params, sourcesR.value));
 
