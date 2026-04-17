@@ -98,4 +98,59 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
     // Cursor has advanced past all three events (id 1, 2, 3 in insertion order).
     expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(3);
   });
+
+  it('attempt_count persists across relay restart: poison event DLQ after exactly maxAttempts total attempts', async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-restart-'));
+    const dbPath = join(tmpDir, 'events.db');
+    store = new SqliteEventStore({ filename: dbPath });
+
+    const kafka = createInMemoryKafkaProducer();
+    kafka.failNext(10, new Error('broker unreachable'));
+
+    store.appendEvents([makeRequest('Issue-1', [
+      makeEvent({ eventId: 'a', aggregateId: '1' }),
+    ])]);
+
+    const relay1 = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 10,
+      maxBackoffMs: 5,
+      onSendError: () => {},
+    });
+    relay1.start();
+    // Wait for attempt_count to reach at least 4 on the poison event.
+    expect(await waitUntil(
+      () => (store!.readDeliveryAttempt('a')?.attemptCount ?? 0) >= 4,
+      3000,
+    )).toBe(true);
+    await relay1.stop();
+
+    const midCount = store.readDeliveryAttempt('a')?.attemptCount ?? 0;
+    expect(midCount).toBeGreaterThanOrEqual(4);
+
+    const relay2 = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 10,
+      maxBackoffMs: 5,
+      onSendError: () => {},
+    });
+    relay2.start();
+    expect(await waitUntil(
+      () => kafka.sent.some((m) => m.topic.endsWith('.dlq')),
+      5000,
+    )).toBe(true);
+    await relay2.stop();
+
+    const row = store.readDeliveryAttempt('a');
+    // Counter continued from midCount; final must be exactly maxAttempts (10).
+    expect(row?.attemptCount).toBe(10);
+    expect(row?.dlqAt).not.toBeNull();
+    expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(1);
+  });
 });
