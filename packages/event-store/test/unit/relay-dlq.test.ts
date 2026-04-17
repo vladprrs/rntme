@@ -111,3 +111,43 @@ describe('relay — DLQ path', () => {
     expect(row?.lastError).toBe('schema violation at broker');
   });
 });
+
+describe('relay — defensive skip on terminal state', () => {
+  it('does not call kafka.send when delivery_tracking already has delivered_at set', async () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    const kafka = createInMemoryKafkaProducer();
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+
+    // Simulate a crash scenario: delivery_tracking terminal, cursor not advanced.
+    store.recordDeliveryAttempt('a', '2026-04-17T10:00:00.000Z');
+    store.markDelivered('a', '2026-04-17T10:00:01.000Z');
+
+    const relay = createRelay({
+      store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+    });
+    relay.start();
+    // Give the loop enough time to process; nothing should be sent, cursor should advance past 'a'.
+    expect(await waitUntil(() => store!.readCursor('kafka-main') >= 1, 1000)).toBe(true);
+    await relay.stop();
+
+    expect(kafka.sent).toHaveLength(0);
+  });
+
+  it('does not call kafka.send when delivery_tracking already has dlq_at set', async () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    const kafka = createInMemoryKafkaProducer();
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+
+    store.recordDeliveryAttempt('a', '2026-04-17T10:00:00.000Z');
+    store.markDlq('a', '2026-04-17T10:00:01.000Z');
+
+    const relay = createRelay({
+      store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+    });
+    relay.start();
+    expect(await waitUntil(() => store!.readCursor('kafka-main') >= 1, 1000)).toBe(true);
+    await relay.stop();
+
+    expect(kafka.sent).toHaveLength(0);
+  });
+});

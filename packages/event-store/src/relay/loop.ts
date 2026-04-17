@@ -52,8 +52,13 @@ export function createRelay(opts: RelayOptions): Relay {
       for (const rec of records) {
         if (!running) break;
         const eventId = rec.envelope.eventId;
+        const existing = opts.store.readDeliveryAttempt(eventId);
+        if (existing && (existing.deliveredAt !== null || existing.dlqAt !== null)) {
+          highestDeliveredId = rec.id;
+          continue;
+        }
         const primaryTopic = topicOf(rec.envelope.aggregateType);
-        let attempts = 0;
+        let attempts = existing?.attemptCount ?? 0;
         let backoff = 10;
         while (running) {
           attempts += 1;
