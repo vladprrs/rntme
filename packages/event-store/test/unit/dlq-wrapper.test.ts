@@ -18,10 +18,17 @@ async function waitForCondition(pred: () => boolean, timeoutMs = 3000): Promise<
   }
 }
 
+const TRACEPARENT = '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01';
+
 function makeStoreWithOneEvent(): { store: SqliteEventStore; originalEnv: EventEnvelope } {
   const s = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
   s.appendEvents([makeRequest('Issue-1', [
-    makeEvent({ id: 'orig-1', rntAggregateId: '1', correlationId: 'corr-xyz' }),
+    makeEvent({
+      id: 'orig-1',
+      rntAggregateId: '1',
+      correlationId: 'corr-xyz',
+      traceparent: TRACEPARENT,
+    }),
   ])]);
   const originalEnv = s.readStream('Issue-1')[0]!;
   return { store: s, originalEnv };
@@ -84,6 +91,8 @@ describe('relay wraps original event in EventDeliveryFailed on DLQ emit', () => 
     expect(decoded.rntSchemaVersion).toBe(1);
     expect(decoded.rntActorKind).toBe('system');
     expect(decoded.rntActorId).toBe('relay');
+    expect(decoded.traceparent).toBe(originalEnv.traceparent);
+    expect(decoded.traceparent).toBe('00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01');
 
     const payload = decoded.data as DlqPayload;
     expect(payload.failedEvent).toEqual(originalEnv);
