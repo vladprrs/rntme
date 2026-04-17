@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS publish_cursor (
   last_event_id   INTEGER NOT NULL,
   updated_at      TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS delivery_tracking (
+  event_id          TEXT PRIMARY KEY,
+  first_attempt_at  TEXT NOT NULL,
+  last_attempt_at   TEXT NOT NULL,
+  attempt_count     INTEGER NOT NULL,
+  last_error        TEXT,
+  delivered_at      TEXT,
+  dlq_at            TEXT
+);
 `;
 
 export function applyEventStoreSchema(db: BetterSqliteDatabase): void {

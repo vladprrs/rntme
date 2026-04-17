@@ -21,6 +21,7 @@ export type {
   EventStore,
   ReadFromOptions,
   EventRecord,
+  DeliveryAttemptRow,
 } from './store/interface.js';
 export {
   SqliteEventStore,

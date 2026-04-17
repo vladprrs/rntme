@@ -15,6 +15,16 @@ export type AppendRawOptions = Readonly<{
   ignoreDuplicates?: boolean;
 }>;
 
+export type DeliveryAttemptRow = Readonly<{
+  eventId: string;
+  firstAttemptAt: string;
+  lastAttemptAt: string;
+  attemptCount: number;
+  lastError: string | null;
+  deliveredAt: string | null;
+  dlqAt: string | null;
+}>;
+
 export interface EventStore {
   appendEvents(requests: readonly AppendRequest[]): AppendResult[];
   readStream(stream: string): EventEnvelope[];
@@ -22,5 +32,23 @@ export interface EventStore {
   readRecordsFrom(opts: ReadFromOptions): EventRecord[];
   readCursor(relayId: string): number;
   writeCursor(relayId: string, lastEventId: number): void;
+  /** Returns null when no attempt has been recorded for this event yet. */
+  readDeliveryAttempt(eventId: string): DeliveryAttemptRow | null;
+
+  /**
+   * UPSERT the tracking row. On first call for `eventId`, inserts with
+   * `attempt_count=1`, `first_attempt_at=nowIso`, `last_attempt_at=nowIso`.
+   * On subsequent calls, increments `attempt_count` and updates `last_attempt_at`.
+   */
+  recordDeliveryAttempt(eventId: string, nowIso: string): void;
+
+  /** Null clears the column; non-null string sets it (caller truncates). */
+  updateLastError(eventId: string, message: string | null): void;
+
+  /** Sets `delivered_at = nowIso`. Row must already exist (caller has recorded at least one attempt). */
+  markDelivered(eventId: string, nowIso: string): void;
+
+  /** Sets `dlq_at = nowIso`. Row must already exist. */
+  markDlq(eventId: string, nowIso: string): void;
   appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void;
 }
