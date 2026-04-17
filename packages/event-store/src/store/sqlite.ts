@@ -228,8 +228,10 @@ export class SqliteEventStore implements EventStore {
     `).run(eventId, nowIso, nowIso);
   }
 
-  updateLastError(_eventId: string, _message: string | null): void {
-    throw new Error('updateLastError: not implemented yet');
+  updateLastError(eventId: string, message: string | null): void {
+    this.db
+      .prepare('UPDATE delivery_tracking SET last_error = ? WHERE event_id = ?')
+      .run(message, eventId);
   }
 
   markDelivered(_eventId: string, _nowIso: string): void {

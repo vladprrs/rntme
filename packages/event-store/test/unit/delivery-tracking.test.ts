@@ -41,4 +41,29 @@ describe('SqliteEventStore — delivery tracking', () => {
       expect(row?.lastAttemptAt).toBe('2026-04-17T10:00:10.000Z');
     });
   });
+
+  describe('updateLastError', () => {
+    it('sets last_error when given a non-null string', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
+      store.updateLastError('ev-1', 'connection refused');
+
+      expect(store.readDeliveryAttempt('ev-1')?.lastError).toBe('connection refused');
+    });
+
+    it('clears last_error when given null', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
+      store.updateLastError('ev-1', 'boom');
+      store.updateLastError('ev-1', null);
+
+      expect(store.readDeliveryAttempt('ev-1')?.lastError).toBeNull();
+    });
+
+    it('does nothing when the row does not exist (no row creation, no throw)', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      expect(() => store!.updateLastError('ghost', 'x')).not.toThrow();
+      expect(store.readDeliveryAttempt('ghost')).toBeNull();
+    });
+  });
 });
