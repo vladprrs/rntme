@@ -19,7 +19,9 @@ const VALID = {
       exposed: ['id', 'title', 'status'],
     },
   },
-  relationRoles: { 'Issue.project': 'dimension' },
+  relations: {
+    'IssueView.project': { to: 'ProjMirror', localKey: 'projectId', foreignKey: 'id', cardinality: 'one' },
+  },
 };
 
 describe('validateStructural', () => {
@@ -155,14 +157,14 @@ describe('validateStructural', () => {
     }
   });
 
-  it('rejects relationRoles key not matching Entity.relation format', () => {
+  it('rejects relation key not matching ProjectionName.relationName format', () => {
     const r = parseAndStructural({
       projections: {},
-      relationRoles: { not_valid: 'fact' },
+      relations: { not_valid: { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one' } },
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_STRUCT_RELATION_ROLE_KEY_FORMAT)).toBe(true);
+      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_RELATION_KEY_MALFORMED)).toBe(true);
     }
   });
 

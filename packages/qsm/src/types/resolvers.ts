@@ -1,31 +1,29 @@
-import type { ProjectionBacking, RelationRole } from './artifact.js';
+import type { ProjectionBacking, ProjectionSource, RelationRole, Cardinality } from './artifact.js';
 
-export type ResolvedProjection = Readonly<{
+export type ResolvedProjection = {
   name: string;
-  backing: ProjectionBacking; // defaulted
-  table: string; // defaulted when unspecified
-  source: Readonly<{ entity: string; pathPrefix?: string }>;
+  backing: ProjectionBacking;
+  table: string;
+  source: ProjectionSource;
   keys: readonly string[];
   grain: readonly string[];
   exposed: readonly string[];
-}>;
+};
 
-export type ResolvedRelationRole = Readonly<{
-  entity: string;
-  relation: string;
-  role: RelationRole;
-}>;
+export type ResolvedRelation = {
+  sourceProjection: string;
+  relationName: string;
+  to: string;
+  localKey: string;
+  foreignKey: string;
+  cardinality: Cardinality;
+  role?: RelationRole;
+};
 
 export type QsmResolver = {
   listProjections(): readonly string[];
   resolveProjection(name: string): ResolvedProjection | null;
-  /**
-   * Entity-mirror lookup: returns the unique entity-mirror projection for
-   * `entityName`, or null if the entity has no mirror. Used by read-graph
-   * compilers to map `findMany.source.entity = "Issue"` → SELECT from
-   * `projection_issue`.
-   */
   findEntityMirror(entityName: string): ResolvedProjection | null;
-  listRelationRoles(): readonly ResolvedRelationRole[];
-  resolveRelationRole(entity: string, relation: string): RelationRole | null;
+  listRelations(): readonly ResolvedRelation[];
+  resolveRelation(sourceProjection: string, relationName: string): ResolvedRelation | null;
 };

@@ -12,6 +12,10 @@ coverage/
 .cache/
 *.tsbuildinfo
 
+# Core dumps
+core
+core.*
+
 # Local agent / editor config
 /.claude/
 /.cursor/

@@ -13,7 +13,7 @@ export function validateStructural(
   artifact: QsmArtifact,
 ): Result<StructurallyValidQsm> {
   const errors: QsmError[] = [];
-  const seenTables = new Map<string, string>(); // tableName → projection that first claimed it
+  const seenTables = new Map<string, string>();
 
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const pPath = `projections.${projName}`;
@@ -71,7 +71,6 @@ export function validateStructural(
       });
     }
 
-    // Resolved table — default `projection_${lowercase(projName)}`
     const table = proj.table ?? defaultTableName(projName);
     const existing = seenTables.get(table);
     if (existing !== undefined) {
@@ -86,13 +85,39 @@ export function validateStructural(
     }
   }
 
-  for (const key of Object.keys(artifact.relationRoles)) {
+  for (const [key, rel] of Object.entries(artifact.relations)) {
+    const rPath = `relations["${key}"]`;
     if (!RELATION_KEY_RE.test(key)) {
       errors.push({
         layer: 'structural',
-        code: ERROR_CODES.QSM_STRUCT_RELATION_ROLE_KEY_FORMAT,
-        message: `relationRoles key "${key}" must match Entity.relation (got "${key}")`,
-        path: `relationRoles.${key}`,
+        code: ERROR_CODES.QSM_RELATION_KEY_MALFORMED,
+        message: `relation key "${key}" must match "<ProjectionName>.<relationName>"`,
+        path: rPath,
+      });
+      continue; // further checks are meaningless if key malformed
+    }
+    if (!rel.to || rel.to.length === 0) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.QSM_RELATION_TO_MISSING,
+        message: `relation "${key}" missing "to"`,
+        path: `${rPath}.to`,
+      });
+    }
+    if (!rel.localKey || rel.localKey.length === 0) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.QSM_RELATION_KEY_MISSING,
+        message: `relation "${key}" missing "localKey"`,
+        path: `${rPath}.localKey`,
+      });
+    }
+    if (!rel.foreignKey || rel.foreignKey.length === 0) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.QSM_RELATION_KEY_MISSING,
+        message: `relation "${key}" missing "foreignKey"`,
+        path: `${rPath}.foreignKey`,
       });
     }
   }

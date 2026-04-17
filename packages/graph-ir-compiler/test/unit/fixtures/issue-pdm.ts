@@ -46,7 +46,7 @@ export const RAW_ISSUE_PDM = {
   },
 } as const;
 
-export const RAW_ISSUE_QSM_EMPTY = { projections: {}, relationRoles: {} } as const;
+export const RAW_ISSUE_QSM_EMPTY = { projections: {}, relations: {} } as const;
 
 function unwrapPdm() {
   const parsed = parsePdm(RAW_ISSUE_PDM);

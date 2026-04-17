@@ -59,6 +59,7 @@ describe('resolveSources', () => {
           table: 'projection_order_item',
         },
       },
+      relations: {},
     } as QsmArtifact);
     const { graphs } = normalize(good);
     const r = resolveSources(graphs.g!, P, qsm);
@@ -75,7 +76,7 @@ describe('resolveSources', () => {
   it('resolves entity source to PDM entity.table when no entity-mirror exists', () => {
     const qsm = validateQsmArtifact({
       projections: {},
-      relationRoles: {},
+      relations: {},
     } as QsmArtifact);
     const { graphs } = normalize(good);
     const r = resolveSources(graphs.g!, P, qsm);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RELATION_ROLE_VALUES } from '../types/artifact.js';
+import { CARDINALITY_VALUES, RELATION_ROLE_VALUES } from '../types/artifact.js';
 
 const nonEmptyString = z.string().min(1);
 
@@ -23,12 +23,23 @@ const projectionSchema = z
   })
   .strict();
 
-const relationRoleSchema = z.enum(RELATION_ROLE_VALUES);
+const cardinalitySchema = z.enum(CARDINALITY_VALUES);
+const roleSchema = z.enum(RELATION_ROLE_VALUES);
+
+const relationSchema = z
+  .object({
+    to: nonEmptyString,
+    localKey: nonEmptyString,
+    foreignKey: nonEmptyString,
+    cardinality: cardinalitySchema,
+    role: roleSchema.optional(),
+  })
+  .strict();
 
 export const QsmArtifactSchema = z
   .object({
     projections: z.record(nonEmptyString, projectionSchema).default({}),
-    relationRoles: z.record(nonEmptyString, relationRoleSchema).default({}),
+    relations: z.record(nonEmptyString, relationSchema).default({}),
   })
   .strict();
 

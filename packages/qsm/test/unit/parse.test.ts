@@ -13,8 +13,8 @@ const VALID_MINIMAL = {
       table: 'projection_issue',
     },
   },
-  relationRoles: {
-    'Issue.project': 'dimension',
+  relations: {
+    'IssueView.project': { to: 'ProjMirror', localKey: 'projectId', foreignKey: 'id', cardinality: 'one' },
   },
 };
 
@@ -41,12 +41,12 @@ describe('parseQsm', () => {
     }
   });
 
-  it('accepts empty projections/relationRoles via defaults', () => {
+  it('accepts empty projections/relations via defaults', () => {
     const r = parseQsm({});
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.value.projections).toEqual({});
-      expect(r.value.relationRoles).toEqual({});
+      expect(r.value.relations).toEqual({});
     }
   });
 
@@ -108,7 +108,7 @@ describe('parseQsm', () => {
   });
 
   it('rejects extra top-level keys', () => {
-    const r = parseQsm({ projections: {}, relationRoles: {}, extra: true });
+    const r = parseQsm({ projections: {}, relations: {}, extra: true });
     expect(r.ok).toBe(false);
   });
 
@@ -127,21 +127,40 @@ describe('parseQsm', () => {
     expect(r.ok).toBe(false);
   });
 
-  it('accepts relationRoles with both fact and dimension', () => {
+  it('accepts relations with cardinality one and many', () => {
     const r = parseQsm({
       projections: {},
-      relationRoles: {
-        'OrderItem.order': 'fact',
-        'OrderItem.product': 'dimension',
+      relations: {
+        'IssueView.project': { to: 'ProjView', localKey: 'projectId', foreignKey: 'id', cardinality: 'one' },
+        'IssueView.comments': { to: 'CommentView', localKey: 'id', foreignKey: 'issueId', cardinality: 'many' },
       },
     });
     expect(r.ok).toBe(true);
   });
 
-  it('rejects relationRoles with unknown value', () => {
+  it('accepts relations with optional role annotation', () => {
     const r = parseQsm({
       projections: {},
-      relationRoles: { 'Issue.project': 'measure' },
+      relations: {
+        'IssueView.project': { to: 'ProjView', localKey: 'projectId', foreignKey: 'id', cardinality: 'one', role: 'dimension' },
+        'IssueView.facts': { to: 'FactView', localKey: 'id', foreignKey: 'issueId', cardinality: 'many', role: 'fact' },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects relation with unknown cardinality value', () => {
+    const r = parseQsm({
+      projections: {},
+      relations: { 'IssueView.project': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'multiple' } },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects relation with unknown role value', () => {
+    const r = parseQsm({
+      projections: {},
+      relations: { 'IssueView.project': { to: 'X', localKey: 'a', foreignKey: 'b', cardinality: 'one', role: 'measure' } },
     });
     expect(r.ok).toBe(false);
   });

@@ -40,7 +40,6 @@ const QSM_ISSUE_MIRROR = {
       exposed: ['id', 'title', 'status'],
     },
   },
-  relationRoles: {},
 };
 
 describe('deriveProjectionHandler', () => {

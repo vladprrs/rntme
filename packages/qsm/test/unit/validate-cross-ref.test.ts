@@ -42,7 +42,6 @@ const VALID_MIRROR = {
       exposed: ['id', 'title', 'status', 'priority', 'storyPoints', 'assigneeId', 'reporterId', 'projectId', 'resolvedAt'],
     },
   },
-  relationRoles: { 'Issue.project': 'dimension' },
 };
 
 describe('validateCrossRef', () => {
@@ -240,25 +239,32 @@ describe('validateCrossRef', () => {
     }
   });
 
-  it('rejects relationRole on unknown entity', () => {
+  it('rejects relation referencing unknown source projection', () => {
     const r = runXref({
       projections: { IssueView: VALID_MIRROR.projections.IssueView },
-      relationRoles: { 'Unknown.project': 'dimension' },
+      relations: {
+        'UnknownProj.project': { to: 'IssueView', localKey: 'projectId', foreignKey: 'id', cardinality: 'one' },
+      },
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_XREF_RELATION_ROLE_UNKNOWN_ENTITY)).toBe(true);
+      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_XREF_RELATION_UNKNOWN_SOURCE_PROJECTION)).toBe(true);
     }
   });
 
-  it('rejects relationRole on unknown relation of known entity', () => {
+  it('rejects relation referencing PDM relation that does not exist', () => {
     const r = runXref({
-      projections: { IssueView: VALID_MIRROR.projections.IssueView },
-      relationRoles: { 'Issue.bogus': 'dimension' },
+      projections: {
+        IssueView: VALID_MIRROR.projections.IssueView,
+        IssueView2: { ...VALID_MIRROR.projections.IssueView, table: 'proj_issue2' },
+      },
+      relations: {
+        'IssueView.bogusRelation': { to: 'IssueView2', localKey: 'id', foreignKey: 'id', cardinality: 'one' },
+      },
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_XREF_RELATION_ROLE_UNKNOWN_RELATION)).toBe(true);
+      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_XREF_RELATION_NOT_IN_PDM)).toBe(true);
     }
   });
 

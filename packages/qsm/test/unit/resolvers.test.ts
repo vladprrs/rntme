@@ -28,6 +28,20 @@ function setup(qsmInput: unknown) {
   return createQsmResolver(qsm.value);
 }
 
+function setupWithCustomPdm(pdmData: unknown, qsmInput: unknown) {
+  const pdmRaw = parsePdm(pdmData);
+  if (!pdmRaw.ok) throw new Error('pdm parse: ' + JSON.stringify(pdmRaw.errors));
+  const pdm = validatePdm(pdmRaw.value);
+  if (!pdm.ok) throw new Error('pdm validate: ' + JSON.stringify(pdm.errors));
+  const pdmResolver = createPdmResolver(pdm.value);
+
+  const qsmRaw = parseQsm(qsmInput);
+  if (!qsmRaw.ok) throw new Error('qsm parse: ' + JSON.stringify(qsmRaw.errors));
+  const qsm = validateQsm(qsmRaw.value, pdmResolver);
+  if (!qsm.ok) throw new Error('qsm validate: ' + JSON.stringify(qsm.errors));
+  return createQsmResolver(qsm.value);
+}
+
 const QSM = {
   projections: {
     IssueView: {
@@ -37,10 +51,6 @@ const QSM = {
       grain: ['id'],
       exposed: ['id', 'title', 'status'],
     },
-  },
-  relationRoles: {
-    'Issue.project': 'dimension',
-    'Issue.assignee': 'dimension',
   },
 };
 
@@ -60,7 +70,6 @@ describe('createQsmResolver', () => {
           exposed: ['id'],
         },
       },
-      relationRoles: {},
     });
     const p = r.resolveProjection('X')!;
     expect(p.backing).toBe('entity-mirror');
@@ -79,7 +88,6 @@ describe('createQsmResolver', () => {
           table: 'projection_issue',
         },
       },
-      relationRoles: {},
     });
     expect(r.resolveProjection('IssueView')!.table).toBe('projection_issue');
   });
@@ -101,25 +109,115 @@ describe('createQsmResolver', () => {
     expect(r.findEntityMirror('User')).toBeNull();
   });
 
-  it('resolveRelationRole returns the declared role', () => {
+  it('listRelations returns empty when no relations declared', () => {
     const r = setup(QSM);
-    expect(r.resolveRelationRole('Issue', 'project')).toBe('dimension');
-    expect(r.resolveRelationRole('Issue', 'assignee')).toBe('dimension');
+    expect(r.listRelations()).toHaveLength(0);
   });
 
-  it('resolveRelationRole returns null for undeclared', () => {
+  it('resolveRelation returns null for undeclared relation', () => {
     const r = setup(QSM);
-    expect(r.resolveRelationRole('Issue', 'sprint')).toBeNull();
-    expect(r.resolveRelationRole('Unknown', 'x')).toBeNull();
+    expect(r.resolveRelation('IssueView', 'project')).toBeNull();
+    expect(r.resolveRelation('Unknown', 'x')).toBeNull();
   });
 
-  it('listRelationRoles returns parsed (entity, relation, role) triples', () => {
-    const r = setup(QSM);
-    const roles = r.listRelationRoles();
-    expect(roles).toHaveLength(2);
-    expect(roles).toEqual(expect.arrayContaining([
-      { entity: 'Issue', relation: 'project', role: 'dimension' },
-      { entity: 'Issue', relation: 'assignee', role: 'dimension' },
-    ]));
+  it('resolveRelation returns correctly-shaped ResolvedRelation for a declared relation', () => {
+    // Build a minimal PDM with two entities (both have stateMachines for entity-mirror backing)
+    // and a relation between them where the foreignKey IS a key of the target.
+    const customPdm = {
+      entities: {
+        Alpha: {
+          table: 'alphas',
+          fields: {
+            id:      { type: 'integer', nullable: false, column: 'id' },
+            betaId:  { type: 'integer', nullable: false, column: 'beta_id' },
+            status:  { type: 'string',  nullable: false, column: 'status' },
+          },
+          relations: {
+            beta: { to: 'Beta', cardinality: 'one', localKey: 'betaId', foreignKey: 'id' },
+          },
+          keys: ['id'],
+          stateMachine: {
+            stateField: 'status',
+            initial: null,
+            states: ['active'],
+            // creation transition must declare affects; betaId is a non-key, non-generated field
+            transitions: { activate: { from: null, to: 'active', affects: ['betaId'] } },
+          },
+        },
+        Beta: {
+          table: 'betas',
+          fields: {
+            id:     { type: 'integer', nullable: false, column: 'id' },
+            label:  { type: 'string',  nullable: false, column: 'label' },
+            status: { type: 'string',  nullable: false, column: 'status' },
+          },
+          keys: ['id'],
+          stateMachine: {
+            stateField: 'status',
+            initial: null,
+            states: ['active'],
+            // creation transition must declare affects; label is a non-key, non-generated field
+            transitions: { activate: { from: null, to: 'active', affects: ['label'] } },
+          },
+        },
+      },
+    };
+
+    const qsmInput = {
+      projections: {
+        AlphaView: {
+          backing: 'entity-mirror',
+          source: { entity: 'Alpha' },
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['id', 'betaId'],
+        },
+        BetaView: {
+          backing: 'entity-mirror',
+          source: { entity: 'Beta' },
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['id'],
+        },
+      },
+      relations: {
+        'AlphaView.beta': {
+          to: 'BetaView',
+          localKey: 'betaId',
+          foreignKey: 'id',
+          cardinality: 'one',
+        },
+      },
+    };
+
+    const resolver = setupWithCustomPdm(customPdm, qsmInput);
+
+    // listRelations should contain the declared relation
+    const allRelations = resolver.listRelations();
+    expect(allRelations).toHaveLength(1);
+    expect(allRelations[0]).toMatchObject({
+      sourceProjection: 'AlphaView',
+      relationName: 'beta',
+      to: 'BetaView',
+      localKey: 'betaId',
+      foreignKey: 'id',
+      cardinality: 'one',
+    });
+
+    // resolveRelation should return the same object by (sourceProjection, relationName)
+    const resolved = resolver.resolveRelation('AlphaView', 'beta');
+    expect(resolved).not.toBeNull();
+    expect(resolved).toMatchObject({
+      sourceProjection: 'AlphaView',
+      relationName: 'beta',
+      to: 'BetaView',
+      localKey: 'betaId',
+      foreignKey: 'id',
+      cardinality: 'one',
+    });
+
+    // resolveRelation on wrong key still returns null
+    expect(resolver.resolveRelation('AlphaView', 'nonexistent')).toBeNull();
+    expect(resolver.resolveRelation('BetaView', 'beta')).toBeNull();
   });
 });
