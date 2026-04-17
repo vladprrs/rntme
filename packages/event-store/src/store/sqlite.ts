@@ -5,6 +5,7 @@ import type { AppendRequest, AppendResult } from '../types/append.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
 import type {
   AppendRawOptions,
+  DeliveryAttemptRow,
   EventRecord,
   EventStore,
   ReadFromOptions,
@@ -183,6 +184,52 @@ export class SqliteEventStore implements EventStore {
         last_event_id = excluded.last_event_id,
         updated_at = excluded.updated_at
     `).run(relayId, lastEventId, new Date().toISOString());
+  }
+
+  readDeliveryAttempt(eventId: string): DeliveryAttemptRow | null {
+    const row = this.db
+      .prepare(
+        `SELECT event_id, first_attempt_at, last_attempt_at, attempt_count,
+                last_error, delivered_at, dlq_at
+         FROM delivery_tracking WHERE event_id = ?`,
+      )
+      .get(eventId) as
+      | {
+          event_id: string;
+          first_attempt_at: string;
+          last_attempt_at: string;
+          attempt_count: number;
+          last_error: string | null;
+          delivered_at: string | null;
+          dlq_at: string | null;
+        }
+      | undefined;
+    if (!row) return null;
+    return {
+      eventId: row.event_id,
+      firstAttemptAt: row.first_attempt_at,
+      lastAttemptAt: row.last_attempt_at,
+      attemptCount: row.attempt_count,
+      lastError: row.last_error,
+      deliveredAt: row.delivered_at,
+      dlqAt: row.dlq_at,
+    };
+  }
+
+  recordDeliveryAttempt(_eventId: string, _nowIso: string): void {
+    throw new Error('recordDeliveryAttempt: not implemented yet');
+  }
+
+  updateLastError(_eventId: string, _message: string | null): void {
+    throw new Error('updateLastError: not implemented yet');
+  }
+
+  markDelivered(_eventId: string, _nowIso: string): void {
+    throw new Error('markDelivered: not implemented yet');
+  }
+
+  markDlq(_eventId: string, _nowIso: string): void {
+    throw new Error('markDlq: not implemented yet');
   }
 }
 
