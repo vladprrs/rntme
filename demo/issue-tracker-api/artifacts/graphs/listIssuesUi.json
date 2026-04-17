@@ -4,7 +4,7 @@
     "inputs": {
       "limit": { "type": "integer", "mode": "defaulted", "default": 50 }
     },
-    "output": { "type": "rowset<Issue>", "from": "paged" }
+    "output": { "type": "rowset<IssueListItem>", "from": "enriched" }
   },
   "nodes": [
     { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
@@ -20,6 +20,28 @@
       "id": "paged",
       "type": "limit",
       "config": { "input": "sorted", "count": { "$param": "limit" } }
+    },
+    {
+      "id": "enriched",
+      "type": "map",
+      "config": {
+        "input": "paged",
+        "into": "IssueListItem",
+        "fields": {
+          "id": "issue.id",
+          "title": "issue.title",
+          "status": "issue.status",
+          "priority": "issue.priority",
+          "storyPoints": "issue.storyPoints",
+          "createdAt": "issue.createdAt",
+          "resolvedAt": "issue.resolvedAt",
+          "projectKey": "issue.project.key",
+          "projectName": "issue.project.name",
+          "reporterUsername": "issue.reporter.username",
+          "assigneeUsername": "issue.assignee.username",
+          "sprintName": "issue.sprint.name"
+        }
+      }
     }
   ]
 }

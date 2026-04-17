@@ -14,6 +14,22 @@
       "assigneeUsername": { "type": "string", "nullable": true }
     }
   },
+  "IssueListItem": {
+    "fields": {
+      "id":               { "type": "integer",  "nullable": false },
+      "title":            { "type": "string",   "nullable": false },
+      "status":           { "type": "string",   "nullable": false },
+      "priority":         { "type": "string",   "nullable": false },
+      "storyPoints":      { "type": "integer",  "nullable": false },
+      "createdAt":        { "type": "datetime", "nullable": false },
+      "resolvedAt":       { "type": "datetime", "nullable": true  },
+      "projectKey":       { "type": "string",   "nullable": true  },
+      "projectName":      { "type": "string",   "nullable": true  },
+      "reporterUsername": { "type": "string",   "nullable": true  },
+      "assigneeUsername": { "type": "string",   "nullable": true  },
+      "sprintName":       { "type": "string",   "nullable": true  }
+    }
+  },
   "ProjectStats": {
     "fields": {
       "projectKey": { "type": "string", "nullable": false },

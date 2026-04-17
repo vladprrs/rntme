@@ -40,8 +40,11 @@ describe('demo smoke via @rntme/runtime', () => {
 
     const uiIssues = await fetch(`${api}/v1/ui/issues?limit=10`);
     expect(uiIssues.status).toBe(200);
-    const uiRows = (await uiIssues.json()) as unknown[];
+    const uiRows = (await uiIssues.json()) as Record<string, unknown>[];
     expect(uiRows.length).toBeGreaterThan(0);
+    expect(uiRows[0]).toHaveProperty('projectKey');
+    expect(uiRows[0]).toHaveProperty('reporterUsername');
+    expect(uiRows[0]).toHaveProperty('sprintName');
 
     const issue7001 = await fetch(`${api}/v1/issues/7001`);
     expect(issue7001.status).toBe(200);
@@ -56,8 +59,10 @@ describe('demo smoke via @rntme/runtime', () => {
       `${api}/v1/issues/search?q=${encodeURIComponent('%lifecycle%')}&limit=10`,
     );
     expect(searchNoBounds.status).toBe(200);
-    const searchRows = (await searchNoBounds.json()) as Array<{ id?: number }>;
+    const searchRows = (await searchNoBounds.json()) as Array<Record<string, unknown>>;
     expect(searchRows.some((r) => r.id === 7001)).toBe(true);
+    expect(searchRows[0]).toHaveProperty('projectKey');
+    expect(searchRows[0]).toHaveProperty('assigneeUsername');
 
     const created = await fetch(`${api}/v1/issues`, {
       method: 'POST',
