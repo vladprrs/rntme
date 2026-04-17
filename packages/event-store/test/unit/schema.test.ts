@@ -52,4 +52,26 @@ describe('applyEventStoreSchema', () => {
     applyEventStoreSchema(db);
     expect(() => applyEventStoreSchema(db)).not.toThrow();
   });
+
+  it('creates delivery_tracking table with expected columns', () => {
+    const db = new Database(':memory:');
+    applyEventStoreSchema(db);
+
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[];
+    expect(tables.map((t) => t.name)).toContain('delivery_tracking');
+
+    const cols = db
+      .prepare("PRAGMA table_info('delivery_tracking')")
+      .all() as { name: string; notnull: number; pk: number }[];
+    const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
+    expect(byName['event_id']?.pk).toBe(1);
+    expect(byName['first_attempt_at']?.notnull).toBe(1);
+    expect(byName['last_attempt_at']?.notnull).toBe(1);
+    expect(byName['attempt_count']?.notnull).toBe(1);
+    expect(byName['last_error']?.notnull).toBe(0);
+    expect(byName['delivered_at']?.notnull).toBe(0);
+    expect(byName['dlq_at']?.notnull).toBe(0);
+  });
 });
