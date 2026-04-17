@@ -1,0 +1,371 @@
+# AGENTS.md — research map for coding agents
+
+> Read this file first. It tells you where things live, what conventions
+> govern the codebase, and how to approach common tasks. Per-package
+> READMEs (`packages/*/README.md`) are the authoritative source for each
+> package's internals.
+
+## 1. Workflow expectations
+
+- Research → Plan → Implement. Use the brainstorming and writing-plans
+  skills; do not start editing code without a plan for non-trivial work.
+- Specs in `docs/superpowers/specs/` are the source of truth. Code that
+  disagrees with a spec is a bug — fix the code, not the spec.
+- Read the per-package `README.md` before opening any source file in that
+  package. The README's "Where to look first" section is indexed by task.
+- `docs/superpowers/` is gitignored. The specs, plans, and reports under
+  it live only on the local worktree; they are not checked in.
+
+## 2. Repository map
+
+- `packages/`               — workspace packages (see §3 for layering)
+- `demo/issue-tracker-api/` — end-to-end wiring of every package; the
+  canonical worked example
+- `docs/superpowers/specs/` — authoritative design specs (local-only)
+- `docs/superpowers/specs/done/` — landed specs kept for cross-reference
+- `docs/superpowers/plans/` — per-spec implementation plans (local-only)
+- `docs/superpowers/reports/` — gap analyses (spec vs implementation)
+- `docs/adr/`                — architectural decision records
+- `docs/gaps/`               — known gaps per subsystem
+- `graph_ir_rc_7.md`         — Graph IR rc7 language spec (gitignored,
+  local-only; authoritative for the query/command IR)
+- `README.md` (root)         — human-facing overview + CI badge + pointer
+  back to this file
+
+## 3. Package layering
+
+ASCII dependency diagram. Arrow means "depends on".
+
+```
+                      @rntme/pdm
+                      /        \
+                     /          \
+            @rntme/qsm          @rntme/event-store
+                 \                   |
+                  \                  |
+           @rntme/graph-ir-compiler  |
+                    |                |
+                    +----------------+
+                    |
+            @rntme/bindings
+                    |
+            @rntme/bindings-http
+                    |
+                    |    @rntme/ui ─── @rntme/ui-runtime
+                    |              \           |
+                    |               \          |
+                    +----------------+---------+
+                                     |
+                              @rntme/seed
+                                     |
+                              @rntme/projection-consumer
+                                     |
+                              @rntme/runtime
+                                     |
+                              demo/issue-tracker-api
+```
+
+One-line purpose per package (read the per-package README before touching):
+
+- **`@rntme/pdm`** — Parsing, validating, and resolving the PDM
+  (project domain model) artifact. Canonical entity/field/relation/state
+  source. → `packages/pdm/README.md`.
+- **`@rntme/qsm`** — Query-side model on top of PDM: projections,
+  derived DDL, resolver, relation metadata for JOINs. →
+  `packages/qsm/README.md`.
+- **`@rntme/event-store`** — SQLite-backed event log with optimistic
+  concurrency, monotonic cursor, and Kafka-style relay. →
+  `packages/event-store/README.md`.
+- **`@rntme/graph-ir-compiler`** — Parses the rc7 Graph IR, validates it
+  (structural + semantic), lowers to SQL, emits, and executes queries
+  and commands. → `packages/graph-ir-compiler/README.md`.
+- **`@rntme/bindings`** — HTTP bindings artifact: four-layer validator
+  (parse → structural → references → consistency) and OpenAPI 3.1
+  emitter. → `packages/bindings/README.md`.
+- **`@rntme/bindings-http`** — Hono runtime for the bindings artifact;
+  routes queries and commands, maps errors to 400/409/422. →
+  `packages/bindings-http/README.md`.
+- **`@rntme/projection-consumer`** — Reads envelope events off the bus,
+  applies them to projection tables idempotently, rolls back on fail. →
+  `packages/projection-consumer/README.md`.
+- **`@rntme/seed`** — Seed-envelope authoring: parse, validate, wrap
+  payloads, and apply via the event-store's `appendRaw`. →
+  `packages/seed/README.md`.
+- **`@rntme/ui`** — UI artifact compiler: JSON authoring → parse →
+  validate → resolve → expand → compile → emit. No rendering. →
+  `packages/ui/README.md`.
+- **`@rntme/ui-runtime`** — Serves the compiled UI artifact. Hono
+  sub-router on the server side, React + json-render SPA on the client
+  side. → `packages/ui-runtime/README.md`.
+- **`@rntme/runtime`** — Top-level orchestrator. Loads a service
+  manifest, boots event-store/bus/HTTP surface, wires projections,
+  applies seed, mounts bindings + UI. → `packages/runtime/README.md`.
+- **`demo/issue-tracker-api`** — End-to-end worked example wiring every
+  package above. → `demo/issue-tracker-api/README.md`.
+
+## 4. Project-wide conventions
+
+- **`Result<T>` everywhere.** Shape: `{ ok: true; value: T } | { ok:
+  false; errors: E[] }`. No exceptions in validation pipelines. Error
+  recovery uses `isOk` / `isErr` helpers re-exported from each package.
+- **Branded `Validated*` types.** Each validation pipeline produces a
+  phantom-branded type (`StructurallyValid`, `ValidatedPdm`,
+  `ValidatedBindings`, etc.). Constructible only by running the
+  validator. Downstream APIs accept only the branded type — casting is
+  an anti-pattern (§7).
+- **Error codes.** Format: `<PKG>_<LAYER>_<KIND>`. Stable across
+  releases. Append new codes; never reorder or delete. The registry
+  per package is exported as `ERROR_CODES` and lives in
+  `src/types/result.ts`.
+- **No exceptions across package boundaries.** Inside a package, a
+  runtime helper may throw; at the public API the exception becomes a
+  `Result.err` with a code.
+- **SQLite forever.** Target dialect is SQLite ≥ 3.30. Scale-out is via
+  Turso (SQLite-compatible Rust rewrite), not Postgres. Do not
+  introduce a Postgres-specific code path (§7).
+- **Authoring artifacts are JSON.** No YAML, no TOML. Rationale in
+  `docs/superpowers/specs/done/2026-04-14-bindings-design.md` and
+  `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+- **Layered validation.** Each artifact runs parse (Zod) → structural
+  (no resolvers) → reference/cross-ref (resolver-based) →
+  consistency/feature-gate. Every layer fails fast; the orchestrator
+  returns the first layer's errors only.
+- **MVP gates.** Many rc7 features parse but are validator-rejected.
+  Each package's "Out of scope" section lists them.
+- **Test categories.** `unit/`, `integration/`, `e2e/`, `golden/` under
+  each `test/` directory. All tests run via Vitest (`vitest run`).
+- **Compile target.** ESM, TypeScript `strict`, Node 20. `tsc` per
+  package — no bundler except `ui-runtime`'s esbuild SPA build.
+
+## 5. Build / test / lint
+
+| Command | Effect |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | Install deps (pnpm 9.12.0+) |
+| `pnpm -r run build` | Run `tsc` in every package |
+| `pnpm -r run typecheck` | Typecheck-only pass |
+| `pnpm -r run test` | Vitest in every package |
+| `pnpm -r run lint` | ESLint across `src/` and `test/` |
+| `pnpm -F @rntme/<pkg> test:watch` | Watch mode for one package |
+| `pnpm -F @rntme/issue-tracker-api-demo start` | Run the demo on `:3000` |
+
+CI runs `build → typecheck → test → lint` on push and PRs to `main`.
+
+## 6. How to do common tasks
+
+Each entry names the entry file, the spec to read first, and the
+concrete steps. See each package README's "Where to look first" for
+deeper, per-task pointers.
+
+### 6.1 Add a new graph operator
+
+1. Read `packages/graph-ir-compiler/README.md` "Where to look first".
+2. Read `graph_ir_rc_7.md` for IR semantics of the operator family.
+3. Add the operator's shape to `src/parse/schema.ts` (Zod).
+4. Extend the semantic-plan stage (`src/semantic-plan/`) if the
+   operator affects plan structure.
+5. Add a lowering rule under `src/lower/sqlite/`.
+6. Wire a case into `src/emit/emit.ts` if the operator emits SQL.
+7. Add a golden test under `test/e2e/` and a unit test for the lowering
+   function.
+8. Spec first: `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+
+### 6.2 Add a new projection backing
+
+1. Read `packages/qsm/README.md` and
+   `packages/projection-consumer/README.md`.
+2. Extend `QsmArtifactSchema` in `packages/qsm/src/parse/schema.ts` with
+   the new `backing` variant.
+3. Add a validator rule in `packages/qsm/src/validate/structural.ts`.
+4. Extend `deriveProjectionHandler` in
+   `packages/qsm/src/derive/handler.ts` and `compileApplyPlan` in
+   `packages/projection-consumer/src/apply/compile.ts`.
+5. Add cross-ref check in
+   `packages/qsm/src/validate/cross-ref.ts` if the backing references
+   PDM.
+6. Spec first: `docs/superpowers/specs/done/2026-04-14-mutations-design.md`
+   §6.
+
+### 6.3 Add a new HTTP binding kind
+
+1. Read `packages/bindings/README.md` and
+   `packages/bindings-http/README.md`.
+2. Extend `BindingKind` in `packages/bindings/src/types/artifact.ts`.
+3. Update `parse/schema.ts` default and `validate/structural.ts`
+   method rules.
+4. Update the kind × role matrix in
+   `packages/bindings/src/validate/consistency.ts`.
+5. Extend `BindingPlan` union in `packages/bindings-http` and add a
+   handler in `runtime/`.
+6. Add OpenAPI emission rules in `packages/bindings/src/openapi/`.
+7. Specs first: `docs/superpowers/specs/done/2026-04-14-bindings-design.md`
+   and `docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`.
+
+### 6.4 Add a new event-store driver
+
+No precedent in the codebase yet — the only concrete driver is
+`SqliteEventStore`. Read
+`packages/event-store/README.md` (the `EventStore` interface and
+contract) and `packages/runtime/README.md`'s plugin-seam section for
+the closest analog (`DbDriver`). The new driver should implement the
+exported `EventStore` interface and pass the same regression suite
+under `packages/event-store/test/`.
+
+### 6.5 Add a new field type to PDM
+
+1. Read `packages/pdm/README.md`.
+2. Extend the `FieldType` enum in
+   `packages/pdm/src/types/artifact.ts`.
+3. Update `parse/schema.ts`, `validate/structural.ts`, and
+   `resolvers/pdm-resolver.ts`.
+4. Update QSM mirror DDL in
+   `packages/qsm/src/derive/ddl.ts` and the graph-ir-compiler's
+   lowering in `packages/graph-ir-compiler/src/lower/sqlite/`.
+5. Update `packages/bindings/src/openapi/shapes.ts` for the JSON-schema
+   mapping.
+6. Spec first: `docs/superpowers/specs/done/2026-04-14-mutations-design.md`.
+
+### 6.6 Wire a new package into the runtime
+
+1. Read `packages/runtime/README.md`, specifically the plugin-seam
+   table and the boot-order invariant.
+2. If the package is a new backing (driver/bus/surface), implement the
+   corresponding interface in
+   `packages/runtime/src/plugins/interfaces.ts`.
+3. Register the default implementation in the relevant
+   `packages/runtime/src/plugins/*.ts`.
+4. Update the manifest schema if the package needs declarative
+   configuration (`packages/runtime/src/manifest/schema.ts`).
+5. Add an entry to the plugin-seam contract suite in
+   `packages/runtime/src/plugins/contract-tests.ts`.
+6. Spec first:
+   `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`.
+
+### 6.7 Add a new spec
+
+1. Use the writing-plans / brainstorming skills to frame the change.
+2. Place the spec file under `docs/superpowers/specs/` using the
+   `YYYY-MM-DD-<slug>-design.md` naming convention.
+3. Cross-link it from the relevant per-package README's "Specs"
+   section.
+4. Update this file (§8) if the spec documents a decision that agents
+   will look for later.
+
+### 6.8 Run the demo locally
+
+1. Read `demo/issue-tracker-api/README.md`.
+2. `pnpm install --frozen-lockfile`.
+3. `pnpm -F @rntme/issue-tracker-api-demo start`.
+4. Hit `http://localhost:3000/health`, `/api/openapi.json`, and `/ui`.
+
+### 6.9 Reproduce a failing CI test
+
+1. From the workspace root, `pnpm -F @rntme/<pkg> test` to narrow the
+   failure to one package.
+2. Re-run with `test:watch` and open the file reported.
+3. Most fixtures live under `packages/<pkg>/test/fixtures/`;
+   the per-package README "Where to look first" names the test
+   families.
+4. If the failure touches the demo, run `pnpm -F
+   @rntme/issue-tracker-api-demo test` — it exercises the full
+   pipeline.
+
+## 7. Anti-patterns / do not do
+
+- Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
+  The brand is the validator's one-way handshake.
+- Do not introduce a Postgres dialect path. SQLite is the target; Turso
+  is the scale-out story. Postgres-specific SQL breaks the compiler's
+  `lower/sqlite/` assumptions.
+- Do not skip a validation layer because "the input is trusted". Layers
+  exist in a specific order for a reason; skipping them loses error
+  messages downstream consumers expect.
+- Do not catch and swallow errors in the `Result` pipeline. If a layer
+  returns `err`, propagate it.
+- Do not create new packages without updating §3 (package layering) and
+  the root README.
+- Do not edit `graph_ir_rc_7.md` to match a code bug. The spec is
+  canon; fix the code.
+- Do not delete or renumber error codes. Consumers rely on them. Append
+  new codes; deprecate in comments if needed.
+- Do not write new authoring formats (YAML, TOML) for any artifact.
+- Do not inline specs into READMEs. Link to the spec path and let the
+  reader open it.
+- Do not add line numbers to README "Where to look first" pointers.
+  Lines drift; function and file names are stable.
+
+## 8. Where decisions live
+
+Map of "if you're tempted to do X, the decision-doc is Y":
+
+- "Why SQLite, not Postgres?" →
+  `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`
+  (runtime target) and
+  `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`
+  (dialect-specific lowering).
+- "Why entity-mirror only, not derived?" →
+  `docs/superpowers/specs/done/2026-04-14-mutations-design.md` §6.
+- "Why the four-layer validator for bindings?" →
+  `docs/superpowers/specs/done/2026-04-14-bindings-design.md` §4 + §6.
+- "Why JSON authoring, not YAML?" →
+  `docs/superpowers/specs/done/2026-04-14-bindings-design.md` §12 and
+  `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+- "Why relations moved from PDM to QSM?" →
+  `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`.
+- "Why the seed lifecycle runs before the relay?" →
+  `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+- "Why `predicate_optional` swaps OR args?" →
+  `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`.
+- "Event-driven architecture — what events, what consumers?" →
+  `docs/adr/2026-04-15-event-driven-architecture.md`.
+- "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
+  commands-and-transactions, queries-and-projections, infra).
+
+## 9. Memory and prior decisions
+
+Auto-memory entries captured during prior sessions may shape current
+work. Read the local auto-memory index (per-user, not in the repo) for
+the current list; entries document non-obvious invariants, fix
+context, and cross-package constraints that are not derivable from the
+code alone. Memory may be stale; always re-verify against the current
+codebase before relying on it.
+
+Known categorical entries to watch for:
+
+- `rntme_predicate_optional_bug` — `wrapPredicateOptional` SQL
+  positional alignment when mixing `predicate_optional` with other
+  params. Regression tests live at
+  `packages/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts`
+  and `.../test/e2e/predicate-optional.e2e.test.ts`.
+- `rntme_turso_target` — future scale-out is Turso, not Postgres.
+- `project_platform_vision` — rntme as one per-service runtime inside a
+  larger DDD platform; Zeebe owns cross-service sagas.
+
+## 10. Glossary
+
+- **PDM** — Project Domain Model. The canonical entity/field/relation/
+  state-machine artifact. One per service.
+- **QSM** — Query-Side Model. Derived read-side projections on top of
+  PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).
+- **Graph IR** — The rc7 intermediate representation for queries and
+  commands. Spec: `graph_ir_rc_7.md`.
+- **Projection** — A QSM-declared table maintained by the
+  projection-consumer. Backing modes: `entity-mirror` (1:1 with a PDM
+  entity), `derived` (reserved, not implemented).
+- **Envelope** — Event-store record shape: aggregate id, version,
+  payload, actor, timestamp, correlation/causation ids.
+- **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.
+  The workspace-wide fallible-return contract.
+- **Validated\*** — Phantom-branded type produced by a validator;
+  downstream APIs require the brand.
+- **Seed** — Declarative event-envelope bootstrap applied once per
+  database, before the relay starts. Package: `@rntme/seed`.
+- **Relay** — The event-store loop that reads appended events and
+  publishes them to the Kafka-like bus. At-least-once, cursor-guarded.
+- **Surface** — Runtime plugin seam for the HTTP (or equivalent)
+  entry point. Default implementation: `HttpSurface` (Hono).
+- **DbDriver** / **EventBus** — Runtime plugin seams for storage and
+  messaging. Default implementations: `BetterSqliteDriver`,
+  `InMemoryBus`.
+- **MVP gate** — A spec feature that parses but is validator-rejected
+  until its backing implementation lands.

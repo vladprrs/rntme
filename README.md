@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/vladprrs/rntme/actions/workflows/ci.yml/badge.svg)](https://github.com/vladprrs/rntme/actions/workflows/ci.yml)
 
+> **Coding agents:** start with [`AGENTS.md`](AGENTS.md), not this file.
+> It contains the project map, conventions, and task-indexed pointers.
+
 A typed, declarative **CQRS / Event-Sourced** backend-authoring toolkit. Author four JSON artifacts — **PDM** (domain), **QSM** (read-side projections), **Graph IR** (queries + commands), **Bindings** (HTTP surface) — and the toolchain produces:
 
 - SQLite DDL for projections and the event log.
