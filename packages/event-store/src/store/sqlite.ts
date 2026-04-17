@@ -234,12 +234,16 @@ export class SqliteEventStore implements EventStore {
       .run(message, eventId);
   }
 
-  markDelivered(_eventId: string, _nowIso: string): void {
-    throw new Error('markDelivered: not implemented yet');
+  markDelivered(eventId: string, nowIso: string): void {
+    this.db
+      .prepare('UPDATE delivery_tracking SET delivered_at = ? WHERE event_id = ?')
+      .run(nowIso, eventId);
   }
 
-  markDlq(_eventId: string, _nowIso: string): void {
-    throw new Error('markDlq: not implemented yet');
+  markDlq(eventId: string, nowIso: string): void {
+    this.db
+      .prepare('UPDATE delivery_tracking SET dlq_at = ? WHERE event_id = ?')
+      .run(nowIso, eventId);
   }
 }
 

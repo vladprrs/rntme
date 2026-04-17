@@ -66,4 +66,26 @@ describe('SqliteEventStore — delivery tracking', () => {
       expect(store.readDeliveryAttempt('ghost')).toBeNull();
     });
   });
+
+  describe('markDelivered / markDlq', () => {
+    it('markDelivered sets delivered_at without touching dlq_at', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
+      store.markDelivered('ev-1', '2026-04-17T10:00:03.000Z');
+
+      const row = store.readDeliveryAttempt('ev-1');
+      expect(row?.deliveredAt).toBe('2026-04-17T10:00:03.000Z');
+      expect(row?.dlqAt).toBeNull();
+    });
+
+    it('markDlq sets dlq_at without touching delivered_at', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      store.recordDeliveryAttempt('ev-1', '2026-04-17T10:00:00.000Z');
+      store.markDlq('ev-1', '2026-04-17T10:00:03.000Z');
+
+      const row = store.readDeliveryAttempt('ev-1');
+      expect(row?.dlqAt).toBe('2026-04-17T10:00:03.000Z');
+      expect(row?.deliveredAt).toBeNull();
+    });
+  });
 });
