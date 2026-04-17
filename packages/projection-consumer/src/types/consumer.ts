@@ -9,7 +9,7 @@ export type ConsumedMessage = Readonly<{
   topic: string;
   partition: number;
   offset: string;
-  key: string;              // = envelope.stream (relay partition key)
+  key: string;              // = envelope.subject (relay partition key)
   envelope: EventEnvelope;
 }>;
 

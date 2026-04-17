@@ -83,9 +83,25 @@ describe('createProjectionConsumer — batch loop', () => {
     const consumer = createProjectionConsumer({ kafka, plan, db });
     consumer.start();
     kafka.produce({
-      eventId: 'u1', eventType: 'UserJoined', aggregateType: 'User', aggregateId: '7',
-      stream: 'User-7', version: 1, occurredAt: '2026-04-14T10:00:00.000Z',
-      actor: null, payload: { before: null, after: {} }, schemaVersion: 1,
+      id: 'u1',
+      source: 'rntme://test/User',
+      eventType: 'UserJoined',
+      type: 'test.User.UserJoined',
+      time: '2026-04-14T10:00:00.000Z',
+      subject: 'User-7',
+      dataContentType: 'application/json',
+      dataSchema: 'rntme://schemas/test/UserJoined.v1.json',
+      data: { before: null, after: {} },
+      correlationId: 'corr-u1',
+      causationId: null,
+      commandId: null,
+      rntAggregateType: 'User',
+      rntAggregateId: '7',
+      rntVersion: 1,
+      rntSchemaVersion: 1,
+      rntActorKind: null,
+      rntActorId: null,
+      traceparent: null,
     });
     const deadline = Date.now() + 1000;
     while (kafka.committed.length < 1 && Date.now() < deadline) await wait(5);

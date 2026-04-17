@@ -41,10 +41,10 @@ export function createInMemoryKafkaConsumer(
     },
     produce(envelope: EventEnvelope): void {
       queue.push({
-        topic: topicOf(envelope.aggregateType),
+        topic: topicOf(envelope.rntAggregateType),
         partition: 0,
         offset: String(nextOffset++),
-        key: envelope.stream,
+        key: envelope.subject,
         envelope,
       });
     },

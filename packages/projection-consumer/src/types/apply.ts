@@ -2,14 +2,14 @@
  * Source for one SQL-bound value when applying an event. Resolved at compile
  * time (once per projection/handler), consumed at runtime (once per envelope).
  *
- * - `aggregateId`       — `envelope.aggregateId`, coerced to the entity's key type
- * - `payloadField`      — `envelope.payload.after[fieldName]`
- * - `generatedOccurred` — `envelope.occurredAt` (for `generated: "createdAt" | "updatedAt"`)
- * - `generatedActor`    — `envelope.actor?.id ?? null`
+ * - `aggregateId`       — `envelope.rntAggregateId`, coerced to the entity's key type
+ * - `payloadField`      — `envelope.data.after[fieldName]`
+ * - `generatedOccurred` — `envelope.time` (for `generated: "createdAt" | "updatedAt"`)
+ * - `generatedActor`    — `envelope.rntActorId`
  * - `nullable`          — literal NULL (column nullable + not in affects + not generated)
  * - `literalString`     — compile-time string (e.g. creation transition target for state column)
- * - `eventId`           — idempotency column `last_event_id`
- * - `eventVersion`      — idempotency column `last_event_version`
+ * - `eventId`           — idempotency column `last_event_id` (source: `envelope.id`)
+ * - `eventVersion`      — idempotency column `last_event_version` (source: `envelope.rntVersion`)
  * - `appliedAt`         — idempotency column `applied_at` = new Date().toISOString()
  */
 export type ColumnBinding =

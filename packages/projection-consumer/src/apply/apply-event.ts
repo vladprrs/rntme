@@ -21,10 +21,10 @@ export function applyEvent(
 ): ApplyResult {
   const handler = plan.handlersByEventType.get(envelope.eventType);
   if (!handler) return 'skipped-no-mirror';
-  if (handler.aggregateType !== envelope.aggregateType) return 'skipped-no-mirror';
+  if (handler.aggregateType !== envelope.rntAggregateType) return 'skipped-no-mirror';
 
-  const currentVersion = selectCurrentVersion(db, handler, envelope.aggregateId);
-  if (currentVersion !== null && currentVersion >= envelope.version) {
+  const currentVersion = selectCurrentVersion(db, handler, envelope.rntAggregateId);
+  if (currentVersion !== null && currentVersion >= envelope.rntVersion) {
     return 'skipped-older-version';
   }
 

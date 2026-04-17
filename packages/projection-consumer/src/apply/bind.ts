@@ -20,28 +20,28 @@ function resolveBinding(
 ): unknown {
   switch (b.kind) {
     case 'aggregateId':
-      return b.sqlType === 'INTEGER' ? Number(envelope.aggregateId) : envelope.aggregateId;
+      return b.sqlType === 'INTEGER' ? Number(envelope.rntAggregateId) : envelope.rntAggregateId;
     case 'payloadField':
       return after[b.fieldName] ?? null;
     case 'generatedOccurred':
-      return envelope.occurredAt;
+      return envelope.time;
     case 'generatedActor':
-      return envelope.actor?.id ?? null;
+      return envelope.rntActorId;
     case 'nullable':
       return null;
     case 'literalString':
       return b.value;
     case 'eventId':
-      return envelope.eventId;
+      return envelope.id;
     case 'eventVersion':
-      return envelope.version;
+      return envelope.rntVersion;
     case 'appliedAt':
       return appliedAt;
   }
 }
 
 function getAfter(envelope: EventEnvelope): Record<string, unknown> {
-  const p = envelope.payload;
+  const p = envelope.data;
   if (p === null || typeof p !== 'object' || Array.isArray(p)) return {};
   const rec = p as Record<string, unknown>;
   const inner = rec.after;
