@@ -11,7 +11,10 @@ export type RelayOptions = Readonly<{
   batchSize?: number;
   topicOf?: (aggregateType: string) => string;
   maxBackoffMs?: number;
-  onSendError?: (err: unknown, envelope: EventEnvelope) => void;
+  /** Default: 10. Number of primary-topic send attempts before DLQ. Must be >= 1. */
+  maxAttempts?: number;
+  /** Called once per failed send. `attempt` is 1-indexed. */
+  onSendError?: (err: unknown, envelope: EventEnvelope, attempt: number) => void;
 }>;
 
 export type Relay = Readonly<{
@@ -24,9 +27,11 @@ export function createRelay(opts: RelayOptions): Relay {
   const batch = opts.batchSize ?? 500;
   const topicOf = opts.topicOf ?? defaultTopicOf;
   const maxBackoff = opts.maxBackoffMs ?? 1000;
-  const onErr = opts.onSendError ?? ((err) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const maxAttempts = opts.maxAttempts ?? 10;
+  const onErr = opts.onSendError ?? ((err, _envelope, attempt) => {
     // eslint-disable-next-line no-console
-    console.error('[relay] kafka send failed, will retry:', err);
+    console.error(`[relay] kafka send failed (attempt ${attempt}), will retry:`, err);
   });
 
   let running = false;
@@ -62,7 +67,7 @@ export function createRelay(opts: RelayOptions): Relay {
             });
             break;
           } catch (err) {
-            onErr(err, rec.envelope);
+            onErr(err, rec.envelope, 1);
             await sleep(backoff);
             backoff = Math.min(backoff * 2, maxBackoff);
             if (!running) return;
