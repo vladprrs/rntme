@@ -1,0 +1,38 @@
+{
+  "seedVersion": 1,
+  "events": [
+    {
+      "id": "seed:Thing:1:v1",
+      "subject": "Thing-1",
+      "rntAggregateType": "Thing",
+      "rntAggregateId": "1",
+      "rntVersion": 1,
+      "eventType": "ThingCreated",
+      "data": { "name": "alpha" },
+      "time": "2026-01-01T00:00:00.000Z",
+      "rntSchemaVersion": 1
+    },
+    {
+      "id": "seed:Thing:1:v2",
+      "subject": "Thing-1",
+      "rntAggregateType": "Thing",
+      "rntAggregateId": "1",
+      "rntVersion": 2,
+      "eventType": "ThingRenamed",
+      "data": { "name": "beta", "status": "active" },
+      "time": "2026-01-02T00:00:00.000Z",
+      "rntSchemaVersion": 1
+    },
+    {
+      "id": "seed:Thing:2:v1",
+      "subject": "Thing-2",
+      "rntAggregateType": "Thing",
+      "rntAggregateId": "2",
+      "rntVersion": 1,
+      "eventType": "ThingCreated",
+      "data": { "name": "gamma" },
+      "time": "2026-01-01T00:00:00.000Z",
+      "rntSchemaVersion": 1
+    }
+  ]
+}
