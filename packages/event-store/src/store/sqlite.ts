@@ -235,15 +235,25 @@ export class SqliteEventStore implements EventStore {
   }
 
   markDelivered(eventId: string, nowIso: string): void {
-    this.db
+    const result = this.db
       .prepare('UPDATE delivery_tracking SET delivered_at = ? WHERE event_id = ?')
       .run(nowIso, eventId);
+    if (result.changes === 0) {
+      throw new Error(
+        `markDelivered failed: no delivery_tracking row exists for eventId="${eventId}"`,
+      );
+    }
   }
 
   markDlq(eventId: string, nowIso: string): void {
-    this.db
+    const result = this.db
       .prepare('UPDATE delivery_tracking SET dlq_at = ? WHERE event_id = ?')
       .run(nowIso, eventId);
+    if (result.changes === 0) {
+      throw new Error(
+        `markDlq failed: no delivery_tracking row exists for eventId="${eventId}"`,
+      );
+    }
   }
 }
 

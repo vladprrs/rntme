@@ -87,5 +87,21 @@ describe('SqliteEventStore — delivery tracking', () => {
       expect(row?.dlqAt).toBe('2026-04-17T10:00:03.000Z');
       expect(row?.deliveredAt).toBeNull();
     });
+
+    it('markDelivered throws when no delivery_tracking row exists', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      expect(() => store!.markDelivered('ghost', '2026-04-17T10:00:00.000Z')).toThrow(
+        /markDelivered failed: no delivery_tracking row exists for eventId="ghost"/,
+      );
+      expect(store.readDeliveryAttempt('ghost')).toBeNull();
+    });
+
+    it('markDlq throws when no delivery_tracking row exists', () => {
+      store = new SqliteEventStore({ filename: ':memory:' });
+      expect(() => store!.markDlq('ghost', '2026-04-17T10:00:00.000Z')).toThrow(
+        /markDlq failed: no delivery_tracking row exists for eventId="ghost"/,
+      );
+      expect(store.readDeliveryAttempt('ghost')).toBeNull();
+    });
   });
 });

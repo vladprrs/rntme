@@ -117,10 +117,14 @@ describe('relay — DLQ path', () => {
     // Topic-aware mock: primary always fails; DLQ always fails too.
     // This simulates both topics being unreachable — emitDlq will loop.
     const sent: { topic: string; key: string; value: string; headers: Record<string, string> }[] = [];
+    let dlqEmitCount = 0;
     const kafka = {
       sent,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async send(_m: any): Promise<void> {
+      async send(m: any): Promise<void> {
+        if (m.topic.endsWith('.dlq')) {
+          dlqEmitCount += 1;
+        }
         throw new Error('broker unavailable');
       },
     };
@@ -143,8 +147,8 @@ describe('relay — DLQ path', () => {
       () => (store!.readDeliveryAttempt('a')?.attemptCount ?? 0) >= 2,
       2000,
     )).toBe(true);
-    // Give emitDlq a moment to fail at least once on the DLQ topic.
-    await new Promise(r => setTimeout(r, 20));
+    // Wait until at least one DLQ emit attempt has been made.
+    expect(await waitUntil(() => dlqEmitCount >= 1, 2000)).toBe(true);
     await relay.stop();
 
     const row = store.readDeliveryAttempt('a');

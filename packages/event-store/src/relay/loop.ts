@@ -27,7 +27,14 @@ export function createRelay(opts: RelayOptions): Relay {
   const batch = opts.batchSize ?? 500;
   const topicOf = opts.topicOf ?? defaultTopicOf;
   const maxBackoff = opts.maxBackoffMs ?? 1000;
-  const maxAttempts = opts.maxAttempts ?? 10;
+  const rawMaxAttempts = opts.maxAttempts ?? 10;
+  // Validate maxAttempts: must be >= 1, finite integer
+  if (!Number.isFinite(rawMaxAttempts) || rawMaxAttempts < 1) {
+    throw new Error(
+      `[relay] maxAttempts must be a finite integer >= 1, got: ${rawMaxAttempts}`,
+    );
+  }
+  const maxAttempts = Math.floor(rawMaxAttempts);
   const onErr = opts.onSendError ?? ((err, _envelope, attempt) => {
     // eslint-disable-next-line no-console
     console.error(`[relay] kafka send failed (attempt ${attempt}), will retry:`, err);
@@ -93,6 +100,14 @@ export function createRelay(opts: RelayOptions): Relay {
                 lastError: msg,
                 maxBackoff,
                 isRunning: () => running,
+                maxDlqAttempts: 10,
+                onDlqError: (err, failedRec) => {
+                  // eslint-disable-next-line no-console
+                  console.error(
+                    `[relay] Terminal DLQ failure for event ${failedRec.envelope.eventId}:`,
+                    err,
+                  );
+                },
               });
               if (!sent) return; // shutdown during DLQ emit — don't mark, don't advance cursor
               opts.store.markDlq(eventId, new Date().toISOString());
@@ -150,11 +165,15 @@ type EmitDlqOpts = Readonly<{
   lastError: string;
   maxBackoff: number;
   isRunning: () => boolean;
+  maxDlqAttempts: number;
+  onDlqError?: (err: unknown, rec: EventRecord) => void;
 }>;
 
 async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
   let backoff = 10;
+  let dlqAttempts = 0;
   while (o.isRunning()) {
+    dlqAttempts += 1;
     try {
       await o.kafka.send({
         topic: `${o.primaryTopic}.dlq`,
@@ -172,6 +191,17 @@ async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
       });
       return true;
     } catch (dlqErr) {
+      if (dlqAttempts >= o.maxDlqAttempts) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[relay] DLQ-send permanently failed for ${o.rec.envelope.eventId} after ${dlqAttempts} attempts:`,
+          dlqErr,
+        );
+        if (o.onDlqError) {
+          o.onDlqError(dlqErr, o.rec);
+        }
+        return false;
+      }
       // eslint-disable-next-line no-console
       console.error(`[relay] DLQ-send failed for ${o.rec.envelope.eventId}, will retry:`, dlqErr);
       await sleep(backoff);
