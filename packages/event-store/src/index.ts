@@ -39,6 +39,8 @@ export {
   createInMemoryKafkaProducer,
 } from './kafka/in-memory.js';
 export type { InMemoryKafkaProducer } from './kafka/in-memory.js';
+export { toCloudEventWire, fromCloudEventWire } from './kafka/wire-codec.js';
+export { CloudEventDecodeError } from './kafka/wire-errors.js';
 
 // Relay
 export { createRelay } from './relay/loop.js';
