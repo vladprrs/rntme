@@ -58,3 +58,56 @@ describe('relay — delivery_tracking (happy path)', () => {
     expect(row?.lastError).toBe('transient broker hiccup');
   });
 });
+
+describe('relay — DLQ path', () => {
+  it('emits to {topic}.dlq after maxAttempts primary failures, advances cursor, marks dlq_at', async () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+    const kafka = createInMemoryKafkaProducer();
+    const relay = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 3,
+      maxBackoffMs: 5,
+      onSendError: () => { /* silence */ },
+    });
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+    // Fail exactly maxAttempts times — primary never succeeds; the next send()
+    // is the DLQ emit, which succeeds because failures are exhausted.
+    kafka.failNext(3, new Error('schema violation at broker'));
+
+    relay.start();
+    // Wait until we see exactly one DLQ message (primary-topic sends all fail; DLQ succeeds on first try).
+    expect(await waitUntil(
+      () => kafka.sent.some((m) => m.topic === 'rntme.issue.v1.dlq'),
+      3000,
+    )).toBe(true);
+    await relay.stop();
+
+    const primaryMsgs = kafka.sent.filter((m) => m.topic === 'rntme.issue.v1');
+    const dlqMsgs = kafka.sent.filter((m) => m.topic === 'rntme.issue.v1.dlq');
+    expect(primaryMsgs).toHaveLength(0);
+    expect(dlqMsgs).toHaveLength(1);
+
+    const dlq = dlqMsgs[0]!;
+    expect(dlq.key).toBe('Issue-1');
+    expect(dlq.headers['event-id']).toBe('a');
+    expect(dlq.headers['event-type']).toBe('IssueReport');
+    expect(dlq.headers['schema-version']).toBe('1');
+    expect(dlq.headers['x-dlq-reason']).toBe('max-attempts-exceeded');
+    expect(dlq.headers['x-dlq-attempts']).toBe('3');
+    expect(dlq.headers['x-dlq-first-attempt-at']).toMatch(/^20\d{2}-/);
+    expect(dlq.headers['x-dlq-last-error']).toBe('schema violation at broker');
+    // Envelope value preserved verbatim.
+    const value = JSON.parse(dlq.value) as { eventId: string };
+    expect(value.eventId).toBe('a');
+
+    expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(1);
+    const row = store.readDeliveryAttempt('a');
+    expect(row?.attemptCount).toBe(3);
+    expect(row?.dlqAt).not.toBeNull();
+    expect(row?.deliveredAt).toBeNull();
+    expect(row?.lastError).toBe('schema violation at broker');
+  });
+});

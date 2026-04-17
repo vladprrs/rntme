@@ -27,7 +27,6 @@ export function createRelay(opts: RelayOptions): Relay {
   const batch = opts.batchSize ?? 500;
   const topicOf = opts.topicOf ?? defaultTopicOf;
   const maxBackoff = opts.maxBackoffMs ?? 1000;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const maxAttempts = opts.maxAttempts ?? 10;
   const onErr = opts.onSendError ?? ((err, _envelope, attempt) => {
     // eslint-disable-next-line no-console
@@ -53,14 +52,16 @@ export function createRelay(opts: RelayOptions): Relay {
       for (const rec of records) {
         if (!running) break;
         const eventId = rec.envelope.eventId;
+        const primaryTopic = topicOf(rec.envelope.aggregateType);
         let attempts = 0;
         let backoff = 10;
         while (running) {
           attempts += 1;
-          opts.store.recordDeliveryAttempt(eventId, new Date().toISOString());
+          const attemptIso = new Date().toISOString();
+          opts.store.recordDeliveryAttempt(eventId, attemptIso);
           try {
             await opts.kafka.send({
-              topic: topicOf(rec.envelope.aggregateType),
+              topic: primaryTopic,
               key: rec.envelope.stream,
               headers: {
                 'event-id': rec.envelope.eventId,
@@ -75,11 +76,28 @@ export function createRelay(opts: RelayOptions): Relay {
             const msg = err instanceof Error ? err.message : String(err);
             opts.store.updateLastError(eventId, truncate(msg, 1024));
             onErr(err, rec.envelope, attempts);
+            if (attempts >= maxAttempts) {
+              const state = opts.store.readDeliveryAttempt(eventId);
+              const firstAttemptAt = state?.firstAttemptAt ?? attemptIso;
+              await emitDlq({
+                kafka: opts.kafka,
+                rec,
+                primaryTopic,
+                attempts,
+                firstAttemptAt,
+                lastError: msg,
+                maxBackoff,
+                isRunning: () => running,
+              });
+              opts.store.markDlq(eventId, new Date().toISOString());
+              break;
+            }
             await sleep(backoff);
             backoff = Math.min(backoff * 2, maxBackoff);
             if (!running) return;
           }
         }
+        if (!running) return;
         highestDeliveredId = rec.id;
       }
       if (highestDeliveredId > cursor) {
@@ -115,4 +133,43 @@ function truncate(s: string, maxBytes: number): string {
   // We accept that multi-byte chars may yield strings slightly over maxBytes;
   // the 1024 target is a header-size heuristic, not a hard broker limit.
   return s.length > maxBytes ? s.slice(0, maxBytes) : s;
+}
+
+type EmitDlqOpts = Readonly<{
+  kafka: KafkaProducer;
+  rec: EventRecord;
+  primaryTopic: string;
+  attempts: number;
+  firstAttemptAt: string;
+  lastError: string;
+  maxBackoff: number;
+  isRunning: () => boolean;
+}>;
+
+async function emitDlq(o: EmitDlqOpts): Promise<void> {
+  let backoff = 10;
+  while (o.isRunning()) {
+    try {
+      await o.kafka.send({
+        topic: `${o.primaryTopic}.dlq`,
+        key: o.rec.envelope.stream,
+        headers: {
+          'event-id': o.rec.envelope.eventId,
+          'event-type': o.rec.envelope.eventType,
+          'schema-version': String(o.rec.envelope.schemaVersion),
+          'x-dlq-reason': 'max-attempts-exceeded',
+          'x-dlq-attempts': String(o.attempts),
+          'x-dlq-first-attempt-at': o.firstAttemptAt,
+          'x-dlq-last-error': truncate(o.lastError, 1024),
+        },
+        value: JSON.stringify(o.rec.envelope),
+      });
+      return;
+    } catch (dlqErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[relay] DLQ-send failed for ${o.rec.envelope.eventId}, will retry:`, dlqErr);
+      await sleep(backoff);
+      backoff = Math.min(backoff * 2, o.maxBackoff);
+    }
+  }
 }
