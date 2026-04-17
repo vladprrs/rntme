@@ -479,8 +479,6 @@ describe('semantic validate — NAV_NOT_ALLOWED / NAV_FAN_OUT_NOT_ALLOWED', () =
   // Test 6: End-to-end via compile() — must return structured Result, NOT throw
   // ---------------------------------------------------------------------------
   it('compile() returns structured { ok: false } Result instead of throwing for NAV_NOT_ALLOWED', () => {
-    const pdm = makePdm();
-
     // Raw PDM and QSM as plain objects (compile() takes raw unknown inputs)
     const rawQsm = {
       projections: {
