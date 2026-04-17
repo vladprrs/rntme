@@ -1,4 +1,4 @@
-import type { CanonicalGraph } from '../../types/canonical.js';
+import type { CanonicalGraph, CanonicalNode } from '../../types/canonical.js';
 import type { ValidatedPdm } from '@rntme/pdm';
 import { createQsmResolver, type ValidatedQsm } from '@rntme/qsm';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
@@ -38,6 +38,21 @@ function collectDotNavPaths(expr: unknown): string[] {
 }
 
 /**
+ * Dispatch dot-nav path collection to the appropriate node-kind collector.
+ * Returns all dot-nav paths (>= 3 parts) found in the node's relevant expressions.
+ */
+function collectPathsFromNode(node: CanonicalNode): string[] {
+  if (node.kind === 'map') return collectDotNavPaths(node.fields);
+  if (node.kind === 'filter') return collectDotNavPaths(node.expr);
+  if (node.kind === 'sort') return collectDotNavPaths(node.by);
+  if (node.kind === 'reduce') return [
+    ...collectDotNavPaths(node.group),
+    ...collectDotNavPaths(node.measures),
+  ];
+  return [];
+}
+
+/**
  * Gate: if a scan has no entity-mirror projection in QSM and any node in the graph
  * references a dot-nav path (>= 3 parts) scoped to that scan's alias, emit NAV_PROJECTION_REQUIRED.
  */
@@ -62,21 +77,7 @@ export function checkNavProjectionRequired(
 
   const errors: GraphIrError[] = [];
   for (const node of graph.nodes) {
-    let paths: string[] = [];
-    if (node.kind === 'map') {
-      // canonical map = semantic-plan project; fields may be plain strings or
-      // wrapped {expr} objects — collectDotNavPaths recurses into both forms.
-      paths = collectDotNavPaths(node.fields);
-    } else if (node.kind === 'filter') {
-      paths = collectDotNavPaths(node.expr);
-    } else if (node.kind === 'sort') {
-      paths = collectDotNavPaths(node.by);
-    } else if (node.kind === 'reduce') {
-      // group cols are field-path strings that may cross relation boundaries
-      // (e.g. "order.customer.region"); measures may also reference dot-nav exprs.
-      paths = collectDotNavPaths(node.group);
-      paths = paths.concat(collectDotNavPaths(node.measures));
-    }
+    const paths = collectPathsFromNode(node);
     for (const path of paths) {
       const alias = path.split('.')[0]!;
       if (projectionlessAliases.has(alias)) {
@@ -140,18 +141,7 @@ export function checkNavRelations(
   const errors: GraphIrError[] = [];
 
   for (const node of graph.nodes) {
-    // Collect dot-nav paths from all relevant node kinds (same set as checkNavProjectionRequired)
-    let paths: string[] = [];
-    if (node.kind === 'map') {
-      paths = collectDotNavPaths(node.fields);
-    } else if (node.kind === 'filter') {
-      paths = collectDotNavPaths(node.expr);
-    } else if (node.kind === 'sort') {
-      paths = collectDotNavPaths(node.by);
-    } else if (node.kind === 'reduce') {
-      paths = collectDotNavPaths(node.group);
-      paths = paths.concat(collectDotNavPaths(node.measures));
-    }
+    const paths = collectPathsFromNode(node);
 
     for (const path of paths) {
       const parts = path.split('.');
@@ -164,7 +154,6 @@ export function checkNavRelations(
       // A path of length 3: [alias, relation, field] → one hop (parts[1]).
       // A path of length 4: [alias, rel1, rel2, field] → two hops (parts[1], parts[2]).
       let curProjName = startProjName;
-      let foundError = false;
       for (let i = 1; i <= parts.length - 2; i++) {
         const relName = parts[i]!;
         const key = `${curProjName}.${relName}`;
@@ -175,9 +164,9 @@ export function checkNavRelations(
             layer: 'semantic',
             code: ERROR_CODES.NAV_NOT_ALLOWED,
             message: `relation "${key}" not declared in QSM.relations`,
+            hint: 'add a QSM.relations entry for this key, or correct the path',
             location: { graphId: graph.id, nodeId: node.id, path },
           });
-          foundError = true;
           break;
         }
 
@@ -186,15 +175,14 @@ export function checkNavRelations(
             layer: 'semantic',
             code: ERROR_CODES.NAV_FAN_OUT_NOT_ALLOWED,
             message: `relation "${key}" has cardinality "many"`,
+            hint: 'dot-navigation requires cardinality "one"; use an explicit join for many-cardinality relations',
             location: { graphId: graph.id, nodeId: node.id, path },
           });
-          foundError = true;
           break;
         }
 
         curProjName = rel.to;
       }
-      void foundError; // used to break early; no further action needed
     }
   }
 
