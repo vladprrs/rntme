@@ -19,7 +19,17 @@ function collectDotNavPaths(expr: unknown): string[] {
       e.forEach(walk);
       return;
     }
-    for (const v of Object.values(e as Record<string, unknown>)) walk(v);
+    const obj = e as Record<string, unknown>;
+    // $literal and $param carry non-path string values — skip entirely.
+    if ('$literal' in obj) return;
+    if ('$param' in obj) return;
+    // exists.relation is a relation name (not a field path); exists.where IS a sub-expr.
+    if ('exists' in obj) {
+      const inner = obj.exists as Record<string, unknown> | undefined;
+      if (inner && 'where' in inner) walk(inner.where);
+      return;
+    }
+    for (const v of Object.values(obj)) walk(v);
   };
   walk(expr);
   return found;
