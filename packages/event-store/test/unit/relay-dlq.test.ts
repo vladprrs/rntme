@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { SqliteEventStore } from '../../src/store/sqlite.js';
 import { createInMemoryKafkaProducer } from '../../src/kafka/in-memory.js';
 import { createRelay } from '../../src/relay/loop.js';
+import { fromCloudEventWire } from '../../src/kafka/wire-codec.js';
+import type { DlqPayload } from '../../src/relay/dlq-envelope.js';
 import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
 
 let store: SqliteEventStore | null = null;
@@ -17,12 +19,22 @@ async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<boolean
   return pred();
 }
 
+function defaultRelayExtras() {
+  let idCounter = 0;
+  return {
+    serviceName: 'svc',
+    now: () => '2026-04-17T00:00:00.000Z',
+    nextId: () => `dlq-${++idCounter}`,
+  };
+}
+
 describe('relay — delivery_tracking (happy path)', () => {
   it('records attempt_count=1 and delivered_at after a successful send', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+      ...defaultRelayExtras(),
     });
 
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
@@ -39,10 +51,11 @@ describe('relay — delivery_tracking (happy path)', () => {
   });
 
   it('increments attempt_count per retry and retains last_error after eventual success', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+      ...defaultRelayExtras(),
     });
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
     kafka.failNext(2, new Error('transient broker hiccup'));
@@ -61,7 +74,7 @@ describe('relay — delivery_tracking (happy path)', () => {
 
 describe('relay — DLQ path', () => {
   it('emits to {topic}.dlq after maxAttempts primary failures, advances cursor, marks dlq_at', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka,
@@ -71,6 +84,7 @@ describe('relay — DLQ path', () => {
       maxAttempts: 3,
       maxBackoffMs: 5,
       onSendError: () => { /* silence */ },
+      ...defaultRelayExtras(),
     });
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
     // Fail exactly maxAttempts times — primary never succeeds; the next send()
@@ -80,28 +94,36 @@ describe('relay — DLQ path', () => {
     relay.start();
     // Wait until we see exactly one DLQ message (primary-topic sends all fail; DLQ succeeds on first try).
     expect(await waitUntil(
-      () => kafka.sent.some((m) => m.topic === 'rntme.issue.v1.dlq'),
+      () => kafka.sent.some((m) => m.topic === 'rntme.svc.issue.v1.dlq'),
       3000,
     )).toBe(true);
     await relay.stop();
 
-    const primaryMsgs = kafka.sent.filter((m) => m.topic === 'rntme.issue.v1');
-    const dlqMsgs = kafka.sent.filter((m) => m.topic === 'rntme.issue.v1.dlq');
+    const primaryMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue.v1');
+    const dlqMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue.v1.dlq');
     expect(primaryMsgs).toHaveLength(0);
     expect(dlqMsgs).toHaveLength(1);
 
     const dlq = dlqMsgs[0]!;
+    // DLQ message uses CE binary mode; partition key is the original subject
+    // so the DLQ preserves per-aggregate ordering.
     expect(dlq.key).toBe('Issue-1');
-    expect(dlq.headers['event-id']).toBe('a');
-    expect(dlq.headers['event-type']).toBe('IssueReport');
-    expect(dlq.headers['schema-version']).toBe('1');
-    expect(dlq.headers['x-dlq-reason']).toBe('max-attempts-exceeded');
-    expect(dlq.headers['x-dlq-attempts']).toBe('3');
-    expect(dlq.headers['x-dlq-first-attempt-at']).toMatch(/^20\d{2}-/);
-    expect(dlq.headers['x-dlq-last-error']).toBe('schema violation at broker');
-    // Envelope value preserved verbatim.
-    const value = JSON.parse(dlq.value) as { id: string };
-    expect(value.id).toBe('a');
+    expect(dlq.headers.ce_specversion).toBe('1.0');
+    expect(dlq.headers.ce_type).toBe('svc.Relay.EventDeliveryFailed');
+
+    const decoded = fromCloudEventWire(dlq);
+    expect(decoded.type).toBe('svc.Relay.EventDeliveryFailed');
+    expect(decoded.source).toBe('rntme://svc/Relay');
+    expect(decoded.rntAggregateType).toBe('Relay');
+    expect(decoded.rntAggregateId).toBe('svc');
+    expect(decoded.rntActorKind).toBe('system');
+    expect(decoded.rntActorId).toBe('relay');
+    expect(decoded.causationId).toBe('a');
+    const payload = decoded.data as DlqPayload;
+    expect(payload.reason).toBe('max-attempts-exceeded');
+    expect(payload.attempts).toBe(3);
+    expect(payload.lastError).toBe('schema violation at broker');
+    expect(payload.failedEvent.id).toBe('a');
 
     expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(1);
     const row = store.readDeliveryAttempt('a');
@@ -112,7 +134,7 @@ describe('relay — DLQ path', () => {
   });
 
   it('does not mark dlq_at when relay is stopped during DLQ emit retry', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
 
     // Topic-aware mock: primary always fails; DLQ always fails too.
     // This simulates both topics being unreachable — emitDlq will loop.
@@ -137,6 +159,7 @@ describe('relay — DLQ path', () => {
       maxAttempts: 2,
       maxBackoffMs: 5,
       onSendError: () => {},
+      ...defaultRelayExtras(),
     });
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
 
@@ -161,7 +184,7 @@ describe('relay — DLQ path', () => {
 
 describe('relay — defensive skip on terminal state', () => {
   it('does not call kafka.send when delivery_tracking already has delivered_at set', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
     const kafka = createInMemoryKafkaProducer();
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
 
@@ -171,6 +194,7 @@ describe('relay — defensive skip on terminal state', () => {
 
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+      ...defaultRelayExtras(),
     });
     relay.start();
     // Give the loop enough time to process; nothing should be sent, cursor should advance past 'a'.
@@ -181,7 +205,7 @@ describe('relay — defensive skip on terminal state', () => {
   });
 
   it('does not call kafka.send when delivery_tracking already has dlq_at set', async () => {
-    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    store = new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
     const kafka = createInMemoryKafkaProducer();
     store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'a' })])]);
 
@@ -190,6 +214,7 @@ describe('relay — defensive skip on terminal state', () => {
 
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 100,
+      ...defaultRelayExtras(),
     });
     relay.start();
     expect(await waitUntil(() => store!.readCursor('kafka-main') >= 1, 1000)).toBe(true);

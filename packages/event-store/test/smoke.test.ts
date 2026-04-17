@@ -5,6 +5,7 @@ import {
   createInMemoryKafkaProducer,
   createRelay,
   defaultTopicOf,
+  fromCloudEventWire,
   ConcurrencyConflict,
 } from '../src/index.js';
 import type { EventEnvelope, AppendRequest } from '../src/index.js';
@@ -18,7 +19,16 @@ async function wait(ms: number): Promise<void> {
 }
 
 function newStore(): SqliteEventStore {
-  return new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+  return new SqliteEventStore({ filename: ':memory:', serviceName: 'svc' });
+}
+
+function defaultRelayExtras() {
+  let idCounter = 0;
+  return {
+    serviceName: 'svc',
+    now: () => '2026-04-17T00:00:00.000Z',
+    nextId: () => `dlq-${++idCounter}`,
+  };
 }
 
 describe('smoke: @rntme/event-store end-to-end', () => {
@@ -31,6 +41,7 @@ describe('smoke: @rntme/event-store end-to-end', () => {
     const kafka = createInMemoryKafkaProducer();
     const relay = createRelay({
       store, kafka, cursorId: 'kafka-main', pollIntervalMs: 5, batchSize: 50,
+      ...defaultRelayExtras(),
     });
 
     // Two interleaved aggregates; per-subject order must be preserved in Kafka.
@@ -49,7 +60,7 @@ describe('smoke: @rntme/event-store end-to-end', () => {
     await relay.stop();
 
     expect(kafka.sent).toHaveLength(5);
-    const envelopes: EventEnvelope[] = kafka.sent.map((m) => JSON.parse(m.value) as EventEnvelope);
+    const envelopes: EventEnvelope[] = kafka.sent.map((m) => fromCloudEventWire(m));
 
     // Per-subject order within each aggregate's sub-sequence
     const issue1 = envelopes.filter((e) => e.subject === 'Issue-1').map((e) => e.id);
@@ -57,11 +68,11 @@ describe('smoke: @rntme/event-store end-to-end', () => {
     const issue2 = envelopes.filter((e) => e.subject === 'Issue-2').map((e) => e.id);
     expect(issue2).toEqual(['i2-report', 'i2-submit']);
 
-    // Kafka partition key = subject
-    expect(kafka.sent.every((m) => m.key === JSON.parse(m.value).subject)).toBe(true);
+    // Kafka partition key = envelope.subject
+    expect(kafka.sent.every((m, i) => m.key === envelopes[i]!.subject)).toBe(true);
 
-    // Topic naming
-    expect(kafka.sent.every((m) => m.topic === defaultTopicOf('Issue'))).toBe(true);
+    // Topic naming (D6): `rntme.<serviceName>.<aggregateType>.v1`
+    expect(kafka.sent.every((m) => m.topic === defaultTopicOf('svc', 'Issue'))).toBe(true);
 
     // Cursor ended at the last event id
     const lastId = (store.rawDb().prepare('SELECT MAX(id) AS m FROM event_log').get() as { m: number }).m;

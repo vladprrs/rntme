@@ -46,3 +46,5 @@ export { CloudEventDecodeError } from './kafka/wire-errors.js';
 export { createRelay } from './relay/loop.js';
 export type { Relay, RelayOptions } from './relay/loop.js';
 export { defaultTopicOf } from './relay/topic.js';
+export { buildDlqEnvelope } from './relay/dlq-envelope.js';
+export type { DlqPayload } from './relay/dlq-envelope.js';
