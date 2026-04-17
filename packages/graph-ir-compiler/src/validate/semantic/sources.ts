@@ -23,6 +23,8 @@ function collectDotNavPaths(expr: unknown): string[] {
     // $literal and $param carry non-path string values — skip entirely.
     if ('$literal' in obj) return;
     if ('$param' in obj) return;
+    // lookup: entity/path/match/field/optional — no Expr sub-trees (matches walkExprParams pattern).
+    if ('lookup' in obj) return;
     // exists.relation is a relation name (not a field path); exists.where IS a sub-expr.
     if ('exists' in obj) {
       const inner = obj.exists as Record<string, unknown> | undefined;

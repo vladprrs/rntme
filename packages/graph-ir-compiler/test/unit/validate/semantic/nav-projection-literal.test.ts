@@ -123,9 +123,9 @@ describe('bug_008 — collectDotNavPaths must not flag non-path string values', 
 
   /**
    * Test B: $param whose name contains dots.
-   * "$param: 'foo.sort'" — param names are not field paths; the old walker would
-   * push "foo.sort" (length 2, which is < 3 so wouldn't fire in this exact case),
-   * but a param like "foo.bar.sort" (length 3) WOULD spuriously fire.
+   * A param name like "foo.bar.sort" (3 parts) where the first segment matches a
+   * projectionless scan alias would spuriously trigger NAV_PROJECTION_REQUIRED
+   * without the $param guard — param names are not field paths.
    */
   it('Test B: $param with dotted name does NOT trigger NAV_PROJECTION_REQUIRED', () => {
     const pdm = makePdm();
