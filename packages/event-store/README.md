@@ -98,7 +98,7 @@ relay.start();
 | `defaultTopicOf(aggregateType)` | `rntme.${aggregateType.toLowerCase()}.v1`. Override via `RelayOptions.topicOf`. |
 | `Relay#start()` / `Relay#stop()` | `start` is fire-and-forget; `stop()` resolves once the in-flight loop exits. |
 
-`RelayOptions` defaults: `pollIntervalMs = 100`, `batchSize = 500`, `maxBackoffMs = 1000`, `topicOf = defaultTopicOf`, `onSendError = console.error`.
+`RelayOptions` defaults: `pollIntervalMs = 100`, `batchSize = 500`, `maxBackoffMs = 1000`, `maxAttempts = 10`, `topicOf = defaultTopicOf`, `onSendError = console.error`, `onDlqError = console.error`.
 
 ### Kafka
 
@@ -171,7 +171,9 @@ publish_cursor
 
 ## Delivery tracking & DLQ (A1)
 
-The relay records every primary-topic send attempt in `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)`. After `RelayOptions.maxAttempts` (default 10) consecutive failures on the primary topic, the relay emits the original envelope to `{primaryTopic}.dlq` with `x-dlq-reason`, `x-dlq-attempts`, `x-dlq-first-attempt-at`, `x-dlq-last-error` headers, then marks `dlq_at` and advances `publish_cursor`. The attempt counter is persistent — it survives relay restarts. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`.
+The relay records every primary-topic send attempt in `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)`. After `RelayOptions.maxAttempts` (default 10) consecutive failures on the primary topic, the relay emits the original envelope to `{primaryTopic}.dlq` with `x-dlq-reason`, `x-dlq-attempts`, `x-dlq-first-attempt-at`, `x-dlq-last-error` headers, then marks `dlq_at` and advances `publish_cursor`. The attempt counter is persistent — it survives relay restarts.
+
+DLQ-side sends are retried unboundedly with capped backoff (spec §D-DLQ-RETRY): if the DLQ topic itself is unreachable, the relay loops rather than dropping the event or zombie-exiting. Wire `RelayOptions.onDlqError` for operator alerting; it is called once per failed DLQ send. On restart, if `attempt_count` is already at `maxAttempts` (relay crashed mid-DLQ-emit), the relay short-circuits straight to DLQ without another wasted primary send. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`.
 
 ## Out of scope / known limits
 

@@ -11,9 +11,12 @@ import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
 let tmpDir: string | null = null;
 let store: SqliteEventStore | null = null;
 afterEach(() => {
-  store?.close();
-  store = null;
-  if (tmpDir) { rmSync(tmpDir, { recursive: true, force: true }); tmpDir = null; }
+  try {
+    store?.close();
+  } finally {
+    store = null;
+    if (tmpDir) { rmSync(tmpDir, { recursive: true, force: true }); tmpDir = null; }
+  }
 });
 
 function wait(ms: number): Promise<void> {
@@ -151,6 +154,146 @@ describe('relay poison-event integration (A1 primary scenario)', () => {
     // Counter continued from midCount; final must be exactly maxAttempts (10).
     expect(row?.attemptCount).toBe(10);
     expect(row?.dlqAt).not.toBeNull();
+    expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(1);
+  });
+
+  it('DLQ persistently down: relay stays alive (no zombie state), stop() returns cleanly, dlq_at not marked, cursor not advanced', async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-dlq-down-'));
+    const dbPath = join(tmpDir, 'events.db');
+    store = new SqliteEventStore({ filename: dbPath });
+
+    // Both primary AND DLQ topics permanently fail. Per spec §D-DLQ-RETRY,
+    // the relay must keep retrying the DLQ send forever rather than zombify.
+    let primaryAttempts = 0;
+    let dlqAttempts = 0;
+    const kafka: KafkaProducer = {
+      async send(message: KafkaMessage): Promise<void> {
+        if (message.topic.endsWith('.dlq')) {
+          dlqAttempts += 1;
+          throw new Error('dlq broker unreachable');
+        }
+        primaryAttempts += 1;
+        throw new Error('primary broker unreachable');
+      },
+    };
+
+    store.appendEvents([makeRequest('Issue-1', [
+      makeEvent({ eventId: 'a', aggregateId: '1' }),
+    ])]);
+
+    const relay = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 3,
+      maxBackoffMs: 5,
+      onSendError: () => { /* silence */ },
+      onDlqError: () => { /* silence */ },
+    });
+    relay.start();
+
+    // Primary should reach the cap (3); then DLQ retries unbounded.
+    expect(await waitUntil(
+      () => (store!.readDeliveryAttempt('a')?.attemptCount ?? 0) >= 3,
+      3000,
+    )).toBe(true);
+
+    // Wait for several DLQ attempts — proves the DLQ loop is genuinely retrying.
+    expect(await waitUntil(() => dlqAttempts >= 5, 3000)).toBe(true);
+    const dlqAttemptsBefore = dlqAttempts;
+
+    // Give the loop more time to confirm it keeps retrying (not zombied).
+    await wait(50);
+    expect(dlqAttempts).toBeGreaterThan(dlqAttemptsBefore);
+
+    // stop() must return cleanly within a reasonable window (capped backoff is 5ms).
+    const stopStart = Date.now();
+    await relay.stop();
+    const stopElapsed = Date.now() - stopStart;
+    expect(stopElapsed).toBeLessThan(2000);
+
+    // Counter capped at maxAttempts; DLQ never marked; cursor never advanced.
+    const row = store.readDeliveryAttempt('a');
+    expect(row?.attemptCount).toBe(3);
+    expect(row?.dlqAt).toBeNull();
+    expect(row?.deliveredAt).toBeNull();
+    expect(store.readCursor('kafka-main')).toBe(0);
+
+    // Sanity: the relay actually did work (didn't sleep through everything).
+    expect(primaryAttempts).toBeGreaterThanOrEqual(3);
+  });
+
+  it('start() after stop() resumes cleanly when DLQ recovers', async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'rntme-relay-dlq-recover-'));
+    const dbPath = join(tmpDir, 'events.db');
+    store = new SqliteEventStore({ filename: dbPath });
+
+    let dlqShouldFail = true;
+    const sent: KafkaMessage[] = [];
+    const kafka: KafkaProducer & { sent: KafkaMessage[] } = {
+      sent,
+      async send(message: KafkaMessage): Promise<void> {
+        if (message.topic.endsWith('.dlq')) {
+          if (dlqShouldFail) throw new Error('dlq down');
+          sent.push(message);
+          return;
+        }
+        throw new Error('primary broker unreachable');
+      },
+    };
+
+    store.appendEvents([makeRequest('Issue-1', [
+      makeEvent({ eventId: 'a', aggregateId: '1' }),
+    ])]);
+
+    const relay1 = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 2,
+      maxBackoffMs: 5,
+      onSendError: () => {},
+      onDlqError: () => {},
+    });
+    relay1.start();
+    expect(await waitUntil(
+      () => (store!.readDeliveryAttempt('a')?.attemptCount ?? 0) >= 2,
+      3000,
+    )).toBe(true);
+    await relay1.stop();
+
+    // Counter at cap, DLQ never marked.
+    expect(store.readDeliveryAttempt('a')?.dlqAt).toBeNull();
+    expect(store.readDeliveryAttempt('a')?.attemptCount).toBe(2);
+
+    // DLQ recovers; restart the relay. The I4 short-circuit must skip the
+    // wasted primary send and go straight to DLQ.
+    dlqShouldFail = false;
+    const primaryBefore = sent.filter((m) => !m.topic.endsWith('.dlq')).length;
+
+    const relay2 = createRelay({
+      store, kafka,
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 2,
+      maxBackoffMs: 5,
+      onSendError: () => {},
+      onDlqError: () => {},
+    });
+    relay2.start();
+    expect(await waitUntil(() => sent.some((m) => m.topic.endsWith('.dlq')), 3000)).toBe(true);
+    await relay2.stop();
+
+    const dlqMsgs = sent.filter((m) => m.topic.endsWith('.dlq'));
+    expect(dlqMsgs).toHaveLength(1);
+    // No additional primary send was issued on restart (I4 short-circuit).
+    expect(sent.filter((m) => !m.topic.endsWith('.dlq')).length).toBe(primaryBefore);
+    // attempt_count not bumped past the cap by the short-circuit path.
+    expect(store.readDeliveryAttempt('a')?.attemptCount).toBe(2);
+    expect(store.readDeliveryAttempt('a')?.dlqAt).not.toBeNull();
     expect(store.readCursor('kafka-main')).toBeGreaterThanOrEqual(1);
   });
 });

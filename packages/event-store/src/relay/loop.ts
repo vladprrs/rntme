@@ -11,10 +11,17 @@ export type RelayOptions = Readonly<{
   batchSize?: number;
   topicOf?: (aggregateType: string) => string;
   maxBackoffMs?: number;
-  /** Default: 10. Number of primary-topic send attempts before DLQ. Must be >= 1. */
+  /** Default: 10. Number of primary-topic send attempts before DLQ. Must be an integer >= 1. */
   maxAttempts?: number;
-  /** Called once per failed send. `attempt` is 1-indexed. */
+  /** Called once per failed primary-topic send. `attempt` is 1-indexed. */
   onSendError?: (err: unknown, envelope: EventEnvelope, attempt: number) => void;
+  /**
+   * Called once per failed DLQ-topic send. DLQ retries are unbounded with capped
+   * backoff (spec §D-DLQ-RETRY): silently dropping a DLQ event would lose data,
+   * so the relay loops until the DLQ accepts the event or `stop()` is called.
+   * Wire this for operator alerting / metrics.
+   */
+  onDlqError?: (err: unknown, envelope: EventEnvelope, attempt: number) => void;
 }>;
 
 export type Relay = Readonly<{
@@ -27,17 +34,22 @@ export function createRelay(opts: RelayOptions): Relay {
   const batch = opts.batchSize ?? 500;
   const topicOf = opts.topicOf ?? defaultTopicOf;
   const maxBackoff = opts.maxBackoffMs ?? 1000;
-  const rawMaxAttempts = opts.maxAttempts ?? 10;
-  // Validate maxAttempts: must be >= 1, finite integer
-  if (!Number.isFinite(rawMaxAttempts) || rawMaxAttempts < 1) {
+  const maxAttempts = opts.maxAttempts ?? 10;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new Error(
-      `[relay] maxAttempts must be a finite integer >= 1, got: ${rawMaxAttempts}`,
+      `[relay] maxAttempts must be an integer >= 1, got: ${opts.maxAttempts}`,
     );
   }
-  const maxAttempts = Math.floor(rawMaxAttempts);
   const onErr = opts.onSendError ?? ((err, _envelope, attempt) => {
     // eslint-disable-next-line no-console
     console.error(`[relay] kafka send failed (attempt ${attempt}), will retry:`, err);
+  });
+  const onDlqErr = opts.onDlqError ?? ((err, envelope, attempt) => {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[relay] DLQ send failed for ${envelope.eventId} (attempt ${attempt}), will retry:`,
+      err,
+    );
   });
 
   let running = false;
@@ -65,6 +77,28 @@ export function createRelay(opts: RelayOptions): Relay {
           continue;
         }
         const primaryTopic = topicOf(rec.envelope.aggregateType);
+
+        // Short-circuit on restart: if attemptCount already reached the cap
+        // (relay crashed mid-DLQ-emit, leaving counter == maxAttempts and dlq_at NULL),
+        // skip another wasted primary send and go straight to DLQ.
+        if (existing && existing.attemptCount >= maxAttempts) {
+          const sent = await emitDlq({
+            kafka: opts.kafka,
+            rec,
+            primaryTopic,
+            attempts: existing.attemptCount,
+            firstAttemptAt: existing.firstAttemptAt,
+            lastError: existing.lastError ?? 'unknown (counter already at cap on restart)',
+            maxBackoff,
+            isRunning: () => running,
+            onDlqError: onDlqErr,
+          });
+          if (!sent) return; // cooperative shutdown during DLQ emit
+          opts.store.markDlq(eventId, new Date().toISOString());
+          highestDeliveredId = rec.id;
+          continue;
+        }
+
         let attempts = existing?.attemptCount ?? 0;
         let backoff = 10;
         while (running) {
@@ -100,16 +134,9 @@ export function createRelay(opts: RelayOptions): Relay {
                 lastError: msg,
                 maxBackoff,
                 isRunning: () => running,
-                maxDlqAttempts: 10,
-                onDlqError: (err, failedRec) => {
-                  // eslint-disable-next-line no-console
-                  console.error(
-                    `[relay] Terminal DLQ failure for event ${failedRec.envelope.eventId}:`,
-                    err,
-                  );
-                },
+                onDlqError: onDlqErr,
               });
-              if (!sent) return; // shutdown during DLQ emit — don't mark, don't advance cursor
+              if (!sent) return; // cooperative shutdown during DLQ emit
               opts.store.markDlq(eventId, new Date().toISOString());
               break;
             }
@@ -165,15 +192,22 @@ type EmitDlqOpts = Readonly<{
   lastError: string;
   maxBackoff: number;
   isRunning: () => boolean;
-  maxDlqAttempts: number;
-  onDlqError?: (err: unknown, rec: EventRecord) => void;
+  onDlqError: (err: unknown, envelope: EventEnvelope, attempt: number) => void;
 }>;
 
+/**
+ * Send to `${primaryTopic}.dlq` with capped exponential backoff. Per spec
+ * §D-DLQ-RETRY this loop is unbounded: silently dropping a DLQ event would
+ * lose data, and exiting on a terminal cap would leave the relay zombied
+ * (running=true but loop exited), re-introducing the "poison blocks the
+ * stream" failure mode A1 exists to prevent. Returns `true` on success;
+ * `false` ONLY for cooperative shutdown via `isRunning() === false`.
+ */
 async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
   let backoff = 10;
-  let dlqAttempts = 0;
+  let dlqAttempt = 0;
   while (o.isRunning()) {
-    dlqAttempts += 1;
+    dlqAttempt += 1;
     try {
       await o.kafka.send({
         topic: `${o.primaryTopic}.dlq`,
@@ -191,19 +225,7 @@ async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
       });
       return true;
     } catch (dlqErr) {
-      if (dlqAttempts >= o.maxDlqAttempts) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[relay] DLQ-send permanently failed for ${o.rec.envelope.eventId} after ${dlqAttempts} attempts:`,
-          dlqErr,
-        );
-        if (o.onDlqError) {
-          o.onDlqError(dlqErr, o.rec);
-        }
-        return false;
-      }
-      // eslint-disable-next-line no-console
-      console.error(`[relay] DLQ-send failed for ${o.rec.envelope.eventId}, will retry:`, dlqErr);
+      o.onDlqError(dlqErr, o.rec.envelope, dlqAttempt);
       await sleep(backoff);
       backoff = Math.min(backoff * 2, o.maxBackoff);
     }
