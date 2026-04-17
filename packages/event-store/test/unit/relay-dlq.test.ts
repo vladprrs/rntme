@@ -110,6 +110,49 @@ describe('relay — DLQ path', () => {
     expect(row?.deliveredAt).toBeNull();
     expect(row?.lastError).toBe('schema violation at broker');
   });
+
+  it('does not mark dlq_at when relay is stopped during DLQ emit retry', async () => {
+    store = new SqliteEventStore({ filename: ':memory:' });
+
+    // Topic-aware mock: primary always fails; DLQ always fails too.
+    // This simulates both topics being unreachable — emitDlq will loop.
+    const sent: { topic: string; key: string; value: string; headers: Record<string, string> }[] = [];
+    const kafka = {
+      sent,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async send(_m: any): Promise<void> {
+        throw new Error('broker unavailable');
+      },
+    };
+
+    const relay = createRelay({
+      store, kafka: kafka as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      cursorId: 'kafka-main',
+      pollIntervalMs: 5,
+      batchSize: 100,
+      maxAttempts: 2,
+      maxBackoffMs: 5,
+      onSendError: () => {},
+    });
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'a' })])]);
+
+    relay.start();
+    // Wait until the primary attempts are exhausted AND emitDlq has started retrying.
+    // Indicator: attempt_count reached maxAttempts (2).
+    expect(await waitUntil(
+      () => (store!.readDeliveryAttempt('a')?.attemptCount ?? 0) >= 2,
+      2000,
+    )).toBe(true);
+    // Give emitDlq a moment to fail at least once on the DLQ topic.
+    await new Promise(r => setTimeout(r, 20));
+    await relay.stop();
+
+    const row = store.readDeliveryAttempt('a');
+    expect(row?.attemptCount).toBe(2);
+    expect(row?.dlqAt).toBeNull(); // <-- the key assertion: NOT marked
+    expect(row?.deliveredAt).toBeNull();
+    expect(store.readCursor('kafka-main')).toBe(0); // cursor did not advance
+  });
 });
 
 describe('relay — defensive skip on terminal state', () => {

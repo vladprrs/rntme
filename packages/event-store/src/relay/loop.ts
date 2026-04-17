@@ -84,7 +84,7 @@ export function createRelay(opts: RelayOptions): Relay {
             if (attempts >= maxAttempts) {
               const state = opts.store.readDeliveryAttempt(eventId);
               const firstAttemptAt = state?.firstAttemptAt ?? attemptIso;
-              await emitDlq({
+              const sent = await emitDlq({
                 kafka: opts.kafka,
                 rec,
                 primaryTopic,
@@ -94,6 +94,7 @@ export function createRelay(opts: RelayOptions): Relay {
                 maxBackoff,
                 isRunning: () => running,
               });
+              if (!sent) return; // shutdown during DLQ emit — don't mark, don't advance cursor
               opts.store.markDlq(eventId, new Date().toISOString());
               break;
             }
@@ -151,7 +152,7 @@ type EmitDlqOpts = Readonly<{
   isRunning: () => boolean;
 }>;
 
-async function emitDlq(o: EmitDlqOpts): Promise<void> {
+async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
   let backoff = 10;
   while (o.isRunning()) {
     try {
@@ -169,7 +170,7 @@ async function emitDlq(o: EmitDlqOpts): Promise<void> {
         },
         value: JSON.stringify(o.rec.envelope),
       });
-      return;
+      return true;
     } catch (dlqErr) {
       // eslint-disable-next-line no-console
       console.error(`[relay] DLQ-send failed for ${o.rec.envelope.eventId}, will retry:`, dlqErr);
@@ -177,4 +178,5 @@ async function emitDlq(o: EmitDlqOpts): Promise<void> {
       backoff = Math.min(backoff * 2, o.maxBackoff);
     }
   }
+  return false;
 }
