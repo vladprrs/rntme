@@ -246,7 +246,7 @@ function makeColumnOf(
   context: LowerContext,
   outputCols: Set<string>,
 ): (path: string) => { table?: string; column: string } {
-  const addedAliases = new Set<string>([scan.alias]);
+  const addedAliases = new Set<string>([scan.alias, ...child.joins.map((j) => j.alias)]);
   return (path: string) => {
     if (!path.includes('.')) {
       if (outputCols.has(path)) return { column: path };
@@ -287,7 +287,7 @@ function makeColumnOf(
         }
       }
 
-      const leafAlias = parts[parts.length - 2]!;
+      const leafAlias = parts.slice(1, -1).join('_');
       const leafField = parts[parts.length - 1]!;
 
       // Target projection for leaf = last step's toProjection

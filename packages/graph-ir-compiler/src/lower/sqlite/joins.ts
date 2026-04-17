@@ -61,7 +61,7 @@ export function expandChain(
       relation: relName,
       fromProjection: curProjName,
       toProjection: rel.to,
-      toAlias: relName,
+      toAlias: path.slice(1, i + 1).join('_'),
       localKey: localField.column,
       foreignKey: foreignField.column,
       cardinality: rel.cardinality,
