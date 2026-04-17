@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { SqliteEventStore } from '@rntme/event-store';
 import { compileCommand } from '../../../src/command-runtime/compile.js';
 import { executeCommand } from '../../../src/command-runtime/execute.js';
+import { testCorrelation } from '../../support/correlation.js';
 import { RAW_ISSUE_PDM } from '../fixtures/issue-pdm.js';
 
 const RAW_QSM = {
@@ -101,21 +102,21 @@ describe('executeCommand — read-prelude guard', () => {
       title, priority, story_points, status) VALUES (?, 1, 1, ?, 't', 'high', 1, ?)`);
     for (let i = 1; i <= 5; i++) ins.run(i, 99, 'in_progress');
 
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
 
     store.appendEvents([
       {
-        stream: 'Issue-10',
+        subject: 'Issue-10',
         events: [
           {
-            eventId: 'u1',
+            id: 'u1',
             eventType: 'IssueSubmit',
-            aggregateType: 'Issue',
-            aggregateId: '10',
-            occurredAt: '2026-04-14T09:00:00Z',
+            rntAggregateType: 'Issue',
+            rntAggregateId: '10',
+            time: '2026-04-14T09:00:00Z',
             actor: null,
-            schemaVersion: 1,
-            payload: {
+            rntSchemaVersion: 1,
+            data: {
               before: null,
               after: {
                 status: 'open',
@@ -126,6 +127,10 @@ describe('executeCommand — read-prelude guard', () => {
                 storyPoints: 1,
               },
             },
+            correlationId: 'seed-corr-1',
+            causationId: null,
+            commandId: null,
+            traceparent: null,
           },
         ],
       },
@@ -143,6 +148,7 @@ describe('executeCommand — read-prelude guard', () => {
         now: () => '2026-04-14T10:00:00Z',
         nextId: () => `id-${++seq}`,
         actor: null,
+        correlation: testCorrelation(),
       });
       throw new Error('expected throw');
     } catch (e) {
@@ -161,21 +167,21 @@ describe('executeCommand — read-prelude guard', () => {
       status TEXT NOT NULL, resolved_at TEXT
     );`);
 
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
 
     store.appendEvents([
       {
-        stream: 'Issue-10',
+        subject: 'Issue-10',
         events: [
           {
-            eventId: 'u1',
+            id: 'u1',
             eventType: 'IssueSubmit',
-            aggregateType: 'Issue',
-            aggregateId: '10',
-            occurredAt: '2026-04-14T09:00:00Z',
+            rntAggregateType: 'Issue',
+            rntAggregateId: '10',
+            time: '2026-04-14T09:00:00Z',
             actor: null,
-            schemaVersion: 1,
-            payload: {
+            rntSchemaVersion: 1,
+            data: {
               before: null,
               after: {
                 status: 'open',
@@ -186,6 +192,10 @@ describe('executeCommand — read-prelude guard', () => {
                 storyPoints: 1,
               },
             },
+            correlationId: 'seed-corr-2',
+            causationId: null,
+            commandId: null,
+            traceparent: null,
           },
         ],
       },
@@ -201,6 +211,7 @@ describe('executeCommand — read-prelude guard', () => {
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `id-${++seq}`,
       actor: null,
+      correlation: testCorrelation(),
     });
     expect(out.version).toBe(2);
     const stream = store.readStream('Issue-10');

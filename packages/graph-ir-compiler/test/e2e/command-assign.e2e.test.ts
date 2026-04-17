@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SqliteEventStore } from '@rntme/event-store';
 import { compileCommand, executeCommand, runCommand } from '../../src/index.js';
+import { testCorrelation } from '../support/correlation.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (n: string): unknown => JSON.parse(readFileSync(join(here, 'fixtures', n), 'utf8'));
@@ -107,7 +108,7 @@ const assignSpec = {
 
 describe('E2E command: report → submit → assign', () => {
   it('appends events for each transition and final version is 3', () => {
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
 
     let seq = 0;
     const ctx = {
@@ -116,6 +117,7 @@ describe('E2E command: report → submit → assign', () => {
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
       actor: { kind: 'user' as const, id: 'alice' },
+      correlation: testCorrelation(),
     };
 
     const r1 = runCommand(
@@ -146,7 +148,7 @@ describe('E2E command: report → submit → assign', () => {
   });
 
   it('409-equivalent on concurrent append (ConcurrencyConflict → COMMAND_CONCURRENCY_CONFLICT)', () => {
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
 
     let seq = 0;
     const ctx = {
@@ -155,6 +157,7 @@ describe('E2E command: report → submit → assign', () => {
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
       actor: null,
+      correlation: testCorrelation(),
     };
 
     runCommand(
@@ -167,18 +170,22 @@ describe('E2E command: report → submit → assign', () => {
 
     store.appendEvents([
       {
-        stream: 'Issue-42',
+        subject: 'Issue-42',
         expectedVersion: 1,
         events: [
           {
-            eventId: 'manual',
+            id: 'manual',
             eventType: 'IssueSubmit',
-            aggregateType: 'Issue',
-            aggregateId: '42',
-            occurredAt: '2026-04-14T10:01:00Z',
+            rntAggregateType: 'Issue',
+            rntAggregateId: '42',
+            time: '2026-04-14T10:01:00Z',
             actor: null,
-            schemaVersion: 1,
-            payload: { before: { status: 'draft' }, after: { status: 'open' } },
+            rntSchemaVersion: 1,
+            data: { before: { status: 'draft' }, after: { status: 'open' } },
+            correlationId: 'manual-corr',
+            causationId: null,
+            commandId: null,
+            traceparent: null,
           },
         ],
       },

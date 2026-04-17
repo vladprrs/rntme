@@ -7,6 +7,12 @@ import { checkTransitionLegal } from './transition.js';
 import { derivePayload, evalExprAtRuntime } from '../emit/payload.js';
 import { CommandExecutionError } from './errors.js';
 
+export type CorrelationCtx = Readonly<{
+  commandId: string;
+  correlationId: string;
+  traceparent: string | null;
+}>;
+
 export type ExecuteCommandContext = {
   eventStore: EventStore;
   /** Required when `compiled.readPrelude` is non-null. */
@@ -14,6 +20,7 @@ export type ExecuteCommandContext = {
   now: () => string;
   nextId: () => string;
   actor: ActorRef | null;
+  correlation: CorrelationCtx;
 };
 
 function preludePositional(
@@ -60,9 +67,9 @@ export function executeCommand(
 
   const head = compiled.emits[0]!;
   const aggregateId = String(evalExprAtRuntime(head.aggregateIdExpr, paramValues) ?? '');
-  const stream = `${head.aggregate}-${aggregateId}`;
+  const subject = `${head.aggregate}-${aggregateId}`;
 
-  const history = ctx.eventStore.readStream(stream);
+  const history = ctx.eventStore.readStream(subject);
   const { state, version } = replayAggregateState(history);
 
   const events: AppendEventInput[] = [];
@@ -73,19 +80,23 @@ export function executeCommand(
     checkTransitionLegal(plan, runningState, stateField);
     const payload = derivePayload(plan, paramValues, runningState);
     events.push({
-      eventId: ctx.nextId(),
+      id: ctx.nextId(),
       eventType: plan.eventType,
-      aggregateType: plan.aggregate,
-      aggregateId,
-      occurredAt: ctx.now(),
+      rntAggregateType: plan.aggregate,
+      rntAggregateId: aggregateId,
+      time: ctx.now(),
       actor: ctx.actor,
-      payload,
-      schemaVersion: 1,
+      data: payload,
+      rntSchemaVersion: 1,
+      correlationId: ctx.correlation.correlationId,
+      causationId: ctx.correlation.commandId,
+      commandId: ctx.correlation.commandId,
+      traceparent: ctx.correlation.traceparent,
     });
     runningState = { ...(runningState ?? {}), ...payload.after };
   }
 
-  const req: AppendRequest = { stream, expectedVersion: version, events };
+  const req: AppendRequest = { subject, expectedVersion: version, events };
   let results;
   try {
     results = ctx.eventStore.appendEvents([req]);
@@ -93,7 +104,7 @@ export function executeCommand(
     if (e instanceof ConcurrencyConflict) {
       throw new CommandExecutionError(
         'COMMAND_CONCURRENCY_CONFLICT',
-        `concurrent append conflict on stream ${stream}`,
+        `concurrent append conflict on subject ${subject}`,
       );
     }
     throw e;
@@ -102,6 +113,8 @@ export function executeCommand(
   return {
     aggregateId,
     version: result.lastVersion,
-    eventIds: result.appendedEvents.map((e) => e.eventId),
+    eventIds: result.appendedEvents.map((e) => e.id),
+    commandId: ctx.correlation.commandId,
+    correlationId: ctx.correlation.correlationId,
   };
 }
