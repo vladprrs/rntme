@@ -38,7 +38,6 @@ const QSM_ISSUE_MIRROR = {
       exposed: ['id', 'title', 'status', 'priority', 'storyPoints', 'assigneeId', 'reporterId', 'projectId', 'resolvedAt'],
     },
   },
-  relationRoles: {},
 };
 
 describe('generateProjectionDdl', () => {
@@ -62,8 +61,7 @@ describe('generateProjectionDdl', () => {
           table: 'projection_issue',
         },
       },
-      relationRoles: {},
-    });
+        });
     const ddls = generateProjectionDdl(qsm, resolver);
     expect(ddls[0]!.tableName).toBe('projection_issue');
   });
@@ -150,8 +148,7 @@ describe('generateProjectionDdl', () => {
           exposed: ['issueId', 'userId', 'role', 'status'],
         },
       },
-      relationRoles: {},
-    });
+        });
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
 
     // No inline PRIMARY KEY per key column

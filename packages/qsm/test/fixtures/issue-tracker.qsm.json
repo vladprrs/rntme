@@ -19,10 +19,5 @@
       "table": "projection_issue"
     }
   },
-  "relationRoles": {
-    "Issue.project": "dimension",
-    "Issue.reporter": "dimension",
-    "Issue.assignee": "dimension",
-    "Issue.sprint": "dimension"
-  }
+  "relations": {}
 }

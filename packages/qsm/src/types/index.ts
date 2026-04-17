@@ -4,11 +4,13 @@ export type {
   ProjectionBacking,
   ProjectionSource,
   RelationRole,
+  QsmRelation,
+  Cardinality,
   StructurallyValidQsm,
   ValidatedQsm,
 } from './artifact.js';
 
-export { RELATION_ROLE_VALUES } from './artifact.js';
+export { RELATION_ROLE_VALUES, CARDINALITY_VALUES } from './artifact.js';
 
 export {
   ok,
@@ -30,5 +32,5 @@ export type {
 export type {
   QsmResolver,
   ResolvedProjection,
-  ResolvedRelationRole,
+  ResolvedRelation,
 } from './resolvers.js';

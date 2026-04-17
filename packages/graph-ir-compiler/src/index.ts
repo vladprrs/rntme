@@ -89,7 +89,7 @@ export function compile(
     }
   }
 
-  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm });
+  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
   const sql = emitSql(ast);
 
   const shapeName = graph.signature.output.type.replace(/^rowset<|^row<|>$/g, '');
@@ -181,7 +181,7 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
       .map(([name]) => name),
   );
 
-  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm });
+  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
   const sql = emitSql(ast);
 
   return {

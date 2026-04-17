@@ -26,7 +26,7 @@ const RAW_QSM = {
       table: 'projection_issue',
     },
   },
-  relationRoles: {},
+  relations: {},
 };
 
 const assignWithCapacitySpec = {

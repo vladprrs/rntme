@@ -1,52 +1,93 @@
-import type { Entity, Relation, ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm, QsmRelation } from '@rntme/qsm';
+import { defaultTableName } from '@rntme/qsm';
 import type { SqlExpr, SqlJoin } from './ast.js';
 
 export type JoinChain = {
   from: string;
+  fromProjection: string;
   steps: Array<{
     relation: string;
-    toEntity: string;
+    fromProjection: string;
+    toProjection: string;
     toAlias: string;
-    localKey: string;
-    foreignKey: string;
+    localKey: string;    // column name
+    foreignKey: string;  // column name
+    cardinality: 'one' | 'many';
   }>;
 };
 
-/** Build a relation chain from a path prefix `[rootAlias, rel1, rel2, ...]`. */
-export function expandChain(startAlias: string, startEntity: string, path: string[], pdm: ValidatedPdm): JoinChain {
-  const start = pdm.entities[startEntity];
-  if (!start) throw new Error(`expandChain: unknown entity ${startEntity}`);
-  let curEntity: Entity = start;
+/**
+ * Walk QSM.relations starting from `startProjection`, stepping through `path[1..]`.
+ * Resolves field→column via PDM for each hop.
+ */
+export function expandChain(
+  startAlias: string,
+  startProjection: string,
+  path: string[],
+  qsm: ValidatedQsm,
+  pdm: ValidatedPdm,
+): JoinChain {
+  let curProjName = startProjection;
   const steps: JoinChain['steps'] = [];
+
   for (let i = 1; i < path.length; i++) {
     const relName = path[i]!;
-    const rel: Relation | undefined = curEntity.relations?.[relName];
-    if (!rel) throw new Error(`expandChain: relation "${relName}" missing on ${curEntity.table}`);
-    const next: Entity | undefined = pdm.entities[rel.to];
-    if (!next) throw new Error(`expandChain: entity ${rel.to} missing`);
-    const localField = curEntity.fields[rel.localKey];
-    const foreignField = next.fields[rel.foreignKey];
-    if (!localField || !foreignField) {
-      throw new Error(`expandChain: bad keys on ${relName}`);
+    const key = `${curProjName}.${relName}`;
+    const rel: QsmRelation | undefined = qsm.relations[key];
+    if (!rel) {
+      // Defensive: semantic validator (checkNavRelations) should have caught this.
+      // If we're here, lowerToSqlite was called without going through the semantic layer.
+      throw new Error(`NAV_NOT_ALLOWED: relation "${key}" not declared in QSM.relations`);
     }
+    if (rel.cardinality === 'many') {
+      // Defensive: semantic validator (checkNavRelations) should have caught this.
+      // If we're here, lowerToSqlite was called without going through the semantic layer.
+      throw new Error(`NAV_FAN_OUT_NOT_ALLOWED: relation "${key}" has cardinality "many"`);
+    }
+
+    const curProj = qsm.projections[curProjName];
+    if (!curProj) throw new Error(`expandChain: unknown source projection "${curProjName}"`);
+    const curEntity = pdm.entities[curProj.source.entity];
+    if (!curEntity) throw new Error(`expandChain: unknown PDM entity "${curProj.source.entity}"`);
+
+    const toProj = qsm.projections[rel.to];
+    if (!toProj) throw new Error(`expandChain: unknown target projection "${rel.to}"`);
+    const toEntity = pdm.entities[toProj.source.entity];
+    if (!toEntity) throw new Error(`expandChain: unknown PDM entity "${toProj.source.entity}"`);
+
+    const localField = curEntity.fields[rel.localKey];
+    const foreignField = toEntity.fields[rel.foreignKey];
+    if (!localField) throw new Error(`expandChain: field "${rel.localKey}" missing on ${curEntity.table}`);
+    if (!foreignField) throw new Error(`expandChain: field "${rel.foreignKey}" missing on ${toEntity.table}`);
+
     steps.push({
       relation: relName,
-      toEntity: rel.to,
-      toAlias: relName,
+      fromProjection: curProjName,
+      toProjection: rel.to,
+      toAlias: path.slice(1, i + 1).join('_'),
       localKey: localField.column,
       foreignKey: foreignField.column,
+      cardinality: rel.cardinality,
     });
-    curEntity = next;
+
+    curProjName = rel.to;
   }
-  return { from: startAlias, steps };
+
+  return { from: startAlias, fromProjection: startProjection, steps };
 }
 
-export function chainToSqlJoins(chain: JoinChain, pdm: ValidatedPdm): SqlJoin[] {
+export function chainToSqlJoins(
+  chain: JoinChain,
+  qsm: ValidatedQsm,
+): SqlJoin[] {
   const joins: SqlJoin[] = [];
   let fromAlias = chain.from;
   for (const step of chain.steps) {
-    const toTable = pdm.entities[step.toEntity]?.table;
-    if (!toTable) throw new Error(`chainToSqlJoins: unknown entity ${step.toEntity}`);
+    const toProj = qsm.projections[step.toProjection];
+    if (!toProj) throw new Error(`chainToSqlJoins: unknown projection ${step.toProjection}`);
+    const toTable = toProj.table ?? defaultTableName(step.toProjection);
+
     const on: SqlExpr = {
       kind: 'op',
       op: 'eq',
@@ -60,3 +101,4 @@ export function chainToSqlJoins(chain: JoinChain, pdm: ValidatedPdm): SqlJoin[] 
   }
   return joins;
 }
+

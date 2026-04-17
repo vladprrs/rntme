@@ -19,5 +19,5 @@
       "table": "projection_issue"
     }
   },
-  "relationRoles": {}
+  "relations": {}
 }

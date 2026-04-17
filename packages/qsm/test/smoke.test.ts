@@ -64,6 +64,7 @@ describe('smoke: @rntme/qsm end-to-end', () => {
     const resolver = createQsmResolver(qsm.value);
     const mirror = resolver.findEntityMirror('Issue')!;
     expect(mirror.table).toBe('projection_issue');
-    expect(resolver.resolveRelationRole('Issue', 'project')).toBe('dimension');
+    // relations: smoke test just verifies resolver is wired (no relations in fixture → null)
+    expect(resolver.resolveRelation('IssueView', 'project')).toBeNull();
   });
 });

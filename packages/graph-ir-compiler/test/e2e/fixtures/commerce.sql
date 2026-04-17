@@ -1,17 +1,20 @@
 CREATE TABLE categories (
-  id   INTEGER PRIMARY KEY,
-  name TEXT
+  id     INTEGER PRIMARY KEY,
+  name   TEXT,
+  status TEXT NOT NULL DEFAULT 'active'
 );
 
 CREATE TABLE products (
   id          INTEGER PRIMARY KEY,
   category_id INTEGER NOT NULL REFERENCES categories(id),
-  name        TEXT NOT NULL
+  name        TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'active'
 );
 
 CREATE TABLE orders (
   id         INTEGER PRIMARY KEY,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'active'
 );
 
 CREATE TABLE order_items (

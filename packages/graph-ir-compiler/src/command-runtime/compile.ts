@@ -109,7 +109,7 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
         .filter(([, i]) => i.mode === 'predicate_optional')
         .map(([n]) => n),
     );
-    const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm });
+    const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
     readPrelude = {
       sql: emitSql(ast),
       paramOrder,

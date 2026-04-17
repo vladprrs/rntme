@@ -66,5 +66,10 @@
       "table": "sprints"
     }
   },
-  "relationRoles": {}
+  "relations": {
+    "IssueView.project":  { "to": "project_mirror", "localKey": "projectId",  "foreignKey": "id", "cardinality": "one", "role": "dimension" },
+    "IssueView.reporter": { "to": "user_mirror",    "localKey": "reporterId", "foreignKey": "id", "cardinality": "one", "role": "dimension" },
+    "IssueView.assignee": { "to": "user_mirror",    "localKey": "assigneeId", "foreignKey": "id", "cardinality": "one", "role": "dimension" },
+    "IssueView.sprint":   { "to": "sprint_mirror",  "localKey": "sprintId",   "foreignKey": "id", "cardinality": "one", "role": "dimension" }
+  }
 }

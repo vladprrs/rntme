@@ -1,4 +1,5 @@
-import type { Entity, Relation, ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
@@ -10,19 +11,24 @@ export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 export type LowerContext = {
   predicateOptionalParams: Set<string>;
   pdm?: ValidatedPdm;
+  qsm: ValidatedQsm;
 };
 
 export function lowerToSqlite(
   rel: RelOp,
-  context: LowerContext = { predicateOptionalParams: new Set() },
+  context: LowerContext = { predicateOptionalParams: new Set(), qsm: {} as unknown as ValidatedQsm },
 ): LowerResult {
   const paramOrder: string[] = [];
   const ast = toSelect(rel, paramOrder, context);
   return { ast, paramOrder };
 }
 
-export function lowerFilterWithLifting(rel: RelOp, predicateOptionalParams: Set<string>): LowerResult {
-  return lowerToSqlite(rel, { predicateOptionalParams });
+export function lowerFilterWithLifting(
+  rel: RelOp,
+  predicateOptionalParams: Set<string>,
+  qsm: ValidatedQsm = {} as unknown as ValidatedQsm,
+): LowerResult {
+  return lowerToSqlite(rel, { predicateOptionalParams, qsm });
 }
 
 function measureToAggSql(
@@ -240,7 +246,7 @@ function makeColumnOf(
   context: LowerContext,
   outputCols: Set<string>,
 ): (path: string) => { table?: string; column: string } {
-  const addedAliases = new Set<string>([scan.alias]);
+  const addedAliases = new Set<string>([scan.alias, ...child.joins.map((j) => j.alias)]);
   return (path: string) => {
     if (!path.includes('.')) {
       if (outputCols.has(path)) return { column: path };
@@ -257,30 +263,43 @@ function makeColumnOf(
       if (parts[0] !== scan.alias) {
         throw new Error(`lower: path "${path}" root alias does not match scan`);
       }
+      // Resolve scan.entity → entity-mirror projection name
+      let startProjName: string | undefined;
+      for (const [projName, proj] of Object.entries(context.qsm.projections)) {
+        if ((proj.backing ?? 'entity-mirror') === 'entity-mirror' && proj.source.entity === scan.entity) {
+          startProjName = projName;
+          break;
+        }
+      }
+      if (!startProjName) {
+        throw new Error(
+          `NAV_PROJECTION_REQUIRED: scan on entity "${scan.entity}" has no entity-mirror projection; cannot resolve dot-nav "${path}"`,
+        );
+      }
+
       const prefix = parts.slice(0, -1);
-      const joinChain = expandChain(scan.alias, scan.entity, prefix, context.pdm);
-      const joins = chainToSqlJoins(joinChain, context.pdm);
+      const joinChain = expandChain(scan.alias, startProjName, prefix, context.qsm, context.pdm);
+      const joins = chainToSqlJoins(joinChain, context.qsm);
       for (const j of joins) {
         if (!addedAliases.has(j.alias)) {
           child.joins.push(j);
           addedAliases.add(j.alias);
         }
       }
-      const leafAlias = parts[parts.length - 2]!;
+
+      const leafAlias = parts.slice(1, -1).join('_');
       const leafField = parts[parts.length - 1]!;
-      const rootEnt = context.pdm.entities[scan.entity];
-      if (!rootEnt) throw new Error(`lower: unknown entity ${scan.entity}`);
-      let curEnt: Entity = rootEnt;
-      for (let i = 1; i < parts.length - 1; i++) {
-        const stepName = parts[i]!;
-        const stepRel: Relation | undefined = curEnt.relations?.[stepName];
-        if (!stepRel) throw new Error(`lower: missing relation ${stepName}`);
-        const nextEnt: Entity | undefined = context.pdm.entities[stepRel.to];
-        if (!nextEnt) throw new Error(`lower: missing entity ${stepRel.to}`);
-        curEnt = nextEnt;
-      }
-      const col = curEnt.fields[leafField]?.column;
-      if (!col) throw new Error(`lower: missing field ${leafField}`);
+
+      // Target projection for leaf = last step's toProjection
+      const leafProjName = joinChain.steps.length > 0
+        ? joinChain.steps[joinChain.steps.length - 1]!.toProjection
+        : startProjName;
+      const leafProj = context.qsm.projections[leafProjName];
+      if (!leafProj) throw new Error(`lower: unknown projection ${leafProjName}`);
+      const leafEntity = context.pdm.entities[leafProj.source.entity];
+      if (!leafEntity) throw new Error(`lower: unknown entity ${leafProj.source.entity}`);
+      const col = leafEntity.fields[leafField]?.column;
+      if (!col) throw new Error(`lower: missing field ${leafField} on ${leafEntity.table}`);
       return { table: leafAlias, column: col };
     }
     throw new Error(`lower: cannot resolve field path "${path}"`);

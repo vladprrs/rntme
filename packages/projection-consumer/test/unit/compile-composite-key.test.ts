@@ -40,7 +40,7 @@ const QSM_COMPOSITE = {
       exposed: ['showId', 'row', 'num', 'status'],
     },
   },
-  relationRoles: {},
+  relations: {},
 };
 
 describe('compileApplyPlan — composite keys (MVP)', () => {

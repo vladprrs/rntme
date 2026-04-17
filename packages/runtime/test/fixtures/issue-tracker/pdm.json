@@ -64,7 +64,8 @@
         "key": { "type": "string", "nullable": false, "column": "key" },
         "name": { "type": "string", "nullable": false, "column": "name" },
         "leadId": { "type": "integer", "nullable": false, "column": "lead_id" },
-        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at" }
+        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
+        "status": { "type": "string", "nullable": false, "column": "status" }
       },
       "relations": {
         "lead": {
@@ -74,7 +75,15 @@
           "foreignKey": "id"
         }
       },
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active"],
+        "transitions": {
+          "create": { "from": null, "to": "active", "affects": ["key", "name", "leadId"] }
+        }
+      }
     },
     "Sprint": {
       "table": "sprints",
@@ -103,10 +112,19 @@
         "username": { "type": "string", "nullable": false, "column": "username" },
         "email": { "type": "string", "nullable": false, "column": "email" },
         "role": { "type": "string", "nullable": false, "column": "role" },
-        "joinedAt": { "type": "datetime", "nullable": false, "column": "joined_at" }
+        "joinedAt": { "type": "datetime", "nullable": false, "column": "joined_at" },
+        "status": { "type": "string", "nullable": false, "column": "status" }
       },
       "relations": {},
-      "keys": ["id"]
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["active"],
+        "transitions": {
+          "register": { "from": null, "to": "active", "affects": ["username", "email", "role", "joinedAt"] }
+        }
+      }
     }
   }
 }

@@ -103,26 +103,106 @@ export function validateCrossRef(
     }
   }
 
-  for (const key of Object.keys(artifact.relationRoles)) {
-    const [entityName, relName] = key.split('.');
-    if (!entityName || !relName) continue; // structural layer already flagged
-    const entity = pdm.resolveEntity(entityName);
-    if (!entity) {
+  for (const [key, rel] of Object.entries(artifact.relations)) {
+    const rPath = `relations["${key}"]`;
+    const [sourceProjName, relName] = key.split('.');
+    if (!sourceProjName || !relName) continue; // structural layer already flagged
+
+    const sourceProj = artifact.projections[sourceProjName];
+    if (!sourceProj) {
       errors.push({
         layer: 'cross-ref',
-        code: ERROR_CODES.QSM_XREF_RELATION_ROLE_UNKNOWN_ENTITY,
-        message: `relationRoles key "${key}" references unknown entity "${entityName}"`,
-        path: `relationRoles.${key}`,
+        code: ERROR_CODES.QSM_XREF_RELATION_UNKNOWN_SOURCE_PROJECTION,
+        message: `relation "${key}": source projection "${sourceProjName}" not found in QSM`,
+        path: rPath,
       });
       continue;
     }
-    const rel = entity.relations.find((r) => r.name === relName);
-    if (!rel) {
+    const sourceEntity = pdm.resolveEntity(sourceProj.source.entity);
+    if (!sourceEntity) continue; // flagged earlier as projection source unknown
+
+    const targetProj = artifact.projections[rel.to];
+    if (!targetProj) {
       errors.push({
         layer: 'cross-ref',
-        code: ERROR_CODES.QSM_XREF_RELATION_ROLE_UNKNOWN_RELATION,
-        message: `relationRoles key "${key}" references unknown relation "${relName}" on "${entityName}"`,
-        path: `relationRoles.${key}`,
+        code: ERROR_CODES.QSM_XREF_RELATION_UNKNOWN_TARGET_PROJECTION,
+        message: `relation "${key}": target projection "${rel.to}" not found in QSM`,
+        path: `${rPath}.to`,
+      });
+      continue;
+    }
+    const targetEntity = pdm.resolveEntity(targetProj.source.entity);
+    // flagged earlier as projection source unknown
+    if (!targetEntity) continue;
+
+    const pdmRel = sourceEntity.relations.find((r) => r.name === relName);
+    if (!pdmRel) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_NOT_IN_PDM,
+        message: `relation "${key}" requires PDM relation "${sourceEntity.name}.${relName}"; add it to PDM or check the name`,
+        path: rPath,
+      });
+      continue;
+    }
+
+    // B2 — strict cross-validation against PDM (PDM is the source of truth)
+    if (pdmRel.to !== targetEntity.name) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_TO_MISMATCH,
+        message: `relation "${key}": "to" projects to entity "${targetEntity.name}" but PDM says "${pdmRel.to}"`,
+        path: `${rPath}.to`,
+      });
+    }
+    if (rel.localKey !== pdmRel.localKey) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_LOCAL_KEY_MISMATCH,
+        message: `relation "${key}": localKey "${rel.localKey}" does not match PDM "${pdmRel.localKey}"`,
+        path: `${rPath}.localKey`,
+      });
+    }
+    if (rel.foreignKey !== pdmRel.foreignKey) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_FOREIGN_KEY_MISMATCH,
+        message: `relation "${key}": foreignKey "${rel.foreignKey}" does not match PDM "${pdmRel.foreignKey}"`,
+        path: `${rPath}.foreignKey`,
+      });
+    }
+    if (rel.cardinality !== pdmRel.cardinality) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_CARDINALITY_MISMATCH,
+        message: `relation "${key}": cardinality "${rel.cardinality}" does not match PDM "${pdmRel.cardinality}"`,
+        path: `${rPath}.cardinality`,
+      });
+    }
+
+    // Sanity checks
+    if (!sourceEntity.fields.find((f) => f.name === rel.localKey)) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_LOCAL_KEY_UNKNOWN_FIELD,
+        message: `relation "${key}": localKey "${rel.localKey}" not a field on "${sourceEntity.name}"`,
+        path: `${rPath}.localKey`,
+      });
+    }
+    const foreignField = targetEntity.fields.find((f) => f.name === rel.foreignKey);
+    if (!foreignField) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_FOREIGN_KEY_UNKNOWN_FIELD,
+        message: `relation "${key}": foreignKey "${rel.foreignKey}" not a field on "${targetEntity.name}"`,
+        path: `${rPath}.foreignKey`,
+      });
+    } else if (!targetEntity.keys.includes(rel.foreignKey)) {
+      errors.push({
+        layer: 'cross-ref',
+        code: ERROR_CODES.QSM_XREF_RELATION_FOREIGN_KEY_NOT_A_KEY,
+        message: `relation "${key}": foreignKey "${rel.foreignKey}" is not a key of "${targetEntity.name}" (keys: [${targetEntity.keys.join(', ')}])`,
+        path: `${rPath}.foreignKey`,
       });
     }
   }
