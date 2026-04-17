@@ -169,10 +169,14 @@ publish_cursor
 - **`ActorRef` is locally redeclared.** `src/types/actor.ts` keeps this package free of `@rntme/pdm`. The shape must stay byte-identical to the PDM definition; if PDM widens the union, mirror it here.
 - **SQLite is single-writer.** This store assumes one writer process. The `WAL` journal + `busy_timeout` cushion brief contention but cannot scale-out write-side. Future scale-out target is Turso (SQLite-compatible Rust); do not introduce a Postgres dialect path.
 
+## Delivery tracking & DLQ (A1)
+
+The relay records every primary-topic send attempt in `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)`. After `RelayOptions.maxAttempts` (default 10) consecutive failures on the primary topic, the relay emits the original envelope to `{primaryTopic}.dlq` with `x-dlq-reason`, `x-dlq-attempts`, `x-dlq-first-attempt-at`, `x-dlq-last-error` headers, then marks `dlq_at` and advances `publish_cursor`. The attempt counter is persistent — it survives relay restarts. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`.
+
 ## Out of scope / known limits
 
 - **No Kafka client.** Bring your own `KafkaProducer` implementation. The in-memory producer is for tests and demos.
-- **No DLQ / poison-message handling.** A persistent Kafka send failure spins forever in the retry loop; `onSendError` is for observability, not recovery.
+- **No terminal-vs-retryable classification (A2).** All primary-topic errors go through the same bounded-retry + DLQ path; there is no early DLQ for "permanent" errors like schema violations vs. transient outages. A2 will add an `isTerminal(err)` predicate so schema errors skip the retries.
 - **No snapshot/replay-rebuild tooling.** Aggregate replay = `readStream(stream)` on every command; snapshots are tier 2.
 - **No multi-writer.** Two `SqliteEventStore` instances on the same file race despite WAL.
 - **No event payload validation.** `payload` is `unknown`; the `graph-ir-compiler` command runtime is responsible for shape.
