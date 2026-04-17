@@ -1,5 +1,9 @@
 import type { Hono } from 'hono';
-import { createBindingsRouter } from '@rntme/bindings-http';
+import {
+  createBindingsRouter,
+  correlationMiddleware,
+  type CorrelationVariables,
+} from '@rntme/bindings-http';
 import { createApp as createUiApp } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
@@ -10,6 +14,8 @@ export type HttpSurfaceOptions = {
   metrics: Metrics;
   healthProbe: HealthProbe;
 };
+
+export type { CorrelationVariables };
 
 export class HttpSurface implements Surface {
   constructor(private readonly opts: HttpSurfaceOptions) {}
@@ -41,6 +47,10 @@ export class HttpSurface implements Surface {
     });
 
     const uiApp = createUiApp({ artifact: ctx.service.compiledUi });
+    // Mount correlation middleware BEFORE the bindings router so every
+    // /api request gets a CorrelationCtx. Command handlers read it via
+    // `c.var.correlation` (typed by CorrelationVariables).
+    app.use('/api/*', correlationMiddleware());
     app.route('/api', router);
     app.route('/', uiApp);
   }
