@@ -918,7 +918,26 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 ## 5. L4 — Code
 
-_(pending — Task 13)_
+A selection of fourteen functions that carry the most invariants. Signatures are summarised for brevity; names match the current code at the cutoff date (2026-04-18). This is a pointer table — read the file for the actual implementation; follow-up observations on any of these live in §7.
+
+| Function | Package | Purpose (one line) |
+| --- | --- | --- |
+| `validatePdm(raw)` | `@rntme/pdm` | Orchestrate structural → state-machine validation and construct the `ValidatedPdm` brand. |
+| `validateQsm(raw, pdm)` | `@rntme/qsm` | Orchestrate structural → cross-ref validation and construct the `ValidatedQsm` brand. |
+| `validateBindings(raw, resolvers)` | `@rntme/bindings` | Run the four validator layers and construct `ValidatedBindings`. |
+| `generateOpenApi(validated, resolvers, opts?)` | `@rntme/bindings` | Emit OpenAPI 3.1 from a validated binding artifact. |
+| `compile(rawSpec, rawPdm, rawQsm, opts?)` | `@rntme/graph-ir-compiler` | Query compile: parse → structural → normalize → semantic → plan → relational → lower → emit SQL. |
+| `compileCommand(rawSpec, rawPdm, rawQsm)` | `@rntme/graph-ir-compiler` | Command compile: shared head + emit-plan construction + optional read-prelude. |
+| `wrapPredicateOptional(...)` | `@rntme/graph-ir-compiler` | Wrap a predicate with `(predSql) OR (? IS NULL)` null-guards for each optional param (bug fixed 2026-04-16). |
+| `appendEvents(requests)` | `@rntme/event-store` | Atomic multi-subject append with optimistic concurrency on `(subject, expectedVersion)`. |
+| `appendRaw(envelopes, opts?)` | `@rntme/event-store` | Bypass command validation to seed or replay; `ignoreDuplicates` idempotent mode available. |
+| `createRelay(opts)` | `@rntme/event-store` | Polling relay: read from cursor → encode CloudEvents → send → retry → DLQ → advance cursor. |
+| `compileApplyPlan({ pdm, qsm, events, derivedHandlers? })` | `@rntme/projection-consumer` | Produce the handler plan for mirror + derived projections (pure, no DB). |
+| `applyEvent(db, plan, envelope)` | `@rntme/projection-consumer` | Execute a single handler under the three-layer idempotency guard (mirror) or `seen_events` gate (derived). |
+| `applySeed(seed, store, mode?)` | `@rntme/seed` | Apply validated seed envelopes via `appendRaw` before the relay starts. |
+| `startService(validatedService, config?)` | `@rntme/runtime` | Orchestrate boot: bus → wire pipeline → apply seed → start pipeline → mount HTTP surface. |
+
+Follow-up notes on anything surprising here belong in §7, not in this table.
 
 ## 6. Cross-cutting abstractions
 
