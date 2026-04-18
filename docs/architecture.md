@@ -274,6 +274,58 @@ flowchart LR
 - Reachability is enforced: any state unreachable from a creation transition is rejected with `PDM_SM_UNREACHABLE_STATE`.
 - `relation.to` is local-only; cross-service relations are an explicit gap tracked in `docs/gaps/pdm-gaps.md` and in the package's "Out of scope" README section.
 
+### 4.2 `@rntme/qsm`
+
+**Purpose.** Parse, validate, and derive DDL + event handlers for QSM — the query-side model that declares read-side projections (entity-mirrors) over the PDM, and, post-2026-04-16, owns the relation metadata used for JOINs.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed | Entity-mirror projection contract: backing semantics, key/grain rules, generated columns, idempotency triple (§6). |
+| `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md` | 2026-04-16 | in-flight | Read-side relation graph moved from PDM to QSM: B2 cross-validation rules, single-hop / fan-out gates, error codes. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef brand fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef derive fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+
+    JSON["qsm.json"] --> P["parse/parse.ts<br/>+ schema.ts"]:::stage
+    P --> S["validate/structural.ts"]:::stage
+    S --> SV["StructurallyValidQsm (brand)"]:::brand
+    SV --> X["validate/cross-ref.ts<br/>(reads PdmResolver)"]:::stage
+    X --> VQ["ValidatedQsm (brand)"]:::brand
+    VQ --> DDL["derive/ddl.ts"]:::derive
+    VQ --> H["derive/handler.ts"]:::derive
+    VQ --> R["resolvers/qsm-resolver.ts"]:::derive
+```
+
+**Caption.** Two validation layers (structural, then PDM-aware cross-ref) produce `ValidatedQsm`; derive modules and the resolver consume the brand. The cross-ref layer is the only place where QSM reaches into PDM — downstream derive/resolver never re-read PDM.
+
+**Components.**
+
+- **`parse/parse.ts` + `parse/schema.ts`** — Zod strict parser; accepts object or JSON string. Emits `QSM_PARSE_SCHEMA_VIOLATION` on failure.
+- **`validate/structural.ts`** — PDM-free rules: empty / duplicate keys / grain / exposed, table-name collisions, relation-key shape `"<Projection>.<relation>"`. Constructs `StructurallyValidQsm`.
+- **`validate/cross-ref.ts`** — PDM-aware rules: entity and field existence, entity-mirror constraints (keys and grain set-equal to source entity's keys; source entity must have a state-machine), at-most-one entity-mirror per source entity, and B2 relation parity with PDM on `(to, localKey, foreignKey, cardinality)`. Promotes to `ValidatedQsm`.
+- **`validate/index.ts`** — `validateQsm()` orchestrator: structural → cross-ref, fail-fast.
+- **`derive/ddl.ts`** — `generateProjectionDdl(ValidatedQsm, PdmResolver)` → `ProjectionDdlSpec[]`. Each spec contains the entity's columns, the idempotency triple `(last_event_id, last_event_version, applied_at)`, state-field indexes, and a `CREATE TABLE` statement using SQLite double-quoted identifiers.
+- **`derive/handler.ts`** — `deriveProjectionHandler(ValidatedQsm, PdmResolver)` → `ProjectionHandlerSpec[]`. One `EventHandler` per `EventTypeSpec` with an `insert | update` op respecting the idempotency guard.
+- **`resolvers/qsm-resolver.ts`** — Pure-lookup facade (`createQsmResolver`) with `listProjections`, `resolveProjection`, `findEntityMirror`, `listRelations`, `resolveRelation`.
+- **`common/invariant.ts`** — `invariantViolated()` post-validation safety net; consumed by derive/* and resolver.
+
+**Invariants.**
+
+- **Brand path is the only path.** `ValidatedQsm` is constructed only in `validate/cross-ref.ts`; `StructurallyValidQsm` only in `validate/structural.ts`. Downstream (graph-ir-compiler, projection-consumer) accepts only `ValidatedQsm`.
+- **Entity-mirror key / grain contract.** Keys and grain of an entity-mirror projection must be set-equal to the source entity's keys. Enforced by `QSM_XREF_ENTITY_MIRROR_KEYS_MISMATCH` and `QSM_XREF_ENTITY_MIRROR_GRAIN_MISMATCH`.
+- **One mirror per entity.** `QSM_XREF_ENTITY_MIRROR_DUPLICATE` rejects a second entity-mirror for the same source entity.
+- **`derived` backing is parse-only.** Zod accepts `backing: 'derived'`; `validate/cross-ref.ts` rejects it with `QSM_BACKING_DERIVED_NOT_SUPPORTED`. No derive/* module consumes it. This is an explicit MVP gate for future graph-IR-backed projections.
+- **B2 relation parity.** QSM relations must match PDM on `(to, localKey, foreignKey, cardinality)`. PDM is canon; divergence fails cross-ref with specific mismatch codes.
+- **`cardinality: 'many'` is reserved.** Parser and validator accept it, but graph-ir-compiler refuses to lower it (`NAV_FAN_OUT_NOT_ALLOWED`). Author should treat `many` as forward-compat only.
+- **Idempotency triple is immutable.** Every projection table carries `last_event_id`, `last_event_version`, `applied_at`. Names are stable; renaming is a breaking change for projection-consumer.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
