@@ -18,6 +18,9 @@ export type {
   ColumnSpec,
   IndexSpec,
   SqlType,
+  GenerateProjectionDdlOpts,
+  DerivedTableSchemaLike,
+  DerivedSqlTypeLocal,
 } from './derive/ddl.js';
 
 export { deriveProjectionHandler } from './derive/handler.js';
