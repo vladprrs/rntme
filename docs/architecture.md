@@ -941,7 +941,131 @@ Follow-up notes on anything surprising here belong in §7, not in this table.
 
 ## 6. Cross-cutting abstractions
 
-_(pending — Tasks 14–16)_
+Each entry below uses a fixed record format so Task-22's structural check can verify completeness:
+
+- **Package / module:** `packages/<pkg>/src/<path>` (no line numbers).
+- **Purpose:** one sentence.
+- **Contract:** signature or structure.
+- **Constructed by:** who creates instances and when.
+- **Invariant:** what must hold.
+- **Spec(s):** canonical spec link or "not covered by spec".
+- **Related:** 1–3 related abstractions.
+
+Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations about any entry (drift, ambiguity, duplication) belong in §7, not here.
+
+### 6.0 Foundational (type-level plumbing)
+
+#### `Result<T>` — success / error discriminator
+
+- **Package / module:** `packages/pdm/src/types/result.ts` (and per-package copies in `qsm`, `bindings`, `event-store`, `graph-ir-compiler`, `projection-consumer`, `ui`, `seed`, `runtime`).
+- **Purpose:** Make success / failure a first-class value across every package boundary; remove the need for exception handling at public APIs.
+- **Contract:** `type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E }`. Constructors `ok(value)` and `err(error)`; discriminators `isOk` and `isErr`.
+- **Constructed by:** Any function whose public return can fail at a package boundary. Prohibited constructors inside `try/catch` that translate a native throw must still land on `err(...)` before exiting the package.
+- **Invariant:** Exceptions never leak out of a package's public API. Consumers pattern-match `result.ok`; they never call `result.value` without checking.
+- **Spec(s):** not covered by spec — it is a codebase convention documented in `AGENTS.md §4`.
+- **Related:** `Validated*` brand family, `ERROR_CODES`, 4-layer validator.
+
+#### `isOk` / `isErr` — Result discriminators
+
+- **Package / module:** alongside each package's `result.ts`.
+- **Purpose:** Narrowing helpers so TypeScript recognises `result.value` / `result.error` after a type-guard.
+- **Contract:** `isOk(r): r is Ok<T>`, `isErr(r): r is Err<E>`.
+- **Constructed by:** re-exported from the same module that defines `Result`.
+- **Invariant:** Exactly one is true for any given `Result`.
+- **Spec(s):** same as `Result<T>`.
+- **Related:** `Result<T>`.
+
+#### Branded `Validated*` family
+
+- **Package / module:** each owner's `types/artifact.ts` (pdm, qsm, bindings, ui) — `StructurallyValid*`, `Resolved*`, `Validated*` branded types.
+- **Purpose:** Encode validator success in the type system; downstream packages must accept only the brand.
+- **Contract:** `type ValidatedX = XParsed & { readonly [ValidatedBrand]: true }` with a declared `unique symbol`. No public `of()` constructor.
+- **Constructed by:** the final validator layer inside the owner package (for example `validate/state-machine.ts` for PDM, `validate/cross-ref.ts` for QSM, `validate/consistency.ts` for bindings). A call-site in any other package cannot construct the brand.
+- **Invariant:** `as ValidatedX` is an anti-pattern. Every brand construction site is a single cast inside the validator it belongs to. Downstream APIs accept only the branded type, which forces calls to go through the orchestrator.
+- **Spec(s):** per-package design specs (`2026-04-14-mutations-design.md`, `2026-04-14-bindings-design.md`, `2026-04-16-qsm-relations-migration-design.md`, `2026-04-16-ui-artifact-v2-design.md`).
+- **Related:** 4-layer validator, `Result<T>`.
+
+#### `ERROR_CODES` registry — stable machine-readable identifiers
+
+- **Package / module:** each owner's `types/result.ts` (for example `packages/pdm/src/types/result.ts`, `packages/bindings/src/types/result.ts`).
+- **Purpose:** Give every validation / runtime failure a stable, documented identifier callers can match on.
+- **Contract:** Frozen object `ERROR_CODES` exporting keys of shape `<PKG>_<LAYER>_<KIND>` (for example `PDM_SM_UNREACHABLE_STATE`, `QSM_XREF_ENTITY_MIRROR_DUPLICATE`, `BINDINGS_CONS_MODE_MISMATCH`). The type `PdmErrorCode` / `QsmErrorCode` / `BindingsErrorCode` is a union of the values.
+- **Constructed by:** Never at call sites — codes are referenced by name only.
+- **Invariant:** Codes are APPEND-ONLY. Reordering or deleting a code is a breaking change for any automated error monitor. Renaming is forbidden; to rename, add a new code and deprecate the old in comments.
+- **Spec(s):** `AGENTS.md §4` defines the naming rule; each owner's spec enumerates the codes it added.
+- **Related:** `Result<T>`, 4-layer validator.
+
+#### 4-layer validator pattern
+
+- **Package / module:** `packages/{pdm,qsm,bindings,ui}/src/validate/` + `parse/`.
+- **Purpose:** Fail-fast layered validation. Each artifact passes parse → structural → reference / cross-ref → consistency before any downstream code consumes it.
+- **Contract:** `parse(raw) → Result<Parsed>`, then per-layer `Result<...>` functions. An orchestrator `validateX(raw, resolvers?)` short-circuits on the first failing layer.
+- **Constructed by:** Each owner packages the orchestrator; no consumer runs layers manually.
+- **Invariant:** Layers are ordered; skipping one (even on "trusted" input) loses downstream error codes. Errors from layer N + 1 are never seen when layer N fails.
+- **Spec(s):** each artifact's design spec plus `AGENTS.md §4`.
+- **Related:** `Validated*` brand family, `Result<T>`, `ERROR_CODES`.
+
+### 6.1 Domain artifacts (PDM / QSM / Graph IR)
+
+#### Entity, Field, Relation (PDM)
+
+- **Package / module:** `packages/pdm/src/types/artifact.ts` + `parse/schema.ts`.
+- **Purpose:** The PDM artifact's three core nouns — entities (tables), their fields (columns), and relations (foreign-key-like associations between entities).
+- **Contract:** `Entity = { name, fields: Field[], keys: string[], stateField?, relations?: Relation[] }`; `Field = { name, type, nullable, column, generated? }`; `Relation = { name, to, localKey, foreignKey, cardinality }`.
+- **Constructed by:** Zod parse in `parse/schema.ts` emits the shape; structural and state-machine validators promote it to `ValidatedPdm`.
+- **Invariant:** `stateField` is non-nullable string; `keys` reference fields on the same entity; `relation.to` is local-only (single-service).
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-14-mutations-design.md`.
+- **Related:** `StateMachine`, `Projection`, `RelationMetadata` (QSM).
+
+#### `StateMachine` + `Transition`
+
+- **Package / module:** `packages/pdm/src/types/artifact.ts` + `validate/state-machine.ts`.
+- **Purpose:** Encode per-entity finite-state machines that drive event-sourced mutations; the validator enforces reachability and declared effects.
+- **Contract:** `StateMachine = { stateField, states: string[], initial: null, transitions: Transition[] }`; `Transition = { name, from, to, affects: string[], payload?, ... }`.
+- **Constructed by:** `validate/state-machine.ts` after `validate/structural.ts`.
+- **Invariant:** Creation transitions declare `affects` explicitly; self-loops declare non-empty `affects`; all states reachable by BFS from a creation transition.
+- **Spec(s):** `2026-04-14-mutations-design.md` (§4).
+- **Related:** `EventTypeSpec` (`derive/event-types.ts`), `Projection`.
+
+#### `Projection` + `Backing`
+
+- **Package / module:** `packages/qsm/src/types/artifact.ts` + `validate/structural.ts` + `validate/cross-ref.ts`.
+- **Purpose:** Declare a read-side materialized table backed by a PDM entity (`entity-mirror`) or by a future graph IR (`derived`, MVP-gated).
+- **Contract:** `Projection = { backing, source, keys, grain, exposed, table }`; `ProjectionBacking = 'entity-mirror' | 'derived'`.
+- **Constructed by:** QSM cross-ref validator promotes `StructurallyValidQsm` to `ValidatedQsm` only if each projection passes its backing-specific rules.
+- **Invariant:** Exactly one entity-mirror per source entity; keys and grain set-equal to the source entity's keys; `derived` backing is rejected by `validateQsm()` (parse accepts, cross-ref rejects).
+- **Spec(s):** `2026-04-14-mutations-design.md` (§6), `2026-04-16-qsm-relations-migration-design.md`.
+- **Related:** `RelationMetadata`, `ApplyPlan` (projection-consumer), derived-DDL `ProjectionDdlSpec`.
+
+#### `RelationMetadata` (post-2026-04-16)
+
+- **Package / module:** `packages/qsm/src/types/artifact.ts` + `validate/cross-ref.ts`.
+- **Purpose:** Read-side relation graph used by the Graph-IR compiler to emit JOINs. Owned by QSM (not PDM) as of 2026-04-16.
+- **Contract:** `{ "<ProjectionName>.<relationName>": { to, localKey, foreignKey, cardinality, role? } }`.
+- **Constructed by:** QSM cross-ref validator after B2 parity check against PDM.
+- **Invariant:** B2 parity with PDM on `(to, localKey, foreignKey, cardinality)`; PDM is canon. `cardinality: 'many'` is parse-accepted but rejected by the Graph-IR compiler (`NAV_FAN_OUT_NOT_ALLOWED`).
+- **Spec(s):** `2026-04-16-qsm-relations-migration-design.md`.
+- **Related:** `Projection`, `ValidatedQsm`, Graph IR `Scan` / `Join` operators.
+
+#### Graph IR `Operator` + `SemanticPlan`
+
+- **Package / module:** `packages/graph-ir-compiler/src/types/authoring.ts` + `semantic-plan/build.ts`.
+- **Purpose:** Canonical rc7 rowset operators (`findMany`, `filter`, `map`, `reduce`, `sort`, `limit`, `emit`) and the typed `PlanStep[]` that carries them through the compiler.
+- **Contract:** Operators are a discriminated union; `SemanticPlan = { steps: PlanStep[] }`.
+- **Constructed by:** Produced by `buildSemanticPlan(canonicalGraph, pdm, qsm)` after structural + semantic validation.
+- **Invariant:** Param order reflects statement order — `lowerExpr` appends to `paramOrder` in the same order they will appear in emitted SQL; a reorder here is a correctness bug.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+- **Related:** `LoweredPlan` (lower/sqlite), `BindingPlan` (bindings-http), `EmitPlan` (command runtime).
+
+#### `EventTypeSpec` — derived event shape
+
+- **Package / module:** `packages/pdm/src/derive/event-types.ts` + `packages/pdm/src/types/artifact.ts`.
+- **Purpose:** One spec per PDM state-machine transition. Drives downstream shape of envelopes, projection handlers, and OpenAPI command shapes.
+- **Contract:** `{ aggregate, transition, eventType, affects, payload, isCreation, isSelfLoop, fromStates, toState }`.
+- **Constructed by:** `deriveEventTypes(ValidatedPdm)` at boot.
+- **Invariant:** `eventType` name is stable across additive changes; a breaking change requires a new `eventType`, not a topic-version suffix.
+- **Spec(s):** `2026-04-14-mutations-design.md`, `2026-04-17-cloudevents-envelope-design.md`.
+- **Related:** `Envelope` (§6.2), `ApplyPlan`, command `EmitPlan`.
 
 ## 7. Observations and refactoring candidates
 
