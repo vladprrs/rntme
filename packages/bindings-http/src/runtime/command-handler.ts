@@ -3,6 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3';
 import { executeCommand, CommandExecutionError } from '@rntme/graph-ir-compiler';
 import type { EventStore, ActorRef } from '@rntme/event-store';
 import type { CommandBindingPlan } from '../startup/compile-plan.js';
+import type { CorrelationCtx } from './correlation-middleware.js';
 import {
   validationErrorBody,
   invalidBodyErrorBody,
@@ -22,7 +23,7 @@ export type CommandHandlerDeps = {
   onError?: (err: unknown, ctx: Context) => void;
 };
 
-type Handler = (c: Context) => Promise<Response>;
+type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx } }>) => Promise<Response>;
 
 export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandlerDeps): Handler {
   const declaredQueryParams = plan.entry.http.parameters.filter((p) => p.in === 'query');
@@ -59,6 +60,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       ...bodyValues,
     };
     const graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    const correlation = c.get('correlation');
 
     try {
       const result = executeCommand(plan.compiled, graphInputs, {
@@ -67,6 +69,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         now: deps.now,
         nextId: deps.nextId,
         actor: deps.actorFromRequest(c),
+        correlation,
       });
       return c.json(result, 200);
     } catch (e) {

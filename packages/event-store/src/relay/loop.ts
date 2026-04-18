@@ -2,14 +2,19 @@ import type { EventStore, EventRecord } from '../store/interface.js';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { KafkaProducer } from '../kafka/producer.js';
 import { defaultTopicOf } from './topic.js';
+import { toCloudEventWire } from '../kafka/wire-codec.js';
+import { buildDlqEnvelope } from './dlq-envelope.js';
 
 export type RelayOptions = Readonly<{
   store: EventStore;
   kafka: KafkaProducer;
   cursorId: string;
+  serviceName: string;
+  now: () => string;
+  nextId: () => string;
   pollIntervalMs?: number;
   batchSize?: number;
-  topicOf?: (aggregateType: string) => string;
+  topicOf?: (serviceName: string, aggregateType: string) => string;
   maxBackoffMs?: number;
   /** Default: 10. Number of primary-topic send attempts before DLQ. Must be an integer >= 1. */
   maxAttempts?: number;
@@ -47,7 +52,7 @@ export function createRelay(opts: RelayOptions): Relay {
   const onDlqErr = opts.onDlqError ?? ((err, envelope, attempt) => {
     // eslint-disable-next-line no-console
     console.error(
-      `[relay] DLQ send failed for ${envelope.eventId} (attempt ${attempt}), will retry:`,
+      `[relay] DLQ send failed for ${envelope.id} (attempt ${attempt}), will retry:`,
       err,
     );
   });
@@ -70,13 +75,13 @@ export function createRelay(opts: RelayOptions): Relay {
       let highestDeliveredId = cursor;
       for (const rec of records) {
         if (!running) break;
-        const eventId = rec.envelope.eventId;
+        const eventId = rec.envelope.id;
         const existing = opts.store.readDeliveryAttempt(eventId);
         if (existing && (existing.deliveredAt !== null || existing.dlqAt !== null)) {
           highestDeliveredId = rec.id;
           continue;
         }
-        const primaryTopic = topicOf(rec.envelope.aggregateType);
+        const primaryTopic = topicOf(opts.serviceName, rec.envelope.rntAggregateType);
 
         // Short-circuit on restart: if attemptCount already reached the cap
         // (relay crashed mid-DLQ-emit, leaving counter == maxAttempts and dlq_at NULL),
@@ -92,9 +97,12 @@ export function createRelay(opts: RelayOptions): Relay {
             maxBackoff,
             isRunning: () => running,
             onDlqError: onDlqErr,
+            serviceName: opts.serviceName,
+            now: opts.now,
+            nextId: opts.nextId,
           });
           if (!sent) return; // cooperative shutdown during DLQ emit
-          opts.store.markDlq(eventId, new Date().toISOString());
+          opts.store.markDlq(eventId, opts.now());
           highestDeliveredId = rec.id;
           continue;
         }
@@ -103,20 +111,12 @@ export function createRelay(opts: RelayOptions): Relay {
         let backoff = 10;
         while (running) {
           attempts += 1;
-          const attemptIso = new Date().toISOString();
+          const attemptIso = opts.now();
           opts.store.recordDeliveryAttempt(eventId, attemptIso);
           try {
-            await opts.kafka.send({
-              topic: primaryTopic,
-              key: rec.envelope.stream,
-              headers: {
-                'event-id': rec.envelope.eventId,
-                'event-type': rec.envelope.eventType,
-                'schema-version': String(rec.envelope.schemaVersion),
-              },
-              value: JSON.stringify(rec.envelope),
-            });
-            opts.store.markDelivered(eventId, new Date().toISOString());
+            const primaryMsg = toCloudEventWire(rec.envelope, primaryTopic);
+            await opts.kafka.send(primaryMsg);
+            opts.store.markDelivered(eventId, opts.now());
             break;
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -135,9 +135,12 @@ export function createRelay(opts: RelayOptions): Relay {
                 maxBackoff,
                 isRunning: () => running,
                 onDlqError: onDlqErr,
+                serviceName: opts.serviceName,
+                now: opts.now,
+                nextId: opts.nextId,
               });
               if (!sent) return; // cooperative shutdown during DLQ emit
-              opts.store.markDlq(eventId, new Date().toISOString());
+              opts.store.markDlq(eventId, opts.now());
               break;
             }
             await sleep(backoff);
@@ -193,6 +196,9 @@ type EmitDlqOpts = Readonly<{
   maxBackoff: number;
   isRunning: () => boolean;
   onDlqError: (err: unknown, envelope: EventEnvelope, attempt: number) => void;
+  serviceName: string;
+  now: () => string;
+  nextId: () => string;
 }>;
 
 /**
@@ -202,27 +208,27 @@ type EmitDlqOpts = Readonly<{
  * (running=true but loop exited), re-introducing the "poison blocks the
  * stream" failure mode A1 exists to prevent. Returns `true` on success;
  * `false` ONLY for cooperative shutdown via `isRunning() === false`.
+ *
+ * DLQ payload is a CloudEvents wrapper envelope (`<svc>.Relay.EventDeliveryFailed`)
+ * built via `buildDlqEnvelope` — the original event rides in `data.failedEvent`.
  */
 async function emitDlq(o: EmitDlqOpts): Promise<boolean> {
   let backoff = 10;
   let dlqAttempt = 0;
+  const dlqEnvelope = buildDlqEnvelope({
+    serviceName: o.serviceName,
+    original: o.rec.envelope,
+    attempts: o.attempts,
+    firstAttemptAt: o.firstAttemptAt,
+    lastError: o.lastError,
+    now: o.now,
+    nextId: o.nextId,
+  });
+  const dlqMsg = toCloudEventWire(dlqEnvelope, `${o.primaryTopic}.dlq`);
   while (o.isRunning()) {
     dlqAttempt += 1;
     try {
-      await o.kafka.send({
-        topic: `${o.primaryTopic}.dlq`,
-        key: o.rec.envelope.stream,
-        headers: {
-          'event-id': o.rec.envelope.eventId,
-          'event-type': o.rec.envelope.eventType,
-          'schema-version': String(o.rec.envelope.schemaVersion),
-          'x-dlq-reason': 'max-attempts-exceeded',
-          'x-dlq-attempts': String(o.attempts),
-          'x-dlq-first-attempt-at': o.firstAttemptAt,
-          'x-dlq-last-error': truncate(o.lastError, 1024),
-        },
-        value: JSON.stringify(o.rec.envelope),
-      });
+      await o.kafka.send(dlqMsg);
       return true;
     } catch (dlqErr) {
       o.onDlqError(dlqErr, o.rec.envelope, dlqAttempt);

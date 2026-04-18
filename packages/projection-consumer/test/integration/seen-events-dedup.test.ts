@@ -48,9 +48,9 @@ describe('seen_events dedup — integration (D5 Task 20)', () => {
     };
 
     const envelope = makeEnvelope({
-      eventId: 'ev-dedup-1',
+      id: 'ev-dedup-1',
       eventType: 'IssueResolve',
-      aggregateId: '42',
+      rntAggregateId: '42',
     });
 
     // First delivery applies.
@@ -102,9 +102,9 @@ describe('seen_events dedup — integration (D5 Task 20)', () => {
     };
 
     applyEvent(db, plan, makeEnvelope({
-      eventId: 'ev-ts-1',
+      id: 'ev-ts-1',
       eventType: 'IssueResolve',
-      aggregateId: '1',
+      rntAggregateId: '1',
     }));
 
     const row = db

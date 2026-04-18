@@ -7,12 +7,28 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const CLI = join(__dirname, '../../dist/bin/cli.js');
+const SERVICE_NAME = 'test-service';
 
 function scaffoldArtifacts(seed: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), 'rntme-seed-cli-'));
   cpSync(join(__dirname, '../fixtures/minimal-pdm.json'), join(dir, 'pdm.json'));
   writeFileSync(join(dir, 'seed.json'), JSON.stringify(seed));
   return dir;
+}
+
+function thingCreated(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'seed:Thing:1:v1',
+    subject: 'Thing-1',
+    rntAggregateType: 'Thing',
+    rntAggregateId: '1',
+    rntVersion: 1,
+    eventType: 'ThingCreated',
+    data: { name: 'x' },
+    time: '2026-01-01T00:00:00.000Z',
+    rntSchemaVersion: 1,
+    ...overrides,
+  };
 }
 
 beforeAll(() => {
@@ -24,19 +40,11 @@ describe('rntme-seed validate', () => {
   it('exits 0 on valid artifacts', () => {
     const dir = scaffoldArtifacts({
       seedVersion: 1,
-      events: [
-        {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
-          eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
+      events: [thingCreated()],
     });
-    const r = spawnSync('node', [CLI, 'validate', dir], { encoding: 'utf8' });
+    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+      encoding: 'utf8',
+    });
     expect(r.status).toBe(0);
   });
 
@@ -45,24 +53,32 @@ describe('rntme-seed validate', () => {
       seedVersion: 1,
       events: [
         {
-          stream: 'Widget-1',
-          aggregateType: 'Widget',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Widget-1',
+          rntAggregateType: 'Widget',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'WidgetCreated',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ],
     });
-    const r = spawnSync('node', [CLI, 'validate', dir], { encoding: 'utf8' });
+    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+      encoding: 'utf8',
+    });
     expect(r.status).toBe(1);
     expect(r.stdout + r.stderr).toContain('SEED_UNKNOWN_AGGREGATE_TYPE');
   });
 
   it('supports --json output', () => {
     const dir = scaffoldArtifacts({ seedVersion: 1, events: [{ bogus: true }] });
-    const r = spawnSync('node', [CLI, 'validate', dir, '--json'], { encoding: 'utf8' });
+    const r = spawnSync(
+      'node',
+      [CLI, 'validate', dir, '--service-name', SERVICE_NAME, '--json'],
+      { encoding: 'utf8' },
+    );
     expect(r.status).toBe(1);
     const parsed = JSON.parse(r.stdout);
     expect(Array.isArray(parsed)).toBe(true);
@@ -71,6 +87,18 @@ describe('rntme-seed validate', () => {
   it('exits 0 when seed.json is absent', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-seed-empty-'));
     cpSync(join(__dirname, '../fixtures/minimal-pdm.json'), join(dir, 'pdm.json'));
+    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(0);
+  });
+
+  it('reads serviceName from manifest.json when --service-name is absent', () => {
+    const dir = scaffoldArtifacts({ seedVersion: 1, events: [thingCreated()] });
+    writeFileSync(
+      join(dir, 'manifest.json'),
+      JSON.stringify({ serviceName: 'from-manifest' }),
+    );
     const r = spawnSync('node', [CLI, 'validate', dir], { encoding: 'utf8' });
     expect(r.status).toBe(0);
   });
@@ -80,20 +108,14 @@ describe('rntme-seed apply', () => {
   it('applies to a fresh file-backed event store and prints applied count', () => {
     const dir = scaffoldArtifacts({
       seedVersion: 1,
-      events: [
-        {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
-          eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
+      events: [thingCreated()],
     });
     const storePath = join(dir, 'event-store.db');
-    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
+    const r = spawnSync(
+      'node',
+      [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
+      { encoding: 'utf8' },
+    );
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/applied=1 skipped=0/);
   });
@@ -101,22 +123,14 @@ describe('rntme-seed apply', () => {
   it('--dry-run does not write', () => {
     const dir = scaffoldArtifacts({
       seedVersion: 1,
-      events: [
-        {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
-          eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
+      events: [thingCreated()],
     });
     const storePath = join(dir, 'event-store.db');
-    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath, '--dry-run'], {
-      encoding: 'utf8',
-    });
+    const r = spawnSync(
+      'node',
+      [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME, '--dry-run'],
+      { encoding: 'utf8' },
+    );
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/would apply 1 events/);
   });
@@ -124,21 +138,19 @@ describe('rntme-seed apply', () => {
   it('second apply with upsert mode skips all', () => {
     const dir = scaffoldArtifacts({
       seedVersion: 1,
-      events: [
-        {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
-          eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
+      events: [thingCreated()],
     });
     const storePath = join(dir, 'event-store.db');
-    spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
-    const r = spawnSync('node', [CLI, 'apply', dir, '--event-store', storePath], { encoding: 'utf8' });
+    spawnSync(
+      'node',
+      [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
+      { encoding: 'utf8' },
+    );
+    const r = spawnSync(
+      'node',
+      [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
+      { encoding: 'utf8' },
+    );
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/applied=0 skipped=1/);
   });

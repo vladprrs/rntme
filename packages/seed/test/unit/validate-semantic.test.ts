@@ -7,6 +7,7 @@ import { validateSeed } from '../../src/validate.js';
 import type { SeedArtifact } from '../../src/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const SERVICE_NAME = 'test-service';
 
 const pdmRaw = JSON.parse(
   readFileSync(resolve(__dirname, '../fixtures/minimal-pdm.json'), 'utf8'),
@@ -20,6 +21,7 @@ function ctx() {
   return {
     pdm: createPdmResolver(validated.value),
     events: deriveEventTypes(validated.value),
+    serviceName: SERVICE_NAME,
   };
 }
 
@@ -32,13 +34,15 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -46,17 +50,19 @@ describe('validateSeed — layer 2 (semantic)', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('defaults eventId, actor, schemaVersion', () => {
+  it('derives CE source/type/dataSchema from serviceName and defaults optionals', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -64,9 +70,78 @@ describe('validateSeed — layer 2 (semantic)', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       const e = result.value.events[0]!;
-      expect(e.eventId).toBe('seed:Thing:1:v1');
-      expect(e.actor).toEqual({ kind: 'system', id: 'seed' });
-      expect(e.schemaVersion).toBe(1);
+      expect(e.id).toBe('seed:Thing:1:v1');
+      expect(e.source).toBe(`rntme://${SERVICE_NAME}/Thing`);
+      expect(e.type).toBe(`${SERVICE_NAME}.Thing.ThingCreated`);
+      expect(e.dataSchema).toBe(`rntme://schemas/${SERVICE_NAME}/ThingCreated.v1.json`);
+      expect(e.dataContentType).toBe('application/json');
+      expect(e.rntActorKind).toBe('system');
+      expect(e.rntActorId).toBe('seed');
+      expect(e.rntSchemaVersion).toBe(1);
+      expect(e.causationId).toBeNull();
+      expect(e.commandId).toBeNull();
+      expect(e.traceparent).toBeNull();
+      expect(e.correlationId.startsWith('seed:')).toBe(true);
+    }
+  });
+
+  it('stamps one stable correlationId across the whole artifact when omitted', () => {
+    const result = validateSeed(
+      seed([
+        {
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+        },
+        {
+          id: 'seed:Thing:1:v2',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 2,
+          eventType: 'ThingRenamed',
+          data: { name: 'y', status: 'active' },
+          time: '2026-01-02T00:00:00.000Z',
+          rntSchemaVersion: 1,
+        },
+      ]),
+      ctx(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const [a, b] = result.value.events;
+      expect(a!.correlationId).toBe(b!.correlationId);
+      expect(a!.correlationId.startsWith('seed:')).toBe(true);
+    }
+  });
+
+  it('honours an explicit correlationId when provided', () => {
+    const result = validateSeed(
+      seed([
+        {
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          correlationId: 'explicit-corr-id',
+        },
+      ]),
+      ctx(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.events[0]!.correlationId).toBe('explicit-corr-id');
     }
   });
 
@@ -74,13 +149,15 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Widget-1',
-          aggregateType: 'Widget',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Widget-1',
+          rntAggregateType: 'Widget',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'WidgetCreated',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -94,13 +171,15 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingMangled',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -113,13 +192,15 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: {}, // missing "name"
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {}, // missing "name"
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -132,13 +213,15 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x', extra: true },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x', extra: true },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -147,17 +230,19 @@ describe('validateSeed — layer 2 (semantic)', () => {
     if (!result.ok) expect(result.errors[0]!.code).toBe('SEED_EVENT_PAYLOAD_MISMATCH');
   });
 
-  it('rejects SEED_STATE_MACHINE_VIOLATION (archived before created)', () => {
+  it('rejects SEED_FIRST_EVENT_NOT_CREATION (archived before created)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingArchived',
-          payload: { status: 'archived' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { status: 'archived' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -173,31 +258,37 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'a',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 2,
+          id: 'b',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 2,
           eventType: 'ThingArchived',
-          payload: { status: 'archived' },
-          occurredAt: '2026-01-02T00:00:00.000Z',
+          data: { status: 'archived' },
+          time: '2026-01-02T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 3,
+          id: 'c',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 3,
           eventType: 'ThingRenamed',
-          payload: { name: 'y', status: 'active' },
-          occurredAt: '2026-01-03T00:00:00.000Z',
+          data: { name: 'y', status: 'active' },
+          time: '2026-01-03T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -211,14 +302,17 @@ describe('validateSeed — layer 2 (semantic)', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
-          actor: { kind: 'user', id: '' },
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: 'user',
+          rntActorId: '',
         },
       ]),
       ctx(),
@@ -226,26 +320,30 @@ describe('validateSeed — layer 2 (semantic)', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('normalizes flat payloads to {before, after} in validated output', () => {
+  it('normalizes flat data payloads to {before, after} in validated output', () => {
     const result = validateSeed(
       seed([
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'a',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 2,
+          id: 'b',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 2,
           eventType: 'ThingRenamed',
-          payload: { name: 'y', status: 'active' },
-          occurredAt: '2026-01-02T00:00:00.000Z',
+          data: { name: 'y', status: 'active' },
+          time: '2026-01-02T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ]),
       ctx(),
@@ -253,12 +351,12 @@ describe('validateSeed — layer 2 (semantic)', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const e1 = result.value.events[0]!;
-    const p1 = e1.payload as { before: unknown; after: Record<string, unknown> };
+    const p1 = e1.data as { before: unknown; after: Record<string, unknown> };
     expect(p1.before).toBeNull();
     expect(p1.after).toEqual({ name: 'x', status: 'active' });
 
     const e2 = result.value.events[1]!;
-    const p2 = e2.payload as { before: Record<string, unknown>; after: Record<string, unknown> };
+    const p2 = e2.data as { before: Record<string, unknown>; after: Record<string, unknown> };
     expect(p2.before).toEqual({ status: 'active', name: 'x' });
     expect(p2.after).toEqual({ name: 'y', status: 'active' });
   });

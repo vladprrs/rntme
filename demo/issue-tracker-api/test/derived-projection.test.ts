@@ -28,19 +28,10 @@ type SqlDb = {
   };
 };
 
-type EventEnvelopeLike = {
-  eventId: string;
-  eventType: string;
-  aggregateType: string;
-  aggregateId: string;
-  stream: string;
-  version: number;
-  occurredAt: string;
-  actor: unknown;
-  payload: unknown;
-  schemaVersion: number;
-};
-
+// Post-D9 (CloudEvents binary content mode): each Kafka message carries the
+// envelope's CE attributes in headers (ce_*) and only the data payload in
+// `value`. We capture the raw wire message so re-publishing is a 1:1 resend
+// — no envelope re-encoding is needed in the test.
 type KafkaMessageLike = {
   topic: string;
   key: string;
@@ -68,12 +59,16 @@ class CapturingDbDriver implements DbDriver {
 }
 
 /**
- * EventBus wrapper that records every envelope produced so the test can
+ * EventBus wrapper that records every wire message produced so the test can
  * simulate duplicate delivery by re-sending one through the producer path.
+ *
+ * The CE eventType lives in the `ce_type` header as
+ * `${serviceName}.${rntAggregateType}.${eventType}`; we expose a small finder
+ * for it so callers can stay header-agnostic.
  */
 class CapturingBus implements EventBus {
   private readonly inner: InMemoryBus;
-  public readonly captured: EventEnvelopeLike[] = [];
+  public readonly captured: KafkaMessageLike[] = [];
   constructor() {
     this.inner = new InMemoryBus({ pollIntervalMs: 2 });
   }
@@ -82,27 +77,25 @@ class CapturingBus implements EventBus {
     const captured = this.captured;
     return {
       async send(message: KafkaMessageLike): Promise<void> {
-        captured.push(JSON.parse(message.value) as EventEnvelopeLike);
+        captured.push(message);
         await innerProducer.send(message);
       },
     };
   }
-  consumer(_opts: { groupId: string; topic: string }): ReturnType<InMemoryBus['consumer']> {
-    return this.inner.consumer();
+  consumer(opts: { groupId: string; topic: string }): ReturnType<InMemoryBus['consumer']> {
+    return this.inner.consumer(opts);
+  }
+  /** First captured message whose CE local eventType (last segment of ce_type) matches. */
+  findByEventType(eventType: string): KafkaMessageLike | undefined {
+    return this.captured.find((m) => m.headers.ce_type?.endsWith(`.${eventType}`));
   }
   /**
-   * Re-publish an already-captured envelope straight into the consumer queue
-   * (bypassing the event store / relay) to simulate at-least-once duplicate
-   * delivery from the bus.
+   * Re-publish an already-captured wire message straight through the producer
+   * path to simulate at-least-once duplicate delivery from the bus.
    */
-  async republish(envelope: EventEnvelopeLike): Promise<void> {
+  async republish(message: KafkaMessageLike): Promise<void> {
     const p = this.inner.producer() as unknown as KafkaProducerLike;
-    await p.send({
-      topic: `rntme.${envelope.aggregateType.toLowerCase()}.v1`,
-      key: envelope.stream,
-      headers: {},
-      value: JSON.stringify(envelope),
-    });
+    await p.send(message);
   }
 }
 
@@ -184,11 +177,11 @@ describe('derived-projection — IssueReport rollup + dedup via seen_events', ()
     ]);
     expect(querySeenEventsCount(qsm, 'reportedIssueCountByProject')).toBe(3);
 
-    // Wait for all three envelopes to reach the bus-capture list so we can
-    // pick a stable one to duplicate (producer is async).
+    // Wait for all three wire messages to reach the bus-capture list so we
+    // can pick a stable one to duplicate (producer is async).
     await waitFor(() => bus.captured.length >= 3);
-    const duplicate = bus.captured.find((e) => e.eventType === 'IssueReport');
-    if (!duplicate) throw new Error('no IssueReport envelope captured');
+    const duplicate = bus.findByEventType('IssueReport');
+    if (!duplicate) throw new Error('no IssueReport message captured');
 
     await bus.republish(duplicate);
 

@@ -59,10 +59,10 @@ function applyMirror(
   handler: MirrorHandler,
   envelope: EventEnvelope,
 ): ApplyResult {
-  if (handler.aggregateType !== envelope.aggregateType) return 'skipped-no-handler';
+  if (handler.aggregateType !== envelope.rntAggregateType) return 'skipped-no-handler';
 
-  const currentVersion = selectCurrentVersion(db, handler, envelope.aggregateId);
-  if (currentVersion !== null && currentVersion >= envelope.version) {
+  const currentVersion = selectCurrentVersion(db, handler, envelope.rntAggregateId);
+  if (currentVersion !== null && currentVersion >= envelope.rntVersion) {
     return 'skipped-older-version';
   }
 
@@ -89,7 +89,7 @@ function applyDerived(
   // 2. Seen-events idempotency gate keyed on (event_id, projection_id).
   const seen = db
     .prepare('SELECT 1 AS ok FROM seen_events WHERE event_id = ? AND projection_id = ?')
-    .get(envelope.eventId, handler.projectionName) as { ok: number } | undefined;
+    .get(envelope.id, handler.projectionName) as { ok: number } | undefined;
   if (seen) return 'skipped-seen-event';
 
   // 3. Delta UPSERT. Params are materialised from the ordered deltaBindings.
@@ -99,7 +99,7 @@ function applyDerived(
   // 4. Record the applied event so re-delivery short-circuits at step 2.
   db.prepare(
     'INSERT INTO seen_events (event_id, projection_id, applied_at) VALUES (?, ?, ?)',
-  ).run(envelope.eventId, handler.projectionName, new Date().toISOString());
+  ).run(envelope.id, handler.projectionName, new Date().toISOString());
 
   return 'applied';
 }

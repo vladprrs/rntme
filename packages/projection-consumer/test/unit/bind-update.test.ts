@@ -33,8 +33,8 @@ describe('bindValues — UPDATE', () => {
     const plan = setup();
     const assign = getMirror(plan, 'IssueAssign');
     const env = makeEnvelope({
-      eventType: 'IssueAssign', aggregateId: '42', version: 3, eventId: 'ev-3',
-      payload: { before: { status: 'open', assigneeId: null }, after: { status: 'in_progress', assigneeId: 17 } },
+      eventType: 'IssueAssign', rntAggregateId: '42', rntVersion: 3, id: 'ev-3',
+      data: { before: { status: 'open', assigneeId: null }, after: { status: 'in_progress', assigneeId: 17 } },
     });
     const vals = bindValues(assign, env);
     // SET payload columns come first in the order of handler.setColumns
@@ -50,8 +50,8 @@ describe('bindValues — UPDATE', () => {
     const plan = setup();
     const reassign = getMirror(plan, 'IssueReassign');
     const env = makeEnvelope({
-      eventType: 'IssueReassign', aggregateId: '1', version: 5, eventId: 'ev-5',
-      payload: { before: { status: 'in_progress', assigneeId: 17 }, after: { status: 'in_progress', assigneeId: 18 } },
+      eventType: 'IssueReassign', rntAggregateId: '1', rntVersion: 5, id: 'ev-5',
+      data: { before: { status: 'in_progress', assigneeId: 17 }, after: { status: 'in_progress', assigneeId: 18 } },
     });
     const vals = bindValues(reassign, env);
     expect(vals).toContain(18);

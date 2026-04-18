@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SqliteEventStore } from '@rntme/event-store';
 import { compileCommand } from '../../../src/command-runtime/compile.js';
 import { executeCommand } from '../../../src/command-runtime/execute.js';
+import { testCorrelation } from '../../support/correlation.js';
 
 import { RAW_ISSUE_PDM as RAW_PDM, RAW_ISSUE_QSM_EMPTY as RAW_QSM } from '../fixtures/issue-pdm.js';
 
@@ -48,7 +49,7 @@ const reportSpec = {
 
 describe('executeCommand — creation transition', () => {
   it('appends one event and returns CommandResult with version=1', () => {
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
     const r = compileCommand(reportSpec, RAW_PDM, RAW_QSM);
     if (!r.ok) throw new Error('compile failed');
 
@@ -68,20 +69,23 @@ describe('executeCommand — creation transition', () => {
         now: () => '2026-04-14T10:00:00Z',
         nextId: () => '018e9d2a-aaaa-7000-8000-000000000001',
         actor: { kind: 'user', id: 'alice' },
+        correlation: testCorrelation(),
       },
     );
     expect(out.aggregateId).toBe('1');
     expect(out.version).toBe(1);
     expect(out.eventIds).toHaveLength(1);
+    expect(out.commandId).toBe('cmd-test');
+    expect(out.correlationId).toBe('corr-test');
 
     const events = store.readStream('Issue-1');
     expect(events[0]!.eventType).toBe('IssueReport');
-    expect((events[0]!.payload as { before: unknown }).before).toBeNull();
+    expect((events[0]!.data as { before: unknown }).before).toBeNull();
     store.close();
   });
 
   it('rejects illegal transition (assign on non-existent issue)', () => {
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
     const assignSpec = {
       ...reportSpec,
       graphs: {
@@ -121,6 +125,7 @@ describe('executeCommand — creation transition', () => {
           now: () => '2026-04-14T10:00:00Z',
           nextId: () => 'u',
           actor: null,
+          correlation: testCorrelation(),
         },
       );
       throw new Error('expected throw');

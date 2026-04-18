@@ -7,13 +7,15 @@ describe('parseSeed', () => {
       seedVersion: 1,
       events: [
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ],
     };
@@ -41,18 +43,20 @@ describe('parseSeed', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('rejects event with wrong version type', () => {
+  it('rejects event with wrong rntVersion type', () => {
     const result = parseSeed({
       seedVersion: 1,
       events: [
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: '1',
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: '1',
           eventType: 'ThingCreated',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ],
     });
@@ -64,13 +68,15 @@ describe('parseSeed', () => {
       seedVersion: 1,
       events: [
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
           extraField: 'nope',
         },
       ],
@@ -80,25 +86,32 @@ describe('parseSeed', () => {
       expect(result.errors.some((e) => e.code === 'SEED_SYNTAX_UNKNOWN_FIELD')).toBe(true);
   });
 
-  it('rejects malformed occurredAt', () => {
+  it('rejects derived CE fields (source/type/dataSchema) as unknown', () => {
     const result = parseSeed({
       seedVersion: 1,
       events: [
         {
-          stream: 'Thing-1',
-          aggregateType: 'Thing',
-          aggregateId: '1',
-          version: 1,
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'ThingCreated',
-          payload: {},
-          occurredAt: 'not-a-date',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          source: 'rntme://svc/Thing',
+          type: 'svc.Thing.ThingCreated',
+          dataSchema: 'rntme://schemas/svc/ThingCreated.v1.json',
         },
       ],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors.some((e) => e.code === 'SEED_SYNTAX_UNKNOWN_FIELD')).toBe(true);
   });
 
-  it('accepts actor and schemaVersion when provided', () => {
+  it('rejects legacy field names as unknown', () => {
     const result = parseSeed({
       seedVersion: 1,
       events: [
@@ -110,9 +123,118 @@ describe('parseSeed', () => {
           eventType: 'ThingCreated',
           payload: {},
           occurredAt: '2026-01-01T00:00:00.000Z',
-          actor: { kind: 'user', id: 'alice' },
-          schemaVersion: 1,
-          eventId: 'custom:1',
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects malformed time', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'seed:Thing:1:v1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: 'not-a-date',
+          rntSchemaVersion: 1,
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts optional CE fields (actor kind/id, correlationId, causationId, commandId, traceparent)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'custom:1',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: 'user',
+          rntActorId: 'alice',
+          correlationId: 'seed:abc',
+          causationId: null,
+          commandId: null,
+          traceparent: null,
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects half-specified actor (kind present, id null)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: 'user',
+          rntActorId: null,
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects half-specified actor (id present, kind null)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: null,
+          rntActorId: 'alice',
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts both actor fields null (system/seed events)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: null,
+          rntActorId: null,
         },
       ],
     });

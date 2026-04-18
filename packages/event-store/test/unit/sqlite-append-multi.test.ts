@@ -6,36 +6,40 @@ import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
 let store: SqliteEventStore | null = null;
 afterEach(() => { store?.close(); store = null; });
 
-describe('SqliteEventStore.appendEvents — multi stream', () => {
-  it('appends to two streams in one transaction, each with its own version sequence', () => {
-    store = new SqliteEventStore({ filename: ':memory:' });
+function newStore(): SqliteEventStore {
+  return new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+}
+
+describe('SqliteEventStore.appendEvents — multi subject', () => {
+  it('appends to two subjects in one transaction, each with its own version sequence', () => {
+    store = newStore();
     const results = store.appendEvents([
       makeRequest('Issue-1', [
-        makeEvent({ eventId: 'a', aggregateId: '1' }),
-        makeEvent({ eventId: 'b', aggregateId: '1' }),
+        makeEvent({ id: 'a', rntAggregateId: '1' }),
+        makeEvent({ id: 'b', rntAggregateId: '1' }),
       ]),
       makeRequest('Issue-2', [
-        makeEvent({ eventId: 'c', aggregateId: '2' }),
+        makeEvent({ id: 'c', rntAggregateId: '2' }),
       ]),
     ]);
     expect(results).toHaveLength(2);
-    expect(results[0]!.stream).toBe('Issue-1');
+    expect(results[0]!.subject).toBe('Issue-1');
     expect(results[0]!.lastVersion).toBe(2);
-    expect(results[1]!.stream).toBe('Issue-2');
+    expect(results[1]!.subject).toBe('Issue-2');
     expect(results[1]!.lastVersion).toBe(1);
   });
 
-  it('rolls back both streams when the second stream violates UNIQUE(event_id)', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
+  it('rolls back both subjects when the second subject violates UNIQUE(event_id)', () => {
+    const st = newStore();
     store = st;
     st.appendEvents([
-      makeRequest('Issue-2', [makeEvent({ eventId: 'dup', aggregateId: '2' })]),
+      makeRequest('Issue-2', [makeEvent({ id: 'dup', rntAggregateId: '2' })]),
     ]);
 
     expect(() =>
       st.appendEvents([
-        makeRequest('Issue-1', [makeEvent({ eventId: 'ok', aggregateId: '1' })]),
-        makeRequest('Issue-2', [makeEvent({ eventId: 'dup', aggregateId: '2' })]),
+        makeRequest('Issue-1', [makeEvent({ id: 'ok', rntAggregateId: '1' })]),
+        makeRequest('Issue-2', [makeEvent({ id: 'dup', rntAggregateId: '2' })]),
       ]),
     ).toThrow(DuplicateEventId);
 

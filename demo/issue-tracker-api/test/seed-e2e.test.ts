@@ -40,19 +40,39 @@ describe('seed-e2e — seeded aggregate mutations + burndown', () => {
       body: JSON.stringify({ assigneeId: 1 }),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { version: number };
+    const body = (await res.json()) as {
+      version: number;
+      commandId: string;
+      correlationId: string;
+    };
     expect(body.version).toBe(3);
+    // CommandResult now carries commandId + correlationId; server-generated when
+    // no inbound Correlation-Id header is set.
+    expect(body.commandId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.headers.get('Correlation-Id')).toBe(body.correlationId);
   });
 
-  it('submits a seeded draft issue (7005: draft → open)', async () => {
+  it('submits a seeded draft issue (7005: draft → open) and pins correlation via header', async () => {
     const res = await fetch(`${api}/v1/issues/7005/actions/submit`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-actor-id': 'alice' },
+      headers: {
+        'content-type': 'application/json',
+        'x-actor-id': 'alice',
+        'Correlation-Id': 'manual-test-xyz',
+      },
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { version: number };
+    const body = (await res.json()) as {
+      version: number;
+      commandId: string;
+      correlationId: string;
+    };
     expect(body.version).toBe(2);
+    expect(body.commandId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.correlationId).toBe('manual-test-xyz');
+    expect(res.headers.get('Correlation-Id')).toBe('manual-test-xyz');
   });
 
   it('rejects illegal transition on seeded closed issue (7001)', async () => {

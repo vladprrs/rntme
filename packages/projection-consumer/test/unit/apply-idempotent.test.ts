@@ -41,7 +41,7 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
-      eventId: 'ev-1', eventType: 'IssueReport', aggregateId: '1', version: 1,
+      id: 'ev-1', eventType: 'IssueReport', rntAggregateId: '1', rntVersion: 1,
     });
     expect(applyEvent(db, plan, env)).toEqual(['applied']);
     expect(applyEvent(db, plan, env)).toEqual(['skipped-older-version']);

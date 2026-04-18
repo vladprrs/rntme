@@ -5,23 +5,44 @@ export type SeedArtifact = Readonly<{
   events: readonly SeedEventInput[];
 }>;
 
+/**
+ * Author-facing seed event shape (CloudEvents partial — derived fields omitted).
+ *
+ * Derived fields populated during validation from the service name:
+ *   source       = `rntme://${serviceName}/${rntAggregateType}`
+ *   type         = `${serviceName}.${rntAggregateType}.${eventType}`
+ *   dataSchema   = `rntme://schemas/${serviceName}/${eventType}.v${rntSchemaVersion}.json`
+ *   dataContentType = 'application/json'
+ *
+ * `correlationId` is optional; when absent, `validateSeed` stamps a stable
+ * `seed:<uuid>` value for the whole artifact (shared across all events).
+ */
 export type SeedEventInput = Readonly<{
-  stream: string;
-  aggregateType: string;
-  aggregateId: string;
-  version: number;
+  id: string;
   eventType: string;
-  payload: Readonly<Record<string, unknown>>;
-  occurredAt: string;
-  eventId?: string;
-  actor?: { kind: string; id: string };
-  schemaVersion?: number;
+  rntAggregateType: string;
+  rntAggregateId: string;
+  subject: string;
+  rntVersion: number;
+  time: string;
+  data: Readonly<Record<string, unknown>>;
+  rntSchemaVersion?: number;
+  rntActorKind?: 'user' | 'system' | 'service' | null;
+  rntActorId?: string | null;
+  correlationId?: string;
+  causationId?: string | null;
+  commandId?: string | null;
+  traceparent?: string | null;
 }>;
 
 export type ValidatedSeed = Readonly<{
   events: readonly EventEnvelope[];
 }>;
 
+/**
+ * Error codes are stable API (see CLAUDE.md). Codes carrying the legacy word
+ * "STREAM" are kept intact; their messages now refer to "subject" internally.
+ */
 export type SeedErrorCode =
   | 'SEED_SYNTAX_INVALID'
   | 'SEED_SYNTAX_UNKNOWN_FIELD'

@@ -33,8 +33,8 @@ describe('bindValues — INSERT', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({
-      eventId: 'ev-a', aggregateId: '123', version: 1,
-      occurredAt: '2026-04-14T10:00:00.000Z',
+      id: 'ev-a', rntAggregateId: '123', rntVersion: 1,
+      time: '2026-04-14T10:00:00.000Z',
     });
     const vals = bindValues(report, env);
     expect(vals).toHaveLength(report.bindings.length);
@@ -43,7 +43,7 @@ describe('bindValues — INSERT', () => {
   it('aggregateId coerced to integer for integer-typed key', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
-    const env = makeEnvelope({ aggregateId: '123', version: 1 });
+    const env = makeEnvelope({ rntAggregateId: '123', rntVersion: 1 });
     const vals = bindValues(report, env);
     expect(vals[0]).toBe(123); // id column first
     expect(typeof vals[0]).toBe('number');
@@ -53,8 +53,8 @@ describe('bindValues — INSERT', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({
-      aggregateId: '1', version: 1,
-      payload: { before: null, after: { status: 'draft', title: 'X', projectId: 9, reporterId: 5, priority: 'low', storyPoints: 2 } },
+      rntAggregateId: '1', rntVersion: 1,
+      data: { before: null, after: { status: 'draft', title: 'X', projectId: 9, reporterId: 5, priority: 'low', storyPoints: 2 } },
     });
     const vals = bindValues(report, env);
     // verify all payload fields appear in values
@@ -66,10 +66,10 @@ describe('bindValues — INSERT', () => {
     expect(vals).toContain(2);
   });
 
-  it('generatedOccurred binds to envelope.occurredAt', () => {
+  it('generatedOccurred binds to envelope.time', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
-    const env = makeEnvelope({ aggregateId: '1', version: 1, occurredAt: '2030-01-01T00:00:00.000Z' });
+    const env = makeEnvelope({ rntAggregateId: '1', rntVersion: 1, time: '2030-01-01T00:00:00.000Z' });
     const vals = bindValues(report, env);
     expect(vals).toContain('2030-01-01T00:00:00.000Z');
   });
@@ -77,7 +77,7 @@ describe('bindValues — INSERT', () => {
   it('nullable unbound columns bind to null', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
-    const env = makeEnvelope({ aggregateId: '1', version: 1 });
+    const env = makeEnvelope({ rntAggregateId: '1', rntVersion: 1 });
     const vals = bindValues(report, env);
     // assignee_id has no payload source, nullable → null
     expect(vals.filter((v) => v === null).length).toBeGreaterThanOrEqual(1);
@@ -86,7 +86,7 @@ describe('bindValues — INSERT', () => {
   it('eventId / eventVersion / appliedAt at the tail (insert idempotency)', () => {
     const plan = setup();
     const report = getMirror(plan, 'IssueReport');
-    const env = makeEnvelope({ eventId: 'ev-xyz', version: 7 });
+    const env = makeEnvelope({ id: 'ev-xyz', rntVersion: 7 });
     const vals = bindValues(report, env);
     const tail = vals.slice(-3);
     expect(tail[0]).toBe('ev-xyz');

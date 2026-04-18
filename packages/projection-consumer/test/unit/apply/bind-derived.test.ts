@@ -5,20 +5,20 @@ import { makeEnvelope } from '../../fixtures/envelopes.js';
 
 describe('bindDerivedValue (D5 Task 19)', () => {
   it('aggregateId with sqlType INTEGER coerces to number', () => {
-    const env = makeEnvelope({ aggregateId: '42' });
+    const env = makeEnvelope({ rntAggregateId: '42' });
     const b: DerivedColumnBinding = { kind: 'aggregateId', sqlType: 'INTEGER' };
     expect(bindDerivedValue(b, env)).toBe(42);
   });
 
   it('aggregateId with sqlType TEXT returns the raw string', () => {
-    const env = makeEnvelope({ aggregateId: 'abc-1' });
+    const env = makeEnvelope({ rntAggregateId: 'abc-1' });
     const b: DerivedColumnBinding = { kind: 'aggregateId', sqlType: 'TEXT' };
     expect(bindDerivedValue(b, env)).toBe('abc-1');
   });
 
-  it('payloadField pulls from payload.after; missing field binds to null', () => {
+  it('payloadField pulls from data.after; missing field binds to null', () => {
     const env = makeEnvelope({
-      payload: { before: null, after: { status: 'draft', title: 'Hi' } },
+      data: { before: null, after: { status: 'draft', title: 'Hi' } },
     });
     const status: DerivedColumnBinding = { kind: 'payloadField', fieldName: 'status', sqlType: 'TEXT' };
     const missing: DerivedColumnBinding = { kind: 'payloadField', fieldName: 'nope', sqlType: 'TEXT' };
@@ -26,23 +26,23 @@ describe('bindDerivedValue (D5 Task 19)', () => {
     expect(bindDerivedValue(missing, env)).toBeNull();
   });
 
-  it('eventOccurredAt binds to envelope.occurredAt', () => {
-    const env = makeEnvelope({ occurredAt: '2030-01-01T00:00:00.000Z' });
+  it('eventOccurredAt binds to envelope.time', () => {
+    const env = makeEnvelope({ time: '2030-01-01T00:00:00.000Z' });
     expect(bindDerivedValue({ kind: 'eventOccurredAt' }, env)).toBe('2030-01-01T00:00:00.000Z');
   });
 
-  it('eventActorId falls back to null when actor is null', () => {
-    const env = makeEnvelope({ actor: null });
+  it('eventActorId falls back to null when rntActorId is null', () => {
+    const env = makeEnvelope({ rntActorKind: null, rntActorId: null });
     expect(bindDerivedValue({ kind: 'eventActorId' }, env)).toBeNull();
   });
 
-  it('eventActorId returns actor.id when present', () => {
-    const env = makeEnvelope({ actor: { kind: 'user', id: 'u-7' } });
+  it('eventActorId returns rntActorId when present', () => {
+    const env = makeEnvelope({ rntActorKind: 'user', rntActorId: 'u-7' });
     expect(bindDerivedValue({ kind: 'eventActorId' }, env)).toBe('u-7');
   });
 
-  it('eventId binds to envelope.eventId', () => {
-    const env = makeEnvelope({ eventId: 'ev-xyz' });
+  it('eventId binds to envelope.id', () => {
+    const env = makeEnvelope({ id: 'ev-xyz' });
     expect(bindDerivedValue({ kind: 'eventId' }, env)).toBe('ev-xyz');
   });
 

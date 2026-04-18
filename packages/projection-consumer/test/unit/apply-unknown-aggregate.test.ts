@@ -41,7 +41,7 @@ describe('applyEvent — entities without mirror', () => {
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
-      eventType: 'UserJoined', aggregateType: 'User', aggregateId: '7', version: 1,
+      eventType: 'UserJoined', rntAggregateType: 'User', rntAggregateId: '7', rntVersion: 1,
     });
     expect(applyEvent(db, plan, env)).toEqual(['skipped-no-handler']);
   });
@@ -51,7 +51,7 @@ describe('applyEvent — entities without mirror', () => {
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
-      eventType: 'IssueFoo', aggregateType: 'Issue', aggregateId: '1', version: 1,
+      eventType: 'IssueFoo', rntAggregateType: 'Issue', rntAggregateId: '1', rntVersion: 1,
     });
     expect(applyEvent(db, plan, env)).toEqual(['skipped-no-handler']);
   });

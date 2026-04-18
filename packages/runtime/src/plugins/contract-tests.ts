@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Hono } from 'hono';
+import { toCloudEventWire, type EventEnvelope } from '@rntme/event-store';
 import type { DbDriver, EventBus, Surface, SurfaceContext } from './interfaces.js';
 
 export function runDbDriverContract(driver: DbDriver): void {
@@ -43,25 +44,32 @@ export function runEventBusContract(makeBus: () => EventBus): void {
       const consumer = bus.consumer({ groupId: 'g', topic: 't' });
       const received: unknown[] = [];
 
-      const envelope = {
-        eventId: 'e1',
-        stream: 'a-1',
-        aggregateType: 'A',
-        version: 1,
-        payload: {},
-        schemaVersion: 1,
-        occurredAt: new Date().toISOString(),
-        type: 'Noop',
-        actor: null,
+      const envelope: EventEnvelope = {
+        id: 'e1',
+        source: 'rntme://test-svc/A',
+        eventType: 'Noop',
+        type: 'test-svc.A.Noop',
+        time: new Date().toISOString(),
+        subject: 'A-1',
+        dataContentType: 'application/json',
+        dataSchema: 'rntme://schemas/test-svc/Noop.v1.json',
+        data: {},
+        correlationId: 'corr-1',
+        causationId: null,
+        commandId: null,
+        rntAggregateType: 'A',
+        rntAggregateId: '1',
+        rntVersion: 1,
+        rntSchemaVersion: 1,
+        rntActorKind: null,
+        rntActorId: null,
+        traceparent: null,
       };
 
-      // Produce first so it's in the queue before the iterator starts polling
-      await producer.send({
-        topic: 't',
-        key: 'k',
-        headers: {},
-        value: JSON.stringify(envelope),
-      });
+      // Produce first so it's in the queue before the iterator starts polling.
+      // Build a CE binary-mode KafkaMessage — InMemoryBus decodes via
+      // fromCloudEventWire to stay contract-equivalent with real Kafka.
+      await producer.send(toCloudEventWire(envelope, 't'));
 
       // Consume: iterate, collect one message, then stop
       for await (const batch of consumer) {

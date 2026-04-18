@@ -47,6 +47,7 @@ export async function startService(
     try {
       await applySeed(service.seed, pipeline.eventStore, {
         mode: config.seedMode ?? 'strict',
+        serviceName: service.manifest.service.name,
       });
     } catch (err) {
       const code =

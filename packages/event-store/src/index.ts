@@ -22,13 +22,14 @@ export type {
   ReadFromOptions,
   EventRecord,
   DeliveryAttemptRow,
+  AppendRawOptions,
 } from './store/interface.js';
 export {
   SqliteEventStore,
   mapSqliteError,
 } from './store/sqlite.js';
 export type { SqliteEventStoreOptions } from './store/sqlite.js';
-export { applyEventStoreSchema } from './store/schema.js';
+export { applyEventStoreSchema, assertSchemaD9Compatible } from './store/schema.js';
 export { rowToEnvelope } from './store/row-mapper.js';
 export type { EventLogRow } from './store/row-mapper.js';
 
@@ -38,8 +39,12 @@ export {
   createInMemoryKafkaProducer,
 } from './kafka/in-memory.js';
 export type { InMemoryKafkaProducer } from './kafka/in-memory.js';
+export { toCloudEventWire, fromCloudEventWire } from './kafka/wire-codec.js';
+export { CloudEventDecodeError } from './kafka/wire-errors.js';
 
 // Relay
 export { createRelay } from './relay/loop.js';
 export type { Relay, RelayOptions } from './relay/loop.js';
 export { defaultTopicOf } from './relay/topic.js';
+export { buildDlqEnvelope } from './relay/dlq-envelope.js';
+export type { DlqPayload } from './relay/dlq-envelope.js';

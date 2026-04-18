@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   SqliteEventStore,
   createRelay,
@@ -27,6 +28,7 @@ export function wireEventPipeline(
   bus: EventBus,
 ): EventPipeline {
   const manifest = service.manifest;
+  const serviceName = manifest.service.name;
   const eventStorePath =
     manifest.persistence.mode === 'persistent'
       ? manifest.persistence.eventStorePath
@@ -34,7 +36,10 @@ export function wireEventPipeline(
   const qsmPath =
     manifest.persistence.mode === 'persistent' ? manifest.persistence.qsmPath : ':memory:';
 
-  const eventStore = new SqliteEventStore({ filename: eventStorePath });
+  const eventStore = new SqliteEventStore({
+    filename: eventStorePath,
+    serviceName,
+  });
   const qsmDb = db.open({ purpose: 'qsm', path: qsmPath });
 
   bootstrapProjections(qsmDb, service.projectionDdls);
@@ -42,15 +47,18 @@ export function wireEventPipeline(
   const relay: Relay = createRelay({
     store: eventStore,
     kafka: bus.producer(),
-    cursorId: `${manifest.service.name}:relay`,
+    cursorId: `${serviceName}:relay`,
     pollIntervalMs: 10,
     batchSize: 100,
+    serviceName,
+    now: () => new Date().toISOString(),
+    nextId: () => randomUUID(),
   });
 
   const projectionConsumer = createProjectionConsumer({
     kafka: bus.consumer({
-      groupId: `${manifest.service.name}:projection`,
-      topic: manifest.service.name,
+      groupId: `${serviceName}:projection`,
+      topic: `rntme.${serviceName.toLowerCase()}.*`,
     }),
     plan: service.projectionApplyPlan,
     db: qsmDb,

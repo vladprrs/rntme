@@ -1,8 +1,18 @@
-import type { EventEnvelope } from '@rntme/event-store';
+import { defaultTopicOf, type EventEnvelope } from '@rntme/event-store';
 import type { ConsumedMessage, KafkaBatch, KafkaConsumer } from '../types/consumer.js';
 
-function defaultTopicOf(aggregateType: string): string {
-  return `rntme.${aggregateType.toLowerCase()}.v1`;
+// Source format: `rntme://${serviceName}/${rntAggregateType}` — see spec §3.1.
+// Splitting on '/' yields ['rntme:', '', serviceName, rntAggregateType].
+function serviceNameFromSource(source: string): string {
+  const segs = source.split('/');
+  if (segs.length < 4 || segs[0] !== 'rntme:' || segs[1] !== '' || segs[2] === '') {
+    throw new Error(`PROJECTION_CONSUMER_INVALID_SOURCE: cannot extract serviceName from ${source}`);
+  }
+  return segs[2]!;
+}
+
+function canonicalTopicOf(envelope: EventEnvelope): string {
+  return defaultTopicOf(serviceNameFromSource(envelope.source), envelope.rntAggregateType);
 }
 
 export type InMemoryKafkaConsumer = KafkaConsumer &
@@ -13,9 +23,9 @@ export type InMemoryKafkaConsumer = KafkaConsumer &
   }>;
 
 export function createInMemoryKafkaConsumer(
-  options: { topicOf?: (aggregateType: string) => string; pollIntervalMs?: number } = {},
+  options: { topicOf?: (envelope: EventEnvelope) => string; pollIntervalMs?: number } = {},
 ): InMemoryKafkaConsumer {
-  const topicOf = options.topicOf ?? defaultTopicOf;
+  const topicOf = options.topicOf ?? canonicalTopicOf;
   const pollIntervalMs = options.pollIntervalMs ?? 2;
   const queue: ConsumedMessage[] = [];
   const committed: ConsumedMessage[] = [];
@@ -41,10 +51,10 @@ export function createInMemoryKafkaConsumer(
     },
     produce(envelope: EventEnvelope): void {
       queue.push({
-        topic: topicOf(envelope.aggregateType),
+        topic: topicOf(envelope),
         partition: 0,
         offset: String(nextOffset++),
-        key: envelope.stream,
+        key: envelope.subject,
         envelope,
       });
     },

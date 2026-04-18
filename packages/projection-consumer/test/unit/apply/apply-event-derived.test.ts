@@ -57,7 +57,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
   it('returns [skipped-no-handler] when no handler matches the eventType', () => {
     db = setupDb();
     const plan = planWith([makeCountHandler({ eventType: 'IssueResolve' })]);
-    const env = makeEnvelope({ eventType: 'SomethingElse', aggregateId: '1' });
+    const env = makeEnvelope({ eventType: 'SomethingElse', rntAggregateId: '1' });
     expect(applyEvent(db, plan, env)).toEqual(['skipped-no-handler']);
   });
 
@@ -65,7 +65,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
     db = setupDb();
     const plan = planWith([makeCountHandler()]);
     const env = makeEnvelope({
-      eventId: 'ev-1', eventType: 'IssueResolve', aggregateId: '5',
+      id: 'ev-1', eventType: 'IssueResolve', rntAggregateId: '5',
     });
     expect(applyEvent(db, plan, env)).toEqual(['applied']);
     const row = db.prepare('SELECT event_count FROM projection_issue_count WHERE issue_id = 5').get() as { event_count: number };
@@ -76,7 +76,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
     db = setupDb();
     const plan = planWith([makeCountHandler()]);
     const env = makeEnvelope({
-      eventId: 'ev-dup', eventType: 'IssueResolve', aggregateId: '7',
+      id: 'ev-dup', eventType: 'IssueResolve', rntAggregateId: '7',
     });
     expect(applyEvent(db, plan, env)).toEqual(['applied']);
     expect(applyEvent(db, plan, env)).toEqual(['skipped-seen-event']);
@@ -95,7 +95,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
       filter: { sql: '1 = 0', bindings: [] },
     });
     const plan = planWith([handler]);
-    const env = makeEnvelope({ eventId: 'ev-f', eventType: 'IssueResolve', aggregateId: '9' });
+    const env = makeEnvelope({ id: 'ev-f', eventType: 'IssueResolve', rntAggregateId: '9' });
     expect(applyEvent(db, plan, env)).toEqual(['skipped-filter']);
     // Nothing was inserted into the projection table or seen_events.
     const count = db.prepare('SELECT COUNT(*) AS c FROM projection_issue_count').get() as { c: number };
@@ -110,7 +110,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
       filter: { sql: '1 = 1', bindings: [] },
     });
     const plan = planWith([handler]);
-    const env = makeEnvelope({ eventId: 'ev-t', eventType: 'IssueResolve', aggregateId: '11' });
+    const env = makeEnvelope({ id: 'ev-t', eventType: 'IssueResolve', rntAggregateId: '11' });
     expect(applyEvent(db, plan, env)).toEqual(['applied']);
   });
 
@@ -127,7 +127,7 @@ describe('applyEvent — derived handler branch (D5 Task 20)', () => {
          ON CONFLICT ("id") DO UPDATE SET "c" = "projection_other"."c" + 1`,
     });
     const plan = planWith([a, b]);
-    const env = makeEnvelope({ eventId: 'ev-multi', eventType: 'IssueResolve', aggregateId: '3' });
+    const env = makeEnvelope({ id: 'ev-multi', eventType: 'IssueResolve', rntAggregateId: '3' });
     const results = applyEvent(db, plan, env);
     expect(results).toEqual(['applied', 'applied']);
     // Second delivery — both handlers see the same eventId and skip.

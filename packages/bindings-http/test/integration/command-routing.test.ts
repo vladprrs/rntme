@@ -7,7 +7,16 @@ import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
 import { SqliteEventStore } from '@rntme/event-store';
 import type { ActorRef } from '@rntme/event-store';
+import { Hono } from 'hono';
 import { createBindingsRouter } from '../../src/router.js';
+import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
+
+function wrapWithMiddleware(router: ReturnType<typeof createBindingsRouter>): Hono {
+  const app = new Hono();
+  app.use('*', correlationMiddleware());
+  app.route('/', router);
+  return app;
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const compilerRoot = join(here, '..', '..', '..', 'graph-ir-compiler');
@@ -163,15 +172,15 @@ function validated() {
 }
 
 function build(): {
-  router: ReturnType<typeof createBindingsRouter>;
+  router: Hono;
   store: SqliteEventStore;
   qsmDb: Database.Database;
 } {
-  const store = new SqliteEventStore({ filename: ':memory:' });
+  const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
   const qsmDb = new Database(':memory:');
   const actor: ActorRef = { kind: 'user', id: 'alice' };
   let seq = 0;
-  const router = createBindingsRouter({
+  const inner = createBindingsRouter({
     validated: validated(),
     graphSpec: spec,
     pdm,
@@ -182,7 +191,7 @@ function build(): {
     now: () => '2026-04-14T10:00:00Z',
     nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
   });
-  return { router, store, qsmDb };
+  return { router: wrapWithMiddleware(inner), store, qsmDb };
 }
 
 describe('createBindingsRouter — command routing', () => {
@@ -210,12 +219,23 @@ describe('createBindingsRouter — command routing', () => {
       }),
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { aggregateId: string; version: number };
-    expect(body).toEqual({
-      aggregateId: '42',
-      version: 1,
-      eventIds: ['018e9d2a-0000-7000-8000-000000000001'],
-    });
+    const body = (await res.json()) as {
+      aggregateId: string;
+      version: number;
+      eventIds: string[];
+      commandId: string;
+      correlationId: string;
+    };
+    expect(body).toEqual(
+      expect.objectContaining({
+        aggregateId: '42',
+        version: 1,
+        eventIds: ['018e9d2a-0000-7000-8000-000000000001'],
+      }),
+    );
+    expect(body.commandId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.headers.get('Correlation-Id')).toBe(body.correlationId);
     expect(ctx.store.readStream('Issue-42')).toHaveLength(1);
   });
 
@@ -277,18 +297,22 @@ describe('createBindingsRouter — command routing', () => {
     expect(r1.status).toBe(200);
     ctx.store.appendEvents([
       {
-        stream: 'Issue-42',
+        subject: 'Issue-42',
         expectedVersion: 1,
         events: [
           {
-            eventId: 'external-0000',
+            id: 'external-0000',
             eventType: 'IssueSubmit',
-            aggregateType: 'Issue',
-            aggregateId: '42',
-            occurredAt: '2026-04-14T10:00:00Z',
+            rntAggregateType: 'Issue',
+            rntAggregateId: '42',
+            time: '2026-04-14T10:00:00Z',
             actor: null,
-            schemaVersion: 1,
-            payload: { before: { status: 'draft' }, after: { status: 'open' } },
+            data: { before: { status: 'draft' }, after: { status: 'open' } },
+            rntSchemaVersion: 1,
+            correlationId: 'external-corr',
+            causationId: null,
+            commandId: null,
+            traceparent: null,
           },
         ],
       },
@@ -388,11 +412,11 @@ describe('createBindingsRouter — command guards', () => {
   };
 
   function buildGuarded(): {
-    router: ReturnType<typeof createBindingsRouter>;
+    router: Hono;
     store: SqliteEventStore;
     qsmDb: Database.Database;
   } {
-    const store = new SqliteEventStore({ filename: ':memory:' });
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
     const qsmDb = new Database(':memory:');
     qsmDb.exec(`
       CREATE TABLE projection_issue (
@@ -417,7 +441,7 @@ describe('createBindingsRouter — command guards', () => {
     const v = validateBindings(parsed.value, guardedResolvers);
     if (!v.ok) throw new Error('validate fail');
     let seq = 0;
-    const router = createBindingsRouter({
+    const inner = createBindingsRouter({
       validated: v.value,
       graphSpec: guardedSpec,
       pdm,
@@ -428,7 +452,7 @@ describe('createBindingsRouter — command guards', () => {
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
     });
-    return { router, store, qsmDb };
+    return { router: wrapWithMiddleware(inner), store, qsmDb };
   }
 
   it('returns 422 COMMAND_GUARD_REJECTED when the read-prelude guard fails', async () => {
