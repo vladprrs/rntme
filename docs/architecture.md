@@ -1543,8 +1543,50 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 
 ## 8. Glossary
 
-_(pending — Task 21)_
+Seeded from `AGENTS.md §10` and extended with terms introduced in §§6–7. Cross-links use `§n.m` notation.
+
+- **PDM** — Project Domain Model. The canonical entity / field / relation / state-machine artifact. One per service. (§4.1)
+- **QSM** — Query-Side Model. Declarative read-side projections on top of PDM; owns relation metadata for JOINs (post 2026-04-16 migration). (§4.2)
+- **Graph IR** — The rc7 intermediate representation for queries and commands. (§4.4)
+- **Projection** — A QSM-declared table maintained by the projection-consumer. (§4.2, §6.1)
+- **Backing** — A projection's storage strategy. Two kinds: `entity-mirror` (1:1 with a PDM entity; the only production backing at cutoff) and `derived` (parsed but MVP-gated). (§6.1)
+- **Envelope** — Event-store record shape in the CloudEvents 1.0 format. Carries `id`, `time`, `type`, `source`, `subject`, `correlationId`, `rntAggregateType`, `rntAggregateId`, `rntVersion`, `rntSchemaVersion`, `data`, `actor`. (§6.2)
+- **CloudEvents** — The wire format for envelopes. On Kafka, rntme uses CE 1.0 binary content mode (`ce_*` headers + JSON body). (§6.2)
+- **Result<T>** — `{ ok: true; value: T } | { ok: false; error: E }`. The workspace-wide fallible-return contract; no exceptions leak across package boundaries. (§6.0)
+- **Validated\*** — Phantom-branded type constructed only by the last validator layer of its owner package; downstream APIs require the brand. (§6.0)
+- **4-layer validator** — The pattern parse → structural → reference / cross-ref → consistency shared by pdm, qsm, bindings, and ui. Fail-fast across layers; each layer aggregates its own errors. (§6.0)
+- **`ERROR_CODES`** — Frozen per-package registry of stable machine-readable identifiers in the `<PKG>_<LAYER>_<KIND>` format. Append-only. (§6.0)
+- **Seed** — Declarative event-envelope bootstrap applied once per database, **before the relay starts**. Package `@rntme/seed`; see §3.4 for the before-relay invariant. (§4.8, §6.2)
+- **Relay** — The event-store publishing loop. At-least-once, per-subject Kafka key, cursor-guarded; retries with exponential backoff then emits a DLQ envelope. (§4.3, §6.2)
+- **Publish cursor** — Per-relay monotonic `last_event_id` pointer stored in the `publish_cursor` table; advanced only after a batch is accepted by the producer. (§6.2)
+- **DLQ** — Dead-letter queue. A fresh envelope with `type = '{service}.Relay.EventDeliveryFailed'` published to `{topic}.dlq` when a primary send exhausts retries; retry is unbounded. (§6.2)
+- **`ApplyPlan`** — The projection-consumer's per-event handler bundle; produced by `compileApplyPlan`. (§6.2)
+- **Three-layer idempotency** — Entity-mirror apply guard: pre-check `last_event_version` → `INSERT … ON CONFLICT DO UPDATE WHERE … < excluded.*` → `UPDATE … WHERE … < ?`. (§6.2)
+- **`seen_events`** — Shared `(event_id, projection_id)` dedup table added for derived projections. (§6.2, §4.5)
+- **Surface** — Runtime plugin seam for the HTTP (or equivalent) entry point. Default implementation: `HttpSurface` (Hono). (§3.3, §6.4)
+- **DbDriver / EventBus** — Runtime plugin seams for storage and messaging. Defaults: `BetterSqliteDriver`, `InMemoryBus`. (§3.3, §6.4)
+- **Manifest** — The service-level JSON file (`manifest.json`) selecting artefacts, plugin seams, and feature flags; validated at boot by `loadService`. (§4.8, §6.4)
+- **MVP gate** — A feature parsed but validator-rejected (or implementation-gated behind an opt-in) until its backing lands. Enforced in code, not README-only. (§6.4, §7.5)
+- **`BindingKind × Role`** — The matrix that pairs a binding's declared kind (`query` / `command`) with its target graph's inferred role and the required output shape (`rowset<T>` / `row<CommandResult>`). (§6.3)
+- **`BindingPlan`** — `QueryBindingPlan | CommandBindingPlan` — the runtime pairing of a binding with its compiled graph and request Zod schemas. (§6.3)
+- **Hrana** — The libSQL JSON wire protocol used by `@rntme/db-studio` to expose read-only access to rntme's SQLite files for external browser studios. (§4.8.2, §6.5)
+- **Topic convention** — `rntme.{service}.{aggregate}`, lowercased, no version suffix. Breaking event changes use a new `eventType`, not a new topic. (§6.5)
 
 ## 9. How to use and maintain this document
 
-_(pending — Task 21)_
+**Audience.** A contributor who will read or change rntme's code. Section 1 orients; §§2–4 give progressively detailed views; §§5–6 support deep-diving; §7 carries the current punch-list; §8 is the vocabulary.
+
+**Recommended reading order.** For a first pass, read §1, then §3.3 (plugin seams), then whichever §4 subsection owns the area you are changing. For a 60-minute "trace a command from HTTP to projection" test, read §1, §3, §4.4, §4.5 in order, then glance at sequence #1 in §4.4.
+
+**Relationship to other docs.**
+
+- `AGENTS.md` is the **task-index**: repository map, per-task recipes, anti-patterns. Use it when you know what you are doing and need the shortest path.
+- `docs/superpowers/specs/` is the **decision record**: one spec per design commitment. Code that disagrees with a spec is a bug; the spec is not "out of date" until it is superseded by a newer spec.
+- Per-package `README.md` files are the **internal reference** for each package (invariants, gotchas, out-of-scope list).
+- This document is the **architecture overview**: the L1–L4 framing, the cross-cutting abstractions catalogue, and the current diagnostic observations.
+
+**Cutoff and updates.** This document was written to the 2026-04-18 state of the repository. Later specs are folded in via dated bumps, not retroactive edits — if a new spec lands, add a row to the relevant §4 subsection's spec-lineage table and, if the change affects any observation, add or amend the finding in §7. Any meaningful refactor should bump the relevant §4 subsection and, if an invariant moved, the corresponding §6 entry.
+
+**How to keep §7 honest.** Findings live in §7, not §4. A §4 subsection describes what is; §7 describes what is off. If a fix lands, move the finding's severity to `info` with a "fixed in commit …" note and leave it for one cycle (next cutoff) before deleting; that audit trail is useful for contributors who read the doc between cutoffs.
+
+**Diagram conventions (see the HTML comment at the top of the file for the palette).** Node names match code symbols exactly. Each mermaid block is followed by a 1–3-sentence caption. Diagrams are ≤ 30 nodes and ≤ 10 actors; split when a diagram threatens either cap. Sequence diagrams live in the section that owns the flow.
