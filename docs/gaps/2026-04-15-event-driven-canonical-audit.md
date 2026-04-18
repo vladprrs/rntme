@@ -10,16 +10,16 @@
 
 | ADR | Best design | Current | Verdict |
 |-----|-------------|---------|---------|
-| **D1** | `event_log` + immutable log + `delivery_tracking` telemetry table | `event_log` + `publish_cursor` only | ⚠️ partial — delivery telemetry missing |
+| **D1** | `event_log` + immutable log + `delivery_tracking` telemetry table | `event_log` + `publish_cursor` + `delivery_tracking` | ✅ resolved 2026-04-17 (PR #4) |
 | **D2** | sync write-behind | sync write-behind | ✅ match |
 | **D3** | SQLite = per-service SoT; Kafka = long-retained integration SoT; ksqlDB = cross-service read layer | SQLite = SoT; Kafka = ephemeral (in-memory demo); no ksqlDB | ⚠️ retention contract undocumented; ksqlDB absent |
 | **D4** | at-least-once + idempotent consumer | at-least-once + idempotent consumer | ✅ match |
-| **D5** | hybrid: per-row `last_event_version` (mirror) **+** `seen_events(event_id)` (non-mirror) | per-row `last_event_version` only | ❌ gap — blocks non-mirror projections |
-| **D6** | topic per aggregate type; partition key = stream; versioned topic name | topic per aggregate type; partition key = stream | ⚠️ topic naming missing service name |
+| **D5** | hybrid: per-row `last_event_version` (mirror) **+** `seen_events(event_id)` (non-mirror) | hybrid shipped (mirror path unchanged; `seen_events(event_id, projection_id)` + `{ eventType }` graph-IR source + `compileProjectionGraph`) | ✅ resolved 2026-04-18 |
+| **D6** | topic per aggregate type; partition key = stream; versioned topic name | topic per aggregate type; partition key = stream; service segment in topic name | ✅ resolved 2026-04-18 (bundled with D9) |
 | **D7** | polling + in-process condvar for low latency | polling only (100 ms) | ⚠️ tail-latency optimization missing |
 | **D8** | per-event JSON Schema files + CI BACKWARD-compat gate | none (int `schemaVersion` field, nothing else) | ❌ gap — silent breakage possible |
-| **D9** | CloudEvents 1.0 envelope end-to-end + correlationid / causationid | custom envelope; Kafka headers carry only `event-id`, `event-type`, `schema-version` | ❌ major gap — blocker for Zeebe |
-| **D10** | max-attempts + dedicated Kafka DLQ topic (`{topic}.dlq`) | infinite retry + `console.error` | ❌ gap — poison events silently block relay |
+| **D9** | CloudEvents 1.0 envelope end-to-end + correlationid / causationid | CE 1.0 envelope end-to-end; CE binary-mode on Kafka; correlation propagated HTTP → command → event → Kafka | ✅ resolved 2026-04-18 (branch `feature/cloudevents-envelope`, PR #5) |
+| **D10** | max-attempts + dedicated Kafka DLQ topic (`{topic}.dlq`) | max-attempts + `{topic}.dlq` + `delivery_tracking.dlq_at` | ✅ resolved 2026-04-17 (PR #4) |
 | **D11** | generated per-service schema registry (JSON Schema files from PDM alone via `deriveEventTypes`) | derivation function exists; serializer + committed files absent | ❌ gap — registry artifact missing though derivation is in-package |
 | **D12** | `Idempotency-Key` header → `(commandId, key)` response cache | none; OCC-only | ❌ gap — HTTP retry unsafe |
 
@@ -27,7 +27,17 @@ Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 
 ---
 
-## D1 · Outbox shape — ⚠️ partial
+## D1 · Outbox shape — ✅ resolved (2026-04-17, PR #4)
+
+**Resolved.** `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)` landed in `packages/event-store/src/store/schema.ts`. `EventStore` exposes `readDeliveryAttempt / recordDeliveryAttempt / updateLastError / markDelivered / markDlq` (commits `0e52cfd`…`358b1a9`). Relay now UPSERTs per attempt, records `last_error` (truncated to 1024 bytes), `delivered_at` on success, and `dlq_at` on terminal failure (commits `e6a417d`, `8c8be66`, `8aee1b3`). Attempt counter persists across relay restarts (commit `9d89a1a`, integration proof in `b6ecc59`). `DeliveryAttemptRow` is a public export.
+
+**Still open.** Ops HTTP surface (`GET /_ops/relay-dlq`, `GET /_ops/relay-lag`) — deferred to a separate operability task; the underlying data is now queryable via SQL.
+
+Original gap statement preserved below for historical context.
+
+---
+
+### Original gap statement (2026-04-15)
 
 **Best design (ADR D1).** `event_log` is the authoritative append-only log; `publish_cursor(relay_id, last_event_id)` tracks bulk progress; a new mutable `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)` table records per-event delivery state.
 
@@ -98,7 +108,24 @@ Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 
 ---
 
-## D5 · Consumer idempotency strategy — ❌ gap
+## D5 · Consumer idempotency strategy — ✅ resolved (2026-04-18)
+
+**Resolved.** Hybrid idempotency shipped:
+
+- `seen_events(event_id, projection_id, applied_at)` table with composite PK + `idx_seen_events_applied` (projection-consumer bootstrap; 30-day retention job in runtime, `RNTME_SEEN_EVENTS_RETENTION_DAYS` override).
+- Graph-IR `{ eventType }` source variant + new `projection` role + operator whitelist (`findMany` / `filter` / `map` / `reduce(count|sum)`); non-projection operators error with `PROJ_SEMANTIC_UNSUPPORTED_*`.
+- `compileProjectionGraph(spec, pdm, qsm, { graphId, projectionTable })` emits a `DerivedCompileResult` with `bootstrapSql` + `deltaSql` + `deltaBindings` + optional `filter`.
+- QSM accepts `source: { graph }` for `backing === 'derived'`; runtime `crossValidateDerivedProjections` checks graph existence, role, keys match, and `exposed ⊆ group ∪ measures`.
+- `projection-consumer` applies both handler kinds inside one `BEGIN IMMEDIATE…COMMIT`: filter-predicate preflight → `seen_events` lookup → UPSERT → `seen_events` insert.
+- Demo (`demo/issue-tracker-api`) ships `reportedIssueCountByProject` (derived from `IssueReport` events) with an e2e test proving dedup on replayed envelopes.
+
+See commits between `a32eb18` (plan) and the commit that closed this audit line for the full task chain.
+
+Original gap statement preserved below for historical context.
+
+---
+
+### Original gap statement (2026-04-15)
 
 **Best design (ADR D5).** Hybrid: per-row `last_event_version` for entity-mirror projections **plus** `seen_events(event_id PRIMARY KEY, applied_at, projection_id)` for non-mirror projections. QSM artifact declares the strategy per projection.
 
@@ -134,7 +161,17 @@ This is why the current QSM validator rejects anything that is not `entity-mirro
 
 ---
 
-## D6 · Topic and partition-key strategy — ⚠️ minor drift
+## D6 · Topic and partition-key strategy — ✅ resolved (2026-04-18, bundled with D9)
+
+**Resolved.** `defaultTopicOf(serviceName, aggregateType)` now emits `rntme.{serviceName}.{aggregateType}` (commit `94946e9`, branch `feature/cloudevents-envelope`). `serviceName` is threaded from `manifest.service.name` through `runtime` → `event-store` / `relay`. Partition key remains `envelope.stream`.
+
+**Deliberate deviation from the original ADR.** The `v{major}` suffix was dropped: breaking event changes are modelled as a new `eventType` on the same topic, not a new topic version. Rationale: topic-version bumps force every consumer to redeploy; eventType-per-shape lets consumers subscribe to what they understand and ignore the rest, which is closer to how CloudEvents + schema registries are used in practice.
+
+Original gap statement preserved below for historical context.
+
+---
+
+### Original gap statement (2026-04-15)
 
 **Best design (ADR D6).** Topic per aggregate type. Partition key = `stream`. Naming: `rntme.{serviceName}.{aggregateType}.v{major}` (where `v{major}` = event schema major version).
 
@@ -209,7 +246,17 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 ---
 
-## D9 · Envelope format — ❌ major gap
+## D9 · Envelope format — ✅ resolved (2026-04-18, branch `feature/cloudevents-envelope` / PR #5)
+
+**Resolved.** CloudEvents 1.0 envelope shape lands end-to-end. `event_log` gains CE columns (`source`, `specversion`, `datacontenttype`, `dataschema`, `subject`, `correlationid`, `causationid`, `traceparent`, + `rnt*` extensions) — commit `46d6564`. CE binary-mode wire codec in relay + `InMemoryBus` (commits `e26d716`, `02878a7`, `94946e9`). Correlation propagates HTTP → command → event: `correlationMiddleware` in `bindings-http` reads `Correlation-Id` / `traceparent` (`ce37139`); `ExecuteCommandContext.correlation` threads through `graph-ir-compiler` and stamps per-event `correlationid` / `causationid` (`bf8f58d`). Seed path uses `seed:<uuid>` correlation and CE shape (`456040b`). DLQ emits a CE wrapper event retaining `traceparent` (`86206f0`, `02878a7`). Projection consumer renamed to CE field names (`b39effa`). Demo `seed.json` and e2e tests assert CE shape end-to-end (`0afac30`, `7e24233`). CodeRabbit review cycle addressed in `e76f30e`. Planning artifacts: `docs/superpowers/specs/2026-04-16-d9-cloudevents-envelope-design.md`, `docs/superpowers/plans/2026-04-16-d9-cloudevents-envelope-migration.md`.
+
+**Not yet in main.** Branch is code-complete, typechecks, tests green, PR #5 under review. D6 topic-naming service-segment fix bundled with this work (`94946e9` — `rntme.{serviceName}.{aggregate}.v1`).
+
+Original gap statement preserved below for historical context.
+
+---
+
+### Original gap statement (2026-04-15)
 
 **Best design (ADR D9).** CloudEvents 1.0 envelope end-to-end (in `event_log`, in Kafka messages via binary content mode, in internal APIs). Standard attributes (`id`, `source`, `type`, `time`, `subject`, `datacontenttype`, `dataschema`, `specversion`) + extensions (`correlationid`, `causationid`, `traceparent`, `rntaggregatetype`, `rntaggregateid`, `rntversion`, `rntschemaversion`, `rntactorkind`, `rntactorid`).
 
@@ -255,7 +302,17 @@ No `source`, no `specversion`, no `correlationid`, no `causationid`, no `datacon
 
 ---
 
-## D10 · Failure handling in relay — ❌ gap
+## D10 · Failure handling in relay — ✅ resolved (2026-04-17, PR #4)
+
+**Resolved.** Unbounded retry replaced with bounded attempts + dedicated DLQ topic. `RelayOptions` gains `maxAttempts` (default 10) and typed `onSendError(attempt, err, envelope)` callback (`bca03f1`). After `maxAttempts`, relay emits the failed envelope + metadata (`last_error`, `first_attempt_at`, `attempt_count`) to `{topic}.dlq`, marks `delivery_tracking.dlq_at`, and advances the publish cursor so subsequent events are not blocked (`8aee1b3`). Defensive skip for already-terminal rows prevents double-DLQ on restart (`9d89a1a`). Shutdown-aware: if `emitDlq` is aborted by a stop signal, `dlq_at` is not marked so the event resumes on next boot (`865fe21`). Spec §D-DLQ-RETRY fix ensures no zombie state on transient DLQ producer failure (`b84d642`). Integration proofs: `490473a` (poison event doesn't block relay), `b6ecc59` (attempt counter survives restart).
+
+**Still open.** Classification of retryable vs terminal errors is uniform (all failures count as attempts, DLQ after `maxAttempts`). Fast-path DLQ on clearly-terminal errors (schema violation, message-too-large, auth) is a future refinement. `GET /_ops/relay-dlq-count` operator surface deferred with D1 ops surface.
+
+Original gap statement preserved below for historical context.
+
+---
+
+### Original gap statement (2026-04-15)
 
 **Best design (ADR D10).** Max-attempts + dedicated DLQ Kafka topic (`{originalTopic}.dlq`). `delivery_tracking.dlq_at` records local auditability; authoritative DLQ lives in Kafka.
 
@@ -394,18 +451,21 @@ The `schemaVersion` field is set to `1` on every event everywhere in the codebas
 
 ## Summary: remediation order
 
-Ordered by (priority, dependency):
+### Shipped (2026-04-17 / 04-18)
 
-1. **P0 / D9** — CloudEvents envelope migration + correlationid / causationid propagation. Blocks Zeebe. Forces a breaking change anyway; bundle D6 topic naming fix with it.
-2. **P0 / D10** — DLQ Kafka topic (`{topic}.dlq`) + max-attempts + `delivery_tracking.dlq_at` for local audit (requires D1 table first).
-3. **P1 / D1** — `delivery_tracking` table. Prerequisite for D10.
-4. **P1 / D5** — hybrid idempotency; unblock non-mirror projections.
-5. **P1 / D8 + D11** — schema registry generator + BACKWARD compat CI gate (single work unit).
-6. **P1 / D12** — `Idempotency-Key` middleware + cache.
-7. **P2 / D3** — production Kafka retention contract doc (and startup warning).
-8. **P2 / D6** — topic naming service-segment fix (bundle with D9 migration).
-9. **P3 / D7** — condvar tail-latency optimization.
+- ✅ **D1** — `delivery_tracking` table + relay wiring (PR #4).
+- ✅ **D10** — bounded attempts + `{topic}.dlq` + `dlq_at` audit (PR #4).
+- ✅ **D9** — CloudEvents envelope end-to-end + correlation/causation propagation (PR #5, merge pending).
+- ✅ **D6** — topic naming service-segment fix (bundled into D9 / PR #5).
+- ✅ **D5** — hybrid idempotency (last_event_version + seen_events) + graph-IR derived projections.
+
+### Remaining, ordered by (priority, dependency)
+
+1. **P1 / D8 + D11** — schema registry generator + BACKWARD compat CI gate (single work unit).
+2. **P1 / D12** — `Idempotency-Key` middleware + cache.
+3. **P2 / D3** — production Kafka retention contract doc (and startup warning); ksqlDB cross-service read-layer story.
+4. **P3 / D7** — condvar tail-latency optimization.
 
 D2, D4 conform today — no work required.
 
-This ordering assumes Zeebe cross-service work is the next platform milestone. If Zeebe is pushed back, D9 drops from P0 to P1 and D12 rises to the top.
+Original ordering assumed Zeebe cross-service work as the next platform milestone, which is why D9 landed first. With D9 shipped, priority now rotates to D12 (HTTP idempotency) and D8+D11 (schema governance) before the second service is introduced.
