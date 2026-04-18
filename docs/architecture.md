@@ -657,6 +657,126 @@ flowchart LR
 - **`generated: 'createdAt' | 'updatedAt'` both bind `envelope.occurredAt`.** Updates re-emit `updatedAt` on every event.
 - **SQLite-only today.** Uses `BEGIN IMMEDIATE`, `ON CONFLICT DO UPDATE`, and `excluded.<col>`; future target is Turso.
 
+### 4.6 `@rntme/bindings` + `@rntme/bindings-http`
+
+**Purpose.** `@rntme/bindings` parses, validates (4 layers), and emits OpenAPI 3.1 for the HTTP binding artifact — a declarative map from `(method, path)` tuples to graphs plus input/output shapes. `@rntme/bindings-http` is the Hono sub-router that, given a `ValidatedBindings` artifact and a Graph IR spec, mounts those bindings at runtime and serves `/openapi.json`.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-14-bindings-design.md` | 2026-04-14 | landed | Bindings artifact format (§4), 4-layer validator (§6), OpenAPI mapping (§7), package layout (§8). |
+| `docs/superpowers/specs/done/2026-04-14-bindings-http-design.md` | 2026-04-14 | landed | Hono surface: public API, request lifecycle, Zod rules, startup pipeline, error model. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef brand fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef runtime fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+
+    JSON["bindings.json"] --> P["parse/parse.ts<br/>+ schema.ts"]:::stage
+    P --> S["validate/structural.ts"]:::stage
+    S --> SV["StructurallyValidBindings"]:::brand
+    SV --> REF["validate/references.ts<br/>(GraphResolvers)"]:::stage
+    REF --> RV["ResolvedBindings"]:::brand
+    RV --> CON["validate/consistency.ts"]:::stage
+    CON --> VB["ValidatedBindings"]:::brand
+    VB --> OAPI["openapi/emit.ts"]:::stage
+    VB --> ROUTER["bindings-http:<br/>router.ts + startup/compile-plan.ts"]:::runtime
+    ROUTER --> QH["runtime/handler.ts"]:::runtime
+    ROUTER --> CH["runtime/command-handler.ts"]:::runtime
+```
+
+**Caption.** Bindings runs four layers (parse, structural, references, consistency) with two intermediate brands (`StructurallyValidBindings`, `ResolvedBindings`) before producing `ValidatedBindings`. The same `ValidatedBindings` value is consumed by the OpenAPI emitter and by `@rntme/bindings-http`'s router — no second parse, no cast.
+
+**Components.**
+
+- **`bindings/parse/*`** — Zod strict parser. Enums include `method` (`GET | POST`), `in` (`query | path | body`), `kind` (`query | command`, default `query`). Emits `BINDINGS_PARSE_*` codes.
+- **`bindings/validate/structural.ts`** — Binding / method / path uniqueness, path-placeholder symmetry (`{id}` ↔ parameter name set), GET-cannot-have-body, command method = `POST` only, command cannot declare `in: 'query'` parameters.
+- **`bindings/validate/references.ts`** — Resolves each binding's graph signature (inputs, output shape) via `BindingResolvers` and checks every `bindTo` exists in the target graph.
+- **`bindings/validate/consistency.ts`** — Kind × role matrix (see below), root-input ban, output-shape contract, mode ↔ required matrix, type ↔ location rules, unbound inputs.
+- **`bindings/openapi/emit.ts` + `shapes.ts` + `parameters.ts` + `responses.ts` + `errors.ts`** — Produces an OpenAPI 3.1 `OpenApiDoc` with `paths`, `components.schemas`, the built-in `CommandResult` shape for command responses, and the standard 400 / 409 / 422 / 500 error schemas. Passthrough (`x-*`) annotations deep-merge.
+- **`bindings-http/router.ts`** — Entry point `createBindingsRouter({ bindings, graphIrSpec, pdm, qsm, eventStore? })`. Throws a single aggregated `BindingsRuntimeError` if compile errors exist; mounts query / command handlers per binding; serves `/openapi.json`.
+- **`bindings-http/startup/compile-plan.ts`** — Per binding, slices the Graph IR to the target graph and calls `compile` or `compileCommand`, producing a `QueryBindingPlan | CommandBindingPlan` discriminated-union.
+- **`bindings-http/startup/zod-schema.ts` + `primitive-schema.ts` + `hono-path.ts`** — Derives per-request Zod schemas (query / path / body) from the binding's input set; rewrites OpenAPI `{id}` to Hono `:id`.
+- **`bindings-http/runtime/handler.ts` + `command-handler.ts` + `extract.ts` + `remap.ts`** — Per request: extract (list vs last-wins for query), Zod-parse, `bindTo`-map to graph inputs, execute, serialize. Correlation id is injected by `correlation-middleware.ts`.
+
+**Kind × role matrix** (enforced by `validate/consistency.ts`):
+
+| Binding kind | Graph role | Valid? | Required output |
+| --- | --- | --- | --- |
+| `query` | `query` | ✓ | `rowset<T>` |
+| `query` | `command` | ✗ (`BINDINGS_QUERY_ON_COMMAND_GRAPH`) | — |
+| `command` | `query` | ✗ (`BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH`) | — |
+| `command` | `command` | ✓ | `row<CommandResult>` |
+
+**Error → HTTP status mapping** (bindings-http):
+
+| Status | Trigger |
+| --- | --- |
+| `400 VALIDATION_ERROR` | Zod `safeParse` failure on query / path / body. |
+| `400 INVALID_BODY` | Body is not a JSON object. |
+| `409 COMMAND_CONCURRENCY_CONFLICT` | `CommandExecutionError.code === 'COMMAND_CONCURRENCY_CONFLICT'`. |
+| `422 COMMAND_*` | Any other `CommandExecutionError` (e.g. `COMMAND_ILLEGAL_TRANSITION`, `COMMAND_GUARD_REJECTED`). |
+| `500 INTERNAL_ERROR` | Any uncaught throw. |
+
+**Invariants.**
+
+- **Same 4-layer shape as pdm / qsm / ui.** The bindings validator is the canonical instance of rntme's layered-validator pattern: parse → structural → references → consistency.
+- **Fail-fast across layers; aggregate within.** A layer returns all its errors before the next layer runs.
+- **Branded stage order.** `StructurallyValidBindings` → `ResolvedBindings` → `ValidatedBindings`; each brand is constructed only by its validator.
+- **Commands output `row<CommandResult>`.** Built-in shape `{ aggregateId: string, version: integer, eventIds: array<string> }`.
+- **Commands are `POST`-only.** `in: 'query'` parameters are forbidden on a command binding.
+- **`requestBody.required = true` whenever any `in: 'body'` parameter exists.** Per-field `required` does not override this.
+- **`in: 'path'` parameters are always `required: true`** and the placeholder set must equal the parameter set exactly.
+- **Root inputs cannot be bound.** Graphs with `mode: 'root'` inputs fail `BINDINGS_GRAPH_HAS_ROOT_INPUT`.
+- **Mode ↔ required matrix.** `required → [true]`, `defaulted → [false]`, `predicate_optional → [false]`, `nullable → [true, false]`, `root → []`.
+- **Type ↔ location rules.** Scalars legal everywhere; `list<T>` legal in query / body only; row / rowset forbidden as input.
+- **Passthrough annotations deep-merge.** Arrays replace; objects merge key-wise.
+- **bindings-http is strict end-to-end.** Zod schemas are `.strict()`; no `additionalProperties: true` escape hatch.
+- **`eventStore` is required when any binding is `kind: 'command'`.** Synchronous throw before route mount.
+- **Compile errors aggregate.** A partial router is never mounted; `BindingsRuntimeError` carries all failures.
+
+#### Sequence #4 — Validation pipeline (on bindings; shared pattern)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Caller (boot / CLI / test)
+    participant P as parse (Zod)
+    participant S as structural
+    participant R as references (resolvers)
+    participant K as consistency
+    participant B as brand ValidatedBindings
+
+    C->>P: raw JSON
+    alt parse fail
+        P-->>C: Err(BINDINGS_PARSE_*)
+    end
+    P-->>C: StructurallyParsed
+    C->>S: StructurallyParsed
+    alt structural fail
+        S-->>C: Err(BINDINGS_STRUCT_*)
+    end
+    S-->>C: StructurallyValid
+    C->>R: StructurallyValid + resolvers
+    alt reference fail
+        R-->>C: Err(BINDINGS_REF_*)
+    end
+    R-->>C: Resolved
+    C->>K: Resolved
+    alt consistency fail
+        K-->>C: Err(BINDINGS_CONS_*)
+    end
+    K-->>C: Consistent
+    C->>B: construct brand
+    B-->>C: ValidatedBindings
+```
+
+**Caption.** pdm / qsm / ui all run the same four layers in this order; only the error-code prefixes and the specific rules differ. The brand is constructible only after all four layers pass — there is no `as ValidatedX` escape hatch in any legitimate code path.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
