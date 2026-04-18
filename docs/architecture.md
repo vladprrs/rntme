@@ -326,6 +326,110 @@ flowchart LR
 - **`cardinality: 'many'` is reserved.** Parser and validator accept it, but graph-ir-compiler refuses to lower it (`NAV_FAN_OUT_NOT_ALLOWED`). Author should treat `many` as forward-compat only.
 - **Idempotency columns are immutable.** Entity-mirror tables carry `last_event_id`, `last_event_version`, `applied_at`; derived tables carry `last_event_id`, `applied_at` plus a `seen_events` dedup row. Names are stable; renaming is a breaking change for projection-consumer.
 
+### 4.3 `@rntme/event-store`
+
+**Purpose.** SQLite-backed event log with optimistic concurrency, a per-relay monotonic publish cursor, and a Kafka-style at-least-once relay — the write side of rntme's CQRS / event-sourced pipeline.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed (superseded) | Pre-D9 event model; envelope fields are now covered by the CloudEvents design below. |
+| `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md` | 2026-04-17 | landed | D9 CloudEvents 1.0 envelope end-to-end — shape (§3.1), DLQ wrapper (§5.2), topic convention (§6), schema compatibility (§7). |
+| `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` | 2026-04-17 | landed | A1 delivery-tracking table + unbounded DLQ retry semantics. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef store fill:#1b5c3a,stroke:#4ae29a,color:#fff;
+    classDef iface fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef relay fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+    classDef wire fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+
+    IF["store/interface.ts<br/>EventStore"]:::iface
+    SQL["store/sqlite.ts<br/>SqliteEventStore"]:::store
+    SCH["store/schema.ts<br/>(D9 guard)"]:::store
+    RM["store/row-mapper.ts"]:::store
+    LOOP["relay/loop.ts<br/>createRelay"]:::relay
+    TOP["relay/topic.ts"]:::relay
+    DLQ["relay/dlq-envelope.ts"]:::relay
+    CODEC["kafka/wire-codec.ts<br/>(CE 1.0 binary)"]:::wire
+    KP["kafka/producer.ts<br/>KafkaProducer"]:::wire
+
+    SQL --> IF
+    SQL --> SCH & RM
+    LOOP --> IF
+    LOOP --> CODEC
+    LOOP --> KP
+    LOOP --> TOP
+    LOOP --> DLQ
+```
+
+**Caption.** The `EventStore` interface is the single seam the rest of the system talks to. `SqliteEventStore` is the default implementation; the relay polls it, encodes envelopes via the CloudEvents 1.0 wire codec, and publishes through a `KafkaProducer` (in-memory in tests).
+
+**Components.**
+
+- **`store/interface.ts`** — The `EventStore` interface: `appendEvents`, `appendRaw`, `readStream`, `readFrom`, `readRecordsFrom`, `readCursor` / `writeCursor`, plus per-event delivery-tracking ops (`readDeliveryAttempt`, `recordDeliveryAttempt`, `updateLastError`, `markDelivered`, `markDlq`).
+- **`store/sqlite.ts`** — `SqliteEventStore` implementation over `better-sqlite3` with `journal_mode=WAL`. Maps SQLite errors to `ConcurrencyConflict` / `DuplicateEventId`. All append requests in one batch run in a single `immediate` transaction — atomic across subjects.
+- **`store/schema.ts`** — DDL (`applyEventStoreSchema`) plus `assertSchemaD9Compatible(db)` that rejects pre-D9 files missing the `correlation_id` column.
+- **`store/row-mapper.ts`** — `rowToEnvelope(row, serviceName)` re-derives CloudEvents `source` / `type` / `dataSchema` on read so those fields need not be persisted verbatim.
+- **`relay/loop.ts`** — `createRelay({ store, cursorId, kafka, ... })` spins a polling loop: read from cursor → encode → send → record delivery → advance cursor. Retries per event with exponential backoff (10 ms → `maxBackoffMs`, up to `maxAttempts`). Emits a DLQ envelope after exhaustion.
+- **`relay/topic.ts`** — `defaultTopicOf(service, aggregate)` returns `rntme.{service}.{aggregate}` (both lowercased). No `.v1` suffix.
+- **`relay/dlq-envelope.ts`** — `buildDlqEnvelope` wraps a failed event with `type: '{service}.Relay.EventDeliveryFailed'`, published to `{topic}.dlq`.
+- **`kafka/wire-codec.ts`** — `toCloudEventWire` / `fromCloudEventWire` — CloudEvents 1.0 binary content mode (CE attributes in headers, JSON payload in body).
+- **`kafka/producer.ts` + `kafka/in-memory.ts`** — `KafkaProducer` interface plus an in-memory test producer.
+
+**Invariants.**
+
+- **Caller mints `id`, `time`, and `correlationId`.** The store never generates them; determinism matters for replay and golden tests. `correlation_id` is `NOT NULL` in the schema.
+- **Optimistic concurrency on `(subject, expectedVersion)`.** `expectedVersion` is the pre-append `MAX(version)` for the subject; `0` means the subject does not exist. Violation raises `ConcurrencyConflict(subject, expectedVersion, actualVersion)`.
+- **Append is atomic across subjects.** A multi-request batch either fully commits or fully rolls back (single `immediate` transaction).
+- **Per-subject order in Kafka, not cross-subject.** The relay sets Kafka `key = subject`, giving partition affinity; cross-subject ordering is not guaranteed.
+- **At-least-once delivery.** The publish cursor advances only after a batch is accepted by the producer. Crash mid-batch replays on restart; consumers must deduplicate by `event_id`.
+- **Monotonic cursor per relay.** `writeCursor` rejects non-monotonic `last_event_id` values. Each relay instance uses its own `cursorId`.
+- **Unbounded DLQ retry.** If the DLQ topic itself fails, the relay keeps retrying the DLQ envelope; `onDlqError` surfaces the failure to the operator.
+- **Topic convention is fixed.** `rntme.{service}.{aggregate}`, lowercase, no version suffix. Breaking event changes are modelled as a new `eventType`, not a new topic.
+- **`serviceName` is immutable.** It flows into CE `source`, `type`, `dataSchema`, and the topic; renaming after events exist rewrites derived values.
+- **Single-writer SQLite.** WAL + `busy_timeout` handles short contention; multi-instance writes to the same file are not supported.
+- **`appendRaw` trusts the caller's `rntVersion`** — non-contiguous versions are permitted for seed and replay only.
+
+#### Sequence #6 — Envelope lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CMD as Command handler
+    participant ES as @rntme/event-store
+    participant DB as SQLite
+    participant R as Relay
+    participant BUS as EventBus
+    participant PC as @rntme/projection-consumer
+    participant DTR as delivery_tracking
+    participant DLQ as DLQ topic
+
+    CMD->>ES: appendEvents({ subject, expectedVersion, events })
+    ES->>DB: INSERT envelopes (one immediate txn)
+    DB-->>ES: rows with monotonic id
+    R->>DB: readRecordsFrom({ afterId: cursor, limit })
+    loop per envelope
+        R->>BUS: toCloudEventWire + producer.send
+        alt accepted
+            R->>DTR: markDelivered
+            BUS->>PC: deliver
+            PC->>DB: apply + advance consumer cursor
+        else retryable error
+            R->>DTR: recordDeliveryAttempt + backoff
+        else exhausted
+            R->>DLQ: buildDlqEnvelope + send
+            R->>DTR: markDlq
+        end
+    end
+    R->>DB: writeCursor(highestDeliveredId)
+```
+
+**Caption.** The publish cursor advances only after a batch's primary sends complete (or enter DLQ); a consumer failure is recorded in `delivery_tracking` but does not block the cursor — the relay is at-least-once; the consumer deduplicates on `event_id`.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
