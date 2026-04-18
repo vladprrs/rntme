@@ -219,7 +219,60 @@ sequenceDiagram
 
 ## 4. L3 — Components
 
-_(pending — Tasks 5–12)_
+Each subsection below follows the same structure:
+
+1. **Purpose** — one sentence.
+2. **Spec lineage** — which specs shaped this package, in time order.
+3. **Component diagram** — internal modules and data flow.
+4. **Components** — 2–3 sentences per module naming its responsibility.
+5. **Invariants** — what must hold.
+
+Sequence diagrams live with the package that owns the flow.
+
+### 4.1 `@rntme/pdm`
+
+**Purpose.** Parse, validate, resolve, and derive event-types for the PDM artifact — rntme's source of truth for entities, fields, relations, keys, and per-entity finite-state machines that drive event-sourced mutations.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed | Defined the `stateMachine` extension, derived event-types, and the event-sourcing topology consumed by PDM output. |
+| `docs/adr/2026-04-15-event-driven-architecture.md` | 2026-04-15 | ADR | Write-path topology (event log, outbox, relay) that consumes `deriveEventTypes` output. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef brand fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+
+    JSON["pdm.json"] --> P["parse/parse.ts<br/>+ schema.ts"]:::stage
+    P --> S["validate/structural.ts"]:::stage
+    S --> SM["validate/state-machine.ts"]:::stage
+    SM --> VP["ValidatedPdm (brand)"]:::brand
+    VP --> R["resolvers/pdm-resolver.ts"]:::stage
+    VP --> D["derive/event-types.ts"]:::stage
+```
+
+**Caption.** Two validation layers (structural, then state-machine) construct the `ValidatedPdm` brand; resolver and event-type derivation consume the brand — they are not validation layers.
+
+**Components.**
+
+- **`parse/parse.ts` + `parse/schema.ts`** — Zod strict parsing; accepts either a JS object or a JSON string. Emits `PdmArtifactParsed` on success; returns `Err` with `PDM_PARSE_*` codes otherwise.
+- **`validate/structural.ts`** — First validation layer. Checks keys reference real fields, relation endpoints resolve, and scalars are well-formed. Constructs `StructurallyValidPdm`.
+- **`validate/state-machine.ts`** — Second validation layer. Enforces state/transition rules, creation-transition `affects` declaration, self-loop non-empty `affects`, and BFS reachability from creation states. Promotes `StructurallyValidPdm` to `ValidatedPdm`.
+- **`validate/index.ts`** — Orchestrator `validatePdm()`. Fail-fast: on a structural error, the state-machine layer does not run.
+- **`resolvers/pdm-resolver.ts`** — Pure-lookup facade (`createPdmResolver`) that resolves entity / field / relation / state-machine references to in-memory handles; it injects `stateField` into each transition's `affects`.
+- **`derive/event-types.ts`** — Produces one `EventTypeSpec` per transition, consumed downstream by bindings, projection-consumer, and the event store.
+
+**Invariants.**
+
+- The `ValidatedPdm` brand is constructible only inside `validate/structural.ts` and `validate/state-machine.ts` — downstream packages (QSM, bindings, graph-ir-compiler) accept only the brand.
+- `stateField` is a non-nullable string; `stateMachine.initial` is literal `null` (creation transitions are the only entry).
+- Creation transitions and self-loop transitions must declare `affects` explicitly and non-empty.
+- Reachability is enforced: any state unreachable from a creation transition is rejected with `PDM_SM_UNREACHABLE_STATE`.
+- `relation.to` is local-only; cross-service relations are an explicit gap tracked in `docs/gaps/pdm-gaps.md` and in the package's "Out of scope" README section.
 
 ## 5. L4 — Code
 
