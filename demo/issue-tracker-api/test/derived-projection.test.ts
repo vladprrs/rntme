@@ -192,15 +192,38 @@ describe('derived-projection — IssueReport rollup + dedup via seen_events', ()
 
     await bus.republish(duplicate);
 
-    // Give the consumer a moment to consult seen_events and skip. Counts must
-    // NOT move, and no new seen_events row should be inserted.
-    await delay(150);
+    // Marker event with a fresh event_id and unique projectId, posted AFTER
+    // the duplicate. The InMemoryBus consumer is FIFO, so once the marker's
+    // row appears in the projection the duplicate has provably been
+    // processed (and skipped via seen_events). Replaces a fixed-delay
+    // settle, which would let dedup regressions trivially pass on a slow CI.
+    const markerRes = await fetch(`${base}/api/v1/issues`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        issueId: 99004,
+        title: 'Marker',
+        projectId: 99,
+        reporterId: 1,
+        priority: 'low',
+        storyPoints: 1,
+      }),
+    });
+    expect(markerRes.status).toBe(200);
+
+    await waitFor(() => {
+      const rows = queryCounts(qsm);
+      return rows.length === 3 ? rows : null;
+    });
 
     const countsAfter = queryCounts(qsm);
     expect(countsAfter).toEqual([
       { projectId: 1, count: 2 },
       { projectId: 2, count: 1 },
+      { projectId: 99, count: 1 },
     ]);
-    expect(querySeenEventsCount(qsm, 'reportedIssueCountByProject')).toBe(3);
+    // 3 originals + marker = 4. If dedup were broken, the duplicate would
+    // also have inserted a (event_id, projection_id) row → 5.
+    expect(querySeenEventsCount(qsm, 'reportedIssueCountByProject')).toBe(4);
   }, 30_000);
 });
