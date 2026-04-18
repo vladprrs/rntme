@@ -165,13 +165,12 @@ flowchart TB
     RT["@rntme/runtime"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
-    PDM --> QSM
-    PDM --> ES
-    QSM --> GIR
-    ES --> GIR
-    GIR --> B
-    B --> BH
-    UI --> UIR
+    QSM --> PDM
+    GIR --> PDM & QSM & ES
+    BH --> B & GIR & ES
+    UIR --> UI
+    PC --> ES & GIR & PDM & QSM
+    SD --> ES & PDM
     RT --> BH & UIR & DS & PC & SD & GIR & ES
     DEMO --> RT
 ```
