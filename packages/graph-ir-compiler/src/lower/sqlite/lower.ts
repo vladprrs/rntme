@@ -53,15 +53,40 @@ function measureToAggSql(
 }
 
 function scanToSelect(s: RelScan): SqlSelect {
-  return {
+  const select: SqlSelect = {
     kind: 'select',
     from: { table: s.table, alias: s.alias },
     joins: [],
     columns: s.fields.map((f) => ({
-      expr: { kind: 'col', table: s.alias, column: f.column },
+      expr: fieldToSqlExpr(s.alias, f),
       alias: f.name,
     })),
   };
+  if (s.where) {
+    select.where = {
+      kind: 'op',
+      op: 'eq',
+      args: [
+        { kind: 'col', table: s.alias, column: s.where.column },
+        { kind: 'str', value: s.where.value },
+      ],
+    };
+  }
+  return select;
+}
+
+function fieldToSqlExpr(alias: string, f: RelScan['fields'][number]): SqlExpr {
+  if (f.sql?.fn === 'json_extract') {
+    return {
+      kind: 'func',
+      name: 'json_extract',
+      args: [
+        { kind: 'col', table: alias, column: f.sql.column },
+        { kind: 'str', value: f.sql.jsonPath },
+      ],
+    };
+  }
+  return { kind: 'col', table: alias, column: f.column };
 }
 
 function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlSelect {

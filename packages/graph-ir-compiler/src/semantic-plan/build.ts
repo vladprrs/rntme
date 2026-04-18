@@ -1,7 +1,7 @@
 import type { CanonicalGraph, CanonicalNode } from '../types/canonical.js';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
-import type { PlanStep, SemanticPlan } from '../types/semantic-plan.js';
+import type { PlanStep, ScanStep, SemanticPlan } from '../types/semantic-plan.js';
 import { err, ok, ERROR_CODES, type Result, type GraphIrError } from '../types/result.js';
 import { resolveSources, type SourceMap } from '../validate/semantic/sources.js';
 
@@ -43,8 +43,38 @@ function lower(node: CanonicalNode, sources: SourceMap, pdm: ValidatedPdm): Plan
       const src = sources.get(node.id);
       if (!src) return undefined;
       if (src.kind === 'eventType') {
-        // Event-source plan step produced by Task 7 (semantic-plan + relational build).
-        return undefined;
+        // Event-log source: scan `event_log` with constant event_type predicate; expose
+        // aggregateId/occurredAt/actorId + payload fields (via json_extract) as virtual columns.
+        const aggEntity = pdm.entities[src.aggregateType];
+        if (!aggEntity) return undefined;
+        const keyName = aggEntity.keys[0];
+        const keyField = keyName ? aggEntity.fields[keyName] : undefined;
+        const keyType = keyField?.type ?? 'integer';
+        const keyNullable = keyField?.nullable ?? false;
+
+        const fields: ScanStep['fields'] = [
+          { name: 'aggregateId', column: 'aggregate_id', type: keyType, nullable: keyNullable },
+          { name: 'occurredAt', column: 'occurred_at', type: 'datetime', nullable: false },
+          { name: 'actorId', column: 'actor_id', type: 'string', nullable: true },
+        ];
+        for (const [pname, pspec] of Object.entries(src.payloadFields)) {
+          fields.push({
+            name: pname,
+            column: 'payload_json',
+            type: pspec.type,
+            nullable: pspec.nullable,
+            sql: { fn: 'json_extract', column: 'payload_json', jsonPath: `$.${pname}` },
+          });
+        }
+        return {
+          kind: 'scan',
+          nodeId: node.id,
+          table: 'event_log',
+          alias: node.alias,
+          entity: src.aggregateType,
+          fields,
+          where: { kind: 'eq_literal', column: 'event_type', value: src.eventType },
+        };
       }
       const entity = pdm.entities[src.entity];
       if (!entity) return undefined;

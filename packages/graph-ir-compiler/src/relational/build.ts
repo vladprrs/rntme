@@ -12,6 +12,7 @@ export function buildRelational(plan: SemanticPlan): RelOp {
           alias: step.alias,
           fields: step.fields,
           entity: step.entity,
+          ...(step.where !== undefined ? { where: step.where } : {}),
         };
         break;
       case 'filter':
