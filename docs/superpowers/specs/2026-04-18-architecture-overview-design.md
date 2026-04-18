@@ -46,7 +46,7 @@ Source for this framing: `rntme_vision_framing` memory entry.
 
 ## 3. Audience & success criteria
 
-**Primary audience:** the owner of the codebase (@vladprsib) — uses the
+**Primary audience:** the owner of the codebase (@vladprrs) — uses the
 document to reason about refactoring and to frame new plans.
 
 **Secondary audience:** future coding agents and human collaborators who
