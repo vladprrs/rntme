@@ -350,13 +350,18 @@ Emitted to `{primaryTopic}.dlq` via `toCloudEventWire`. The unbounded DLQ-retry 
 // old: defaultTopicOf(aggregateType: string): string
 // new:
 export function defaultTopicOf(serviceName: string, aggregateType: string): string {
-  return `rntme.${serviceName}.${aggregateType.toLowerCase()}.v1`;
+  return `rntme.${serviceName.toLowerCase()}.${aggregateType.toLowerCase()}`;
 }
 ```
 
-(`v1` hard-coded remains until D8 schema-major versioning lands; at that point it becomes `v{majorVersion}`.)
+**No version suffix.** The topic reflects the stable aggregate boundary, not the schema version. Versioning lives on the event itself:
 
-Relay caller passes `serviceName` from `createRelay` opts.
+- **Non-breaking (additive) schema evolution** of a given `eventType` is tracked via `rntSchemaVersion` and the `dataSchema` URI. Consumers tolerate unknown optional fields.
+- **Breaking schema change** is semantically a different event — introduce a new `eventType` (e.g. `IssueCreated` → `IssueCreatedV2` or a more meaningful new name). Old consumers ignore unknown `type` values; new consumers subscribe to the new `type`. No topic split, no parallel-read choreography.
+
+This obsoletes the previously-planned D8 "schema-major topic versioning"; that work is no longer needed.
+
+Relay caller passes `serviceName` from `createRelay` opts. Consumer callers subscribe to the relay's topic format (e.g. `rntme.${serviceName}.${aggregateType}` or the broker-specific wildcard form `rntme.${serviceName}.*`).
 
 ---
 

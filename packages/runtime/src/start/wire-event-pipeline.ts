@@ -58,7 +58,7 @@ export function wireEventPipeline(
   const projectionConsumer = createProjectionConsumer({
     kafka: bus.consumer({
       groupId: `${serviceName}:projection`,
-      topic: serviceName,
+      topic: `rntme.${serviceName.toLowerCase()}.*`,
     }),
     plan: service.projectionApplyPlan,
     db: qsmDb,

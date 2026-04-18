@@ -94,13 +94,13 @@ describe('relay — DLQ path', () => {
     relay.start();
     // Wait until we see exactly one DLQ message (primary-topic sends all fail; DLQ succeeds on first try).
     expect(await waitUntil(
-      () => kafka.sent.some((m) => m.topic === 'rntme.svc.issue.v1.dlq'),
+      () => kafka.sent.some((m) => m.topic === 'rntme.svc.issue.dlq'),
       3000,
     )).toBe(true);
     await relay.stop();
 
-    const primaryMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue.v1');
-    const dlqMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue.v1.dlq');
+    const primaryMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue');
+    const dlqMsgs = kafka.sent.filter((m) => m.topic === 'rntme.svc.issue.dlq');
     expect(primaryMsgs).toHaveLength(0);
     expect(dlqMsgs).toHaveLength(1);
 

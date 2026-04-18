@@ -24,7 +24,7 @@ export function rowToEnvelope(row: EventLogRow, serviceName: string): EventEnvel
   const source = `rntme://${serviceName}/${row.aggregate_type}`;
   const type = `${serviceName}.${row.aggregate_type}.${row.event_type}`;
   const dataSchema = `rntme://schemas/${serviceName}/${row.event_type}.v${row.schema_version}.json`;
-  const actorKind = toActorKind(row.actor_kind);
+  const actorKind = toActorKind(row.actor_kind, row.event_id);
   return {
     id: row.event_id,
     source,
@@ -48,7 +48,12 @@ export function rowToEnvelope(row: EventLogRow, serviceName: string): EventEnvel
   };
 }
 
-function toActorKind(kind: string | null): ActorRef['kind'] | null {
+function toActorKind(kind: string | null, eventId: string): ActorRef['kind'] | null {
+  if (kind === null) return null;
   if (kind === 'user' || kind === 'system' || kind === 'service') return kind;
-  return null;
+  // Write-time validation forbids any other value. Seeing one here means row
+  // corruption — surface loudly so the actor_id is not silently dropped.
+  throw new Error(
+    `EVENT_STORE_ROW_INVALID_ACTORKIND: event_log row ${eventId} has actor_kind="${kind}" (must be user|system|service or null)`,
+  );
 }

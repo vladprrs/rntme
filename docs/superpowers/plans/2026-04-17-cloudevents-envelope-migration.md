@@ -573,7 +573,7 @@ function sampleEnvelope(overrides: Partial<EventEnvelope> = {}): EventEnvelope {
 describe('wire-codec roundtrip', () => {
   it('roundtrips a fully populated envelope', () => {
     const env = sampleEnvelope();
-    const msg = toCloudEventWire(env, 'rntme.svc.issue.v1');
+    const msg = toCloudEventWire(env, 'rntme.svc.issue');
     const back = fromCloudEventWire(msg);
     expect(back).toEqual(env);
   });
@@ -787,9 +787,11 @@ git commit -m "feat(event-store): CloudEvents binary-mode wire codec"
 ```ts
 // packages/event-store/src/relay/topic.ts
 export function defaultTopicOf(serviceName: string, aggregateType: string): string {
-  return `rntme.${serviceName}.${aggregateType.toLowerCase()}.v1`;
+  return `rntme.${serviceName.toLowerCase()}.${aggregateType.toLowerCase()}`;
 }
 ```
+
+No version suffix on topic — versioning lives on the event (`rntSchemaVersion` for additive evolution; new `eventType` for breaking). See spec §5.4.
 
 - [ ] **Step 3.2: Create `relay/dlq-envelope.ts`**
 

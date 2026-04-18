@@ -106,7 +106,7 @@ describe('assertSchemaD9Compatible', () => {
     expect(() => assertSchemaD9Compatible(db)).not.toThrow();
   });
 
-  it('rejects pre-D9 event_log schema', () => {
+  it('rejects pre-D9 event_log schema (missing correlation_id sentinel)', () => {
     const db = new Database(':memory:');
     db.exec(
       `CREATE TABLE event_log (
@@ -117,9 +117,6 @@ describe('assertSchemaD9Compatible', () => {
         event_id TEXT UNIQUE
       );`,
     );
-    db.prepare(
-      `INSERT INTO event_log (stream, version, event_type, event_id) VALUES ('s', 1, 't', 'e')`,
-    ).run();
     expect(() => assertSchemaD9Compatible(db)).toThrow(/EVENT_STORE_SCHEMA_INCOMPATIBLE/);
   });
 });

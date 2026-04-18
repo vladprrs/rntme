@@ -71,7 +71,7 @@ describe('smoke: @rntme/event-store end-to-end', () => {
     // Kafka partition key = envelope.subject
     expect(kafka.sent.every((m, i) => m.key === envelopes[i]!.subject)).toBe(true);
 
-    // Topic naming (D6): `rntme.<serviceName>.<aggregateType>.v1`
+    // Topic naming (D6): `rntme.<serviceName>.<aggregateType>` (no version — versioning lives on the event)
     expect(kafka.sent.every((m) => m.topic === defaultTopicOf('svc', 'Issue'))).toBe(true);
 
     // Cursor ended at the last event id

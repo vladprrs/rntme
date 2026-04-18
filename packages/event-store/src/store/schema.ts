@@ -50,18 +50,18 @@ export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
 
 /**
  * Guards against running a post-D9 build against a pre-D9 event_log schema.
- * If the table exists but is missing any of the required D9 columns, throws
- * with error message starting `EVENT_STORE_SCHEMA_INCOMPATIBLE`. If the table
- * does not exist yet, this is a no-op (applyEventStoreSchema will create it).
+ * Per spec §8 / §10, the D9 sentinel column is `correlation_id`. If the table
+ * exists but lacks it, throws with error message starting
+ * `EVENT_STORE_SCHEMA_INCOMPATIBLE`. If the table does not exist yet, this is
+ * a no-op (applyEventStoreSchema will create it).
  */
 export function assertSchemaD9Compatible(db: BetterSqliteDatabase): void {
   const cols = db.prepare("PRAGMA table_info(event_log)").all() as { name: string }[];
+  if (cols.length === 0) return;
   const names = new Set(cols.map((c) => c.name));
-  const required = ['subject', 'correlation_id', 'causation_id', 'command_id', 'traceparent'];
-  const missing = required.filter((n) => !names.has(n));
-  if (missing.length > 0 && cols.length > 0) {
+  if (!names.has('correlation_id')) {
     throw new Error(
-      `EVENT_STORE_SCHEMA_INCOMPATIBLE: event_log missing columns [${missing.join(', ')}]. ` +
+      `EVENT_STORE_SCHEMA_INCOMPATIBLE: event_log missing column 'correlation_id'. ` +
       `This build is post-D9; drop the sqlite file and re-run with a fresh database.`,
     );
   }

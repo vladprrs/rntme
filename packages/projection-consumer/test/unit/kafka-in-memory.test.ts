@@ -79,4 +79,24 @@ describe('createInMemoryKafkaConsumer', () => {
     kafka.stop();
     await it.next();
   });
+
+  it('default topic matches relay canonical format (serviceName extracted from envelope.source)', async () => {
+    const kafka = createInMemoryKafkaConsumer();
+    kafka.produce(envelope({ id: 'a', source: 'rntme://issue-tracker/Issue', rntAggregateType: 'Issue' }));
+    const it = kafka[Symbol.asyncIterator]();
+    const { value: batch } = await it.next();
+    expect(batch!.messages[0]!.topic).toBe('rntme.issue-tracker.issue');
+    kafka.stop();
+    await it.next();
+  });
+
+  it('custom topicOf override receives full envelope', async () => {
+    const kafka = createInMemoryKafkaConsumer({ topicOf: (e) => `custom:${e.rntAggregateType}` });
+    kafka.produce(envelope({ id: 'a' }));
+    const it = kafka[Symbol.asyncIterator]();
+    const { value: batch } = await it.next();
+    expect(batch!.messages[0]!.topic).toBe('custom:Issue');
+    kafka.stop();
+    await it.next();
+  });
 });

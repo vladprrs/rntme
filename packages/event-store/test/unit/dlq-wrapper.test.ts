@@ -71,7 +71,7 @@ describe('relay wraps original event in EventDeliveryFailed on DLQ emit', () => 
     await relay.stop();
 
     const dlqMsg = sent.find((m) => m.topic.endsWith('.dlq'))!;
-    expect(dlqMsg.topic).toBe('rntme.svc.issue.v1.dlq');
+    expect(dlqMsg.topic).toBe('rntme.svc.issue.dlq');
     expect(dlqMsg.key).toBe(originalEnv.subject);
 
     const decoded = fromCloudEventWire(dlqMsg);

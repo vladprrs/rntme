@@ -20,7 +20,14 @@ export const SeedEventInputSchema = z
     commandId: z.string().nullable().optional(),
     traceparent: z.string().nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (e) => (e.rntActorKind == null) === (e.rntActorId == null),
+    {
+      message:
+        'rntActorKind and rntActorId must both be present or both be null/omitted (half-specified actor is invalid)',
+    },
+  );
 
 export const SeedArtifactSchema = z
   .object({

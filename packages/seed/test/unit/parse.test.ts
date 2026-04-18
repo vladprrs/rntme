@@ -174,4 +174,70 @@ describe('parseSeed', () => {
     });
     expect(result.ok).toBe(true);
   });
+
+  it('rejects half-specified actor (kind present, id null)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: 'user',
+          rntActorId: null,
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects half-specified actor (id present, kind null)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: null,
+          rntActorId: 'alice',
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts both actor fields null (system/seed events)', () => {
+    const result = parseSeed({
+      seedVersion: 1,
+      events: [
+        {
+          id: 'x',
+          subject: 'Thing-1',
+          rntAggregateType: 'Thing',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'ThingCreated',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
+          rntActorKind: null,
+          rntActorId: null,
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
 });

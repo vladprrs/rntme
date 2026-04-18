@@ -27,9 +27,12 @@ function defaultRelayExtras() {
 }
 
 describe('defaultTopicOf', () => {
-  it('returns rntme.<serviceName>.<lower>.v1 for a PascalCase aggregate type', () => {
-    expect(defaultTopicOf('svc', 'Issue')).toBe('rntme.svc.issue.v1');
-    expect(defaultTopicOf('svc', 'SprintItem')).toBe('rntme.svc.sprintitem.v1');
+  it('returns rntme.<serviceName>.<lower> for a PascalCase aggregate type', () => {
+    expect(defaultTopicOf('svc', 'Issue')).toBe('rntme.svc.issue');
+    expect(defaultTopicOf('svc', 'SprintItem')).toBe('rntme.svc.sprintitem');
+  });
+  it('lowercases the serviceName segment', () => {
+    expect(defaultTopicOf('IssueTracker', 'Issue')).toBe('rntme.issuetracker.issue');
   });
 });
 
@@ -66,7 +69,7 @@ describe('createRelay', () => {
 
     expect(kafka.sent.map((m) => m.key)).toEqual(['Issue-1', 'Issue-1', 'Issue-2']);
     expect(kafka.sent.map((m) => m.topic)).toEqual([
-      'rntme.svc.issue.v1', 'rntme.svc.issue.v1', 'rntme.svc.issue.v1',
+      'rntme.svc.issue', 'rntme.svc.issue', 'rntme.svc.issue',
     ]);
     // Each message is CE binary-mode: headers carry the envelope attributes,
     // value is the raw JSON payload (== envelope.data).
@@ -98,7 +101,7 @@ describe('createRelay', () => {
     await relay.stop();
 
     const m = kafka.sent[0]!;
-    expect(m.topic).toBe('rntme.svc.issue.v1');
+    expect(m.topic).toBe('rntme.svc.issue');
     expect(m.key).toBe('Issue-1');
     expect(m.headers.ce_specversion).toBe('1.0');
     expect(m.headers.ce_id).toBe('a');

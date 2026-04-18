@@ -20,7 +20,7 @@ src/
     row-mapper.ts            (entry) rowToEnvelope(row, serviceName) + EventLogRow type; reverses a sqlite row to a CloudEvents envelope (derives source / type / dataSchema at read time).
   relay/
     loop.ts                  (entry) createRelay({ store, kafka, cursorId, serviceName, now, nextId, ... }) — polling loop, bounded primary retry, DLQ emit (wrapper event), cursor advance.
-    topic.ts                 (entry) defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregate>.v1'.
+    topic.ts                 (entry) defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregate>'.
     dlq-envelope.ts          (entry) buildDlqEnvelope(...) → CloudEvents wrapper envelope of type '<svc>.Relay.EventDeliveryFailed'. DlqPayload type.
   kafka/
     producer.ts              (entry) KafkaProducer interface + KafkaMessage shape.
@@ -105,7 +105,7 @@ relay.start();
 | `SqliteEventStore#close()` | Close the underlying SQLite handle. |
 | `SqliteEventStore#rawDb()` | Test/advanced escape hatch — direct `better-sqlite3.Database`. |
 | `applyEventStoreSchema(db)` | Apply `event_log` + `publish_cursor` + `delivery_tracking` DDL to an externally owned database. Idempotent. |
-| `assertSchemaD9Compatible(db)` | Panics with `EVENT_STORE_SCHEMA_INCOMPATIBLE` if `event_log` exists but lacks any of `subject`, `correlation_id`, `causation_id`, `command_id`, `traceparent`. No-op on a fresh database. |
+| `assertSchemaD9Compatible(db)` | Panics with `EVENT_STORE_SCHEMA_INCOMPATIBLE` if `event_log` exists but lacks the `correlation_id` column (the D9 sentinel, per spec §8 / §10). No-op on a fresh database. |
 | `mapSqliteError(err, subject, expectedVersion, attemptedVersion, eventId?)` | Translate raw SQLite UNIQUE errors into `ConcurrencyConflict` / `DuplicateEventId`. Pass-through for unrelated errors. |
 | `rowToEnvelope(row, serviceName)` | Map an `EventLogRow` to a typed `EventEnvelope`; derives CE `source`, `type`, `dataSchema` from the row + service name. |
 
@@ -114,7 +114,7 @@ relay.start();
 | Export | Purpose |
 | ------ | ------- |
 | `createRelay(opts)` | Polling loop. Reads `event_log` after the persisted cursor, encodes each envelope via `toCloudEventWire`, sends through `KafkaProducer.send`, retries primary-topic failures with exponential backoff (10 ms → `maxBackoffMs`) up to `maxAttempts`, then emits a DLQ wrapper event and advances the cursor. Requires `serviceName`, `now: () => string`, and `nextId: () => string`. |
-| `defaultTopicOf(serviceName, aggregateType)` | `rntme.${serviceName}.${aggregateType.toLowerCase()}.v1`, e.g. `rntme.issue-tracker.issue.v1`. Override via `RelayOptions.topicOf`. |
+| `defaultTopicOf(serviceName, aggregateType)` | `rntme.${serviceName.toLowerCase()}.${aggregateType.toLowerCase()}`, e.g. `rntme.issue-tracker.issue`. No version suffix — versioning lives on the event (spec §5.4). Override via `RelayOptions.topicOf`. |
 | `buildDlqEnvelope({ serviceName, original, attempts, firstAttemptAt, lastError, now, nextId })` | Returns a fresh `EventEnvelope<DlqPayload>` wrapping the failed event. See "DLQ" below. |
 | `Relay#start()` / `Relay#stop()` | `start` is fire-and-forget; `stop()` resolves once the in-flight loop exits. |
 
@@ -140,7 +140,9 @@ relay.start();
 | `EVENT_STORE_WIRE_DECODE_MISSING_ATTR` | `CloudEventDecodeError` | `fromCloudEventWire` saw a message missing a required `ce_*` header. |
 | `EVENT_STORE_WIRE_DECODE_UNKNOWN_SPEC` | `CloudEventDecodeError` | `ce_specversion` header is not `1.0`. |
 | `EVENT_STORE_WIRE_DECODE_INVALID_INT` | `CloudEventDecodeError` | `ce_rntversion` or `ce_rntschemaversion` header is not a base-10 integer. |
-| `EVENT_STORE_SCHEMA_INCOMPATIBLE` | `Error` (plain, message-prefix code) | `assertSchemaD9Compatible` found a pre-D9 `event_log` (missing any of `subject` / `correlation_id` / `causation_id` / `command_id` / `traceparent`). |
+| `EVENT_STORE_WIRE_DECODE_INVALID_ACTORKIND` | `CloudEventDecodeError` | `ce_rntactorkind` header is present but not one of `user`/`system`/`service`. |
+| `EVENT_STORE_SCHEMA_INCOMPATIBLE` | `Error` (plain, message-prefix code) | `assertSchemaD9Compatible` found a pre-D9 `event_log` (missing the `correlation_id` sentinel column). |
+| `EVENT_STORE_ROW_INVALID_ACTORKIND` | `Error` (plain, message-prefix code) | `rowToEnvelope` saw an `actor_kind` value outside `user`/`system`/`service` (DB corruption — write-time validation forbids this). |
 
 ### Types
 
@@ -157,129 +159,23 @@ import type {
 } from '@rntme/event-store';
 ```
 
-## Envelope (CloudEvents 1.0)
+## Envelope, schema, wire format, DLQ
 
-In-memory shape (camelCase) — see `src/types/envelope.ts` and [spec §3.1](../../docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md):
+These are fully specified in the CloudEvents envelope spec; this README is intentionally thin to avoid drift. Source-of-truth files:
 
-```ts
-type EventEnvelope<TPayload = unknown> = Readonly<{
-  // Standard CloudEvents attributes
-  id: string;                              // UUIDv7, caller-minted
-  source: string;                          // `rntme://${serviceName}/${rntAggregateType}`
-  eventType: string;                       // short local name (e.g. 'IssueReported')
-  type: string;                            // `${serviceName}.${rntAggregateType}.${eventType}`
-  time: string;                            // RFC3339 UTC
-  subject: string;                         // `${rntAggregateType}-${rntAggregateId}` (== append subject)
-  dataContentType: 'application/json';
-  dataSchema: string;                      // `rntme://schemas/${serviceName}/${eventType}.v${rntSchemaVersion}.json`
-  data: TPayload;
+- **In-memory envelope** — `src/types/envelope.ts`; spec §3.1 (`../../docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`).
+- **`event_log` / `publish_cursor` / `delivery_tracking` DDL** — `src/store/schema.ts`; spec §3.2.
+- **Kafka binary-content wire format** — `src/kafka/wire-codec.ts`; spec §3.3. `toCloudEventWire` encodes, `fromCloudEventWire` decodes; rejection codes are in `src/kafka/wire-errors.ts` (table above).
+- **DLQ wrapper envelope + `DlqPayload`** — `src/relay/dlq-envelope.ts`; spec §5.2. Emit path and unbounded-retry semantics live in `emitDlq` inside `src/relay/loop.ts`; see also `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` §D-DLQ-RETRY.
 
-  // rntme extensions (CE extension attributes)
-  correlationId: string;
-  causationId: string | null;
-  commandId: string | null;
-  rntAggregateType: string;
-  rntAggregateId: string;
-  rntVersion: number;                      // per-subject monotonic
-  rntSchemaVersion: number;
-  rntActorKind: 'user' | 'system' | 'service' | null;
-  rntActorId: string | null;
-  traceparent: string | null;              // W3C trace-context
-}>;
-```
+Two operational notes that are not derivable from the spec or code and so stay here:
 
-Store-facing input (`AppendEventInput`) carries `actor: ActorRef | null` rather than the split `rntActorKind` / `rntActorId` — the store unpacks it at insert time and the row-mapper reassembles on read.
-
-## Schema
-
-```
-event_log
-  id              INTEGER PRIMARY KEY AUTOINCREMENT  -- global monotonic cursor
-  subject         TEXT    NOT NULL                   -- '<rntAggregateType>-<rntAggregateId>'
-  aggregate_type  TEXT    NOT NULL
-  aggregate_id    TEXT    NOT NULL                   -- string even for integer keys
-  version         INTEGER NOT NULL                   -- per-subject monotonic
-  event_type      TEXT    NOT NULL                   -- short local name
-  event_id        TEXT    NOT NULL UNIQUE            -- UUIDv7, caller-minted; becomes CE `id`
-  actor_kind      TEXT NULL
-  actor_id        TEXT NULL
-  occurred_at     TEXT    NOT NULL                   -- ISO-8601 UTC; becomes CE `time`
-  payload_json    TEXT    NOT NULL                   -- becomes CE `data`
-  schema_version  INTEGER NOT NULL DEFAULT 1         -- becomes CE extension `rntSchemaVersion`
-  correlation_id  TEXT    NOT NULL
-  causation_id    TEXT NULL
-  command_id      TEXT NULL
-  traceparent     TEXT NULL                          -- W3C trace-context, propagated to DLQ wrapper
-  UNIQUE (subject, version)
-  INDEX idx_event_log_subject(subject, version)
-  INDEX idx_event_log_undelivered(id)
-  INDEX idx_event_log_correlation(correlation_id)
-  INDEX idx_event_log_causation(causation_id)
-  INDEX idx_event_log_command(command_id)
-
-publish_cursor
-  relay_id        TEXT PRIMARY KEY
-  last_event_id   INTEGER NOT NULL
-  updated_at      TEXT    NOT NULL
-
-delivery_tracking
-  event_id          TEXT PRIMARY KEY
-  first_attempt_at  TEXT NOT NULL
-  last_attempt_at   TEXT NOT NULL
-  attempt_count     INTEGER NOT NULL
-  last_error        TEXT NULL
-  delivered_at      TEXT NULL
-  dlq_at            TEXT NULL
-```
-
-Note: CE `source`, `type`, and `dataSchema` are **not** stored — they are derived at row-map time from `serviceName` + `aggregate_type` + `event_type` + `schema_version`. Changing a service's name after events are logged will therefore change the envelope these events present on the wire.
-
-## Kafka wire format (CloudEvents binary content mode)
-
-Every message the relay emits uses CloudEvents 1.0 **binary content mode**. The codec lives in `src/kafka/wire-codec.ts`:
-
-- `key = envelope.subject` — partition by aggregate, preserves per-subject order.
-- `value = JSON.stringify(envelope.data)` — the CE `data` only. Envelope metadata is **not** in the value.
-- `headers`:
-  - `content-type: application/json`
-  - `ce_specversion: 1.0`
-  - `ce_id`, `ce_source`, `ce_type`, `ce_time`, `ce_subject`, `ce_datacontenttype`, `ce_dataschema` (required standard attrs)
-  - `ce_correlationid`, `ce_rntaggregatetype`, `ce_rntaggregateid`, `ce_rntversion`, `ce_rntschemaversion` (required rntme extensions)
-  - `ce_causationid`, `ce_commandid`, `ce_rntactorkind`, `ce_rntactorid`, `ce_traceparent` (optional; omitted when null, not emitted empty)
-
-`fromCloudEventWire` is the inverse and is what consumers use in-process (e.g. the `InMemoryBus` adapter and test assertions). It enforces the required-header list, rejects non-`1.0` `ce_specversion`, and validates that integer-typed headers parse.
+- CE `source`, `type`, and `dataSchema` are **not stored** on rows — the row-mapper derives them at read time from `serviceName` + `aggregate_type` + `event_type` + `schema_version`. Renaming the service after events exist changes what old events present on the wire.
+- Store-facing input (`AppendEventInput`) carries `actor: ActorRef | null`; the split `rntActorKind` / `rntActorId` is a DB-row concern reassembled by `rowToEnvelope`.
 
 ## Topic naming
 
-`defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregateType.toLowerCase()>.v1'`, e.g. `rntme.issue-tracker.issue.v1`. The service segment is mandatory — that is the unit of multi-tenancy / multi-service deploy. The DLQ topic is always `<primaryTopic>.dlq`.
-
-## DLQ
-
-After `maxAttempts` (default 10) consecutive primary-topic send failures, the relay emits a **CloudEvents wrapper event** — not the original envelope — to `${primaryTopic}.dlq`. The wrapper is built by `buildDlqEnvelope` (`src/relay/dlq-envelope.ts`):
-
-- `type: '<serviceName>.Relay.EventDeliveryFailed'` (`eventType: 'EventDeliveryFailed'`).
-- `source: 'rntme://<serviceName>/Relay'`.
-- `subject: original.subject` (preserves partition affinity — the DLQ key is the failed event's subject).
-- `dataSchema: 'rntme://schemas/<serviceName>/EventDeliveryFailed.v1.json'`.
-- `data: DlqPayload`:
-  ```ts
-  type DlqPayload = {
-    failedEvent: EventEnvelope;          // the original envelope, verbatim
-    reason: 'max-attempts-exceeded';
-    attempts: number;
-    firstAttemptAt: string;
-    lastError: string;
-  };
-  ```
-- `correlationId: original.correlationId` (correlation survives the failure).
-- `causationId: original.id` (the failed event caused the DLQ emit).
-- `commandId: null`.
-- `rntActorKind: 'system'`, `rntActorId: 'relay'`.
-- `rntAggregateType: 'Relay'`, `rntAggregateId: serviceName`, `rntVersion: 0`, `rntSchemaVersion: 1`.
-- `traceparent: original.traceparent` — W3C trace-context propagates end-to-end so the DLQ event joins the original request's trace.
-- `id: nextId()`, `time: now()` — both injected via `RelayOptions.nextId` / `.now` for determinism in tests.
-
-After the DLQ send succeeds, the relay marks `dlq_at` on the `delivery_tracking` row and advances the cursor past the failed event. DLQ-side sends are retried unboundedly with capped backoff (spec §D-DLQ-RETRY): if the DLQ topic itself is unreachable, the relay loops rather than dropping the event or zombie-exiting. Wire `RelayOptions.onDlqError` for operator alerting; it is called once per failed DLQ send. On restart, if `attempt_count` is already at `maxAttempts` (relay crashed mid-DLQ-emit), the relay short-circuits straight to DLQ without another wasted primary send. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`.
+`defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregateType>'` (both segments lowercased), e.g. `rntme.issue-tracker.issue`. The service segment is mandatory — that is the unit of multi-tenancy / multi-service deploy. No version suffix: event versioning lives on the envelope (`rntSchemaVersion` for additive evolution; a new `eventType` for breaking changes). The DLQ topic is always `<primaryTopic>.dlq`. See spec §5.4.
 
 ## Invariants & gotchas
 

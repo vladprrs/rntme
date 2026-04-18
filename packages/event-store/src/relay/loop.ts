@@ -102,7 +102,7 @@ export function createRelay(opts: RelayOptions): Relay {
             nextId: opts.nextId,
           });
           if (!sent) return; // cooperative shutdown during DLQ emit
-          opts.store.markDlq(eventId, new Date().toISOString());
+          opts.store.markDlq(eventId, opts.now());
           highestDeliveredId = rec.id;
           continue;
         }
@@ -111,12 +111,12 @@ export function createRelay(opts: RelayOptions): Relay {
         let backoff = 10;
         while (running) {
           attempts += 1;
-          const attemptIso = new Date().toISOString();
+          const attemptIso = opts.now();
           opts.store.recordDeliveryAttempt(eventId, attemptIso);
           try {
             const primaryMsg = toCloudEventWire(rec.envelope, primaryTopic);
             await opts.kafka.send(primaryMsg);
-            opts.store.markDelivered(eventId, new Date().toISOString());
+            opts.store.markDelivered(eventId, opts.now());
             break;
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -140,7 +140,7 @@ export function createRelay(opts: RelayOptions): Relay {
                 nextId: opts.nextId,
               });
               if (!sent) return; // cooperative shutdown during DLQ emit
-              opts.store.markDlq(eventId, new Date().toISOString());
+              opts.store.markDlq(eventId, opts.now());
               break;
             }
             await sleep(backoff);

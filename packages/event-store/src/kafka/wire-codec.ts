@@ -58,7 +58,7 @@ export function fromCloudEventWire(msg: KafkaMessage): EventEnvelope {
   const version = parseIntStrict(h.ce_rntversion!, 'ce_rntversion');
   const schemaVersion = parseIntStrict(h.ce_rntschemaversion!, 'ce_rntschemaversion');
   const data: unknown = JSON.parse(msg.value);
-  const actorKind = h.ce_rntactorkind === undefined ? null : toActorKind(h.ce_rntactorkind);
+  const actorKind = h.ce_rntactorkind === undefined ? null : toActorKindStrict(h.ce_rntactorkind);
   return {
     id: h.ce_id!,
     source: h.ce_source!,
@@ -92,9 +92,12 @@ function parseIntStrict(s: string, attr: string): number {
   return Number(s);
 }
 
-function toActorKind(s: string): 'user' | 'system' | 'service' | null {
+function toActorKindStrict(s: string): 'user' | 'system' | 'service' {
   if (s === 'user' || s === 'system' || s === 'service') return s;
-  return null;
+  throw new CloudEventDecodeError(
+    'EVENT_STORE_WIRE_DECODE_INVALID_ACTORKIND',
+    `[INVALID_ACTORKIND] Header "ce_rntactorkind" must be one of user|system|service, got: "${s}"`,
+  );
 }
 
 function deriveEventType(type: string): string {

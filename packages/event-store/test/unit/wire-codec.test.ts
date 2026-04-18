@@ -31,7 +31,7 @@ function sampleEnvelope(overrides: Partial<EventEnvelope> = {}): EventEnvelope {
 describe('wire-codec roundtrip', () => {
   it('roundtrips a fully populated envelope', () => {
     const env = sampleEnvelope();
-    const msg = toCloudEventWire(env, 'rntme.svc.issue.v1');
+    const msg = toCloudEventWire(env, 'rntme.svc.issue');
     const back = fromCloudEventWire(msg);
     expect(back).toEqual(env);
   });
@@ -85,5 +85,12 @@ describe('wire-codec decode errors', () => {
     const msg = toCloudEventWire(sampleEnvelope(), 't');
     const broken = { ...msg, headers: { ...msg.headers, ce_rntversion: 'xx' } };
     expect(() => fromCloudEventWire(broken)).toThrow(/INVALID_INT/);
+  });
+
+  it('throws INVALID_ACTORKIND when ce_rntactorkind is present but not user|system|service', () => {
+    const msg = toCloudEventWire(sampleEnvelope(), 't');
+    const broken = { ...msg, headers: { ...msg.headers, ce_rntactorkind: 'bot' } };
+    expect(() => fromCloudEventWire(broken)).toThrow(CloudEventDecodeError);
+    expect(() => fromCloudEventWire(broken)).toThrow(/INVALID_ACTORKIND/);
   });
 });

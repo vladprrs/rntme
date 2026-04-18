@@ -61,4 +61,35 @@ describe('correlationMiddleware', () => {
     expect(body.traceparent).toBeNull();
     expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
   });
+
+  it('rejects empty Correlation-Id header and falls back to generated id', async () => {
+    const res = await buildApp().request('/ping', { headers: { 'Correlation-Id': '' } });
+    const body = (await res.json()) as { correlationId: string };
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.correlationId).not.toBe('');
+  });
+
+  it('rejects Correlation-Id exceeding 128 chars', async () => {
+    const huge = 'a'.repeat(129);
+    const res = await buildApp().request('/ping', { headers: { 'Correlation-Id': huge } });
+    const body = (await res.json()) as { correlationId: string };
+    expect(body.correlationId).not.toBe(huge);
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('rejects Correlation-Id with disallowed characters (e.g. whitespace, slash)', async () => {
+    const res = await buildApp().request('/ping', {
+      headers: { 'Correlation-Id': 'abc def/ghi' },
+    });
+    const body = (await res.json()) as { correlationId: string };
+    expect(body.correlationId).not.toBe('abc def/ghi');
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('accepts Correlation-Id at 128-char boundary', async () => {
+    const max = 'a'.repeat(128);
+    const res = await buildApp().request('/ping', { headers: { 'Correlation-Id': max } });
+    const body = (await res.json()) as { correlationId: string };
+    expect(body.correlationId).toBe(max);
+  });
 });
