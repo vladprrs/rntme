@@ -1,3 +1,4 @@
+import type BetterSqlite3 from 'better-sqlite3';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { AppendRequest, AppendResult } from '../types/append.js';
 
@@ -51,4 +52,13 @@ export interface EventStore {
   /** Sets `dlq_at = nowIso`. Row must already exist. */
   markDlq(eventId: string, nowIso: string): void;
   appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void;
+
+  /**
+   * Return the underlying SQLite `Database` handle.
+   *
+   * Exposed for db-studio mount only. Consumers MUST NOT issue writes through
+   * this handle — doing so bypasses append semantics, monotonic cursor, and
+   * relay invariants.
+   */
+  getDbHandle(): BetterSqlite3.Database;
 }

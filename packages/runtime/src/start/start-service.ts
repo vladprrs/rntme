@@ -95,7 +95,7 @@ export async function startService(
     qsmDb: pipeline.qsmDb,
     actorFromRequest,
   };
-  for (const s of surfaces) s.mount(app, ctx);
+  for (const s of surfaces) await s.mount(app, ctx);
 
   const listenPort = service.manifest.surface.http.port;
   const server: ServerType = await new Promise((resolve) => {

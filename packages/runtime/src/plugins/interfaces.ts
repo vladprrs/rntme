@@ -31,6 +31,6 @@ export type SurfaceContext = {
 };
 
 export interface Surface {
-  mount(app: Hono, ctx: SurfaceContext): void;
+  mount(app: Hono, ctx: SurfaceContext): Promise<void> | void;
   listen?(): Promise<{ port: number; stop(): Promise<void> }>;
 }

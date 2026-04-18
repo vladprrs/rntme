@@ -329,6 +329,9 @@ importers:
       '@rntme/bindings-http':
         specifier: workspace:*
         version: link:../bindings-http
+      '@rntme/db-studio':
+        specifier: workspace:*
+        version: link:../db-studio
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../event-store

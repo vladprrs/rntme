@@ -28,7 +28,7 @@ afterAll(() => {
 describe('target isolation', () => {
   it('events target sees events_only, not qsm_only', async () => {
     const ok = await postPipeline('/_studio/hrana/events/v3/pipeline', 'SELECT id FROM events_only');
-    expect(ok.ok?.rows[0][0]).toEqual({ type: 'integer', value: '1' });
+    expect(ok.ok?.rows[0]?.[0]).toEqual({ type: 'integer', value: '1' });
 
     const fail = await postPipeline('/_studio/hrana/events/v3/pipeline', 'SELECT id FROM qsm_only');
     expect(fail.error?.code).toBe('DB_STUDIO_SQLITE_ERROR');
@@ -36,7 +36,7 @@ describe('target isolation', () => {
 
   it('qsm target sees qsm_only, not events_only', async () => {
     const ok = await postPipeline('/_studio/hrana/qsm/v3/pipeline', 'SELECT id FROM qsm_only');
-    expect(ok.ok?.rows[0][0]).toEqual({ type: 'integer', value: '99' });
+    expect(ok.ok?.rows[0]?.[0]).toEqual({ type: 'integer', value: '99' });
 
     const fail = await postPipeline('/_studio/hrana/qsm/v3/pipeline', 'SELECT id FROM events_only');
     expect(fail.error?.code).toBe('DB_STUDIO_SQLITE_ERROR');
@@ -51,6 +51,9 @@ async function postPipeline(path: string, sql: string) {
   }));
   const body = (await res.json()) as { results: Array<{ type: string; response?: { result: { rows: unknown[][] } }; error?: { code: string } }> };
   const r = body.results[0];
+  if (!r) {
+    throw new Error('missing result[0]');
+  }
   return {
     ok: r.type === 'ok' ? r.response!.result : undefined,
     error: r.type === 'error' ? r.error : undefined,
