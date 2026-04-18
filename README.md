@@ -5,54 +5,57 @@
 > **Coding agents:** start with [`AGENTS.md`](AGENTS.md), not this file.
 > It contains the project map, conventions, and task-indexed pointers.
 
-A typed, declarative **CQRS / Event-Sourced** backend-authoring toolkit. Author four JSON artifacts — **PDM** (domain), **QSM** (read-side projections), **Graph IR** (queries + commands), **Bindings** (HTTP surface) — and the toolchain produces:
+**rntme is an artifact-driven runtime for AI-agent-generated services.** A small set of strictly-validated JSON artifacts — **PDM** (domain), **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings/ui), **bindings** (HTTP surface), **ui**, **seed**, **manifest** — describe a service. The runtime loads, validates, and boots them into a working HTTP + UI service with **no service-specific code**. The point is that humans *or* AI agents can generate these artifacts and get a running service.
+
+CQRS, event-sourcing, SQLite/Turso, branded `Validated*` types, and plugin seams (`DbDriver`, `EventBus`, `Surface`) are **consequences** of that goal, not the identity — they deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out.
+
+From those seven artifacts, the toolchain produces:
 
 - SQLite DDL for projections and the event log.
 - SQL for every query graph and a runtime to execute it.
-- An event-sourced command runtime that appends to the log with optimistic concurrency.
-- A Kafka-at-least-once relay + idempotent projection consumer that keeps the read-side eventually consistent.
-- An OpenAPI 3.1 document and a Hono sub-router that serves queries and commands described by the bindings artifact.
+- An event-sourced command runtime with optimistic concurrency, at-least-once Kafka-style relay, and bounded-retry DLQ.
+- An idempotent projection consumer that keeps the read-side eventually consistent.
+- An OpenAPI 3.1 document and a Hono HTTP surface.
+- A declarative React SPA compiled from the `ui` artifact.
 
-The toolkit is organised as a pnpm monorepo. Each package has a single, testable responsibility and depends only on the packages strictly below it.
+Organised as a pnpm monorepo. Each package has a single, testable responsibility and depends only on the packages strictly below it.
 
 ## Architecture at a glance
 
-```
-            Authoring artifacts (JSON; validated, resolved)
-            ┌──────┐  ┌──────┐  ┌──────────────┐  ┌───────────┐  ┌─────┐
-            │ PDM  │  │ QSM  │  │   Graph IR   │  │ Bindings  │  │ UI  │
-            └──┬───┘  └──┬───┘  └──────┬───────┘  └─────┬─────┘  └──┬──┘
-               │         │             │                │           │
-               ▼         ▼             ▼                ▼           ▼
-           ┌─────────────────────────────────────────────────┐
-           │              Compilers / validators              │
-           │  @rntme/pdm · @rntme/qsm · @rntme/graph-ir-     │
-           │  compiler · @rntme/bindings                     │
-           └──────────────┬─────────────────┬────────────────┘
-                          │                 │
-                 query path                 command path
-                          │                 │
-                          ▼                 ▼
-                    ┌──────────┐       ┌──────────────────┐
-                    │  QSM DB  │◀──────│  event-store      │
-                    │ (SQLite) │       │  (SQLite log +   │
-                    │ read-side│       │   cursor helper) │
-                    └────▲─────┘       └────────┬─────────┘
-                         │                      │ relay (at-least-once)
-                         │                      ▼
-                         │               ┌──────────────┐
-                         │               │    Kafka     │
-                         │               │  (in-memory  │
-                         │               │   in demo)   │
-                         │               └──────┬───────┘
-                         │                      │
-                         │              ┌───────▼──────────────┐
-                         └──────────────│ projection-consumer  │
-                                        │  (idempotent upsert) │
-                                        └──────────────────────┘
+```mermaid
+flowchart LR
+    subgraph authors["Artifact authors"]
+        AI["AI agent"]:::external
+        HUM["Human"]:::external
+    end
+    subgraph artifacts["7 authoring artifacts (JSON)"]
+        PDM["PDM"]:::artifact
+        QSM["QSM"]:::artifact
+        IR["Graph IR"]:::artifact
+        B["Bindings"]:::artifact
+        UI["UI"]:::artifact
+        S["Seed"]:::artifact
+        M["Manifest"]:::artifact
+    end
+    V["4-layer validator<br/>(parse → structural → reference → consistency)"]:::validator
+    R["rntme runtime<br/>(@rntme/runtime)"]:::runtime
+    DB[("SQLite / Turso")]:::storage
+    SVC["Running service<br/>(HTTP + UI)"]:::runtime
 
-                       HTTP surface: @rntme/bindings-http (Hono)
+    AI --> PDM & QSM & IR & B & UI & S & M
+    HUM --> PDM & QSM & IR & B & UI & S & M
+    artifacts --> V --> R
+    R --> DB
+    R --> SVC
+
+    classDef artifact fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef validator fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef storage fill:#1b5c3a,stroke:#4ae29a,color:#fff;
+    classDef runtime fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+    classDef external fill:#444,stroke:#999,color:#fff;
 ```
+
+> **Deep dive:** [`docs/architecture.md`](docs/architecture.md) — full C4 (L1–L4), 18 diagrams, ~25-entry cross-cutting abstractions catalogue, and a diagnostic observations section across 9 lenses.
 
 ## Packages
 
@@ -66,7 +69,7 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 | [`@rntme/graph-ir-compiler`](packages/graph-ir-compiler) | Graph IR → SQLite compiler (query path) and state-machine-gated command runtime (command path). |
 | [`@rntme/bindings`](packages/bindings) | HTTP bindings artifact + four-layer validator + OpenAPI 3.1 emitter. |
 | [`@rntme/bindings-http`](packages/bindings-http) | Hono sub-router that executes queries and commands described by a validated bindings artifact. |
-| [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; fifth per-service authoring artifact. |
+| [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; declarative per-service UI description (route-local `data` + `actions` bindings). |
 | [`@rntme/ui-runtime`](packages/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
 | [`@rntme/db-studio`](packages/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
 | [`@rntme/runtime`](packages/runtime) | Service runtime: reads a folder of artifacts + `manifest.json` and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
@@ -77,28 +80,36 @@ The toolkit is organised as a pnpm monorepo. Each package has a single, testable
 
 ### Dependency graph
 
-```
-pdm ◀──────────┐
- ▲             │
- │             │
-qsm ◀──────┐   │
-           │   │
-event-store◀┼─◀│──────── projection-consumer
- ▲         │   │
- │         │   │
-seed ◀─────┘   │
- ▲             │
- │             │
- └──── graph-ir-compiler ◀──── bindings-http ──▶ bindings ◀── ui ──▶ ui-runtime
-                                      ▲              ▲                          ▲
-                                      └── runtime ───┴──────────────────────────┤
-                                             ▲                                  │
-                                             └── demo ─────────────────────────┘
+```mermaid
+flowchart TB
+    classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+    classDef demo fill:#1b5c3a,stroke:#4ae29a,color:#fff;
 
-event-store ◀──── @rntme/seed ◀──── @rntme/runtime   (seed validates against PDM; runtime loads seed before relay)
+    PDM["@rntme/pdm"]:::pkg
+    QSM["@rntme/qsm"]:::pkg
+    ES["@rntme/event-store"]:::pkg
+    GIR["@rntme/graph-ir-compiler"]:::pkg
+    B["@rntme/bindings"]:::pkg
+    BH["@rntme/bindings-http"]:::pkg
+    UI["@rntme/ui"]:::pkg
+    UIR["@rntme/ui-runtime"]:::pkg
+    DS["@rntme/db-studio"]:::pkg
+    PC["@rntme/projection-consumer"]:::pkg
+    SD["@rntme/seed"]:::pkg
+    RT["@rntme/runtime"]:::pkg
+    DEMO["demo/issue-tracker-api"]:::demo
+
+    QSM --> PDM
+    GIR --> PDM & QSM & ES
+    BH --> B & GIR & ES
+    UIR --> UI
+    PC --> ES & GIR & PDM & QSM
+    SD --> ES & PDM
+    RT --> BH & UIR & DS & PC & SD & GIR & ES
+    DEMO --> RT
 ```
 
-`pdm`, `event-store` and `bindings` have no internal dependencies. Everything else layers on top. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package.
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package (transitively through the edges above). `demo/issue-tracker-api` is the only package that consumes `@rntme/runtime` directly.
 
 ## Quick start
 
@@ -165,31 +176,32 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 
 ## Design docs and specs
 
-- `graph_ir_rc_7.md` — Graph IR language spec (rc7 draft). Operators, named shapes, input modes, role inference, binding artifact format.
-- `docs/superpowers/specs/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
-- `docs/superpowers/specs/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
-- `docs/superpowers/specs/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.
-- `docs/superpowers/specs/2026-04-14-bindings-http-design.md` — Hono runtime for bindings.
-- `docs/superpowers/plans/*.md` — per-package implementation plans.
+- [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
+- [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
+- `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
+- `docs/superpowers/specs/done/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
+- `docs/superpowers/specs/done/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.
+- `docs/superpowers/specs/done/2026-04-14-bindings-http-design.md` — Hono runtime for bindings.
+- `docs/superpowers/specs/*.md` — active specs (e.g. CloudEvents envelope, DLQ, QSM relations migration, architecture overview, db-studio).
+- `docs/superpowers/plans/*.md` — per-feature implementation plans.
 - `docs/superpowers/reports/*.md` — gap analyses (spec vs. implementation).
 
 ## MVP / Tier 1 scope
 
 What ships today:
 
-- SQLite target only (`≥ 3.30`); no PostgreSQL, ksqlDB or other dialects.
-- `entity-mirror` projections only; `derived` is accepted by parsers but rejected by validators.
-- Single-writer event log; Kafka relay is at-least-once with per-stream ordering (partition key = `stream`).
+- SQLite target only (`≥ 3.30`); **no PostgreSQL**, ksqlDB or other dialects. Scale-out target is **Turso** (SQLite-compatible Rust rewrite), not a different database.
+- Both `entity-mirror` and `derived` projection backings are supported (derived projections are built from Graph IR sources).
+- Single-writer event log; Kafka-style relay is at-least-once with per-stream ordering (partition key = `stream`), bounded retries, and a DLQ wrapper event on poison.
 - The demo uses an in-memory Kafka bridge; plugging a real broker is a `KafkaProducer` / `KafkaConsumer` swap.
 - One graph compiled per `compile()` call.
 - Query nodes: `findMany`, `filter`, `map`, `reduce`, `sort`, `limit`. Command path adds `emit`.
-- JSON authoring; no YAML yet.
-- A fifth per-service UI artifact (`@rntme/ui`) + runtime (`@rntme/ui-runtime`):
-  shadcn-catalog-based SPA with route-local `data` (query bindings) and
-  `actions` (command or navigation bindings), 4-layer validation,
-  `NextAppSpec`-compatible format. No SSR; see the UI design doc.
+- JSON authoring; no YAML.
+- UI artifact (`@rntme/ui` + `@rntme/ui-runtime`): shadcn-catalog-based React SPA with route-local `data` (query bindings) and `actions` (command or navigation bindings), four-layer validation, `NextAppSpec`-compatible format. No SSR.
+- CloudEvents 1.0 envelope end-to-end; topics follow `rntme.{svc}.{agg}` (no `.v1` suffix — breaking event changes use a new `eventType`, not a topic version).
+- Read-only libSQL Hrana endpoint (`@rntme/db-studio`) over both runtime SQLite handles, usable from any Hrana-compatible browser studio.
 
-Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, auth/authz, multi-tenancy, schema registry / breaking schema evolution, DLQ.
+Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, auth/authz, multi-tenancy, schema registry / breaking schema evolution.
 
 ## Glossary
 
