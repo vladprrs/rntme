@@ -20,7 +20,7 @@ export type { InMemoryKafkaConsumer } from './kafka/in-memory.js';
 // Bootstrap + apply
 export { bootstrapProjections } from './store/bootstrap.js';
 export { compileApplyPlan } from './apply/compile.js';
-export { bindValues } from './apply/bind.js';
+export { bindValues, bindDerivedValue } from './apply/bind.js';
 export { applyEvent } from './apply/apply-event.js';
 
 // Consumer
