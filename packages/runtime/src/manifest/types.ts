@@ -1,4 +1,5 @@
 import type { Ok } from '@rntme/pdm';
+import type { StudioConfig } from './schema.js';
 
 export type ParsedManifest = {
   rntmeVersion: string;
@@ -16,6 +17,11 @@ export type ParsedManifest = {
     metrics?: { path?: string };
   };
   seed?: { enabled?: boolean; path?: string };
+  studio?: {
+    enabled?: boolean;
+    mountPath?: string;
+    maxRows?: number;
+  };
 };
 
 export type ValidatedManifest = {
@@ -32,6 +38,7 @@ export type ValidatedManifest = {
     metrics: { path: string };
   };
   seed: { enabled: boolean; path: string };
+  studio: StudioConfig;
 };
 
 export type ManifestErrorCode =
@@ -44,7 +51,8 @@ export type ManifestErrorCode =
   | 'MANIFEST_INVALID_VERSION'
   | 'MANIFEST_VERSION_MAJOR_MISMATCH'
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
-  | 'MANIFEST_MISSING_QSM_PATH';
+  | 'MANIFEST_MISSING_QSM_PATH'
+  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT';
 
 export type ManifestError = {
   code: ManifestErrorCode;
