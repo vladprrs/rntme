@@ -23,12 +23,16 @@ export type {
   DerivedSqlTypeLocal,
 } from './derive/ddl.js';
 
-export { deriveProjectionHandler } from './derive/handler.js';
+export {
+  deriveProjectionHandler,
+  deriveDerivedProjectionSpecs,
+} from './derive/handler.js';
 export type {
   ProjectionHandlerSpec,
   EventHandler,
   HandlerOp,
   IdempotencyGuard,
+  DerivedProjectionSpec,
 } from './derive/handler.js';
 
 export { createQsmResolver } from './resolvers/qsm-resolver.js';
