@@ -430,6 +430,175 @@ sequenceDiagram
 
 **Caption.** The publish cursor advances only after a batch's primary sends complete (or enter DLQ); a consumer failure is recorded in `delivery_tracking` but does not block the cursor — the relay is at-least-once; the consumer deduplicates on `event_id`.
 
+### 4.4 `@rntme/graph-ir-compiler`
+
+**Purpose.** Parse, validate, plan, lower, and execute rc7 Graph IR authoring specs. Query graphs lower to SQLite `SELECT`; command graphs compile to event-sourced emit plans executed against `@rntme/event-store`.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` | 2026-04-13 | landed | MVP Tier 1 scope: `findMany` / `filter` / `map` / `reduce` / `sort` / `limit` / `emit`; structural + semantic validation; SQLite target; TDD workflow. |
+| `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md` | 2026-04-16 | landed | Fixes `wrapPredicateOptional` param-position misalignment by reordering OR args; regression tests at unit and e2e. |
+
+Historical note: `graph_ir_rc_7.md` (gitignored, local-only) was the first-step IR language sketch; it is not treated as canon — later specs supersede it (see §7.8).
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef brand fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef cmd fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+
+    RAW["Graph IR spec"] --> P["parse/"]:::stage
+    P --> ST["validate/structural/"]:::stage
+    ST --> N["canonical/normalize.ts"]:::stage
+    N --> SM["validate/semantic/"]:::stage
+    SM --> ROLE["role/infer.ts"]:::stage
+    ROLE --> SP["semantic-plan/build.ts"]:::stage
+    SP --> REL["relational/build.ts"]:::stage
+    REL --> LOW["lower/sqlite/"]:::stage
+    LOW --> EM["emit/ (SQL or event-type)"]:::stage
+    EM --> QX["execute/"]:::stage
+    EM --> CX["command-runtime/"]:::cmd
+    SP --> EP["emit/plan.ts<br/>(command emit plans)"]:::cmd
+    CX --> ES["@rntme/event-store"]:::cmd
+    QX --> DB[("SQLite")]
+```
+
+**Caption.** Parse / structural / normalize / semantic / semantic-plan are shared by both roles. The role inferer splits the pipeline into a query tail (relational → lower → emit SQL → execute) and a command tail (buildEmitPlans → command-runtime → event-store). Neither tail skips the shared head; the role check happens after canonicalisation so it can inspect the final graph.
+
+**Components.**
+
+- **`parse/` + `types/authoring.ts`** — Zod rc7 discriminated-union parser; produces `AuthoringSpec`. First line of defence; rejects syntactic errors with `PARSE_SCHEMA_VIOLATION`.
+- **`validate/structural/`** — PDM-free rules: id uniqueness, output/input shapes, DAG, map/reduce arity, tier-1 node set, command shape, role. Errors are `STRUCT_*`.
+- **`canonical/normalize.ts`** — Lifts authoring → `CanonicalNode`, allocates scope ids, fills sort defaults.
+- **`validate/semantic/`** — PDM / QSM aware rules: source resolution, nav-relation / projection-required checks, scope-aware field resolution, param-context (`predicate_optional` only inside `filter`), shape-conformance, aggregate-phase. Errors are `SEM_*` or `NAV_*`.
+- **`role/infer.ts`** — Classifies the graph as `query` / `command` / `predicate` / `mapper` / `reducer`. Rowset + emit in the same graph is `GRAPH_MIXED_ROLE`.
+- **`semantic-plan/build.ts`** — Produces `SemanticPlan` (a typed `PlanStep[]`) from the canonical graph. Consumed by both tails.
+- **`relational/build.ts`** — Query-tail only. Lowers `PlanStep[]` to a `RelOp` tree (`Scan` / `Filter` / `Project` / `Aggregate` / `Sort` / `Limit` / `Join`).
+- **`lower/sqlite/lower.ts` + `expr.ts` + `joins.ts`** — Lowers `RelOp` to a `SqlSelect` AST with an ordered `paramOrder` list. `wrapPredicateOptional` wraps a filter expression with null-guards for each optional param; on 2026-04-16 a param-alignment bug was fixed by swapping the OR argument order so inner params walk before the guard `?` in emitted SQL.
+- **`lower/sqlite/emit.ts`** — Serialises the AST to a SQL string.
+- **`execute/execute.ts`** — Binds the `paramOrder` list positionally and runs the statement against the given SQLite driver.
+- **`emit/plan.ts` + `event-type.ts` + `payload.ts`** — Command tail. Produces `EmitPlan[]` (one per `emit` node) and the runtime payload-builder. Emit-payload expressions at runtime may reference `$param` and `$literal` only — field paths are rejected.
+- **`command-runtime/compile.ts` + `execute.ts` + `replay.ts` + `transition.ts`** — Command entry; re-validates PDM / QSM internally; at runtime, runs an optional read-prelude, replays aggregate state, checks `stateMachine` transition legality, builds payloads, appends to the event store. Only `COMMAND_CONCURRENCY_CONFLICT` is mapped from event-store errors; others propagate.
+- **`explain/explain.ts`** — Returns partial artifacts on failure (parsed / canonical / semanticPlan / relational / sql / paramOrder) so agents can diagnose without re-running the pipeline.
+
+**Invariants.**
+
+- **Two public entries, not unified.** `compile()` for query graphs, `compileCommand()` for command graphs. Both perform the shared head and then diverge by role.
+- **Validation order is load-bearing.** Structural before normalize; `inferRole` after canonical. Reordering silently breaks `SEM_PARAM_CONTEXT` and `GRAPH_MIXED_ROLE` detection.
+- **Exactly one graph per compile.** `STRUCT_DUPLICATE_GRAPH_ID` rejects multi-graph specs.
+- **`predicate_optional` only in `filter`.** `SEM_PARAM_CONTEXT` rejects it elsewhere.
+- **NAV rules are validator errors, not runtime throws.** `NAV_NOT_ALLOWED` and `NAV_FAN_OUT_NOT_ALLOWED` surface at semantic layer; lowering-site throws are defensive safety nets only.
+- **`makeColumnOf` requires an entity-mirror projection.** Enforced earlier by `checkNavProjectionRequired`; lowering assumes it held.
+- **Param order is bind order.** `lowerExpr`, `wrapPredicateOptional`, and limit-appending append to `paramOrder` in statement order; `execute()` binds positionally. A reorder here is a correctness bug.
+- **Creation transitions replay against `version = 0`.** First `append` sets `lastVersion = 1`; `COMMAND_CONCURRENCY_CONFLICT` surfaces the only event-store error.
+- **Emit-payload runtime accepts `$param` and `$literal` only.** Field paths throw; this is the only runtime-side rc7 restriction.
+- **SQLite ≥ 3.30 is required** (for `NULLS FIRST / LAST` in `ORDER BY`).
+
+#### Sequence #5 — IR → SQL (query tail)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant P as parse
+    participant ST as structural
+    participant N as normalize
+    participant SM as semantic
+    participant SP as semantic-plan
+    participant REL as relational
+    participant L as lower/sqlite
+    participant E as emit
+    participant X as execute
+    participant DB as SQLite
+
+    C->>P: compile(rawSpec, rawPdm, rawQsm)
+    P-->>C: AuthoringSpec | Err
+    C->>ST: validateStructural
+    ST-->>C: AuthoringSpec | Err
+    C->>N: normalize
+    N-->>C: CanonicalGraph
+    C->>SM: validateSemantic(pdm, qsm)
+    SM-->>C: ok | Err
+    C->>SP: buildSemanticPlan
+    SP-->>C: SemanticPlan
+    C->>REL: buildRelational
+    REL-->>C: RelOp tree
+    C->>L: lowerToSqlite
+    L-->>C: { ast, paramOrder }
+    C->>E: emitSql(ast)
+    E-->>C: sql: string
+    C->>X: executeCompiled(sql, paramOrder, params, db)
+    X->>DB: run
+    DB-->>X: rows
+    X-->>C: unknown[]
+```
+
+**Caption.** Parse through semantic-plan is shared with the command tail; from `buildRelational` onward is query-only. Param-binding is positional: `execute` maps `params[name]` into positions using `paramOrder`.
+
+#### Sequence #1 — Command write path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant HT as HTTP client
+    participant BH as @rntme/bindings-http
+    participant GIR as @rntme/graph-ir-compiler
+    participant ES as @rntme/event-store
+    participant BUS as EventBus
+    participant PC as @rntme/projection-consumer
+    participant DB as SQLite (projection tables)
+
+    HT->>BH: POST /api/<cmd>
+    BH->>GIR: executeCommand(compiled, params, ctx)
+    opt has read-prelude
+        GIR->>ES: readStream(subject)
+        ES-->>GIR: prior envelopes
+        GIR->>GIR: replay + transition check
+    end
+    GIR->>ES: appendEvents(subject, expectedVersion, events)
+    alt success
+        ES-->>GIR: CommandResult
+        GIR-->>BH: ok
+        BH-->>HT: 202
+        ES->>BUS: relay publish (async)
+        BUS->>PC: deliver
+        PC->>DB: apply projection updates
+    else concurrency
+        ES-->>GIR: ConcurrencyConflict
+        GIR-->>BH: Err(COMMAND_CONCURRENCY_CONFLICT)
+        BH-->>HT: 409
+    else validation
+        GIR-->>BH: Err(PARSE_/STRUCT_/SEM_*)
+        BH-->>HT: 422
+    end
+```
+
+**Caption.** `executeCommand` runs any read-prelude against the event store, replays aggregate state, and only then appends. The HTTP response returns as soon as the append commits; projection updates are asynchronous — a client that needs read-after-write must poll the query endpoint.
+
+#### Sequence #2 — Query read path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant HT as HTTP client
+    participant BH as @rntme/bindings-http
+    participant GIR as @rntme/graph-ir-compiler
+    participant DB as SQLite (projection tables + QSM relations)
+
+    HT->>BH: GET /api/<query>
+    BH->>GIR: compile(spec, pdm, qsm) & execute(compiled, params, db)
+    GIR->>DB: SELECT ... JOIN (from QSM relations)
+    DB-->>GIR: rows
+    GIR-->>BH: shape-validated rows
+    BH-->>HT: 200 | 422
+```
+
+**Caption.** Query lowering uses QSM relation metadata (post-2026-04-16) to construct JOINs; the response shape is declared in the binding artifact and validated against the query's output row-type.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
