@@ -1067,6 +1067,130 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Spec(s):** `2026-04-14-mutations-design.md`, `2026-04-17-cloudevents-envelope-design.md`.
 - **Related:** `Envelope` (§6.2), `ApplyPlan`, command `EmitPlan`.
 
+### 6.2 Runtime (events, storage, consumer)
+
+#### `Envelope` / CloudEvents 1.0 shape
+
+- **Package / module:** `packages/event-store/src/types/envelope.ts`.
+- **Purpose:** The single serialization shape for every event in rntme — CloudEvents 1.0 on the wire, camelCase in memory.
+- **Contract:** In-memory `EventEnvelope<TPayload>` with `id`, `time`, `type`, `source`, `subject`, `correlationId`, `rntAggregateType`, `rntAggregateId`, `rntVersion`, `rntSchemaVersion`, `data`, `actor`. On the wire, CE-mandated attributes are `ce_*` headers in Kafka binary content mode; `data` is the JSON body.
+- **Constructed by:** Command handlers (via `@rntme/graph-ir-compiler`) and the seed loader; never by consumers.
+- **Invariant:** Caller mints `id`, `time`, and `correlationId`. The store never generates them; determinism is required for replay and golden tests.
+- **Spec(s):** `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`.
+- **Related:** `EventStore` interface, DLQ payload, topic convention.
+
+#### `EventStore` interface
+
+- **Package / module:** `packages/event-store/src/store/interface.ts`.
+- **Purpose:** The single seam the rest of rntme talks to for event-sourced writes, reads, and per-event delivery-tracking.
+- **Contract:** `appendEvents`, `appendRaw`, `readStream`, `readFrom`, `readRecordsFrom`, `readCursor` / `writeCursor`, plus `readDeliveryAttempt`, `recordDeliveryAttempt`, `updateLastError`, `markDelivered`, `markDlq`.
+- **Constructed by:** The default implementation is `SqliteEventStore({ filename, serviceName })` in `packages/event-store/src/store/sqlite.ts`. A manifest may supply a different driver via the `DbDriver` seam.
+- **Invariant:** `appendEvents` is atomic across subjects (single `BEGIN IMMEDIATE`); optimistic concurrency is enforced on `(subject, expectedVersion)`; `appendRaw` is reserved for seed and replay (bypass command validation, trusts caller's `rntVersion`).
+- **Spec(s):** `2026-04-17-cloudevents-envelope-design.md`, `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+- **Related:** `Relay`, `ApplyPlan`, `Seed envelope`.
+
+#### `PublishCursor` — per-relay monotonic offset
+
+- **Package / module:** `packages/event-store/src/store/` (table `publish_cursor`).
+- **Purpose:** Track how far each relay has published, so at-least-once delivery replays from a known point after a crash.
+- **Contract:** Row per `relayId` carrying `last_event_id` and `updated_at`; `writeCursor(relayId, lastEventId)` UPSERTs and rejects non-monotonic values.
+- **Constructed by:** Each relay instance allocates its own `cursorId` at `createRelay`.
+- **Invariant:** The cursor advances only after a batch is accepted by the producer; a crash mid-batch replays on restart.
+- **Spec(s):** `2026-04-17-cloudevents-envelope-design.md` (§6) + `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+- **Related:** `Relay`, `EventStore`, `DLQ`.
+
+#### `Relay` (at-least-once publisher)
+
+- **Package / module:** `packages/event-store/src/relay/loop.ts`.
+- **Purpose:** Drain `readRecordsFrom(cursor)` batches, encode each envelope to CloudEvents 1.0 binary, publish to `KafkaProducer`, advance the cursor.
+- **Contract:** `createRelay({ store, cursorId, kafka, serviceName, onDlqError? })` returns `{ start, stop }`.
+- **Constructed by:** `packages/runtime/src/start/start-service.ts` after `wireEventPipeline` and `applySeed`.
+- **Invariant:** At-least-once delivery, per-subject Kafka order (key = `subject`), exponential-backoff retry up to `maxAttempts`, then DLQ emit; unbounded DLQ retry.
+- **Spec(s):** `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+- **Related:** `PublishCursor`, `DLQ`, `ApplyPlan`, sequence #6.
+
+#### `DLQ` payload + delivery tracking
+
+- **Package / module:** `packages/event-store/src/relay/dlq-envelope.ts` + `packages/event-store/src/store/` (`delivery_tracking` table).
+- **Purpose:** Capture events that exceeded primary-topic retries, without blocking the cursor.
+- **Contract:** `DlqPayload = { failedEvent, reason: 'max-attempts-exceeded', attempts, firstAttemptAt, lastError }` wrapped in a fresh `EventEnvelope` with `type = '{serviceName}.Relay.EventDeliveryFailed'`, published to `{primaryTopic}.dlq`. Per-event `delivery_tracking` row records attempt count, timestamps, last error.
+- **Constructed by:** The relay on retry exhaustion.
+- **Invariant:** DLQ retry is unbounded; failure of the DLQ topic itself is surfaced through `onDlqError` for operator alerting — it does not block the cursor.
+- **Spec(s):** `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+- **Related:** `Relay`, `Envelope`.
+
+#### `ApplyPlan` + three-layer idempotency
+
+- **Package / module:** `packages/projection-consumer/src/types/apply.ts` + `packages/projection-consumer/src/apply/*`.
+- **Purpose:** Per-event handler bundle for mirror and derived projections; the concrete unit of idempotent read-side apply.
+- **Contract:** `ApplyPlan = { handlersByEventType, mirrorsByAggregate }`. Mirror handlers run under a three-layer guard: pre-check `last_event_version`, `INSERT ... ON CONFLICT DO UPDATE WHERE last_event_version < excluded.last_event_version` (creation), `UPDATE ... WHERE last_event_version < ?` (non-creation). Derived handlers gate on `seen_events(event_id, projection_id)` before a delta UPSERT.
+- **Constructed by:** `compileApplyPlan({ pdm, qsm, events, derivedHandlers? })` — pure, no DB.
+- **Invariant:** All three mirror layers are mandatory; removing any regresses replay safety. Batch apply is all-or-nothing under `BEGIN IMMEDIATE`.
+- **Spec(s):** `2026-04-14-mutations-design.md` (§6), `docs/superpowers/specs/2026-04-18-d5-consumer-idempotency-hybrid-design.md`.
+- **Related:** `Envelope`, `Projection`, `EventTypeSpec`.
+
+#### `Seed envelope` + before-relay invariant
+
+- **Package / module:** `packages/seed/src/apply.ts` + `packages/seed/src/types.ts`.
+- **Purpose:** Allow a service to arrive at a useful initial state by declaring envelopes that are appended through the normal event store, then projected through the normal pipeline, but without double-publishing through Kafka.
+- **Contract:** `applySeed(validatedSeed, store, { mode: 'strict' | 'upsertByEventId', ... })`. Default `eventId` = `seed:{aggregateType}:{aggregateId}:v{version}`, default `actor` = `{ kind: 'system', id: 'seed' }`.
+- **Constructed by:** `packages/runtime/src/start/start-service.ts` between `wireEventPipeline` and `pipeline.start` (the strict boot-order invariant; see §3.4).
+- **Invariant:** Seed envelopes must be appended BEFORE the relay's cursor starts advancing; the spec-§3.1 invariant is what prevents seed events from being re-published through Kafka.
+- **Spec(s):** `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+- **Related:** `Relay`, `ApplyPlan`, `startService`.
+
+### 6.3 HTTP / UI
+
+#### `BindingKind × Role` matrix
+
+- **Package / module:** `packages/bindings/src/validate/consistency.ts` + `packages/bindings/src/types/artifact.ts`.
+- **Purpose:** Ensure a binding's `kind` (`query | command`) agrees with the target graph's role, and that the output shape matches.
+- **Contract:** `BindingKind = 'query' | 'command'`. Matrix: `query × query` requires `rowset<T>` output; `command × command` requires `row<CommandResult>`; other combinations are errors.
+- **Constructed by:** Enforced in `checkGraphShape` during consistency validation.
+- **Invariant:** Commands are `POST`-only and forbid `in: 'query'` parameters.
+- **Spec(s):** `2026-04-14-bindings-design.md`.
+- **Related:** `BindingPlan`, `CommandResult`, OpenAPI emitter.
+
+#### `BindingPlan` — discriminated plan
+
+- **Package / module:** `packages/bindings-http/src/startup/compile-plan.ts` + `packages/bindings-http/src/types/`.
+- **Purpose:** The runtime pairing of a binding with its compiled graph, ready for per-request execution.
+- **Contract:** `QueryBindingPlan | CommandBindingPlan` discriminated-union; each carries the compile result, input Zod schemas, and the HTTP path / method.
+- **Constructed by:** `buildPlan` at router creation. Compile errors aggregate; a partial router is never mounted.
+- **Invariant:** `eventStore` is required when any binding is `kind: 'command'`; synchronous throw before route mount.
+- **Spec(s):** `2026-04-14-bindings-http-design.md`.
+- **Related:** `BindingKind × Role`, `CommandResult`, OpenAPI emitter.
+
+#### HTTP error → status mapping
+
+- **Package / module:** `packages/bindings-http/src/errors.ts`.
+- **Purpose:** Single source of truth for HTTP error codes emitted by `bindings-http`.
+- **Contract:** `VALIDATION_ERROR | INVALID_BODY → 400`; `COMMAND_CONCURRENCY_CONFLICT → 409`; any other `CommandExecutionError → 422`; uncaught → `500`.
+- **Constructed by:** The query and command handler modules; `commandErrorStatus(err) → 409 | 422`.
+- **Invariant:** `409` is reserved for concurrency; `422` is every other business-rule rejection. Middleware cannot reinterpret a status.
+- **Spec(s):** `2026-04-14-bindings-http-design.md` (§7).
+- **Related:** `BindingPlan`, `CommandExecutionError`.
+
+#### OpenAPI 3.1 emitter
+
+- **Package / module:** `packages/bindings/src/openapi/emit.ts` + siblings (`shapes.ts`, `parameters.ts`, `responses.ts`, `errors.ts`, `command-result.ts`, `passthrough.ts`).
+- **Purpose:** Emit an OpenAPI 3.1 document from a `ValidatedBindings` artifact, for tooling and client generation.
+- **Contract:** `generateOpenApi(validated, resolvers, options?) → Result<OpenApiDoc>`. Produces `paths` per `(method, path)`, `components.schemas` for row shapes, and the built-in `CommandResult` shape plus standard 400 / 409 / 422 / 500 schemas. Passthrough `x-*` annotations deep-merge.
+- **Constructed by:** `packages/bindings-http/src/router.ts` at startup, served at `/openapi.json`.
+- **Invariant:** Emission is pure over `ValidatedBindings`; a missing resolver is a failure, not silent omission.
+- **Spec(s):** `2026-04-14-bindings-design.md` (§7).
+- **Related:** `BindingPlan`, `BindingKind × Role`.
+
+#### UI compile pipeline + `CompiledArtifact`
+
+- **Package / module:** `packages/ui/src/compile.ts` + siblings (`resolve/`, `expand/`, `validate/`, `emit/`); output type in `packages/ui/src/types/compiled.ts`.
+- **Purpose:** Take a multi-file UI authoring tree and produce a single JSON artifact (`manifest`, `layouts`, `screens`) consumed by `@rntme/ui-runtime`.
+- **Contract:** `compile(options) → Result<CompiledArtifact>`. Six-stage pipeline: parse (implicit in resolve) → resolve → expand → validate (structural + references) → compile orchestrator → emit.
+- **Constructed by:** `packages/runtime` at boot (or by an external build step that persists the artifact).
+- **Invariant:** Compiled specs contain no `$ref` or `$param` tokens. Manifest version is literal `"2.0"`. Structural errors short-circuit reference validation.
+- **Spec(s):** `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`.
+- **Related:** `BindingPlan` (for HTTP-map resolution during emit), `Surface` plugin (serves the artifact).
+
 ## 7. Observations and refactoring candidates
 
 _(pending — Tasks 17–20)_
