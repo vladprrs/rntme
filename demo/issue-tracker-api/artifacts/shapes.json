@@ -49,5 +49,11 @@
     "fields": {
       "count": { "type": "integer", "nullable": false }
     }
+  },
+  "ReportedCountRow": {
+    "fields": {
+      "projectId": { "type": "integer", "nullable": false },
+      "count":     { "type": "integer", "nullable": false }
+    }
   }
 }

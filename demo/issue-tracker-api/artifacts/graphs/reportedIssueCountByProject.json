@@ -1,0 +1,24 @@
+{
+  "id": "reportedIssueCountByProject",
+  "signature": {
+    "inputs": {},
+    "output": { "type": "rowset<ReportedCountRow>", "from": "r" }
+  },
+  "nodes": [
+    {
+      "id": "src",
+      "type": "findMany",
+      "config": { "source": { "eventType": "IssueReport" } }
+    },
+    {
+      "id": "r",
+      "type": "reduce",
+      "config": {
+        "input": "src",
+        "into": "ReportedCountRow",
+        "group": { "projectId": "issueReport.projectId" },
+        "measures": { "count": { "fn": "count" } }
+      }
+    }
+  ]
+}
