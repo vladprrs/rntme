@@ -9,6 +9,7 @@ import { SqliteEventStore } from '@rntme/event-store';
 import type { ActorRef } from '@rntme/event-store';
 import { buildPlan, type CommandBindingPlan } from '../../src/startup/compile-plan.js';
 import { makeCommandHandler } from '../../src/runtime/command-handler.js';
+import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
 import { honoPath } from '../../src/startup/hono-path.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -127,10 +128,11 @@ function buildAppAndStore(): {
   const plan = buildPlan(validated.value, reportSpec, pdm, qsm);
   const bp = plan.reportIssueHttp;
   if (!bp || bp.kind !== 'command') throw new Error('expected command plan');
-  const store = new SqliteEventStore({ filename: ':memory:' });
+  const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
   const actor: ActorRef = { kind: 'user', id: 'alice' };
   let seq = 0;
   const app = new Hono();
+  app.use('*', correlationMiddleware());
   app.post(
     honoPath(bp.entry.http.path),
     makeCommandHandler(bp as CommandBindingPlan, {
@@ -170,13 +172,23 @@ describe('makeCommandHandler — happy path', () => {
       }),
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { aggregateId: string; version: number; eventIds: string[] };
+    const body = (await res.json()) as {
+      aggregateId: string;
+      version: number;
+      eventIds: string[];
+      commandId: string;
+      correlationId: string;
+    };
     expect(body.aggregateId).toBe('42');
     expect(body.version).toBe(1);
     expect(body.eventIds).toHaveLength(1);
+    expect(body.commandId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.headers.get('Correlation-Id')).toBe(body.correlationId);
     const events = ctx.store.readStream('Issue-42');
     expect(events).toHaveLength(1);
-    expect(events[0]!.actor).toEqual({ kind: 'user', id: 'alice' });
+    expect(events[0]!.rntActorKind).toBe('user');
+    expect(events[0]!.rntActorId).toBe('alice');
   });
 });
 

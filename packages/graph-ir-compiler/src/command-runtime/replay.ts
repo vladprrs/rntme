@@ -9,9 +9,9 @@ export function replayAggregateState(events: readonly EventEnvelope[]): ReplayRe
   let state: Record<string, unknown> | null = null;
   let version = 0;
   for (const ev of events) {
-    const p = ev.payload as { before: Record<string, unknown> | null; after: Record<string, unknown> };
+    const p = ev.data as { before: Record<string, unknown> | null; after: Record<string, unknown> };
     const after = p.after as Record<string, unknown>;
-    version = ev.version;
+    version = ev.rntVersion;
     if (p.before === null) {
       state = { ...after };
     } else {

@@ -7,6 +7,7 @@ import { validateSeed } from '../../src/validate.js';
 import type { SeedArtifact } from '../../src/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const SERVICE_NAME = 'test-service';
 
 const pdmRaw = JSON.parse(
   readFileSync(resolve(__dirname, '../fixtures/minimal-pdm.json'), 'utf8'),
@@ -20,6 +21,7 @@ function ctx() {
   return {
     pdm: createPdmResolver(validated.value),
     events: deriveEventTypes(validated.value),
+    serviceName: SERVICE_NAME,
   };
 }
 function seed(events: SeedArtifact['events']): SeedArtifact {
@@ -30,12 +32,18 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
   it('rejects SEED_STREAM_VERSION_GAP', () => {
     const result = validateSeed(
       seed([
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z' },
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 3,
-          eventType: 'ThingRenamed', payload: { name: 'y', status: 'active' },
-          occurredAt: '2026-01-02T00:00:00.000Z' },
+        {
+          id: 'a',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z', rntSchemaVersion: 1,
+        },
+        {
+          id: 'b',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 3,
+          eventType: 'ThingRenamed', data: { name: 'y', status: 'active' },
+          time: '2026-01-02T00:00:00.000Z', rntSchemaVersion: 1,
+        },
       ]),
       ctx(),
     );
@@ -47,12 +55,18 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
   it('rejects SEED_STREAM_VERSION_DUPLICATE', () => {
     const result = validateSeed(
       seed([
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z' },
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:01.000Z' },
+        {
+          id: 'a',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z', rntSchemaVersion: 1,
+        },
+        {
+          id: 'b',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'x' },
+          time: '2026-01-01T00:00:01.000Z', rntSchemaVersion: 1,
+        },
       ]),
       ctx(),
     );
@@ -66,12 +80,18 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
   it('rejects SEED_EVENT_ID_DUPLICATE', () => {
     const result = validateSeed(
       seed([
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z', eventId: 'same' },
-        { stream: 'Thing-2', aggregateType: 'Thing', aggregateId: '2', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'y' },
-          occurredAt: '2026-01-01T00:00:01.000Z', eventId: 'same' },
+        {
+          id: 'same',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z', rntSchemaVersion: 1,
+        },
+        {
+          id: 'same',
+          subject: 'Thing-2', rntAggregateType: 'Thing', rntAggregateId: '2', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'y' },
+          time: '2026-01-01T00:00:01.000Z', rntSchemaVersion: 1,
+        },
       ]),
       ctx(),
     );
@@ -80,18 +100,27 @@ describe('validateSeed — layer 3 (intra-file invariants)', () => {
       expect(result.errors.some((e) => e.code === 'SEED_EVENT_ID_DUPLICATE')).toBe(true);
   });
 
-  it('accepts multi-stream independent versions', () => {
+  it('accepts multi-subject independent versions', () => {
     const result = validateSeed(
       seed([
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'x' },
-          occurredAt: '2026-01-01T00:00:00.000Z' },
-        { stream: 'Thing-2', aggregateType: 'Thing', aggregateId: '2', version: 1,
-          eventType: 'ThingCreated', payload: { name: 'y' },
-          occurredAt: '2026-01-01T00:00:01.000Z' },
-        { stream: 'Thing-1', aggregateType: 'Thing', aggregateId: '1', version: 2,
-          eventType: 'ThingRenamed', payload: { name: 'x2', status: 'active' },
-          occurredAt: '2026-01-02T00:00:00.000Z' },
+        {
+          id: 'a',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'x' },
+          time: '2026-01-01T00:00:00.000Z', rntSchemaVersion: 1,
+        },
+        {
+          id: 'b',
+          subject: 'Thing-2', rntAggregateType: 'Thing', rntAggregateId: '2', rntVersion: 1,
+          eventType: 'ThingCreated', data: { name: 'y' },
+          time: '2026-01-01T00:00:01.000Z', rntSchemaVersion: 1,
+        },
+        {
+          id: 'c',
+          subject: 'Thing-1', rntAggregateType: 'Thing', rntAggregateId: '1', rntVersion: 2,
+          eventType: 'ThingRenamed', data: { name: 'x2', status: 'active' },
+          time: '2026-01-02T00:00:00.000Z', rntSchemaVersion: 1,
+        },
       ]),
       ctx(),
     );

@@ -2,17 +2,36 @@ import type { EventEnvelope, EventStore } from '@rntme/event-store';
 import { ConcurrencyConflict } from '@rntme/event-store';
 import type { ApplyMode, ApplyResult, SeedError, ValidatedSeed } from './types.js';
 
+export type ApplySeedOptions = Readonly<{
+  mode?: ApplyMode;
+  serviceName: string;
+}>;
+
 /**
  * - **strict**: empty store only; append all events.
- * - **upsertByEventId**: skip events whose `eventId` is already in the store, then append
+ * - **upsertByEventId**: skip events whose `id` is already in the store, then append
  *   the rest with `ignoreDuplicates: true`. (Re-applying the same seed must not re-insert
- *   the same `(stream, version)` rows — SQLite would reject them even when `eventId` matches.)
+ *   the same `(subject, rntVersion)` rows — SQLite would reject them even when `id` matches.)
+ *
+ * `opts.serviceName` is required. The CE derived fields (source/type/dataSchema)
+ * were already baked during `validateSeed`, but we require `serviceName` for
+ * symmetry with `SqliteEventStore` — enforces that callers are aware of the
+ * service context they are seeding.
  */
 export async function applySeed(
   seed: ValidatedSeed,
   eventStore: EventStore,
-  opts: { mode?: ApplyMode } = {},
+  opts: ApplySeedOptions,
 ): Promise<ApplyResult> {
+  if (!opts || typeof opts !== 'object') {
+    return Promise.reject(
+      new Error('applySeed: opts is required and must include serviceName'),
+    );
+  }
+  if (!opts.serviceName || opts.serviceName.length === 0) {
+    return Promise.reject(new Error('applySeed: opts.serviceName is required'));
+  }
+
   const mode = opts.mode ?? 'strict';
 
   if (mode === 'strict') {
@@ -29,14 +48,14 @@ export async function applySeed(
   }
 
   const records = eventStore.readRecordsFrom({ afterId: 0, limit: 1_000_000 });
-  const seenIds = new Set(records.map((r) => r.envelope.eventId));
+  const seenIds = new Set(records.map((r) => r.envelope.id));
   const toAppend: EventEnvelope[] = [];
   let skippedCount = 0;
   for (const e of seed.events) {
-    if (seenIds.has(e.eventId)) {
+    if (seenIds.has(e.id)) {
       skippedCount += 1;
     } else {
-      seenIds.add(e.eventId);
+      seenIds.add(e.id);
       toAppend.push(e);
     }
   }
@@ -66,9 +85,9 @@ function mapApplyError(err: unknown): SeedError {
   if (err instanceof ConcurrencyConflict) {
     return {
       code: 'SEED_STREAM_VERSION_CONFLICT',
-      message: `UNIQUE(stream, version) conflict during applySeed: ${err.message}`,
+      message: `UNIQUE(subject, version) conflict during applySeed: ${err.message}`,
       details: {
-        stream: err.stream,
+        subject: err.subject,
         expectedVersion:
           err.expectedVersion === undefined ? '' : String(err.expectedVersion),
         actualVersion: String(err.actualVersion),
@@ -81,10 +100,10 @@ function mapApplyError(err: unknown): SeedError {
   const msg = err.message;
   const code = (err as Error & { code?: string }).code ?? '';
   if (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') {
-    if (/stream.*version|version.*stream/.test(msg)) {
+    if (/subject.*version|version.*subject/.test(msg)) {
       return {
         code: 'SEED_STREAM_VERSION_CONFLICT',
-        message: `UNIQUE(stream, version) conflict during applySeed: ${msg}`,
+        message: `UNIQUE(subject, version) conflict during applySeed: ${msg}`,
         details: { sqliteCode: code },
       };
     }

@@ -20,54 +20,69 @@ describe('types — smoke', () => {
     expect(actors).toHaveLength(4);
   });
 
-  it('EventEnvelope is generic over payload', () => {
+  it('EventEnvelope is generic over data and carries CE + rnt* fields', () => {
     const env: EventEnvelope<{ before: null; after: { status: 'draft' } }> = {
-      eventId: '018e9d2a-0000-7000-8000-000000000001',
+      id: '018e9d2a-0000-7000-8000-000000000001',
+      source: 'rntme://svc/Issue',
       eventType: 'IssueReport',
-      aggregateType: 'Issue',
-      aggregateId: '1',
-      stream: 'Issue-1',
-      version: 1,
-      occurredAt: '2026-04-14T10:00:00.000Z',
-      actor: { kind: 'user', id: 'alice' },
-      payload: { before: null, after: { status: 'draft' } },
-      schemaVersion: 1,
+      type: 'svc.Issue.IssueReport',
+      time: '2026-04-14T10:00:00.000Z',
+      subject: 'Issue-1',
+      dataContentType: 'application/json',
+      dataSchema: 'rntme://schemas/svc/IssueReport.v1.json',
+      data: { before: null, after: { status: 'draft' } },
+      correlationId: 'corr-1',
+      causationId: null,
+      commandId: null,
+      rntAggregateType: 'Issue',
+      rntAggregateId: '1',
+      rntVersion: 1,
+      rntSchemaVersion: 1,
+      rntActorKind: 'user',
+      rntActorId: 'alice',
+      traceparent: null,
     };
-    expect(env.version).toBe(1);
+    expect(env.rntVersion).toBe(1);
+    expect(env.subject).toBe('Issue-1');
   });
 
   it('AppendRequest carries events + optional expectedVersion', () => {
     const req: AppendRequest = {
-      stream: 'Issue-1',
+      subject: 'Issue-1',
       expectedVersion: 0,
       events: [{
-        eventId: 'e1',
+        id: 'e1',
         eventType: 'IssueReport',
-        aggregateType: 'Issue',
-        aggregateId: '1',
-        occurredAt: '2026-04-14T10:00:00.000Z',
+        rntAggregateType: 'Issue',
+        rntAggregateId: '1',
+        time: '2026-04-14T10:00:00.000Z',
         actor: null,
-        payload: { before: null, after: { status: 'draft' } },
-        schemaVersion: 1,
+        data: { before: null, after: { status: 'draft' } },
+        rntSchemaVersion: 1,
+        correlationId: 'corr-1',
+        causationId: null,
+        commandId: null,
+        traceparent: null,
       }] satisfies readonly AppendEventInput[],
     };
-    expect(req.events[0]!.eventId).toBe('e1');
+    expect(req.events[0]!.id).toBe('e1');
   });
 
-  it('AppendResult and AppendedEvent expose stream, lastVersion, appendedEvents', () => {
+  it('AppendResult and AppendedEvent expose subject, lastVersion, appendedEvents', () => {
     const r: AppendResult = {
-      stream: 'Issue-1',
+      subject: 'Issue-1',
       lastVersion: 1,
-      appendedEvents: [{ eventId: 'e1', version: 1, id: 1 }] satisfies readonly AppendedEvent[],
+      appendedEvents: [{ id: 'e1', version: 1, rowId: 1 }] satisfies readonly AppendedEvent[],
     };
     expect(r.lastVersion).toBe(1);
+    expect(r.subject).toBe('Issue-1');
   });
 
-  it('ConcurrencyConflict is an Error subclass with stream/expected/actual', () => {
+  it('ConcurrencyConflict is an Error subclass with subject/expected/actual', () => {
     const e = new ConcurrencyConflict('Issue-1', 0, 1);
     expect(e).toBeInstanceOf(Error);
     expect(e).toBeInstanceOf(EventStoreError);
-    expect(e.stream).toBe('Issue-1');
+    expect(e.subject).toBe('Issue-1');
     expect(e.expectedVersion).toBe(0);
     expect(e.actualVersion).toBe(1);
     expect(e.code).toBe('CONCURRENCY_CONFLICT');

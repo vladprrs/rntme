@@ -9,6 +9,10 @@ afterEach(() => {
   store = null;
 });
 
+function newStore(): SqliteEventStore {
+  return new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+}
+
 describe('mapSqliteError', () => {
   it('maps UNIQUE on event_id to DuplicateEventId', () => {
     const err = Object.assign(
@@ -20,14 +24,14 @@ describe('mapSqliteError', () => {
     expect((mapped as DuplicateEventId).eventId).toBe('e1');
   });
 
-  it('maps UNIQUE on (stream, version) to ConcurrencyConflict', () => {
+  it('maps UNIQUE on (subject, version) to ConcurrencyConflict', () => {
     const err = Object.assign(
-      new Error('UNIQUE constraint failed: event_log.stream, event_log.version'),
+      new Error('UNIQUE constraint failed: event_log.subject, event_log.version'),
       { code: 'SQLITE_CONSTRAINT_UNIQUE' as const },
     );
     const mapped = mapSqliteError(err, 'Issue-1', 2, 2);
     expect(mapped).toBeInstanceOf(ConcurrencyConflict);
-    expect((mapped as ConcurrencyConflict).stream).toBe('Issue-1');
+    expect((mapped as ConcurrencyConflict).subject).toBe('Issue-1');
     expect((mapped as ConcurrencyConflict).expectedVersion).toBe(2);
     expect((mapped as ConcurrencyConflict).actualVersion).toBe(2);
   });
@@ -40,27 +44,28 @@ describe('mapSqliteError', () => {
 
 describe('SqliteEventStore.appendEvents — optimistic concurrency', () => {
   it('throws ConcurrencyConflict when expectedVersion does not match current', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
+    const st = newStore();
     store = st;
-    st.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'e1' })])]);
+    st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'e1' })])]);
     expect(() =>
-      st.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'e2' })], 0)]),
+      st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'e2' })], 0)]),
     ).toThrow(ConcurrencyConflict);
     try {
-      st.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'e3' })], 0)]);
+      st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'e3' })], 0)]);
       expect.fail('expected throw');
     } catch (e) {
       expect(e).toBeInstanceOf(ConcurrencyConflict);
       expect((e as ConcurrencyConflict).actualVersion).toBe(1);
+      expect((e as ConcurrencyConflict).subject).toBe('Issue-1');
     }
   });
 
-  it('maps duplicate eventId on append to DuplicateEventId', () => {
-    const st = new SqliteEventStore({ filename: ':memory:' });
+  it('maps duplicate id on append to DuplicateEventId', () => {
+    const st = newStore();
     store = st;
-    st.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'same' })])]);
+    st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'same' })])]);
     expect(() =>
-      st.appendEvents([makeRequest('Issue-1', [makeEvent({ eventId: 'same' })])]),
+      st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'same' })])]),
     ).toThrow(DuplicateEventId);
   });
 });

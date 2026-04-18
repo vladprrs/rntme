@@ -11,11 +11,11 @@ import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, ERROR_CODES, type Result } from './types/result.js';
 import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from './explain/explain.js';
 import { compileCommand } from './command-runtime/compile.js';
-import { executeCommand, type ExecuteCommandContext } from './command-runtime/execute.js';
+import { executeCommand, type ExecuteCommandContext, type CorrelationCtx } from './command-runtime/execute.js';
 import type { CommandResult } from './types/command.js';
 
 export { compileCommand };
-export { executeCommand, type ExecuteCommandContext };
+export { executeCommand, type ExecuteCommandContext, type CorrelationCtx };
 export { CommandExecutionError } from './command-runtime/errors.js';
 export type { CommandResult, CompiledCommand, EmitPlan } from './types/command.js';
 export { inferRole, type GraphRole } from './role/infer.js';

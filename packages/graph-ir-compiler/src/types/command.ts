@@ -10,11 +10,13 @@ export type ReadPreludeCompileResult = {
   paramDefaults: Record<string, unknown>;
 };
 
-export type CommandResult = {
+export type CommandResult = Readonly<{
   aggregateId: string;
   version: number;
-  eventIds: string[];
-};
+  eventIds: readonly string[];
+  commandId: string;
+  correlationId: string;
+}>;
 
 export type EmitPlan = {
   nodeId: string;

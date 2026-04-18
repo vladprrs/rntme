@@ -43,9 +43,9 @@ describe('applyEvent — INSERT (creation)', () => {
     bootstrapProjections(db, ddls);
 
     const env = makeEnvelope({
-      eventId: 'ev-1', eventType: 'IssueReport', aggregateId: '1', version: 1,
-      occurredAt: '2026-04-14T10:00:00.000Z',
-      payload: { before: null, after: {
+      id: 'ev-1', eventType: 'IssueReport', rntAggregateId: '1', rntVersion: 1,
+      time: '2026-04-14T10:00:00.000Z',
+      data: { before: null, after: {
         status: 'draft', title: 'Hello', projectId: 7, reporterId: 42, priority: 'high', storyPoints: 5,
       } },
     });

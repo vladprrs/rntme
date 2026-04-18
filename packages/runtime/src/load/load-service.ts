@@ -153,7 +153,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   let validatedSeed: ValidatedSeed | null = null;
   const seedPath = join(dir, manifest.seed.path);
   if (manifest.seed.enabled && existsSync(seedPath)) {
-    const seedResult = loadSeed(seedPath, { pdm: pdmResolver, events: eventTypes });
+    const seedResult = loadSeed(seedPath, {
+      pdm: pdmResolver,
+      events: eventTypes,
+      serviceName: manifest.service.name,
+    });
     if (!seedResult.ok) {
       return { ok: false, errors: [{ code: 'SEED_INVALID', details: seedResult.errors }] };
     }

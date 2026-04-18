@@ -15,4 +15,5 @@ export { seedBuilder } from './builder.js';
 export type { SeedBuilder } from './builder.js';
 export { loadSeed } from './load.js';
 export { applySeed } from './apply.js';
+export type { ApplySeedOptions } from './apply.js';
 export { wrapPayloads } from './wrap-payloads.js';

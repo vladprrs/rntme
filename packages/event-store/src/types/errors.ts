@@ -13,16 +13,16 @@ export class EventStoreError extends Error {
 }
 
 export class ConcurrencyConflict extends EventStoreError {
-  readonly stream: string;
+  readonly subject: string;
   readonly expectedVersion: number | undefined;
   readonly actualVersion: number;
-  constructor(stream: string, expectedVersion: number | undefined, actualVersion: number) {
+  constructor(subject: string, expectedVersion: number | undefined, actualVersion: number) {
     super(
       'CONCURRENCY_CONFLICT',
-      `stream ${stream}: expected version ${expectedVersion ?? '<unchecked>'}, actual ${actualVersion}`,
+      `Concurrency conflict on subject="${subject}": expected ${expectedVersion ?? '<unchecked>'}, actual ${actualVersion}`,
     );
     this.name = 'ConcurrencyConflict';
-    this.stream = stream;
+    this.subject = subject;
     this.expectedVersion = expectedVersion;
     this.actualVersion = actualVersion;
   }

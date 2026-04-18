@@ -4,19 +4,28 @@ import { replayAggregateState } from '../../../src/command-runtime/replay.js';
 
 function ev(
   version: number,
-  payload: { before: Record<string, unknown> | null; after: Record<string, unknown> },
+  data: { before: Record<string, unknown> | null; after: Record<string, unknown> },
 ): EventEnvelope {
   return {
-    eventId: `id-${version}`,
+    id: `id-${version}`,
+    source: 'rntme://test-service/Issue',
     eventType: 't',
-    aggregateType: 'Issue',
-    aggregateId: '1',
-    stream: 'Issue-1',
-    version,
-    occurredAt: '2026-04-14T10:00:00Z',
-    actor: null,
-    schemaVersion: 1,
-    payload,
+    type: 'test-service.Issue.t',
+    time: '2026-04-14T10:00:00Z',
+    subject: 'Issue-1',
+    dataContentType: 'application/json',
+    dataSchema: 'rntme://schemas/test-service/t.v1.json',
+    data,
+    correlationId: 'corr-test',
+    causationId: null,
+    commandId: null,
+    rntAggregateType: 'Issue',
+    rntAggregateId: '1',
+    rntVersion: version,
+    rntSchemaVersion: 1,
+    rntActorKind: null,
+    rntActorId: null,
+    traceparent: null,
   };
 }
 

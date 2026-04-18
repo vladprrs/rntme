@@ -14,6 +14,9 @@ describe('public API surface', () => {
   it('exports commandErrorStatus', () => {
     expect(typeof api.commandErrorStatus).toBe('function');
   });
+  it('exports correlationMiddleware', () => {
+    expect(typeof api.correlationMiddleware).toBe('function');
+  });
   it('exports VERSION', () => {
     expect(typeof api.VERSION).toBe('string');
   });

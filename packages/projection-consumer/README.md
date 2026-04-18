@@ -120,7 +120,7 @@ type InMemoryKafkaConsumer = KafkaConsumer & Readonly<{
 }>;
 ```
 
-`createInMemoryKafkaConsumer({ topicOf?, pollIntervalMs? })`: `topicOf` defaults to `aggregateType => 'rntme.<lowercase>.v1'`; `pollIntervalMs` defaults to `2`. Offsets are monotonic strings starting at `'0'`; partition is always `0`.
+`createInMemoryKafkaConsumer({ topicOf?, pollIntervalMs? })`: `topicOf` defaults to the canonical relay format — the serviceName is extracted from `envelope.source` and passed with `rntAggregateType` through `defaultTopicOf` (re-exported from `@rntme/event-store`) — yielding `rntme.<serviceName>.<aggregateType>` (no version suffix; see event-store spec §5.4). `pollIntervalMs` defaults to `2`. Offsets are monotonic strings starting at `'0'`; partition is always `0`.
 
 ### Update-handler bind order
 

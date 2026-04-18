@@ -13,6 +13,8 @@ import { loadSeed } from '../load.js';
 import { applySeed } from '../apply.js';
 import type { ApplyMode, SeedError } from '../types.js';
 
+const DEFAULT_SERVICE_NAME = 'rntme-seed';
+
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
   const [cmd, ...rest] = args;
@@ -25,7 +27,9 @@ async function main(): Promise<number> {
 function runValidate(args: string[]): number {
   const dir = args.find((a) => !a.startsWith('--'));
   if (!dir) {
-    console.error('usage: rntme-seed validate <artifacts-dir> [--path <file>] [--json]');
+    console.error(
+      'usage: rntme-seed validate <artifacts-dir> [--path <file>] [--service-name <name>] [--json]',
+    );
     return 1;
   }
   const pathArg = getFlag(args, '--path');
@@ -37,7 +41,8 @@ function runValidate(args: string[]): number {
     return 0;
   }
 
-  const ctx = buildCtx(dir);
+  const serviceName = resolveServiceName(args, dir);
+  const ctx = buildCtx(dir, serviceName);
   if (ctx === null) {
     console.error(`cannot read or validate pdm.json in ${dir}`);
     return 1;
@@ -61,7 +66,7 @@ async function runApply(args: string[]): Promise<number> {
 
   if (!dir || !eventStorePath) {
     console.error(
-      'usage: rntme-seed apply <artifacts-dir> --event-store <path> [--mode strict|upsert-by-event-id] [--dry-run]',
+      'usage: rntme-seed apply <artifacts-dir> --event-store <path> [--mode strict|upsert-by-event-id] [--service-name <name>] [--dry-run]',
     );
     return 1;
   }
@@ -72,7 +77,8 @@ async function runApply(args: string[]): Promise<number> {
     return 1;
   }
 
-  const ctx = buildCtx(dir);
+  const serviceName = resolveServiceName(args, dir);
+  const ctx = buildCtx(dir, serviceName);
   if (ctx === null) {
     console.error(`cannot read or validate pdm.json in ${dir}`);
     return 1;
@@ -94,9 +100,9 @@ async function runApply(args: string[]): Promise<number> {
     return 0;
   }
 
-  const store = new SqliteEventStore({ filename: eventStorePath });
+  const store = new SqliteEventStore({ filename: eventStorePath, serviceName });
   try {
-    const r = await applySeed(result.value, store, { mode });
+    const r = await applySeed(result.value, store, { mode, serviceName });
     console.log(`applied=${r.appliedCount} skipped=${r.skippedCount}`);
     return 0;
   } catch (err) {
@@ -114,7 +120,32 @@ function resolveApplyMode(modeArg: string | undefined): ApplyMode | null {
   return null;
 }
 
-function buildCtx(dir: string) {
+/**
+ * Resolve serviceName in priority order:
+ *   1. `--service-name <name>` CLI flag
+ *   2. `serviceName` field in `<dir>/manifest.json` (when present)
+ *   3. Default DEFAULT_SERVICE_NAME
+ */
+function resolveServiceName(args: string[], dir: string): string {
+  const flag = getFlag(args, '--service-name');
+  if (flag && flag.length > 0) return flag;
+  const manifestPath = join(dir, 'manifest.json');
+  if (existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+        serviceName?: unknown;
+      };
+      if (typeof manifest.serviceName === 'string' && manifest.serviceName.length > 0) {
+        return manifest.serviceName;
+      }
+    } catch {
+      // fall through to default
+    }
+  }
+  return DEFAULT_SERVICE_NAME;
+}
+
+function buildCtx(dir: string, serviceName: string) {
   const pdmPath = join(dir, 'pdm.json');
   if (!existsSync(pdmPath)) return null;
   const raw = JSON.parse(readFileSync(pdmPath, 'utf8'));
@@ -125,6 +156,7 @@ function buildCtx(dir: string) {
   return {
     pdm: createPdmResolver(validated.value),
     events: deriveEventTypes(validated.value),
+    serviceName,
   };
 }
 

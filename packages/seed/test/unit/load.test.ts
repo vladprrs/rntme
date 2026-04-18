@@ -9,6 +9,7 @@ import { loadSeed } from '../../src/load.js';
 import type { SeedArtifact } from '../../src/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const SERVICE_NAME = 'test-service';
 
 const pdmRaw = JSON.parse(
   readFileSync(resolve(__dirname, '../fixtures/minimal-pdm.json'), 'utf8'),
@@ -22,6 +23,7 @@ function ctx() {
   return {
     pdm: createPdmResolver(validated.value),
     events: deriveEventTypes(validated.value),
+    serviceName: SERVICE_NAME,
   };
 }
 
@@ -29,13 +31,15 @@ const minimalSeed: SeedArtifact = {
   seedVersion: 1,
   events: [
     {
-      stream: 'Thing-1',
-      aggregateType: 'Thing',
-      aggregateId: '1',
-      version: 1,
+      id: 'seed:Thing:1:v1',
+      subject: 'Thing-1',
+      rntAggregateType: 'Thing',
+      rntAggregateId: '1',
+      rntVersion: 1,
       eventType: 'ThingCreated',
-      payload: { name: 'x' },
-      occurredAt: '2026-01-01T00:00:00.000Z',
+      data: { name: 'x' },
+      time: '2026-01-01T00:00:00.000Z',
+      rntSchemaVersion: 1,
     },
   ],
 };
@@ -74,13 +78,15 @@ describe('loadSeed', () => {
       seedVersion: 1,
       events: [
         {
-          stream: 'Widget-1',
-          aggregateType: 'Widget',
-          aggregateId: '1',
-          version: 1,
+          id: 'x',
+          subject: 'Widget-1',
+          rntAggregateType: 'Widget',
+          rntAggregateId: '1',
+          rntVersion: 1,
           eventType: 'WidgetCreated',
-          payload: {},
-          occurredAt: '2026-01-01T00:00:00.000Z',
+          data: {},
+          time: '2026-01-01T00:00:00.000Z',
+          rntSchemaVersion: 1,
         },
       ],
     };

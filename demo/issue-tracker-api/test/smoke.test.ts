@@ -69,6 +69,7 @@ describe('demo smoke via @rntme/runtime', () => {
       headers: {
         'content-type': 'application/json',
         'x-actor-id': 'alice',
+        'Correlation-Id': 'manual-smoke-xyz',
       },
       body: JSON.stringify({
         issueId: 91001,
@@ -80,6 +81,15 @@ describe('demo smoke via @rntme/runtime', () => {
       }),
     });
     expect(created.status).toBe(200);
-    expect(((await created.json()) as { version: number }).version).toBeGreaterThanOrEqual(1);
+    const createdBody = (await created.json()) as {
+      version: number;
+      commandId: string;
+      correlationId: string;
+    };
+    expect(createdBody.version).toBeGreaterThanOrEqual(1);
+    expect(createdBody.commandId).toMatch(/^[0-9a-f-]{36}$/);
+    // Correlation pinned by inbound header
+    expect(createdBody.correlationId).toBe('manual-smoke-xyz');
+    expect(created.headers.get('Correlation-Id')).toBe('manual-smoke-xyz');
   });
 });

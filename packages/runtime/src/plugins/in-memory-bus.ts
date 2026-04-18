@@ -1,4 +1,5 @@
-import type { KafkaMessage, KafkaProducer, EventEnvelope } from '@rntme/event-store';
+import type { KafkaMessage, KafkaProducer } from '@rntme/event-store';
+import { fromCloudEventWire } from '@rntme/event-store';
 import {
   createInMemoryKafkaConsumer,
   type InMemoryKafkaConsumer,
@@ -17,13 +18,13 @@ export class InMemoryBus implements EventBus {
     const inner = this.inner;
     return {
       async send(message: KafkaMessage): Promise<void> {
-        const envelope = JSON.parse(message.value) as EventEnvelope;
+        const envelope = fromCloudEventWire(message);
         inner.produce(envelope);
       },
     };
   }
 
-  consumer(): KafkaConsumer {
+  consumer(_opts: { groupId: string; topic: string }): KafkaConsumer {
     return this.inner;
   }
 }

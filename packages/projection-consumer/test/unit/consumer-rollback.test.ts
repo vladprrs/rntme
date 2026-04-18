@@ -56,8 +56,8 @@ describe('createProjectionConsumer — rollback on failure', () => {
 
     kafka.produce(issueLifecycle('1')[0]!);
     kafka.produce(makeEnvelope({
-      eventId: 'bad', eventType: 'IssueReport', aggregateId: '2', version: 1,
-      payload: { before: null, after: { status: 'draft' } },
+      id: 'bad', eventType: 'IssueReport', rntAggregateId: '2', rntVersion: 1,
+      data: { before: null, after: { status: 'draft' } },
     }));
 
     const deadline = Date.now() + 2000;
