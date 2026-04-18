@@ -777,6 +777,104 @@ sequenceDiagram
 
 **Caption.** pdm / qsm / ui all run the same four layers in this order; only the error-code prefixes and the specific rules differ. The brand is constructible only after all four layers pass — there is no `as ValidatedX` escape hatch in any legitimate code path.
 
+### 4.7 `@rntme/ui` + `@rntme/ui-runtime`
+
+**Purpose.** `@rntme/ui` compiles a multi-file UI authoring tree (manifest + layouts + screens + fragments, all JSON) into a single `CompiledArtifact`. `@rntme/ui-runtime` mounts a Hono sub-router that serves the compiled artifact as per-screen JSON endpoints and a static shell, paired with an esbuild-bundled React SPA that hydrates on the client and fetches screens on-demand.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md` | 2026-04-16 | landed | UI artifact v2: manifest + screens + layouts + fragments, six-stage pipeline, `CompiledArtifact` shape consumed by the runtime. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef out fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef run fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+
+    SRC["source tree<br/>(manifest + *.spec/*.screen/*.layout JSON)"] --> R["resolve/resolve.ts"]:::stage
+    R --> E["expand/expand.ts"]:::stage
+    E --> V["validate/ (structural + references)"]:::stage
+    V --> EM["emit/emit.ts<br/>+ http-map.ts"]:::stage
+    EM --> CA["CompiledArtifact"]:::out
+    CA --> SRV["ui-runtime: server/index.ts<br/>(Hono sub-router)"]:::run
+    CA --> BLD["ui-runtime: build.ts<br/>(esbuild + Tailwind v4)"]:::run
+    BLD --> SPA["SPA bundle<br/>(main.js + main.css)"]:::run
+    SRV --> CLI["client/entry.tsx<br/>(hydrate)"]:::run
+```
+
+**Caption.** The compiler's six stages (parse → resolve → expand → validate → compile orchestrator → emit) produce a single JSON artifact. The runtime splits that artifact into per-screen / per-layout / manifest endpoints so the SPA loads only what each route needs.
+
+**Components (ui compiler).**
+
+- **Parse (implicit).** `JSON.parse` inside `resolve.readFile` catches syntax errors with `MANIFEST_INVALID`.
+- **`resolve/resolve.ts`** — Reads the source tree, assembles paired `*.spec.json` + `*.screen.json` / `*.layout.json` files, detects `$ref` cycles.
+- **`expand/expand.ts`** — Inlines fragments, substitutes `$param`, prefixes nested element ids as `<refKey>__<elKey>`. After this stage the tree has no `$ref` or `$param` tokens.
+- **`validate/` (structural + references)** — Structural: root-element existence, no orphans, slot-only-in-layout. References: bindings resolve, navigation targets match manifest routes, state paths land in a covered prefix (`/form/`, `/route/params/`, `/data/`, `/data/__status/`, `/data/__error/`, `/actions/`).
+- **`compile.ts` orchestrator** — Chains the above with fail-fast and produces a `CompiledArtifact` via `emit`.
+- **`emit/emit.ts` + `http-map.ts`** — Maps binding ids to HTTP paths (consumes the ValidatedBindings contract), assembles the final artifact (`manifest`, `layouts`, `screens`).
+
+**Components (ui-runtime).**
+
+- **`server/index.ts`** — `createApp({ artifact, assetsDir? })` Hono app. Routes:
+  - `GET /_manifest.json` → artifact.manifest.
+  - `GET /_layouts/:name` → `artifact.layouts[name]` (404 on miss).
+  - `GET /_screens/:name` → `artifact.screens[name]` (404 on miss).
+  - `GET /assets/:file` → static file from `assetsDir` (path-traversal sandboxed).
+  - `GET /*` → HTML shell (SPA deep-link fallback).
+- **`server/static-shell.ts`** — Emits a minimal HTML document loading `/assets/main.js` and `/assets/main.css`.
+- **`client/entry.tsx`** — `hydrateApp({ rootSelector })`: fetches `/_manifest.json`, wires store / loader / registry / driver, renders `<AppShell>` and listens to `popstate`.
+- **`client/router.ts`** — `matchRoute` (exact-then-`:param` precedence) + `expandTemplate`.
+- **`client/screen-loader.ts`** — Per-instance in-memory cache for `/_screens/:name.json` and `/_layouts/:name.json`.
+- **`client/registry.ts` + `driver.ts` + `layout-manager.tsx`** — Wires the shadcn catalog, `navigate` / `dispatch` actions with zod validation, parallel data-endpoint fetches with `/data/__status` / `/data/__error` sentinels, and the `<AppShell>` that composes json-render state / action / visibility / validation providers.
+- **`build.ts`** — esbuild bundles `client/entry.tsx` → `build/main.js` (ESM, es2022); Tailwind v4 CLI scans that bundle (via `@source` in `client/styles.css`) → `build/main.css`. Both are served under `/assets/`.
+
+**Invariants.**
+
+- **Manifest version is literal `"2.0"`.** Anything else fails at parse.
+- **Screen key = route path's last segment.** Two routes with the same trailing segment collide.
+- **`$ref` and `$param` are erased post-expand.** Compiled specs contain neither token.
+- **Fragment element ids are prefixed recursively.** `<refKey>__<elKey>`, nested refs accumulate.
+- **Structural errors short-circuit reference validation.** A broken tree never reaches the reference-layer rules.
+- **History-based routing, not hash-based.** SPA deep-link fallback is served by the Hono `GET /*` route.
+- **Path precedence is exact-then-param.** `/issues/browse` matches literal before `/issues/:id`.
+- **Build order matters.** Tailwind scans the JS bundle; running Tailwind first prunes shadcn classes.
+- **Only `server` is exported from the package root.** Browser-only code must import `@rntme/ui-runtime/client`.
+
+#### Sequence #7 — UI compile
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CLI as compile() caller
+    participant R as resolve
+    participant E as expand
+    participant VS as validate/structural
+    participant VR as validate/references
+    participant EM as emit
+    participant ART as CompiledArtifact
+    participant SRV as ui-runtime server
+    participant SPA as React SPA
+
+    CLI->>R: sourceDir + resolvers
+    R-->>CLI: ResolvedSource | Err(FILE_NOT_FOUND / CIRCULAR_REF)
+    CLI->>E: ResolvedSource
+    E-->>CLI: ExpandedSource | Err(UNBOUND_PARAM / UNKNOWN_PARAM)
+    CLI->>VS: ExpandedSource
+    VS-->>CLI: ok | Err(SPEC_INVALID / MISSING_ROOT / ORPHAN_ELEMENT)
+    CLI->>VR: ExpandedSource + resolvers
+    VR-->>CLI: ok | Err(UNRESOLVED_BINDING / UNKNOWN_ROUTE / UNCOVERED_STATE_PATH)
+    CLI->>EM: ExpandedSource + httpMap
+    EM-->>ART: manifest + layouts + screens
+    ART->>SRV: createApp({ artifact })
+    SRV->>SPA: /_manifest + /_layouts/:name + /_screens/:name (fetched on demand)
+```
+
+**Caption.** Compilation is once-per-artifact at build or boot time; the SPA never re-runs validation. Per-screen lazy loading keeps the initial payload small: the shell + manifest is fetched up front, and each route pulls exactly one layout and one screen.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
