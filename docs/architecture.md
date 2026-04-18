@@ -1333,7 +1333,97 @@ The 4-layer validator pattern (§6.0) is applied intentionally in pdm, qsm, bind
 > - **Possible direction:** leave as-is; document the choice in the UI package README.
 > - **Links:** `packages/ui/src/compile.ts`.
 
-_(pending — Tasks 18–20)_
+### 7.4 Brand / `Result` violations
+
+An audit of every `as ValidatedX`, `as StructurallyValidX`, `as ResolvedX` cast and every `try / catch` across the `src/` trees returned **no brand-leak outside an owner package's `validate/` directory**. Every brand construction is in its owner's validator. Most try/catch sites translate a native throw to `Result.err` at a legitimate system boundary (JSON parse, SQLite driver, Kafka wire, CLI entry).
+
+Two housekeeping notes:
+
+> **[minor]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` uses `{} as unknown as ValidatedQsm` in a default-parameter fallback.
+> - **Why it is a smell:** The fallback lives in production code, not in a test fixture. The only reason it is not a brand leak is that the caller of the lowerer already has a `ValidatedQsm` in every real path — the fallback only runs if someone calls the lowerer without a qsm resolver at all, which no real caller does. But the cast stands as a "how-to-leak" footgun for any future contributor who removes it accidentally.
+> - **Possible direction:** Replace the `LowerContext` default with a required-shape refactor (thread `ValidatedQsm` through every caller) or move the fallback into a clearly-marked `test/support/` module.
+> - **Links:** §6.0 "Branded `Validated*` family" entry.
+
+> **[minor]** `packages/bindings-http/src/runtime/handler.ts` wraps `c.req.json()` in a bare `try / catch`.
+> - **Why it is a smell:** The catch sees a native throw (malformed JSON) and returns a 400; this is correct behaviour. The smell is that the extraction layer mixes two kinds of error — schema parse via Zod (returned as a structured failure) and body-shape native throw — so the call-site has two different error shapes to juggle. Pushing the catch into the `extract/` helper would let the handler see one shape.
+> - **Possible direction:** Move JSON parsing into `bindings-http/src/runtime/extract.ts` and have it return `Result<unknown, InvalidBodyError>`; the handler then only deals with `Result` values.
+> - **Links:** `2026-04-14-bindings-http-design.md` §5.
+
+### 7.5 MVP gates
+
+Each entry below is an `info` finding: a feature deliberately deferred, enforced somewhere in code, and documented in its owner's README "Out of scope" section.
+
+> **[info]** `@rntme/pdm` — `ScalarPrimitive` is a closed six-member union (`integer | decimal | string | boolean | date | datetime`). No `enum`, no `json`, no `money`, no nested struct.
+> - **Links:** `docs/gaps/pdm-gaps.md`.
+
+> **[info]** `@rntme/pdm` — No cross-service references. `relation.to` is local-only; there is no `service::Entity` syntax.
+> - **Links:** `2026-04-14-mutations-design.md`.
+
+> **[info]** `@rntme/pdm` — No multi-table entities, no automatic migrations, no state-machine guards beyond declared transitions.
+> - **Links:** `2026-04-14-mutations-design.md` §2–§3.
+
+> **[info]** `@rntme/qsm` — `backing: 'derived'` is parse-accepted but rejected by `validateQsm()`; `derive/ddl.ts` has a forward-compat path behind `opts.derivedSchemas`. Entity-mirror is the only production backing.
+> - **Links:** `2026-04-14-mutations-design.md` §6; `2026-04-18-d5-consumer-idempotency-hybrid-design.md`.
+
+> **[info]** `@rntme/qsm` — `cardinality: 'many'` is parse-accepted but rejected by the Graph-IR compiler (`NAV_FAN_OUT_NOT_ALLOWED`). No projection materialisation of fan-out relations.
+> - **Links:** `2026-04-16-qsm-relations-migration-design.md`.
+
+> **[info]** `@rntme/event-store` — No Kafka client shipped. All producer errors route through a bounded retry + DLQ; a deployment brings its own Kafka adapter (`KafkaProducer` interface).
+> - **Links:** `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+
+> **[info]** `@rntme/event-store` — No snapshotting, no multi-writer, no payload validation inside the store; the compiler validates at author time, and the store treats `data` as `unknown`.
+> - **Links:** `2026-04-17-cloudevents-envelope-design.md`.
+
+> **[info]** `@rntme/event-store` — No id / time / correlationId auto-mint. Caller supplies all three; determinism is the product property.
+> - **Links:** `2026-04-17-cloudevents-envelope-design.md`.
+
+> **[info]** `@rntme/graph-ir-compiler` — No JOIN-based enrichment for list / search bindings; list endpoints return raw FK ids. Demo tracked this in the `demo_join_enrichment_todo` memory.
+> - **Links:** memory `demo_join_enrichment_todo`.
+
+> **[info]** `@rntme/graph-ir-compiler` — Tier 1 operator set only (`findMany`, `filter`, `map`, `reduce`, `sort`, `limit`, `emit`). `distinct`, `lookup`, `exists` are parsed but rejected.
+> - **Links:** `2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+
+> **[info]** `@rntme/graph-ir-compiler` — No composite aggregate keys; one aggregate per command; no planner / optimizer; no HTTP surface; no YAML.
+> - **Links:** `2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
+
+> **[info]** `@rntme/projection-consumer` — No production Kafka adapter; in-memory adapter only. Poison-message handling is the adapter's concern, not the consumer's.
+> - **Links:** `2026-04-14-mutations-design.md` §6.9.
+
+> **[info]** `@rntme/projection-consumer` — No composite-key projections (`PC_COMPOSITE_KEY_NOT_SUPPORTED`); `backing: 'derived'` gated here as well.
+> - **Links:** `2026-04-18-d5-consumer-idempotency-hybrid-design.md`.
+
+> **[info]** `@rntme/bindings-http` — No auth, CORS, rate-limiting, or tracing; those belong on the caller's Hono middleware. No pagination envelope, no `totalCount`, no cursors — rowsets are returned as raw JSON arrays. No streaming. No hot reload.
+> - **Links:** `2026-04-14-bindings-http-design.md` §11.
+
+> **[info]** `@rntme/bindings` — HTTP methods are `GET` and `POST` only; no PUT / PATCH / DELETE. Single content type: `application/json`. No multipart / file upload.
+> - **Links:** `2026-04-14-bindings-design.md` §5; IR rc7 §24.
+
+> **[info]** `@rntme/db-studio` — Package is a scaffold at cutoff (2026-04-18); spec landed, source not yet tracked.
+> - **Links:** `2026-04-18-db-studio-design.md`.
+
+### 7.6 Naming drift
+
+> **[minor]** `envelope` vs `EventRecord`.
+> - **Why it is a smell:** `packages/event-store/src/types/envelope.ts` defines `EventEnvelope` (the CloudEvents wrapper shared across relay / bus / consumer). `packages/event-store/src/store/interface.ts` defines `EventRecord` (an envelope plus the store's monotonic row id). Specs alternate between the two. A reader who grep-searches for "envelope" misses record-level code.
+> - **Possible direction:** Rename `EventRecord` to `EventEnvelopeRow` (or similar) so the core concept is a single name-root.
+> - **Links:** `packages/event-store/src/types/envelope.ts`, `packages/event-store/src/store/interface.ts`.
+
+> **[minor]** `Surface` vs `HttpSurface` vs `router`.
+> - **Why it is a smell:** The manifest uses `surface.http.port`; the runtime plugin class is `HttpSurface implements Surface`; `@rntme/bindings-http` exposes `createBindingsRouter`. A reader needs three mental models for "the HTTP entry point".
+> - **Possible direction:** Keep `Surface` as the plugin-seam name; retire "router" as public API in favour of a `mountBindings(surface, plan)` helper.
+> - **Links:** `packages/runtime/src/plugins/http-surface.ts`, `packages/bindings-http/src/router.ts`.
+
+> **[minor]** `backing` vs "projection kind" vs "projection type".
+> - **Why it is a smell:** Code uses `ProjectionBacking`; comments in `graph-ir-compiler/src/lower/sqlite/lower.ts` drift to "projection kind"; READMEs (QSM, projection-consumer) sometimes say "projection type". Three words, one concept.
+> - **Possible direction:** Pick `backing` (already the code name) and normalise READMEs; add a one-line glossary note in §8.
+> - **Links:** `packages/qsm/src/types/artifact.ts`, comments in `packages/graph-ir-compiler/src/lower/sqlite/lower.ts`.
+
+> **[minor]** `Binding` overloaded across HTTP bindings, OpenAPI `BindingKind`, and `ColumnBinding` in projection-consumer.
+> - **Why it is a smell:** `@rntme/bindings` binds HTTP endpoints to graphs; `@rntme/projection-consumer` uses `ColumnBinding` for SQL-parameter→envelope-field resolution. The overlap is mostly harmless but surfaces in error messages and variable names like `binding.target`.
+> - **Possible direction:** Rename `ColumnBinding` to `ColumnSource` in projection-consumer; the pure term "source" is already used for projection-source in QSM.
+> - **Links:** `packages/projection-consumer/src/types/apply.ts`, `packages/bindings/src/types/artifact.ts`.
+
+_(pending — Tasks 19–20)_
 
 ## 8. Glossary
 
