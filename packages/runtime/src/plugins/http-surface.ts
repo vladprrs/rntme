@@ -20,7 +20,7 @@ export type { CorrelationVariables };
 export class HttpSurface implements Surface {
   constructor(private readonly opts: HttpSurfaceOptions) {}
 
-  mount(app: Hono, ctx: SurfaceContext): void {
+  async mount(app: Hono, ctx: SurfaceContext): Promise<void> {
     const router = createBindingsRouter({
       validated: ctx.service.bindings,
       graphSpec: ctx.service.graphSpec,
@@ -52,6 +52,17 @@ export class HttpSurface implements Surface {
     // `c.var.correlation` (typed by CorrelationVariables).
     app.use('/api/*', correlationMiddleware());
     app.route('/api', router);
+
+    const studioCfg = ctx.service.manifest.studio;
+    if (studioCfg?.enabled) {
+      const { mountStudio } = await import('@rntme/db-studio');
+      mountStudio(app, {
+        eventStoreDb: ctx.eventStore.getDbHandle(),
+        qsmDb: ctx.qsmDb,
+        config: studioCfg,
+      });
+    }
+
     app.route('/', uiApp);
   }
 }

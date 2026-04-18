@@ -168,6 +168,7 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 
 ## Invariants & gotchas
 
+- **`getDbHandle()` is exposed for db-studio mount only.** Writes through it bypass projection-apply idempotency and ordering — treat as read-only. Introduced for `@rntme/db-studio`.
 - **DDL bootstrap rewrites to `IF NOT EXISTS`.** `bootstrapProjections` regex-rewrites the leading `CREATE TABLE` / `CREATE INDEX` from `generateProjectionDdl` so that re-running on a populated DB is a no-op (commit `ba0ef97` — fix(projection-consumer): align DDL bootstrap with plan; covered by `test/unit/bootstrap.test.ts` "idempotent twice"). Adapters that hand-craft DDL outside `bootstrapProjections` skip this rewrite and break re-bootstrap.
 - **Three-layer idempotency (spec §6.5) — all three layers are required.**
   1. `selectCurrentVersion` pre-check — skips before issuing the mutation when `current >= envelope.version`.

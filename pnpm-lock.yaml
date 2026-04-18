@@ -14,6 +14,9 @@ importers:
 
   demo/issue-tracker-api:
     dependencies:
+      '@rntme/db-studio':
+        specifier: workspace:*
+        version: link:../../packages/db-studio
       '@rntme/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -103,6 +106,43 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)
+
+  packages/db-studio:
+    dependencies:
+      hono:
+        specifier: ^4.6.0
+        version: 4.12.12
+      zod:
+        specifier: ^4.0.0
+        version: 4.3.6
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      prettier:
+        specifier: ^3.3.3
+        version: 3.8.2
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
         version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
   packages/event-store:
@@ -292,6 +332,9 @@ importers:
       '@rntme/bindings-http':
         specifier: workspace:*
         version: link:../bindings-http
+      '@rntme/db-studio':
+        specifier: workspace:*
+        version: link:../db-studio
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../event-store

@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const StudioConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    mountPath: z.string().startsWith('/').default('/_studio'),
+    maxRows: z.number().int().min(1).max(1_000_000).default(10_000),
+  })
+  .strict();
+
+export type StudioConfig = z.infer<typeof StudioConfigSchema>;
+
 export const ManifestSchema = z
   .object({
     rntmeVersion: z.string(),
@@ -61,5 +71,6 @@ export const ManifestSchema = z
       })
       .strict()
       .optional(),
+    studio: StudioConfigSchema.optional(),
   })
   .strict();

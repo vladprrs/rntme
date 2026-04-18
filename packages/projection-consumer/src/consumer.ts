@@ -13,6 +13,7 @@ export type ProjectionConsumerOptions = Readonly<{
 export type ProjectionConsumer = Readonly<{
   start(): void;
   stop(): Promise<void>;
+  getDbHandle(): Database;
 }>;
 
 /**
@@ -61,6 +62,9 @@ export function createProjectionConsumer(options: ProjectionConsumerOptions): Pr
     async stop() {
       kafka.stop?.();
       await loop;
+    },
+    getDbHandle() {
+      return db;
     },
   };
 }
