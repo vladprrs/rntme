@@ -1457,7 +1457,89 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > - **Possible direction:** Add an assertion that `build/main.js` exists and has been written within the current run before invoking Tailwind.
 > - **Links:** `packages/ui-runtime/src/build.ts`.
 
-_(pending — Task 20)_
+### 7.9 Vision alignment (highest-risk lens)
+
+Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-agent-generated services.** This lens asks whether the code actually supports that vision. Six sub-probes — agent-generability, validation tightness, implementation leakage, brand integrity, extensibility vs. hardcoding, scale properties — look for drift between the product promise and the shipping artefacts.
+
+#### Agent-generability
+
+> **[major]** PDM's `ScalarPrimitive` closed union has implicit domain constraints that are not expressed in Zod.
+> - **Why it is a smell:** `string` in PDM is an unbounded SQLite TEXT; an agent has no way to know that a specific field is expected to be, for example, an e-mail address or ISO-4217 currency code. The closed primitive set keeps the validator simple but shifts domain invariants off-artifact.
+> - **Possible direction:** Add a `constraint` mini-DSL (regex, enum, range) to `Field` that the Zod schema understands and the Graph-IR compiler checks at filter time.
+> - **Links:** `packages/pdm/src/parse/schema.ts` `scalarSchema`; `docs/gaps/pdm-gaps.md`.
+
+> **[major]** Binding input `mode` × `required` × `type-by-location` is a four-dimensional matrix enforced at validator time but not surfaced to an author generator.
+> - **Why it is a smell:** An agent drafting a binding has to learn the REQUIRED_BY_MODE rule, the path-placeholder rule, and the type/location matrix by reading four files. A mistake produces an error code but not a structural hint about what was expected.
+> - **Possible direction:** Expose the matrix as a machine-readable artifact (JSON) that an agent can consult at draft time.
+> - **Links:** `packages/bindings/src/validate/consistency.ts`; `2026-04-14-bindings-design.md` §6.
+
+> **[minor]** Seed artefact defaults (`eventId` template, `actor.system:seed`) are implicit.
+> - **Why it is a smell:** An agent writing a seed file by hand or by scaffold does not know it can omit `eventId` and get the deterministic default; the example fixtures supply explicit ids.
+> - **Possible direction:** Promote the default rule to a first-class section of `2026-04-15-runtime-seed-design.md` and surface it in an agent prompt template.
+> - **Links:** `packages/seed/src/apply.ts`.
+
+#### Validation tightness
+
+> **[info]** Bindings cross-ref layer resolves graph signatures via `BindingResolvers`.
+> - **Why it is a smell (negative evidence):** The layer checks every `bindTo` against the target graph's inputs and every output against the declared rowset shape. This is precisely the coverage the vision demands; no gap found as of cutoff.
+> - **Links:** `packages/bindings/src/validate/references.ts`.
+
+> **[major]** `ValidatedQsm` + `ValidatedBindings` do not cover the case where a command binding's response schema drifts from `CommandResult`.
+> - **Why it is a smell:** The `row<CommandResult>` requirement is enforced at binding validation, but the runtime response is assembled by `bindings-http` from `executeCommand`'s return value; if the return-shape ever gains a field the binding layer would not see it until the response JSON is served.
+> - **Possible direction:** Add a runtime contract test that round-trips a command binding through execute and validates the emitted JSON against `CommandResult`'s JSON Schema.
+> - **Links:** `packages/bindings-http/src/runtime/command-handler.ts`; `packages/bindings/src/openapi/command-result.ts`.
+
+#### Implementation leakage
+
+> **[major]** The UI-authoring state-path grammar includes `/data/__status` and `/data/__error` sentinels tied to the driver's per-endpoint fetch model.
+> - **Why it is a smell:** An author writing a UI must learn sentinel prefixes that exist only because the driver emits them. The authoring surface leaks the runtime's internal bookkeeping.
+> - **Possible direction:** Either rename sentinels to a domain-neutral namespace (`$loading`, `$error`) or hide them behind a compiled virtual accessor that the author references without knowing the prefix.
+> - **Links:** `packages/ui/src/validate/references.ts` (state-path coverage rule); `packages/ui-runtime/src/client/driver.ts`.
+
+> **[minor]** Bindings authoring exposes the `CommandResult` shape explicitly — authors of a command binding write `row<CommandResult>`, which implies knowing that the runtime emits CloudEvents envelopes with an `aggregateId / version / eventIds` triple.
+> - **Why it is a smell:** Arguably this is a necessary leak (the shape IS the contract), but it couples the binding author to the event-log topology. An author who wanted to "return the created row" has to make a second list call.
+> - **Possible direction:** Leave as-is (the alternative would hide event-sourcing semantics from authors who must know them anyway) but record the trade-off.
+> - **Links:** `packages/bindings/src/openapi/command-result.ts`.
+
+#### Brand integrity
+
+> **[info]** No brand-leak outside validators (see §7.4).
+> - **Why it is a smell (negative evidence):** The branded-type discipline holds across 10+ cast sites; the one advisory case (`lower.ts` fallback default) is not yet reachable from any real caller.
+> - **Links:** §7.4.
+
+#### Extensibility vs. hardcoding
+
+> **[major]** `BindingKind` is a closed `type` (`'query' | 'command'`).
+> - **Why it is a smell:** Adding a third binding kind (for example `subscription` for server-sent events, or `websocket`) requires editing `packages/bindings/src/types/artifact.ts`, every validator layer, every handler in `bindings-http`, and the OpenAPI emitter. There is no plugin seam.
+> - **Possible direction:** Introduce a `BindingHandler` plugin registry in `bindings-http` so new kinds can be registered without editing the core type.
+> - **Links:** `packages/bindings/src/types/artifact.ts`; `packages/bindings-http/src/runtime/`.
+
+> **[major]** `DbDriver`, `EventBus`, `Surface` seams exist, but the manifest schema hard-codes the selector names (`better-sqlite`, `in-memory`, `http`).
+> - **Why it is a smell:** Introducing a new driver (for example Turso) requires editing the manifest Zod schema and the plugin registry. The plugin-seam pattern is there but its registry is not open to a consumer without a code change.
+> - **Possible direction:** Allow the manifest to name an arbitrary string; let the runtime look it up in a constructor-passed registry keyed by name.
+> - **Links:** `packages/runtime/src/manifest/schema.ts`; `packages/runtime/src/plugins/interfaces.ts`.
+
+> **[minor]** The UI runtime's catalog is bound to shadcn in `packages/ui-runtime/src/client/registry.ts`.
+> - **Why it is a smell:** A consumer cannot swap the component library without forking the runtime.
+> - **Possible direction:** Accept a catalog factory function at `createApp` time; pass it through to the SPA via a bootstrap endpoint.
+> - **Links:** `packages/ui-runtime/src/client/registry.ts`.
+
+#### Scale properties
+
+> **[major]** Relay uses a single cursor per service.
+> - **Why it is a smell:** Number-of-services scale is fine, but number-of-consumers per service cannot grow beyond the single-relay model. If a second consumer wants its own pace (for example an analytics projection that is deliberately slower), there is no way to lag without blocking the primary relay.
+> - **Possible direction:** Allow multiple relay instances, each with its own `cursorId`; partition delivery by a hash of the subject.
+> - **Links:** `packages/event-store/src/relay/loop.ts`; `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+
+> **[minor]** Single-writer SQLite.
+> - **Why it is a smell:** A deployment that wants to scale write throughput cannot add a second rntme process against the same database file. Turso will help (SQLite-compatible), but the code path assumes `WAL + busy_timeout` is the answer to contention.
+> - **Possible direction:** Record the Turso migration path in `rntme_turso_target` and include the multi-writer test case when it lands.
+> - **Links:** memory `rntme_turso_target`; `packages/event-store/src/store/sqlite.ts`.
+
+> **[info]** Per-subject ordering in Kafka is preserved (key = subject) but cross-subject ordering is not.
+> - **Why it is a smell:** A saga that reasons across subjects (for example "issue created" then "user updated") must tolerate out-of-order delivery.
+> - **Possible direction:** Delegate cross-subject ordering to Zeebe; ensure the topic convention (`rntme.{svc}.{agg}`) feeds Zeebe cleanly.
+> - **Links:** `packages/event-store/src/relay/loop.ts`; memory `project_platform_vision`.
 
 ## 8. Glossary
 
