@@ -413,9 +413,9 @@ sequenceDiagram
 **Caption.** The boot-order invariant (see `2026-04-15-runtime-seed-design.md`) is that seed application and the publish relay are mutually exclusive in time: seeds are committed through `appendRaw` *before* the relay cursor starts advancing, or seed events would double-publish.
 ```
 
-- [ ] **Step 5: Render-check all four diagrams**
+- [ ] **Step 5: Render-check all three diagrams**
 
-Run: `grep -c '```mermaid' docs/architecture.md` — expect 6 (two from §1/§2 + four from §3).
+Run: `grep -c '```mermaid' docs/architecture.md` — expect 5 (two from §1/§2 + three from §3).
 
 - [ ] **Step 6: Commit**
 

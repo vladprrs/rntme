@@ -1,6 +1,6 @@
 # 2026-04-18 — Architecture overview document (design)
 
-**Status:** brainstormed, pending implementation plan
+**Status:** implementation plan drafted and executed (`docs/architecture.md` landed on 2026-04-18)
 **Deliverable target:** `docs/architecture.md` (new, at repo root-level `docs/`)
 **Related memory:** `rntme_vision_framing`, `rntme_graph_ir_rc7_not_canon`, `project_platform_vision`
 
@@ -69,7 +69,7 @@ Single file, single `.md`. Approximate length: 1500–2200 lines. Section
 numbering below is for the final document (`docs/architecture.md`), not this
 spec.
 
-```
+```text
 1. Executive summary
    - Primary framing (artifact-driven runtime, agent-generable services)
    - One summary diagram: 7 artifacts → validator → runtime → running service
