@@ -1423,7 +1423,41 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > - **Possible direction:** Rename `ColumnBinding` to `ColumnSource` in projection-consumer; the pure term "source" is already used for projection-source in QSM.
 > - **Links:** `packages/projection-consumer/src/types/apply.ts`, `packages/bindings/src/types/artifact.ts`.
 
-_(pending — Tasks 19–20)_
+### 7.7 Known bugs
+
+> **[info]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts::wrapPredicateOptional` — **fixed 2026-04-16** (commit swapped the OR arguments).
+> - **Why it is a smell (history):** The helper wraps a filter predicate with `(predSql) OR (? IS NULL)` per optional param. The pre-fix version emitted the guard `?` before the inner predicate's `?` in SQL text, but appended inner params first to `paramOrder`; SQLite binds `?` in walk-order, so mixed filters (required + optional params) silently bound the guard to the wrong value.
+> - **Regression tests:** `packages/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts` ("aligns param positions when required and predicate_optional params are mixed") and `packages/graph-ir-compiler/test/e2e/predicate-optional.e2e.test.ts`.
+> - **Links:** `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`; memory `rntme_predicate_optional_bug`.
+
+> **[info]** Demo list / search endpoints return raw FK ids instead of JOIN-enriched rows.
+> - **Why it is a smell:** `demo/issue-tracker-api` list endpoints expose fields like `createdBy: "u-1"` rather than `createdBy: { id, name }`. A UI author has to issue a second query per row, defeating the single-endpoint experience.
+> - **Possible direction:** Brainstorm JOIN compilation in graph-ir-compiler; until then, record this as a known limitation.
+> - **Links:** memory `demo_join_enrichment_todo`.
+
+### 7.8 Undocumented extensions
+
+> **[minor]** `AGENTS.md §§2, 7` and `CLAUDE.md` describe `graph_ir_rc_7.md` as "authoritative" / "canon".
+> - **Why it is a smell:** The owner treats rc7 as the historical first-step IR sketch, not the canon — later specs (the graph-ir-compiler MVP design and the CloudEvents envelope design) supersede it. Meta-docs diverge from current framing.
+> - **Possible direction:** Update `AGENTS.md §§2, 7` and the `CLAUDE.md` paragraph to call rc7 "historical context" and apply the generic "latest authoritative spec wins" rule.
+> - **Links:** memory `rntme_graph_ir_rc7_not_canon`.
+
+> **[minor]** `packages/runtime/src/plugins/contract-tests.ts` exists but is not exported from `index.ts`.
+> - **Why it is a smell:** Contract tests import `vitest`, so re-exporting them from production entries would contaminate runtime consumers with a test-only dependency. The workaround (import directly from the src path) is correct but undocumented in the package README; a new contributor does not know the file exists.
+> - **Possible direction:** Add a "Testing plugin seams" section to `packages/runtime/README.md` linking to `src/plugins/contract-tests.ts`.
+> - **Links:** `packages/runtime/src/plugins/contract-tests.ts`.
+
+> **[minor]** `packages/qsm/src/derive/ddl.ts` accepts `opts.derivedSchemas` to produce DDL for derived projections.
+> - **Why it is a smell:** The main `validateQsm()` rejects `backing: 'derived'` with `QSM_BACKING_DERIVED_NOT_SUPPORTED`, but the DDL generator has a fully functional code path for derived specs reachable only via this option. Nothing in the package README mentions it.
+> - **Possible direction:** Either document the forward-compat path in the QSM README, or move it into a `packages/qsm/src/derive/derived/` subdirectory with a clearly-gated export.
+> - **Links:** `packages/qsm/src/derive/ddl.ts` `buildDerivedSpec`; §6.1 Projection entry.
+
+> **[minor]** `packages/ui-runtime/src/build.ts` runs Tailwind v4 as a post-step; the ordering constraint is enforced only in the script's comments.
+> - **Why it is a smell:** If a future contributor re-orders the build steps (esbuild → Tailwind) to a parallel pair, Tailwind's `@source` scan runs against an out-of-date bundle and silently prunes shadcn classes. Nothing in the `build.ts` type surface prevents this.
+> - **Possible direction:** Add an assertion that `build/main.js` exists and has been written within the current run before invoking Tailwind.
+> - **Links:** `packages/ui-runtime/src/build.ts`.
+
+_(pending — Task 20)_
 
 ## 8. Glossary
 
