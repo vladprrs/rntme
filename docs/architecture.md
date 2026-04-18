@@ -875,6 +875,47 @@ sequenceDiagram
 
 **Caption.** Compilation is once-per-artifact at build or boot time; the SPA never re-runs validation. Per-screen lazy loading keeps the initial payload small: the shell + manifest is fetched up front, and each route pulls exactly one layout and one screen.
 
+### 4.8 Orchestration layer: `@rntme/seed`, `@rntme/db-studio`, `@rntme/runtime`
+
+#### 4.8.1 `@rntme/seed`
+
+**Purpose.** Parse, validate, and append a declarative JSON of event envelopes (`seed.json`) against the PDM and derived event-type specs, so a fresh deployment can arrive at a useful initial state.
+
+**Spec.** `docs/superpowers/specs/2026-04-15-runtime-seed-design.md` (landed). The before-relay invariant (spec §3.1, §8.3) is the central constraint: seed envelopes must be appended through `eventStore.appendRaw` **before** the relay starts its publish cursor, or seeded events would double-publish once the cursor reached them.
+
+**Surface.** `parseSeed`, `validateSeed`, `loadSeed`, `applySeed`, plus a `seedBuilder` helper and a `rntme-seed` CLI (`validate` / `apply`). Default `eventId` is deterministic (`seed:{aggregateType}:{aggregateId}:v{version}`), default `actor` is `{ kind: 'system', id: 'seed' }`.
+
+**Modes.** `strict` (runtime default — reject non-empty store with `SEED_STORE_NOT_EMPTY`) and `upsertByEventId` (CLI default — idempotent re-apply by skipping seen ids).
+
+See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
+
+#### 4.8.2 `@rntme/db-studio` (in-flight scaffold)
+
+**Purpose.** Expose a read-only libSQL Hrana v3 HTTP endpoint over rntme's two SQLite databases (event log + projection DB), so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
+
+**Spec.** `docs/superpowers/specs/2026-04-18-db-studio-design.md` (design landed; package scaffold in progress).
+
+**Status (2026-04-18).** Only `packages/db-studio/test/` is present; `src/`, `package.json`, and `README.md` are not yet tracked. The runtime manifest carries a `studio: { enabled: false, mountPath: '/_studio', maxRows: 10000 }` block; `http-surface.ts` will mount the sub-router when enabled. This subsection describes intent; refer to the spec for the authoritative shape until the package lands.
+
+**Planned safety.** Three layers of read-only guard: a second SQLite file handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with a PRAGMA allow-list, and a server-side row cap (default 10,000) wrapping every result.
+
+#### 4.8.3 `@rntme/runtime`
+
+**Purpose.** Service orchestrator: loads and validates every artifact (`manifest.json` + PDM / QSM / bindings / graphs / UI / seed), boots the plugin seams, wires the event pipeline, applies seed, and mounts the HTTP surface.
+
+**Spec.** `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md` (landed): manifest schema, plugin-seam registration, Docker entry, boot order.
+
+**Plugin seams** (see also §3.3) live in `packages/runtime/src/plugins/interfaces.ts` and are implemented by default in:
+
+- `plugins/better-sqlite-driver.ts` — `BetterSqliteDriver` (default `DbDriver`; reads `eventStorePath` and `qsmPath` from the manifest, falls back to ephemeral `:memory:` in dev).
+- `plugins/in-memory-bus.ts` — `InMemoryBus` (default `EventBus`; in-process Kafka emulation for tests and single-node deploys).
+- `plugins/http-surface.ts` — `HttpSurface` (default `Surface`; Hono app that mounts bindings at `/api`, the UI at `/`, and — when enabled — db-studio at `/_studio`).
+- `plugins/observability.ts` — Prometheus `/metrics` and a `/health` probe; consumed by any surface.
+
+**Boot order (strict; tested in `test/integration/start-service.test.ts`):** `bus.start → wireEventPipeline (no auto-start) → applySeed → pipeline.start (relay + consumer) → HTTP listen`. Reordering any step breaks the before-relay invariant.
+
+**Public API.** `loadService`, `startService`, `buildActorFromRequest`, the `DbDriver` / `EventBus` / `Surface` interfaces and their default implementations, plus the Prometheus helpers. `contract-tests.ts` is deliberately not re-exported (vitest-only dependency); tests import it from the src path.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
