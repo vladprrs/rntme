@@ -5,16 +5,24 @@ import {
   type ProjectionHandlerSpec,
   type EventHandler,
 } from '@rntme/qsm';
-import type { ApplyPlan, CompiledHandler, ColumnBinding } from '../types/apply.js';
+import type {
+  ApplyPlan,
+  CompiledHandler,
+  ColumnBinding,
+  MirrorHandler,
+  DerivedHandler,
+} from '../types/apply.js';
 import { ApplyCompileError } from '../types/errors.js';
 
 export function compileApplyPlan(input: {
   pdm: PdmResolver;
   qsm: ValidatedQsm;
   events: readonly EventTypeSpec[];
+  derivedHandlers?: readonly DerivedHandler[];
 }): ApplyPlan {
   const specs = deriveProjectionHandler(input.qsm, input.pdm, input.events);
-  const handlersByEventType = new Map<string, CompiledHandler>();
+  const mirrorBuckets = new Map<string, MirrorHandler[]>();
+  const derivedBuckets = new Map<string, DerivedHandler[]>();
   const mirrorsByAggregate = new Map<string, string>();
   const eventByType = new Map(input.events.map((e) => [e.eventType, e]));
 
@@ -49,16 +57,40 @@ export function compileApplyPlan(input: {
           { eventType: handler.eventType },
         );
       }
+      let compiled: MirrorHandler | null = null;
       if (handler.op.kind === 'insert') {
-        handlersByEventType.set(
-          handler.eventType,
-          compileInsert(spec, handler, entity, eventSpec),
-        );
+        compiled = compileInsert(spec, handler, entity, eventSpec);
+      } else if (handler.op.kind === 'update') {
+        compiled = compileUpdate(spec, handler, entity);
       }
-      if (handler.op.kind === 'update') {
-        handlersByEventType.set(handler.eventType, compileUpdate(spec, handler, entity));
+      if (compiled) {
+        const bucket = mirrorBuckets.get(handler.eventType);
+        if (bucket) bucket.push(compiled);
+        else mirrorBuckets.set(handler.eventType, [compiled]);
       }
     }
+  }
+
+  for (const dh of input.derivedHandlers ?? []) {
+    const bucket = derivedBuckets.get(dh.eventType);
+    if (bucket) bucket.push(dh);
+    else derivedBuckets.set(dh.eventType, [dh]);
+  }
+
+  // Merge: mirror-first, then derived handlers sorted by projectionName for
+  // deterministic ordering across runs.
+  const handlersByEventType = new Map<string, readonly CompiledHandler[]>();
+  const eventTypes = new Set<string>([
+    ...mirrorBuckets.keys(),
+    ...derivedBuckets.keys(),
+  ]);
+  for (const et of eventTypes) {
+    const mirrors = mirrorBuckets.get(et) ?? [];
+    const derived = [...(derivedBuckets.get(et) ?? [])].sort((a, b) =>
+      a.projectionName < b.projectionName ? -1 : a.projectionName > b.projectionName ? 1 : 0,
+    );
+    const combined: CompiledHandler[] = [...mirrors, ...derived];
+    handlersByEventType.set(et, combined);
   }
 
   return {
@@ -72,7 +104,7 @@ function compileInsert(
   handler: EventHandler,
   entity: ResolvedEntity,
   eventSpec: EventTypeSpec,
-): CompiledHandler {
+): MirrorHandler {
   if (handler.op.kind !== 'insert') {
     throw new ApplyCompileError(
       'PC_MISSING_ENTITY_FIELD',
@@ -202,7 +234,7 @@ function compileUpdate(
   spec: ProjectionHandlerSpec,
   handler: EventHandler,
   entity: ResolvedEntity,
-): CompiledHandler {
+): MirrorHandler {
   if (handler.op.kind !== 'update') {
     throw new ApplyCompileError(
       'PC_MISSING_ENTITY_FIELD',

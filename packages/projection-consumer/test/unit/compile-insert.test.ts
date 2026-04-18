@@ -9,6 +9,7 @@ import {
   parseQsm, validateQsm,
 } from '@rntme/qsm';
 import { compileApplyPlan } from '../../src/apply/compile.js';
+import { getMirror } from '../fixtures/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
@@ -32,7 +33,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('emits one insert handler for IssueReport (creation)', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     expect(report).toBeDefined();
     expect(report.kind).toBe('insert');
     expect(report.tableName).toBe('projection_issue');
@@ -43,7 +44,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('INSERT SQL targets every mirror column + idempotency columns', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     expect(report.sql).toMatch(/INSERT INTO "projection_issue"/);
     expect(report.sql).toContain('"id"');
     expect(report.sql).toContain('"title"');
@@ -57,7 +58,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('INSERT SQL uses ON CONFLICT DO UPDATE with version guard', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     expect(report.sql).toMatch(/ON CONFLICT\s*\(\s*"id"\s*\)\s+DO UPDATE SET/i);
     expect(report.sql).toMatch(/WHERE\s+"projection_issue"\."last_event_version"\s*<\s*excluded\."last_event_version"/i);
   });
@@ -65,7 +66,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('bindings are in SQL placeholder order: one per column in (mirror ++ idempotency)', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     // 11 mirror columns + 3 idempotency columns = 14
     expect(report.bindings).toHaveLength(14);
     // first binding is aggregateId (id column, integer)
@@ -77,7 +78,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('non-affects nullable columns (e.g. assignee_id at creation) bind to NULL', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     // Find the binding position for assignee_id
     const colsMatch = report.sql.match(/\(\s*"(?:[^"]+)"(?:\s*,\s*"(?:[^"]+)")*\s*\)\s+VALUES/);
     expect(colsMatch).not.toBeNull();
@@ -88,7 +89,7 @@ describe('compileApplyPlan — INSERT (creation) handlers', () => {
   it('generated=createdAt column binds to generatedOccurred', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     expect(report.bindings.some((b) => b.kind === 'generatedOccurred')).toBe(true);
   });
 

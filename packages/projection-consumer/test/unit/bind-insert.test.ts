@@ -9,6 +9,7 @@ import { parseQsm, validateQsm } from '@rntme/qsm';
 import { compileApplyPlan } from '../../src/apply/compile.js';
 import { bindValues } from '../../src/apply/bind.js';
 import { makeEnvelope } from '../fixtures/envelopes.js';
+import { getMirror } from '../fixtures/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
@@ -30,7 +31,7 @@ function setup() {
 describe('bindValues — INSERT', () => {
   it('returns the same number of params as bindings', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({
       eventId: 'ev-a', aggregateId: '123', version: 1,
       occurredAt: '2026-04-14T10:00:00.000Z',
@@ -41,7 +42,7 @@ describe('bindValues — INSERT', () => {
 
   it('aggregateId coerced to integer for integer-typed key', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({ aggregateId: '123', version: 1 });
     const vals = bindValues(report, env);
     expect(vals[0]).toBe(123); // id column first
@@ -50,7 +51,7 @@ describe('bindValues — INSERT', () => {
 
   it('payloadField values lifted straight from payload.after', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({
       aggregateId: '1', version: 1,
       payload: { before: null, after: { status: 'draft', title: 'X', projectId: 9, reporterId: 5, priority: 'low', storyPoints: 2 } },
@@ -67,7 +68,7 @@ describe('bindValues — INSERT', () => {
 
   it('generatedOccurred binds to envelope.occurredAt', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({ aggregateId: '1', version: 1, occurredAt: '2030-01-01T00:00:00.000Z' });
     const vals = bindValues(report, env);
     expect(vals).toContain('2030-01-01T00:00:00.000Z');
@@ -75,7 +76,7 @@ describe('bindValues — INSERT', () => {
 
   it('nullable unbound columns bind to null', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({ aggregateId: '1', version: 1 });
     const vals = bindValues(report, env);
     // assignee_id has no payload source, nullable → null
@@ -84,7 +85,7 @@ describe('bindValues — INSERT', () => {
 
   it('eventId / eventVersion / appliedAt at the tail (insert idempotency)', () => {
     const plan = setup();
-    const report = plan.handlersByEventType.get('IssueReport')!;
+    const report = getMirror(plan, 'IssueReport');
     const env = makeEnvelope({ eventId: 'ev-xyz', version: 7 });
     const vals = bindValues(report, env);
     const tail = vals.slice(-3);

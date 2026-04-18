@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@rntme/event-store": "workspace:*",
+    "@rntme/graph-ir-compiler": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "@rntme/qsm": "workspace:*",
     "better-sqlite3": "^11.3.0"

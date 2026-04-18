@@ -212,6 +212,9 @@ importers:
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../event-store
+      '@rntme/graph-ir-compiler':
+        specifier: workspace:*
+        version: link:../graph-ir-compiler
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm

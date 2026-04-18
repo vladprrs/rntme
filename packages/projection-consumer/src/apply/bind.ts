@@ -1,8 +1,8 @@
 import type { EventEnvelope } from '@rntme/event-store';
-import type { CompiledHandler, ColumnBinding } from '../types/apply.js';
+import type { MirrorHandler, ColumnBinding } from '../types/apply.js';
 
 /** Resolve each binding to a concrete SQL param value, in order. */
-export function bindValues(handler: CompiledHandler, envelope: EventEnvelope): unknown[] {
+export function bindValues(handler: MirrorHandler, envelope: EventEnvelope): unknown[] {
   const appliedAt = new Date().toISOString();
   const values: unknown[] = [];
   const after = getAfter(envelope);
