@@ -4,8 +4,37 @@ import type {
   ParsedManifest,
   ValidatedManifest,
 } from './types.js';
+import type { StudioConfig } from './schema.js';
 
 export type SemverTriple = { major: number; minor: number; patch: number };
+
+const RESERVED_PREFIXES = ['/api', '/ui', '/health', '/metrics'];
+
+function validateStudioMountPath(
+  studio: ParsedManifest['studio'],
+  errors: ManifestError[],
+): void {
+  if (!studio?.mountPath) return;
+  const p = studio.mountPath;
+  if (p === '/' || p === '') {
+    errors.push({
+      code: 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT',
+      path: 'studio.mountPath',
+      message: `studio.mountPath "${p}" conflicts with a reserved path`,
+    });
+    return;
+  }
+  for (const reserved of RESERVED_PREFIXES) {
+    if (p === reserved || p.startsWith(reserved + '/') || reserved.startsWith(p + '/')) {
+      errors.push({
+        code: 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT',
+        path: 'studio.mountPath',
+        message: `studio.mountPath "${p}" conflicts with reserved prefix "${reserved}"`,
+      });
+      return;
+    }
+  }
+}
 
 function parseSemver(s: string): SemverTriple | null {
   const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(s.trim());
@@ -61,7 +90,15 @@ export function validateManifest(
     persistence = { mode: 'ephemeral' };
   }
 
+  validateStudioMountPath(parsed.studio, errors);
+
   if (errors.length > 0) return { ok: false, errors };
+
+  const studio: StudioConfig = {
+    enabled: parsed.studio?.enabled ?? false,
+    mountPath: parsed.studio?.mountPath ?? '/_studio',
+    maxRows: parsed.studio?.maxRows ?? 10_000,
+  };
 
   const v: ValidatedManifest = {
     rntmeVersion: semver!,
@@ -87,6 +124,7 @@ export function validateManifest(
       enabled: parsed.seed?.enabled !== false,
       path: parsed.seed?.path ?? 'seed.json',
     },
+    studio,
   };
   return { ok: true, value: v };
 }
