@@ -30,7 +30,7 @@ async function pipeline(target: string, sql: string): Promise<{ type: string; re
     body: JSON.stringify({ baton: null, requests: [{ type: 'execute', stmt: { sql } }] }),
   });
   const body = (await res.json()) as { results: Array<{ type: string; response?: { result: { rows: unknown[][] } }; error?: { code: string } }> };
-  return body.results[0];
+  return body.results[0]!;
 }
 
 beforeAll(async () => {
@@ -57,13 +57,13 @@ describe('db-studio e2e in demo', () => {
   it('events target returns seeded events', async () => {
     const r = await pipeline('events', 'SELECT count(*) FROM event_log');
     expect(r.type).toBe('ok');
-    const n = Number((r.response!.result.rows[0][0] as { value: string }).value);
+    const n = Number((r.response!.result.rows[0]![0] as { value: string }).value);
     expect(n).toBeGreaterThan(0);
   });
 
   it('qsm target returns 11 seeded issues', async () => {
     const r = await pipeline('qsm', 'SELECT count(*) FROM projection_issue');
-    const n = Number((r.response!.result.rows[0][0] as { value: string }).value);
+    const n = Number((r.response!.result.rows[0]![0] as { value: string }).value);
     expect(n).toBe(11);
   });
 
@@ -72,7 +72,7 @@ describe('db-studio e2e in demo', () => {
     expect(r.error?.code).toBe('DB_STUDIO_READONLY_NOT_SELECT');
 
     const readback = await pipeline('qsm', "SELECT title FROM projection_issue WHERE id=7001");
-    const title = (readback.response!.result.rows[0][0] as { value: string }).value;
+    const title = (readback.response!.result.rows[0]![0] as { value: string }).value;
     expect(title).not.toBe('hacked');
   });
 
