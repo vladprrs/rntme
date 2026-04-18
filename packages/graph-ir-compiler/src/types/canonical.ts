@@ -7,7 +7,7 @@ export type CanonicalFindMany = {
   kind: 'findMany';
   id: string;
   scope: ScopeId;
-  source: { entity: string } | { projection: string };
+  source: { entity: string } | { projection: string } | { eventType: string };
   alias: string;
 };
 

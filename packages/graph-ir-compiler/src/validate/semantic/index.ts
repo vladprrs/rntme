@@ -7,6 +7,8 @@ import { checkMapShapeConformance } from './shape-conformance.js';
 import { checkReduce } from './aggregate-phase.js';
 import { checkParamContext } from './param-context.js';
 import { checkEmit } from './emit.js';
+import { validateProjectionWhitelist } from './projection-whitelist.js';
+import { inferRole } from '../../role/infer.js';
 import { inferExprType, type ParamMap } from './types.js';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
 import type { Scope } from './scope.js';
@@ -40,7 +42,20 @@ export function validateSemantic(
 
     if (node.kind === 'findMany') {
       const src = sourcesR.value.get(node.id);
-      if (src) scope = { aliases: new Map([[src.alias, { entity: src.entity }]]) };
+      if (src) {
+        if (src.kind === 'eventType') {
+          scope = {
+            aliases: new Map([
+              [
+                src.alias,
+                { kind: 'eventRow', aggregateType: src.aggregateType, payloadFields: src.payloadFields },
+              ],
+            ]),
+          };
+        } else {
+          scope = { aliases: new Map([[src.alias, { kind: 'entity', entity: src.entity }]]) };
+        }
+      }
     } else if (node.kind === 'filter') {
       const r = inferExprType(node.expr, scope, pdm, params);
       if (!r.ok) errors.push(...r.errors);
@@ -78,6 +93,11 @@ export function validateSemantic(
   errors.push(...checkParamContext(graph));
 
   errors.push(...checkEmit(graph, pdm, qsm));
+
+  const roleR = inferRole(graph);
+  if (roleR.ok && roleR.value === 'projection') {
+    errors.push(...validateProjectionWhitelist(graph));
+  }
 
   return errors.length ? err(errors) : ok(graph);
 }

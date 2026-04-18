@@ -42,6 +42,10 @@ function lower(node: CanonicalNode, sources: SourceMap, pdm: ValidatedPdm): Plan
     case 'findMany': {
       const src = sources.get(node.id);
       if (!src) return undefined;
+      if (src.kind === 'eventType') {
+        // Event-source plan step produced by Task 7 (semantic-plan + relational build).
+        return undefined;
+      }
       const entity = pdm.entities[src.entity];
       if (!entity) return undefined;
       const fields = Object.entries(entity.fields).map(([name, f]) => ({

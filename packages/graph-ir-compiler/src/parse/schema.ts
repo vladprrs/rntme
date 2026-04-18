@@ -71,8 +71,9 @@ const findManyNode = z
     config: z
       .object({
         source: z.union([
-          z.object({ entity: z.string() }).strict(),
-          z.object({ projection: z.string() }).strict(),
+          z.object({ entity: z.string().min(1) }).strict(),
+          z.object({ projection: z.string().min(1) }).strict(),
+          z.object({ eventType: z.string().min(1) }).strict(),
         ]),
       })
       .strict(),

@@ -5,7 +5,7 @@ import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
 
 describe('resolveField (single-level)', () => {
   const scope: Scope = {
-    aliases: new Map([['orderItem', { entity: 'OrderItem' }]]),
+    aliases: new Map([['orderItem', { kind: 'entity', entity: 'OrderItem' }]]),
   };
 
   it('resolves alias.field to entity field type', () => {

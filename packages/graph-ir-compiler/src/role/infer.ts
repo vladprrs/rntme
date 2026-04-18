@@ -1,7 +1,7 @@
 import type { CanonicalGraph } from '../types/canonical.js';
 import { err, ok, ERROR_CODES, type Result } from '../types/result.js';
 
-export type GraphRole = 'predicate' | 'mapper' | 'reducer' | 'query' | 'command';
+export type GraphRole = 'predicate' | 'mapper' | 'reducer' | 'query' | 'command' | 'projection';
 
 export function inferRole(graph: CanonicalGraph): Result<GraphRole> {
   const hasEmit = graph.nodes.some((n) => n.kind === 'emit');
@@ -15,6 +15,12 @@ export function inferRole(graph: CanonicalGraph): Result<GraphRole> {
   const rootType = rootEntry?.[1].type;
   const rootIsRow = typeof rootType === 'object' && rootType !== null && 'row' in rootType;
   const rootIsRowset = typeof rootType === 'object' && rootType !== null && 'rowset' in rootType;
+
+  const rootFindMany = graph.nodes.find(
+    (n) => n.kind === 'findMany' && 'eventType' in n.source,
+  );
+
+  if (rootFindMany && hasReduce && outputIsRowset && !hasEmit) return ok('projection');
 
   if (rootIsRow && outputIsBoolean) return ok('predicate');
   if (rootIsRow && outputIsRow) return ok('mapper');

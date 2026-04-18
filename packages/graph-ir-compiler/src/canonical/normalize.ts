@@ -12,8 +12,10 @@ function camelCase(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
-function sourceAlias(source: { entity: string } | { projection: string }): string {
-  return camelCase('entity' in source ? source.entity : source.projection);
+function sourceAlias(source: { entity: string } | { projection: string } | { eventType: string }): string {
+  if ('entity' in source) return camelCase(source.entity);
+  if ('projection' in source) return camelCase(source.projection);
+  return camelCase(source.eventType);
 }
 
 export function normalize(

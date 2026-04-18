@@ -1,5 +1,6 @@
 import type { CanonicalGraph, CanonicalNode } from '../../types/canonical.js';
-import type { ValidatedPdm } from '@rntme/pdm';
+import type { EventFieldSpec, ValidatedPdm } from '@rntme/pdm';
+import { deriveEventTypes } from '@rntme/pdm';
 import { createQsmResolver, type ValidatedQsm } from '@rntme/qsm';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
 
@@ -101,7 +102,14 @@ export type ProjectionSource = {
   table: string;
   alias: string;
 };
-export type ResolvedSource = EntitySource | ProjectionSource;
+export type EventSource = {
+  kind: 'eventType';
+  eventType: string;
+  aggregateType: string;
+  payloadFields: Readonly<Record<string, EventFieldSpec>>;
+  alias: string;
+};
+export type ResolvedSource = EntitySource | ProjectionSource | EventSource;
 
 export type SourceMap = Map<string, ResolvedSource>;
 
@@ -130,10 +138,10 @@ export function checkNavRelations(
         aliasToStartProj.set(src.alias, mirror.name);
       }
       // If no mirror: skip (checkNavProjectionRequired already handles this case)
-    } else {
-      // kind === 'projection': projection name is already known
+    } else if (src.kind === 'projection') {
       aliasToStartProj.set(src.alias, src.projection);
     }
+    // kind === 'eventType': no entity-mirror dot-nav — skip.
   }
 
   if (aliasToStartProj.size === 0) return [];
@@ -210,7 +218,7 @@ export function resolveSources(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: Va
       const mirror = qsmResolver.findEntityMirror(node.source.entity);
       const table = mirror ? mirror.table : entity.table;
       map.set(node.id, { kind: 'entity', entity: node.source.entity, table, alias: node.alias });
-    } else {
+    } else if ('projection' in node.source) {
       const rp = qsmResolver.resolveProjection(node.source.projection);
       if (!rp) {
         errors.push({
@@ -236,6 +244,26 @@ export function resolveSources(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: Va
         projection: node.source.projection,
         entity: rp.source.entity,
         table: entity.table,
+        alias: node.alias,
+      });
+    } else if ('eventType' in node.source) {
+      const eventTypeName = node.source.eventType;
+      const events = deriveEventTypes(pdm);
+      const spec = events.find((e) => e.eventType === eventTypeName);
+      if (!spec) {
+        errors.push({
+          layer: 'semantic',
+          code: ERROR_CODES.PROJ_SEMANTIC_UNKNOWN_EVENT_TYPE,
+          message: `eventType "${eventTypeName}" not found in PDM-derived events`,
+          location: { graphId: graph.id, nodeId: node.id },
+        });
+        continue;
+      }
+      map.set(node.id, {
+        kind: 'eventType',
+        eventType: spec.eventType,
+        aggregateType: spec.aggregateType,
+        payloadFields: spec.payloadFields,
         alias: node.alias,
       });
     }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { inferExprType } from '../../../../src/validate/semantic/types.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
 import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
-const scope: Scope = { aliases: new Map([['orderItem', { entity: 'OrderItem' }]]) };
+const scope: Scope = { aliases: new Map([['orderItem', { kind: 'entity', entity: 'OrderItem' }]]) };
 const params = new Map<string, { type: string; nullable: boolean }>([
   ['minPrice', { type: 'decimal', nullable: false }],
 ]);
