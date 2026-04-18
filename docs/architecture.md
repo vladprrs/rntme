@@ -16,7 +16,7 @@ where styling is desired — copy, do not invent new colours):
 
 # rntme — Architecture Overview
 
-> Status: in progress (writing per plan `docs/superpowers/plans/2026-04-18-architecture-overview.md`).
+> Cutoff: 2026-04-18. Written per plan `docs/superpowers/plans/2026-04-18-architecture-overview.md`.
 >
 > Spec: `docs/superpowers/specs/2026-04-18-architecture-overview-design.md`.
 >
