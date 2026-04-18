@@ -599,6 +599,64 @@ sequenceDiagram
 
 **Caption.** Query lowering uses QSM relation metadata (post-2026-04-16) to construct JOINs; the response shape is declared in the binding artifact and validated against the query's output row-type.
 
+### 4.5 `@rntme/projection-consumer`
+
+**Purpose.** Kafka-to-SQLite read-side runner. Bootstraps entity-mirror DDL, compiles per-event apply handlers from PDM + QSM (and from graph-IR-derived projection handlers), and drains envelopes into projection rows under an all-or-nothing batch transaction, guarded by hybrid idempotency.
+
+**Spec lineage.**
+
+| Spec | Date | Status | Contribution |
+| --- | --- | --- | --- |
+| `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed | §6 projection consumer + QSM store: mirror table shape (§6.1–§6.3), batch loop (§6.4), three-layer idempotent apply (§6.5), offset tracking (§6.6), tier-2 deferrals (§6.9). |
+| `docs/superpowers/specs/2026-04-18-d5-consumer-idempotency-hybrid-design.md` | 2026-04-18 | proposed | D5 hybrid idempotency: per-row `last_event_version` for mirrors plus a shared `seen_events(event_id, projection_id)` table for derived projections; unblocks graph-IR-backed projections. |
+
+**Component diagram.**
+
+```mermaid
+flowchart LR
+    classDef stage fill:#5c3a1b,stroke:#e29a4a,color:#fff;
+    classDef run fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+    classDef store fill:#1b5c3a,stroke:#4ae29a,color:#fff;
+
+    BOOT["store/bootstrap.ts<br/>(mirror DDL + seen_events)"]:::store
+    CP["apply/compile.ts<br/>compileApplyPlan"]:::stage
+    QSM["qsm.ValidatedQsm + events"] --> CP
+    PDM["pdm.PdmResolver"] --> CP
+    DH["graph-ir DerivedHandler[]"] --> CP
+    CP --> AP["ApplyPlan"]
+    AP --> AE["apply/apply-event.ts<br/>applyEvent"]:::run
+    AE --> BIND["apply/bind.ts<br/>bindValues / bindDerivedValue"]:::run
+    C["consumer.ts<br/>createProjectionConsumer"]:::run --> AE
+    C --> BOOT
+    AE --> DB[("SQLite projection tables + seen_events")]
+```
+
+**Caption.** `compileApplyPlan` is pure and can run at build time; `applyEvent` runs inside the batch transaction owned by `createProjectionConsumer`. The `seen_events` table is created alongside the mirror tables in `bootstrapProjections`.
+
+**Components.**
+
+- **`store/bootstrap.ts`** — `bootstrapProjections(db, ProjectionDdlSpec[])` rewrites DDL to `IF NOT EXISTS` and creates the shared `seen_events(event_id, projection_id)` composite-key table plus an `applied_at` index.
+- **`apply/compile.ts`** — `compileApplyPlan({ pdm, qsm, events, derivedHandlers? })` → `ApplyPlan`. Pure (no DB); produces `handlersByEventType` and `mirrorsByAggregate`. Rejects composite keys with `PC_COMPOSITE_KEY_NOT_SUPPORTED` and missing fields with `PC_MISSING_ENTITY_FIELD`.
+- **`apply/apply-event.ts`** — `applyEvent` dispatches by handler kind: mirror handlers pre-check `last_event_version`, run the compiled SQL, and reclassify 0-row writes as `skipped-older-version`; derived handlers gate on `seen_events`, run the delta UPSERT, and record the seen row.
+- **`apply/bind.ts`** — `bindValues` (mirror) and `bindDerivedValue` (derived) resolve `ColumnBinding` unions to positional SQL params in the exact order emitted by `compileApplyPlan`.
+- **`consumer.ts`** — `createProjectionConsumer({ db, plan, consumer, onError? })` runs the batch loop: `BEGIN IMMEDIATE → for each envelope applyEvent → COMMIT → commitOffsets(batch)`; `ROLLBACK` on any throw. Without `onError`, loop terminates on failure; with `onError`, offsets stay uncommitted and the batch is re-delivered.
+- **`kafka/in-memory.ts`** — Test / demo `KafkaConsumer` adapter with async-iterator, monotonic offsets, and replay via `produce`.
+- **`types/apply.ts` + `types/consumer.ts` + `types/errors.ts`** — `ApplyPlan`, `CompiledHandler` (union of `MirrorHandler | DerivedHandler`), `ColumnBinding` union (8 kinds), `ApplyResult` (5 outcomes), `KafkaConsumer` interface, and `ApplyCompileErrorCode`.
+
+**Invariants.**
+
+- **Three-layer idempotency for mirror handlers.** (1) Pre-check `last_event_version`; (2) `INSERT … ON CONFLICT DO UPDATE … WHERE last_event_version < excluded.last_event_version`; (3) `UPDATE … WHERE last_event_version < ?`. Removing any layer regresses replay safety.
+- **Hybrid idempotency for derived handlers.** Composite `seen_events(event_id, projection_id)` table gates each apply; inserted after a successful delta UPSERT. `last_event_version` is not available on derived rows (aggregates over many events).
+- **Batch atomicity.** All events in a Kafka batch commit together under `BEGIN IMMEDIATE`; a thrown apply rolls the whole batch back and leaves offsets uncommitted, so the broker re-delivers.
+- **Single-column key only.** Composite keys rejected at compile; deferred to tier 2.
+- **Idempotency columns are appended in a fixed order.** Reordering breaks positional binding.
+- **Unknown aggregate ⇒ commit-but-skip.** Envelopes targeting an aggregate without a mirror return `skipped-no-mirror`; the batch still commits its offset.
+- **Type coercion is centralised.** `bindValues` and the pre-check `SELECT` coerce aggregate-id types identically; divergence breaks the version guard for integer keys.
+- **No DLQ here.** A poison message is the relay's or the Kafka adapter's concern; the consumer only exposes `onError` to swap termination for continue.
+- **State-column literal only on creation with a state machine.** Otherwise the state column comes from `payload.after`.
+- **`generated: 'createdAt' | 'updatedAt'` both bind `envelope.occurredAt`.** Updates re-emit `updatedAt` on every event.
+- **SQLite-only today.** Uses `BEGIN IMMEDIATE`, `ON CONFLICT DO UPDATE`, and `excluded.<col>`; future target is Turso.
+
 ## 5. L4 — Code
 
 _(pending — Task 13)_
