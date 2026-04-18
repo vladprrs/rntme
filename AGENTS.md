@@ -21,6 +21,9 @@
 - `packages/`               — workspace packages (see §3 for layering)
 - `demo/issue-tracker-api/` — end-to-end wiring of every package; the
   canonical worked example
+- `rntme-cli/`              — private git submodule (`vladprrs/rntme-cli`)
+  hosting `@rntme-cli/*` packages. See
+  `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)

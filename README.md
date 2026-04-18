@@ -115,6 +115,17 @@ Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio
 
 Requirements: **Node.js ≥ 20**, **pnpm ≥ 9** (CI uses pnpm 9.12.0).
 
+### Private submodule (`rntme-cli/`)
+
+Some CLI code lives in a private submodule at `rntme-cli/` backed by
+`vladprrs/rntme-cli`. Clone the monorepo with
+`git clone --recurse-submodules https://github.com/vladprrs/rntme.git`, or
+after a plain clone run `git submodule update --init --recursive`. New git
+worktrees created with `git worktree add` do not initialise submodules
+automatically — run `git submodule update --init --recursive` inside each
+new worktree. External contributors without access to the private repo will
+see `pnpm -r` skip `@rntme-cli/*` workspace members.
+
 ```bash
 pnpm install
 pnpm -r run build
