@@ -140,24 +140,6 @@ describe('validateCrossRef', () => {
     }
   });
 
-  it('rejects backing: "derived" (tier 2 not supported)', () => {
-    const r = runXref({
-      projections: {
-        X: {
-          backing: 'derived',
-          source: { entity: 'Issue' },
-          keys: ['id'],
-          grain: ['id'],
-          exposed: ['id'],
-        },
-      },
-    });
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.errors.some((e) => e.code === ERROR_CODES.QSM_BACKING_DERIVED_NOT_SUPPORTED)).toBe(true);
-    }
-  });
-
   it('rejects entity-mirror on entity without stateMachine', () => {
     const r = runXref({
       projections: {

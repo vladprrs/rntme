@@ -1,7 +1,7 @@
 import type { CanonicalGraph, CanonicalNode } from '../../types/canonical.js';
 import type { EventFieldSpec, ValidatedPdm } from '@rntme/pdm';
 import { deriveEventTypes } from '@rntme/pdm';
-import { createQsmResolver, type ValidatedQsm } from '@rntme/qsm';
+import { createQsmResolver, isEntityMirrorSource, type ValidatedQsm } from '@rntme/qsm';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from '../../types/result.js';
 
 /**
@@ -67,7 +67,10 @@ export function checkNavProjectionRequired(
   for (const [, src] of sources) {
     if (src.kind !== 'entity') continue;
     const hasMirror = Object.values(qsm.projections).some(
-      (p) => (p.backing ?? 'entity-mirror') === 'entity-mirror' && p.source.entity === src.entity,
+      (p) =>
+        (p.backing ?? 'entity-mirror') === 'entity-mirror' &&
+        isEntityMirrorSource(p.source) &&
+        p.source.entity === src.entity,
     );
     if (!hasMirror) {
       projectionlessAliases.add(src.alias);
@@ -225,6 +228,16 @@ export function resolveSources(graph: CanonicalGraph, pdm: ValidatedPdm, qsm: Va
           layer: 'semantic',
           code: ERROR_CODES.SEM_SOURCE_NOT_FOUND,
           message: `projection "${node.source.projection}" not found in QSM`,
+          location: { graphId: graph.id, nodeId: node.id },
+        });
+        continue;
+      }
+      if (!isEntityMirrorSource(rp.source)) {
+        // Graph scans over `projection` require an entity-mirror projection.
+        errors.push({
+          layer: 'semantic',
+          code: ERROR_CODES.SEM_SOURCE_NOT_FOUND,
+          message: `projection "${node.source.projection}" is not an entity-mirror projection; scans require an entity-backed source`,
           location: { graphId: graph.id, nodeId: node.id },
         });
         continue;

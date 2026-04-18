@@ -1,5 +1,6 @@
 import type { PdmResolver, ResolvedEntity, EventTypeSpec } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
+import { isEntityMirrorSource } from '../types/artifact.js';
 import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
 
@@ -52,6 +53,11 @@ export function deriveProjectionHandler(
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const backing = proj.backing ?? 'entity-mirror';
     if (backing !== 'entity-mirror') continue;
+    if (!isEntityMirrorSource(proj.source)) {
+      // Structural layer guarantees entity-mirror carries an entity source;
+      // guard here to appease the union narrowing.
+      throw invariantViolated(`entity-mirror projection "${projName}" has non-entity source (structural layer bug)`);
+    }
 
     const entity = pdm.resolveEntity(proj.source.entity);
     if (!entity) {

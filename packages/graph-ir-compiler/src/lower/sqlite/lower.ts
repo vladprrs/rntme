@@ -1,5 +1,6 @@
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
+import { isEntityMirrorSource } from '@rntme/qsm';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
@@ -291,7 +292,11 @@ function makeColumnOf(
       // Resolve scan.entity → entity-mirror projection name
       let startProjName: string | undefined;
       for (const [projName, proj] of Object.entries(context.qsm.projections)) {
-        if ((proj.backing ?? 'entity-mirror') === 'entity-mirror' && proj.source.entity === scan.entity) {
+        if (
+          (proj.backing ?? 'entity-mirror') === 'entity-mirror' &&
+          isEntityMirrorSource(proj.source) &&
+          proj.source.entity === scan.entity
+        ) {
           startProjName = projName;
           break;
         }
@@ -321,6 +326,9 @@ function makeColumnOf(
         : startProjName;
       const leafProj = context.qsm.projections[leafProjName];
       if (!leafProj) throw new Error(`lower: unknown projection ${leafProjName}`);
+      if (!isEntityMirrorSource(leafProj.source)) {
+        throw new Error(`lower: projection ${leafProjName} is not an entity-mirror projection (expected during dot-nav)`);
+      }
       const leafEntity = context.pdm.entities[leafProj.source.entity];
       if (!leafEntity) throw new Error(`lower: unknown entity ${leafProj.source.entity}`);
       const col = leafEntity.fields[leafField]?.column;

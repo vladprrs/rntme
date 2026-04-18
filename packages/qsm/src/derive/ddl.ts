@@ -1,5 +1,6 @@
 import type { PdmResolver, ResolvedEntity, ScalarPrimitive } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
+import { isEntityMirrorSource } from '../types/artifact.js';
 import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
 
@@ -40,6 +41,10 @@ export function generateProjectionDdl(
   const specs: ProjectionDdlSpec[] = [];
 
   for (const [projName, proj] of Object.entries(artifact.projections)) {
+    if (!isEntityMirrorSource(proj.source)) {
+      // Task 16 branches this path on backing; for now skip non-entity sources.
+      continue;
+    }
     const entity = pdm.resolveEntity(proj.source.entity);
     if (!entity) {
       throw invariantViolated(`entity "${proj.source.entity}" not in PDM for projection "${projName}"`);

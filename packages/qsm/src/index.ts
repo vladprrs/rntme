@@ -59,7 +59,12 @@ export type {
   ValidatedQsm,
 } from './types/artifact.js';
 
-export { RELATION_ROLE_VALUES, CARDINALITY_VALUES } from './types/artifact.js';
+export {
+  RELATION_ROLE_VALUES,
+  CARDINALITY_VALUES,
+  isEntityMirrorSource,
+  isDerivedSource,
+} from './types/artifact.js';
 
 export type {
   QsmResolver,
