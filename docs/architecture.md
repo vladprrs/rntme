@@ -124,7 +124,99 @@ C4Context
 
 ## 3. L2 — Containers
 
-_(pending — Task 4)_
+### 3.1 Authoring surface — the 7 artifacts
+
+rntme's authoring surface is seven JSON artifacts plus one service manifest. Each artifact has exactly one canonical validator and one canonical consumer.
+
+```mermaid
+flowchart LR
+    classDef artifact fill:#1b3a5c,stroke:#4a90e2,color:#fff;
+    classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+
+    PDM["PDM.json"]:::artifact -->|validated by| PDMP["@rntme/pdm"]:::pkg
+    QSM["QSM.json"]:::artifact -->|validated by| QSMP["@rntme/qsm"]:::pkg
+    IR["Graph IR nodes<br/>(bindings/ui carry these)"]:::artifact -->|compiled by| GIR["@rntme/graph-ir-compiler"]:::pkg
+    B["bindings.json"]:::artifact -->|validated by| BP["@rntme/bindings"]:::pkg
+    U["ui.json"]:::artifact -->|compiled by| UP["@rntme/ui"]:::pkg
+    S["seed.json"]:::artifact -->|validated by| SP["@rntme/seed"]:::pkg
+    M["manifest.json"]:::artifact -->|validated by| R["@rntme/runtime"]:::pkg
+```
+
+**Caption.** Every artifact has exactly one owner package; a downstream package consuming an artifact does so via the owner's branded `Validated*` type.
+
+### 3.2 Container map — 12 packages
+
+```mermaid
+flowchart TB
+    classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
+    classDef demo fill:#1b5c3a,stroke:#4ae29a,color:#fff;
+
+    PDM["@rntme/pdm"]:::pkg
+    QSM["@rntme/qsm"]:::pkg
+    ES["@rntme/event-store"]:::pkg
+    GIR["@rntme/graph-ir-compiler"]:::pkg
+    B["@rntme/bindings"]:::pkg
+    BH["@rntme/bindings-http"]:::pkg
+    UI["@rntme/ui"]:::pkg
+    UIR["@rntme/ui-runtime"]:::pkg
+    DS["@rntme/db-studio"]:::pkg
+    PC["@rntme/projection-consumer"]:::pkg
+    SD["@rntme/seed"]:::pkg
+    RT["@rntme/runtime"]:::pkg
+    DEMO["demo/issue-tracker-api"]:::demo
+
+    PDM --> QSM
+    PDM --> ES
+    QSM --> GIR
+    ES --> GIR
+    GIR --> B
+    B --> BH
+    UI --> UIR
+    RT --> BH & UIR & DS & PC & SD & GIR & ES
+    DEMO --> RT
+```
+
+**Caption.** Arrows mean "depends on". `@rntme/runtime` is the orchestrator; it boots the plugin seams, wires the event pipeline, and mounts the HTTP surface. The demo is the only package that consumes `@rntme/runtime` directly.
+
+### 3.3 Plugin seams — extension without editing artifacts
+
+Three interfaces live in `packages/runtime/src/plugins/`:
+
+- **`DbDriver`** — storage adapter. Default: `BetterSqliteDriver`. Alternate: in-memory for tests, future Turso driver.
+- **`EventBus`** — message transport. Default: `InMemoryBus`. Alternate: Kafka / NATS via a custom implementation.
+- **`Surface`** — HTTP (or equivalent) entry point. Default: `HttpSurface` (Hono-based). Alternate: any surface that can route bindings.
+
+The manifest (`manifest.json`) selects defaults; a caller passing a custom implementation replaces one seam without editing any other artifact. See `packages/runtime/README.md` for the exact interface shapes.
+
+### 3.4 Boot & seed lifecycle (sequence #3)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Op as Operator
+    participant RT as @rntme/runtime
+    participant V as Validators (pdm, qsm, bindings, ui)
+    participant DB as DbDriver
+    participant ES as @rntme/event-store
+    participant SD as @rntme/seed
+    participant R as Relay
+    participant BH as @rntme/bindings-http
+    participant UIR as @rntme/ui-runtime
+
+    Op->>RT: boot(manifest.json)
+    RT->>V: validate(pdm, qsm, bindings, ui)
+    V-->>RT: ValidatedArtifacts | Err
+    RT->>DB: open() + migrate schema
+    RT->>ES: init(DbDriver)
+    RT->>SD: apply(seed.json)
+    Note over SD,ES: Seed envelopes must be appended<br/>BEFORE the relay starts
+    RT->>R: start (cursor = last committed)
+    RT->>BH: mount /api
+    RT->>UIR: mount / (+ /_studio if enabled)
+    RT-->>Op: ready
+```
+
+**Caption.** The boot-order invariant (see `2026-04-15-runtime-seed-design.md`) is that seed application and the publish relay are mutually exclusive in time: seeds are committed through `appendRaw` *before* the relay cursor starts advancing, or seed events would double-publish.
 
 ## 4. L3 — Components
 
