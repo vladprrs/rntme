@@ -52,7 +52,6 @@ export class HttpSurface implements Surface {
     // `c.var.correlation` (typed by CorrelationVariables).
     app.use('/api/*', correlationMiddleware());
     app.route('/api', router);
-    app.route('/', uiApp);
 
     const studioCfg = ctx.service.manifest.studio;
     if (studioCfg?.enabled) {
@@ -63,5 +62,7 @@ export class HttpSurface implements Surface {
         config: studioCfg,
       });
     }
+
+    app.route('/', uiApp);
   }
 }
