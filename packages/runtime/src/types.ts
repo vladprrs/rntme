@@ -40,6 +40,7 @@ export type ServiceError =
   | { code: 'UI_INVALID'; details: unknown[] }
   | { code: 'OPENAPI_INVALID'; details: unknown[] }
   | { code: 'SEED_INVALID'; details: readonly SeedError[] }
+  | { code: 'DERIVED_PROJECTION_INVALID'; details: unknown[] }
   | { code: 'IO_ERROR'; details: { message: string } };
 
 export type RunningService = {

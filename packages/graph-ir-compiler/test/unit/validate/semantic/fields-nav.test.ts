@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveField } from '../../../../src/validate/semantic/fields.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
 import { commercePdm as P } from '../../../fixtures/validated-commerce.js';
-const scope: Scope = { aliases: new Map([['orderItem', { entity: 'OrderItem' }]]) };
+const scope: Scope = { aliases: new Map([['orderItem', { kind: 'entity', entity: 'OrderItem' }]]) };
 
 describe('dot-navigation resolveField', () => {
   it('resolves orderItem.order.createdAt', () => {

@@ -101,7 +101,7 @@ describe('createQsmResolver', () => {
     const r = setup(QSM);
     const mirror = r.findEntityMirror('Issue')!;
     expect(mirror.name).toBe('IssueView');
-    expect(mirror.source.entity).toBe('Issue');
+    expect('entity' in mirror.source ? mirror.source.entity : undefined).toBe('Issue');
   });
 
   it('findEntityMirror returns null for entity without mirror', () => {

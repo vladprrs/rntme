@@ -7,6 +7,7 @@ import {
 } from '@rntme/pdm';
 import { parseQsm, validateQsm } from '@rntme/qsm';
 import { compileApplyPlan } from '../../src/apply/compile.js';
+import { getMirror } from '../fixtures/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
@@ -29,7 +30,7 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('emits update handler for IssueAssign (non-creation)', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const assign = plan.handlersByEventType.get('IssueAssign')!;
+    const assign = getMirror(plan, 'IssueAssign');
     expect(assign).toBeDefined();
     expect(assign.kind).toBe('update');
     expect(assign.keyColumn).toBe('id');
@@ -38,7 +39,7 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('UPDATE SQL sets only affected columns + idempotency columns', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const assign = plan.handlersByEventType.get('IssueAssign')!;
+    const assign = getMirror(plan, 'IssueAssign');
     // affects = [status, assigneeId] → set status, assignee_id
     expect(assign.sql).toMatch(/UPDATE "projection_issue"/);
     expect(assign.sql).toContain('"status" = ?');
@@ -51,14 +52,14 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('UPDATE SQL uses WHERE key = ? AND last_event_version < ?', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const assign = plan.handlersByEventType.get('IssueAssign')!;
+    const assign = getMirror(plan, 'IssueAssign');
     expect(assign.sql).toMatch(/WHERE\s+"id"\s*=\s*\?\s+AND\s+"last_event_version"\s*<\s*\?/i);
   });
 
   it('bindings order: SET payload-fields → SET eventId → SET eventVersion → SET appliedAt → WHERE aggregateId → WHERE eventVersion', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const assign = plan.handlersByEventType.get('IssueAssign')!;
+    const assign = getMirror(plan, 'IssueAssign');
     const kinds = assign.bindings.map((b) => b.kind);
     // 2 payload fields (status, assigneeId) + 3 idempotency + 2 where = 7
     expect(assign.bindings).toHaveLength(7);
@@ -71,7 +72,7 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('self-loop transition (reassign) emits an update, not an insert', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const reassign = plan.handlersByEventType.get('IssueReassign')!;
+    const reassign = getMirror(plan, 'IssueReassign');
     expect(reassign.kind).toBe('update');
     expect(reassign.sql).toContain('"status" = ?');
     expect(reassign.sql).toContain('"assignee_id" = ?');
@@ -80,7 +81,7 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('transition with default affects (submit: only stateField) sets exactly one column', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const submit = plan.handlersByEventType.get('IssueSubmit')!;
+    const submit = getMirror(plan, 'IssueSubmit');
     expect(submit.kind).toBe('update');
     // 1 payload (status) + 3 idempotency + 2 where = 6
     expect(submit.bindings).toHaveLength(6);
@@ -89,7 +90,7 @@ describe('compileApplyPlan — UPDATE (non-creation) handlers', () => {
   it('emits insert and update handlers for every transition of Issue (7 total)', () => {
     const { pdm, qsm, events } = setup();
     const plan = compileApplyPlan({ pdm, qsm, events });
-    const issueHandlers = [...plan.handlersByEventType.values()].filter((h) => h.aggregateType === 'Issue');
+    const issueHandlers = [...plan.handlersByEventType.values()].flat().filter((h) => h.aggregateType === 'Issue');
     expect(issueHandlers).toHaveLength(7);
     const inserts = issueHandlers.filter((h) => h.kind === 'insert').map((h) => h.eventType);
     const updates = issueHandlers.filter((h) => h.kind === 'update').map((h) => h.eventType);

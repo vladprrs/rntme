@@ -58,7 +58,20 @@ export function checkMapShapeConformance(
   for (const node of graph.nodes) {
     if (node.kind === 'findMany') {
       const src = sources.get(node.id);
-      if (src) scope = { aliases: new Map([[src.alias, { entity: src.entity }]]) };
+      if (src) {
+        if (src.kind === 'eventType') {
+          scope = {
+            aliases: new Map([
+              [
+                src.alias,
+                { kind: 'eventRow', aggregateType: src.aggregateType, payloadFields: src.payloadFields },
+              ],
+            ]),
+          };
+        } else {
+          scope = { aliases: new Map([[src.alias, { kind: 'entity', entity: src.entity }]]) };
+        }
+      }
     } else if (node.kind === 'map') {
       const m = node as CanonicalMap;
       const expected = shapeFields(m.into, shapes, pdm, qsm);

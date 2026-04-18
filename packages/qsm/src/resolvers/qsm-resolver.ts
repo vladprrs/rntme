@@ -2,6 +2,7 @@ import type {
   Projection,
   ValidatedQsm,
 } from '../types/artifact.js';
+import { isEntityMirrorSource } from '../types/artifact.js';
 import type {
   QsmResolver,
   ResolvedProjection,
@@ -20,6 +21,7 @@ export function createQsmResolver(artifact: ValidatedQsm): QsmResolver {
   const mirrorByEntity = new Map<string, ResolvedProjection>();
   for (const rp of resolvedByName.values()) {
     if (rp.backing !== 'entity-mirror') continue;
+    if (!isEntityMirrorSource(rp.source)) continue;
     if (mirrorByEntity.has(rp.source.entity)) {
       throw invariantViolated(
         `multiple entity-mirror projections on "${rp.source.entity}" — cross-ref validator should have rejected this`,
@@ -58,14 +60,16 @@ export function createQsmResolver(artifact: ValidatedQsm): QsmResolver {
 }
 
 function toResolvedProjection(name: string, p: Projection): ResolvedProjection {
+  const source = isEntityMirrorSource(p.source)
+    ? p.source.pathPrefix !== undefined
+      ? { entity: p.source.entity, pathPrefix: p.source.pathPrefix }
+      : { entity: p.source.entity }
+    : { graph: p.source.graph };
   return {
     name,
     backing: p.backing ?? 'entity-mirror',
     table: p.table ?? defaultTableName(name),
-    source:
-      p.source.pathPrefix !== undefined
-        ? { entity: p.source.entity, pathPrefix: p.source.pathPrefix }
-        : { entity: p.source.entity },
+    source,
     keys: p.keys,
     grain: p.grain,
     exposed: p.exposed,

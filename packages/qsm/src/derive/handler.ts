@@ -1,7 +1,20 @@
 import type { PdmResolver, ResolvedEntity, EventTypeSpec } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
+import { isDerivedSource, isEntityMirrorSource } from '../types/artifact.js';
 import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
+
+/**
+ * One entry per projection with `backing: 'derived'` in the artifact.
+ * Produced by `deriveDerivedProjectionSpecs`; consumed by `@rntme/runtime`
+ * to drive `compileProjectionGraph(...)` per spec and build the per-event
+ * apply plan for the projection-consumer.
+ */
+export type DerivedProjectionSpec = Readonly<{
+  projectionName: string;
+  tableName: string;
+  graphId: string;
+}>;
 
 export type HandlerOp =
   | Readonly<{
@@ -52,6 +65,11 @@ export function deriveProjectionHandler(
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const backing = proj.backing ?? 'entity-mirror';
     if (backing !== 'entity-mirror') continue;
+    if (!isEntityMirrorSource(proj.source)) {
+      // Structural layer guarantees entity-mirror carries an entity source;
+      // guard here to appease the union narrowing.
+      throw invariantViolated(`entity-mirror projection "${projName}" has non-entity source (structural layer bug)`);
+    }
 
     const entity = pdm.resolveEntity(proj.source.entity);
     if (!entity) {
@@ -130,4 +148,42 @@ function buildEventHandler(
       setFields: [...e.affects],
     },
   };
+}
+
+/**
+ * Walks `artifact.projections`, filters for `backing === 'derived'`, and
+ * emits one `DerivedProjectionSpec` per entry. The structural validator
+ * guarantees each derived projection has a `{ graph }` source and an
+ * explicit `table` name, so the mapping is total.
+ *
+ * Order of the returned array matches `Object.entries(artifact.projections)`
+ * iteration order (insertion order).
+ */
+export function deriveDerivedProjectionSpecs(
+  artifact: ValidatedQsm,
+): readonly DerivedProjectionSpec[] {
+  const specs: DerivedProjectionSpec[] = [];
+
+  for (const [projName, proj] of Object.entries(artifact.projections)) {
+    const backing = proj.backing ?? 'entity-mirror';
+    if (backing !== 'derived') continue;
+    if (!isDerivedSource(proj.source)) {
+      throw invariantViolated(
+        `derived projection "${projName}" missing source.graph (validator bug)`,
+      );
+    }
+    const tableName = proj.table;
+    if (tableName === undefined) {
+      throw invariantViolated(
+        `derived projection "${projName}" missing required "table" (validator bug)`,
+      );
+    }
+    specs.push({
+      projectionName: projName,
+      tableName,
+      graphId: proj.source.graph,
+    });
+  }
+
+  return specs;
 }

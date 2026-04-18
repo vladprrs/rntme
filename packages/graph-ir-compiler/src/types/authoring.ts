@@ -69,7 +69,9 @@ export type FieldExpr =
 export type FindManyNode = {
   id: string;
   type: 'findMany';
-  config: { source: { entity: string } | { projection: string } };
+  config: {
+    source: { entity: string } | { projection: string } | { eventType: string };
+  };
 };
 
 export type FilterNode = {

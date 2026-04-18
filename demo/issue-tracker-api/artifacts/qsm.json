@@ -64,6 +64,14 @@
         "status"
       ],
       "table": "sprints"
+    },
+    "reportedIssueCountByProject": {
+      "backing": "derived",
+      "source": { "graph": "reportedIssueCountByProject" },
+      "keys": ["projectId"],
+      "grain": ["projectId"],
+      "exposed": ["projectId", "count"],
+      "table": "projection_reported_count"
     }
   },
   "relations": {

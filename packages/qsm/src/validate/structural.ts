@@ -1,4 +1,5 @@
 import type { QsmArtifact, StructurallyValidQsm } from '../types/artifact.js';
+import { isDerivedSource, isEntityMirrorSource } from '../types/artifact.js';
 import {
   err,
   ok,
@@ -17,6 +18,45 @@ export function validateStructural(
 
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const pPath = `projections.${projName}`;
+    const backing = proj.backing ?? 'entity-mirror';
+
+    // source-shape / backing pairing
+    if (backing === 'derived') {
+      if (!isDerivedSource(proj.source)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.QSM_DERIVED_SOURCE_SHAPE,
+          message: `projection "${projName}": backing "derived" requires source: { graph }; got source with "entity"`,
+          path: `${pPath}.source`,
+          hint: 'Use { "graph": "<graphId>" } for derived projections.',
+        });
+      } else if (proj.source.graph.trim().length === 0) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.QSM_DERIVED_SOURCE_SHAPE,
+          message: `projection "${projName}": source.graph must be a non-empty string`,
+          path: `${pPath}.source.graph`,
+        });
+      }
+      if (proj.table === undefined || proj.table.length === 0) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.QSM_DERIVED_EXPOSED_OUT_OF_RANGE,
+          message: `projection "${projName}": derived projections require an explicit "table" (no default naming from PDM)`,
+          path: `${pPath}.table`,
+        });
+      }
+    } else {
+      // backing === 'entity-mirror'
+      if (!isEntityMirrorSource(proj.source)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.QSM_DERIVED_SOURCE_SHAPE,
+          message: `projection "${projName}": backing "entity-mirror" requires source: { entity }; got source with "graph"`,
+          path: `${pPath}.source`,
+        });
+      }
+    }
 
     if (proj.keys.length === 0) {
       errors.push({

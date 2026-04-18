@@ -18,6 +18,7 @@ import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
+import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -66,6 +67,11 @@ export async function startService(
 
   pipeline.start();
 
+  // Periodic sweep of the derived-projection idempotency side-table. Started
+  // AFTER `wireEventPipeline` has created the `seen_events` table via
+  // `bootstrapProjections`. The disposer is invoked from `RunningService.stop`.
+  const stopSeenEventsRetention = startSeenEventsRetention(pipeline.qsmDb);
+
   const metrics = createMetrics(service.manifest.service.name);
   let healthy = true;
   const probe: HealthProbe = () =>
@@ -104,6 +110,7 @@ export async function startService(
     httpPort: port,
     async stop(): Promise<void> {
       healthy = false;
+      stopSeenEventsRetention();
       await new Promise<void>((resolve, reject) =>
         server.close((err?: Error) => (err !== undefined && err !== null ? reject(err) : resolve())),
       );

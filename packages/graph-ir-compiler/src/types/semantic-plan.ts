@@ -1,4 +1,5 @@
 import type { Expr } from './authoring.js';
+import type { RelFieldSql, RelScanWhere } from './relational.js';
 
 export type Cardinality = 'row' | 'rowset';
 
@@ -9,7 +10,10 @@ export type ScanStep = {
   alias: string;
   /** PDM entity name for the scan root (dot-navigation / JOIN synthesis). */
   entity: string;
-  fields: Array<{ name: string; column: string; type: string; nullable: boolean }>;
+  /** Virtual columns; `sql` marks ones that lower to a non-trivial expression. */
+  fields: Array<{ name: string; column: string; type: string; nullable: boolean; sql?: RelFieldSql }>;
+  /** Optional scan-level constant predicate (e.g. event_type = 'OrderCreate'). */
+  where?: RelScanWhere;
 };
 
 export type LimitStep = {

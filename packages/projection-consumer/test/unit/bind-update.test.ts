@@ -9,6 +9,7 @@ import { parseQsm, validateQsm } from '@rntme/qsm';
 import { compileApplyPlan } from '../../src/apply/compile.js';
 import { bindValues } from '../../src/apply/bind.js';
 import { makeEnvelope } from '../fixtures/envelopes.js';
+import { getMirror } from '../fixtures/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
@@ -30,7 +31,7 @@ function setup() {
 describe('bindValues — UPDATE', () => {
   it('IssueAssign: [status, assignee_id, eventId, eventVersion, appliedAt, aggregateId, eventVersion]', () => {
     const plan = setup();
-    const assign = plan.handlersByEventType.get('IssueAssign')!;
+    const assign = getMirror(plan, 'IssueAssign');
     const env = makeEnvelope({
       eventType: 'IssueAssign', rntAggregateId: '42', rntVersion: 3, id: 'ev-3',
       data: { before: { status: 'open', assigneeId: null }, after: { status: 'in_progress', assigneeId: 17 } },
@@ -47,7 +48,7 @@ describe('bindValues — UPDATE', () => {
 
   it('self-loop (IssueReassign) carries new assigneeId from payload.after', () => {
     const plan = setup();
-    const reassign = plan.handlersByEventType.get('IssueReassign')!;
+    const reassign = getMirror(plan, 'IssueReassign');
     const env = makeEnvelope({
       eventType: 'IssueReassign', rntAggregateId: '1', rntVersion: 5, id: 'ev-5',
       data: { before: { status: 'in_progress', assigneeId: 17 }, after: { status: 'in_progress', assigneeId: 18 } },

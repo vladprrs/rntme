@@ -43,8 +43,8 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
     const env = makeEnvelope({
       id: 'ev-1', eventType: 'IssueReport', rntAggregateId: '1', rntVersion: 1,
     });
-    expect(applyEvent(db, plan, env)).toBe('applied');
-    expect(applyEvent(db, plan, env)).toBe('skipped-older-version');
+    expect(applyEvent(db, plan, env)).toEqual(['applied']);
+    expect(applyEvent(db, plan, env)).toEqual(['skipped-older-version']);
     const rows = db.prepare('SELECT COUNT(*) AS c FROM projection_issue').get() as { c: number };
     expect(rows.c).toBe(1);
   });
@@ -58,7 +58,7 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
     applyEvent(db, plan, lifecycle[1]!);  // v2 submit → status=open
     applyEvent(db, plan, lifecycle[2]!);  // v3 assign → status=in_progress, assignee=99
     // Replay v2 now that we're already at v3
-    expect(applyEvent(db, plan, lifecycle[1]!)).toBe('skipped-older-version');
+    expect(applyEvent(db, plan, lifecycle[1]!)).toEqual(['skipped-older-version']);
     const row = db.prepare('SELECT status, assignee_id, last_event_version FROM projection_issue WHERE id = 1').get() as Record<string, unknown>;
     expect(row.status).toBe('in_progress');
     expect(row.assignee_id).toBe(99);
@@ -76,7 +76,7 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
     const mid = db.prepare('SELECT last_event_version FROM projection_issue WHERE id = 1').get() as { last_event_version: number };
     expect(mid.last_event_version).toBe(3);
     // Now v2 arrives — must be skipped
-    expect(applyEvent(db, plan, lifecycle[1]!)).toBe('skipped-older-version');
+    expect(applyEvent(db, plan, lifecycle[1]!)).toEqual(['skipped-older-version']);
     const after = db.prepare('SELECT last_event_version, status, assignee_id FROM projection_issue WHERE id = 1').get() as Record<string, unknown>;
     expect(after.last_event_version).toBe(3);
     expect(after.status).toBe('in_progress');

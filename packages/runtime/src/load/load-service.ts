@@ -36,6 +36,12 @@ import { parseManifest } from '../manifest/parse.js';
 import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';
 import { readJsonFile, readTextFile, readGraphsDir } from './read-dir.js';
+import { crossValidateDerivedProjections } from '../projections/cross-validate.js';
+import type {
+  DerivedCompileResult,
+  DerivedTableSchema,
+} from '@rntme/graph-ir-compiler';
+import type { DerivedHandler } from '@rntme/projection-consumer';
 
 // Manifest schema version accepted by this runtime. Bumped manually on
 // breaking manifest schema changes — NOT tied to the npm package semver.
@@ -117,8 +123,10 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   // 2. PDM
   let validatedPdm: ValidatedPdm;
   let pdmResolver: PdmResolver;
+  let rawPdm: unknown;
   try {
-    const pdmParsed = parsePdm(readJsonFile(dir, 'pdm.json'));
+    rawPdm = readJsonFile(dir, 'pdm.json');
+    const pdmParsed = parsePdm(rawPdm);
     if (isErr(pdmParsed)) {
       return { ok: false, errors: [{ code: 'PDM_INVALID', details: pdmParsed.errors }] };
     }
@@ -134,8 +142,10 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
 
   // 3. QSM
   let validatedQsm: ValidatedQsm;
+  let rawQsm: unknown;
   try {
-    const qsmParsed = parseQsm(readJsonFile(dir, 'qsm.json'));
+    rawQsm = readJsonFile(dir, 'qsm.json');
+    const qsmParsed = parseQsm(rawQsm);
     if (isQsmErr(qsmParsed)) {
       return { ok: false, errors: [{ code: 'QSM_INVALID', details: qsmParsed.errors }] };
     }
@@ -267,12 +277,35 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     return { ok: false, errors: [{ code: 'OPENAPI_INVALID', details: openapi.errors }] };
   }
 
-  // 9. Derived projection specs + apply plan
-  const projectionDdls = generateProjectionDdl(validatedQsm, pdmResolver);
+  // 9. Cross-artifact validation for derived projections.
+  //    For each QSM projection with `backing: 'derived'`, locate its graph in
+  //    the authoring spec, compile it via graph-ir, and verify keys/exposed
+  //    alignment. Returns a map used to seed DDL + apply-plan compilation.
+  const xr = crossValidateDerivedProjections({
+    qsm: validatedQsm,
+    authoringSpec: graphSpec,
+    pdm: validatedPdm,
+    rawPdm,
+    rawQsm,
+  });
+  if (!xr.ok) {
+    return {
+      ok: false,
+      errors: [{ code: 'DERIVED_PROJECTION_INVALID', details: xr.errors }],
+    };
+  }
+  const derivedResults = xr.value;
+
+  // 10. Projection DDL + consumer apply plan — derived projections flow
+  //     through via the schemas/handlers derived from `compileProjectionGraph`.
+  const projectionDdls = generateProjectionDdl(validatedQsm, pdmResolver, {
+    derivedSchemas: derivedSchemasFor(derivedResults),
+  });
   const projectionApplyPlan = compileApplyPlan({
     pdm: pdmResolver,
     qsm: validatedQsm,
     events: eventTypes,
+    derivedHandlers: derivedHandlersFor(derivedResults),
   });
 
   return {
@@ -291,4 +324,43 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       seed: validatedSeed,
     },
   };
+}
+
+/**
+ * Pull the `tableSchema` out of each compiled derived projection so it can be
+ * fed into `generateProjectionDdl` via its `derivedSchemas` option.
+ */
+function derivedSchemasFor(
+  map: ReadonlyMap<string, DerivedCompileResult>,
+): Record<string, DerivedTableSchema> {
+  const out: Record<string, DerivedTableSchema> = {};
+  for (const [projName, compiled] of map) {
+    out[projName] = compiled.tableSchema;
+  }
+  return out;
+}
+
+/**
+ * Build the `DerivedHandler[]` consumed by `compileApplyPlan`. One entry per
+ * compiled derived projection; `projectionName` / `tableName` come from the
+ * QSM/ projection compile-table, the rest from the compiled result.
+ */
+function derivedHandlersFor(
+  map: ReadonlyMap<string, DerivedCompileResult>,
+): DerivedHandler[] {
+  const out: DerivedHandler[] = [];
+  for (const [projName, compiled] of map) {
+    out.push({
+      kind: 'derived',
+      projectionName: projName,
+      tableName: compiled.tableSchema.tableName,
+      aggregateType: compiled.aggregateType,
+      eventType: compiled.eventType,
+      deltaSql: compiled.deltaSql,
+      bootstrapSql: compiled.bootstrapSql,
+      deltaBindings: compiled.deltaBindings,
+      filter: compiled.filter,
+    });
+  }
+  return out;
 }

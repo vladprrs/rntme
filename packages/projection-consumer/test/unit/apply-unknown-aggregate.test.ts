@@ -36,23 +36,23 @@ let db: Database.Database | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('applyEvent — entities without mirror', () => {
-  it('returns skipped-no-mirror for an aggregateType absent from mirrorsByAggregate', () => {
+  it('returns skipped-no-handler for an aggregateType absent from mirrorsByAggregate', () => {
     db = new Database(':memory:');
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
       eventType: 'UserJoined', rntAggregateType: 'User', rntAggregateId: '7', rntVersion: 1,
     });
-    expect(applyEvent(db, plan, env)).toBe('skipped-no-mirror');
+    expect(applyEvent(db, plan, env)).toEqual(['skipped-no-handler']);
   });
 
-  it('returns skipped-no-mirror for an unknown eventType on a mirrored aggregate', () => {
+  it('returns skipped-no-handler for an unknown eventType on a mirrored aggregate', () => {
     db = new Database(':memory:');
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
       eventType: 'IssueFoo', rntAggregateType: 'Issue', rntAggregateId: '1', rntVersion: 1,
     });
-    expect(applyEvent(db, plan, env)).toBe('skipped-no-mirror');
+    expect(applyEvent(db, plan, env)).toEqual(['skipped-no-handler']);
   });
 });

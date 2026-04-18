@@ -27,5 +27,4 @@ package-lock.json
 
 # Internal specs and planning docs — not committed
 /graph_ir_rc_7.md
-/docs/superpowers/
 .superpowers/

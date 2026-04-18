@@ -182,6 +182,10 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **Health probe flips on `stop()`.** `probe` returns `{ ok: true }` while running and `{ ok: false, reason: 'pipeline stopped' }` after `stop()`; Hono returns 503 in the latter case. `test/integration/shutdown.test.ts` asserts `fetch(/health)` rejects once the listener closes.
 - **`contract-tests.ts` is not re-exported from `index.ts`.** It imports vitest. Load it from test code only: `import { runDbDriverContract } from '@rntme/runtime/src/plugins/contract-tests.js'`.
 
+## Operability
+
+- **`seen_events` retention** must exceed max Kafka `retention.ms` of subscribed topics plus maximum consumer downtime; violation allows double-apply of late-redelivered envelopes. `startSeenEventsRetention(qsmDb)` is invoked by `startService` after `bootstrapProjections` creates the side-table and sweeps it periodically (defaults: 30-day retention, 1-hour interval). Override via `RNTME_SEEN_EVENTS_RETENTION_DAYS`.
+
 ## Out of scope / known limits
 
 - Single-process runtime. There is no clustering, leader election, or inter-process coordination. Scale-out is a future `@rntme/bus-kafka` + external Turso deployment.

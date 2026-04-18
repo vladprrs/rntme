@@ -41,7 +41,7 @@ describe('applyEvent — UPDATE (non-creation)', () => {
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     for (const env of issueLifecycle('1')) {
-      expect(applyEvent(db, plan, env)).toBe('applied');
+      expect(applyEvent(db, plan, env)).toEqual(['applied']);
     }
     const row = db.prepare('SELECT * FROM projection_issue WHERE id = 1').get() as Record<string, unknown>;
     expect(row.status).toBe('closed');

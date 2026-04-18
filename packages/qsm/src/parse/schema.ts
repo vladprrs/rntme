@@ -5,12 +5,24 @@ const nonEmptyString = z.string().min(1);
 
 const backingSchema = z.enum(['entity-mirror', 'derived']);
 
-const sourceSchema = z
+/**
+ * Projection source — two shapes; validator layer enforces which one belongs
+ * to which `backing`.
+ */
+const entitySourceSchema = z
   .object({
     entity: nonEmptyString,
     pathPrefix: nonEmptyString.optional(),
   })
   .strict();
+
+const graphSourceSchema = z
+  .object({
+    graph: nonEmptyString,
+  })
+  .strict();
+
+const sourceSchema = z.union([entitySourceSchema, graphSourceSchema]);
 
 const projectionSchema = z
   .object({

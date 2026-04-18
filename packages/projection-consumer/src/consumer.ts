@@ -31,6 +31,10 @@ export function createProjectionConsumer(options: ProjectionConsumerOptions): Pr
           db.prepare('BEGIN IMMEDIATE').run();
           try {
             for (const m of batch.messages) {
+              // applyEvent returns one ApplyResult per registered handler for
+              // this eventType (mirror + derived). The loop ignores the
+              // per-handler results; observability / metrics wiring lives
+              // outside the hot path.
               applyEvent(db, plan, m.envelope);
             }
             db.prepare('COMMIT').run();

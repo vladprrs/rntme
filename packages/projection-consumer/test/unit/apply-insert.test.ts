@@ -50,7 +50,7 @@ describe('applyEvent — INSERT (creation)', () => {
       } },
     });
     const result = applyEvent(db, plan, env);
-    expect(result).toBe('applied');
+    expect(result).toEqual(['applied']);
 
     const row = db.prepare('SELECT * FROM projection_issue WHERE id = ?').get(1) as Record<string, unknown>;
     expect(row.title).toBe('Hello');

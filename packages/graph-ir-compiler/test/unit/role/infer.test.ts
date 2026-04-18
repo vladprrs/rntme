@@ -98,6 +98,62 @@ describe('inferRole', () => {
     if (r.ok) expect(r.value).toBe('command');
   });
 
+  it('returns projection for findMany { eventType } + reduce + rowset output', () => {
+    const r = inferRole(
+      g(
+        { inputs: {}, output: { type: 'rowset<Counts>', from: 'r' } },
+        [
+          {
+            kind: 'findMany',
+            id: 's',
+            scope: 's1',
+            source: { eventType: 'IssueResolved' },
+            alias: 'ev',
+          },
+          {
+            kind: 'reduce',
+            id: 'r',
+            scope: 's2',
+            input: 's',
+            into: 'Counts',
+            group: {},
+            measures: { n: { fn: 'count' } },
+          },
+        ],
+      ),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBe('projection');
+  });
+
+  it('returns projection when filter sits between findMany { eventType } and reduce', () => {
+    const r = inferRole(
+      g(
+        { inputs: {}, output: { type: 'rowset<Counts>', from: 'r' } },
+        [
+          {
+            kind: 'findMany',
+            id: 's',
+            scope: 's1',
+            source: { eventType: 'IssueResolved' },
+            alias: 'ev',
+          },
+          { kind: 'filter', id: 'f', scope: 's2', input: 's', expr: true },
+          {
+            kind: 'reduce',
+            id: 'r',
+            scope: 's3',
+            input: 'f',
+            into: 'Counts',
+            group: {},
+            measures: { n: { fn: 'count' } },
+          },
+        ],
+      ),
+    );
+    if (r.ok) expect(r.value).toBe('projection');
+  });
+
   it('returns GRAPH_MIXED_ROLE when rowset output and emit coexist', () => {
     const r = inferRole(
       g(

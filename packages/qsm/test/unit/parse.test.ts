@@ -23,7 +23,8 @@ describe('parseQsm', () => {
     const r = parseQsm(VALID_MINIMAL);
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.value.projections.IssueView?.source.entity).toBe('Issue');
+      const src = r.value.projections.IssueView?.source;
+      expect(src && 'entity' in src ? src.entity : undefined).toBe('Issue');
     }
   });
 

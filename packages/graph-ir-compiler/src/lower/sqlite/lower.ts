@@ -1,5 +1,6 @@
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
+import { isEntityMirrorSource } from '@rntme/qsm';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
@@ -53,15 +54,40 @@ function measureToAggSql(
 }
 
 function scanToSelect(s: RelScan): SqlSelect {
-  return {
+  const select: SqlSelect = {
     kind: 'select',
     from: { table: s.table, alias: s.alias },
     joins: [],
     columns: s.fields.map((f) => ({
-      expr: { kind: 'col', table: s.alias, column: f.column },
+      expr: fieldToSqlExpr(s.alias, f),
       alias: f.name,
     })),
   };
+  if (s.where) {
+    select.where = {
+      kind: 'op',
+      op: 'eq',
+      args: [
+        { kind: 'col', table: s.alias, column: s.where.column },
+        { kind: 'str', value: s.where.value },
+      ],
+    };
+  }
+  return select;
+}
+
+function fieldToSqlExpr(alias: string, f: RelScan['fields'][number]): SqlExpr {
+  if (f.sql?.fn === 'json_extract') {
+    return {
+      kind: 'func',
+      name: 'json_extract',
+      args: [
+        { kind: 'col', table: alias, column: f.sql.column },
+        { kind: 'str', value: f.sql.jsonPath },
+      ],
+    };
+  }
+  return { kind: 'col', table: alias, column: f.column };
 }
 
 function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlSelect {
@@ -266,7 +292,11 @@ function makeColumnOf(
       // Resolve scan.entity → entity-mirror projection name
       let startProjName: string | undefined;
       for (const [projName, proj] of Object.entries(context.qsm.projections)) {
-        if ((proj.backing ?? 'entity-mirror') === 'entity-mirror' && proj.source.entity === scan.entity) {
+        if (
+          (proj.backing ?? 'entity-mirror') === 'entity-mirror' &&
+          isEntityMirrorSource(proj.source) &&
+          proj.source.entity === scan.entity
+        ) {
           startProjName = projName;
           break;
         }
@@ -296,6 +326,9 @@ function makeColumnOf(
         : startProjName;
       const leafProj = context.qsm.projections[leafProjName];
       if (!leafProj) throw new Error(`lower: unknown projection ${leafProjName}`);
+      if (!isEntityMirrorSource(leafProj.source)) {
+        throw new Error(`lower: projection ${leafProjName} is not an entity-mirror projection (expected during dot-nav)`);
+      }
       const leafEntity = context.pdm.entities[leafProj.source.entity];
       if (!leafEntity) throw new Error(`lower: unknown entity ${leafProj.source.entity}`);
       const col = leafEntity.fields[leafField]?.column;

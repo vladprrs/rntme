@@ -1,6 +1,6 @@
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm, QsmRelation } from '@rntme/qsm';
-import { defaultTableName } from '@rntme/qsm';
+import { defaultTableName, isEntityMirrorSource } from '@rntme/qsm';
 import type { SqlExpr, SqlJoin } from './ast.js';
 
 export type JoinChain = {
@@ -48,11 +48,17 @@ export function expandChain(
 
     const curProj = qsm.projections[curProjName];
     if (!curProj) throw new Error(`expandChain: unknown source projection "${curProjName}"`);
+    if (!isEntityMirrorSource(curProj.source)) {
+      throw new Error(`expandChain: projection "${curProjName}" is not an entity-mirror projection`);
+    }
     const curEntity = pdm.entities[curProj.source.entity];
     if (!curEntity) throw new Error(`expandChain: unknown PDM entity "${curProj.source.entity}"`);
 
     const toProj = qsm.projections[rel.to];
     if (!toProj) throw new Error(`expandChain: unknown target projection "${rel.to}"`);
+    if (!isEntityMirrorSource(toProj.source)) {
+      throw new Error(`expandChain: projection "${rel.to}" is not an entity-mirror projection`);
+    }
     const toEntity = pdm.entities[toProj.source.entity];
     if (!toEntity) throw new Error(`expandChain: unknown PDM entity "${toProj.source.entity}"`);
 

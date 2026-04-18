@@ -27,6 +27,17 @@ export type { ValidatedPdm } from '@rntme/pdm';
 export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
+export type {
+  DerivedCompileResult,
+  DerivedTableSchema,
+  DerivedGroupColumn,
+  DerivedMeasureColumn,
+  DerivedColumnBinding,
+  DerivedSqlType,
+} from './types/projection.js';
+
+export { compileProjectionGraph, type CompileProjectionOpts } from './projection-compile.js';
+
 export const VERSION = '0.0.0';
 
 export type CompileOptions = { target?: 'sqlite' };

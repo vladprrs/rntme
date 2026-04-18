@@ -2,21 +2,40 @@
  * Backing strategies for a projection (spec §6.1).
  *  - `entity-mirror`: 1:1 current-state mirror of a PDM entity, auto-derived
  *    from PDM + stateMachine. Consumer applies envelope-events to maintain it.
- *    The only backing supported in MVP.
- *  - `derived`: aggregate/join projection with explicit materializer rules.
- *    Parser accepts the value; validator rejects it until tier 2.
+ *  - `derived`: aggregate/join projection materialised via a graph-IR spec
+ *    (D5). Consumer applies a compiled UPSERT per envelope using deltaSql
+ *    derived from the graph.
  */
 export type ProjectionBacking = 'entity-mirror' | 'derived';
 
 /**
  * Source of a projection.
- * - For `entity-mirror`, only `entity` matters; `pathPrefix` is ignored.
- * - For `derived` (tier 2), `pathPrefix` narrows a relation chain.
+ * - For `entity-mirror`, `{ entity }` (with optional `pathPrefix`) is used.
+ * - For `derived`, `{ graph }` references a graph-IR spec declared elsewhere
+ *   in the service manifest; `@rntme/runtime` compiles it via
+ *   `compileProjectionGraph` and supplies the resulting table schema and
+ *   deltas to this package's DDL derivation and to the projection-consumer's
+ *   apply plan.
+ *
+ * The discrimination between the two shapes is enforced by validators (so
+ * the structural layer can emit readable error codes), not by type-level
+ * discriminators on `Projection`.
  */
-export type ProjectionSource = {
-  entity: string;
-  pathPrefix?: string;
-};
+export type ProjectionSource =
+  | { entity: string; pathPrefix?: string }
+  | { graph: string };
+
+export function isEntityMirrorSource(
+  source: ProjectionSource,
+): source is { entity: string; pathPrefix?: string } {
+  return 'entity' in source;
+}
+
+export function isDerivedSource(
+  source: ProjectionSource,
+): source is { graph: string } {
+  return 'graph' in source;
+}
 
 export type Projection = {
   backing?: ProjectionBacking;

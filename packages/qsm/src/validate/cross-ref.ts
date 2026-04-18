@@ -1,5 +1,6 @@
 import type { PdmResolver, ResolvedEntity, ResolvedField } from '@rntme/pdm';
 import type { StructurallyValidQsm, ValidatedQsm } from '../types/artifact.js';
+import { isEntityMirrorSource } from '../types/artifact.js';
 import {
   err,
   ok,
@@ -20,15 +21,15 @@ export function validateCrossRef(
     const backing = proj.backing ?? 'entity-mirror';
 
     if (backing === 'derived') {
-      errors.push({
-        layer: 'cross-ref',
-        code: ERROR_CODES.QSM_BACKING_DERIVED_NOT_SUPPORTED,
-        message: `projection "${projName}": backing "derived" is not supported in MVP`,
-        path: `${pPath}.backing`,
-        hint: 'Use backing "entity-mirror" or wait for tier 2.',
-      });
+      // Derived projections have source: { graph }. Cross-artifact graph
+      // existence / role / keys-match checks are performed by @rntme/runtime
+      // (D5 Task 21) where the graph map is in scope; QSM cross-ref only
+      // needs to skip entity-mirror rules here.
       continue;
     }
+
+    // Narrowing: structural layer ensures entity-mirror → entity source.
+    if (!isEntityMirrorSource(proj.source)) continue;
 
     const entity = pdm.resolveEntity(proj.source.entity);
     if (!entity) {
@@ -118,6 +119,10 @@ export function validateCrossRef(
       });
       continue;
     }
+    // Relations only apply to entity-mirror projections; derived projections
+    // express their joins inside the graph-IR spec. Skip cross-ref checks
+    // when either end is derived.
+    if (!isEntityMirrorSource(sourceProj.source)) continue;
     const sourceEntity = pdm.resolveEntity(sourceProj.source.entity);
     if (!sourceEntity) continue; // flagged earlier as projection source unknown
 
@@ -131,6 +136,7 @@ export function validateCrossRef(
       });
       continue;
     }
+    if (!isEntityMirrorSource(targetProj.source)) continue;
     const targetEntity = pdm.resolveEntity(targetProj.source.entity);
     // flagged earlier as projection source unknown
     if (!targetEntity) continue;
