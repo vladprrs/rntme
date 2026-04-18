@@ -10,11 +10,21 @@ export type SemverTriple = { major: number; minor: number; patch: number };
 
 const RESERVED_PREFIXES = ['/api', '/ui', '/health', '/metrics'];
 
-function validateStudioMountPath(
+function validateStudio(
   studio: ParsedManifest['studio'],
   errors: ManifestError[],
 ): void {
-  if (!studio?.mountPath) return;
+  if (!studio) return;
+
+  if (studio.maxRows !== undefined && (!Number.isInteger(studio.maxRows) || studio.maxRows < 1 || studio.maxRows > 1_000_000)) {
+    errors.push({
+      code: 'MANIFEST_INVALID_TYPE',
+      path: 'studio.maxRows',
+      message: `studio.maxRows must be an integer between 1 and 1000000, got ${studio.maxRows}`,
+    });
+  }
+
+  if (!studio.mountPath) return;
   const p = studio.mountPath;
   if (p === '/' || p === '') {
     errors.push({
@@ -90,7 +100,7 @@ export function validateManifest(
     persistence = { mode: 'ephemeral' };
   }
 
-  validateStudioMountPath(parsed.studio, errors);
+  validateStudio(parsed.studio, errors);
 
   if (errors.length > 0) return { ok: false, errors };
 
