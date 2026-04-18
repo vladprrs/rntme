@@ -1267,7 +1267,73 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 ## 7. Observations and refactoring candidates
 
-_(pending — Tasks 17–20)_
+This section is **diagnostic, not prescriptive.** Each finding points at a concrete place and states why it is a smell; it does not propose a fix. Follow-up plans will convert findings into work items.
+
+Severity legend:
+
+- **major** — breaks an invariant or creates risk.
+- **minor** — harms readability or maintenance but no invariant violation.
+- **info** — recorded fact (MVP gate, known bug, acknowledged trade-off); not necessarily actionable.
+
+Finding format:
+
+> **[severity]** `packages/<pkg>/src/<file>` — short description
+>  - **Why it is a smell:** one sentence
+>  - **Possible direction:** one sentence
+>  - **Links:** spec(s), ADR, related observations
+
+### 7.1 Size smells
+
+All source files fit in a 350-line window; no single file exceeds 400. Most "large" files concentrate at compilation and validation boundaries, which is intrinsic to the artifact-driven design and not itself a smell. Two concerns worth recording:
+
+> **[minor]** `packages/runtime/src/load/load-service.ts` — 366 lines.
+> - **Why it is a smell:** The orchestrator reads every artifact, validates each against its owner package, and wires plugin seams in a single file. As the artifact set grows (db-studio, observability, future seams), this file will attract unrelated concerns.
+> - **Possible direction:** Split by phase — artifact loading, validator orchestration, plugin wiring — once a seventh concern joins.
+> - **Links:** `2026-04-15-runtime-packaging-design.md`.
+
+> **[minor]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` — 345 lines.
+> - **Why it is a smell:** This file owns both the top-level `RelOp → SqlSelect` traversal and the private `wrapPredicateOptional` helper. The helper is the site of the 2026-04-16 param-alignment bug; its collocation with the traversal makes it easy to forget that edits here must preserve paramOrder append order.
+> - **Possible direction:** Extract `wrapPredicateOptional` plus its regression assertions into `lower/sqlite/predicate-optional.ts` so a future contributor sees the helper as a first-class unit with its own tests.
+> - **Links:** `2026-04-16-predicate-optional-fix-design.md`; §7.7.
+
+> **[info]** `packages/seed/src/validate.ts` — 352 lines.
+> - **Why it is a smell:** Seed validation simulates the state machine per stream and enforces intra-file invariants, which is intrinsically stateful. Size reflects the rules, not drift.
+> - **Possible direction:** none at this cutoff; the file earns its length.
+> - **Links:** `2026-04-15-runtime-seed-design.md`.
+
+### 7.2 Dependency smells
+
+An audit of every `@rntme/*` dependency against the AGENTS.md §3 layering diagram returned **no violations**. No package imports from below itself; no cyclic imports; no `index.ts` exports more than 22 symbols. The layering is well-enforced by the `tsconfig` project references plus the single runtime orchestrator.
+
+> Reviewed — no significant dependency smells found as of cutoff.
+
+One bookkeeping note:
+
+> **[info]** `packages/runtime` depends on ten `@rntme/*` packages.
+> - **Why it is a smell:** A single package depending on most of the workspace is expected for the orchestrator — but if any layer below runtime ever grows a runtime-side helper, runtime's breadth could attract unrelated code.
+> - **Possible direction:** keep `runtime/src/plugins/*` as the only place that composes pluginable seams; resist adding "miscellaneous helpers" there.
+> - **Links:** `AGENTS.md §3`; `2026-04-15-runtime-packaging-design.md`.
+
+### 7.3 Conceptual duplication
+
+The 4-layer validator pattern (§6.0) is applied intentionally in pdm, qsm, bindings, and ui, which is the point — it gives a uniform author experience and a uniform error-code namespace. Drift is the concern. Observations:
+
+> **[minor]** Layer-name drift across validators.
+> - **Why it is a smell:** The same concept ("lookup references in a foreign artifact") is called `cross-ref` in `@rntme/qsm`, `references` in `@rntme/bindings`, and `references` in `@rntme/ui`. `@rntme/pdm` has no reference layer (state-machine replaces it). Readers moving between packages must re-learn the vocabulary.
+> - **Possible direction:** Pick one name (`references` reads more naturally for external readers) and rename `cross-ref` in a mechanical patch; keep error-code prefixes (`QSM_XREF_*`) as-is since they are public API.
+> - **Links:** `packages/qsm/src/validate/cross-ref.ts`, `packages/bindings/src/validate/references.ts`, `packages/ui/src/validate/references.ts`.
+
+> **[minor]** Number-of-layers drift.
+> - **Why it is a smell:** pdm runs 2 layers (structural + state-machine); qsm runs 2 layers (structural + cross-ref); bindings runs 3 (structural + references + consistency); ui runs 2 (structural + references, per layout / screen). The §6.0 entry labels the pattern "4-layer" counting parse as layer 1; in practice the post-parse layer count is 2–3.
+> - **Possible direction:** Either restate the §6.0 entry as "parse + N owner layers" to be explicit, or split `validate/references.ts` in bindings / ui into reference-resolution and consistency passes to match the pattern that pdm's state-machine and qsm's cross-ref cover in one step.
+> - **Links:** §6.0 "4-layer validator pattern".
+
+> **[info]** UI validator iterates per unit, others operate on the whole artifact.
+> - **Why it is a smell:** The UI validator visits every layout / screen separately, aggregates errors, then exits; pdm / qsm / bindings validators short-circuit on first-failing layer. This is a deliberate product choice (UI errors are batched per screen for author ergonomics), not drift.
+> - **Possible direction:** leave as-is; document the choice in the UI package README.
+> - **Links:** `packages/ui/src/compile.ts`.
+
+_(pending — Tasks 18–20)_
 
 ## 8. Glossary
 
