@@ -51,10 +51,10 @@ ASCII dependency diagram. Arrow means "depends on".
                     |
             @rntme/bindings-http
                     |
-                    |    @rntme/ui ─── @rntme/ui-runtime
-                    |              \           |
-                    |               \          |
-                    +----------------+---------+
+                    |    @rntme/ui ─── @rntme/ui-runtime       @rntme/db-studio
+                    |              \           |                     |
+                    |               \          |                     |
+                    +----------------+---------+---------------------+
                                      |
                               @rntme/seed
                                      |
@@ -97,6 +97,7 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/ui-runtime`** — Serves the compiled UI artifact. Hono
   sub-router on the server side, React + json-render SPA on the client
   side. → `packages/ui-runtime/README.md`.
+- **`@rntme/db-studio`** — Hrana v3 read-only HTTP endpoint over the service's SQLite handles, mountable at a configurable path for browser studio UIs (libsqlstudio.com). → `packages/db-studio/README.md`.
 - **`@rntme/runtime`** — Top-level orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP surface, wires projections,
   applies seed, mounts bindings + UI. → `packages/runtime/README.md`.
@@ -269,6 +270,20 @@ under `packages/event-store/test/`.
 4. If the failure touches the demo, run `pnpm -F
    @rntme/issue-tracker-api-demo test` — it exercises the full
    pipeline.
+
+### 6.10 Browse service databases via db-studio
+
+1. In `artifacts/manifest.json` add:
+
+```json
+"studio": { "enabled": true, "mountPath": "/_studio", "maxRows": 10000 }
+```
+
+2. Boot the service. Open `http://<host>/_studio` — the landing page lists the two Hrana URLs.
+3. Go to `https://libsqlstudio.com`, create a "libSQL Remote (HTTP)" connection, paste the URL.
+4. Writes, `ATTACH`, non-read-only `PRAGMA` are rejected inline. Intended for dev only.
+
+Spec first: `docs/superpowers/specs/2026-04-18-db-studio-design.md`.
 
 ## 7. Anti-patterns / do not do
 
