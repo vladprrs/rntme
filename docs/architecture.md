@@ -1191,6 +1191,80 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Spec(s):** `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`.
 - **Related:** `BindingPlan` (for HTTP-map resolution during emit), `Surface` plugin (serves the artifact).
 
+### 6.4 Extensibility seams
+
+#### `DbDriver` plugin seam
+
+- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/better-sqlite-driver.ts`.
+- **Purpose:** Swap the underlying storage engine (`BetterSqliteDriver`, in-memory for tests, future Turso) without changing any authored artifact.
+- **Contract:** `DbDriver` interface (`openEventStore`, `openProjectionDb`, lifecycle hooks). Default: `BetterSqliteDriver` reading `eventStorePath` / `qsmPath` from the manifest.
+- **Constructed by:** `startService` at boot, selected from the manifest or overridden by the caller.
+- **Invariant:** SQL stays SQLite-dialect forever (Turso is a SQLite-compatible rewrite). A `DbDriver` implementation must not introduce a second dialect branch in `graph-ir-compiler/src/lower/sqlite/`.
+- **Spec(s):** `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md`.
+- **Related:** `EventStore`, `Surface`, `Manifest`.
+
+#### `EventBus` plugin seam
+
+- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/in-memory-bus.ts`.
+- **Purpose:** Swap the publish transport (`InMemoryBus` for single-process / tests, Kafka / NATS in production) without changing artifacts or the relay.
+- **Contract:** `EventBus` interface with `publish(topic, envelope, headers?)`; `start()` / `stop()` lifecycle. Default: `InMemoryBus` with in-process subscription fan-out.
+- **Constructed by:** `startService` via manifest selection.
+- **Invariant:** The bus is the only code path between relay and consumer; there is no direct in-process shortcut. Breaking that invariant couples consumer to writer and defeats the event-sourced topology.
+- **Spec(s):** `2026-04-15-runtime-packaging-design.md`.
+- **Related:** `Relay`, projection consumer, `KafkaProducer` (event-store).
+
+#### `Surface` plugin seam
+
+- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/http-surface.ts`.
+- **Purpose:** Swap the network entry point (Hono-based `HttpSurface` today; gRPC or other transports are the future extension path).
+- **Contract:** `Surface` interface mounts bindings at `/api`, the UI at `/`, optional db-studio at `/_studio`, and Prometheus at `/metrics` + `/health`.
+- **Constructed by:** `startService` via manifest.
+- **Invariant:** A `Surface` implementation must dispatch `bindings-http` `BindingPlan` values without per-binding custom code; otherwise adding a binding would require a surface change.
+- **Spec(s):** `2026-04-15-runtime-packaging-design.md` + `2026-04-14-bindings-http-design.md`.
+- **Related:** `BindingPlan`, UI `CompiledArtifact`, observability.
+
+#### Service `manifest.json`
+
+- **Package / module:** `packages/runtime/src/manifest/schema.ts` + `parse.ts` + `validate.ts`.
+- **Purpose:** Single declarative entry that tells the runtime which artifacts to load, which plugin seams to use, and which features to enable (db-studio, observability).
+- **Contract:** Zod-strict schema. Top-level keys include `serviceName`, `eventStorePath`, `qsmPath`, `artifacts: { pdm, qsm, bindings, graphs, ui, seed }`, `studio: { enabled, mountPath, maxRows }`, `observability: { … }`.
+- **Constructed by:** Author once per service; validated at boot by `loadService`.
+- **Invariant:** Manifest major version is checked at boot (`fail-fast`); reordering or removing fields is a breaking change.
+- **Spec(s):** `2026-04-15-runtime-packaging-design.md`.
+- **Related:** `DbDriver`, `EventBus`, `Surface`, UI `CompiledArtifact`.
+
+#### MVP gates
+
+- **Package / module:** each owner's README "Out of scope" section.
+- **Purpose:** Record features that are deliberately deferred — parsed but rejected by the validator, or absent from the runtime — so a reader does not mistake them for bugs.
+- **Contract:** Not a type; a convention. Current gates include: `cardinality: 'many'` in QSM relations (parsed, rejected by compiler), `derived` backing (parsed, rejected by `validateQsm()` but implemented in `derive/ddl.ts` behind an opt-in), composite-key projections, cross-service relations (`relation.to` is local-only), db-studio (spec landed, scaffold only).
+- **Constructed by:** Owners add a gate to their README when a feature is designed but not yet shipped.
+- **Invariant:** A gate must be enforced somewhere in code (validator rejection, feature flag default-off, missing runtime dispatcher) — not a README-only aspiration.
+- **Spec(s):** individual owners' specs.
+- **Related:** specific abstractions above that carry a gate (`Projection`, `RelationMetadata`, `ApplyPlan`).
+
+### 6.5 Topology (cross-service composition)
+
+#### Kafka topic convention `rntme.{svc}.{agg}`
+
+- **Package / module:** `packages/event-store/src/relay/topic.ts`.
+- **Purpose:** Fix a single, predictable topic name per `(service, aggregate)` pair so any downstream consumer (Zeebe sagas, other rntme services, or external analytics) can subscribe without per-service configuration.
+- **Contract:** `defaultTopicOf(service, aggregate)` returns `rntme.{service}.{aggregate}`, both lowercased. DLQ topic is `{primaryTopic}.dlq`.
+- **Constructed by:** The relay when publishing; the consumer when subscribing.
+- **Invariant:** No version suffix (`.v1` etc.). Event versioning lives inside the envelope (`rntSchemaVersion` for additive changes; a new `eventType` for breaking changes).
+- **Spec(s):** `2026-04-17-cloudevents-envelope-design.md` (§6).
+- **Related:** `Envelope`, `Relay`, `DLQ`.
+
+#### `db-studio` Hrana v3 endpoint (in-flight)
+
+- **Package / module:** `packages/db-studio/` (scaffold only at 2026-04-18).
+- **Purpose:** Expose both rntme SQLite files (event log and projection DB) via the libSQL Hrana v3 wire protocol, so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
+- **Contract:** Two endpoints — `POST /_studio/hrana/events/v3/pipeline` and `POST /_studio/hrana/qsm/v3/pipeline` — speaking the Hrana v3 JSON wire protocol for `execute` / `batch` requests.
+- **Constructed by:** `packages/runtime/src/plugins/http-surface.ts` when `manifest.studio.enabled === true`.
+- **Invariant:** Read-only enforced at three layers — a second SQLite handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with PRAGMA allow-list, and a row cap (default 10,000). The endpoint never mutates.
+- **Spec(s):** `docs/superpowers/specs/2026-04-18-db-studio-design.md`.
+- **Related:** `Surface`, `DbDriver`, manifest `studio` block.
+
 ## 7. Observations and refactoring candidates
 
 _(pending — Tasks 17–20)_
