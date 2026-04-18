@@ -40,7 +40,7 @@ describe('mountStudio — :memory: reuse', () => {
       }),
     );
     const body = (await res.json()) as { results: Array<{ response?: { result?: { rows?: unknown[][] } } }> };
-    expect(body.results[0].response?.result?.rows?.[0][0]).toEqual({ type: 'integer', value: '2' });
+    expect(body.results[0]?.response?.result?.rows?.[0]?.[0]).toEqual({ type: 'integer', value: '2' });
   });
 
   it('whitelist still blocks writes on reused writable handle', async () => {
@@ -55,7 +55,7 @@ describe('mountStudio — :memory: reuse', () => {
       }),
     );
     const body = (await res.json()) as { results: Array<{ error?: { code: string } }> };
-    expect(body.results[0].error?.code).toBe('DB_STUDIO_READONLY_NOT_SELECT');
+    expect(body.results[0]?.error?.code).toBe('DB_STUDIO_READONLY_NOT_SELECT');
 
     // Verify row not inserted.
     const count = qsmDb.prepare('SELECT count(*) AS c FROM t').get() as { c: number };
