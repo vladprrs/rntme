@@ -96,7 +96,31 @@ The rest of this document unpacks each of these in order: L1 context (§2), cont
 
 ## 2. L1 — System Context
 
-_(pending — Task 3)_
+```mermaid
+C4Context
+  title rntme — system context
+
+  Person(author, "Artifact author", "AI agent or human — generates the 7 JSON artifacts")
+  Person(operator, "Operator", "Boots and observes the service")
+  Person(user, "End user", "Calls the service's HTTP or UI")
+
+  System(rntme, "rntme service", "Runtime that loads artifacts and serves HTTP + UI")
+
+  SystemDb_Ext(sqlite, "SQLite / Turso", "Per-service database — event log + projection tables")
+  System_Ext(platform, "Agent platform (future)", "Zeebe sagas · gRPC · viz layer — outside the scope of this document")
+
+  Rel(author, rntme, "Supplies artifacts")
+  Rel(operator, rntme, "Boots / monitors")
+  Rel(user, rntme, "HTTP + UI")
+  Rel(rntme, sqlite, "Reads / writes")
+  Rel(rntme, platform, "Topics: rntme.{svc}.{agg}", "future")
+```
+
+**What the diagram shows.** The runtime has exactly one direct input from humans/agents — the artifact set — and two human-facing surfaces (operator, end user). Storage is explicitly per-service. The agent platform (Zeebe, gRPC, viz layer) is an **external future consumer**, not a part of this document.
+
+**Why only one storage actor.** rntme treats storage as a per-service concern. The `DbDriver` plugin seam (see §3) lets the same runtime run against `BetterSqlite`, an in-memory driver for tests, or Turso without changing any artifact.
+
+**Why the platform is external.** The memory entry `project_platform_vision` describes the larger DDD platform (Zeebe for cross-service sagas, gRPC for synchronous calls, a viz layer for business users). rntme is *one per-service runtime inside that platform*; cross-service concerns are not in scope here.
 
 ## 3. L2 — Containers
 
