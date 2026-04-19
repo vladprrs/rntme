@@ -1,3 +1,12 @@
+> **Errata 01 (2026-04-19, same-day):** a post-landing code review found
+> several drift points from this design. See
+> `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md` for the
+> authoritative corrections to §5.5 (RLS middleware), §5.2 (schema +
+> organization.archived_at), §8.5 (org-deleted cascade), §7 (slug
+> immutability), §9.2 (error-code registry), §14 (body-size caps), and
+> §6 (canonical-json upload). This document is preserved unchanged as a
+> historical artifact.
+
 # platform API — дизайн control-plane (registry + validation gate)
 
 **Status:** design
