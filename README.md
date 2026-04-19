@@ -57,6 +57,10 @@ flowchart LR
 
 > **Deep dive:** [`docs/architecture.md`](docs/architecture.md) — full C4 (L1–L4), 18 diagrams, ~25-entry cross-cutting abstractions catalogue, and a diagnostic observations section across 9 lenses.
 
+## Platform API
+
+The private [`rntme-cli`](rntme-cli/) submodule hosts a **platform HTTP API** (organizations, projects, services, published artifacts, API tokens, WorkOS-backed sign-in) on Postgres and S3-compatible storage. It complements the artifact-driven `@rntme/runtime` stack rather than replacing it. Design: [`docs/superpowers/specs/2026-04-19-platform-api-design.md`](docs/superpowers/specs/2026-04-19-platform-api-design.md).
+
 ## Packages
 
 | Package | Purpose |
