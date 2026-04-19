@@ -509,6 +509,16 @@ importers:
         version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
   rntme-cli/packages/cli:
+    dependencies:
+      '@rntme-cli/platform-core':
+        specifier: workspace:*
+        version: link:../platform-core
+      '@truestamp/canonify':
+        specifier: ^1.0.0
+        version: 1.1.1
+      zod:
+        specifier: ^4.0.0
+        version: 4.3.6
     devDependencies:
       '@eslint/js':
         specifier: ^9.10.0
@@ -3020,6 +3030,9 @@ packages:
 
   '@testcontainers/postgresql@10.28.0':
     resolution: {integrity: sha512-NN25rruG5D4Q7pCNIJuHwB+G85OSeJ3xHZ2fWx0O6sPoPEfCYwvpj8mq99cyn68nxFkFYZeyrZJtSFO+FnydiA==}
+
+  '@truestamp/canonify@1.1.1':
+    resolution: {integrity: sha512-70gB49dWJSIRP0XJz1nZluxbgagZA+iqDtFlPfNhbo9wAdJzp3Btn5TNetoIxlvyLErYmAwzA9gyiaBcm0cCgQ==}
 
   '@types/accepts@1.3.7':
     resolution: {integrity: sha512-Pay9fq2lM2wXPWbteBsRAGiWH2hig4ZE2asK+mm7kUzlxRTfL961rj89I6zV/E3PcIkDqyuBEcMxFT7rccugeQ==}
@@ -7337,6 +7350,8 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
+
+  '@truestamp/canonify@1.1.1': {}
 
   '@types/accepts@1.3.7':
     dependencies:
