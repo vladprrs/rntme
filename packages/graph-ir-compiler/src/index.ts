@@ -27,6 +27,11 @@ export type { ValidatedPdm } from '@rntme/pdm';
 export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
+export { parseAuthoringSpec } from './parse/parse.js';
+export { validateStructural } from './validate/structural/index.js';
+export { validateSemantic } from './validate/semantic/index.js';
+export { normalize } from './canonical/normalize.js';
+
 export type {
   DerivedCompileResult,
   DerivedTableSchema,

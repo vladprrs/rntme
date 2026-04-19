@@ -21,6 +21,14 @@
 - `packages/`               — workspace packages (see §3 for layering)
 - `demo/issue-tracker-api/` — end-to-end wiring of every package; the
   canonical worked example
+- `rntme-cli/`              — private git submodule (`vladprrs/rntme-cli`)
+  hosting `@rntme-cli/*` packages:
+    - `@rntme-cli/cli`            — the `rntme` CLI binary (stub today).
+    - `@rntme-cli/platform-core`  — platform domain, use-cases, seam interfaces.
+    - `@rntme-cli/platform-storage` — Postgres + rustfs adapters.
+    - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`.
+  Specs: `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`
+  and `docs/superpowers/specs/2026-04-19-platform-api-design.md`.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
