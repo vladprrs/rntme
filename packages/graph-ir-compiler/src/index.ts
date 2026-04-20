@@ -120,6 +120,8 @@ export function execute(
   return executeCompiled(compiled, paramValues, db);
 }
 
+export { AuthoringSpecSchema } from './parse/schema.js';
+
 export function run(
   rawSpec: unknown,
   rawPdm: unknown,
