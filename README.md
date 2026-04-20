@@ -2,12 +2,29 @@
 
 [![CI](https://github.com/vladprrs/rntme/actions/workflows/ci.yml/badge.svg)](https://github.com/vladprrs/rntme/actions/workflows/ci.yml)
 
-> **Coding agents:** start with [`AGENTS.md`](AGENTS.md), not this file.
-> It contains the project map, conventions, and task-indexed pointers.
+> **The safe runtime for AI-generated business workflow apps.**
+>
+> Coding agents can already help teams build a first app quickly, but every additional service tends to become a custom backend snowflake. rntme turns a validated service blueprint into a working API and UI on a standard runtime, so teams can create workflow-heavy services repeatably instead of reinventing architecture each time.
 
-**rntme is an artifact-driven runtime for AI-agent-generated services.** A small set of strictly-validated JSON artifacts — **PDM** (domain), **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings/ui), **bindings** (HTTP surface), **ui**, **seed**, **manifest** — describe a service. The runtime loads, validates, and boots them into a working HTTP + UI service with **no service-specific code**. The point is that humans *or* AI agents can generate these artifacts and get a running service.
+- 📖 **Vision, ICP, competitive landscape, GTM:** [`vision.md`](vision.md).
+- 🧱 **Architecture deep-dive:** [`docs/architecture.md`](docs/architecture.md).
+- 🤖 **Coding agents:** start with [`AGENTS.md`](AGENTS.md) — it has the research map, conventions, and task-indexed pointers.
 
-CQRS, event-sourcing, SQLite/Turso, branded `Validated*` types, and plugin seams (`DbDriver`, `EventBus`, `Surface`) are **consequences** of that goal, not the identity — they deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out.
+## What rntme does
+
+A team (or an agent) describes one service as a **validated service blueprint** — a single bounded specification that captures the domain, data model, state transitions, query and command surface, HTTP and UI bindings, and any seed data. The rntme runtime validates the blueprint in layers and boots a working HTTP API plus a declarative UI from it — **with zero service-specific code**.
+
+The durable unit is the blueprint. Teams edit the blueprint; the runtime keeps the service consistent. Agents author blueprints; the runtime enforces what's valid. The second service starts from a copy of the first blueprint, not from an empty repo.
+
+**Where it fits.** rntme targets **stateful, workflow-heavy services** — approvals, ticketing, customer-ops consoles, onboarding flows, internal admin and back-office. That's the wedge; see [`vision.md`](vision.md) for the full ICP, JTBD, and competitive landscape.
+
+**What we deliberately do not build:** a generic AI app builder (Lovable / Bolt / Firebase Studio), a backend-as-a-service (Supabase / Appwrite / Firebase), an internal-tools low-code platform (Retool / Appsmith / ToolJet / Budibase), or an agent runtime. rntme runs the services that agents describe, not the agents themselves.
+
+## Under the hood
+
+The blueprint is the market-facing surface. Internally it compiles from a small set of strictly-validated JSON artifacts — **PDM** (domain), **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings / ui), **bindings** (HTTP surface), **ui**, **seed**, **manifest** — through a four-layer validator onto an event-sourced SQLite runtime.
+
+CQRS, event-sourcing, SQLite / Turso, branded `Validated*` types, and plugin seams (`DbDriver`, `EventBus`, `Surface`) are **consequences** of the repeatability goal, not the identity of the product — they deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out.
 
 From those seven artifacts, the toolchain produces:
 
@@ -57,9 +74,16 @@ flowchart LR
 
 > **Deep dive:** [`docs/architecture.md`](docs/architecture.md) — full C4 (L1–L4), 18 diagrams, ~25-entry cross-cutting abstractions catalogue, and a diagnostic observations section across 9 lenses.
 
-## Platform API
+## The commercial platform (`platform.rntme.com`)
 
-The private [`rntme-cli`](rntme-cli/) submodule hosts a **platform HTTP API** (organizations, projects, services, published artifacts, API tokens, WorkOS-backed sign-in) on Postgres and S3-compatible storage. It complements the artifact-driven `@rntme/runtime` stack rather than replacing it. Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md).
+The `@rntme/runtime` stack is open-source and free — that's the trust engine. The commercial platform, hosted in the [`rntme-cli`](rntme-cli/) submodule and live at [`platform.rntme.com`](https://platform.rntme.com), is the monetization layer. It grows along four pillars:
+
+1. **Control plane** — organizations, projects, services, environments, API tokens, RBAC, SSO (WorkOS-backed). *Partially live.*
+2. **Registry** — publish and pull validated blueprints; content-addressed artifact bundles on S3-compatible storage; versions, tags, history, diff, lineage. *Partially live.*
+3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys.
+4. **Governance layer** — blueprint review UI for humans (including business users who never touch code); approval workflows; audit trail; policy gates that block bad blueprints before deploy.
+
+Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md). Strategic context: [`vision.md`](vision.md) §8 *The future platform*.
 
 ## Packages
 
@@ -80,7 +104,7 @@ The private [`rntme-cli`](rntme-cli/) submodule hosts a **platform HTTP API** (o
 
 ### Demo
 
-[`demo/issue-tracker-api`](demo/issue-tracker-api) is an end-to-end issue tracker that wires every package together: PDM with a stateMachine, QSM entity-mirror projections, 14 graphs (queries + commands), bindings → OpenAPI, a full event pipeline with the in-memory Kafka bridge, a Hono HTTP server, and a declarative UI served at `GET /ui`.
+[`demo/issue-tracker-api`](demo/issue-tracker-api) is an end-to-end issue tracker — an example from the *ticketing* wedge class (alongside approvals, customer-ops, onboarding, back-office). It wires every package together: PDM with a stateMachine, QSM entity-mirror projections, 14 graphs (queries + commands), bindings → OpenAPI, a full event pipeline with the in-memory Kafka bridge, a Hono HTTP server, and a declarative UI served at `GET /ui`.
 
 ### Dependency graph
 

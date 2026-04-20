@@ -2,6 +2,8 @@
 
 End-to-end demo: a small issue-tracker REST API + SPA wired from four JSON artifacts (PDM, QSM, bindings, graphs) plus a seed stream and a UI tree — all driven through `@rntme/runtime` with zero hand-written wiring. Exercises every package in the monorepo.
 
+> **Why an issue tracker.** *Ticketing* is one of rntme's target wedge classes (alongside approvals, customer-ops consoles, onboarding, back-office) — stateful, workflow-heavy, and repeatable. See [`vision.md`](../../vision.md) for the full wedge and ICP.
+
 ## Role in the system
 
 - Depends on: `@rntme/runtime` (runtime import) — which transitively depends on every other `@rntme/*` package (pdm, qsm, event-store, graph-ir-compiler, bindings, bindings-http, projection-consumer, seed, ui, ui-runtime).

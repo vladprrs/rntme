@@ -2,7 +2,7 @@
   "name": "rntme",
   "version": "0.0.0",
   "private": true,
-  "description": "Monorepo for rntme — a typed read-side query language and its compilers.",
+  "description": "rntme — the safe runtime for AI-generated business workflow apps.",
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
