@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Vitest, pnpm workspaces, SQLite (better-sqlite3).
 
-**Spec:** `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`
+**Spec:** `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`
 
 ---
 
@@ -1587,7 +1587,7 @@ git commit -m "refactor(qsm,compiler): move read-side relation metadata from PDM
 - Fixtures migrated; invariant byte-identical SQL preserved for existing graphs
 - Demo qsm.json gets 3 relations under issueDetail + issuesByProject
 
-Ref: docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md"
+Ref: docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md"
 ```
 
 - [ ] **Step 2: Confirm clean tree**
@@ -2166,7 +2166,7 @@ git commit -m "feat(demo): enrich listIssues/listIssuesUi/searchIssues via QSM.r
 - New e2e list-enrichment-e2e.test.ts covers predicate_optional variants
 - Compiler: wrap subtree in subquery when Project-after-Limit introduces JOINs (if needed)
 
-Ref: docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md"
+Ref: docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md"
 ```
 
 - [ ] **Step 5: Verify**

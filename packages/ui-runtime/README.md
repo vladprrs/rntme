@@ -204,4 +204,4 @@ Routes mounted by `createApp`:
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md) — authoritative design: §1 source format, §2 compiler pipeline, §3 compiled output format, §4 runtime architecture (server and client modules map 1:1 to files in this package), §6 scope.
+- [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — authoritative design: §1 source format, §2 compiler pipeline, §3 compiled output format, §4 runtime architecture (server and client modules map 1:1 to files in this package), §6 scope.

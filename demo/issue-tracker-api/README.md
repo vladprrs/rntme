@@ -241,10 +241,10 @@ curl -s http://localhost:3000/api/v1/issues/9001
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-16-demo-issue-tracker-fixes-design.md`](../../docs/superpowers/specs/2026-04-16-demo-issue-tracker-fixes-design.md) — Seed payload normalization (`wrapPayloads`), burndown filter fix, actor-header wording fix, `seed-e2e.test.ts` scope, and the JOIN-enrichment deferral note.
-- [`../../docs/superpowers/specs/2026-04-16-demo-v2-migration-design.md`](../../docs/superpowers/specs/2026-04-16-demo-v2-migration-design.md) — UI v2 migration: json-render/react + shadcn adoption, 6-screen catalog, fragment/$ref system, layout composition via two `<Renderer>` instances.
-- [`../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md) — Runtime seed-loading contract consumed by this demo (`seed.json` shape, ordering before the relay).
-- [`../../docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`](../../docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md) — Compiler fix cross-referenced from Invariants & gotchas (`wrapPredicateOptional`).
-- [`../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md) — UI v2 artifact format produced under `artifacts/ui/`.
+- [`../../docs/superpowers/specs/done/2026-04-16-demo-issue-tracker-fixes-design.md`](../../docs/superpowers/specs/done/2026-04-16-demo-issue-tracker-fixes-design.md) — Seed payload normalization (`wrapPayloads`), burndown filter fix, actor-header wording fix, `seed-e2e.test.ts` scope, and the JOIN-enrichment deferral note.
+- [`../../docs/superpowers/specs/done/2026-04-16-demo-v2-migration-design.md`](../../docs/superpowers/specs/done/2026-04-16-demo-v2-migration-design.md) — UI v2 migration: json-render/react + shadcn adoption, 6-screen catalog, fragment/$ref system, layout composition via two `<Renderer>` instances.
+- [`../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md) — Runtime seed-loading contract consumed by this demo (`seed.json` shape, ordering before the relay).
+- [`../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`](../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md) — Compiler fix cross-referenced from Invariants & gotchas (`wrapPredicateOptional`).
+- [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — UI v2 artifact format produced under `artifacts/ui/`.
 - Cross-reference: [`KNOWN_ISSUES.md`](./KNOWN_ISSUES.md) — historical fix log (status: all resolved). Retains `wrapPredicateOptional` analysis, JOIN-reference seeding story, and the `searchIssues` from/to optionality note for future reference.
 - Auto-memory cross-refs: `rntme_predicate_optional_bug.md` (compiler bug analysis), `rntme_turso_target.md` (SQLite-forever dialect target), `demo_join_enrichment_todo.md` (multi-hop JOIN follow-up).

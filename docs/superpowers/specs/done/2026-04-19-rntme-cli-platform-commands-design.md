@@ -4,9 +4,9 @@
 **Author:** brainstorm 2026-04-19
 **Location of implementation:** `rntme-cli/packages/cli` (private submodule `vladprrs/rntme-cli`)
 **Related:**
-- `docs/superpowers/specs/2026-04-19-platform-api-design.md` (control-plane API contract)
-- `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md`, `…-errata-02.md` (post-landing corrections to the API)
-- `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics)
+- `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` (control-plane API contract)
+- `docs/superpowers/specs/done/2026-04-19-platform-api-errata-01.md`, `…-errata-02.md` (post-landing corrections to the API)
+- `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics)
 - `AGENTS.md` §3 (package layering), `CLAUDE.md` (non-obvious conventions)
 - memory: `project_platform_deployed` (live platform at `platform.rntme.com`)
 

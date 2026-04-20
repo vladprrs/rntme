@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown only. No code changes. Verification uses `ls`, `grep`, `find`, and the existing `pnpm -r run build/test` pipeline as a paranoia check.
 
-**Spec:** `docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md`
+**Spec:** `docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md`
 
 **Note on git:** `/docs/superpowers/` is gitignored, so this plan and the spec stay on local disk. Only the README/AGENTS.md files are committed.
 
@@ -22,7 +22,7 @@
 You are writing the README.md for `packages/<PKG>` of the rntme project.
 
 CONSTRAINT — read these in order:
-1. The design spec at docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+1. The design spec at docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
    Section §4 is the README template. Section §6 is the content-rule checklist.
 2. The current README at packages/<PKG>/README.md.
 3. The package source: list files under packages/<PKG>/src/ and read entry files
@@ -130,7 +130,7 @@ docs: per-package README — foundation packages (pdm, event-store, bindings)
 
 Restructure to the agent-friendly template (file map, invariants & gotchas,
 where to look first, out of scope). Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -165,7 +165,7 @@ git log --oneline --all -- packages/seed/ | head -20
 |---|---|---|
 | `<PKG>` | `qsm` | `seed` |
 | `<SIZE TARGET FROM §3>` | 250–350 lines | 200–300 lines |
-| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-14-mutations-design.md` §6, `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md` | `docs/superpowers/specs/2026-04-15-runtime-seed-design.md` |
+| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-14-mutations-design.md` §6, `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md` | `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md` |
 | `<RELEVANT MEMORY ENTRIES>` | none | none |
 
 - [ ] **Step 3: Write the returned content to each README**
@@ -180,7 +180,7 @@ git commit -m "$(cat <<'EOF'
 docs: per-package README — derived authoring (qsm, seed)
 
 Restructure to the agent-friendly template. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -212,7 +212,7 @@ Expected: src tree matches the layout used during planning. Note recent `fix(gra
 |---|---|
 | `<PKG>` | `graph-ir-compiler` |
 | `<SIZE TARGET FROM §3>` | 400–500 lines |
-| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-13-graph-ir-sql-compiler-mvp-design.md`, `docs/superpowers/specs/2026-04-14-mutations-design.md` (command-runtime), `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`, `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`, `graph_ir_rc_7.md` (root) |
+| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-13-graph-ir-sql-compiler-mvp-design.md`, `docs/superpowers/specs/2026-04-14-mutations-design.md` (command-runtime), `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`, `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`, `graph_ir_rc_7.md` (root) |
 | `<RELEVANT MEMORY ENTRIES>` | `rntme_predicate_optional_bug.md` — `wrapPredicateOptional` misaligns SQL `?` positions when filter mixes `predicate_optional` with other params; `demo_join_enrichment_todo.md` — list/search endpoints currently return raw FK IDs |
 
 Augment the subagent prompt with: "Tree the `src/` directory under each subdirectory in the File map (do not flatten). Each subdirectory becomes a sub-tree with its own one-line purposes."
@@ -237,7 +237,7 @@ docs: per-package README — graph-ir-compiler
 Restructure to the agent-friendly template. Documents the
 sub-tree layout (canonical/lower/semantic-plan/emit/...) and
 captures known SQL-positional and NAV invariants. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -280,7 +280,7 @@ git commit -m "$(cat <<'EOF'
 docs: per-package README — projection-consumer
 
 Restructure to the agent-friendly template. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -323,7 +323,7 @@ git commit -m "$(cat <<'EOF'
 docs: per-package README — bindings-http
 
 Restructure to the agent-friendly template. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -357,7 +357,7 @@ git log --oneline --all -- packages/ui-runtime/ | head -20
 |---|---|---|
 | `<PKG>` | `ui` | `ui-runtime` |
 | `<SIZE TARGET FROM §3>` | 250–350 lines | 200–300 lines |
-| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md` | `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md` |
+| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md` | `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md` |
 | `<RELEVANT MEMORY ENTRIES>` | none | none |
 
 Both prompts include the "from scratch" line above. For `ui-runtime`, also include: "This package emits both an HTTP sub-router (server) and an SPA bundle (client). Reflect both in the file map and Quick start."
@@ -374,7 +374,7 @@ git commit -m "$(cat <<'EOF'
 docs: per-package README — UI layer (ui, ui-runtime)
 
 Create from scratch on the agent-friendly template. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -404,7 +404,7 @@ git log --oneline --all -- packages/runtime/ | head -20
 |---|---|
 | `<PKG>` | `runtime` |
 | `<SIZE TARGET FROM §3>` | 200–300 lines |
-| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md` (referenced by current README; verify path before passing to subagent), `docs/superpowers/specs/2026-04-15-runtime-seed-design.md` |
+| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md` (referenced by current README; verify path before passing to subagent), `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md` |
 | `<RELEVANT MEMORY ENTRIES>` | `project_infra.md` — server/Coolify deployment context (use only if it surfaces a real runtime invariant) |
 
 Verify the `runtime-packaging-design.md` filename before dispatching:
@@ -429,7 +429,7 @@ git commit -m "$(cat <<'EOF'
 docs: per-package README — runtime
 
 Restructure to the agent-friendly template. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -462,7 +462,7 @@ Use the standard prompt with these placeholders:
 |---|---|
 | `<PKG>` | `issue-tracker-api-demo` (relative path: `demo/issue-tracker-api`) |
 | `<SIZE TARGET FROM §3>` | 250–350 lines |
-| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/2026-04-16-demo-issue-tracker-fixes-design.md`, `docs/superpowers/specs/2026-04-16-demo-v2-migration-design.md` |
+| `<PKG-SPECIFIC SPEC PATHS>` | `docs/superpowers/specs/done/2026-04-16-demo-issue-tracker-fixes-design.md`, `docs/superpowers/specs/done/2026-04-16-demo-v2-migration-design.md` |
 | `<RELEVANT MEMORY ENTRIES>` | `demo_join_enrichment_todo.md` — list/search endpoints return raw FK IDs |
 
 Augment the prompt with: "This is the demo, not a library. Reframe Quick start as 'how to run the demo locally'. The File map covers BOTH `src/` (server bootstrap) AND `artifacts/` (PDM/QSM/graphs/bindings/UI JSON). Add a section after 'Where to look first' titled '## Reading the example' with: 'If you want to understand how X is wired, start at file Y' for X in {a query, a command, a UI screen, a projection, an event}. Pull `KNOWN_ISSUES.md` content into 'Invariants & gotchas' if applicable."
@@ -482,7 +482,7 @@ docs: demo README — restructure as agent-readable example
 
 Apply the agent-friendly template, plus a 'Reading the example'
 section for "how is X wired" navigation. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -510,7 +510,7 @@ Expected: 8 commits from Tasks 1–8 visible. All 11 package READMEs + 2 new ui 
 
 - [ ] **Step 2: Re-read the spec §5 to fix structure**
 
-Open `docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md` and read §5 in full. The 10 numbered subsections (1. Workflow expectations through 10. Glossary) are the headings. Do not invent new sections; do not skip any.
+Open `docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md` and read §5 in full. The 10 numbered subsections (1. Workflow expectations through 10. Glossary) are the headings. Do not invent new sections; do not skip any.
 
 - [ ] **Step 3: Resolve the "Where decisions live" pointers (§8)**
 
@@ -587,7 +587,7 @@ project-wide conventions (Result<T>, branded types, error codes,
 SQLite target), build/test/lint commands, task-indexed pointers
 ("how to do common tasks"), anti-patterns, and a decision-index
 ("where decisions live"). Per design spec
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md §5.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md §5.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -656,7 +656,7 @@ docs: root README — link to AGENTS.md
 
 One-block pointer at the top so coding agents land on the
 research map first. Spec:
-docs/superpowers/specs/2026-04-17-readme-for-coding-agents-design.md.
+docs/superpowers/specs/done/2026-04-17-readme-for-coding-agents-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

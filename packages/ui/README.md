@@ -235,7 +235,7 @@ See `packages/ui/test/fixtures/fragment-app/` for a full minimal example exercis
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md) — authoritative design for source format (§1), compiler phases (§2), fragment/parameter rules, and the compiled-artifact shape consumed by the runtime.
+- [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — authoritative design for source format (§1), compiler phases (§2), fragment/parameter rules, and the compiled-artifact shape consumed by the runtime.
 
 ## Glossary
 

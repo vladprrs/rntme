@@ -14,14 +14,14 @@ Status: **all resolved** — the demo boots with declarative seeding and all pre
 - Concurrency + guard errors: `422 COMMAND_ILLEGAL_TRANSITION`, `409 COMMAND_CONCURRENCY_CONFLICT`, `400 VALIDATION_ERROR`.
 - `assign-with-guard` (read-prelude capacity gate).
 - `GET /v1/issues`, `GET /v1/ui/issues` (projection reads that do not traverse any relation).
-- **Declarative seed:** [`artifacts/seed.json`](./artifacts/seed.json) is loaded by `@rntme/runtime` (see manifest `seed` options) using `@rntme/seed`, after PDM/QSM validation, so reference entities (`Project`, `User`, `Sprint`) are populated through the normal event → projection path. Design: [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md).
+- **Declarative seed:** [`artifacts/seed.json`](./artifacts/seed.json) is loaded by `@rntme/runtime` (see manifest `seed` options) using `@rntme/seed`, after PDM/QSM validation, so reference entities (`Project`, `User`, `Sprint`) are populated through the normal event → projection path. Design: [`docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md).
 - **Seeded aggregate mutations:** Commands against seeded issues (7001–7011) work correctly — `wrapPayloads()` in `@rntme/seed` normalizes flat seed payloads to `{before, after}` format during validation, so `replayAggregateState()` reconstructs state correctly.
 
 ## What's broken
 
 ### 1. Reference-JOIN endpoints return 500 — missing `projects` / `users` / `sprints` tables — **CLOSED**
 
-**Resolution:** The `@rntme/seed` package and runtime integration apply a validated `seed.json` of event envelopes before the relay starts; the demo’s PDM declares reference aggregates whose events project into QSM tables named like the PDM `table` fields (`projects`, `users`, `sprints`), so `chainToSqlJoins` can resolve `issue.project.key` and related paths. The catalogue of seeded streams lives in [`artifacts/seed.json`](./artifacts/seed.json). For behaviour and invariants, see [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md).
+**Resolution:** The `@rntme/seed` package and runtime integration apply a validated `seed.json` of event envelopes before the relay starts; the demo’s PDM declares reference aggregates whose events project into QSM tables named like the PDM `table` fields (`projects`, `users`, `sprints`), so `chainToSqlJoins` can resolve `issue.project.key` and related paths. The catalogue of seeded streams lives in [`artifacts/seed.json`](./artifacts/seed.json). For behaviour and invariants, see [`docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md).
 
 ### 2. `GET /v1/issues/search` — `from` and `to` are required, README suggests otherwise — **CLOSED**
 
@@ -63,7 +63,7 @@ All upstream items for this demo are now resolved. The compiler fix for `wrapPre
 
 ## Running the demo today — what you can exercise
 
-Everything in "What works today". The SPA at `/ui` can list and open issues; JOIN-backed routes are satisfied by seeded projection rows. If you need to disable seeding for experiments, set `seed.enabled` to `false` in `artifacts/manifest.json` (see runtime seed options in [`docs/superpowers/specs/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/2026-04-15-runtime-seed-design.md)).
+Everything in "What works today". The SPA at `/ui` can list and open issues; JOIN-backed routes are satisfied by seeded projection rows. If you need to disable seeding for experiments, set `seed.enabled` to `false` in `artifacts/manifest.json` (see runtime seed options in [`docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md)).
 
 ---
 

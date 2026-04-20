@@ -1,7 +1,7 @@
 # Platform API — Errata 01
 
 **Date:** 2026-04-19 (same day; fix batch after post-landing code review)
-**Supersedes portions of:** `2026-04-19-platform-api-design.md`, `docs/superpowers/plans/2026-04-19-platform-api.md`
+**Supersedes portions of:** `2026-04-19-platform-api-design.md`, `docs/superpowers/plans/done/2026-04-19-platform-api.md`
 **Scope:** corrections landed in submodule `rntme-cli/` under packages `platform-core`, `platform-storage`, `platform-http`.
 
 ## 1. Why this errata exists
@@ -166,6 +166,6 @@ These are tracked for a later plan; they do not block fix-01 from landing.
 
 ## 7. How this errata is applied
 
-- One follow-up implementation plan (`docs/superpowers/plans/2026-04-19-platform-api-fix-01.md`) enumerates the 10 submodule commits plus the main-repo submodule bump.
+- One follow-up implementation plan (`docs/superpowers/plans/done/2026-04-19-platform-api-fix-01.md`) enumerates the 10 submodule commits plus the main-repo submodule bump.
 - The plan references section numbers from this errata, not from the original design doc, wherever they differ.
 - After fix-01 lands, a brief paragraph is added to the original design doc's preface pointing at this errata. The original design doc is otherwise not edited.

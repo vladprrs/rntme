@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, ESM, pnpm workspaces, `better-sqlite3`, Vitest. Packages touched: `@rntme/graph-ir-compiler`, `@rntme/qsm`, `@rntme/projection-consumer`, `@rntme/runtime`, `demo/issue-tracker-api`. No new runtime dependencies.
 
-**Source spec:** `docs/superpowers/specs/2026-04-18-d5-consumer-idempotency-hybrid-design.md`. This plan covers the full MVP scope called out in §1–§10 of that spec; §11 follow-ups (rebuild-CLI, min/max/avg/top-N, delta-from-mirror) are explicitly out of scope.
+**Source spec:** `docs/superpowers/specs/done/2026-04-18-d5-consumer-idempotency-hybrid-design.md`. This plan covers the full MVP scope called out in §1–§10 of that spec; §11 follow-ups (rebuild-CLI, min/max/avg/top-N, delta-from-mirror) are explicitly out of scope.
 
 ---
 

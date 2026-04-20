@@ -2,7 +2,7 @@
 
 **Status:** errata
 **Supersedes nothing.** Patches `2026-04-19-platform-api-errata-01.md` §3.2, §3.7, §5.
-**Related:** `docs/superpowers/plans/2026-04-19-platform-api-fix-02.md` (implementation).
+**Related:** `docs/superpowers/plans/done/2026-04-19-platform-api-fix-02.md` (implementation).
 
 A fresh post-landing code review of the 10 fix-01 commits (`rntme-cli` branch `feat/platform-api-fix-01`) surfaced three production regressions that the fix-01 plan itself introduced but did not close. Integration/e2e tests skip locally (Docker unavailable in the authoring environment) and CI would have caught these, but the branch was left in a pre-push state. This errata enumerates the corrections.
 

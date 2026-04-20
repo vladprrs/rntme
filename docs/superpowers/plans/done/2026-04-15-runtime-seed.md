@@ -6,7 +6,7 @@
 
 **Architecture:** New package under `packages/seed/` with one public surface (`parseSeed`, `validateSeed`, `loadSeed`, `applySeed`, `seedBuilder`) and a `rntme-seed` CLI. `@rntme/event-store` gains `appendRaw` (bypasses optimistic concurrency). `@rntme/runtime` reads `artifacts/seed.json`, validates it in `loadService`, and calls `applySeed` between `bootstrapProjections` and `pipeline.start()`. Demo adds state machines for `Project`/`User`/`Sprint`, entity-mirror projections for them, and a `seed.json` that populates the projections through the live pipeline.
 
-**Tech Stack:** Node 20, TypeScript, ESM, Zod, Vitest, better-sqlite3, pnpm workspaces. Spec: `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+**Tech Stack:** Node 20, TypeScript, ESM, Zod, Vitest, better-sqlite3, pnpm workspaces. Spec: `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 
 **Статус выполнения:** merged to `main` (2026-04-15); worktree `.worktrees/runtime-seed` optional for follow-up.
 
@@ -194,7 +194,7 @@ export {};
 
 Load and apply a declarative `seed.json` of event envelopes to an rntme event-store. Designed to run before `relay.start()` so seeded events flow through the normal pipeline (`event-store → relay → bus → projection-consumer → QSM`).
 
-See design: `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+See design: `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 ```
 
 - [x] **Step 5: Install and build**
@@ -3182,7 +3182,7 @@ Mark §1, §2, §4 as closed. Replace §1's body with:
 ```md
 ### 1. Reference-JOIN endpoints — CLOSED
 
-Resolved by the seed feature (see `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`). `Project`, `User`, `Sprint` now have state machines in PDM, entity-mirror projections in QSM, and seed envelopes in `artifacts/seed.json` that populate the `projects`/`users`/`sprints` tables through the live pipeline.
+Resolved by the seed feature (see `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`). `Project`, `User`, `Sprint` now have state machines in PDM, entity-mirror projections in QSM, and seed envelopes in `artifacts/seed.json` that populate the `projects`/`users`/`sprints` tables through the live pipeline.
 ```
 
 Replace §2 and §4 similarly (one-paragraph pointers to the fix).
@@ -3264,7 +3264,7 @@ rntme-seed apply <artifacts-dir> --event-store <path> [--mode strict|upsert-by-e
 
 ## Error codes
 
-See `docs/superpowers/specs/2026-04-15-runtime-seed-design.md` §7 for the full list: `SEED_SYNTAX_INVALID`, `SEED_UNKNOWN_EVENT_TYPE`, `SEED_EVENT_PAYLOAD_MISMATCH`, `SEED_STATE_MACHINE_VIOLATION`, `SEED_STREAM_VERSION_GAP`, `SEED_FIRST_EVENT_NOT_CREATION`, `SEED_STORE_NOT_EMPTY`, `SEED_STREAM_VERSION_CONFLICT`, and more.
+See `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md` §7 for the full list: `SEED_SYNTAX_INVALID`, `SEED_UNKNOWN_EVENT_TYPE`, `SEED_EVENT_PAYLOAD_MISMATCH`, `SEED_STATE_MACHINE_VIOLATION`, `SEED_STREAM_VERSION_GAP`, `SEED_FIRST_EVENT_NOT_CREATION`, `SEED_STORE_NOT_EMPTY`, `SEED_STREAM_VERSION_CONFLICT`, and more.
 ```
 
 - [x] **Step 5: Run full test suite**

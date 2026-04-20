@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript (strict, ESM), zod@4, @json-render/core+react+shadcn@0.17, React 19, Tailwind CSS 4, Hono (server), esbuild (client bundle), vitest (tests)
 
-**Spec:** `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`
+**Spec:** `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`
 
 ---
 

@@ -4,9 +4,9 @@
 **Author:** brainstorm 2026-04-19
 **Location of implementation:** `rntme-cli/packages/cli` (private submodule `vladprrs/rntme-cli`)
 **Related:**
-- `docs/superpowers/specs/2026-04-19-rntme-cli-platform-commands-design.md` (CLI command surface; this spec extends it)
-- `docs/superpowers/specs/2026-04-19-platform-api-design.md` (control-plane contract)
-- `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics)
+- `docs/superpowers/specs/done/2026-04-19-rntme-cli-platform-commands-design.md` (CLI command surface; this spec extends it)
+- `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` (control-plane contract)
+- `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics)
 - `AGENTS.md` §3 (package layering), `CLAUDE.md` (non-obvious conventions)
 - memory: `project_platform_vision` (LLM-agent-driven DDD framing), `rntme_vision_framing` (artifact-driven runtime for AI-agent-generated services)
 - external reference: `agentskills.io/home` (skill-format convention), `github/spec-kit` (CLI-delivered skill scaffolding pattern)

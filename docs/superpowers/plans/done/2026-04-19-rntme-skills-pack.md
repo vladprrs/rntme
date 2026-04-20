@@ -1940,7 +1940,7 @@ git commit -m "feat(skills): designing-pdm"
 
 Read:
 - `packages/ui/README.md`, `packages/ui-runtime/README.md`.
-- `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`.
+- `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`.
 - Canonical example `src/skills/sources/examples/issue-tracker/ui.json`.
 - `packages/ui/src/schema.ts` (source of UI Zod).
 
@@ -1980,7 +1980,7 @@ Read:
 - `packages/bindings/README.md`, `packages/bindings-http/README.md`.
 - `packages/bindings/src/schema.ts` for `BindingArtifactSchema`.
 - Canonical `examples/issue-tracker/bindings.json`.
-- Spec for cmd/query surface: `docs/superpowers/specs/2026-04-19-platform-api-design.md` adjacent work.
+- Spec for cmd/query surface: `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` adjacent work.
 
 - [ ] **Step 2: Author**
 
@@ -2016,7 +2016,7 @@ Read:
 - `packages/qsm/README.md`, including post-2026-04-16 relation metadata migration (JOINs).
 - `packages/qsm/src/schema.ts` for `QsmArtifactSchema`.
 - Canonical `examples/issue-tracker/qsm.json`.
-- `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`.
+- `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`.
 
 - [ ] **Step 2: Author**
 

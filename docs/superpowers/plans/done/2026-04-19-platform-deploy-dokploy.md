@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 20, pnpm 9.12, Hono, Drizzle, Postgres 16, rustfs S3, WorkOS AuthKit, Dokploy, Let's Encrypt.
 
-**Reference spec:** `docs/superpowers/specs/2026-04-19-platform-deploy-dokploy-design.md`
+**Reference spec:** `docs/superpowers/specs/done/2026-04-19-platform-deploy-dokploy-design.md`
 
 **Known context for executor:**
 - Parent repo path: `/home/coder/project/` (`vladprrs/rntme`, public).

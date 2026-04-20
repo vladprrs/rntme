@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the command surface defined in `docs/superpowers/specs/2026-04-19-rntme-cli-platform-commands-design.md` (Scope B: login, token, project, service, version, tag, publish, validate) in the existing `@rntme-cli/cli` package.
+**Goal:** Implement the command surface defined in `docs/superpowers/specs/done/2026-04-19-rntme-cli-platform-commands-design.md` (Scope B: login, token, project, service, version, tag, publish, validate) in the existing `@rntme-cli/cli` package.
 
 **Architecture:** Single package extension. `src/{bin,commands,config,api,errors,validate,output,util}/` modules wired into a thin `parseArgs` dispatcher. Handwritten typed `fetch` client mirrors platform Zod schemas. Local validation reuses `@rntme-cli/platform-core.validateBundle()` (see amendment #1 below).
 
@@ -68,7 +68,7 @@ Spec §11.1 of platform-api-design declares this endpoint but it isn't implement
 
 - [ ] **Step 1: Verify spec was read**
 
-Read `docs/superpowers/specs/2026-04-19-rntme-cli-platform-commands-design.md` end-to-end. All tasks below reference it by section number.
+Read `docs/superpowers/specs/done/2026-04-19-rntme-cli-platform-commands-design.md` end-to-end. All tasks below reference it by section number.
 
 - [ ] **Step 2: Confirm baseline is green**
 
@@ -3988,8 +3988,8 @@ Platform codes (`PLATFORM_*`) come from the server unchanged; see platform-api-d
 
 ## See also
 
-- Design spec: `docs/superpowers/specs/2026-04-19-rntme-cli-platform-commands-design.md`
-- Platform API: `docs/superpowers/specs/2026-04-19-platform-api-design.md`
+- Design spec: `docs/superpowers/specs/done/2026-04-19-rntme-cli-platform-commands-design.md`
+- Platform API: `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`
 ```
 
 - [ ] **Step 3: Commit**

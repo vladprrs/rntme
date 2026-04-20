@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown + inline mermaid (C4Context, C4Container, flowchart, sequenceDiagram, erDiagram, stateDiagram-v2).
 
-**Spec:** `docs/superpowers/specs/2026-04-18-architecture-overview-design.md`.
+**Spec:** `docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md`.
 
 **Branch:** continues on `feat/d5-hybrid-idempotency-derived-projections` unless reviewer prefers a dedicated branch; the spec has already landed on this branch.
 
@@ -41,7 +41,7 @@ Write exactly this content to `docs/architecture.md`:
 ````markdown
 <!--
 Architecture overview for rntme.
-Spec: docs/superpowers/specs/2026-04-18-architecture-overview-design.md
+Spec: docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md
 Cutoff date: 2026-04-18. Later specs are folded in via subsequent bumps, not
 retroactively.
 
@@ -57,9 +57,9 @@ where styling is desired — copy, do not invent new colours):
 
 # rntme — Architecture Overview
 
-> Status: in progress (writing per plan `docs/superpowers/plans/2026-04-18-architecture-overview.md`).
+> Status: in progress (writing per plan `docs/superpowers/plans/done/2026-04-18-architecture-overview.md`).
 >
-> Spec: `docs/superpowers/specs/2026-04-18-architecture-overview-design.md`.
+> Spec: `docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md`.
 >
 > Primary framing: rntme is an artifact-driven runtime for AI-agent-generated services. CQRS, event-sourcing, SQLite, Turso, branded `Validated*` types, and plugin seams are **consequences** of that goal, not the identity of the system. See `rntme_vision_framing` memory.
 
@@ -122,14 +122,14 @@ Expected: ToC visible, headings render. No mermaid yet — nothing to render-che
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/architecture.md docs/superpowers/plans/2026-04-18-architecture-overview.md
+git add docs/architecture.md docs/superpowers/plans/done/2026-04-18-architecture-overview.md
 git commit -m "docs(architecture): skeleton + palette
 
 Sets up docs/architecture.md with full ToC and per-section pending
 markers. Introduces the colour palette as a top-of-file HTML comment
 for reuse in every mermaid block.
 
-Refs: docs/superpowers/specs/2026-04-18-architecture-overview-design.md"
+Refs: docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md"
 ```
 
 ---
@@ -140,7 +140,7 @@ Refs: docs/superpowers/specs/2026-04-18-architecture-overview-design.md"
 - Modify: `docs/architecture.md` — replace `_(pending — Task 2)_` under §1.
 
 **Research inputs (read in order):**
-- `docs/superpowers/specs/2026-04-18-architecture-overview-design.md` §2 (Primary framing).
+- `docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md` §2 (Primary framing).
 - `AGENTS.md` §§3–4 (package layering + conventions) — for rationale targets.
 - `packages/runtime/README.md` — for the plugin-seam / manifest framing.
 - Memory entry `rntme_vision_framing`.
@@ -297,7 +297,7 @@ git commit -m "docs(architecture): §2 L1 system context"
 - `packages/runtime/README.md` — plugin seams, boot-order invariant, manifest schema.
 - `packages/seed/README.md` — before-relay invariant.
 - `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md`.
-- `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+- `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 
 - [ ] **Step 1: Write the artifact map**
 
@@ -512,7 +512,7 @@ git commit -m "docs(architecture): §4.1 pdm — spec lineage, diagram, componen
 **Research inputs:**
 - `packages/qsm/README.md`.
 - `packages/qsm/src/parse/schema.ts`, `validate/structural.ts`, `validate/cross-ref.ts`, `derive/ddl.ts`, `derive/handler.ts`.
-- Spec lineage: `git log --oneline packages/qsm/` and especially `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`.
+- Spec lineage: `git log --oneline packages/qsm/` and especially `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`.
 
 - [ ] **Step 1: Write the subsection**
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, better-sqlite3, Hono, Kafka (in-memory bus for demo), Vitest, CloudEvents 1.0 binary content mode.
 
-**Spec source:** `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`.
+**Spec source:** `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`.
 
 **Branch name (suggested):** `feature/cloudevents-envelope`.
 
@@ -1962,7 +1962,7 @@ Body template:
 - [ ] `pnpm -r run test`
 - [ ] Manual: `pnpm -F @rntme/issue-tracker-api-demo start`, send command with `Correlation-Id` header, verify response body and `event_log` row.
 
-Spec: `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`.
+Spec: `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`.
 ```
 
 ---

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, vitest, better-sqlite3
 
-**Spec:** `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`
+**Spec:** `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`
 
 ---
 

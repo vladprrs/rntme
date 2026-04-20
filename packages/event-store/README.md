@@ -163,10 +163,10 @@ import type {
 
 These are fully specified in the CloudEvents envelope spec; this README is intentionally thin to avoid drift. Source-of-truth files:
 
-- **In-memory envelope** — `src/types/envelope.ts`; spec §3.1 (`../../docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`).
+- **In-memory envelope** — `src/types/envelope.ts`; spec §3.1 (`../../docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`).
 - **`event_log` / `publish_cursor` / `delivery_tracking` DDL** — `src/store/schema.ts`; spec §3.2.
 - **Kafka binary-content wire format** — `src/kafka/wire-codec.ts`; spec §3.3. `toCloudEventWire` encodes, `fromCloudEventWire` decodes; rejection codes are in `src/kafka/wire-errors.ts` (table above).
-- **DLQ wrapper envelope + `DlqPayload`** — `src/relay/dlq-envelope.ts`; spec §5.2. Emit path and unbounded-retry semantics live in `emitDlq` inside `src/relay/loop.ts`; see also `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` §D-DLQ-RETRY.
+- **DLQ wrapper envelope + `DlqPayload`** — `src/relay/dlq-envelope.ts`; spec §5.2. Emit path and unbounded-retry semantics live in `emitDlq` inside `src/relay/loop.ts`; see also `docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md` §D-DLQ-RETRY.
 
 Two operational notes that are not derivable from the spec or code and so stay here:
 
@@ -222,6 +222,6 @@ Two operational notes that are not derivable from the spec or code and so stay h
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`](../../docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md) — D9 CloudEvents 1.0 envelope end-to-end design (§3.1 envelope shape, §5.2 DLQ wrapper, §6 topic naming, §7 schema).
-- [`../../docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`](../../docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md) — A1 delivery-tracking + DLQ retry semantics (`delivery_tracking`, §D-DLQ-RETRY).
+- [`../../docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`](../../docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md) — D9 CloudEvents 1.0 envelope end-to-end design (§3.1 envelope shape, §5.2 DLQ wrapper, §6 topic naming, §7 schema).
+- [`../../docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md`](../../docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md) — A1 delivery-tracking + DLQ retry semantics (`delivery_tracking`, §D-DLQ-RETRY).
 - [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — original mutation/event model (pre-D9 envelope fields are superseded by the CE design above).

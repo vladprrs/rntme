@@ -2,9 +2,9 @@
 
 > **For agentic workers:** Use superpowers:subagent-driven-development or equivalent to implement this plan. Steps use `- [ ]` checkbox syntax.
 
-**Goal:** Apply the three corrections in `docs/superpowers/specs/2026-04-19-platform-api-errata-02.md` as a single submodule commit (the patch is tight) plus one main-repo commit (submodule pointer bump).
+**Goal:** Apply the three corrections in `docs/superpowers/specs/done/2026-04-19-platform-api-errata-02.md` as a single submodule commit (the patch is tight) plus one main-repo commit (submodule pointer bump).
 
-**Spec:** `docs/superpowers/specs/2026-04-19-platform-api-errata-02.md` §1–§3.
+**Spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-errata-02.md` §1–§3.
 
 **Architecture:** One submodule commit combining (a) `policies.sql` edit dropping FORCE from `api_token` and `membership_mirror`, (b) `migrate.ts` gating `roles.sql` behind `PLATFORM_CREATE_ROLES=1`, (c) both auth providers returning `PLATFORM_AUTH_INVALID` when membership is null. Plus one main-repo commit bumping the submodule pointer.
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, `better-sqlite3` (SQLite, WAL), Vitest, pnpm workspaces. Package affected: `@rntme/event-store`. No dependency changes.
 
-**Source spec:** `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` (A1 scope — minimum viable; follow-ups A2/A3 listed at the end of the spec are explicitly deferred).
+**Source spec:** `docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md` (A1 scope — minimum viable; follow-ups A2/A3 listed at the end of the spec are explicitly deferred).
 
 ---
 
@@ -1380,7 +1380,7 @@ Open `packages/event-store/README.md`. Locate the most appropriate section for o
 ```markdown
 ### Delivery tracking & DLQ (A1)
 
-The relay records every primary-topic send attempt in `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)`. After `RelayOptions.maxAttempts` (default 10) consecutive failures on the primary topic, the relay emits the original envelope to `{primaryTopic}.dlq` with `x-dlq-reason`, `x-dlq-attempts`, `x-dlq-first-attempt-at`, `x-dlq-last-error` headers, then marks `dlq_at` and advances `publish_cursor`. The attempt counter is persistent — it survives relay restarts. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md`.
+The relay records every primary-topic send attempt in `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)`. After `RelayOptions.maxAttempts` (default 10) consecutive failures on the primary topic, the relay emits the original envelope to `{primaryTopic}.dlq` with `x-dlq-reason`, `x-dlq-attempts`, `x-dlq-first-attempt-at`, `x-dlq-last-error` headers, then marks `dlq_at` and advances `publish_cursor`. The attempt counter is persistent — it survives relay restarts. HTTP ops endpoints (`/_ops/relay-dlq-count`, `/_ops/relay-lag`), terminal-vs-retryable classification, and a retention job for `delivery_tracking` are deferred (A2/A3). See `docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md`.
 ```
 
 - [ ] **Step 15.6: Commit**

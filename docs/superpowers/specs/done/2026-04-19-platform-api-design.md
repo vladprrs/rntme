@@ -1,6 +1,6 @@
 > **Errata 01 (2026-04-19, same-day):** a post-landing code review found
 > several drift points from this design. See
-> `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md` for the
+> `docs/superpowers/specs/done/2026-04-19-platform-api-errata-01.md` for the
 > authoritative corrections to §5.5 (RLS middleware), §5.2 (schema +
 > organization.archived_at), §8.5 (org-deleted cascade), §7 (slug
 > immutability), §9.2 (error-code registry), §14 (body-size caps), and
@@ -12,7 +12,7 @@
 **Status:** design
 **Author:** brainstorm 2026-04-19
 **Location of implementation:** `rntme-cli/packages/` (private submodule `vladprrs/rntme-cli`)
-**Related:** `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics); `AGENTS.md` §3 (package layering); `project_platform_vision` memory (roadmap); `project_coolify_config`, `platform_domains` memory (infra)
+**Related:** `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics); `AGENTS.md` §3 (package layering); `project_platform_vision` memory (roadmap); `project_coolify_config`, `platform_domains` memory (infra)
 
 ## 1. Problem
 

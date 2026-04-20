@@ -1,6 +1,6 @@
 <!--
 Architecture overview for rntme.
-Spec: docs/superpowers/specs/2026-04-18-architecture-overview-design.md
+Spec: docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md
 Cutoff date: 2026-04-18. Later specs are folded in via subsequent bumps, not
 retroactively.
 
@@ -16,9 +16,9 @@ where styling is desired — copy, do not invent new colours):
 
 # rntme — Architecture Overview
 
-> Cutoff: 2026-04-18. Written per plan `docs/superpowers/plans/2026-04-18-architecture-overview.md`.
+> Cutoff: 2026-04-18. Written per plan `docs/superpowers/plans/done/2026-04-18-architecture-overview.md`.
 >
-> Spec: `docs/superpowers/specs/2026-04-18-architecture-overview-design.md`.
+> Spec: `docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md`.
 >
 > Primary framing: rntme is an artifact-driven runtime for AI-agent-generated services. CQRS, event-sourcing, SQLite, Turso, branded `Validated*` types, and plugin seams are **consequences** of that goal, not the identity of the system. See `rntme_vision_framing` memory.
 
@@ -283,7 +283,7 @@ flowchart LR
 | Spec | Date | Status | Contribution |
 | --- | --- | --- | --- |
 | `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed | Entity-mirror projection contract: backing semantics, key/grain rules, generated columns, idempotency triple (§6). |
-| `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md` | 2026-04-16 | in-flight | Read-side relation graph moved from PDM to QSM: B2 cross-validation rules, single-hop / fan-out gates, error codes. |
+| `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md` | 2026-04-16 | in-flight | Read-side relation graph moved from PDM to QSM: B2 cross-validation rules, single-hop / fan-out gates, error codes. |
 
 **Component diagram.**
 
@@ -335,8 +335,8 @@ flowchart LR
 | Spec | Date | Status | Contribution |
 | --- | --- | --- | --- |
 | `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed (superseded) | Pre-D9 event model; envelope fields are now covered by the CloudEvents design below. |
-| `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md` | 2026-04-17 | landed | D9 CloudEvents 1.0 envelope end-to-end — shape (§3.1), DLQ wrapper (§5.2), topic convention (§6), schema compatibility (§7). |
-| `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` | 2026-04-17 | landed | A1 delivery-tracking table + unbounded DLQ retry semantics. |
+| `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` | 2026-04-17 | landed | D9 CloudEvents 1.0 envelope end-to-end — shape (§3.1), DLQ wrapper (§5.2), topic convention (§6), schema compatibility (§7). |
+| `docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md` | 2026-04-17 | landed | A1 delivery-tracking table + unbounded DLQ retry semantics. |
 
 **Component diagram.**
 
@@ -439,7 +439,7 @@ sequenceDiagram
 | Spec | Date | Status | Contribution |
 | --- | --- | --- | --- |
 | `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` | 2026-04-13 | landed | MVP Tier 1 scope: `findMany` / `filter` / `map` / `reduce` / `sort` / `limit` / `emit`; structural + semantic validation; SQLite target; TDD workflow. |
-| `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md` | 2026-04-16 | landed | Fixes `wrapPredicateOptional` param-position misalignment by reordering OR args; regression tests at unit and e2e. |
+| `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md` | 2026-04-16 | landed | Fixes `wrapPredicateOptional` param-position misalignment by reordering OR args; regression tests at unit and e2e. |
 
 Historical note: `graph_ir_rc_7.md` (gitignored, local-only) was the first-step IR language sketch; it is not treated as canon — later specs supersede it (see §7.8).
 
@@ -608,7 +608,7 @@ sequenceDiagram
 | Spec | Date | Status | Contribution |
 | --- | --- | --- | --- |
 | `docs/superpowers/specs/done/2026-04-14-mutations-design.md` | 2026-04-14 | landed | §6 projection consumer + QSM store: mirror table shape (§6.1–§6.3), batch loop (§6.4), three-layer idempotent apply (§6.5), offset tracking (§6.6), tier-2 deferrals (§6.9). |
-| `docs/superpowers/specs/2026-04-18-d5-consumer-idempotency-hybrid-design.md` | 2026-04-18 | proposed | D5 hybrid idempotency: per-row `last_event_version` for mirrors plus a shared `seen_events(event_id, projection_id)` table for derived projections; unblocks graph-IR-backed projections. |
+| `docs/superpowers/specs/done/2026-04-18-d5-consumer-idempotency-hybrid-design.md` | 2026-04-18 | proposed | D5 hybrid idempotency: per-row `last_event_version` for mirrors plus a shared `seen_events(event_id, projection_id)` table for derived projections; unblocks graph-IR-backed projections. |
 
 **Component diagram.**
 
@@ -785,7 +785,7 @@ sequenceDiagram
 
 | Spec | Date | Status | Contribution |
 | --- | --- | --- | --- |
-| `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md` | 2026-04-16 | landed | UI artifact v2: manifest + screens + layouts + fragments, six-stage pipeline, `CompiledArtifact` shape consumed by the runtime. |
+| `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md` | 2026-04-16 | landed | UI artifact v2: manifest + screens + layouts + fragments, six-stage pipeline, `CompiledArtifact` shape consumed by the runtime. |
 
 **Component diagram.**
 
@@ -881,7 +881,7 @@ sequenceDiagram
 
 **Purpose.** Parse, validate, and append a declarative JSON of event envelopes (`seed.json`) against the PDM and derived event-type specs, so a fresh deployment can arrive at a useful initial state.
 
-**Spec.** `docs/superpowers/specs/2026-04-15-runtime-seed-design.md` (landed). The before-relay invariant (spec §3.1, §8.3) is the central constraint: seed envelopes must be appended through `eventStore.appendRaw` **before** the relay starts its publish cursor, or seeded events would double-publish once the cursor reached them.
+**Spec.** `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md` (landed). The before-relay invariant (spec §3.1, §8.3) is the central constraint: seed envelopes must be appended through `eventStore.appendRaw` **before** the relay starts its publish cursor, or seeded events would double-publish once the cursor reached them.
 
 **Surface.** `parseSeed`, `validateSeed`, `loadSeed`, `applySeed`, plus a `seedBuilder` helper and a `rntme-seed` CLI (`validate` / `apply`). Default `eventId` is deterministic (`seed:{aggregateType}:{aggregateId}:v{version}`), default `actor` is `{ kind: 'system', id: 'seed' }`.
 
@@ -893,7 +893,7 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 **Purpose.** Expose a read-only libSQL Hrana v3 HTTP endpoint over rntme's two SQLite databases (event log + projection DB), so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
 
-**Spec.** `docs/superpowers/specs/2026-04-18-db-studio-design.md` (design landed; package scaffold in progress).
+**Spec.** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md` (design landed; package scaffold in progress).
 
 **Status (2026-04-18).** Only `packages/db-studio/test/` is present; `src/`, `package.json`, and `README.md` are not yet tracked. The runtime manifest carries a `studio: { enabled: false, mountPath: '/_studio', maxRows: 10000 }` block; `http-surface.ts` will mount the sub-router when enabled. This subsection describes intent; refer to the spec for the authoritative shape until the package lands.
 
@@ -903,7 +903,7 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 **Purpose.** Service orchestrator: loads and validates every artifact (`manifest.json` + PDM / QSM / bindings / graphs / UI / seed), boots the plugin seams, wires the event pipeline, applies seed, and mounts the HTTP surface.
 
-**Spec.** `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md` (landed): manifest schema, plugin-seam registration, Docker entry, boot order.
+**Spec.** `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md` (landed): manifest schema, plugin-seam registration, Docker entry, boot order.
 
 **Plugin seams** (see also §3.3) live in `packages/runtime/src/plugins/interfaces.ts` and are implemented by default in:
 
@@ -1076,7 +1076,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** In-memory `EventEnvelope<TPayload>` with `id`, `time`, `type`, `source`, `subject`, `correlationId`, `rntAggregateType`, `rntAggregateId`, `rntVersion`, `rntSchemaVersion`, `data`, `actor`. On the wire, CE-mandated attributes are `ce_*` headers in Kafka binary content mode; `data` is the JSON body.
 - **Constructed by:** Command handlers (via `@rntme/graph-ir-compiler`) and the seed loader; never by consumers.
 - **Invariant:** Caller mints `id`, `time`, and `correlationId`. The store never generates them; determinism is required for replay and golden tests.
-- **Spec(s):** `docs/superpowers/specs/2026-04-17-cloudevents-envelope-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`.
 - **Related:** `EventStore` interface, DLQ payload, topic convention.
 
 #### `EventStore` interface
@@ -1126,7 +1126,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `ApplyPlan = { handlersByEventType, mirrorsByAggregate }`. Mirror handlers run under a three-layer guard: pre-check `last_event_version`, `INSERT ... ON CONFLICT DO UPDATE WHERE last_event_version < excluded.last_event_version` (creation), `UPDATE ... WHERE last_event_version < ?` (non-creation). Derived handlers gate on `seen_events(event_id, projection_id)` before a delta UPSERT.
 - **Constructed by:** `compileApplyPlan({ pdm, qsm, events, derivedHandlers? })` — pure, no DB.
 - **Invariant:** All three mirror layers are mandatory; removing any regresses replay safety. Batch apply is all-or-nothing under `BEGIN IMMEDIATE`.
-- **Spec(s):** `2026-04-14-mutations-design.md` (§6), `docs/superpowers/specs/2026-04-18-d5-consumer-idempotency-hybrid-design.md`.
+- **Spec(s):** `2026-04-14-mutations-design.md` (§6), `docs/superpowers/specs/done/2026-04-18-d5-consumer-idempotency-hybrid-design.md`.
 - **Related:** `Envelope`, `Projection`, `EventTypeSpec`.
 
 #### `Seed envelope` + before-relay invariant
@@ -1136,7 +1136,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `applySeed(validatedSeed, store, { mode: 'strict' | 'upsertByEventId', ... })`. Default `eventId` = `seed:{aggregateType}:{aggregateId}:v{version}`, default `actor` = `{ kind: 'system', id: 'seed' }`.
 - **Constructed by:** `packages/runtime/src/start/start-service.ts` between `wireEventPipeline` and `pipeline.start` (the strict boot-order invariant; see §3.4).
 - **Invariant:** Seed envelopes must be appended BEFORE the relay's cursor starts advancing; the spec-§3.1 invariant is what prevents seed events from being re-published through Kafka.
-- **Spec(s):** `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 - **Related:** `Relay`, `ApplyPlan`, `startService`.
 
 ### 6.3 HTTP / UI
@@ -1188,7 +1188,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `compile(options) → Result<CompiledArtifact>`. Six-stage pipeline: parse (implicit in resolve) → resolve → expand → validate (structural + references) → compile orchestrator → emit.
 - **Constructed by:** `packages/runtime` at boot (or by an external build step that persists the artifact).
 - **Invariant:** Compiled specs contain no `$ref` or `$param` tokens. Manifest version is literal `"2.0"`. Structural errors short-circuit reference validation.
-- **Spec(s):** `docs/superpowers/specs/2026-04-16-ui-artifact-v2-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`.
 - **Related:** `BindingPlan` (for HTTP-map resolution during emit), `Surface` plugin (serves the artifact).
 
 ### 6.4 Extensibility seams
@@ -1200,7 +1200,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `DbDriver` interface (`openEventStore`, `openProjectionDb`, lifecycle hooks). Default: `BetterSqliteDriver` reading `eventStorePath` / `qsmPath` from the manifest.
 - **Constructed by:** `startService` at boot, selected from the manifest or overridden by the caller.
 - **Invariant:** SQL stays SQLite-dialect forever (Turso is a SQLite-compatible rewrite). A `DbDriver` implementation must not introduce a second dialect branch in `graph-ir-compiler/src/lower/sqlite/`.
-- **Spec(s):** `docs/superpowers/specs/2026-04-15-runtime-packaging-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`.
 - **Related:** `EventStore`, `Surface`, `Manifest`.
 
 #### `EventBus` plugin seam
@@ -1262,7 +1262,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** Two endpoints — `POST /_studio/hrana/events/v3/pipeline` and `POST /_studio/hrana/qsm/v3/pipeline` — speaking the Hrana v3 JSON wire protocol for `execute` / `batch` requests.
 - **Constructed by:** `packages/runtime/src/plugins/http-surface.ts` when `manifest.studio.enabled === true`.
 - **Invariant:** Read-only enforced at three layers — a second SQLite handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with PRAGMA allow-list, and a row cap (default 10,000). The endpoint never mutates.
-- **Spec(s):** `docs/superpowers/specs/2026-04-18-db-studio-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 - **Related:** `Surface`, `DbDriver`, manifest `studio` block.
 
 ## 7. Observations and refactoring candidates
@@ -1428,7 +1428,7 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > **[info]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts::wrapPredicateOptional` — **fixed 2026-04-16** (commit swapped the OR arguments).
 > - **Why it is a smell (history):** The helper wraps a filter predicate with `(predSql) OR (? IS NULL)` per optional param. The pre-fix version emitted the guard `?` before the inner predicate's `?` in SQL text, but appended inner params first to `paramOrder`; SQLite binds `?` in walk-order, so mixed filters (required + optional params) silently bound the guard to the wrong value.
 > - **Regression tests:** `packages/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts` ("aligns param positions when required and predicate_optional params are mixed") and `packages/graph-ir-compiler/test/e2e/predicate-optional.e2e.test.ts`.
-> - **Links:** `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`; memory `rntme_predicate_optional_bug`.
+> - **Links:** `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`; memory `rntme_predicate_optional_bug`.
 
 > **[info]** Demo list / search endpoints return raw FK ids instead of JOIN-enriched rows.
 > - **Why it is a smell:** `demo/issue-tracker-api` list endpoints expose fields like `createdBy: "u-1"` rather than `createdBy: { id, name }`. A UI author has to issue a second query per row, defeating the single-endpoint experience.

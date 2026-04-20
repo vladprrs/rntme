@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM Node 20, Hono, Zod, `@hono/zod-openapi`, Drizzle ORM, `pg`, `@aws-sdk/client-s3`, `@workos-inc/node`, pino, vitest, testcontainers (Postgres + MinIO), fast-check.
 
-**Spec:** `docs/superpowers/specs/2026-04-19-platform-api-design.md` — read §3 decisions matrix before starting any task.
+**Spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — read §3 decisions matrix before starting any task.
 
 **Conventions this plan follows (inherited from the public `@rntme/*` workspace):**
 - `Result<T, E>` for fallible returns; no throws across public APIs.
@@ -124,7 +124,7 @@ export const VERSION = '0.0.0';
 
 Domain + use-cases + seam interfaces for the rntme platform control-plane.
 
-See `docs/superpowers/specs/2026-04-19-platform-api-design.md` in the public repo.
+See `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` in the public repo.
 ```
 
 - [ ] **Step 8: Commit**
@@ -6842,8 +6842,8 @@ With:
     - `@rntme-cli/platform-core`  — platform domain, use-cases, seam interfaces.
     - `@rntme-cli/platform-storage` — Postgres + rustfs adapters.
     - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`.
-  Specs: `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`
-  and `docs/superpowers/specs/2026-04-19-platform-api-design.md`.
+  Specs: `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`
+  and `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`.
 ```
 
 - [ ] **Step 2: In `README.md`** — add a short "Platform API" section under "Architecture" linking to the design spec and summarizing scope in 2–3 sentences. No implementation details.
@@ -6892,7 +6892,7 @@ git commit -m "docs: add @rntme-cli/platform-* packages to repo map"
 
 ---
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-19-platform-api.md`. Two execution options:
+Plan complete and saved to `docs/superpowers/plans/done/2026-04-19-platform-api.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration.
 

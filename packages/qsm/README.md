@@ -198,7 +198,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 - An entity may have at most one `entity-mirror` projection. Two mirrors over the same source entity collide on event apply and is forbidden at cross-ref (`QSM_XREF_ENTITY_MIRROR_DUPLICATE`); the resolver re-asserts via `invariantViolated` to surface validator regressions loudly.
 - `backing: 'derived'` parses but does not validate. The Zod enum admits it for forward-compat with tier 2; cross-ref rejects with `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Do not add a "derived" code path inside `derive/*` — they short-circuit on `backing !== 'entity-mirror'`.
 - Relation key format is `"<ProjectionName>.<relationName>"`, where each segment matches `[A-Za-z_][A-Za-z0-9_]*`. snake_case projection names (e.g. `project_mirror.dimension`) are accepted; digit-leading segments are rejected. Source: `RELATION_KEY_RE` in `validate/structural.ts`; fix commits `e30135c` and `8c4d66a`.
-- QSM relations are B2 cross-validated against PDM: `to`, `localKey`, `foreignKey`, `cardinality` must exactly equal the corresponding `PDM.entity.relations[name]`. PDM is canon; if QSM disagrees, the cross-ref layer fails. Source: spec [`docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`](../../docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md) §2.
+- QSM relations are B2 cross-validated against PDM: `to`, `localKey`, `foreignKey`, `cardinality` must exactly equal the corresponding `PDM.entity.relations[name]`. PDM is canon; if QSM disagrees, the cross-ref layer fails. Source: spec [`docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) §2.
 - `relationName` in the key must equal the PDM relation name on the source entity — there is no rename. Re-aliasing happens (if at all) at the consumer (graph-ir-compiler), not in QSM.
 - `cardinality: 'many'` parses and validates, but the SQL compiler refuses to lower it (`NAV_FAN_OUT_NOT_ALLOWED`). Reserve it for forward-compat; do not declare it expecting a JOIN. Source: spec §1 (Non-goals) and §3 (`expandChain`).
 - `localKey` and `foreignKey` are field names, not column names. The DDL generator and handler deriver call `entity.fields[name].column` to get the SQL identifier; mixing the two breaks DDL silently in tests that happen to use identical names.
@@ -256,7 +256,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 ## Specs
 
 - [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — §6 entity-mirror projection contract: backing semantics, key/grain rules, generated columns, idempotency triple.
-- [`../../docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`](../../docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md) — read-side relation graph migration from PDM to QSM: schema, B2 cross-validation rules, single-hop / fan-out gates, error codes.
+- [`../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) — read-side relation graph migration from PDM to QSM: schema, B2 cross-validation rules, single-hop / fan-out gates, error codes.
 
 ## Glossary
 

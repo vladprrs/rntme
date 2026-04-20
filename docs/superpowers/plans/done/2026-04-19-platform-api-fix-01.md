@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Apply the corrections listed in `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md` to the platform API implementation in the `rntme-cli/` submodule — 8 Critical + 5 cheap Important findings from the post-landing code review.
+**Goal:** Apply the corrections listed in `docs/superpowers/specs/done/2026-04-19-platform-api-errata-01.md` to the platform API implementation in the `rntme-cli/` submodule — 8 Critical + 5 cheap Important findings from the post-landing code review.
 
 **Architecture:** Ten commits in the `rntme-cli` submodule (code changes) plus one commit in the main repo (submodule pointer bump + a preface note on the original design doc). Commits are dependency-ordered: migration + schema first, then tx-scoped repo constructors, then the HTTP RLS middleware, then surgical bug fixes. Every behavioural change uses TDD (red → green → refactor).
 
 **Tech stack (unchanged):** TypeScript strict ESM Node 20, Hono, Zod, Drizzle ORM, `pg`, `@aws-sdk/client-s3`, `@workos-inc/node`, pino, vitest, testcontainers (Postgres + MinIO).
 
-**Spec:** `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md` — this plan's section numbers track the errata's §3 corrections.
+**Spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-errata-01.md` — this plan's section numbers track the errata's §3 corrections.
 
 **Conventions (inherited from the public `@rntme/*` workspace and first platform-api plan):**
 - `Result<T, E>` everywhere; no throws across public APIs.
@@ -2085,7 +2085,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `rntme-cli` (submodule pointer)
-- Modify: `docs/superpowers/specs/2026-04-19-platform-api-design.md` (add preface pointer to errata)
+- Modify: `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` (add preface pointer to errata)
 
 - [ ] **Step 1: Sanity check: the submodule HEAD is at the last fix commit**
 
@@ -2094,12 +2094,12 @@ Expected: ten fix commits 10 → 1 at the top, above the last M1-landed commit.
 
 - [ ] **Step 2: Prepend a preface to the original design doc pointing at the errata**
 
-Edit `docs/superpowers/specs/2026-04-19-platform-api-design.md` and insert at the very top (before the existing content):
+Edit `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` and insert at the very top (before the existing content):
 
 ```markdown
 > **Errata 01 (2026-04-19, same-day):** a post-landing code review found
 > several drift points from this design. See
-> `docs/superpowers/specs/2026-04-19-platform-api-errata-01.md` for the
+> `docs/superpowers/specs/done/2026-04-19-platform-api-errata-01.md` for the
 > authoritative corrections to §5.5 (RLS middleware), §5.2 (schema +
 > organization.archived_at), §8.5 (org-deleted cascade), §7 (slug
 > immutability), §9.2 (error-code registry), §14 (body-size caps), and
@@ -2112,7 +2112,7 @@ Edit `docs/superpowers/specs/2026-04-19-platform-api-design.md` and insert at th
 - [ ] **Step 1: Stage + commit**
 
 ```bash
-git add rntme-cli docs/superpowers/specs/2026-04-19-platform-api-design.md
+git add rntme-cli docs/superpowers/specs/done/2026-04-19-platform-api-design.md
 git commit -m "chore: bump rntme-cli submodule (platform-api fix-01) + design preface
 
 Lands the 10 fix-01 commits in the rntme-cli submodule: RLS per-request

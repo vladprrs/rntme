@@ -562,7 +562,7 @@ Every step compiles only once the types in step 1 are in place; expect a `git ad
 
 - `docs/adr/2026-04-15-event-driven-architecture.md` §D9.
 - `docs/gaps/2026-04-15-event-driven-canonical-audit.md` §D9 (audit & remediation sketch).
-- `docs/superpowers/specs/2026-04-17-relay-dlq-delivery-tracking-design.md` (`delivery_tracking` table — orthogonal; reused as-is).
+- `docs/superpowers/specs/done/2026-04-17-relay-dlq-delivery-tracking-design.md` (`delivery_tracking` table — orthogonal; reused as-is).
 - CloudEvents 1.0 specification — `github.com/cloudevents/spec`.
 - CloudEvents Kafka protocol binding — binary content mode.
 - W3C Trace Context — `traceparent` format.

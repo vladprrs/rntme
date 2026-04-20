@@ -4,8 +4,8 @@
 **Author:** brainstorm 2026-04-19
 **Location of implementation:** Dockerfile в корне parent-репо `vladprrs/rntme`; Dokploy ресурсы в project `runtime`
 **Related:**
-- `docs/superpowers/specs/2026-04-19-platform-api-design.md` — спроектировал сам сервис (§4.2 external runtime deps — Postgres, rustfs, WorkOS; §4.4 boot order)
-- `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md` — механика private submodule'а
+- `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — спроектировал сам сервис (§4.2 external runtime deps — Postgres, rustfs, WorkOS; §4.4 boot order)
+- `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md` — механика private submodule'а
 - `project_coolify_config`, `platform_domains`, `dokploy_mcp_url_gotcha` memory — инфраструктура
 - `rntme_turso_target` memory — **не** применяется: Postgres здесь для control-plane, не для `@rntme/*` runtime
 
@@ -274,8 +274,8 @@ Deploy — additive, не меняет код runtime'а, не мигрируе�
 
 ## 14. References
 
-- `docs/superpowers/specs/2026-04-19-platform-api-design.md` §4 (external deps), §5 (Postgres schema), §14 (boot order)
-- `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md` — submodule mechanics
+- `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` §4 (external deps), §5 (Postgres schema), §14 (boot order)
+- `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md` — submodule mechanics
 - `rntme-cli/packages/platform-http/src/config/env.ts` — env schema (source of truth for §7)
 - `rntme-cli/packages/platform-http/src/bin/server.ts` — boot sequence (source for §8 step 5 log expectations)
 - `rntme-cli/packages/platform-storage/drizzle/` — migrations

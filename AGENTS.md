@@ -27,8 +27,8 @@
     - `@rntme-cli/platform-core`  — platform domain, use-cases, seam interfaces.
     - `@rntme-cli/platform-storage` — Postgres + rustfs adapters.
     - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`.
-  Specs: `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`
-  and `docs/superpowers/specs/2026-04-19-platform-api-design.md`.
+  Specs: `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`
+  and `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
@@ -291,7 +291,7 @@ under `packages/event-store/test/`.
 3. Go to `https://libsqlstudio.com`, create a "libSQL Remote (HTTP)" connection, paste the URL.
 4. Writes, `ATTACH`, non-read-only `PRAGMA` are rejected inline. Intended for dev only.
 
-Spec first: `docs/superpowers/specs/2026-04-18-db-studio-design.md`.
+Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ## 7. Anti-patterns / do not do
 
@@ -324,7 +324,7 @@ Map of "if you're tempted to do X, the decision-doc is Y":
 - "Why SQLite, not Postgres?" →
   `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`
   (runtime target) and
-  `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`
+  `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`
   (dialect-specific lowering).
 - "Why entity-mirror only, not derived?" →
   `docs/superpowers/specs/done/2026-04-14-mutations-design.md` §6.
@@ -334,11 +334,11 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/superpowers/specs/done/2026-04-14-bindings-design.md` §12 and
   `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`.
 - "Why relations moved from PDM to QSM?" →
-  `docs/superpowers/specs/2026-04-16-qsm-relations-migration-design.md`.
+  `docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`.
 - "Why the seed lifecycle runs before the relay?" →
-  `docs/superpowers/specs/2026-04-15-runtime-seed-design.md`.
+  `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 - "Why `predicate_optional` swaps OR args?" →
-  `docs/superpowers/specs/2026-04-16-predicate-optional-fix-design.md`.
+  `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`.
 - "Event-driven architecture — what events, what consumers?" →
   `docs/adr/2026-04-15-event-driven-architecture.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,

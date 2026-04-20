@@ -8,7 +8,7 @@
 
 **Tech Stack:** pnpm 9.12 workspaces, TypeScript 5.5 ESM, vitest 2.1, eslint 9, Node 20 (`node:util.parseArgs`), GitHub `gh` CLI, `actions/checkout@v4`.
 
-**Spec:** `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`.
+**Spec:** `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`.
 
 ---
 
@@ -745,7 +745,7 @@ Registers vladprrs/rntme-cli as a git submodule mounted at rntme-cli/ and
 extends pnpm-workspace.yaml with rntme-cli/packages/*, bringing
 @rntme-cli/cli into the root workspace. Lockfile refreshed.
 
-Spec: docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md
+Spec: docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md
 EOF
 )"
 ```
@@ -831,7 +831,7 @@ Locate the bullet list that currently starts with `- packages/` / `- demo/issue-
 ```markdown
 - `rntme-cli/`              — private git submodule (`vladprrs/rntme-cli`)
   hosting `@rntme-cli/*` packages. See
-  `docs/superpowers/specs/2026-04-18-rntme-cli-submodule-design.md`.
+  `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`.
 ```
 
 - [ ] **Step 4: Commit**

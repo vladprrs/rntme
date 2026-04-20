@@ -95,4 +95,4 @@ Supported Hrana request types (MVP): `execute`, `batch`, `close`. All others →
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-18-db-studio-design.md`](../../docs/superpowers/specs/2026-04-18-db-studio-design.md) — full design doc, decision log, out-of-scope, future evolution.
+- [`../../docs/superpowers/specs/done/2026-04-18-db-studio-design.md`](../../docs/superpowers/specs/done/2026-04-18-db-studio-design.md) — full design doc, decision log, out-of-scope, future evolution.
