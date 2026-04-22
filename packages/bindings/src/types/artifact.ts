@@ -28,11 +28,33 @@ export type HttpBinding = {
 
 export type BindingKind = 'query' | 'command';
 
+export type PreStep =
+  | {
+      kind: 'system';
+      op: 'randomBytes';
+      bytes: number;
+      bindAs: string;
+    }
+  | {
+      kind: 'module-rpc';
+      module: string;
+      rpc: string;
+      input: unknown;
+      bindAs: string;
+      timeoutMs?: number;
+      retry?: {
+        attempts?: number;
+        backoffMs?: 'exp' | number;
+        retryOn?: 'never' | 'transient' | 'all';
+      };
+    };
+
 export type BindingEntry = {
   kind?: BindingKind;
   graph: string;
   target: { engine: string; dialect: string };
   http: HttpBinding;
+  pre?: PreStep[];
 };
 
 export type OpenApiDefaults = {

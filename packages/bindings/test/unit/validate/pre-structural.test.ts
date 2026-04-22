@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateStructural } from '../../src/validate/structural.js';
+import { validateStructural } from '../../../src/validate/structural.js';
 import type { BindingArtifact } from '../../../src/types/artifact.js';
 
 const base: BindingArtifact = {
@@ -100,6 +100,33 @@ describe('pre[] structural validation', () => {
     primary.http.path = '/v1/things/{id}';
     primary.pre = [
       { kind: 'module-rpc', module: 'mod', rpc: 'r1', input: {}, bindAs: 'x' },
+    ];
+    const r = validateStructural(good);
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts pre: [] on a query binding', () => {
+    const good = clone(base);
+    const primary = good.bindings.primary;
+    if (!primary) throw new Error('missing primary');
+    primary.pre = [];
+    const r = validateStructural(good);
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts exactly 2 pre steps', () => {
+    const good = clone(base);
+    const primary = good.bindings.primary;
+    if (!primary) throw new Error('missing primary');
+    primary.kind = 'command';
+    primary.http.method = 'POST';
+    primary.http.parameters = [
+      { name: 'id', in: 'path', bindTo: 'id', required: true },
+    ];
+    primary.http.path = '/v1/things/{id}';
+    primary.pre = [
+      { kind: 'module-rpc', module: 'mod', rpc: 'r1', input: {}, bindAs: 'a' },
+      { kind: 'module-rpc', module: 'mod', rpc: 'r2', input: {}, bindAs: 'b' },
     ];
     const r = validateStructural(good);
     expect(r.ok).toBe(true);
