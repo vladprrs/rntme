@@ -6,12 +6,24 @@ describe('@rntme/module-skeleton public contract', () => {
     expect(VERSION).toBe('0.0.0');
   });
 
-  it('exports an echo handler with the expected shape from the built entrypoint', () => {
+  it('exports an echo handler with the expected shape from the built entrypoint', async () => {
     expect(exampleHandlers).toEqual(
       expect.objectContaining({
         echo: expect.any(Function),
       }),
     );
-    expect(exampleHandlers.echo('hello')).toBe('hello');
+    const out = await exampleHandlers.echo(
+      { correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null } } as any,
+      { message: 'hello' },
+    );
+    expect(out).toEqual(
+      expect.objectContaining({
+        ok: true,
+        value: expect.objectContaining({
+          aggregateId: 'echo',
+          eventIds: [],
+        }),
+      }),
+    );
   });
 });

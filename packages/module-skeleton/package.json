@@ -27,6 +27,7 @@
     "@rntme/runtime": "workspace:*"
   },
   "devDependencies": {
+    "@rntme/event-store": "workspace:*",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
