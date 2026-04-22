@@ -22,6 +22,7 @@ export type ParsedManifest = {
     mountPath?: string;
     maxRows?: number;
   };
+  modules?: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
 };
 
 export type ValidatedManifest = {

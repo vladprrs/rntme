@@ -72,5 +72,16 @@ export const ManifestSchema = z
       .strict()
       .optional(),
     studio: StudioConfigSchema.optional(),
+    modules: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            grpc: z.object({ address: z.string().min(1) }).strict(),
+            protoPath: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();

@@ -49,4 +49,31 @@ describe('parseManifest', () => {
     );
     expect(r.ok).toBe(true);
   });
+
+  it('parses modules[] with grpc address and protoPath', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [
+          { name: 'payments', grpc: { address: 'payments:50051' }, protoPath: 'protos/payments.proto' },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.modules?.[0]?.name).toBe('payments');
+    }
+  });
+
+  it('rejects module with empty name', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: '', grpc: { address: 'a:1' }, protoPath: 'p' }],
+      }),
+    );
+    expect(result.ok).toBe(false);
+  });
 });
