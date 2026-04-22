@@ -12,6 +12,7 @@ import type {
   ResolvedShape,
   InputType,
   HttpParameter,
+  PreStep,
 } from '@rntme/bindings';
 import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
@@ -67,7 +68,7 @@ export type QueryBindingPlan = BindingPlanCommon & {
 export type CommandBindingPlan = BindingPlanCommon & {
   kind: 'command';
   commandName: string;
-  pre: import('@rntme/bindings').PreStep[];
+  pre: PreStep[];
 };
 
 export type BindingPlan = QueryBindingPlan | CommandBindingPlan;

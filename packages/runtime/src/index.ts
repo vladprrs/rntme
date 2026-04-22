@@ -37,6 +37,7 @@ export { HttpSurface } from './plugins/http-surface.js';
 export {
   createMetrics,
   mountObservability,
+  recordPreStep,
   type Metrics,
   type HealthProbe,
 } from './plugins/observability.js';

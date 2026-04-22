@@ -17,7 +17,7 @@ export type HttpSurfaceOptions = {
   healthProbe: HealthProbe;
   commandExecutor?: CommandExecutor;
   queryExecutor?: QueryExecutor;
-  externalAdapterClient?: ExternalAdapterClient;
+  externalAdapterClient?: ExternalAdapterClient | undefined;
 };
 
 export type { CorrelationVariables };

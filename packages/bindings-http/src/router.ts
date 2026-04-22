@@ -4,7 +4,7 @@ import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { EventStore, ActorRef } from '@rntme/event-store';
-import type { ExternalAdapterClient } from '@rntme/runtime';
+import type { ExternalAdapterClient, Metrics } from '@rntme/runtime';
 import type { Logger } from 'pino';
 import pino from 'pino';
 import type { CommandExecutor } from './executor-contract.js';
@@ -33,10 +33,10 @@ export type BindingsRouterOptions = {
   now?: () => string;
   /** Default: () => crypto.randomUUID() */
   nextId?: () => string;
-  externalAdapterClient?: ExternalAdapterClient;
-  idempotencyCache?: IdempotencyCache;
+  externalAdapterClient?: ExternalAdapterClient | undefined;
+  idempotencyCache?: IdempotencyCache | undefined;
   logger?: Logger;
-  metrics?: import('../plugins/observability.js').Metrics;
+  metrics?: Metrics | undefined;
 };
 
 export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
@@ -75,7 +75,11 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   app.use('*', idempotencyMiddleware({
     cache,
     now: () => Date.now(),
-    commandNameFromPath: (p) => pathToCommand.get(p) ?? null,
+    commandNameFromPath: (p) => {
+      // Strip /api prefix since the router is mounted at /api
+      const stripped = p.replace(/^\/api/, '') || '/';
+      return pathToCommand.get(stripped) ?? pathToCommand.get(p) ?? null;
+    },
   }));
 
   for (const bp of Object.values(plan.plans)) {

@@ -1,0 +1,9 @@
+{
+  "CommandResult": {
+    "fields": {
+      "aggregateId": { "type": "integer", "nullable": false },
+      "version": { "type": "integer", "nullable": false },
+      "eventIds": { "type": "string", "nullable": false }
+    }
+  }
+}

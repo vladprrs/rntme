@@ -1,7 +1,8 @@
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { EventStore, ActorRef } from '@rntme/event-store';
-import type { ExternalAdapterClient } from '@rntme/runtime';
+import type { ExternalAdapterClient, Metrics } from '@rntme/runtime';
+import type { Logger } from 'pino';
 import type { CommandBindingPlan } from '../startup/compile-plan.js';
 import type { CommandExecutor } from '../executor-contract.js';
 import type { CorrelationCtx } from './correlation-middleware.js';
@@ -17,7 +18,6 @@ import { runPreSteps } from '../pre/run-pre-steps.js';
 import type { IdempotencyCache } from '../idempotency/cache.js';
 import { deriveCommandRunId } from '../idempotency/derive-keys.js';
 import { randomUUID } from 'node:crypto';
-import type { Metrics, recordPreStep } from '@rntme/runtime';
 
 export type CommandHandlerDeps = {
   commandExecutor: CommandExecutor;
@@ -27,13 +27,15 @@ export type CommandHandlerDeps = {
   nextId: () => string;
   actorFromRequest: (c: Context) => ActorRef | null;
   onError?: (err: unknown, ctx: Context) => void;
-  externalAdapterClient?: ExternalAdapterClient;
-  idempotencyCache?: IdempotencyCache;
-  logger: import('pino').Logger;
-  metrics?: Metrics;
+  externalAdapterClient?: ExternalAdapterClient | undefined;
+  idempotencyCache?: IdempotencyCache | undefined;
+  logger: Logger;
+  metrics?: Metrics | undefined;
 };
 
-type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx } }>) => Promise<Response>;
+type IdempotencyCtx = { clientKey: string | null; runId: string | null };
+
+type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx; idempotency: IdempotencyCtx } }>) => Promise<Response>;
 
 export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandlerDeps): Handler {
   const declaredQueryParams = plan.entry.http.parameters.filter((p) => p.in === 'query');
@@ -72,7 +74,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
     let graphInputs = remapToGraphInputs(combined, plan.bindToMap);
     const correlation = c.get('correlation');
 
-    const idemCtx = c.get('idempotency') as { clientKey: string | null; runId: string | null } | undefined;
+    const idemCtx = c.get('idempotency');
     const clientKey = idemCtx?.clientKey ?? null;
     const runId = idemCtx?.runId ?? (clientKey !== null ? deriveCommandRunId(plan.commandName, clientKey) : randomUUID());
     const correlationId = c.get('correlation')?.correlationId ?? randomUUID();
@@ -107,9 +109,38 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         },
       });
       if (!preResult.ok) {
-        return c.json(preResult.body, preResult.httpStatus);
+        return c.json(preResult.body, preResult.httpStatus as 200 | 201 | 400 | 409 | 422 | 500 | 502 | 503 | 504);
       }
-      graphInputs = { ...graphInputs, ...preResult.systemFields };
+      // Flatten pre-step results: if a value is an object with a single key
+      // that matches the bindAs name, extract the inner value.
+      const flattened: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(preResult.systemFields)) {
+        if (key === 'pre' && value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // Flatten nested values inside 'pre'
+          for (const [preKey, preValue] of Object.entries(value as Record<string, unknown>)) {
+            if (preValue !== null && typeof preValue === 'object' && !Array.isArray(preValue)) {
+              const entries = Object.entries(preValue as Record<string, unknown>);
+              if (entries.length === 1 && entries[0]![0] === preKey) {
+                flattened[preKey] = entries[0]![1];
+              } else {
+                flattened[preKey] = preValue;
+              }
+            } else {
+              flattened[preKey] = preValue;
+            }
+          }
+        } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          const entries = Object.entries(value as Record<string, unknown>);
+          if (entries.length === 1 && entries[0]![0] === key) {
+            flattened[key] = entries[0]![1];
+          } else {
+            flattened[key] = value;
+          }
+        } else {
+          flattened[key] = value;
+        }
+      }
+      graphInputs = { ...graphInputs, ...flattened };
     }
 
     const out = await deps.commandExecutor.execute({

@@ -45,6 +45,7 @@ export type {
   ValidatedBindings,
   OperationPassthrough,
   ParameterPassthrough,
+  PreStep,
 } from './types/artifact.js';
 
 export type {

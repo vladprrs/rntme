@@ -1,0 +1,12 @@
+{
+  "version": "2.0",
+  "pdmRef": "pre-step-demo.domain.v1",
+  "qsmRef": "pre-step-demo.read.v1",
+  "graphSpecRef": "pre-step-demo.graphs.v1",
+  "bindingsRef": "pre-step-demo.bindings.v1",
+  "metadata": {
+    "title": "Pre-step Demo"
+  },
+  "layouts": {},
+  "routes": {}
+}
