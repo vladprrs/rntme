@@ -298,6 +298,14 @@ under `packages/event-store/test/`.
 
 Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
+### 6.11 Add a platform module (code-executor-based integration service)
+
+1. Read `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
+2. Copy `packages/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
+3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
+4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
+5. Follow the health-check convention in `packages/module-skeleton/README.md`.
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
