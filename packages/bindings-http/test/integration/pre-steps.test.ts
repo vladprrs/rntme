@@ -21,7 +21,7 @@ describe('runPreSteps', () => {
           input: { nonce: '$pre.nonce', email: '$auth.email' }, bindAs: 'customer' },
       ],
       {
-        scope: { body: {}, query: {}, auth: { email: 'u@x' }, config: {}, system: {} },
+        scope: { body: {}, query: {}, auth: { email: 'u@x' }, config: {} },
         adapterClient: fakeAdapter,
         runId: 'run-1',
         correlationId: 'corr-1',
@@ -39,7 +39,7 @@ describe('runPreSteps', () => {
           input: {}, bindAs: 'charge' },
       ],
       {
-        scope: { body: {}, query: {}, auth: {}, config: {}, system: {} },
+        scope: { body: {}, query: {}, auth: {}, config: {} },
         adapterClient: fakeAdapter,
         runId: 'run-2',
         correlationId: 'corr-2',

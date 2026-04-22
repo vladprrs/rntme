@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
+import pino from 'pino';
 import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
 import { executeCommand, CommandExecutionError } from '@rntme/graph-ir-compiler';
@@ -174,6 +175,7 @@ function buildAppAndStore(): {
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
       actorFromRequest: () => actor,
+      logger: pino({ level: 'silent' }),
     }),
   );
   return { app, store, actor };

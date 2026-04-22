@@ -39,11 +39,11 @@ function buildDescriptors(proto: string): Record<string, grpc.MethodDefinition<o
   if (service === null) throw new Error('no service');
 
   const methods: Record<string, grpc.MethodDefinition<object, object>> = {};
-  for (const [methodName, method] of Object.entries(service.methods)) {
+  for (const [methodName, method] of Object.entries((service as protobuf.Service).methods)) {
     const req = root.lookupType(method.requestType);
     const res = root.lookupType(method.responseType);
     methods[methodName] = {
-      path: `/${pkgPrefix}${service.name}/${methodName}`,
+      path: `/${pkgPrefix}${(service as protobuf.Service).name}/${methodName}`,
       requestStream: false,
       responseStream: false,
       requestSerialize: (v: object): Buffer => Buffer.from(req.encode(req.fromObject(v)).finish()),
