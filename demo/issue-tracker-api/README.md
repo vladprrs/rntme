@@ -70,7 +70,7 @@ test/
   list-enrichment-e2e.test.ts                     Subprocess boot on :3013 + asserts projectKey/reporterUsername/sprintName appear on list + search rows.
 
 Dockerfile                                        FROM ghcr.io/vladprrs/rntme-runtime:1.0 + COPY artifacts /srv/artifacts.
-package.json                                      Scripts: start (tsx), start:runtime-cli (rntme-runtime CLI), test (vitest), typecheck (tsc --noEmit).
+package.json                                      Scripts: build, build:deps, start (prebuild + tsx), start:runtime-cli (prebuild + rntme-runtime CLI), test (prebuild + vitest), typecheck (tsc --noEmit).
 tsconfig.json                                     TS project config.
 vitest.config.ts                                  Vitest config.
 KNOWN_ISSUES.md                                   Historical fix log (status: all resolved). Cross-referenced below.
