@@ -225,6 +225,9 @@ importers:
         specifier: workspace:*
         version: link:../runtime
     devDependencies:
+      '@rntme/event-store':
+        specifier: workspace:*
+        version: link:../event-store
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39

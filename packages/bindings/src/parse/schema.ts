@@ -42,15 +42,15 @@ const PreStepSystemSchema = z.object({
   kind: z.literal('system'),
   op: z.literal('randomBytes'),
   bytes: z.number().int().min(1).max(1024),
-  bindAs: z.string().min(1),
+  bindAs: nonEmptyString,
 }).strict();
 
 const PreStepModuleRpcSchema = z.object({
   kind: z.literal('module-rpc'),
-  module: z.string().min(1),
-  rpc: z.string().min(1),
+  module: nonEmptyString,
+  rpc: nonEmptyString,
   input: z.unknown(),
-  bindAs: z.string().min(1),
+  bindAs: nonEmptyString,
   timeoutMs: z.number().int().min(1).max(30_000).optional(),
   retry: RetryPolicySchema.optional(),
 }).strict();

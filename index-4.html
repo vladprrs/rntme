@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rntme — compile a ticket into a tested binary</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="../../assets/logo-monogram.svg" type="image/svg+xml">
+<!-- Tokens + kit.css inlined so the page renders standalone in any preview context.
+     Source of truth still lives at ../../colors_and_type.css and ./kit.css. -->
+<style>
+/* === tokens (mirror of ../../colors_and_type.css) ==================== */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root {
+  --color-bg: oklch(99.0% 0.003 265);
+  --color-surface: oklch(97.2% 0.005 265);
+  --color-surface-2: oklch(98.4% 0.006 265);
+  --color-code-bg: oklch(96.6% 0.008 265);
+  --color-text: oklch(22% 0.020 265);
+  --color-text-muted: oklch(48% 0.015 265);
+  --color-text-subtle: oklch(62% 0.012 265);
+  --color-text-on-accent: oklch(99.0% 0.003 265);
+  --color-border: oklch(90.0% 0.006 265);
+  --color-border-strong: oklch(80.0% 0.008 265);
+  --color-accent: oklch(55.0% 0.190 38);
+  --color-accent-hover: oklch(49.0% 0.195 38);
+  --color-accent-wash: oklch(95.0% 0.030 38);
+  --color-focus: oklch(58.0% 0.170 265);
+  --color-link: var(--color-text);
+  --color-link-hover: var(--color-accent);
+  --font-sans: "Switzer","Manrope",ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable",sans-serif;
+  --font-display: "Supreme","Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable",sans-serif;
+  --font-mono: "Commit Mono","JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --fs-display: clamp(2.5rem,1.8rem + 3.6vw,4.25rem);
+  --fs-h2: clamp(1.75rem,1.3rem + 2.2vw,2.75rem);
+  --fs-h3: clamp(1.125rem,1.0rem + 0.6vw,1.375rem);
+  --fs-body-lg: 1.125rem; --fs-body: 1rem; --fs-small: .875rem; --fs-micro: .75rem;
+  --lh-tight: 1.05; --lh-heading: 1.15; --lh-body: 1.6; --lh-mono: 1.55;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --tracking-display: -0.02em; --tracking-body: 0em; --tracking-label: .08em;
+  --space-1: 4px; --space-2: 8px; --space-3: 16px; --space-4: 24px;
+  --space-5: 40px; --space-6: clamp(64px, 3vw + 40px, 112px);
+  --page-gutter: clamp(20px, 4vw, 40px); --page-max: 1120px;
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px; --radius-pill: 9999px;
+  --motion-fast: 160ms; --motion-base: 320ms; --motion-slow: 560ms;
+  --ease-out: cubic-bezier(.2,.7,.3,1); --ease-in-out: cubic-bezier(.45,0,.55,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
+}
+html { -webkit-text-size-adjust:100%; text-rendering:optimizeLegibility; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+body { margin:0; background:var(--color-bg); color:var(--color-text); font-family:var(--font-sans); font-size:var(--fs-body); line-height:var(--lh-body); font-weight:var(--fw-regular); letter-spacing:var(--tracking-body); }
+h1,h2 { font-family:var(--font-display); letter-spacing:var(--tracking-display); color:var(--color-text); margin:0 0 var(--space-4); }
+h1 { font-size:var(--fs-display); font-weight:var(--fw-bold); line-height:var(--lh-tight); }
+h2 { font-size:var(--fs-h2); font-weight:var(--fw-semibold); line-height:var(--lh-heading); }
+h3 { font-family:var(--font-sans); font-size:var(--fs-h3); font-weight:var(--fw-semibold); line-height:var(--lh-heading); margin:0 0 var(--space-3); }
+p { margin:0 0 var(--space-3); max-width:65ch; text-wrap:pretty; }
+.lede, p.lede { font-size:var(--fs-body-lg); max-width:62ch; color:var(--color-text); }
+small,.meta { font-size:var(--fs-small); color:var(--color-text-muted); }
+.section-label { display:inline-block; font-family:var(--font-mono); font-size:var(--fs-micro); font-weight:var(--fw-medium); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-muted); margin:0 0 var(--space-3); }
+a { color:var(--color-link); text-decoration:none; background-image:linear-gradient(currentColor,currentColor); background-repeat:no-repeat; background-position:left bottom; background-size:100% 1px; padding-bottom:1px; transition:background-size var(--motion-fast) var(--ease-out),color var(--motion-fast) var(--ease-out); }
+a:hover { color:var(--color-link-hover); }
+code,pre,kbd,samp { font-family:var(--font-mono); font-size:var(--fs-small); line-height:var(--lh-mono); }
+code { background:var(--color-code-bg); padding:.1em .35em; border-radius:var(--radius-sm); }
+pre { background:var(--color-code-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-3) var(--space-4); overflow-x:auto; margin:0 0 var(--space-4); }
+pre code { background:transparent; padding:0; }
+:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; border-radius:2px; }
+.section { padding:var(--space-6) var(--page-gutter); max-width:var(--page-max); margin-inline:auto; }
+.card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-4); }
+hr { border:0; border-top:1px solid var(--color-border); margin:var(--space-5) 0; }
+
+/* === kit.css (mirror) ================================================ */
+main { display:block; position:relative; }
+.statusbar { position:sticky; top:0; z-index:10; background:color-mix(in oklab,var(--color-bg) 92%,transparent); border-bottom:1px solid var(--color-border); backdrop-filter:saturate(1.2); }
+.statusbar-inner { max-width:var(--page-max); margin-inline:auto; padding:10px var(--page-gutter); display:flex; justify-content:space-between; align-items:center; gap:var(--space-4); font-family:var(--font-mono); font-size:var(--fs-micro); color:var(--color-text-muted); text-transform:uppercase; letter-spacing:var(--tracking-label); }
+.statusbar-left,.statusbar-right { display:flex; gap:var(--space-3); align-items:center; }
+.statusbar-dot { width:6px; height:6px; border-radius:9999px; background:var(--color-accent); }
+.statusbar a { color:inherit; background-image:none; padding-bottom:0; }
+.statusbar a:hover { color:var(--color-text); }
+.statusbar-brand { color:var(--color-text); font-weight:var(--fw-medium); }
+.siderail { position:fixed; left:20px; top:50%; transform:translateY(-50%); z-index:5; display:none; flex-direction:column; gap:2px; font-family:var(--font-mono); font-size:var(--fs-micro); letter-spacing:var(--tracking-label); }
+@media (min-width:1280px) { .siderail { display:flex; } }
+.siderail a { color:var(--color-text-subtle); text-decoration:none; background-image:none; padding:3px 6px 3px 10px; display:flex; align-items:center; gap:8px; border-left:1px solid var(--color-border); transition:color var(--motion-fast) var(--ease-out),border-color var(--motion-fast) var(--ease-out); }
+.siderail a:hover { color:var(--color-text); border-left-color:var(--color-border-strong); }
+.siderail a.is-active { color:var(--color-text); border-left-color:var(--color-accent); }
+.siderail .sr-tick { opacity:.6; }
+.section { position:relative; }
+.section-marker { position:absolute; top:calc(var(--space-6) - 28px); left:var(--page-gutter); right:var(--page-gutter); display:flex; justify-content:space-between; align-items:center; font-family:var(--font-mono); font-size:var(--fs-micro); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-subtle); pointer-events:none; }
+.section-marker::before { content:""; position:absolute; left:0; right:0; top:50%; border-top:1px solid var(--color-border); }
+.section-marker > span { background:var(--color-bg); padding:0 8px; position:relative; }
+.section-marker .mk-left { padding-left:0; }
+.section-marker .mk-right { padding-right:0; }
+.btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-weight:var(--fw-medium); font-size:var(--fs-small); border-radius:var(--radius-md); padding:10px 18px; cursor:pointer; border:0; background-image:none; background-size:auto; text-decoration:none; transition:background var(--motion-fast) var(--ease-out),border-color var(--motion-fast) var(--ease-out); }
+.btn-primary { background:var(--color-accent); color:var(--color-text-on-accent); }
+.btn-primary:hover { background:var(--color-accent-hover); color:var(--color-text-on-accent); }
+.btn-secondary { background:transparent; color:var(--color-text); border:1px solid var(--color-border-strong); }
+.btn-secondary:hover { border-color:var(--color-text); color:var(--color-text); }
+.btn-ext { opacity:.7; }
+.cta-row { display:flex; gap:var(--space-3); flex-wrap:wrap; margin-top:var(--space-5); }
+.hero { padding-top:calc(var(--space-6) + 40px); overflow:hidden; }
+.hero-grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(to right,var(--color-border) 1px,transparent 1px),linear-gradient(to bottom,var(--color-border) 1px,transparent 1px); background-size:96px 96px; mask-image:linear-gradient(to bottom,transparent 0,black 20%,black 70%,transparent 100%),linear-gradient(to right,transparent 0,black 15%,black 85%,transparent 100%); mask-composite:intersect; -webkit-mask-composite:source-in; opacity:.55; }
+.hero-inner { position:relative; }
+.hero-eyebrow { display:flex; align-items:center; gap:var(--space-3); font-family:var(--font-mono); font-size:var(--fs-micro); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-muted); margin-bottom:var(--space-4); }
+.hero-eyebrow::before { content:""; width:24px; height:1px; background:var(--color-accent); }
+.hero h1 { max-width:18ch; }
+.hero .lede { margin-top:var(--space-4); }
+.hero-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:var(--space-3); margin-top:var(--space-5); padding-top:var(--space-4); border-top:1px solid var(--color-border); font-family:var(--font-mono); font-size:var(--fs-micro); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-muted); }
+.hero-meta b { color:var(--color-text); font-weight:var(--fw-medium); display:block; margin-top:2px; }
+.microjobs-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--space-4); margin-top:var(--space-5); }
+.microjob-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-4); }
+.microjob-card h3 { margin-top:var(--space-2); }
+.microjob-card p { color:var(--color-text-muted); margin-bottom:0; }
+.aha .lede { margin-top:var(--space-4); }
+.aha-link { color:var(--color-text); background-image:linear-gradient(var(--color-accent),var(--color-accent)); background-repeat:no-repeat; background-position:left bottom; background-size:100% 1px; }
+.aha-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); margin-top:var(--space-5); align-items:start; }
+@media (max-width:799px) { .aha-grid { grid-template-columns:1fr; } }
+.aha-figure { margin:0; display:flex; flex-direction:column; gap:8px; }
+.aha-code { background:var(--color-code-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-4); margin:0; font-variant-numeric:tabular-nums; overflow-x:auto; position:relative; }
+.aha-code::before { content:"ticket.json"; position:absolute; top:10px; right:14px; font-family:var(--font-mono); font-size:var(--fs-micro); color:var(--color-text-subtle); text-transform:uppercase; letter-spacing:var(--tracking-label); }
+.figcaption { font-family:var(--font-mono); font-size:var(--fs-micro); color:var(--color-text-subtle); text-transform:uppercase; letter-spacing:var(--tracking-label); }
+.figcaption b { color:var(--color-text-muted); font-weight:var(--fw-medium); margin-right:8px; }
+.aha-panels { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:var(--space-4); }
+.aha-panel { display:grid; grid-template-columns:auto 1fr; gap:var(--space-3); opacity:0; transform:translateY(12px); transition:opacity var(--motion-base) var(--ease-out),transform var(--motion-base) var(--ease-out); }
+.aha-panel[data-revealed="true"] { opacity:1; transform:none; }
+.aha-k { font-family:var(--font-mono); font-size:var(--fs-small); color:var(--color-text-muted); font-variant-numeric:tabular-nums; padding-top:2px; }
+.aha-panel h3 { margin-bottom:4px; }
+.aha-panel p { color:var(--color-text-muted); margin-bottom:0; }
+.livedemo-card { background:var(--color-surface-2); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:var(--space-4); margin-top:var(--space-5); }
+.livedemo-body { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); margin-top:var(--space-3); }
+@media (max-width:799px) { .livedemo-body { grid-template-columns:1fr; } }
+.livedemo-pane pre { margin:6px 0 0; background:var(--color-code-bg); border:1px solid var(--color-border); }
+.livedemo-pane-label { font-family:var(--font-mono); font-size:var(--fs-micro); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-muted); }
+.livedemo-cta { margin-top:var(--space-4); }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); margin-top:var(--space-5); }
+@media (max-width:799px) { .two-col { grid-template-columns:1fr; } }
+.ascii-flow { margin:var(--space-5) 0; padding:var(--space-4); background:var(--color-code-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:var(--fs-small); line-height:var(--lh-mono); color:var(--color-text-muted); white-space:pre; overflow-x:auto; }
+.ascii-flow b { color:var(--color-text); font-weight:var(--fw-medium); }
+.ascii-flow i { color:var(--color-accent); font-style:normal; }
+.steps { list-style:none; padding:0; margin:var(--space-5) 0 0; display:flex; flex-direction:column; gap:var(--space-4); }
+.step { display:grid; grid-template-columns:auto 1fr; gap:var(--space-4); padding-bottom:var(--space-4); border-bottom:1px solid var(--color-border); }
+.step:last-child { border-bottom:0; }
+.step-k { font-family:var(--font-mono); font-size:var(--fs-body-lg); color:var(--color-text-muted); font-variant-numeric:tabular-nums; }
+.step h3 { margin-bottom:4px; }
+.step p { color:var(--color-text-muted); margin:0; }
+.accordion { margin-top:var(--space-5); }
+.accordion details { border-bottom:1px solid var(--color-border); }
+.accordion details:first-of-type { border-top:1px solid var(--color-border); }
+.accordion summary { list-style:none; cursor:pointer; padding:var(--space-3) 0; display:flex; align-items:center; gap:var(--space-3); font-family:var(--font-sans); font-size:var(--fs-body); font-weight:var(--fw-medium); color:var(--color-text); }
+.accordion summary::-webkit-details-marker { display:none; }
+.accordion .chev { color:var(--color-text-muted); transition:transform var(--motion-fast) var(--ease-out); }
+.accordion details[open] .chev { transform:rotate(90deg); }
+.accordion .ans { overflow:hidden; display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--motion-base) var(--ease-out); }
+.accordion details[open] .ans { grid-template-rows:1fr; }
+.accordion .ans > div { min-height:0; color:var(--color-text-muted); font-size:var(--fs-small); padding:0 0 var(--space-3) 26px; }
+.compare { margin-top:var(--space-5); display:flex; flex-direction:column; }
+.compare-row { display:grid; grid-template-columns:minmax(240px,1fr) 2fr; gap:var(--space-4); padding:var(--space-4) 0; border-top:1px solid var(--color-border); }
+.compare-row:last-child { border-bottom:1px solid var(--color-border); }
+@media (max-width:719px) { .compare-row { grid-template-columns:1fr; } }
+.compare-label { font-family:var(--font-display); font-size:var(--fs-h3); font-weight:var(--fw-semibold); }
+.compare-cells { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
+@media (max-width:719px) { .compare-cells { grid-template-columns:1fr; } }
+.compare-cell p { margin:6px 0 0; color:var(--color-text-muted); }
+.pilot-iframe { margin-top:var(--space-5); border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface-2); }
+.pilot-iframe-chrome { padding:var(--space-4); }
+.pilot-form-stub { display:grid; gap:var(--space-3); margin-top:var(--space-3); max-width:62ch; }
+.pilot-form-stub label { display:grid; gap:6px; font-family:var(--font-mono); font-size:var(--fs-micro); text-transform:uppercase; letter-spacing:var(--tracking-label); color:var(--color-text-muted); }
+.pilot-form-stub input,.pilot-form-stub textarea { font-family:var(--font-sans); font-size:var(--fs-body); color:var(--color-text); background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:10px 12px; text-transform:none; letter-spacing:var(--tracking-body); outline:0; transition:border-color var(--motion-fast) var(--ease-out); }
+.pilot-form-stub input:focus-visible,.pilot-form-stub textarea:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; border-color:var(--color-border-strong); }
+.footer { padding-top:var(--space-5); padding-bottom:var(--space-5); }
+.footer-top { display:flex; justify-content:space-between; align-items:center; gap:var(--space-4); flex-wrap:wrap; }
+.footer-logo { height:28px; }
+.footer-nav { display:flex; gap:var(--space-4); }
+.footer-nav a { font-size:var(--fs-small); }
+.footer-bottom { display:flex; justify-content:space-between; gap:var(--space-4); flex-wrap:wrap; font-family:var(--font-mono); font-size:var(--fs-micro); color:var(--color-text-muted); text-transform:uppercase; letter-spacing:var(--tracking-label); }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const { useEffect, useRef, useState } = React;
+
+// ---------- primitives ----------
+function SectionLabel({ children }) { return <div className="section-label">{children}</div>; }
+function ExtIcon() {
+  return (<svg className="btn-ext" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5.5 3h-2A1.5 1.5 0 0 0 2 4.5v6A1.5 1.5 0 0 0 3.5 12h6a1.5 1.5 0 0 0 1.5-1.5v-2"/>
+    <path d="M8 2h4v4"/><path d="m6.5 7.5 5-5"/></svg>);
+}
+function Chev() {
+  return (<svg className="chev" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 3 4 4-4 4"/></svg>);
+}
+function Button({ variant="primary", href, children, external }) {
+  return (<a className={`btn btn-${variant}`} href={href||"#"} rel={external?"noopener":undefined}>
+    {children}{external && <ExtIcon/>}</a>);
+}
+function SectionMarker({ num, label, right }) {
+  return (<div className="section-marker" aria-hidden="true">
+    <span className="mk-left">§{num} · {label}</span>
+    <span className="mk-right">{right}</span>
+  </div>);
+}
+
+// ---------- Status bar ----------
+function StatusBar() {
+  return (<div className="statusbar">
+    <div className="statusbar-inner">
+      <div className="statusbar-left">
+        <span className="statusbar-brand">rntme</span>
+        <span>/ pilot</span>
+        <span>·</span>
+        <span>v0.1.0-pilot</span>
+      </div>
+      <div className="statusbar-right">
+        <span className="statusbar-dot" aria-hidden="true"/>
+        <span>onboarding — 3 of 10</span>
+        <span>·</span>
+        <a href="#github">github</a>
+      </div>
+    </div>
+  </div>);
+}
+
+// ---------- Side rail ----------
+const rail = [
+  ["01","Hero"],["02","Jobs"],["03","Compile"],["04","Demo"],["05","Shift"],
+  ["06","Steps"],["07","Q&A"],["08","Compare"],["09","Apply"],["10","End"],
+];
+function SideRail() {
+  const [active, setActive] = useState("01");
+  useEffect(() => {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const n = e.target.getAttribute("data-section-num");
+          if (n) setActive(n);
+        }
+      });
+    }, { threshold: 0.35 });
+    document.querySelectorAll("[data-section-num]").forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+  return (<nav className="siderail" aria-label="Section index">
+    {rail.map(([n,l]) => (
+      <a key={n} href={`#s${n}`} className={active===n?"is-active":""}>
+        <span className="sr-tick">§{n}</span><span>{l}</span>
+      </a>
+    ))}
+  </nav>);
+}
+
+// ---------- §1 Hero ----------
+function Hero() {
+  return (<section className="section hero" data-section-num="01" data-screen-label="01 Hero" id="s01">
+    <div className="hero-grid" aria-hidden="true"/>
+    <div className="hero-inner">
+      <div className="hero-eyebrow">rntme · pilot program · 2026</div>
+      <h1>Compile a ticket into<br/>a tested binary.</h1>
+      <p className="lede">You write the spec as validated JSON. We compile it into a running service — with the event log, tests, and rollback path already wired.</p>
+      <div className="cta-row">
+        <Button variant="primary" href="#apply">Apply as a pilot team</Button>
+        <Button variant="secondary" href="#github" external>See it on GitHub</Button>
+      </div>
+      <div className="hero-meta">
+        <div>Runtime<br/><b>event-sourced</b></div>
+        <div>Unit of work<br/><b>validated JSON</b></div>
+        <div>Output<br/><b>service + tests + inverse</b></div>
+        <div>Pilot cohort<br/><b>10 teams</b></div>
+      </div>
+    </div>
+  </section>);
+}
+
+// ---------- §2 MicroJobs ----------
+const microJobs = [
+  { label: "Core job",  title: "Spec → binary",        body: "You write a validated JSON ticket. We compile it into a running service, not a scaffold." },
+  { label: "Event log", title: "Audit-grade history",  body: "Every change is a replayable event. You see the whole trail — no mystery state." },
+  { label: "Rollback",  title: "Reversible by default",body: "Every deploy ships with its inverse. Roll back a feature the way you roll back a commit." },
+];
+function MicroJobs() {
+  return (<section className="section microjobs" data-section-num="02" data-screen-label="02 MicroJobs" id="s02">
+    <SectionMarker num="02" label="Core job" right="Three things, end-to-end"/>
+    <SectionLabel>Core job</SectionLabel>
+    <h2>Three things we do, end-to-end.</h2>
+    <div className="microjobs-grid">{microJobs.map(j=>(
+      <article key={j.title} className="microjob-card">
+        <div className="section-label">{j.label}</div>
+        <h3>{j.title}</h3><p>{j.body}</p>
+      </article>))}
+    </div>
+  </section>);
+}
+
+// ---------- §3 AhaReveal ----------
+const ahaPanels = [
+  { k:"01", title:"A ticket arrives",        body:"A JSON body hits POST /tickets. It describes a change in product terms: the what, not the how." },
+  { k:"02", title:"The spec validates",      body:"Fields are typed. Ambiguities are rejected with a line number. The writer knows before the compiler does." },
+  { k:"03", title:"The runtime compiles it", body:"We translate the spec into service code, tests, and the reverse operation — in that order." },
+  { k:"04", title:"The event log records",   body:"Everything is appended. Replay the log and you reconstruct the system state." },
+];
+function AhaReveal() {
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const els = rootRef.current?.querySelectorAll("[data-reveal]") ?? [];
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(()=>e.target.setAttribute("data-revealed","true"), i*80);
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3, rootMargin: "0px 0px -10% 0px" });
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+  return (<section className="section aha" data-section-num="03" data-screen-label="03 AhaReveal" id="s03" ref={rootRef}>
+    <SectionMarker num="03" label="See it compile" right="Fig. 01 — ticket schema"/>
+    <SectionLabel>See it compile</SectionLabel>
+    <h2>The shift from prompt to spec.</h2>
+    <p className="lede">A prompt asks for code. A spec <a className="aha-link" href="#">describes a change</a>. The difference shows up at hour 48, when you have to explain what the system does.</p>
+    <div className="aha-grid">
+      <figure className="aha-figure">
+        <pre className="aha-code"><code>{`POST /tickets
+{
+  "title":    "price rule per sku",
+  "effect":   "apply discount at checkout",
+  "when":     "cart.contains(sku) && qty >= 3",
+  "discount": { "pct": 15, "cap": 25.00 },
+  "rollback": "revert to baseline price",
+  "owner":    "pricing-guild"
+}`}</code></pre>
+        <figcaption className="figcaption"><b>Fig. 01</b>One input. Four effects. Keep reading →</figcaption>
+      </figure>
+      <ol className="aha-panels">{ahaPanels.map(p=>(
+        <li key={p.k} className="aha-panel" data-reveal>
+          <div className="aha-k">{p.k}</div>
+          <div><h3>{p.title}</h3><p>{p.body}</p></div>
+        </li>))}
+      </ol>
+    </div>
+  </section>);
+}
+
+// ---------- §4 LiveDemo ----------
+function LiveDemo() {
+  return (<section className="section livedemo" data-section-num="04" data-screen-label="04 LiveDemo" id="s04">
+    <SectionMarker num="04" label="Live demo" right="Feature flag · DEMO_URL"/>
+    <SectionLabel>Live demo · feature flagged</SectionLabel>
+    <h2>Paste a ticket. Watch it compile.</h2>
+    <p className="lede">This section is gated by <code>env.DEMO_URL</code>. It ships when the demo is ready — not before. The flag is on in this UI kit so you can preview the slot.</p>
+    <div className="livedemo-card">
+      <div className="section-label">rntme / playground</div>
+      <div className="livedemo-body">
+        <div className="livedemo-pane">
+          <div className="livedemo-pane-label">Input · ticket.json</div>
+          <pre><code>{`{ "title": "enable dark receipts",
+  "effect": "switch receipt theme by user pref" }`}</code></pre>
+        </div>
+        <div className="livedemo-pane">
+          <div className="livedemo-pane-label">Output · compiled service</div>
+          <pre><code>{`deploy receipts.v142 → staging
+↳ 14 tests    passed
+↳ rollback    registered
+↳ event log   append #9021`}</code></pre>
+        </div>
+      </div>
+      <div className="livedemo-cta"><Button variant="primary" href="#demo">Open the playground</Button></div>
+    </div>
+  </section>);
+}
+
+// ---------- §5 Snowflake ----------
+function Snowflake() {
+  return (<section className="section snowflake" data-section-num="05" data-screen-label="05 Snowflake" id="s05">
+    <SectionMarker num="05" label="The shift" right="Before / after"/>
+    <SectionLabel>The shift</SectionLabel>
+    <h2>From snowflake services to a runtime.</h2>
+    <div className="two-col">
+      <div>
+        <h3>Before</h3>
+        <p>Every service is a snowflake. The event log lives somewhere. The rollback is a Slack thread. The spec is a Notion page from Q2.</p>
+        <p>Adding a new feature means remembering four people's conventions and praying the staging box is fresh.</p>
+      </div>
+      <div>
+        <h3>After</h3>
+        <p>Services are instances of a runtime. The event log is a first-class object. The rollback is generated. The spec is the source.</p>
+        <p>Adding a new feature means writing one ticket and reading one compiled diff.</p>
+      </div>
+    </div>
+  </section>);
+}
+
+// ---------- §6 How it works ----------
+const steps = [
+  { k:"01", title:"Write a ticket",          body:"Fill the five required fields. The editor validates as you type." },
+  { k:"02", title:"Submit to the runtime",   body:"The ticket is an input. The runtime is a function. You get a diff back." },
+  { k:"03", title:"Review the diff",         body:"Read the generated service, the tests, and the inverse. Approve or reject." },
+  { k:"04", title:"Ship to staging",         body:"Every ship is an event. Every event is appended. Nothing mutates in place." },
+  { k:"05", title:"Promote or revert",       body:"One command. The inverse is already there — you wrote it at step one." },
+];
+function HowItWorks() {
+  return (<section className="section howitworks" data-section-num="06" data-screen-label="06 HowItWorks" id="s06">
+    <SectionMarker num="06" label="How it works" right="Fig. 02 — pipeline"/>
+    <SectionLabel>How it works</SectionLabel>
+    <h2>Make no mistakes.</h2>
+    <pre className="ascii-flow" aria-hidden="true">{`  ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
+  │  write   │ ───→ │  submit  │ ───→ │  review  │ ───→ │   ship   │ ───→ │  revert  │
+  │  ticket  │      │  runtime │      │   diff   │      │  staging │      │ promote  │
+  └──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘
+      `}<b>01</b>                <b>02</b>                <b>03</b>                <b>04</b>                <b>05</b>
+                                                            <i>↑ event log appends at every arrow</i></pre>
+    <ol className="steps">{steps.map(s=>(
+      <li key={s.k} className="step">
+        <div className="step-k">{s.k}</div>
+        <div><h3>{s.title}</h3><p>{s.body}</p></div>
+      </li>))}
+    </ol>
+  </section>);
+}
+
+// ---------- §7 Objections ----------
+const objections = [
+  { q:"Isn't this just Cursor + a backend?",      a:"No. Cursor edits a file. rntme compiles a ticket. The unit of work is the difference." },
+  { q:"What happens when the spec is ambiguous?", a:"Validation rejects with a line number. Ambiguity is surfaced before compile, not after deploy." },
+  { q:"Can I use my existing services?",          a:"Yes, if they expose an event log and a reverse operation. If they don't, we help wire them." },
+  { q:"Who is on the pilot?",                     a:"Small teams that ship to production weekly. We're onboarding the first ten personally." },
+];
+function Objections() {
+  return (<section className="section objections" data-section-num="07" data-screen-label="07 Objections" id="s07">
+    <SectionMarker num="07" label="Objections" right="The questions you're actually asking"/>
+    <SectionLabel>Questions you're actually asking</SectionLabel>
+    <h2>Objections.</h2>
+    <div className="accordion">{objections.map((o,i)=>(
+      <details key={i} open={i===0}>
+        <summary><Chev/><span>{o.q}</span></summary>
+        <div className="ans"><div>{o.a}</div></div>
+      </details>))}
+    </div>
+  </section>);
+}
+
+// ---------- §8 Competitors ----------
+const rows = [
+  { label:"Cursor",     us:"Compiles a ticket, not a file.",                       them:"Edits a file, not a system." },
+  { label:"Copilot",    us:"Knows the spec. Generates the diff and its inverse.",  them:"Knows the line. Suggests the next token." },
+  { label:"Low-code",   us:"Produces real services. Engineers own the output.",    them:"Produces a runtime-locked app. The vendor owns the output." },
+  { label:"Your stack", us:"We replace the glue, not the substance.",              them:"The glue is the 60% that rots between launches." },
+];
+function Competitors() {
+  return (<section className="section competitors" data-section-num="08" data-screen-label="08 Competitors" id="s08">
+    <SectionMarker num="08" label="Compare" right="rntme / vs"/>
+    <SectionLabel>How we compare</SectionLabel>
+    <h2>Where rntme sits.</h2>
+    <div className="compare">{rows.map(r=>(
+      <div key={r.label} className="compare-row">
+        <div className="compare-label">{r.label}</div>
+        <div className="compare-cells">
+          <div className="compare-cell"><div className="section-label">rntme</div><p>{r.us}</p></div>
+          <div className="compare-cell"><div className="section-label">{r.label}</div><p>{r.them}</p></div>
+        </div>
+      </div>))}
+    </div>
+  </section>);
+}
+
+// ---------- §9 Pilot form ----------
+function PilotForm() {
+  return (<section className="section pilot" data-section-num="09" data-screen-label="09 Pilot form" id="apply">
+    <SectionMarker num="09" label="Pilot" right="Onboarding the first 10 teams"/>
+    <SectionLabel>Pilot program</SectionLabel>
+    <h2>Apply as a pilot team.</h2>
+    <p className="lede">We are onboarding the first 10 teams personally. If you ship to production weekly, we want to talk.</p>
+    <div className="pilot-iframe">
+      <div className="pilot-iframe-chrome">
+        <div className="section-label">tally.so / rntme-pilot</div>
+        <form className="pilot-form-stub" onSubmit={(e)=>e.preventDefault()}>
+          <label>Name<input type="text" placeholder="Alex Kim"/></label>
+          <label>Team size<input type="text" placeholder="8 engineers"/></label>
+          <label>Email<input type="email" placeholder="alex@org.dev"/></label>
+          <label>What do you ship weekly?<textarea rows="3" placeholder="A payment service in TypeScript, plus two internal tools."/></label>
+          <div className="cta-row"><button type="submit" className="btn btn-primary">Submit application</button></div>
+        </form>
+      </div>
+    </div>
+  </section>);
+}
+
+// ---------- §10 Footer ----------
+function Footer() {
+  return (<footer className="section footer" data-section-num="10" data-screen-label="10 Footer" id="s10">
+    <SectionMarker num="10" label="End" right="Spec is the source"/>
+    <div className="footer-top">
+      <svg className="footer-logo" width="120" height="32" viewBox="0 0 120 32" fill="none" aria-label="rntme">
+        <text x="0" y="23" fontFamily="Supreme, ui-sans-serif, system-ui, sans-serif" fontSize="22" fontWeight="700" letterSpacing="-0.02em" fill="oklch(22% 0.020 265)">rntme</text>
+        <circle cx="108" cy="22" r="3" fill="oklch(55% 0.190 38)"/>
+      </svg>
+      <nav className="footer-nav">
+        <a href="#docs">Docs</a>
+        <a href="#platform">Platform</a>
+        <a href="#github" rel="noopener">GitHub <ExtIcon/></a>
+      </nav>
+    </div>
+    <hr/>
+    <div className="footer-bottom">
+      <div>© 2026 rntme · GITHUB.COM/RNTME</div>
+      <div>Spec is the source.</div>
+    </div>
+  </footer>);
+}
+
+function App() {
+  return (<>
+    <StatusBar/>
+    <SideRail/>
+    <Hero/><MicroJobs/><AhaReveal/><LiveDemo/><Snowflake/>
+    <HowItWorks/><Objections/><Competitors/><PilotForm/><Footer/>
+  </>);
+}
+ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
+</script>
+</body>
+</html>

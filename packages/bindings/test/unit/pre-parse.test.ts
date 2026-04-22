@@ -63,4 +63,72 @@ describe('pre[] parsing', () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it('rejects bytes out of range', () => {
+    for (const bytes of [0, 1025]) {
+      const r = BindingArtifactSchema.safeParse({
+        version: '1.0', graphSpecRef: 'g', pdmRef: 'p', qsmRef: 'q',
+        bindings: {
+          createOrder: {
+            ...baseCommand,
+            pre: [{ kind: 'system', op: 'randomBytes', bytes, bindAs: 'nonce' }],
+          },
+        },
+      });
+      expect(r.success).toBe(false);
+    }
+  });
+
+  it('rejects timeoutMs > 30_000', () => {
+    const r = BindingArtifactSchema.safeParse({
+      version: '1.0', graphSpecRef: 'g', pdmRef: 'p', qsmRef: 'q',
+      bindings: {
+        createOrder: {
+          ...baseCommand,
+          pre: [{
+            kind: 'module-rpc',
+            module: 'payments',
+            rpc: 'CreateCheckoutSession',
+            input: {},
+            bindAs: 'session',
+            timeoutMs: 30_001,
+          }],
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects invalid retryOn value', () => {
+    const r = BindingArtifactSchema.safeParse({
+      version: '1.0', graphSpecRef: 'g', pdmRef: 'p', qsmRef: 'q',
+      bindings: {
+        createOrder: {
+          ...baseCommand,
+          pre: [{
+            kind: 'module-rpc',
+            module: 'payments',
+            rpc: 'CreateCheckoutSession',
+            input: {},
+            bindAs: 'session',
+            retry: { retryOn: 'sometimes' },
+          }],
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects missing required field (bindAs)', () => {
+    const r = BindingArtifactSchema.safeParse({
+      version: '1.0', graphSpecRef: 'g', pdmRef: 'p', qsmRef: 'q',
+      bindings: {
+        createOrder: {
+          ...baseCommand,
+          pre: [{ kind: 'system', op: 'randomBytes', bytes: 32 }],
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
 });
