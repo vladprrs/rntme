@@ -15,6 +15,7 @@ const base: ValidatedManifest = {
   },
   seed: { enabled: true, path: 'seed.json' },
   studio: { enabled: false, mountPath: '/_studio', maxRows: 10_000 },
+  modules: [],
 };
 
 describe('applyEnvOverrides', () => {

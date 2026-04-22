@@ -49,3 +49,16 @@ export type {
   QueryExecutionContext,
   CorrelationCtx,
 } from './executors/types.js';
+
+export type {
+  ExternalAdapterClient,
+  AdapterCallOptions,
+  AdapterResult,
+  AdapterOk,
+  AdapterErr,
+  AdapterError,
+  AdapterErrorCode,
+  RetryPolicy,
+  RetryStrategy,
+} from './adapter-client/types.js';
+export { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from './adapter-client/types.js';
