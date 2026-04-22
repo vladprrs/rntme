@@ -23,6 +23,8 @@ import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
+import { buildAdapterClient } from './build-adapter-client.js';
+import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -34,6 +36,8 @@ export type RuntimeConfig = {
   skipSeed?: boolean;
   commandExecutor?: CommandExecutor;
   queryExecutor?: QueryExecutor;
+  externalAdapterClient?: ExternalAdapterClient;
+  artifactDir?: string;
 };
 
 export async function startService(
@@ -83,6 +87,10 @@ export async function startService(
     config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMap);
   const queryExecutor = config.queryExecutor ?? new GraphIrQueryExecutor({});
 
+  const adapter =
+    config.externalAdapterClient
+    ?? (config.artifactDir !== undefined ? buildAdapterClient(service.manifest, config.artifactDir) : null);
+
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
   // `bootstrapProjections`. The disposer is invoked from `RunningService.stop`.
@@ -103,6 +111,7 @@ export async function startService(
         healthProbe: probe,
         commandExecutor,
         queryExecutor,
+        externalAdapterClient: adapter ?? undefined,
       }),
     ];
 

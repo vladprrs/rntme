@@ -8,6 +8,7 @@ import { createApp as createUiApp } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
 import type { CommandExecutor, QueryExecutor } from './executors/types.js';
+import type { ExternalAdapterClient } from './adapter-client/index.js';
 
 export type HttpSurfaceOptions = {
   healthPath: string;
@@ -16,6 +17,7 @@ export type HttpSurfaceOptions = {
   healthProbe: HealthProbe;
   commandExecutor?: CommandExecutor;
   queryExecutor?: QueryExecutor;
+  externalAdapterClient?: ExternalAdapterClient;
 };
 
 export type { CorrelationVariables };
@@ -36,6 +38,9 @@ export class HttpSurface implements Surface {
     };
     if (this.opts.commandExecutor !== undefined) {
       routerOpts.commandExecutor = this.opts.commandExecutor;
+    }
+    if (this.opts.externalAdapterClient !== undefined) {
+      routerOpts.externalAdapterClient = this.opts.externalAdapterClient;
     }
     const router = createBindingsRouter(routerOpts);
 

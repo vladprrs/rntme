@@ -37,4 +37,17 @@ describe('startService', () => {
     const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
+
+  it('wires GrpcAdapterClient when manifest.modules[] is non-empty', async () => {
+    // Light test: service boots fine with modules[] declared (no pre[] usage)
+    // Full pre[] E2E is in the demo test suite
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    running = await startService(loaded.value, {
+      artifactDir: fixtureDir,
+      onReady: () => undefined,
+    });
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/health`);
+    expect(res.status).toBe(200);
+  });
 });
