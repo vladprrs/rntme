@@ -528,7 +528,7 @@ Error-code namespace:
 |---|---|---|---|
 | 1 | `01-code-executor-seam.md` | `CommandExecutor` / `QueryExecutor` seams в `@rntme/runtime`; module skeleton package template; health-check convention | — |
 | 2 | `02-bindings-grpc-surface.md` | Новый пакет `@rntme/bindings-grpc`; proto generation from BindingsArtifact; manifest surfaces[] | Plan 1 | implemented 2026-04-22 |
-| 3 | `03-pre-fetch-middleware.md` | `pre[]` schema extension в `@rntme/bindings`; middleware в `@rntme/bindings-http`; `ExternalAdapterClient` seam; idempotency-key chain; error-code namespace; circuit breaker; observability | Plan 2 |
+| 3 | `03-pre-fetch-middleware.md` | `pre[]` schema extension в `@rntme/bindings`; middleware в `@rntme/bindings-http`; `ExternalAdapterClient` seam; idempotency-key chain; error-code namespace; circuit breaker; observability | Plan 2 | implemented 2026-04-22 |
 | 4 | `04-extended-command-binding-p2.md` | Поля `method`/`inputFrom`/`response` на `command` binding; `$system.randomBytes`; validator rules; OpenAPI emit для GET endpoints | Plan 3 |
 | 5 | `05-reference-stripe-module.md` | Работающий Stripe module (subscribe + connect OAuth); E2E demo `demo/stripe-subscribe-demo/`; валидация полного стека | Plans 1-4 |
 

@@ -306,6 +306,51 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
 5. Follow the health-check convention in `packages/module-skeleton/README.md`.
 
+### 6.12 Browse service databases via db-studio
+
+1. In `artifacts/manifest.json` add:
+
+```json
+"studio": { "enabled": true, "mountPath": "/_studio", "maxRows": 10000 }
+```
+
+2. Boot the service. Open `http://<host>/_studio` — the landing page lists the two Hrana URLs.
+3. Go to `https://libsqlstudio.com`, create a "libSQL Remote (HTTP)" connection, paste the URL.
+4. Writes, `ATTACH`, non-read-only `PRAGMA` are rejected inline. Intended for dev only.
+
+Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
+
+### 6.13 Call a module via pre-fetch from a command binding
+
+1. Read spec §7 and `packages/bindings-http/src/pre/` source.
+2. Declare the module in `artifacts/manifest.json`:
+
+```json
+"modules": [
+  { "name": "payments", "grpc": { "address": "payments:50051" }, "protoPath": "protos/payments.proto" }
+]
+```
+
+3. Copy the module's `.proto` into `artifacts/protos/`.
+4. In `artifacts/bindings.json`, add `pre[]` to a command binding:
+
+```json
+{
+  "kind": "command",
+  "graph": "createOrder",
+  "http": { "method": "POST", "path": "/commands/createOrder", "parameters": [...] },
+  "pre": [
+    { "kind": "module-rpc", "module": "payments", "rpc": "CreateCheckoutSession",
+      "input": { "customerId": "$body.customerId", "amount": "$body.amount" },
+      "bindAs": "session" }
+  ]
+}
+```
+
+5. Reference `$pre.session.url` in the graph's emit payload to bake the vendor result into the event.
+6. HTTP retries are safe: pass `Idempotency-Key` header from the client; the cache survives process restarts in `persistent` mode.
+7. Invariants enforced by validator: `pre.length ≤ 2`, unique `bindAs`, `module` declared in manifest, `kind: command` only.
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
