@@ -23,6 +23,7 @@ import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
+import { buildGrpcSurface, collectShapesFromService } from './build-grpc-surface.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -122,16 +123,32 @@ export async function startService(
   const address = server.address();
   const port = typeof address === 'object' && address !== null ? address.port : listenPort;
 
+  const grpcSurface = buildGrpcSurface(service.manifest, {
+    commandExecutor,
+    queryExecutor,
+    shapes: collectShapesFromService(service),
+  });
+
+  let grpcStopper: (() => Promise<void>) | null = null;
+  let grpcPort: number | undefined;
+  if (grpcSurface !== null && grpcSurface.listen !== undefined) {
+    const { port: gPort, stop } = await grpcSurface.listen(ctx);
+    grpcStopper = stop;
+    grpcPort = gPort;
+  }
+
   config.onReady?.({ port });
 
   return {
     httpPort: port,
+    grpcPort,
     async stop(): Promise<void> {
       healthy = false;
       stopSeenEventsRetention();
       await new Promise<void>((resolve, reject) =>
         server.close((err?: Error) => (err !== undefined && err !== null ? reject(err) : resolve())),
       );
+      if (grpcStopper !== null) await grpcStopper();
       await pipeline.stop();
       if (bus.stop) await bus.stop();
     },

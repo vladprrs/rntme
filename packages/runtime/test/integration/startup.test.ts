@@ -37,4 +37,16 @@ describe('startService', () => {
     const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
+
+  it('boots a GrpcSurface alongside HttpSurface when manifest.surface.grpc.enabled', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    loaded.value.manifest.surface = {
+      ...(loaded.value.manifest.surface ?? {}),
+      grpc: { enabled: true, port: 0 },
+    };
+    running = await startService(loaded.value);
+    expect(running.httpPort).toBeGreaterThan(0);
+    expect(running.grpcPort).toBeGreaterThan(0);
+  });
 });
