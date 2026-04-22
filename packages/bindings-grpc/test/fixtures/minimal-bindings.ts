@@ -76,7 +76,7 @@ export const minimalValidated: ValidatedBindings = {
     listOrders: listOrdersBinding,
     createOrder: createOrderBinding,
   },
-} as ValidatedBindings;
+} as unknown as ValidatedBindings;
 
 export const minimalShapeRegistry: Record<string, ResolvedShape> = {
   order: orderShape,
