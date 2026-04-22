@@ -98,9 +98,7 @@ describe('GraphIrCommandExecutor', () => {
     // Seed the aggregate so version is 1
     await executor.execute({ commandName: 'cmd', inputs: { id: 'agg-1' }, ctx });
 
-    // Force a concurrency conflict by tampering with the store's readStream to report version 0
-    // while the aggregate already exists at version 1.  Easier: mock executeCommand directly.
-    const { executeCommand } = await import('@rntme/graph-ir-compiler');
+    // Force a concurrency conflict by mocking executeCommand directly.
     const spy = vi.spyOn(await import('@rntme/graph-ir-compiler'), 'executeCommand').mockImplementation(() => {
       throw new CommandExecutionError('COMMAND_CONCURRENCY_CONFLICT', 'version mismatch', { expected: 0, actual: 1 });
     });

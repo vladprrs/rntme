@@ -16,7 +16,7 @@ function mkCtx(): CommandExecutionContext {
 
 describe('exampleHandlers.echo', () => {
   it('returns the input payload verbatim wrapped in CommandExecutionResult', async () => {
-    const out = await exampleHandlers.echo(mkCtx(), { message: 'hello' });
+    const out = await (exampleHandlers as Record<string, (ctx: CommandExecutionContext, input: unknown) => Promise<unknown>>).echo(mkCtx(), { message: 'hello' });
     expect(out.ok).toBe(true);
     if (out.ok) {
       expect(out.value.aggregateId).toBe('echo');

@@ -12,6 +12,7 @@ import {
 import { CodeCommandExecutor } from '../../src/plugins/executors/code-command-executor.js';
 import { GraphIrCommandExecutor } from '../../src/plugins/executors/graph-ir-command-executor.js';
 import { GraphIrQueryExecutor } from '../../src/plugins/executors/graph-ir-query-executor.js';
+import type { CompiledCommand, CompileResult } from '@rntme/graph-ir-compiler';
 
 runCommandExecutorContract('CodeCommandExecutor', () =>
   new CodeCommandExecutor({
@@ -52,7 +53,7 @@ runCommandExecutorContract('GraphIrCommandExecutor', () => {
         toState: 'done',
       },
     ],
-  } as unknown as import('@rntme/graph-ir-compiler').CompiledCommand;
+  } as unknown as CompiledCommand;
   return new GraphIrCommandExecutor({ contractEcho: compiled });
 });
 
@@ -63,6 +64,6 @@ runQueryExecutorContract('GraphIrQueryExecutor', () => {
     shape: { name: 'ContractNoop' },
     optionalParams: [],
     paramDefaults: {},
-  } satisfies import('@rntme/graph-ir-compiler').CompileResult;
+  } satisfies CompileResult;
   return new GraphIrQueryExecutor({ contractNoop: compiled });
 });

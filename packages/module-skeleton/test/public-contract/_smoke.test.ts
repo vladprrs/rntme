@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VERSION, exampleHandlers } from '@rntme/module-skeleton';
+import type { CommandExecutionContext } from '@rntme/runtime';
 
 describe('@rntme/module-skeleton public contract', () => {
   it('exports the package version marker from the built entrypoint', () => {
@@ -12,8 +13,8 @@ describe('@rntme/module-skeleton public contract', () => {
         echo: expect.any(Function),
       }),
     );
-    const out = await exampleHandlers.echo(
-      { correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null } } as any,
+    const out = await (exampleHandlers as Record<string, (ctx: CommandExecutionContext, input: unknown) => Promise<unknown>>).echo(
+      { correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null } } as unknown as CommandExecutionContext,
       { message: 'hello' },
     );
     expect(out).toEqual(
