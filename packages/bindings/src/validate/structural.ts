@@ -97,6 +97,39 @@ function checkBinding(
       path: `${basePath}.path`,
     });
   }
+
+  if (entry.pre !== undefined && entry.pre.length > 0) {
+    if (!isCommand) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND,
+        message: `binding "${id}": pre[] is only allowed on command bindings`,
+        path: `bindings.${id}.pre`,
+      });
+    }
+    if (entry.pre.length > 2) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_TOO_MANY,
+        message: `binding "${id}": pre[] has ${entry.pre.length} steps; max is 2 (upgrade to Zeebe)`,
+        path: `bindings.${id}.pre`,
+        hint: 'See spec §7 S4: chains longer than 2 pre-steps should be modeled as Zeebe processes.',
+      });
+    }
+    const seen = new Set<string>();
+    entry.pre.forEach((step, idx) => {
+      if (seen.has(step.bindAs)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_DUPLICATE_BIND_AS,
+          message: `binding "${id}": pre[${idx}].bindAs "${step.bindAs}" duplicates an earlier step`,
+          path: `bindings.${id}.pre[${idx}].bindAs`,
+        });
+      } else {
+        seen.add(step.bindAs);
+      }
+    });
+  }
 }
 
 export function validateStructural(artifact: BindingArtifact): Result<StructurallyValid> {
