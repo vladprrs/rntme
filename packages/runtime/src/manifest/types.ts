@@ -4,7 +4,7 @@ import type { StudioConfig } from './schema.js';
 export type ParsedManifest = {
   rntmeVersion: string;
   service: { name: string; version: string };
-  surface?: { http?: { enabled?: boolean; port?: number } };
+  surface?: { http?: { enabled?: boolean; port?: number }; grpc?: { enabled?: boolean; port?: number } };
   persistence?: {
     mode?: 'ephemeral' | 'persistent';
     eventStorePath?: string;

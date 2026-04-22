@@ -26,6 +26,13 @@ export const ManifestSchema = z
           })
           .strict()
           .optional(),
+        grpc: z
+          .object({
+            enabled: z.boolean().optional(),
+            port: z.number().int().min(0).max(65535).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
