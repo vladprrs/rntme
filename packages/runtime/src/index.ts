@@ -41,6 +41,8 @@ export {
   type HealthProbe,
 } from './plugins/observability.js';
 
+export * from './plugins/executors/index.js';
+
 // contract-tests intentionally NOT re-exported from the main entry point
 // (they import vitest which must not load in non-test processes).
 // Import directly from '@rntme/runtime/src/plugins/contract-tests.js' in test files.

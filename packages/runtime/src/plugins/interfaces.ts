@@ -34,3 +34,18 @@ export interface Surface {
   mount(app: Hono, ctx: SurfaceContext): Promise<void> | void;
   listen?(): Promise<{ port: number; stop(): Promise<void> }>;
 }
+
+export type {
+  CommandExecutor,
+  CommandExecutorInput,
+  CommandExecutorOutput,
+  CommandExecutorError,
+  CommandExecutionContext,
+  CommandExecutionResult,
+  QueryExecutor,
+  QueryExecutorInput,
+  QueryExecutorOutput,
+  QueryExecutorError,
+  QueryExecutionContext,
+  CorrelationCtx,
+} from './executors/types.js';
