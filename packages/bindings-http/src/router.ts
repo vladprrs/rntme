@@ -4,11 +4,14 @@ import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { EventStore, ActorRef } from '@rntme/event-store';
+import type { ExternalAdapterClient } from '@rntme/runtime';
 import type { CommandExecutor } from './executor-contract.js';
 import { buildPlan } from './startup/compile-plan.js';
 import { honoPath } from './startup/hono-path.js';
 import { makeHandler } from './runtime/handler.js';
 import { makeCommandHandler } from './runtime/command-handler.js';
+import { idempotencyMiddleware } from './idempotency/middleware.js';
+import { IdempotencyCache } from './idempotency/cache.js';
 
 export type BindingsRouterOptions = {
   validated: ValidatedBindings;
@@ -28,6 +31,8 @@ export type BindingsRouterOptions = {
   now?: () => string;
   /** Default: () => crypto.randomUUID() */
   nextId?: () => string;
+  externalAdapterClient?: ExternalAdapterClient;
+  idempotencyCache?: IdempotencyCache;
 };
 
 export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
@@ -45,11 +50,28 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
       'createBindingsRouter: commandExecutor is required when any binding has kind "command"',
     );
   }
+  const anyPre = Object.values(plan.plans).some((p) => p.kind === 'command' && p.pre.length > 0);
+  if (anyPre && opts.externalAdapterClient === undefined) {
+    throw new Error(
+      'createBindingsRouter: externalAdapterClient is required when any command binding has pre[]',
+    );
+  }
   const commandExecutor = opts.commandExecutor!;
 
   const now = opts.now ?? ((): string => new Date().toISOString());
   const nextId = opts.nextId ?? ((): string => randomUUID());
   const actorFromRequest = opts.actorFromRequest ?? ((): ActorRef | null => null);
+
+  const cache = opts.idempotencyCache ?? new IdempotencyCache(opts.db);
+  const pathToCommand: Map<string, string> = new Map();
+  for (const bp of Object.values(plan.plans)) {
+    if (bp.kind === 'command') pathToCommand.set(bp.entry.http.path, bp.commandName);
+  }
+  app.use('*', idempotencyMiddleware({
+    cache,
+    now: () => Date.now(),
+    commandNameFromPath: (p) => pathToCommand.get(p) ?? null,
+  }));
 
   for (const bp of Object.values(plan.plans)) {
     const route = honoPath(bp.entry.http.path);
@@ -64,6 +86,8 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               nextId,
               actorFromRequest,
               onError: opts.onError,
+              externalAdapterClient: opts.externalAdapterClient,
+              idempotencyCache: cache,
             }
           : {
               commandExecutor,
@@ -72,6 +96,8 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               now,
               nextId,
               actorFromRequest,
+              externalAdapterClient: opts.externalAdapterClient,
+              idempotencyCache: cache,
             };
       app.post(route, makeCommandHandler(bp, deps));
     } else {

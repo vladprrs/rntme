@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { EventStore, ActorRef } from '@rntme/event-store';
+import type { ExternalAdapterClient } from '@rntme/runtime';
 import type { CommandBindingPlan } from '../startup/compile-plan.js';
 import type { CommandExecutor } from '../executor-contract.js';
 import type { CorrelationCtx } from './correlation-middleware.js';
@@ -12,6 +13,10 @@ import {
 } from '../errors.js';
 import { extractQuery, extractPath } from './extract.js';
 import { remapToGraphInputs } from './remap.js';
+import { runPreSteps } from '../pre/run-pre-steps.js';
+import type { IdempotencyCache } from '../idempotency/cache.js';
+import { deriveCommandRunId } from '../idempotency/derive-keys.js';
+import { randomUUID } from 'node:crypto';
 
 export type CommandHandlerDeps = {
   commandExecutor: CommandExecutor;
@@ -21,6 +26,8 @@ export type CommandHandlerDeps = {
   nextId: () => string;
   actorFromRequest: (c: Context) => ActorRef | null;
   onError?: (err: unknown, ctx: Context) => void;
+  externalAdapterClient?: ExternalAdapterClient;
+  idempotencyCache?: IdempotencyCache;
 };
 
 type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx } }>) => Promise<Response>;
@@ -59,8 +66,37 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       ...(pathParsed.data as Record<string, unknown>),
       ...bodyValues,
     };
-    const graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    let graphInputs = remapToGraphInputs(combined, plan.bindToMap);
     const correlation = c.get('correlation');
+
+    const idemCtx = c.get('idempotency') as { clientKey: string | null; runId: string | null } | undefined;
+    const clientKey = idemCtx?.clientKey ?? null;
+    const runId = idemCtx?.runId ?? (clientKey !== null ? deriveCommandRunId(plan.commandName, clientKey) : randomUUID());
+    const correlationId = c.get('correlation')?.correlationId ?? randomUUID();
+
+    const scope = {
+      body: bodyValues,
+      query: queryParsed.data as Record<string, unknown>,
+      auth: { userId: (deps.actorFromRequest(c) as { id?: string } | null)?.id ?? null },
+      config: {},
+    };
+
+    if (plan.pre.length > 0) {
+      if (deps.externalAdapterClient === undefined) {
+        return c.json({ code: 'BINDINGS_CONFIG_ADAPTER_MISSING', message: 'pre[] requires externalAdapterClient' }, 500);
+      }
+      const preResult = await runPreSteps(plan.pre, {
+        scope,
+        adapterClient: deps.externalAdapterClient,
+        runId,
+        correlationId,
+        logger: (evt) => { /* placeholder - will be replaced in Task 20 */ },
+      });
+      if (!preResult.ok) {
+        return c.json(preResult.body, preResult.httpStatus);
+      }
+      graphInputs = { ...graphInputs, ...preResult.systemFields };
+    }
 
     const out = await deps.commandExecutor.execute({
       commandName: plan.commandName,
@@ -88,6 +124,11 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       }
       deps.onError?.(out.error.detail ?? out.error, c);
       return c.json(internalErrorBody(), 500);
+    }
+
+    if (deps.idempotencyCache !== undefined && clientKey !== null) {
+      const bodyStr = JSON.stringify(out.value);
+      deps.idempotencyCache.set(plan.commandName, clientKey, { status: 200, body: bodyStr }, Date.now());
     }
 
     return c.json(out.value, 200);

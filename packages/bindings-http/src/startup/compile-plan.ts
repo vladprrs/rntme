@@ -67,6 +67,7 @@ export type QueryBindingPlan = BindingPlanCommon & {
 export type CommandBindingPlan = BindingPlanCommon & {
   kind: 'command';
   commandName: string;
+  pre: import('@rntme/bindings').PreStep[];
 };
 
 export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
@@ -136,7 +137,7 @@ export function buildPlan(
     };
     plans[bindingId] =
       kind === 'command'
-        ? { ...common, kind: 'command', commandName: entry.graph }
+        ? { ...common, kind: 'command', commandName: entry.graph, pre: entry.pre ?? [] }
         : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
   }
   return {
