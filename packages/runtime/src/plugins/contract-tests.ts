@@ -183,3 +183,14 @@ export function runQueryExecutorContract(
     });
   });
 }
+
+import { GrpcSurface } from './grpc-surface.js';
+
+export function runGrpcSurfaceContract(makeSurface: () => GrpcSurface): void {
+  describe('GrpcSurface contract', () => {
+    it('mount is a no-op and does not throw', () => {
+      const surface = makeSurface();
+      expect(() => surface.mount(/* unused */ {} as Hono, {} as SurfaceContext)).not.toThrow();
+    });
+  });
+}
