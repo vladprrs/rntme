@@ -43,7 +43,7 @@ export {
 
 export * from './plugins/executors/index.js';
 
-export * from './plugins/adapter-client/types.js';
+export * from './plugins/adapter-client/index.js';
 
 // contract-tests intentionally NOT re-exported from the main entry point
 // (they import vitest which must not load in non-test processes).
