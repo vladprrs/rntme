@@ -35,11 +35,12 @@ export class ProtoRegistry {
     if (service === null) throw new Error(`no service found in proto file ${protoPath}`);
 
     const methods: Record<string, MethodDescriptor> = {};
-    for (const [methodName, method] of Object.entries(service.methods)) {
-      const req = root.lookupType(method.requestType);
-      const res = root.lookupType(method.responseType);
+    for (const [methodName, method] of Object.entries((service as protobuf.Service).methods)) {
+      const m = method as protobuf.Method;
+      const req = root.lookupType(m.requestType);
+      const res = root.lookupType(m.responseType);
       methods[methodName] = {
-        path: `/${pkgPrefix}${service.name}/${methodName}`,
+        path: `/${pkgPrefix}${(service as protobuf.Service).name}/${methodName}`,
         requestStream: false,
         responseStream: false,
         requestSerialize: (v: object): Buffer => Buffer.from(req.encode(req.fromObject(v)).finish()),

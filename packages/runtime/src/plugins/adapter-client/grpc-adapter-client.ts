@@ -143,10 +143,11 @@ function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterError {
     [grpc.status.ALREADY_EXISTS]: 409,
     [grpc.status.ABORTED]: 409,
   };
+  const domainCode = message.split(':')[0];
   return {
     code: 'EXTERNAL_VENDOR_DOMAIN',
     message,
-    domainCode: message.split(':')[0],
+    ...(domainCode !== undefined ? { domainCode } : {}),
     httpStatus: httpMap[status] ?? 502,
   };
 }
