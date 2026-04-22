@@ -86,7 +86,7 @@ From the repository root:
 
 ```bash
 pnpm install                                      # once
-pnpm -F @rntme/issue-tracker-api-demo start       # tsx src/server.ts
+pnpm -F @rntme/issue-tracker-api-demo start       # prebuild + tsx src/server.ts
 ```
 
 The runtime binds the port from `artifacts/manifest.json` (`surface.http.port`, default `3000`). Override with `RNTME_HTTP_PORT`.
@@ -115,7 +115,7 @@ Persistence: the runtime defaults to `:memory:` SQLite for both event log and pr
 Tests:
 
 ```bash
-pnpm -F @rntme/issue-tracker-api-demo test        # vitest run (smoke + seed-e2e + list-enrichment-e2e)
+pnpm -F @rntme/issue-tracker-api-demo test        # prebuild + vitest run (smoke + seed-e2e + list-enrichment-e2e)
 pnpm -F @rntme/issue-tracker-api-demo typecheck   # tsc --noEmit
 ```
 
