@@ -14,6 +14,10 @@ import type {
   EventBus,
   Surface,
 } from '../plugins/interfaces.js';
+import type { CommandExecutor, QueryExecutor } from '../plugins/executors/types.js';
+import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
+import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
+import { buildDefaultGraphIrCommandMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
@@ -28,6 +32,8 @@ export type RuntimeConfig = {
   onReady?: (info: { port: number }) => void;
   seedMode?: ApplyMode;
   skipSeed?: boolean;
+  commandExecutor?: CommandExecutor;
+  queryExecutor?: QueryExecutor;
 };
 
 export async function startService(
@@ -67,6 +73,16 @@ export async function startService(
 
   pipeline.start();
 
+  const defaultCommandMap = buildDefaultGraphIrCommandMap(
+    service.bindings,
+    service.graphSpec,
+    service.pdm,
+    service.qsm,
+  );
+  const commandExecutor =
+    config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMap);
+  const queryExecutor = config.queryExecutor ?? new GraphIrQueryExecutor({});
+
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
   // `bootstrapProjections`. The disposer is invoked from `RunningService.stop`.
@@ -85,6 +101,8 @@ export async function startService(
         metricsPath: service.manifest.observability.metrics.path,
         metrics,
         healthProbe: probe,
+        commandExecutor,
+        queryExecutor,
       }),
     ];
 

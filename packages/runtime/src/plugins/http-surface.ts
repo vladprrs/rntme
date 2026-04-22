@@ -7,12 +7,15 @@ import {
 import { createApp as createUiApp } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
+import type { CommandExecutor, QueryExecutor } from './executors/types.js';
 
 export type HttpSurfaceOptions = {
   healthPath: string;
   metricsPath: string;
   metrics: Metrics;
   healthProbe: HealthProbe;
+  commandExecutor?: CommandExecutor;
+  queryExecutor?: QueryExecutor;
 };
 
 export type { CorrelationVariables };
@@ -21,7 +24,7 @@ export class HttpSurface implements Surface {
   constructor(private readonly opts: HttpSurfaceOptions) {}
 
   async mount(app: Hono, ctx: SurfaceContext): Promise<void> {
-    const router = createBindingsRouter({
+    const routerOpts: Parameters<typeof createBindingsRouter>[0] = {
       validated: ctx.service.bindings,
       graphSpec: ctx.service.graphSpec,
       pdm: ctx.service.pdm,
@@ -30,7 +33,11 @@ export class HttpSurface implements Surface {
       eventStore: ctx.eventStore,
       actorFromRequest: ctx.actorFromRequest,
       openApiDoc: ctx.service.openApiDoc,
-    });
+    };
+    if (this.opts.commandExecutor !== undefined) {
+      routerOpts.commandExecutor = this.opts.commandExecutor;
+    }
+    const router = createBindingsRouter(routerOpts);
 
     app.get('/', (c) =>
       c.json({
