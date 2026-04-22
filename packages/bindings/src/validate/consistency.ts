@@ -157,8 +157,16 @@ function checkUnbound(
   }
 }
 
-export function validateConsistency(resolved: ResolvedBindings): Result<ValidatedBindings> {
+export type ConsistencyOptions = {
+  declaredModules?: ReadonlySet<string>;
+};
+
+export function validateConsistency(
+  resolved: ResolvedBindings,
+  opts: ConsistencyOptions = {},
+): Result<ValidatedBindings> {
   const errors: BindingsError[] = [];
+  const declaredModules = opts.declaredModules ?? new Set<string>();
 
   for (const [id, binding] of Object.entries(resolved.resolved)) {
     const kind = binding.entry.kind ?? 'query';
@@ -167,6 +175,20 @@ export function validateConsistency(resolved: ResolvedBindings): Result<Validate
 
     checkParameters(id, binding.entry, binding.signature, errors);
     checkUnbound(id, binding.entry, binding.signature, errors);
+
+    const pre = binding.entry.pre ?? [];
+    for (let idx = 0; idx < pre.length; idx++) {
+      const step = pre[idx]!;
+      if (step.kind === 'module-rpc' && !declaredModules.has(step.module)) {
+        errors.push({
+          layer: 'consistency',
+          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_MODULE_NOT_DECLARED,
+          message: `binding "${id}" pre[${idx}] references module "${step.module}" which is not declared in manifest.modules`,
+          path: `bindings.${id}.pre[${idx}].module`,
+          hint: 'Add the module to manifest.modules[] with grpc.address and protoPath.',
+        });
+      }
+    }
   }
 
   if (errors.length > 0) return err(errors);
