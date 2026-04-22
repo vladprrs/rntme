@@ -21,6 +21,8 @@ export default [
         fetch: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     plugins: {

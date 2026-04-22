@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import * as protobuf from 'protobufjs';
-import * as grpc from '@grpc/grpc-js';
+import type * as grpc from '@grpc/grpc-js';
 
 export type MethodDescriptor = grpc.MethodDefinition<object, object>;
 
