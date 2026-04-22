@@ -5,6 +5,8 @@ import type BetterSqlite3 from 'better-sqlite3';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { EventStore, ActorRef } from '@rntme/event-store';
 import type { ExternalAdapterClient } from '@rntme/runtime';
+import type { Logger } from 'pino';
+import pino from 'pino';
 import type { CommandExecutor } from './executor-contract.js';
 import { buildPlan } from './startup/compile-plan.js';
 import { honoPath } from './startup/hono-path.js';
@@ -33,6 +35,8 @@ export type BindingsRouterOptions = {
   nextId?: () => string;
   externalAdapterClient?: ExternalAdapterClient;
   idempotencyCache?: IdempotencyCache;
+  logger?: Logger;
+  metrics?: import('../plugins/observability.js').Metrics;
 };
 
 export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
@@ -61,6 +65,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   const now = opts.now ?? ((): string => new Date().toISOString());
   const nextId = opts.nextId ?? ((): string => randomUUID());
   const actorFromRequest = opts.actorFromRequest ?? ((): ActorRef | null => null);
+  const logger = opts.logger ?? pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
   const cache = opts.idempotencyCache ?? new IdempotencyCache(opts.db);
   const pathToCommand: Map<string, string> = new Map();
@@ -88,6 +93,8 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               onError: opts.onError,
               externalAdapterClient: opts.externalAdapterClient,
               idempotencyCache: cache,
+              logger,
+              metrics: opts.metrics,
             }
           : {
               commandExecutor,
@@ -98,6 +105,8 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               actorFromRequest,
               externalAdapterClient: opts.externalAdapterClient,
               idempotencyCache: cache,
+              logger,
+              metrics: opts.metrics,
             };
       app.post(route, makeCommandHandler(bp, deps));
     } else {

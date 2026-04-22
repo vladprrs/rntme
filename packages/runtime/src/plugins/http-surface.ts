@@ -42,6 +42,9 @@ export class HttpSurface implements Surface {
     if (this.opts.externalAdapterClient !== undefined) {
       routerOpts.externalAdapterClient = this.opts.externalAdapterClient;
     }
+    if (this.opts.metrics !== undefined) {
+      routerOpts.metrics = this.opts.metrics;
+    }
     const router = createBindingsRouter(routerOpts);
 
     app.get('/', (c) =>

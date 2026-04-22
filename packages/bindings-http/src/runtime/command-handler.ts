@@ -17,6 +17,7 @@ import { runPreSteps } from '../pre/run-pre-steps.js';
 import type { IdempotencyCache } from '../idempotency/cache.js';
 import { deriveCommandRunId } from '../idempotency/derive-keys.js';
 import { randomUUID } from 'node:crypto';
+import type { Metrics, recordPreStep } from '@rntme/runtime';
 
 export type CommandHandlerDeps = {
   commandExecutor: CommandExecutor;
@@ -28,6 +29,8 @@ export type CommandHandlerDeps = {
   onError?: (err: unknown, ctx: Context) => void;
   externalAdapterClient?: ExternalAdapterClient;
   idempotencyCache?: IdempotencyCache;
+  logger: import('pino').Logger;
+  metrics?: Metrics;
 };
 
 type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx } }>) => Promise<Response>;
@@ -90,7 +93,18 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         adapterClient: deps.externalAdapterClient,
         runId,
         correlationId,
-        logger: (evt) => { /* placeholder - will be replaced in Task 20 */ },
+        logger: (evt) => {
+          deps.logger.info(evt, 'pre-step');
+          if (deps.metrics && evt.pre_step === 'module-rpc') {
+            const { module, rpc, result, code } = evt as Record<string, string>;
+            if (module && rpc && result) {
+              (deps.metrics as Metrics).externalPreStep?.labels({
+                module, rpc, result,
+                error_code: code ?? '',
+              }).inc();
+            }
+          }
+        },
       });
       if (!preResult.ok) {
         return c.json(preResult.body, preResult.httpStatus);

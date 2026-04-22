@@ -10,6 +10,7 @@ export type Metrics = {
   httpRequestsTotal: Counter<string>;
   projectionLagEvents: Gauge<string>;
   relayCursor: Gauge<string>;
+  externalPreStep: Counter<string>;
 };
 
 export function createMetrics(serviceName: string): Metrics {
@@ -45,6 +46,12 @@ export function createMetrics(serviceName: string): Metrics {
     help: 'Current relay cursor position.',
     registers: [registry],
   });
+  const externalPreStep = new Counter({
+    name: 'external_pre_step_total',
+    help: 'Count of pre-fetch steps executed, labelled by module/rpc/result/error_code',
+    labelNames: ['module', 'rpc', 'result', 'error_code'] as const,
+    registers: [registry],
+  });
   return {
     registry,
     commandsTotal,
@@ -52,7 +59,17 @@ export function createMetrics(serviceName: string): Metrics {
     httpRequestsTotal,
     projectionLagEvents,
     relayCursor,
+    externalPreStep,
   };
+}
+
+export function recordPreStep(metrics: Metrics, labels: {
+  module: string; rpc: string; result: 'ok' | 'error'; error_code?: string;
+}): void {
+  metrics.externalPreStep?.labels({
+    module: labels.module, rpc: labels.rpc, result: labels.result,
+    error_code: labels.error_code ?? '',
+  }).inc();
 }
 
 export function mountObservability(
