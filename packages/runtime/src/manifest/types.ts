@@ -40,6 +40,7 @@ export type ValidatedManifest = {
   };
   seed: { enabled: boolean; path: string };
   studio: StudioConfig;
+  modules: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
 };
 
 export type ManifestErrorCode =
@@ -53,7 +54,8 @@ export type ManifestErrorCode =
   | 'MANIFEST_VERSION_MAJOR_MISMATCH'
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
   | 'MANIFEST_MISSING_QSM_PATH'
-  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT';
+  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT'
+  | 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME';
 
 export type ManifestError = {
   code: ManifestErrorCode;

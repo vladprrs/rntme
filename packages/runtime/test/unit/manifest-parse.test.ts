@@ -51,7 +51,7 @@ describe('parseManifest', () => {
   });
 
   it('parses modules[] with grpc address and protoPath', () => {
-    const result = parseManifest(
+    const r = parseManifest(
       JSON.stringify({
         rntmeVersion: '1.0',
         service: { name: 'subs', version: '1.0' },
@@ -60,20 +60,42 @@ describe('parseManifest', () => {
         ],
       }),
     );
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.modules?.[0]?.name).toBe('payments');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.modules?.[0]?.name).toBe('payments');
     }
   });
 
   it('rejects module with empty name', () => {
-    const result = parseManifest(
+    const r = parseManifest(
       JSON.stringify({
         rntmeVersion: '1.0',
         service: { name: 'subs', version: '1.0' },
         modules: [{ name: '', grpc: { address: 'a:1' }, protoPath: 'p' }],
       }),
     );
-    expect(result.ok).toBe(false);
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects module with empty grpc.address', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: 'm', grpc: { address: '' }, protoPath: 'p' }],
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects module with empty protoPath', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: 'm', grpc: { address: 'a:1' }, protoPath: '' }],
+      }),
+    );
+    expect(r.ok).toBe(false);
   });
 });

@@ -102,6 +102,20 @@ export function validateManifest(
 
   validateStudio(parsed.studio, errors);
 
+  const modules = parsed.modules ?? [];
+  const seenNames = new Set<string>();
+  for (const mod of modules) {
+    if (seenNames.has(mod.name)) {
+      errors.push({
+        code: 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME',
+        path: `modules`,
+        message: `duplicate module name "${mod.name}"`,
+      });
+    } else {
+      seenNames.add(mod.name);
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
   const studio: StudioConfig = {
@@ -135,6 +149,7 @@ export function validateManifest(
       path: parsed.seed?.path ?? 'seed.json',
     },
     studio,
+    modules,
   };
   return { ok: true, value: v };
 }
