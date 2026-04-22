@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./executor-contract": {
+      "types": "./dist/executor-contract.d.ts",
+      "import": "./dist/executor-contract.js"
     }
   },
   "main": "./dist/index.js",

@@ -1,20 +1,20 @@
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
-import { executeCommand, CommandExecutionError } from '@rntme/graph-ir-compiler';
 import type { EventStore, ActorRef } from '@rntme/event-store';
 import type { CommandBindingPlan } from '../startup/compile-plan.js';
+import type { CommandExecutor } from '../executor-contract.js';
 import type { CorrelationCtx } from './correlation-middleware.js';
 import {
   validationErrorBody,
   invalidBodyErrorBody,
   internalErrorBody,
   commandErrorBody,
-  commandErrorStatus,
 } from '../errors.js';
 import { extractQuery, extractPath } from './extract.js';
 import { remapToGraphInputs } from './remap.js';
 
 export type CommandHandlerDeps = {
+  commandExecutor: CommandExecutor;
   eventStore: EventStore;
   qsmDb: BetterSqlite3.Database | null;
   now: () => string;
@@ -62,22 +62,34 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
     const graphInputs = remapToGraphInputs(combined, plan.bindToMap);
     const correlation = c.get('correlation');
 
-    try {
-      const result = executeCommand(plan.compiled, graphInputs, {
+    const out = await deps.commandExecutor.execute({
+      commandName: plan.commandName,
+      inputs: graphInputs,
+      ctx: {
         eventStore: deps.eventStore,
         qsmDb: deps.qsmDb,
         now: deps.now,
         nextId: deps.nextId,
         actor: deps.actorFromRequest(c),
         correlation,
-      });
-      return c.json(result, 200);
-    } catch (e) {
-      if (e instanceof CommandExecutionError) {
-        return c.json(commandErrorBody(e), commandErrorStatus(e));
+      },
+    });
+
+    if (!out.ok) {
+      const code = out.error.code;
+      if (code === 'COMMAND_GUARD_REJECTED') {
+        return c.json(commandErrorBody({ code, message: out.error.message }), 422);
       }
-      deps.onError?.(e, c);
+      if (code === 'COMMAND_CONCURRENCY_CONFLICT') {
+        return c.json(commandErrorBody({ code, message: out.error.message }), 409);
+      }
+      if (code === 'COMMAND_NOT_FOUND') {
+        return c.json(commandErrorBody({ code, message: out.error.message }), 500);
+      }
+      deps.onError?.(out.error.detail ?? out.error, c);
       return c.json(internalErrorBody(), 500);
     }
+
+    return c.json(out.value, 200);
   };
 }

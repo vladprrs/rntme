@@ -66,17 +66,33 @@ export type QueryBindingPlan = BindingPlanCommon & {
 
 export type CommandBindingPlan = BindingPlanCommon & {
   kind: 'command';
-  compiled: CompiledCommand;
+  commandName: string;
 };
 
 export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
+
+export type GraphIrCommandMap = Record<string, CompiledCommand>;
+
+export type BuildPlanResult = {
+  plans: Record<string, BindingPlan>;
+  compiledCommands: GraphIrCommandMap;
+};
+
+export function buildDefaultGraphIrCommandMap(
+  validated: ValidatedBindings,
+  graphSpec: unknown,
+  pdm: unknown,
+  qsm: unknown,
+): GraphIrCommandMap {
+  return buildPlan(validated, graphSpec, pdm, qsm).compiledCommands;
+}
 
 export function buildPlan(
   validated: ValidatedBindings,
   graphSpec: unknown,
   pdm: unknown,
   qsm: unknown,
-): Record<string, BindingPlan> {
+): BuildPlanResult {
   const queryGraphIds = new Set<string>();
   const commandGraphIds = new Set<string>();
   for (const r of Object.values(validated.resolved)) {
@@ -102,7 +118,7 @@ export function buildPlan(
 
   if (errors.length > 0) throw new BindingsRuntimeError(errors);
 
-  const plan: Record<string, BindingPlan> = {};
+  const plans: Record<string, BindingPlan> = {};
   for (const [bindingId, resolved] of Object.entries(validated.resolved)) {
     const { entry, signature, outputShape } = resolved;
     const kind = entry.kind ?? 'query';
@@ -118,12 +134,15 @@ export function buildPlan(
       pathParamNames: entry.http.parameters.filter((p) => p.in === 'path').map((p) => p.name),
       bodyParamNames: entry.http.parameters.filter((p) => p.in === 'body').map((p) => p.name),
     };
-    plan[bindingId] =
+    plans[bindingId] =
       kind === 'command'
-        ? { ...common, kind: 'command', compiled: commandCache.get(entry.graph)! }
+        ? { ...common, kind: 'command', commandName: entry.graph }
         : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
   }
-  return plan;
+  return {
+    plans,
+    compiledCommands: Object.fromEntries(commandCache),
+  };
 }
 
 function collectListParams(parameters: HttpParameter[], signature: GraphSignature): Set<string> {

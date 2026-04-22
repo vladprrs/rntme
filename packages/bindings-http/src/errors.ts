@@ -1,5 +1,4 @@
 import type { ZodError } from 'zod';
-import type { CommandExecutionError } from '@rntme/graph-ir-compiler';
 
 export type RuntimeErrorEntry = {
   bindingId?: string;
@@ -51,11 +50,13 @@ export function internalErrorBody(): ErrorResponseBody {
 
 export type CommandErrorStatus = 409 | 422;
 
-export function commandErrorStatus(err: CommandExecutionError): CommandErrorStatus {
+export type CommandErrorLike = { code: string; message: string; detail?: unknown };
+
+export function commandErrorStatus(err: CommandErrorLike): CommandErrorStatus {
   return err.code === 'COMMAND_CONCURRENCY_CONFLICT' ? 409 : 422;
 }
 
-export function commandErrorBody(err: CommandExecutionError): ErrorResponseBody {
+export function commandErrorBody(err: CommandErrorLike): ErrorResponseBody {
   const body: ErrorResponseBody = { code: err.code, message: err.message };
   if (err.detail !== undefined) body.details = err.detail;
   return body;
