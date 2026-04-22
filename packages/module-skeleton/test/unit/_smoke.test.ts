@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERSION, exampleHandlers } from '@rntme/module-skeleton';
+import { VERSION, exampleHandlers } from '../../src/index.js';
 
 describe('@rntme/module-skeleton smoke', () => {
   it('exports the package version marker', () => {
