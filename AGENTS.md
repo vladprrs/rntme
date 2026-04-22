@@ -35,8 +35,10 @@
 - `docs/superpowers/reports/` — gap analyses (spec vs implementation)
 - `docs/adr/`                — architectural decision records
 - `docs/gaps/`               — known gaps per subsystem
-- `graph_ir_rc_7.md`         — Graph IR rc7 language spec (gitignored,
-  local-only; authoritative for the query/command IR)
+- `graph_ir_rc_7.md`         — original Graph IR rc7 language spec
+  (gitignored, local-only). Historical: first-step IR reference,
+  superseded by later specs under `docs/superpowers/specs/`. Still
+  useful for operator-level syntax/semantics; not canon.
 - `README.md` (root)         — human-facing overview + CI badge + pointer
   back to this file
 
@@ -109,6 +111,9 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/runtime`** — Top-level orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP surface, wires projections,
   applies seed, mounts bindings + UI. → `packages/runtime/README.md`.
+- **`@rntme/module-skeleton`** — Minimal scaffold package for the
+  module-integration track; depends on `@rntme/runtime`. →
+  `packages/module-skeleton/README.md`.
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
@@ -307,8 +312,10 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
   returns `err`, propagate it.
 - Do not create new packages without updating §3 (package layering) and
   the root README.
-- Do not edit `graph_ir_rc_7.md` to match a code bug. The spec is
-  canon; fix the code.
+- Do not edit specs under `docs/superpowers/specs/` to match a code
+  bug. The specs are the source of truth; fix the code. Note:
+  `graph_ir_rc_7.md` is historical (first-step IR spec, superseded by
+  later specs) — not canon, do not cite it as such.
 - Do not delete or renumber error codes. Consumers rely on them. Append
   new codes; deprecate in comments if needed.
 - Do not write new authoring formats (YAML, TOML) for any artifact.
@@ -370,8 +377,12 @@ Known categorical entries to watch for:
   state-machine artifact. One per service.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
   PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).
-- **Graph IR** — The rc7 intermediate representation for queries and
-  commands. Spec: `graph_ir_rc_7.md`.
+- **Graph IR** — Intermediate representation for queries and commands.
+  Canonical specs live under `docs/superpowers/specs/` (e.g.
+  `2026-04-13-graph-ir-sql-compiler-mvp-design.md`,
+  `2026-04-14-mutations-design.md`). `graph_ir_rc_7.md` is the
+  historical rc7 language reference — useful for operator-level
+  syntax/semantics but not canon.
 - **Projection** — A QSM-declared table maintained by the
   projection-consumer. Backing modes: `entity-mirror` (1:1 with a PDM
   entity), `derived` (reserved, not implemented).
