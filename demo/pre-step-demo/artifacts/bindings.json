@@ -36,7 +36,7 @@
           "module": "payments",
           "rpc": "GetOrCreateCustomer",
           "input": { "user_id": "$body.userId" },
-          "bindAs": "customerId"
+          "bindAs": { "name": "customerId", "pick": "customerId" }
         }
       ]
     },

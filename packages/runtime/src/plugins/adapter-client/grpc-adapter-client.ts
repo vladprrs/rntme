@@ -119,7 +119,7 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
   }
 }
 
-function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterError {
+export function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterError {
   const status = (err.code ?? grpc.status.UNKNOWN) as grpc.status;
   const message = err.message ?? 'unknown gRPC error';
   if (status === grpc.status.DEADLINE_EXCEEDED) {
@@ -143,7 +143,7 @@ function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterError {
     [grpc.status.ALREADY_EXISTS]: 409,
     [grpc.status.ABORTED]: 409,
   };
-  const domainCode = message.split(':')[0];
+  const domainCode = /^([A-Z][A-Z0-9_]+):\s*/.exec(message)?.[1];
   return {
     code: 'EXTERNAL_VENDOR_DOMAIN',
     message,

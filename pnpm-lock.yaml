@@ -21,9 +21,21 @@ importers:
         specifier: workspace:*
         version: link:../../packages/runtime
     devDependencies:
+      '@grpc/grpc-js':
+        specifier: ^1.12.0
+        version: 1.14.3
+      '@rntme/bindings':
+        specifier: workspace:*
+        version: link:../../packages/bindings
+      '@rntme/bindings-grpc':
+        specifier: workspace:*
+        version: link:../../packages/bindings-grpc
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39
+      protobufjs:
+        specifier: ^7.4.0
+        version: 7.5.5
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
@@ -80,6 +92,55 @@ importers:
       prettier:
         specifier: ^3.3.3
         version: 3.8.2
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
+  packages/bindings-grpc:
+    dependencies:
+      '@grpc/grpc-js':
+        specifier: ^1.10.0
+        version: 1.14.3
+      '@rntme/bindings':
+        specifier: workspace:*
+        version: link:../bindings
+      '@rntme/bindings-http':
+        specifier: workspace:*
+        version: link:../bindings-http
+      '@rntme/event-store':
+        specifier: workspace:*
+        version: link:../event-store
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      better-sqlite3:
+        specifier: ^11.10.0
+        version: 11.10.0
+      protobufjs:
+        specifier: ^7.2.0
+        version: 7.5.5
+    devDependencies:
+      '@rntme/graph-ir-compiler':
+        specifier: workspace:*
+        version: link:../graph-ir-compiler
+      '@rntme/pdm':
+        specifier: workspace:*
+        version: link:../pdm
+      '@rntme/qsm':
+        specifier: workspace:*
+        version: link:../qsm
+      '@rntme/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -394,6 +455,9 @@ importers:
       '@rntme/bindings':
         specifier: workspace:*
         version: link:../bindings
+      '@rntme/bindings-grpc':
+        specifier: workspace:*
+        version: link:../bindings-grpc
       '@rntme/bindings-http':
         specifier: workspace:*
         version: link:../bindings-http
@@ -7743,7 +7807,7 @@ snapshots:
 
   '@types/protobufjs@6.0.0':
     dependencies:
-      protobufjs: 8.0.1
+      protobufjs: 7.5.5
 
   '@types/qs@6.15.0': {}
 
