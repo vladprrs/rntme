@@ -5,9 +5,11 @@ export type ExpressionScope = {
   config?: Record<string, unknown>;
   system?: Record<string, unknown>;
   pre?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  error?: Record<string, unknown>;
 };
 
-const KNOWN_ROOTS: readonly (keyof ExpressionScope)[] = ['body', 'query', 'auth', 'config', 'system', 'pre'];
+const KNOWN_ROOTS: readonly (keyof ExpressionScope)[] = ['body', 'query', 'auth', 'config', 'system', 'pre', 'result', 'error'];
 
 export function evaluateExpression(template: unknown, scope: ExpressionScope): unknown {
   if (typeof template === 'string') {

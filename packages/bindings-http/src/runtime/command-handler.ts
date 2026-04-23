@@ -15,6 +15,8 @@ import {
 import { extractQuery, extractPath } from './extract.js';
 import { remapToGraphInputs } from './remap.js';
 import { runPreSteps } from '../pre/run-pre-steps.js';
+import { extractInputs } from './extract-inputs.js';
+import { renderOkResponse, renderErrResponse } from './render-response.js';
 import type { IdempotencyCache } from '../idempotency/cache.js';
 import { deriveCommandRunId } from '../idempotency/derive-keys.js';
 import { randomUUID } from 'node:crypto';
@@ -37,41 +39,84 @@ type IdempotencyCtx = { clientKey: string | null; runId: string | null };
 
 type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx; idempotency: IdempotencyCtx } }>) => Promise<Response>;
 
+function hasFormContentType(c: Context): boolean {
+  const ct = c.req.header('content-type') ?? '';
+  return ct.includes('application/x-www-form-urlencoded');
+}
+
+async function safeParseJsonBody(c: Context): Promise<Record<string, unknown> | null> {
+  try {
+    const j = await c.req.json();
+    return j !== null && typeof j === 'object' && !Array.isArray(j) ? (j as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function safeParseFormBody(c: Context): Promise<Record<string, string>> {
+  const raw = await c.req.parseBody();
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) out[k] = typeof v === 'string' ? v : String(v);
+  return out;
+}
+
 export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandlerDeps): Handler {
   const declaredQueryParams = plan.entry.http.parameters.filter((p) => p.in === 'query');
   const hasBody = plan.bodyParamNames.length > 0;
+  const hasInputFrom = plan.inputFrom !== null;
 
   return async (c) => {
-    const pathBag = extractPath(c, plan.pathParamNames);
-    const pathParsed = plan.schemas.pathSchema.safeParse(pathBag);
-    if (!pathParsed.success) return c.json(validationErrorBody(pathParsed.error), 400);
-
-    const queryBag = extractQuery(c, declaredQueryParams, plan.listParamNames);
-    const queryParsed = plan.schemas.querySchema.safeParse(queryBag);
-    if (!queryParsed.success) return c.json(validationErrorBody(queryParsed.error), 400);
-
+    let graphInputs: Record<string, unknown> = {};
     let bodyValues: Record<string, unknown> = {};
-    if (hasBody) {
-      let rawBody: unknown;
-      try {
-        rawBody = await c.req.json();
-      } catch {
-        return c.json(invalidBodyErrorBody('Request body is not valid JSON'), 400);
-      }
-      if (rawBody === null || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
-        return c.json(invalidBodyErrorBody('Request body must be a JSON object'), 400);
-      }
-      const bodyParsed = plan.schemas.bodySchema!.safeParse(rawBody);
-      if (!bodyParsed.success) return c.json(validationErrorBody(bodyParsed.error), 400);
-      bodyValues = bodyParsed.data as Record<string, unknown>;
-    }
+    let queryData: Record<string, unknown> = {};
 
-    const combined: Record<string, unknown> = {
-      ...(queryParsed.data as Record<string, unknown>),
-      ...(pathParsed.data as Record<string, unknown>),
-      ...bodyValues,
-    };
-    let graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    if (hasInputFrom) {
+      // Use inputFrom-based extraction
+      const req = {
+        query: new URL(c.req.url).searchParams,
+        header: (name: string) => c.req.header(name) ?? null,
+        body: plan.entry.http.method === 'POST' && !hasFormContentType(c) ? await safeParseJsonBody(c) : null,
+        form: plan.entry.http.method === 'POST' && hasFormContentType(c) ? await safeParseFormBody(c) : null,
+      };
+      const extracted = extractInputs(plan.inputFrom!, req);
+      if (!extracted.ok) {
+        return c.json({ code: extracted.error.code, message: extracted.error.message }, 400);
+      }
+      graphInputs = extracted.values;
+      bodyValues = req.body ?? {};
+    } else {
+      // Use existing parameter-based extraction
+      const pathBag = extractPath(c, plan.pathParamNames);
+      const pathParsed = plan.schemas.pathSchema.safeParse(pathBag);
+      if (!pathParsed.success) return c.json(validationErrorBody(pathParsed.error), 400);
+
+      const queryBag = extractQuery(c, declaredQueryParams, plan.listParamNames);
+      const queryParsed = plan.schemas.querySchema.safeParse(queryBag);
+      if (!queryParsed.success) return c.json(validationErrorBody(queryParsed.error), 400);
+      queryData = queryParsed.data as Record<string, unknown>;
+
+      if (hasBody) {
+        let rawBody: unknown;
+        try {
+          rawBody = await c.req.json();
+        } catch {
+          return c.json(invalidBodyErrorBody('Request body is not valid JSON'), 400);
+        }
+        if (rawBody === null || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+          return c.json(invalidBodyErrorBody('Request body must be a JSON object'), 400);
+        }
+        const bodyParsed = plan.schemas.bodySchema!.safeParse(rawBody);
+        if (!bodyParsed.success) return c.json(validationErrorBody(bodyParsed.error), 400);
+        bodyValues = bodyParsed.data as Record<string, unknown>;
+      }
+
+      const combined: Record<string, unknown> = {
+        ...queryData,
+        ...(pathParsed.data as Record<string, unknown>),
+        ...bodyValues,
+      };
+      graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    }
     const correlation = c.get('correlation');
 
     const idemCtx = c.get('idempotency');
@@ -81,7 +126,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
 
     const scope = {
       body: bodyValues,
-      query: queryParsed.data as Record<string, unknown>,
+      query: hasInputFrom ? Object.fromEntries(new URL(c.req.url).searchParams.entries()) : queryData,
       auth: { userId: (deps.actorFromRequest(c) as { id?: string } | null)?.id ?? null },
       config: {},
     };
@@ -156,6 +201,16 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       },
     });
 
+    // Render response using response shape if present
+    if (plan.response !== null) {
+      const scope = out.ok ? { result: out.value, error: null } : { result: null, error: out.error };
+      const rendered = out.ok ? renderOkResponse(plan.response, scope) : renderErrResponse(plan.response, scope);
+      if (rendered.kind === 'json') return c.json(rendered.body, rendered.status as 200 | 201 | 400 | 409 | 422 | 500);
+      // redirect
+      return c.redirect(rendered.location, rendered.status as 302 | 303);
+    }
+
+    // No response shape → existing JSON behavior (plan 1)
     if (!out.ok) {
       const code = out.error.code;
       if (code === 'COMMAND_GUARD_REJECTED') {

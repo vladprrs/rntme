@@ -112,7 +112,10 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               logger,
               metrics: opts.metrics,
             };
-      app.post(route, makeCommandHandler(bp, deps));
+      const method = bp.entry.http.method;
+      if (method === 'POST') app.post(route, makeCommandHandler(bp, deps));
+      else if (method === 'GET') app.get(route, makeCommandHandler(bp, deps));
+      else throw new Error(`unsupported http.method on command binding "${bp.bindingId}": ${method}`);
     } else {
       const deps = opts.onError !== undefined ? { db: opts.db, onError: opts.onError } : { db: opts.db };
       const handler = makeHandler(bp, deps);

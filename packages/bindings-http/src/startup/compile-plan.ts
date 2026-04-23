@@ -13,6 +13,8 @@ import type {
   InputType,
   HttpParameter,
   PreStep,
+  InputFromMap,
+  ResponseShape,
 } from '@rntme/bindings';
 import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
@@ -69,6 +71,8 @@ export type CommandBindingPlan = BindingPlanCommon & {
   kind: 'command';
   commandName: string;
   pre: PreStep[];
+  inputFrom: InputFromMap | null;
+  response: ResponseShape | null;
 };
 
 export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
@@ -138,7 +142,7 @@ export function buildPlan(
     };
     plans[bindingId] =
       kind === 'command'
-        ? { ...common, kind: 'command', commandName: entry.graph, pre: entry.pre ?? [] }
+        ? { ...common, kind: 'command', commandName: entry.graph, pre: entry.pre ?? [], inputFrom: entry.inputFrom ?? null, response: entry.response ?? null }
         : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
   }
   return {
