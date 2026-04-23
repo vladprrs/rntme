@@ -6,7 +6,7 @@
   "description": "Demo: issue tracker service built from artifacts + @rntme/runtime.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:deps": "pnpm -r --filter @rntme/issue-tracker-api-demo... run build",
+    "build:deps": "pnpm -r --filter @rntme/issue-tracker-api-demo... --sequential run build",
     "start": "pnpm run build:deps && tsx src/server.ts",
     "start:runtime-cli": "pnpm run build:deps && rntme-runtime start ./artifacts",
     "test": "pnpm run build:deps && vitest run",
