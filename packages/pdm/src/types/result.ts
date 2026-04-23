@@ -20,6 +20,7 @@ export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
 export const ERROR_CODES = {
   // Parse
   PDM_PARSE_SCHEMA_VIOLATION: 'PDM_PARSE_SCHEMA_VIOLATION',
+  PDM_PARSE_DIR_INVALID: 'PDM_PARSE_DIR_INVALID',
 
   // Structural
   PDM_STRUCT_DUPLICATE_ENTITY: 'PDM_STRUCT_DUPLICATE_ENTITY',
