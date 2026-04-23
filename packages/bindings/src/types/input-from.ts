@@ -12,7 +12,7 @@ export type InputSource =
 export type InputFromMap = Record<string, InputSource>;
 
 export type ResponseBranch =
-  | { json: ExpressionTemplate }
+  | { json: unknown }
   | { redirect: ExpressionTemplate; status?: 302 | 303 };
 
 export type ResponseShape = {
