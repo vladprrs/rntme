@@ -1,4 +1,3 @@
-// packages/bindings-grpc/test/fixtures/golden/minimal.proto
 // Generated from ValidatedBindings. Do not edit manually — regenerate via emitProto().
 syntax = "proto3";
 

@@ -25,6 +25,7 @@ export function emitProto(
   const { serviceBlock, messageBlocks, usesCommandResult } = buildServiceBlock(validated, options.serviceName);
 
   const shapeBlocks = Object.entries(shapes)
+    .filter(([name]) => !(usesCommandResult && name === 'CommandResult'))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, shape]) => shapeToProtoMessage(name, shape));
 
@@ -44,20 +45,10 @@ export function emitProto(
     parts.push('');
   }
   if (usesCommandResult) {
-    const alreadyInShapes = Object.keys(shapes).some((n) => n === 'CommandResult');
-    if (!alreadyInShapes) {
-      parts.push(COMMAND_RESULT_BLOCK);
-      parts.push('');
-    }
+    parts.push(COMMAND_RESULT_BLOCK);
+    parts.push('');
   }
   parts.push(serviceBlock);
   parts.push('');
-
-  const [firstLine, ...rest] = parts;
-  const header = [
-    '// packages/bindings-grpc/test/fixtures/golden/minimal.proto',
-    firstLine,
-    ...rest,
-  ].join('\n');
-  return header;
+  return parts.join('\n');
 }

@@ -1,6 +1,6 @@
 import type { ValidatedBindings, OutputType, GraphInput } from '@rntme/bindings';
 import { scalarToProto } from './scalars.js';
-import { bindingIdToRpcName, shapeNameToMessageName } from './ids.js';
+import { bindingIdToRpcName, shapeNameToMessageName, toSnakeCase } from './ids.js';
 
 export type ServiceEmitResult = {
   serviceBlock: string;
@@ -104,8 +104,4 @@ function inputToProto(input: GraphInput): { type: string; prefix: string } {
     case 'rowset':
       return { type: shapeNameToMessageName(input.type.shape), prefix: 'repeated ' };
   }
-}
-
-function toSnakeCase(s: string): string {
-  return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 }

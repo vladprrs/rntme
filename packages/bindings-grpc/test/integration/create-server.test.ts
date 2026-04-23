@@ -57,10 +57,11 @@ describe('createGrpcServer (integration)', () => {
     const client = new ClientCtor(`127.0.0.1:${port}`, grpc.credentials.createInsecure());
 
     const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
-      const call = (client as unknown as Record<string, ((arg: object, cb: (err: unknown, res: object) => void) => void) | undefined>)
-        .CreateOrder;
-      if (!call) throw new Error('CreateOrder method missing');
-      call({ amount: 42, note: 'hello' }, (err, res) => {
+      const typedClient = client as unknown as {
+        CreateOrder?: (arg: object, cb: (err: unknown, res: object) => void) => void;
+      };
+      if (!typedClient.CreateOrder) throw new Error('CreateOrder method missing');
+      typedClient.CreateOrder({ amount: 42, note: 'hello' }, (err, res) => {
         if (err !== null && err !== undefined) reject(err);
         else resolve(res as Record<string, unknown>);
       });

@@ -1,6 +1,6 @@
 import type { ResolvedShape, FieldType } from '@rntme/bindings';
 import { scalarToProto } from './scalars.js';
-import { shapeNameToMessageName } from './ids.js';
+import { shapeNameToMessageName, toSnakeCase } from './ids.js';
 
 function fieldTypeToProto(type: FieldType): { type: string; repeated: boolean } {
   switch (type.kind) {
@@ -24,8 +24,4 @@ export function shapeToProtoMessage(name: string, shape: ResolvedShape): string 
   }
   lines.push('}');
   return lines.join('\n');
-}
-
-function toSnakeCase(camelOrPascal: string): string {
-  return camelOrPascal.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 }

@@ -9,6 +9,7 @@ import type {
 import type { EventStore } from '@rntme/event-store';
 import type BetterSqlite3 from 'better-sqlite3';
 import { mapExecutorErrorToGrpcStatus } from './errors.js';
+import { bindingIdToRpcName, toSnakeCase } from '../emit/ids.js';
 
 export type HandlerDeps = {
   commandExecutor: CommandExecutor;
@@ -24,10 +25,25 @@ export type GrpcHandlerFn = (
   callback: grpc.sendUnaryData<unknown>,
 ) => void;
 
+function buildInputs(
+  request: Record<string, unknown>,
+  inputNames: Iterable<string>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const name of inputNames) {
+    const key = toSnakeCase(name);
+    if (key in request) out[name] = request[key];
+  }
+  return out;
+}
+
 export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, deps: HandlerDeps): GrpcHandlerFn {
   return (call, callback) => {
     void (async () => {
-      const input = call.request;
+      const input = buildInputs(
+        call.request as Record<string, unknown>,
+        Object.keys(resolved.signature.inputs),
+      );
       const metadata = call.metadata.getMap();
       const correlation = {
         commandId: typeof metadata['rntme-command-id'] === 'string' ? metadata['rntme-command-id'] : deps.nextId(),
@@ -44,7 +60,11 @@ export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, de
           actor: null,
           correlation,
         };
-        const out = await deps.commandExecutor.execute({ commandName: bindingId, inputs: input, ctx });
+        const out = await deps.commandExecutor.execute({
+          commandName: resolved.entry.graph,
+          inputs: input,
+          ctx,
+        });
         if (!out.ok) {
           callback({
             code: mapExecutorErrorToGrpcStatus(out.error),
@@ -63,7 +83,11 @@ export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, de
       }
 
       const qctx: QueryExecutionContext = { qsmDb: deps.qsmDb };
-      const qout = await deps.queryExecutor.execute({ queryName: bindingId, inputs: input, ctx: qctx });
+      const qout = await deps.queryExecutor.execute({
+        queryName: resolved.entry.graph,
+        inputs: input,
+        ctx: qctx,
+      });
       if (!qout.ok) {
         callback({
           code: mapExecutorErrorToGrpcStatus(qout.error),
@@ -72,7 +96,7 @@ export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, de
         return;
       }
       const fromField = resolved.signature.output.from;
-      const responsePayload: Record<string, unknown> = { [snakeCase(fromField)]: qout.value };
+      const responsePayload: Record<string, unknown> = { [toSnakeCase(fromField)]: qout.value };
       callback(null, responsePayload);
     })().catch((err) => {
       callback({ code: grpc.status.INTERNAL, message: err instanceof Error ? err.message : String(err) });
@@ -87,14 +111,4 @@ export function makeAllHandlers(validated: ValidatedBindings, deps: HandlerDeps)
     out[rpcName] = makeGrpcHandler(bindingId, resolved, deps);
   }
   return out;
-}
-
-function bindingIdToRpcName(bindingId: string): string {
-  let sanitized = bindingId.replace(/[^A-Za-z0-9_]/g, '_');
-  if (/^[0-9]/.test(sanitized)) sanitized = `_${sanitized}`;
-  return sanitized.split('_').filter((p) => p.length > 0).map((p) => p[0]!.toUpperCase() + p.slice(1)).join('');
-}
-
-function snakeCase(s: string): string {
-  return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 }

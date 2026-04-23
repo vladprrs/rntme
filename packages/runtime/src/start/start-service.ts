@@ -17,7 +17,7 @@ import type {
 import type { CommandExecutor, QueryExecutor } from '../plugins/executors/types.js';
 import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
 import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
-import { buildDefaultGraphIrCommandMap } from '@rntme/bindings-http';
+import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
@@ -84,9 +84,15 @@ export async function startService(
     service.pdm,
     service.qsm,
   );
+  const defaultQueryMap = buildDefaultGraphIrQueryMap(
+    service.bindings,
+    service.graphSpec,
+    service.pdm,
+    service.qsm,
+  );
   const commandExecutor =
     config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMap);
-  const queryExecutor = config.queryExecutor ?? new GraphIrQueryExecutor({});
+  const queryExecutor = config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMap);
 
   const adapter =
     config.externalAdapterClient

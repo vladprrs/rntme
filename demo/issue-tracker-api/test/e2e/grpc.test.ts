@@ -34,12 +34,13 @@ describe('issue-tracker gRPC surface', () => {
     const client = new ClientCtor(
       `127.0.0.1:${(running as unknown as { grpcPort?: number }).grpcPort ?? 50052}`,
       grpc.credentials.createInsecure(),
-    );
+    ) as unknown as {
+      ListIssues?: (arg: object, cb: (err: unknown, out: unknown) => void) => void;
+    };
 
     const { error, response } = await new Promise<{ error: unknown; response: unknown }>((res) => {
-      const listIssues = (client as unknown as Record<string, ((arg: object, cb: (err: unknown, out: unknown) => void) => void) | undefined>).ListIssues;
-      if (!listIssues) throw new Error('ListIssues method missing');
-      listIssues({}, (err, out) => res({ error: err, response: out }));
+      if (!client.ListIssues) throw new Error('ListIssues method missing');
+      client.ListIssues({}, (err, out) => res({ error: err, response: out }));
     });
 
     // The gRPC surface is alive; the demo uses GraphIrQueryExecutor which
