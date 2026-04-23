@@ -1,5 +1,6 @@
 export const VERSION = '0.0.0';
 
+export { loadQsmDir } from './load/load-dir.js';
 export { parseQsm } from './parse/parse.js';
 export { QsmArtifactSchema } from './parse/schema.js';
 export type { QsmArtifactParsed } from './parse/schema.js';

@@ -126,6 +126,8 @@ describe('createQsmResolver', () => {
     const customPdm = {
       entities: {
         Alpha: {
+          ownerService: 'alpha-service',
+          kind: 'owned',
           table: 'alphas',
           fields: {
             id:      { type: 'integer', nullable: false, column: 'id' },
@@ -145,6 +147,8 @@ describe('createQsmResolver', () => {
           },
         },
         Beta: {
+          ownerService: 'beta-service',
+          kind: 'owned',
           table: 'betas',
           fields: {
             id:     { type: 'integer', nullable: false, column: 'id' },
