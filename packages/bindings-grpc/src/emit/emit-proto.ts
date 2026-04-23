@@ -44,8 +44,11 @@ export function emitProto(
     parts.push('');
   }
   if (usesCommandResult) {
-    parts.push(COMMAND_RESULT_BLOCK);
-    parts.push('');
+    const alreadyInShapes = Object.keys(shapes).some((n) => n === 'CommandResult');
+    if (!alreadyInShapes) {
+      parts.push(COMMAND_RESULT_BLOCK);
+      parts.push('');
+    }
   }
   parts.push(serviceBlock);
   parts.push('');

@@ -1,4 +1,4 @@
-import type { ResolvedShape, ShapeField, FieldType } from '@rntme/bindings';
+import type { ResolvedShape, FieldType } from '@rntme/bindings';
 import { scalarToProto } from './scalars.js';
 import { shapeNameToMessageName } from './ids.js';
 

@@ -37,8 +37,9 @@ describe('issue-tracker gRPC surface', () => {
     );
 
     const { error, response } = await new Promise<{ error: unknown; response: unknown }>((res) => {
-      (client as unknown as Record<string, (arg: object, cb: (err: unknown, out: unknown) => void) => void>)
-        .ListIssues({}, (err, out) => res({ error: err, response: out }));
+      const listIssues = (client as unknown as Record<string, ((arg: object, cb: (err: unknown, out: unknown) => void) => void) | undefined>).ListIssues;
+      if (!listIssues) throw new Error('ListIssues method missing');
+      listIssues({}, (err, out) => res({ error: err, response: out }));
     });
 
     // The gRPC surface is alive; the demo uses GraphIrQueryExecutor which
@@ -54,7 +55,7 @@ function parseProto(src: string, fullyQualifiedServiceName: string): { root: pro
 }
 
 function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.ServiceDefinition {
-  const def: grpc.ServiceDefinition = {};
+  const def = {} as Record<string, grpc.MethodDefinition<object, object>>;
   for (const [method, meta] of Object.entries(service.methods)) {
     const req = root.lookupType(meta.requestType);
     const res = root.lookupType(meta.responseType);
@@ -68,7 +69,7 @@ function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.Serv
       responseDeserialize: (b: Buffer): object => res.toObject(res.decode(b)),
     };
   }
-  return def;
+  return def as grpc.ServiceDefinition;
 }
 
 function collectShapes(bindings: import('@rntme/bindings').ValidatedBindings): Record<string, import('@rntme/bindings').ResolvedShape> {

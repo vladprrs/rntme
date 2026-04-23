@@ -15,7 +15,7 @@ export function buildGrpcSurface(
   const grpcCfg = manifest.surface?.grpc;
   if (grpcCfg === undefined || grpcCfg.enabled !== true) return null;
   const port = grpcCfg.port ?? 50051;
-  const packageName = `rntme.${manifest.service.name.toLowerCase()}.v1`;
+  const packageName = `rntme.${manifest.service.name.toLowerCase().replace(/-/g, '_')}.v1`;
   const serviceName = `${toPascal(manifest.service.name)}Service`;
   return new GrpcSurface({
     port,

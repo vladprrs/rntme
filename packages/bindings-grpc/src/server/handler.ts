@@ -1,5 +1,4 @@
 import * as grpc from '@grpc/grpc-js';
-import { randomUUID } from 'node:crypto';
 import type { ResolvedBinding, ValidatedBindings } from '@rntme/bindings';
 import type {
   CommandExecutor,

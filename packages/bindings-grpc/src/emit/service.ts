@@ -1,4 +1,4 @@
-import type { ValidatedBindings, GraphSignature, ResolvedShape, OutputType, GraphInput } from '@rntme/bindings';
+import type { ValidatedBindings, OutputType, GraphInput } from '@rntme/bindings';
 import { scalarToProto } from './scalars.js';
 import { bindingIdToRpcName, shapeNameToMessageName } from './ids.js';
 

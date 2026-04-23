@@ -4,7 +4,7 @@ import * as protobuf from 'protobufjs';
 import BetterSqlite3 from 'better-sqlite3';
 import { SqliteEventStore } from '@rntme/event-store';
 import { CodeCommandExecutor, GraphIrQueryExecutor } from '@rntme/runtime';
-import { createGrpcServer, emitProto } from '../../src/index.js';
+import { createGrpcServer } from '../../src/index.js';
 import { minimalValidated, minimalShapeRegistry } from '../fixtures/minimal-bindings.js';
 
 let handle: Awaited<ReturnType<typeof createGrpcServer>> | null = null;
@@ -57,11 +57,13 @@ describe('createGrpcServer (integration)', () => {
     const client = new ClientCtor(`127.0.0.1:${port}`, grpc.credentials.createInsecure());
 
     const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
-      (client as unknown as Record<string, (arg: object, cb: (err: unknown, res: object) => void) => void>)
-        .CreateOrder({ amount: 42, note: 'hello' }, (err, res) => {
-          if (err !== null && err !== undefined) reject(err);
-          else resolve(res as Record<string, unknown>);
-        });
+      const call = (client as unknown as Record<string, ((arg: object, cb: (err: unknown, res: object) => void) => void) | undefined>)
+        .CreateOrder;
+      if (!call) throw new Error('CreateOrder method missing');
+      call({ amount: 42, note: 'hello' }, (err, res) => {
+        if (err !== null && err !== undefined) reject(err);
+        else resolve(res as Record<string, unknown>);
+      });
     });
 
     expect(response.aggregate_id).toBe('order-42');
@@ -75,7 +77,7 @@ function loadProto(src: string, serviceName: string): { root: protobuf.Root; ser
 }
 
 function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.ServiceDefinition {
-  const def: grpc.ServiceDefinition = {};
+  const def = {} as Record<string, grpc.MethodDefinition<object, object>>;
   for (const [methodName, method] of Object.entries(service.methods)) {
     const req = root.lookupType(method.requestType);
     const res = root.lookupType(method.responseType);
@@ -83,11 +85,11 @@ function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.Serv
       path: `/${service.fullName.replace(/^\./, '')}/${methodName}`,
       requestStream: false,
       responseStream: false,
-      requestSerialize: (v: object): Buffer => Buffer.from(req.encode(req.fromObject(v)).finish()),
-      requestDeserialize: (b: Buffer): object => req.toObject(req.decode(b)),
-      responseSerialize: (v: object): Buffer => Buffer.from(res.encode(res.fromObject(v)).finish()),
-      responseDeserialize: (b: Buffer): object => res.toObject(res.decode(b)),
+      requestSerialize: (v: object): globalThis.Buffer => globalThis.Buffer.from(req.encode(req.fromObject(v)).finish()),
+      requestDeserialize: (b: globalThis.Buffer): object => req.toObject(req.decode(b)),
+      responseSerialize: (v: object): globalThis.Buffer => globalThis.Buffer.from(res.encode(res.fromObject(v)).finish()),
+      responseDeserialize: (b: globalThis.Buffer): object => res.toObject(res.decode(b)),
     };
   }
-  return def;
+  return def as grpc.ServiceDefinition;
 }

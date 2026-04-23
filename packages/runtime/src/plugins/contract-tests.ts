@@ -184,7 +184,7 @@ export function runQueryExecutorContract(
   });
 }
 
-import { GrpcSurface } from './grpc-surface.js';
+import type { GrpcSurface } from './grpc-surface.js';
 
 export function runGrpcSurfaceContract(makeSurface: () => GrpcSurface): void {
   describe('GrpcSurface contract', () => {

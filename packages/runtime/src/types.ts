@@ -45,6 +45,6 @@ export type ServiceError =
 
 export type RunningService = {
   httpPort: number;
-  grpcPort?: number;
+  grpcPort?: number | undefined;
   stop(): Promise<void>;
 };

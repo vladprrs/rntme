@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import * as grpc from '@grpc/grpc-js';
-import * as protobuf from 'protobufjs';
 import { emitProto } from '../emit/emit-proto.js';
 import { loadProtoFromString } from './load-proto.js';
 import { makeAllHandlers } from './handler.js';
@@ -16,12 +15,12 @@ function buildServiceDefinition(loaded: ReturnType<typeof loadProtoFromString>):
       path: `/${service.fullName.replace(/^\./, '')}/${methodName}`,
       requestStream: false,
       responseStream: false,
-      requestSerialize: (value: object): Buffer =>
-        Buffer.from(requestType.encode(requestType.fromObject(value)).finish()),
-      requestDeserialize: (bytes: Buffer): object => requestType.toObject(requestType.decode(bytes)),
-      responseSerialize: (value: object): Buffer =>
-        Buffer.from(responseType.encode(responseType.fromObject(value)).finish()),
-      responseDeserialize: (bytes: Buffer): object => responseType.toObject(responseType.decode(bytes)),
+      requestSerialize: (value: object): globalThis.Buffer =>
+        globalThis.Buffer.from(requestType.encode(requestType.fromObject(value)).finish()),
+      requestDeserialize: (bytes: globalThis.Buffer): object => requestType.toObject(requestType.decode(bytes)),
+      responseSerialize: (value: object): globalThis.Buffer =>
+        globalThis.Buffer.from(responseType.encode(responseType.fromObject(value)).finish()),
+      responseDeserialize: (bytes: globalThis.Buffer): object => responseType.toObject(responseType.decode(bytes)),
     };
   }
   return def;

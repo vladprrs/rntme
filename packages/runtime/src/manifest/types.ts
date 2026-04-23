@@ -27,7 +27,10 @@ export type ParsedManifest = {
 export type ValidatedManifest = {
   rntmeVersion: { major: number; minor: number; patch: number };
   service: { name: string; version: string };
-  surface: { http: { enabled: boolean; port: number } };
+  surface: {
+    http: { enabled: boolean; port: number };
+    grpc?: { enabled: boolean; port: number } | undefined;
+  };
   persistence:
     | { mode: 'ephemeral' }
     | { mode: 'persistent'; eventStorePath: string; qsmPath: string };
