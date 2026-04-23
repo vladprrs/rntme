@@ -18,6 +18,8 @@ import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 const baseRawPdm = {
   entities: {
     Issue: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'issues',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -39,6 +41,8 @@ const baseRawPdm = {
       },
     },
     User: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'users',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -55,6 +59,8 @@ const baseRawPdm = {
       },
     },
     Sprint: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'sprints',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -74,6 +80,8 @@ const baseRawPdm = {
       },
     },
     Project: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'projects',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -99,6 +107,8 @@ const fanOutRawPdm = {
   entities: {
     ...baseRawPdm.entities,
     Comment: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'comments',
       fields: {
         issueId: { type: 'integer', nullable: false, column: 'issue_id' },

@@ -1,6 +1,8 @@
 {
   "entities": {
     "Thing": {
+      "ownerService": "test-service",
+      "kind": "owned",
       "table": "things",
       "keys": ["id"],
       "fields": {

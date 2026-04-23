@@ -16,6 +16,8 @@ import type { ValidatedQsm } from '@rntme/qsm';
 const rawPdm = {
   entities: {
     Issue: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'issues',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -37,6 +39,8 @@ const rawPdm = {
       },
     },
     Project: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'projects',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -54,6 +58,8 @@ const rawPdm = {
       },
     },
     Sprint: {
+      ownerService: 'issue-tracker',
+      kind: 'owned',
       table: 'sprints',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },

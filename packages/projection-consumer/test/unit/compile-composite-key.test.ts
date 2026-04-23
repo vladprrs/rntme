@@ -9,6 +9,8 @@ import { ApplyCompileError } from '../../src/types/errors.js';
 const PDM_COMPOSITE = JSON.stringify({
   entities: {
     Seat: {
+      ownerService: 'ticketing',
+      kind: 'owned',
       table: 'seats',
       fields: {
         showId: { type: 'integer', nullable: false, column: 'show_id' },

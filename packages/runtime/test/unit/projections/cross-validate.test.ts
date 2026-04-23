@@ -6,6 +6,8 @@ import { crossValidateDerivedProjections } from '../../../src/projections/cross-
 const COMMERCE_PDM = {
   entities: {
     Order: {
+      ownerService: 'commerce',
+      kind: 'owned',
       table: 'orders',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
