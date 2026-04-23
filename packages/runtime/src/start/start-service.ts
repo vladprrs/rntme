@@ -78,21 +78,36 @@ export async function startService(
 
   pipeline.start();
 
-  const defaultCommandMap = buildDefaultGraphIrCommandMap(
+  const defaultCommandMapResult = buildDefaultGraphIrCommandMap(
     service.bindings,
     service.graphSpec,
     service.pdm,
     service.qsm,
   );
-  const defaultQueryMap = buildDefaultGraphIrQueryMap(
+  if (!defaultCommandMapResult.ok) {
+    await pipeline.stop();
+    if (bus.stop) await bus.stop();
+    throw new Error(
+      `Failed to compile command bindings: ${JSON.stringify(defaultCommandMapResult.errors)}`,
+    );
+  }
+  const defaultQueryMapResult = buildDefaultGraphIrQueryMap(
     service.bindings,
     service.graphSpec,
     service.pdm,
     service.qsm,
   );
+  if (!defaultQueryMapResult.ok) {
+    await pipeline.stop();
+    if (bus.stop) await bus.stop();
+    throw new Error(
+      `Failed to compile query bindings: ${JSON.stringify(defaultQueryMapResult.errors)}`,
+    );
+  }
   const commandExecutor =
-    config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMap);
-  const queryExecutor = config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMap);
+    config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
+  const queryExecutor =
+    config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
 
   const adapter =
     config.externalAdapterClient

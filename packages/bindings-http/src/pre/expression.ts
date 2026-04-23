@@ -24,7 +24,9 @@ export function evaluateExpression(template: unknown, scope: ExpressionScope): u
     return template.map((item) => evaluateExpression(item, scope));
   }
   if (template !== null && typeof template === 'object') {
-    const out: Record<string, unknown> = {};
+    // Use a null-prototype object so writing user-controlled keys like
+    // `__proto__` cannot mutate Object.prototype on the returned value.
+    const out = Object.create(null) as Record<string, unknown>;
     for (const [k, v] of Object.entries(template as Record<string, unknown>)) {
       out[k] = evaluateExpression(v, scope);
     }
@@ -45,7 +47,9 @@ function resolveRef(path: string, scope: ExpressionScope): unknown {
       throw new Error(`unknown path in reference "$${path}" at segment "${parts.slice(0, i + 1).join('.')}"`);
     }
     const key = parts[i]!;
-    if (!(key in (current as Record<string, unknown>))) {
+    // Use hasOwnProperty.call so inherited props (e.g. `constructor`,
+    // `toString`) on user-controlled scope values don't satisfy the lookup.
+    if (!Object.prototype.hasOwnProperty.call(current, key)) {
       throw new Error(`unknown path in reference "$${path}" at segment "${parts.slice(0, i + 1).join('.')}"`);
     }
     current = (current as Record<string, unknown>)[key];

@@ -38,7 +38,7 @@ export type AdapterCallOptions = {
 };
 
 export type AdapterOk = { ok: true; value: unknown };
-export type AdapterErr = { ok: false; error: AdapterError };
+export type AdapterErr = { ok: false; errors: AdapterError[] };
 export type AdapterResult = AdapterOk | AdapterErr;
 
 export interface ExternalAdapterClient {

@@ -7,8 +7,8 @@ const fakeAdapter: ExternalAdapterClient = {
     if (module === 'payments' && rpc === 'CreateCustomer')
       return { ok: true, value: { id: `cust-${opts.idempotencyKey.slice(0, 4)}` } };
     if (module === 'payments' && rpc === 'ChargeCard')
-      return { ok: false, error: { code: 'EXTERNAL_VENDOR_DOMAIN', message: 'PAYMENTS_CARD_DECLINED: card declined', domainCode: 'PAYMENTS_CARD_DECLINED', httpStatus: 409 } };
-    return { ok: false, error: { code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH', message: 'unknown rpc', httpStatus: 500 } };
+      return { ok: false, errors: [{ code: 'EXTERNAL_VENDOR_DOMAIN', message: 'PAYMENTS_CARD_DECLINED: card declined', domainCode: 'PAYMENTS_CARD_DECLINED', httpStatus: 409 }] };
+    return { ok: false, errors: [{ code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH', message: 'unknown rpc', httpStatus: 500 }] };
   },
 };
 

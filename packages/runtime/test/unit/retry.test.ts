@@ -14,7 +14,7 @@ describe('withRetry', () => {
     let n = 0;
     const call = async (): Promise<AdapterResult> => {
       n++;
-      if (n < 3) return { ok: false, error: { code: 'EXTERNAL_MODULE_UNAVAILABLE', message: '', httpStatus: 503 } };
+      if (n < 3) return { ok: false, errors: [{ code: 'EXTERNAL_MODULE_UNAVAILABLE', message: '', httpStatus: 503 }] };
       return { ok: true, value: n };
     };
     const out = await withRetry(call, { attempts: 3, backoffMs: 0, retryOn: 'transient' }, (): void => {});
@@ -25,7 +25,7 @@ describe('withRetry', () => {
   it('does not retry terminal errors', async () => {
     const call = vi.fn(async (): Promise<AdapterResult> => ({
       ok: false,
-      error: { code: 'EXTERNAL_VENDOR_DOMAIN', message: 'bad', httpStatus: 400 },
+      errors: [{ code: 'EXTERNAL_VENDOR_DOMAIN', message: 'bad', httpStatus: 400 }],
     }));
     const out = await withRetry(call, { attempts: 3, backoffMs: 0, retryOn: 'transient' }, (): void => {});
     expect(out.ok).toBe(false);
@@ -34,7 +34,7 @@ describe('withRetry', () => {
 
   it('respects retryOn: "never"', async () => {
     const call = vi.fn(async (): Promise<AdapterResult> => ({
-      ok: false, error: { code: 'EXTERNAL_MODULE_UNAVAILABLE', message: '', httpStatus: 503 },
+      ok: false, errors: [{ code: 'EXTERNAL_MODULE_UNAVAILABLE', message: '', httpStatus: 503 }],
     }));
     const out = await withRetry(call, { attempts: 5, backoffMs: 0, retryOn: 'never' }, (): void => {});
     expect(out.ok).toBe(false);

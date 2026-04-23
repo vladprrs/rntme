@@ -14,13 +14,14 @@ export async function withRetry(
   policy: RetryPolicy,
   onAttempt: OnAttempt,
 ): Promise<AdapterResult> {
-  let lastResult: AdapterResult = { ok: false, error: { code: 'EXTERNAL_MODULE_INTERNAL', message: 'no attempts', httpStatus: 502 } };
+  let lastResult: AdapterResult = { ok: false, errors: [{ code: 'EXTERNAL_MODULE_INTERNAL', message: 'no attempts', httpStatus: 502 }] };
   for (let attempt = 1; attempt <= policy.attempts; attempt++) {
     lastResult = await call();
     if (lastResult.ok) return lastResult;
 
+    const firstCode = lastResult.errors[0]?.code ?? 'EXTERNAL_MODULE_INTERNAL';
     const shouldRetry = policy.retryOn === 'all'
-      || (policy.retryOn === 'transient' && TRANSIENT_CODES.has(lastResult.error.code));
+      || (policy.retryOn === 'transient' && TRANSIENT_CODES.has(firstCode));
     const atLimit = attempt === policy.attempts;
     if (!shouldRetry || atLimit) {
       onAttempt(attempt, lastResult, 0);

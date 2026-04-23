@@ -56,19 +56,20 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
     });
 
     if (!result.ok) {
-      const body = result.error.code === 'EXTERNAL_VENDOR_DOMAIN'
-        ? { code: result.error.domainCode ?? 'EXTERNAL_VENDOR_DOMAIN', message: result.error.message }
-        : { code: result.error.code, message: result.error.message };
+      const firstError = result.errors[0]!;
+      const body = firstError.code === 'EXTERNAL_VENDOR_DOMAIN'
+        ? { code: firstError.domainCode ?? 'EXTERNAL_VENDOR_DOMAIN', message: firstError.message }
+        : { code: firstError.code, message: firstError.message };
       opts.logger({
         pre_step: 'module-rpc',
         index: i,
         module: step.module, rpc: step.rpc,
         bindAs: bindName,
         result: 'error',
-        code: result.error.code,
-        http_status: result.error.httpStatus,
+        code: firstError.code,
+        http_status: firstError.httpStatus,
       });
-      return { ok: false, httpStatus: result.error.httpStatus, body };
+      return { ok: false, httpStatus: firstError.httpStatus, body };
     }
 
     pre_acc[bindName] = result.value;

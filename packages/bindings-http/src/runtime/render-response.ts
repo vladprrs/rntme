@@ -25,6 +25,14 @@ export function renderErrResponse(shape: ResponseShape, scope: RenderScope, erro
   return renderBranch(shape.onErr, scope, errorToHttp(errorCode).status);
 }
 
+function invalidRedirect(message: string): RenderedResponse {
+  return {
+    kind: 'json',
+    status: 500,
+    body: { code: 'BINDINGS_RUNTIME_INVALID_REDIRECT', message },
+  };
+}
+
 function renderBranch(branch: ResponseBranch, scope: RenderScope, defaultStatus: number): RenderedResponse {
   if ('json' in branch) {
     const body = evaluateExpression(branch.json, toExprScope(scope));
@@ -35,9 +43,16 @@ function renderBranch(branch: ResponseBranch, scope: RenderScope, defaultStatus:
   if (typeof locRaw === 'string') {
     location = interpolateTemplate(locRaw, scope);
   } else if (locRaw !== null && typeof locRaw === 'object' && 'expr' in locRaw) {
-    location = String(evaluateExpression(locRaw.expr, toExprScope(scope)));
+    const evaluated = evaluateExpression(locRaw.expr, toExprScope(scope));
+    if (typeof evaluated !== 'string' || evaluated.length === 0) {
+      return invalidRedirect('redirect expression must evaluate to a non-empty string');
+    }
+    location = evaluated;
   } else {
-    throw new Error('invalid redirect form');
+    return invalidRedirect('invalid redirect form');
+  }
+  if (location.length === 0) {
+    return invalidRedirect('redirect template produced an empty Location');
   }
   return { kind: 'redirect', status: branch.status ?? 302, location };
 }

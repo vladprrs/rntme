@@ -54,28 +54,28 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
   async call(module: string, rpc: string, input: unknown, opts: AdapterCallOptions): Promise<AdapterResult> {
     const client = this.getClient(module);
     if (client === undefined) {
-      return { ok: false, error: {
+      return { ok: false, errors: [{
         code: 'EXTERNAL_MODULE_NOT_CONFIGURED',
         message: `module "${module}" is not declared in manifest.modules`,
         httpStatus: 500,
-      }};
+      }] };
     }
     const methods = this.cfg.registry.getMethodDescriptors(module);
     const method = methods[rpc];
     if (method === undefined) {
-      return { ok: false, error: {
+      return { ok: false, errors: [{
         code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH',
         message: `rpc "${rpc}" not found in module "${module}" proto`,
         httpStatus: 500,
-      }};
+      }] };
     }
     const breaker = this.getBreaker(module, rpc);
     if (!breaker.allow()) {
-      return { ok: false, error: {
+      return { ok: false, errors: [{
         code: 'EXTERNAL_MODULE_CIRCUIT_OPEN',
         message: `circuit breaker open for ${module}.${rpc}`,
         httpStatus: 503,
-      }};
+      }] };
     }
 
     const doCall = async (): Promise<AdapterResult> => {
@@ -85,21 +85,37 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
       const deadline = new Date(Date.now() + opts.timeoutMs);
 
       return new Promise<AdapterResult>((resolve) => {
-        client.makeUnaryRequest(
-          method.path,
-          method.requestSerialize,
-          method.responseDeserialize,
-          input as object,
-          meta,
-          { deadline },
-          (err: grpc.ServiceError | null, res?: object) => {
-            if (err !== null && err !== undefined) {
-              resolve({ ok: false, error: statusToAdapterError(err) });
-              return;
-            }
-            resolve({ ok: true, value: res });
-          },
-        );
+        if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+          resolve({ ok: false, errors: [{
+            code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH',
+            message: `rpc "${rpc}" input must be a JSON object`,
+            httpStatus: 500,
+          }] });
+          return;
+        }
+        try {
+          client.makeUnaryRequest(
+            method.path,
+            method.requestSerialize,
+            method.responseDeserialize,
+            input,
+            meta,
+            { deadline },
+            (err: grpc.ServiceError | null, res?: object) => {
+              if (err !== null && err !== undefined) {
+                resolve({ ok: false, errors: [statusToAdapterError(err)] });
+                return;
+              }
+              resolve({ ok: true, value: res });
+            },
+          );
+        } catch (e) {
+          resolve({ ok: false, errors: [{
+            code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH',
+            message: e instanceof Error ? e.message : String(e),
+            httpStatus: 500,
+          }] });
+        }
       });
     };
 
@@ -107,7 +123,7 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
       this.logger.info({
         msg: 'pre_step_attempt',
         module, rpc, attempt, delay_ms: delay,
-        result: r.ok ? 'ok' : r.error.code,
+        result: r.ok ? 'ok' : (r.errors[0]?.code ?? 'EXTERNAL_MODULE_INTERNAL'),
         idempotency_key: opts.idempotencyKey,
       });
     });
@@ -143,7 +159,13 @@ export function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterEr
     [grpc.status.ALREADY_EXISTS]: 409,
     [grpc.status.ABORTED]: 409,
   };
-  const domainCode = /^([A-Z][A-Z0-9_]+):\s*/.exec(message)?.[1];
+  // Prefer err.details (the original server-supplied detail string) for vendor
+  // domain code extraction. grpc-js prefixes err.message with the status code
+  // (e.g. "3 INVALID_ARGUMENT: LIMIT_EXCEEDED: ..."), which would defeat the
+  // anchored regex. Fall back to message when details is absent (unit-test
+  // shape / synthetic ServiceError).
+  const detailSource = typeof err.details === 'string' && err.details.length > 0 ? err.details : message;
+  const domainCode = /^([A-Z][A-Z0-9_]+):\s*/.exec(detailSource)?.[1];
   return {
     code: 'EXTERNAL_VENDOR_DOMAIN',
     message,

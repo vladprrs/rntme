@@ -1,8 +1,10 @@
-import type {
-  ValidatedBindings,
-  ResolvedBinding,
-  ResolvedShape,
-  GraphSignature,
+import {
+  validateBindings,
+  type BindingArtifact,
+  type BindingResolvers,
+  type GraphSignature,
+  type ResolvedShape,
+  type ValidatedBindings,
 } from '@rntme/bindings';
 
 const orderShape: ResolvedShape = {
@@ -31,52 +33,60 @@ const createOrderSignature: GraphSignature = {
     amount: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
     note: { type: { kind: 'scalar', primitive: 'string' }, mode: 'nullable' },
   },
-  output: { type: { kind: 'scalar', primitive: 'string' }, from: 'id' },
+  output: { type: { kind: 'row', shape: 'CommandResult' }, from: 'emit' },
 };
 
-const listOrdersBinding: ResolvedBinding = {
-  entry: {
-    kind: 'query',
-    graph: 'listOrders',
-    target: { engine: 'graph-ir', dialect: 'sqlite' },
-    http: { method: 'GET', path: '/orders', parameters: [
-      { name: 'limit', in: 'query', bindTo: 'limit', required: false },
-    ] },
-  },
-  signature: listOrdersSignature,
-  outputShape: orderShape,
-};
-
-const createOrderBinding: ResolvedBinding = {
-  entry: {
-    kind: 'command',
-    graph: 'createOrder',
-    target: { engine: 'graph-ir', dialect: 'sqlite' },
-    http: { method: 'POST', path: '/orders', parameters: [
-      { name: 'amount', in: 'body', bindTo: 'amount', required: true },
-      { name: 'note', in: 'body', bindTo: 'note', required: false },
-    ] },
-  },
-  signature: createOrderSignature,
-  outputShape: orderShape,
-};
-
-export const minimalValidated: ValidatedBindings = {
-  artifact: {
-    version: '1.0',
-    graphSpecRef: 'inline',
-    pdmRef: 'inline',
-    qsmRef: 'inline',
-    bindings: {
-      listOrders: listOrdersBinding.entry,
-      createOrder: createOrderBinding.entry,
+const artifact: BindingArtifact = {
+  version: '1.0',
+  graphSpecRef: 'inline',
+  pdmRef: 'inline',
+  qsmRef: 'inline',
+  bindings: {
+    listOrders: {
+      kind: 'query',
+      graph: 'listOrders',
+      target: { engine: 'graph-ir', dialect: 'sqlite' },
+      http: {
+        method: 'GET',
+        path: '/orders',
+        parameters: [
+          { name: 'limit', in: 'query', bindTo: 'limit', required: false },
+        ],
+      },
     },
-  } as unknown as ValidatedBindings['artifact'],
-  resolved: {
-    listOrders: listOrdersBinding,
-    createOrder: createOrderBinding,
+    createOrder: {
+      kind: 'command',
+      graph: 'createOrder',
+      target: { engine: 'graph-ir', dialect: 'sqlite' },
+      http: {
+        method: 'POST',
+        path: '/orders',
+        parameters: [
+          { name: 'amount', in: 'body', bindTo: 'amount', required: true },
+          { name: 'note', in: 'body', bindTo: 'note', required: false },
+        ],
+      },
+    },
   },
-} as unknown as ValidatedBindings;
+};
+
+const resolvers: BindingResolvers = {
+  resolveGraphSignature: (id) => {
+    if (id === 'listOrders') return listOrdersSignature;
+    if (id === 'createOrder') return createOrderSignature;
+    return null;
+  },
+  resolveShape: (name) => (name === 'order' ? orderShape : null),
+};
+
+const validated = validateBindings(artifact, resolvers);
+if (!validated.ok) {
+  throw new Error(
+    `minimal-bindings fixture failed validation: ${JSON.stringify(validated.errors)}`,
+  );
+}
+
+export const minimalValidated: ValidatedBindings = validated.value;
 
 export const minimalShapeRegistry: Record<string, ResolvedShape> = {
   order: orderShape,

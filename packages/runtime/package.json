@@ -52,7 +52,6 @@
     "@rntme/ui": "workspace:*",
     "@rntme/ui-runtime": "workspace:*",
     "@grpc/proto-loader": "^0.7.13",
-    "@types/protobufjs": "^6.0.0",
     "hono": "^4.6.0",
     "pino": "^9.5.0",
     "prom-client": "^15.1.3",

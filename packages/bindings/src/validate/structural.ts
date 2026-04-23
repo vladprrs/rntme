@@ -12,12 +12,33 @@ function extractPathPlaceholders(path: string): string[] {
   return names;
 }
 
-function redirectTemplateTarget(redirect: unknown): string | null {
-  return typeof redirect === 'string' ? redirect : null;
+type RedirectTarget = {
+  value: string;
+  /** True for object form `{ expr: "..." }` — bare `$ref` is the whole point. */
+  allowBareReference: boolean;
+};
+
+function redirectTemplateTargets(redirect: unknown): RedirectTarget[] {
+  if (typeof redirect === 'string') {
+    return [{ value: redirect, allowBareReference: false }];
+  }
+  if (
+    redirect !== null
+    && typeof redirect === 'object'
+    && 'expr' in redirect
+    && typeof (redirect as { expr?: unknown }).expr === 'string'
+  ) {
+    return [{ value: (redirect as { expr: string }).expr, allowBareReference: true }];
+  }
+  return [];
 }
 
 function isAbsoluteUrl(s: string): boolean {
   return ABSOLUTE_URL_RE.test(s);
+}
+
+function isProtocolRelativeUrl(s: string): boolean {
+  return s.startsWith('//');
 }
 
 function originOf(url: string): string | null {
@@ -200,14 +221,12 @@ function checkBinding(
 
   if (entry.response !== undefined) {
     const redirects = [
-      redirectTemplateTarget((entry.response.onOk as { redirect?: unknown }).redirect),
-      redirectTemplateTarget((entry.response.onErr as { redirect?: unknown }).redirect),
+      ...redirectTemplateTargets((entry.response.onOk as { redirect?: unknown }).redirect),
+      ...redirectTemplateTargets((entry.response.onErr as { redirect?: unknown }).redirect),
     ];
 
-    for (const tpl of redirects) {
-      if (tpl === null) continue;
-
-      if (containsBareReference(tpl)) {
+    for (const { value: tpl, allowBareReference } of redirects) {
+      if (!allowBareReference && containsBareReference(tpl)) {
         errors.push({
           layer: 'structural',
           code: ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_STRING_CONTAINS_BARE_REFERENCE,
@@ -215,6 +234,16 @@ function checkBinding(
           path: `bindings.${id}.response`,
           hint: 'Use object form: redirect: { expr: "$result.url" }.',
         });
+      }
+
+      if (isProtocolRelativeUrl(tpl)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_PROTOCOL_RELATIVE,
+          message: `binding "${id}": protocol-relative redirect "${tpl}" is not allowed (browsers treat it as cross-origin)`,
+          path: `bindings.${id}.response`,
+        });
+        continue;
       }
 
       if (isAbsoluteUrl(tpl)) {

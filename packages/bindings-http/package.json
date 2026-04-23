@@ -29,7 +29,6 @@
     "@rntme/bindings": "workspace:*",
     "@rntme/event-store": "workspace:*",
     "@rntme/graph-ir-compiler": "workspace:*",
-    "@rntme/runtime": "workspace:*",
     "hono": "^4.6.0",
     "pino": "^9.0.0",
     "zod": "^4.0.0"

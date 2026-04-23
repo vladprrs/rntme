@@ -20,5 +20,10 @@ export function mapExecutorErrorToGrpcStatus(
       return grpc.status.INTERNAL;
     case 'COMMAND_HANDLER_ERROR':
       return grpc.status.INVALID_ARGUMENT;
+    default: {
+      const _exhaustive: never = err;
+      void _exhaustive;
+      return grpc.status.UNKNOWN;
+    }
   }
 }

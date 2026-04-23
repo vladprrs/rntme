@@ -119,8 +119,8 @@ describe('GrpcAdapterClient integration', () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) {
-      expect(res.error.code).toBe('EXTERNAL_MODULE_INTERNAL');
-      expect(res.error.httpStatus).toBe(502);
+      expect(res.errors[0]!.code).toBe('EXTERNAL_MODULE_INTERNAL');
+      expect(res.errors[0]!.httpStatus).toBe(502);
     }
   });
 
@@ -132,8 +132,8 @@ describe('GrpcAdapterClient integration', () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) {
-      expect(res.error.code).toBe('EXTERNAL_MODULE_NOT_CONFIGURED');
-      expect(res.error.httpStatus).toBe(500);
+      expect(res.errors[0]!.code).toBe('EXTERNAL_MODULE_NOT_CONFIGURED');
+      expect(res.errors[0]!.httpStatus).toBe(500);
     }
   });
 });

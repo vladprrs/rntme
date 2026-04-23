@@ -93,13 +93,22 @@ export type BuildPlanResult = {
   compiledQueries: GraphIrQueryMapPublic;
 };
 
+export type CompilePlanResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; errors: RuntimeErrorEntry[] };
+
 export function buildDefaultGraphIrCommandMap(
   validated: ValidatedBindings,
   graphSpec: unknown,
   pdm: unknown,
   qsm: unknown,
-): GraphIrCommandMap {
-  return buildPlan(validated, graphSpec, pdm, qsm).compiledCommands;
+): CompilePlanResult<GraphIrCommandMap> {
+  try {
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledCommands };
+  } catch (e) {
+    if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
+    throw e;
+  }
 }
 
 export function buildDefaultGraphIrQueryMap(
@@ -107,8 +116,13 @@ export function buildDefaultGraphIrQueryMap(
   graphSpec: unknown,
   pdm: unknown,
   qsm: unknown,
-): GraphIrQueryMapPublic {
-  return buildPlan(validated, graphSpec, pdm, qsm).compiledQueries;
+): CompilePlanResult<GraphIrQueryMapPublic> {
+  try {
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledQueries };
+  } catch (e) {
+    if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
+    throw e;
+  }
 }
 
 export function buildPlan(

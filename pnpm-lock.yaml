@@ -159,9 +159,6 @@ importers:
       '@rntme/graph-ir-compiler':
         specifier: workspace:*
         version: link:../graph-ir-compiler
-      '@rntme/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       hono:
         specifier: ^4.6.0
         version: 4.12.12
@@ -488,9 +485,6 @@ importers:
       '@rntme/ui-runtime':
         specifier: workspace:*
         version: link:../ui-runtime
-      '@types/protobufjs':
-        specifier: ^6.0.0
-        version: 6.0.0
       hono:
         specifier: ^4.6.0
         version: 4.12.12
@@ -3318,10 +3312,6 @@ packages:
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
-
-  '@types/protobufjs@6.0.0':
-    resolution: {integrity: sha512-A27RDExpAf3rdDjIrHKiJK6x8kqqJ4CmoChwtipfhVAn1p7+wviQFFP7dppn8FslSbHtQeVPvi8wNKkDjSYjHw==}
-    deprecated: This is a stub types definition for protobufjs (https://github.com/dcodeIO/ProtoBuf.js). protobufjs provides its own type definitions, so you don't need @types/protobufjs installed!
 
   '@types/qs@6.15.0':
     resolution: {integrity: sha512-JawvT8iBVWpzTrz3EGw9BTQFg3BQNmwERdKE22vlTxawwtbyUSlMppvZYKLZzB5zgACXdXxbD3m1bXaMqP/9ow==}
@@ -7804,10 +7794,6 @@ snapshots:
       pg-types: 2.2.0
 
   '@types/prop-types@15.7.15': {}
-
-  '@types/protobufjs@6.0.0':
-    dependencies:
-      protobufjs: 7.5.5
 
   '@types/qs@6.15.0': {}
 
