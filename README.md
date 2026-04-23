@@ -91,7 +91,6 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | ------- | ------- |
 | [`@rntme/pdm`](packages/pdm) | Platform Domain Model: entities, fields, relations and an optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares read-side tables, generates DDL and event-handler specs. |
-| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder loader: reads `project.json`, project PDM, and service QSM directories. |
 | [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
 | [`@rntme/seed`](packages/seed) | Declarative `seed.json`: parse and validate envelopes against the PDM, append to the event store (used by `@rntme/runtime` for reference data). |
 | [`@rntme/projection-consumer`](packages/projection-consumer) | Kafka → SQLite projection updater with three-layer idempotency and batch transactions. |
@@ -116,7 +115,6 @@ flowchart TB
 
     PDM["@rntme/pdm"]:::pkg
     QSM["@rntme/qsm"]:::pkg
-    BP["@rntme/blueprint"]:::pkg
     ES["@rntme/event-store"]:::pkg
     GIR["@rntme/graph-ir-compiler"]:::pkg
     B["@rntme/bindings"]:::pkg
@@ -129,7 +127,6 @@ flowchart TB
     RT["@rntme/runtime"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
-    BP --> PDM & QSM
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES

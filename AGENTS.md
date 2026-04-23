@@ -45,12 +45,9 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
-                      @rntme/blueprint
-                      /              \
-                     /                \
                       @rntme/pdm
-                      /        \        \
-                     /          \        \
+                      /        \
+                     /          \
             @rntme/qsm          @rntme/event-store
                  \                   |
                   \                  |
@@ -81,9 +78,6 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/pdm`** — Parsing, validating, and resolving the PDM
   (project domain model) artifact. Canonical entity/field/relation/state
   source. → `packages/pdm/README.md`.
-- **`@rntme/blueprint`** — Project-first folder loader for `project.json`,
-  project-level PDM, and service-level QSM directories. →
-  `packages/blueprint/README.md`.
 - **`@rntme/qsm`** — Query-side model on top of PDM: projections,
   derived DDL, resolver, relation metadata for JOINs. →
   `packages/qsm/README.md`.
