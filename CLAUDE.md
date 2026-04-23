@@ -48,7 +48,7 @@ rntme is a pnpm workspace that produces a typed CQRS / event-sourced backend fro
 - **Validators are layered and fail-fast.** The four standard layers are **parse → structural → references → consistency**, in that order. Bypassing a layer (even on "trusted" input) loses downstream error codes.
 - **`Result<T>` everywhere; no exceptions in validation or compile pipelines.** Failure is signalled with `{ ok: false; errors }`, never by throwing.
 - **Branded `Validated*` types are only constructed by their validators.** A TypeScript cast into a `Validated*` brand defeats the validator handshake — don't.
-- **Error codes are stable API.** Append, never reorder or delete; format is `<PKG>_<LAYER>_<KIND>`.
+- **Error codes follow the `<PKG>_<LAYER>_<KIND>` format.**
 - **Kafka topic names carry no version suffix.** Topics follow `rntme.{svc}.{agg}`. A breaking event change uses a new `eventType`, not a new topic version.
 - **CloudEvents 1.0 envelope end-to-end.** Do not extend the envelope shape ad-hoc; changes to envelope fields are a spec-level concern (see `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md`).
 - **Single-writer event log.** The event store is the only write path; optimistic concurrency and the monotonic publish cursor depend on it. Do not introduce a parallel writer or a per-projection write path.
