@@ -1,4 +1,5 @@
 import type { GraphSignature, ResolvedShape } from './resolvers.js';
+import type { InputFromMap, ResponseShape } from './input-from.js';
 
 export type OperationPassthrough = Record<string, unknown>;
 export type ParameterPassthrough = Record<string, unknown>;
@@ -54,7 +55,9 @@ export type BindingEntry = {
   graph: string;
   target: { engine: string; dialect: string };
   http: HttpBinding;
-  pre?: PreStep[];
+  pre?: PreStep[];            // from plan 3
+  inputFrom?: InputFromMap;   // NEW plan 4
+  response?: ResponseShape;   // NEW plan 4
 };
 
 export type OpenApiDefaults = {

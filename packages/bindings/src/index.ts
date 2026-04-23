@@ -75,3 +75,10 @@ export type {
   MediaType,
   JsonSchema,
 } from './types/openapi.js';
+
+export type {
+  InputSource,
+  InputFromMap,
+  ResponseBranch,
+  ResponseShape,
+} from './types/input-from.js';
