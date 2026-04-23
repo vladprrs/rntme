@@ -1,0 +1,11 @@
+{
+  "ownerService": "inventory",
+  "kind": "owned",
+  "table": "inventory_positions",
+  "fields": {
+    "id": { "type": "integer", "nullable": false, "column": "id" },
+    "productId": { "type": "integer", "nullable": false, "column": "product_id" },
+    "quantity": { "type": "integer", "nullable": false, "column": "quantity" }
+  },
+  "keys": ["id"]
+}

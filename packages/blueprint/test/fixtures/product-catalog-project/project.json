@@ -1,0 +1,21 @@
+{
+  "name": "product-catalog",
+  "services": ["catalog", "pricing", "inventory", "app", "mod-workos"],
+  "routes": {
+    "ui": {
+      "/": "app"
+    },
+    "http": {
+      "/api/catalog": "catalog",
+      "/api/pricing": "pricing",
+      "/api/inventory": "inventory"
+    }
+  },
+  "middleware": {
+    "requestContext": { "kind": "request-context" },
+    "auth": { "kind": "auth", "provider": "mod-workos" }
+  },
+  "mounts": [
+    { "target": "ui:/", "use": ["requestContext", "auth"] }
+  ]
+}

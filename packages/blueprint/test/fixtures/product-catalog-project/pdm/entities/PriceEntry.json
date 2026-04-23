@@ -1,0 +1,11 @@
+{
+  "ownerService": "pricing",
+  "kind": "owned",
+  "table": "price_entries",
+  "fields": {
+    "id": { "type": "integer", "nullable": false, "column": "id" },
+    "productId": { "type": "integer", "nullable": false, "column": "product_id" },
+    "amount": { "type": "decimal", "nullable": false, "column": "amount" }
+  },
+  "keys": ["id"]
+}
