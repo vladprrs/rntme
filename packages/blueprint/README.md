@@ -1,25 +1,26 @@
 # @rntme/blueprint
 
-Project-first blueprint loader for rntme. This package owns the blueprint folder shape, checks for the project-level `project.json`, and returns the minimal loaded blueprint handle used by higher-level validation and composition code.
+Project-first blueprint parser/validator for rntme.
 
 ## Role in the system
 
-- Owns the project-first blueprint entrypoint for Track A.
-- Loads the top-level project artifact before downstream packages inspect project `PDM` or service `QSM` content.
-- Provides shared `Result` helpers and error codes for blueprint loading failures.
+- Depends on: `@rntme/pdm`, `@rntme/qsm`, `zod`
+- Consumed by: future runtime/tooling tracks
+- Position in pipeline: project directory → `loadBlueprint` → validated project metadata + validated project `PDM` + parsed per-service `QSM`
 
 ## Public API
 
-- `loadBlueprint(dir)` — public loader exposed from `src/index.ts`.
-- `ok`, `err`, `isOk`, `isErr` — shared `Result` helpers.
-- `ERROR_CODES` — stable blueprint error registry.
-- `BlueprintError`, `BlueprintErrorCode`, `Result` — public types re-exported from the package barrel.
+- `loadBlueprint(dir)` — load `project.json`, the project `PDM`, and service registry metadata.
+- `parseProjectBlueprint(raw)` — parse the `project.json` document shape.
+- `validateBlueprintStructural(...)` — enforce service directory / service kind invariants.
+- `ok`, `err`, `isOk`, `isErr`, `ERROR_CODES` — shared `Result` helpers and error registry.
 
 ## Where to look first
 
-- `src/index.ts` for the supported package entrypoint.
-- `src/load/load-blueprint.ts` for the current folder-loading behavior.
-- `test/smoke.test.ts` for the minimal end-to-end package contract.
+- `src/load/load-blueprint.ts`
+- `src/parse/schema.ts`
+- `src/validate/structural.ts`
+- `test/fixtures/product-catalog-project/`
 
 ## Specs
 

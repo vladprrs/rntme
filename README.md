@@ -89,6 +89,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 | Package | Purpose |
 | ------- | ------- |
+| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project `PDM`, service registry metadata, and raw per-service `QSM` directories. |
 | [`@rntme/pdm`](packages/pdm) | Platform Domain Model: entities, fields, relations and an optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares read-side tables, generates DDL and event-handler specs. |
 | [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
@@ -113,6 +114,7 @@ flowchart TB
     classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
     classDef demo fill:#1b5c3a,stroke:#4ae29a,color:#fff;
 
+    BP["@rntme/blueprint"]:::pkg
     PDM["@rntme/pdm"]:::pkg
     QSM["@rntme/qsm"]:::pkg
     ES["@rntme/event-store"]:::pkg
@@ -127,6 +129,7 @@ flowchart TB
     RT["@rntme/runtime"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
+    BP --> PDM & QSM
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
@@ -137,7 +140,7 @@ flowchart TB
     DEMO --> RT
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package (transitively through the edges above). `demo/issue-tracker-api` is the only package that consumes `@rntme/runtime` directly.
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/blueprint` currently depends on `@rntme/pdm` and `@rntme/qsm` but is not yet wired into `@rntme/runtime`; `@rntme/runtime` remains the top runtime layer and depends on every other execution package transitively through the edges above. `demo/issue-tracker-api` is the only package that consumes `@rntme/runtime` directly.
 
 ## Quick start
 

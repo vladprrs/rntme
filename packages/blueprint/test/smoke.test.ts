@@ -1,17 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { isErr, loadBlueprint } from '../src/index.js';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadBlueprint } from '../src/load/load-blueprint.js';
 
-describe('loadBlueprint (scaffold)', () => {
-  it('returns BLUEPRINT_IO_ERROR when project.json is missing', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
-    const r = loadBlueprint(dir);
+const here = dirname(fileURLToPath(import.meta.url));
+const fixtureDir = join(here, 'fixtures', 'product-catalog-project');
 
-    expect(isErr(r)).toBe(true);
-    if (isErr(r)) {
-      expect(r.errors[0]?.code).toBe('BLUEPRINT_IO_ERROR');
-    }
+describe('loadBlueprint (smoke)', () => {
+  it('loads the canonical product-catalog project fixture', () => {
+    const r = loadBlueprint(fixtureDir);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.project.services).toEqual([
+      'catalog',
+      'pricing',
+      'inventory',
+      'app',
+      'mod-workos',
+    ]);
+    expect(r.value.pdm.entities.Product?.kind).toBe('root');
+    expect(r.value.services.catalog?.qsm).not.toBeNull();
+    expect(r.value.services['mod-workos']?.kind).toBe('integration');
   });
 });

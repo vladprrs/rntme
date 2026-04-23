@@ -45,15 +45,15 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
-                      @rntme/pdm
-                      /        \
-                     /          \
-            @rntme/qsm          @rntme/event-store
-                 \                   |
-                  \                  |
-           @rntme/graph-ir-compiler  |
-                    |                |
-                    +----------------+
+                  @rntme/blueprint
+                    /          \
+                   /            \
+            @rntme/pdm          @rntme/qsm
+                 \                 /    \
+                  \               /      \
+           @rntme/graph-ir-compiler  @rntme/event-store
+                    |                        |
+                    +------------------------+
                     |
             @rntme/bindings
                     |
@@ -75,6 +75,10 @@ ASCII dependency diagram. Arrow means "depends on".
 
 One-line purpose per package (read the per-package README before touching):
 
+- **`@rntme/blueprint`** — Project-first blueprint folder parser/validator.
+  Owns `project.json`, project-level PDM assembly, service registry
+  metadata, and loading of raw service-level multi-file QSM artifacts.
+  → `packages/blueprint/README.md`.
 - **`@rntme/pdm`** — Parsing, validating, and resolving the PDM
   (project domain model) artifact. Canonical entity/field/relation/state
   source. → `packages/pdm/README.md`.
