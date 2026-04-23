@@ -140,11 +140,12 @@ function checkUnbound(
 ): void {
   const basePath = `bindings.${id}.http.parameters`;
   const boundTargets = new Set(entry.http.parameters.map((p) => p.bindTo));
+  const inputFromTargets = entry.inputFrom ? new Set(Object.keys(entry.inputFrom)) : new Set<string>();
 
   for (const [inputName, input] of Object.entries(signature.inputs)) {
     if (input.mode === 'root') continue;
     if (input.mode !== 'required' && input.mode !== 'nullable') continue;
-    if (!boundTargets.has(inputName)) {
+    if (!boundTargets.has(inputName) && !inputFromTargets.has(inputName)) {
       errors.push({
         layer: 'consistency',
         code: ERROR_CODES.BINDINGS_UNBOUND_INPUT,
@@ -187,6 +188,21 @@ export function validateConsistency(
           path: `bindings.${id}.pre[${idx}].module`,
           hint: 'Add the module to manifest.modules[] with grpc.address and protoPath.',
         });
+      }
+    }
+
+    if (binding.entry.inputFrom !== undefined) {
+      const graphInputNames = new Set(Object.keys(binding.signature.inputs));
+      for (const inputName of Object.keys(binding.entry.inputFrom)) {
+        if (!graphInputNames.has(inputName)) {
+          errors.push({
+            layer: 'consistency',
+            code: ERROR_CODES.BINDINGS_CONSISTENCY_INPUT_FROM_UNKNOWN_INPUT,
+            message: `binding "${id}": inputFrom key "${inputName}" does not match any graph input`,
+            path: `bindings.${id}.inputFrom.${inputName}`,
+            hint: `Known graph inputs: ${[...graphInputNames].sort().join(', ')}`,
+          });
+        }
       }
     }
   }
