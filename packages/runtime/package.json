@@ -32,6 +32,7 @@
     "@grpc/grpc-js": "^1.14.3",
     "@hono/node-server": "^1.13.0",
     "@rntme/bindings": "workspace:*",
+    "@rntme/bindings-grpc": "workspace:*",
     "@rntme/bindings-http": "workspace:*",
     "@rntme/db-studio": "workspace:*",
     "@rntme/event-store": "workspace:*",

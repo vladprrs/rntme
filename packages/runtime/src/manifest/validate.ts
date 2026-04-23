@@ -132,6 +132,13 @@ export function validateManifest(
         enabled: parsed.surface?.http?.enabled ?? true,
         port: parsed.surface?.http?.port ?? 3000,
       },
+      grpc:
+        parsed.surface?.grpc !== undefined
+          ? {
+              enabled: parsed.surface.grpc.enabled ?? true,
+              port: parsed.surface.grpc.port ?? 50051,
+            }
+          : undefined,
     },
     persistence,
     bus: { mode: parsed.bus?.mode ?? 'in-memory' },
@@ -221,7 +228,10 @@ export function applyEnvOverrides(
     ok: true,
     value: {
       ...v,
-      surface: { http: { enabled: v.surface.http.enabled, port } },
+      surface: {
+        http: { enabled: v.surface.http.enabled, port },
+        grpc: v.surface.grpc,
+      },
       persistence,
       bus,
       auth,

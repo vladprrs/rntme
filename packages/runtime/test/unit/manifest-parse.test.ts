@@ -98,4 +98,30 @@ describe('parseManifest', () => {
     );
     expect(r.ok).toBe(false);
   });
+
+  it('parses surface.grpc with enabled and port', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'demo', version: '1.0' },
+        surface: { grpc: { enabled: true, port: 50051 } },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.surface?.grpc?.enabled).toBe(true);
+      expect(result.value.surface?.grpc?.port).toBe(50051);
+    }
+  });
+
+  it('rejects surface.grpc with invalid port', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'demo', version: '1.0' },
+        surface: { grpc: { enabled: true, port: -1 } },
+      }),
+    );
+    expect(result.ok).toBe(false);
+  });
 });

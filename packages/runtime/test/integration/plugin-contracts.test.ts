@@ -67,3 +67,18 @@ runQueryExecutorContract('GraphIrQueryExecutor', () => {
   } satisfies CompileResult;
   return new GraphIrQueryExecutor({ contractNoop: compiled });
 });
+
+import { runGrpcSurfaceContract } from '../../src/plugins/contract-tests.js';
+import { GrpcSurface } from '../../src/plugins/grpc-surface.js';
+import { CodeCommandExecutor as CodeCommandExecutor2, GraphIrQueryExecutor as GraphIrQueryExecutor2 } from '@rntme/runtime';
+
+runGrpcSurfaceContract(() =>
+  new GrpcSurface({
+    port: 0,
+    packageName: 'rntme.contract.v1',
+    serviceName: 'ContractService',
+    commandExecutor: new CodeCommandExecutor2({}),
+    queryExecutor: new GraphIrQueryExecutor2({}),
+    shapes: {},
+  }),
+);

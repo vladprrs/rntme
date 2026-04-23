@@ -13,7 +13,9 @@ describe('@rntme/module-skeleton smoke', () => {
         echo: expect.any(Function),
       }),
     );
-    const out = await (exampleHandlers as Record<string, (ctx: CommandExecutionContext, input: unknown) => Promise<unknown>>).echo(
+    const handler = (exampleHandlers as unknown as Record<string, (ctx: CommandExecutionContext, input: unknown) => Promise<unknown>>).echo;
+    if (!handler) throw new Error('echo handler missing');
+    const out = await handler(
       { correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null } } as unknown as CommandExecutionContext,
       { message: 'hello' },
     );

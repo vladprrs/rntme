@@ -306,19 +306,21 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
 5. Follow the health-check convention in `packages/module-skeleton/README.md`.
 
-### 6.12 Browse service databases via db-studio
+### 6.12 Expose a service over gRPC
 
-1. In `artifacts/manifest.json` add:
+1. Read `packages/bindings-grpc/README.md` and spec §6.2.
+2. In `artifacts/manifest.json`, add:
 
 ```json
-"studio": { "enabled": true, "mountPath": "/_studio", "maxRows": 10000 }
+"surface": {
+  "http": { "enabled": true, "port": 3000 },
+  "grpc": { "enabled": true, "port": 50051 }
+}
 ```
 
-2. Boot the service. Open `http://<host>/_studio` — the landing page lists the two Hrana URLs.
-3. Go to `https://libsqlstudio.com`, create a "libSQL Remote (HTTP)" connection, paste the URL.
-4. Writes, `ATTACH`, non-read-only `PRAGMA` are rejected inline. Intended for dev only.
-
-Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
+3. Boot the service. The runtime uses `manifest.service.name` to derive `packageName` (`rntme.<name>.v1`) and `serviceName` (`<Name>Service`).
+4. To obtain the `.proto` file for client codegen: instantiate `emitProto(validated, shapes, { packageName, serviceName })` in a one-off script, or (later) via `rntme-runtime emit-proto <serviceDir>` (follow-up).
+5. `CommandExecutor` / `QueryExecutor` are the same seam as HTTP; domain services don't change anything to add gRPC.
 
 ### 6.13 Call a module via pre-fetch from a command binding
 
@@ -429,6 +431,9 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/adr/2026-04-15-event-driven-architecture.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
+- "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
+  `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.2 +
+  `packages/bindings-grpc/README.md`.
 
 ## 9. Memory and prior decisions
 
