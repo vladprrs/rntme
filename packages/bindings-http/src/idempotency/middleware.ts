@@ -24,8 +24,8 @@ export function idempotencyMiddleware(opts: {
         runId = deriveCommandRunId(commandName, clientKey);
         const hit = opts.cache.get(commandName, clientKey, opts.now());
         if (hit !== null) {
-          return c.body(hit.body, hit.status as 200 | 201 | 400 | 409 | 422 | 500 | 502 | 503 | 504, {
-            'Content-Type': 'application/json',
+          return c.body(hit.body, hit.status as 200 | 201 | 302 | 303 | 400 | 409 | 422 | 500 | 502 | 503 | 504, {
+            ...(hit.headers ?? { 'Content-Type': 'application/json' }),
             'Idempotency-Replay': 'true',
           });
         }

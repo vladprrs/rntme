@@ -17,6 +17,9 @@ describe('public API surface', () => {
   it('exports buildDefaultGraphIrCommandMap', () => {
     expect(typeof api.buildDefaultGraphIrCommandMap).toBe('function');
   });
+  it('exports buildDefaultGraphIrQueryMap', () => {
+    expect(typeof api.buildDefaultGraphIrQueryMap).toBe('function');
+  });
   it('exports correlationMiddleware', () => {
     expect(typeof api.correlationMiddleware).toBe('function');
   });

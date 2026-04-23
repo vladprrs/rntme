@@ -44,8 +44,50 @@ describe('renderResponse', () => {
       onOk: { json: '$result' },
       onErr: { redirect: '/errors/{$error.code}' },
     };
-    const r = renderErrResponse(shape, { result: null, error: { code: 'BAD', message: 'bad' } });
+    const r = renderErrResponse(shape, { result: null, error: { code: 'BAD', message: 'bad' } }, 'BAD');
     expect(r.kind).toBe('redirect');
     if (r.kind === 'redirect') expect(r.location).toBe('/errors/BAD');
+  });
+
+  it('maps COMMAND_GUARD_REJECTED to 422 by default', () => {
+    const shape: ResponseShape = {
+      onOk: { json: {} },
+      onErr: { json: { code: '$error.code' } },
+    };
+    const out = renderErrResponse(shape, { result: null, error: { code: 'COMMAND_GUARD_REJECTED' } }, 'COMMAND_GUARD_REJECTED');
+    expect(out.status).toBe(422);
+  });
+
+  it('maps COMMAND_CONCURRENCY_CONFLICT to 409 by default', () => {
+    const shape: ResponseShape = {
+      onOk: { json: {} },
+      onErr: { json: { code: '$error.code' } },
+    };
+    const out = renderErrResponse(shape, { result: null, error: { code: 'COMMAND_CONCURRENCY_CONFLICT' } }, 'COMMAND_CONCURRENCY_CONFLICT');
+    expect(out.status).toBe(409);
+  });
+
+  it('URL-encodes redirect template substitutions', () => {
+    const shape: ResponseShape = {
+      onOk: { redirect: '/oauth/callback?state={$result.state}' },
+      onErr: { json: {} },
+    };
+    const out = renderOkResponse(shape, { result: { state: '../admin?evil=1' }, error: null });
+    expect(out.kind).toBe('redirect');
+    if (out.kind === 'redirect') {
+      expect(out.location).toBe('/oauth/callback?state=..%2Fadmin%3Fevil%3D1');
+    }
+  });
+
+  it('object-form redirect evaluates expr result', () => {
+    const shape: ResponseShape = {
+      onOk: { redirect: { expr: '$result.url' } },
+      onErr: { json: {} },
+    };
+    const out = renderOkResponse(shape, { result: { url: '/next' }, error: null });
+    expect(out.kind).toBe('redirect');
+    if (out.kind === 'redirect') {
+      expect(out.location).toBe('/next');
+    }
   });
 });

@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
@@ -7,23 +6,14 @@ import type { EventStore } from '@rntme/event-store';
 import { createBindingsRouter } from '../../src/router.js';
 import type { CommandExecutor } from '../../src/executor-contract.js';
 
-const compilerRoot = new URL('../../../graph-ir-compiler', import.meta.url).pathname;
-
-function loadJson(p: string): unknown {
-  return JSON.parse(readFileSync(p, 'utf8'));
-}
-
-const _pdm = loadJson(`${compilerRoot}/test/e2e/fixtures/issue-tracker.pdm.json`);
-const _qsm = loadJson(`${compilerRoot}/test/e2e/fixtures/issue-tracker.qsm.json`);
-
 const graphSpec = {
   version: '1.0-rc7',
   pdmRef: 'p',
   qsmRef: 'q',
   shapes: {},
   graphs: {
-    completeCallback: {
-      id: 'completeCallback',
+    oauthCallback: {
+      id: 'oauthCallback',
       signature: {
         inputs: {
           state: { type: 'string', mode: 'required' },
@@ -49,7 +39,7 @@ const graphSpec = {
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) =>
-    id === 'completeCallback'
+    id === 'oauthCallback'
       ? {
           id,
           role: 'command',
@@ -74,6 +64,30 @@ const resolvers: BindingResolvers = {
       : null,
 };
 
+const pdm = {
+  entities: {
+    Issue: {
+      table: 'issues',
+      fields: {
+        id: { type: 'string', nullable: false, column: 'id' },
+        status: { type: 'string', nullable: false, column: 'status' },
+        title: { type: 'string', nullable: false, column: 'title' },
+      },
+      keys: ['id'],
+      stateMachine: {
+        stateField: 'status',
+        initial: null,
+        states: ['draft'],
+        transitions: {
+          report: { from: null, to: 'draft', affects: ['title'] },
+        },
+      },
+    },
+  },
+};
+
+const qsm = { projections: {}, relations: {} };
+
 const artifact = {
   version: '1.0',
   graphSpecRef: 'x',
@@ -82,7 +96,7 @@ const artifact = {
   bindings: {
     completeCallback: {
       kind: 'command',
-      graph: 'completeCallback',
+      graph: 'oauthCallback',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/stripe/callback', parameters: [] },
       inputFrom: {
@@ -91,7 +105,7 @@ const artifact = {
       },
       response: {
         onOk: { redirect: '/app/connected?flow={$result.aggregateId}', status: 302 },
-        onErr: { redirect: '/app/error?c={$error.code}' },
+        onErr: { json: '$error' },
       },
     },
   },
@@ -105,9 +119,7 @@ function validated() {
   return v.value;
 }
 
-// NOTE: This test requires a compilable graph spec. The callback functionality
-// is validated through unit tests and the demo/pre-step-demo E2E test.
-describe.skip('P2 callback binding (GET + inputFrom + redirect)', () => {
+describe('P2 callback binding (GET + inputFrom + redirect)', () => {
   it('executes the command and returns 302 Location on success', async () => {
     const executor: CommandExecutor = {
       execute: async () => ({
@@ -126,8 +138,8 @@ describe.skip('P2 callback binding (GET + inputFrom + redirect)', () => {
     const router = createBindingsRouter({
       validated: validated(),
       graphSpec,
-      pdm: {},
-      qsm: {},
+      pdm,
+      qsm,
       db,
       commandExecutor: executor,
       eventStore: {} as EventStore,
@@ -141,11 +153,11 @@ describe.skip('P2 callback binding (GET + inputFrom + redirect)', () => {
     db.close();
   });
 
-  it('returns a 302 to error page when executor returns err', async () => {
+  it('returns a 422 JSON error when executor returns err', async () => {
     const executor: CommandExecutor = {
       execute: async () => ({
         ok: false,
-        error: { code: 'COMMAND_NOT_FOUND', message: 'no such flow' },
+        error: { code: 'COMMAND_GUARD_REJECTED', message: 'no such flow' },
       }),
     };
 
@@ -153,8 +165,8 @@ describe.skip('P2 callback binding (GET + inputFrom + redirect)', () => {
     const router = createBindingsRouter({
       validated: validated(),
       graphSpec,
-      pdm: {},
-      qsm: {},
+      pdm,
+      qsm,
       db,
       commandExecutor: executor,
       eventStore: {} as EventStore,
@@ -163,8 +175,55 @@ describe.skip('P2 callback binding (GET + inputFrom + redirect)', () => {
     const resp = await router.fetch(
       new Request('http://x/oauth/stripe/callback?state=bad&code=x'),
     );
-    expect(resp.status).toBe(302);
-    expect(resp.headers.get('Location')).toBe('/app/error?c=COMMAND_NOT_FOUND');
+    expect(resp.status).toBe(422);
+    expect(await resp.json()).toEqual({
+      code: 'COMMAND_GUARD_REJECTED',
+      message: 'no such flow',
+    });
+    db.close();
+  });
+
+  it('replays the same redirect on GET with the same Idempotency-Key', async () => {
+    let callCount = 0;
+    const executor: CommandExecutor = {
+      execute: async () => {
+        callCount++;
+        return {
+          ok: true,
+          value: {
+            aggregateId: 'abc-123',
+            version: 1,
+            eventIds: ['e-1'],
+            commandId: 'c-1',
+            correlationId: 'corr-1',
+          },
+        };
+      },
+    };
+
+    const db = new Database(':memory:');
+    const router = createBindingsRouter({
+      validated: validated(),
+      graphSpec,
+      pdm,
+      qsm,
+      db,
+      commandExecutor: executor,
+      eventStore: {} as EventStore,
+    });
+
+    const req = new Request('http://x/oauth/stripe/callback?state=abc&code=xyz', {
+      headers: { 'Idempotency-Key': 'cb-1' },
+    });
+    const resp1 = await router.fetch(req.clone());
+    const resp2 = await router.fetch(req.clone());
+
+    expect(resp1.status).toBe(302);
+    expect(resp2.status).toBe(302);
+    expect(resp1.headers.get('Location')).toBe('/app/connected?flow=abc-123');
+    expect(resp2.headers.get('Location')).toBe('/app/connected?flow=abc-123');
+    expect(resp2.headers.get('Idempotency-Replay')).toBe('true');
+    expect(callCount).toBe(1);
     db.close();
   });
 });

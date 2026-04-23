@@ -1,8 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import type { PreStep } from '@rntme/bindings';
-import type { ExternalAdapterClient } from '@rntme/runtime';
-import type { RetryPolicy as RuntimeRetryPolicy } from '@rntme/runtime';
-import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '@rntme/runtime';
+import { bindAsName, type PreStep } from '@rntme/bindings';
+import type { ExternalAdapterClient, RetryPolicy } from '../runtime-contract.js';
+import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../runtime-contract.js';
 import { evaluateExpression, type ExpressionScope } from './expression.js';
 import { deriveStepKey } from '../idempotency/derive-keys.js';
 import type { PreStepsResult } from './types.js';
@@ -22,12 +21,13 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
   for (let i = 0; i < pre.length; i++) {
     const step = pre[i]!;
     const fullScope: ExpressionScope = { ...opts.scope, pre: pre_acc, system: system_acc };
+    const bindName = bindAsName(step.bindAs);
 
     if (step.kind === 'system') {
       const value = performSystemOp(step.op, step.bytes);
-      system_acc[step.bindAs] = value;
-      pre_acc[step.bindAs] = value;
-      opts.logger({ pre_step: 'system', index: i, op: step.op, bindAs: step.bindAs });
+      system_acc[bindName] = value;
+      pre_acc[bindName] = value;
+      opts.logger({ pre_step: 'system', index: i, op: step.op, bindAs: bindName });
       continue;
     }
 
@@ -45,7 +45,7 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
 
     const idempotencyKey = deriveStepKey(opts.runId, i);
     const timeoutMs = step.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const retry: RuntimeRetryPolicy = {
+    const retry: RetryPolicy = {
       attempts: step.retry?.attempts ?? DEFAULT_RETRY.attempts,
       backoffMs: step.retry?.backoffMs ?? DEFAULT_RETRY.backoffMs,
       retryOn: step.retry?.retryOn ?? DEFAULT_RETRY.retryOn,
@@ -63,7 +63,7 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
         pre_step: 'module-rpc',
         index: i,
         module: step.module, rpc: step.rpc,
-        bindAs: step.bindAs,
+        bindAs: bindName,
         result: 'error',
         code: result.error.code,
         http_status: result.error.httpStatus,
@@ -71,10 +71,10 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
       return { ok: false, httpStatus: result.error.httpStatus, body };
     }
 
-    pre_acc[step.bindAs] = result.value;
+    pre_acc[bindName] = result.value;
     opts.logger({
       pre_step: 'module-rpc',
-      index: i, module: step.module, rpc: step.rpc, bindAs: step.bindAs, result: 'ok',
+      index: i, module: step.module, rpc: step.rpc, bindAs: bindName, result: 'ok',
     });
   }
 

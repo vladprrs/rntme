@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runPreSteps } from '../../src/pre/run-pre-steps.js';
-import type { ExternalAdapterClient } from '@rntme/runtime';
+import type { ExternalAdapterClient } from '../../src/runtime-contract.js';
 
 const fakeAdapter: ExternalAdapterClient = {
   async call(module, rpc, input, opts) {

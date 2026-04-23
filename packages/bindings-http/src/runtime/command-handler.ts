@@ -1,15 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import type { Context } from 'hono';
+import type { RedirectStatusCode } from 'hono/utils/http-status';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { EventStore, ActorRef } from '@rntme/event-store';
-import type { ExternalAdapterClient, Metrics } from '@rntme/runtime';
 import type { Logger } from 'pino';
+import type { ExternalAdapterClient, Metrics } from '../runtime-contract.js';
 import type { CommandBindingPlan } from '../startup/compile-plan.js';
 import type { CommandExecutor } from '../executor-contract.js';
 import type { CorrelationCtx } from './correlation-middleware.js';
 import {
   validationErrorBody,
   invalidBodyErrorBody,
-  internalErrorBody,
   commandErrorBody,
 } from '../errors.js';
 import { extractQuery, extractPath } from './extract.js';
@@ -19,7 +20,7 @@ import { extractInputs } from './extract-inputs.js';
 import { renderOkResponse, renderErrResponse } from './render-response.js';
 import type { IdempotencyCache } from '../idempotency/cache.js';
 import { deriveCommandRunId } from '../idempotency/derive-keys.js';
-import { randomUUID } from 'node:crypto';
+import { errorToHttp } from './error-to-http.js';
 
 export type CommandHandlerDeps = {
   commandExecutor: CommandExecutor;
@@ -42,6 +43,19 @@ type Handler = (c: Context<{ Variables: { correlation: CorrelationCtx; idempoten
 function hasFormContentType(c: Context): boolean {
   const ct = c.req.header('content-type') ?? '';
   return ct.includes('application/x-www-form-urlencoded');
+}
+
+function isAbsoluteUrl(s: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(s);
+}
+
+function originOf(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
 }
 
 async function safeParseJsonBody(c: Context): Promise<Record<string, unknown> | null> {
@@ -68,24 +82,27 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
   return async (c) => {
     let graphInputs: Record<string, unknown> = {};
     let bodyValues: Record<string, unknown> = {};
+    let formValues: Record<string, unknown> = {};
     let queryData: Record<string, unknown> = {};
+    let headerValues: Record<string, unknown> = {};
 
     if (hasInputFrom) {
-      // Use inputFrom-based extraction
-      const req = {
+      const request = {
         query: new URL(c.req.url).searchParams,
         header: (name: string) => c.req.header(name) ?? null,
         body: plan.entry.http.method === 'POST' && !hasFormContentType(c) ? await safeParseJsonBody(c) : null,
         form: plan.entry.http.method === 'POST' && hasFormContentType(c) ? await safeParseFormBody(c) : null,
       };
-      const extracted = extractInputs(plan.inputFrom!, req);
+      const extracted = extractInputs(plan.inputFrom!, request);
       if (!extracted.ok) {
         return c.json({ code: extracted.error.code, message: extracted.error.message }, 400);
       }
       graphInputs = extracted.values;
-      bodyValues = req.body ?? {};
+      bodyValues = request.body ?? {};
+      formValues = request.form ?? {};
+      queryData = Object.fromEntries(request.query.entries());
+      headerValues = Object.fromEntries(c.req.raw.headers.entries());
     } else {
-      // Use existing parameter-based extraction
       const pathBag = extractPath(c, plan.pathParamNames);
       const pathParsed = plan.schemas.pathSchema.safeParse(pathBag);
       if (!pathParsed.success) return c.json(validationErrorBody(pathParsed.error), 400);
@@ -116,17 +133,21 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         ...bodyValues,
       };
       graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+      headerValues = Object.fromEntries(c.req.raw.headers.entries());
     }
+
     const correlation = c.get('correlation');
 
     const idemCtx = c.get('idempotency');
     const clientKey = idemCtx?.clientKey ?? null;
     const runId = idemCtx?.runId ?? (clientKey !== null ? deriveCommandRunId(plan.commandName, clientKey) : randomUUID());
-    const correlationId = c.get('correlation')?.correlationId ?? randomUUID();
+    const correlationId = correlation?.correlationId ?? randomUUID();
 
-    const scope = {
+    const requestScope = {
       body: bodyValues,
-      query: hasInputFrom ? Object.fromEntries(new URL(c.req.url).searchParams.entries()) : queryData,
+      form: formValues,
+      query: queryData,
+      header: headerValues,
       auth: { userId: (deps.actorFromRequest(c) as { id?: string } | null)?.id ?? null },
       config: {},
     };
@@ -136,7 +157,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         return c.json({ code: 'BINDINGS_CONFIG_ADAPTER_MISSING', message: 'pre[] requires externalAdapterClient' }, 500);
       }
       const preResult = await runPreSteps(plan.pre, {
-        scope,
+        scope: requestScope,
         adapterClient: deps.externalAdapterClient,
         runId,
         correlationId,
@@ -145,8 +166,10 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
           if (deps.metrics && evt.pre_step === 'module-rpc') {
             const { module, rpc, result, code } = evt as Record<string, string>;
             if (module && rpc && result) {
-              (deps.metrics as Metrics).externalPreStep?.labels({
-                module, rpc, result,
+              deps.metrics.externalPreStep?.labels({
+                module,
+                rpc,
+                result,
                 error_code: code ?? '',
               }).inc();
             }
@@ -156,34 +179,17 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       if (!preResult.ok) {
         return c.json(preResult.body, preResult.httpStatus as 200 | 201 | 400 | 409 | 422 | 500 | 502 | 503 | 504);
       }
-      // Flatten pre-step results: if a value is an object with a single key
-      // that matches the bindAs name, extract the inner value.
+
+      const preScope = (preResult.systemFields.pre ?? {}) as Record<string, unknown>;
       const flattened: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(preResult.systemFields)) {
-        if (key === 'pre' && value !== null && typeof value === 'object' && !Array.isArray(value)) {
-          // Flatten nested values inside 'pre'
-          for (const [preKey, preValue] of Object.entries(value as Record<string, unknown>)) {
-            if (preValue !== null && typeof preValue === 'object' && !Array.isArray(preValue)) {
-              const entries = Object.entries(preValue as Record<string, unknown>);
-              if (entries.length === 1 && entries[0]![0] === preKey) {
-                flattened[preKey] = entries[0]![1];
-              } else {
-                flattened[preKey] = preValue;
-              }
-            } else {
-              flattened[preKey] = preValue;
-            }
-          }
-        } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-          const entries = Object.entries(value as Record<string, unknown>);
-          if (entries.length === 1 && entries[0]![0] === key) {
-            flattened[key] = entries[0]![1];
-          } else {
-            flattened[key] = value;
-          }
-        } else {
-          flattened[key] = value;
-        }
+      for (const step of plan.pre) {
+        const raw = preScope[step.bindName];
+        const value = step.bindPick === null
+          ? raw
+          : (raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+              ? (raw as Record<string, unknown>)[step.bindPick]
+              : undefined);
+        flattened[step.bindName] = value;
       }
       graphInputs = { ...graphInputs, ...flattened };
     }
@@ -201,34 +207,82 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       },
     });
 
-    // Render response using response shape if present
     if (plan.response !== null) {
-      const scope = out.ok ? { result: out.value, error: null } : { result: null, error: out.error };
-      const rendered = out.ok ? renderOkResponse(plan.response, scope) : renderErrResponse(plan.response, scope);
-      if (rendered.kind === 'json') return c.json(rendered.body, rendered.status as 200 | 201 | 400 | 409 | 422 | 500);
-      // redirect
-      return c.redirect(rendered.location, rendered.status as 302 | 303);
+      if (!out.ok) {
+        const { status } = errorToHttp(out.error.code);
+        if (out.error.code === 'COMMAND_HANDLER_THREW' || status === 500) {
+          deps.onError?.(out.error.detail ?? out.error, c);
+        }
+      }
+
+      const scope = out.ok
+        ? { ...requestScope, result: out.value, error: null }
+        : { ...requestScope, result: null, error: out.error };
+      const rendered = out.ok
+        ? renderOkResponse(plan.response, scope)
+        : renderErrResponse(plan.response, scope, out.error.code);
+
+      if (rendered.kind === 'redirect' && isAbsoluteUrl(rendered.location)) {
+        const origin = originOf(rendered.location);
+        const allow = plan.entry.allowedRedirectHosts ?? [];
+        if (origin === null || !allow.includes(origin)) {
+          deps.logger.warn({ location: rendered.location }, 'refused absolute redirect outside allowlist');
+          return c.json(
+            {
+              code: 'BINDINGS_RUNTIME_REDIRECT_HOST_NOT_ALLOWED',
+              message: 'absolute redirect target is not permitted',
+            },
+            500,
+          );
+        }
+      }
+
+      if (out.ok && deps.idempotencyCache !== undefined && clientKey !== null) {
+        if (rendered.kind === 'json') {
+          deps.idempotencyCache.set(
+            plan.commandName,
+            clientKey,
+            { status: rendered.status, body: JSON.stringify(rendered.body ?? null) },
+            Date.now(),
+          );
+        } else {
+          deps.idempotencyCache.set(
+            plan.commandName,
+            clientKey,
+            {
+              status: rendered.status,
+              body: '',
+              headers: { Location: rendered.location },
+            },
+            Date.now(),
+          );
+        }
+      }
+
+      if (rendered.kind === 'json') {
+        return c.json(rendered.body, rendered.status as 200 | 201 | 400 | 409 | 422 | 500);
+      }
+      return c.redirect(rendered.location, rendered.status as RedirectStatusCode);
     }
 
-    // No response shape → existing JSON behavior (plan 1)
     if (!out.ok) {
-      const code = out.error.code;
-      if (code === 'COMMAND_GUARD_REJECTED') {
-        return c.json(commandErrorBody({ code, message: out.error.message }), 422);
+      const { status } = errorToHttp(out.error.code);
+      if (out.error.code === 'COMMAND_HANDLER_THREW' || status === 500) {
+        deps.onError?.(out.error.detail ?? out.error, c);
       }
-      if (code === 'COMMAND_CONCURRENCY_CONFLICT') {
-        return c.json(commandErrorBody({ code, message: out.error.message }), 409);
-      }
-      if (code === 'COMMAND_NOT_FOUND') {
-        return c.json(commandErrorBody({ code, message: out.error.message }), 500);
-      }
-      deps.onError?.(out.error.detail ?? out.error, c);
-      return c.json(internalErrorBody(), 500);
+      return c.json(
+        commandErrorBody({ code: out.error.code, message: out.error.message }),
+        status as 400 | 409 | 422 | 500,
+      );
     }
 
     if (deps.idempotencyCache !== undefined && clientKey !== null) {
-      const bodyStr = JSON.stringify(out.value);
-      deps.idempotencyCache.set(plan.commandName, clientKey, { status: 200, body: bodyStr }, Date.now());
+      deps.idempotencyCache.set(
+        plan.commandName,
+        clientKey,
+        { status: 200, body: JSON.stringify(out.value) },
+        Date.now(),
+      );
     }
 
     return c.json(out.value, 200);

@@ -1,6 +1,8 @@
 export type ExpressionScope = {
   body?: Record<string, unknown>;
+  form?: Record<string, unknown>;
   query?: Record<string, unknown>;
+  header?: Record<string, unknown>;
   auth?: Record<string, unknown>;
   config?: Record<string, unknown>;
   system?: Record<string, unknown>;
@@ -9,7 +11,7 @@ export type ExpressionScope = {
   error?: Record<string, unknown>;
 };
 
-const KNOWN_ROOTS: readonly (keyof ExpressionScope)[] = ['body', 'query', 'auth', 'config', 'system', 'pre', 'result', 'error'];
+const KNOWN_ROOTS: readonly (keyof ExpressionScope)[] = ['body', 'form', 'query', 'header', 'auth', 'config', 'system', 'pre', 'result', 'error'];
 
 export function evaluateExpression(template: unknown, scope: ExpressionScope): unknown {
   if (typeof template === 'string') {
