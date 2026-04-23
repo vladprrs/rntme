@@ -4,7 +4,7 @@ import type { StudioConfig } from './schema.js';
 export type ParsedManifest = {
   rntmeVersion: string;
   service: { name: string; version: string };
-  surface?: { http?: { enabled?: boolean; port?: number } };
+  surface?: { http?: { enabled?: boolean; port?: number }; grpc?: { enabled?: boolean; port?: number } };
   persistence?: {
     mode?: 'ephemeral' | 'persistent';
     eventStorePath?: string;
@@ -22,12 +22,16 @@ export type ParsedManifest = {
     mountPath?: string;
     maxRows?: number;
   };
+  modules?: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
 };
 
 export type ValidatedManifest = {
   rntmeVersion: { major: number; minor: number; patch: number };
   service: { name: string; version: string };
-  surface: { http: { enabled: boolean; port: number } };
+  surface: {
+    http: { enabled: boolean; port: number };
+    grpc?: { enabled: boolean; port: number } | undefined;
+  };
   persistence:
     | { mode: 'ephemeral' }
     | { mode: 'persistent'; eventStorePath: string; qsmPath: string };
@@ -39,6 +43,7 @@ export type ValidatedManifest = {
   };
   seed: { enabled: boolean; path: string };
   studio: StudioConfig;
+  modules: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
 };
 
 export type ManifestErrorCode =
@@ -52,7 +57,8 @@ export type ManifestErrorCode =
   | 'MANIFEST_VERSION_MAJOR_MISMATCH'
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
   | 'MANIFEST_MISSING_QSM_PATH'
-  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT';
+  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT'
+  | 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME';
 
 export type ManifestError = {
   code: ManifestErrorCode;

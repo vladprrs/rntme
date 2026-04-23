@@ -1,0 +1,9 @@
+{
+  "rntmeVersion": "1.0",
+  "service": { "name": "pre-step-demo", "version": "1.0" },
+  "surface": { "http": { "enabled": true, "port": 3100 } },
+  "persistence": { "mode": "ephemeral" },
+  "modules": [
+    { "name": "payments", "grpc": { "address": "127.0.0.1:60051" }, "protoPath": "protos/payments.proto" }
+  ]
+}

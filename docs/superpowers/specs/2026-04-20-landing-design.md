@@ -193,8 +193,19 @@ Four rows. First row names the real competitor (`Cursor + Supabase + discipline`
 > **We're onboarding the first 10 teams personally.**
 >
 > Paid pilot. White-glove setup. A direct line to the founders. Tell us about your team and the second service you'd build on rntme.
->
-> `[Tally embedded form]`
+
+Rendered below the lede as a four-item preview of the pilot intake, styled with the same numbered-steps pattern as §4.6. This lets the reader see the shape of the ask before clicking through, and keeps the page voice unbroken at the conversion gate (a Tally iframe inside the page would collapse the editorial voice into Tally's default styling).
+
+| # | Question | Body |
+|---|---|---|
+| 01 | **Team** | Size, what you've shipped, your current stack. |
+| 02 | **The second service** | What you'd build on rntme next — domain, scope, why this one. |
+| 03 | **Timeline** | When you'd start; when it needs to be live. |
+| 04 | **Contact** | Name, role, work email. |
+
+Followed by a single primary CTA — `Apply on Tally →` — linking to `https://tally.so/r/{TALLY_FORM_ID}` in the same tab. A small muted meta line beside the button reads `Four questions · about 3 min` so the reader knows the shape of the commitment before clicking.
+
+No iframe, no fake browser chrome. The `<noscript>` fallback is no longer required — the primary CTA is a plain `<a>` tag that works without JS.
 
 ### 4.10 Footer
 

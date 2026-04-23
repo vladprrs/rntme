@@ -79,8 +79,8 @@ describe('buildPlan', () => {
   it('returns a plan for every binding with compiled SQL', () => {
     const validated = makeValidated();
     const plan = buildPlan(validated, spec, pdm, qsm);
-    expect(Object.keys(plan)).toEqual(['getCategorySalesHttp']);
-    const bp = plan.getCategorySalesHttp!;
+    expect(Object.keys(plan.plans)).toEqual(['getCategorySalesHttp']);
+    const bp = plan.plans.getCategorySalesHttp!;
     if (bp.kind !== 'query') throw new Error('expected query plan');
     expect(bp.compiled.sql.length).toBeGreaterThan(0);
     expect(bp.bindToMap).toEqual({
@@ -208,12 +208,14 @@ describe('buildPlan — command bindings', () => {
     const v = validateBindings(parsed.value, cmdResolvers);
     if (!v.ok) throw new Error('validate fail');
     const plan = buildPlan(v.value, commandSpec, pdmIt, qsmIt);
-    const bp = plan.reportIssueHttp;
+    const bp = plan.plans.reportIssueHttp;
     expect(bp).toBeDefined();
     expect(bp!.kind).toBe('command');
     const cmd = bp as CommandBindingPlan;
-    expect(cmd.compiled.aggregate).toBe('Issue');
-    expect(cmd.compiled.emits.length).toBe(1);
-    expect(cmd.compiled.emits[0]!.eventType).toContain('Issue');
+    const compiled = plan.compiledCommands.reportIssue!;
+    expect(cmd.commandName).toBe('reportIssue');
+    expect(compiled.aggregate).toBe('Issue');
+    expect(compiled.emits.length).toBe(1);
+    expect(compiled.emits[0]!.eventType).toContain('Issue');
   });
 });

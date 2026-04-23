@@ -45,6 +45,13 @@ export type {
   ValidatedBindings,
   OperationPassthrough,
   ParameterPassthrough,
+  PreStepBindAs,
+  PreStep,
+} from './types/artifact.js';
+
+export {
+  bindAsName,
+  bindAsPick,
 } from './types/artifact.js';
 
 export type {
@@ -74,3 +81,12 @@ export type {
   MediaType,
   JsonSchema,
 } from './types/openapi.js';
+
+export type {
+  ExpressionObject,
+  ExpressionTemplate,
+  InputSource,
+  InputFromMap,
+  ResponseBranch,
+  ResponseShape,
+} from './types/input-from.js';

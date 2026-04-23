@@ -26,6 +26,13 @@ export const ManifestSchema = z
           })
           .strict()
           .optional(),
+        grpc: z
+          .object({
+            enabled: z.boolean().optional(),
+            port: z.number().int().min(0).max(65535).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
@@ -72,5 +79,16 @@ export const ManifestSchema = z
       .strict()
       .optional(),
     studio: StudioConfigSchema.optional(),
+    modules: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            grpc: z.object({ address: z.string().min(1) }).strict(),
+            protoPath: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();

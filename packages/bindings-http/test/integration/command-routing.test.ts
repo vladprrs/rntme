@@ -5,10 +5,14 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
+import { executeCommand, CommandExecutionError } from '@rntme/graph-ir-compiler';
 import { SqliteEventStore } from '@rntme/event-store';
 import type { ActorRef } from '@rntme/event-store';
 import { Hono } from 'hono';
 import { createBindingsRouter } from '../../src/router.js';
+import type { CommandExecutor } from '../../src/executor-contract.js';
+import type { BuildPlanResult } from '../../src/startup/compile-plan.js';
+import { buildPlan } from '../../src/startup/compile-plan.js';
 import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
 
 function wrapWithMiddleware(router: ReturnType<typeof createBindingsRouter>): Hono {
@@ -171,6 +175,50 @@ function validated() {
   return v.value;
 }
 
+function makeCommandExecutor(plan: BuildPlanResult): CommandExecutor {
+  return {
+    execute: async (input) => {
+      const compiled = plan.compiledCommands[input.commandName];
+      if (compiled === undefined) {
+        return {
+          ok: false,
+          error: {
+            code: 'COMMAND_NOT_FOUND',
+            message: `no compiled command registered for name "${input.commandName}"`,
+          },
+        };
+      }
+
+      try {
+        const value = executeCommand(compiled, input.inputs, input.ctx);
+        return { ok: true, value };
+      } catch (error) {
+        if (error instanceof CommandExecutionError) {
+          return {
+            ok: false,
+            error: {
+              code:
+                error.code === 'COMMAND_CONCURRENCY_CONFLICT'
+                  ? 'COMMAND_CONCURRENCY_CONFLICT'
+                  : 'COMMAND_GUARD_REJECTED',
+              message: error.message,
+              detail: error.detail,
+            },
+          };
+        }
+        return {
+          ok: false,
+          error: {
+            code: 'COMMAND_HANDLER_THREW',
+            message: error instanceof Error ? error.message : String(error),
+            detail: error,
+          },
+        };
+      }
+    },
+  };
+}
+
 function build(): {
   router: Hono;
   store: SqliteEventStore;
@@ -180,6 +228,7 @@ function build(): {
   const qsmDb = new Database(':memory:');
   const actor: ActorRef = { kind: 'user', id: 'alice' };
   let seq = 0;
+  const plan = buildPlan(validated(), spec, pdm, qsm);
   const inner = createBindingsRouter({
     validated: validated(),
     graphSpec: spec,
@@ -187,6 +236,7 @@ function build(): {
     qsm,
     db: qsmDb,
     eventStore: store,
+    commandExecutor: makeCommandExecutor(plan),
     actorFromRequest: () => actor,
     now: () => '2026-04-14T10:00:00Z',
     nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
@@ -280,6 +330,23 @@ describe('createBindingsRouter — command routing', () => {
     qsmDb.close();
   });
 
+  it('throws at startup when a command binding is present but commandExecutor missing', () => {
+    const qsmDb = new Database(':memory:');
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
+    expect(() =>
+      createBindingsRouter({
+        validated: validated(),
+        graphSpec: spec,
+        pdm,
+        qsm,
+        db: qsmDb,
+        eventStore: store,
+      }),
+    ).toThrow(/commandExecutor is required/);
+    store.close();
+    qsmDb.close();
+  });
+
   it('maps a concurrent append conflict to 409 COMMAND_CONCURRENCY_CONFLICT', async () => {
     const r1 = await ctx.router.fetch(
       new Request('http://x/v1/issues/42/actions/report', {
@@ -326,7 +393,7 @@ describe('createBindingsRouter — command routing', () => {
     );
     expect([409, 422]).toContain(r2.status);
     const body = (await r2.json()) as { code: string };
-    expect(['COMMAND_CONCURRENCY_CONFLICT', 'COMMAND_ILLEGAL_TRANSITION']).toContain(body.code);
+    expect(['COMMAND_CONCURRENCY_CONFLICT', 'COMMAND_GUARD_REJECTED']).toContain(body.code);
   });
 });
 
@@ -441,6 +508,7 @@ describe('createBindingsRouter — command guards', () => {
     const v = validateBindings(parsed.value, guardedResolvers);
     if (!v.ok) throw new Error('validate fail');
     let seq = 0;
+    const plan = buildPlan(v.value, guardedSpec, pdm, qsm);
     const inner = createBindingsRouter({
       validated: v.value,
       graphSpec: guardedSpec,
@@ -448,6 +516,7 @@ describe('createBindingsRouter — command guards', () => {
       qsm,
       db: qsmDb,
       eventStore: store,
+      commandExecutor: makeCommandExecutor(plan),
       actorFromRequest: () => null,
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,

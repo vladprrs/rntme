@@ -5,13 +5,18 @@ import {
   type CompiledCommand,
 } from '@rntme/graph-ir-compiler';
 import type { Result } from '@rntme/graph-ir-compiler';
-import type {
-  ValidatedBindings,
-  BindingEntry,
-  GraphSignature,
-  ResolvedShape,
-  InputType,
-  HttpParameter,
+import {
+  bindAsName,
+  bindAsPick,
+  type ValidatedBindings,
+  type BindingEntry,
+  type GraphSignature,
+  type ResolvedShape,
+  type InputType,
+  type HttpParameter,
+  type PreStep,
+  type InputFromMap,
+  type ResponseShape,
 } from '@rntme/bindings';
 import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
@@ -59,6 +64,11 @@ type BindingPlanCommon = {
   bodyParamNames: string[];
 };
 
+export type CompiledPreStep = PreStep & {
+  bindName: string;
+  bindPick: string | null;
+};
+
 export type QueryBindingPlan = BindingPlanCommon & {
   kind: 'query';
   compiled: QueryCompileResult;
@@ -66,17 +76,61 @@ export type QueryBindingPlan = BindingPlanCommon & {
 
 export type CommandBindingPlan = BindingPlanCommon & {
   kind: 'command';
-  compiled: CompiledCommand;
+  commandName: string;
+  pre: CompiledPreStep[];
+  inputFrom: InputFromMap | null;
+  response: ResponseShape | null;
 };
 
 export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
+
+export type GraphIrCommandMap = Record<string, CompiledCommand>;
+export type GraphIrQueryMapPublic = Record<string, QueryCompileResult>;
+
+export type BuildPlanResult = {
+  plans: Record<string, BindingPlan>;
+  compiledCommands: GraphIrCommandMap;
+  compiledQueries: GraphIrQueryMapPublic;
+};
+
+export type CompilePlanResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; errors: RuntimeErrorEntry[] };
+
+export function buildDefaultGraphIrCommandMap(
+  validated: ValidatedBindings,
+  graphSpec: unknown,
+  pdm: unknown,
+  qsm: unknown,
+): CompilePlanResult<GraphIrCommandMap> {
+  try {
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledCommands };
+  } catch (e) {
+    if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
+    throw e;
+  }
+}
+
+export function buildDefaultGraphIrQueryMap(
+  validated: ValidatedBindings,
+  graphSpec: unknown,
+  pdm: unknown,
+  qsm: unknown,
+): CompilePlanResult<GraphIrQueryMapPublic> {
+  try {
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledQueries };
+  } catch (e) {
+    if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
+    throw e;
+  }
+}
 
 export function buildPlan(
   validated: ValidatedBindings,
   graphSpec: unknown,
   pdm: unknown,
   qsm: unknown,
-): Record<string, BindingPlan> {
+): BuildPlanResult {
   const queryGraphIds = new Set<string>();
   const commandGraphIds = new Set<string>();
   for (const r of Object.values(validated.resolved)) {
@@ -102,7 +156,7 @@ export function buildPlan(
 
   if (errors.length > 0) throw new BindingsRuntimeError(errors);
 
-  const plan: Record<string, BindingPlan> = {};
+  const plans: Record<string, BindingPlan> = {};
   for (const [bindingId, resolved] of Object.entries(validated.resolved)) {
     const { entry, signature, outputShape } = resolved;
     const kind = entry.kind ?? 'query';
@@ -118,12 +172,23 @@ export function buildPlan(
       pathParamNames: entry.http.parameters.filter((p) => p.in === 'path').map((p) => p.name),
       bodyParamNames: entry.http.parameters.filter((p) => p.in === 'body').map((p) => p.name),
     };
-    plan[bindingId] =
+    plans[bindingId] =
       kind === 'command'
-        ? { ...common, kind: 'command', compiled: commandCache.get(entry.graph)! }
+        ? {
+            ...common,
+            kind: 'command',
+            commandName: entry.graph,
+            pre: compilePre(entry.pre ?? []),
+            inputFrom: entry.inputFrom ?? null,
+            response: entry.response ?? null,
+          }
         : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
   }
-  return plan;
+  return {
+    plans,
+    compiledCommands: Object.fromEntries(commandCache),
+    compiledQueries: Object.fromEntries(queryCache),
+  };
 }
 
 function collectListParams(parameters: HttpParameter[], signature: GraphSignature): Set<string> {
@@ -134,4 +199,12 @@ function collectListParams(parameters: HttpParameter[], signature: GraphSignatur
     if (t && t.kind === 'list') listSet.add(p.name);
   }
   return listSet;
+}
+
+function compilePre(pre: PreStep[]): CompiledPreStep[] {
+  return pre.map((step) => ({
+    ...step,
+    bindName: bindAsName(step.bindAs),
+    bindPick: bindAsPick(step.bindAs),
+  }));
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateStructural } from '../../../src/validate/structural.js';
-import type { BindingArtifact } from '../../../src/types/artifact.js';
+import type { BindingArtifact, HttpMethod } from '../../../src/types/artifact.js';
+import { ERROR_CODES } from '../../../src/types/result.js';
 
 const base: BindingArtifact = {
   version: '1.0',
@@ -34,6 +35,27 @@ describe('validateStructural', () => {
   it('accepts a minimal valid artifact', () => {
     const r = validateStructural(base);
     expect(r.ok).toBe(true);
+  });
+
+  it('rejects a binding artifact that declares a shape named CommandResult', () => {
+    const bad = {
+      ...clone(base),
+      shapes: {
+        CommandResult: {
+          fields: [
+            {
+              name: 'x',
+              type: { kind: 'scalar' as const, scalar: 'string' as const },
+            },
+          ],
+        },
+      },
+    } as unknown as BindingArtifact & { shapes: Record<string, unknown> };
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === ERROR_CODES.BINDINGS_STRUCTURAL_RESERVED_SHAPE_NAME)).toBe(true);
+    }
   });
 
   it('detects duplicate method + path', () => {
@@ -157,6 +179,7 @@ describe('validateStructural', () => {
   it('rejects command bindings with method !== POST', () => {
     const bad = clone(base);
     bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.method = 'PATCH' as HttpMethod;
     bad.bindings.primary!.http.path = '/v1/things/{id}';
     bad.bindings.primary!.http.parameters = [
       { name: 'id', in: 'path', bindTo: 'id', required: true },
@@ -164,6 +187,18 @@ describe('validateStructural', () => {
     const r = validateStructural(bad);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_METHOD_NOT_POST')).toBe(true);
+  });
+
+  it('rejects GET command bindings without redirect response', () => {
+    const bad = clone(base);
+    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.path = '/v1/things/{id}';
+    bad.bindings.primary!.http.parameters = [
+      { name: 'id', in: 'path', bindTo: 'id', required: true },
+    ];
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT')).toBe(true);
   });
 
   it('rejects command bindings with any in=query parameter', () => {

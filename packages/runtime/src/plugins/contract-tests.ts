@@ -104,3 +104,93 @@ export function runSurfaceContract(makeSurface: () => Surface): void {
     });
   });
 }
+
+import type {
+  CommandExecutor,
+  QueryExecutor,
+  CommandExecutionContext,
+} from './executors/types.js';
+import { SqliteEventStore } from '@rntme/event-store';
+import BetterSqlite3 from 'better-sqlite3';
+
+function makeCommandCtx(): CommandExecutionContext {
+  return {
+    eventStore: new SqliteEventStore({ filename: ':memory:', serviceName: 'contract' }),
+    qsmDb: null,
+    now: () => '2026-04-19T00:00:00.000Z',
+    nextId: () => 'id-1',
+    actor: null,
+    correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+  };
+}
+
+export function runCommandExecutorContract(
+  label: string,
+  makeExecutor: () => CommandExecutor,
+): void {
+  describe(`CommandExecutor contract — ${label}`, () => {
+    it('execute returns ok for a known command', async () => {
+      const executor = makeExecutor();
+      const out = await executor.execute({
+        commandName: 'contractEcho',
+        inputs: { id: 'X' },
+        ctx: makeCommandCtx(),
+      });
+      expect(out.ok).toBe(true);
+    });
+
+    it('execute returns COMMAND_NOT_FOUND for unknown command', async () => {
+      const executor = makeExecutor();
+      const out = await executor.execute({
+        commandName: '__definitely_not_registered__',
+        inputs: {},
+        ctx: makeCommandCtx(),
+      });
+      expect(out.ok).toBe(false);
+      if (!out.ok) expect(out.error.code).toBe('COMMAND_NOT_FOUND');
+    });
+  });
+}
+
+export function runQueryExecutorContract(
+  label: string,
+  makeExecutor: () => QueryExecutor,
+): void {
+  describe(`QueryExecutor contract — ${label}`, () => {
+    it('execute returns ok for a known query', async () => {
+      const executor = makeExecutor();
+      const db = new BetterSqlite3(':memory:');
+      const out = await executor.execute({
+        queryName: 'contractNoop',
+        inputs: {},
+        ctx: { qsmDb: db },
+      });
+      expect(out.ok).toBe(true);
+      db.close();
+    });
+
+    it('execute returns QUERY_NOT_FOUND for unknown query', async () => {
+      const executor = makeExecutor();
+      const db = new BetterSqlite3(':memory:');
+      const out = await executor.execute({
+        queryName: '__nope__',
+        inputs: {},
+        ctx: { qsmDb: db },
+      });
+      expect(out.ok).toBe(false);
+      if (!out.ok) expect(out.error.code).toBe('QUERY_NOT_FOUND');
+      db.close();
+    });
+  });
+}
+
+import type { GrpcSurface } from './grpc-surface.js';
+
+export function runGrpcSurfaceContract(makeSurface: () => GrpcSurface): void {
+  describe('GrpcSurface contract', () => {
+    it('mount is a no-op and does not throw', () => {
+      const surface = makeSurface();
+      expect(() => surface.mount(/* unused */ {} as Hono, {} as SurfaceContext)).not.toThrow();
+    });
+  });
+}

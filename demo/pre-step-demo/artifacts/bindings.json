@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "pre-step-demo.graphs.v1",
+  "pdmRef": "pre-step-demo.domain.v1",
+  "qsmRef": "pre-step-demo.read.v1",
+  "openapi": {
+    "info": {
+      "title": "Pre-step Demo API",
+      "version": "0.1.0",
+      "description": "Demo exercising pre[] module calls with fake payments module."
+    },
+    "servers": [
+      { "url": "http://localhost:3100", "description": "Local demo server" }
+    ]
+  },
+  "bindings": {
+    "createOrder": {
+      "kind": "command",
+      "graph": "createOrder",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/commands/createOrder",
+        "tags": ["orders"],
+        "summary": "Create a new order with pre-step customer lookup.",
+        "parameters": [
+          { "name": "orderId", "in": "body", "bindTo": "orderId", "required": true },
+          { "name": "userId", "in": "body", "bindTo": "userId", "required": true },
+          { "name": "amount", "in": "body", "bindTo": "amount", "required": true },
+          { "name": "customerId", "in": "body", "bindTo": "customerId", "required": false }
+        ]
+      },
+      "pre": [
+        {
+          "kind": "module-rpc",
+          "module": "payments",
+          "rpc": "GetOrCreateCustomer",
+          "input": { "user_id": "$body.userId" },
+          "bindAs": { "name": "customerId", "pick": "customerId" }
+        }
+      ]
+    },
+    "stripeCallback": {
+      "kind": "command",
+      "graph": "callbackAck",
+      "target": { "engine": "graph-ir", "dialect": "sqlite" },
+      "http": { "method": "GET", "path": "/oauth/stripe/callback", "parameters": [] },
+      "inputFrom": {
+        "state": { "from": "query", "name": "state", "required": true },
+        "code":  { "from": "query", "name": "code",  "required": true }
+      },
+      "response": {
+        "onOk":  { "redirect": "/app/connected?flow={$result.aggregateId}", "status": 302 },
+        "onErr": { "redirect": "/app/error?c={$error.code}" }
+      }
+    }
+  }
+}

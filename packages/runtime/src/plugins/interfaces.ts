@@ -32,5 +32,33 @@ export type SurfaceContext = {
 
 export interface Surface {
   mount(app: Hono, ctx: SurfaceContext): Promise<void> | void;
-  listen?(): Promise<{ port: number; stop(): Promise<void> }>;
+  listen?(ctx?: SurfaceContext): Promise<{ port: number; stop(): Promise<void> }>;
 }
+
+export type {
+  CommandExecutor,
+  CommandExecutorInput,
+  CommandExecutorOutput,
+  CommandExecutorError,
+  CommandExecutionContext,
+  CommandExecutionResult,
+  QueryExecutor,
+  QueryExecutorInput,
+  QueryExecutorOutput,
+  QueryExecutorError,
+  QueryExecutionContext,
+  CorrelationCtx,
+} from './executors/types.js';
+
+export type {
+  ExternalAdapterClient,
+  AdapterCallOptions,
+  AdapterResult,
+  AdapterOk,
+  AdapterErr,
+  AdapterError,
+  AdapterErrorCode,
+  RetryPolicy,
+  RetryStrategy,
+} from './adapter-client/types.js';
+export { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from './adapter-client/types.js';

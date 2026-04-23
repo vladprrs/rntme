@@ -1,7 +1,10 @@
 {
   "rntmeVersion": "1.0",
   "service": { "name": "issue-tracker-api", "version": "1.0.0" },
-  "surface": { "http": { "port": 3000 } },
+  "surface": {
+    "http": { "enabled": true, "port": 3000 },
+    "grpc": { "enabled": true, "port": 50052 }
+  },
   "studio": {
     "enabled": true,
     "mountPath": "/_studio",

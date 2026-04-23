@@ -49,4 +49,79 @@ describe('parseManifest', () => {
     );
     expect(r.ok).toBe(true);
   });
+
+  it('parses modules[] with grpc address and protoPath', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [
+          { name: 'payments', grpc: { address: 'payments:50051' }, protoPath: 'protos/payments.proto' },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.modules?.[0]?.name).toBe('payments');
+    }
+  });
+
+  it('rejects module with empty name', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: '', grpc: { address: 'a:1' }, protoPath: 'p' }],
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects module with empty grpc.address', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: 'm', grpc: { address: '' }, protoPath: 'p' }],
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects module with empty protoPath', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [{ name: 'm', grpc: { address: 'a:1' }, protoPath: '' }],
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('parses surface.grpc with enabled and port', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'demo', version: '1.0' },
+        surface: { grpc: { enabled: true, port: 50051 } },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.surface?.grpc?.enabled).toBe(true);
+      expect(result.value.surface?.grpc?.port).toBe(50051);
+    }
+  });
+
+  it('rejects surface.grpc with invalid port', () => {
+    const result = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'demo', version: '1.0' },
+        surface: { grpc: { enabled: true, port: -1 } },
+      }),
+    );
+    expect(result.ok).toBe(false);
+  });
 });

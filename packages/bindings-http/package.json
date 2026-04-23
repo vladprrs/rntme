@@ -8,13 +8,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./executor-contract": {
+      "types": "./dist/executor-contract.d.ts",
+      "import": "./dist/executor-contract.js"
     }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": ["dist", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -26,6 +30,7 @@
     "@rntme/event-store": "workspace:*",
     "@rntme/graph-ir-compiler": "workspace:*",
     "hono": "^4.6.0",
+    "pino": "^9.0.0",
     "zod": "^4.0.0"
   },
   "peerDependencies": {

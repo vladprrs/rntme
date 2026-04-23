@@ -83,7 +83,7 @@ beforeAll(() => {
   db = new Database(':memory:');
   db.exec(seedSql);
   app = new Hono();
-  const bp = plan.getCategorySalesHttp!;
+  const bp = plan.plans.getCategorySalesHttp!;
   if (bp.kind !== 'query') throw new Error('expected query plan');
   app.get(honoPath(bp.entry.http.path), makeHandler(bp, { db }));
 });
@@ -151,7 +151,7 @@ describe('makeHandler — 500 on execute failure', () => {
     const plan = buildPlan(validated.value, spec, pdm, qsm);
     const errors: unknown[] = [];
     const localApp = new Hono();
-    const bp = plan.getCategorySalesHttp!;
+    const bp = plan.plans.getCategorySalesHttp!;
     if (bp.kind !== 'query') throw new Error('expected query plan');
     localApp.get(
       honoPath(bp.entry.http.path),
