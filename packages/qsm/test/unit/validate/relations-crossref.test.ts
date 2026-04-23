@@ -170,6 +170,8 @@ describe('validateCrossRef — relations B2', () => {
     const customPdmRaw = parsePdm({
       entities: {
         Source: {
+          ownerService: 'source-service',
+          kind: 'owned',
           table: 'sources',
           fields: {
             id:       { type: 'integer', nullable: false, column: 'id' },
@@ -189,6 +191,8 @@ describe('validateCrossRef — relations B2', () => {
           },
         },
         Target: {
+          ownerService: 'target-service',
+          kind: 'owned',
           table: 'targets',
           fields: {
             id:     { type: 'integer', nullable: false, column: 'id' },

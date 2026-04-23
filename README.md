@@ -89,6 +89,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 | Package | Purpose |
 | ------- | ------- |
+| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project `PDM`, service registry metadata, and raw per-service `QSM` directories. |
 | [`@rntme/pdm`](packages/pdm) | Platform Domain Model: entities, fields, relations and an optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares read-side tables, generates DDL and event-handler specs. |
 | [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
@@ -114,6 +115,7 @@ flowchart TB
     classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
     classDef demo fill:#1b5c3a,stroke:#4ae29a,color:#fff;
 
+    BP["@rntme/blueprint"]:::pkg
     PDM["@rntme/pdm"]:::pkg
     QSM["@rntme/qsm"]:::pkg
     ES["@rntme/event-store"]:::pkg
@@ -128,6 +130,7 @@ flowchart TB
     RT["@rntme/runtime"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
+    BP --> PDM & QSM
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
@@ -138,7 +141,7 @@ flowchart TB
     DEMO --> RT
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/runtime` is the top layer — it depends on every other `@rntme/*` package (transitively through the edges above). `demo/issue-tracker-api` consumes `@rntme/runtime` directly today, and `@rntme/module-skeleton` also depends on it as a scaffold for follow-on module work.
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/blueprint` currently depends on `@rntme/pdm` and `@rntme/qsm` but is not yet wired into `@rntme/runtime`; `@rntme/runtime` remains the top runtime layer and depends on every other execution package transitively through the edges above. `demo/issue-tracker-api` is the only package that consumes `@rntme/runtime` directly.
 
 ## Quick start
 
@@ -218,6 +221,7 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
+- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
 - `docs/superpowers/specs/done/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
 - `docs/superpowers/specs/done/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.

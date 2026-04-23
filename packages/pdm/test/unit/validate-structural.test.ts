@@ -7,6 +7,8 @@ function base(): PdmArtifact {
   return {
     entities: {
       User: {
+        ownerService: 'accounts',
+        kind: 'root',
         table: 'users',
         fields: {
           id: { type: 'integer', nullable: false, column: 'id' },
@@ -39,6 +41,8 @@ describe('validateStructural', () => {
     const a: PdmArtifact = {
       entities: {
         A: {
+          ownerService: 'svc-a',
+          kind: 'owned',
           table: 'a',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id' },
@@ -62,6 +66,8 @@ describe('validateStructural', () => {
     const a: PdmArtifact = {
       entities: {
         A: {
+          ownerService: 'svc-a',
+          kind: 'owned',
           table: 'a',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           relations: {
@@ -82,6 +88,8 @@ describe('validateStructural', () => {
     const a: PdmArtifact = {
       entities: {
         A: {
+          ownerService: 'svc-a',
+          kind: 'owned',
           table: 'a',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id' },
@@ -93,6 +101,8 @@ describe('validateStructural', () => {
           keys: ['id'],
         },
         B: {
+          ownerService: 'svc-b',
+          kind: 'owned',
           table: 'b',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           keys: ['id'],
@@ -110,6 +120,8 @@ describe('validateStructural', () => {
     const a: PdmArtifact = {
       entities: {
         A: {
+          ownerService: 'svc-a',
+          kind: 'owned',
           table: 'a',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           relations: {

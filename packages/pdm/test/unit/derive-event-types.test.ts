@@ -7,6 +7,8 @@ function fullIssue(): PdmArtifact {
   return {
     entities: {
       Issue: {
+        ownerService: 'issues',
+        kind: 'owned',
         table: 'issues',
         fields: {
           id: { type: 'integer', nullable: false, column: 'id' },
@@ -47,6 +49,8 @@ describe('deriveEventTypes', () => {
     const r = validatePdm({
       entities: {
         U: {
+          ownerService: 'accounts',
+          kind: 'root',
           table: 'u',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           keys: ['id'],

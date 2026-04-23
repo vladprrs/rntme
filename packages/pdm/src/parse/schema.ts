@@ -56,6 +56,8 @@ const stateMachineSchema = z
 
 const entitySchema = z
   .object({
+    ownerService: nonEmptyString,
+    kind: z.enum(['root', 'owned']),
     table: nonEmptyString,
     fields: z.record(nonEmptyString, fieldSchema),
     relations: z.record(nonEmptyString, relationSchema).optional(),

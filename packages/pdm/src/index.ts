@@ -3,6 +3,7 @@ export const VERSION = '0.0.0';
 export { parsePdm } from './parse/parse.js';
 export { PdmArtifactSchema } from './parse/schema.js';
 export type { PdmArtifactParsed } from './parse/schema.js';
+export { loadPdmDir } from './load/load-dir.js';
 
 export {
   validatePdm,
@@ -35,6 +36,7 @@ export type {
 export type {
   PdmArtifact,
   Entity,
+  EntityKind,
   Field,
   Relation,
   RelationCardinality,

@@ -47,15 +47,15 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
-                      @rntme/pdm
-                      /        \
-                     /          \
-            @rntme/qsm          @rntme/event-store
-                 \                   |
-                  \                  |
-           @rntme/graph-ir-compiler  |
-                    |                |
-                    +----------------+
+                  @rntme/blueprint
+                    /          \
+                   /            \
+            @rntme/pdm          @rntme/qsm
+                 \                 /    \
+                  \               /      \
+           @rntme/graph-ir-compiler  @rntme/event-store
+                    |                        |
+                    +------------------------+
                     |
             @rntme/bindings
                     |
@@ -77,6 +77,10 @@ ASCII dependency diagram. Arrow means "depends on".
 
 One-line purpose per package (read the per-package README before touching):
 
+- **`@rntme/blueprint`** — Project-first blueprint folder parser/validator.
+  Owns `project.json`, project-level PDM assembly, service registry
+  metadata, and loading of raw service-level multi-file QSM artifacts.
+  → `packages/blueprint/README.md`.
 - **`@rntme/pdm`** — Parsing, validating, and resolving the PDM
   (project domain model) artifact. Canonical entity/field/relation/state
   source. → `packages/pdm/README.md`.
@@ -429,6 +433,9 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`.
 - "Event-driven architecture — what events, what consumers?" →
   `docs/adr/2026-04-15-event-driven-architecture.md`.
+- "Why did blueprint become project-first, and where do project vs service
+  responsibilities now live?" →
+  `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →

@@ -4,6 +4,8 @@ import { parseQsm, validateQsm } from '@rntme/qsm';
 export const RAW_ISSUE_PDM = {
   entities: {
     Issue: {
+      ownerService: 'issue-tracker',
+      kind: 'owned' as const,
       table: 'issues',
       fields: {
         id: { type: 'integer' as const, nullable: false, column: 'id' },
@@ -38,6 +40,8 @@ export const RAW_ISSUE_PDM = {
       },
     },
     Project: {
+      ownerService: 'issue-tracker',
+      kind: 'owned' as const,
       table: 'projects',
       fields: { id: { type: 'integer' as const, nullable: false, column: 'id' } },
       relations: {},

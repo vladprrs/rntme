@@ -9,6 +9,8 @@ import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 const rawPdm = {
   entities: {
     Foo: {
+      ownerService: 'test-service',
+      kind: 'owned',
       table: 'foos',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -27,6 +29,8 @@ const rawPdm = {
       },
     },
     Bar: {
+      ownerService: 'test-service',
+      kind: 'owned',
       table: 'bars',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },

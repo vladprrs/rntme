@@ -8,6 +8,8 @@ describe('validatePdm', () => {
     const a: PdmArtifact = {
       entities: {
         Issue: {
+          ownerService: 'issues',
+          kind: 'owned',
           table: 'issues',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id' },
@@ -33,6 +35,8 @@ describe('validatePdm', () => {
     const a: PdmArtifact = {
       entities: {
         X: {
+          ownerService: 'x-service',
+          kind: 'owned',
           table: 'x',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           keys: ['missing'],
@@ -58,6 +62,8 @@ describe('validatePdm', () => {
     const a: PdmArtifact = {
       entities: {
         User: {
+          ownerService: 'accounts',
+          kind: 'root',
           table: 'users',
           fields: { id: { type: 'integer', nullable: false, column: 'id' } },
           keys: ['id'],

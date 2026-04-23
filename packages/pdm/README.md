@@ -164,6 +164,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 
 ## Specs
 
+- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — active umbrella spec for the project-first pivot: moves `PDM` to the project level, introduces entity-per-file authoring, and restricts meaningful derived events to service-owned entities rather than field-level ownership.
 - [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — stateMachine extension, derived event types, and the event-sourcing topology that consumes them.
 - [`../../docs/adr/2026-04-15-event-driven-architecture.md`](../../docs/adr/2026-04-15-event-driven-architecture.md) — write-path topology (event log, outbox shape, relay) that consumes the events `deriveEventTypes` produces.
 - [`../../docs/gaps/pdm-gaps.md`](../../docs/gaps/pdm-gaps.md) — canonical list of PDM type-system gaps vs. a commerce-class case (Money, embedded objects, soft-delete, foreign-service-ref, migrations). Read before proposing a new `ScalarPrimitive` member or relation kind.

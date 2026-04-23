@@ -20,6 +20,7 @@ export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
 export const ERROR_CODES = {
   // Parse
   QSM_PARSE_SCHEMA_VIOLATION: 'QSM_PARSE_SCHEMA_VIOLATION',
+  QSM_PARSE_DIR_INVALID: 'QSM_PARSE_DIR_INVALID',
 
   // Structural
   QSM_STRUCT_PROJECTION_KEYS_EMPTY: 'QSM_STRUCT_PROJECTION_KEYS_EMPTY',

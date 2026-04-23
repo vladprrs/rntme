@@ -1,0 +1,11 @@
+{
+  "ownerService": "catalog",
+  "kind": "owned",
+  "table": "publications",
+  "fields": {
+    "id": { "type": "integer", "nullable": false, "column": "id" },
+    "productId": { "type": "integer", "nullable": false, "column": "product_id" },
+    "status": { "type": "string", "nullable": false, "column": "status" }
+  },
+  "keys": ["id"]
+}
