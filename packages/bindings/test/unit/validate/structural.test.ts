@@ -157,6 +157,7 @@ describe('validateStructural', () => {
   it('rejects command bindings with method !== POST', () => {
     const bad = clone(base);
     bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.method = 'PUT';
     bad.bindings.primary!.http.path = '/v1/things/{id}';
     bad.bindings.primary!.http.parameters = [
       { name: 'id', in: 'path', bindTo: 'id', required: true },
@@ -164,6 +165,18 @@ describe('validateStructural', () => {
     const r = validateStructural(bad);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_METHOD_NOT_POST')).toBe(true);
+  });
+
+  it('rejects GET command bindings without redirect response', () => {
+    const bad = clone(base);
+    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.http.path = '/v1/things/{id}';
+    bad.bindings.primary!.http.parameters = [
+      { name: 'id', in: 'path', bindTo: 'id', required: true },
+    ];
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT')).toBe(true);
   });
 
   it('rejects command bindings with any in=query parameter', () => {

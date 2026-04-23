@@ -21,12 +21,27 @@ function checkBinding(
   const { method, path, parameters } = entry.http;
   const isCommand = entry.kind === 'command';
   if (isCommand && method !== 'POST') {
-    errors.push({
-      layer: 'structural',
-      code: ERROR_CODES.BINDINGS_COMMAND_METHOD_NOT_POST,
-      message: `Command binding "${id}" must use method=POST (got ${method})`,
-      path: `${basePath}.method`,
-    });
+    const hasRedirect =
+      entry.response !== undefined
+      && ('redirect' in entry.response.onOk || 'redirect' in entry.response.onErr);
+    if (method === 'GET' && hasRedirect) {
+      // GET is allowed on command bindings when response has redirect
+    } else if (method === 'GET' && !hasRedirect) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT,
+        message: `binding "${id}": GET is only allowed on command bindings when response.onOk or response.onErr is a redirect`,
+        path: `${basePath}.method`,
+        hint: 'Vendor-callback bindings (OAuth, magic link) use GET + redirect. Normal commands are POST + json.',
+      });
+    } else {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_COMMAND_METHOD_NOT_POST,
+        message: `Command binding "${id}" must use method=POST (got ${method})`,
+        path: `${basePath}.method`,
+      });
+    }
   }
 
   // (in, name) uniqueness
@@ -129,6 +144,35 @@ function checkBinding(
         seen.add(step.bindAs);
       }
     });
+  }
+
+  // `body`-sourced inputFrom on a GET request is impossible.
+  if (isCommand && method === 'GET' && entry.inputFrom !== undefined) {
+    for (const [graphInput, src] of Object.entries(entry.inputFrom)) {
+      if (src.from === 'body' || src.from === 'form') {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY,
+          message: `binding "${id}": inputFrom.${graphInput}.from="${src.from}" is not allowed on GET`,
+          path: `bindings.${id}.inputFrom.${graphInput}`,
+        });
+      }
+    }
+  }
+
+  // inputFrom keys must not overlap with parameters[].bindTo
+  if (entry.inputFrom !== undefined) {
+    const paramBindTos = new Set(entry.http.parameters.map((p) => p.bindTo));
+    for (const inputName of Object.keys(entry.inputFrom)) {
+      if (paramBindTos.has(inputName)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_DUPLICATE,
+          message: `binding "${id}": graph-input "${inputName}" is bound by both inputFrom and parameters[]`,
+          path: `bindings.${id}.inputFrom.${inputName}`,
+        });
+      }
+    }
   }
 }
 
