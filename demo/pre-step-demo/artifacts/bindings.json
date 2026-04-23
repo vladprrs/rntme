@@ -39,6 +39,20 @@
           "bindAs": "customerId"
         }
       ]
+    },
+    "stripeCallback": {
+      "kind": "command",
+      "graph": "callbackAck",
+      "target": { "engine": "graph-ir", "dialect": "sqlite" },
+      "http": { "method": "GET", "path": "/oauth/stripe/callback", "parameters": [] },
+      "inputFrom": {
+        "state": { "from": "query", "name": "state", "required": true },
+        "code":  { "from": "query", "name": "code",  "required": true }
+      },
+      "response": {
+        "onOk":  { "redirect": "/app/connected?flow={$result.aggregateId}", "status": 302 },
+        "onErr": { "redirect": "/app/error?c={$error.code}" }
+      }
     }
   }
 }

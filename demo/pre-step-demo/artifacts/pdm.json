@@ -20,6 +20,25 @@
           "create": { "from": null, "to": "pending", "affects": ["customerId", "userId", "amount"] }
         }
       }
+    },
+    "Ack": {
+      "table": "acks",
+      "fields": {
+        "id": { "type": "string", "nullable": false, "column": "id" },
+        "code": { "type": "string", "nullable": false, "column": "code" },
+        "status": { "type": "string", "nullable": false, "column": "status" },
+        "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+      },
+      "relations": {},
+      "keys": ["id"],
+      "stateMachine": {
+        "stateField": "status",
+        "initial": null,
+        "states": ["acknowledged"],
+        "transitions": {
+          "acknowledge": { "from": null, "to": "acknowledged", "affects": ["code"] }
+        }
+      }
     }
   }
 }
