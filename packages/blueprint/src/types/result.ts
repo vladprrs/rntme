@@ -1,20 +1,24 @@
-export type BlueprintErrorCode = 'BLUEPRINT_IO_ERROR';
+export type Layer = 'load';
 
 export type BlueprintError = Readonly<{
-  layer: 'load';
+  layer: Layer;
   code: BlueprintErrorCode;
   message: string;
   path?: string;
 }>;
 
-export type Result<T> =
-  | { ok: true; value: T }
-  | { ok: false; errors: BlueprintError[] };
+export type Ok<T> = { ok: true; value: T };
+export type Err = { ok: false; errors: BlueprintError[] };
+export type Result<T> = Ok<T> | Err;
 
-export function ok<T>(value: T): Result<T> {
-  return { ok: true, value };
-}
+export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
 
-export function err<T = never>(errors: BlueprintError[]): Result<T> {
-  return { ok: false, errors };
-}
+export const err = (errors: BlueprintError[]): Err => ({ ok: false, errors });
+export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
+export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+
+export const ERROR_CODES = {
+  BLUEPRINT_IO_ERROR: 'BLUEPRINT_IO_ERROR',
+} as const;
+
+export type BlueprintErrorCode = keyof typeof ERROR_CODES;

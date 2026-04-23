@@ -4,4 +4,4 @@ export type {
   BlueprintErrorCode,
   Result,
 } from './types/result.js';
-export { ok, err } from './types/result.js';
+export { ERROR_CODES, ok, err, isOk, isErr } from './types/result.js';
