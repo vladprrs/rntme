@@ -351,6 +351,32 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 6. HTTP retries are safe: pass `Idempotency-Key` header from the client; the cache survives process restarts in `persistent` mode.
 7. Invariants enforced by validator: `pre.length ≤ 2`, unique `bindAs`, `module` declared in manifest, `kind: command` only.
 
+### 6.14 Define a vendor-callback endpoint (OAuth redirect, magic link, hosted checkout return)
+
+1. Read spec §8.
+2. In `artifacts/bindings.json`, add a command binding with:
+
+```json
+{
+  "kind": "command",
+  "graph": "completeFlow",
+  "http": { "method": "GET", "path": "/oauth/<vendor>/callback", "parameters": [] },
+  "inputFrom": {
+    "state": { "from": "query", "name": "state", "required": true },
+    "code":  { "from": "query", "name": "code",  "required": true }
+  },
+  "response": {
+    "onOk":  { "redirect": "/app/settings?connected=1", "status": 302 },
+    "onErr": { "redirect": "/app/errors/{$error.code}" }
+  }
+}
+```
+
+3. Make the `completeFlow` command graph read your `pending_flow` projection as a read-prelude (state→flow lookup), do a `pre[]` RPC to exchange the vendor code, and emit `FlowCompleted`.
+4. Validator invariants: GET is allowed only when `response.onOk` or `response.onErr` is a redirect. `inputFrom.<name>` must equal a graph input. `inputFrom.body` / `form` are not allowed on GET.
+5. Redirect templates support `{$result.field}` / `{$error.field}` substitutions. Omit `status` to default to 302.
+6. Callback endpoint **lives on the domain service**, not the module — see spec §8.5.
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
