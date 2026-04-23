@@ -1,6 +1,8 @@
 {
   "entities": {
     "Order": {
+      "ownerService": "pre-step-demo",
+      "kind": "owned",
       "table": "orders",
       "fields": {
         "id": { "type": "integer", "nullable": false, "column": "id" },
@@ -22,6 +24,8 @@
       }
     },
     "Ack": {
+      "ownerService": "pre-step-demo",
+      "kind": "owned",
       "table": "acks",
       "fields": {
         "id": { "type": "string", "nullable": false, "column": "id" },

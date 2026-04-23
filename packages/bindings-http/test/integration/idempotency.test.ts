@@ -63,6 +63,8 @@ const graphSpec = {
 const pdm = {
   entities: {
     Issue: {
+      ownerService: 'test-service',
+      kind: 'owned',
       table: 'issues',
       fields: {
         id: { type: 'string', nullable: false, column: 'id' },
