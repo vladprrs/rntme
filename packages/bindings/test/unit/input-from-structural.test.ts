@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateStructural } from '../../src/validate/structural.js';
-import { err, ok, ERROR_CODES } from '../../src/types/result.js';
+import { ERROR_CODES } from '../../src/types/result.js';
+import type { BindingArtifact } from '../../src/types/artifact.js';
 
 function makeArtifact(bindingId: string, entry: Record<string, unknown>) {
   return {
@@ -9,7 +10,7 @@ function makeArtifact(bindingId: string, entry: Record<string, unknown>) {
     pdmRef: 'p',
     qsmRef: 'q',
     bindings: { [bindingId]: entry },
-  };
+  } as unknown as BindingArtifact;
 }
 
 describe('P2 callback structural validation', () => {
@@ -38,7 +39,7 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0].code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT);
     }
   });
 
@@ -63,7 +64,7 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0].code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_DUPLICATE);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_DUPLICATE);
     }
   });
 
@@ -84,7 +85,7 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0].code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
     }
   });
 
@@ -105,7 +106,7 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0].code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
     }
   });
 });

@@ -1,18 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { validateConsistency } from '../../src/validate/consistency.js';
 import { ERROR_CODES } from '../../src/types/result.js';
+import type { BindingEntry, ResolvedBindings } from '../../src/types/artifact.js';
+import type { GraphSignature, ResolvedShape } from '../../src/types/resolvers.js';
 
 function makeResolved(bindingId: string, entry: Record<string, unknown>, signature: Record<string, unknown>) {
   return {
     artifact: { version: '1.0', graphSpecRef: 'g', pdmRef: 'p', qsmRef: 'q' } as const,
     resolved: {
       [bindingId]: {
-        entry: entry as import('../../src/types/artifact.js').BindingEntry,
-        signature: signature as import('../../src/types/resolvers.js').GraphSignature,
-        outputShape: { kind: 'row', shape: 'CommandResult' } as import('../../src/types/resolvers.js').ResolvedShape,
+        entry: entry as BindingEntry,
+        signature: signature as GraphSignature,
+        outputShape: { kind: 'row', shape: 'CommandResult' } as unknown as ResolvedShape,
       },
     },
-  } as unknown as import('../../src/types/artifact.js').ResolvedBindings;
+  } as unknown as ResolvedBindings;
 }
 
 describe('inputFrom consistency validation', () => {

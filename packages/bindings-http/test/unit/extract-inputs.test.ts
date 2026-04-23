@@ -15,7 +15,7 @@ function mkRequest({
 }): Parameters<typeof extractInputs>[1] {
   return {
     query: new URLSearchParams(
-      Object.entries(query).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x] as const) : [[k, v] as const])),
+      Object.entries(query).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : [[k, v]])) as [string, string][],
     ),
     header: (name) => headers[name.toLowerCase()] ?? null,
     body: body ?? null,

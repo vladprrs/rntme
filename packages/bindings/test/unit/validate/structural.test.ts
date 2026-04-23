@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateStructural } from '../../../src/validate/structural.js';
-import type { BindingArtifact } from '../../../src/types/artifact.js';
+import type { BindingArtifact, HttpMethod } from '../../../src/types/artifact.js';
 
 const base: BindingArtifact = {
   version: '1.0',
@@ -157,7 +157,7 @@ describe('validateStructural', () => {
   it('rejects command bindings with method !== POST', () => {
     const bad = clone(base);
     bad.bindings.primary!.kind = 'command';
-    bad.bindings.primary!.http.method = 'PUT';
+    bad.bindings.primary!.http.method = 'PATCH' as HttpMethod;
     bad.bindings.primary!.http.path = '/v1/things/{id}';
     bad.bindings.primary!.http.parameters = [
       { name: 'id', in: 'path', bindTo: 'id', required: true },

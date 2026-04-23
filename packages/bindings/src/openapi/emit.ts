@@ -86,7 +86,7 @@ function buildOperation(
 
   // Add inputFrom entries as OpenAPI parameters
   if (entry.inputFrom !== undefined) {
-    for (const [inputName, src] of Object.entries(entry.inputFrom)) {
+    for (const [, src] of Object.entries(entry.inputFrom)) {
       if (src.from === 'query' || src.from === 'header') {
         baseParameters.push({
           name: src.name,

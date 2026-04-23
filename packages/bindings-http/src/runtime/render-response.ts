@@ -1,5 +1,5 @@
 import type { ResponseShape, ResponseBranch } from '@rntme/bindings';
-import { evaluateExpression } from '../pre/expression.js';
+import { evaluateExpression, type ExpressionScope } from '../pre/expression.js';
 
 export type RenderedResponse =
   | { kind: 'json'; status: number; body: unknown }
@@ -27,7 +27,7 @@ function renderBranch(branch: ResponseBranch, scope: RenderScope, defaultStatus:
   return { kind: 'redirect', status: branch.status ?? 302, location };
 }
 
-function toExprScope(scope: RenderScope): import('../pre/expression.js').ExpressionScope {
+function toExprScope(scope: RenderScope): ExpressionScope {
   return {
     result: (scope.result ?? {}) as Record<string, unknown>,
     error: (scope.error ?? {}) as Record<string, unknown>,
