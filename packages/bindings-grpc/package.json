@@ -37,7 +37,6 @@
     "@rntme/graph-ir-compiler": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "@rntme/qsm": "workspace:*",
-    "@rntme/runtime": "workspace:*",
     "@types/node": "^20.14.0",
     "eslint": "^9.10.0",
     "typescript": "^5.5.4",

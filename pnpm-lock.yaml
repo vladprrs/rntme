@@ -132,9 +132,6 @@ importers:
       '@rntme/qsm':
         specifier: workspace:*
         version: link:../qsm
-      '@rntme/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39

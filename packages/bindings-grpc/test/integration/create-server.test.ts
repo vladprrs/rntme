@@ -3,7 +3,14 @@ import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import BetterSqlite3 from 'better-sqlite3';
 import { SqliteEventStore } from '@rntme/event-store';
-import { CodeCommandExecutor, GraphIrQueryExecutor } from '@rntme/runtime';
+import type {
+  CommandExecutor,
+  CommandExecutorInput,
+  CommandExecutorOutput,
+  QueryExecutor,
+  QueryExecutorInput,
+  QueryExecutorOutput,
+} from '@rntme/bindings-http/executor-contract';
 import { createGrpcServer } from '../../src/index.js';
 import { minimalValidated, minimalShapeRegistry } from '../fixtures/minimal-bindings.js';
 
@@ -20,19 +27,28 @@ describe('createGrpcServer (integration)', () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
     const qsmDb = new BetterSqlite3(':memory:');
 
-    const commandExecutor = new CodeCommandExecutor({
-      createOrder: async (_ctx, input) => ({
-        ok: true,
-        value: {
-          aggregateId: `order-${(input as Record<string, unknown>).amount}`,
-          version: 1,
-          eventIds: ['evt-1'],
-          commandId: 'cmd-1',
-          correlationId: 'corr-1',
-        },
-      }),
-    });
-    const queryExecutor = new GraphIrQueryExecutor({});
+    const commandExecutor: CommandExecutor = {
+      async execute(req: CommandExecutorInput): Promise<CommandExecutorOutput> {
+        if (req.commandName !== 'createOrder') {
+          return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: req.commandName } };
+        }
+        return {
+          ok: true,
+          value: {
+            aggregateId: `order-${(req.inputs as Record<string, unknown>).amount}`,
+            version: 1,
+            eventIds: ['evt-1'],
+            commandId: 'cmd-1',
+            correlationId: 'corr-1',
+          },
+        };
+      },
+    };
+    const queryExecutor: QueryExecutor = {
+      async execute(req: QueryExecutorInput): Promise<QueryExecutorOutput> {
+        return { ok: false, error: { code: 'QUERY_NOT_FOUND', message: req.queryName } };
+      },
+    };
 
     handle = createGrpcServer({
       validated: minimalValidated,
