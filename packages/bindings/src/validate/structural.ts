@@ -1,7 +1,8 @@
-import type { BindingArtifact, BindingEntry, HttpParameter, StructurallyValid } from '../types/artifact.js';
+import { bindAsName, type BindingArtifact, type BindingEntry, type HttpParameter, type StructurallyValid } from '../types/artifact.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
 
 const PLACEHOLDER_RE = /\{([^{}]+)\}/g;
+const ABSOLUTE_URL_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
 
 function extractPathPlaceholders(path: string): string[] {
   const names: string[] = [];
@@ -9,6 +10,27 @@ function extractPathPlaceholders(path: string): string[] {
     if (match[1] !== undefined) names.push(match[1]);
   }
   return names;
+}
+
+function redirectTemplateTarget(redirect: unknown): string | null {
+  return typeof redirect === 'string' ? redirect : null;
+}
+
+function isAbsoluteUrl(s: string): boolean {
+  return ABSOLUTE_URL_RE.test(s);
+}
+
+function originOf(url: string): string | null {
+  try {
+    const parsed = new globalThis.URL(url);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function containsBareReference(tpl: string): boolean {
+  return /(^|[^{])\$[a-zA-Z0-9_.-]+/.test(tpl);
 }
 
 function checkBinding(
@@ -133,15 +155,16 @@ function checkBinding(
     }
     const seen = new Set<string>();
     entry.pre.forEach((step, idx) => {
-      if (seen.has(step.bindAs)) {
+      const bindName = bindAsName(step.bindAs);
+      if (seen.has(bindName)) {
         errors.push({
           layer: 'structural',
           code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_DUPLICATE_BIND_AS,
-          message: `binding "${id}": pre[${idx}].bindAs "${step.bindAs}" duplicates an earlier step`,
+          message: `binding "${id}": pre[${idx}].bindAs "${bindName}" duplicates an earlier step`,
           path: `bindings.${id}.pre[${idx}].bindAs`,
         });
       } else {
-        seen.add(step.bindAs);
+        seen.add(bindName);
       }
     });
   }
@@ -152,7 +175,7 @@ function checkBinding(
       if (src.from === 'body' || src.from === 'form') {
         errors.push({
           layer: 'structural',
-          code: ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY,
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_BODY_ON_GET,
           message: `binding "${id}": inputFrom.${graphInput}.from="${src.from}" is not allowed on GET`,
           path: `bindings.${id}.inputFrom.${graphInput}`,
         });
@@ -174,10 +197,45 @@ function checkBinding(
       }
     }
   }
+
+  if (entry.response !== undefined) {
+    const redirects = [
+      redirectTemplateTarget((entry.response.onOk as { redirect?: unknown }).redirect),
+      redirectTemplateTarget((entry.response.onErr as { redirect?: unknown }).redirect),
+    ];
+
+    for (const tpl of redirects) {
+      if (tpl === null) continue;
+
+      if (containsBareReference(tpl)) {
+        errors.push({
+          layer: 'structural',
+          code: ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_STRING_CONTAINS_BARE_REFERENCE,
+          message: `binding "${id}": string redirect contains bare "$reference"`,
+          path: `bindings.${id}.response`,
+          hint: 'Use object form: redirect: { expr: "$result.url" }.',
+        });
+      }
+
+      if (isAbsoluteUrl(tpl)) {
+        const origin = originOf(tpl);
+        const allow = entry.allowedRedirectHosts ?? [];
+        if (origin === null || !allow.includes(origin)) {
+          errors.push({
+            layer: 'structural',
+            code: ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_ABSOLUTE_HOST_NOT_ALLOWED,
+            message: `binding "${id}": absolute redirect to "${origin ?? tpl}" is not in allowedRedirectHosts`,
+            path: `bindings.${id}.response`,
+          });
+        }
+      }
+    }
+  }
 }
 
 export function validateStructural(artifact: BindingArtifact): Result<StructurallyValid> {
   const errors: BindingsError[] = [];
+  const artifactWithShapes = artifact as BindingArtifact & { shapes?: Record<string, unknown> };
 
   // method + path uniqueness across all bindings
   const seenMethodPath = new Map<string, string>();
@@ -198,6 +256,17 @@ export function validateStructural(artifact: BindingArtifact): Result<Structural
 
   for (const [id, entry] of Object.entries(artifact.bindings)) {
     checkBinding(id, entry, errors);
+  }
+
+  for (const shapeName of Object.keys(artifactWithShapes.shapes ?? {})) {
+    if (shapeName === 'CommandResult') {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_RESERVED_SHAPE_NAME,
+        message: `shape name "${shapeName}" is reserved`,
+        path: `shapes.${shapeName}`,
+      });
+    }
   }
 
   if (errors.length > 0) return err(errors);

@@ -1,8 +1,10 @@
-import type {
-  BindingEntry,
-  HttpParameter,
-  ResolvedBindings,
-  ValidatedBindings,
+import {
+  bindAsName,
+  bindAsPick,
+  type BindingEntry,
+  type HttpParameter,
+  type ResolvedBindings,
+  type ValidatedBindings,
 } from '../types/artifact.js';
 import type { GraphInput, GraphSignature, InputMode, InputType } from '../types/resolvers.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
@@ -187,6 +189,24 @@ export function validateConsistency(
           message: `binding "${id}" pre[${idx}] references module "${step.module}" which is not declared in manifest.modules`,
           path: `bindings.${id}.pre[${idx}].module`,
           hint: 'Add the module to manifest.modules[] with grpc.address and protoPath.',
+        });
+      }
+
+      const name = bindAsName(step.bindAs);
+      const pick = bindAsPick(step.bindAs);
+      const target = binding.signature.inputs[name];
+      if (
+        step.kind === 'module-rpc'
+        && target !== undefined
+        && target.type.kind === 'scalar'
+        && pick === null
+      ) {
+        errors.push({
+          layer: 'consistency',
+          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_SCALAR_REQUIRES_PICK,
+          message: `binding "${id}": pre-step binds to scalar "${name}" without pick`,
+          path: `bindings.${id}.pre[${idx}].bindAs`,
+          hint: `Use bindAs: { name: "${name}", pick: "<field>" } to select a scalar value.`,
         });
       }
     }

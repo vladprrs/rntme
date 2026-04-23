@@ -85,7 +85,7 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_BODY_ON_GET);
     }
   });
 
@@ -106,7 +106,59 @@ describe('P2 callback structural validation', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_REDIRECT_ON_QUERY);
+      expect(result.errors[0]?.code).toBe(ERROR_CODES.BINDINGS_STRUCTURAL_INPUT_FROM_BODY_ON_GET);
+    }
+  });
+
+  it('rejects absolute redirect template without allowedRedirectHosts', () => {
+    const artifact = makeArtifact('cb', {
+      kind: 'command',
+      graph: 'completeOAuth',
+      target: { engine: 'graph-ir', dialect: 'sqlite' },
+      http: { method: 'GET', path: '/oauth/callback', parameters: [] },
+      response: {
+        onOk: { redirect: 'https://evil.example.com/steal?t={$result.token}' },
+        onErr: { json: '$error' },
+      },
+    });
+    const result = validateStructural(artifact);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.code === ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_ABSOLUTE_HOST_NOT_ALLOWED)).toBe(true);
+    }
+  });
+
+  it('accepts absolute redirect when origin is allowed', () => {
+    const artifact = makeArtifact('cb', {
+      kind: 'command',
+      graph: 'completeOAuth',
+      target: { engine: 'graph-ir', dialect: 'sqlite' },
+      http: { method: 'GET', path: '/oauth/callback', parameters: [] },
+      allowedRedirectHosts: ['https://good.example.com'],
+      response: {
+        onOk: { redirect: 'https://good.example.com/flow?t={$result.token}' },
+        onErr: { json: '$error' },
+      },
+    });
+    const result = validateStructural(artifact);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects string redirect containing bare reference outside template braces', () => {
+    const artifact = makeArtifact('cb', {
+      kind: 'command',
+      graph: 'completeOAuth',
+      target: { engine: 'graph-ir', dialect: 'sqlite' },
+      http: { method: 'GET', path: '/oauth/callback', parameters: [] },
+      response: {
+        onOk: { redirect: '$result.redirectUrl' },
+        onErr: { json: '$error' },
+      },
+    });
+    const result = validateStructural(artifact);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.code === ERROR_CODES.BINDINGS_STRUCTURAL_REDIRECT_STRING_CONTAINS_BARE_REFERENCE)).toBe(true);
     }
   });
 });

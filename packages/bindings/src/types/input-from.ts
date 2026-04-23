@@ -2,6 +2,7 @@
 
 // Expression template for dynamic values (e.g., "$body.customerId", "$pre.session.url")
 export type ExpressionTemplate = string;
+export type ExpressionObject = Record<string, unknown>;
 
 export type InputSource =
   | { from: 'body'; path?: string }                          // JSON body, optional dot-path for nested values
@@ -13,7 +14,7 @@ export type InputFromMap = Record<string, InputSource>;
 
 export type ResponseBranch =
   | { json: unknown }
-  | { redirect: ExpressionTemplate; status?: 302 | 303 };
+  | { redirect: ExpressionTemplate | { expr: ExpressionTemplate | ExpressionObject }; status?: 302 | 303 };
 
 export type ResponseShape = {
   onOk: ResponseBranch;

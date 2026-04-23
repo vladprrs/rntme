@@ -29,19 +29,29 @@ export type HttpBinding = {
 
 export type BindingKind = 'query' | 'command';
 
+export type PreStepBindAs = string | { name: string; pick?: string };
+
+export function bindAsName(bindAs: PreStepBindAs): string {
+  return typeof bindAs === 'string' ? bindAs : bindAs.name;
+}
+
+export function bindAsPick(bindAs: PreStepBindAs): string | null {
+  return typeof bindAs === 'string' ? null : bindAs.pick ?? null;
+}
+
 export type PreStep =
   | {
       kind: 'system';
       op: 'randomBytes';
       bytes: number;
-      bindAs: string;
+      bindAs: PreStepBindAs;
     }
   | {
       kind: 'module-rpc';
       module: string;
       rpc: string;
       input: unknown;
-      bindAs: string;
+      bindAs: PreStepBindAs;
       timeoutMs?: number;
       retry?: {
         attempts?: number;
@@ -58,6 +68,7 @@ export type BindingEntry = {
   pre?: PreStep[];            // from plan 3
   inputFrom?: InputFromMap;   // NEW plan 4
   response?: ResponseShape;   // NEW plan 4
+  allowedRedirectHosts?: string[];
 };
 
 export type OpenApiDefaults = {

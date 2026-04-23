@@ -38,11 +38,19 @@ const RetryPolicySchema = z.object({
   retryOn: z.enum(['never', 'transient', 'all']).optional(),
 }).strict();
 
+const PreStepBindAsSchema = z.union([
+  nonEmptyString,
+  z.object({
+    name: nonEmptyString,
+    pick: nonEmptyString.optional(),
+  }).strict(),
+]);
+
 const PreStepSystemSchema = z.object({
   kind: z.literal('system'),
   op: z.literal('randomBytes'),
   bytes: z.number().int().min(1).max(1024),
-  bindAs: nonEmptyString,
+  bindAs: PreStepBindAsSchema,
 }).strict();
 
 const PreStepModuleRpcSchema = z.object({
@@ -50,7 +58,7 @@ const PreStepModuleRpcSchema = z.object({
   module: nonEmptyString,
   rpc: nonEmptyString,
   input: z.unknown(),
-  bindAs: nonEmptyString,
+  bindAs: PreStepBindAsSchema,
   timeoutMs: z.number().int().min(1).max(30_000).optional(),
   retry: RetryPolicySchema.optional(),
 }).strict();
@@ -65,10 +73,16 @@ const InputSourceSchema = z.discriminatedUnion('from', [
 ]);
 
 const InputFromMapSchema = z.record(z.string().min(1), InputSourceSchema);
+const RedirectSchema = z.union([
+  z.string(),
+  z.object({
+    expr: z.union([z.string(), z.record(z.string(), z.unknown())]),
+  }).strict(),
+]);
 
 const ResponseBranchSchema = z.union([
   z.object({ json: z.unknown() }).strict(),
-  z.object({ redirect: z.unknown(), status: z.union([z.literal(302), z.literal(303)]).optional() }).strict(),
+  z.object({ redirect: RedirectSchema, status: z.union([z.literal(302), z.literal(303)]).optional() }).strict(),
 ]).refine((val) => 'json' in val || 'redirect' in val, {
   message: 'Response branch must have either json or redirect',
 });
@@ -92,6 +106,7 @@ const bindingEntrySchema = z
     pre: z.array(PreStepSchema).optional(),
     inputFrom: InputFromMapSchema.optional(),
     response: ResponseShapeSchema.optional(),
+    allowedRedirectHosts: z.array(nonEmptyString).optional(),
   })
   .strict();
 

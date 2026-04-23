@@ -3,6 +3,30 @@ import BetterSqlite3 from 'better-sqlite3';
 import { IdempotencyCache } from '../../src/idempotency/cache.js';
 
 describe('IdempotencyCache', () => {
+  it('preserves headers across set/get', () => {
+    const db = new BetterSqlite3(':memory:');
+    const cache = new IdempotencyCache(db);
+    cache.set(
+      'cmd.x',
+      'key-1',
+      { status: 302, body: '', headers: { Location: '/next', 'X-Thing': 'v' } },
+      1000,
+    );
+    const hit = cache.get('cmd.x', 'key-1', 1500);
+    expect(hit).not.toBeNull();
+    expect(hit?.status).toBe(302);
+    expect(hit?.body).toBe('');
+    expect(hit?.headers).toEqual({ Location: '/next', 'X-Thing': 'v' });
+  });
+
+  it('returns undefined headers when none were stored', () => {
+    const db = new BetterSqlite3(':memory:');
+    const cache = new IdempotencyCache(db);
+    cache.set('cmd.y', 'key-2', { status: 200, body: '{"ok":true}' }, 1000);
+    const hit = cache.get('cmd.y', 'key-2', 1500);
+    expect(hit?.headers).toBeUndefined();
+  });
+
   it('stores and retrieves a response by (commandName, key)', () => {
     const db = new BetterSqlite3(':memory:');
     const cache = new IdempotencyCache(db);

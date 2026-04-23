@@ -87,4 +87,21 @@ describe('pre[] consistency validation', () => {
     );
     expect(r.ok).toBe(true);
   });
+
+  it('rejects module-rpc binding to scalar input without pick', () => {
+    const resolved = makeResolvedWithPre([
+      { kind: 'module-rpc', module: 'myModule', rpc: 'doThing', input: {}, bindAs: 'customerId' },
+    ]);
+    resolved.resolved.cmd!.signature.inputs = {
+      customerId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+    };
+    const r = validateConsistency(
+      resolved,
+      { declaredModules: new Set(['myModule']) },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'BINDINGS_CONSISTENCY_PRE_SCALAR_REQUIRES_PICK')).toBe(true);
+    }
+  });
 });
