@@ -7,6 +7,8 @@ function fixture(): ValidatedPdm {
   const a: PdmArtifact = {
     entities: {
       Issue: {
+        ownerService: 'issues',
+        kind: 'owned',
         table: 'issues',
         fields: {
           id: { type: 'integer', nullable: false, column: 'id' },
@@ -28,6 +30,8 @@ function fixture(): ValidatedPdm {
         },
       },
       Project: {
+        ownerService: 'projects',
+        kind: 'root',
         table: 'projects',
         fields: { id: { type: 'integer', nullable: false, column: 'id' } },
         keys: ['id'],

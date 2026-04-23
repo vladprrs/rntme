@@ -35,6 +35,7 @@ export type {
 export type {
   PdmArtifact,
   Entity,
+  EntityKind,
   Field,
   Relation,
   RelationCardinality,

@@ -49,7 +49,11 @@ export type StateMachine = {
   transitions: Readonly<Record<string, Transition>>;
 };
 
+export type EntityKind = 'root' | 'owned';
+
 export type Entity = {
+  ownerService: string;
+  kind: EntityKind;
   table: string;
   fields: Readonly<Record<string, Field>>;
   relations?: Readonly<Record<string, Relation>>;

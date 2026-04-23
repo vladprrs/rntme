@@ -18,6 +18,15 @@ export function validateStateMachine(
   const errors: PdmError[] = [];
 
   for (const [entityName, entity] of Object.entries(artifact.entities)) {
+    if (entity.kind === 'root' && entity.stateMachine) {
+      errors.push({
+        layer: 'state-machine',
+        code: ERROR_CODES.PDM_SM_ROOT_STATE_MACHINE_FORBIDDEN,
+        message: `root entity "${entityName}" cannot declare stateMachine`,
+        path: `entities.${entityName}.stateMachine`,
+      });
+      continue;
+    }
     if (!entity.stateMachine) continue;
     const sm = entity.stateMachine;
     const entityPath = `entities.${entityName}.stateMachine`;

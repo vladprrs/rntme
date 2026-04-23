@@ -5,6 +5,8 @@ import { ERROR_CODES } from '../../src/types/result.js';
 const VALID_MINIMAL = {
   entities: {
     User: {
+      ownerService: 'accounts',
+      kind: 'root',
       table: 'users',
       fields: {
         id: { type: 'integer', nullable: false, column: 'id' },
@@ -50,6 +52,8 @@ describe('parsePdm', () => {
     const r = parsePdm({
       entities: {
         X: {
+          ownerService: 'x-service',
+          kind: 'owned',
           table: 'x',
           fields: { a: { type: 'float64', nullable: false, column: 'a' } },
           keys: ['a'],
@@ -63,6 +67,8 @@ describe('parsePdm', () => {
     const r = parsePdm({
       entities: {
         X: {
+          ownerService: 'x-service',
+          kind: 'owned',
           table: 'x',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id' },
@@ -90,6 +96,8 @@ describe('parsePdm', () => {
     const r = parsePdm({
       entities: {
         Issue: {
+          ownerService: 'issues',
+          kind: 'owned',
           table: 'issues',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id' },
@@ -115,6 +123,8 @@ describe('parsePdm', () => {
     const r = parsePdm({
       entities: {
         X: {
+          ownerService: 'x-service',
+          kind: 'root',
           table: 'x',
           fields: {
             id: { type: 'integer', nullable: false, column: 'id', generated: 'bogus' },
@@ -130,6 +140,8 @@ describe('parsePdm', () => {
     const r = parsePdm({
       entities: {
         X: {
+          ownerService: 'x-service',
+          kind: 'root',
           table: '',                // empty
           fields: {
             a: { type: 'integer', nullable: 'no', column: 'a' }, // wrong type for nullable

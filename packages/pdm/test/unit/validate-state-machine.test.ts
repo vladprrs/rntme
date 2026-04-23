@@ -5,6 +5,8 @@ import type { StructurallyValidPdm } from '../../src/types/artifact.js';
 
 function svp(overrides?: Partial<StructurallyValidPdm['entities']['Issue']>): StructurallyValidPdm {
   const entity = {
+    ownerService: 'issues',
+    kind: 'owned' as const,
     table: 'issues',
     fields: {
       id: { type: 'integer' as const, nullable: false, column: 'id' },
@@ -43,6 +45,8 @@ describe('validateStateMachine', () => {
     const a = {
       entities: {
         User: {
+          ownerService: 'accounts',
+          kind: 'root',
           table: 'users',
           fields: { id: { type: 'integer' as const, nullable: false, column: 'id' } },
           keys: ['id'],
