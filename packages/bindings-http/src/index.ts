@@ -2,6 +2,8 @@ export const VERSION = '0.0.0';
 
 export { createBindingsRouter } from './router.js';
 export type { BindingsRouterOptions } from './router.js';
+export { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from './startup/compile-plan.js';
+export type { BuildPlanResult, GraphIrCommandMap, GraphIrQueryMapPublic } from './startup/compile-plan.js';
 
 export { BindingsRuntimeError } from './errors.js';
 export type {
@@ -9,6 +11,7 @@ export type {
   ErrorResponseBody,
   ValidationDetail,
   CommandErrorStatus,
+  CommandErrorLike,
 } from './errors.js';
 export { commandErrorBody, commandErrorStatus } from './errors.js';
 

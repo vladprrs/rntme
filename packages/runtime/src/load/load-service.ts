@@ -233,7 +233,8 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     if (!bParsed.ok) {
       return { ok: false, errors: [{ code: 'BINDINGS_INVALID', details: bParsed.errors }] };
     }
-    const v = validateBindings(bParsed.value, bindingResolvers);
+    const declaredModules = new Set(manifest.modules?.map((m) => m.name) ?? []);
+    const v = validateBindings(bParsed.value, bindingResolvers, { declaredModules });
     if (!v.ok) {
       return { ok: false, errors: [{ code: 'BINDINGS_INVALID', details: v.errors }] };
     }

@@ -1,8 +1,10 @@
-import type {
-  BindingEntry,
-  HttpParameter,
-  ResolvedBindings,
-  ValidatedBindings,
+import {
+  bindAsName,
+  bindAsPick,
+  type BindingEntry,
+  type HttpParameter,
+  type ResolvedBindings,
+  type ValidatedBindings,
 } from '../types/artifact.js';
 import type { GraphInput, GraphSignature, InputMode, InputType } from '../types/resolvers.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
@@ -140,11 +142,12 @@ function checkUnbound(
 ): void {
   const basePath = `bindings.${id}.http.parameters`;
   const boundTargets = new Set(entry.http.parameters.map((p) => p.bindTo));
+  const inputFromTargets = entry.inputFrom ? new Set(Object.keys(entry.inputFrom)) : new Set<string>();
 
   for (const [inputName, input] of Object.entries(signature.inputs)) {
     if (input.mode === 'root') continue;
     if (input.mode !== 'required' && input.mode !== 'nullable') continue;
-    if (!boundTargets.has(inputName)) {
+    if (!boundTargets.has(inputName) && !inputFromTargets.has(inputName)) {
       errors.push({
         layer: 'consistency',
         code: ERROR_CODES.BINDINGS_UNBOUND_INPUT,
@@ -157,8 +160,16 @@ function checkUnbound(
   }
 }
 
-export function validateConsistency(resolved: ResolvedBindings): Result<ValidatedBindings> {
+export type ConsistencyOptions = {
+  declaredModules?: ReadonlySet<string>;
+};
+
+export function validateConsistency(
+  resolved: ResolvedBindings,
+  opts: ConsistencyOptions = {},
+): Result<ValidatedBindings> {
   const errors: BindingsError[] = [];
+  const declaredModules = opts.declaredModules ?? new Set<string>();
 
   for (const [id, binding] of Object.entries(resolved.resolved)) {
     const kind = binding.entry.kind ?? 'query';
@@ -167,6 +178,53 @@ export function validateConsistency(resolved: ResolvedBindings): Result<Validate
 
     checkParameters(id, binding.entry, binding.signature, errors);
     checkUnbound(id, binding.entry, binding.signature, errors);
+
+    const pre = binding.entry.pre ?? [];
+    for (let idx = 0; idx < pre.length; idx++) {
+      const step = pre[idx]!;
+      if (step.kind === 'module-rpc' && !declaredModules.has(step.module)) {
+        errors.push({
+          layer: 'consistency',
+          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_MODULE_NOT_DECLARED,
+          message: `binding "${id}" pre[${idx}] references module "${step.module}" which is not declared in manifest.modules`,
+          path: `bindings.${id}.pre[${idx}].module`,
+          hint: 'Add the module to manifest.modules[] with grpc.address and protoPath.',
+        });
+      }
+
+      const name = bindAsName(step.bindAs);
+      const pick = bindAsPick(step.bindAs);
+      const target = binding.signature.inputs[name];
+      if (
+        step.kind === 'module-rpc'
+        && target !== undefined
+        && target.type.kind === 'scalar'
+        && pick === null
+      ) {
+        errors.push({
+          layer: 'consistency',
+          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_SCALAR_REQUIRES_PICK,
+          message: `binding "${id}": pre-step binds to scalar "${name}" without pick`,
+          path: `bindings.${id}.pre[${idx}].bindAs`,
+          hint: `Use bindAs: { name: "${name}", pick: "<field>" } to select a scalar value.`,
+        });
+      }
+    }
+
+    if (binding.entry.inputFrom !== undefined) {
+      const graphInputNames = new Set(Object.keys(binding.signature.inputs));
+      for (const inputName of Object.keys(binding.entry.inputFrom)) {
+        if (!graphInputNames.has(inputName)) {
+          errors.push({
+            layer: 'consistency',
+            code: ERROR_CODES.BINDINGS_CONSISTENCY_INPUT_FROM_UNKNOWN_INPUT,
+            message: `binding "${id}": inputFrom key "${inputName}" does not match any graph input`,
+            path: `bindings.${id}.inputFrom.${inputName}`,
+            hint: `Known graph inputs: ${[...graphInputNames].sort().join(', ')}`,
+          });
+        }
+      }
+    }
   }
 
   if (errors.length > 0) return err(errors);

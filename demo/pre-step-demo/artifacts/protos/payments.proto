@@ -1,0 +1,9 @@
+syntax = "proto3";
+package rntme.payments.v1;
+
+message GetOrCreateCustomerReq { string user_id = 1; }
+message GetOrCreateCustomerRes { string customerId = 1; }
+
+service PaymentsModule {
+  rpc GetOrCreateCustomer (GetOrCreateCustomerReq) returns (GetOrCreateCustomerRes);
+}

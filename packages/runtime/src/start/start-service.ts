@@ -14,11 +14,18 @@ import type {
   EventBus,
   Surface,
 } from '../plugins/interfaces.js';
+import type { CommandExecutor, QueryExecutor } from '../plugins/executors/types.js';
+import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
+import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
+import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed, type ApplyMode } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
+import { buildAdapterClient } from './build-adapter-client.js';
+import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
+import { buildGrpcSurface, collectShapesFromService } from './build-grpc-surface.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -28,6 +35,10 @@ export type RuntimeConfig = {
   onReady?: (info: { port: number }) => void;
   seedMode?: ApplyMode;
   skipSeed?: boolean;
+  commandExecutor?: CommandExecutor;
+  queryExecutor?: QueryExecutor;
+  externalAdapterClient?: ExternalAdapterClient;
+  artifactDir?: string;
 };
 
 export async function startService(
@@ -67,6 +78,41 @@ export async function startService(
 
   pipeline.start();
 
+  const defaultCommandMapResult = buildDefaultGraphIrCommandMap(
+    service.bindings,
+    service.graphSpec,
+    service.pdm,
+    service.qsm,
+  );
+  if (!defaultCommandMapResult.ok) {
+    await pipeline.stop();
+    if (bus.stop) await bus.stop();
+    throw new Error(
+      `Failed to compile command bindings: ${JSON.stringify(defaultCommandMapResult.errors)}`,
+    );
+  }
+  const defaultQueryMapResult = buildDefaultGraphIrQueryMap(
+    service.bindings,
+    service.graphSpec,
+    service.pdm,
+    service.qsm,
+  );
+  if (!defaultQueryMapResult.ok) {
+    await pipeline.stop();
+    if (bus.stop) await bus.stop();
+    throw new Error(
+      `Failed to compile query bindings: ${JSON.stringify(defaultQueryMapResult.errors)}`,
+    );
+  }
+  const commandExecutor =
+    config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
+  const queryExecutor =
+    config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
+
+  const adapter =
+    config.externalAdapterClient
+    ?? (config.artifactDir !== undefined ? buildAdapterClient(service.manifest, config.artifactDir) : null);
+
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
   // `bootstrapProjections`. The disposer is invoked from `RunningService.stop`.
@@ -85,6 +131,9 @@ export async function startService(
         metricsPath: service.manifest.observability.metrics.path,
         metrics,
         healthProbe: probe,
+        commandExecutor,
+        queryExecutor,
+        externalAdapterClient: adapter ?? undefined,
       }),
     ];
 
@@ -104,16 +153,32 @@ export async function startService(
   const address = server.address();
   const port = typeof address === 'object' && address !== null ? address.port : listenPort;
 
+  const grpcSurface = buildGrpcSurface(service.manifest, {
+    commandExecutor,
+    queryExecutor,
+    shapes: collectShapesFromService(service),
+  });
+
+  let grpcStopper: (() => Promise<void>) | null = null;
+  let grpcPort: number | undefined;
+  if (grpcSurface !== null && grpcSurface.listen !== undefined) {
+    const { port: gPort, stop } = await grpcSurface.listen(ctx);
+    grpcStopper = stop;
+    grpcPort = gPort;
+  }
+
   config.onReady?.({ port });
 
   return {
     httpPort: port,
+    grpcPort,
     async stop(): Promise<void> {
       healthy = false;
       stopSeenEventsRetention();
       await new Promise<void>((resolve, reject) =>
         server.close((err?: Error) => (err !== undefined && err !== null ? reject(err) : resolve())),
       );
+      if (grpcStopper !== null) await grpcStopper();
       await pipeline.stop();
       if (bus.stop) await bus.stop();
     },

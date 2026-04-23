@@ -1,0 +1,13 @@
+{
+  "projections": {
+    "OrderView": {
+      "backing": "entity-mirror",
+      "source": { "entity": "Order" },
+      "keys": ["id"],
+      "grain": ["id"],
+      "exposed": ["id", "customerId", "userId", "amount", "status"],
+      "table": "projection_order"
+    }
+  },
+  "relations": {}
+}

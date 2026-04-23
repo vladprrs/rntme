@@ -18,6 +18,7 @@ export default [
         Request: 'readonly',
         Response: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {

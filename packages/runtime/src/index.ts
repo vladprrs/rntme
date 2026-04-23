@@ -34,12 +34,18 @@ export type {
 export { BetterSqliteDriver } from './plugins/better-sqlite-driver.js';
 export { InMemoryBus } from './plugins/in-memory-bus.js';
 export { HttpSurface } from './plugins/http-surface.js';
+export { GrpcSurface, type GrpcSurfaceOptions } from './plugins/grpc-surface.js';
 export {
   createMetrics,
   mountObservability,
+  recordPreStep,
   type Metrics,
   type HealthProbe,
 } from './plugins/observability.js';
+
+export * from './plugins/executors/index.js';
+
+export * from './plugins/adapter-client/index.js';
 
 // contract-tests intentionally NOT re-exported from the main entry point
 // (they import vitest which must not load in non-test processes).

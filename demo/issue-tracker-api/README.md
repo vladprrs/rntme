@@ -70,7 +70,7 @@ test/
   list-enrichment-e2e.test.ts                     Subprocess boot on :3013 + asserts projectKey/reporterUsername/sprintName appear on list + search rows.
 
 Dockerfile                                        FROM ghcr.io/vladprrs/rntme-runtime:1.0 + COPY artifacts /srv/artifacts.
-package.json                                      Scripts: start (tsx), start:runtime-cli (rntme-runtime CLI), test (vitest), typecheck (tsc --noEmit).
+package.json                                      Scripts: build, build:deps, start (prebuild + tsx), start:runtime-cli (prebuild + rntme-runtime CLI), test (prebuild + vitest), typecheck (tsc --noEmit).
 tsconfig.json                                     TS project config.
 vitest.config.ts                                  Vitest config.
 KNOWN_ISSUES.md                                   Historical fix log (status: all resolved). Cross-referenced below.
@@ -86,7 +86,7 @@ From the repository root:
 
 ```bash
 pnpm install                                      # once
-pnpm -F @rntme/issue-tracker-api-demo start       # tsx src/server.ts
+pnpm -F @rntme/issue-tracker-api-demo start       # prebuild + tsx src/server.ts
 ```
 
 The runtime binds the port from `artifacts/manifest.json` (`surface.http.port`, default `3000`). Override with `RNTME_HTTP_PORT`.
@@ -115,7 +115,7 @@ Persistence: the runtime defaults to `:memory:` SQLite for both event log and pr
 Tests:
 
 ```bash
-pnpm -F @rntme/issue-tracker-api-demo test        # vitest run (smoke + seed-e2e + list-enrichment-e2e)
+pnpm -F @rntme/issue-tracker-api-demo test        # prebuild + vitest run (smoke + seed-e2e + list-enrichment-e2e)
 pnpm -F @rntme/issue-tracker-api-demo typecheck   # tsc --noEmit
 ```
 

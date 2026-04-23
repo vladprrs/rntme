@@ -102,6 +102,20 @@ export function validateManifest(
 
   validateStudio(parsed.studio, errors);
 
+  const modules = parsed.modules ?? [];
+  const seenNames = new Set<string>();
+  for (const mod of modules) {
+    if (seenNames.has(mod.name)) {
+      errors.push({
+        code: 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME',
+        path: `modules`,
+        message: `duplicate module name "${mod.name}"`,
+      });
+    } else {
+      seenNames.add(mod.name);
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
   const studio: StudioConfig = {
@@ -118,6 +132,13 @@ export function validateManifest(
         enabled: parsed.surface?.http?.enabled ?? true,
         port: parsed.surface?.http?.port ?? 3000,
       },
+      grpc:
+        parsed.surface?.grpc !== undefined
+          ? {
+              enabled: parsed.surface.grpc.enabled ?? true,
+              port: parsed.surface.grpc.port ?? 50051,
+            }
+          : undefined,
     },
     persistence,
     bus: { mode: parsed.bus?.mode ?? 'in-memory' },
@@ -135,6 +156,7 @@ export function validateManifest(
       path: parsed.seed?.path ?? 'seed.json',
     },
     studio,
+    modules,
   };
   return { ok: true, value: v };
 }
@@ -206,7 +228,10 @@ export function applyEnvOverrides(
     ok: true,
     value: {
       ...v,
-      surface: { http: { enabled: v.surface.http.enabled, port } },
+      surface: {
+        http: { enabled: v.surface.http.enabled, port },
+        grpc: v.surface.grpc,
+      },
       persistence,
       bus,
       auth,

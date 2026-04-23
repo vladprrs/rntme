@@ -35,8 +35,10 @@
 - `docs/superpowers/reports/` — gap analyses (spec vs implementation)
 - `docs/adr/`                — architectural decision records
 - `docs/gaps/`               — known gaps per subsystem
-- `graph_ir_rc_7.md`         — Graph IR rc7 language spec (gitignored,
-  local-only; authoritative for the query/command IR)
+- `graph_ir_rc_7.md`         — original Graph IR rc7 language spec
+  (gitignored, local-only). Historical: first-step IR reference,
+  superseded by later specs under `docs/superpowers/specs/`. Still
+  useful for operator-level syntax/semantics; not canon.
 - `README.md` (root)         — human-facing overview + CI badge + pointer
   back to this file
 
@@ -109,6 +111,9 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/runtime`** — Top-level orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP surface, wires projections,
   applies seed, mounts bindings + UI. → `packages/runtime/README.md`.
+- **`@rntme/module-skeleton`** — Minimal scaffold package for the
+  module-integration track; depends on `@rntme/runtime`. →
+  `packages/module-skeleton/README.md`.
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
@@ -293,6 +298,87 @@ under `packages/event-store/test/`.
 
 Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
+### 6.11 Add a platform module (code-executor-based integration service)
+
+1. Read `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
+2. Copy `packages/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
+3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
+4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
+5. Follow the health-check convention in `packages/module-skeleton/README.md`.
+
+### 6.12 Expose a service over gRPC
+
+1. Read `packages/bindings-grpc/README.md` and spec §6.2.
+2. In `artifacts/manifest.json`, add:
+
+```json
+"surface": {
+  "http": { "enabled": true, "port": 3000 },
+  "grpc": { "enabled": true, "port": 50051 }
+}
+```
+
+3. Boot the service. The runtime uses `manifest.service.name` to derive `packageName` (`rntme.<name>.v1`) and `serviceName` (`<Name>Service`).
+4. To obtain the `.proto` file for client codegen: instantiate `emitProto(validated, shapes, { packageName, serviceName })` in a one-off script, or (later) via `rntme-runtime emit-proto <serviceDir>` (follow-up).
+5. `CommandExecutor` / `QueryExecutor` are the same seam as HTTP; domain services don't change anything to add gRPC.
+
+### 6.13 Call a module via pre-fetch from a command binding
+
+1. Read spec §7 and `packages/bindings-http/src/pre/` source.
+2. Declare the module in `artifacts/manifest.json`:
+
+```json
+"modules": [
+  { "name": "payments", "grpc": { "address": "payments:50051" }, "protoPath": "protos/payments.proto" }
+]
+```
+
+3. Copy the module's `.proto` into `artifacts/protos/`.
+4. In `artifacts/bindings.json`, add `pre[]` to a command binding:
+
+```json
+{
+  "kind": "command",
+  "graph": "createOrder",
+  "http": { "method": "POST", "path": "/commands/createOrder", "parameters": [...] },
+  "pre": [
+    { "kind": "module-rpc", "module": "payments", "rpc": "CreateCheckoutSession",
+      "input": { "customerId": "$body.customerId", "amount": "$body.amount" },
+      "bindAs": "session" }
+  ]
+}
+```
+
+5. Reference `$pre.session.url` in the graph's emit payload to bake the vendor result into the event.
+6. HTTP retries are safe: pass `Idempotency-Key` header from the client; the cache survives process restarts in `persistent` mode.
+7. Invariants enforced by validator: `pre.length ≤ 2`, unique `bindAs`, `module` declared in manifest, `kind: command` only.
+
+### 6.14 Define a vendor-callback endpoint (OAuth redirect, magic link, hosted checkout return)
+
+1. Read spec §8.
+2. In `artifacts/bindings.json`, add a command binding with:
+
+```json
+{
+  "kind": "command",
+  "graph": "completeFlow",
+  "http": { "method": "GET", "path": "/oauth/<vendor>/callback", "parameters": [] },
+  "inputFrom": {
+    "state": { "from": "query", "name": "state", "required": true },
+    "code":  { "from": "query", "name": "code",  "required": true }
+  },
+  "response": {
+    "onOk":  { "redirect": "/app/settings?connected=1", "status": 302 },
+    "onErr": { "redirect": "/app/errors/{$error.code}" }
+  }
+}
+```
+
+3. Make the `completeFlow` command graph read your `pending_flow` projection as a read-prelude (state→flow lookup), do a `pre[]` RPC to exchange the vendor code, and emit `FlowCompleted`.
+4. Validator invariants: GET is allowed only when `response.onOk` or `response.onErr` is a redirect. `inputFrom.<name>` must equal a graph input. `inputFrom.body` / `form` are not allowed on GET.
+5. Redirect templates support `{$result.field}` / `{$error.field}` substitutions. Omit `status` to default to 302.
+6. Callback endpoint **lives on the domain service**, not the module — see spec §8.5.
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
@@ -307,8 +393,10 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
   returns `err`, propagate it.
 - Do not create new packages without updating §3 (package layering) and
   the root README.
-- Do not edit `graph_ir_rc_7.md` to match a code bug. The spec is
-  canon; fix the code.
+- Do not edit specs under `docs/superpowers/specs/` to match a code
+  bug. The specs are the source of truth; fix the code. Note:
+  `graph_ir_rc_7.md` is historical (first-step IR spec, superseded by
+  later specs) — not canon, do not cite it as such.
 - Do not delete or renumber error codes. Consumers rely on them. Append
   new codes; deprecate in comments if needed.
 - Do not write new authoring formats (YAML, TOML) for any artifact.
@@ -343,6 +431,9 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/adr/2026-04-15-event-driven-architecture.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
+- "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
+  `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.2 +
+  `packages/bindings-grpc/README.md`.
 
 ## 9. Memory and prior decisions
 
@@ -370,8 +461,12 @@ Known categorical entries to watch for:
   state-machine artifact. One per service.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
   PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).
-- **Graph IR** — The rc7 intermediate representation for queries and
-  commands. Spec: `graph_ir_rc_7.md`.
+- **Graph IR** — Intermediate representation for queries and commands.
+  Canonical specs live under `docs/superpowers/specs/` (e.g.
+  `2026-04-13-graph-ir-sql-compiler-mvp-design.md`,
+  `2026-04-14-mutations-design.md`). `graph_ir_rc_7.md` is the
+  historical rc7 language reference — useful for operator-level
+  syntax/semantics but not canon.
 - **Projection** — A QSM-declared table maintained by the
   projection-consumer. Backing modes: `entity-mirror` (1:1 with a PDM
   entity), `derived` (reserved, not implemented).

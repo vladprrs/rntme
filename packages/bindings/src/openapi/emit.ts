@@ -62,6 +62,10 @@ function buildOperation(
   const outputKind: 'row' | 'rowset' =
     signature.output.type.kind === 'row' ? 'row' : 'rowset';
 
+  const isRedirectResponse =
+    entry.response !== undefined
+    && ('redirect' in entry.response.onOk || 'redirect' in entry.response.onErr);
+
   const baseParameters: ParameterObject[] = http.parameters
     .filter((p) => p.in !== 'body')
     .map((p) => {
@@ -80,11 +84,36 @@ function buildOperation(
       return base;
     });
 
-  const requestBody = collectRequestBody(http.parameters, signature.inputs, shapeOptions);
+  // Add inputFrom entries as OpenAPI parameters
+  if (entry.inputFrom !== undefined) {
+    for (const [, src] of Object.entries(entry.inputFrom)) {
+      if (src.from === 'query' || src.from === 'header') {
+        baseParameters.push({
+          name: src.name,
+          in: src.from,
+          required: src.required ?? false,
+          schema: { type: 'string' },
+        });
+      }
+    }
+  }
 
-  const responses: Record<string, ResponseObject> = {
-    '200': successResponse(outputShape.name, outputKind),
-  };
+  const requestBody = http.method === 'GET' ? undefined : collectRequestBody(http.parameters, signature.inputs, shapeOptions);
+
+  const responses: Record<string, ResponseObject> = {};
+  if (isRedirectResponse) {
+    const redirectStatus = (entry.response?.onOk !== undefined && 'redirect' in entry.response.onOk
+      ? entry.response.onOk.status
+      : entry.response?.onErr !== undefined && 'redirect' in entry.response.onErr
+        ? entry.response.onErr.status
+        : undefined) ?? 302;
+    responses[String(redirectStatus)] = {
+      description: 'Redirect',
+      headers: { Location: { schema: { type: 'string' } } },
+    };
+  } else {
+    responses['200'] = successResponse(outputShape.name, outputKind);
+  }
   if (includeStandardErrors) {
     Object.assign(responses, standardErrorResponses({ commandErrors: kind === 'command' }));
   }

@@ -1,4 +1,5 @@
 import type { GraphSignature, ResolvedShape } from './resolvers.js';
+import type { InputFromMap, ResponseShape } from './input-from.js';
 
 export type OperationPassthrough = Record<string, unknown>;
 export type ParameterPassthrough = Record<string, unknown>;
@@ -28,11 +29,46 @@ export type HttpBinding = {
 
 export type BindingKind = 'query' | 'command';
 
+export type PreStepBindAs = string | { name: string; pick?: string };
+
+export function bindAsName(bindAs: PreStepBindAs): string {
+  return typeof bindAs === 'string' ? bindAs : bindAs.name;
+}
+
+export function bindAsPick(bindAs: PreStepBindAs): string | null {
+  return typeof bindAs === 'string' ? null : bindAs.pick ?? null;
+}
+
+export type PreStep =
+  | {
+      kind: 'system';
+      op: 'randomBytes';
+      bytes: number;
+      bindAs: PreStepBindAs;
+    }
+  | {
+      kind: 'module-rpc';
+      module: string;
+      rpc: string;
+      input: unknown;
+      bindAs: PreStepBindAs;
+      timeoutMs?: number;
+      retry?: {
+        attempts?: number;
+        backoffMs?: 'exp' | number;
+        retryOn?: 'never' | 'transient' | 'all';
+      };
+    };
+
 export type BindingEntry = {
   kind?: BindingKind;
   graph: string;
   target: { engine: string; dialect: string };
   http: HttpBinding;
+  pre?: PreStep[];            // from plan 3
+  inputFrom?: InputFromMap;   // NEW plan 4
+  response?: ResponseShape;   // NEW plan 4
+  allowedRedirectHosts?: string[];
 };
 
 export type OpenApiDefaults = {

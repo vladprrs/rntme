@@ -3,11 +3,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
+import pino from 'pino';
 import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
+import { executeCommand, CommandExecutionError } from '@rntme/graph-ir-compiler';
 import { SqliteEventStore } from '@rntme/event-store';
 import type { ActorRef } from '@rntme/event-store';
 import { buildPlan, type CommandBindingPlan } from '../../src/startup/compile-plan.js';
+import type { CommandExecutor } from '../../src/executor-contract.js';
 import { makeCommandHandler } from '../../src/runtime/command-handler.js';
 import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
 import { honoPath } from '../../src/startup/hono-path.js';
@@ -126,21 +129,53 @@ function buildAppAndStore(): {
   const validated = validateBindings(parsed.value, resolvers);
   if (!validated.ok) throw new Error('validate fail');
   const plan = buildPlan(validated.value, reportSpec, pdm, qsm);
-  const bp = plan.reportIssueHttp;
+  const bp = plan.plans.reportIssueHttp;
   if (!bp || bp.kind !== 'command') throw new Error('expected command plan');
   const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
   const actor: ActorRef = { kind: 'user', id: 'alice' };
   let seq = 0;
+  const commandExecutor: CommandExecutor = {
+    execute: async (input) => {
+      try {
+        const value = executeCommand(plan.compiledCommands[input.commandName]!, input.inputs, input.ctx);
+        return { ok: true, value };
+      } catch (error) {
+        if (error instanceof CommandExecutionError) {
+          return {
+            ok: false,
+            error: {
+              code:
+                error.code === 'COMMAND_CONCURRENCY_CONFLICT'
+                  ? 'COMMAND_CONCURRENCY_CONFLICT'
+                  : 'COMMAND_GUARD_REJECTED',
+              message: error.message,
+              detail: error.detail,
+            },
+          };
+        }
+        return {
+          ok: false,
+          error: {
+            code: 'COMMAND_HANDLER_THREW',
+            message: error instanceof Error ? error.message : String(error),
+            detail: error,
+          },
+        };
+      }
+    },
+  };
   const app = new Hono();
   app.use('*', correlationMiddleware());
   app.post(
     honoPath(bp.entry.http.path),
     makeCommandHandler(bp as CommandBindingPlan, {
+      commandExecutor,
       eventStore: store,
       qsmDb: null,
       now: () => '2026-04-14T10:00:00Z',
       nextId: () => `018e9d2a-0000-7000-8000-${String(++seq).padStart(12, '0')}`,
       actorFromRequest: () => actor,
+      logger: pino({ level: 'silent' }),
     }),
   );
   return { app, store, actor };
@@ -268,6 +303,6 @@ describe('makeCommandHandler — 422 on illegal transition', () => {
     );
     expect(res.status).toBe(422);
     const body = (await res.json()) as { code: string };
-    expect(body.code).toBe('COMMAND_ILLEGAL_TRANSITION');
+    expect(body.code).toBe('COMMAND_GUARD_REJECTED');
   });
 });
