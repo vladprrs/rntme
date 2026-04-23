@@ -57,6 +57,27 @@ const PreStepModuleRpcSchema = z.object({
 
 const PreStepSchema = z.discriminatedUnion('kind', [PreStepSystemSchema, PreStepModuleRpcSchema]);
 
+const InputSourceSchema = z.discriminatedUnion('from', [
+  z.object({ from: z.literal('body'), path: z.string().min(1).optional() }).strict(),
+  z.object({ from: z.literal('query'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
+  z.object({ from: z.literal('header'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
+  z.object({ from: z.literal('form'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
+]);
+
+const InputFromMapSchema = z.record(z.string().min(1), InputSourceSchema);
+
+const ResponseBranchSchema = z.union([
+  z.object({ json: z.unknown() }).strict(),
+  z.object({ redirect: z.unknown(), status: z.union([z.literal(302), z.literal(303)]).optional() }).strict(),
+]).refine((val) => 'json' in val || 'redirect' in val, {
+  message: 'Response branch must have either json or redirect',
+});
+
+const ResponseShapeSchema = z.object({
+  onOk: ResponseBranchSchema,
+  onErr: ResponseBranchSchema,
+}).strict();
+
 const bindingEntrySchema = z
   .object({
     kind: z.enum(['query', 'command']).default('query'),
@@ -69,6 +90,8 @@ const bindingEntrySchema = z
       .strict(),
     http: httpSchema,
     pre: z.array(PreStepSchema).optional(),
+    inputFrom: InputFromMapSchema.optional(),
+    response: ResponseShapeSchema.optional(),
   })
   .strict();
 
