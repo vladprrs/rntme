@@ -255,6 +255,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 
 ## Specs
 
+- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — active umbrella spec for the project-first pivot: keeps `QSM` service-level, splits it into multiple files, and expands its allowed input scope to foreign-service events inside one project blueprint.
 - [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — §6 entity-mirror projection contract: backing semantics, key/grain rules, generated columns, idempotency triple.
 - [`../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) — read-side relation graph migration from PDM to QSM: schema, B2 cross-validation rules, single-hop / fan-out gates, error codes.
 

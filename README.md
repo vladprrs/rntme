@@ -217,6 +217,7 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
+- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
 - `docs/superpowers/specs/done/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
 - `docs/superpowers/specs/done/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.

@@ -341,6 +341,9 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`.
 - "Event-driven architecture — what events, what consumers?" →
   `docs/adr/2026-04-15-event-driven-architecture.md`.
+- "Why did blueprint become project-first, and where do project vs service
+  responsibilities now live?" →
+  `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
 
