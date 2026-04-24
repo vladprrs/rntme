@@ -63,6 +63,7 @@ function toResolvedEntity(name: string, e: Entity): ResolvedEntity {
     : null;
   return {
     name,
+    ownerService: e.ownerService,
     table: e.table,
     fields,
     relations,

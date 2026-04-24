@@ -1,6 +1,9 @@
 export { loadBlueprint } from './load/load-blueprint.js';
+export { createServiceBindingResolvers } from './compose/binding-resolvers.js';
 export { discoverServiceArtifacts } from './compose/discover-service-artifacts.js';
+export { loadServiceMember } from './compose/load-service-member.js';
 export { readServiceGraphSpec } from './compose/service-graphs.js';
+export { eventTypesForService } from './compose/seed-scope.js';
 export { parseProjectBlueprint } from './parse/parse.js';
 export { validateBlueprintComposition } from './validate/composition.js';
 export { validateBlueprintStructural } from './validate/structural.js';
