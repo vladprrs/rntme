@@ -33,7 +33,7 @@ export function createServiceBindingResolvers(input: {
 }): Result<BindingResolvers> {
   const graphPath = `services/${input.serviceSlug}/graphs`;
   const errors: BlueprintError[] = [];
-  const graphSignatures: Record<string, GraphSignature> = {};
+  const graphSignatures = new Map<string, GraphSignature | null>();
   const customShapes: Record<string, ResolvedShape> = {};
 
   for (const [shapeName, shape] of Object.entries(input.graphSpec.shapes)) {
@@ -55,19 +55,25 @@ export function createServiceBindingResolvers(input: {
     };
   }
 
-  for (const graph of Object.values(input.graphSpec.graphs)) {
-    const converted = toGraphSignature(input.serviceSlug, graphPath, graph);
-    if (!converted.ok) {
-      errors.push(...converted.errors);
-      continue;
-    }
-    graphSignatures[converted.value.id] = converted.value;
-  }
-
   if (errors.length > 0) return err(errors);
 
   return ok({
-    resolveGraphSignature: (graphId) => graphSignatures[graphId] ?? null,
+    resolveGraphSignature: (graphId) => {
+      if (graphSignatures.has(graphId)) {
+        return graphSignatures.get(graphId) ?? null;
+      }
+
+      const graph = input.graphSpec.graphs[graphId];
+      if (graph === undefined) {
+        graphSignatures.set(graphId, null);
+        return null;
+      }
+
+      const converted = toGraphSignature(input.serviceSlug, graphPath, graph);
+      const signature = converted.ok ? converted.value : null;
+      graphSignatures.set(graphId, signature);
+      return signature;
+    },
     resolveShape: (shapeName) =>
       customShapes[shapeName] ??
       resolvePdmShape(shapeName, input.pdmResolver),

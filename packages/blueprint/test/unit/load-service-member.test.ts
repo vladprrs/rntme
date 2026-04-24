@@ -133,6 +133,80 @@ describe('loadServiceMember', () => {
     }
   });
 
+  it('loads bindings without converting unbound helper graph signatures', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const pdm = projectPdm();
+    const resolver = createPdmResolver(pdm);
+
+    writeJson(root, 'services/catalog/graphs/shapes.json', {
+      ProductRow: {
+        fields: {
+          productId: { type: 'integer', nullable: false },
+        },
+      },
+    });
+    writeJson(root, 'services/catalog/graphs/listProducts.json', {
+      id: 'listProducts',
+      signature: {
+        inputs: {},
+        output: { type: 'rowset<ProductRow>', from: 'products' },
+      },
+      nodes: [],
+    });
+    writeJson(root, 'services/catalog/graphs/helper.json', {
+      id: 'helper',
+      signature: {
+        inputs: {},
+        output: { type: 'document<HelperOutput>', from: 'helper' },
+      },
+      nodes: [],
+    });
+    writeJson(root, 'services/catalog/bindings/bindings.json', {
+      version: '1.0',
+      graphSpecRef: '../graphs',
+      pdmRef: '../../pdm',
+      qsmRef: '../qsm',
+      bindings: {
+        listProducts: {
+          graph: 'listProducts',
+          target: { engine: 'sqlite', dialect: 'sqlite' },
+          http: {
+            method: 'GET',
+            path: '/products',
+            parameters: [],
+          },
+        },
+      },
+    });
+
+    const r = loadServiceMember({
+      rootDir: root,
+      service: {
+        slug: 'catalog',
+        kind: 'domain',
+        qsm: null,
+        artifacts: {
+          hasGraphs: true,
+          hasBindings: true,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: false,
+        },
+      },
+      pdm,
+      pdmResolver: resolver,
+      allEventTypes: deriveEventTypes(pdm),
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.bindings).not.toBeNull();
+      expect(r.value.bindings?.resolved.listProducts?.signature.id).toBe(
+        'listProducts',
+      );
+    }
+  });
+
   it('rejects seed events for aggregates owned by a different service', () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const pdm = projectPdm();
