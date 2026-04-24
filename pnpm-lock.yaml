@@ -196,12 +196,21 @@ importers:
 
   packages/blueprint:
     dependencies:
+      '@rntme/bindings':
+        specifier: workspace:*
+        version: link:../bindings
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm
       '@rntme/qsm':
         specifier: workspace:*
         version: link:../qsm
+      '@rntme/seed':
+        specifier: workspace:*
+        version: link:../seed
+      '@rntme/ui':
+        specifier: workspace:*
+        version: link:../ui
       zod:
         specifier: ^4.0.0
         version: 4.3.6

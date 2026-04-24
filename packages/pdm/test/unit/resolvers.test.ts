@@ -59,6 +59,7 @@ describe('createPdmResolver', () => {
     const res = createPdmResolver(fixture());
     const e = res.resolveEntity('Issue')!;
     expect(e.name).toBe('Issue');
+    expect(e.ownerService).toBe('issues');
     expect(e.table).toBe('issues');
     expect(e.keys).toEqual(['id']);
     expect(e.fields.find((f) => f.name === 'status')?.type).toBe('string');

@@ -1,0 +1,20 @@
+{
+  "seedVersion": 1,
+  "events": [
+    {
+      "id": "seed:PriceEntry:1:v1",
+      "subject": "PriceEntry-1",
+      "rntAggregateType": "PriceEntry",
+      "rntAggregateId": "1",
+      "rntVersion": 1,
+      "eventType": "PriceEntryQuote",
+      "data": {
+        "productId": 1001,
+        "amount": 19.99,
+        "currency": "USD"
+      },
+      "time": "2026-04-23T00:00:00.000Z",
+      "rntSchemaVersion": 1
+    }
+  ]
+}

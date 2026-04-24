@@ -2,6 +2,8 @@
 
 Parser, validator, DDL generator, handler-spec deriver, and resolver for QSM (Query-Side Materialized) projection artifacts that define rntme's read-side mirrors.
 
+In the project-first model, service-level QSM remains service-owned but may consume events derived from foreign owned entities via the shared project PDM.
+
 ## Role in the system
 
 - Depends on: [`@rntme/pdm`](../pdm) for cross-ref validation (entity / field / state-machine / PDM-relation lookups via `PdmResolver`); [`zod`](https://zod.dev) for structural parsing; [`@rntme/pdm`](../pdm) `EventTypeSpec[]` for handler derivation.
@@ -194,6 +196,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 ## Invariants & gotchas
 
 - `ValidatedQsm` is a branded type; the only way to construct one is through `validateStructural` then `validateCrossRef` (or `validateQsm`). Do not cast to bypass — `derive/*` and `createQsmResolver` rely on the brand to skip re-checking PDM consistency. Source: `src/types/artifact.ts` (`ValidatedBrand`).
+- **Service ownership is external to `@rntme/qsm`.** When `@rntme/qsm` is used through `@rntme/blueprint`, a service may own a projection over a foreign service's owned entity as long as the shared project PDM exposes that entity and it has a state machine. `@rntme/qsm` still treats the supplied `PdmResolver` as canon and does not encode service boundaries itself.
 - Entity-mirror projections must have `keys` set-equal to the source entity's `keys`, and `grain` set-equal to those `keys`. Mirrors are per-key by construction; aggregation is not a backing concern. Source: spec [`docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) §6; enforced in `validate/cross-ref.ts` (`QSM_XREF_ENTITY_MIRROR_KEYS_MISMATCH`, `QSM_XREF_ENTITY_MIRROR_GRAIN_MISMATCH`); fix commit `6734e10` ("enforce grain==keys").
 - An entity may have at most one `entity-mirror` projection. Two mirrors over the same source entity collide on event apply and is forbidden at cross-ref (`QSM_XREF_ENTITY_MIRROR_DUPLICATE`); the resolver re-asserts via `invariantViolated` to surface validator regressions loudly.
 - `backing: 'derived'` parses but does not validate. The Zod enum admits it for forward-compat with tier 2; cross-ref rejects with `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Do not add a "derived" code path inside `derive/*` — they short-circuit on `backing !== 'entity-mirror'`.

@@ -32,6 +32,7 @@ export type ResolvedStateMachine = Readonly<{
 
 export type ResolvedEntity = Readonly<{
   name: string;
+  ownerService: string;
   table: string;
   fields: readonly ResolvedField[];
   relations: readonly ResolvedRelation[];
