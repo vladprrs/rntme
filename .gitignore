@@ -21,6 +21,16 @@ core.*
 /.cursor/
 /.worktrees/
 /research/
+.vscode/
+.idea/
+
+# Editor / patch artifacts
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
 
 # Stray npm lockfiles — repo uses pnpm
 package-lock.json
