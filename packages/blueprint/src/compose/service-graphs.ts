@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { InputMode } from '@rntme/bindings';
 import type { GraphJson, ServiceGraphSpec } from '../types/artifact.js';
 import {
   ERROR_CODES,
@@ -8,8 +9,20 @@ import {
   type Result,
 } from '../types/result.js';
 
+const INPUT_MODES: ReadonlySet<InputMode> = new Set([
+  'root',
+  'required',
+  'nullable',
+  'defaulted',
+  'predicate_optional',
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isInputMode(value: string): value is InputMode {
+  return INPUT_MODES.has(value as InputMode);
 }
 
 function isValidShapes(
@@ -44,6 +57,7 @@ function isValidGraph(value: unknown): value is GraphJson {
     if (!isRecord(input)) return false;
     if (typeof input.type !== 'string') return false;
     if (typeof input.mode !== 'string') return false;
+    if (!isInputMode(input.mode)) return false;
   }
 
   return true;
@@ -86,6 +100,11 @@ export function readServiceGraphSpec(
       if (!isValidGraph(graph)) {
         throw new Error(
           `service "${slug}" graph file "${fileName}" is malformed`,
+        );
+      }
+      if (graph.id !== graphName) {
+        throw new Error(
+          `service "${slug}" graph file "${fileName}" id must match filename stem "${graphName}"`,
         );
       }
       graphs[graphName] = graph;

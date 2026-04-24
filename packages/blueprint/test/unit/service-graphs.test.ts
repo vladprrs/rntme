@@ -145,6 +145,47 @@ describe('readServiceGraphSpec', () => {
     expectInvalidServiceGraphs(root);
   });
 
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for an unknown input mode', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    writeJson(root, 'services/catalog/graphs/shapes.json', {
+      ProductRow: {
+        fields: {
+          productId: { type: 'integer', nullable: false },
+        },
+      },
+    });
+    writeJson(root, 'services/catalog/graphs/listProducts.json', {
+      id: 'listProducts',
+      signature: {
+        inputs: {
+          limit: { type: 'integer', mode: 'sometimes' },
+        },
+        output: { type: 'rowset<ProductRow>', from: 'items' },
+      },
+      nodes: [],
+    });
+
+    expectInvalidServiceGraphs(root);
+  });
+
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID when filename stem differs from graph id', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    writeJson(root, 'services/catalog/graphs/shapes.json', {
+      ProductRow: {
+        fields: {
+          productId: { type: 'integer', nullable: false },
+        },
+      },
+    });
+    writeJson(
+      root,
+      'services/catalog/graphs/listProducts.json',
+      validGraph('listCatalogProducts'),
+    );
+
+    expectInvalidServiceGraphs(root);
+  });
+
   it('ignores shapes.json as a graph and loads graph files in sorted order', () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
