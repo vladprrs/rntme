@@ -19,4 +19,15 @@ describe('binding registry', () => {
     expect(resolveProjectBindingRef(registry, 'app', 'pricing.listPrices')?.path).toBe('/api/pricing/prices');
     expect(buildUiHttpMap(registry, 'catalog').listProducts?.path).toBe('/api/catalog/products');
   });
+
+  it('joins root binding paths without adding a trailing slash', () => {
+    const registry = buildBindingRegistry({
+      httpBaseByService: { catalog: '/api/catalog/' },
+      bindingsByService: {
+        catalog: [{ bindingId: 'root', method: 'GET', path: '/' }],
+      },
+    });
+
+    expect(registry['catalog.root']?.path).toBe('/api/catalog');
+  });
 });
