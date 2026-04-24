@@ -27,8 +27,12 @@
     - `@rntme-cli/platform-core`  — platform domain, use-cases, seam interfaces.
     - `@rntme-cli/platform-storage` — Postgres + rustfs adapters.
     - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`.
+    - `@rntme-cli/deploy-core` — target-neutral project deployment planning.
+    - `@rntme-cli/deploy-dokploy` — Dokploy target adapter for deployments.
   Specs: `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`
   and `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`.
+  Deployment spec:
+  `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
@@ -118,6 +122,12 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
   module-integration track; depends on `@rntme/runtime`. →
   `packages/module-skeleton/README.md`.
+- **`@rntme-cli/deploy-core`** — Target-neutral project deployment
+  planning from a validated/composed project model. Preview MVP only; no
+  raw blueprint loading. → `rntme-cli/packages/deploy-core/README.md`.
+- **`@rntme-cli/deploy-dokploy`** — Dokploy target adapter: render/apply
+  redacted deployment plans through the Dokploy HTTP API. →
+  `rntme-cli/packages/deploy-dokploy/README.md`.
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
