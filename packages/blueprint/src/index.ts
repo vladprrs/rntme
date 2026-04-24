@@ -11,7 +11,6 @@ export type {
 export type {
   ComposedBlueprint,
   CompositionService,
-  GraphInputMode,
   GraphJson,
   LoadedBlueprint,
   ProjectBlueprint,
