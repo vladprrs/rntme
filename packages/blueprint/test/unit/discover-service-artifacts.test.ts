@@ -11,6 +11,19 @@ function writeJson(root: string, rel: string, value: unknown): void {
 }
 
 describe('discoverServiceArtifacts', () => {
+  it('returns false for every artifact when files are absent', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    mkdirSync(join(root, 'services/catalog'), { recursive: true });
+
+    expect(discoverServiceArtifacts(root, 'catalog')).toEqual({
+      hasGraphs: false,
+      hasBindings: false,
+      hasUi: false,
+      hasSeed: false,
+      hasQsm: false,
+    });
+  });
+
   it('detects qsm/, graphs/, bindings/, ui/, and seed/ conventions', () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/qsm/qsm.json', { version: '1' });
@@ -30,6 +43,33 @@ describe('discoverServiceArtifacts', () => {
       hasUi: true,
       hasSeed: true,
       hasQsm: true,
+    });
+  });
+
+  it('ignores directories named like expected artifact files', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    mkdirSync(join(root, 'services/catalog/graphs/shapes.json'), {
+      recursive: true,
+    });
+    mkdirSync(join(root, 'services/catalog/bindings/bindings.json'), {
+      recursive: true,
+    });
+    mkdirSync(join(root, 'services/catalog/ui/manifest.json'), {
+      recursive: true,
+    });
+    mkdirSync(join(root, 'services/catalog/seed/seed.json'), {
+      recursive: true,
+    });
+    mkdirSync(join(root, 'services/catalog/qsm/qsm.json'), {
+      recursive: true,
+    });
+
+    expect(discoverServiceArtifacts(root, 'catalog')).toEqual({
+      hasGraphs: false,
+      hasBindings: false,
+      hasUi: false,
+      hasSeed: false,
+      hasQsm: false,
     });
   });
 });

@@ -1,6 +1,14 @@
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ServiceArtifactPresence } from '../types/artifact.js';
+
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
 
 export function discoverServiceArtifacts(
   rootDir: string,
@@ -9,10 +17,10 @@ export function discoverServiceArtifacts(
   const serviceDir = join(rootDir, 'services', slug);
 
   return {
-    hasGraphs: existsSync(join(serviceDir, 'graphs', 'shapes.json')),
-    hasBindings: existsSync(join(serviceDir, 'bindings', 'bindings.json')),
-    hasUi: existsSync(join(serviceDir, 'ui', 'manifest.json')),
-    hasSeed: existsSync(join(serviceDir, 'seed', 'seed.json')),
-    hasQsm: existsSync(join(serviceDir, 'qsm', 'qsm.json')),
+    hasGraphs: isFile(join(serviceDir, 'graphs', 'shapes.json')),
+    hasBindings: isFile(join(serviceDir, 'bindings', 'bindings.json')),
+    hasUi: isFile(join(serviceDir, 'ui', 'manifest.json')),
+    hasSeed: isFile(join(serviceDir, 'seed', 'seed.json')),
+    hasQsm: isFile(join(serviceDir, 'qsm', 'qsm.json')),
   };
 }
