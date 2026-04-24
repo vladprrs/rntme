@@ -4,13 +4,34 @@ Project-first blueprint parser/validator for rntme.
 
 ## Role in the system
 
-- Depends on: `@rntme/pdm`, `@rntme/qsm`, `zod`
+- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `zod`
 - Consumed by: future runtime/tooling tracks
-- Position in pipeline: project directory → `loadBlueprint` → validated project metadata + validated project `PDM` + parsed per-service `QSM`
+- Position in pipeline:
+  `project directory`
+  -> `loadBlueprint` (Track A: structure + project `PDM` + raw service descriptors)
+  -> `loadComposedBlueprint` (Track B: project routing/middleware semantics + validated service members + project-routed UI compilation)
+
+## Directory conventions
+
+- `pdm/pdm.json` + `pdm/entities/*.json`
+- `services/<svc>/qsm/qsm.json` + `projections/*.json`
+- `services/<svc>/graphs/shapes.json` + `graphs/*.json`
+- `services/<svc>/bindings/bindings.json`
+- `services/<svc>/seed/seed.json`
+- `services/<svc>/ui/...`
 
 ## Public API
 
 - `loadBlueprint(dir)` — load `project.json`, the project `PDM`, and service registry metadata.
+- `loadComposedBlueprint(dir)` — load the Track A blueprint, validate project composition rules, load validated service members, build the project binding registry, and compile project-routed service UI.
+- `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
+- `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts.
+- `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
+- `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
+- `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
+- `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry.
+- `readServiceGraphSpec(...)` — load service graph shapes and graph JSON files.
+- `eventTypesForService(...)` — scope project `PDM` event types for service seed validation.
 - `parseProjectBlueprint(raw)` — parse the `project.json` document shape.
 - `validateBlueprintStructural(...)` — enforce service directory / service kind invariants.
 - `ok`, `err`, `isOk`, `isErr`, `ERROR_CODES` — shared `Result` helpers and error registry.
@@ -18,10 +39,11 @@ Project-first blueprint parser/validator for rntme.
 ## Where to look first
 
 - `src/load/load-blueprint.ts`
-- `src/parse/schema.ts`
-- `src/validate/structural.ts`
+- `src/validate/composition.ts`
+- `src/compose/load-service-member.ts`
+- `src/compose/load-composed-blueprint.ts`
 - `test/fixtures/product-catalog-project/`
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — Track A blueprint model, `project.json`, and project-level `PDM` / service-level `QSM` layout.
+- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
