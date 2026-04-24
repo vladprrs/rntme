@@ -1,4 +1,6 @@
 export { loadBlueprint } from './load/load-blueprint.js';
+export { discoverServiceArtifacts } from './compose/discover-service-artifacts.js';
+export { readServiceGraphSpec } from './compose/service-graphs.js';
 export { parseProjectBlueprint } from './parse/parse.js';
 export { validateBlueprintComposition } from './validate/composition.js';
 export { validateBlueprintStructural } from './validate/structural.js';
