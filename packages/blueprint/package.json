@@ -22,8 +22,11 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/bindings": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "@rntme/qsm": "workspace:*",
+    "@rntme/seed": "workspace:*",
+    "@rntme/ui": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {

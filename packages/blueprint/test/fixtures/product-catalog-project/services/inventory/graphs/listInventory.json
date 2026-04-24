@@ -1,0 +1,8 @@
+{
+  "id": "listInventory",
+  "signature": {
+    "inputs": {},
+    "output": { "type": "rowset<InventoryRow>", "from": "inventory" }
+  },
+  "nodes": []
+}

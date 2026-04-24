@@ -2,6 +2,8 @@
 
 UI artifact v2 compiler: reads a multi-file JSON authoring tree (manifest + screens + layouts + fragments), resolves references, expands `$param`/`$ref`, validates, and emits a compiled artifact consumed by `@rntme/ui-runtime`.
 
+The package does not assume a same-service binding namespace; Track B project composition injects a routed binding map from `@rntme/blueprint`.
+
 ## Role in the system
 
 - Depends on: `zod` (declared, currently unused in runtime code); no `@rntme/*` package dependencies.
@@ -187,6 +189,7 @@ See `packages/ui/test/fixtures/fragment-app/` for a full minimal example exercis
 - **Slots are layout-only.** `validateStructural` rejects `type === 'Slot'` outside layouts with `SLOT_NOT_IN_LAYOUT`.
 - **Structural errors short-circuit reference validation.** `validate` returns after the structural pass if any errors accumulated; reference rules do not run against a broken tree.
 - **Route resolution merges manifest routes with caller-supplied `resolveRoute`.** Manifest patterns support `:param` segments (colon-prefixed part matches any value at the same index). The merged resolver `OR`s caller and manifest resolution.
+- **Binding IDs are opaque to `@rntme/ui`.** Reference validation only checks that `resolveBinding(id)` succeeds; emit then uses `httpMap[id]` to attach HTTP details. Project-aware callers may therefore use qualified refs like `pricing.listPrices`, while bare ids such as `listIssues` remain valid as caller-defined local shorthands.
 - **`$state` path coverage rules.** `validateReferences` accepts a state path as covered if it exactly matches a key in `screen.data`, or if it is prefixed by `/form/`, `/route/params/`, `/actions/`, `/data/__status/`, or `/data/__error/`. Any other path yields `UNCOVERED_STATE_PATH`.
 - **`emit` silently drops bindings missing from `httpMap`.** `http-map.resolveScreenHttp` skips data bindings and command actions whose `binding` ID is not in `httpMap`. Catching missing bindings is the caller's responsibility via `resolvers.resolveBinding` in the validate phase.
 - **`refetch` and `navigation` actions pass through `emit` verbatim.** Only `command` actions are rewritten to include `{ method, path }` (and have `binding` dropped). See `test/fixtures/refetch-app` for the `refetch` action shape.

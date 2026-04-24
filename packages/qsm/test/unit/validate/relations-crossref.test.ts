@@ -256,6 +256,7 @@ describe('validateCrossRef — relations B2', () => {
 
     const makeEntity = (name: string, fields: string[], relForeignKey?: string): ResolvedEntity => ({
       name,
+      ownerService: 'test-service',
       table: name.toLowerCase() + 's',
       fields: fields.map((f) => ({ name: f, type: 'integer' as const, nullable: false, column: f })),
       relations: relForeignKey
