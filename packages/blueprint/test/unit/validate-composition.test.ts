@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 
+const expectErrorCodes = (
+  r: ReturnType<typeof validateBlueprintComposition>,
+  codes: readonly string[],
+) => {
+  expect(r.ok).toBe(false);
+  if (!r.ok) {
+    expect(r.errors.map((e) => e.code)).toEqual(
+      expect.arrayContaining([...codes]),
+    );
+  }
+};
+
 const svc = (
   slug: string,
   kind: 'domain' | 'integration',
@@ -127,6 +139,105 @@ describe('validateBlueprintComposition', () => {
             'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION',
         ),
       ).toBe(true);
+    }
+  });
+
+  it('rejects invalid route targets and missing route artifacts', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'bad-routes',
+        services: ['catalog', 'mod-auth'],
+        routes: {
+          http: {
+            '/api/missing': 'missing',
+            '/api/catalog': 'catalog',
+          },
+          ui: { '/': 'mod-auth' },
+        },
+      },
+      services: {
+        catalog: svc('catalog', 'domain'),
+        'mod-auth': svc('mod-auth', 'integration', { hasUi: true }),
+      },
+    });
+
+    expectErrorCodes(r, [
+      'BLUEPRINT_COMPOSE_ROUTE_UNKNOWN_SERVICE',
+      'BLUEPRINT_COMPOSE_HTTP_ROUTE_TARGET_MISSING_BINDINGS',
+      'BLUEPRINT_COMPOSE_UI_ROUTE_TARGET_NOT_DOMAIN',
+    ]);
+  });
+
+  it('allows middleware without a provider', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'providerless-middleware',
+        services: ['catalog'],
+        routes: { http: { '/api/catalog': 'catalog' } },
+        middleware: {
+          requestContext: { kind: 'request-context' },
+        },
+        mounts: [{ target: 'http:/api/catalog', use: ['requestContext'] }],
+      },
+      services: {
+        catalog: svc('catalog', 'domain', { hasBindings: true }),
+      },
+    });
+
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects unknown middleware providers and bad mount references', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'bad-mounts',
+        services: ['catalog'],
+        routes: { http: { '/api/catalog': 'catalog' } },
+        middleware: {
+          auth: { kind: 'auth', provider: 'missing-auth' },
+        },
+        mounts: [{ target: 'http:/api/missing', use: ['auth', 'ghost'] }],
+      },
+      services: {
+        catalog: svc('catalog', 'domain', { hasBindings: true }),
+      },
+    });
+
+    expectErrorCodes(r, [
+      'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE',
+      'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_TARGET',
+      'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_MIDDLEWARE',
+    ]);
+  });
+
+  it('returns multiple independent composition errors together', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'many-errors',
+        services: ['catalog'],
+        routes: {
+          http: { '/api/catalog': 'catalog' },
+          ui: { '/': 'ghost' },
+        },
+        middleware: {
+          auth: { kind: 'auth', provider: 'ghost' },
+        },
+        mounts: [{ target: 'http:/ghost', use: ['ghost'] }],
+      },
+      services: {
+        catalog: svc('catalog', 'domain'),
+      },
+    });
+
+    expectErrorCodes(r, [
+      'BLUEPRINT_COMPOSE_HTTP_ROUTE_TARGET_MISSING_BINDINGS',
+      'BLUEPRINT_COMPOSE_ROUTE_UNKNOWN_SERVICE',
+      'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE',
+      'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_TARGET',
+      'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_MIDDLEWARE',
+    ]);
+    if (!r.ok) {
+      expect(r.errors).toHaveLength(5);
     }
   });
 });
