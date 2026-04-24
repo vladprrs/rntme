@@ -1,0 +1,8 @@
+{
+  "id": "listProducts",
+  "signature": {
+    "inputs": {},
+    "output": { "type": "rowset<ProductRow>", "from": "catalog" }
+  },
+  "nodes": []
+}

@@ -1,0 +1,17 @@
+{
+  "metadata": { "title": "Home" },
+  "data": {
+    "/data/catalog": {
+      "binding": "catalog.listProducts",
+      "refetchOn": ["mount"]
+    },
+    "/data/prices": {
+      "binding": "pricing.listPrices",
+      "refetchOn": ["mount"]
+    },
+    "/data/inventory": {
+      "binding": "inventory.listInventory",
+      "refetchOn": ["mount"]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": 16 },
+      "children": ["products", "prices", "inventory"]
+    },
+    "products": {
+      "type": "DataList",
+      "props": { "title": "Products" },
+      "repeat": { "statePath": "/data/catalog", "key": "productId" }
+    },
+    "prices": {
+      "type": "DataList",
+      "props": { "title": "Prices" },
+      "repeat": { "statePath": "/data/prices", "key": "id" }
+    },
+    "inventory": {
+      "type": "DataList",
+      "props": { "title": "Inventory" },
+      "repeat": { "statePath": "/data/inventory", "key": "id" }
+    }
+  }
+}
