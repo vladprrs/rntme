@@ -13,8 +13,18 @@
   disagrees with a spec is a bug — fix the code, not the spec.
 - Read the per-package `README.md` before opening any source file in that
   package. The README's "Where to look first" section is indexed by task.
-- `docs/superpowers/` is gitignored. The specs, plans, and reports under
-  it live only on the local worktree; they are not checked in.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/`, and
+  `docs/superpowers/reports/` are tracked in git. New specs and plans
+  land with the PR they describe so other contributors and CI can resolve
+  the cross-references. Only the top-level `.superpowers/` cache is
+  gitignored.
+- **Every plan must include a documentation-touch task.** When a plan's
+  code changes affect any per-package README, this file (§3 layering /
+  §6 how-tos / §8 decisions / §10 glossary), `README.md` (packages table /
+  dep graph / MVP scope / design docs), `CLAUDE.md`, `docs/architecture.md`,
+  or `vision.md`, the plan MUST contain a final task that lands those doc
+  updates in the same PR. See §11 for the checklist; see §7 for the
+  anti-pattern.
 
 ## 2. Repository map
 
@@ -418,6 +428,13 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
   reader open it.
 - Do not add line numbers to README "Where to look first" pointers.
   Lines drift; function and file names are stable.
+- Do not write or merge an implementation plan whose code changes
+  affect documentation surfaces without a documentation-touch task.
+  The "specs are source of truth, code that disagrees is a bug" rule
+  inverts when the docs themselves drift. See §11 for the doc-touch
+  checklist; see
+  `docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md`
+  for what un-tracked drift cost across the PR-12-to-PR-16 window.
 
 ## 8. Where decisions live
 
@@ -504,3 +521,62 @@ Known categorical entries to watch for:
   `InMemoryBus`.
 - **MVP gate** — A spec feature that parses but is validator-rejected
   until its backing implementation lands.
+
+## 11. Documentation maintenance
+
+Every plan that touches code MUST include a final documentation-touch
+task or block. The checklist below names the documentation surfaces
+that may need updates; review it explicitly during plan-writing and
+record the result. **"No docs need updating" is a valid outcome —
+but it must be a recorded decision, not an omission.**
+
+The `superpowers:writing-plans` skill produces the implementation plan;
+the skill does not enforce this checklist on its own, so plan authors
+apply it explicitly during plan self-review.
+
+### 11.1 Doc-touch checklist
+
+For each implementation plan, evaluate:
+
+1. **Per-package `README.md`** — any change to a package's public API,
+   error codes, invariants, out-of-scope items, or how-to pointers.
+   Sections: API / Invariants & gotchas / Out of scope / Where to look
+   first / Specs.
+2. **AGENTS.md §3 (package layering)** — any new package, any moved or
+   removed package, any changed dependency edge.
+3. **AGENTS.md §6 (how-tos)** — any new authoring or operating workflow
+   that an agent will look for later.
+4. **AGENTS.md §8 (decisions live)** — any decision recorded in a new
+   spec; add a "Why X?" → spec link.
+5. **AGENTS.md §10 (glossary)** — any new vocabulary readers will
+   encounter.
+6. **`README.md` packages table / dep graph** — any new package or
+   dep edge.
+7. **`README.md` "MVP / Tier 1 scope"** — any feature that ships today
+   or any new MVP gate that defers a feature.
+8. **`README.md` "Design docs"** — any new spec under
+   `docs/superpowers/specs/`.
+9. **`CLAUDE.md` "Architecture in one paragraph"** — any package
+   added/removed/repositioned, any change to plugin seams, any change
+   to the artifact set or canonical authoring unit.
+10. **`CLAUDE.md` "Product positioning"** — any change to the
+    internal/market framings (rare; flag for explicit review).
+11. **`docs/architecture.md`** — §3.2 container map for new packages;
+    §4 for component-level changes; §6 for new cross-cutting
+    abstractions; §5 L4 pointers if new diagnostic functions; §8
+    glossary; §7 if observations need re-evaluation.
+12. **`vision.md`** — only if the bounded-object framing or the platform
+    pillars shift. Most plans will not touch vision.
+
+### 11.2 Plan structure
+
+The doc-touch task can be one task per affected file or a single
+batched task — at the plan author's discretion — but it MUST land in
+the same PR as the code changes that triggered it. Splitting docs into
+a follow-up PR is the failure mode this rule exists to prevent.
+
+When the checklist returns "no docs need updating", record that
+explicitly as the doc-touch task body (e.g. *"Doc-touch evaluation:
+no surfaces affected. Reasoning: changes are internal to
+`packages/foo/src/internal/`; no public API, error codes, or
+invariants moved."*).
