@@ -135,6 +135,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 - Reachability is BFS-from-creation. A state with no incoming creation/forward transition is rejected (`PDM_SM_UNREACHABLE_STATE`, `test/unit/validate-state-machine.test.ts` — "detects unreachable state"). Terminal sinks with no outgoing transitions are accepted; the reserved `PDM_SM_TRAPPED_STATE` code is not emitted today.
 - `Field` requires `column` and `nullable`. Both are mandatory in the Zod schema (`src/parse/schema.ts:fieldSchema` — `.strict()`).
 - `relation.to` must be a local entity. Cross-service references are rejected (`PDM_STRUCT_RELATION_UNKNOWN_ENTITY`) and listed as an explicit gap in `docs/gaps/pdm-gaps.md`.
+- In the project-first model, PDM is project-level and shared across services. Service ownership is expressed by the project blueprint layer, which classifies root vs. owned entities and scopes service responsibilities without making `@rntme/pdm` understand service boundaries.
 - `parsePdm` accepts a JSON string. If `input` is a string it is `JSON.parse`d first; a `JSON.parse` failure surfaces as `PDM_PARSE_SCHEMA_VIOLATION` with `layer: 'parse'`. Tests: `test/unit/parse.test.ts` — "parses valid PDM (JSON string input)" / "rejects invalid JSON string".
 
 ## Out of scope / known limits
@@ -142,7 +143,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 - `ScalarPrimitive` is closed: `'integer' | 'decimal' | 'string' | 'boolean' | 'date' | 'datetime'`. No `enum`, `json`, `money`, or nested struct. Demos approximate enums with plain `string`. Adding a new primitive requires reading `docs/gaps/pdm-gaps.md` first (P0/P1 list).
 - `GeneratedKind` is exactly `'id' | 'createdAt' | 'updatedAt' | 'actor'`. No `deletedAt` — soft-delete must be hand-rolled as a nullable datetime, and the validator will not exclude such a field from `affects` automatically.
 - No multi-table or polymorphic entities. One entity = one table. No inheritance.
-- No cross-service entity references. `relation.to` resolves only inside the artifact.
+- No cross-service entity references inside PDM. `relation.to` resolves only inside the project PDM; cross-service composition belongs to `@rntme/blueprint`.
 - No migrations / schema-evolution support. The DDL emitted from a `ValidatedPdm` is a fresh schema; evolving an existing database is out of scope.
 - No state-machine guards, side-effects, or guards on `from` arrays beyond declared-state membership. The validator does not check that every state has an outgoing transition (terminal sinks are allowed).
 - No author-facing diagnostics for impossible transitions (e.g., `from: ['a', 'b']` where one branch is unreachable from creation). Reachability is computed per-state, not per-transition.

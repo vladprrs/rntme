@@ -1,6 +1,6 @@
 # @rntme/bindings
 
-HTTP bindings artifact: parser, four-layer validator, and OpenAPI 3.1 emitter for rntme query and command graphs.
+HTTP bindings artifact: parser, four-layer validator, and OpenAPI 3.1 emitter for rntme query and command graphs. Current bindings also cover project-routed refs, command `pre[]` middleware, callback bindings, `inputFrom`, and response shapes used by HTTP/gRPC surfaces.
 
 ## Role in the system
 
@@ -153,6 +153,9 @@ Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON 
 - Branded stages enforce ordering at the type level. `StructurallyValid`, `ResolvedBindings`, `ValidatedBindings` are constructed only by the matching validators. `generateOpenApi` accepts `ValidatedBindings` only — casting around the brand bypasses all consistency checks.
 - Passthrough deep-merge replaces arrays in full. `binding.http.openapi` and `parameter.openapi` are merged into the emitted operation/parameter objects; nested objects merge key-wise but `tags`, `parameters`, `required`, etc. are overwritten as a whole. See `deepMerge` and `test/unit/openapi/passthrough.test.ts`.
 - The Zod schema is `.strict()` end-to-end. Unknown keys at any level (artifact, binding entry, http, parameter, openapi defaults) fail with `BINDINGS_PARSE_SCHEMA_VIOLATION`; there is no `additionalProperties: true` escape hatch in the artifact format.
+- `pre[]` is command-only and capped at two steps. Valid kinds are `system` (idempotency-key) and `module-rpc`; `bindAs` names must be unique and referenced modules must exist in the manifest.
+- Callback bindings use `http.method: "GET"` plus `inputFrom` and redirect responses (`response.onOk` / `response.onErr`). GET commands without a redirect response are rejected.
+- `ResponseShape` and `InputSource` keep callback and pre-fetch runtime behavior in the artifact instead of ad hoc HTTP handlers.
 - `kind` defaults to `'query'` at the parse layer (Zod `.default('query')`). A binding entry with no `kind` field is treated as a query throughout.
 - Decimal encoding defaults to `string` with `format: 'decimal'`. Pass `generateOpenApi(..., { decimalEncoding: 'number' })` to switch to `{ type: 'number' }` in both shape and parameter schemas. Precision-sensitive consumers should keep the default.
 
@@ -165,6 +168,7 @@ Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON 
 - HTTP method set is `GET` and `POST` only. `PUT` / `PATCH` / `DELETE` follow rc7 §24 and are not in the artifact schema.
 - Single content-type: `application/json`. No multipart, no form-encoded, no file uploads.
 - No headers, cookies, security schemes, pagination envelope, or auth metadata. Add via `binding.http.openapi` passthrough if needed at the OpenAPI layer; runtime implementation is `bindings-http`'s concern.
+- No module transport. `pre[]` validates module calls, but gRPC client execution belongs to `@rntme/bindings-http` / `@rntme/bindings-grpc` and runtime wiring.
 - No serialisation. `generateOpenApi` returns an in-memory `OpenApiDoc`; the caller stringifies to JSON or YAML.
 - No client SDK generation. Standard OpenAPI codegen tooling consumes the emitted document.
 
@@ -182,4 +186,5 @@ Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON 
 ## Specs
 
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-design.md) — authoritative spec (artifact format §4, validation layers §6, OpenAPI mapping §7, package layout §8).
+- [`../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md) — executor seams, `pre[]`, module RPC, callback bindings, response shapes, and idempotency behavior.
 - [`../../graph_ir_rc_7.md`](../../graph_ir_rc_7.md) — Graph IR rc7: §6.3 root inputs, §6.5 graph roles, §21 binding artifact concept.

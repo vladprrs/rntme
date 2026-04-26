@@ -4,7 +4,7 @@ Hono sub-router that turns a `ValidatedBindings` artifact plus a Graph IR spec i
 
 ## Role in the system
 
-- Depends on: `@rntme/bindings` (input artifact, OpenAPI doc), `@rntme/graph-ir-compiler` (per-binding `compile` / `compileCommand` and `execute` / `executeCommand`), `@rntme/event-store` (command appends and actor type), `hono` (routing), `zod` (per-binding schemas), `better-sqlite3` (read-side execution).
+- Depends on: `@rntme/bindings` (input artifact, OpenAPI doc, `pre[]`, callback response shapes), `@rntme/graph-ir-compiler` (per-binding `compile` / `compileCommand` and `CommandExecutor` / `QueryExecutor` backing), `@rntme/event-store` (command appends and actor type), gRPC module clients, `hono` (routing), `zod` (per-binding schemas), `better-sqlite3` (read-side execution and idempotency cache).
 - Consumed by: `demo/issue-tracker-api` and any host that mounts the returned `Hono` instance via `app.route('/', router)`.
 - Position in pipeline: `validateBindings` (in `@rntme/bindings`) → `createBindingsRouter` (this package) → request handler → `execute` / `executeCommand` (in `@rntme/graph-ir-compiler`) → JSON response. Startup compiles every bound graph once and throws `BindingsRuntimeError` on the first failure aggregate; per-request work is parameter extraction, Zod parsing, name remapping, and execution.
 
@@ -113,6 +113,9 @@ For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slic
 - **OpenAPI path syntax `{id}` is rewritten to Hono `:id` by `honoPath`.** Mount paths read from `entry.http.path` must use the OpenAPI form. Source: `startup/hono-path.ts`; `test/unit/hono-path.test.ts`.
 - **`onError` is observability only.** It runs before the `500 INTERNAL_ERROR` envelope is sent and never changes the response body or status. Throwing inside `onError` propagates out of the handler. Source: `runtime/handler.ts`, `runtime/command-handler.ts`; spec §3.
 - **Defaults for `now`, `nextId`, `actorFromRequest`.** `now = () => new Date().toISOString()`, `nextId = () => randomUUID()` from `node:crypto`, `actorFromRequest = () => null`. Override `nextId` in tests for deterministic event ids. Source: `router.ts`; commit `54328af chore(bindings-http): use node:crypto for default nextId`.
+- **Pre-fetch runs before command execution.** `runPreSteps` resolves `system` idempotency keys and `module-rpc` calls, then exposes results under `$pre.<bindAs>` for the command graph.
+- **Idempotency cache is command-run scoped.** Persistent mode stores `(idempotency-key, command-run-id) → response` with a 24h TTL so HTTP retries can replay the same response without appending duplicate events.
+- **Callback bindings return redirects.** GET command bindings with `response.onOk` / `response.onErr` redirect through `renderResponse`; vendor callbacks live on the domain service, not on the module.
 
 ## Out of scope / known limits
 
@@ -124,6 +127,7 @@ For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slic
 - No non-SQLite executor — `db` is typed `BetterSqlite3.Database`.
 - No hot reload — bindings are compiled once at startup.
 - No client SDK generation — caller uses `@rntme/bindings`'s `generateOpenApi` and an external generator.
+- No arbitrary pre-step plugins. The shipped pre-step kinds are `system` and `module-rpc`; adding another kind starts in `@rntme/bindings`.
 - 422 is produced only by `CommandExecutionError`; query graphs never return 422.
 - 404 and 405 are emitted by Hono for unmatched routes / methods; this package does not override them.
 
@@ -142,3 +146,4 @@ For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slic
 
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md) — authoritative design: §3 public API, §4 request lifecycle, §5 Zod rules, §6 startup pipeline, §7 error model, §11 explicit non-goals.
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-design.md) — `ValidatedBindings`, `HttpParameter`, `GraphSignature`, `OpenApiDoc` shapes consumed here.
+- [`../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md) — pre-fetch orchestration, callback bindings, idempotency cache, and executor seams.

@@ -2,7 +2,7 @@
 
 > **We're building the safe runtime for AI-generated business workflow apps.**
 >
-> Coding agents can already help teams build a first app quickly, but every additional service tends to become a custom backend snowflake. rntme turns a validated service blueprint into a working API and UI on a standard runtime, so teams can create workflow-heavy services repeatably instead of reinventing architecture each time. We're starting with AI-native teams and agencies building lots of internal and business workflow apps, and expanding into the control plane for software written by agents.
+> Coding agents can already help teams build a first app quickly, but every additional app tends to become a custom backend snowflake. rntme turns a validated project blueprint into working APIs and a UI on a standard runtime, so teams can create workflow-heavy business apps repeatably instead of reinventing architecture each time. We're starting with AI-native teams and agencies building lots of internal and business workflow apps, and expanding into the control plane for software written by agents.
 
 ## Table of contents
 
@@ -29,7 +29,7 @@ Three canonical sizes — reuse verbatim.
 
 **30-second** (YC application, investor reply, demo intro, first cold email)
 
-> Coding agents can already help teams build a first app quickly, but every additional service tends to become a custom backend snowflake. rntme turns a validated service blueprint into a working API and UI on a standard runtime, so teams can create workflow-heavy services repeatably instead of reinventing architecture each time. We're starting with AI-native teams and agencies building lots of internal and business workflow apps, and expanding into the control plane for software written by agents.
+> Coding agents can already help teams build a first app quickly, but every additional app tends to become a custom backend snowflake. rntme turns a validated project blueprint into working APIs and a UI on a standard runtime, so teams can create workflow-heavy business apps repeatably instead of reinventing architecture each time. We're starting with AI-native teams and agencies building lots of internal and business workflow apps, and expanding into the control plane for software written by agents.
 
 **Big-company / vision** (vision slide, long-form post, late-round deck — do *not* lead with this pre-traction)
 
@@ -56,7 +56,7 @@ The market has already noticed. Anthropic, OpenAI, and GitHub all now ship long-
 
 rntme is a runtime.
 
-A team — or an agent — describes one service as a **validated service blueprint**: a single bounded specification that captures the domain, the data model, the state transitions, the query and command surface, the HTTP/UI bindings, and any seed data. The rntme runtime validates the blueprint in layers and boots a working HTTP API plus a declarative UI from it — **with zero service-specific code.**
+A team — or an agent — describes a working app as a **validated project blueprint**: a single bounded project blueprint folder that captures `project.json`, the project-level domain model, one or more services with their query/command surfaces, HTTP/UI bindings, seed data, and integration modules. The rntme runtime validates the blueprint in layers and boots working APIs plus a declarative UI from it — **with zero service-specific code.**
 
 The point isn't that the runtime is clever. The point is that the blueprint is the durable unit. Teams edit the blueprint; rntme keeps the service consistent. Agents author blueprints; the runtime enforces what's valid. The second service starts from a copy of the first blueprint, not from an empty repo.
 
@@ -73,7 +73,7 @@ The point isn't that the runtime is clever. The point is that the blueprint is t
 - An internal-tools low-code platform competing with Retool / Appsmith / ToolJet / Budibase on UI speed.
 - An agent runtime — rntme runs the services that agents describe, not the agents themselves.
 
-**A note on framing.** Internally, the engineering identity of rntme is an artifact-driven runtime composed of a set of validated JSON artifacts compiled in layers; see [`docs/architecture.md`](docs/architecture.md). Externally, buyers see one thing: a validated service blueprint. The artifact pipeline is the compiler IR, not the authoring UX.
+**A note on framing.** Internally, the engineering identity of rntme is an artifact-driven runtime authored as a project blueprint and composed from validated JSON artifacts compiled in layers; see [`docs/architecture.md`](docs/architecture.md). Externally, buyers see one thing: a validated project blueprint. The artifact pipeline is the compiler IR, not the authoring UX.
 
 ---
 
@@ -240,7 +240,7 @@ Today, rntme is a per-service runtime. Tomorrow, it is the control plane around 
 
 1. **Control plane.** Organizations, projects, services, environments, API tokens, RBAC, SSO. Multi-tenancy. *Partially live at `platform.rntme.com`.*
 2. **Registry.** Publish and pull validated blueprints. Content-addressed artifact bundles. Versions, tags, history, diff, lineage. *Designed; partially live.*
-3. **Deploy surface.** Promote a blueprint version onto managed infrastructure. Environments. Rollbacks. Preview deploys.
+3. **Deploy surface.** Promote a blueprint version onto managed infrastructure. Environments. Rollbacks. Preview deploys. The current deploy surface is built on `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy`; see `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
 4. **Governance layer.** Blueprint review UI for humans — including business users who never touch code. Approval workflows. Audit trail. Policy gates that block bad blueprints before deploy.
 
 **Roadmap rule.** Every commercial feature should map to one of these four pillars. Anything that doesn't is probably the wrong feature.
@@ -263,7 +263,7 @@ Three angles — pick by audience.
 
 - In the agent era, code generation stops being scarce; **preserving intent and architectural consistency becomes the scarce asset.**
 - Teams don't want less code. They want **fewer snowflake backends.**
-- The durable unit of AI-built software is not a prompt and not a PR. It is a **validated service blueprint.**
+- The durable unit of AI-built software is not a prompt and not a PR. It is a **validated project blueprint.**
 - The winning company won't just generate code — it will own the **runtime and control plane** that make generated services consistent, reviewable, deployable, and governable.
 
 rntme is the service runtime first. The platform is what it grows into.

@@ -1,5 +1,7 @@
 # @rntme/issue-tracker-api-demo
 
+> **Deprecated historical reference.** This demo is a single-service runtime fixture from the pre project-first model. It remains useful for end-to-end runtime smoke tests, but the canonical authoring/versioning/deploy unit is now a validated project blueprint folder, not this service artifact directory.
+
 End-to-end demo: a small issue-tracker REST API + SPA wired from four JSON artifacts (PDM, QSM, bindings, graphs) plus a seed stream and a UI tree — all driven through `@rntme/runtime` with zero hand-written wiring. Exercises every package in the monorepo.
 
 > **Why an issue tracker.** *Ticketing* is one of rntme's target wedge classes (alongside approvals, customer-ops consoles, onboarding, back-office) — stateful, workflow-heavy, and repeatable. See [`vision.md`](../../vision.md) for the full wedge and ICP.

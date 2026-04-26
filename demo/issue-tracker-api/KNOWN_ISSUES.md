@@ -1,5 +1,7 @@
 # Known Issues — `@rntme/issue-tracker-api-demo`
 
+> **Deprecated historical reference.** This file tracks a single-service demo kept for runtime history and smoke tests. It is not the canonical project-first example; new docs should point to validated project blueprint folders.
+
 Status: **all resolved** — the demo boots with declarative seeding and all previously tracked issues are now closed. The **compiler** issue (`wrapPredicateOptional` in `@rntme/graph-ir-compiler`) has been fixed; see Finding 3 below. The demo README links here from its "Run it" section.
 
 **Last verified against HEAD:** 2026-04-16.

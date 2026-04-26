@@ -1,6 +1,6 @@
 # @rntme/runtime
 
-Top-level orchestrator for an rntme service: loads a validated artifact directory, boots the event-store / bus / projection / HTTP pipeline, applies seed, and returns a handle with `httpPort` and `stop()`.
+Top-level orchestrator for an rntme service: loads a validated artifact directory, boots the event-store / bus / projection / HTTP and gRPC-capable pipeline, applies seed, wires executor seams and module support, and returns a handle with `httpPort` and `stop()`.
 
 ## Role in the system
 
@@ -18,7 +18,7 @@ Top-level orchestrator for an rntme service: loads a validated artifact director
 - Consumed by:
   - `demo/issue-tracker-api` — embeds `startService` programmatically.
   - Any image that copies `Dockerfile.template` and a validated artifacts directory.
-- Position in pipeline: authoring artifacts → `loadService` (validates every input) → `startService` (boots event-store, bus, projections, HTTP surface) → running service answers HTTP.
+- Position in pipeline: service-level authoring artifacts → `loadService` (validates every input) → `startService` (boots event-store, bus, projections, executor seams, modules, HTTP/gRPC surfaces) → running service answers HTTP. Project-level intake from a project blueprint folder remains deferred to a separate runtime spec.
 
 ## File map
 
@@ -108,7 +108,7 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 
 ### Plugin seams
 
-`DbDriver`, `EventBus`, and `Surface` are the three replaceable backings. Default implementations ship in this package; future packages (`@rntme/db-turso`, `@rntme/bus-kafka`, `@rntme/bindings-grpc`) implement the same interfaces and are injected via `RuntimeConfig`.
+`DbDriver`, `EventBus`, and `Surface` are the replaceable backings. `CommandExecutor` and `QueryExecutor` are the executor seams shared by HTTP/gRPC surfaces and modules. Default implementations ship in this package; future packages (`@rntme/db-turso`, `@rntme/bus-kafka`) implement the same interfaces and are injected via `RuntimeConfig`.
 
 | Interface | Default impl | Key methods |
 |---|---|---|
@@ -173,6 +173,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 - **UI v2 routes mount at `/api` with a prefixed `httpMap`.** `loadService` builds `httpMap[id] = { method, path: '/api' + rb.entry.http.path }` before calling `ui.compile`. The compiled artifact embeds those absolute paths; `HttpSurface` then mounts `createBindingsRouter` at `/api` and the UI app at `/`. Fix: `d83e926 fix(runtime): prepend /api prefix to httpMap paths for v2 compiled screens`.
 - **Seed lifecycle — applied after DDL bootstrap, before relay.** Exact order in `startService`: `bus.start` → `wireEventPipeline` (which calls `bootstrapProjections(qsmDb, projectionDdls)`) → `applySeed` (if `service.seed !== null` and `!skipSeed`) → `pipeline.start()` (relay + consumer) → `HttpSurface.mount` → `serve`. `wireEventPipeline` does **not** auto-start; the split exists so seed runs before the consumer polls the bus. Fixes: `b266f85 fix(runtime): align seed manifest + loadService with runtime-seed plan`, spec §8.3.
+- **Modules are service-adjacent, not project intake.** Runtime wires `manifest.modules[]`, pre-fetch middleware, the idempotency cache, and gRPC surfaces for a service. It does not yet boot an entire project blueprint folder; `@rntme/blueprint` owns project composition until that runtime spec lands.
 - **`seedMode: 'strict'` swallows `SEED_STORE_NOT_EMPTY` only.** On persistent restarts the event-log is non-empty; `applySeed` rejects with that code and `startService` proceeds. Any other seed error tears down the pipeline and re-throws (`start-service.ts` lines 54–63). Spec §5.1, §8.3.
 - **Bus pass-through in env overrides.** `applyEnvOverrides` must preserve `v.bus` verbatim — dropping it silently disabled the in-memory bus. Fix: `efc3df6 fix(runtime,docs): bus passthrough in env override + post-migration READMEs`.
 - **`pdm-shape` field iteration.** `loadService` iterates `pdmResolver.resolveEntity(name).fields` (array), not `Object.entries`. A mismatched iteration shape returns an empty shape and downstream bindings fail `BINDINGS_INVALID`. Fix: `8410408 fix(runtime): loadService pdm-shape field iteration + drop dead GRAPH_INVALID`.
@@ -189,6 +190,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 ## Out of scope / known limits
 
 - Single-process runtime. There is no clustering, leader election, or inter-process coordination. Scale-out is a future `@rntme/bus-kafka` + external Turso deployment.
+- No project-level runtime intake. Booting from `project.json` + project PDM + N services is validated/composed by `@rntme/blueprint`, but `@rntme/runtime` still starts one service at a time.
 - One `manifest.json` per process. Multi-service embedding means multiple `startService` calls, each with its own port.
 - SQLite-only default. `BetterSqliteDriver` is the only shipped DbDriver. Postgres is explicitly not a target — target dialect is SQLite forever, scale-out goes through Turso.
 - No hot reload. `loadService` runs once at boot; a manifest/artifact edit requires a restart.
