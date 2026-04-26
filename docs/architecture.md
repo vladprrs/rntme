@@ -128,7 +128,7 @@ C4Context
   Rel(rntme, platform, "Registry and deploy pipeline")
 ```
 
-**What the diagram shows.** The project blueprint folder is the direct input from humans/agents. rntme validates project composition, then boots service runtimes behind one project-routed HTTP/UI surface. Storage remains explicitly per-service.
+**What the diagram shows.** The project blueprint folder is the direct input from humans/agents. rntme validates project composition, then boots service runtimes behind one project-routed HTTP/UI surface. Upload/version storage is project-scoped; service material is packaged inside each immutable project version.
 
 **Why only one storage actor.** rntme treats storage as a per-service concern. The `DbDriver` plugin seam (see §3) lets the same runtime run against `BetterSqlite`, an in-memory driver for tests, or Turso without changing any artifact.
 
