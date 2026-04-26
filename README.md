@@ -92,7 +92,7 @@ The `@rntme/runtime` stack is open-source and free — that's the trust engine. 
 
 1. **Control plane** — organizations, projects, services, environments, API tokens, RBAC, SSO (WorkOS-backed). *Partially live.*
 2. **Registry** — publish and pull validated blueprints; content-addressed artifact bundles on S3-compatible storage; versions, tags, history, diff, lineage. *Partially live.*
-3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The current pipeline is `@rntme-cli/deploy-core` (target-neutral plan model) plus `@rntme-cli/deploy-dokploy` (Dokploy adapter); see [`docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md).
+3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme-cli/deploy-core` planner plus `@rntme-cli/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md).
 4. **Governance layer** — blueprint review UI for humans (including business users who never touch code); approval workflows; audit trail; policy gates that block bad blueprints before deploy.
 
 Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md). Strategic context: [`vision.md`](vision.md) §8 *The future platform*.

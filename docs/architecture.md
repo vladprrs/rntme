@@ -132,7 +132,7 @@ C4Context
 
 **Why only one storage actor.** rntme treats storage as a per-service concern. The `DbDriver` plugin seam (see §3) lets the same runtime run against `BetterSqlite`, an in-memory driver for tests, or Turso without changing any artifact.
 
-**Why the platform is external.** The commercial platform owns registry, deploy, governance, SSO, and organization control-plane concerns. `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy` consume validated/composed project models, but they are CLI-side and not in the runtime path.
+**Why the platform is external.** The commercial platform owns registry, deploy, governance, SSO, and organization control-plane concerns. `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy` consume validated/composed project models, but they are not in the service-runtime boot path. Platform deploy state lives in Postgres: encrypted deploy targets, queued deployment records, append-only deployment logs, rendered plan digests, apply results, and smoke-verification reports.
 
 ## 3. L2 — Containers
 
@@ -199,7 +199,13 @@ flowchart TB
 
 **Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme-cli/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models. The demo is a deprecated historical single-service consumer of `@rntme/runtime`.
 
-### 3.3 Plugin seams — extension without editing artifacts
+### 3.3 Platform deploy flow
+
+The platform HTTP service exposes deploy-target and deployment REST routes plus matching server-rendered UI screens. Deploy targets hold Dokploy endpoint/project metadata, event-bus configuration, policy values, default-target selection, and an encrypted Dokploy API token. Starting a deployment resolves a project version and target, creates a queued deployment record, then schedules the executor.
+
+The executor fetches the immutable project-version bundle from S3-compatible storage, materializes and revalidates it with `@rntme/blueprint`, builds a target-neutral plan with `@rntme-cli/deploy-core`, renders/applies a redacted Dokploy plan with `@rntme-cli/deploy-dokploy`, appends sanitized logs, records apply results and the rendered digest, runs smoke verification, and finalizes the deployment as succeeded, warning, failed, or orphaned. This keeps deploy orchestration in the commercial control plane while the open runtime remains focused on serving validated projects.
+
+### 3.4 Plugin seams — extension without editing artifacts
 
 Three interfaces live in `packages/runtime/src/plugins/`:
 
@@ -209,7 +215,7 @@ Three interfaces live in `packages/runtime/src/plugins/`:
 
 The manifest (`manifest.json`) selects defaults; a caller passing a custom implementation replaces one seam without editing any other artifact. See `packages/runtime/README.md` for the exact interface shapes.
 
-### 3.4 Boot & seed lifecycle (sequence #3)
+### 3.5 Boot & seed lifecycle (sequence #3)
 
 ```mermaid
 sequenceDiagram
