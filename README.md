@@ -116,6 +116,10 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/db-studio`](packages/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
 | [`@rntme/runtime`](packages/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 | [`@rntme/module-skeleton`](packages/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
+| **Canonical contracts (Identity track)** |  |
+| [`@rntme/contracts-common-v1`](packages/contracts/_common/v1) | Shared cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort, `Metadata`) imported by every category contract. |
+| [`@rntme/contracts-identity-v1`](packages/contracts/identity/v1) | Canonical Identity contract: `service IdentityModule` (24 RPCs), six entity types, seventeen CloudEvents payloads, `IDENTITY_<LAYER>_<KIND>` error codes. |
+
 | **Deployment (CLI-side)** |  |
 | [`@rntme-cli/deploy-core`](rntme-cli/packages/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
 | [`@rntme-cli/deploy-dokploy`](rntme-cli/packages/deploy-dokploy) | Dokploy adapter that renders and applies redacted deployment plans. |

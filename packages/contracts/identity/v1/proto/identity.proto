@@ -1,0 +1,344 @@
+syntax = "proto3";
+package rntme.contracts.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "rntme/contracts/common/v1/common.proto";
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_PENDING = 2;
+  USER_STATUS_SUSPENDED = 3;
+  USER_STATUS_DELETED = 4;
+  USER_STATUS_BLOCKED = 5;
+  USER_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum OrgStatus {
+  ORG_STATUS_UNSPECIFIED = 0;
+  ORG_STATUS_ACTIVE = 1;
+  ORG_STATUS_SUSPENDED = 2;
+  ORG_STATUS_DELETED = 3;
+  ORG_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum MembershipStatus {
+  MEMBERSHIP_STATUS_UNSPECIFIED = 0;
+  MEMBERSHIP_STATUS_ACTIVE = 1;
+  MEMBERSHIP_STATUS_PENDING = 2;
+  MEMBERSHIP_STATUS_REVOKED = 3;
+  MEMBERSHIP_STATUS_SUSPENDED = 4;
+  MEMBERSHIP_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum InvitationStatus {
+  INVITATION_STATUS_UNSPECIFIED = 0;
+  INVITATION_STATUS_PENDING = 1;
+  INVITATION_STATUS_ACCEPTED = 2;
+  INVITATION_STATUS_REVOKED = 3;
+  INVITATION_STATUS_EXPIRED = 4;
+  INVITATION_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum SessionStatus {
+  SESSION_STATUS_UNSPECIFIED = 0;
+  SESSION_STATUS_ACTIVE = 1;
+  SESSION_STATUS_ENDED = 2;
+  SESSION_STATUS_REVOKED = 3;
+  SESSION_STATUS_EXPIRED = 4;
+  SESSION_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum TokenType {
+  TOKEN_TYPE_UNSPECIFIED = 0;
+  TOKEN_TYPE_OPAQUE_SESSION = 1;
+  TOKEN_TYPE_JWT_ACCESS = 2;
+  TOKEN_TYPE_JWT_REFRESH = 3;
+}
+
+enum ResolutionInputType {
+  RESOLUTION_INPUT_TYPE_UNSPECIFIED = 0;
+  RESOLUTION_INPUT_TYPE_EMAIL = 1;
+  RESOLUTION_INPUT_TYPE_VENDOR_ID = 2;
+  RESOLUTION_INPUT_TYPE_SSO_SUBJECT = 3;
+  RESOLUTION_INPUT_TYPE_PHONE = 4;
+  RESOLUTION_INPUT_TYPE_USERNAME = 5;
+}
+
+message User {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string email = 2;
+  bool email_verified = 3;
+  rntme.contracts.common.v1.Name name = 4;
+  string phone = 5;
+  bool phone_verified = 6;
+  string avatar_url = 7;
+  UserStatus status = 8;
+  rntme.contracts.common.v1.Metadata metadata = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  google.protobuf.Timestamp last_sign_in_at = 12;
+  google.protobuf.Timestamp deleted_at = 13;
+  google.protobuf.Struct vendor_raw = 14;
+}
+
+message Organization {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string name = 2;
+  string slug = 3;
+  string logo_url = 4;
+  string description = 5;
+  OrgStatus status = 6;
+  rntme.contracts.common.v1.Metadata metadata = 7;
+  int32 max_members = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
+  google.protobuf.Struct vendor_raw = 12;
+}
+
+message OrganizationMembership {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  repeated string roles = 4;
+  repeated string permissions = 5;
+  MembershipStatus status = 6;
+  rntme.contracts.common.v1.Metadata metadata = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  google.protobuf.Struct vendor_raw = 10;
+}
+
+message Invitation {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string email = 2;
+  string organization_id = 3;
+  string inviter_user_id = 4;
+  repeated string roles = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+  InvitationStatus status = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  google.protobuf.Timestamp accepted_at = 9;
+  google.protobuf.Timestamp revoked_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Struct vendor_raw = 12;
+}
+
+message Session {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string session_id = 2;
+  string user_id = 3;
+  string organization_id = 4;
+  TokenType token_type = 5;
+  repeated string roles = 6;
+  repeated string permissions = 7;
+  repeated string verified_factors = 8;
+  SessionStatus status = 9;
+  string ip_address = 10;
+  string user_agent = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp last_active_at = 13;
+  google.protobuf.Timestamp expires_at = 14;
+  google.protobuf.Timestamp revoked_at = 15;
+  google.protobuf.Struct vendor_raw = 16;
+}
+
+message IdentityResolution {
+  oneof identity {
+    User user = 1;
+    Organization organization = 2;
+  }
+  bool exists = 3;
+  string canonical_id = 4;
+  ResolutionInputType input_type = 5;
+  string input_value = 6;
+  google.protobuf.Timestamp resolved_at = 7;
+}
+
+message GetUserRequest { string canonical_id = 1; }
+message ListUsersRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string organization_id = 2;
+  UserStatus status = 3;
+  string email = 4;
+}
+message UserList {
+  repeated User items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message GetOrganizationRequest { string canonical_id = 1; }
+message ListOrganizationsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  OrgStatus status = 2;
+  string slug = 3;
+}
+message OrganizationList {
+  repeated Organization items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message GetMembershipRequest { string canonical_id = 1; }
+message ListMembershipsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  MembershipStatus status = 4;
+}
+message OrganizationMembershipList {
+  repeated OrganizationMembership items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message GetInvitationRequest { string canonical_id = 1; }
+message ListInvitationsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string organization_id = 2;
+  string email = 3;
+  InvitationStatus status = 4;
+}
+message InvitationList {
+  repeated Invitation items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message GetSessionRequest { string canonical_id = 1; }
+message ListSessionsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  SessionStatus status = 4;
+}
+message SessionList {
+  repeated Session items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message ResolveIdentityRequest {
+  ResolutionInputType input_type = 1;
+  string input_value = 2;
+  string organization_id = 3;
+}
+
+message IntrospectSessionRequest { string token = 1; }
+
+message CreateUserRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string email = 2;
+  rntme.contracts.common.v1.Name name = 3;
+  string phone = 4;
+  string avatar_url = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+  bool email_verified = 7;
+}
+message UpdateUserRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  rntme.contracts.common.v1.Name name = 3;
+  string phone = 4;
+  string avatar_url = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+}
+message DeleteUserRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message CreateOrganizationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string name = 2;
+  string slug = 3;
+  string logo_url = 4;
+  string description = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+  int32 max_members = 7;
+}
+message UpdateOrganizationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string name = 3;
+  string slug = 4;
+  string logo_url = 5;
+  string description = 6;
+  rntme.contracts.common.v1.Metadata metadata = 7;
+  int32 max_members = 8;
+}
+message DeleteOrganizationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message CreateInvitationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string email = 2;
+  string organization_id = 3;
+  repeated string roles = 4;
+  rntme.contracts.common.v1.Metadata metadata = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+message RevokeInvitationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string reason = 3;
+}
+
+message AddMembershipRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  repeated string roles = 4;
+  rntme.contracts.common.v1.Metadata metadata = 5;
+}
+message UpdateMembershipRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  repeated string roles = 3;
+  rntme.contracts.common.v1.Metadata metadata = 4;
+}
+message RemoveMembershipRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string reason = 3;
+}
+
+message RevokeSessionRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string reason = 3;
+}
+
+service IdentityModule {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (UserList);
+  rpc GetOrganization(GetOrganizationRequest) returns (Organization);
+  rpc ListOrganizations(ListOrganizationsRequest) returns (OrganizationList);
+  rpc GetMembership(GetMembershipRequest) returns (OrganizationMembership);
+  rpc ListMemberships(ListMembershipsRequest) returns (OrganizationMembershipList);
+  rpc GetInvitation(GetInvitationRequest) returns (Invitation);
+  rpc ListInvitations(ListInvitationsRequest) returns (InvitationList);
+  rpc GetSession(GetSessionRequest) returns (Session);
+  rpc ListSessions(ListSessionsRequest) returns (SessionList);
+  rpc ResolveIdentity(ResolveIdentityRequest) returns (IdentityResolution);
+  rpc IntrospectSession(IntrospectSessionRequest) returns (Session);
+
+  rpc CreateUser(CreateUserRequest) returns (User);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+  rpc DeleteUser(DeleteUserRequest) returns (User);
+
+  rpc CreateOrganization(CreateOrganizationRequest) returns (Organization);
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (Organization);
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (Organization);
+
+  rpc CreateInvitation(CreateInvitationRequest) returns (Invitation);
+  rpc RevokeInvitation(RevokeInvitationRequest) returns (Invitation);
+
+  rpc AddMembership(AddMembershipRequest) returns (OrganizationMembership);
+  rpc UpdateMembership(UpdateMembershipRequest) returns (OrganizationMembership);
+  rpc RemoveMembership(RemoveMembershipRequest) returns (OrganizationMembership);
+
+  rpc RevokeSession(RevokeSessionRequest) returns (Session);
+}

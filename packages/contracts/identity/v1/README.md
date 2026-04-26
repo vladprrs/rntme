@@ -1,0 +1,41 @@
+# @rntme/contracts-identity-v1
+
+Canonical Identity contract v1: `service IdentityModule` (24 RPCs), six entities, seventeen CloudEvents payloads, and `IDENTITY_<LAYER>_<KIND>` error codes.
+
+## Layout
+
+- `proto/identity.proto` — entities, enums, RPCs, request/response messages.
+- `proto/identity-events.proto` — event payloads (compiled together via `identity-events` import chain).
+- `scripts/gen.mjs` — `proto-deps/` symlinks for `rntme/contracts/common/v1` + `identity`, then `pbjs`/`pbts`.
+- `src/proto.gen.{js,d.ts}` — generated (committed).
+- `src/error-codes.ts` — typed view of `error-codes.json`.
+- `src/index.ts` — `proto`, error codes, and direct exports (`User`, `CanonicalRef`, …).
+- `test/` — entities, events, service RPC list, error-code lint.
+
+## Usage
+
+```ts
+import { User, UserStatus, CanonicalRef, proto, errorCodes, type IdentityErrorCode } from '@rntme/contracts-identity-v1';
+
+const ref = CanonicalRef.create({
+  canonical_id: 'u-1',
+  vendor_id: 'v',
+  module_name: 'identity-clerk',
+  module_version: '0.0.0',
+  contract_version: 'v1',
+});
+const user = User.create({ ref, email: 'ada@example.com', status: UserStatus.USER_STATUS_ACTIVE });
+const buf = User.encode(user).finish();
+
+const code: IdentityErrorCode = 'IDENTITY_REFERENCES_USER_NOT_FOUND';
+console.log(errorCodes.references.includes(code));
+```
+
+## Commands
+
+- `pnpm run proto:gen`
+- `pnpm run build` / `test` / `lint` / `typecheck`
+
+## Spec
+
+`docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`
