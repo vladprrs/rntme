@@ -16,11 +16,11 @@ where styling is desired — copy, do not invent new colours):
 
 # rntme — Architecture Overview
 
-> Cutoff: 2026-04-18. Written per plan `docs/superpowers/plans/done/2026-04-18-architecture-overview.md`.
+> Cutoff: 2026-04-26. Originally written per plan `docs/superpowers/plans/done/2026-04-18-architecture-overview.md`; refreshed after PR 9-16 project-first pivot.
 >
 > Spec: `docs/superpowers/specs/done/2026-04-18-architecture-overview-design.md`.
 >
-> Primary framing: rntme is an artifact-driven runtime for AI-agent-generated services. CQRS, event-sourcing, SQLite, Turso, branded `Validated*` types, and plugin seams are **consequences** of that goal, not the identity of the system. See `rntme_vision_framing` memory.
+> Primary framing: rntme is an artifact-driven runtime authored as a validated project blueprint folder. CQRS, event-sourcing, SQLite, Turso, branded `Validated*` types, plugin seams, executor seams, and modules are **consequences** of that goal, not the identity of the system.
 
 ## Table of contents
 
@@ -38,7 +38,7 @@ where styling is desired — copy, do not invent new colours):
 
 ## 1. Executive summary
 
-**rntme is an artifact-driven runtime.** A service is described by a small set of strictly-validated JSON artifacts (PDM, QSM, Graph IR, bindings, UI, seed, manifest). The runtime loads those artifacts, validates them in layers, and boots a working HTTP + UI service without requiring any service-specific code. The primary payoff is that **AI agents and humans can _generate_ these artifacts and get a running service** — the runtime's job is to make that generation safe and repeatable.
+**rntme is an artifact-driven runtime authored as a project blueprint.** A working app is described by a validated project blueprint folder: `project.json`, a project-level PDM, N service folders, and integration modules. The project layer composes service-level primitives (QSM, Graph IR, bindings, UI, seed, manifest) and validates routing, middleware, ownership, service discovery, and project-routed binding refs before any runtime surface is booted.
 
 ```mermaid
 flowchart LR
@@ -46,23 +46,31 @@ flowchart LR
         A["AI agent"]:::external
         H["Human"]:::external
     end
-    subgraph artifacts["7 authoring artifacts (JSON)"]
-        PDM["PDM"]:::artifact
-        QSM["QSM"]:::artifact
-        IR["Graph IR"]:::artifact
-        B["Bindings"]:::artifact
-        UI["UI"]:::artifact
-        S["Seed"]:::artifact
-        M["Manifest"]:::artifact
+    subgraph project["project blueprint folder"]
+        direction TB
+        PJ["project.json<br/>routes + middleware"]:::artifact
+        PPDM["project-level PDM"]:::artifact
+        subgraph svc["service-level primitives x N"]
+            QSM["QSM"]:::artifact
+            IR["Graph IR"]:::artifact
+            B["Bindings"]:::artifact
+            UI["UI"]:::artifact
+            S["Seed"]:::artifact
+            M["Manifest"]:::artifact
+        end
+        MOD["modules x N<br/>(gRPC adapters)"]:::artifact
     end
     V["4-layer validator<br/>(parse → structural → reference → consistency)"]:::validator
-    R["rntme runtime<br/>(@rntme/runtime)"]:::runtime
+    C["composed project model<br/>+ project-routed registry"]:::runtime
+    R["@rntme/runtime<br/>(per-service boot today)"]:::runtime
+    D["deploy pipeline<br/>deploy-core + deploy-dokploy"]:::runtime
     DB[("SQLite / Turso")]:::storage
-    UIS["Running service<br/>(HTTP + UI)"]:::runtime
+    UIS["Running project<br/>(HTTP + UI)"]:::runtime
 
-    A --> PDM & QSM & IR & B & UI & S & M
-    H --> PDM & QSM & IR & B & UI & S & M
-    artifacts --> V --> R
+    A --> project
+    H --> project
+    project --> V --> C --> R
+    C --> D
     R --> DB
     R --> UIS
 
@@ -87,12 +95,16 @@ flowchart LR
 | --- | --- |
 | Layered validators + branded types | An agent-generated artifact cannot silently bypass a check; downstream code cannot consume unvalidated data. |
 | CQRS + event-sourcing | Schema and behaviour can evolve without losing history; migrations become replays, not destructive DDL. |
+| Project as deployable unit | Whole-project deploys, project-level routing, and project-shared PDM follow the project-first spec (`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`). |
+| Modules over gRPC | External integrations stay decoupled from the runtime through dynamic-proto-load gRPC adapters (`docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`). |
 | SQLite (+ Turso) | One service = one file; running many services does not require orchestrating a database cluster. |
 | Kafka-style topic convention `rntme.{svc}.{agg}` | Services can be composed into a larger platform (Zeebe sagas, gRPC) without invasive per-service wiring. |
-| Plugin seams (`DbDriver`, `EventBus`, `Surface`) | Runtime can be swapped in (e.g. different storage or transport) without changing any of the seven artifacts. |
+| Plugin seams (`DbDriver`, `EventBus`, `Surface`) | Runtime can be swapped in (e.g. different storage or transport) without changing service-level artifacts. |
 | Kept-small public surface per package | Agents and humans reason about fewer concepts per artifact; each artifact has a single canonical validator. |
 
 The rest of this document unpacks each of these in order: L1 context (§2), container topology (§3), per-package components (§4), critical functions (§5), the abstractions catalogue (§6), diagnostic observations (§7).
+
+The legacy artifact set is still real, but it is framed as **service-level primitives**, not the top-level product model. The project blueprint folder is the canonical authoring/versioning/deploy unit above them.
 
 ## 2. L1 — System Context
 
@@ -100,33 +112,33 @@ The rest of this document unpacks each of these in order: L1 context (§2), cont
 C4Context
   title rntme — system context
 
-  Person(author, "Artifact author", "AI agent or human — generates the 7 JSON artifacts")
-  Person(operator, "Operator", "Boots and observes the service")
-  Person(user, "End user", "Calls the service's HTTP or UI")
+  Person(author, "Project author", "AI agent or human — generates a project blueprint folder")
+  Person(operator, "Operator", "Validates, deploys, and observes the project")
+  Person(user, "End user", "Calls the project's HTTP or UI")
 
-  System(rntme, "rntme service", "Runtime that loads artifacts and serves HTTP + UI")
+  System(rntme, "rntme project", "Blueprint validator + per-service runtime that serves HTTP + UI")
 
   SystemDb_Ext(sqlite, "SQLite / Turso", "Per-service database — event log + projection tables")
-  System_Ext(platform, "Agent platform (future)", "Zeebe sagas · gRPC · viz layer — outside the scope of this document")
+  System_Ext(platform, "Commercial platform", "Registry · deploy · governance around validated projects")
 
-  Rel(author, rntme, "Supplies artifacts")
-  Rel(operator, rntme, "Boots / monitors")
+  Rel(author, rntme, "Supplies project blueprint")
+  Rel(operator, rntme, "Validates / deploys / monitors")
   Rel(user, rntme, "HTTP + UI")
   Rel(rntme, sqlite, "Reads / writes")
-  Rel(rntme, platform, "Topics: rntme.{svc}.{agg}", "future")
+  Rel(rntme, platform, "Registry and deploy pipeline")
 ```
 
-**What the diagram shows.** The runtime has exactly one direct input from humans/agents — the artifact set — and two human-facing surfaces (operator, end user). Storage is explicitly per-service. The agent platform (Zeebe, gRPC, viz layer) is an **external future consumer**, not a part of this document.
+**What the diagram shows.** The project blueprint folder is the direct input from humans/agents. rntme validates project composition, then boots service runtimes behind one project-routed HTTP/UI surface. Storage remains explicitly per-service.
 
 **Why only one storage actor.** rntme treats storage as a per-service concern. The `DbDriver` plugin seam (see §3) lets the same runtime run against `BetterSqlite`, an in-memory driver for tests, or Turso without changing any artifact.
 
-**Why the platform is external.** The memory entry `project_platform_vision` describes the larger DDD platform (Zeebe for cross-service sagas, gRPC for synchronous calls, a viz layer for business users). rntme is *one per-service runtime inside that platform*; cross-service concerns are not in scope here.
+**Why the platform is external.** The commercial platform owns registry, deploy, governance, SSO, and organization control-plane concerns. `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy` consume validated/composed project models, but they are CLI-side and not in the runtime path.
 
 ## 3. L2 — Containers
 
-### 3.1 Authoring surface — the 7 artifacts
+### 3.1 Authoring surface — project blueprint folder
 
-rntme's authoring surface is seven JSON artifacts plus one service manifest. Each artifact has exactly one canonical validator and one canonical consumer.
+rntme's authoring surface is the validated project blueprint folder. `@rntme/blueprint` owns `project.json`, project-level PDM loading, service artifact discovery, project routes/middleware validation, service member validation, and the project-routed binding registry. Inside the folder, each service still composes from service-level primitives with exactly one canonical validator and consumer.
 
 ```mermaid
 flowchart LR
@@ -144,38 +156,48 @@ flowchart LR
 
 **Caption.** Every artifact has exactly one owner package; a downstream package consuming an artifact does so via the owner's branded `Validated*` type.
 
-### 3.2 Container map — 12 packages
+### 3.2 Container map — 16 packages
 
 ```mermaid
 flowchart TB
     classDef pkg fill:#3a1b5c,stroke:#9a4ae2,color:#fff;
     classDef demo fill:#1b5c3a,stroke:#4ae29a,color:#fff;
 
+    BP["@rntme/blueprint"]:::pkg
     PDM["@rntme/pdm"]:::pkg
     QSM["@rntme/qsm"]:::pkg
     ES["@rntme/event-store"]:::pkg
     GIR["@rntme/graph-ir-compiler"]:::pkg
     B["@rntme/bindings"]:::pkg
     BH["@rntme/bindings-http"]:::pkg
+    BG["@rntme/bindings-grpc"]:::pkg
     UI["@rntme/ui"]:::pkg
     UIR["@rntme/ui-runtime"]:::pkg
     DS["@rntme/db-studio"]:::pkg
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
+    MS["@rntme/module-skeleton"]:::pkg
+    DC["@rntme-cli/deploy-core"]:::pkg
+    DD["@rntme-cli/deploy-dokploy"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
+    BP --> PDM & QSM
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
+    BG --> B & GIR & ES
     UIR --> UI
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
-    RT --> BH & UIR & DS & PC & SD & GIR & ES
+    RT --> BH & BG & UIR & DS & PC & SD & GIR & ES
+    MS --> RT
+    DC --> BP
+    DD --> DC
     DEMO --> RT
 ```
 
-**Caption.** Arrows mean "depends on". `@rntme/runtime` is the orchestrator; it boots the plugin seams, wires the event pipeline, and mounts the HTTP surface. The demo is the only package that consumes `@rntme/runtime` directly.
+**Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme-cli/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models. The demo is a deprecated historical single-service consumer of `@rntme/runtime`.
 
 ### 3.3 Plugin seams — extension without editing artifacts
 
@@ -916,6 +938,24 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 **Public API.** `loadService`, `startService`, `buildActorFromRequest`, the `DbDriver` / `EventBus` / `Surface` interfaces and their default implementations, plus the Prometheus helpers. `contract-tests.ts` is deliberately not re-exported (vitest-only dependency); tests import it from the src path.
 
+### 4.9 `@rntme/blueprint`
+
+`@rntme/blueprint` is the project-first composition layer above service artifacts. It parses `project.json`, loads project-level PDM directories, discovers service artifacts, validates project routes and middleware, checks service member references, and builds the project-routed binding registry consumed by `@rntme/bindings` and `@rntme/ui`.
+
+Runtime intake is intentionally still deferred: `@rntme/runtime` boots one service folder at a time. The blueprint package validates and composes the project model so authoring/versioning/deploy can be project-scoped before the service runtime grows project-level boot.
+
+### 4.10 `@rntme/bindings-grpc`
+
+`@rntme/bindings-grpc` exposes validated query and command surfaces over gRPC. It uses the same `CommandExecutor` / `QueryExecutor` seam as `@rntme/bindings-http`, emits dynamic proto descriptors, and keeps module/service communication out of the domain runtime.
+
+### 4.11 `@rntme/module-skeleton`
+
+`@rntme/module-skeleton` is the minimal scaffold for external integration services. Modules are declared in `manifest.modules[]`, reached over gRPC, and invoked from command-binding `pre[]` steps. This keeps vendor SDK code outside the domain service while letting command graphs consume pre-fetch results deterministically.
+
+### 4.12 CLI-side deployment packages
+
+`@rntme-cli/deploy-core` turns a validated/composed project model into a target-neutral, redacted deployment plan. `@rntme-cli/deploy-dokploy` renders and applies that plan against Dokploy. Both packages live in the `rntme-cli/` submodule and are not runtime dependencies.
+
 ## 5. L4 — Code
 
 A selection of fourteen functions that carry the most invariants. Signatures are summarised for brevity; names match the current code at the cutoff date (2026-04-18). This is a pointer table — read the file for the actual implementation; follow-up observations on any of these live in §7.
@@ -1265,6 +1305,56 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Spec(s):** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 - **Related:** `Surface`, `DbDriver`, manifest `studio` block.
 
+#### Project blueprint
+
+- **Package / module:** `packages/blueprint/`.
+- **Purpose:** Make the validated project blueprint folder the canonical authoring/versioning/deploy unit above service artifacts.
+- **Contract:** Folder contains `project.json`, project-level PDM, `services/<name>/...`, and `modules/<name>/...`. Validation covers project routes, middleware, PDM ownership, service discovery, service members, and project-routed binding refs.
+- **Constructed by:** `loadProjectBlueprint(...)` and the project composition pipeline.
+- **Invariant:** Project-level runtime intake is deferred; a composed project can validate and deploy as a project while `@rntme/runtime` still boots one service folder at a time.
+- **Spec(s):** `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- **Related:** project PDM, project-routed binding registry, service-level primitives.
+
+#### Executor seam
+
+- **Package / module:** `@rntme/bindings-http`, `@rntme/bindings-grpc`, `@rntme/runtime`.
+- **Purpose:** Decouple HTTP/gRPC surfaces from graph-ir execution.
+- **Contract:** `CommandExecutor` runs command graphs and returns command results; `QueryExecutor` runs query graphs and returns rowsets. Surfaces own transport concerns, not command/query implementation.
+- **Constructed by:** runtime wiring around graph-ir compiler execution.
+- **Invariant:** Adding gRPC or modules does not require a second command runtime.
+- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Related:** bindings-http, bindings-grpc, module pre-fetch.
+
+#### Module pre-fetch and idempotency cache
+
+- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`, `@rntme/module-skeleton`.
+- **Purpose:** Let command bindings call external modules before graph execution while keeping retries deterministic.
+- **Contract:** `manifest.modules[]` declares gRPC modules; command bindings may define up to two `pre[]` entries (`system` or `module-rpc`). HTTP retries use a SQLite-backed `(idempotency-key, command-run-id) → response` cache with 24h TTL.
+- **Constructed by:** bindings validator, HTTP pre-fetch runtime, and module gRPC clients.
+- **Invariant:** `pre[]` is command-only; duplicate `bindAs` values and undeclared modules are rejected before boot.
+- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Related:** callback bindings, executor seam.
+
+#### Callback binding
+
+- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`.
+- **Purpose:** Model vendor return URLs (OAuth, magic links, hosted checkout) as command bindings without custom handlers.
+- **Contract:** HTTP method is GET; inputs come from `inputFrom`; `response.onOk` / `response.onErr` redirect with optional templates.
+- **Constructed by:** bindings validator and HTTP command handler.
+- **Invariant:** GET command bindings are allowed only when success or failure returns a redirect.
+- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Related:** module pre-fetch, command executor.
+
+#### Deployment plan
+
+- **Package / module:** `rntme-cli/packages/deploy-core`, `rntme-cli/packages/deploy-dokploy`.
+- **Purpose:** Convert a validated/composed project into a target-neutral redacted deployment descriptor, then render/apply it for a target.
+- **Contract:** `planDeployment(...)` produces the core plan; `renderDokployPlan(...)` and `applyDokployPlan(...)` handle Dokploy.
+- **Constructed by:** CLI-side deploy pipeline, not runtime boot.
+- **Invariant:** Plans are previewable/redacted and adapters are target-specific.
+- **Spec(s):** `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- **Related:** project blueprint, commercial deploy surface.
+
 ## 7. Observations and refactoring candidates
 
 This section is **diagnostic, not prescriptive.** Each finding points at a concrete place and states why it is a smell; it does not propose a fix. Follow-up plans will convert findings into work items.
@@ -1545,7 +1635,10 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 
 Seeded from `AGENTS.md §10` and extended with terms introduced in §§6–7. Cross-links use `§n.m` notation.
 
-- **PDM** — Project Domain Model. The canonical entity / field / relation / state-machine artifact. One per service. (§4.1)
+- **PDM** — Project Domain Model. The canonical entity / field / relation / state-machine artifact, now loaded at the project level and shared by services. (§4.1)
+- **Project blueprint** — Folder with `project.json`, project-level PDM, per-service artifacts, and modules. Canonical authoring/versioning/deploy unit. (§3.1, §4.9)
+- **Project PDM** — Project-level PDM shared across all services in a project; owns root/owned entity classification. (§3.1, §4.9)
+- **Root entity / Owned entity** — Project-level PDM ownership classification. Root entities have independent lifecycle; owned entities live under a root boundary. (§4.9, §6.5)
 - **QSM** — Query-Side Model. Declarative read-side projections on top of PDM; owns relation metadata for JOINs (post 2026-04-16 migration). (§4.2)
 - **Graph IR** — The rc7 intermediate representation for queries and commands. (§4.4)
 - **Projection** — A QSM-declared table maintained by the projection-consumer. (§4.2, §6.1)
@@ -1566,6 +1659,12 @@ Seeded from `AGENTS.md §10` and extended with terms introduced in §§6–7. Cr
 - **Surface** — Runtime plugin seam for the HTTP (or equivalent) entry point. Default implementation: `HttpSurface` (Hono). (§3.3, §6.4)
 - **DbDriver / EventBus** — Runtime plugin seams for storage and messaging. Defaults: `BetterSqliteDriver`, `InMemoryBus`. (§3.3, §6.4)
 - **Manifest** — The service-level JSON file (`manifest.json`) selecting artefacts, plugin seams, and feature flags; validated at boot by `loadService`. (§4.8, §6.4)
+- **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`. (§4.11, §6.5)
+- **Pre-step** — A `pre[]` command-binding entry; either `system` (idempotency key) or `module-rpc`. Cap of 2 per binding. (§6.5)
+- **Callback binding** — GET command binding whose success/failure response redirects; used for vendor callbacks. (§6.5)
+- **Idempotency cache** — SQLite-backed cache of `(idempotency-key, command-run-id) → response`, 24h TTL, used by HTTP retries. (§6.5)
+- **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution. (§4.10, §6.5)
+- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` and rendered/applied by target adapters such as `@rntme-cli/deploy-dokploy`. (§4.12, §6.5)
 - **MVP gate** — A feature parsed but validator-rejected (or implementation-gated behind an opt-in) until its backing lands. Enforced in code, not README-only. (§6.4, §7.5)
 - **`BindingKind × Role`** — The matrix that pairs a binding's declared kind (`query` / `command`) with its target graph's inferred role and the required output shape (`rowset<T>` / `row<CommandResult>`). (§6.3)
 - **`BindingPlan`** — `QueryBindingPlan | CommandBindingPlan` — the runtime pairing of a binding with its compiled graph and request Zod schemas. (§6.3)

@@ -61,43 +61,48 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
-                  @rntme/blueprint
+                         @rntme/blueprint
+                        /       |       \
+                       /        |        \
+              @rntme/pdm   @rntme/qsm   project-routed registry
+                    \          /   \
+                     \        /     \
+              @rntme/graph-ir-compiler   @rntme/event-store
+                         |                      |
+                         +----------------------+
+                         |
+                 @rntme/bindings
                     /          \
-                   /            \
-            @rntme/pdm          @rntme/qsm
-                 \                 /    \
-                  \               /      \
-           @rntme/graph-ir-compiler  @rntme/event-store
-                    |                        |
-                    +------------------------+
-                    |
-            @rntme/bindings
-                    |
-            @rntme/bindings-http
-                    |
-                    |    @rntme/ui ─── @rntme/ui-runtime       @rntme/db-studio
-                    |              \           |                     |
-                    |               \          |                     |
-                    +----------------+---------+---------------------+
-                                     |
-                              @rntme/seed
-                                     |
-                              @rntme/projection-consumer
-                                     |
-                              @rntme/runtime
-                                     |
-                              demo/issue-tracker-api
+       @rntme/bindings-http   @rntme/bindings-grpc
+                    \          /
+                     \        /       @rntme/ui ─── @rntme/ui-runtime       @rntme/db-studio
+                      \      /                 \           |                     |
+                       \    /                   \          |                     |
+                        +--+---------------------+---------+---------------------+
+                                                    |
+                                             @rntme/seed
+                                                    |
+                                             @rntme/projection-consumer
+                                                    |
+                                             @rntme/runtime ─── @rntme/module-skeleton
+                                                    |
+                                             demo/issue-tracker-api
+
+              Deployment (CLI-side; consumes validated/composed projects)
+              @rntme-cli/deploy-core ─── @rntme-cli/deploy-dokploy
 ```
 
 One-line purpose per package (read the per-package README before touching):
 
 - **`@rntme/blueprint`** — Project-first blueprint folder parser/validator.
-  Owns `project.json`, project-level PDM assembly, service registry
-  metadata, and loading of raw service-level multi-file QSM artifacts.
+  Owns Track A loading (`project.json`, project-level PDM assembly,
+  service registry metadata, raw service-level multi-file QSM artifacts)
+  and Track B composition (project routes/middleware validation,
+  service artifact discovery, project-routed binding registry).
   → `packages/blueprint/README.md`.
-- **`@rntme/pdm`** — Parsing, validating, and resolving the PDM
-  (project domain model) artifact. Canonical entity/field/relation/state
-  source. → `packages/pdm/README.md`.
+- **`@rntme/pdm`** — Parsing, validating, and resolving the project-shared
+  PDM artifact. Canonical entity/field/relation/state source with
+  root/owned entity classification. → `packages/pdm/README.md`.
 - **`@rntme/qsm`** — Query-side model on top of PDM: projections,
   derived DDL, resolver, relation metadata for JOINs. →
   `packages/qsm/README.md`.
@@ -108,10 +113,12 @@ One-line purpose per package (read the per-package README before touching):
   (structural + semantic), lowers to SQL, emits, and executes queries
   and commands. → `packages/graph-ir-compiler/README.md`.
 - **`@rntme/bindings`** — HTTP bindings artifact: four-layer validator
-  (parse → structural → references → consistency) and OpenAPI 3.1
-  emitter. → `packages/bindings/README.md`.
+  (parse → structural → references → consistency), `pre[]`,
+  `inputFrom`, callback response shapes, and OpenAPI 3.1 emitter. →
+  `packages/bindings/README.md`.
 - **`@rntme/bindings-http`** — Hono runtime for the bindings artifact;
-  routes queries and commands, maps errors to 400/409/422. →
+  routes queries and commands, runs pre-fetch orchestration, applies the
+  idempotency cache, callback redirects, maps errors to 400/409/422. →
   `packages/bindings-http/README.md`.
 - **`@rntme/projection-consumer`** — Reads envelope events off the bus,
   applies them to projection tables idempotently, rolls back on fail. →
@@ -126,9 +133,10 @@ One-line purpose per package (read the per-package README before touching):
   sub-router on the server side, React + json-render SPA on the client
   side. → `packages/ui-runtime/README.md`.
 - **`@rntme/db-studio`** — Hrana v3 read-only HTTP endpoint over the service's SQLite handles, mountable at a configurable path for browser studio UIs (libsqlstudio.com). → `packages/db-studio/README.md`.
-- **`@rntme/runtime`** — Top-level orchestrator. Loads a service
-  manifest, boots event-store/bus/HTTP surface, wires projections,
-  applies seed, mounts bindings + UI. → `packages/runtime/README.md`.
+- **`@rntme/runtime`** — Top-level service orchestrator. Loads a service
+  manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
+  seams, modules, projections, seed, bindings + UI. →
+  `packages/runtime/README.md`.
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
   module-integration track; depends on `@rntme/runtime`. →
   `packages/module-skeleton/README.md`.
@@ -403,6 +411,21 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 5. Redirect templates support `{$result.field}` / `{$error.field}` substitutions. Omit `status` to default to 302.
 6. Callback endpoint **lives on the domain service**, not the module — see spec §8.5.
 
+### 6.15 Compose a multi-service project
+
+1. Read `packages/blueprint/README.md` and `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+2. Lay out the project blueprint folder: `project.json`, `pdm/`, `services/<name>/...`, and `modules/<name>/...`.
+3. Validate with `loadProjectBlueprint(...)`; the validator surfaces composition errors such as missing services in routes, missing PDM ownership, and duplicate paths.
+4. Compile the project-routed binding registry and verify the expected service prefixes resolve.
+5. Until project-level runtime intake lands, run individual services with `@rntme/runtime` as before.
+
+### 6.16 Deploy a project via Dokploy
+
+1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+2. From a validated/composed project model, call `planDeployment(...)`; it returns a target-neutral, redacted plan.
+3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
+4. The CLI command surface lives in `@rntme-cli/cli`; verify current incantations against `rntme-cli/packages/cli/README.md`.
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
@@ -463,6 +486,8 @@ Map of "if you're tempted to do X, the decision-doc is Y":
 - "Why did blueprint become project-first, and where do project vs service
   responsibilities now live?" →
   `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- "Why deploy via plan→render→apply, not raw CLI?" →
+  `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
@@ -491,8 +516,9 @@ Known categorical entries to watch for:
 
 ## 10. Glossary
 
-- **PDM** — Project Domain Model. The canonical entity/field/relation/
-  state-machine artifact. One per service.
+- **Callback binding** — A command binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
+- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` from a composed project; rendered by an adapter (`@rntme-cli/deploy-dokploy`) to a target-specific shape.
+- **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
   PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).
 - **Graph IR** — Intermediate representation for queries and commands.
@@ -506,8 +532,16 @@ Known categorical entries to watch for:
   entity), `derived` (reserved, not implemented).
 - **Envelope** — Event-store record shape: aggregate id, version,
   payload, actor, timestamp, correlation/causation ids.
+- **Idempotency cache** — SQLite-backed cache of `(idempotency-key, command-run-id) → response`, 24h TTL, used by HTTP retries.
+- **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
+- **PDM** — Project Domain Model. The project-level entity/field/relation/
+  state-machine artifact shared across services.
+- **Pre-step** — A `pre[]` entry on a command binding; either `system` (idempotency-key) or `module-rpc`. Cap of 2 per binding.
+- **Project blueprint** — Folder with `project.json` + project-level PDM + per-service artifacts + modules. Canonical authoring/versioning/deploy unit.
+- **Project PDM** — PDM artifact at the project level, shared across all services in the project.
 - **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.
   The workspace-wide fallible-return contract.
+- **Root entity** / **Owned entity** — Project-level PDM ownership classification. Root entities have independent lifecycle and identity; owned entities belong under a root entity boundary.
 - **Validated\*** — Phantom-branded type produced by a validator;
   downstream APIs require the brand.
 - **Seed** — Declarative event-envelope bootstrap applied once per

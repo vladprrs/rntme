@@ -12,7 +12,7 @@ Graph IR (rc7) authoring JSON compiler — query graphs lower to SQLite SELECT, 
   - `zod` — authoring-spec schema in `parse/schema.ts`.
 - Consumed by:
   - [`@rntme/bindings-http`](../bindings-http) — HTTP surface compiles each binding's graph and runs it per-request.
-  - [`@rntme/runtime`](../runtime) — composes compiler with bindings/projections.
+  - [`@rntme/runtime`](../runtime) — composes compiler with bindings/projections and exposes it through the `CommandExecutor` / `QueryExecutor` seam used by HTTP, gRPC, and modules.
   - [`demo/issue-tracker-api`](../../demo/issue-tracker-api) — end-to-end wiring of every package.
 - Position in pipeline: `parse → canonical → semantic-plan → role/relational → lower → emit → execute` (queries) / `command-runtime` (commands). `explain(...)` returns every intermediate artifact.
 
