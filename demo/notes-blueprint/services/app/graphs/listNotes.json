@@ -1,0 +1,33 @@
+{
+  "id": "listNotes",
+  "signature": {
+    "inputs": {
+      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+    },
+    "output": { "type": "rowset<NoteView>", "from": "paged" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "NoteView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["noteView.status", "active"] }
+      }
+    },
+    {
+      "id": "sorted",
+      "type": "sort",
+      "config": {
+        "input": "filtered",
+        "by": [{ "field": "noteView.createdAt", "dir": "desc", "nulls": "last" }]
+      }
+    },
+    {
+      "id": "paged",
+      "type": "limit",
+      "config": { "input": "sorted", "count": { "$param": "limit" } }
+    }
+  ]
+}

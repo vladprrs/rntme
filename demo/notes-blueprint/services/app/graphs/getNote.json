@@ -1,0 +1,25 @@
+{
+  "id": "getNote",
+  "signature": {
+    "inputs": {
+      "id": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "rowset<NoteView>", "from": "one" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "NoteView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["noteView.id", { "$param": "id" }] }
+      }
+    },
+    {
+      "id": "one",
+      "type": "limit",
+      "config": { "input": "filtered", "count": 1 }
+    }
+  ]
+}

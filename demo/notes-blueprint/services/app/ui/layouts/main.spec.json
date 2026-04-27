@@ -1,0 +1,14 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["header"]
+    },
+    "header": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "Notes" }
+    }
+  }
+}

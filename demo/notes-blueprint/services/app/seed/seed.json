@@ -1,0 +1,19 @@
+{
+  "seedVersion": 1,
+  "events": [
+    {
+      "id": "seed:Note:welcome:v1",
+      "subject": "Note-00000000-0000-0000-0000-000000000001",
+      "rntAggregateType": "Note",
+      "rntAggregateId": "00000000-0000-0000-0000-000000000001",
+      "rntVersion": 1,
+      "eventType": "NoteCreate",
+      "data": {
+        "title": "Welcome",
+        "body": "First note from seed"
+      },
+      "time": "2026-04-27T00:00:00.000Z",
+      "rntSchemaVersion": 1
+    }
+  ]
+}

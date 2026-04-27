@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "Note" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["title", "body", "status"]
+}

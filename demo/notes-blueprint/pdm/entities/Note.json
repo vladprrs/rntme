@@ -1,0 +1,34 @@
+{
+  "ownerService": "app",
+  "kind": "owned",
+  "table": "notes",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "title": { "type": "string", "nullable": false, "column": "title" },
+    "body": { "type": "string", "nullable": false, "column": "body" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": {
+      "type": "datetime",
+      "nullable": false,
+      "column": "created_at",
+      "generated": "createdAt"
+    }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "deleted"],
+    "transitions": {
+      "create": {
+        "from": null,
+        "to": "active",
+        "affects": ["title", "body"]
+      },
+      "delete": {
+        "from": "active",
+        "to": "deleted"
+      }
+    }
+  }
+}

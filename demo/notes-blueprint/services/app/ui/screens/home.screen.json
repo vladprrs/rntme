@@ -1,0 +1,31 @@
+{
+  "metadata": { "title": "Home" },
+  "data": {
+    "/data/notes": {
+      "binding": "listNotes",
+      "refetchOn": ["mount"]
+    }
+  },
+  "actions": {
+    "createNote": {
+      "kind": "command",
+      "binding": "createNote",
+      "paramsFromState": {
+        "id": "/form/id",
+        "title": "/form/title",
+        "body": "/form/body"
+      },
+      "onSuccess": { "refetchData": ["/data/notes"] },
+      "onError": { "showAlert": true }
+    },
+    "deleteNote": {
+      "kind": "command",
+      "binding": "deleteNote",
+      "paramsFromState": {
+        "id": "/form/deleteId"
+      },
+      "onSuccess": { "refetchData": ["/data/notes"] },
+      "onError": { "showAlert": true }
+    }
+  }
+}

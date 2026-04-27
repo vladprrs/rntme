@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "createNote": {
+      "kind": "command",
+      "graph": "createNote",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/api/notes",
+        "parameters": [
+          { "name": "id", "in": "body", "bindTo": "id", "required": true },
+          { "name": "title", "in": "body", "bindTo": "title", "required": true },
+          { "name": "body", "in": "body", "bindTo": "body", "required": true }
+        ]
+      }
+    },
+    "deleteNote": {
+      "kind": "command",
+      "graph": "deleteNote",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/api/notes/{id}/actions/delete",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+        ]
+      }
+    },
+    "listNotes": {
+      "kind": "query",
+      "graph": "listNotes",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/api/notes",
+        "parameters": [
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      }
+    },
+    "getNote": {
+      "kind": "query",
+      "graph": "getNote",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/api/notes/{id}",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+        ]
+      }
+    }
+  }
+}

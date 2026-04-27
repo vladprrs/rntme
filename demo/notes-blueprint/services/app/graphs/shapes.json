@@ -1,0 +1,11 @@
+{
+  "NoteView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "title": { "type": "string", "nullable": false },
+      "body": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  }
+}
