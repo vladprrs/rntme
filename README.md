@@ -124,6 +124,8 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/conformance-crm`](modules/crm/conformance) | CRM conformance scenarios + fixtures (34 RPCs, 4 webhook formats incl. amoCRM URL-encoded) |
 | **Identity vendor track** |  |
 | [`@rntme/conformance-identity`](modules/identity/conformance) | Per-RPC conformance scenarios for `@rntme/contracts-identity-v1`. Drift-tested against the canonical `service IdentityModule`. Imported by every Identity vendor module. |
+| **AI/LLM vendor track** |  |
+| [`@rntme/conformance-ai-llm`](modules/ai-llm/conformance) | AI/LLM conformance scenarios + fixtures (14 RPCs, binary media). Drift-tested against `service AiLlmModule`. Imported by every AI/LLM vendor module. |
 
 | **Deployment (CLI-side)** |  |
 | [`@rntme-cli/deploy-core`](rntme-cli/packages/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
