@@ -1,0 +1,103 @@
+syntax = "proto3";
+package rntme.contracts.ai_llm.v1;
+
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/ai_llm/v1/ai_llm.proto";
+
+message CompletionStarted {
+  string completion_id = 1;
+  string model = 2;
+  int32 input_token_estimate = 3;
+  google.protobuf.Timestamp started_at = 4;
+}
+
+message CompletionFinished {
+  Completion completion = 1;
+}
+
+message CompletionFailed {
+  string completion_id = 1;
+  string model = 2;
+  string error_code = 3;
+  string error_message = 4;
+  google.protobuf.Timestamp failed_at = 5;
+}
+
+message ThreadCreated {
+  AssistantThread thread = 1;
+  string creator_user_id = 2;
+  int32 initial_message_count = 3;
+}
+
+message ThreadDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  bool hard_delete = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+}
+
+message ThreadMessageAdded {
+  ThreadItem item = 1;
+}
+
+message ThreadRunStarted {
+  string thread_id = 1;
+  string run_id = 2;
+  string model = 3;
+  google.protobuf.Timestamp started_at = 4;
+}
+
+message ThreadRunRequiresAction {
+  string thread_id = 1;
+  string run_id = 2;
+  repeated ToolCall required_tool_calls = 3;
+}
+
+message ThreadRunCompleted {
+  ThreadRun run = 1;
+  repeated ThreadItem new_items = 2;
+}
+
+message ThreadRunFailed {
+  ThreadRun run = 1;
+  string error_code = 2;
+  string error_message = 3;
+}
+
+message ThreadRunCancelled {
+  string thread_id = 1;
+  string run_id = 2;
+  string reason = 3;
+  google.protobuf.Timestamp cancelled_at = 4;
+}
+
+message AsyncJobSubmitted {
+  AsyncJob job = 1;
+  AsyncJobType type = 2;
+  int32 input_item_count = 3;
+}
+
+message AsyncJobStatusChanged {
+  string canonical_id = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus previous_status = 3;
+  AsyncJobStatus new_status = 4;
+  int32 progress_percentage = 5;
+  google.protobuf.Timestamp transitioned_at = 6;
+}
+
+message AsyncJobCompleted {
+  AsyncJob job = 1;
+}
+
+message AsyncJobFailed {
+  AsyncJob job = 1;
+  string error_code = 2;
+  string error_message = 3;
+}
+
+message AsyncJobCancelled {
+  AsyncJob job = 1;
+  string reason = 2;
+  google.protobuf.Timestamp cancelled_at = 3;
+}

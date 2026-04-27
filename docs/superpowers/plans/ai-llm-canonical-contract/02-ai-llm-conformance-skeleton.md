@@ -2,17 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land `modules/ai-llm/README.md` (category-doc) and `modules/ai-llm/conformance/` (workspace package `@rntme/conformance-ai-llm`) — the per-category conformance scaffolding for AI/LLM v1. The package ships a minimal local `Scenario` type stub (until `@rntme/conformance-framework` lands), 14 scenario stub files (one per canonical RPC), text + binary fixtures (including `sample.png`, `sample.mp3`, `sample.pdf` for multimodal scenarios), a `suite.ts` exporting `CategoryConformanceSuite`, and a drift-detection test that fails when any canonical RPC lacks a matching scenarios file.
+**Goal:** Land `modules/ai-llm/README.md` (category-doc) and `modules/ai-llm/conformance/` (workspace package `@rntme/conformance-ai-llm`) — the per-category conformance scaffolding for AI/LLM v1. The package ships a minimal local `Scenario` type stub (until `@rntme/conformance-framework` lands), 14 scenario stub files (one per canonical RPC), text + binary fixtures (including `sample.png`, `sample.mp3`, `sample.pdf` for multimodal scenarios), a `suite.ts` exporting `aiLlmConformanceSuite`, and a drift-detection test that fails when any canonical RPC lacks a matching scenarios file.
 
-**Architecture:** New `modules/ai-llm/` directory under the existing `modules/*/*` workspace glob (added by Identity plan 2). Inside, `modules/ai-llm/conformance/` is a workspace package depending on `@rntme/contracts-ai-llm-v1`. The package exports stubs only — every scenario file ships an empty `Scenario[]` array plus a docstring pointing at spec §12.2 listing the assertions each scenario must cover when the framework lands. The drift-detection test introspects `proto.rntme.contracts.ai_llm.v1.AiLlmModule` and asserts a 1:1 file match against `src/scenarios/`. A separate fixture-sanity test validates the binary media files.
+**Architecture:** New `modules/ai-llm/` directory under the existing `modules/*/*` workspace glob (added by Identity plan 2). Inside, `modules/ai-llm/conformance/` is a workspace package depending on `@rntme/contracts-ai-llm-v1`. The package mirrors the already-merged Identity conformance shape: `CategoryConformanceSuite` uses `contractVersion` and `scenariosByRpc`, `src/index.ts` re-exports a named `aiLlmConformanceSuite`, and package test/build scripts build contract dependencies before running. Every scenario file ships an empty `ReadonlyArray<Scenario>` plus a docstring pointing at spec §12.2 listing the assertions each scenario must cover when the framework lands. The drift-detection test introspects `proto.rntme.contracts.ai_llm.v1.AiLlmModule` and asserts a 1:1 file match against `src/scenarios/`. A separate fixture-sanity test validates the binary media files.
 
-**Tech Stack:** Same as Plan 1 — TypeScript 5.5, vitest, eslint flat config, pnpm 9.12+ workspaces.
+**Tech Stack:** Same as Plan 1 and merged Identity conformance — TypeScript 5.5, vitest, eslint flat config via `@eslint/js`, pnpm 9.12+ workspaces. Context7 check (2026-04-27): Vitest supports `vitest run <file>`; ESLint v9 flat config uses `@eslint/js` for `js.configs.recommended`.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` §12 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
 
 **Depends on:**
 - Plan 1 must be merged first — `@rntme/contracts-ai-llm-v1` must exist as a workspace package and its generated proto must export `AiLlmModule` so the drift-detection test can introspect it.
-- Identity plan 2 (`docs/superpowers/plans/identity-canonical-contract/02-identity-conformance-skeleton.md`) must be merged first — it adds the `modules/*/*` glob to `pnpm-workspace.yaml` and creates the `modules/` top-level directory. This plan reuses both. If Identity plan 2 has not landed, Step 1 of Task 1 below adds the glob; otherwise it verifies and skips.
+- Identity plan 2 (`docs/superpowers/plans/done/identity-canonical-contract/02-identity-conformance-skeleton.md`) must be merged first — it adds the `modules/*/*` glob to `pnpm-workspace.yaml`, creates the `modules/` top-level directory, and establishes the conformance package shape this plan follows. This plan reuses those conventions. If Identity plan 2 has not landed in a downstream branch, Step 1 of Task 1 below adds the glob; otherwise it verifies and skips.
 
 ---
 
@@ -26,8 +26,10 @@ Files this plan creates or modifies:
 - `modules/ai-llm/conformance/tsconfig.json`
 - `modules/ai-llm/conformance/tsconfig.check.json`
 - `modules/ai-llm/conformance/eslint.config.mjs`
+- `modules/ai-llm/conformance/vitest.config.ts`
 - `modules/ai-llm/conformance/README.md`
 - `modules/ai-llm/conformance/src/types.ts` (local `Scenario` / `CategoryConformanceSuite` stub)
+- `modules/ai-llm/conformance/src/capabilities.ts` (canonical capability lists for module authors and reports)
 - `modules/ai-llm/conformance/src/index.ts`
 - `modules/ai-llm/conformance/src/suite.ts`
 - `modules/ai-llm/conformance/src/fixtures/messages.ts`
@@ -215,16 +217,19 @@ Create `modules/ai-llm/conformance/package.json`:
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/ai-llm/v1 run build",
+    "test": "pnpm run build:deps && vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.check.json",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
-    "@rntme/contracts-ai-llm-v1": "workspace:*"
+    "@rntme/contracts-ai-llm-v1": "workspace:*",
+    "@rntme/contracts-common-v1": "workspace:*"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
@@ -307,21 +312,40 @@ export default [
 ];
 ```
 
-- [ ] **Step 5: Remove `.gitkeep`**
+- [ ] **Step 5: Write `vitest.config.ts`**
+
+Create `modules/ai-llm/conformance/vitest.config.ts`:
+
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    include: ['test/**/*.test.ts'],
+    environment: 'node',
+    reporters: 'default',
+    testTimeout: 15_000,
+  },
+});
+```
+
+This mirrors `modules/identity/conformance/vitest.config.ts` and keeps package-local test discovery explicit.
+
+- [ ] **Step 6: Remove `.gitkeep`**
 
 Run: `rm modules/ai-llm/conformance/.gitkeep`
 
-- [ ] **Step 6: Run pnpm install and confirm package is in workspace**
+- [ ] **Step 7: Run pnpm install and confirm package is in workspace**
 
 Run: `pnpm install --frozen-lockfile=false`
 
 Then: `pnpm list -r --depth -1 | grep conformance-ai-llm`
 Expected: line containing `@rntme/conformance-ai-llm 0.0.0`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add pnpm-lock.yaml modules/ai-llm/conformance/package.json modules/ai-llm/conformance/tsconfig.json modules/ai-llm/conformance/tsconfig.check.json modules/ai-llm/conformance/eslint.config.mjs
+git add pnpm-lock.yaml modules/ai-llm/conformance/package.json modules/ai-llm/conformance/tsconfig.json modules/ai-llm/conformance/tsconfig.check.json modules/ai-llm/conformance/eslint.config.mjs modules/ai-llm/conformance/vitest.config.ts
 git commit -m "feat(conformance-ai-llm): scaffold package"
 ```
 
@@ -338,64 +362,50 @@ Create `modules/ai-llm/conformance/src/types.ts`:
 
 ```typescript
 /**
- * Local type stubs that mirror the (not-yet-extant) `@rntme/conformance-framework`
- * surface. When the framework lands, this file is deleted and types come from
- * `@rntme/conformance-framework`.
+ * Local stub of the contracts that @rntme/conformance-framework will
+ * publish. Replace these with imports from the framework once it lands.
  *
- * This file MUST stay structurally compatible with the framework spec
- * (modules-monorepo §7). If the framework lands with a different signature,
- * migrate scenarios in the same PR.
+ * Source-of-truth shape: docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md §7.
  */
 
-/**
- * A capability-gating predicate. Scenarios skip on modules whose `module.json#capabilities`
- * does not satisfy these constraints.
- */
-export interface ScenarioRequirements {
-  thread?: boolean;
-  input_modalities?: readonly ('text' | 'image' | 'audio' | 'file')[];
-  not_input_modalities?: readonly ('text' | 'image' | 'audio' | 'file')[];
-  reasoning_visibility_supported?: readonly ('hidden' | 'summary' | 'full')[];
-  async_job_types?: readonly ('BATCH_COMPLETION')[];
+export type ScenarioStatus =
+  | 'pending' // scaffold only; not yet implementable
+  | 'mock_only' // runs against generic mock-vendor
+  | 'live_only' // requires vendor sandbox secrets
+  | 'mock_and_live'; // covers both
+
+export interface ScenarioContext {
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
 }
 
-/**
- * A scenario step is either a single RPC call or a meta-instruction
- * (assertion-only, fixture-substitution placeholder).
- */
-export interface ScenarioStep {
-  rpc?: string;
-  input?: Record<string, unknown>;
-  assertEventWithin?: { type: string; seconds: number };
-  // additional helper steps may be added when the framework lands
-}
-
-/**
- * A single conformance scenario. v1 ships scenarios as stubs (empty `steps`,
- * empty `assertions`) until the framework runner can interpret them.
- */
 export interface Scenario {
-  name: string;
-  capability?: string;            // canonical RPC name this scenario gates on
-  requires?: ScenarioRequirements;
-  /**
-   * For single-RPC scenarios, set `action`. For multi-step (Thread tool-cycle,
-   * AsyncJob lifecycle), set `steps` instead.
-   */
-  action?: ScenarioStep;
-  steps?: ScenarioStep[];
-  /** Free-form description of assertions; framework will replace with typed assertion array. */
-  assertionsDescription?: string;
+  /** Unique within its scenarios file. Convention: `{rpc}_{shortName}`. */
+  readonly id: string;
+  /** Human-readable purpose. */
+  readonly description: string;
+  /** When this scenario can run. */
+  readonly status: ScenarioStatus;
+  /** Pre-condition seed for the vendor (mock or live). */
+  readonly seed?: () => Promise<void> | void;
+  /** Action under test. */
+  readonly action: (ctx: ScenarioContext) => Promise<unknown> | unknown;
+  /** Assertions over the action's result. */
+  readonly assertions: ReadonlyArray<(result: unknown, ctx: ScenarioContext) => Promise<void> | void>;
+}
+
+export interface CategoryConformanceSuite {
+  readonly category: 'ai-llm';
+  readonly contractVersion: 'v1';
+  readonly scenariosByRpc: Readonly<Record<string, ReadonlyArray<Scenario>>>;
 }
 
 /**
- * The category-suite shape consumed by the (future) runner.
+ * Marker for stub scenarios that must be filled before the package
+ * declares conformance against any real vendor. The runner from the
+ * future framework reports these as `pending`.
  */
-export interface CategoryConformanceSuite {
-  category: 'ai-llm';
-  contract_version: 'v1';
-  scenarios: Record<string, Scenario[]>;   // keyed by RPC short-name
-}
+export const UNIMPLEMENTED_SCENARIO_STATUS: ScenarioStatus = 'pending';
 ```
 
 - [ ] **Step 2: Commit**
@@ -846,7 +856,7 @@ Create `modules/ai-llm/conformance/src/scenarios/Complete.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 2: `GetCompletion.scenarios.ts`**
@@ -872,7 +882,7 @@ Create `modules/ai-llm/conformance/src/scenarios/GetCompletion.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 3: Commit**
@@ -921,7 +931,7 @@ Create `modules/ai-llm/conformance/src/scenarios/CreateThread.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 2: `GetThread.scenarios.ts`**
@@ -944,7 +954,7 @@ Create `modules/ai-llm/conformance/src/scenarios/GetThread.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 3: `DeleteThread.scenarios.ts`**
@@ -972,7 +982,7 @@ Create `modules/ai-llm/conformance/src/scenarios/DeleteThread.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 4: `AddMessage.scenarios.ts`**
@@ -1007,7 +1017,7 @@ Create `modules/ai-llm/conformance/src/scenarios/AddMessage.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 5: `ListThreadItems.scenarios.ts`**
@@ -1033,7 +1043,7 @@ Create `modules/ai-llm/conformance/src/scenarios/ListThreadItems.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 6: `RunThread.scenarios.ts`**
@@ -1075,7 +1085,7 @@ Create `modules/ai-llm/conformance/src/scenarios/RunThread.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 7: `GetThreadRun.scenarios.ts`**
@@ -1099,7 +1109,7 @@ Create `modules/ai-llm/conformance/src/scenarios/GetThreadRun.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 8: `CancelThreadRun.scenarios.ts`**
@@ -1123,7 +1133,7 @@ Create `modules/ai-llm/conformance/src/scenarios/CancelThreadRun.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 9: Commit**
@@ -1179,7 +1189,7 @@ Create `modules/ai-llm/conformance/src/scenarios/SubmitJob.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 2: `GetJob.scenarios.ts`**
@@ -1202,7 +1212,7 @@ Create `modules/ai-llm/conformance/src/scenarios/GetJob.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 3: `CancelJob.scenarios.ts`**
@@ -1226,7 +1236,7 @@ Create `modules/ai-llm/conformance/src/scenarios/CancelJob.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 4: `ListJobs.scenarios.ts`**
@@ -1252,7 +1262,7 @@ Create `modules/ai-llm/conformance/src/scenarios/ListJobs.scenarios.ts`:
 
 import type { Scenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+export const scenarios: ReadonlyArray<Scenario> = [];
 ```
 
 - [ ] **Step 5: Commit**
@@ -1264,13 +1274,78 @@ git commit -m "feat(conformance-ai-llm): async-job scenario stubs (4 files)"
 
 ---
 
-## Task 10: `suite.ts` and `index.ts` barrel
+## Task 10: `capabilities.ts`, `suite.ts`, and `index.ts` barrel
 
 **Files:**
+- Create: `modules/ai-llm/conformance/src/capabilities.ts`
 - Create: `modules/ai-llm/conformance/src/suite.ts`
 - Create: `modules/ai-llm/conformance/src/index.ts`
 
-- [ ] **Step 1: Write `suite.ts`**
+- [ ] **Step 1: Write `capabilities.ts`**
+
+Create `modules/ai-llm/conformance/src/capabilities.ts`:
+
+```typescript
+/**
+ * Canonical AI/LLM v1 capability universe. Vendor modules declare subsets of
+ * these values in module.json#capabilities; the future conformance runner uses
+ * the same lists for skip/report labelling.
+ */
+
+export const AI_LLM_CANONICAL_RPCS = [
+  'Complete',
+  'GetCompletion',
+  'CreateThread',
+  'GetThread',
+  'DeleteThread',
+  'AddMessage',
+  'ListThreadItems',
+  'RunThread',
+  'GetThreadRun',
+  'CancelThreadRun',
+  'SubmitJob',
+  'GetJob',
+  'CancelJob',
+  'ListJobs',
+] as const;
+
+export const AI_LLM_CANONICAL_EVENTS = [
+  'CompletionStarted',
+  'CompletionFinished',
+  'CompletionFailed',
+  'ThreadCreated',
+  'ThreadDeleted',
+  'ThreadMessageAdded',
+  'ThreadRunStarted',
+  'ThreadRunRequiresAction',
+  'ThreadRunCompleted',
+  'ThreadRunFailed',
+  'ThreadRunCancelled',
+  'AsyncJobSubmitted',
+  'AsyncJobStatusChanged',
+  'AsyncJobCompleted',
+  'AsyncJobFailed',
+  'AsyncJobCancelled',
+] as const;
+
+export const AI_LLM_INPUT_MODALITIES = ['text', 'image', 'audio', 'file'] as const;
+export const AI_LLM_REASONING_VISIBILITY = ['hidden', 'summary', 'full'] as const;
+export const AI_LLM_ASYNC_JOB_TYPES = ['BATCH_COMPLETION'] as const;
+export const AI_LLM_AGENT_EXECUTION_MODES = ['delegated', 'local', 'none'] as const;
+
+export const AI_LLM_CAPABILITY_FIELDS = [
+  'vendors',
+  'rpcs',
+  'events',
+  'input_modalities',
+  'reasoning_visibility_supported',
+  'thread',
+  'async_job_types',
+  'agent_execution_mode',
+] as const;
+```
+
+- [ ] **Step 2: Write `suite.ts`**
 
 Create `modules/ai-llm/conformance/src/suite.ts`:
 
@@ -1292,10 +1367,10 @@ import { scenarios as GetJob } from './scenarios/GetJob.scenarios.js';
 import { scenarios as CancelJob } from './scenarios/CancelJob.scenarios.js';
 import { scenarios as ListJobs } from './scenarios/ListJobs.scenarios.js';
 
-export const suite: CategoryConformanceSuite = {
+export const aiLlmConformanceSuite: CategoryConformanceSuite = {
   category: 'ai-llm',
-  contract_version: 'v1',
-  scenarios: {
+  contractVersion: 'v1',
+  scenariosByRpc: {
     Complete,
     GetCompletion,
     CreateThread,
@@ -1314,13 +1389,22 @@ export const suite: CategoryConformanceSuite = {
 };
 ```
 
-- [ ] **Step 2: Write `index.ts`**
+- [ ] **Step 3: Write `index.ts`**
 
 Create `modules/ai-llm/conformance/src/index.ts`:
 
 ```typescript
-export { suite } from './suite.js';
-export type { Scenario, ScenarioStep, ScenarioRequirements, CategoryConformanceSuite } from './types.js';
+export { aiLlmConformanceSuite } from './suite.js';
+export type { Scenario, ScenarioContext, ScenarioStatus, CategoryConformanceSuite } from './types.js';
+export {
+  AI_LLM_CANONICAL_RPCS,
+  AI_LLM_CANONICAL_EVENTS,
+  AI_LLM_INPUT_MODALITIES,
+  AI_LLM_REASONING_VISIBILITY,
+  AI_LLM_ASYNC_JOB_TYPES,
+  AI_LLM_AGENT_EXECUTION_MODES,
+  AI_LLM_CAPABILITY_FIELDS,
+} from './capabilities.js';
 
 // Re-export fixtures so vendor modules can compose scenarios on top.
 export * as messages from './fixtures/messages.js';
@@ -1338,7 +1422,7 @@ export {
 } from './fixtures/media/index.js';
 ```
 
-- [ ] **Step 3: Verify build**
+- [ ] **Step 4: Verify build**
 
 Run: `pnpm -F @rntme/conformance-ai-llm run build`
 Expected: emits `dist/index.js` and `dist/index.d.ts`. No errors.
@@ -1346,11 +1430,11 @@ Expected: emits `dist/index.js` and `dist/index.d.ts`. No errors.
 Run: `pnpm -F @rntme/conformance-ai-llm run typecheck`
 Expected: zero errors.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add modules/ai-llm/conformance/src/suite.ts modules/ai-llm/conformance/src/index.ts
-git commit -m "feat(conformance-ai-llm): suite.ts wiring + barrel"
+git add modules/ai-llm/conformance/src/capabilities.ts modules/ai-llm/conformance/src/suite.ts modules/ai-llm/conformance/src/index.ts
+git commit -m "feat(conformance-ai-llm): capabilities registry + suite wiring + barrel"
 ```
 
 ---
@@ -1370,57 +1454,49 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { proto } from '@rntme/contracts-ai-llm-v1';
-import { suite } from '../src/index.js';
+import { AI_LLM_CANONICAL_RPCS, aiLlmConformanceSuite } from '../src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const scenariosDir = resolve(here, '../src/scenarios');
 
-const EXPECTED_RPCS = [
-  'Complete',
-  'GetCompletion',
-  'CreateThread',
-  'GetThread',
-  'DeleteThread',
-  'AddMessage',
-  'ListThreadItems',
-  'RunThread',
-  'GetThreadRun',
-  'CancelThreadRun',
-  'SubmitJob',
-  'GetJob',
-  'CancelJob',
-  'ListJobs',
-] as const;
+function rpcsFromContract(): Set<string> {
+  const ns = proto.rntme.contracts.ai_llm.v1 as Record<string, unknown>;
+  const ServiceCtor = ns['AiLlmModule'] as { prototype: Record<string, unknown> };
+  expect(ServiceCtor, 'AiLlmModule service descriptor missing').toBeDefined();
+  const names = new Set<string>();
+  for (const key of Object.getOwnPropertyNames(ServiceCtor.prototype)) {
+    if (key === 'constructor') continue;
+    const fn = ServiceCtor.prototype[key];
+    if (typeof fn !== 'function') continue;
+    const rpcName = (fn as { name?: string }).name;
+    if (rpcName && /^[A-Z][a-zA-Z0-9]*$/.test(rpcName)) names.add(rpcName);
+  }
+  return names;
+}
 
 describe('AI/LLM conformance drift detector', () => {
   it('every canonical RPC has a matching scenario file', () => {
     const filenames = readdirSync(scenariosDir).filter((n) => n.endsWith('.scenarios.ts'));
     const rpcNamesFromFiles = filenames.map((n) => n.replace('.scenarios.ts', '')).sort();
-    const expected = [...EXPECTED_RPCS].sort();
+    const expected = [...AI_LLM_CANONICAL_RPCS].sort();
     expect(rpcNamesFromFiles).toEqual(expected);
   });
 
   it('every scenario file is wired in suite.ts', () => {
     const filenames = readdirSync(scenariosDir).filter((n) => n.endsWith('.scenarios.ts'));
     const rpcNamesFromFiles = filenames.map((n) => n.replace('.scenarios.ts', ''));
-    const wiredKeys = Object.keys(suite.scenarios);
+    const wiredKeys = Object.keys(aiLlmConformanceSuite.scenariosByRpc);
     expect(wiredKeys.sort()).toEqual(rpcNamesFromFiles.sort());
   });
 
-  it('EXPECTED_RPCS matches the canonical contract service', () => {
+  it('AI_LLM_CANONICAL_RPCS matches the canonical contract service', () => {
     // Introspect AiLlmModule to confirm the file list matches the proto definition.
-    const ns = proto.rntme.contracts.ai_llm.v1 as Record<string, unknown>;
-    const ServiceCtor = ns['AiLlmModule'] as { prototype: Record<string, unknown> };
-    expect(ServiceCtor, 'AiLlmModule service descriptor missing').toBeDefined();
-    const declaredMethods = Object.getOwnPropertyNames(ServiceCtor.prototype).filter((n) => n !== 'constructor');
-    // pbjs lower-cases the first letter of RPC method names.
-    const camelExpected = [...EXPECTED_RPCS].map((n) => n.charAt(0).toLowerCase() + n.slice(1)).sort();
-    expect(declaredMethods.sort()).toEqual(camelExpected);
+    expect([...rpcsFromContract()].sort()).toEqual([...AI_LLM_CANONICAL_RPCS].sort());
   });
 
   it('suite metadata is fixed', () => {
-    expect(suite.category).toBe('ai-llm');
-    expect(suite.contract_version).toBe('v1');
+    expect(aiLlmConformanceSuite.category).toBe('ai-llm');
+    expect(aiLlmConformanceSuite.contractVersion).toBe('v1');
   });
 });
 ```
@@ -1451,25 +1527,70 @@ Create `modules/ai-llm/conformance/test/suite-shape.test.ts`:
 
 ```typescript
 import { describe, expect, it } from 'vitest';
-import { suite } from '../src/index.js';
+import {
+  AI_LLM_AGENT_EXECUTION_MODES,
+  AI_LLM_ASYNC_JOB_TYPES,
+  AI_LLM_CANONICAL_EVENTS,
+  AI_LLM_CANONICAL_RPCS,
+  AI_LLM_CAPABILITY_FIELDS,
+  AI_LLM_INPUT_MODALITIES,
+  AI_LLM_REASONING_VISIBILITY,
+  aiLlmConformanceSuite,
+} from '../src/index.js';
 
 describe('CategoryConformanceSuite shape', () => {
   it('every scenarios entry is an array (possibly empty in v1 skeleton)', () => {
-    for (const [rpc, scenarios] of Object.entries(suite.scenarios)) {
+    for (const [rpc, scenarios] of Object.entries(aiLlmConformanceSuite.scenariosByRpc)) {
       expect(Array.isArray(scenarios), `scenarios[${rpc}] must be an array`).toBe(true);
     }
   });
 
   it('exactly 14 RPCs wired', () => {
-    expect(Object.keys(suite.scenarios)).toHaveLength(14);
+    expect(Object.keys(aiLlmConformanceSuite.scenariosByRpc)).toHaveLength(14);
   });
 
   it('all scenario arrays are empty in v1 skeleton (until framework lands)', () => {
     // When a follow-up PR adds real scenarios, this test stops being trivial —
     // update the assertion to "non-empty for at least Complete + RunThread".
-    for (const [rpc, scenarios] of Object.entries(suite.scenarios)) {
+    for (const [rpc, scenarios] of Object.entries(aiLlmConformanceSuite.scenariosByRpc)) {
       expect(scenarios.length, `scenarios[${rpc}] should be empty in skeleton`).toBe(0);
     }
+  });
+
+  it('exports canonical capability registries for vendor module authors', () => {
+    expect(AI_LLM_CANONICAL_RPCS).toHaveLength(14);
+    expect(AI_LLM_CANONICAL_EVENTS).toEqual([
+      'CompletionStarted',
+      'CompletionFinished',
+      'CompletionFailed',
+      'ThreadCreated',
+      'ThreadDeleted',
+      'ThreadMessageAdded',
+      'ThreadRunStarted',
+      'ThreadRunRequiresAction',
+      'ThreadRunCompleted',
+      'ThreadRunFailed',
+      'ThreadRunCancelled',
+      'AsyncJobSubmitted',
+      'AsyncJobStatusChanged',
+      'AsyncJobCompleted',
+      'AsyncJobFailed',
+      'AsyncJobCancelled',
+    ]);
+    expect(AI_LLM_INPUT_MODALITIES).toEqual(['text', 'image', 'audio', 'file']);
+    expect(AI_LLM_REASONING_VISIBILITY).toEqual(['hidden', 'summary', 'full']);
+    expect(AI_LLM_ASYNC_JOB_TYPES).toEqual(['BATCH_COMPLETION']);
+    expect(AI_LLM_AGENT_EXECUTION_MODES).toEqual(['delegated', 'local', 'none']);
+    expect(AI_LLM_CAPABILITY_FIELDS).toEqual([
+      'vendors',
+      'rpcs',
+      'events',
+      'input_modalities',
+      'reasoning_visibility_supported',
+      'thread',
+      'async_job_types',
+      'agent_execution_mode',
+    ]);
   });
 });
 ```
@@ -1558,8 +1679,9 @@ Conformance scenarios for the AI/LLM canonical contract `@rntme/contracts-ai-llm
 modules/ai-llm/conformance/
 ├── src/
 │   ├── types.ts                     # local Scenario / CategoryConformanceSuite (until framework lands)
+│   ├── capabilities.ts              # canonical RPC/event/capability registries
 │   ├── index.ts                     # barrel
-│   ├── suite.ts                     # CategoryConformanceSuite wiring (14 RPCs)
+│   ├── suite.ts                     # aiLlmConformanceSuite wiring (14 RPCs)
 │   ├── fixtures/
 │   │   ├── messages.ts              # canonical Message fixtures
 │   │   ├── content-blocks.ts        # one fixture per ContentBlockType
@@ -1586,30 +1708,32 @@ modules/ai-llm/conformance/
 ## Quick start
 
 ```typescript
-import { suite, samplePngUrl } from '@rntme/conformance-ai-llm';
+import { AI_LLM_CANONICAL_RPCS, aiLlmConformanceSuite, samplePngUrl } from '@rntme/conformance-ai-llm';
 
-console.log(suite.category);                    // 'ai-llm'
-console.log(suite.contract_version);            // 'v1'
-console.log(Object.keys(suite.scenarios));      // 14 canonical RPC names
+console.log(aiLlmConformanceSuite.category);                       // 'ai-llm'
+console.log(aiLlmConformanceSuite.contractVersion);                // 'v1'
+console.log(Object.keys(aiLlmConformanceSuite.scenariosByRpc));    // 14 canonical RPC names
+console.log(AI_LLM_CANONICAL_RPCS.length);                         // 14
 ```
 
-When `@rntme/conformance-framework` lands, point its runner at this `suite` and a vendor module's gRPC handler:
+When `@rntme/conformance-framework` lands, point its runner at `aiLlmConformanceSuite` and a vendor module's gRPC handler:
 
 ```typescript
 import { run } from '@rntme/conformance-framework';
-import { suite } from '@rntme/conformance-ai-llm';
+import { aiLlmConformanceSuite } from '@rntme/conformance-ai-llm';
 
-const report = await run(suite, vendorModuleHandler, { mode: 'mock' });
+const report = await run(aiLlmConformanceSuite, vendorModuleHandler, { mode: 'mock' });
 ```
 
 ## API
 
-### `suite: CategoryConformanceSuite`
+### `aiLlmConformanceSuite: CategoryConformanceSuite`
 
-Frozen metadata + `scenarios` keyed by canonical RPC name. Every scenarios array is empty in the v1 skeleton — populated when the framework gains assertion DSL.
+Frozen metadata + `scenariosByRpc` keyed by canonical RPC name. Every scenarios array is empty in the v1 skeleton — populated when the framework gains assertion DSL.
 
-### Fixture re-exports
+### Registry and fixture re-exports
 
+- `AI_LLM_CANONICAL_RPCS`, `AI_LLM_CANONICAL_EVENTS`, `AI_LLM_INPUT_MODALITIES`, `AI_LLM_REASONING_VISIBILITY`, `AI_LLM_ASYNC_JOB_TYPES`, `AI_LLM_AGENT_EXECUTION_MODES`, `AI_LLM_CAPABILITY_FIELDS` — canonical registries used by vendor module authors and future conformance reports.
 - `messages` — `userHello`, `userMath`, `userWeather`, `systemHelpful`, `assistantAck`.
 - `contentBlocks` — `textBlock`, `imageBlockUrl`, `audioBlockUrl`, `fileBlockUrl`, `toolUseBlock`, `toolResultBlock`, `thinkingBlock`.
 - `tools` — `getWeatherTool`, `lookupUserTool` (MCP-shape).
@@ -1681,7 +1805,7 @@ If Identity plan 2 added "6.18 Add an Identity vendor module" or similar, add a 
 
 The pattern is the same as Identity vendor modules but with the AI/LLM canonical contract. Each vendor lands at `modules/ai-llm/<vendor>/` with:
 
-1. A handler implementation against `proto.rntme.contracts.ai_llm.v1.AiLlmModule`. SaaS module wraps one vendor; gateway module proxies to many.
+1. A handler implementation against `proto.rntme.contracts.ai_llm.v1.AiLlmModule`. SaaS module wraps one vendor; gateway module proxies to many. If Plan 1 exports direct convenience symbols by the time this plan is implemented, `AiLlmModule` may also be imported from `@rntme/contracts-ai-llm-v1`.
 2. An idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with ≥24h TTL. Major LLM vendors do not provide native idempotency; this is mandatory.
 3. A webhook receiver for AsyncJob status callbacks (OpenAI Standard Webhooks for Batch API; Bedrock EventBridge for batch).
 4. A `module.json` manifest declaring all eight capability fields (see `modules/ai-llm/README.md` for the decision tree).
@@ -1724,7 +1848,7 @@ Expected: every package builds, including `@rntme/conformance-ai-llm`.
 - [ ] **Step 2: Run full workspace tests**
 
 Run: `pnpm -r run test`
-Expected: every test passes. Conformance package contributes ~10 test cases (4 drift + 3 suite-shape + 3 fixtures-sanity).
+Expected: every test passes. Conformance package contributes ~11 test cases (4 drift + 4 suite-shape/capability-registry + 3 fixtures-sanity).
 
 - [ ] **Step 3: Run full workspace lint and typecheck**
 
@@ -1745,7 +1869,7 @@ Cross-check against `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract
 - §12.1 layout — `modules/ai-llm/` + `conformance/` exists with the right structure ✓
 - §12.2 per-RPC scenarios — 14 stub files, one per canonical RPC, each citing spec ✓
 - §12.3 anti-conformance — documented in scenario stub comments; runner-side enforcement deferred to framework ✓
-- §12.4 capability-coverage report — documented in category README ✓
+- §12.4 capability-coverage report — documented in category README and backed by `src/capabilities.ts` registry exports ✓
 - §12.5 mock-vendor — documented as deferred to `@rntme/conformance-framework` ✓
 - §12.6 binary fixtures — three files in `media/`, sanity-tested for size + magic bytes ✓
 
@@ -1766,8 +1890,8 @@ Run this checklist after the last task and before closing the PR:
 
 1. **Spec coverage:** §12.1–§12.6 each have a corresponding task above. Confirmed in Task 15 step 5.
 2. **Placeholder scan:** Search the plan body for `TBD`, `TODO`, `FIXME`, `XXX`, `placeholder`. The only legitimate occurrence is in scenario stub comments that read "Scenarios are empty in v1 skeleton" — that is not a placeholder; it is the documented contract of this plan (every scenario file is a structured placeholder until the framework lands).
-3. **Type consistency:** RPC names in Tasks 7–9 match `EXPECTED_RPCS` in Task 11. Filename pattern `<RPC>.scenarios.ts` enforced consistently. The `Scenario` type in Task 4 used by every scenario file in Tasks 7–9 and by `suite.ts` in Task 10.
-4. **Cross-task naming:** `@rntme/conformance-ai-llm` package name uniform across Tasks 3, 11, 13. `proto.rntme.contracts.ai_llm.v1` namespace import in Task 11 matches Plan 1's barrel export.
+3. **Type consistency:** RPC names in Tasks 7–9 match `AI_LLM_CANONICAL_RPCS` in Task 10 and Task 11. Filename pattern `<RPC>.scenarios.ts` enforced consistently. The `Scenario` type in Task 4 is used by every scenario file in Tasks 7–9 and by `suite.ts` in Task 10.
+4. **Cross-task naming:** `@rntme/conformance-ai-llm` package name uniform across Tasks 3, 11, 13. `aiLlmConformanceSuite`, `contractVersion`, and `scenariosByRpc` match merged Identity conformance naming. `proto.rntme.contracts.ai_llm.v1` namespace import in Task 11 matches Plan 1's barrel export and does not require direct convenience exports.
 5. **Capability gating coverage:** Every Thread scenario stub (Task 8) cites `capability: 'thread'` in its docstring; every AsyncJob stub (Task 9) cites `async_job_types`. Multimodal scenarios (Task 7 Complete + Task 8 AddMessage) cite `input_modalities`.
 
 If any check fails: fix inline, re-run the affected task's tests.
