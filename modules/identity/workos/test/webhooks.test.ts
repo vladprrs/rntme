@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryWebhookDedupeStore, createWorkOSWebhookReceiver, translateWorkOSWebhook } from '../src/webhooks.js';
+import type { WorkOSWebhookEvent } from '../src/types.js';
 
 describe('WorkOS webhook receiver', () => {
   it('verifies with workos-signature, translates, and dedupes claimed lifecycle events', async () => {
@@ -41,17 +42,81 @@ describe('WorkOS webhook receiver', () => {
     expect(translateWorkOSWebhook({ id: 'evt_sso', event: 'connection.activated', data: { id: 'conn_1' } })).toBeUndefined();
   });
 
-  it('emits canonical scalar data for deletion and terminal invitation events', () => {
-    const deleted = translateWorkOSWebhook({ id: 'evt_deleted', event: 'organization_membership.deleted', data: { id: 'om_1' } });
+  it('emits deletion timestamps from event creation time or current time fallback', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-02T00:00:00.000Z'));
+    try {
+      const userDeleted = translateWorkOSWebhook({
+        id: 'evt_user_deleted',
+        event: 'user.deleted',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        data: { id: 'user_1' },
+      } as WorkOSWebhookEvent);
+      const organizationDeleted = translateWorkOSWebhook({
+        id: 'evt_org_deleted',
+        event: 'organization.deleted',
+        created_at: '2024-01-01T00:00:00.000Z',
+        data: { id: 'org_1' },
+      } as WorkOSWebhookEvent);
+      const membershipDeleted = translateWorkOSWebhook({
+        id: 'evt_membership_deleted',
+        event: 'organization_membership.deleted',
+        data: { id: 'om_1', userId: 'user_1', organizationId: 'org_1' },
+      });
+
+      expect(userDeleted?.data).toEqual(
+        expect.objectContaining({ canonical_id: 'user_1', vendor_id: 'user_1', hard_delete: true, deleted_at: { seconds: 1704067200, nanos: 0 } }),
+      );
+      expect(organizationDeleted?.data).toEqual(
+        expect.objectContaining({ canonical_id: 'org_1', vendor_id: 'org_1', hard_delete: true, deleted_at: { seconds: 1704067200, nanos: 0 } }),
+      );
+      expect(membershipDeleted?.data).toEqual(
+        expect.objectContaining({
+          canonical_id: 'om_1',
+          vendor_id: 'om_1',
+          user_id: 'user_1',
+          organization_id: 'org_1',
+          deleted_at: { seconds: 1704153600, nanos: 0 },
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('emits canonical scalar data for terminal invitation events', () => {
+    const accepted = translateWorkOSWebhook({
+      id: 'evt_inv_accepted',
+      event: 'invitation.accepted',
+      data: {
+        id: 'inv_1',
+        email: 'new@example.com',
+        organizationId: 'org_1',
+        state: 'accepted',
+        acceptedByUserId: 'user_1',
+        createdMembershipId: 'om_1',
+      },
+    });
     const revoked = translateWorkOSWebhook({
       id: 'evt_inv_revoked',
       event: 'invitation.revoked',
-      data: { id: 'inv_1', email: 'new@example.com', organizationId: 'org_1', state: 'revoked' },
+      data: { id: 'inv_2', email: 'revoked@example.com', organizationId: 'org_1', state: 'revoked', revokedAt: '2024-01-03T00:00:00.000Z' },
     });
 
-    expect(deleted?.data).toEqual(expect.objectContaining({ canonical_id: 'om_1', vendor_id: 'om_1' }));
-    expect(deleted?.data).not.toHaveProperty('membership');
+    expect(accepted?.type).toBe('rntme.identity.v1.InvitationAccepted');
+    expect(accepted?.data).toEqual(
+      expect.objectContaining({
+        invitation: expect.objectContaining({ email: 'new@example.com' }),
+        accepted_by_user_id: 'user_1',
+        created_membership_id: 'om_1',
+      }),
+    );
     expect(revoked?.type).toBe('rntme.identity.v1.InvitationRevoked');
-    expect(revoked?.data).toEqual(expect.objectContaining({ invitation: expect.objectContaining({ email: 'new@example.com' }) }));
+    expect(revoked?.data).toEqual(
+      expect.objectContaining({
+        invitation: expect.objectContaining({ email: 'revoked@example.com' }),
+        revoked_at: { seconds: 1704240000, nanos: 0 },
+      }),
+    );
   });
 });

@@ -89,6 +89,7 @@ export function translateWorkOSWebhook(event: WorkOSWebhookEvent): CloudEvent | 
   const id = event.id || `${eventType}:${eventSubject(event)}`;
   const subject = eventSubject(event);
   const time = new Date().toISOString();
+  const eventTimestamp = eventCreatedTimestamp(event);
 
   switch (eventType) {
     case 'user.created':
@@ -96,13 +97,13 @@ export function translateWorkOSWebhook(event: WorkOSWebhookEvent): CloudEvent | 
     case 'user.updated':
       return cloudEvent(id, 'rntme.identity.v1.UserUpdated', event.data, subject, { user: mapWorkOSUser(event.data) }, time);
     case 'user.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.UserDeleted', event.data, subject, deletedData(event.data), time);
+      return cloudEvent(id, 'rntme.identity.v1.UserDeleted', event.data, subject, deletedData(event.data, eventTimestamp), time);
     case 'organization.created':
       return cloudEvent(id, 'rntme.identity.v1.OrganizationCreated', event.data, subject, { organization: mapWorkOSOrganization(event.data) }, time);
     case 'organization.updated':
       return cloudEvent(id, 'rntme.identity.v1.OrganizationUpdated', event.data, subject, { organization: mapWorkOSOrganization(event.data) }, time);
     case 'organization.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.OrganizationDeleted', event.data, subject, deletedData(event.data), time);
+      return cloudEvent(id, 'rntme.identity.v1.OrganizationDeleted', event.data, subject, deletedData(event.data, eventTimestamp), time);
     case 'organization_membership.created':
       return cloudEvent(
         id,
@@ -115,7 +116,7 @@ export function translateWorkOSWebhook(event: WorkOSWebhookEvent): CloudEvent | 
     case 'organization_membership.updated':
       return cloudEvent(id, 'rntme.identity.v1.MembershipUpdated', event.data, subject, { membership: mapWorkOSMembership(event.data) }, time);
     case 'organization_membership.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.MembershipDeleted', event.data, subject, membershipDeletedData(event.data), time);
+      return cloudEvent(id, 'rntme.identity.v1.MembershipDeleted', event.data, subject, membershipDeletedData(event.data, eventTimestamp), time);
     case 'invitation.created':
       return cloudEvent(
         id,
@@ -126,9 +127,9 @@ export function translateWorkOSWebhook(event: WorkOSWebhookEvent): CloudEvent | 
         time,
       );
     case 'invitation.accepted':
-      return cloudEvent(id, 'rntme.identity.v1.InvitationAccepted', event.data, subject, { invitation: mapWorkOSInvitation(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.InvitationAccepted', event.data, subject, invitationAcceptedData(event.data), time);
     case 'invitation.revoked':
-      return cloudEvent(id, 'rntme.identity.v1.InvitationRevoked', event.data, subject, { invitation: mapWorkOSInvitation(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.InvitationRevoked', event.data, subject, invitationRevokedData(event.data), time);
     default:
       return undefined;
   }
@@ -188,22 +189,54 @@ function asObject(value: unknown): JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as JsonObject) : {};
 }
 
-function deletedData(raw: JsonObject): JsonObject {
+function deletedData(raw: JsonObject, deletedAt: protoTimestamp): JsonObject {
   const canonicalId = readString(raw, 'id');
   return {
     canonical_id: canonicalId,
     vendor_id: canonicalId,
     hard_delete: true,
+    deleted_at: deletedAt,
   };
 }
 
-function membershipDeletedData(raw: JsonObject): JsonObject {
+function membershipDeletedData(raw: JsonObject, deletedAt: protoTimestamp): JsonObject {
   const canonicalId = readString(raw, 'id');
   return {
     canonical_id: canonicalId,
     vendor_id: canonicalId,
     user_id: readString(raw, 'userId') || readString(raw, 'user_id'),
     organization_id: readString(raw, 'organizationId') || readString(raw, 'organization_id'),
+    deleted_at: deletedAt,
+  };
+}
+
+function invitationAcceptedData(raw: JsonObject): JsonObject {
+  return {
+    invitation: mapWorkOSInvitation(raw),
+    accepted_by_user_id: readString(raw, 'acceptedByUserId') || readString(raw, 'accepted_by_user_id'),
+    created_membership_id: readString(raw, 'createdMembershipId') || readString(raw, 'created_membership_id'),
+  };
+}
+
+function invitationRevokedData(raw: JsonObject): JsonObject {
+  return {
+    invitation: mapWorkOSInvitation(raw),
+    revoked_at: toTimestamp(readString(raw, 'revokedAt') || readString(raw, 'revoked_at') || Date.now()),
+  };
+}
+
+type protoTimestamp = { seconds: number; nanos: number };
+
+function eventCreatedTimestamp(event: WorkOSWebhookEvent): protoTimestamp {
+  return toTimestamp(event.createdAt || event.created_at || Date.now());
+}
+
+function toTimestamp(value: number | string): protoTimestamp {
+  const millis = typeof value === 'number' ? value : Date.parse(value);
+  const safeMillis = Number.isFinite(millis) ? millis : Date.now();
+  return {
+    seconds: Math.trunc(safeMillis / 1000),
+    nanos: (safeMillis % 1000) * 1_000_000,
   };
 }
 

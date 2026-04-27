@@ -188,7 +188,10 @@ export function createWorkOSIdentityModule(options: CreateWorkOSIdentityModuleOp
         'IDENTITY_REFERENCES_USER_NOT_FOUND',
       ),
     DeleteUser: async (request) =>
-      withErrorMap(() => adapter.deleteUser(request.canonical_id ?? '').then((user) => mapWorkOSUser({ ...user, deleted: true })), 'IDENTITY_REFERENCES_USER_NOT_FOUND'),
+      withErrorMap(async () => {
+        requireHardDelete(request.hard_delete, 'DeleteUser');
+        return mapWorkOSUser({ ...(await adapter.deleteUser(request.canonical_id ?? '')), deleted: true });
+      }, 'IDENTITY_REFERENCES_USER_NOT_FOUND'),
     CreateOrganization: async (request) =>
       withErrorMap(
         () =>
@@ -219,15 +222,18 @@ export function createWorkOSIdentityModule(options: CreateWorkOSIdentityModuleOp
         'IDENTITY_REFERENCES_ORGANIZATION_NOT_FOUND',
       ),
     DeleteOrganization: async (request) =>
-      withErrorMap(
-        () => adapter.deleteOrganization(request.canonical_id ?? '').then((organization) => mapWorkOSOrganization({ ...organization, deleted: true })),
-        'IDENTITY_REFERENCES_ORGANIZATION_NOT_FOUND',
-      ),
+      withErrorMap(async () => {
+        requireHardDelete(request.hard_delete, 'DeleteOrganization');
+        return mapWorkOSOrganization({ ...(await adapter.deleteOrganization(request.canonical_id ?? '')), deleted: true });
+      }, 'IDENTITY_REFERENCES_ORGANIZATION_NOT_FOUND'),
     CreateInvitation: async (request) =>
       withErrorMap(
         async () => {
           if (!request.organization_id) {
             throw invalidArgument('CreateInvitation requires organization_id for WorkOS');
+          }
+          if ((request.roles?.length ?? 0) > 1) {
+            throw invalidArgument('CreateInvitation supports at most one role for WorkOS');
           }
           return mapWorkOSInvitation(
             await adapter.sendInvitation({
@@ -250,7 +256,7 @@ export function createWorkOSIdentityModule(options: CreateWorkOSIdentityModuleOp
             .createOrganizationMembership({
               organizationId: request.organization_id ?? '',
               userId: request.user_id ?? '',
-              roleSlug: request.roles?.[0] || undefined,
+              ...membershipRoleParams(request.roles),
             })
             .then(mapWorkOSMembership),
         'IDENTITY_REFERENCES_MEMBERSHIP_NOT_FOUND',
@@ -262,12 +268,19 @@ export function createWorkOSIdentityModule(options: CreateWorkOSIdentityModuleOp
         }
         return mapWorkOSMembership(
           await adapter.updateOrganizationMembership(request.canonical_id ?? '', {
-            roleSlug: request.roles[0],
+            ...membershipRoleParams(request.roles),
           }),
         );
       }, 'IDENTITY_REFERENCES_MEMBERSHIP_NOT_FOUND'),
     RemoveMembership: async (request) =>
-      withErrorMap(() => adapter.deleteOrganizationMembership(request.canonical_id ?? '').then(mapWorkOSMembership), 'IDENTITY_REFERENCES_MEMBERSHIP_NOT_FOUND'),
+      withErrorMap(async () => {
+        if (!adapter.getOrganizationMembership) {
+          throw unimplemented('RemoveMembership');
+        }
+        const membership = await adapter.getOrganizationMembership(request.canonical_id ?? '');
+        await adapter.deleteOrganizationMembership(request.canonical_id ?? '');
+        return mapWorkOSMembership({ ...membership, status: 'inactive' });
+      }, 'IDENTITY_REFERENCES_MEMBERSHIP_NOT_FOUND'),
     RevokeSession: unsupported('RevokeSession'),
   };
 }
@@ -295,11 +308,29 @@ function canonicalMembershipStatusToWorkOS(status: proto.rntme.contracts.identit
     case id.MembershipStatus.MEMBERSHIP_STATUS_PENDING:
       return ['pending'];
     case id.MembershipStatus.MEMBERSHIP_STATUS_REVOKED:
-    case id.MembershipStatus.MEMBERSHIP_STATUS_SUSPENDED:
       return ['inactive'];
+    case id.MembershipStatus.MEMBERSHIP_STATUS_SUSPENDED:
+      throw invalidArgument('ListMemberships cannot safely map suspended status to WorkOS');
     default:
       return undefined;
   }
+}
+
+function requireHardDelete(hardDelete: boolean | null | undefined, rpc: string): void {
+  if (hardDelete !== true) {
+    throw invalidArgument(`${rpc} requires hard_delete=true because WorkOS only supports hard delete`);
+  }
+}
+
+function membershipRoleParams(roles: readonly string[] | null | undefined): { roleSlug?: string; roleSlugs?: string[] } {
+  if (!roles?.length) {
+    return {};
+  }
+  if (roles.length === 1) {
+    const roleSlug = roles[0];
+    return roleSlug ? { roleSlug } : {};
+  }
+  return { roleSlugs: [...roles] };
 }
 
 function listMetaSource<T>(

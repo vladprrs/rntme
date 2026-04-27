@@ -20,6 +20,7 @@ const fakeAdapter: WorkOSIdentityAdapter = {
   createOrganization: async () => ({ id: 'org_new', name: 'Acme' }),
   updateOrganization: async (params) => ({ id: params.organization, name: 'Acme Updated' }),
   deleteOrganization: async (organizationId) => ({ id: organizationId, deleted: true }),
+  getOrganizationMembership: async (membershipId) => ({ id: membershipId, userId: 'user_1', organizationId: 'org_1', roleSlug: 'member', status: 'active' }),
   listOrganizationMemberships: async () => ({ data: [], totalCount: 0 }),
   createOrganizationMembership: async () => ({ id: 'om_1', userId: 'user_1', organizationId: 'org_1', roleSlug: 'member' }),
   updateOrganizationMembership: async (membershipId) => ({ id: membershipId, userId: 'user_1', organizationId: 'org_1', roleSlug: 'admin' }),
@@ -40,7 +41,7 @@ function requestFor(rpc: string): unknown {
     case 'UpdateUser':
       return id.UpdateUserRequest.create({ canonical_id: 'user_1' });
     case 'DeleteUser':
-      return id.DeleteUserRequest.create({ canonical_id: 'user_1' });
+      return id.DeleteUserRequest.create({ canonical_id: 'user_1', hard_delete: true });
     case 'GetOrganization':
       return id.GetOrganizationRequest.create({ canonical_id: 'org_1' });
     case 'ListOrganizations':
@@ -50,7 +51,7 @@ function requestFor(rpc: string): unknown {
     case 'UpdateOrganization':
       return id.UpdateOrganizationRequest.create({ canonical_id: 'org_1', name: 'Acme Updated' });
     case 'DeleteOrganization':
-      return id.DeleteOrganizationRequest.create({ canonical_id: 'org_1' });
+      return id.DeleteOrganizationRequest.create({ canonical_id: 'org_1', hard_delete: true });
     case 'AddMembership':
       return id.AddMembershipRequest.create({ user_id: 'user_1', organization_id: 'org_1' });
     case 'UpdateMembership':

@@ -64,5 +64,7 @@ export interface WorkOSWebhookEvent {
   id?: string;
   event?: string;
   type?: string;
+  createdAt?: string;
+  created_at?: string;
   data: JsonObject;
 }
