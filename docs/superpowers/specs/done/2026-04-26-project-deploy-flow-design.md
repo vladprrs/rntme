@@ -3,10 +3,10 @@
 **Status:** brainstorming approved, awaiting user review of this spec
 **Author:** brainstorm 2026-04-26
 **Related:**
-- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — project-first blueprint model (Track A + B foundation).
-- `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` — `deploy-core` / `deploy-dokploy` library design. This spec is the platform/CLI orchestration around it.
+- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — project-first blueprint model (Track A + B foundation).
+- `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — `deploy-core` / `deploy-dokploy` library design. This spec is the platform/CLI orchestration around it.
 - `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — current platform domain (orgs, projects, services, service-versions, tags). This spec replaces the service-version model.
-- `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` — platform UI shell. New pages extend the same shell.
+- `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` — platform UI shell. New pages extend the same shell.
 
 ## 1. Problem
 

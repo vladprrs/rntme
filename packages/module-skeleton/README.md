@@ -1,6 +1,6 @@
 # @rntme/module-skeleton
 
-Starter template for **rntme platform modules** (spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`).
+Starter template for **rntme platform modules** (spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`).
 
 A *platform module* is a service that uses `@rntme/runtime` infrastructure (event-store, projections, relay) but replaces graph-IR execution with hand-written TypeScript handlers via `CodeCommandExecutor`. This is the right shape for integration services that wrap a vendor SDK (Stripe, Resend, Algolia, OpenAI, etc.) — the SDK's semantics are too complex to express in Graph IR, and nothing is lost by writing code.
 
@@ -42,6 +42,6 @@ Integration tests should use an in-memory event-store (`new SqliteEventStore({ f
 
 ## References
 
-- Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §5, §12.
+- Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §5, §12.
 - Default executors: `packages/runtime/src/plugins/executors/`.
 - Contract tests: `runCommandExecutorContract` in `packages/runtime/src/plugins/contract-tests.ts`.

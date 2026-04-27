@@ -6,7 +6,7 @@
 
 **Architecture:** Two new plugin interfaces in `@rntme/runtime` (`CommandExecutor`, `QueryExecutor`). The existing synchronous `executeCommand(compiled, inputs, ctx)` from `@rntme/graph-ir-compiler` gets wrapped into an async, `Result`-returning `GraphIrCommandExecutor` that owns `Map<commandName, CompiledCommand>`. `bindings-http`'s `CommandBindingPlan` loses its inline `compiled` field; instead, the executor is injected via `BindingsRouterOptions.commandExecutor`, defaulting to a freshly-built `GraphIrCommandExecutor` so existing callers keep working. Modules replace the executor with a `CodeCommandExecutor` backed by a `Record<commandName, (ctx, input) => Promise<Result<CommandResult>>>`. Queries get the same interface-plus-default treatment but no runtime refactor in this plan (makeHandler already uses compiled SQL — seam added for forward-compatibility).
 
-**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm workspaces. Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §5, §6, §12.
+**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm workspaces. Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §5, §6, §12.
 
 ---
 
@@ -1428,7 +1428,7 @@ git commit -m "feat(module-skeleton): add exampleHandlers.echo and boot-wiring t
 ```markdown
 # @rntme/module-skeleton
 
-Starter template for **rntme platform modules** (spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`).
+Starter template for **rntme platform modules** (spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`).
 
 A *platform module* is a service that uses `@rntme/runtime` infrastructure (event-store, projections, relay) but replaces graph-IR execution with hand-written TypeScript handlers via `CodeCommandExecutor`. This is the right shape for integration services that wrap a vendor SDK (Stripe, Resend, Algolia, OpenAI, etc.) — the SDK's semantics are too complex to express in Graph IR, and nothing is lost by writing code.
 
@@ -1470,7 +1470,7 @@ Integration tests should use an in-memory event-store (`new SqliteEventStore({ f
 
 ## References
 
-- Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §5, §12.
+- Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §5, §12.
 - Default executors: `packages/runtime/src/plugins/executors/`.
 - Contract tests: `runCommandExecutorContract` in `packages/runtime/src/plugins/contract-tests.ts`.
 ```
@@ -1498,7 +1498,7 @@ Append to the "How to do common tasks" section:
 ```markdown
 ### 6.11 Add a platform module (code-executor-based integration service)
 
-1. Read `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
+1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
 2. Copy `packages/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
 3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
 4. Register handlers with `new CodeCommandExecutor(handlers)` and pass via `startService({ commandExecutor })`.
@@ -1514,7 +1514,7 @@ Append to "Where decisions live" table:
 
 ```markdown
 - "Why a separate module package instead of adapter-DSL inside a domain service?" →
-  `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §3 Q1 + §5.
+  `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §3 Q1 + §5.
 ```
 
 - [ ] **Step 3: Commit**
@@ -1555,12 +1555,12 @@ Stop the demo server.
 
 - [ ] **Step 3: Update spec cross-reference**
 
-In `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §14, change the status pill next to Plan 1 from implicit "pending" to "implemented 2026-04-..." (use the actual date). No code change, docs only.
+In `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §14, change the status pill next to Plan 1 from implicit "pending" to "implemented 2026-04-..." (use the actual date). No code change, docs only.
 
 - [ ] **Step 4: Commit and finalize**
 
 ```bash
-git add docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md
+git add docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md
 git commit -m "docs(spec): mark plan #1 (code-executor seam) implemented"
 ```
 

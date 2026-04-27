@@ -3,7 +3,7 @@
 **Status:** design
 **Author:** brainstorm 2026-04-26
 **Related:**
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (three-tier integration model, per-module proto, module skeleton, gRPC surface, pre-fetch, P2 callbacks; this spec sits *on top of* it and adds a categorical contract layer + repo-structure decisions)
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (three-tier integration model, per-module proto, module skeleton, gRPC surface, pre-fetch, P2 callbacks; this spec sits *on top of* it and adds a categorical contract layer + repo-structure decisions)
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` (CloudEvents envelope used by emitted events; `type` namespacing convention used by capability claims)
 - `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` (control-plane registry; the long-term home of contract distribution)
 - `rntme_orchestration_only`, `project_pre_stable_stage` memories
@@ -441,7 +441,7 @@ Non-blocking for plans 1–3, must be closed before the second category contract
 
 ## 16. References
 
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` — three-tier integration model, gRPC surface, pre-fetch, P2 callbacks; this spec extends §5 (module pattern) and §12 (module contract).
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — three-tier integration model, gRPC surface, pre-fetch, P2 callbacks; this spec extends §5 (module pattern) and §12 (module contract).
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` — envelope used by emitted events; capability event-names align with envelope `type` short-form.
 - `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — control-plane registry, long-term home of contract distribution.
 - `CLAUDE.md` — error-code convention, single-writer event log, Result<T> rule, Validated* type discipline, doc-touch obligation for plans.

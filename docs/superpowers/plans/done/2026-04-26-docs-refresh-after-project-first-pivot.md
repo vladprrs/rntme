@@ -4,7 +4,7 @@
 
 **Goal:** Bring `CLAUDE.md`, `README.md`, `AGENTS.md`, `docs/architecture.md`, `vision.md`, the affected per-package READMEs, and the affected `rntme-cli/` submodule docs into agreement with the project-first canonical model that landed across PR 9-16.
 
-**Architecture:** Documentation-only work. No code changes. Each task targets one file (or a small group of related files in the same area). Frequent commits, one per task. The spec at `docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md` is the prescription source — every task cites the spec section it implements and inlines the prescription bullets so the executor does not have to flip back.
+**Architecture:** Documentation-only work. No code changes. Each task targets one file (or a small group of related files in the same area). Frequent commits, one per task. The spec at `docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md` is the prescription source — every task cites the spec section it implements and inlines the prescription bullets so the executor does not have to flip back.
 
 **Tech Stack:** Markdown, Mermaid (diagrams in `README.md` and `docs/architecture.md`), Bash for grep / file-diff verification.
 
@@ -12,7 +12,7 @@
 
 ## Source spec
 
-`docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md`. Tasks reference §6.x sections of the spec by anchor.
+`docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md`. Tasks reference §6.x sections of the spec by anchor.
 
 ## Workflow notes
 
@@ -42,7 +42,7 @@ Expected: branch created, working tree clean.
 - [ ] **Step 2: Confirm spec is in tree on this branch**
 
 ```bash
-ls docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md
+ls docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md
 ```
 
 Expected: file exists.
@@ -117,7 +117,7 @@ git commit -m "docs(claude): pivot architecture paragraph and product positionin
 - Product-positioning: validated *project* blueprint in both internal and
   market frames; hero unchanged.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.1"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.1"
 ```
 
 ---
@@ -190,7 +190,7 @@ Expected: each term at least once.
 git add README.md
 git commit -m "docs(readme): pivot hero, what-rntme-does, under-the-hood to project-first
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.1-§6.2.3"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.1-§6.2.3"
 ```
 
 ---
@@ -280,7 +280,7 @@ Expected: same count as before the edit (the file has multiple mermaid blocks; d
 git add README.md
 git commit -m "docs(readme): redraw architecture-at-a-glance diagram for project-first
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.4"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.4"
 ```
 
 ---
@@ -311,7 +311,7 @@ Dependency graph mermaid:
 Caveat paragraph (line 144):
 - Replace the **"`@rntme/blueprint` currently depends on `@rntme/pdm` and `@rntme/qsm` but is not yet wired into `@rntme/runtime`"** sentence with:
   - "`@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings`/`@rntme/ui` for compilation."
-  - "Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`. The runtime still boots one service at a time. (See `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.)"
+  - "Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`. The runtime still boots one service at a time. (See `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.)"
 
 - [ ] **Step 1: Read current state**
 
@@ -352,7 +352,7 @@ git commit -m "docs(readme): packages table + dep-graph for project-first state
 - Update dep-graph mermaid with BG and MS nodes.
 - Replace 'not yet wired' caveat with current state.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.5-§6.2.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.5-§6.2.6"
 ```
 
 ---
@@ -368,7 +368,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 
 Commercial platform (Pillar 3):
 - Add explicit mention of `@rntme-cli/deploy-core` (target-neutral plan model) + `@rntme-cli/deploy-dokploy` (Dokploy adapter).
-- Cite spec `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- Cite spec `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - No changes to pillars 1, 2, 4.
 
 MVP / Tier 1 scope:
@@ -377,8 +377,8 @@ MVP / Tier 1 scope:
 
 Design docs:
 - Add bullet `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — modules story.
-- Verify bullet `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` exists (§224 already references the active version; confirm it's still active or in `done/`).
-- Add bullet `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline.
+- Verify bullet `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` exists (§224 already references the active version; confirm it's still active or in `done/`).
+- Add bullet `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline.
 
 - [ ] **Step 1: Edit Pillar 3 of commercial platform**
 
@@ -406,7 +406,7 @@ Expected: each term appears at least once.
 git add README.md
 git commit -m "docs(readme): commercial platform, MVP scope, design docs catch up to PR 12-16
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.7-§6.2.9"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.2.7-§6.2.9"
 ```
 
 ---
@@ -424,7 +424,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 - "What rntme does" (line 59): replace "describes one service as a **validated service blueprint**" → "describes a working app as a **validated project blueprint**" + adjust the subsequent description for the multi-service interpretation.
 - "A note on framing" (line 76): retain footnote semantics; only update bounded-object label to "validated project blueprint".
 - "The durable unit..." (line 266): "validated service blueprint" → "validated project blueprint".
-- §8 "The future platform" (deploy section): add a sentence noting that the deploy surface is built on `@rntme-cli/deploy-core` + `@rntme-cli/deploy-dokploy`. Cite spec `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- §8 "The future platform" (deploy section): add a sentence noting that the deploy surface is built on `@rntme-cli/deploy-core` + `@rntme-cli/deploy-dokploy`. Cite spec `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 
 - [ ] **Step 1: Confirm occurrence count before edits**
 
@@ -477,7 +477,7 @@ git commit -m "docs(vision): pivot bounded-object label to 'validated project bl
 - 5 instances of 'validated service blueprint' replaced with project version.
 - §8 future platform: add deploy pipeline mention (deploy-core + deploy-dokploy).
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.5"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.5"
 ```
 
 ---
@@ -512,7 +512,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 - §6.16 "Deploy a project via Dokploy" (4 steps; cite deploy spec; mention `planDeployment`, `renderDokployPlan`, `applyDokployPlan`, CLI command surface).
 
 §8 "Where decisions live" — add bullets:
-- "Why deploy via plan→render→apply, not raw CLI?" → `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- "Why deploy via plan→render→apply, not raw CLI?" → `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - Verify "Why platform modules over gRPC, not direct HTTP?" already present (it is, per spec catalog).
 
 §10 Glossary — append definitions for:
@@ -569,7 +569,7 @@ git commit -m "docs(agents): refresh §3 diagram, §6 how-tos, §10 glossary for
 - §10: add Project blueprint, Module, Pre-step, Callback binding,
   Idempotency cache, Executor seam, Deployment plan glossary entries.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.3"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.3"
 ```
 
 ---
@@ -626,7 +626,7 @@ git commit -m "docs(architecture): §1 executive summary rewritten for project-f
 - Decision→vision table extended (project as unit; modules over gRPC).
 - 'Seven artifacts' demoted to service-level primitives sub-paragraph.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.1"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.1"
 ```
 
 ---
@@ -700,7 +700,7 @@ git commit -m "docs(architecture): §2 + §3 (L1, L2 containers) for project-fir
 - §3.3: executor seam + ExternalAdapterClient added.
 - §3.4: boot lifecycle extended with idempotency cache + gRPC + modules.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.2-§6.4.3"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.2-§6.4.3"
 ```
 
 ---
@@ -771,7 +771,7 @@ git commit -m "docs(architecture): §4 point patches to pdm, qsm, bindings(-http
   bindAs object form.
 - §4.7: qualified service binding refs + binding-map validation boundary.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.4"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.4"
 ```
 
 ---
@@ -828,7 +828,7 @@ Expected: 4 lines, in order.
 git add docs/architecture.md
 git commit -m "docs(architecture): §4.9-§4.12 — blueprint, bindings-grpc, module-skeleton, deploy
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.4"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.4"
 ```
 
 ---
@@ -920,7 +920,7 @@ git commit -m "docs(architecture): §5 L4 + §6 abstractions catalogue extended
 - §6.4: CommandExecutor, QueryExecutor, default executors, CodeCommandExecutor.
 - §6.5: ProtoRegistry, GrpcAdapterClient, DeploymentPlan, DokployTarget.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.5-§6.4.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.5-§6.4.6"
 ```
 
 ---
@@ -987,7 +987,7 @@ git commit -m "docs(architecture): §7 diagnostic observations + §8 glossary + 
   Callback binding, Idempotency cache, Executor seam, Deployment plan).
 - §9: reference list verified.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.7-§6.4.9"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.4.7-§6.4.9"
 ```
 
 ---
@@ -1030,7 +1030,7 @@ If all criteria pass: no edit needed.
 git add packages/blueprint/README.md packages/bindings-grpc/README.md packages/module-skeleton/README.md
 git commit -m "docs(packages): verify-only patches to blueprint / bindings-grpc / module-skeleton READMEs
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 If no edits: skip commit.
@@ -1047,7 +1047,7 @@ If no edits: skip commit.
 **Bullets to add (in appropriate template sections):**
 - Project entity ownership: root entities vs owned entities (cite project-first spec §7).
 - Entity-per-file directory loader: API + invariants.
-- Spec link: `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- Spec link: `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 
 - [ ] **Step 1: Read current README**
 
@@ -1081,7 +1081,7 @@ Expected: each term at least once.
 git add packages/pdm/README.md
 git commit -m "docs(pdm): document project entity ownership + entity-per-file dir loader
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1096,7 +1096,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 **Bullets to add:**
 - Projection-per-file directory loader: API.
 - Cross-service projection inputs (project composition mode).
-- Spec link: `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- Spec link: `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 - Existing relations-migration spec link (`2026-04-16-qsm-relations-migration-design.md`) retained.
 
 - [ ] **Step 1: Read current README**
@@ -1129,7 +1129,7 @@ grep -n "projection-per-file\|cross-service projection\|2026-04-23-project-first
 git add packages/qsm/README.md
 git commit -m "docs(qsm): document projection-per-file dir loader + cross-service inputs
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1144,7 +1144,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 **Bullets to add:**
 - Service binding map validation boundary: what the UI compiler validates against the project-routed binding registry.
 - Qualified service binding refs (cross-service binding references).
-- Spec link: `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- Spec link: `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 
 - [ ] **Step 1: Read current README**
 
@@ -1172,7 +1172,7 @@ grep -n "binding map validation\|qualified service binding\|2026-04-23-project-f
 git add packages/ui/README.md
 git commit -m "docs(ui): document binding-map validation boundary + qualified service refs
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1222,7 +1222,7 @@ grep -n "CommandExecutor\|QueryExecutor\|manifest.modules\|ProtoRegistry\|Idempo
 git add packages/runtime/README.md
 git commit -m "docs(runtime): document executor seams, modules wiring, idempotency cache
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1268,7 +1268,7 @@ grep -n "pre\[\]\|bindAs\|inputFrom\|ResponseShape\|allowedRedirectHosts\|2026-0
 git add packages/bindings/README.md
 git commit -m "docs(bindings): document pre[], inputFrom, ResponseShape, callback bindings
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1316,7 +1316,7 @@ grep -n "IdempotencyCache\|runPreSteps\|expression evaluator\|error-to-http\|Red
 git add packages/bindings-http/README.md
 git commit -m "docs(bindings-http): document idempotency cache, pre-step orchestrator, callback wiring
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1348,7 +1348,7 @@ grep -n "executor seam\|CommandExecutor\|QueryExecutor\|GraphIrCommandExecutor" 
 git add packages/graph-ir-compiler/README.md
 git commit -m "docs(graph-ir-compiler): note executor seam + default executors
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.6"
 ```
 
 ---
@@ -1368,7 +1368,7 @@ Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-d
 
 ```markdown
 > ⚠️ **DEPRECATED — single-service shape.**
-> This demo predates the project-first canonical model (see [`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md)).
+> This demo predates the project-first canonical model (see [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md)).
 > It is kept as a working historical reference for the per-service runtime path.
 > A project-shape canonical example will replace it; do not start new work from this layout.
 ```
@@ -1418,7 +1418,7 @@ git commit -m "docs: deprecate single-service demo shape (3 placements)
 Demo retained as regression suite for per-service runtime path until
 project-level intake lands.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.8"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.8"
 ```
 
 ---
@@ -1442,7 +1442,7 @@ gh pr create --title "docs: refresh CLAUDE/README/AGENTS/architecture/vision for
 
 Brings top-level docs (CLAUDE.md, README.md, AGENTS.md, docs/architecture.md, vision.md), affected per-package READMEs, and the demo banner into agreement with the project-first canonical model that landed across PR 9-16. Submodule changes (rntme-cli/) follow in a separate submodule PR + parent submodule-pointer bump.
 
-Spec: \`docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md\`.
+Spec: \`docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md\`.
 
 ## Decisions captured
 
@@ -1535,7 +1535,7 @@ git commit -m "docs: add apps/landing to workspace members"
 - Plan model documented (ports, edge routes, env, secrets, redaction).
 - Target-neutral entry function (`planDeployment` or current name) covered.
 - Out of scope mentions target-specific render/apply.
-- Spec link to `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- Spec link to `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 
 `deploy-dokploy`:
 - All 7 template sections.
@@ -1784,7 +1784,7 @@ Mirror of the parent-repo docs refresh into the rntme-cli submodule.
 - packages/{platform-core, platform-storage}/README.md: spot-check.
 - apps/landing/{CONTENT.md, src/pages/index.astro, src/components/Hero.astro}: 'validated service blueprint' → 'validated project blueprint' (3 occurrences).
 
-Parent spec: \`docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md\`.
+Parent spec: \`docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md\`.
 
 ## Test plan
 
@@ -1812,7 +1812,7 @@ git commit -m "chore(submodule): bump rntme-cli to docs-refresh main
 Includes apps/landing terminology pivot, cli/platform-http README updates,
 verify-only patches to deploy-core/deploy-dokploy, spot-check fixes.
 
-Spec: docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.7"
+Spec: docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md §6.7"
 git push
 ```
 

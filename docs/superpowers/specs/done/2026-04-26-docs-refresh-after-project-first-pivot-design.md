@@ -18,7 +18,7 @@
 | 14-15 | 2026-04-24 | Blueprint Track B: project routes/middleware validation, service artifact discovery, service member validation, project-routed binding registry, qualified service binding refs in UI |
 | 16  | 2026-04-24 | `@rntme-cli/deploy-core` + `@rntme-cli/deploy-dokploy` wired into the workspace |
 
-Across these PRs, the canonical authoring/versioning/deploy unit shifted from "one service" to **the project blueprint folder** (`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` Q1, Q3).
+Across these PRs, the canonical authoring/versioning/deploy unit shifted from "one service" to **the project blueprint folder** (`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` Q1, Q3).
 
 The top-level docs have not absorbed this. Symptoms today:
 
@@ -57,7 +57,7 @@ After this refresh:
 | Q4 | Per-package README depth | Triage prescription: bullet-list of "what should appear" per affected package. Exact wording is left to the executor of the writing-plans output, who must respect the existing per-package README template (File map / Quick start / API / Invariants / Out of scope / Where to look first / Specs). |
 | Q5 | Demo treatment | `demo/issue-tracker-api` stays single-service; not refactored. A deprecation banner is added in three places (see §6.8). |
 | Q6 | Landing treatment | Terminology check only — sweep `rntme-cli/apps/landing/` for "validated service blueprint" / "seven artifacts" wording, replace where it occurs. No structural or design changes. |
-| Q7 | New ADR | None. The project-first pivot is already captured in `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`. The deployment pipeline is captured in `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`. AGENTS.md §8 already links to both. |
+| Q7 | New ADR | None. The project-first pivot is already captured in `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`. The deployment pipeline is captured in `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`. AGENTS.md §8 already links to both. |
 | Q8 | Backward compatibility | None required. rntme is pre-revenue, no users; renames and removals are free (per memory `project_pre_stable_stage`, 2026-04-23). |
 
 ## 5. Audit table
@@ -182,7 +182,7 @@ Update the explanatory paragraph (line 144). Replace the **"`@rntme/blueprint` c
 
 #### 6.2.7 "The commercial platform" (lines 77-86)
 
-- Pillar 3 ("Deploy surface") — add explicit mention of `@rntme-cli/deploy-core` (target-neutral plan model) + `@rntme-cli/deploy-dokploy` (Dokploy adapter). Cite spec `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- Pillar 3 ("Deploy surface") — add explicit mention of `@rntme-cli/deploy-core` (target-neutral plan model) + `@rntme-cli/deploy-dokploy` (Dokploy adapter). Cite spec `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - No changes to pillars 1, 2, 4.
 
 #### 6.2.8 "MVP / Tier 1 scope" (lines 233-248)
@@ -194,9 +194,9 @@ Add line: "Platform modules integration: `manifest.modules[]` declares external 
 #### 6.2.9 "Design docs" section (lines 220-231)
 
 Add bullets for:
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` — modules story.
-- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — already cited; verify.
-- `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline.
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — modules story.
+- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — already cited; verify.
+- `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline.
 
 ### 6.3 `AGENTS.md`
 
@@ -231,7 +231,7 @@ Add two new entries after §6.14:
   5. Until project-level runtime intake lands, run individual services with `@rntme/runtime` as before.
 
 - **§6.16 Deploy a project via Dokploy.**
-  1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+  1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
   2. From a validated/composed project model, call `planDeployment(...)` (target-neutral) → returns a redacted plan.
   3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply via `applyDokployPlan(...)`.
   4. The CLI command surface is in `@rntme-cli/cli` — verify against the cli README for the current incantations.
@@ -253,7 +253,7 @@ Add definitions for:
 
 Add bullets:
 - "Why project-first?" → already present (verify the link points to the 2026-04-23 spec).
-- "Why deploy via plan→render→apply, not raw CLI?" → `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- "Why deploy via plan→render→apply, not raw CLI?" → `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - "Why platform modules over gRPC, not direct HTTP?" → already present (verify).
 
 ### 6.4 `docs/architecture.md`
@@ -290,7 +290,7 @@ Existing subsections (§4.1-§4.8) — point patches:
 - **§4.7 `@rntme/ui` + `@rntme/ui-runtime`**: add note on qualified service binding refs and binding-map validation boundary.
 
 New subsections:
-- **§4.9 `@rntme/blueprint`** — full subsection in the same shape as the others (entry function, key types, validation pipeline, output → consumed by `@rntme/bindings`/`@rntme/ui`/deploy pipeline). Reference `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- **§4.9 `@rntme/blueprint`** — full subsection in the same shape as the others (entry function, key types, validation pipeline, output → consumed by `@rntme/bindings`/`@rntme/ui`/deploy pipeline). Reference `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 - **§4.10 `@rntme/bindings-grpc`** — proto emission, identifier sanitization, `CommandResult` envelope, error-code → gRPC status mapping, `createGrpcServer`. Reference platform-modules-integration spec §6.2.
 - **§4.11 `@rntme/module-skeleton`** — minimal handler-map scaffold; relationship to `CodeCommandExecutor`; health-check convention.
 - **§4.12 Deploy pipeline (CLI-side)** — covers `@rntme-cli/deploy-core` (plan model: ports, edge routes, env, secrets, redaction) and `@rntme-cli/deploy-dokploy` (render → apply → status). Reference the deployment-pipeline spec.
@@ -468,7 +468,7 @@ Three placements:
 **`demo/issue-tracker-api/README.md`** — banner at the very top, before the existing content:
 
 > ⚠️ **DEPRECATED — single-service shape.**
-> This demo predates the project-first canonical model (see [`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md)).
+> This demo predates the project-first canonical model (see [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md)).
 > It is kept as a working historical reference for the per-service runtime path.
 > A project-shape canonical example will replace it; do not start new work from this layout.
 

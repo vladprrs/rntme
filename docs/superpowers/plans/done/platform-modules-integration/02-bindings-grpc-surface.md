@@ -8,7 +8,7 @@
 
 **Architecture:** New package `@rntme/bindings-grpc` mirrors `@rntme/bindings-http`'s shape. A pure function `emitProto(validated, pdm, qsm, options) → string` walks `ValidatedBindings` and produces a `.proto` file for the service. A `createGrpcServer({ validated, pdm, qsm, commandExecutor, queryExecutor, ... }) → Server` loads the in-memory proto via `protobufjs`, wraps it for `@grpc/grpc-js`, and wires each RPC method to a handler that dispatches into the plan-1 executor seam. `@rntme/runtime` gets a new `GrpcSurface` plugin that starts the gRPC server on the port declared in `manifest.surface.grpc.port`. A service may declare either or both surfaces; `startService` boots them in parallel.
 
-**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm workspaces. New deps: `@grpc/grpc-js@^1.10`, `protobufjs@^7.2`. Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.2, §12.1 (proto as module contract).
+**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm workspaces. New deps: `@grpc/grpc-js@^1.10`, `protobufjs@^7.2`. Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2, §12.1 (proto as module contract).
 
 ---
 
@@ -79,7 +79,7 @@ demo/issue-tracker-api/
     grpc.test.ts                        ← call a command via gRPC client, verify events appended
 
 AGENTS.md                               ← §6 add "6.12 expose a service over gRPC"
-docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md  ← mark plan #2 implemented
+docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md  ← mark plan #2 implemented
 ```
 
 ### Out of scope (go to later plans)
@@ -1940,7 +1940,7 @@ git commit -m "docs(bindings-grpc): add README describing public API and type ma
 
 ```markdown
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
-  `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.2 +
+  `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2 +
   `packages/bindings-grpc/README.md`.
 ```
 
@@ -2087,7 +2087,7 @@ git commit -m "test(demo): exercise gRPC surface end-to-end"
 
 **Files:**
 - None (run-only)
-- Modify: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`
+- Modify: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
 
 - [ ] **Step 1: Full build + test + lint**
 
@@ -2108,7 +2108,7 @@ In §14 of the spec, update the status marker next to Plan 2 to "implemented YYY
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md
+git add docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md
 git commit -m "docs(spec): mark plan #2 (bindings-grpc surface) implemented"
 ```
 

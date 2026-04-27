@@ -8,7 +8,7 @@
 
 **Tech Stack:** Hono 4.x JSX, TypeScript (with `jsx: react-jsx`, `jsxImportSource: hono/jsx`), Tailwind via CDN, htmx 2.x via CDN.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` §4, §5 (entry rows only), §6, §8.8.
+**Spec:** `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` §4, §5 (entry rows only), §6, §8.8.
 
 ---
 

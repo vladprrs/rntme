@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Node 20, pnpm workspace, Vitest, Hono v4, @grpc/grpc-js, better-sqlite3, @rntme/graph-ir-compiler.
 
-**Spec:** `docs/superpowers/specs/2026-04-23-ultrareview-fixes-design.md`
+**Spec:** `docs/superpowers/specs/done/2026-04-23-ultrareview-fixes-design.md`
 
 ---
 

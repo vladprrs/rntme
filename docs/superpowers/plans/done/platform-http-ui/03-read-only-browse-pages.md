@@ -8,7 +8,7 @@
 
 **Tech Stack:** Hono JSX, `@rntme-cli/platform-core` use-cases (`listProjects`, `listServices`, versions list, audit list, `projects.findBySlug`, `services.findBySlug`), `Intl.RelativeTimeFormat` for dates.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` §5, §7, §8.1, §8.4.
+**Spec:** `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` §5, §7, §8.1, §8.4.
 
 ---
 

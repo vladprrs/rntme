@@ -38,4 +38,4 @@ console.log(errorCodes.references.includes(code));
 
 ## Spec
 
-`docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`
+`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`
