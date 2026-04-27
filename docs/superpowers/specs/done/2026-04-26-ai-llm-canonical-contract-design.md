@@ -13,7 +13,7 @@
 **Implementation locations:**
 - Canonical AI/LLM contract — new `packages/contracts/ai-llm/v1/` (workspace package `@rntme/contracts-ai-llm-v1`).
 - Category README + conformance suite skeleton — new `modules/ai-llm/README.md` and `modules/ai-llm/conformance/` (workspace package `@rntme/conformance-ai-llm`).
-- Implementation plans for this spec — `docs/superpowers/plans/ai-llm-canonical-contract/`.
+- Implementation plans for this spec — `docs/superpowers/plans/done/ai-llm-canonical-contract/`.
 
 ## 1. Problem
 
@@ -993,7 +993,7 @@ Merge order:
 
 ## 15. Decomposition into implementation plans
 
-This spec decomposes into **2 implementation plans** in `docs/superpowers/plans/ai-llm-canonical-contract/`:
+This spec decomposes into **2 implementation plans** in `docs/superpowers/plans/done/ai-llm-canonical-contract/`:
 
 | # | Plan | Covers | Depends on |
 |---|---|---|---|
