@@ -1,0 +1,87 @@
+syntax = "proto3";
+package rntme.contracts.common.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Canonical reference. Every category aggregate begins with one of these.
+message CanonicalRef {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  string module_name = 3;
+  string module_version = 4;
+  string contract_version = 5;
+}
+
+// Command context. Required on every Command RPC across every category.
+message CommandContext {
+  string idempotency_key = 1;
+  string correlation_id = 2;
+  string actor_user_id = 3;
+  string actor_type = 4;
+  string tenant_id = 5;
+}
+
+// Person name. Lives in _common because Payments needs the same shape.
+message Name {
+  string given = 1;
+  string family = 2;
+  string display = 3;
+}
+
+// Universal List request.
+message ListRequest {
+  int32 limit = 1;
+  string cursor = 2;
+  int32 offset = 3;
+  repeated Filter filters = 4;
+  repeated Sort sorts = 5;
+}
+
+message Filter {
+  string field = 1;
+  FilterOperator operator = 2;
+  string value = 3;
+  repeated string values = 4;
+}
+
+enum FilterOperator {
+  FILTER_OPERATOR_UNSPECIFIED = 0;
+  FILTER_OPERATOR_EQ = 1;
+  FILTER_OPERATOR_NEQ = 2;
+  FILTER_OPERATOR_GT = 3;
+  FILTER_OPERATOR_GTE = 4;
+  FILTER_OPERATOR_LT = 5;
+  FILTER_OPERATOR_LTE = 6;
+  FILTER_OPERATOR_IN = 7;
+  FILTER_OPERATOR_NOT_IN = 8;
+  FILTER_OPERATOR_CONTAINS = 9;
+  FILTER_OPERATOR_PREFIX = 10;
+  FILTER_OPERATOR_SUFFIX = 11;
+}
+
+message Sort {
+  string field = 1;
+  SortDirection direction = 2;
+}
+
+enum SortDirection {
+  SORT_DIRECTION_UNSPECIFIED = 0;
+  SORT_DIRECTION_ASC = 1;
+  SORT_DIRECTION_DESC = 2;
+}
+
+message ListResponseMeta {
+  int32 limit = 1;
+  string next_cursor = 2;
+  string prev_cursor = 3;
+  int32 total_count = 4;
+  bool has_more = 5;
+}
+
+// Three-level metadata.
+message Metadata {
+  google.protobuf.Struct public = 1;
+  google.protobuf.Struct private = 2;
+  google.protobuf.Struct unsafe = 3;
+}

@@ -150,6 +150,19 @@ One-line purpose per package (read the per-package README before touching):
   credentials are stored encrypted by `platform-storage`, not in rendered
   plans. →
   `rntme-cli/packages/deploy-dokploy/README.md`.
+
+Canonical contracts (Identity track):
+
+- **`@rntme/contracts-common-v1`** — Shared cross-category protobuf
+  primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest` /
+  `Filter` / `Sort` / `ListResponseMeta`, `Metadata`). Imported by every
+  category contract package.
+  → `packages/contracts/_common/v1/README.md`.
+- **`@rntme/contracts-identity-v1`** — Canonical Identity contract:
+  protobuf `IdentityModule` service, six entities, seventeen CloudEvents
+  payloads, `IDENTITY_<LAYER>_<KIND>` error codes. Implemented by
+  Identity-category vendor wrappers (Clerk / Auth0 / WorkOS).
+  → `packages/contracts/identity/v1/README.md`.
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
@@ -430,6 +443,33 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
 4. The CLI command surface lives in `@rntme-cli/cli`; verify current incantations against `rntme-cli/packages/cli/README.md`.
 
+### 6.17 Add a category contract package
+
+A category contract is a versioned protobuf surface implemented by every vendor module in that category (Identity, Payments, …). To add one:
+
+1. Create `packages/contracts/<category>/v1/` following the layout in
+   `packages/contracts/identity/v1/` (the reference implementation):
+   `package.json`, `tsconfig.json`, `tsconfig.check.json`,
+   `eslint.config.mjs`, `proto/`, `scripts/gen.mjs`, `src/index.ts`,
+   `error-codes.json`, `README.md`.
+2. Workspace globs already cover `packages/contracts/*/v*` — no
+   `pnpm-workspace.yaml` edit needed.
+3. Depend on `@rntme/contracts-common-v1` for shared primitives. Do not
+   inline `CanonicalRef`, `CommandContext`, `Name`, `ListRequest`, or
+   `Metadata` — drift between categories breaks blueprint validation.
+4. Define entities and a single `service <Category>Module` block.
+5. Generate bindings: `pnpm -F @rntme/contracts-<category>-v1 run proto:gen`.
+6. Cover every entity / enum / event / error-code with vitest
+   round-trip tests, plus a service-shape test that asserts the exact
+   RPC list.
+7. Run the canonical lint: every error code must match
+   `<CATEGORY>_(STRUCTURAL|REFERENCES|CONSISTENCY|VENDOR)_[A-Z0-9_]+`.
+8. Documentation-touch: add to AGENTS.md §3 (this section), §10
+   (glossary), and the root README packages table.
+
+Spec reference: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
+
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
@@ -521,6 +561,23 @@ Known categorical entries to watch for:
 ## 10. Glossary
 
 - **Callback binding** — A command binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
+- **Canonical contract** — A `packages/contracts/<category>/v<n>/`
+  package: protobuf source, generated TS bindings, error-codes
+  catalogue, README. Implemented by vendor modules in
+  `modules/<category>/<vendor>/`. See spec
+  `2026-04-26-modules-monorepo-structure-design.md`.
+- **Capability claim** — A vendor module's declaration in
+  `module.json#capabilities[]` of which canonical RPCs and events the
+  module supports. Conformance enforces UNIMPLEMENTED for unclaimed
+  RPCs; blueprint validator enforces coverage of what blueprints use.
+- **Category package** — A `packages/contracts/<category>/v<n>/`
+  workspace package, e.g. `@rntme/contracts-identity-v1`. One npm
+  package per major version; `v1` and `v2` coexist.
+- **Conformance scenarios** — Per-RPC test definitions in
+  `modules/<category>/conformance/scenarios/`. Each scenario asserts
+  shape, idempotency on replay, error-code on negative branches, and
+  expected event publication.
+
 - **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` from a composed project; rendered by an adapter (`@rntme-cli/deploy-dokploy`) to a target-specific shape.
 - **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
@@ -546,8 +603,19 @@ Known categorical entries to watch for:
 - **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.
   The workspace-wide fallible-return contract.
 - **Root entity** / **Owned entity** — Project-level PDM ownership classification. Root entities have independent lifecycle and identity; owned entities belong under a root entity boundary.
+- **Vendor extensions proto** — `<vendor>-extensions.proto` inside a
+  vendor module's directory. Hosts vendor-specific RPCs that did not
+  meet the governance bar (≥2 vendors or archetypal) for canonical.
+  Blueprints that depend on these are flagged
+  `BLUEPRINT_VENDOR_LOCKED_BY_EXTENSION`.
+
 - **Validated\*** — Phantom-branded type produced by a validator;
   downstream APIs require the brand.
+- **Shared common package** — `packages/contracts/_common/v1/`
+  (`@rntme/contracts-common-v1`). Cross-category primitives:
+  `CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort,
+  `Metadata`. Imported by every category contract.
+
 - **Seed** — Declarative event-envelope bootstrap applied once per
   database, before the relay starts. Package: `@rntme/seed`.
 - **Relay** — The event-store loop that reads appended events and

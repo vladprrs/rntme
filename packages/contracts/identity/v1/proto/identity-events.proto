@@ -1,0 +1,113 @@
+syntax = "proto3";
+package rntme.contracts.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/identity/v1/identity.proto";
+
+message UserCreated {
+  User user = 1;
+  string trigger = 2;
+  string invitation_id = 3;
+  string sso_connection_id = 4;
+}
+
+message UserUpdated {
+  User user = 1;
+  repeated string changed_fields = 2;
+  User previous = 3;
+}
+
+message UserDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  bool hard_delete = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+}
+
+message UserEmailVerified {
+  string canonical_id = 1;
+  string email = 2;
+  google.protobuf.Timestamp verified_at = 3;
+}
+
+message OrganizationCreated {
+  Organization organization = 1;
+  string creator_user_id = 2;
+}
+
+message OrganizationUpdated {
+  Organization organization = 1;
+  repeated string changed_fields = 2;
+  Organization previous = 3;
+}
+
+message OrganizationDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  bool hard_delete = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+}
+
+message MembershipCreated {
+  OrganizationMembership membership = 1;
+  string trigger = 2;
+  string invitation_id = 3;
+}
+
+message MembershipUpdated {
+  OrganizationMembership membership = 1;
+  repeated string changed_fields = 2;
+  OrganizationMembership previous = 3;
+}
+
+message MembershipDeleted {
+  string canonical_id = 1;
+  string user_id = 2;
+  string organization_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp deleted_at = 5;
+}
+
+message InvitationCreated {
+  Invitation invitation = 1;
+  string trigger = 2;
+}
+
+message InvitationAccepted {
+  Invitation invitation = 1;
+  string accepted_by_user_id = 2;
+  string created_membership_id = 3;
+}
+
+message InvitationRevoked {
+  Invitation invitation = 1;
+  string revoked_by_user_id = 2;
+  google.protobuf.Timestamp revoked_at = 3;
+}
+
+message InvitationExpired {
+  Invitation invitation = 1;
+  google.protobuf.Timestamp expired_at = 2;
+}
+
+message SessionCreated {
+  Session session = 1;
+  string trigger = 2;
+}
+
+message SessionEnded {
+  string session_id = 1;
+  string canonical_id = 2;
+  string user_id = 3;
+  string trigger = 4;
+  google.protobuf.Timestamp ended_at = 5;
+}
+
+message SessionRevoked {
+  string session_id = 1;
+  string canonical_id = 2;
+  string user_id = 3;
+  string revoked_by = 4;
+  string reason = 5;
+  google.protobuf.Timestamp revoked_at = 6;
+}
