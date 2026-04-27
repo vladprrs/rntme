@@ -19,7 +19,9 @@ describe('CategoryConformanceSuite shape', () => {
         expect(scenario.id, `${rpc} scenario id`).toMatch(new RegExp(`^${rpc}\\.\\w+`));
         expect(scenario.capability).toBe(rpc);
         expect(scenario.status).toBe('pending');
-        expect(scenario.assertionsDescription).toContain('CRM spec §11.2');
+        expect(scenario.assertionsDescription).toContain(rpc);
+        expect(scenario.assertionsDescription).not.toContain('See this file docstring');
+        expect(scenario.assertionsDescription?.length).toBeGreaterThan(120);
       }
     }
   });

@@ -6,6 +6,7 @@
 
 import type { Scenario } from '../types.js';
 import { pendingScenario } from '../types.js';
+import { assertionsFor } from './assertions.js';
 
 const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
 
@@ -14,6 +15,6 @@ export const scenarios = [
     id: rpcName + '.pending',
     capability: rpcName,
     name: rpcName + ' pending conformance fixture',
-    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+    assertionsDescription: assertionsFor(rpcName),
   }),
 ] satisfies Scenario[];
