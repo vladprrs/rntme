@@ -1,0 +1,146 @@
+syntax = "proto3";
+package rntme.contracts.crm.v1;
+
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/crm/v1/crm.proto";
+
+message ContactCreated {
+  Contact contact = 1;
+  string trigger = 2;
+}
+
+message ContactUpdated {
+  Contact contact = 1;
+  repeated string changed_fields = 2;
+  Contact previous = 3;
+  string trigger = 4;
+}
+
+message ContactDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  bool hard_delete = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  string trigger = 5;
+}
+
+message CompanyCreated {
+  Company company = 1;
+  string trigger = 2;
+}
+
+message CompanyUpdated {
+  Company company = 1;
+  repeated string changed_fields = 2;
+  Company previous = 3;
+  string trigger = 4;
+}
+
+message CompanyDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  bool hard_delete = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  string trigger = 5;
+}
+
+message DealCreated {
+  Deal deal = 1;
+  string trigger = 2;
+}
+
+message DealUpdated {
+  Deal deal = 1;
+  repeated string changed_fields = 2;
+  Deal previous = 3;
+  string trigger = 4;
+}
+
+message DealStageChanged {
+  Deal deal = 1;
+  string from_stage_canonical_id = 2;
+  string to_stage_canonical_id = 3;
+  string from_pipeline_canonical_id = 4;
+  string to_pipeline_canonical_id = 5;
+  string actor_canonical_id = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  string trigger = 8;
+}
+
+message DealClosed {
+  Deal deal = 1;
+  DealStatus terminal_status = 2;
+  string close_reason = 3;
+  google.protobuf.Timestamp closed_at = 4;
+  string trigger = 5;
+}
+
+message ActivityCreated {
+  Activity activity = 1;
+  string trigger = 2;
+}
+
+message ActivityUpdated {
+  Activity activity = 1;
+  repeated string changed_fields = 2;
+  Activity previous = 3;
+  string trigger = 4;
+}
+
+message ActivityDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  google.protobuf.Timestamp deleted_at = 3;
+  string trigger = 4;
+}
+
+message NoteCreated {
+  Note note = 1;
+  string trigger = 2;
+}
+
+message NoteDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  google.protobuf.Timestamp deleted_at = 3;
+  string trigger = 4;
+}
+
+message AssociationCreated {
+  Association association = 1;
+  string trigger = 2;
+}
+
+message AssociationDeleted {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  EntityRef from = 3;
+  EntityRef to = 4;
+  string label = 5;
+  google.protobuf.Timestamp deleted_at = 6;
+  string trigger = 7;
+}
+
+message AsyncJobSubmitted {
+  AsyncJob job = 1;
+  AsyncJobType type = 2;
+}
+
+message AsyncJobStatusChanged {
+  string canonical_id = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus previous_status = 3;
+  AsyncJobStatus new_status = 4;
+  int32 progress_percentage = 5;
+  google.protobuf.Timestamp transitioned_at = 6;
+}
+
+message AsyncJobCompleted {
+  AsyncJob job = 1;
+}
+
+message AsyncJobFailed {
+  AsyncJob job = 1;
+  string error_code = 2;
+  string error_message = 3;
+}
