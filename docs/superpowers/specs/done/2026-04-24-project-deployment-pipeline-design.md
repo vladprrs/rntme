@@ -3,8 +3,8 @@
 **Status:** design approved in brainstorming, awaiting user review of this spec
 **Author:** brainstorm 2026-04-24
 **Related:**
-- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — project-first blueprint model; Track A and Track B are prerequisites.
-- `docs/superpowers/plans/2026-04-23-project-first-blueprint-track-b.md` — composed project model and route/middleware validation.
+- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — project-first blueprint model; Track A and Track B are prerequisites.
+- `docs/superpowers/plans/done/2026-04-23-project-first-blueprint-track-b.md` — composed project model and route/middleware validation.
 - `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md` — current one-service runtime packaging.
 - `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — platform registry and validation gate; deploy-controller is out of scope there.
 - `docs/superpowers/specs/done/2026-04-19-platform-deploy-dokploy-design.md` — Dokploy deployment precedent for the platform control plane.

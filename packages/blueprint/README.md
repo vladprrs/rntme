@@ -46,4 +46,4 @@ Project-first blueprint parser/validator for rntme.
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
+- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.

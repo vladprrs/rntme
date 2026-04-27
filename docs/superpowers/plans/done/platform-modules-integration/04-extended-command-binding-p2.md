@@ -8,7 +8,7 @@
 
 **Architecture:** `@rntme/bindings` extends the artifact schema with `inputFrom` (Record<graphInputName, InputSource>) and `response` (OkBranch | ErrBranch each with `json`-template or `redirect`-template). Structural validation loosens the "commands are POST-only" rule when `response.redirect` is declared, forbids query body/header mixing invalid per HTTP, and checks that every `inputFrom` key maps to an existing graph-input name. `@rntme/bindings-http` gets an `extract-inputs.ts` helper that reads values from the right HTTP source, a `render-response.ts` helper that emits JSON or 302/303 with template-resolved URLs, and wires GET routes through the same command handler as POST. OpenAPI emitter is updated to describe GET operations and `3xx` responses.
 
-**Tech Stack:** Same as plans 1-3. No new libraries. Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §8.
+**Tech Stack:** Same as plans 1-3. No new libraries. Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §8.
 
 ---
 
@@ -1200,7 +1200,7 @@ git commit -m "test(demo): exercise GET callback binding + redirect response end
 
 **Files:**
 - Modify: `AGENTS.md`
-- Modify: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`
+- Modify: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
 
 - [ ] **Step 1: Append §6.14**
 
@@ -1237,7 +1237,7 @@ git commit -m "test(demo): exercise GET callback binding + redirect response end
 - [ ] **Step 3: Commit**
 
 ```bash
-git add AGENTS.md docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md
+git add AGENTS.md docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md
 git commit -m "docs(agents,spec): plan 4 complete — vendor-callback binding recipe"
 ```
 

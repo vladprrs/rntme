@@ -4,7 +4,7 @@
 **Author:** brainstorm 2026-04-26
 **Related:**
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — defines `packages/contracts/<category>/v<n>/` layout, capability-based UNION conformance, governance rule for canonical growth (≥2 vendors OR archetypal), `module.json` schema. This spec produces the first concrete category-contract under that umbrella.
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` — module pattern: wrapper around vendor SDK, gRPC surface, webhook receiver, no choreography. This spec's contract is implemented by Identity wrappers, never by gateways.
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern: wrapper around vendor SDK, gRPC surface, webhook receiver, no choreography. This spec's contract is implemented by Identity wrappers, never by gateways.
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` — CloudEvents 1.0 envelope; this spec defines the `data` payloads and `type` short-names for the Identity category.
 - `.tmp/identity_canonical_api.agent.final.md` — deep-dive review across 12 vendors (Clerk, Auth0, WorkOS, Stytch, Keycloak, Frontegg, FusionAuth, Cognito, Firebase, Logto, Okta, Entra) used as input. Local-only document, not committed.
 - `rntme_orchestration_only`, `project_pre_stable_stage` memories.
@@ -13,7 +13,7 @@
 - Shared cross-category primitives — new `packages/contracts/_common/v1/` (workspace package `@rntme/contracts-common-v1`)
 - Canonical Identity contract — new `packages/contracts/identity/v1/` (workspace package `@rntme/contracts-identity-v1`)
 - Category README + conformance suite skeleton — new `modules/identity/README.md` and `modules/identity/conformance/` (workspace package `@rntme/conformance-identity`)
-- Implementation plans for this spec — `docs/superpowers/plans/identity-canonical-contract/`
+- Implementation plans for this spec — `docs/superpowers/plans/done/identity-canonical-contract/`
 
 ## 1. Problem
 
@@ -795,7 +795,7 @@ Implementation order (covered in the implementation plan):
 
 ## 12. Decomposition into implementation plans
 
-This spec decomposes into **2 implementation plans** in `docs/superpowers/plans/identity-canonical-contract/`:
+This spec decomposes into **2 implementation plans** in `docs/superpowers/plans/done/identity-canonical-contract/`:
 
 | # | Plan | Covers | Depends on |
 |---|---|---|---|
@@ -833,7 +833,7 @@ These questions were raised as non-blocking in the first draft and are now close
 ## 16. References
 
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance model, governance rule, `module.json` schema, conformance framework split.
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` — module pattern (wrapper, no choreography), gRPC surface, webhook receiver, P-1/P-2/P-3 primitives.
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern (wrapper, no choreography), gRPC surface, webhook receiver, P-1/P-2/P-3 primitives.
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` — envelope and `type` namespacing convention.
 - `CLAUDE.md` — error-code format, single-writer event log, Result<T> rule, branded `Validated*` types, doc-touch obligation.
 - `AGENTS.md` — repository layout (§3), how-to recipes (§6), glossary (§10) — all need updates per plan 1.

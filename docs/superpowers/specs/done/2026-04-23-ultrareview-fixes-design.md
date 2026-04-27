@@ -3,7 +3,7 @@
 **Status:** design
 **Author:** brainstorm 2026-04-23
 **Related:**
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (the integration PR under review)
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (the integration PR under review)
 - Review session: `https://claude.ai/code/session_01LfaF7mRFKjjkuEfnGJnSnU`
 
 **Implementation locations:**

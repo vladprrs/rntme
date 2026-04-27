@@ -8,7 +8,7 @@
 
 **Architecture:** The `BindingArtifact` schema grows an optional `pre: PreStep[]` on `command` bindings, carrying `system.randomBytes` or `module-rpc` steps with input-expression templates. A JSON expression evaluator walks input templates, resolving `$body` / `$query` / `$auth` / `$config` / `$system.*` / `$pre.<bindAs>` references. A new `ExternalAdapterClient` plugin seam abstracts outbound gRPC calls; the default `GrpcAdapterClient` loads per-module proto files (declared in `manifest.modules[]`), applies a per-step `timeoutMs`, retries transient failures (`DEADLINE_EXCEEDED`, `UNAVAILABLE`, `RESOURCE_EXHAUSTED`, `INTERNAL`) with exponential backoff, and short-circuits when a sliding-window circuit breaker is open. An `Idempotency-Key` HTTP middleware caches successful command responses in a new `idempotency_cache` SQLite table (24h TTL), derives per-step keys, and forwards them as gRPC metadata (`rntme-idempotency-key`). The pre-step runner is wired **before** `commandExecutor.execute` in `bindings-http`'s command handler; failures map to specific HTTP statuses and stable error codes.
 
-**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm. Reuses existing `@grpc/grpc-js@^1.10` + `protobufjs@^7.2` from plan 2. Adds `pino@^9` (structured logs) and reuses `prom-client@^15` already present in `@rntme/runtime`. Spec: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.1, §7, §12.2.
+**Tech Stack:** Node 20, TypeScript strict, ESM, Vitest, pnpm. Reuses existing `@grpc/grpc-js@^1.10` + `protobufjs@^7.2` from plan 2. Adds `pino@^9` (structured logs) and reuses `prom-client@^15` already present in `@rntme/runtime`. Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.1, §7, §12.2.
 
 ---
 
@@ -2667,7 +2667,7 @@ git commit -m "test(demo): pre-step E2E with fake payments module and Idempotenc
 
 **Files:**
 - Modify: `AGENTS.md`
-- Modify: `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`
+- Modify: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
 
 - [ ] **Step 1: Add §6.13 to AGENTS.md**
 
@@ -2711,7 +2711,7 @@ Update §14 of the spec.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add AGENTS.md docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md
+git add AGENTS.md docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md
 git commit -m "docs(agents,spec): plan 3 complete — pre-fetch via module RPC"
 ```
 

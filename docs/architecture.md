@@ -95,8 +95,8 @@ flowchart LR
 | --- | --- |
 | Layered validators + branded types | An agent-generated artifact cannot silently bypass a check; downstream code cannot consume unvalidated data. |
 | CQRS + event-sourcing | Schema and behaviour can evolve without losing history; migrations become replays, not destructive DDL. |
-| Project as deployable unit | Whole-project deploys, project-level routing, and project-shared PDM follow the project-first spec (`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`). |
-| Modules over gRPC | External integrations stay decoupled from the runtime through dynamic-proto-load gRPC adapters (`docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`). |
+| Project as deployable unit | Whole-project deploys, project-level routing, and project-shared PDM follow the project-first spec (`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`). |
+| Modules over gRPC | External integrations stay decoupled from the runtime through dynamic-proto-load gRPC adapters (`docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`). |
 | SQLite (+ Turso) | One service = one file; running many services does not require orchestrating a database cluster. |
 | Kafka-style topic convention `rntme.{svc}.{agg}` | Services can be composed into a larger platform (Zeebe sagas, gRPC) without invasive per-service wiring. |
 | Plugin seams (`DbDriver`, `EventBus`, `Surface`) | Runtime can be swapped in (e.g. different storage or transport) without changing service-level artifacts. |
@@ -1318,7 +1318,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** Folder contains `project.json`, project-level PDM, `services/<name>/...`, and `modules/<name>/...`. Validation covers project routes, middleware, PDM ownership, service discovery, service members, and project-routed binding refs.
 - **Constructed by:** `loadProjectBlueprint(...)` and the project composition pipeline.
 - **Invariant:** Project-level runtime intake is deferred; a composed project can validate and deploy as a project while `@rntme/runtime` still boots one service folder at a time.
-- **Spec(s):** `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 - **Related:** project PDM, project-routed binding registry, service-level primitives.
 
 #### Executor seam
@@ -1328,7 +1328,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `CommandExecutor` runs command graphs and returns command results; `QueryExecutor` runs query graphs and returns rowsets. Surfaces own transport concerns, not command/query implementation.
 - **Constructed by:** runtime wiring around graph-ir compiler execution.
 - **Invariant:** Adding gRPC or modules does not require a second command runtime.
-- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`.
 - **Related:** bindings-http, bindings-grpc, module pre-fetch.
 
 #### Module pre-fetch and idempotency cache
@@ -1338,7 +1338,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `manifest.modules[]` declares gRPC modules; command bindings may define up to two `pre[]` entries (`system` or `module-rpc`). HTTP retries use a SQLite-backed `(idempotency-key, command-run-id) → response` cache with 24h TTL.
 - **Constructed by:** bindings validator, HTTP pre-fetch runtime, and module gRPC clients.
 - **Invariant:** `pre[]` is command-only; duplicate `bindAs` values and undeclared modules are rejected before boot.
-- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`.
 - **Related:** callback bindings, executor seam.
 
 #### Callback binding
@@ -1348,7 +1348,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** HTTP method is GET; inputs come from `inputFrom`; `response.onOk` / `response.onErr` redirect with optional templates.
 - **Constructed by:** bindings validator and HTTP command handler.
 - **Invariant:** GET command bindings are allowed only when success or failure returns a redirect.
-- **Spec(s):** `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`.
 - **Related:** module pre-fetch, command executor.
 
 #### Deployment plan
@@ -1358,7 +1358,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Contract:** `planDeployment(...)` produces the core plan; `renderDokployPlan(...)` and `applyDokployPlan(...)` handle Dokploy.
 - **Constructed by:** CLI-side deploy pipeline, not runtime boot.
 - **Invariant:** Plans are previewable/redacted and adapters are target-specific.
-- **Spec(s):** `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+- **Spec(s):** `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - **Related:** project blueprint, commercial deploy surface.
 
 ## 7. Observations and refactoring candidates

@@ -8,9 +8,9 @@
 
 **Tech Stack:** TypeScript (NodeNext), Hono + Hono JSX + htmx, Drizzle ORM + Postgres, rustfs blob, `node:crypto` (AES-256-GCM, SHA-256), Vitest + testcontainers-node, `@rntme-cli/deploy-core` + `@rntme-cli/deploy-dokploy` (PR 16), `@rntme/blueprint`.
 
-**Source spec:** `docs/superpowers/specs/2026-04-26-project-deploy-flow-design.md`.
+**Source spec:** `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md`.
 
-**Depends on:** Track 1 (`docs/superpowers/plans/2026-04-26-project-deploy-flow-track-1-upload.md`) — `project_version` table, `ProjectVersionRepo`, the upload route, the project-version UI page. Do not start Track 2 until Track 1 is merged into `main`.
+**Depends on:** Track 1 (`docs/superpowers/plans/done/2026-04-26-project-deploy-flow-track-1-upload.md`) — `project_version` table, `ProjectVersionRepo`, the upload route, the project-version UI page. Do not start Track 2 until Track 1 is merged into `main`.
 
 **Out of scope for this plan:** Cancellation of in-flight deployments, `agent-browser` UI smoke, per-API-route smoke, multi-target failover, drift detection, automatic rollback. Those are recorded as follow-ups in §4.2 of the spec.
 

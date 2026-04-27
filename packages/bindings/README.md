@@ -186,5 +186,5 @@ Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON 
 ## Specs
 
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-design.md) — authoritative spec (artifact format §4, validation layers §6, OpenAPI mapping §7, package layout §8).
-- [`../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md) — executor seams, `pre[]`, module RPC, callback bindings, response shapes, and idempotency behavior.
+- [`../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md) — executor seams, `pre[]`, module RPC, callback bindings, response shapes, and idempotency behavior.
 - [`../../graph_ir_rc_7.md`](../../graph_ir_rc_7.md) — Graph IR rc7: §6.3 root inputs, §6.5 graph roles, §21 binding artifact concept.

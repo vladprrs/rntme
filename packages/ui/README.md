@@ -238,7 +238,7 @@ See `packages/ui/test/fixtures/fragment-app/` for a full minimal example exercis
 
 ## Specs
 
-- [`../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md) — active umbrella spec for the project-first pivot: keeps UI service-level, routes project-wide UI through a normal domain service selected by `project.json`, and requires UI binding resolution against project-routed HTTP surfaces.
+- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — active umbrella spec for the project-first pivot: keeps UI service-level, routes project-wide UI through a normal domain service selected by `project.json`, and requires UI binding resolution against project-routed HTTP surfaces.
 - [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — authoritative design for source format (§1), compiler phases (§2), fragment/parameter rules, and the compiled-artifact shape consumed by the runtime.
 
 ## Glossary

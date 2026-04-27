@@ -42,7 +42,7 @@
   Specs: `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`
   and `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`.
   Deployment spec:
-  `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+  `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
@@ -360,7 +360,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.11 Add a platform module (code-executor-based integration service)
 
-1. Read `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
+1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
 2. Copy `packages/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
 3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
@@ -441,7 +441,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.15 Compose a multi-service project
 
-1. Read `packages/blueprint/README.md` and `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+1. Read `packages/blueprint/README.md` and `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 2. Lay out the project blueprint folder: `project.json`, `pdm/`, `services/<name>/...`, and `modules/<name>/...`.
 3. Validate with `loadProjectBlueprint(...)`; the validator surfaces composition errors such as missing services in routes, missing PDM ownership, and duplicate paths.
 4. Compile the project-routed binding registry and verify the expected service prefixes resolve.
@@ -449,7 +449,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.16 Deploy a project via Dokploy
 
-1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 2. From a validated/composed project model, call `planDeployment(...)`; it returns a target-neutral, redacted plan.
 3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
 4. The CLI command surface lives in `@rntme-cli/cli`; verify current incantations against `rntme-cli/packages/cli/README.md`.
@@ -478,7 +478,7 @@ A category contract is a versioned protobuf surface implemented by every vendor 
 8. Documentation-touch: add to AGENTS.md §3 (this section), §10
    (glossary), and the root README packages table.
 
-Spec reference: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
+Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
 
 ### 6.18 Add an Identity vendor module
 
@@ -531,7 +531,7 @@ the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
   The "specs are source of truth, code that disagrees is a bug" rule
   inverts when the docs themselves drift. See §11 for the doc-touch
   checklist; see
-  `docs/superpowers/specs/2026-04-26-docs-refresh-after-project-first-pivot-design.md`
+  `docs/superpowers/specs/done/2026-04-26-docs-refresh-after-project-first-pivot-design.md`
   for what un-tracked drift cost across the PR-12-to-PR-16 window.
 
 ## 8. Where decisions live
@@ -560,13 +560,13 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/adr/2026-04-15-event-driven-architecture.md`.
 - "Why did blueprint become project-first, and where do project vs service
   responsibilities now live?" →
-  `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`.
+  `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 - "Why deploy via plan→render→apply, not raw CLI?" →
-  `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+  `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 - "Per-subsystem known gaps" → `docs/gaps/*.md` (pdm, bindings,
   commands-and-transactions, queries-and-projections, infra).
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
-  `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` §6.2 +
+  `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2 +
   `packages/bindings-grpc/README.md`.
 
 ## 9. Memory and prior decisions

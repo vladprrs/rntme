@@ -12,7 +12,7 @@
 
 ## Scope guard
 
-- **Prerequisite:** Track A (`docs/superpowers/plans/2026-04-23-project-first-blueprint-track-a.md`) is implemented first. This plan assumes `@rntme/blueprint`, `loadBlueprint`, project-level `PDM`, and multi-file service-level `QSM` already exist.
+- **Prerequisite:** Track A (`docs/superpowers/plans/done/2026-04-23-project-first-blueprint-track-a.md`) is implemented first. This plan assumes `@rntme/blueprint`, `loadBlueprint`, project-level `PDM`, and multi-file service-level `QSM` already exist.
 - **In scope:** project route/middleware semantic validation, service artifact discovery, shared-`PDM` service validation, cross-service `QSM` inputs, service-scoped seed validation, project-qualified UI binding resolution, directory-backed `graphs/`, `bindings/`, and `seed/` conventions, end-to-end composed blueprint loading.
 - **Out of scope:** runtime boot, Hono router mounting, middleware execution, multi-service process lifecycle, Kafka/Zeebe wiring, OpenAPI serving, projection DDL/apply-plan wiring, and project runtime boot order. Do not edit `packages/runtime/src/*` in Track B.
 - **Directory-backed service conventions for this track:** `graphs/shapes.json` + `graphs/*.json`, `bindings/bindings.json`, `seed/seed.json`. This keeps package validators single-file internally while matching the project-first folder layout from the spec.

@@ -4,8 +4,8 @@
 **Author:** brainstorm 2026-04-21
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` (control-plane REST surface)
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (context for platform-http's role)
-- `docs/superpowers/specs/2026-04-20-landing-design.md` (visual restraint baseline)
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (context for platform-http's role)
+- `docs/superpowers/specs/done/2026-04-20-landing-design.md` (visual restraint baseline)
 
 **Implementation locations:**
 - `rntme-cli/packages/platform-http/src/ui/` — new UI sub-router, pages, fragments
