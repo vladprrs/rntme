@@ -1,0 +1,49 @@
+{
+  "name": "@rntme/identity-clerk",
+  "version": "0.0.0",
+  "category": "identity",
+  "vendor": "clerk",
+  "contract": "identity/v1",
+  "capabilities": {
+    "rpcs": [
+      "GetUser",
+      "ListUsers",
+      "CreateUser",
+      "UpdateUser",
+      "DeleteUser",
+      "GetOrganization",
+      "ListOrganizations",
+      "CreateOrganization",
+      "UpdateOrganization",
+      "DeleteOrganization",
+      "ListMemberships",
+      "AddMembership",
+      "UpdateMembership",
+      "RemoveMembership",
+      "ListInvitations",
+      "CreateInvitation",
+      "RevokeInvitation",
+      "GetSession",
+      "ListSessions",
+      "IntrospectSession",
+      "RevokeSession"
+    ],
+    "events": [
+      "rntme.identity.v1.UserCreated",
+      "rntme.identity.v1.UserUpdated",
+      "rntme.identity.v1.UserDeleted",
+      "rntme.identity.v1.OrganizationCreated",
+      "rntme.identity.v1.OrganizationUpdated",
+      "rntme.identity.v1.OrganizationDeleted",
+      "rntme.identity.v1.MembershipCreated",
+      "rntme.identity.v1.MembershipUpdated",
+      "rntme.identity.v1.MembershipDeleted",
+      "rntme.identity.v1.InvitationCreated",
+      "rntme.identity.v1.InvitationAccepted",
+      "rntme.identity.v1.InvitationRevoked",
+      "rntme.identity.v1.SessionCreated",
+      "rntme.identity.v1.SessionEnded",
+      "rntme.identity.v1.SessionRevoked"
+    ]
+  }
+}

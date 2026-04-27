@@ -1,0 +1,44 @@
+{
+  "name": "@rntme/identity-clerk",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Clerk implementation of the rntme Identity canonical contract.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "module.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build:deps && vitest run",
+    "test:watch": "vitest",
+    "test:conformance:mock": "pnpm run build:deps && vitest run test/conformance.mock.test.ts",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/identity/v1 run build && pnpm --dir ../conformance run build"
+  },
+  "dependencies": {
+    "@clerk/backend": "3.4.1",
+    "@rntme/contracts-common-v1": "workspace:*",
+    "@rntme/contracts-identity-v1": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@rntme/conformance-identity": "workspace:*",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

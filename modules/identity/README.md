@@ -31,9 +31,9 @@ A recommended Tier-1 baseline (not enforced — capabilities are UNION) is:
 
 Modules below this baseline are technically valid but rarely useful in practice. Module authors are expected to be explicit about why they fall short, in the module's README.
 
-## Vendors not yet shipped
+## Vendor modules
 
-The first concrete Identity vendor module (Clerk, Auth0, or WorkOS — TBD) ships in a subsequent spec. This category currently contains the conformance scaffolding only.
+- [`@rntme/identity-clerk`](./clerk/) — Clerk implementation backed by the official `@clerk/backend` SDK.
 
 ## Where to look first
 
