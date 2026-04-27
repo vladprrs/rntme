@@ -8,7 +8,7 @@
 
 **Tech Stack:** Same as Plan 1 — TypeScript 5.5, vitest, eslint flat config, pnpm 9.12+ workspaces.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` §9 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §9 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
 
 **Depends on:** Plan 1 must be merged first — `@rntme/contracts-identity-v1` must exist as a workspace package and its generated proto must export `IdentityModule` so the drift-detection test can introspect it.
 
@@ -127,7 +127,7 @@ Vendor modules implement `@rntme/contracts-identity-v1`. The contract is the sou
 - The `IDENTITY_<LAYER>_<KIND>` error-code catalogue.
 - The three-level metadata model and status enums.
 
-Read the contract's README first: [`packages/contracts/identity/v1/README.md`](../../packages/contracts/identity/v1/README.md). Then read the contract spec: [`docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`](../../docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md).
+Read the contract's README first: [`packages/contracts/identity/v1/README.md`](../../packages/contracts/identity/v1/README.md). Then read the contract spec: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](../../docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
 
 ## Capability claims
 
@@ -149,7 +149,7 @@ The first concrete Identity vendor module (Clerk, Auth0, or WorkOS — TBD) ship
 - Canonical contract: [`packages/contracts/identity/v1/`](../../packages/contracts/identity/v1).
 - Conformance suite: [`./conformance/`](./conformance).
 - Modules-monorepo spec: [`docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md`](../../docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md) §7 covers the conformance framework split.
-- Module pattern (wrapper, no choreography): [`docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md).
+- Module pattern (wrapper, no choreography): [`docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md).
 ```
 
 - [ ] **Step 2: Commit**
@@ -561,7 +561,7 @@ import type { Scenario } from '../types.js';
  *   - canonical_id miss: returns IDENTITY_REFERENCES_USER_NOT_FOUND
  *   - soft-deleted user: returned with status = USER_STATUS_DELETED and deleted_at set
  *
- * See spec docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md §9.2.
+ * See spec docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md §9.2.
  */
 export const scenarios: ReadonlyArray<Scenario> = [];
 ```
@@ -613,7 +613,7 @@ const template = (rpc) => `import type { Scenario } from '../types.js';
  * with the same idempotency_key, expected error code on negative branches,
  * and (for command RPCs) expected CloudEvents \`type\` published within 5s.
  *
- * See spec docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md §9.2.
+ * See spec docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md §9.2.
  */
 export const scenarios: ReadonlyArray<Scenario> = [];
 `;
@@ -973,13 +973,13 @@ Both filter scenarios by the module's `capabilities[]`.
 
 ## Where to look first
 
-- Spec: [`docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`](../../../docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md) §9.
+- Spec: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](../../../docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md) §9.
 - Modules-monorepo conformance design: [`docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md`](../../../docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md) §7.
 - Canonical contract this exercises: [`packages/contracts/identity/v1/`](../../../packages/contracts/identity/v1).
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` (v1 contract).
+- `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` (v1 contract).
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` (umbrella conventions).
 ```
 

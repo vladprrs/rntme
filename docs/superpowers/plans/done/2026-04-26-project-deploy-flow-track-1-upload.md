@@ -4,11 +4,11 @@
 
 **Goal:** Replace the legacy single-service publish model with a project-first publish model: CLI packs a project blueprint folder into a canonical JSON bundle, the platform validates it server-side via `@rntme/blueprint.loadComposedBlueprint`, stores it as an idempotent `project_version`, and exposes it through REST + UI. Drops `service`, `artifact_version`, and `artifact_tag` tables along with all related code.
 
-**Architecture:** Approach A from `docs/superpowers/specs/2026-04-26-project-deploy-flow-design.md`. New repos / use-cases / routes / UI pages added to existing `platform-core` / `platform-storage` / `platform-http`. CLI rewrites `validate` + `publish` into one `project publish` command. Server-side blueprint validation imports `@rntme/blueprint` from the parent workspace via existing submodule path.
+**Architecture:** Approach A from `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md`. New repos / use-cases / routes / UI pages added to existing `platform-core` / `platform-storage` / `platform-http`. CLI rewrites `validate` + `publish` into one `project publish` command. Server-side blueprint validation imports `@rntme/blueprint` from the parent workspace via existing submodule path.
 
 **Tech Stack:** TypeScript (NodeNext modules), pnpm workspace, Hono + Hono JSX + htmx + Tailwind CDN, Drizzle ORM + Postgres, rustfs S3-compatible blob store, Vitest, testcontainers-node for PG integration tests, `node:crypto` SHA-256, `@rntme/blueprint` from main workspace.
 
-**Source spec:** `docs/superpowers/specs/2026-04-26-project-deploy-flow-design.md`.
+**Source spec:** `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md`.
 
 **Out of scope for this plan:** Deploy targets, deployments, executor, smoke verification, deploy UI — all handled in Track 2.
 

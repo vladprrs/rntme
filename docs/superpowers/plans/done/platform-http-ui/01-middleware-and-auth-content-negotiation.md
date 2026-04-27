@@ -8,7 +8,7 @@
 
 **Tech Stack:** Hono 4.x, TypeScript, vitest, supertest, testcontainers (existing harness).
 
-**Spec:** `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` §6.5, §6.6, §7.3, §8.8.
+**Spec:** `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` §6.5, §6.6, §7.3, §8.8.
 
 ---
 

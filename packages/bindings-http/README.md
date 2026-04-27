@@ -146,4 +146,4 @@ For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slic
 
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md) — authoritative design: §3 public API, §4 request lifecycle, §5 Zod rules, §6 startup pipeline, §7 error model, §11 explicit non-goals.
 - [`../../docs/superpowers/specs/done/2026-04-14-bindings-design.md`](../../docs/superpowers/specs/done/2026-04-14-bindings-design.md) — `ValidatedBindings`, `HttpParameter`, `GraphSignature`, `OpenApiDoc` shapes consumed here.
-- [`../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md) — pre-fetch orchestration, callback bindings, idempotency cache, and executor seams.
+- [`../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`](../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md) — pre-fetch orchestration, callback bindings, idempotency cache, and executor seams.

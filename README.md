@@ -92,7 +92,7 @@ The `@rntme/runtime` stack is open-source and free — that's the trust engine. 
 
 1. **Control plane** — organizations, projects, services, environments, API tokens, RBAC, SSO (WorkOS-backed). *Partially live.*
 2. **Registry** — publish and pull validated blueprints; content-addressed artifact bundles on S3-compatible storage; versions, tags, history, diff, lineage. *Partially live.*
-3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme-cli/deploy-core` planner plus `@rntme-cli/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md).
+3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme-cli/deploy-core` planner plus `@rntme-cli/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md).
 4. **Governance layer** — blueprint review UI for humans (including business users who never touch code); approval workflows; audit trail; policy gates that block bad blueprints before deploy.
 
 Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md). Strategic context: [`vision.md`](vision.md) §8 *The future platform*.
@@ -169,7 +169,7 @@ flowchart TB
     DEMO --> RT
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md). `demo/issue-tracker-api` is the historical single-service consumer of `@rntme/runtime`.
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md). `demo/issue-tracker-api` is the historical single-service consumer of `@rntme/runtime`.
 
 ## Quick start
 
@@ -250,8 +250,8 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — platform modules, gRPC adapters, executor seams, pre-fetch middleware, idempotency cache, and callback bindings.
-- `docs/superpowers/specs/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
-- `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
+- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
+- `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
 - `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
 - `docs/superpowers/specs/done/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
 - `docs/superpowers/specs/done/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.

@@ -12,7 +12,7 @@
 **Implementation locations:**
 - Core runtime seams — `packages/runtime/`, `packages/bindings/`, `packages/bindings-http/`, новый `packages/bindings-grpc/`
 - Reference module (Stripe) — `demo/stripe-module/` или отдельный applet-пакет (решение в плане)
-- Implementation plans для этой спеки — `docs/superpowers/plans/platform-modules-integration/`
+- Implementation plans для этой спеки — `docs/superpowers/plans/done/platform-modules-integration/`
 
 ## 1. Problem
 
@@ -522,7 +522,7 @@ Error-code namespace:
 
 ## 14. Decomposition into implementation plans
 
-Эта спека декомпозируется на **5 implementation plan'ов**, каждый пишется отдельно после approval этой спеки. Все планы лежат в `docs/superpowers/plans/platform-modules-integration/` (отдельная подпапка, не общий `plans/`).
+Эта спека декомпозируется на **5 implementation plan'ов**, каждый пишется отдельно после approval этой спеки. Все планы лежат в `docs/superpowers/plans/done/platform-modules-integration/` (отдельная подпапка, не общий `plans/`).
 
 | # | Plan | Что охватывает | Зависимости |
 |---|---|---|---|

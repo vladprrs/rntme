@@ -8,7 +8,7 @@
 
 **Tech Stack:** same as prior plans.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` §8.6.
+**Spec:** `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` §8.6.
 
 ---
 

@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land two new workspace packages — `@rntme/contracts-common-v1` and `@rntme/contracts-identity-v1` — implementing the protobuf shapes, generated TS bindings, error codes, and READMEs defined by `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for both packages and consumers can `import { User, CanonicalRef, … } from '@rntme/contracts-identity-v1'`.
+**Goal:** Land two new workspace packages — `@rntme/contracts-common-v1` and `@rntme/contracts-identity-v1` — implementing the protobuf shapes, generated TS bindings, error codes, and READMEs defined by `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for both packages and consumers can `import { User, CanonicalRef, … } from '@rntme/contracts-identity-v1'`.
 
 **Architecture:** Two leaf workspace packages under `packages/contracts/<category>/v<n>/`. Each owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs` + `pbts` from `protobufjs-cli`). Each package hand-writes a small `src/index.ts` barrel that exports both the generated `proto` namespace and top-level aliases for commonly imported message constructors/types. `identity/v1/` declares a workspace dependency on `common/v1/` and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus smoke tests for the public import surface.
 
 **Tech Stack:** TypeScript 5.5, `protobufjs` runtime + `protobufjs-cli` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — all consistent with existing rntme packages.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` §4 (layout), §5 (`common.proto`), §6 (entities & enums), §7 (service & request/response), §7.3 (`error-codes.json`), §8 (events), §11 (merge order).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §4 (layout), §5 (`common.proto`), §6 (entities & enums), §7 (service & request/response), §7.3 (`error-codes.json`), §8 (events), §11 (merge order).
 
 ---
 
@@ -2126,13 +2126,13 @@ The package exports both top-level aliases (`CanonicalRef`, `CommandContext`, `M
 
 ## Where to look first
 
-- Specs: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` §5.
+- Specs: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §5.
 - Generated namespace: `src/proto.gen.d.ts`.
 
 ## Specs
 
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §5.1 (layout).
-- `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` §4 (placement) and §5 (`common.proto`).
+- `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §4 (placement) and §5 (`common.proto`).
 ```
 
 - [ ] **Step 2: Write `identity/v1/README.md`**
@@ -2221,15 +2221,15 @@ Eighteen codes, four layers (`structural` / `references` / `consistency` / `vend
 
 ## Where to look first
 
-- Spec: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`.
+- Spec: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`.
 - Generated TS API surface: `src/proto.gen.d.ts`.
 - Error codes: `error-codes.json`, typed re-export at `src/error-codes.ts`.
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` (this contract).
+- `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` (this contract).
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` (umbrella conventions).
-- `docs/superpowers/specs/2026-04-19-platform-modules-integration-design.md` (module pattern).
+- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (module pattern).
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` (event envelope).
 ```
 
@@ -2348,7 +2348,7 @@ A category contract is a versioned protobuf surface implemented by every vendor 
 8. Documentation-touch: add to AGENTS.md §3 (this section), §10
    (glossary), and the root README packages table.
 
-Spec reference: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
+Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
 ```
 
 - [ ] **Step 4: Verify the file is well-formed**

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Hono JSX, htmx 2.x (already loaded by Layout), `@rntme-cli/platform-core` (`listTokens`, `createToken`, `revokeToken`, `CreateTokenInputSchema`).
 
-**Spec:** `docs/superpowers/specs/2026-04-21-platform-http-ui-design.md` §5, §7.4, §8.2, §8.3.
+**Spec:** `docs/superpowers/specs/done/2026-04-21-platform-http-ui-design.md` §5, §7.4, §8.2, §8.3.
 
 ---
 
