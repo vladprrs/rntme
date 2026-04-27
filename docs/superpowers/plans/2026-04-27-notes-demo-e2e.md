@@ -624,10 +624,12 @@ Current convention is `PascalCase(entity) + PascalCase(transition)`, implemented
 ## Локальная валидация
 
 ```bash
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('ok:', Object.keys(r.value)); })"
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('ok:', Object.keys(r.value));"
 ```
 
 Должно вывести `ok: [...]`.
@@ -646,10 +648,12 @@ pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
 
 ```bash
 cd /home/coder/work/rntme
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('OK:', Object.keys(r.value)); })"
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('OK:', Object.keys(r.value));"
 ```
 
 Expected: `OK: [<list of composed-model keys>]` and exit 0.
@@ -972,10 +976,11 @@ Expected: вывод вида `Created project: notes-demo (id <uuid>)`.
 
 ```bash
 cd /home/coder/work/rntme
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('OK:', Object.keys(r.value)); })"
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('OK:', Object.keys(r.value));"
 ```
 
 Expected: `OK: [...]`. Если FAIL — тот же fix-loop что в Task 1.9. Не идти к Task 3.5 пока зелёное.

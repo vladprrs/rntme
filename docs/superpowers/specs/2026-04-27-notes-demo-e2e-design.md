@@ -147,10 +147,12 @@ Entity-mirror проекция Note, exposes `["title","body","createdAt","statu
 ### 2.8 Локальный гейт
 
 ```bash
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('ok:', Object.keys(r.value)); })"
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('ok:', Object.keys(r.value));"
 ```
 
 Зелёное → продолжаем; красное → стоп, фиксим JSON, повторяем. Гейт обязателен и перед Phase 2, и непосредственно перед `rntme project publish` в Phase 3.
@@ -222,7 +224,7 @@ Dokploy watchPaths сматчит литеральный gitlink path `rntme-cli
 ```bash
 pnpm install --frozen-lockfile
 pnpm -F @rntme-cli/cli build
-alias rntme="node /home/coder/project/rntme-cli/packages/cli/dist/bin/rntme.js"
+alias rntme="node /home/coder/work/rntme/rntme-cli/packages/cli/dist/bin/rntme.js"
 
 rntme login
 # WorkOS AuthKit (через test@rntme.com) или PAT с /tokens
