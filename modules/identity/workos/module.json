@@ -1,0 +1,42 @@
+{
+  "name": "@rntme/identity-workos",
+  "version": "0.0.0",
+  "category": "identity",
+  "vendor": "workos",
+  "contract": "identity/v1",
+  "capabilities": {
+    "rpcs": [
+      "GetUser",
+      "ListUsers",
+      "CreateUser",
+      "UpdateUser",
+      "DeleteUser",
+      "GetOrganization",
+      "ListOrganizations",
+      "CreateOrganization",
+      "UpdateOrganization",
+      "DeleteOrganization",
+      "ListMemberships",
+      "AddMembership",
+      "UpdateMembership",
+      "RemoveMembership",
+      "ListInvitations",
+      "CreateInvitation",
+      "RevokeInvitation"
+    ],
+    "events": [
+      "rntme.identity.v1.UserCreated",
+      "rntme.identity.v1.UserUpdated",
+      "rntme.identity.v1.UserDeleted",
+      "rntme.identity.v1.OrganizationCreated",
+      "rntme.identity.v1.OrganizationUpdated",
+      "rntme.identity.v1.OrganizationDeleted",
+      "rntme.identity.v1.MembershipCreated",
+      "rntme.identity.v1.MembershipUpdated",
+      "rntme.identity.v1.MembershipDeleted",
+      "rntme.identity.v1.InvitationCreated",
+      "rntme.identity.v1.InvitationAccepted",
+      "rntme.identity.v1.InvitationRevoked"
+    ]
+  }
+}
