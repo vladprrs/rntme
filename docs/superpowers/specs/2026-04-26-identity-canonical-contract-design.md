@@ -38,7 +38,7 @@ Define the v1 canonical Identity contract: protobuf service, message types, stat
 
 **Explicitly out of scope:**
 - Identity module skeleton + developer task template (next brainstorm).
-- First vendor implementation (Clerk vs WorkOS — separate brainstorm + plan).
+- First vendor implementation (recommended: Clerk — separate spec/plan).
 - Impersonation, RoleAssignment as a separate aggregate, AssignRole/RevokeRole RPCs, MFA-policy hierarchy, audit-event stream — deferred per Q3 of brainstorm; live in `<vendor>-extensions.proto` if a vendor supports them, or in future categories (`audit`, `directory-sync`).
 - JWT issuance, JWKS endpoint hosted by rntme, SCIM v2 inbound endpoint hosted by rntme — explicitly excluded per Q2 (wrapper, not gateway). The reference review's ADR-003/005/009 are noted-and-rejected for Identity v1.
 - Other category contracts (Payments, CRM, AI/LLM, Analytics) — separate brainstorms each. `_common/v1/` is reused.
@@ -68,7 +68,7 @@ packages/contracts/
 ├── _common/v1/                                # NEW workspace package @rntme/contracts-common-v1
 │   ├── proto/
 │   │   └── common.proto                        # shared primitives, no business logic
-│   ├── src/                                    # generated TS bindings (decision OQ-IDV1-1: ts-proto vs buf in plan)
+│   ├── src/                                    # generated JS/DTS bindings via protobufjs-cli (OQ-IDV1-1)
 │   ├── error-codes.json                        # empty JSON object — _common has no domain errors
 │   ├── package.json
 │   └── README.md
@@ -799,15 +799,15 @@ This spec decomposes into **2 implementation plans** in `docs/superpowers/plans/
 
 | # | Plan | Covers | Depends on |
 |---|---|---|---|
-| 1 | `01-common-and-identity-contracts.md` | Create `packages/contracts/_common/v1/`; create `packages/contracts/identity/v1/`; ts-proto / buf decision (closes OQ-IDV1-1) and codegen wiring; `error-codes.json`; per-package READMEs; extend `pnpm-workspace.yaml`; documentation-touch (AGENTS.md §3 / §10 / main README packages-table) | — |
+| 1 | `01-common-and-identity-contracts.md` | Create `packages/contracts/_common/v1/`; create `packages/contracts/identity/v1/`; `protobufjs-cli` static-module codegen wiring (closes OQ-IDV1-1); `error-codes.json`; per-package READMEs; extend `pnpm-workspace.yaml`; documentation-touch (AGENTS.md §3 / §10 / main README packages-table) | — |
 | 2 | `02-identity-conformance-skeleton.md` | Create `modules/identity/README.md`; create `modules/identity/conformance/` package; one scenario stub per RPC (24 files); fixtures stub; suite.ts wired against `@rntme/conformance-framework` interface (with framework-side stub if framework not yet landed); documentation-touch for new module-tree entries | Plan 1 |
 
-The first vendor module (Clerk or WorkOS — TBD in next brainstorm) and the Identity module skeleton are NOT covered by these plans.
+The first vendor module and the Identity module skeleton are NOT covered by these plans. **Recommended first vendor: Clerk**, because it best validates the canonical metadata triad (`public` / `private` / `unsafe`) and the user/org/session abstraction without prematurely narrowing the category contract around WorkOS metadata/session limitations.
 
 ## 13. Testing model
 
-- **Unit tests for `_common/v1/`**: ts-proto round-trip for each shared message (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`, `Filter`, `Sort`, `ListResponseMeta`, `Metadata`).
-- **Unit tests for `identity/v1/`**: ts-proto round-trip for each entity, each enum value, each event payload. Verify that every RPC short-name in `service IdentityModule` matches the file naming in `modules/identity/conformance/scenarios/` (catches drift between proto and conformance layout in the same PR).
+- **Unit tests for `_common/v1/`**: `protobufjs-cli` generated binding round-trip for each shared message (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`, `Filter`, `Sort`, `ListResponseMeta`, `Metadata`).
+- **Unit tests for `identity/v1/`**: `protobufjs-cli` generated binding round-trip for each entity, each enum value, each event payload. Verify that every RPC short-name in `service IdentityModule` matches the file naming in `modules/identity/conformance/scenarios/` (catches drift between proto and conformance layout in the same PR).
 - **Lint test for `error-codes.json`**: every code matches `IDENTITY_(STRUCTURAL|REFERENCES|CONSISTENCY|VENDOR)_[A-Z_]+`.
 - **Conformance scenario stubs**: each of the 24 scenario files compiles and exports a non-empty `Scenario[]` (even if every scenario currently throws `not_implemented`). This guarantees the structural invariant from modules-monorepo §7.2 holds before the framework is fully wired.
 - **No vendor SDK touches.** The first integration test that actually calls Clerk / Auth0 / WorkOS lands with the first vendor-module spec, not here.
@@ -817,18 +817,18 @@ The first vendor module (Clerk or WorkOS — TBD in next brainstorm) and the Ide
 Direct continuations of this design that deserve their own specs, in priority order:
 
 1. **Identity module skeleton + developer task template** — the contributor-facing artefact. Next brainstorm; depends on this spec.
-2. **First vendor implementation** (Clerk or WorkOS — to be picked in skeleton brainstorm). Depends on (1).
+2. **First vendor implementation** (recommended: Clerk). Depends on (1).
 3. **Audit category** (`packages/contracts/audit/v1/`) — first-class canonical audit-event stream, separate from category-business events. Identity v1 does not emit audit events.
 4. **Directory-sync category** — SCIM v2 inbound endpoints, dsync events. Closes ADR-005 from the reference review at category, not Identity, level.
 5. **Impersonation pattern** — only if multiple vendors prove archetypal. Until then lives in `<vendor>-extensions.proto`.
 
-## 15. Open questions
+## 15. Resolved follow-up questions
 
-Non-blocking for plans 1–2, must be closed before the first vendor module lands.
+These questions were raised as non-blocking in the first draft and are now closed before the first vendor module lands.
 
-- **OQ-IDV1-1.** Codegen pipeline: `buf` (Buf Schema Registry style) vs `ts-proto` vs hand-written `.proto`-loader. Affects DX of contract authors and the ergonomics of the workspace import surface. Lean: `ts-proto` initially, simplest. Decision in plan 1.
-- **OQ-IDV1-2.** How adapters handle `unsafe_metadata` for vendors with flat attributes (Auth0, Keycloak). Two viable paths: (a) emulate via prefixed namespace inside vendor flat-attribute store, (b) document as not supported and have those modules declare only `public` / `private` in capabilities. Decision in the first vendor-module brainstorm.
-- **OQ-IDV1-3.** Whether `IntrospectSession` should also accept a session canonical_id (read-projection-by-id) in addition to a raw upstream token, to give domain services a uniform "give me this session as canonical" entry point. Decision in plan 2 or first vendor brainstorm.
+- **OQ-IDV1-1 — proto/codegen library.** Canonical contract packages use **`protobufjs-cli` static-module generation** (`pbjs` + `pbts`) and commit generated JS/DTS artifacts. `.proto` files remain the source of truth. Runtime gRPC continues to use `@grpc/grpc-js` / `@grpc/proto-loader` where dynamic service loading is needed. Buf is deferred to contract-governance tooling (`buf lint` / `buf breaking`) rather than used as the initial TypeScript runtime/codegen path. `ts-proto` is not adopted for v1 to avoid splitting the repo across two protobuf representations.
+- **OQ-IDV1-2 — `unsafe_metadata` on flat-attribute vendors.** Adapters **emulate the three-level metadata model via documented namespace mapping** rather than dropping `unsafe` from the canonical contract. Examples: Auth0 maps `unsafe` to `user_metadata.rntme_unsafe_*`, `private` to `app_metadata.rntme_private_*`, and `public` to `app_metadata.rntme_public_*` plus optional custom-claim exposure. Keycloak maps levels through user-profile attributes and permissions: public = user/client view + admin edit, private = admin view/edit, unsafe = user view/edit. WorkOS-style constrained metadata is treated as limited vendor support, not a reason to narrow the canonical model. Conformance should assert namespace round-trip for the three levels where the module claims metadata support.
+- **OQ-IDV1-3 — `IntrospectSession` input shape.** `IntrospectSession` stays **token-only**. Lookup by canonical session id remains `GetSession(canonical_id)`. This keeps the hot-path credential validation operation separate from projection/admin reads: `IntrospectSession(token)` validates raw upstream credentials and normalises them into `Session`; `GetSession(canonical_id)` reads a known canonical session. Mixing both into one RPC would duplicate the existing `GetSession` surface and blur live-auth vs read-model semantics.
 
 ## 16. References
 
