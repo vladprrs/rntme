@@ -31,9 +31,10 @@ A recommended Tier-1 baseline (not enforced — capabilities are UNION) is:
 
 Modules below this baseline are technically valid but rarely useful in practice. Module authors are expected to be explicit about why they fall short, in the module's README.
 
-## Vendors
+## Vendor modules
 
-- [`auth0/`](./auth0) — Auth0 Management API backed Identity module. It supports users, organizations, organization memberships, organization invitations, and best-effort log/event translation. Canonical session RPCs are intentionally unclaimed because Auth0 session/token semantics differ from the canonical contract.
+- [`@rntme/identity-auth0`](./auth0/) — Auth0 Management API backed Identity module. It supports users, organizations, organization memberships, organization invitations, and best-effort log/event translation. Canonical session RPCs are intentionally unclaimed because Auth0 session/token semantics differ from the canonical contract.
+- [`@rntme/identity-clerk`](./clerk/) — Clerk implementation backed by the official `@clerk/backend` SDK.
 
 ## Where to look first
 
