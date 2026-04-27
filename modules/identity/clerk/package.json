@@ -18,7 +18,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
     "test": "pnpm run build:deps && vitest run",
     "test:watch": "vitest",
     "test:conformance:mock": "pnpm run build:deps && vitest run test/conformance.mock.test.ts",
