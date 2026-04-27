@@ -54,6 +54,7 @@ demo/notes-blueprint/
         │   └── projections/
         │       └── NoteView.json
         ├── graphs/
+        │   ├── shapes.json
         │   ├── createNote.json
         │   ├── deleteNote.json
         │   ├── listNotes.json
@@ -92,14 +93,14 @@ demo/notes-blueprint/
 
 Owned-entity сервиса `app`, со state-machine на `status` для CQRS:
 
-- `fields`: `id` (string/uuid), `title` (string), `body` (string), `status` (string), `createdAt` (timestamp).
+- `fields`: `id` (string), `title` (string), `body` (string), `status` (string), `createdAt` (`datetime`, `generated: "createdAt"`).
 - `keys`: `["id"]`.
 - `stateMachine`:
   - `stateField`: `status`
   - `initial`: null
   - `states`: `["active", "deleted"]`
   - `transitions`:
-    - `create`: `from=null, to=active, affects=["title","body","createdAt"]`
+    - `create`: `from=null, to=active, affects=["title","body"]`
     - `delete`: `from=active, to=deleted`
 
 ### 2.3 QSM projection: `services/app/qsm/projections/NoteView.json`
@@ -108,10 +109,11 @@ Entity-mirror проекция Note, exposes `["title","body","createdAt","statu
 
 ### 2.4 Graphs
 
-- `createNote.json` — `emit { aggregate:"Note", aggregateId:{$param:"id"}, transition:"create", payload:{title,body,createdAt} }`. UI генерит `id` через `crypto.randomUUID()` и `createdAt` через `new Date().toISOString()`, передаёт как параметры.
+- `shapes.json` — обязателен для service graphs; объявляет custom shape `NoteView` (`id`, `title`, `body`, `status`, `createdAt`) потому что bindings resolver не берёт output-shapes напрямую из QSM projection names.
+- `createNote.json` — `emit { aggregate:"Note", aggregateId:{$param:"id"}, transition:"create", payload:{title,body} }`. UI MVP принимает `id` как явное поле формы; `createdAt` берётся из CloudEvent time через `generated: "createdAt"`, а не из UI-generated params.
 - `deleteNote.json` — `emit { aggregate:"Note", aggregateId:{$param:"id"}, transition:"delete" }`.
-- `listNotes.json` — `findMany {entity:"Note"}` → `filter { eq: ["note.status", "active"] }` → `sort by note.createdAt desc nulls last` → `limit 100`. Output `rowset<NoteView>`.
-- `getNote.json` — `findMany` → `filter { eq: ["note.id", {$param:"id"}] }` → `first`. Output `row<NoteView>`.
+- `listNotes.json` — `findMany {projection:"NoteView"}` → `filter { eq: ["noteView.status", "active"] }` → `sort by noteView.createdAt desc nulls last` → `limit 100`. Output `rowset<NoteView>`.
+- `getNote.json` — `findMany {projection:"NoteView"}` → `filter { eq: ["noteView.id", {$param:"id"}] }` → `limit 1`. Output `rowset<NoteView>` because current query bindings require rowset outputs.
 
 Точные конструкции `findMany` / `filter` сверяются с фикстурами `packages/runtime/test/fixtures/issue-tracker/graphs/listIssues.json` и `searchIssues.json` при имплементации.
 
@@ -120,33 +122,37 @@ Entity-mirror проекция Note, exposes `["title","body","createdAt","statu
 `version: "1.0"`, ссылки на pdm/qsm/graphs через relative refs. Четыре биндинга:
 
 - `createNote` (kind: command, http POST `/notes`).
-- `deleteNote` (kind: command, http DELETE `/notes/:id`).
+- `deleteNote` (kind: command, http POST `/notes/{id}/actions/delete`; bindings currently support `GET`/`POST` and Hono-style `{id}` path templates, not `DELETE` or `:id`).
 - `listNotes` (kind: query, http GET `/notes`).
-- `getNote` (kind: query, http GET `/notes/:id`).
+- `getNote` (kind: query, http GET `/notes/{id}`).
 
-`target: { engine: "sqlite", dialect: "sqlite" }` для query bindings.
+`target: { engine: "sqlite", dialect: "sqlite" }` для всех bindings; every HTTP parameter includes `bindTo` and `required`.
 
 ### 2.6 UI
 
 - `ui/manifest.json` — `version: "2.0"`, `pdmRef`, `qsmRef`, `graphSpecRef`, `bindingsRef`, route `"/"` → screen `home`, layout `main`.
 - `screens/home.spec.json` — иерархия:
-  - `Stack(vertical)` с детьми `addForm` + `notesList`.
-  - `addForm` — форма с полями `title`, `body`, кнопка `Add` → on-submit вызывает `createNote`.
-  - `notesList` — `DataList` с `repeat` по `/data/notes` (заполняется из `listNotes`), каждая строка — `title`, `createdAt`, кнопка `×` → `deleteNote(id)`.
+  - `Stack(vertical)` с детьми `createForm` + `deleteForm` + `notesList`.
+  - `createForm` — поля `id`, `title`, `body`, кнопка `Add` → вызывает `createNote`.
+  - `deleteForm` — поле `id`, кнопка `Delete` → вызывает `deleteNote`.
+  - `notesList` — `DataList` с `repeat` по `/data/notes` (заполняется из `listNotes`), каждая строка показывает `id`, `title`, `body`, `createdAt`.
+- `screens/home.screen.json` uses current UI-runtime contracts only: `paramsFromState`, `onSuccess.refetchData`, `refetchOn: ["mount"]`. Не использовать `paramsGenerated`, `paramsFromArgs`, `refetchOn: ["after:<action>"]` в этом плане — их нет в текущем runtime.
 - Если ui-runtime не поддерживает какие-то элементы (`Form`, `TextInput`, `TextArea`) — деградируем: список + inline-форма из встроенных DSL-примитивов (минимум — `Stack`, `DataList`, `Text`, `Button`, `Input`).
 - Принципиально что **что-то рендерится и кнопки работают**, не «pixel-perfect Form».
 
 ### 2.7 Seed: `services/app/seed/seed.json`
 
-Один CloudEvent — welcome-заметка, чтобы UI не был пустым после деплоя. Используем UUID `00000000-0000-0000-0000-000000000001` как стабильный id для seed-заметки. Eventtype выводится из `transition.create + entity.Note` (точное имя — `NoteCreate` или `NoteCreated` — резолвится при имплементации через graph-ir-compiler).
+Один CloudEvent — welcome-заметка, чтобы UI не был пустым после деплоя. Используем UUID `00000000-0000-0000-0000-000000000001` как стабильный id для seed-заметки. Eventtype текущей конвенции — `NoteCreate` (`PascalCase(entity) + PascalCase(transition)`, см. `packages/pdm/src/derive/event-types.ts`).
 
 ### 2.8 Локальный гейт
 
 ```bash
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('ok:', Object.keys(r.value)); })"
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('ok:', Object.keys(r.value));"
 ```
 
 Зелёное → продолжаем; красное → стоп, фиксим JSON, повторяем. Гейт обязателен и перед Phase 2, и непосредственно перед `rntme project publish` в Phase 3.
@@ -218,7 +224,7 @@ Dokploy watchPaths сматчит литеральный gitlink path `rntme-cli
 ```bash
 pnpm install --frozen-lockfile
 pnpm -F @rntme-cli/cli build
-alias rntme="node /home/coder/project/rntme-cli/packages/cli/dist/bin/rntme.js"
+alias rntme="node /home/coder/work/rntme/rntme-cli/packages/cli/dist/bin/rntme.js"
 
 rntme login
 # WorkOS AuthKit (через test@rntme.com) или PAT с /tokens

@@ -34,6 +34,7 @@ demo/notes-blueprint/
         │   └── projections/
         │       └── NoteView.json                      # Note projection
         ├── graphs/
+        │   ├── shapes.json                            # custom output shapes used by bindings
         │   ├── createNote.json                        # command graph
         │   ├── deleteNote.json                        # command graph
         │   ├── listNotes.json                         # query graph
@@ -124,7 +125,7 @@ Expected: directories listed in File Structure above.
     "title": { "type": "string", "nullable": false, "column": "title" },
     "body": { "type": "string", "nullable": false, "column": "body" },
     "status": { "type": "string", "nullable": false, "column": "status" },
-    "createdAt": { "type": "timestamp", "nullable": false, "column": "created_at" }
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
   },
   "keys": ["id"],
   "stateMachine": {
@@ -135,7 +136,7 @@ Expected: directories listed in File Structure above.
       "create": {
         "from": null,
         "to": "active",
-        "affects": ["title", "body", "createdAt"]
+        "affects": ["title", "body"]
       },
       "delete": { "from": "active", "to": "deleted" }
     }
@@ -170,12 +171,31 @@ Expected: directories listed in File Structure above.
 ### Task 1.4: Command and query graphs
 
 **Files:**
+- Create: `demo/notes-blueprint/services/app/graphs/shapes.json`
 - Create: `demo/notes-blueprint/services/app/graphs/createNote.json`
 - Create: `demo/notes-blueprint/services/app/graphs/deleteNote.json`
 - Create: `demo/notes-blueprint/services/app/graphs/listNotes.json`
 - Create: `demo/notes-blueprint/services/app/graphs/getNote.json`
 
-- [ ] **Step 1: Write `graphs/createNote.json`**
+- [ ] **Step 1: Write `graphs/shapes.json`**
+
+`loadComposedBlueprint` requires `graphs/shapes.json` whenever a service has bindings. `NoteView` is declared here because the bindings resolver resolves output shapes from custom shapes or PDM entities, not directly from QSM projection names.
+
+```json
+{
+  "NoteView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "title": { "type": "string", "nullable": false },
+      "body": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  }
+}
+```
+
+- [ ] **Step 2: Write `graphs/createNote.json`**
 
 ```json
 {
@@ -184,8 +204,7 @@ Expected: directories listed in File Structure above.
     "inputs": {
       "id": { "type": "string", "mode": "required" },
       "title": { "type": "string", "mode": "required" },
-      "body": { "type": "string", "mode": "required" },
-      "createdAt": { "type": "timestamp", "mode": "required" }
+      "body": { "type": "string", "mode": "required" }
     },
     "output": { "type": "row<CommandResult>", "from": "emit" }
   },
@@ -199,8 +218,7 @@ Expected: directories listed in File Structure above.
         "transition": "create",
         "payload": {
           "title": { "$param": "title" },
-          "body": { "$param": "body" },
-          "createdAt": { "$param": "createdAt" }
+          "body": { "$param": "body" }
         }
       }
     }
@@ -208,7 +226,7 @@ Expected: directories listed in File Structure above.
 }
 ```
 
-- [ ] **Step 2: Write `graphs/deleteNote.json`**
+- [ ] **Step 3: Write `graphs/deleteNote.json`**
 
 ```json
 {
@@ -234,7 +252,7 @@ Expected: directories listed in File Structure above.
 }
 ```
 
-- [ ] **Step 3: Write `graphs/listNotes.json`**
+- [ ] **Step 4: Write `graphs/listNotes.json`**
 
 ```json
 {
@@ -243,16 +261,16 @@ Expected: directories listed in File Structure above.
     "inputs": {
       "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
     },
-    "output": { "type": "rowset<Note>", "from": "paged" }
+    "output": { "type": "rowset<NoteView>", "from": "paged" }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Note" } } },
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "NoteView" } } },
     {
       "id": "filtered",
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["note.status", "active"] }
+        "expr": { "eq": ["noteView.status", "active"] }
       }
     },
     {
@@ -260,7 +278,7 @@ Expected: directories listed in File Structure above.
       "type": "sort",
       "config": {
         "input": "filtered",
-        "by": [{ "field": "note.createdAt", "dir": "desc", "nulls": "last" }]
+        "by": [{ "field": "noteView.createdAt", "dir": "desc", "nulls": "last" }]
       }
     },
     {
@@ -272,7 +290,9 @@ Expected: directories listed in File Structure above.
 }
 ```
 
-- [ ] **Step 4: Write `graphs/getNote.json`**
+- [ ] **Step 5: Write `graphs/getNote.json`**
+
+Query bindings currently support `rowset<...>` outputs only, so `getNote` is intentionally a singleton rowset instead of `row<...>`.
 
 ```json
 {
@@ -281,20 +301,20 @@ Expected: directories listed in File Structure above.
     "inputs": {
       "id": { "type": "string", "mode": "required" }
     },
-    "output": { "type": "row<Note>", "from": "first" }
+    "output": { "type": "rowset<NoteView>", "from": "one" }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Note" } } },
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "NoteView" } } },
     {
       "id": "filtered",
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["note.id", { "$param": "id" }] }
+        "expr": { "eq": ["noteView.id", { "$param": "id" }] }
       }
     },
     {
-      "id": "first",
+      "id": "one",
       "type": "limit",
       "config": { "input": "filtered", "count": 1 }
     }
@@ -313,30 +333,31 @@ Expected: directories listed in File Structure above.
 {
   "version": "1.0",
   "graphSpecRef": "../graphs",
-  "pdmRef": "../../../pdm",
+  "pdmRef": "../../pdm",
   "qsmRef": "../qsm",
   "bindings": {
     "createNote": {
       "kind": "command",
       "graph": "createNote",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {
         "method": "POST",
         "path": "/notes",
         "parameters": [
-          { "name": "id", "in": "body" },
-          { "name": "title", "in": "body" },
-          { "name": "body", "in": "body" },
-          { "name": "createdAt", "in": "body" }
+          { "name": "id", "in": "body", "bindTo": "id", "required": true },
+          { "name": "title", "in": "body", "bindTo": "title", "required": true },
+          { "name": "body", "in": "body", "bindTo": "body", "required": true }
         ]
       }
     },
     "deleteNote": {
       "kind": "command",
       "graph": "deleteNote",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {
-        "method": "DELETE",
-        "path": "/notes/:id",
-        "parameters": [{ "name": "id", "in": "path" }]
+        "method": "POST",
+        "path": "/notes/{id}/actions/delete",
+        "parameters": [{ "name": "id", "in": "path", "bindTo": "id", "required": true }]
       }
     },
     "listNotes": {
@@ -346,7 +367,7 @@ Expected: directories listed in File Structure above.
       "http": {
         "method": "GET",
         "path": "/notes",
-        "parameters": [{ "name": "limit", "in": "query", "required": false }]
+        "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
       }
     },
     "getNote": {
@@ -355,8 +376,8 @@ Expected: directories listed in File Structure above.
       "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {
         "method": "GET",
-        "path": "/notes/:id",
-        "parameters": [{ "name": "id", "in": "path" }]
+        "path": "/notes/{id}",
+        "parameters": [{ "name": "id", "in": "path", "bindTo": "id", "required": true }]
       }
     }
   }
@@ -377,7 +398,7 @@ Expected: directories listed in File Structure above.
 ```json
 {
   "version": "2.0",
-  "pdmRef": "../../../pdm",
+  "pdmRef": "../../pdm",
   "qsmRef": "../qsm",
   "graphSpecRef": "../graphs",
   "bindingsRef": "../bindings",
@@ -428,16 +449,20 @@ Expected: directories listed in File Structure above.
     "page": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "lg" },
-      "children": ["form-section", "list-section"]
+      "children": ["create-section", "delete-section", "list-section"]
     },
-    "form-section": {
+    "create-section": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "md" },
-      "children": ["form-heading", "field-title", "field-body", "submit-btn"]
+      "children": ["create-heading", "field-id", "field-title", "field-body", "submit-btn"]
     },
-    "form-heading": {
+    "create-heading": {
       "type": "Heading",
       "props": { "level": 2, "text": "New note" }
+    },
+    "field-id": {
+      "type": "Input",
+      "props": { "label": "ID", "name": "id", "value": { "$bindState": "/form/id" } }
     },
     "field-title": {
       "type": "Input",
@@ -451,6 +476,24 @@ Expected: directories listed in File Structure above.
       "type": "Button",
       "props": { "label": "Add", "variant": "primary" },
       "on": { "press": { "action": "dispatch", "params": { "name": "createNote" } } }
+    },
+    "delete-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["delete-heading", "field-delete-id", "delete-btn"]
+    },
+    "delete-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Delete note" }
+    },
+    "field-delete-id": {
+      "type": "Input",
+      "props": { "label": "ID", "name": "deleteId", "value": { "$bindState": "/form/deleteId" } }
+    },
+    "delete-btn": {
+      "type": "Button",
+      "props": { "label": "Delete", "variant": "secondary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "deleteNote" } } }
     },
     "list-section": {
       "type": "Stack",
@@ -475,7 +518,11 @@ Expected: directories listed in File Structure above.
     "note-row": {
       "type": "Stack",
       "props": { "direction": "horizontal", "gap": "sm" },
-      "children": ["note-body", "note-date", "delete-btn"]
+      "children": ["note-id", "note-body", "note-date"]
+    },
+    "note-id": {
+      "type": "Badge",
+      "props": { "text": { "$item": "id" }, "variant": "outline" }
     },
     "note-body": {
       "type": "Text",
@@ -484,11 +531,6 @@ Expected: directories listed in File Structure above.
     "note-date": {
       "type": "Badge",
       "props": { "text": { "$item": "createdAt" }, "variant": "secondary" }
-    },
-    "delete-btn": {
-      "type": "Button",
-      "props": { "label": "×", "variant": "secondary" },
-      "on": { "press": { "action": "dispatch", "params": { "name": "deleteNote", "args": { "id": { "$item": "id" } } } } }
     }
   }
 }
@@ -502,7 +544,7 @@ Expected: directories listed in File Structure above.
   "data": {
     "/data/notes": {
       "binding": "listNotes",
-      "refetchOn": ["mount", "after:createNote", "after:deleteNote"]
+      "refetchOn": ["mount"]
     }
   },
   "actions": {
@@ -510,25 +552,25 @@ Expected: directories listed in File Structure above.
       "kind": "command",
       "binding": "createNote",
       "paramsFromState": {
+        "id": "/form/id",
         "title": "/form/title",
         "body": "/form/body"
       },
-      "paramsGenerated": {
-        "id": { "kind": "uuid" },
-        "createdAt": { "kind": "now" }
-      },
-      "onSuccess": { "resetState": ["/form/title", "/form/body"] },
+      "onSuccess": { "refetchData": ["/data/notes"] },
       "onError": { "showAlert": true }
     },
     "deleteNote": {
       "kind": "command",
       "binding": "deleteNote",
-      "paramsFromArgs": { "id": "id" },
+      "paramsFromState": { "id": "/form/deleteId" },
+      "onSuccess": { "refetchData": ["/data/notes"] },
       "onError": { "showAlert": true }
     }
   }
 }
 ```
+
+This deliberately follows the existing issue-tracker UI fixtures: `paramsGenerated`, `paramsFromArgs`, and `refetchOn: ["after:<action>"]` are not current UI-runtime contracts. Per-row delete buttons can be a follow-up after item-bound action args exist; this e2e still proves create/delete commands through the declarative UI by entering the note id.
 
 ### Task 1.7: Seed event
 
@@ -547,11 +589,10 @@ Expected: directories listed in File Structure above.
       "rntAggregateType": "Note",
       "rntAggregateId": "00000000-0000-0000-0000-000000000001",
       "rntVersion": 1,
-      "eventType": "NoteCreated",
+      "eventType": "NoteCreate",
       "data": {
         "title": "Welcome",
-        "body": "First note from seed",
-        "createdAt": "2026-04-27T00:00:00.000Z"
+        "body": "First note from seed"
       },
       "time": "2026-04-27T00:00:00.000Z",
       "rntSchemaVersion": 1
@@ -560,11 +601,9 @@ Expected: directories listed in File Structure above.
 }
 ```
 
-- [ ] **Step 2: Note on `eventType` exact name**
+- [ ] **Step 2: Verify `eventType` convention**
 
-`graph-ir-compiler` синтезирует имя события из `entity + transition`. Точное имя — `NoteCreated` (с `-d`) или `NoteCreate` (без `-d`) — зависит от текущей конвенции компилятора. Если на Task 1.9 `loadComposedBlueprint` вернёт ошибку про несоответствие eventType, или на Task 3.11 welcome-заметка не появится в UI (проекция не подхватила seed) — поменять на альтернативное имя в `seed.json` и повторить.
-
-Поиск точной конвенции: `grep -rln "NoteCreated\|NoteCreate" packages/graph-ir-compiler/src/emit/event-type.ts` или прочитать `packages/graph-ir-compiler/src/emit/event-type.ts` напрямую.
+Current convention is `PascalCase(entity) + PascalCase(transition)`, implemented by `packages/pdm/src/derive/event-types.ts` and mirrored in `packages/graph-ir-compiler/src/emit/event-type.ts`, so transition `create` on `Note` is `NoteCreate`. Do not use `NoteCreated`; seed validation will reject it.
 
 ### Task 1.8: README for the demo
 
@@ -585,10 +624,12 @@ Expected: directories listed in File Structure above.
 ## Локальная валидация
 
 ```bash
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('ok:', Object.keys(r.value)); })"
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('ok:', Object.keys(r.value));"
 ```
 
 Должно вывести `ok: [...]`.
@@ -606,11 +647,13 @@ pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
 - [ ] **Step 1: Run the loader**
 
 ```bash
-cd /home/coder/project
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('OK:', Object.keys(r.value)); })"
+cd /home/coder/work/rntme
+pnpm install --frozen-lockfile
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('OK:', Object.keys(r.value));"
 ```
 
 Expected: `OK: [<list of composed-model keys>]` and exit 0.
@@ -626,7 +669,7 @@ Expected: `OK: [<list of composed-model keys>]` and exit 0.
 - [ ] **Step 1: Stage and commit**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 git add demo/notes-blueprint/
 git status --short
 git commit -m "feat(demo): add notes-blueprint for e2e deploy walkthrough
@@ -684,19 +727,38 @@ Expected: `64`.
 
 Read `~/.claude/projects/-home-coder-project/memory/project_platform_deployed.md` и достать app id для `platform-http`.
 
-- [ ] **Step 2: Read current env via MCP**
+- [ ] **Step 2: Obtain the complete current env block**
 
-Через Dokploy MCP вызвать `application_one(id=<platform-http-app-id>)` (или эквивалент в твоём MCP-клиенте). Скопировать текущий блок `env` в локальный буфер. **Не вставлять MCP-ответ в shared контексты — он содержит секреты (см. memory `dokploy_mcp_leaks_secrets.md`).**
+Context7 check (`/dokploy/mcp`, 2026-04-27) and the installed MCP tool list confirm `application.saveEnvironment`, but this workspace does **not** expose a safe `application.one` / env-read tool. `application.saveEnvironment` writes the env block; using it with only the new key can wipe existing secrets.
+
+Get the full existing `platform-http` env block from a secure source before continuing:
+- preferred: Dokploy UI, copied locally only;
+- acceptable: a local private memory file if it already contains the complete env;
+- not acceptable: reconstructing env from chat, terminal logs, or partial guesses.
+
+If the full current env cannot be obtained without exposing secrets, stop and ask Vlad for a secure handoff. Do **not** call `application.saveEnvironment` with a partial env.
 
 - [ ] **Step 3: Append `PLATFORM_SECRET_ENCRYPTION_KEY` к существующим env**
 
-Через Dokploy MCP `application_saveEnvironment(applicationId=<...>, env="<existing>\nPLATFORM_SECRET_ENCRYPTION_KEY=${RNTME_KEY}")`. Существующие env-vars должны остаться.
+Через Dokploy MCP `application.saveEnvironment` / installed tool `application_saveEnvironment`:
+
+```json
+{
+  "applicationId": "<platform-http-app-id>",
+  "env": "<complete-existing-env>\nPLATFORM_SECRET_ENCRYPTION_KEY=${RNTME_KEY}",
+  "buildArgs": null,
+  "buildSecrets": null,
+  "createEnvFile": false
+}
+```
+
+Существующие env-vars должны остаться.
 
 - [ ] **Step 4: Verify (без выводa самого ключа)**
 
 ```bash
-# через MCP получить env, грепнуть на наличие имени переменной (не значения)
-# manual: убедиться, что строка PLATFORM_SECRET_ENCRYPTION_KEY=<...> присутствует
+# через Dokploy UI проверить наличие имени переменной (не значения)
+# не печатать env block в терминал или комментарии
 ```
 
 Expected: переменная присутствует. **Не печатать значение в чат.**
@@ -706,7 +768,7 @@ Expected: переменная присутствует. **Не печатать
 - [ ] **Step 1: Fetch and checkout target SHA**
 
 ```bash
-cd /home/coder/project/rntme-cli
+cd /home/coder/work/rntme/rntme-cli
 git fetch origin
 git checkout f9712825e414ba009738dbe8f9919fa95fcc67b5
 git log -1 --oneline
@@ -717,7 +779,7 @@ Expected: `f971282 Merge pull request #13 from vladprrs/fix/rnt153-stabilize-ci`
 - [ ] **Step 2: Stage submodule pointer in parent**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 git add rntme-cli
 git diff --staged --stat
 ```
@@ -729,7 +791,7 @@ Expected: `1 file changed` showing `rntme-cli` gitlink update.
 - [ ] **Step 1: Commit**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 git commit -m "chore: bump rntme-cli to f971282 (project deploy flow live)
 
 Activates merged Track 1 + Track 2 (PR #9, #10 in rntme-cli)
@@ -750,19 +812,19 @@ Expected: two recent commits — Phase 1 demo blueprint + this bump.
 - [ ] **Step 1: Push**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 git push origin main
 ```
 
-- [ ] **Step 2: Watch Dokploy auto-deploy via MCP**
+- [ ] **Step 2: Watch Dokploy auto-deploy**
 
-Через Dokploy MCP `application_deployments(applicationId=<platform-http-app-id>)` опросить последний deployment. Дождаться статуса `done` / `success` (или эквивалент). Таймаут — не более ~5 минут.
+Через доступный Dokploy surface смотреть последний deployment. В этом workspace MCP exposes `application.deploy`, `application.redeploy`, `project.*`, `application.saveEnvironment`, но не documented/readable `application_deployments` или `application_readLogs`; если таких инструментов нет в клиенте, использовать Dokploy UI для статуса/логов и записать fallback в финальном комментарии. Дождаться статуса `done` / `success` (или эквивалент). Таймаут — не более ~5 минут.
 
 - [ ] **Step 3: Если деплой failed — read container logs**
 
-Через Dokploy MCP `application_readLogs(applicationId=<platform-http-app-id>)` или эквивалент. Искать в логах:
+Через Dokploy UI или доступный MCP logs tool, если он есть в конкретном клиенте. Искать в логах:
 - `parseEnv` errors → env var проблема. Чинить через Task 2.2 повторно.
-- `runMigrations` errors → FK / ad-hoc fix через psql. Затем `application_redeploy(applicationId=<...>)`.
+- `runMigrations` errors → FK / ad-hoc fix через psql. Затем `application.redeploy` / installed tool `application_redeploy({ "applicationId": "<...>" })`.
 - Hono port bind / ENOENT → читать stack trace, диагностировать конкретно.
 
 Экспонента возврата: чиним → повторный auto-deploy (или ручной `application_redeploy`) → Step 2.
@@ -859,7 +921,7 @@ Expected: видны строки вида:
 - [ ] **Step 1: Install + build**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 pnpm install --frozen-lockfile
 pnpm -F @rntme-cli/cli build
 ```
@@ -869,7 +931,7 @@ Expected: успешный install, успешный build (`tsc` без оши�
 - [ ] **Step 2: Setup alias**
 
 ```bash
-alias rntme="node /home/coder/project/rntme-cli/packages/cli/dist/bin/rntme.js"
+alias rntme="node /home/coder/work/rntme/rntme-cli/packages/cli/dist/bin/rntme.js"
 rntme --version
 ```
 
@@ -913,11 +975,12 @@ Expected: вывод вида `Created project: notes-demo (id <uuid>)`.
 - [ ] **Step 1: Re-run loader**
 
 ```bash
-cd /home/coder/project
-pnpm tsx -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  loadComposedBlueprint('demo/notes-blueprint').then(r => { \
-    if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
-    console.log('OK:', Object.keys(r.value)); })"
+cd /home/coder/work/rntme
+pnpm --filter @rntme/blueprint... build
+pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
+  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  if (!r.ok) { console.error('FAIL:', JSON.stringify(r.errors, null, 2)); process.exit(1); } \
+  console.log('OK:', Object.keys(r.value));"
 ```
 
 Expected: `OK: [...]`. Если FAIL — тот же fix-loop что в Task 1.9. Не идти к Task 3.5 пока зелёное.
@@ -927,7 +990,7 @@ Expected: `OK: [...]`. Если FAIL — тот же fix-loop что в Task 1.9
 - [ ] **Step 1: Run publish**
 
 ```bash
-cd /home/coder/project
+cd /home/coder/work/rntme
 rntme project publish --folder demo/notes-blueprint
 ```
 
@@ -949,7 +1012,17 @@ Expected: `Already published as version #1` (или эквивалент). Эт�
 
 - [ ] **Step 1: Create via MCP**
 
-Через Dokploy MCP `project_create(name="rntme-demos", description="Sandbox for rntme demo deployments")` (или эквивалент). **Этот project отдельный от того, где хостится `platform-http` сам — изоляция blast radius.**
+Через Dokploy MCP `project.create` / installed tool:
+
+```json
+{
+  "name": "rntme-demos",
+  "description": "Sandbox for rntme demo deployments",
+  "env": ""
+}
+```
+
+**Этот project отдельный от того, где хостится `platform-http` сам — изоляция blast radius.**
 
 - [ ] **Step 2: Capture project id**
 
@@ -1042,7 +1115,8 @@ Expected: `303 Redirect` на `https://platform.rntme.com/{org}/projects/notes-d
 Expected:
 - HTML грузится, нет 5xx.
 - Видно `<h1>Notes</h1>`.
-- Видна форма с полями `Title`, `Body` и кнопкой `Add`.
+- Видна форма создания с полями `ID`, `Title`, `Body` и кнопкой `Add`.
+- Видна форма удаления с полем `ID` и кнопкой `Delete`.
 - Видна одна заметка из seed: `Welcome / First note from seed / 2026-04-27...`.
 - В DevTools Console — нет красных ошибок.
 
@@ -1057,32 +1131,34 @@ DevTools → Network → проверить запросы к `/notes` (или `
 
 - [ ] **Step 1: Fill form and submit**
 
-В UI ввести `title=Test note`, `body=Hello from e2e`, нажать `Add`.
+В UI ввести `id=e2e-note-1`, `title=Test note`, `body=Hello from e2e`, нажать `Add`.
 
 Expected:
 - DevTools Network: `POST /notes` (или `/api/notes`) → 2xx.
 - После success: вызывается `GET /notes` (refetch) → 2xx с массивом.
 - В UI новая заметка появилась в списке (она же — первая по сортировке, так как `createdAt desc`).
-- Поля формы очистились (по `onSuccess.resetState`).
+- В списке виден id `e2e-note-1`.
 
 - [ ] **Step 2: Если что-то не сработало**
 
 - POST 4xx → читать body, возможно невалидный payload. Проверить bindings shape и UI action.
-- POST 2xx но рефетч не пришёл → проверить `refetchOn` в `home.screen.json`.
+- POST 2xx но рефетч не пришёл → проверить `onSuccess.refetchData` в `home.screen.json`.
 - Refetch 2xx но в списке нет — значит проекция NoteView не подобрала событие. Смотреть platform/app логи (projection-consumer step). Открыть follow-up.
 
 ### Task 3.13: UI test — delete welcome note
 
-- [ ] **Step 1: Click `×` on the welcome note**
+- [ ] **Step 1: Enter welcome id and click Delete**
+
+В поле удаления ввести `00000000-0000-0000-0000-000000000001`, нажать `Delete`.
 
 Expected:
-- DevTools Network: `DELETE /notes/00000000-0000-0000-0000-000000000001` → 2xx.
+- DevTools Network: `POST /notes/00000000-0000-0000-0000-000000000001/actions/delete` (или `/api/...`) → 2xx.
 - После success: `GET /notes` → массив без welcome.
 - Welcome пропадает из списка.
 
 - [ ] **Step 2: Если не пропадает**
 
-- 2xx но не пропадает → проверить filter `note.status='active'` в `listNotes` graph; возможно проекция не отметила event как `delete`. Логи projection-consumer.
+- 2xx но не пропадает → проверить filter `noteView.status='active'` в `listNotes` graph; возможно проекция не отметила event как `delete`. Логи projection-consumer.
 - 4xx/5xx — читать тело ответа.
 
 ### Task 3.14: UI test — reload page persists state
