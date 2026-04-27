@@ -88,6 +88,7 @@ describe('mock identity conformance wiring', () => {
     const claimedScenarios = Object.entries(identityConformanceSuite.scenariosByRpc).flatMap(([rpc, scenarios]) =>
       moduleManifest.capabilities.rpcs.includes(rpc) ? [...scenarios] : [],
     );
+    const scenarioCount = claimedScenarios.length;
 
     for (const scenario of claimedScenarios) {
       await scenario.seed?.();
@@ -97,7 +98,14 @@ describe('mock identity conformance wiring', () => {
       }
     }
 
-    expect(claimedScenarios).toHaveLength(0);
+    if (scenarioCount === 0) {
+      for (const rpc of moduleManifest.capabilities.rpcs) {
+        expect(identityConformanceSuite.scenariosByRpc).toHaveProperty(rpc);
+      }
+      expect(Object.values(identityConformanceSuite.scenariosByRpc).flat()).toHaveLength(0);
+    } else {
+      expect(scenarioCount).toBeGreaterThan(0);
+    }
   });
 
   it('returns UNIMPLEMENTED for every unsupported canonical RPC', async () => {

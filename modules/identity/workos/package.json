@@ -29,7 +29,7 @@
   "dependencies": {
     "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/contracts-identity-v1": "workspace:*",
-    "@workos-inc/node": "^9.1.1"
+    "@workos-inc/node": "^7.82.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
