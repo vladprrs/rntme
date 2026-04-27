@@ -4,13 +4,13 @@
 
 **Goal:** Land one new workspace package — `@rntme/contracts-ai-llm-v1` — implementing the protobuf shapes (`ai_llm.proto` + `ai_llm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-ai-llm-v1'` to access `Completion`, `AssistantThread`, `AsyncJob`, the `AiLlmModule` service descriptor, and all sixteen event payload types.
 
-**Architecture:** One leaf workspace package under `packages/contracts/ai-llm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service AiLlmModule` matches an event-fixture-name mapping.
+**Architecture:** One leaf workspace package under `packages/contracts/ai-llm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts` from `protobufjs-cli`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service AiLlmModule` matches the expected event-fixture-name mapping.
 
-**Tech Stack:** TypeScript 5.5, `protobufjs` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to Identity plan 1, inheriting its codegen pipeline decision (closes spec OQ-AILLMV1-1 by reuse).
+**Tech Stack:** TypeScript 5.5, `protobufjs` runtime + `protobufjs-cli` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to the merged Identity contract implementation, inheriting its codegen pipeline decision (closes spec OQ-AILLMV1-1 by reuse).
 
 **Spec reference:** `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper types), §7 (ContentBlock), §8 (aggregates), §9 (service & request/response), §10 (events), §11 (error codes), §14 (merge order).
 
-**Depends on:** Identity plan 1 (`docs/superpowers/plans/identity-canonical-contract/01-common-and-identity-contracts.md`) must be merged first — `packages/contracts/_common/v1/` must exist as a workspace package, the `pnpm-workspace.yaml` glob `packages/contracts/*/v*` must be in place, and `tsconfig.base.json` must exist at repo root. This plan does **not** create or modify `_common/v1/`.
+**Depends on:** Identity plan 1 (`docs/superpowers/plans/done/identity-canonical-contract/01-common-and-identity-contracts.md`) must be merged first — `packages/contracts/_common/v1/` must exist as a workspace package, the `pnpm-workspace.yaml` glob `packages/contracts/*/v*` must be in place, and `tsconfig.base.json` must exist at repo root. This plan does **not** create or modify `_common/v1/`.
 
 ---
 
@@ -37,6 +37,7 @@ Files this plan creates or modifies:
 - `packages/contracts/ai-llm/v1/test/service-shape.test.ts`
 - `packages/contracts/ai-llm/v1/error-codes.json`
 - `packages/contracts/ai-llm/v1/.gitattributes`
+- `packages/contracts/ai-llm/v1/.gitignore`
 - `packages/contracts/ai-llm/v1/README.md`
 
 **Modified**
@@ -51,13 +52,13 @@ Files this plan creates or modifies:
 
 ## Codegen approach (closes spec OQ-AILLMV1-1)
 
-This plan inherits Identity plan 1's codegen decision: `protobufjs` static-module via `pbjs --target static-module --wrap es6` followed by `pbts`. Reasoning is unchanged from Identity plan 1: `protobufjs` is already a transitive dep, no `protoc` binary required, ESM-friendly output. Re-evaluation belongs in a v1.minor or v2 if it bites.
+This plan inherits the merged Identity contract codegen decision: `protobufjs` runtime plus `protobufjs-cli` static-module generation via `pbjs --target static-module --wrap es6` followed by `pbts`. Context7 check on 2026-04-27 and the merged Identity package both confirm that current `protobufjs` installs do **not** provide the CLI by themselves; this package therefore adds a direct `protobufjs-cli` dev dependency. Reasoning is otherwise unchanged from Identity plan 1: no `protoc` binary required, ESM-friendly output. Re-evaluation belongs in a v1.minor or v2 if it bites.
 
-The per-package codegen driver is a tiny ESM script (`scripts/gen.mjs`) invoked via `pnpm run proto:gen`. Generated files (`src/proto.gen.js`, `src/proto.gen.d.ts`) are committed (so consumers don't need codegen at install time) and `.gitattributes` marks them `linguist-generated=true` so PR diffs collapse them.
+The per-package codegen driver is a tiny ESM script (`scripts/gen.mjs`) invoked via `pnpm run proto:gen`. It resolves `pbjs`/`pbts` through `createRequire('protobufjs-cli/package.json')`, not `node_modules/.bin`, so it is stable under pnpm's symlink layout. Generated files (`src/proto.gen.js`, `src/proto.gen.d.ts`) are committed (so consumers don't need codegen at install time) and `.gitattributes` marks them `linguist-generated=true` so PR diffs collapse them. The build script copies generated artifacts to `dist/`, matching Identity, because the handwritten TypeScript source imports `./proto.gen.js` at runtime.
 
 The codegen driver imports proto files **across packages** via the `--path` flag. This plan's `gen.mjs` includes both:
 - `node_modules/protobufjs` — for `google.protobuf.Timestamp`, `Duration`, `Struct` well-known types.
-- The path to `@rntme/contracts-common-v1`'s `proto/` directory — for `rntme/contracts/common/v1/common.proto` imports.
+- A temporary `proto-deps/` tree with symlinks for `rntme/contracts/common/v1/common.proto` and `rntme/contracts/ai_llm/v1/ai_llm.proto`, matching the namespace paths used by imports.
 
 ---
 
@@ -69,6 +70,7 @@ The codegen driver imports proto files **across packages** via the `--path` flag
 - Create: `packages/contracts/ai-llm/v1/tsconfig.check.json`
 - Create: `packages/contracts/ai-llm/v1/eslint.config.mjs`
 - Create: `packages/contracts/ai-llm/v1/.gitattributes`
+- Create: `packages/contracts/ai-llm/v1/.gitignore`
 
 - [ ] **Step 1: Create package directory**
 
@@ -108,7 +110,7 @@ Create `packages/contracts/ai-llm/v1/package.json`:
   ],
   "scripts": {
     "proto:gen": "node scripts/gen.mjs",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -116,13 +118,15 @@ Create `packages/contracts/ai-llm/v1/package.json`:
   },
   "dependencies": {
     "@rntme/contracts-common-v1": "workspace:*",
-    "protobufjs": "^7.2.0"
+    "protobufjs": "^8.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
+    "protobufjs-cli": "^2.0.1",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }
@@ -140,9 +144,11 @@ Create `packages/contracts/ai-llm/v1/tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "composite": false,
-    "allowJs": true
+    "allowJs": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.d.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "test"]
 }
 ```
@@ -159,9 +165,10 @@ Create `packages/contracts/ai-llm/v1/tsconfig.check.json`:
     "noEmit": true,
     "composite": false,
     "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.d.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
 ```
@@ -211,17 +218,25 @@ src/proto.gen.js linguist-generated=true
 src/proto.gen.d.ts linguist-generated=true
 ```
 
-- [ ] **Step 7: Run pnpm install and confirm the package is in the workspace**
+- [ ] **Step 7: Write `.gitignore`**
+
+Create `packages/contracts/ai-llm/v1/.gitignore`:
+
+```
+proto-deps/
+```
+
+- [ ] **Step 8: Run pnpm install and confirm the package is in the workspace**
 
 Run: `pnpm install --frozen-lockfile=false`
 
 Then: `pnpm list -r --depth -1 | grep contracts-ai-llm-v1`
 Expected: line containing `@rntme/contracts-ai-llm-v1 0.0.0`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add pnpm-lock.yaml packages/contracts/ai-llm/v1/package.json packages/contracts/ai-llm/v1/tsconfig.json packages/contracts/ai-llm/v1/tsconfig.check.json packages/contracts/ai-llm/v1/eslint.config.mjs packages/contracts/ai-llm/v1/.gitattributes
+git add pnpm-lock.yaml packages/contracts/ai-llm/v1/package.json packages/contracts/ai-llm/v1/tsconfig.json packages/contracts/ai-llm/v1/tsconfig.check.json packages/contracts/ai-llm/v1/eslint.config.mjs packages/contracts/ai-llm/v1/.gitattributes packages/contracts/ai-llm/v1/.gitignore
 git commit -m "feat(contracts-ai-llm-v1): scaffold package"
 ```
 
@@ -878,49 +893,41 @@ Create `packages/contracts/ai-llm/v1/scripts/gen.mjs`:
 
 ```javascript
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..');
-const protoFiles = [
-  resolve(pkgRoot, 'proto/ai_llm.proto'),
-  resolve(pkgRoot, 'proto/ai_llm-events.proto'),
-];
+const repoRoot = resolve(pkgRoot, '../../../..');
+
+const require = createRequire(resolve(pkgRoot, 'package.json'));
+const cliDir = dirname(require.resolve('protobufjs-cli/package.json'));
+const pbjs = resolve(cliDir, 'bin/pbjs');
+const pbts = resolve(cliDir, 'bin/pbts');
+
+// Single entry: ai_llm-events imports ai_llm (and transitively common via ai_llm).
+const protoEntry = resolve(pkgRoot, 'proto/ai_llm-events.proto');
 const outJs = resolve(pkgRoot, 'src/proto.gen.js');
 const outDts = resolve(pkgRoot, 'src/proto.gen.d.ts');
 
-// Resolve protobufjs CLI binaries from this package's node_modules.
-const pbjs = resolve(pkgRoot, 'node_modules/.bin/pbjs');
-const pbts = resolve(pkgRoot, 'node_modules/.bin/pbts');
-
 // Path roots for proto imports:
 //   1) protobufjs ships google/protobuf well-known types
-//   2) @rntme/contracts-common-v1 ships common.proto under proto/rntme/contracts/common/v1/
+//   2) proto-deps mirrors namespaced imports from common + this package.
 const pbjsRoot = resolve(pkgRoot, 'node_modules/protobufjs');
-const commonProtoRoot = resolve(pkgRoot, '../../_common/v1/proto');
 
-// The common.proto file must be reachable as `rntme/contracts/common/v1/common.proto`.
-// The contracts-common-v1 package stores it at proto/common.proto without that prefix.
-// We fix this by symlinking under a synthetic directory; cleanest approach: re-rooting via --path.
-// Instead, we declare an extra --path that maps the namespace path. To keep this simple,
-// we pre-stage a temporary proto-tree in node_modules/.proto-staging.
-const stagingRoot = resolve(pkgRoot, 'node_modules/.proto-staging');
-const stagingCommonDir = resolve(stagingRoot, 'rntme/contracts/common/v1');
-
-import { mkdirSync, copyFileSync } from 'node:fs';
-mkdirSync(stagingCommonDir, { recursive: true });
-copyFileSync(
-  resolve(commonProtoRoot, 'common.proto'),
-  resolve(stagingCommonDir, 'common.proto'),
+const protoDeps = resolve(pkgRoot, 'proto-deps');
+rmSync(protoDeps, { recursive: true, force: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/common/v1'), { recursive: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/ai_llm/v1'), { recursive: true });
+symlinkSync(
+  resolve(repoRoot, 'packages/contracts/_common/v1/proto/common.proto'),
+  resolve(protoDeps, 'rntme/contracts/common/v1/common.proto'),
 );
-
-// Self-package path: rntme/contracts/ai_llm/v1/ai_llm.proto must resolve back to ours.
-const stagingSelfDir = resolve(stagingRoot, 'rntme/contracts/ai_llm/v1');
-mkdirSync(stagingSelfDir, { recursive: true });
-copyFileSync(
+symlinkSync(
   resolve(pkgRoot, 'proto/ai_llm.proto'),
-  resolve(stagingSelfDir, 'ai_llm.proto'),
+  resolve(protoDeps, 'rntme/contracts/ai_llm/v1/ai_llm.proto'),
 );
 
 function run(cmd) {
@@ -928,17 +935,29 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit', cwd: pkgRoot });
 }
 
+/** Node ESM: use default import + explicit .js subpath (namespace import breaks on protobufjs 8). */
+function patchPbjsEsmImports(filePath) {
+  let js = readFileSync(filePath, 'utf8');
+  js = js.replace(
+    /import \* as \$protobuf from "protobufjs\/minimal\.js"/g,
+    'import $protobuf from "protobufjs/minimal.js"',
+  );
+  js = js.replace(/import \* as \$protobuf from "protobufjs\/minimal"/g, 'import $protobuf from "protobufjs/minimal.js"');
+  writeFileSync(filePath, js);
+}
+
 run(
-  `${pbjs} --target static-module --wrap es6 --es6 --keep-case ` +
-    `--path ${pbjsRoot} --path ${stagingRoot} ` +
-    `--out ${outJs} ${protoFiles.join(' ')}`,
+  `node "${pbjs}" --target static-module --wrap es6 --es6 --keep-case ` +
+    `--path ${pbjsRoot} --path ${protoDeps} --path ${resolve(pkgRoot, 'proto')} ` +
+    `--out ${outJs} ${protoEntry}`,
 );
-run(`${pbts} --out ${outDts} ${outJs}`);
+patchPbjsEsmImports(outJs);
+run(`node "${pbts}" --out ${outDts} ${outJs}`);
 
 console.log('Codegen complete.');
 ```
 
-The staging-tree trick mirrors how `pbjs` resolves namespaced imports. The same pattern would belong in Identity plan 1's `gen.mjs` for any cross-package proto import; this plan adds it because `ai_llm.proto` imports `rntme/contracts/common/v1/common.proto` and `ai_llm-events.proto` imports `rntme/contracts/ai_llm/v1/ai_llm.proto`.
+The `proto-deps/` symlink tree mirrors how `pbjs` resolves namespaced imports. This must stay aligned with the merged Identity `gen.mjs` pattern; the extra ESM import patch is required for protobufjs 8 static-module output under Node ESM.
 
 - [ ] **Step 2: Write `src/index.ts` barrel**
 
@@ -946,7 +965,7 @@ Create `packages/contracts/ai-llm/v1/src/index.ts`:
 
 ```typescript
 export * as proto from './proto.gen.js';
-export type { rntme as Rntme } from './proto.gen.d.ts';
+export type { rntme as Rntme } from './proto.gen.js';
 export { errorCodes, type ErrorCode } from './error-codes.js';
 ```
 
@@ -1071,12 +1090,12 @@ export function layerOf(code: ErrorCode): ErrorLayer {
 }
 ```
 
-The `with { type: 'json' }` import attribute requires Node 20.10+ and `tsconfig.base.json`'s `module: "Node16"` or `"NodeNext"`. Identity plan 1 already proved this combination works.
+The `with { type: 'json' }` import attribute requires Node 20.10+ and this package's `tsconfig.json` sets `module: "NodeNext"` / `moduleResolution: "NodeNext"`, matching the merged Identity contract package.
 
 - [ ] **Step 3: Verify build now succeeds**
 
 Run: `pnpm -F @rntme/contracts-ai-llm-v1 run build`
-Expected: emits `dist/index.js`, `dist/index.d.ts`, `dist/error-codes.js`, `dist/error-codes.d.ts`. No errors.
+Expected: emits `dist/index.js`, `dist/index.d.ts`, `dist/error-codes.js`, `dist/error-codes.d.ts`, `dist/proto.gen.js`, and `dist/proto.gen.d.ts`. No errors.
 
 Run: `pnpm -F @rntme/contracts-ai-llm-v1 run typecheck`
 Expected: zero errors.
@@ -1807,6 +1826,23 @@ const EXPECTED_EVENTS = [
   'AsyncJobCancelled',
 ] as const;
 
+const EXPECTED_RPC_EVENT_FIXTURE_NAMES = {
+  Complete: ['CompletionStarted', 'CompletionFinished', 'CompletionFailed'],
+  GetCompletion: [],
+  CreateThread: ['ThreadCreated'],
+  GetThread: [],
+  DeleteThread: ['ThreadDeleted'],
+  AddMessage: ['ThreadMessageAdded'],
+  ListThreadItems: [],
+  RunThread: ['ThreadRunStarted', 'ThreadRunRequiresAction', 'ThreadRunCompleted', 'ThreadRunFailed'],
+  GetThreadRun: [],
+  CancelThreadRun: ['ThreadRunCancelled'],
+  SubmitJob: ['AsyncJobSubmitted'],
+  GetJob: [],
+  CancelJob: ['AsyncJobCancelled'],
+  ListJobs: [],
+} satisfies Record<(typeof EXPECTED_RPCS)[number], readonly (typeof EXPECTED_EVENTS)[number][]>;
+
 describe('service AiLlmModule shape', () => {
   it('declares exactly 14 RPCs by canonical name', () => {
     // The proto.gen.js exposes the service descriptor at proto.rntme.contracts.ai_llm.v1.AiLlmModule.
@@ -1835,6 +1871,21 @@ describe('service AiLlmModule shape', () => {
     expect(EXPECTED_EVENTS.length).toBe(16);
   });
 
+  it('keeps the RPC short-name to event-fixture-name mapping in sync', () => {
+    expect(Object.keys(EXPECTED_RPC_EVENT_FIXTURE_NAMES).sort()).toEqual([...EXPECTED_RPCS].sort());
+
+    const eventSet = new Set(EXPECTED_EVENTS);
+    for (const [rpc, eventNames] of Object.entries(EXPECTED_RPC_EVENT_FIXTURE_NAMES)) {
+      expect(EXPECTED_RPCS.includes(rpc as (typeof EXPECTED_RPCS)[number]), `unexpected RPC mapping key ${rpc}`).toBe(true);
+      for (const eventName of eventNames) {
+        expect(
+          eventSet.has(eventName as (typeof EXPECTED_EVENTS)[number]),
+          `${rpc} maps to unknown event fixture ${eventName}`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it('every aggregate is exported as a Message constructor', () => {
     const ns = proto.rntme.contracts.ai_llm.v1 as Record<string, unknown>;
     const expected = ['Completion', 'AssistantThread', 'ThreadItem', 'ThreadRun', 'AsyncJob', 'BatchCompletionPayload', 'BatchCompletionItem'];
@@ -1852,7 +1903,7 @@ describe('service AiLlmModule shape', () => {
 });
 ```
 
-This test is the drift detector: if anyone adds an RPC to `service AiLlmModule` without updating `EXPECTED_RPCS`, or adds an event message without updating `EXPECTED_EVENTS`, the test fails. Conformance plan 2 has a complementary drift test that asserts `EXPECTED_RPCS` matches the scenario filenames.
+This test is the drift detector: if anyone adds an RPC to `service AiLlmModule` without updating `EXPECTED_RPCS` and `EXPECTED_RPC_EVENT_FIXTURE_NAMES`, or adds an event message without updating `EXPECTED_EVENTS`, the test fails. The mapping intentionally leaves read/list RPCs with `[]` because they do not produce boundary events. Conformance plan 2 has a complementary drift test that asserts `EXPECTED_RPCS` matches the scenario filenames and uses the same event-fixture names for capability examples.
 
 - [ ] **Step 3: Run tests**
 
@@ -2024,7 +2075,7 @@ This contract introduces six capability fields. Until `module-manifest-validator
 
 - `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance.
-- `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` — sibling spec by the same template.
+- `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec by the same template.
 - `docs/superpowers/plans/ai-llm-canonical-contract/01-ai-llm-contracts.md` — this plan.
 - `docs/superpowers/plans/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md` — companion plan for conformance package.
 ```
@@ -2097,7 +2148,7 @@ The pattern is fixed by the modules-monorepo spec and Identity v1 / AI/LLM v1 pl
 - `proto/<category>.proto` — service, entities, enums, request/response.
 - `proto/<category>-events.proto` — event payloads.
 - `error-codes.json` — `<CATEGORY>_<LAYER>_<KIND>` set.
-- `scripts/gen.mjs` — `pbjs`/`pbts` driver. Cross-package proto imports use the staging-tree trick from `ai-llm/v1` plan 1 task 7.
+- `scripts/gen.mjs` — `pbjs`/`pbts` driver. Cross-package proto imports use the `proto-deps/` symlink tree from `ai-llm/v1` plan 1 task 7.
 - `src/proto.gen.{js,d.ts}` — generated; tracked; `.gitattributes` marks linguist-generated=true.
 - `src/index.ts` — barrel re-export.
 - `src/error-codes.ts` — typed re-export of JSON.
@@ -2105,7 +2156,7 @@ The pattern is fixed by the modules-monorepo spec and Identity v1 / AI/LLM v1 pl
 - Per-package README following the standard template (File map / Quick start / API / Invariants / Out of scope / Where to look first / Specs).
 
 Reference plans:
-- `docs/superpowers/plans/identity-canonical-contract/01-common-and-identity-contracts.md` — first category.
+- `docs/superpowers/plans/done/identity-canonical-contract/01-common-and-identity-contracts.md` — first category.
 - `docs/superpowers/plans/ai-llm-canonical-contract/01-ai-llm-contracts.md` — second category, shows cross-package proto import pattern.
 ```
 
@@ -2160,7 +2211,7 @@ Expected: every package builds, including `@rntme/contracts-ai-llm-v1`.
 - [ ] **Step 2: Run full workspace tests**
 
 Run: `pnpm -r run test`
-Expected: every test passes. AI/LLM has ~50 test cases (16 entity + 9 content-block + 16 event + 6 error-code + 4 service-shape).
+Expected: every test passes. AI/LLM has ~51 test cases (16 entity + 9 content-block + 16 event + 6 error-code + 5 service-shape).
 
 - [ ] **Step 3: Run full workspace lint**
 
@@ -2185,7 +2236,7 @@ Run a quick mental cross-check against `docs/superpowers/specs/2026-04-26-ai-llm
 - §6 helper types — 7 helper messages in proto, tested ✓
 - §7 ContentBlock — oneof with 7 variants, tested ✓
 - §8 aggregates — 3 aggregates + ThreadItem + ThreadRun + BatchCompletion payloads, tested ✓
-- §9 service — 14 RPCs in service, drift-tested ✓
+- §9 service — 14 RPCs in service, RPC→event-fixture mapping drift-tested ✓
 - §10 events — 16 event payloads, tested ✓
 - §11 error codes — 32 codes in JSON, lint-tested ✓
 - §14 dependencies — package depends on `@rntme/contracts-common-v1` (workspace:*) ✓
@@ -2207,7 +2258,7 @@ Run this checklist after the last task and before closing the PR:
 
 1. **Spec coverage:** Every section §4–§11 in the spec has a corresponding task above. Confirmed in Task 15 step 6.
 2. **Placeholder scan:** Search the plan body for `TBD`, `TODO`, `FIXME`, `XXX`, `placeholder`. None should appear except in the §11 explanation that documents how validator extension is deferred.
-3. **Type consistency:** RPC names in Task 5 match `EXPECTED_RPCS` in Task 11; event names in Task 6 match `EXPECTED_EVENTS` in Task 11; error codes in Task 8 match the count assertion in Task 11.
+3. **Type consistency:** RPC names in Task 5 match `EXPECTED_RPCS` and `EXPECTED_RPC_EVENT_FIXTURE_NAMES` in Task 11; event names in Task 6 match `EXPECTED_EVENTS` in Task 11; error codes in Task 8 match the count assertion in Task 11.
 4. **Cross-task naming:** `proto.rntme.contracts.ai_llm.v1` namespace used uniformly across Tasks 7, 9, 10, 11. `@rntme/contracts-ai-llm-v1` package name uniform across Tasks 1, 2, 7, 12.
 
 If any check fails: fix inline, re-run the affected task's tests.
