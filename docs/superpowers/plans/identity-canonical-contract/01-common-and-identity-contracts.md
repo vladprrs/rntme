@@ -4,9 +4,9 @@
 
 **Goal:** Land two new workspace packages — `@rntme/contracts-common-v1` and `@rntme/contracts-identity-v1` — implementing the protobuf shapes, generated TS bindings, error codes, and READMEs defined by `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for both packages and consumers can `import { User, CanonicalRef, … } from '@rntme/contracts-identity-v1'`.
 
-**Architecture:** Two leaf workspace packages under `packages/contracts/<category>/v<n>/`. Each owns its `proto/*.proto` source and generates `src/index.ts` via `protobufjs` static-module codegen (`pbjs` + `pbts`). `identity/v1/` declares a workspace dependency on `common/v1/` and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape.
+**Architecture:** Two leaf workspace packages under `packages/contracts/<category>/v<n>/`. Each owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs` + `pbts` from `protobufjs-cli`). Each package hand-writes a small `src/index.ts` barrel that exports both the generated `proto` namespace and top-level aliases for commonly imported message constructors/types. `identity/v1/` declares a workspace dependency on `common/v1/` and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus smoke tests for the public import surface.
 
-**Tech Stack:** TypeScript 5.5, `protobufjs` static-module codegen (`pbjs`/`pbts`, already a transitive dep via `@rntme/bindings-grpc`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — all consistent with existing rntme packages.
+**Tech Stack:** TypeScript 5.5, `protobufjs` runtime + `protobufjs-cli` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — all consistent with existing rntme packages.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` §4 (layout), §5 (`common.proto`), §6 (entities & enums), §7 (service & request/response), §7.3 (`error-codes.json`), §8 (events), §11 (merge order).
 
@@ -59,13 +59,14 @@ Files this plan creates or modifies:
 
 This plan locks codegen on `protobufjs` static-module via `pbjs --target static-module` followed by `pbts`. Reasoning:
 
-1. **Already a transitive dep.** `@rntme/bindings-grpc` already pulls `protobufjs ^7.2.0` into the workspace. No new heavyweight tooling.
-2. **No `protoc` binary required.** `pbjs` is pure-JS, runs on every dev/CI machine without setup. `buf` and `ts-proto` would each require a protoc-compatible binary.
-3. **ESM-friendly output.** `pbjs --target static-module --wrap es6` emits an ESM module with `Type.encode/decode/create/verify/toObject` per message — matches our `"type": "module"` package convention.
+1. **Runtime dependency already exists in the workspace.** `@rntme/bindings-grpc` already uses `protobufjs`; contract packages add their own direct runtime dependency because generated modules import `protobufjs/minimal`.
+2. **CLI dependency must be direct.** `pbjs`/`pbts` are not provided by `protobufjs` alone in current installs; each contract package adds `protobufjs-cli` as a dev dependency so `node_modules/.bin/pbjs` and `pbts` exist inside the package after `pnpm install`.
+3. **No `protoc` binary required.** `pbjs` is pure-JS, runs on every dev/CI machine without setup. `buf` and `ts-proto` would each require a protoc-compatible binary.
+4. **ESM-friendly output.** `pbjs --target static-module --wrap es6` emits an ESM module with `Type.encode/decode/create/verify/toObject` per message — matches our `"type": "module"` package convention.
 
 The DX cost — `User.encode(user).finish()` instead of bare object — is acceptable for a generated contract package whose primary downstream is a small number of vendor-module adapters. Re-evaluation can land in a v1.minor or v2 if it bites.
 
-The per-package codegen driver is a tiny ESM script (`scripts/gen.mjs`) invoked via `pnpm run proto:gen`. Generated files are committed (so consumers don't need codegen at install time) and `.gitattributes` marks them `linguist-generated=true` so PR diffs hide them.
+The per-package codegen driver is a tiny ESM script (`scripts/gen.mjs`) invoked via `pnpm run proto:gen`. Generated files are committed (so consumers don't need codegen at install time) and `.gitattributes` marks them `linguist-generated=true` so PR diffs hide them. Hand-written barrels must not edit generated files; they alias generated constructors from `src/proto.gen.js`.
 
 ---
 
@@ -176,6 +177,7 @@ Create `packages/contracts/_common/v1/package.json`:
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
+    "protobufjs-cli": "^1.1.3",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }
@@ -399,6 +401,7 @@ Create `packages/contracts/_common/v1/scripts/gen.mjs`:
 
 ```javascript
 import { execSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -417,6 +420,8 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit', cwd: pkgRoot });
 }
 
+mkdirSync(resolve(pkgRoot, 'src'), { recursive: true });
+
 // pbjs needs the google/protobuf well-known types path. protobufjs ships them.
 const pbjsRoot = resolve(pkgRoot, 'node_modules/protobufjs');
 run(`${pbjs} --target static-module --wrap es6 --es6 --keep-case --path ${pbjsRoot} --out ${outJs} ${protoFile}`);
@@ -430,13 +435,34 @@ console.log('Codegen complete.');
 Create `packages/contracts/_common/v1/src/index.ts`:
 
 ```typescript
+import * as generated from './proto.gen.js';
+
 export * as proto from './proto.gen.js';
-export type {
-  rntme as Rntme,
-} from './proto.gen.d.ts';
+
+const common = generated.rntme.contracts.common.v1;
+
+export const CanonicalRef = common.CanonicalRef;
+export const CommandContext = common.CommandContext;
+export const Name = common.Name;
+export const ListRequest = common.ListRequest;
+export const Filter = common.Filter;
+export const FilterOperator = common.FilterOperator;
+export const Sort = common.Sort;
+export const SortDirection = common.SortDirection;
+export const ListResponseMeta = common.ListResponseMeta;
+export const Metadata = common.Metadata;
+
+export type CanonicalRef = generated.rntme.contracts.common.v1.CanonicalRef;
+export type CommandContext = generated.rntme.contracts.common.v1.CommandContext;
+export type Name = generated.rntme.contracts.common.v1.Name;
+export type ListRequest = generated.rntme.contracts.common.v1.ListRequest;
+export type Filter = generated.rntme.contracts.common.v1.Filter;
+export type Sort = generated.rntme.contracts.common.v1.Sort;
+export type ListResponseMeta = generated.rntme.contracts.common.v1.ListResponseMeta;
+export type Metadata = generated.rntme.contracts.common.v1.Metadata;
 ```
 
-The `proto` namespace gives consumers `proto.rntme.contracts.common.v1.CanonicalRef.encode(...)`. The named-type re-export gives them types like `Rntme.contracts.common.v1.CanonicalRef`.
+The `proto` namespace gives consumers `proto.rntme.contracts.common.v1.CanonicalRef.encode(...)`. The top-level aliases satisfy the downstream import contract: `import { CanonicalRef, CommandContext, Metadata } from '@rntme/contracts-common-v1'`.
 
 - [ ] **Step 4: Run codegen and produce generated files**
 
@@ -656,6 +682,7 @@ Create `packages/contracts/identity/v1/package.json`:
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
+    "protobufjs-cli": "^1.1.3",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }
@@ -949,6 +976,7 @@ Create `packages/contracts/identity/v1/scripts/gen.mjs`:
 
 ```javascript
 import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -956,8 +984,19 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..');
 const repoRoot = resolve(pkgRoot, '../../../..');
 
+const protoDeps = resolve(pkgRoot, 'proto-deps');
+rmSync(protoDeps, { recursive: true, force: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/common/v1'), { recursive: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/identity/v1'), { recursive: true });
+mkdirSync(resolve(pkgRoot, 'src'), { recursive: true });
+
+const commonProtoSrc = resolve(repoRoot, 'packages/contracts/_common/v1/proto/common.proto');
+const identityProtoSrc = resolve(pkgRoot, 'proto/identity.proto');
+symlinkSync(commonProtoSrc, resolve(protoDeps, 'rntme/contracts/common/v1/common.proto'));
+symlinkSync(identityProtoSrc, resolve(protoDeps, 'rntme/contracts/identity/v1/identity.proto'));
+
 const protoFiles = [
-  resolve(pkgRoot, 'proto/identity.proto'),
+  resolve(protoDeps, 'rntme/contracts/identity/v1/identity.proto'),
   resolve(pkgRoot, 'proto/identity-events.proto'),
 ];
 const outJs = resolve(pkgRoot, 'src/proto.gen.js');
@@ -966,30 +1005,7 @@ const outDts = resolve(pkgRoot, 'src/proto.gen.d.ts');
 const pbjs = resolve(pkgRoot, 'node_modules/.bin/pbjs');
 const pbts = resolve(pkgRoot, 'node_modules/.bin/pbts');
 
-// Path resolution: pbjs needs to find imports for both google/protobuf/* (well-known types
-// shipped with protobufjs) and rntme/contracts/common/v1/common.proto (sibling workspace package).
-// We add three search roots:
-//   - this package's protobufjs/ (for google/*)
-//   - the repo packages/contracts/_common/v1/proto/ root remapped so `rntme/contracts/common/v1/common.proto` resolves
 const pbjsRoot = resolve(pkgRoot, 'node_modules/protobufjs');
-
-// pbjs accepts `--path <dir>` repeated. The proto import string is `rntme/contracts/common/v1/common.proto`
-// which is relative to a search root. We construct a temporary search root by symlinking — instead, the
-// simplest reliable approach is to add the entire repo's `packages/contracts/<category>/v<n>/proto` dirs
-// flattened into a single virtual root via a thin wrapper. For this plan, we use the simpler path: add
-// the repo root path so absolute proto package names resolve from `<repoRoot>/packages/...`. That requires
-// a small workspace convention: proto import paths are NOT `rntme/contracts/...` (which would force a
-// rewrite root) but rather a relative path from this package's proto/ that climbs to the sibling.
-// REVISIT: see below.
-
-// Concrete approach we adopt: maintain a tiny `proto-deps/` symlink tree inside this package that mirrors
-// the canonical import path. The symlink is recreated by this script and ignored by git (.gitignore).
-import { mkdirSync, rmSync, symlinkSync, existsSync } from 'node:fs';
-const protoDeps = resolve(pkgRoot, 'proto-deps');
-rmSync(protoDeps, { recursive: true, force: true });
-mkdirSync(resolve(protoDeps, 'rntme/contracts/common/v1'), { recursive: true });
-const commonProtoSrc = resolve(repoRoot, 'packages/contracts/_common/v1/proto/common.proto');
-symlinkSync(commonProtoSrc, resolve(protoDeps, 'rntme/contracts/common/v1/common.proto'));
 
 function run(cmd) {
   console.log(`> ${cmd}`);
@@ -1002,6 +1018,8 @@ run(`${pbts} --out ${outDts} ${outJs}`);
 
 console.log('Codegen complete.');
 ```
+
+The script passes `identity.proto` through the canonical `proto-deps/rntme/contracts/identity/v1/identity.proto` symlink. Do not change it back to `proto/identity.proto`: once `identity-events.proto` imports the canonical path in Task 8, using two filenames for the same proto can produce duplicate message definitions in protobufjs.
 
 - [ ] **Step 3: Add `proto-deps/` to `.gitignore` for this package**
 
@@ -1029,8 +1047,60 @@ This empty file lets the codegen driver succeed in this task; full events land i
 Create `packages/contracts/identity/v1/src/index.ts`:
 
 ```typescript
+import {
+  CanonicalRef,
+  CommandContext,
+  Filter,
+  FilterOperator,
+  ListRequest,
+  ListResponseMeta,
+  Metadata,
+  Name,
+  Sort,
+  SortDirection,
+} from '@rntme/contracts-common-v1';
+import * as generated from './proto.gen.js';
+
 export * as proto from './proto.gen.js';
+export {
+  CanonicalRef,
+  CommandContext,
+  Filter,
+  FilterOperator,
+  ListRequest,
+  ListResponseMeta,
+  Metadata,
+  Name,
+  Sort,
+  SortDirection,
+};
+
+const identity = generated.rntme.contracts.identity.v1;
+
+export const User = identity.User;
+export const Organization = identity.Organization;
+export const OrganizationMembership = identity.OrganizationMembership;
+export const Invitation = identity.Invitation;
+export const Session = identity.Session;
+export const IdentityResolution = identity.IdentityResolution;
+
+export const UserStatus = identity.UserStatus;
+export const OrgStatus = identity.OrgStatus;
+export const MembershipStatus = identity.MembershipStatus;
+export const InvitationStatus = identity.InvitationStatus;
+export const SessionStatus = identity.SessionStatus;
+export const TokenType = identity.TokenType;
+export const ResolutionInputType = identity.ResolutionInputType;
+
+export type User = generated.rntme.contracts.identity.v1.User;
+export type Organization = generated.rntme.contracts.identity.v1.Organization;
+export type OrganizationMembership = generated.rntme.contracts.identity.v1.OrganizationMembership;
+export type Invitation = generated.rntme.contracts.identity.v1.Invitation;
+export type Session = generated.rntme.contracts.identity.v1.Session;
+export type IdentityResolution = generated.rntme.contracts.identity.v1.IdentityResolution;
 ```
+
+The top-level aliases are part of the public contract. The issue's acceptance criteria require downstream code to import `User`, `CanonicalRef`, and the other generated types directly from `@rntme/contracts-identity-v1`, not only through `proto.rntme.contracts.identity.v1`.
 
 - [ ] **Step 6: Run codegen**
 
@@ -1408,7 +1478,76 @@ service IdentityModule {
 Run: `pnpm -F @rntme/contracts-identity-v1 run proto:gen`
 Expected: `src/proto.gen.js` and `src/proto.gen.d.ts` updated. No errors.
 
-- [ ] **Step 3: Write the failing service-shape test**
+- [ ] **Step 3: Add service and request/response aliases to the public barrel**
+
+Open `packages/contracts/identity/v1/src/index.ts` and append these aliases below the entity aliases from Task 6:
+
+```typescript
+export const IdentityModule = identity.IdentityModule;
+
+export const GetUserRequest = identity.GetUserRequest;
+export const ListUsersRequest = identity.ListUsersRequest;
+export const UserList = identity.UserList;
+export const GetOrganizationRequest = identity.GetOrganizationRequest;
+export const ListOrganizationsRequest = identity.ListOrganizationsRequest;
+export const OrganizationList = identity.OrganizationList;
+export const GetMembershipRequest = identity.GetMembershipRequest;
+export const ListMembershipsRequest = identity.ListMembershipsRequest;
+export const OrganizationMembershipList = identity.OrganizationMembershipList;
+export const GetInvitationRequest = identity.GetInvitationRequest;
+export const ListInvitationsRequest = identity.ListInvitationsRequest;
+export const InvitationList = identity.InvitationList;
+export const GetSessionRequest = identity.GetSessionRequest;
+export const ListSessionsRequest = identity.ListSessionsRequest;
+export const SessionList = identity.SessionList;
+export const ResolveIdentityRequest = identity.ResolveIdentityRequest;
+export const IntrospectSessionRequest = identity.IntrospectSessionRequest;
+export const CreateUserRequest = identity.CreateUserRequest;
+export const UpdateUserRequest = identity.UpdateUserRequest;
+export const DeleteUserRequest = identity.DeleteUserRequest;
+export const CreateOrganizationRequest = identity.CreateOrganizationRequest;
+export const UpdateOrganizationRequest = identity.UpdateOrganizationRequest;
+export const DeleteOrganizationRequest = identity.DeleteOrganizationRequest;
+export const CreateInvitationRequest = identity.CreateInvitationRequest;
+export const RevokeInvitationRequest = identity.RevokeInvitationRequest;
+export const AddMembershipRequest = identity.AddMembershipRequest;
+export const UpdateMembershipRequest = identity.UpdateMembershipRequest;
+export const RemoveMembershipRequest = identity.RemoveMembershipRequest;
+export const RevokeSessionRequest = identity.RevokeSessionRequest;
+
+export type IdentityModule = generated.rntme.contracts.identity.v1.IdentityModule;
+export type GetUserRequest = generated.rntme.contracts.identity.v1.GetUserRequest;
+export type ListUsersRequest = generated.rntme.contracts.identity.v1.ListUsersRequest;
+export type UserList = generated.rntme.contracts.identity.v1.UserList;
+export type GetOrganizationRequest = generated.rntme.contracts.identity.v1.GetOrganizationRequest;
+export type ListOrganizationsRequest = generated.rntme.contracts.identity.v1.ListOrganizationsRequest;
+export type OrganizationList = generated.rntme.contracts.identity.v1.OrganizationList;
+export type GetMembershipRequest = generated.rntme.contracts.identity.v1.GetMembershipRequest;
+export type ListMembershipsRequest = generated.rntme.contracts.identity.v1.ListMembershipsRequest;
+export type OrganizationMembershipList = generated.rntme.contracts.identity.v1.OrganizationMembershipList;
+export type GetInvitationRequest = generated.rntme.contracts.identity.v1.GetInvitationRequest;
+export type ListInvitationsRequest = generated.rntme.contracts.identity.v1.ListInvitationsRequest;
+export type InvitationList = generated.rntme.contracts.identity.v1.InvitationList;
+export type GetSessionRequest = generated.rntme.contracts.identity.v1.GetSessionRequest;
+export type ListSessionsRequest = generated.rntme.contracts.identity.v1.ListSessionsRequest;
+export type SessionList = generated.rntme.contracts.identity.v1.SessionList;
+export type ResolveIdentityRequest = generated.rntme.contracts.identity.v1.ResolveIdentityRequest;
+export type IntrospectSessionRequest = generated.rntme.contracts.identity.v1.IntrospectSessionRequest;
+export type CreateUserRequest = generated.rntme.contracts.identity.v1.CreateUserRequest;
+export type UpdateUserRequest = generated.rntme.contracts.identity.v1.UpdateUserRequest;
+export type DeleteUserRequest = generated.rntme.contracts.identity.v1.DeleteUserRequest;
+export type CreateOrganizationRequest = generated.rntme.contracts.identity.v1.CreateOrganizationRequest;
+export type UpdateOrganizationRequest = generated.rntme.contracts.identity.v1.UpdateOrganizationRequest;
+export type DeleteOrganizationRequest = generated.rntme.contracts.identity.v1.DeleteOrganizationRequest;
+export type CreateInvitationRequest = generated.rntme.contracts.identity.v1.CreateInvitationRequest;
+export type RevokeInvitationRequest = generated.rntme.contracts.identity.v1.RevokeInvitationRequest;
+export type AddMembershipRequest = generated.rntme.contracts.identity.v1.AddMembershipRequest;
+export type UpdateMembershipRequest = generated.rntme.contracts.identity.v1.UpdateMembershipRequest;
+export type RemoveMembershipRequest = generated.rntme.contracts.identity.v1.RemoveMembershipRequest;
+export type RevokeSessionRequest = generated.rntme.contracts.identity.v1.RevokeSessionRequest;
+```
+
+- [ ] **Step 4: Write the failing service-shape test**
 
 Create `packages/contracts/identity/v1/test/service-shape.test.ts`:
 
@@ -1418,62 +1557,60 @@ import { proto } from '../src/index.js';
 
 const expectedRpcs = [
   // Queries
-  'GetUser', 'ListUsers',
-  'GetOrganization', 'ListOrganizations',
-  'GetMembership', 'ListMemberships',
-  'GetInvitation', 'ListInvitations',
-  'GetSession', 'ListSessions',
-  'ResolveIdentity', 'IntrospectSession',
+  ['GetUser', 'getUser'], ['ListUsers', 'listUsers'],
+  ['GetOrganization', 'getOrganization'], ['ListOrganizations', 'listOrganizations'],
+  ['GetMembership', 'getMembership'], ['ListMemberships', 'listMemberships'],
+  ['GetInvitation', 'getInvitation'], ['ListInvitations', 'listInvitations'],
+  ['GetSession', 'getSession'], ['ListSessions', 'listSessions'],
+  ['ResolveIdentity', 'resolveIdentity'], ['IntrospectSession', 'introspectSession'],
   // Commands: User
-  'CreateUser', 'UpdateUser', 'DeleteUser',
+  ['CreateUser', 'createUser'], ['UpdateUser', 'updateUser'], ['DeleteUser', 'deleteUser'],
   // Commands: Organization
-  'CreateOrganization', 'UpdateOrganization', 'DeleteOrganization',
+  ['CreateOrganization', 'createOrganization'], ['UpdateOrganization', 'updateOrganization'], ['DeleteOrganization', 'deleteOrganization'],
   // Commands: Invitation
-  'CreateInvitation', 'RevokeInvitation',
+  ['CreateInvitation', 'createInvitation'], ['RevokeInvitation', 'revokeInvitation'],
   // Commands: Membership
-  'AddMembership', 'UpdateMembership', 'RemoveMembership',
+  ['AddMembership', 'addMembership'], ['UpdateMembership', 'updateMembership'], ['RemoveMembership', 'removeMembership'],
   // Commands: Session
-  'RevokeSession',
+  ['RevokeSession', 'revokeSession'],
 ] as const;
 
 describe('IdentityModule service shape', () => {
   it('declares exactly 24 RPCs', () => {
     const svc = proto.rntme.contracts.identity.v1.IdentityModule;
-    // protobufjs static-module exposes the service as a `rpc.Service` subclass with method
-    // descriptors on its prototype. The simplest stable shape check is the count of own
-    // member methods minus protobufjs-internal ones.
-    const methodNames = Object.keys((svc as unknown as { service: { methods: Record<string, unknown> } }).service?.methods ?? {});
+    const methodNames = Object.getOwnPropertyNames(svc.prototype)
+      .filter((name) => name !== 'constructor');
     expect(methodNames.length).toBe(24);
   });
 
   it('contains every expected RPC name', () => {
     const svc = proto.rntme.contracts.identity.v1.IdentityModule;
-    const methodNames = new Set(Object.keys((svc as unknown as { service: { methods: Record<string, unknown> } }).service?.methods ?? {}));
-    for (const rpc of expectedRpcs) {
-      expect(methodNames.has(rpc), `expected RPC ${rpc} declared in IdentityModule`).toBe(true);
+    const methodNames = new Set(Object.getOwnPropertyNames(svc.prototype));
+    for (const [protoRpc, jsMethod] of expectedRpcs) {
+      expect(methodNames.has(jsMethod), `expected RPC ${protoRpc} exposed as ${jsMethod}`).toBe(true);
     }
   });
 
   it('does NOT contain RPCs deferred to vendor extensions per spec §3 / Q3', () => {
     const svc = proto.rntme.contracts.identity.v1.IdentityModule;
-    const methodNames = new Set(Object.keys((svc as unknown as { service: { methods: Record<string, unknown> } }).service?.methods ?? {}));
+    const methodNames = new Set(Object.getOwnPropertyNames(svc.prototype));
     // These were dropped during brainstorming Q3 — Impersonate (Clerk-only), AssignRole/RevokeRole
     // (collapsed into UpdateMembership), CreateSession (sessions arrive via vendor auth flow).
-    for (const rpc of ['Impersonate', 'AssignRole', 'RevokeRole', 'CreateSession']) {
+    for (const rpc of ['impersonate', 'assignRole', 'revokeRole', 'createSession']) {
       expect(methodNames.has(rpc), `${rpc} must NOT appear in IdentityModule v1`).toBe(false);
     }
   });
 });
 ```
 
-- [ ] **Step 4: Run the test**
+- [ ] **Step 5: Run the test**
 
 Run: `pnpm -F @rntme/contracts-identity-v1 run test -- service-shape`
 Expected: 3 tests pass.
 
-> Note on protobufjs internals: the static-module output places each service as a generated subclass of `protobuf.rpc.Service`, with method shape exposed via the static-module-bundle's `service.methods` map. If pbjs's output structure differs in your installed version, adjust the access path in the test helper — verify by inspecting `src/proto.gen.js` for the IdentityModule descriptor literal and use the same key path.
+> Note on protobufjs internals: static-module output places service RPC wrappers on the generated service prototype using lower-camel JavaScript method names. This test checks the generated public methods rather than relying on reflection descriptors, which static-module output does not consistently expose.
 
-- [ ] **Step 5: Run full test, typecheck, lint**
+- [ ] **Step 6: Run full test, typecheck, lint**
 
 Run:
 ```bash
@@ -1483,7 +1620,7 @@ pnpm -F @rntme/contracts-identity-v1 run lint
 ```
 Expected: all pass; ten tests now (entities seven + service-shape three).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/contracts/identity/v1
@@ -1623,28 +1760,65 @@ message SessionRevoked {
 }
 ```
 
-- [ ] **Step 2: Update the proto-deps symlink to include identity.proto**
+- [ ] **Step 2: Confirm the codegen driver already exposes canonical imports**
 
-The `identity-events.proto` imports `rntme/contracts/identity/v1/identity.proto`. Open `packages/contracts/identity/v1/scripts/gen.mjs` and extend the `proto-deps/` setup to also expose this package's own `identity.proto` under the canonical import path. Replace the symlink-creation block with:
+Open `packages/contracts/identity/v1/scripts/gen.mjs` and verify it creates both symlinks:
 
 ```javascript
-import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
-const protoDeps = resolve(pkgRoot, 'proto-deps');
-rmSync(protoDeps, { recursive: true, force: true });
-mkdirSync(resolve(protoDeps, 'rntme/contracts/common/v1'), { recursive: true });
-mkdirSync(resolve(protoDeps, 'rntme/contracts/identity/v1'), { recursive: true });
-const commonProtoSrc = resolve(repoRoot, 'packages/contracts/_common/v1/proto/common.proto');
-const identityProtoSrc = resolve(pkgRoot, 'proto/identity.proto');
 symlinkSync(commonProtoSrc, resolve(protoDeps, 'rntme/contracts/common/v1/common.proto'));
 symlinkSync(identityProtoSrc, resolve(protoDeps, 'rntme/contracts/identity/v1/identity.proto'));
 ```
+
+No edit should be needed if Task 6 was followed exactly. This check exists because `identity-events.proto` imports `rntme/contracts/identity/v1/identity.proto`; if the driver only exposes `_common`, Task 8 codegen fails.
 
 - [ ] **Step 3: Regenerate proto bindings**
 
 Run: `pnpm -F @rntme/contracts-identity-v1 run proto:gen`
 Expected: includes the 17 event messages in the output. No errors.
 
-- [ ] **Step 4: Write the failing event round-trip test**
+- [ ] **Step 4: Add event aliases to the public barrel**
+
+Open `packages/contracts/identity/v1/src/index.ts` and append the seventeen event aliases:
+
+```typescript
+export const UserCreated = identity.UserCreated;
+export const UserUpdated = identity.UserUpdated;
+export const UserDeleted = identity.UserDeleted;
+export const UserEmailVerified = identity.UserEmailVerified;
+export const OrganizationCreated = identity.OrganizationCreated;
+export const OrganizationUpdated = identity.OrganizationUpdated;
+export const OrganizationDeleted = identity.OrganizationDeleted;
+export const MembershipCreated = identity.MembershipCreated;
+export const MembershipUpdated = identity.MembershipUpdated;
+export const MembershipDeleted = identity.MembershipDeleted;
+export const InvitationCreated = identity.InvitationCreated;
+export const InvitationAccepted = identity.InvitationAccepted;
+export const InvitationRevoked = identity.InvitationRevoked;
+export const InvitationExpired = identity.InvitationExpired;
+export const SessionCreated = identity.SessionCreated;
+export const SessionEnded = identity.SessionEnded;
+export const SessionRevoked = identity.SessionRevoked;
+
+export type UserCreated = generated.rntme.contracts.identity.v1.UserCreated;
+export type UserUpdated = generated.rntme.contracts.identity.v1.UserUpdated;
+export type UserDeleted = generated.rntme.contracts.identity.v1.UserDeleted;
+export type UserEmailVerified = generated.rntme.contracts.identity.v1.UserEmailVerified;
+export type OrganizationCreated = generated.rntme.contracts.identity.v1.OrganizationCreated;
+export type OrganizationUpdated = generated.rntme.contracts.identity.v1.OrganizationUpdated;
+export type OrganizationDeleted = generated.rntme.contracts.identity.v1.OrganizationDeleted;
+export type MembershipCreated = generated.rntme.contracts.identity.v1.MembershipCreated;
+export type MembershipUpdated = generated.rntme.contracts.identity.v1.MembershipUpdated;
+export type MembershipDeleted = generated.rntme.contracts.identity.v1.MembershipDeleted;
+export type InvitationCreated = generated.rntme.contracts.identity.v1.InvitationCreated;
+export type InvitationAccepted = generated.rntme.contracts.identity.v1.InvitationAccepted;
+export type InvitationRevoked = generated.rntme.contracts.identity.v1.InvitationRevoked;
+export type InvitationExpired = generated.rntme.contracts.identity.v1.InvitationExpired;
+export type SessionCreated = generated.rntme.contracts.identity.v1.SessionCreated;
+export type SessionEnded = generated.rntme.contracts.identity.v1.SessionEnded;
+export type SessionRevoked = generated.rntme.contracts.identity.v1.SessionRevoked;
+```
+
+- [ ] **Step 5: Write the failing event round-trip test**
 
 Create `packages/contracts/identity/v1/test/events.test.ts`:
 
@@ -1712,17 +1886,25 @@ describe('Identity event payloads', () => {
 });
 ```
 
-- [ ] **Step 5: Run the test**
+- [ ] **Step 6: Run the test**
 
 Run: `pnpm -F @rntme/contracts-identity-v1 run test -- events`
 Expected: 5 tests pass.
 
-- [ ] **Step 6: Run full check**
+- [ ] **Step 7: Run full check**
 
-Run: `pnpm -F @rntme/contracts-identity-v1 run build && run typecheck && run lint && run test`
+Run:
+
+```bash
+pnpm -F @rntme/contracts-identity-v1 run build
+pnpm -F @rntme/contracts-identity-v1 run typecheck
+pnpm -F @rntme/contracts-identity-v1 run lint
+pnpm -F @rntme/contracts-identity-v1 run test
+```
+
 Expected: all green.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add packages/contracts/identity/v1
@@ -1778,7 +1960,7 @@ Create `packages/contracts/identity/v1/error-codes.json`:
 Create `packages/contracts/identity/v1/src/error-codes.ts`:
 
 ```typescript
-import errorCodesJson from '../error-codes.json' with { type: 'json' };
+import { readFileSync } from 'node:fs';
 
 export type IdentityErrorLayer = 'structural' | 'references' | 'consistency' | 'vendor';
 
@@ -1789,7 +1971,11 @@ export interface IdentityErrorCodes {
   vendor: readonly string[];
 }
 
-export const errorCodes: IdentityErrorCodes = errorCodesJson as IdentityErrorCodes;
+const errorCodesJson = JSON.parse(
+  readFileSync(new URL('../error-codes.json', import.meta.url), 'utf8'),
+) as IdentityErrorCodes;
+
+export const errorCodes: IdentityErrorCodes = errorCodesJson;
 
 export const allErrorCodes: readonly string[] = [
   ...errorCodesJson.structural,
@@ -1801,12 +1987,13 @@ export const allErrorCodes: readonly string[] = [
 export type IdentityErrorCode = (typeof allErrorCodes)[number];
 ```
 
+Do not import `../error-codes.json` directly from TypeScript while `tsconfig.json` uses `"rootDir": "src"` and package exports point at `dist/error-codes.js`; direct JSON imports pull a source file outside `rootDir` into the compiler graph. Runtime `readFileSync(new URL('../error-codes.json', import.meta.url))` resolves to the package-root JSON from `dist/error-codes.js`, matching the `"files"` whitelist.
+
 - [ ] **Step 3: Update `src/index.ts` to re-export error codes**
 
-Open `packages/contracts/identity/v1/src/index.ts` and replace contents with:
+Open `packages/contracts/identity/v1/src/index.ts` and append the error-code export to the existing barrel from Task 6. The file must still contain the top-level aliases for `User`, `CanonicalRef`, and the other generated messages. Add this line at the bottom:
 
 ```typescript
-export * as proto from './proto.gen.js';
 export * from './error-codes.js';
 ```
 
@@ -1821,8 +2008,8 @@ import { errorCodes, allErrorCodes } from '../src/error-codes.js';
 const PATTERN = /^IDENTITY_(STRUCTURAL|REFERENCES|CONSISTENCY|VENDOR)_[A-Z0-9_]+$/;
 
 describe('error-codes.json', () => {
-  it('declares exactly 24 codes spread across four layers', () => {
-    expect(allErrorCodes.length).toBe(24);
+  it('declares exactly 18 codes spread across four layers', () => {
+    expect(allErrorCodes.length).toBe(18);
     expect(errorCodes.structural.length).toBe(2);
     expect(errorCodes.references.length).toBe(5);
     expect(errorCodes.consistency.length).toBe(7);
@@ -1851,25 +2038,22 @@ describe('error-codes.json', () => {
 - [ ] **Step 5: Run the test**
 
 Run: `pnpm -F @rntme/contracts-identity-v1 run test -- error-codes`
-Expected: 4 tests pass. Counts: structural=2, references=5, consistency=7, vendor=4 → total=18. **STOP — re-count.**
+Expected: 4 tests pass. Counts: structural=2, references=5, consistency=7, vendor=4 → total=18.
 
-Re-count manually: structural 2 + references 5 + consistency 7 + vendor 4 = 18. The first assertion `expect(allErrorCodes.length).toBe(24)` will FAIL because the JSON has 18 codes, not 24.
+- [ ] **Step 6: Run full check**
 
-This mismatch is intentional. The number "24" came from a misread of the spec. Look at spec §7.3: it lists 2 + 5 + 7 + 4 = 18 codes. **The plan's "24 error codes" claim was wrong.**
+Run:
 
-Fix: update Step 4's test to assert `allErrorCodes.length).toBe(18)` and `consistency.length).toBe(7)`. Re-run test.
+```bash
+pnpm -F @rntme/contracts-identity-v1 run build
+pnpm -F @rntme/contracts-identity-v1 run typecheck
+pnpm -F @rntme/contracts-identity-v1 run lint
+pnpm -F @rntme/contracts-identity-v1 run test
+```
 
-- [ ] **Step 6: Re-run with corrected counts**
+Expected: all green; all 19 tests pass (entities 7 + service-shape 3 + events 5 + error-codes 4).
 
-After updating the test to use `18` instead of `24`, run: `pnpm -F @rntme/contracts-identity-v1 run test -- error-codes`
-Expected: 4 tests pass.
-
-- [ ] **Step 7: Run full check**
-
-Run: `pnpm -F @rntme/contracts-identity-v1 run build && run typecheck && run lint && run test`
-Expected: all green; all 13 tests pass (entities 7 + service-shape 3 + events 5 + error-codes 4 — re-confirm exact count by running).
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/contracts/identity/v1
@@ -1905,9 +2089,9 @@ Shared cross-category protobuf primitives for rntme canonical contracts. Importe
 ## Quick start
 
 ```ts
-import { proto } from '@rntme/contracts-common-v1';
+import { CanonicalRef } from '@rntme/contracts-common-v1';
 
-const ref = proto.rntme.contracts.common.v1.CanonicalRef.create({
+const ref = CanonicalRef.create({
   canonical_id: '7b8c4f1e-…',
   vendor_id: 'user_2abc',
   module_name: 'identity-clerk',
@@ -1915,12 +2099,12 @@ const ref = proto.rntme.contracts.common.v1.CanonicalRef.create({
   contract_version: 'v1',
 });
 
-const buf = proto.rntme.contracts.common.v1.CanonicalRef.encode(ref).finish();
+const buf = CanonicalRef.encode(ref).finish();
 ```
 
 ## API
 
-The generated `proto` namespace exposes one nested object per protobuf package. Top-level types in `proto.rntme.contracts.common.v1`:
+The package exports both top-level aliases (`CanonicalRef`, `CommandContext`, `Metadata`, …) and the generated `proto.rntme.contracts.common.v1` namespace:
 
 - `CanonicalRef` — five-field reference attached to every category aggregate.
 - `CommandContext` — required on every Command RPC across all categories. `idempotency_key` is mandatory at the contract level; missing-key handling is an adapter concern.
@@ -1974,16 +2158,14 @@ Canonical Identity contract v1 — the protobuf service `IdentityModule`, six en
 ## Quick start
 
 ```ts
-import { proto, errorCodes, type IdentityErrorCode } from '@rntme/contracts-identity-v1';
+import { User, UserStatus, errorCodes, type IdentityErrorCode } from '@rntme/contracts-identity-v1';
 
-const id = proto.rntme.contracts.identity.v1;
-
-const user = id.User.create({
+const user = User.create({
   ref: /* … */,
   email: 'ada@example.com',
-  status: id.UserStatus.USER_STATUS_ACTIVE,
+  status: UserStatus.USER_STATUS_ACTIVE,
 });
-const buf = id.User.encode(user).finish();
+const buf = User.encode(user).finish();
 
 const code: IdentityErrorCode = 'IDENTITY_REFERENCES_USER_NOT_FOUND';
 console.log(errorCodes.references.includes(code)); // true
@@ -2232,23 +2414,35 @@ Expected: all four commands succeed across every workspace package.
 Run a transient sanity script — write it to `/tmp/check-imports.mjs`:
 
 ```javascript
-import { proto as common } from '@rntme/contracts-common-v1';
-import { proto as identity, errorCodes } from '@rntme/contracts-identity-v1';
+import { CanonicalRef } from '@rntme/contracts-common-v1';
+import {
+  CreateUserRequest,
+  User,
+  UserCreated,
+  UserStatus,
+  errorCodes,
+  proto as identityProto,
+} from '@rntme/contracts-identity-v1';
 
-const ref = common.rntme.contracts.common.v1.CanonicalRef.create({
+const ref = CanonicalRef.create({
   canonical_id: '1', vendor_id: 'v', module_name: 'identity-clerk', module_version: '0.0.0', contract_version: 'v1',
 });
-const u = identity.rntme.contracts.identity.v1.User.create({
-  ref, email: 'a@b', status: identity.rntme.contracts.identity.v1.UserStatus.USER_STATUS_ACTIVE,
+const u = User.create({
+  ref, email: 'a@b', status: UserStatus.USER_STATUS_ACTIVE,
 });
-const buf = identity.rntme.contracts.identity.v1.User.encode(u).finish();
+const req = CreateUserRequest.create({ email: 'a@b' });
+const evt = UserCreated.create({ user: u, trigger: 'smoke' });
+const buf = User.encode(u).finish();
 console.log('encoded bytes:', buf.length);
+console.log('request email:', req.email);
+console.log('event trigger:', evt.trigger);
 console.log('error code count:', errorCodes.structural.length + errorCodes.references.length + errorCodes.consistency.length + errorCodes.vendor.length);
+console.log('namespace alias exists:', Boolean(identityProto.rntme.contracts.identity.v1.User));
 ```
 
 Run: `node --experimental-vm-modules /tmp/check-imports.mjs` from inside `packages/contracts/identity/v1/` so that local `node_modules/@rntme/contracts-common-v1` resolves through pnpm's symlinked workspace tree.
 
-Expected: prints two lines, the second being `error code count: 18`.
+Expected: prints five lines, including `request email: a@b`, `event trigger: smoke`, `error code count: 18`, and `namespace alias exists: true`.
 
 - [ ] **Step 3: No commit — this is a verification step.**
 
@@ -2268,6 +2462,7 @@ Before declaring this plan complete, re-read the spec sections and confirm cover
 - [x] §9 conformance suite — DEFERRED to Plan 2; this plan does not touch `modules/`.
 - [x] §11 documentation-touch — Tasks 11, 12.
 - [x] §12 plan decomposition — this is plan 1; plan 2 is `02-identity-conformance-skeleton.md`.
+- [x] Issue import acceptance — Tasks 3, 6, 13 expose and smoke-test top-level imports for `CanonicalRef`, `User`, and status/message aliases.
 
 Open questions deferred from the spec:
 - **OQ-IDV1-1** — closed in this plan: protobufjs static-module via `pbjs` + `pbts`.
