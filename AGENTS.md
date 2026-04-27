@@ -186,6 +186,14 @@ Modules tree (vendor implementations):
   the Identity canonical contract. Drift-tested against
   `service IdentityModule`. Imported by every Identity vendor module.
   → `modules/identity/conformance/README.md`.
+- **`modules/ai-llm/`** — AI/LLM category root: category README plus
+  `conformance/` workspace package for shared scenarios and fixtures.
+- **`modules/ai-llm/conformance/`** — Workspace package
+  `@rntme/conformance-ai-llm`: 14 per-RPC scenario stubs, typed fixtures,
+  drift tests against `service AiLlmModule`.
+  → `modules/ai-llm/conformance/README.md`.
+- **`@rntme/conformance-ai-llm`** — npm name for the package above (same
+  relationship as `@rntme/conformance-identity` ↔ `modules/identity/conformance/`).
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
@@ -511,6 +519,31 @@ The first vendor module is shipped by a separate brainstorm + plan
 Until that brainstorm lands, stop here — do NOT freelance an
 implementation, because it would freeze a vendor-shaped contract before
 the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
+
+### 6.19 Add an AI/LLM vendor module
+
+The first AI/LLM vendor module is shipped by a separate brainstorm + plan.
+When that lands, the steps will mirror Identity:
+
+1. Copy `packages/module-skeleton/` to `modules/ai-llm/<vendor>/`.
+2. Implement `service AiLlmModule` from `@rntme/contracts-ai-llm-v1`
+   against the vendor's SDK (or gateway routing).
+3. Provide an idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
+   ≥24h TTL — major LLM vendors do not provide native idempotency.
+4. Implement a webhook receiver for AsyncJob status callbacks (e.g. OpenAI Standard
+   Webhooks for Batch API; Bedrock EventBridge for batch), verifying
+   signatures and deduping before emitting canonical CloudEvents.
+5. Declare supported RPCs, events, and the eight capability dimensions in
+   `module.json#capabilities[]` (see `modules/ai-llm/README.md` for the
+   decision tree).
+6. Wire conformance: `import { aiLlmConformanceSuite } from
+   '@rntme/conformance-ai-llm'` and run it through the shared framework runner
+   (`@rntme/conformance-framework`, when it lands).
+7. Pass mock-conformance on every PR; pass live-conformance on release tag
+   (live mode requires API keys in a secret store).
+
+Reference the canonical contract at `packages/contracts/ai-llm/v1/` and the
+conformance suite at `modules/ai-llm/conformance/`.
 
 
 ## 7. Anti-patterns / do not do

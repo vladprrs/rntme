@@ -123,6 +123,8 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/contracts-crm-v1`](packages/contracts/crm/v1) | Canonical CRM contract: `service CrmModule`, Contact/Company/Deal/Activity/Note/AsyncJob types, helper read models, twenty-one CloudEvents payloads, `CRM_<LAYER>_<KIND>` error codes. |
 | **Identity vendor track** |  |
 | [`@rntme/conformance-identity`](modules/identity/conformance) | Per-RPC conformance scenarios for `@rntme/contracts-identity-v1`. Drift-tested against the canonical `service IdentityModule`. Imported by every Identity vendor module. |
+| **AI/LLM vendor track** |  |
+| [`@rntme/conformance-ai-llm`](modules/ai-llm/conformance) | AI/LLM conformance scenarios + fixtures (14 RPCs, binary media). Drift-tested against `service AiLlmModule`. Imported by every AI/LLM vendor module. |
 
 | **Deployment (CLI-side)** |  |
 | [`@rntme-cli/deploy-core`](rntme-cli/packages/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
