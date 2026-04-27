@@ -205,6 +205,7 @@ Create `modules/identity/conformance/package.json`:
     "@rntme/contracts-common-v1": "workspace:*"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
@@ -788,7 +789,7 @@ describe('identityConformanceSuite', () => {
 Run: `pnpm -F @rntme/conformance-identity run test`
 Expected: 3 tests pass.
 
-Run: `pnpm -F @rntme/conformance-identity run build && run typecheck && run lint`
+Run: `pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/conformance-identity run typecheck && pnpm -F @rntme/conformance-identity run lint`
 Expected: all green.
 
 - [ ] **Step 5: Commit**
@@ -805,7 +806,7 @@ git commit -m "feat(conformance-identity): suite assembly + shape test"
 **Files:**
 - Create: `modules/identity/conformance/test/drift.test.ts`
 
-The structural invariant from modules-monorepo §7.2: any change to canonical RPC list MUST land matching scenarios in the same PR. We enforce this by parsing `IdentityModule` from the contract package's generated proto and comparing against `src/scenarios/*.scenarios.ts`.
+The structural invariant from modules-monorepo §7.2: any change to canonical RPC list MUST land matching scenarios in the same PR. We enforce this by reading the `IdentityModule` client prototype from the contract package's generated `protobufjs` static module and comparing against `src/scenarios/*.scenarios.ts`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -813,21 +814,29 @@ Create `modules/identity/conformance/test/drift.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { proto } from '@rntme/contracts-identity-v1';
+import { IdentityModule } from '@rntme/contracts-identity-v1';
 import { identityConformanceSuite } from '../src/suite.js';
 import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function rpcsFromContract(): Set<string> {
-  const svc = (proto.rntme.contracts.identity.v1.IdentityModule as unknown as {
-    service?: { methods: Record<string, unknown> };
-  }).service;
-  return new Set(Object.keys(svc?.methods ?? {}));
+  const names = new Set<string>();
+  for (const key of Object.getOwnPropertyNames(IdentityModule.prototype)) {
+    if (key === 'constructor') continue;
+    const fn = (IdentityModule.prototype as unknown as Record<string, unknown>)[key];
+    if (typeof fn !== 'function') continue;
+    const rpcName = (fn as { name?: string }).name;
+    if (rpcName && /^[A-Z][a-zA-Z0-9]*$/.test(rpcName)) names.add(rpcName);
+  }
+  return names;
 }
 
 function rpcsFromScenarioFiles(): Set<string> {
   // Scenario files live at src/scenarios/<RPC>.scenarios.ts. The drift test
   // reads from the source tree (not dist) because the package may not be built.
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
   const dir = resolve(__dirname, '..', 'src', 'scenarios');
   return new Set(
     readdirSync(dir)
@@ -866,14 +875,7 @@ describe('drift detection', () => {
 });
 ```
 
-The test uses `__dirname` — vitest provides this in CommonJS mode; for ESM the equivalent is `import.meta.url`. If vitest reports `__dirname is not defined`, swap to:
-
-```typescript
-import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-```
+Do not use `(IdentityModule as any).service.methods` here. Plan 1 verified that the generated static module exposes RPC names reliably on prototype method `name` values (`getUser` has function name `GetUser`), while reflection metadata is not guaranteed by the `protobufjs` static-module output.
 
 - [ ] **Step 2: Run the test**
 
@@ -899,7 +901,7 @@ Expected: pass.
 
 - [ ] **Step 4: Run full check**
 
-Run: `pnpm -F @rntme/conformance-identity run test && run typecheck && run lint && run build`
+Run: `pnpm -F @rntme/conformance-identity run test && pnpm -F @rntme/conformance-identity run typecheck && pnpm -F @rntme/conformance-identity run lint && pnpm -F @rntme/conformance-identity run build`
 Expected: all green.
 
 - [ ] **Step 5: Commit**
@@ -1050,6 +1052,8 @@ In §10 glossary, insert (alphabetically):
   the canonical contract's service definition; imported by every
   vendor module to run the suite under mock and live modes.
 ```
+
+Also correct the existing `Conformance scenarios` glossary entry if it still points at `modules/<category>/conformance/scenarios/`; the path must be `modules/<category>/conformance/src/scenarios/`.
 
 - [ ] **Step 4: Root `README.md` packages table — append conformance package**
 
