@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import moduleManifest from '../module.json' with { type: 'json' };
+import { WORKOS_SUPPORTED_EVENTS } from '../src/capabilities.js';
 import { InMemoryWebhookDedupeStore, createWorkOSWebhookReceiver, translateWorkOSWebhook } from '../src/webhooks.js';
 import type { WorkOSWebhookEvent } from '../src/types.js';
 
@@ -32,14 +34,22 @@ describe('WorkOS webhook receiver', () => {
         source: 'workos',
         type: 'rntme.identity.v1.UserCreated',
         subject: 'user_1',
+        data: expect.not.objectContaining({ vendor_raw: expect.anything() }),
       }),
     ]);
+    expect(first[0]?.data).toEqual(expect.objectContaining({ user: expect.objectContaining({ vendor_raw: expect.anything() }) }));
     expect(second).toEqual([]);
   });
 
   it('ignores directory sync and SSO events instead of claiming unsafe canonical events', () => {
     expect(translateWorkOSWebhook({ id: 'evt_dsync', event: 'dsync.user.created', data: { id: 'directory_user_1' } })).toBeUndefined();
     expect(translateWorkOSWebhook({ id: 'evt_sso', event: 'connection.activated', data: { id: 'conn_1' } })).toBeUndefined();
+    expect(translateWorkOSWebhook({ id: 'evt_inv_accepted', event: 'invitation.accepted', data: { id: 'inv_1' } })).toBeUndefined();
+  });
+
+  it('does not claim InvitationAccepted because WorkOS does not provide canonical created_membership_id', () => {
+    expect(moduleManifest.capabilities.events).not.toContain('rntme.identity.v1.InvitationAccepted');
+    expect(WORKOS_SUPPORTED_EVENTS).not.toContain('rntme.identity.v1.InvitationAccepted');
   });
 
   it('emits deletion timestamps from event creation time or current time fallback', () => {
@@ -73,44 +83,27 @@ describe('WorkOS webhook receiver', () => {
       expect(membershipDeleted?.data).toEqual(
         expect.objectContaining({
           canonical_id: 'om_1',
-          vendor_id: 'om_1',
           user_id: 'user_1',
           organization_id: 'org_1',
           deleted_at: { seconds: 1704153600, nanos: 0 },
         }),
       );
+      expect(userDeleted?.data).not.toHaveProperty('vendor_raw');
+      expect(organizationDeleted?.data).not.toHaveProperty('vendor_raw');
+      expect(membershipDeleted?.data).not.toHaveProperty('vendor_raw');
+      expect(membershipDeleted?.data).not.toHaveProperty('vendor_id');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('emits canonical scalar data for terminal invitation events', () => {
-    const accepted = translateWorkOSWebhook({
-      id: 'evt_inv_accepted',
-      event: 'invitation.accepted',
-      data: {
-        id: 'inv_1',
-        email: 'new@example.com',
-        organizationId: 'org_1',
-        state: 'accepted',
-        acceptedByUserId: 'user_1',
-        createdMembershipId: 'om_1',
-      },
-    });
+  it('emits canonical scalar data for terminal invitation revoke events', () => {
     const revoked = translateWorkOSWebhook({
       id: 'evt_inv_revoked',
       event: 'invitation.revoked',
       data: { id: 'inv_2', email: 'revoked@example.com', organizationId: 'org_1', state: 'revoked', revokedAt: '2024-01-03T00:00:00.000Z' },
     });
 
-    expect(accepted?.type).toBe('rntme.identity.v1.InvitationAccepted');
-    expect(accepted?.data).toEqual(
-      expect.objectContaining({
-        invitation: expect.objectContaining({ email: 'new@example.com' }),
-        accepted_by_user_id: 'user_1',
-        created_membership_id: 'om_1',
-      }),
-    );
     expect(revoked?.type).toBe('rntme.identity.v1.InvitationRevoked');
     expect(revoked?.data).toEqual(
       expect.objectContaining({
@@ -118,5 +111,6 @@ describe('WorkOS webhook receiver', () => {
         revoked_at: { seconds: 1704240000, nanos: 0 },
       }),
     );
+    expect(revoked?.data).not.toHaveProperty('vendor_raw');
   });
 });

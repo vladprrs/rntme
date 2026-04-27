@@ -93,43 +93,41 @@ export function translateWorkOSWebhook(event: WorkOSWebhookEvent): CloudEvent | 
 
   switch (eventType) {
     case 'user.created':
-      return cloudEvent(id, 'rntme.identity.v1.UserCreated', event.data, subject, { user: mapWorkOSUser(event.data), trigger: 'webhook' }, time);
+      return cloudEvent(id, 'rntme.identity.v1.UserCreated', subject, { user: mapWorkOSUser(event.data), trigger: 'webhook' }, time);
     case 'user.updated':
-      return cloudEvent(id, 'rntme.identity.v1.UserUpdated', event.data, subject, { user: mapWorkOSUser(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.UserUpdated', subject, { user: mapWorkOSUser(event.data) }, time);
     case 'user.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.UserDeleted', event.data, subject, deletedData(event.data, eventTimestamp), time);
+      return cloudEvent(id, 'rntme.identity.v1.UserDeleted', subject, deletedData(event.data, eventTimestamp), time);
     case 'organization.created':
-      return cloudEvent(id, 'rntme.identity.v1.OrganizationCreated', event.data, subject, { organization: mapWorkOSOrganization(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.OrganizationCreated', subject, { organization: mapWorkOSOrganization(event.data) }, time);
     case 'organization.updated':
-      return cloudEvent(id, 'rntme.identity.v1.OrganizationUpdated', event.data, subject, { organization: mapWorkOSOrganization(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.OrganizationUpdated', subject, { organization: mapWorkOSOrganization(event.data) }, time);
     case 'organization.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.OrganizationDeleted', event.data, subject, deletedData(event.data, eventTimestamp), time);
+      return cloudEvent(id, 'rntme.identity.v1.OrganizationDeleted', subject, deletedData(event.data, eventTimestamp), time);
     case 'organization_membership.created':
       return cloudEvent(
         id,
         'rntme.identity.v1.MembershipCreated',
-        event.data,
         subject,
         { membership: mapWorkOSMembership(event.data), trigger: 'webhook' },
         time,
       );
     case 'organization_membership.updated':
-      return cloudEvent(id, 'rntme.identity.v1.MembershipUpdated', event.data, subject, { membership: mapWorkOSMembership(event.data) }, time);
+      return cloudEvent(id, 'rntme.identity.v1.MembershipUpdated', subject, { membership: mapWorkOSMembership(event.data) }, time);
     case 'organization_membership.deleted':
-      return cloudEvent(id, 'rntme.identity.v1.MembershipDeleted', event.data, subject, membershipDeletedData(event.data, eventTimestamp), time);
+      return cloudEvent(id, 'rntme.identity.v1.MembershipDeleted', subject, membershipDeletedData(event.data, eventTimestamp), time);
     case 'invitation.created':
       return cloudEvent(
         id,
         'rntme.identity.v1.InvitationCreated',
-        event.data,
         subject,
         { invitation: mapWorkOSInvitation(event.data), trigger: 'webhook' },
         time,
       );
     case 'invitation.accepted':
-      return cloudEvent(id, 'rntme.identity.v1.InvitationAccepted', event.data, subject, invitationAcceptedData(event.data), time);
+      return undefined;
     case 'invitation.revoked':
-      return cloudEvent(id, 'rntme.identity.v1.InvitationRevoked', event.data, subject, invitationRevokedData(event.data), time);
+      return cloudEvent(id, 'rntme.identity.v1.InvitationRevoked', subject, invitationRevokedData(event.data), time);
     default:
       return undefined;
   }
@@ -140,7 +138,7 @@ function defaultConstructEvent(apiKey: string): ConstructWorkOSWebhookEvent {
   return async (request) => workos.webhooks.constructEvent(request) as Promise<WorkOSWebhookEvent>;
 }
 
-function cloudEvent(id: string, type: string, rawData: JsonObject, subject: string, data: unknown, time: string): CloudEvent {
+function cloudEvent(id: string, type: string, subject: string, data: unknown, time: string): CloudEvent {
   return {
     specversion: '1.0',
     id,
@@ -149,7 +147,7 @@ function cloudEvent(id: string, type: string, rawData: JsonObject, subject: stri
     subject,
     time,
     datacontenttype: 'application/json',
-    data: { ...asObject(data), vendor_raw: rawData },
+    data: asObject(data),
   };
 }
 
@@ -203,18 +201,9 @@ function membershipDeletedData(raw: JsonObject, deletedAt: protoTimestamp): Json
   const canonicalId = readString(raw, 'id');
   return {
     canonical_id: canonicalId,
-    vendor_id: canonicalId,
     user_id: readString(raw, 'userId') || readString(raw, 'user_id'),
     organization_id: readString(raw, 'organizationId') || readString(raw, 'organization_id'),
     deleted_at: deletedAt,
-  };
-}
-
-function invitationAcceptedData(raw: JsonObject): JsonObject {
-  return {
-    invitation: mapWorkOSInvitation(raw),
-    accepted_by_user_id: readString(raw, 'acceptedByUserId') || readString(raw, 'accepted_by_user_id'),
-    created_membership_id: readString(raw, 'createdMembershipId') || readString(raw, 'created_membership_id'),
   };
 }
 

@@ -12,7 +12,7 @@ WorkOS vendor module for the rntme Identity canonical contract `identity/v1`.
 | Invitations | `ListInvitations`, `CreateInvitation`, `RevokeInvitation` | Uses `sendInvitation`, `listInvitations`, and `revokeInvitation`. Invitations are organization-scoped through `organizationId`; `CreateInvitation.expires_at` maps to WorkOS `expiresInDays`. WorkOS invitations accept only one `roleSlug`, so `CreateInvitation` rejects multiple canonical roles instead of truncating. `GetInvitation` is unclaimed. |
 | Sessions | none | WorkOS session/introspection semantics are not claimed until a canonical-safe SDK mapping is documented and implemented. |
 | Resolution | none | `ResolveIdentity` is unclaimed. |
-| Webhooks | user, organization, membership, and invitation lifecycle events listed in `module.json` | Verification uses `workos.webhooks.constructEvent({ payload, sigHeader, secret, tolerance })` and the `workos-signature` header. Directory Sync and SSO vendor-extension events are ignored unless they exactly match the canonical lifecycle mappings. |
+| Webhooks | user, organization, membership, and invitation lifecycle events listed in `module.json` | Verification uses `workos.webhooks.constructEvent({ payload, sigHeader, secret, tolerance })` and the `workos-signature` header. Directory Sync and SSO vendor-extension events are ignored unless they exactly match the canonical lifecycle mappings. `InvitationAccepted` is unclaimed because WorkOS accepted invitation events do not provide the canonical `created_membership_id`. |
 
 Unsupported canonical RPCs are present on the handler object and return gRPC `UNIMPLEMENTED` code `12`: `GetMembership`, `GetInvitation`, `GetSession`, `ListSessions`, `ResolveIdentity`, `IntrospectSession`, `RevokeSession`.
 

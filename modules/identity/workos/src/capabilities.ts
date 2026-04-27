@@ -39,7 +39,6 @@ export const WORKOS_SUPPORTED_EVENTS = [
   'rntme.identity.v1.MembershipUpdated',
   'rntme.identity.v1.MembershipDeleted',
   'rntme.identity.v1.InvitationCreated',
-  'rntme.identity.v1.InvitationAccepted',
   'rntme.identity.v1.InvitationRevoked',
 ] as const;
 
