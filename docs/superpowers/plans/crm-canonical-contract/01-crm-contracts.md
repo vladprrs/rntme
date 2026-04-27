@@ -4,9 +4,9 @@
 
 **Goal:** Land one new workspace package — `@rntme/contracts-crm-v1` — implementing the protobuf shapes (`crm.proto` + `crm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-crm-v1'` to access `Contact`, `Company`, `Deal`, `Activity`, `Note`, `AsyncJob`, the `CrmModule` service descriptor, and all twenty-one event payload types.
 
-**Architecture:** One leaf workspace package under `packages/contracts/crm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver staging-tree pattern adopted from AI/LLM plan 1. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service CrmModule` matches the expected list.
+**Architecture:** One leaf workspace package under `packages/contracts/crm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs-cli` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver staging-tree pattern adopted from the merged Identity package. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service CrmModule` matches the expected list.
 
-**Tech Stack:** TypeScript 5.5, `protobufjs` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to Identity plan 1 / AI/LLM plan 1, inheriting the codegen pipeline decision (closes spec OQ-CRMV1-1 by reuse).
+**Tech Stack:** TypeScript 5.5, `protobufjs` runtime + direct `protobufjs-cli` dev dependency for `pbjs`/`pbts`, Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to the merged Identity contract package, inheriting the codegen pipeline decision (closes spec OQ-CRMV1-1 by reuse).
 
 **Spec reference:** `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper messages), §7 (aggregates), §8 (service & request/response), §9 (events), §10 (error codes), §13 (merge order).
 
@@ -23,9 +23,11 @@ Files this plan creates or modifies:
 - `packages/contracts/crm/v1/tsconfig.json`
 - `packages/contracts/crm/v1/tsconfig.check.json`
 - `packages/contracts/crm/v1/eslint.config.mjs`
+- `packages/contracts/crm/v1/vitest.config.ts`
 - `packages/contracts/crm/v1/proto/crm.proto`
 - `packages/contracts/crm/v1/proto/crm-events.proto`
 - `packages/contracts/crm/v1/scripts/gen.mjs`
+- `packages/contracts/crm/v1/scripts/check-imports.mjs`
 - `packages/contracts/crm/v1/src/proto.gen.js` (generated; tracked)
 - `packages/contracts/crm/v1/src/proto.gen.d.ts` (generated; tracked)
 - `packages/contracts/crm/v1/src/index.ts`
@@ -36,6 +38,7 @@ Files this plan creates or modifies:
 - `packages/contracts/crm/v1/test/error-codes.test.ts`
 - `packages/contracts/crm/v1/test/service-shape.test.ts`
 - `packages/contracts/crm/v1/error-codes.json`
+- `packages/contracts/crm/v1/.gitignore`
 - `packages/contracts/crm/v1/.gitattributes`
 - `packages/contracts/crm/v1/README.md`
 
@@ -47,15 +50,26 @@ Files this plan creates or modifies:
 - `pnpm-workspace.yaml` — Identity plan 1 already added `packages/contracts/*/v*`. The new `packages/contracts/crm/v1/` directory is matched by that existing glob.
 - `module-manifest-validator` — does not yet exist (modules-monorepo plan 1 owns it). New CRM-specific capability fields (`vendors[]`, `entities[]`, `search_tiers[]`, `labeled_associations: bool`, `bulk_operations.max_size: int`, `async_job_types[]`, `webhook_format`, `webhook_retry_policy`) are documented in the per-package README and become validator extensions when modules-monorepo plan 1 lands. This deferral matches how Identity plan 1 and AI/LLM plan 1 handled the same dependency.
 
+## PLAN challenge updates (2026-04-27)
+
+This plan was re-checked against the merged `_common/v1` and `identity/v1` packages before DEV handoff. The implementation source remains scoped to `packages/contracts/crm/v1/` plus the two index docs (`AGENTS.md`, `README.md`); it does not include the CRM conformance package, category README, vendor module, or manifest-validator extensions. Those belong to companion plan `02-crm-conformance-skeleton.md` and later vendor plans.
+
+Tooling decisions are now pinned to the actual merged Identity pattern and current protobufjs docs:
+- `pbjs`/`pbts` come from the direct dev dependency `protobufjs-cli`; Context7 verified the documented install and static-module commands (`pbjs -t static-module -w es6`, `pbts -o ...`), so relying on transitive `protobufjs` binaries is not allowed.
+- Use `protobufjs` `^8.0.1` + `protobufjs-cli` `^2.0.1`, not the older `protobufjs` 7-only package shape.
+- Patch generated ESM imports to `import $protobuf from "protobufjs/minimal.js"` as Identity does; namespace imports break under protobufjs 8 / Node ESM.
+- Keep `allowJs: false`; `build` compiles hand-written TypeScript and then copies committed generated JS/DTS into `dist/`.
+- Add `vitest.config.ts`, `.gitignore` for codegen scratch state, and an import smoke script so package exports are verified outside unit tests.
+
 ---
 
 ## Codegen approach (closes spec OQ-CRMV1-1)
 
-This plan inherits Identity plan 1 / AI/LLM plan 1's codegen decision: `protobufjs` static-module via `pbjs --target static-module --wrap es6` followed by `pbts`. Reasoning is unchanged: `protobufjs` is already a transitive dep, no `protoc` binary required, ESM-friendly output. Re-evaluation belongs in a v1.minor or v2 if it bites.
+This plan inherits the merged Identity package's codegen decision: `protobufjs-cli` static-module via `pbjs --target static-module --wrap es6` followed by `pbts`. Context7 verified the protobufjs docs for `pbjs -t static-module -w es6`, `pbts -o`, `-p/--path` include roots, and `npm install protobufjs-cli --save-dev`. Reasoning is unchanged: no `protoc` binary required, ESM-friendly output, and the CLI dependency is explicit instead of transitive. Re-evaluation belongs in a v1.minor or v2 if it bites.
 
 The per-package codegen driver is a tiny ESM script (`scripts/gen.mjs`) invoked via `pnpm run proto:gen`. Generated files (`src/proto.gen.js`, `src/proto.gen.d.ts`) are committed (so consumers don't need codegen at install time) and `.gitattributes` marks them `linguist-generated=true` so PR diffs collapse them.
 
-The codegen driver imports proto files **across packages** via the staging-tree pattern adopted from AI/LLM plan 1: a temporary `node_modules/.proto-staging/` tree with `rntme/contracts/common/v1/common.proto` (copied from `@rntme/contracts-common-v1`) and `rntme/contracts/crm/v1/crm.proto` (copied from this package), so `pbjs` can resolve namespaced imports as `--path node_modules/.proto-staging`.
+The codegen driver imports proto files **across packages** via the staging-tree pattern adopted from the merged Identity package: a temporary package-local `proto-deps/` tree with symlinks for `rntme/contracts/common/v1/common.proto` and `rntme/contracts/crm/v1/crm.proto`, so `pbjs` can resolve namespaced imports as `--path proto-deps`. `proto-deps/` is ignored and regenerated on every `proto:gen` run.
 
 ---
 
@@ -66,6 +80,8 @@ The codegen driver imports proto files **across packages** via the staging-tree 
 - Create: `packages/contracts/crm/v1/tsconfig.json`
 - Create: `packages/contracts/crm/v1/tsconfig.check.json`
 - Create: `packages/contracts/crm/v1/eslint.config.mjs`
+- Create: `packages/contracts/crm/v1/vitest.config.ts`
+- Create: `packages/contracts/crm/v1/.gitignore`
 - Create: `packages/contracts/crm/v1/.gitattributes`
 
 - [ ] **Step 1: Create package directory structure**
@@ -106,7 +122,7 @@ Create `packages/contracts/crm/v1/package.json`:
   ],
   "scripts": {
     "proto:gen": "node scripts/gen.mjs",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -114,13 +130,15 @@ Create `packages/contracts/crm/v1/package.json`:
   },
   "dependencies": {
     "@rntme/contracts-common-v1": "workspace:*",
-    "protobufjs": "^7.2.0"
+    "protobufjs": "^8.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
+    "protobufjs-cli": "^2.0.1",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }
@@ -138,9 +156,11 @@ Create `packages/contracts/crm/v1/tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "composite": false,
-    "allowJs": true
+    "allowJs": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.d.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "test"]
 }
 ```
@@ -157,9 +177,10 @@ Create `packages/contracts/crm/v1/tsconfig.check.json`:
     "noEmit": true,
     "composite": false,
     "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.d.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
 ```
@@ -200,7 +221,33 @@ export default [
 ];
 ```
 
-- [ ] **Step 6: Write `.gitattributes`**
+- [ ] **Step 6: Write `vitest.config.ts`**
+
+Create `packages/contracts/crm/v1/vitest.config.ts`:
+
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    include: ['test/**/*.test.ts'],
+    environment: 'node',
+    reporters: 'default',
+    testTimeout: 15_000,
+  },
+});
+```
+
+- [ ] **Step 7: Write `.gitignore`**
+
+Create `packages/contracts/crm/v1/.gitignore`:
+
+```
+dist/
+proto-deps/
+```
+
+- [ ] **Step 8: Write `.gitattributes`**
 
 Create `packages/contracts/crm/v1/.gitattributes`:
 
@@ -209,17 +256,17 @@ src/proto.gen.js linguist-generated=true
 src/proto.gen.d.ts linguist-generated=true
 ```
 
-- [ ] **Step 7: Run pnpm install and confirm the package is in the workspace**
+- [ ] **Step 9: Run pnpm install and confirm the package is in the workspace**
 
 Run: `pnpm install --frozen-lockfile=false`
 
 Then: `pnpm list -r --depth -1 | grep contracts-crm-v1`
 Expected: line containing `@rntme/contracts-crm-v1 0.0.0`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add pnpm-lock.yaml packages/contracts/crm/v1/package.json packages/contracts/crm/v1/tsconfig.json packages/contracts/crm/v1/tsconfig.check.json packages/contracts/crm/v1/eslint.config.mjs packages/contracts/crm/v1/.gitattributes
+git add pnpm-lock.yaml packages/contracts/crm/v1/package.json packages/contracts/crm/v1/tsconfig.json packages/contracts/crm/v1/tsconfig.check.json packages/contracts/crm/v1/eslint.config.mjs packages/contracts/crm/v1/vitest.config.ts packages/contracts/crm/v1/.gitignore packages/contracts/crm/v1/.gitattributes
 git commit -m "feat(contracts-crm-v1): scaffold package"
 ```
 
@@ -230,7 +277,7 @@ git commit -m "feat(contracts-crm-v1): scaffold package"
 **Files:**
 - Create: `packages/contracts/crm/v1/proto/crm.proto` (initial file with imports + enums section only; subsequent tasks append)
 
-- [ ] **Step 1: Write the file with imports and all 10 enums**
+- [ ] **Step 1: Write the file with imports and all 12 enums**
 
 Create `packages/contracts/crm/v1/proto/crm.proto`:
 
@@ -1260,6 +1307,7 @@ git commit -m "feat(contracts-crm-v1): proto 21 events"
 
 **Files:**
 - Create: `packages/contracts/crm/v1/scripts/gen.mjs`
+- Create: `packages/contracts/crm/v1/scripts/check-imports.mjs`
 - Create: `packages/contracts/crm/v1/src/proto.gen.js` (generated; tracked)
 - Create: `packages/contracts/crm/v1/src/proto.gen.d.ts` (generated; tracked)
 - Create: `packages/contracts/crm/v1/src/index.ts`
@@ -1270,59 +1318,58 @@ Create `packages/contracts/crm/v1/scripts/gen.mjs`:
 
 ```javascript
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { mkdirSync, copyFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..');
-const protoFiles = [
-  resolve(pkgRoot, 'proto/crm.proto'),
-  resolve(pkgRoot, 'proto/crm-events.proto'),
-];
+const repoRoot = resolve(pkgRoot, '../../../..');
+
+const require = createRequire(resolve(pkgRoot, 'package.json'));
+const cliDir = dirname(require.resolve('protobufjs-cli/package.json'));
+const pbjs = resolve(cliDir, 'bin/pbjs');
+const pbts = resolve(cliDir, 'bin/pbts');
+
+// Single entry: crm-events imports crm (and transitively common via crm).
+const protoEntry = resolve(pkgRoot, 'proto/crm-events.proto');
 const outJs = resolve(pkgRoot, 'src/proto.gen.js');
 const outDts = resolve(pkgRoot, 'src/proto.gen.d.ts');
 
-// Resolve protobufjs CLI binaries from this package's node_modules.
-const pbjs = resolve(pkgRoot, 'node_modules/.bin/pbjs');
-const pbts = resolve(pkgRoot, 'node_modules/.bin/pbts');
-
-// Path roots for proto imports:
-//   1) protobufjs ships google/protobuf well-known types
-//   2) @rntme/contracts-common-v1 ships common.proto under proto/
 const pbjsRoot = resolve(pkgRoot, 'node_modules/protobufjs');
-const commonProtoRoot = resolve(pkgRoot, '../../_common/v1/proto');
 
-// Staging-tree pattern: pbjs needs imports addressed by their fully-qualified
-// path (e.g. `rntme/contracts/common/v1/common.proto`). The contracts-common-v1
-// package stores common.proto without the namespace prefix, so we pre-stage
-// the namespaced tree under node_modules/.proto-staging.
-const stagingRoot = resolve(pkgRoot, 'node_modules/.proto-staging');
-const stagingCommonDir = resolve(stagingRoot, 'rntme/contracts/common/v1');
-const stagingSelfDir = resolve(stagingRoot, 'rntme/contracts/crm/v1');
-
-mkdirSync(stagingCommonDir, { recursive: true });
-copyFileSync(
-  resolve(commonProtoRoot, 'common.proto'),
-  resolve(stagingCommonDir, 'common.proto'),
-);
-
-mkdirSync(stagingSelfDir, { recursive: true });
-copyFileSync(
-  resolve(pkgRoot, 'proto/crm.proto'),
-  resolve(stagingSelfDir, 'crm.proto'),
-);
+const protoDeps = resolve(pkgRoot, 'proto-deps');
+rmSync(protoDeps, { recursive: true, force: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/common/v1'), { recursive: true });
+mkdirSync(resolve(protoDeps, 'rntme/contracts/crm/v1'), { recursive: true });
+const commonProtoSrc = resolve(repoRoot, 'packages/contracts/_common/v1/proto/common.proto');
+const crmProtoSrc = resolve(pkgRoot, 'proto/crm.proto');
+symlinkSync(commonProtoSrc, resolve(protoDeps, 'rntme/contracts/common/v1/common.proto'));
+symlinkSync(crmProtoSrc, resolve(protoDeps, 'rntme/contracts/crm/v1/crm.proto'));
 
 function run(cmd) {
   console.log(`> ${cmd}`);
   execSync(cmd, { stdio: 'inherit', cwd: pkgRoot });
 }
 
+/** Node ESM: use default import + explicit .js subpath (namespace import breaks on protobufjs 8). */
+function patchPbjsEsmImports(filePath) {
+  let js = readFileSync(filePath, 'utf8');
+  js = js.replace(
+    /import \* as \$protobuf from "protobufjs\/minimal\.js"/g,
+    'import $protobuf from "protobufjs/minimal.js"',
+  );
+  js = js.replace(/import \* as \$protobuf from "protobufjs\/minimal"/g, 'import $protobuf from "protobufjs/minimal.js"');
+  writeFileSync(filePath, js);
+}
+
 run(
   `${pbjs} --target static-module --wrap es6 --es6 --keep-case ` +
-    `--path ${pbjsRoot} --path ${stagingRoot} ` +
-    `--out ${outJs} ${protoFiles.join(' ')}`,
+    `--path ${pbjsRoot} --path ${protoDeps} --path ${resolve(pkgRoot, 'proto')} ` +
+    `--out ${outJs} ${protoEntry}`,
 );
+patchPbjsEsmImports(outJs);
 run(`${pbts} --out ${outDts} ${outJs}`);
 
 console.log('Codegen complete.');
@@ -1334,13 +1381,41 @@ Create `packages/contracts/crm/v1/src/index.ts`:
 
 ```typescript
 export * as proto from './proto.gen.js';
-export type { rntme as Rntme } from './proto.gen.d.ts';
+export type { rntme as Rntme } from './proto.gen.js';
 export { errorCodes, isErrorCode, layerOf, type ErrorCode, type ErrorLayer } from './error-codes.js';
 ```
 
 The `errorCodes` re-export depends on `error-codes.ts` which is added in Task 8. Build will fail until Task 8 completes — this is expected.
 
-- [ ] **Step 3: Run codegen**
+- [ ] **Step 3: Write `scripts/check-imports.mjs` smoke test**
+
+Create `packages/contracts/crm/v1/scripts/check-imports.mjs`:
+
+```javascript
+import { proto, errorCodes } from '@rntme/contracts-crm-v1';
+
+const crm = proto.rntme.contracts.crm.v1;
+const deal = crm.Deal.create({
+  ref: {
+    canonical_id: 'deal_01',
+    vendor_id: 'b24_42',
+    module_name: 'module-crm-bitrix24',
+    module_version: '0.1.0',
+    contract_version: 'v1',
+  },
+  name: 'Acme renewal',
+  status: crm.DealStatus.DEAL_STATUS_OPEN,
+  qualification: crm.DealQualification.DEAL_QUALIFICATION_QUALIFIED,
+});
+const buf = crm.Deal.encode(deal).finish();
+console.log('encoded deal bytes:', buf.length);
+console.log(
+  'error code count:',
+  errorCodes.structural.length + errorCodes.references.length + errorCodes.consistency.length + errorCodes.vendor.length,
+);
+```
+
+- [ ] **Step 4: Run codegen**
 
 Run: `pnpm -F @rntme/contracts-crm-v1 run proto:gen`
 
@@ -1348,16 +1423,16 @@ Expected: writes `src/proto.gen.js` and `src/proto.gen.d.ts`. The output is verb
 
 If you see "common.proto not found", verify Identity plan 1 was merged and `packages/contracts/_common/v1/proto/common.proto` exists.
 
-- [ ] **Step 4: Verify generated artifacts contain expected names**
+- [ ] **Step 5: Verify generated artifacts contain expected names**
 
 Run: `grep -c 'CrmModule\|Contact\|Company\|Deal\|Activity\|Note\|AsyncJob\|Pipeline\|Stage\|Owner\|Association\|CustomFieldDefinition' packages/contracts/crm/v1/src/proto.gen.d.ts`
 
 Expected: a number > 50 (each name appears multiple times in the generated declarations).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add packages/contracts/crm/v1/scripts/gen.mjs packages/contracts/crm/v1/src/proto.gen.js packages/contracts/crm/v1/src/proto.gen.d.ts packages/contracts/crm/v1/src/index.ts
+git add packages/contracts/crm/v1/scripts/gen.mjs packages/contracts/crm/v1/scripts/check-imports.mjs packages/contracts/crm/v1/src/proto.gen.js packages/contracts/crm/v1/src/proto.gen.d.ts packages/contracts/crm/v1/src/index.ts
 git commit -m "feat(contracts-crm-v1): codegen wiring + generated bindings"
 ```
 
@@ -1459,7 +1534,7 @@ export function layerOf(code: ErrorCode): ErrorLayer {
 }
 ```
 
-The `with { type: 'json' }` import attribute requires Node 20.10+ and `tsconfig.base.json`'s `module: "Node16"` or `"NodeNext"`. Identity plan 1 already proved this combination works.
+The `with { type: 'json' }` import attribute requires Node 20.10+ and this package's `tsconfig.json` pins `module: "NodeNext"` / `moduleResolution: "NodeNext"`. The merged Identity package already proves this combination works in the repo.
 
 - [ ] **Step 3: Verify build now succeeds**
 
@@ -2445,17 +2520,15 @@ const EXPECTED_EVENTS = [
 describe('service CrmModule shape', () => {
   it('declares exactly 34 RPCs by canonical name', () => {
     const ns = proto.rntme.contracts.crm.v1 as Record<string, unknown>;
-    const ServiceCtor = ns['CrmModule'] as { methods?: Record<string, unknown> };
+    const ServiceCtor = ns['CrmModule'] as { prototype: Record<string, unknown> };
 
     expect(ServiceCtor, 'CrmModule service descriptor missing').toBeDefined();
-    const proto2 = ServiceCtor as unknown as { prototype: Record<string, unknown> };
-    const declaredMethods = Object.getOwnPropertyNames(proto2.prototype).filter((n) => n !== 'constructor');
+    const declaredMethods = Object.getOwnPropertyNames(ServiceCtor.prototype).filter((n) => n !== 'constructor');
+    const expectedMethods = [...EXPECTED_RPCS].map((n) => n.charAt(0).toLowerCase() + n.slice(1)).sort();
 
-    const lowerCase = declaredMethods.map((n) => n.toLowerCase()).sort();
-    const expectedLowerCase = [...EXPECTED_RPCS].map((n) => n.charAt(0).toLowerCase() + n.slice(1)).sort();
-
-    // pbjs lower-cases the first letter of RPC method names by default.
-    expect(lowerCase).toEqual(expectedLowerCase);
+    // pbjs lower-cases only the first letter of RPC method names by default:
+    // GetContact -> getContact, ListCustomFieldDefinitions -> listCustomFieldDefinitions.
+    expect(declaredMethods.sort()).toEqual(expectedMethods);
     expect(EXPECTED_RPCS.length).toBe(34);
   });
 
@@ -2559,7 +2632,9 @@ packages/contracts/crm/v1/
 ├── proto/
 │   ├── crm.proto                # service CrmModule, entities, enums, request/response
 │   └── crm-events.proto          # 21 event payloads
-├── scripts/gen.mjs               # codegen driver (pbjs/pbts)
+├── scripts/
+│   ├── gen.mjs                    # codegen driver (pbjs/pbts)
+│   └── check-imports.mjs          # package self-import smoke test
 ├── src/
 │   ├── proto.gen.{js,d.ts}       # generated bindings (committed)
 │   ├── error-codes.ts             # typed re-export of error-codes.json
@@ -2619,9 +2694,9 @@ if (isErrorCode(maybeCode)) {
 
 `Pipeline` (read-only), `Stage` (read-only, with `StageSemantic` OPEN/WON/LOST), `Owner` (CRM-local user reference, NOT `Identity.User`), `CustomFieldDefinition` (read-only schema descriptor), `Association` (labeled M:N edge, HubSpot v4-shape), `EntityRef` (cross-aggregate reference utility).
 
-### Status enums (10)
+### Status enums (12)
 
-`ContactStatus`, `CompanyStatus`, `DealStatus`, `DealQualification`, `ActivityType`, `ActivityOutcome`, `CustomFieldType`, `StageSemantic`, `AssociationCategory`, `AsyncJobType`, `AsyncJobStatus`, `SyncDeltaOp`. All status enums follow rntme convention: `<TYPE>_UNSPECIFIED = 0`, `<TYPE>_VENDOR_SPECIFIC = 100` (where applicable). 1–99 reserved for canonical values.
+`ContactStatus`, `CompanyStatus`, `DealStatus`, `DealQualification`, `ActivityType`, `ActivityOutcome`, `CustomFieldType`, `StageSemantic`, `AssociationCategory`, `AsyncJobType`, `AsyncJobStatus`, `SyncDeltaOp`. Status-like enums follow rntme convention: `<TYPE>_UNSPECIFIED = 0`, `<TYPE>_VENDOR_SPECIFIC = 100` where the vendor escape hatch applies. 1–99 reserved for canonical values.
 
 ### `service CrmModule` (34 RPCs)
 
@@ -2675,7 +2750,7 @@ CloudEvents `type: rntme.crm.v1.<MessageName>`. Topics: `rntme.crm.contact`, `rn
 - **`pipeline_canonical_id` on `UpdateDeal` is conditionally required** when changing `stage_canonical_id` to a stage in a different pipeline. Bitrix24 enforces this server-side via `crm.item.update`'s `categoryId`+`stageId`; modules for SF/HubSpot/Pipedrive validate locally before the upstream call.
 - **`Association.vendor_id` is empty for label-emulating modules** (Bitrix24, amoCRM, Pipedrive). Module persists association in own state; `canonical_id` is module-generated UUID.
 - **`Owner` is CRM-local** — not the Identity v1 `User` aggregate. Linkage is blueprint business logic.
-- **`vendor_raw` is on every aggregate, not on helpers.** `Contact`, `Company`, `Deal`, `Activity`, `Note`, `AsyncJob`, `Pipeline`, `CustomFieldDefinition`, `Association` carry it. `Stage`, `Owner`, `EntityRef` do not.
+- **`vendor_raw` is on upstream-backed records only.** `Contact`, `Company`, `Deal`, `Activity`, `Note`, `AsyncJob`, `Pipeline`, `CustomFieldDefinition`, and `Association` carry it. Pure utility/local helper messages (`Stage`, `Owner`, `EntityRef`) do not.
 
 ### Capability fields (`module.json#capabilities`)
 
@@ -2847,12 +2922,23 @@ Expected: zero errors.
 Run: `pnpm -r run typecheck`
 Expected: zero errors.
 
-- [ ] **Step 5: Confirm Identity / AI-LLM packages not touched**
+- [ ] **Step 5: Run package import smoke test**
 
-Run: `git log --since="<start-of-this-plan>" -- packages/contracts/identity/v1/ packages/contracts/_common/v1/ packages/contracts/ai-llm/v1/`
-Expected: empty (no commits in this plan touched Identity v1, `_common/v1/`, or `ai-llm/v1/`).
+Run after `build` has emitted `dist/`:
+```bash
+node packages/contracts/crm/v1/scripts/check-imports.mjs
+```
+Expected: prints `encoded deal bytes: <positive number>` and `error code count: 32`.
 
-- [ ] **Step 6: Confirm spec coverage**
+- [ ] **Step 6: Confirm Identity / AI-LLM packages not touched**
+
+Run:
+```bash
+git diff --name-only origin/main...HEAD -- packages/contracts/identity/v1/ packages/contracts/_common/v1/ packages/contracts/ai-llm/v1/
+```
+Expected: no output (no commits in this plan touched Identity v1, `_common/v1/`, or `ai-llm/v1/`).
+
+- [ ] **Step 7: Confirm spec coverage**
 
 Run a quick mental cross-check against `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md`:
 - §4 layout — `packages/contracts/crm/v1/` exists with the right structure ✓
@@ -2864,7 +2950,7 @@ Run a quick mental cross-check against `docs/superpowers/specs/2026-04-27-crm-ca
 - §10 error codes — 32 codes in JSON, lint-tested ✓
 - §13 dependencies — package depends on `@rntme/contracts-common-v1` (workspace:*) ✓
 
-- [ ] **Step 7: Final commit (if any leftover staging)**
+- [ ] **Step 8: Final commit (if any leftover staging)**
 
 If `git status` is clean, no commit needed. Otherwise:
 
@@ -2879,8 +2965,8 @@ git commit -m "chore(contracts-crm-v1): final cross-package verification"
 
 Run this checklist after the last task and before closing the PR:
 
-1. **Spec coverage:** Every section §4–§10 in the spec has a corresponding task above. Confirmed in Task 15 step 6.
-2. **Placeholder scan:** Search the plan body for `TBD`, `TODO`, `FIXME`, `XXX`, `placeholder`. None should appear except the documented capability-fields deferral note (validator extension lands in modules-monorepo plan 1).
+1. **Spec coverage:** Every section §4–§10 in the spec has a corresponding task above. Confirmed in Task 15 step 7.
+2. **Unresolved-marker scan:** Search the plan body for common unfinished-work markers and unresolved template syntax. The only acceptable occurrence of the word `placeholder` is this self-review instruction.
 3. **Type consistency:** RPC names in Task 5 match `EXPECTED_RPCS` in Task 11; event names in Task 6 match `EXPECTED_EVENTS` in Task 11; error codes in Task 8 match the count assertions in Task 11; `DealQualification` / `DealStatus` orthogonality preserved across Tasks 4, 5, 9, 10.
 4. **Cross-task naming:** `proto.rntme.contracts.crm.v1` namespace used uniformly across Tasks 7, 9, 10, 11. `@rntme/contracts-crm-v1` package name uniform across Tasks 1, 2, 7, 12. `module-crm-<vendor>` naming convention used uniformly in fixtures and README examples.
 
