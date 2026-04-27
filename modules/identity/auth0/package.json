@@ -1,0 +1,45 @@
+{
+  "name": "@rntme/identity-auth0",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Auth0 vendor module for the Identity canonical contract.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "module.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/identity/v1 run build && pnpm --dir ../conformance run build",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "test": "pnpm run build:deps && vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test:conformance:mock": "vitest run test/conformance-mock.test.ts"
+  },
+  "dependencies": {
+    "@rntme/contracts-common-v1": "workspace:*",
+    "@rntme/contracts-identity-v1": "workspace:*",
+    "@rntme/conformance-identity": "workspace:*",
+    "auth0": "4.28.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

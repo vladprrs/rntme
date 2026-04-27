@@ -31,9 +31,9 @@ A recommended Tier-1 baseline (not enforced — capabilities are UNION) is:
 
 Modules below this baseline are technically valid but rarely useful in practice. Module authors are expected to be explicit about why they fall short, in the module's README.
 
-## Vendors not yet shipped
+## Vendors
 
-The first concrete Identity vendor module (Clerk, Auth0, or WorkOS — TBD) ships in a subsequent spec. This category currently contains the conformance scaffolding only.
+- [`auth0/`](./auth0) — Auth0 Management API backed Identity module. It supports users, organizations, organization memberships, organization invitations, and best-effort log/event translation. Canonical session RPCs are intentionally unclaimed because Auth0 session/token semantics differ from the canonical contract.
 
 ## Where to look first
 

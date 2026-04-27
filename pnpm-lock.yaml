@@ -130,6 +130,43 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
+  modules/identity/auth0:
+    dependencies:
+      '@rntme/conformance-identity':
+        specifier: workspace:*
+        version: link:../conformance
+      '@rntme/contracts-common-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/_common/v1
+      '@rntme/contracts-identity-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/identity/v1
+      auth0:
+        specifier: 4.28.0
+        version: 4.28.0
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.10.0
+        version: 9.39.4
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
   modules/identity/conformance:
     dependencies:
       '@rntme/contracts-common-v1':
@@ -3894,6 +3931,10 @@ packages:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
 
+  auth0@4.28.0:
+    resolution: {integrity: sha512-fBtJnZ+G/W53pkbkwMrPlfaJPLAD/wwDaNnUqta8sY+sgIxbQdTfkiaHc5FcRNtaX96M7cQBX9KEgKixF5XKlA==}
+    engines: {node: '>=18'}
+
   b4a@1.8.0:
     resolution: {integrity: sha512-qRuSmNSkGQaHwNbM7J78Wwy+ghLEYF1zNrSeMxj4Kgw6y33O3mXcQ6Ie9fRvfU/YnxWkOchPXbaLb73TkIsfdg==}
     peerDependencies:
@@ -4705,6 +4746,9 @@ packages:
   jiti@2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
+
+  jose@4.15.9:
+    resolution: {integrity: sha512-1vUQX+IdDMVPj4k8kOxgUqlcK518yluMuGZwqlr44FS1ppZB/5GWh4rZG89erpOBOJjU/OBsnCVFfapsRz6nEA==}
 
   jose@5.6.3:
     resolution: {integrity: sha512-1Jh//hEEwMhNYPDDLwXHa2ePWgWiFNNUadVmguAAw2IJ6sj9mNxV5tGXJNqlMkJAybF6Lgw1mISDxTePP/187g==}
@@ -5627,6 +5671,10 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    hasBin: true
+
+  uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
 
   vaul@1.1.2:
@@ -8593,6 +8641,12 @@ snapshots:
 
   atomic-sleep@1.0.0: {}
 
+  auth0@4.28.0:
+    dependencies:
+      jose: 4.15.9
+      undici-types: 6.21.0
+      uuid: 9.0.1
+
   b4a@1.8.0: {}
 
   balanced-match@1.0.2: {}
@@ -9411,6 +9465,8 @@ snapshots:
       '@pkgjs/parseargs': 0.11.0
 
   jiti@2.6.1: {}
+
+  jose@4.15.9: {}
 
   jose@5.6.3: {}
 
@@ -10444,6 +10500,8 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   uuid@10.0.0: {}
+
+  uuid@9.0.1: {}
 
   vaul@1.1.2(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
