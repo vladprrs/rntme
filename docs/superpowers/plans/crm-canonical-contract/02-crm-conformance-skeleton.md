@@ -303,6 +303,8 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {
