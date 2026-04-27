@@ -4,7 +4,7 @@ Conformance scenarios for the AI/LLM canonical contract `@rntme/contracts-ai-llm
 
 ## File map
 
-```
+```text
 modules/ai-llm/conformance/
 ├── src/
 │   ├── types.ts                     # local Scenario / CategoryConformanceSuite (until framework lands)

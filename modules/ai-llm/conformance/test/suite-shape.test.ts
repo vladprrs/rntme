@@ -28,7 +28,22 @@ describe('CategoryConformanceSuite shape', () => {
   });
 
   it('exports canonical capability registries for vendor module authors', () => {
-    expect(AI_LLM_CANONICAL_RPCS).toHaveLength(14);
+    expect(AI_LLM_CANONICAL_RPCS).toEqual([
+      'Complete',
+      'GetCompletion',
+      'CreateThread',
+      'GetThread',
+      'DeleteThread',
+      'AddMessage',
+      'ListThreadItems',
+      'RunThread',
+      'GetThreadRun',
+      'CancelThreadRun',
+      'SubmitJob',
+      'GetJob',
+      'CancelJob',
+      'ListJobs',
+    ]);
     expect(AI_LLM_CANONICAL_EVENTS).toEqual([
       'CompletionStarted',
       'CompletionFinished',

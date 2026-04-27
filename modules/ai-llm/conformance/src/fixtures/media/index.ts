@@ -3,15 +3,22 @@
  * live-vendor runs upload via vendor file APIs and substitute the vendor_file_id.
  */
 
-import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-export const samplePngPath = resolve(here, 'sample.png');
-export const sampleMp3Path = resolve(here, 'sample.mp3');
-export const samplePdfPath = resolve(here, 'sample.pdf');
+function fixturePath(filename: string): string {
+  const localPath = resolve(here, filename);
+  if (existsSync(localPath)) return localPath;
+  return resolve(here, '../../../src/fixtures/media', filename);
+}
 
-export const samplePngUrl = `file://${samplePngPath}`;
-export const sampleMp3Url = `file://${sampleMp3Path}`;
-export const samplePdfUrl = `file://${samplePdfPath}`;
+export const samplePngPath = fixturePath('sample.png');
+export const sampleMp3Path = fixturePath('sample.mp3');
+export const samplePdfPath = fixturePath('sample.pdf');
+
+export const samplePngUrl = pathToFileURL(samplePngPath).href;
+export const sampleMp3Url = pathToFileURL(sampleMp3Path).href;
+export const samplePdfUrl = pathToFileURL(samplePdfPath).href;

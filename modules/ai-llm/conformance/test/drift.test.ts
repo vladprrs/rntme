@@ -13,6 +13,8 @@ function rpcsFromContract(): Set<string> {
   const ServiceCtor = ns['AiLlmModule'] as { prototype: Record<string, unknown> };
   expect(ServiceCtor, 'AiLlmModule service descriptor missing').toBeDefined();
   const names = new Set<string>();
+  // protobufjs static-module emits lower-camel prototype methods whose function
+  // names preserve proto RPC casing, which matches the Identity conformance drift test.
   for (const key of Object.getOwnPropertyNames(ServiceCtor.prototype)) {
     if (key === 'constructor') continue;
     const fn = ServiceCtor.prototype[key];

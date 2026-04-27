@@ -19,9 +19,9 @@
   ],
   "scripts": {
     "build": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/ai-llm/v1 run build",
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-ai-llm-v1 run build",
     "test": "pnpm run build:deps && vitest run",
-    "test:watch": "vitest",
+    "test:watch": "pnpm run build:deps && vitest",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },

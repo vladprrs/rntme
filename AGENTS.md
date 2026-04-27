@@ -522,9 +522,9 @@ When that lands, the steps will mirror Identity:
 1. Copy `packages/module-skeleton/` to `modules/ai-llm/<vendor>/`.
 2. Implement `service AiLlmModule` from `@rntme/contracts-ai-llm-v1`
    against the vendor's SDK (or gateway routing).
-3. An idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
+3. Provide an idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
    ≥24h TTL — major LLM vendors do not provide native idempotency.
-4. A webhook receiver for AsyncJob status callbacks (e.g. OpenAI Standard
+4. Implement a webhook receiver for AsyncJob status callbacks (e.g. OpenAI Standard
    Webhooks for Batch API; Bedrock EventBridge for batch), verifying
    signatures and deduping before emitting canonical CloudEvents.
 5. Declare supported RPCs, events, and the eight capability dimensions in
