@@ -2971,7 +2971,7 @@ Frozen metadata + `scenarios` keyed by canonical RPC name (34 keys). Every scena
 - `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §11 — conformance suite design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 — conformance suite layout, anti-conformance, capability-coverage report.
 - `docs/superpowers/plans/crm-canonical-contract/02-crm-conformance-skeleton.md` — this plan.
-- `docs/superpowers/plans/crm-canonical-contract/01-crm-contracts.md` — companion plan for contracts package.
+- `docs/superpowers/plans/done/crm-canonical-contract/01-crm-contracts.md` — companion plan for contracts package.
 ```
 
 - [ ] **Step 2: Commit**

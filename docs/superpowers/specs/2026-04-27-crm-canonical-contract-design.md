@@ -5,7 +5,7 @@
 **Related:**
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout `packages/contracts/<category>/v<n>/`, capability-based UNION conformance, governance rule for canonical growth (≥2 vendors OR archetypal), `module.json` schema. This spec produces the third concrete category contract under that umbrella (Identity is first, AI/LLM is second).
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec by the same template; defines `_common/v1/` shared primitives that this spec reuses unchanged. This spec follows the same section pattern.
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced the `AsyncJob` aggregate pattern and `oneof body` extensibility for future job types, both reused here.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced the `AsyncJob` aggregate pattern and `oneof body` extensibility for future job types, both reused here.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern (wrapper around vendor SDK, gRPC surface, webhook receiver, no choreography). This spec's contract is implemented by CRM wrappers, not gateways.
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` — CloudEvents 1.0 envelope; this spec defines the `data` payloads and `type` short-names for the CRM category.
 - `.tmp/canonical_crm_api.agent.final.md` — vendor research across 9 CRM platforms (Bitrix24, amoCRM/Kommo, Salesforce, HubSpot, Zoho CRM, Pipedrive, plus МойСклад / 1С-CRM / RetailCRM as RU references), 1605 lines. Local-only document, not committed.
@@ -1228,7 +1228,7 @@ Non-blocking for plans 1–2; must be closed before the first vendor module land
 
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance model, governance rule, `module.json` schema, conformance framework split.
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec by the same template; defines `_common/v1/` shared primitives reused unchanged here.
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced the `AsyncJob` aggregate pattern and `oneof body` extensibility for future job types, both reused here.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced the `AsyncJob` aggregate pattern and `oneof body` extensibility for future job types, both reused here.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern (wrapper, no choreography), gRPC surface, webhook receiver, P-1/P-2/P-3 primitives.
 - `docs/superpowers/specs/done/2026-04-17-cloudevents-envelope-design.md` — CloudEvents 1.0 envelope and `type` namespacing convention.
 - `CLAUDE.md` — error-code format, single-writer event log, Result<T> rule, branded `Validated*` types, doc-touch obligation, "topic names carry no version suffix".

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Same as Plan 1 and merged Identity conformance — TypeScript 5.5, vitest, eslint flat config via `@eslint/js`, pnpm 9.12+ workspaces. Context7 check (2026-04-27): Vitest supports `vitest run <file>`; ESLint v9 flat config uses `@eslint/js` for `js.configs.recommended`.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` §12 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` §12 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
 
 **Depends on:**
 - Plan 1 must be merged first — `@rntme/contracts-ai-llm-v1` must exist as a workspace package and its generated proto must export `AiLlmModule` so the drift-detection test can introspect it.
@@ -164,7 +164,7 @@ When you scaffold a new AI/LLM vendor module, fill out `module.json#capabilities
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract design.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability UNION conformance.
 
 ## Where to look first
@@ -1762,10 +1762,10 @@ Frozen metadata + `scenariosByRpc` keyed by canonical RPC name. Every scenarios 
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` §12 — conformance suite design.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` §12 — conformance suite design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 — conformance suite layout, anti-conformance, capability-coverage report.
-- `docs/superpowers/plans/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md` — this plan.
-- `docs/superpowers/plans/ai-llm-canonical-contract/01-ai-llm-contracts.md` — companion plan for contracts package.
+- `docs/superpowers/plans/done/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md` — this plan.
+- `docs/superpowers/plans/done/ai-llm-canonical-contract/01-ai-llm-contracts.md` — companion plan for contracts package.
 ```
 
 - [ ] **Step 2: Commit**
@@ -1865,7 +1865,7 @@ Expected: empty (this plan only touched `modules/ai-llm/` and the two doc files)
 
 - [ ] **Step 5: Confirm spec coverage**
 
-Cross-check against `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md`:
+Cross-check against `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md`:
 - §12.1 layout — `modules/ai-llm/` + `conformance/` exists with the right structure ✓
 - §12.2 per-RPC scenarios — 14 stub files, one per canonical RPC, each citing spec ✓
 - §12.3 anti-conformance — documented in scenario stub comments; runner-side enforcement deferred to framework ✓

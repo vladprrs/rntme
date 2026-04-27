@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land one new workspace package — `@rntme/contracts-ai-llm-v1` — implementing the protobuf shapes (`ai_llm.proto` + `ai_llm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-ai-llm-v1'` to access `Completion`, `AssistantThread`, `AsyncJob`, the `AiLlmModule` service descriptor, and all sixteen event payload types.
+**Goal:** Land one new workspace package — `@rntme/contracts-ai-llm-v1` — implementing the protobuf shapes (`ai_llm.proto` + `ai_llm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-ai-llm-v1'` to access `Completion`, `AssistantThread`, `AsyncJob`, the `AiLlmModule` service descriptor, and all sixteen event payload types.
 
 **Architecture:** One leaf workspace package under `packages/contracts/ai-llm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts` from `protobufjs-cli`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service AiLlmModule` matches the expected event-fixture-name mapping.
 
 **Tech Stack:** TypeScript 5.5, `protobufjs` runtime + `protobufjs-cli` static-module codegen (`pbjs`/`pbts`), Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to the merged Identity contract implementation, inheriting its codegen pipeline decision (closes spec OQ-AILLMV1-1 by reuse).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper types), §7 (ContentBlock), §8 (aggregates), §9 (service & request/response), §10 (events), §11 (error codes), §14 (merge order).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper types), §7 (ContentBlock), §8 (aggregates), §9 (service & request/response), §10 (events), §11 (error codes), §14 (merge order).
 
 **Depends on:** Identity plan 1 (`docs/superpowers/plans/done/identity-canonical-contract/01-common-and-identity-contracts.md`) must be merged first — `packages/contracts/_common/v1/` must exist as a workspace package, the `pnpm-workspace.yaml` glob `packages/contracts/*/v*` must be in place, and `tsconfig.base.json` must exist at repo root. This plan does **not** create or modify `_common/v1/`.
 
@@ -89,7 +89,7 @@ Create `packages/contracts/ai-llm/v1/package.json`:
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "Canonical AI/LLM contract v1 for rntme: Completion, AssistantThread, AsyncJob, and 16 CloudEvents payloads. See docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md.",
+  "description": "Canonical AI/LLM contract v1 for rntme: Completion, AssistantThread, AsyncJob, and 16 CloudEvents payloads. See docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -2073,11 +2073,11 @@ This contract introduces six capability fields. Until `module-manifest-validator
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — design.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance.
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec by the same template.
-- `docs/superpowers/plans/ai-llm-canonical-contract/01-ai-llm-contracts.md` — this plan.
-- `docs/superpowers/plans/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md` — companion plan for conformance package.
+- `docs/superpowers/plans/done/ai-llm-canonical-contract/01-ai-llm-contracts.md` — this plan.
+- `docs/superpowers/plans/done/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md` — companion plan for conformance package.
 ```
 
 - [ ] **Step 2: Commit**
@@ -2157,7 +2157,7 @@ The pattern is fixed by the modules-monorepo spec and Identity v1 / AI/LLM v1 pl
 
 Reference plans:
 - `docs/superpowers/plans/done/identity-canonical-contract/01-common-and-identity-contracts.md` — first category.
-- `docs/superpowers/plans/ai-llm-canonical-contract/01-ai-llm-contracts.md` — second category, shows cross-package proto import pattern.
+- `docs/superpowers/plans/done/ai-llm-canonical-contract/01-ai-llm-contracts.md` — second category, shows cross-package proto import pattern.
 ```
 
 - [ ] **Step 5: Commit**
@@ -2230,7 +2230,7 @@ Expected: empty (no commits in this plan touched Identity v1 or `_common/v1/`).
 
 - [ ] **Step 6: Confirm spec coverage**
 
-Run a quick mental cross-check against `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md`:
+Run a quick mental cross-check against `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md`:
 - §4 layout — `packages/contracts/ai-llm/v1/` exists with the right structure ✓
 - §5 status enums — 8 enums in proto, tested ✓
 - §6 helper types — 7 helper messages in proto, tested ✓

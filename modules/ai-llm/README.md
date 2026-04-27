@@ -31,7 +31,7 @@ When you scaffold a new AI/LLM vendor module, fill out `module.json#capabilities
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract design.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability UNION conformance.
 
 ## Where to look first

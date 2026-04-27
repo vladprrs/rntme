@@ -2794,8 +2794,8 @@ This contract introduces eight capability fields. Until `module-manifest-validat
 - `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` — design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance.
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec; defines `_common/v1/` reused here.
-- `docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced AsyncJob pattern reused here.
-- `docs/superpowers/plans/crm-canonical-contract/01-crm-contracts.md` — this plan.
+- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced AsyncJob pattern reused here.
+- `docs/superpowers/plans/done/crm-canonical-contract/01-crm-contracts.md` — this plan.
 - `docs/superpowers/plans/crm-canonical-contract/02-crm-conformance-skeleton.md` — companion plan for conformance package.
 ```
 
