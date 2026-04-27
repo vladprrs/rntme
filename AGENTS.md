@@ -151,7 +151,7 @@ One-line purpose per package (read the per-package README before touching):
   plans. →
   `rntme-cli/packages/deploy-dokploy/README.md`.
 
-Canonical contracts (Identity track):
+Canonical contracts:
 
 - **`@rntme/contracts-common-v1`** — Shared cross-category protobuf
   primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest` /
@@ -163,6 +163,12 @@ Canonical contracts (Identity track):
   payloads, `IDENTITY_<LAYER>_<KIND>` error codes. Implemented by
   Identity-category vendor wrappers (Clerk / Auth0 / WorkOS).
   → `packages/contracts/identity/v1/README.md`.
+- **`@rntme/contracts-crm-v1`** — Canonical CRM contract: protobuf
+  `CrmModule` service, Contact / Company / Deal / Activity / Note /
+  AsyncJob aggregates, helper read models, twenty-one CloudEvents
+  payloads, `CRM_<LAYER>_<KIND>` error codes. Implemented by
+  CRM-category vendor wrappers.
+  → `packages/contracts/crm/v1/README.md`.
 
 Modules tree (vendor implementations):
 
@@ -597,6 +603,9 @@ Known categorical entries to watch for:
   catalogue, README. Implemented by vendor modules in
   `modules/<category>/<vendor>/`. See spec
   `2026-04-26-modules-monorepo-structure-design.md`.
+- **Canonical CRM contract** — `@rntme/contracts-crm-v1`, the CRM
+  category's protobuf service, aggregates, event payloads, helper read
+  models, and CRM-prefixed error-code catalogue.
 - **Capability claim** — A vendor module's declaration in
   `module.json#capabilities[]` of which canonical RPCs and events the
   module supports. Conformance enforces UNIMPLEMENTED for unclaimed
@@ -608,6 +617,9 @@ Known categorical entries to watch for:
   `modules/<category>/conformance/src/scenarios/`. Each scenario asserts
   shape, idempotency on replay, error-code on negative branches, and
   expected event publication.
+- **Custom Field FieldMapping** — CRM module-local mapping between
+  logical metadata names and vendor-specific custom-field keys such as
+  `UF_CRM_*`, `__c`, or UUID-like property identifiers.
 
 - **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` from a composed project; rendered by an adapter (`@rntme-cli/deploy-dokploy`) to a target-specific shape.
 - **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
@@ -625,6 +637,13 @@ Known categorical entries to watch for:
 - **Envelope** — Event-store record shape: aggregate id, version,
   payload, actor, timestamp, correlation/causation ids.
 - **Idempotency cache** — SQLite-backed cache of `(idempotency-key, command-run-id) → response`, 24h TTL, used by HTTP retries.
+- **Labeled association capability** — CRM capability flag indicating
+  whether a module can persist labels on `Association` edges. Modules
+  without native labels reject non-empty labels with
+  `CRM_CONSISTENCY_LABELS_NOT_SUPPORTED`.
+- **Lead/Deal Schism resolution** — CRM v1 models vendor "lead" versus
+  "deal/opportunity" naming differences through `Deal.qualification`
+  instead of a separate Lead aggregate.
 - **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
@@ -638,6 +657,9 @@ Known categorical entries to watch for:
 - **Project PDM** — PDM artifact at the project level, shared across all services in the project.
 - **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.
   The workspace-wide fallible-return contract.
+- **CRM helper aggregate AsyncJob** — CRM helper aggregate used for
+  long-running `SYNC_FULL` work through `SubmitJob`, `GetJob`,
+  `CancelJob`, and `ListJobs`.
 - **Root entity** / **Owned entity** — Project-level PDM ownership classification. Root entities have independent lifecycle and identity; owned entities belong under a root entity boundary.
 - **Vendor extensions proto** — `<vendor>-extensions.proto` inside a
   vendor module's directory. Hosts vendor-specific RPCs that did not
@@ -651,6 +673,9 @@ Known categorical entries to watch for:
   (`@rntme/contracts-common-v1`). Cross-category primitives:
   `CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort,
   `Metadata`. Imported by every category contract.
+- **SyncDelta watermark** — Monotonic timestamp returned by CRM
+  `SyncDelta`; consumers can pass it as the next `since` value after
+  draining the current cursor window.
 
 - **Seed** — Declarative event-envelope bootstrap applied once per
   database, before the relay starts. Package: `@rntme/seed`.

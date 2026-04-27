@@ -1,0 +1,613 @@
+syntax = "proto3";
+package rntme.contracts.crm.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/common/v1/common.proto";
+
+enum ContactStatus {
+  CONTACT_STATUS_UNSPECIFIED = 0;
+  CONTACT_STATUS_ACTIVE = 1;
+  CONTACT_STATUS_DELETED = 2;
+  CONTACT_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum CompanyStatus {
+  COMPANY_STATUS_UNSPECIFIED = 0;
+  COMPANY_STATUS_ACTIVE = 1;
+  COMPANY_STATUS_DELETED = 2;
+  COMPANY_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum DealStatus {
+  DEAL_STATUS_UNSPECIFIED = 0;
+  DEAL_STATUS_OPEN = 1;
+  DEAL_STATUS_WON = 2;
+  DEAL_STATUS_LOST = 3;
+  DEAL_STATUS_DELETED = 4;
+  DEAL_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum DealQualification {
+  DEAL_QUALIFICATION_UNSPECIFIED = 0;
+  DEAL_QUALIFICATION_UNQUALIFIED = 1;
+  DEAL_QUALIFICATION_QUALIFIED = 2;
+  DEAL_QUALIFICATION_DISQUALIFIED = 3;
+}
+
+enum ActivityType {
+  ACTIVITY_TYPE_UNSPECIFIED = 0;
+  ACTIVITY_TYPE_CALL = 1;
+  ACTIVITY_TYPE_MEETING = 2;
+  ACTIVITY_TYPE_TASK = 3;
+  ACTIVITY_TYPE_EMAIL = 4;
+  ACTIVITY_TYPE_VENDOR_SPECIFIC = 100;
+}
+
+enum ActivityOutcome {
+  ACTIVITY_OUTCOME_UNSPECIFIED = 0;
+  ACTIVITY_OUTCOME_PLANNED = 1;
+  ACTIVITY_OUTCOME_COMPLETED = 2;
+  ACTIVITY_OUTCOME_CANCELLED = 3;
+  ACTIVITY_OUTCOME_NO_ANSWER = 4;
+  ACTIVITY_OUTCOME_RESCHEDULED = 5;
+}
+
+enum CustomFieldType {
+  CUSTOM_FIELD_TYPE_UNSPECIFIED = 0;
+  CUSTOM_FIELD_TYPE_STRING = 1;
+  CUSTOM_FIELD_TYPE_NUMBER = 2;
+  CUSTOM_FIELD_TYPE_DATE = 3;
+  CUSTOM_FIELD_TYPE_DATETIME = 4;
+  CUSTOM_FIELD_TYPE_BOOLEAN = 5;
+  CUSTOM_FIELD_TYPE_ENUM = 6;
+  CUSTOM_FIELD_TYPE_MULTI_SELECT = 7;
+  CUSTOM_FIELD_TYPE_URL = 8;
+  CUSTOM_FIELD_TYPE_MONEY = 9;
+  CUSTOM_FIELD_TYPE_FILE = 10;
+}
+
+enum StageSemantic {
+  STAGE_SEMANTIC_UNSPECIFIED = 0;
+  STAGE_SEMANTIC_OPEN = 1;
+  STAGE_SEMANTIC_WON = 2;
+  STAGE_SEMANTIC_LOST = 3;
+}
+
+enum AssociationCategory {
+  ASSOCIATION_CATEGORY_UNSPECIFIED = 0;
+  ASSOCIATION_CATEGORY_RNTME_DEFINED = 1;
+  ASSOCIATION_CATEGORY_USER_DEFINED = 2;
+}
+
+enum AsyncJobType {
+  ASYNC_JOB_TYPE_UNSPECIFIED = 0;
+  ASYNC_JOB_TYPE_SYNC_FULL = 1;
+  ASYNC_JOB_TYPE_VENDOR_SPECIFIC = 100;
+}
+
+enum AsyncJobStatus {
+  ASYNC_JOB_STATUS_UNSPECIFIED = 0;
+  ASYNC_JOB_STATUS_QUEUED = 1;
+  ASYNC_JOB_STATUS_RUNNING = 2;
+  ASYNC_JOB_STATUS_COMPLETED = 3;
+  ASYNC_JOB_STATUS_FAILED = 4;
+  ASYNC_JOB_STATUS_CANCELLED = 5;
+  ASYNC_JOB_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum SyncDeltaOp {
+  SYNC_DELTA_OP_UNSPECIFIED = 0;
+  SYNC_DELTA_OP_CREATED = 1;
+  SYNC_DELTA_OP_UPDATED = 2;
+  SYNC_DELTA_OP_DELETED = 3;
+}
+
+message EntityRef {
+  string entity_type = 1;
+  string canonical_id = 2;
+}
+
+message Pipeline {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  string name = 3;
+  string entity_type = 4;
+  bool is_default = 5;
+  repeated Stage stages = 6;
+  google.protobuf.Struct vendor_raw = 7;
+}
+
+message Stage {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  string pipeline_canonical_id = 3;
+  string name = 4;
+  int32 order = 5;
+  StageSemantic semantic = 6;
+  float probability = 7;
+  bool is_terminal = 8;
+}
+
+message Owner {
+  string canonical_id = 1;
+  string vendor_id = 2;
+  string email = 3;
+  rntme.contracts.common.v1.Name name = 4;
+  bool is_active = 5;
+}
+
+message CustomFieldDefinition {
+  string entity_type = 1;
+  string logical_name = 2;
+  string vendor_key = 3;
+  CustomFieldType field_type = 4;
+  string label = 5;
+  bool is_required = 6;
+  repeated string options = 7;
+  google.protobuf.Struct vendor_raw = 8;
+}
+
+message Association {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  EntityRef from = 2;
+  EntityRef to = 3;
+  AssociationCategory category = 4;
+  string label = 5;
+  google.protobuf.Struct metadata = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Struct vendor_raw = 8;
+}
+
+message Contact {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string email = 2;
+  string phone = 3;
+  rntme.contracts.common.v1.Name name = 4;
+  string title = 5;
+  string company_canonical_id = 6;
+  string owner_canonical_id = 7;
+  repeated string tags = 8;
+  ContactStatus status = 9;
+  rntme.contracts.common.v1.Metadata metadata = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  google.protobuf.Timestamp deleted_at = 13;
+  google.protobuf.Struct vendor_raw = 14;
+}
+
+message Company {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string name = 2;
+  string domain = 3;
+  string industry = 4;
+  int32 employee_count = 5;
+  double annual_revenue = 6;
+  string currency = 7;
+  string tax_id = 8;
+  string registration_id = 9;
+  string tax_branch_id = 10;
+  string parent_company_canonical_id = 11;
+  string owner_canonical_id = 12;
+  repeated string tags = 13;
+  CompanyStatus status = 14;
+  rntme.contracts.common.v1.Metadata metadata = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  google.protobuf.Timestamp deleted_at = 18;
+  google.protobuf.Struct vendor_raw = 19;
+}
+
+message Deal {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string name = 2;
+  string pipeline_canonical_id = 3;
+  string stage_canonical_id = 4;
+  DealStatus status = 5;
+  DealQualification qualification = 6;
+  double amount = 7;
+  string currency = 8;
+  float probability = 9;
+  google.protobuf.Timestamp expected_close_date = 10;
+  google.protobuf.Timestamp closed_at = 11;
+  string close_reason = 12;
+  string primary_contact_canonical_id = 13;
+  string company_canonical_id = 14;
+  string owner_canonical_id = 15;
+  repeated string tags = 16;
+  string source = 17;
+  rntme.contracts.common.v1.Metadata metadata = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+  google.protobuf.Timestamp deleted_at = 21;
+  google.protobuf.Struct vendor_raw = 22;
+}
+
+message Activity {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  ActivityType type = 2;
+  string subject = 3;
+  string description = 4;
+  google.protobuf.Timestamp due_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  google.protobuf.Duration duration = 7;
+  ActivityOutcome outcome = 8;
+  bool is_completed = 9;
+  repeated EntityRef linked_entities = 10;
+  string owner_canonical_id = 11;
+  rntme.contracts.common.v1.Metadata metadata = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+  google.protobuf.Struct vendor_raw = 15;
+}
+
+message Note {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string content = 2;
+  string title = 3;
+  EntityRef parent = 4;
+  string author_canonical_id = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  google.protobuf.Struct vendor_raw = 9;
+}
+
+message AsyncJob {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus status = 3;
+  int32 progress_percentage = 4;
+  string result_uri = 5;
+  int64 record_count = 6;
+  string error_message = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  google.protobuf.Struct vendor_raw = 11;
+}
+
+message SyncFullPayload {
+  repeated string entity_types = 1;
+  google.protobuf.Timestamp since = 2;
+}
+
+service CrmModule {
+  rpc GetContact(GetContactRequest) returns (Contact);
+  rpc ListContacts(ListContactsRequest) returns (ContactList);
+  rpc CreateContact(CreateContactRequest) returns (Contact);
+  rpc UpdateContact(UpdateContactRequest) returns (Contact);
+  rpc DeleteContact(DeleteContactRequest) returns (Contact);
+
+  rpc GetCompany(GetCompanyRequest) returns (Company);
+  rpc ListCompanies(ListCompaniesRequest) returns (CompanyList);
+  rpc CreateCompany(CreateCompanyRequest) returns (Company);
+  rpc UpdateCompany(UpdateCompanyRequest) returns (Company);
+  rpc DeleteCompany(DeleteCompanyRequest) returns (Company);
+
+  rpc GetDeal(GetDealRequest) returns (Deal);
+  rpc ListDeals(ListDealsRequest) returns (DealList);
+  rpc CreateDeal(CreateDealRequest) returns (Deal);
+  rpc UpdateDeal(UpdateDealRequest) returns (Deal);
+  rpc DeleteDeal(DeleteDealRequest) returns (Deal);
+
+  rpc GetActivity(GetActivityRequest) returns (Activity);
+  rpc ListActivities(ListActivitiesRequest) returns (ActivityList);
+  rpc CreateActivity(CreateActivityRequest) returns (Activity);
+  rpc UpdateActivity(UpdateActivityRequest) returns (Activity);
+  rpc DeleteActivity(DeleteActivityRequest) returns (Activity);
+
+  rpc GetNote(GetNoteRequest) returns (Note);
+  rpc ListNotes(ListNotesRequest) returns (NoteList);
+  rpc CreateNote(CreateNoteRequest) returns (Note);
+  rpc DeleteNote(DeleteNoteRequest) returns (Note);
+
+  rpc ListPipelines(ListPipelinesRequest) returns (PipelineList);
+  rpc ListCustomFieldDefinitions(ListCustomFieldDefinitionsRequest) returns (CustomFieldDefinitionList);
+  rpc CreateAssociation(CreateAssociationRequest) returns (Association);
+  rpc DeleteAssociation(DeleteAssociationRequest) returns (Association);
+  rpc ListAssociations(ListAssociationsRequest) returns (AssociationList);
+
+  rpc SyncDelta(SyncDeltaRequest) returns (SyncDeltaResponse);
+  rpc SubmitJob(SubmitJobRequest) returns (AsyncJob);
+  rpc GetJob(GetJobRequest) returns (AsyncJob);
+  rpc CancelJob(CancelJobRequest) returns (AsyncJob);
+  rpc ListJobs(ListJobsRequest) returns (AsyncJobList);
+}
+
+message GetContactRequest { string canonical_id = 1; }
+message ListContactsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string company_canonical_id = 2;
+  string owner_canonical_id = 3;
+  ContactStatus status = 4;
+  string email = 5;
+}
+message ContactList {
+  repeated Contact items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateContactRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string email = 2;
+  string phone = 3;
+  rntme.contracts.common.v1.Name name = 4;
+  string title = 5;
+  string company_canonical_id = 6;
+  string owner_canonical_id = 7;
+  repeated string tags = 8;
+  rntme.contracts.common.v1.Metadata metadata = 9;
+}
+message UpdateContactRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string email = 3;
+  string phone = 4;
+  rntme.contracts.common.v1.Name name = 5;
+  string title = 6;
+  string company_canonical_id = 7;
+  string owner_canonical_id = 8;
+  repeated string tags = 9;
+  ContactStatus status = 10;
+  rntme.contracts.common.v1.Metadata metadata = 11;
+}
+message DeleteContactRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message GetCompanyRequest { string canonical_id = 1; }
+message ListCompaniesRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string owner_canonical_id = 2;
+  CompanyStatus status = 3;
+  string domain = 4;
+  string tax_id = 5;
+}
+message CompanyList {
+  repeated Company items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateCompanyRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string name = 2;
+  string domain = 3;
+  string industry = 4;
+  int32 employee_count = 5;
+  double annual_revenue = 6;
+  string currency = 7;
+  string tax_id = 8;
+  string registration_id = 9;
+  string tax_branch_id = 10;
+  string parent_company_canonical_id = 11;
+  string owner_canonical_id = 12;
+  repeated string tags = 13;
+  rntme.contracts.common.v1.Metadata metadata = 14;
+}
+message UpdateCompanyRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string name = 3;
+  string domain = 4;
+  string industry = 5;
+  int32 employee_count = 6;
+  double annual_revenue = 7;
+  string currency = 8;
+  string tax_id = 9;
+  string registration_id = 10;
+  string tax_branch_id = 11;
+  string parent_company_canonical_id = 12;
+  string owner_canonical_id = 13;
+  repeated string tags = 14;
+  CompanyStatus status = 15;
+  rntme.contracts.common.v1.Metadata metadata = 16;
+}
+message DeleteCompanyRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message GetDealRequest { string canonical_id = 1; }
+message ListDealsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string pipeline_canonical_id = 2;
+  string stage_canonical_id = 3;
+  string company_canonical_id = 4;
+  string owner_canonical_id = 5;
+  DealStatus status = 6;
+  DealQualification qualification = 7;
+}
+message DealList {
+  repeated Deal items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateDealRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string name = 2;
+  string pipeline_canonical_id = 3;
+  string stage_canonical_id = 4;
+  DealQualification qualification = 5;
+  double amount = 6;
+  string currency = 7;
+  google.protobuf.Timestamp expected_close_date = 8;
+  string primary_contact_canonical_id = 9;
+  string company_canonical_id = 10;
+  string owner_canonical_id = 11;
+  repeated string tags = 12;
+  string source = 13;
+  rntme.contracts.common.v1.Metadata metadata = 14;
+}
+message UpdateDealRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string name = 3;
+  string pipeline_canonical_id = 4;
+  string stage_canonical_id = 5;
+  DealStatus status = 6;
+  DealQualification qualification = 7;
+  double amount = 8;
+  string currency = 9;
+  google.protobuf.Timestamp expected_close_date = 10;
+  string close_reason = 11;
+  string primary_contact_canonical_id = 12;
+  string company_canonical_id = 13;
+  string owner_canonical_id = 14;
+  repeated string tags = 15;
+  rntme.contracts.common.v1.Metadata metadata = 16;
+}
+message DeleteDealRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message GetActivityRequest { string canonical_id = 1; }
+message ListActivitiesRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  EntityRef linked_to = 2;
+  string owner_canonical_id = 3;
+  ActivityType type = 4;
+  ActivityOutcome outcome = 5;
+  bool is_completed = 6;
+}
+message ActivityList {
+  repeated Activity items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateActivityRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  ActivityType type = 2;
+  string subject = 3;
+  string description = 4;
+  google.protobuf.Timestamp due_at = 5;
+  google.protobuf.Duration duration = 6;
+  repeated EntityRef linked_entities = 7;
+  string owner_canonical_id = 8;
+  rntme.contracts.common.v1.Metadata metadata = 9;
+}
+message UpdateActivityRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  string subject = 3;
+  string description = 4;
+  google.protobuf.Timestamp due_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  google.protobuf.Duration duration = 7;
+  ActivityOutcome outcome = 8;
+  repeated EntityRef linked_entities = 9;
+  string owner_canonical_id = 10;
+  rntme.contracts.common.v1.Metadata metadata = 11;
+}
+message DeleteActivityRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message GetNoteRequest { string canonical_id = 1; }
+message ListNotesRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  EntityRef parent = 2;
+  string author_canonical_id = 3;
+}
+message NoteList {
+  repeated Note items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateNoteRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string content = 2;
+  string title = 3;
+  EntityRef parent = 4;
+  string author_canonical_id = 5;
+  rntme.contracts.common.v1.Metadata metadata = 6;
+}
+message DeleteNoteRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message ListPipelinesRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string entity_type = 2;
+}
+message PipelineList {
+  repeated Pipeline items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message ListCustomFieldDefinitionsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string entity_type = 2;
+}
+message CustomFieldDefinitionList {
+  repeated CustomFieldDefinition items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+message CreateAssociationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  EntityRef from = 2;
+  EntityRef to = 3;
+  AssociationCategory category = 4;
+  string label = 5;
+  google.protobuf.Struct metadata = 6;
+}
+message DeleteAssociationRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+}
+message ListAssociationsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  EntityRef from = 2;
+  string to_entity_type = 3;
+  string label = 4;
+}
+message AssociationList {
+  repeated Association items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message SyncDeltaRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string entity_type = 2;
+  google.protobuf.Timestamp since = 3;
+  string cursor = 4;
+  int32 limit = 5;
+}
+message SyncDeltaResponse {
+  repeated SyncDeltaItem items = 1;
+  string next_cursor = 2;
+  google.protobuf.Timestamp watermark = 3;
+}
+message SyncDeltaItem {
+  string canonical_id = 1;
+  SyncDeltaOp op = 2;
+  google.protobuf.Any entity = 3;
+  google.protobuf.Timestamp changed_at = 4;
+}
+
+message SubmitJobRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  oneof body {
+    SyncFullPayload sync_full = 2;
+  }
+  google.protobuf.Duration ttl = 3;
+}
+message GetJobRequest { string canonical_id = 1; }
+message CancelJobRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+}
+message ListJobsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus status = 3;
+}
+message AsyncJobList {
+  repeated AsyncJob items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
