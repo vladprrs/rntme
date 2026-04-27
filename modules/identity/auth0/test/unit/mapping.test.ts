@@ -12,8 +12,10 @@ import {
   mapAuth0Organization,
   mapAuth0User,
   metadataToAuth0,
+  parseCompositeId,
   toIdentityResolution,
-} from '../src/mapping.js';
+} from '../../src/mapping.js';
+import { GrpcStatus } from '../../src/errors.js';
 
 describe('Auth0 canonical mapping', () => {
   it('maps user identity, status, timestamps, and split metadata', () => {
@@ -50,7 +52,7 @@ describe('Auth0 canonical mapping', () => {
       name: 'acme',
       display_name: 'Acme Inc',
       branding: { logo_url: 'https://example.test/logo.png' },
-      metadata: { max_members: 25, color: 'blue' },
+      metadata: { max_members: '25', color: 'blue' },
     });
     const membership = mapAuth0Membership({
       organization_id: 'org_123',
@@ -65,7 +67,7 @@ describe('Auth0 canonical mapping', () => {
       roles: ['rol_admin'],
       expires_at: '2099-02-01T00:00:00.000Z',
     });
-    const resolution = toIdentityResolution(organization, ResolutionInputType.RESOLUTION_INPUT_TYPE_VENDOR_ID, 'org_123');
+    const resolution = toIdentityResolution(organization, 'organization', ResolutionInputType.RESOLUTION_INPUT_TYPE_VENDOR_ID, 'org_123');
 
     expect(organization.ref?.canonical_id).toBe('org_123');
     expect(organization.status).toBe(OrgStatus.ORG_STATUS_ACTIVE);
@@ -107,5 +109,35 @@ describe('Auth0 canonical mapping', () => {
       user_metadata: { theme: 'dark' },
       app_metadata: { plan: 'team' },
     });
+  });
+
+  it('maps deleted user and organization sentinels honestly', () => {
+    expect(mapAuth0User({ user_id: 'auth0|u1', deleted: true, deleted_at: '2026-01-02T03:04:05.000Z' })).toMatchObject({
+      status: UserStatus.USER_STATUS_DELETED,
+      deleted_at: { seconds: 1767323045, nanos: 0 },
+    });
+    expect(mapAuth0Organization({ id: 'org_123', deleted: true, deleted_at: '2026-01-02T03:04:05.000Z' })).toMatchObject({
+      status: OrgStatus.ORG_STATUS_DELETED,
+      deleted_at: { seconds: 1767323045, nanos: 0 },
+    });
+  });
+
+  it('preserves Date metadata and non-finite numbers as string values', () => {
+    const user = mapAuth0User({
+      user_id: 'auth0|u1',
+      user_metadata: {
+        visited_at: new Date('2026-01-02T03:04:05.000Z'),
+        score: Number.POSITIVE_INFINITY,
+      },
+    });
+
+    expect(user.metadata?.public?.fields?.visited_at?.stringValue).toBe('2026-01-02T03:04:05.000Z');
+    expect(user.metadata?.public?.fields?.score?.stringValue).toBe('Infinity');
+  });
+
+  it('rejects malformed composite ids before they reach Auth0', () => {
+    expect(() => parseCompositeId('org_123:inv_123')).not.toThrow();
+    expect(() => parseCompositeId('org_123:')).toThrow(expect.objectContaining({ code: GrpcStatus.INVALID_ARGUMENT }));
+    expect(() => parseCompositeId(':inv_123')).toThrow(expect.objectContaining({ code: GrpcStatus.INVALID_ARGUMENT }));
   });
 });

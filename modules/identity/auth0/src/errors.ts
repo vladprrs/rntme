@@ -1,5 +1,6 @@
 export enum GrpcStatus {
   INVALID_ARGUMENT = 3,
+  DEADLINE_EXCEEDED = 4,
   NOT_FOUND = 5,
   ALREADY_EXISTS = 6,
   PERMISSION_DENIED = 7,
@@ -8,19 +9,18 @@ export enum GrpcStatus {
   UNIMPLEMENTED = 12,
   INTERNAL = 13,
   UNAVAILABLE = 14,
+  UNAUTHENTICATED = 16,
 }
 
 export class IdentityModuleError extends Error {
   readonly code: GrpcStatus;
   readonly identityCode: string;
-  readonly cause?: unknown;
 
   constructor(message: string, code: GrpcStatus, identityCode: string, cause?: unknown) {
-    super(message);
+    super(message, cause !== undefined ? { cause } : undefined);
     this.name = 'IdentityModuleError';
     this.code = code;
     this.identityCode = identityCode;
-    this.cause = cause;
   }
 }
 
@@ -30,6 +30,10 @@ export function unimplemented(rpc: string): IdentityModuleError {
 
 export function invalidArgument(message: string): IdentityModuleError {
   return new IdentityModuleError(message, GrpcStatus.INVALID_ARGUMENT, 'IDENTITY_STRUCTURAL_INVALID_ARGUMENT');
+}
+
+export function failedPrecondition(message: string): IdentityModuleError {
+  return new IdentityModuleError(message, GrpcStatus.FAILED_PRECONDITION, 'IDENTITY_PRECONDITION_FAILED');
 }
 
 function statusCodeOf(error: unknown): number | undefined {
@@ -53,12 +57,17 @@ export function mapAuth0Error(error: unknown): IdentityModuleError {
     case 400:
       return new IdentityModuleError(messageOf(error), GrpcStatus.INVALID_ARGUMENT, 'IDENTITY_STRUCTURAL_INVALID_ARGUMENT', error);
     case 401:
+      return new IdentityModuleError(messageOf(error), GrpcStatus.UNAUTHENTICATED, 'IDENTITY_VENDOR_AUTHENTICATION_FAILED', error);
     case 403:
       return new IdentityModuleError(messageOf(error), GrpcStatus.PERMISSION_DENIED, 'IDENTITY_VENDOR_AUTHORIZATION_FAILED', error);
+    case 408:
+      return new IdentityModuleError(messageOf(error), GrpcStatus.DEADLINE_EXCEEDED, 'IDENTITY_VENDOR_TIMEOUT', error);
     case 404:
       return new IdentityModuleError(messageOf(error), GrpcStatus.NOT_FOUND, 'IDENTITY_REFERENCES_RESOURCE_NOT_FOUND', error);
     case 409:
       return new IdentityModuleError(messageOf(error), GrpcStatus.ALREADY_EXISTS, 'IDENTITY_CONSISTENCY_DUPLICATE_RESOURCE', error);
+    case 412:
+      return new IdentityModuleError(messageOf(error), GrpcStatus.FAILED_PRECONDITION, 'IDENTITY_PRECONDITION_FAILED', error);
     case 429:
       return new IdentityModuleError(messageOf(error), GrpcStatus.RESOURCE_EXHAUSTED, 'IDENTITY_VENDOR_RATE_LIMITED', error);
     case 500:

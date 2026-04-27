@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CLAIMED_EVENTS } from '../src/capabilities.js';
-import { translateAuth0LogEvent } from '../src/events.js';
+import { CLAIMED_EVENTS } from '../../src/capabilities.js';
+import { translateAuth0LogEvent } from '../../src/events.js';
 
 describe('Auth0 log event translation', () => {
   it('translates claimed user and organization lifecycle events when payloads are present', () => {
@@ -18,7 +18,7 @@ describe('Auth0 log event translation', () => {
 
     expect(
       translateAuth0LogEvent({
-        type: 'organization.created',
+        type: 'organization_created',
         organization_id: 'org_123',
         organization_name: 'acme',
       }),
@@ -38,14 +38,28 @@ describe('Auth0 log event translation', () => {
       { type: 'ss', user_id: 'auth0|u1', user_name: 'ada@example.com' },
       { type: 'du', user_id: 'auth0|u1' },
       { type: 'sv', user_id: 'auth0|u1', user_name: 'ada@example.com' },
-      { type: 'organization.created', organization_id: 'org_123', organization_name: 'acme' },
-      { type: 'organization.member.added', organization_id: 'org_123', user_id: 'auth0|u1' },
-      { type: 'organization.member.deleted', organization_id: 'org_123', user_id: 'auth0|u1' },
-      { type: 'organization.invitation.created', organization_id: 'org_123', invitation_id: 'inv_123' },
-      { type: 'organization.invitation.accepted', organization_id: 'org_123', invitation_id: 'inv_123' },
-      { type: 'organization.invitation.revoked', organization_id: 'org_123', invitation_id: 'inv_123' },
+      { type: 'organization_created', organization_id: 'org_123', organization_name: 'acme' },
+      { type: 'organization_member_added', organization_id: 'org_123', user_id: 'auth0|u1' },
+      { type: 'organization_member_deleted', organization_id: 'org_123', user_id: 'auth0|u1' },
+      { type: 'organization_invitation_created', organization_id: 'org_123', invitation_id: 'inv_123' },
+      { type: 'organization_invitation_accepted', organization_id: 'org_123', invitation_id: 'inv_123' },
+      { type: 'organization_invitation_revoked', organization_id: 'org_123', invitation_id: 'inv_123' },
     ];
-    const translated = samples.map((sample) => translateAuth0LogEvent(sample)?.type).filter(Boolean);
-    expect(translated.sort()).toEqual([...CLAIMED_EVENTS].sort());
+    const translated = samples.map((sample) => translateAuth0LogEvent(sample)?.type ?? null);
+    expect(translated).not.toContain(null);
+    expect([...translated].sort()).toEqual([...CLAIMED_EVENTS].sort());
+  });
+
+  it('uses explicit user deletion hardness when present', () => {
+    expect(
+      translateAuth0LogEvent({
+        type: 'du',
+        user_id: 'auth0|u1',
+        hard_delete: false,
+      }),
+    ).toMatchObject({
+      type: 'UserDeleted',
+      payload: { hard_delete: false },
+    });
   });
 });

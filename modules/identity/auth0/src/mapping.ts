@@ -19,6 +19,8 @@ import type {
   ResolutionInputTypeValue,
   User,
 } from './types.js';
+import { invalidArgument } from './errors.js';
+import { timestamp } from './time.js';
 
 const MODULE_NAME = '@rntme/identity-auth0';
 const MODULE_VERSION = '0.0.0';
@@ -37,21 +39,12 @@ export function canonicalRef(vendorId: string): CanonicalRef {
   };
 }
 
-function timestamp(value: unknown): { seconds: number; nanos: number } | undefined {
-  if (typeof value !== 'string') return undefined;
-  const millis = Date.parse(value);
-  if (Number.isNaN(millis)) return undefined;
-  return {
-    seconds: Math.floor(millis / 1000),
-    nanos: (millis % 1000) * 1_000_000,
-  };
-}
-
 function jsonValue(value: unknown): Value {
   if (value === null) return { nullValue: 0 };
   if (typeof value === 'string') return { stringValue: value };
-  if (typeof value === 'number') return { numberValue: value };
+  if (typeof value === 'number') return Number.isFinite(value) ? { numberValue: value } : { stringValue: String(value) };
   if (typeof value === 'boolean') return { boolValue: value };
+  if (value instanceof Date) return { stringValue: value.toISOString() };
   if (Array.isArray(value)) return { listValue: { values: value.map(jsonValue) } };
   if (typeof value === 'object') return { structValue: toStruct(value as Record<string, unknown>) };
   return { stringValue: String(value) };
@@ -119,11 +112,12 @@ export function mapAuth0User(user: Auth0User): User {
     phone: user.phone_number ?? '',
     phone_verified: user.phone_verified ?? false,
     avatar_url: user.picture ?? '',
-    status: user.blocked ? UserStatus.USER_STATUS_BLOCKED : UserStatus.USER_STATUS_ACTIVE,
+    status: user.deleted ? UserStatus.USER_STATUS_DELETED : user.blocked ? UserStatus.USER_STATUS_BLOCKED : UserStatus.USER_STATUS_ACTIVE,
     metadata: auth0Metadata(user.user_metadata, user.app_metadata),
     created_at: timestamp(user.created_at),
     updated_at: timestamp(user.updated_at),
     last_sign_in_at: timestamp(user.last_login),
+    deleted_at: timestamp(user.deleted_at),
     vendor_raw: vendorRaw(user),
   };
 }
@@ -131,18 +125,25 @@ export function mapAuth0User(user: Auth0User): User {
 export function mapAuth0Organization(organization: Auth0Organization): Organization {
   const id = organization.id ?? '';
   const metadata = organization.metadata ?? {};
-  const maxMembers = typeof metadata.max_members === 'number' ? metadata.max_members : 0;
+  const rawMaxMembers = metadata.max_members;
+  const maxMembers =
+    typeof rawMaxMembers === 'number'
+      ? rawMaxMembers
+      : typeof rawMaxMembers === 'string'
+        ? Number.parseInt(rawMaxMembers, 10) || 0
+        : 0;
   return {
     ref: canonicalRef(id),
     name: organization.display_name ?? organization.name ?? '',
     slug: organization.name ?? '',
     logo_url: organization.branding?.logo_url ?? '',
     description: typeof metadata.description === 'string' ? metadata.description : '',
-    status: OrgStatus.ORG_STATUS_ACTIVE,
+    status: organization.deleted ? OrgStatus.ORG_STATUS_DELETED : OrgStatus.ORG_STATUS_ACTIVE,
     metadata: auth0Metadata(metadata),
     max_members: maxMembers,
     created_at: timestamp(organization.created_at),
     updated_at: timestamp(organization.updated_at),
+    deleted_at: timestamp(organization.deleted_at),
     vendor_raw: vendorRaw(organization),
   };
 }
@@ -158,7 +159,7 @@ export function membershipId(organizationId: string, userId: string): string {
 export function parseCompositeId(canonicalId: string): { organizationId: string; resourceId: string } {
   const separator = canonicalId.indexOf(':');
   if (separator < 1 || separator === canonicalId.length - 1) {
-    return { organizationId: '', resourceId: canonicalId };
+    throw invalidArgument(`Expected canonical id in <organization_id>:<resource_id> form, got ${canonicalId || '<empty>'}`);
   }
   return {
     organizationId: canonicalId.slice(0, separator),
@@ -215,6 +216,7 @@ export function mapAuth0Invitation(invitation: Auth0Invitation): Invitation {
 
 export function toIdentityResolution(
   entity: User | Organization | null,
+  kind: 'user' | 'organization',
   inputType: ResolutionInputTypeValue,
   inputValue: string,
 ): IdentityResolution {
@@ -229,13 +231,12 @@ export function toIdentityResolution(
   }
 
   const canonicalId = entity.ref?.canonical_id ?? '';
-  const isUser = 'email' in entity;
   return {
     exists: true,
     canonical_id: canonicalId,
     input_type: inputType,
     input_value: inputValue,
     resolved_at: timestamp(new Date().toISOString()),
-    ...(isUser ? { user: entity as User } : { organization: entity as Organization }),
+    ...(kind === 'user' ? { user: entity as User } : { organization: entity as Organization }),
   };
 }

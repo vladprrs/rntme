@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import manifest from '../module.json' with { type: 'json' };
-import { CLAIMED_EVENTS, CLAIMED_RPCS, SESSION_RPCS } from '../src/capabilities.js';
+import manifest from '../../module.json' with { type: 'json' };
+import { CLAIMED_EVENTS, CLAIMED_RPCS, SESSION_RPCS } from '../../src/capabilities.js';
 
 describe('module manifest capability honesty', () => {
   it('declares Auth0 as an identity/v1 vendor module', () => {

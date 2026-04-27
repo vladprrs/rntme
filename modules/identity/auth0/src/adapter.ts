@@ -7,6 +7,7 @@ import type {
   ListParams,
   ListResult,
 } from './types.js';
+import { failedPrecondition } from './errors.js';
 
 type ApiResponse<T> = { data: T };
 type Auth0List<T> = T[] | { users?: T[]; organizations?: T[]; invitations?: T[]; members?: T[]; total?: number; length?: number; next?: string };
@@ -25,7 +26,6 @@ export interface Auth0Adapter {
   deleteOrganization(id: string): Promise<Auth0Organization>;
   listMemberships(organizationId: string, params: ListParams): Promise<ListResult<Auth0Membership>>;
   addMembership(organizationId: string, userId: string, roles: readonly string[]): Promise<Auth0Membership>;
-  updateMembership(organizationId: string, userId: string, roles: readonly string[]): Promise<Auth0Membership>;
   removeMembership(organizationId: string, userId: string): Promise<Auth0Membership>;
   createInvitation(organizationId: string, body: Record<string, unknown>): Promise<Auth0Invitation>;
   listInvitations(organizationId: string, params: ListParams): Promise<ListResult<Auth0Invitation>>;
@@ -59,9 +59,8 @@ function listData<T>(data: Auth0List<T>, key: 'users' | 'organizations' | 'invit
 function offsetParams(params: ListParams): Record<string, unknown> {
   return {
     include_totals: true,
-    ...(params.limit ? { per_page: params.limit, limit: params.limit, take: params.limit } : {}),
-    ...(params.offset ? { page: Math.floor(params.offset / (params.limit || 50)), offset: params.offset } : {}),
-    ...(params.cursor ? { from: params.cursor } : {}),
+    ...(params.limit !== undefined ? { per_page: params.limit } : {}),
+    ...(params.offset !== undefined ? { page: Math.floor(params.offset / (params.limit || 50)) } : {}),
   };
 }
 
@@ -87,7 +86,7 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
     this.users = asManager(client.users);
     this.organizations = asManager(client.organizations);
     this.connection = options.connection;
-    this.invitationClientId = options.invitationClientId ?? options.clientId ?? process.env.AUTH0_CLIENT_ID;
+    this.invitationClientId = options.invitationClientId ?? process.env.AUTH0_INVITATION_CLIENT_ID;
   }
 
   async getUser(id: string): Promise<Auth0User> {
@@ -100,7 +99,7 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
   }
 
   async createUser(body: Record<string, unknown>): Promise<Auth0User> {
-    return responseData<Auth0User>(await this.users.create({ connection: this.connection, ...body } as never));
+    return responseData<Auth0User>(await this.users.create({ ...(this.connection !== undefined ? { connection: this.connection } : {}), ...body } as never));
   }
 
   async updateUser(id: string, body: Record<string, unknown>): Promise<Auth0User> {
@@ -109,7 +108,7 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
 
   async deleteUser(id: string): Promise<Auth0User> {
     await this.users.delete({ id } as never);
-    return { user_id: id, blocked: true };
+    return { user_id: id, deleted: true, deleted_at: new Date().toISOString() };
   }
 
   async getOrganization(id: string): Promise<Auth0Organization> {
@@ -135,7 +134,7 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
 
   async deleteOrganization(id: string): Promise<Auth0Organization> {
     await this.organizations.delete({ id } as never);
-    return { id };
+    return { id, deleted: true, deleted_at: new Date().toISOString() };
   }
 
   async listMemberships(organizationId: string, params: ListParams): Promise<ListResult<Auth0Membership>> {
@@ -159,35 +158,52 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
     return { organization_id: organizationId, user_id: userId, roles: [...roles] };
   }
 
-  async updateMembership(organizationId: string, userId: string, roles: readonly string[]): Promise<Auth0Membership> {
-    await this.organizations.addMemberRoles({ id: organizationId, user_id: userId } as never, { roles: [...roles] } as never);
-    return { organization_id: organizationId, user_id: userId, roles: [...roles] };
-  }
-
   async removeMembership(organizationId: string, userId: string): Promise<Auth0Membership> {
     await this.organizations.deleteMembers({ id: organizationId } as never, { members: [userId] } as never);
     return { organization_id: organizationId, user_id: userId, roles: [] };
   }
 
   async createInvitation(organizationId: string, body: Record<string, unknown>): Promise<Auth0Invitation> {
+    const clientId = this.invitationClientId ?? (typeof body.client_id === 'string' ? body.client_id : undefined);
+    if (!clientId) {
+      throw failedPrecondition('AUTH0_INVITATION_CLIENT_ID is required to create Auth0 organization invitations');
+    }
     return responseData<Auth0Invitation>(
       await this.organizations.createInvitation(
         { id: organizationId } as never,
-        { ...(this.invitationClientId ? { client_id: this.invitationClientId } : {}), send_invitation_email: true, ...body } as never,
+        { ...body, client_id: clientId, send_invitation_email: true } as never,
       ),
     );
   }
 
   async listInvitations(organizationId: string, params: ListParams): Promise<ListResult<Auth0Invitation>> {
+    if (params.email) {
+      const pageSize = params.limit ?? 50;
+      let pageOffset = 0;
+      const items: Auth0Invitation[] = [];
+
+      for (;;) {
+        const data = responseData<Auth0List<Auth0Invitation>>(
+          await this.organizations.getInvitations({ id: organizationId, ...offsetParams({ ...params, limit: pageSize, offset: pageOffset }) } as never),
+        );
+        const page = listData(data, 'invitations').items.map((invitation) => ({ ...invitation, organization_id: organizationId }));
+        items.push(...page.filter((invitation) => invitation.invitee?.email === params.email));
+        if (page.length < pageSize) break;
+        pageOffset += pageSize;
+      }
+
+      const resultOffset = params.offset ?? 0;
+      const limitedItems = params.limit === undefined ? items.slice(resultOffset) : items.slice(resultOffset, resultOffset + params.limit);
+      return { items: limitedItems, total: items.length, hasMore: resultOffset + limitedItems.length < items.length };
+    }
+
     const data = responseData<Auth0List<Auth0Invitation>>(await this.organizations.getInvitations({ id: organizationId, ...offsetParams(params) } as never));
     const listed = listData(data, 'invitations');
     const items = listed.items
       .map((invitation) => ({ ...invitation, organization_id: organizationId }))
-      .filter((invitation) => !params.email || invitation.invitee?.email === params.email);
     return {
       ...listed,
       items,
-      total: params.email ? items.length : listed.total,
     };
   }
 

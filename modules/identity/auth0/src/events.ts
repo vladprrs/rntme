@@ -10,6 +10,7 @@ import type {
   UserEmailVerified,
 } from './types.js';
 import { mapAuth0Invitation, mapAuth0Membership, mapAuth0Organization, mapAuth0User } from './mapping.js';
+import { timestamp } from './time.js';
 
 export type ClaimedAuth0Event =
   | { type: 'UserCreated'; payload: UserCreated }
@@ -22,17 +23,24 @@ export type ClaimedAuth0Event =
   | { type: 'InvitationAccepted'; payload: InvitationAccepted }
   | { type: 'InvitationRevoked'; payload: InvitationRevoked };
 
-function timestamp(value: unknown): { seconds: number; nanos: number } | undefined {
-  if (typeof value !== 'string') return undefined;
-  const millis = Date.parse(value);
-  if (Number.isNaN(millis)) return undefined;
-  return { seconds: Math.floor(millis / 1000), nanos: (millis % 1000) * 1_000_000 };
+function normalizedType(value: string): string {
+  return value.replaceAll('.', '_');
+}
+
+function hardDeleteOf(log: Record<string, unknown>): boolean {
+  if (typeof log.hard_delete === 'boolean') return log.hard_delete;
+  const details = log.details;
+  if (details && typeof details === 'object' && typeof (details as Record<string, unknown>).hard_delete === 'boolean') {
+    return (details as Record<string, boolean>).hard_delete;
+  }
+  return true;
 }
 
 export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAuth0Event | null {
   const type = typeof log.type === 'string' ? log.type : '';
+  const eventType = normalizedType(type);
 
-  if ((type === 'ss' || type === 'user.created') && typeof log.user_id === 'string') {
+  if ((eventType === 'ss' || eventType === 'user_created') && typeof log.user_id === 'string') {
     return {
       type: 'UserCreated',
       payload: {
@@ -46,7 +54,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'sv' && typeof log.user_id === 'string') {
+  if (eventType === 'sv' && typeof log.user_id === 'string') {
     return {
       type: 'UserEmailVerified',
       payload: {
@@ -57,19 +65,19 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'du' && typeof log.user_id === 'string') {
+  if (eventType === 'du' && typeof log.user_id === 'string') {
     return {
       type: 'UserDeleted',
       payload: {
         canonical_id: log.user_id,
         vendor_id: log.user_id,
-        hard_delete: true,
+        hard_delete: hardDeleteOf(log),
         deleted_at: timestamp(log.date),
       },
     };
   }
 
-  if (type === 'organization.created' && typeof log.organization_id === 'string') {
+  if (eventType === 'organization_created' && typeof log.organization_id === 'string') {
     return {
       type: 'OrganizationCreated',
       payload: {
@@ -82,7 +90,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'organization.member.added' && typeof log.organization_id === 'string' && typeof log.user_id === 'string') {
+  if (eventType === 'organization_member_added' && typeof log.organization_id === 'string' && typeof log.user_id === 'string') {
     return {
       type: 'MembershipCreated',
       payload: {
@@ -92,7 +100,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'organization.member.deleted' && typeof log.organization_id === 'string' && typeof log.user_id === 'string') {
+  if (eventType === 'organization_member_deleted' && typeof log.organization_id === 'string' && typeof log.user_id === 'string') {
     return {
       type: 'MembershipDeleted',
       payload: {
@@ -105,7 +113,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'organization.invitation.created' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
+  if (eventType === 'organization_invitation_created' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
     return {
       type: 'InvitationCreated',
       payload: {
@@ -119,7 +127,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'organization.invitation.accepted' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
+  if (eventType === 'organization_invitation_accepted' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
     return {
       type: 'InvitationAccepted',
       payload: {
@@ -134,7 +142,7 @@ export function translateAuth0LogEvent(log: Record<string, unknown>): ClaimedAut
     };
   }
 
-  if (type === 'organization.invitation.revoked' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
+  if (eventType === 'organization_invitation_revoked' && typeof log.organization_id === 'string' && typeof log.invitation_id === 'string') {
     return {
       type: 'InvitationRevoked',
       payload: {

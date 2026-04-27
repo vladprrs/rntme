@@ -70,9 +70,11 @@ export interface Auth0User extends Record<string, unknown> {
   phone_verified?: boolean;
   picture?: string;
   blocked?: boolean;
-  created_at?: string | Record<string, unknown>;
-  updated_at?: string | Record<string, unknown>;
-  last_login?: string | Record<string, unknown>;
+  deleted?: boolean;
+  created_at?: string | Date;
+  updated_at?: string | Date;
+  last_login?: string | Date;
+  deleted_at?: string | Date;
   user_metadata?: Record<string, unknown>;
   app_metadata?: Record<string, unknown>;
 }
@@ -85,9 +87,11 @@ export interface Auth0Organization extends Record<string, unknown> {
     logo_url?: string;
     colors?: Record<string, unknown>;
   };
+  deleted?: boolean;
   metadata?: Record<string, unknown>;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: string | Date;
+  updated_at?: string | Date;
+  deleted_at?: string | Date;
 }
 
 export interface Auth0Membership extends Record<string, unknown> {

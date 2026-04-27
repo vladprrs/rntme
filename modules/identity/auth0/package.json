@@ -20,12 +20,12 @@
   ],
   "scripts": {
     "build": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/identity/v1 run build && pnpm --dir ../conformance run build",
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "test": "pnpm run build:deps && vitest run",
     "test:watch": "vitest",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "test:conformance:mock": "vitest run test/conformance-mock.test.ts"
+    "test:conformance:mock": "vitest run test/integration/conformance-mock.test.ts"
   },
   "dependencies": {
     "@rntme/contracts-common-v1": "workspace:*",

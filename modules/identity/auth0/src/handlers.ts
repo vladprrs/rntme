@@ -53,14 +53,13 @@ import type {
 
 export interface HandlerOptions {
   readonly defaultConnection?: string;
-  readonly invitationClientId?: string;
 }
 
 function baseParams(base?: ListRequest | null): ListParams {
   return {
-    limit: base?.limit || undefined,
-    cursor: base?.cursor || undefined,
-    offset: base?.offset || undefined,
+    limit: base?.limit ?? undefined,
+    cursor: base?.cursor ?? undefined,
+    offset: base?.offset ?? undefined,
   };
 }
 
@@ -88,11 +87,11 @@ function userBody(request: CreateUserRequest | UpdateUserRequest): Record<string
 
 function organizationBody(request: CreateOrganizationRequest | UpdateOrganizationRequest): Record<string, unknown> {
   const metadata = metadataToAuth0(request.metadata).user_metadata ?? {};
-  const organizationMetadata = {
-    ...metadata,
-    ...(request.description ? { description: request.description } : {}),
-    ...(request.max_members ? { max_members: request.max_members } : {}),
-  };
+  const organizationMetadata = Object.fromEntries(
+    Object.entries(metadata).map(([key, value]) => [key, value === null ? null : typeof value === 'string' ? value : String(value)]),
+  );
+  if (request.description) organizationMetadata.description = request.description;
+  if (request.max_members) organizationMetadata.max_members = String(request.max_members);
   return {
     ...(request.slug || request.name ? { name: request.slug || slugFromName(request.name ?? '') } : {}),
     ...(request.name ? { display_name: request.name } : {}),
@@ -118,7 +117,7 @@ async function invoke<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-export function createAuth0IdentityModule(adapter: Auth0Adapter, options: HandlerOptions = {}) {
+export function createAuth0IdentityModule(adapter: Auth0Adapter, _options: HandlerOptions = {}) {
   return {
     GetUser: (request: GetUserRequest): Promise<User> =>
       invoke(async () => mapAuth0User(await adapter.getUser(request.canonical_id ?? ''))),
@@ -151,11 +150,11 @@ export function createAuth0IdentityModule(adapter: Auth0Adapter, options: Handle
         const inputType = request.input_type ?? ResolutionInputType.RESOLUTION_INPUT_TYPE_UNSPECIFIED;
         const inputValue = request.input_value ?? '';
         if (inputType === ResolutionInputType.RESOLUTION_INPUT_TYPE_VENDOR_ID || inputType === ResolutionInputType.RESOLUTION_INPUT_TYPE_SSO_SUBJECT) {
-          return toIdentityResolution(mapAuth0User(await adapter.getUser(inputValue)), inputType, inputValue);
+          return toIdentityResolution(mapAuth0User(await adapter.getUser(inputValue)), 'user', inputType, inputValue);
         }
         if (inputType === ResolutionInputType.RESOLUTION_INPUT_TYPE_EMAIL) {
           const result = await adapter.listUsers({ email: inputValue, limit: 1 });
-          return toIdentityResolution(result.items[0] ? mapAuth0User(result.items[0]) : null, inputType, inputValue);
+          return toIdentityResolution(result.items[0] ? mapAuth0User(result.items[0]) : null, 'user', inputType, inputValue);
         }
         throw invalidArgument(`ResolveIdentity does not support input type ${inputType}`);
       }),
@@ -215,7 +214,6 @@ export function createAuth0IdentityModule(adapter: Auth0Adapter, options: Handle
             inviter: { name: request.context?.actor_user_id ?? 'rntme' },
             invitee: { email: request.email ?? '' },
             roles: request.roles ?? [],
-            ...(options.invitationClientId ? { client_id: options.invitationClientId } : {}),
             ...metadataToAuth0(request.metadata),
           }),
         ),
