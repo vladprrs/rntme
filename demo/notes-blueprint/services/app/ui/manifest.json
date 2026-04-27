@@ -1,0 +1,17 @@
+{
+  "version": "2.0",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "graphSpecRef": "../graphs",
+  "bindingsRef": "../bindings",
+  "metadata": { "title": "Notes" },
+  "layouts": {
+    "main": "layouts/main"
+  },
+  "routes": {
+    "/": {
+      "layout": "main",
+      "screen": "screens/home"
+    }
+  }
+}

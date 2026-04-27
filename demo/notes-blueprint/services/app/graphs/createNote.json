@@ -1,0 +1,26 @@
+{
+  "id": "createNote",
+  "signature": {
+    "inputs": {
+      "id": { "type": "string", "mode": "required" },
+      "title": { "type": "string", "mode": "required" },
+      "body": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Note",
+        "aggregateId": { "$param": "id" },
+        "transition": "create",
+        "payload": {
+          "title": { "$param": "title" },
+          "body": { "$param": "body" }
+        }
+      }
+    }
+  ]
+}

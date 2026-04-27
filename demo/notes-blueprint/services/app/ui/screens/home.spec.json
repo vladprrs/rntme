@@ -1,0 +1,91 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["create-section", "delete-section", "list-section"]
+    },
+    "create-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["create-heading", "field-id", "field-title", "field-body", "submit-btn"]
+    },
+    "create-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "New note" }
+    },
+    "field-id": {
+      "type": "Input",
+      "props": { "label": "ID", "name": "id", "value": { "$bindState": "/form/id" } }
+    },
+    "field-title": {
+      "type": "Input",
+      "props": { "label": "Title", "name": "title", "value": { "$bindState": "/form/title" } }
+    },
+    "field-body": {
+      "type": "Input",
+      "props": { "label": "Body", "name": "body", "value": { "$bindState": "/form/body" } }
+    },
+    "submit-btn": {
+      "type": "Button",
+      "props": { "label": "Add", "variant": "primary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "createNote" } } }
+    },
+    "delete-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["delete-heading", "field-delete-id", "delete-btn"]
+    },
+    "delete-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Delete note" }
+    },
+    "field-delete-id": {
+      "type": "Input",
+      "props": { "label": "ID", "name": "deleteId", "value": { "$bindState": "/form/deleteId" } }
+    },
+    "delete-btn": {
+      "type": "Button",
+      "props": { "label": "Delete", "variant": "secondary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "deleteNote" } } }
+    },
+    "list-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["list-heading", "notes-list"]
+    },
+    "list-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "All notes" }
+    },
+    "notes-list": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "sm" },
+      "children": ["note-card"],
+      "repeat": { "statePath": "/data/notes" }
+    },
+    "note-card": {
+      "type": "Card",
+      "props": { "title": { "$item": "title" } },
+      "children": ["note-row"]
+    },
+    "note-row": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": "sm" },
+      "children": ["note-id", "note-body", "note-date"]
+    },
+    "note-id": {
+      "type": "Badge",
+      "props": { "text": { "$item": "id" }, "variant": "outline" }
+    },
+    "note-body": {
+      "type": "Text",
+      "props": { "text": { "$item": "body" } }
+    },
+    "note-date": {
+      "type": "Badge",
+      "props": { "text": { "$item": "createdAt" }, "variant": "secondary" }
+    }
+  }
+}
