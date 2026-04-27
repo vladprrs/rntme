@@ -163,6 +163,17 @@ Canonical contracts (Identity track):
   payloads, `IDENTITY_<LAYER>_<KIND>` error codes. Implemented by
   Identity-category vendor wrappers (Clerk / Auth0 / WorkOS).
   → `packages/contracts/identity/v1/README.md`.
+
+Modules tree (vendor implementations):
+
+- **`modules/<category>/`** — Category container. Holds the category
+  README and a `conformance/` workspace package. Vendor modules live as
+  `modules/<category>/<vendor>/` (e.g. `modules/identity/clerk/`); none
+  shipped yet.
+- **`@rntme/conformance-identity`** — Per-RPC conformance scenarios for
+  the Identity canonical contract. Drift-tested against
+  `service IdentityModule`. Imported by every Identity vendor module.
+  → `modules/identity/conformance/README.md`.
 - **`demo/issue-tracker-api`** — End-to-end worked example wiring every
   package above. → `demo/issue-tracker-api/README.md`.
 
@@ -469,6 +480,26 @@ A category contract is a versioned protobuf surface implemented by every vendor 
 
 Spec reference: `docs/superpowers/specs/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
 
+### 6.18 Add an Identity vendor module
+
+The first vendor module is shipped by a separate brainstorm + plan
+(spec: TBD). When that lands, the steps will be:
+
+1. Copy `packages/module-skeleton/` to `modules/identity/<vendor>/`.
+2. Implement `service IdentityModule` from
+   `@rntme/contracts-identity-v1` against the vendor's SDK.
+3. Declare supported RPCs and events in `module.json#capabilities[]`.
+4. Wire conformance: `import { identityConformanceSuite } from
+   '@rntme/conformance-identity'` and run it through the framework
+   runner (`@rntme/conformance-framework`, slated for modules-monorepo
+   plan 1).
+5. Pass mock-conformance on every PR; pass live-conformance on release
+   tag.
+
+Until that brainstorm lands, stop here — do NOT freelance an
+implementation, because it would freeze a vendor-shaped contract before
+the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
+
 
 ## 7. Anti-patterns / do not do
 
@@ -574,7 +605,7 @@ Known categorical entries to watch for:
   workspace package, e.g. `@rntme/contracts-identity-v1`. One npm
   package per major version; `v1` and `v2` coexist.
 - **Conformance scenarios** — Per-RPC test definitions in
-  `modules/<category>/conformance/scenarios/`. Each scenario asserts
+  `modules/<category>/conformance/src/scenarios/`. Each scenario asserts
   shape, idempotency on replay, error-code on negative branches, and
   expected event publication.
 
@@ -595,6 +626,11 @@ Known categorical entries to watch for:
   payload, actor, timestamp, correlation/causation ids.
 - **Idempotency cache** — SQLite-backed cache of `(idempotency-key, command-run-id) → response`, 24h TTL, used by HTTP retries.
 - **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
+- **Module conformance suite** — Per-category package
+  `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
+  Holds `Scenario` files keyed by canonical RPC. Drift-tested against
+  the canonical contract's service definition; imported by every
+  vendor module to run the suite under mock and live modes.
 - **PDM** — Project Domain Model. The project-level entity/field/relation/
   state-machine artifact shared across services.
 - **Pre-step** — A `pre[]` entry on a command binding; either `system` (idempotency-key) or `module-rpc`. Cap of 2 per binding.
