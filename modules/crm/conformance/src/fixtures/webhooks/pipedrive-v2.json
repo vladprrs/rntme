@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "action": "change",
+    "entity": "deal",
+    "entity_id": 7700,
+    "company_id": 999,
+    "user_id": 12345,
+    "timestamp": 1714200000,
+    "attempt": 1,
+    "id": "evt_a1b2c3d4e5f6",
+    "version": "2.0"
+  },
+  "current": {
+    "id": 7700,
+    "title": "Acme Q4 contract",
+    "stage_id": 5,
+    "pipeline_id": 1,
+    "value": 50000,
+    "currency": "USD",
+    "status": "open"
+  },
+  "previous": {
+    "id": 7700,
+    "title": "Acme Q4 contract",
+    "stage_id": 4,
+    "pipeline_id": 1,
+    "value": 50000,
+    "currency": "USD",
+    "status": "open"
+  }
+}
