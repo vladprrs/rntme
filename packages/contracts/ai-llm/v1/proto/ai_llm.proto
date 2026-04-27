@@ -1,0 +1,375 @@
+syntax = "proto3";
+package rntme.contracts.ai_llm.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "rntme/contracts/common/v1/common.proto";
+
+enum FinishReason {
+  FINISH_REASON_UNSPECIFIED = 0;
+  FINISH_REASON_STOP = 1;
+  FINISH_REASON_LENGTH = 2;
+  FINISH_REASON_TOOL_CALLS = 3;
+  FINISH_REASON_CONTENT_FILTER = 4;
+  FINISH_REASON_ERROR = 5;
+  FINISH_REASON_VENDOR_SPECIFIC = 100;
+}
+
+enum ContentBlockType {
+  CONTENT_BLOCK_TYPE_UNSPECIFIED = 0;
+  CONTENT_BLOCK_TYPE_TEXT = 1;
+  CONTENT_BLOCK_TYPE_IMAGE = 2;
+  CONTENT_BLOCK_TYPE_AUDIO = 3;
+  CONTENT_BLOCK_TYPE_FILE = 4;
+  CONTENT_BLOCK_TYPE_TOOL_USE = 5;
+  CONTENT_BLOCK_TYPE_TOOL_RESULT = 6;
+  CONTENT_BLOCK_TYPE_THINKING = 7;
+  CONTENT_BLOCK_TYPE_VENDOR_SPECIFIC = 100;
+}
+
+enum ReasoningEffort {
+  REASONING_EFFORT_UNSPECIFIED = 0;
+  REASONING_EFFORT_MINIMAL = 1;
+  REASONING_EFFORT_LOW = 2;
+  REASONING_EFFORT_MEDIUM = 3;
+  REASONING_EFFORT_HIGH = 4;
+  REASONING_EFFORT_MAX = 5;
+}
+
+enum ReasoningVisibility {
+  REASONING_VISIBILITY_UNSPECIFIED = 0;
+  REASONING_VISIBILITY_HIDDEN = 1;
+  REASONING_VISIBILITY_SUMMARY = 2;
+  REASONING_VISIBILITY_FULL = 3;
+}
+
+enum ThreadStatus {
+  THREAD_STATUS_UNSPECIFIED = 0;
+  THREAD_STATUS_ACTIVE = 1;
+  THREAD_STATUS_ARCHIVED = 2;
+  THREAD_STATUS_DELETED = 3;
+  THREAD_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum ThreadRunStatus {
+  THREAD_RUN_STATUS_UNSPECIFIED = 0;
+  THREAD_RUN_STATUS_QUEUED = 1;
+  THREAD_RUN_STATUS_IN_PROGRESS = 2;
+  THREAD_RUN_STATUS_REQUIRES_ACTION = 3;
+  THREAD_RUN_STATUS_COMPLETED = 4;
+  THREAD_RUN_STATUS_FAILED = 5;
+  THREAD_RUN_STATUS_CANCELLED = 6;
+  THREAD_RUN_STATUS_EXPIRED = 7;
+  THREAD_RUN_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+enum AsyncJobType {
+  ASYNC_JOB_TYPE_UNSPECIFIED = 0;
+  ASYNC_JOB_TYPE_BATCH_COMPLETION = 1;
+  ASYNC_JOB_TYPE_VENDOR_SPECIFIC = 100;
+}
+
+enum AsyncJobStatus {
+  ASYNC_JOB_STATUS_UNSPECIFIED = 0;
+  ASYNC_JOB_STATUS_VALIDATING = 1;
+  ASYNC_JOB_STATUS_QUEUED = 2;
+  ASYNC_JOB_STATUS_RUNNING = 3;
+  ASYNC_JOB_STATUS_FINALIZING = 4;
+  ASYNC_JOB_STATUS_COMPLETED = 5;
+  ASYNC_JOB_STATUS_FAILED = 6;
+  ASYNC_JOB_STATUS_CANCELLED = 7;
+  ASYNC_JOB_STATUS_EXPIRED = 8;
+  ASYNC_JOB_STATUS_VENDOR_SPECIFIC = 100;
+}
+
+message TokenUsage {
+  int32 input_tokens = 1;
+  int32 output_tokens = 2;
+  int32 reasoning_tokens = 3;
+  int32 cached_tokens = 4;
+  int32 total_tokens = 5;
+}
+
+message SamplingParams {
+  optional float temperature = 1;
+  optional float top_p = 2;
+  optional int32 top_k = 3;
+  optional int32 max_tokens = 4;
+  optional float frequency_penalty = 5;
+  optional float presence_penalty = 6;
+  repeated string stop_sequences = 7;
+  optional int64 seed = 8;
+  optional string response_format = 9;
+  google.protobuf.Struct response_schema = 10;
+}
+
+message ReasoningInfo {
+  ReasoningEffort effort = 1;
+  ReasoningVisibility visibility = 2;
+  string summary = 3;
+}
+
+message ToolDefinition {
+  string name = 1;
+  string description = 2;
+  google.protobuf.Struct input_schema = 3;
+  bool strict = 4;
+}
+
+message ToolCall {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Struct arguments = 3;
+}
+
+message ToolResult {
+  string tool_call_id = 1;
+  google.protobuf.Struct output = 2;
+  bool is_error = 3;
+}
+
+message Message {
+  string role = 1;
+  repeated ContentBlock content = 2;
+}
+
+message ContentBlock {
+  ContentBlockType type = 1;
+  oneof body {
+    TextBlock text = 2;
+    ImageBlock image = 3;
+    AudioBlock audio = 4;
+    FileBlock file = 5;
+    ToolCall tool_use = 6;
+    ToolResult tool_result = 7;
+    ThinkingBlock thinking = 8;
+  }
+}
+
+message TextBlock {
+  string text = 1;
+}
+
+message ImageBlock {
+  oneof source {
+    string url = 1;
+    bytes base64_data = 2;
+  }
+  string media_type = 3;
+}
+
+message AudioBlock {
+  oneof source {
+    string url = 1;
+    bytes base64_data = 2;
+  }
+  string media_type = 3;
+  string transcript = 4;
+}
+
+message FileBlock {
+  oneof source {
+    string url = 1;
+    bytes base64_data = 2;
+    string vendor_file_id = 3;
+  }
+  string media_type = 4;
+  string filename = 5;
+}
+
+message ThinkingBlock {
+  string text = 1;
+  bool redacted = 2;
+}
+
+message Completion {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string model = 2;
+  repeated ContentBlock content = 3;
+  FinishReason finish_reason = 4;
+  TokenUsage usage = 5;
+  ReasoningInfo reasoning = 6;
+  repeated ToolCall tool_calls = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp finished_at = 9;
+  google.protobuf.Duration time_to_first_token = 10;
+  google.protobuf.Struct vendor_raw = 11;
+}
+
+message AssistantThread {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string title = 2;
+  ThreadStatus status = 3;
+  rntme.contracts.common.v1.Metadata metadata = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  google.protobuf.Struct vendor_raw = 7;
+}
+
+message ThreadItem {
+  string item_id = 1;
+  string thread_id = 2;
+  string role = 3;
+  repeated ContentBlock content = 4;
+  google.protobuf.Timestamp created_at = 5;
+  string run_id = 6;
+  google.protobuf.Struct vendor_raw = 7;
+}
+
+message ThreadRun {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  string thread_id = 2;
+  ThreadRunStatus status = 3;
+  string model = 4;
+  TokenUsage usage = 5;
+  repeated ToolCall required_tool_calls = 6;
+  ReasoningInfo reasoning = 7;
+  string failure_reason = 8;
+  google.protobuf.Timestamp started_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+  google.protobuf.Struct vendor_raw = 11;
+}
+
+message AsyncJob {
+  rntme.contracts.common.v1.CanonicalRef ref = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus status = 3;
+  int32 progress_percentage = 4;
+  string result_uri = 5;
+  string error_message = 6;
+  TokenUsage aggregate_usage = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  google.protobuf.Struct vendor_raw = 11;
+}
+
+message BatchCompletionPayload {
+  repeated BatchCompletionItem items = 1;
+  string completion_window = 2;
+}
+
+message BatchCompletionItem {
+  string custom_id = 1;
+  CreateCompletionRequest request = 2;
+}
+
+service AiLlmModule {
+  rpc Complete(CreateCompletionRequest) returns (Completion);
+  rpc GetCompletion(GetCompletionRequest) returns (Completion);
+  rpc CreateThread(CreateThreadRequest) returns (AssistantThread);
+  rpc GetThread(GetThreadRequest) returns (AssistantThread);
+  rpc DeleteThread(DeleteThreadRequest) returns (AssistantThread);
+  rpc AddMessage(AddMessageRequest) returns (ThreadItem);
+  rpc ListThreadItems(ListThreadItemsRequest) returns (ThreadItemList);
+  rpc RunThread(RunThreadRequest) returns (ThreadRun);
+  rpc GetThreadRun(GetThreadRunRequest) returns (ThreadRun);
+  rpc CancelThreadRun(CancelThreadRunRequest) returns (ThreadRun);
+  rpc SubmitJob(SubmitJobRequest) returns (AsyncJob);
+  rpc GetJob(GetJobRequest) returns (AsyncJob);
+  rpc CancelJob(CancelJobRequest) returns (AsyncJob);
+  rpc ListJobs(ListJobsRequest) returns (AsyncJobList);
+}
+
+message CreateCompletionRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string model = 2;
+  repeated Message messages = 3;
+  repeated ToolDefinition tools = 4;
+  string tool_choice = 5;
+  SamplingParams sampling = 6;
+  ReasoningEffort reasoning_effort = 7;
+  ReasoningVisibility reasoning_visibility = 8;
+  rntme.contracts.common.v1.Metadata metadata = 9;
+}
+
+message GetCompletionRequest {
+  string canonical_id = 1;
+}
+
+message CreateThreadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string title = 2;
+  repeated Message initial_messages = 3;
+  rntme.contracts.common.v1.Metadata metadata = 4;
+}
+
+message GetThreadRequest {
+  string canonical_id = 1;
+}
+
+message DeleteThreadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+  bool hard_delete = 3;
+}
+
+message AddMessageRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string thread_id = 2;
+  Message message = 3;
+}
+
+message ListThreadItemsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  string thread_id = 2;
+  string after_item_id = 3;
+}
+
+message ThreadItemList {
+  repeated ThreadItem items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}
+
+message RunThreadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string thread_id = 2;
+  string model = 3;
+  repeated ToolDefinition tools = 4;
+  string tool_choice = 5;
+  SamplingParams sampling = 6;
+  ReasoningEffort reasoning_effort = 7;
+  ReasoningVisibility reasoning_visibility = 8;
+}
+
+message GetThreadRunRequest {
+  string thread_id = 1;
+  string run_id = 2;
+}
+
+message CancelThreadRunRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string thread_id = 2;
+  string run_id = 3;
+  string reason = 4;
+}
+
+message SubmitJobRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  oneof body {
+    BatchCompletionPayload batch_completion = 2;
+  }
+  google.protobuf.Duration ttl = 3;
+  rntme.contracts.common.v1.Metadata metadata = 4;
+}
+
+message GetJobRequest {
+  string canonical_id = 1;
+}
+
+message CancelJobRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string canonical_id = 2;
+}
+
+message ListJobsRequest {
+  rntme.contracts.common.v1.ListRequest base = 1;
+  AsyncJobType type = 2;
+  AsyncJobStatus status = 3;
+}
+
+message AsyncJobList {
+  repeated AsyncJob items = 1;
+  rntme.contracts.common.v1.ListResponseMeta meta = 2;
+}

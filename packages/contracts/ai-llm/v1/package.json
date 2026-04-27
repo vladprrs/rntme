@@ -1,0 +1,47 @@
+{
+  "name": "@rntme/contracts-ai-llm-v1",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Canonical AI/LLM contract v1 for rntme: Completion, AssistantThread, AsyncJob, and 16 CloudEvents payloads. See docs/superpowers/specs/2026-04-26-ai-llm-canonical-contract-design.md.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./error-codes": {
+      "types": "./dist/error-codes.d.ts",
+      "import": "./dist/error-codes.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "proto",
+    "error-codes.json",
+    "README.md"
+  ],
+  "scripts": {
+    "proto:gen": "node scripts/gen.mjs",
+    "build": "tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "@rntme/contracts-common-v1": "workspace:*",
+    "protobufjs": "^8.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "protobufjs-cli": "^2.0.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

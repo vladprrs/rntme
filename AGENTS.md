@@ -158,6 +158,12 @@ Canonical contracts (Identity track):
   `Filter` / `Sort` / `ListResponseMeta`, `Metadata`). Imported by every
   category contract package.
   → `packages/contracts/_common/v1/README.md`.
+- **`@rntme/contracts-ai-llm-v1`** — Canonical AI/LLM contract:
+  protobuf `AiLlmModule` service, Completion, AssistantThread, AsyncJob,
+  sixteen CloudEvents payloads, MCP-shape tools, and
+  `AI_LLM_<LAYER>_<KIND>` error codes. Implemented by AI/LLM-category
+  vendor wrappers.
+  → `packages/contracts/ai-llm/v1/README.md`.
 - **`@rntme/contracts-identity-v1`** — Canonical Identity contract:
   protobuf `IdentityModule` service, six entities, seventeen CloudEvents
   payloads, `IDENTITY_<LAYER>_<KIND>` error codes. Implemented by
@@ -591,7 +597,19 @@ Known categorical entries to watch for:
 
 ## 10. Glossary
 
+- **agent_execution_mode** — Capability flag in `module.json` for AI/LLM
+  modules: `"delegated"` when vendor SaaS owns the agent loop, `"local"`
+  when a module hosts an in-process agent runtime, and `"none"` when the
+  module does not implement an Agent surface.
+- **boundary-event-only streaming** — AI/LLM v1 emits CloudEvents only at
+  state transitions (`started`, `finished`, `failed`, `requires_action`),
+  never per chunk. Future token streaming belongs in a server-streaming
+  gRPC RPC; the event log stays for state.
 - **Callback binding** — A command binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
+- **Canonical AI/LLM contract** — `@rntme/contracts-ai-llm-v1`: service
+  `AiLlmModule`, three aggregates (`Completion`, `AssistantThread`,
+  `AsyncJob`), and sixteen events. The wrapper protocol every AI/LLM
+  vendor module implements.
 - **Canonical contract** — A `packages/contracts/<category>/v<n>/`
   package: protobuf source, generated TS bindings, error-codes
   catalogue, README. Implemented by vendor modules in
@@ -608,7 +626,10 @@ Known categorical entries to watch for:
   `modules/<category>/conformance/src/scenarios/`. Each scenario asserts
   shape, idempotency on replay, error-code on negative branches, and
   expected event publication.
-
+- **delegated thread** — AI/LLM v1 supports stateful conversation only for
+  modules whose vendor offers a native stateful API. Modules without it
+  declare `capabilities.thread: false` and return `UNIMPLEMENTED` for
+  thread RPCs; no module-local emulation.
 - **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` from a composed project; rendered by an adapter (`@rntme-cli/deploy-dokploy`) to a target-specific shape.
 - **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
@@ -631,6 +652,9 @@ Known categorical entries to watch for:
   Holds `Scenario` files keyed by canonical RPC. Drift-tested against
   the canonical contract's service definition; imported by every
   vendor module to run the suite under mock and live modes.
+- **MCP-shape tool definition** — `ToolDefinition { name, description,
+  input_schema: Struct, strict }`, matching the Model Context Protocol
+  shape. Adapter modules convert it into vendor-native tool formats.
 - **PDM** — Project Domain Model. The project-level entity/field/relation/
   state-machine artifact shared across services.
 - **Pre-step** — A `pre[]` entry on a command binding; either `system` (idempotency-key) or `module-rpc`. Cap of 2 per binding.
@@ -644,7 +668,10 @@ Known categorical entries to watch for:
   meet the governance bar (≥2 vendors or archetypal) for canonical.
   Blueprints that depend on these are flagged
   `BLUEPRINT_VENDOR_LOCKED_BY_EXTENSION`.
-
+- **vendor-prefixed model addressing** — AI/LLM `model` field convention
+  `<vendor>/<model>`, for example `openai/gpt-4o` or
+  `anthropic/claude-sonnet-4-5`. SaaS modules validate the prefix
+  against their declared vendor; gateways use it to route upstream.
 - **Validated\*** — Phantom-branded type produced by a validator;
   downstream APIs require the brand.
 - **Shared common package** — `packages/contracts/_common/v1/`
