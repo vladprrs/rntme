@@ -2,17 +2,23 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land `modules/crm/README.md` (category-doc) and `modules/crm/conformance/` (workspace package `@rntme/conformance-crm`) — the per-category conformance scaffolding for CRM v1. The package ships a minimal local `Scenario` type stub (until `@rntme/conformance-framework` lands), 34 scenario stub files (one per canonical RPC), text + webhook fixtures (including the unique `amocrm-update.urlencoded` URL-encoded form-data fixture for amoCRM), a `suite.ts` exporting `CategoryConformanceSuite`, and a drift-detection test that fails when any canonical RPC lacks a matching scenarios file.
+**Goal:** Land `modules/crm/README.md` (category-doc) and `modules/crm/conformance/` (workspace package `@rntme/conformance-crm`) — the per-category conformance scaffolding for CRM v1. The package ships a minimal local `Scenario` type stub (until `@rntme/conformance-framework` lands), 34 scenario stub files (one per canonical RPC) that export non-empty typed `pending` scenarios, text + webhook fixtures (including the unique `amocrm-update.urlencoded` URL-encoded form-data fixture for amoCRM), a `suite.ts` exporting `CategoryConformanceSuite`, and a drift-detection test that fails when any canonical RPC lacks a matching scenarios file.
 
-**Architecture:** New `modules/crm/` directory under the existing `modules/*/*` workspace glob (added by Identity plan 2 / AI/LLM plan 2). Inside, `modules/crm/conformance/` is a workspace package depending on `@rntme/contracts-crm-v1`. The package exports stubs only — every scenario file ships an empty `Scenario[]` array plus a docstring pointing at spec §11.2 listing the assertions each scenario must cover when the framework lands. The drift-detection test introspects `proto.rntme.contracts.crm.v1.CrmModule` and asserts a 1:1 file match against `src/scenarios/`. A fixture-sanity test validates the webhook fixtures (JSON parses; URL-encoded amoCRM payload decodes to a known `leads[update][0][id]` shape).
+**Architecture:** New `modules/crm/` directory under the existing `modules/*/*` workspace glob (added by Identity plan 2 / AI/LLM plan 2). Inside, `modules/crm/conformance/` is a workspace package depending on `@rntme/contracts-crm-v1`. The package exports executable typed scaffolding only — every scenario file ships one `pendingScenario(...)` entry plus a docstring pointing at spec §11.2 listing the assertions each scenario must cover when the framework lands. The drift-detection test introspects `proto.rntme.contracts.crm.v1.CrmModule` and asserts a 1:1 file match against `src/scenarios/`. A fixture-sanity test validates the webhook fixtures (JSON parses; URL-encoded amoCRM payload decodes to a known `leads[update][0][id]` shape).
 
 **Tech Stack:** Same as Plan 1 — TypeScript 5.5, vitest, eslint flat config, pnpm 9.12+ workspaces.
+
+**External tooling notes verified via Context7 (2026-04-27):**
+- ESLint v9 flat config uses `import js from '@eslint/js'` and `js.configs.recommended`, so `@eslint/js` must be declared in this package's `devDependencies`.
+- Vitest supports `vitest run <file>` for a single test file; this plan's `pnpm -F @rntme/conformance-crm run test test/drift.test.ts` command is valid because the package script expands to `vitest run test/drift.test.ts`.
+- pnpm workspace filtering accepts `--filter` / `-F <package_selector>` for package-scoped script runs.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §11 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
 
 **Depends on:**
 - Plan 1 must be merged first — `@rntme/contracts-crm-v1` must exist as a workspace package and its generated proto must export `CrmModule` so the drift-detection test can introspect it.
 - Identity plan 2 (`docs/superpowers/plans/done/identity-canonical-contract/02-identity-conformance-skeleton.md`) must be merged first — it adds the `modules/*/*` glob to `pnpm-workspace.yaml` and creates the `modules/` top-level directory. This plan reuses both. If Identity plan 2 has not landed, Step 1 of Task 1 below adds the glob; otherwise it verifies and skips.
+- CRM `module-manifest-validator` capability-field support (`vendors[]`, `entities[]`, `search_tiers[]`, `labeled_associations`, `bulk_operations.max_size`, `async_job_types[]`, `webhook_format`, `webhook_retry_policy`) must be merged before the first CRM vendor module starts. If it has not landed before this conformance skeleton, DEV must leave the plan comment and PR description caveat explicit: this package can compile and test, but CRM vendor modules remain blocked from claiming manifest-valid readiness until validator support lands. This resolves the spec §13 merge-order tension without forcing this skeleton package to edit validator code.
 
 ---
 
@@ -229,6 +235,7 @@ Create `modules/crm/conformance/package.json`:
     "@rntme/contracts-crm-v1": "workspace:*"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
@@ -296,6 +303,8 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {
@@ -367,7 +376,7 @@ export interface ScenarioRequirements {
 
 /**
  * A scenario step is either a single RPC call or a meta-instruction
- * (assertion-only, fixture-substitution placeholder).
+ * (assertion-only, fixture-substitution scaffold).
  */
 export interface ScenarioStep {
   rpc?: string;
@@ -378,10 +387,12 @@ export interface ScenarioStep {
 
 /**
  * A single conformance scenario. v1 ships scenarios as stubs (empty `steps`,
- * empty `assertions`) until the framework runner can interpret them.
+ * status=`pending`) until the framework runner can interpret them.
  */
 export interface Scenario {
+  id: string;
   name: string;
+  status: 'pending' | 'mock_only' | 'live_only' | 'mock_and_live';
   capability?: string;            // canonical RPC name this scenario gates on
   requires?: ScenarioRequirements;
   /**
@@ -401,6 +412,15 @@ export interface CategoryConformanceSuite {
   category: 'crm';
   contract_version: 'v1';
   scenarios: Record<string, Scenario[]>;   // keyed by RPC short-name
+}
+
+export const UNIMPLEMENTED_SCENARIO_STATUS = 'pending' as const;
+
+export function pendingScenario(input: Omit<Scenario, 'status'>): Scenario {
+  return {
+    ...input,
+    status: UNIMPLEMENTED_SCENARIO_STATUS,
+  };
 }
 ```
 
@@ -990,7 +1010,7 @@ git commit -m "feat(conformance-crm): webhook fixtures for 4 vendor formats (inc
 
 ## Task 7: Scenario stubs — Contact (5) + Company (5) = 10 files
 
-Each scenario stub is a comment-rich placeholder citing spec §11.2. The `scenarios` array is empty until the framework runner exists; the docstrings ARE the contract for the eventual filled-in scenarios.
+Each scenario stub is a comment-rich pending fixture citing spec §11.2. The `scenarios` array is non-empty from day one: it contains one typed `pendingScenario(...)` entry so package consumers, drift tests, and the eventual runner can exercise the suite shape before full assertions land. The docstrings remain the contract for the eventual filled-in scenarios.
 
 **Files:**
 - Create: `modules/crm/conformance/src/scenarios/GetContact.scenarios.ts`
@@ -1021,12 +1041,22 @@ Create `modules/crm/conformance/src/scenarios/GetContact.scenarios.ts`:
  *   Negative:
  *     - GetContact: unknown canonical_id returns CRM_REFERENCES_CONTACT_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 2: `ListContacts.scenarios.ts`**
@@ -1049,12 +1079,22 @@ Create `modules/crm/conformance/src/scenarios/ListContacts.scenarios.ts`:
  *   Negative:
  *     - ListContacts: invalid email format in filter returns CRM_STRUCTURAL_INVALID_EMAIL.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 3: `CreateContact.scenarios.ts`**
@@ -1091,12 +1131,22 @@ Create `modules/crm/conformance/src/scenarios/CreateContact.scenarios.ts`:
  *     - CreateContact when vendor returns rate-limit (HTTP 429 OR Bitrix24 HTTP 200 +
  *       QUERY_LIMIT_EXCEEDED body) returns CRM_VENDOR_RATE_LIMITED with retry-info.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 4: `UpdateContact.scenarios.ts`**
@@ -1120,12 +1170,22 @@ Create `modules/crm/conformance/src/scenarios/UpdateContact.scenarios.ts`:
  *     - UpdateContact: optimistic-lock conflict (where vendor supports If-Match / ETag)
  *       returns CRM_CONSISTENCY_OPTIMISTIC_LOCK_CONFLICT.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 5: `DeleteContact.scenarios.ts`**
@@ -1147,12 +1207,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteContact.scenarios.ts`:
  *   Negative:
  *     - DeleteContact: unknown canonical_id returns CRM_REFERENCES_CONTACT_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 6: `GetCompany.scenarios.ts`**
@@ -1172,12 +1242,22 @@ Create `modules/crm/conformance/src/scenarios/GetCompany.scenarios.ts`:
  *   Negative:
  *     - GetCompany: unknown canonical_id returns CRM_REFERENCES_COMPANY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 7: `ListCompanies.scenarios.ts`**
@@ -1198,12 +1278,22 @@ Create `modules/crm/conformance/src/scenarios/ListCompanies.scenarios.ts`:
  *   Negative:
  *     - ListCompanies: invalid tax_id format returns CRM_STRUCTURAL_INVALID_TAX_ID.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 8: `CreateCompany.scenarios.ts`**
@@ -1231,12 +1321,22 @@ Create `modules/crm/conformance/src/scenarios/CreateCompany.scenarios.ts`:
  *   Negative (consistency):
  *     - CreateCompany: duplicate domain when HubSpot dedups returns CRM_CONSISTENCY_DUPLICATE_DOMAIN.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 9: `UpdateCompany.scenarios.ts`**
@@ -1257,12 +1357,22 @@ Create `modules/crm/conformance/src/scenarios/UpdateCompany.scenarios.ts`:
  *   Negative:
  *     - UpdateCompany: unknown canonical_id returns CRM_REFERENCES_COMPANY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 10: `DeleteCompany.scenarios.ts`**
@@ -1283,12 +1393,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteCompany.scenarios.ts`:
  *   Negative:
  *     - DeleteCompany: unknown canonical_id returns CRM_REFERENCES_COMPANY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 11: Commit**
@@ -1334,12 +1454,22 @@ Create `modules/crm/conformance/src/scenarios/GetDeal.scenarios.ts`:
  *   Negative:
  *     - GetDeal: unknown canonical_id returns CRM_REFERENCES_DEAL_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 2: `ListDeals.scenarios.ts`**
@@ -1361,12 +1491,22 @@ Create `modules/crm/conformance/src/scenarios/ListDeals.scenarios.ts`:
  *
  *   Negative: standard filter validation paths.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 3: `CreateDeal.scenarios.ts`**
@@ -1400,12 +1540,22 @@ Create `modules/crm/conformance/src/scenarios/CreateDeal.scenarios.ts`:
  *     - CreateDeal: primary_contact_canonical_id refers to deleted contact returns
  *       CRM_REFERENCES_CONTACT_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 4: `UpdateDeal.scenarios.ts`**
@@ -1459,14 +1609,24 @@ Create `modules/crm/conformance/src/scenarios/UpdateDeal.scenarios.ts`:
  *     - UpdateDeal under Bitrix24 rate-limit: HTTP 200 + body QUERY_LIMIT_EXCEEDED maps to
  *       CRM_VENDOR_RATE_LIMITED (NOT INVALID_ARGUMENT — adapter parses body before status).
  *
- * Scenarios are empty in v1 skeleton; the multi-step pipeline-transition family is the
+ * Scenarios export one typed pending fixture in v1 skeleton; the multi-step pipeline-transition family is the
  * canonical acceptance test for this RPC and lands first when the framework gains
  * step+substitution support ($1.canonical_id).
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 5: `DeleteDeal.scenarios.ts`**
@@ -1494,12 +1654,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteDeal.scenarios.ts`:
  * DealDeleted event in v1. DeleteDeal emits DealUpdated. Verify with spec when filling
  * scenarios.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 6: `GetActivity.scenarios.ts`**
@@ -1518,12 +1688,22 @@ Create `modules/crm/conformance/src/scenarios/GetActivity.scenarios.ts`:
  *   Negative:
  *     - GetActivity: unknown canonical_id returns CRM_REFERENCES_ACTIVITY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 7: `ListActivities.scenarios.ts`**
@@ -1546,12 +1726,22 @@ Create `modules/crm/conformance/src/scenarios/ListActivities.scenarios.ts`:
  *   Negative:
  *     - ListActivities: invalid linked_to.entity_type returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 8: `CreateActivity.scenarios.ts`**
@@ -1579,12 +1769,22 @@ Create `modules/crm/conformance/src/scenarios/CreateActivity.scenarios.ts`:
  *   Negative (references):
  *     - CreateActivity: linked_entity refers to unknown entity returns CRM_REFERENCES_*_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 9: `UpdateActivity.scenarios.ts`**
@@ -1607,12 +1807,22 @@ Create `modules/crm/conformance/src/scenarios/UpdateActivity.scenarios.ts`:
  *   Negative:
  *     - UpdateActivity: unknown canonical_id returns CRM_REFERENCES_ACTIVITY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 10: `DeleteActivity.scenarios.ts`**
@@ -1632,12 +1842,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteActivity.scenarios.ts`:
  *   Negative:
  *     - DeleteActivity: unknown canonical_id returns CRM_REFERENCES_ACTIVITY_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 11: `GetNote.scenarios.ts`**
@@ -1656,12 +1876,22 @@ Create `modules/crm/conformance/src/scenarios/GetNote.scenarios.ts`:
  *   Negative:
  *     - GetNote: unknown canonical_id returns CRM_REFERENCES_NOTE_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 12: `ListNotes.scenarios.ts`**
@@ -1682,12 +1912,22 @@ Create `modules/crm/conformance/src/scenarios/ListNotes.scenarios.ts`:
  *   Negative:
  *     - ListNotes: invalid parent.entity_type returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 13: `CreateNote.scenarios.ts`**
@@ -1721,12 +1961,22 @@ Create `modules/crm/conformance/src/scenarios/CreateNote.scenarios.ts`:
  *   Negative (references):
  *     - CreateNote: parent.canonical_id refers to nothing returns CRM_REFERENCES_*_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 14: `DeleteNote.scenarios.ts`**
@@ -1750,12 +2000,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteNote.scenarios.ts`:
  * NOTE: v1 has no UpdateNote — notes are de-facto immutable across most vendors. v1.minor
  * adds it when concrete consumer surfaces.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 15: Commit**
@@ -1800,12 +2060,22 @@ Create `modules/crm/conformance/src/scenarios/ListPipelines.scenarios.ts`:
  *   Negative:
  *     - ListPipelines for invalid entity_type returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 2: `ListCustomFieldDefinitions.scenarios.ts`**
@@ -1832,12 +2102,22 @@ Create `modules/crm/conformance/src/scenarios/ListCustomFieldDefinitions.scenari
  *     - Modules that do not declare ListCustomFieldDefinitions in capabilities.rpcs[]
  *       return UNIMPLEMENTED.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 3: `ListAssociations.scenarios.ts`**
@@ -1860,12 +2140,22 @@ Create `modules/crm/conformance/src/scenarios/ListAssociations.scenarios.ts`:
  *     - ListAssociations: from refers to unknown entity returns CRM_REFERENCES_*_NOT_FOUND.
  *     - ListAssociations: invalid to_entity_type returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 4: `CreateAssociation.scenarios.ts`**
@@ -1901,12 +2191,22 @@ Create `modules/crm/conformance/src/scenarios/CreateAssociation.scenarios.ts`:
  *     - CreateAssociation: from.entity_type == to.entity_type AND from.id == to.id (self-loop)
  *       returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE (or implementation-defined dedup).
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 5: `DeleteAssociation.scenarios.ts`**
@@ -1927,12 +2227,22 @@ Create `modules/crm/conformance/src/scenarios/DeleteAssociation.scenarios.ts`:
  *   Negative:
  *     - DeleteAssociation: unknown canonical_id returns CRM_REFERENCES_ASSOCIATION_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 6: `SyncDelta.scenarios.ts`**
@@ -1980,14 +2290,24 @@ Create `modules/crm/conformance/src/scenarios/SyncDelta.scenarios.ts`:
  *     - SyncDelta: invalid entity_type returns CRM_STRUCTURAL_INVALID_ENTITY_TYPE.
  *     - SyncDelta: limit > 500 returns CRM_STRUCTURAL_MISSING_REQUIRED_FIELD or clamps.
  *
- * Scenarios are empty in v1 skeleton; the multi-step watermark-progression family is the
+ * Scenarios export one typed pending fixture in v1 skeleton; the multi-step watermark-progression family is the
  * canonical acceptance test for pull-mode reconciliation and lands first when the framework
  * gains step+watermark-substitution support.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 7: `SubmitJob.scenarios.ts`**
@@ -2028,12 +2348,22 @@ Create `modules/crm/conformance/src/scenarios/SubmitJob.scenarios.ts`:
  *     - SubmitJob when vendor returns rate-limit: CRM_VENDOR_RATE_LIMITED with retry-info.
  *     - SubmitJob when daily quota exceeded (Salesforce daily limit): CRM_VENDOR_DAILY_QUOTA_EXCEEDED.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 8: `GetJob.scenarios.ts`**
@@ -2054,12 +2384,22 @@ Create `modules/crm/conformance/src/scenarios/GetJob.scenarios.ts`:
  *   Negative:
  *     - GetJob: unknown canonical_id returns CRM_REFERENCES_ASYNC_JOB_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 9: `CancelJob.scenarios.ts`**
@@ -2082,12 +2422,22 @@ Create `modules/crm/conformance/src/scenarios/CancelJob.scenarios.ts`:
  *   Negative:
  *     - CancelJob: unknown canonical_id returns CRM_REFERENCES_ASYNC_JOB_NOT_FOUND.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 10: `ListJobs.scenarios.ts`**
@@ -2109,12 +2459,22 @@ Create `modules/crm/conformance/src/scenarios/ListJobs.scenarios.ts`:
  *   Negative:
  *     - ListJobs: standard filter validation paths.
  *
- * Scenarios are empty in v1 skeleton.
+ * Scenarios export one typed pending fixture in v1 skeleton.
  */
 
 import type { Scenario } from '../types.js';
+import { pendingScenario } from '../types.js';
 
-export const scenarios: Scenario[] = [];
+const rpcName = new URL(import.meta.url).pathname.split('/').pop()?.replace('.scenarios.ts', '') ?? 'UnknownRpc';
+
+export const scenarios = [
+  pendingScenario({
+    id: rpcName + '.pending',
+    capability: rpcName,
+    name: rpcName + ' pending conformance fixture',
+    assertionsDescription: 'See this file docstring and CRM spec §11.2 for required happy-path, negative, event, and idempotency assertions.',
+  }),
+] satisfies Scenario[];
 ```
 
 - [ ] **Step 11: Commit**
@@ -2222,6 +2582,7 @@ Create `modules/crm/conformance/src/index.ts`:
 
 ```typescript
 export { suite } from './suite.js';
+export { pendingScenario, UNIMPLEMENTED_SCENARIO_STATUS } from './types.js';
 export type { Scenario, ScenarioStep, ScenarioRequirements, CategoryConformanceSuite } from './types.js';
 
 // Re-export fixtures so vendor modules can compose scenarios on top.
@@ -2358,7 +2719,7 @@ import { describe, expect, it } from 'vitest';
 import { suite } from '../src/index.js';
 
 describe('CategoryConformanceSuite shape', () => {
-  it('every scenarios entry is an array (possibly empty in v1 skeleton)', () => {
+  it('every scenarios entry is an array (non-empty in v1 skeleton)', () => {
     for (const [rpc, scenarios] of Object.entries(suite.scenarios)) {
       expect(Array.isArray(scenarios), `scenarios[${rpc}] must be an array`).toBe(true);
     }
@@ -2368,11 +2729,15 @@ describe('CategoryConformanceSuite shape', () => {
     expect(Object.keys(suite.scenarios)).toHaveLength(34);
   });
 
-  it('all scenario arrays are empty in v1 skeleton (until framework lands)', () => {
-    // When a follow-up PR adds real scenarios, this test stops being trivial —
-    // update the assertion to "non-empty for at least UpdateDeal + SyncDelta + SubmitJob".
+  it('all scenario arrays contain typed pending fixtures in v1 skeleton (until framework lands)', () => {
     for (const [rpc, scenarios] of Object.entries(suite.scenarios)) {
-      expect(scenarios.length, `scenarios[${rpc}] should be empty in skeleton`).toBe(0);
+      expect(scenarios.length, `scenarios[${rpc}] should contain one pending fixture`).toBeGreaterThanOrEqual(1);
+      for (const scenario of scenarios) {
+        expect(scenario.id, `${rpc} scenario id`).toMatch(new RegExp(`^${rpc}\\.\\w+`));
+        expect(scenario.capability).toBe(rpc);
+        expect(scenario.status).toBe('pending');
+        expect(scenario.assertionsDescription).toContain('CRM spec §11.2');
+      }
     }
   });
 });
@@ -2562,7 +2927,7 @@ const report = await run(suite, vendorModuleHandler, { mode: 'mock' });
 
 ### `suite: CategoryConformanceSuite`
 
-Frozen metadata + `scenarios` keyed by canonical RPC name (34 keys). Every scenarios array is empty in the v1 skeleton — populated when the framework gains assertion DSL.
+Frozen metadata + `scenarios` keyed by canonical RPC name (34 keys). Every scenarios array contains typed pending entries in the v1 skeleton — populated when the framework gains assertion DSL.
 
 ### Fixture re-exports
 
@@ -2580,7 +2945,7 @@ Frozen metadata + `scenarios` keyed by canonical RPC name (34 keys). Every scena
 ## Invariants & gotchas
 
 - **One scenario file per canonical RPC.** Drift detector enforces 1:1 mapping between `service CrmModule` RPCs and `src/scenarios/<RPC>.scenarios.ts` files. Adding an RPC to the contract without a scenario file (or vice versa) fails CI.
-- **Scenarios are empty in v1 skeleton.** Real scenarios land when `@rntme/conformance-framework` ships. Until then, every file is a documented placeholder citing spec §11.2.
+- **Scenarios export one typed pending fixture in v1 skeleton.** Real scenarios land when `@rntme/conformance-framework` ships. Until then, every file is a documented scaffold citing spec §11.2.
 - **Webhook fixtures stay ≤ 50KB.** Sanity test enforces. Use `git diff --stat` after touching fixtures to confirm.
 - **`amocrm-update.urlencoded` is intentionally NOT JSON.** This is the canonical reproduction of amoCRM's unique webhook format. Module's `event-transformer` MUST decode URL-encoded bracket-paths before transforming. Bracket keys are preserved verbatim by `URLSearchParams` — vendor modules use a bracket-path → object decoder (e.g. `qs.parse(raw, { allowDots: false })`).
 - **`types.ts` is a temporary mirror** of (future) `@rntme/conformance-framework` types. Migrate when framework lands.
@@ -2738,7 +3103,7 @@ git commit -m "chore(conformance-crm): final cross-package verification"
 Run this checklist after the last task and before closing the PR:
 
 1. **Spec coverage:** §11.1–§11.6 each have a corresponding task above. Confirmed in Task 15 step 5.
-2. **Placeholder scan:** Search the plan body for `TBD`, `TODO`, `FIXME`, `XXX`, `placeholder`. The only legitimate occurrence is in scenario stub comments that read "Scenarios are empty in v1 skeleton" — that is not a placeholder; it is the documented contract of this plan (every scenario file is a structured placeholder until the framework lands).
+2. **Red-flag scan:** Search generated task content for `TBD`, `TODO`, `FIXME`, `XXX`, `export const scenarios: Scenario[] = []`, and `should be empty`. Expected result: no hits. Pending scenarios are intentional typed scaffolds.
 3. **Type consistency:** RPC names in Tasks 7–9 match `EXPECTED_RPCS` in Task 11. Filename pattern `<RPC>.scenarios.ts` enforced consistently. The `Scenario` type in Task 4 used by every scenario file in Tasks 7–9 and by `suite.ts` in Task 10.
 4. **Cross-task naming:** `@rntme/conformance-crm` package name uniform across Tasks 3, 11, 13. `proto.rntme.contracts.crm.v1` namespace import in Task 11 matches Plan 1's barrel export.
 5. **Capability gating coverage:** Every scenario stub that depends on a capability cites it explicitly in its docstring (e.g. CreateAssociation cites `labeled_associations`; SubmitJob cites `async_job_types ⊇ ["SYNC_FULL"]`; ListCustomFieldDefinitions cites anti-conformance via capabilities.rpcs[]). UpdateDeal multi-step pipeline-transition family covers cross-pipeline + qualification-transition + close-won terminal cases.
