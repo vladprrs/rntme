@@ -182,6 +182,10 @@ Modules tree (vendor implementations):
   README and a `conformance/` workspace package. Vendor modules live as
   `modules/<category>/<vendor>/` (e.g. `modules/identity/clerk/`); none
   shipped yet.
+- **`modules/crm/`** — CRM category root: README + `conformance/` workspace package.
+- **`modules/crm/conformance/`** — Workspace package `@rntme/conformance-crm`: 34
+  scenario stubs + fixtures (incl. amoCRM URL-encoded webhook). →
+  `modules/crm/conformance/README.md`.
 - **`@rntme/conformance-identity`** — Per-RPC conformance scenarios for
   the Identity canonical contract. Drift-tested against
   `service IdentityModule`. Imported by every Identity vendor module.
@@ -544,6 +548,28 @@ When that lands, the steps will mirror Identity:
 
 Reference the canonical contract at `packages/contracts/ai-llm/v1/` and the
 conformance suite at `modules/ai-llm/conformance/`.
+
+
+### 6.20 Add a CRM vendor module
+
+The pattern is the same as Identity / AI-LLM vendor modules but with the CRM canonical contract. Each vendor lands at `modules/crm/<vendor>/` with:
+
+1. A handler implementation against `proto.rntme.contracts.crm.v1.CrmModule`. SaaS module wraps one CRM vendor; multi-CRM gateway proxies to many.
+2. An idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with ≥24h TTL — mandatory because most CRM vendors do not provide native idempotency on create/update.
+3. A webhook receiver that handles the vendor's specific payload format. Most vendors send JSON; **amoCRM is the unique exception** — it sends `application/x-www-form-urlencoded` with bracket-notation nested keys (`leads[update][0][id]`). Use `qs` or equivalent for bracket-path decode.
+4. **Special vendor quirks to map in the error-mapper:**
+   - **Bitrix24** returns `HTTP 200 + body {"error":"QUERY_LIMIT_EXCEEDED"}` instead of HTTP 429. Adapter MUST parse body before status code.
+   - **Bitrix24** does not retry webhooks (`webhook_retry_policy: "none"`). Use `event.offline.get` + `SyncDelta` for recovery.
+   - **amoCRM** rotates refresh tokens on every refresh. Atomic save of new (access, refresh) pair is mandatory.
+   - **Pipedrive** custom fields use 40-char hex hashes as keys; module's `FieldMapping` table is mandatory.
+   - **Salesforce** custom fields use `__c` suffix; same FieldMapping pattern.
+5. A `module.json` manifest declaring all ten capability fields (see `modules/crm/README.md` for the decision tree).
+6. Vendor-specific extensions in `<vendor>-extensions.proto` if the vendor has features not in canon (Bitrix24 Smart Processes, SF Composite API graph, HubSpot Journal API v4 pull mode, etc.).
+7. Conformance scenarios passing under both mock-vendor and live-sandbox modes (live mode requires API keys in a secret store).
+
+Reference the canonical contract package at `packages/contracts/crm/v1/` and the conformance suite at `modules/crm/conformance/`.
+
+Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU market, 152-FZ data-residency).
 
 
 ## 7. Anti-patterns / do not do

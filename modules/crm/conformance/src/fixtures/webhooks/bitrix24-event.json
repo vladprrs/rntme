@@ -1,0 +1,16 @@
+{
+  "event": "ONCRMDEALUPDATE",
+  "data": {
+    "FIELDS": {
+      "ID": "5"
+    }
+  },
+  "ts": "1714200000",
+  "auth": {
+    "domain": "example.bitrix24.com",
+    "client_endpoint": "https://example.bitrix24.com/rest/",
+    "server_endpoint": "https://oauth.bitrix.info/rest/",
+    "member_id": "abcdef1234567890",
+    "application_token": "redacted-token"
+  }
+}

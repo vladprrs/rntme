@@ -121,6 +121,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/contracts-ai-llm-v1`](packages/contracts/ai-llm/v1) | Canonical AI/LLM contract: `service AiLlmModule` (14 RPCs), Completion, AssistantThread, AsyncJob, sixteen CloudEvents payloads, MCP-shape tools, `AI_LLM_<LAYER>_<KIND>` error codes. |
 | [`@rntme/contracts-identity-v1`](packages/contracts/identity/v1) | Canonical Identity contract: `service IdentityModule` (24 RPCs), six entity types, seventeen CloudEvents payloads, `IDENTITY_<LAYER>_<KIND>` error codes. |
 | [`@rntme/contracts-crm-v1`](packages/contracts/crm/v1) | Canonical CRM contract: `service CrmModule`, Contact/Company/Deal/Activity/Note/AsyncJob types, helper read models, twenty-one CloudEvents payloads, `CRM_<LAYER>_<KIND>` error codes. |
+| [`@rntme/conformance-crm`](modules/crm/conformance) | CRM conformance scenarios + fixtures (34 RPCs, 4 webhook formats incl. amoCRM URL-encoded) |
 | **Identity vendor track** |  |
 | [`@rntme/conformance-identity`](modules/identity/conformance) | Per-RPC conformance scenarios for `@rntme/contracts-identity-v1`. Drift-tested against the canonical `service IdentityModule`. Imported by every Identity vendor module. |
 | **AI/LLM vendor track** |  |
