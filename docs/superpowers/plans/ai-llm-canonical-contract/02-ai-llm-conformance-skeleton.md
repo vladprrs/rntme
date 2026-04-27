@@ -1314,7 +1314,6 @@ export const AI_LLM_CANONICAL_EVENTS = [
   'CompletionFinished',
   'CompletionFailed',
   'ThreadCreated',
-  'ThreadUpdated',
   'ThreadDeleted',
   'ThreadMessageAdded',
   'ThreadRunStarted',
@@ -1325,6 +1324,7 @@ export const AI_LLM_CANONICAL_EVENTS = [
   'AsyncJobSubmitted',
   'AsyncJobStatusChanged',
   'AsyncJobCompleted',
+  'AsyncJobFailed',
   'AsyncJobCancelled',
 ] as const;
 
@@ -1559,7 +1559,24 @@ describe('CategoryConformanceSuite shape', () => {
 
   it('exports canonical capability registries for vendor module authors', () => {
     expect(AI_LLM_CANONICAL_RPCS).toHaveLength(14);
-    expect(AI_LLM_CANONICAL_EVENTS).toHaveLength(16);
+    expect(AI_LLM_CANONICAL_EVENTS).toEqual([
+      'CompletionStarted',
+      'CompletionFinished',
+      'CompletionFailed',
+      'ThreadCreated',
+      'ThreadDeleted',
+      'ThreadMessageAdded',
+      'ThreadRunStarted',
+      'ThreadRunRequiresAction',
+      'ThreadRunCompleted',
+      'ThreadRunFailed',
+      'ThreadRunCancelled',
+      'AsyncJobSubmitted',
+      'AsyncJobStatusChanged',
+      'AsyncJobCompleted',
+      'AsyncJobFailed',
+      'AsyncJobCancelled',
+    ]);
     expect(AI_LLM_INPUT_MODALITIES).toEqual(['text', 'image', 'audio', 'file']);
     expect(AI_LLM_REASONING_VISIBILITY).toEqual(['hidden', 'summary', 'full']);
     expect(AI_LLM_ASYNC_JOB_TYPES).toEqual(['BATCH_COMPLETION']);
@@ -1699,7 +1716,7 @@ console.log(Object.keys(aiLlmConformanceSuite.scenariosByRpc));    // 14 canonic
 console.log(AI_LLM_CANONICAL_RPCS.length);                         // 14
 ```
 
-When `@rntme/conformance-framework` lands, point its runner at this `suite` and a vendor module's gRPC handler:
+When `@rntme/conformance-framework` lands, point its runner at `aiLlmConformanceSuite` and a vendor module's gRPC handler:
 
 ```typescript
 import { run } from '@rntme/conformance-framework';
