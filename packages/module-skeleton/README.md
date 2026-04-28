@@ -7,7 +7,9 @@ A *platform module* is a service that uses `@rntme/runtime` infrastructure (even
 ## What's inside
 
 - `src/handlers.ts` — example `CodeCommandHandlerMap` with a single `echo` command. This is what you replace with your own handlers.
-- `src/index.ts` — barrel re-exporting the handler map.
+- `src/manifest-shape.ts` — Zod-backed `ModuleManifestSchema` and
+  `parseModuleManifest(raw)` for the platform module contract.
+- `src/index.ts` — barrel re-exporting the handler map and manifest validator.
 - `test/unit/*.test.ts` — example unit tests for a handler + a wiring smoke test using `CodeCommandExecutor`.
 
 ## Copy to bootstrap your module
@@ -16,12 +18,34 @@ A *platform module* is a service that uses `@rntme/runtime` infrastructure (even
 2. Rename the package in `package.json`.
 3. Replace the contents of `src/handlers.ts` with your vendor's operations.
 4. Add your vendor SDK to `dependencies` (e.g. `"stripe": "^14.0.0"`).
-5. Run `pnpm install` at the repo root.
-6. (After plan 2 lands — gRPC surface) register your handlers with the gRPC surface in your module's `start-module.ts` entry.
+5. Fill `module.json` using the contract below and validate it with
+   `parseModuleManifest`.
+6. Run `pnpm install` at the repo root.
+7. Register your handlers with the gRPC surface in your module's
+   `start-module.ts` entry.
+
+## Module manifest contract
+
+Platform modules publish a strict `module.json` that matches spec §12:
+
+```json
+{
+  "name": "identity-clerk",
+  "version": "1.0.0",
+  "contact": "identity-team@example.com",
+  "grpcServiceName": "rntme.identity.v1.IdentityModule",
+  "webhookPath": "/webhooks/clerk",
+  "secrets": [{ "name": "CLERK_SECRET_KEY", "scope": "tenant" }],
+  "capabilities": ["identity.users.read", "identity.users.write"]
+}
+```
+
+`secrets[].scope` is one of `tenant`, `project`, or `service`.
+`description` is optional. Unknown keys are rejected so module boot fails fast
+when the contract drifts.
 
 ## What is not here (yet)
 
-- **gRPC surface** — comes in plan 2 (`packages/bindings-grpc`). Until then, modules do not have their own exposed public API; this package only demonstrates the handler shape.
 - **Webhook receiver** — modules own their webhook endpoint. After plan 2 lands, use `@rntme/bindings-http` inside the module to mount `/webhooks/<vendor>` and do signature verification + dedupe + emit.
 - **Pre-fetch / `pre[]` support** — domain services call modules via the seam described in plan 3. Modules themselves don't use `pre[]`.
 

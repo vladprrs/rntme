@@ -42,6 +42,38 @@ describe('startService', () => {
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
 
+  it('rejects oversized /api request bodies with 413', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    (loaded.value.manifest.surface.http as any).bodyLimit = { enabled: true, maxBytes: 8 };
+    running = await startService(loaded.value);
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'this body is too large' }),
+    });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+  });
+
+  it('rate limits /api requests with 429 and limit headers', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    (loaded.value.manifest.surface.http as any).rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    running = await startService(loaded.value);
+
+    const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
+    const second = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+    expect(second.headers.get('retry-after')).toBe('60');
+    expect(second.headers.get('x-ratelimit-limit')).toBe('1');
+    expect(second.headers.get('x-ratelimit-remaining')).toBe('0');
+  });
+
   it('wires a compiled query map through the default GraphIrQueryExecutor for gRPC', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));

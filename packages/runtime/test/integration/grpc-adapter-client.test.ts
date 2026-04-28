@@ -111,6 +111,28 @@ describe('GrpcAdapterClient integration', () => {
     expect((res as { ok: true; value: unknown }).value).toEqual({ message: 'echoed' });
   });
 
+  it('uses explicit TLS channel credentials instead of the insecure fallback', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rntme-grpc-test-creds-'));
+    const protoPath = join(dir, 'echo.proto');
+    writeFileSync(protoPath, ECHO_PROTO);
+    const registry = new ProtoRegistry();
+    registry.registerModule('echo', protoPath);
+    const credentials = grpc.credentials.createSsl();
+    const explicitClient = new GrpcAdapterClient({
+      modules: { echo: { address: `127.0.0.1:${port}`, protoPath, credentials } },
+      registry,
+    });
+
+    const res = await explicitClient.call('echo', 'Echo', { message: 'hi' }, {
+      idempotencyKey: 'ik-creds',
+      timeoutMs: 500,
+      retry: DEFAULT_RETRY,
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors[0]?.code).toBe('EXTERNAL_MODULE_UNAVAILABLE');
+  });
+
   it('maps Fail to EXTERNAL_MODULE_INTERNAL', async () => {
     const res = await client.call('echo', 'Fail', { message: 'x' }, {
       idempotencyKey: 'ik-2',

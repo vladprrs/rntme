@@ -131,6 +131,15 @@ export function validateManifest(
       http: {
         enabled: parsed.surface?.http?.enabled ?? true,
         port: parsed.surface?.http?.port ?? 3000,
+        bodyLimit: {
+          enabled: parsed.surface?.http?.bodyLimit?.enabled ?? true,
+          maxBytes: parsed.surface?.http?.bodyLimit?.maxBytes ?? 1_048_576,
+        },
+        rateLimit: {
+          enabled: parsed.surface?.http?.rateLimit?.enabled ?? true,
+          windowMs: parsed.surface?.http?.rateLimit?.windowMs ?? 60_000,
+          max: parsed.surface?.http?.rateLimit?.max ?? 600,
+        },
       },
       grpc:
         parsed.surface?.grpc !== undefined
@@ -229,7 +238,7 @@ export function applyEnvOverrides(
     value: {
       ...v,
       surface: {
-        http: { enabled: v.surface.http.enabled, port },
+        http: { ...v.surface.http, port },
         grpc: v.surface.grpc,
       },
       persistence,

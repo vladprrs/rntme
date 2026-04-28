@@ -10,6 +10,29 @@ export const StudioConfigSchema = z
 
 export type StudioConfig = z.infer<typeof StudioConfigSchema>;
 
+const HttpBodyLimitSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    maxBytes: z.number().int().min(1).optional(),
+  })
+  .strict();
+
+const HttpRateLimitSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    windowMs: z.number().int().min(1).optional(),
+    max: z.number().int().min(1).optional(),
+  })
+  .strict();
+
+const ModuleGrpcTlsSchema = z
+  .object({
+    rootCertPath: z.string().min(1).optional(),
+    privateKeyPath: z.string().min(1).optional(),
+    certChainPath: z.string().min(1).optional(),
+  })
+  .strict();
+
 export const ManifestSchema = z
   .object({
     rntmeVersion: z.string(),
@@ -23,6 +46,8 @@ export const ManifestSchema = z
           .object({
             enabled: z.boolean().optional(),
             port: z.number().int().min(0).max(65535).optional(),
+            bodyLimit: HttpBodyLimitSchema.optional(),
+            rateLimit: HttpRateLimitSchema.optional(),
           })
           .strict()
           .optional(),
@@ -84,7 +109,12 @@ export const ManifestSchema = z
         z
           .object({
             name: z.string().min(1),
-            grpc: z.object({ address: z.string().min(1) }).strict(),
+            grpc: z
+              .object({
+                address: z.string().min(1),
+                tls: ModuleGrpcTlsSchema.optional(),
+              })
+              .strict(),
             protoPath: z.string().min(1),
           })
           .strict(),
