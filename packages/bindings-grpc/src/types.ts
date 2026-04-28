@@ -1,4 +1,4 @@
-import type { Server } from '@grpc/grpc-js';
+import type { Server, ServerCredentials } from '@grpc/grpc-js';
 import type {
   CommandExecutor,
   QueryExecutor,
@@ -16,6 +16,7 @@ export type GrpcServerOptions = {
   queryExecutor: QueryExecutor;
   eventStore: EventStore;
   qsmDb: BetterSqlite3.Database;
+  serverCredentials?: ServerCredentials;
   now?: () => string;
   nextId?: () => string;
 };

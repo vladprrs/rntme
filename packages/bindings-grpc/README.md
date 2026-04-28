@@ -5,6 +5,7 @@ gRPC transport surface for `@rntme/bindings`. Emits a `.proto` file from a `Vali
 ## Public API
 
 ```ts
+import * as grpc from '@grpc/grpc-js';
 import { emitProto, createGrpcServer } from '@rntme/bindings-grpc';
 
 const protoSource = emitProto(validated, shapeRegistry, {
@@ -21,6 +22,10 @@ const handle = createGrpcServer({
   queryExecutor,
   eventStore,
   qsmDb,
+  // Optional. Defaults to grpc.ServerCredentials.createInsecure().
+  serverCredentials: grpc.ServerCredentials.createSsl(rootCerts, [
+    { private_key: serverKey, cert_chain: serverCert },
+  ]),
 });
 
 const port = await handle.listen(50051);
@@ -58,7 +63,6 @@ await handle.stop();
 - `pre[]` middleware (plan 3).
 - Extended `command` binding with `method` / `inputFrom` / `response` (plan 4).
 - `grpc.health.v1.Health` proto surface.
-- TLS/mTLS; insecure credentials only.
 - Streaming RPCs.
 
 ## Limitations (MVP)

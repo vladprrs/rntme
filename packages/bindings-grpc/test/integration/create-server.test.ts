@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import BetterSqlite3 from 'better-sqlite3';
@@ -86,6 +86,40 @@ describe('createGrpcServer (integration)', () => {
     expect(response.aggregate_id).toBe('order-42');
     expect(Number(response.version)).toBe(1);
   });
+
+  it('passes supplied server credentials to bindAsync', async () => {
+    const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
+    const qsmDb = new BetterSqlite3(':memory:');
+    const credentials = new TestServerCredentials();
+
+    handle = createGrpcServer({
+      validated: minimalValidated,
+      shapes: minimalShapeRegistry,
+      packageName: 'rntme.minimal.v1',
+      serviceName: 'MinimalService',
+      commandExecutor: {
+        async execute() {
+          return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: 'not used' } };
+        },
+      },
+      queryExecutor: {
+        async execute() {
+          return { ok: false, error: { code: 'QUERY_NOT_FOUND', message: 'not used' } };
+        },
+      },
+      eventStore,
+      qsmDb,
+      serverCredentials: credentials,
+    });
+
+    const bindAsync = vi.spyOn(handle.server, 'bindAsync').mockImplementation((address, serverCredentials, callback) => {
+      callback(null, 50051);
+    });
+
+    await expect(handle.listen(0, '127.0.0.1')).resolves.toBe(50051);
+
+    expect(bindAsync).toHaveBeenCalledWith('127.0.0.1:0', credentials, expect.any(Function));
+  });
 });
 
 function loadProto(src: string, serviceName: string): { root: protobuf.Root; service: protobuf.Service } {
@@ -109,4 +143,14 @@ function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.Serv
     };
   }
   return def as grpc.ServiceDefinition;
+}
+
+class TestServerCredentials extends grpc.ServerCredentials {
+  constructor() {
+    super(null);
+  }
+
+  _equals(other: grpc.ServerCredentials): boolean {
+    return other === this;
+  }
 }
