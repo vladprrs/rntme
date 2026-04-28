@@ -141,8 +141,10 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 | Value | Meaning |
 | --- | --- |
 | `'applied'` | Row inserted or updated; `info.changes > 0`. |
-| `'skipped-no-mirror'` | `eventType` not in plan, OR `envelope.aggregateType` does not match handler's `aggregateType`. |
+| `'skipped-no-handler'` | No handler for this `eventType`, OR `envelope.aggregateType` does not match the handler's `aggregateType`. |
 | `'skipped-older-version'` | Pre-check found `current.version >= envelope.version`, OR the conditional `WHERE last_event_version <` matched zero rows. |
+| `'skipped-seen-event'` | Derived-projection idempotency found the same `(eventId, projectionName)` already applied. |
+| `'skipped-filter'` | Derived-projection filter predicate evaluated false for this envelope. |
 
 ### Compile error codes (`ApplyCompileErrorCode`)
 
@@ -168,7 +170,6 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 
 ## Invariants & gotchas
 
-- **`getDbHandle()` is exposed for db-studio mount only.** Writes through it bypass projection-apply idempotency and ordering — treat as read-only. Introduced for `@rntme/db-studio`.
 - **DDL bootstrap rewrites to `IF NOT EXISTS`.** `bootstrapProjections` regex-rewrites the leading `CREATE TABLE` / `CREATE INDEX` from `generateProjectionDdl` so that re-running on a populated DB is a no-op (commit `ba0ef97` — fix(projection-consumer): align DDL bootstrap with plan; covered by `test/unit/bootstrap.test.ts` "idempotent twice"). Adapters that hand-craft DDL outside `bootstrapProjections` skip this rewrite and break re-bootstrap.
 - **Three-layer idempotency (spec §6.5) — all three layers are required.**
   1. `selectCurrentVersion` pre-check — skips before issuing the mutation when `current >= envelope.version`.
@@ -184,7 +185,7 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 - **`stop()` is idempotent.** It calls `kafka.stop?.()` and awaits the in-flight loop promise. A second `stop()` returns immediately. `start()` is single-flight: a second `start()` while the loop is running is a no-op.
 - **Empty batches are skipped explicitly** (`if (batch.messages.length === 0) continue;`). The in-memory adapter never yields an empty batch (it sleeps `pollIntervalMs` instead), but real adapters may.
 - **`payload.after` extraction tolerates either shape.** `getAfter` accepts `{ before, after }` envelopes and also legacy flat-record payloads (drops `before`, takes the rest). Non-object payloads resolve to `{}`.
-- **Unknown-aggregate envelopes commit but do not write.** When `aggregateType` has no mirror (e.g. `User`), `applyEvent` returns `'skipped-no-mirror'`. The batch still commits the offset (`test/unit/consumer-loop.test.ts` "events for aggregates without mirror").
+- **Unknown-aggregate envelopes commit but do not write.** When `aggregateType` has no handler (e.g. `User`), `applyEvent` returns `'skipped-no-handler'`. The batch still commits the offset (`test/unit/consumer-loop.test.ts` "events for aggregates without mirror").
 - **Identifier quoting is internal.** All emitted SQL passes table/column names through `q()` (double-quote with `"` escaping). Hand-built SQL in adapters must match or `applyEvent`'s pre-check `SELECT` will diverge from the compiled handler's UPSERT.
 - **SQLite-only.** No dialect abstraction; uses `BEGIN IMMEDIATE`, `ON CONFLICT ... DO UPDATE`, and `excluded.<col>` syntax. Future scale-out target is Turso (SQLite-compatible Rust).
 - **`compileApplyPlan` is pure.** It does not touch the DB. The two-stage shape (compile once, apply per envelope) lets production wiring move `compileApplyPlan` to build time and ship the serialised plan; runtime needs only `applyEvent` + the `db`. Tests rely on this purity to set up plans without a transaction.
@@ -192,7 +193,7 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 - **`generated: 'createdAt' | 'updatedAt'` both bind to `envelope.occurredAt`.** Updates additionally re-emit `updatedAt` columns in `setParts` on every event (`compileUpdate` loop over `entity.fields` checking `field.generated === 'updatedAt'`). Inserts set both stamps from the same `occurredAt`.
 - **`actor` is optional.** `bindValues` resolves `generatedActor` to `envelope.actor?.id ?? null`; `actor: null` envelopes apply without error (`test/unit/consumer-loop.test.ts` "events for aggregates without mirror" uses `actor: null`).
 - **`applied_at` is generated at bind time, not compile time.** `bindValues` captures `new Date().toISOString()` once per call and reuses it for every `{ kind: 'appliedAt' }` binding in the same envelope. Two apply-calls for the same envelope (a replay) will write different `applied_at` values — but the `last_event_version` guard prevents the second write from taking effect.
-- **`handler.aggregateType` is cross-checked against the envelope.** `applyEvent` returns `'skipped-no-mirror'` if `handler.aggregateType !== envelope.aggregateType`, even when the `eventType` is in the plan. This protects against event-type collisions across aggregates.
+- **`handler.aggregateType` is cross-checked against the envelope.** `applyEvent` returns `'skipped-no-handler'` if `handler.aggregateType !== envelope.aggregateType`, even when the `eventType` is in the plan. This protects against event-type collisions across aggregates.
 - **Consumer `run` is launched from `start()` without awaiting.** `start()` assigns `loop = run()` and returns synchronously. `stop()` awaits the stored promise. Callers that need the loop-end signal must `await stop()` (or handle rejection on the returned `ProjectionConsumer` via the `onError` callback).
 
 ## Out of scope / known limits

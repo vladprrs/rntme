@@ -69,4 +69,55 @@ describe('createProjectionConsumer — rollback on failure', () => {
     expect(count.c).toBe(0);
     expect(kafka.committed).toEqual([]);
   });
+
+  it('preserves the apply error when ROLLBACK also fails', async () => {
+    db = new Database(':memory:');
+    const { plan, ddls } = setup();
+    bootstrapProjections(db, ddls);
+
+    const rollbackError = new Error('rollback failed');
+    const dbWithFailingRollback = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop !== 'prepare') return Reflect.get(target, prop, receiver);
+        return (sql: string) => {
+          const statement = target.prepare(sql);
+          if (sql !== 'ROLLBACK') return statement;
+          return new Proxy(statement, {
+            get(statementTarget, statementProp, statementReceiver) {
+              if (statementProp !== 'run') {
+                return Reflect.get(statementTarget, statementProp, statementReceiver);
+              }
+              return (...args: unknown[]) => {
+                statementTarget.run(...args);
+                throw rollbackError;
+              };
+            },
+          });
+        };
+      },
+    }) as Database.Database;
+
+    const kafka = createInMemoryKafkaConsumer();
+    const errors: unknown[] = [];
+    const consumer = createProjectionConsumer({
+      kafka, plan, db: dbWithFailingRollback,
+      onError: (err) => errors.push(err),
+    });
+    consumer.start();
+
+    kafka.produce(makeEnvelope({
+      id: 'bad', eventType: 'IssueReport', rntAggregateId: '2', rntVersion: 1,
+      data: { before: null, after: { status: 'draft' } },
+    }));
+
+    const deadline = Date.now() + 2000;
+    while (errors.length === 0 && Date.now() < deadline) await wait(5);
+    await consumer.stop();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).not.toBe(rollbackError);
+    expect(String(errors[0])).toContain('NOT NULL');
+    expect((errors[0] as { rollbackError?: unknown }).rollbackError).toBe(rollbackError);
+    expect(kafka.committed).toEqual([]);
+  });
 });

@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import type { EventEnvelope } from '../types/envelope.js';
@@ -20,27 +21,49 @@ export type SqliteEventStoreOptions = Readonly<{
   busyTimeoutMs?: number;
 }>;
 
+const liveSqliteWriterKeys = new Set<string>();
+
 export class SqliteEventStore implements EventStore {
   private readonly db: BetterSqliteDatabase;
   private readonly serviceName: string;
+  private readonly writerKey: string | null;
+  private closed = false;
 
   constructor(options: SqliteEventStoreOptions) {
     if (!options.serviceName || options.serviceName.length === 0) {
       throw new Error('SqliteEventStore: serviceName is required');
     }
     this.serviceName = options.serviceName;
-    this.db = new Database(options.filename);
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma(`busy_timeout = ${options.busyTimeoutMs ?? 5000}`);
-    this.db.pragma('foreign_keys = ON');
-    if (options.applySchema !== false) {
-      applyEventStoreSchema(this.db);
+    this.writerKey = sqliteWriterKey(options.filename);
+    registerSqliteWriter(this.writerKey);
+
+    let db: BetterSqliteDatabase | null = null;
+    try {
+      db = new Database(options.filename);
+      db.pragma('journal_mode = WAL');
+      db.pragma(`busy_timeout = ${options.busyTimeoutMs ?? 5000}`);
+      db.pragma('foreign_keys = ON');
+      if (options.applySchema !== false) {
+        applyEventStoreSchema(db);
+      }
+      assertSchemaD9Compatible(db);
+      ensureServiceName(db, this.serviceName);
+      this.db = db;
+    } catch (err) {
+      db?.close();
+      unregisterSqliteWriter(this.writerKey);
+      throw err;
     }
-    assertSchemaD9Compatible(this.db);
   }
 
   close(): void {
-    this.db.close();
+    if (this.closed) return;
+    this.closed = true;
+    try {
+      this.db.close();
+    } finally {
+      unregisterSqliteWriter(this.writerKey);
+    }
   }
 
   /** Test / advanced use only: direct handle for fixtures or custom queries. */
@@ -126,6 +149,7 @@ export class SqliteEventStore implements EventStore {
   }
 
   appendRaw(envelopes: readonly EventEnvelope[], opts?: AppendRawOptions): void {
+    const selectEventId = this.db.prepare('SELECT 1 FROM event_log WHERE event_id = ?');
     const insert = this.db.prepare(`
       INSERT INTO event_log
         (subject, aggregate_type, aggregate_id, version, event_type, event_id,
@@ -139,6 +163,9 @@ export class SqliteEventStore implements EventStore {
 
     const run = this.db.transaction((items: readonly EventEnvelope[]): void => {
       for (const e of items) {
+        if (opts?.ignoreDuplicates && selectEventId.get(e.id)) {
+          continue;
+        }
         try {
           insert.run({
             subject: e.subject,
@@ -306,4 +333,65 @@ export function mapSqliteError(
     }
   }
   return err;
+}
+
+function sqliteWriterKey(filename: string): string | null {
+  if (filename === ':memory:' || filename.length === 0) return null;
+  return resolve(filename);
+}
+
+function registerSqliteWriter(writerKey: string | null): void {
+  if (writerKey === null) return;
+  if (liveSqliteWriterKeys.has(writerKey)) {
+    throw new Error(
+      `EVENT_STORE_SQLITE_SINGLE_WRITER: SqliteEventStore already has a live writer for "${writerKey}" in this process`,
+    );
+  }
+  liveSqliteWriterKeys.add(writerKey);
+}
+
+function unregisterSqliteWriter(writerKey: string | null): void {
+  if (writerKey === null) return;
+  liveSqliteWriterKeys.delete(writerKey);
+}
+
+function ensureServiceName(db: BetterSqliteDatabase, serviceName: string): void {
+  const table = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'event_store_metadata'",
+    )
+    .get() as { name: string } | undefined;
+  if (!table) {
+    throw new Error(
+      'EVENT_STORE_SCHEMA_INCOMPATIBLE: event_store_metadata table is missing; run applyEventStoreSchema before opening SqliteEventStore',
+    );
+  }
+
+  const row = db
+    .prepare("SELECT value FROM event_store_metadata WHERE key = 'service_name'")
+    .get() as { value: string } | undefined;
+
+  if (!row) {
+    const existingEvents = db
+      .prepare('SELECT 1 FROM event_log LIMIT 1')
+      .get() as { 1: number } | undefined;
+    if (existingEvents) {
+      throw new Error(
+        'EVENT_STORE_SERVICE_NAME_UNINITIALIZED: event log contains events but has no persisted serviceName metadata',
+      );
+    }
+    db.prepare(
+      `
+      INSERT INTO event_store_metadata (key, value, updated_at)
+      VALUES ('service_name', ?, ?)
+    `,
+    ).run(serviceName, new Date().toISOString());
+    return;
+  }
+
+  if (row.value !== serviceName) {
+    throw new Error(
+      `EVENT_STORE_SERVICE_NAME_MISMATCH: database initialized for serviceName="${row.value}", got "${serviceName}"`,
+    );
+  }
 }

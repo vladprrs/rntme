@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS delivery_tracking (
   delivered_at      TEXT,
   dlq_at            TEXT
 );
+
+CREATE TABLE IF NOT EXISTS event_store_metadata (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
 `;
 
 export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
@@ -56,13 +62,15 @@ export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
  * a no-op (applyEventStoreSchema will create it).
  */
 export function assertSchemaD9Compatible(db: BetterSqliteDatabase): void {
-  const cols = db.prepare("PRAGMA table_info(event_log)").all() as { name: string }[];
+  const cols = db.prepare('PRAGMA table_info(event_log)').all() as {
+    name: string;
+  }[];
   if (cols.length === 0) return;
   const names = new Set(cols.map((c) => c.name));
   if (!names.has('correlation_id')) {
     throw new Error(
       `EVENT_STORE_SCHEMA_INCOMPATIBLE: event_log missing column 'correlation_id'. ` +
-      `This build is post-D9; drop the sqlite file and re-run with a fresh database.`,
+        `This build is post-D9; drop the sqlite file and re-run with a fresh database.`,
     );
   }
 }

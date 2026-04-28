@@ -119,4 +119,27 @@ describe('startSeenEventsRetention', () => {
 
     dispose();
   });
+
+  it.each(['abc', 'NaN', 'Infinity', '1.5', '0', '-1'])(
+    'rejects invalid RNTME_SEEN_EVENTS_RETENTION_DAYS=%s',
+    (value) => {
+      process.env.RNTME_SEEN_EVENTS_RETENTION_DAYS = value;
+
+      expect(() => startSeenEventsRetention(db, { intervalMs: 10_000 })).toThrow(
+        /RNTME_SEEN_EVENTS_RETENTION_DAYS/,
+      );
+    },
+  );
+
+  it.each([Number.NaN, Infinity, 1.5, 0, -1])(
+    'rejects invalid opts.retentionDays=%s',
+    (retentionDays) => {
+      expect(() =>
+        startSeenEventsRetention(db, {
+          retentionDays,
+          intervalMs: 10_000,
+        }),
+      ).toThrow(/retentionDays/);
+    },
+  );
 });

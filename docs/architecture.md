@@ -678,7 +678,7 @@ flowchart LR
 - **Batch atomicity.** All events in a Kafka batch commit together under `BEGIN IMMEDIATE`; a thrown apply rolls the whole batch back and leaves offsets uncommitted, so the broker re-delivers.
 - **Single-column key only.** Composite keys rejected at compile; deferred to tier 2.
 - **Idempotency columns are appended in a fixed order.** Reordering breaks positional binding.
-- **Unknown aggregate ⇒ commit-but-skip.** Envelopes targeting an aggregate without a mirror return `skipped-no-mirror`; the batch still commits its offset.
+- **Unknown aggregate ⇒ commit-but-skip.** Envelopes targeting an aggregate without a matching handler return `skipped-no-handler`; the batch still commits its offset.
 - **Type coercion is centralised.** `bindValues` and the pre-check `SELECT` coerce aggregate-id types identically; divergence breaks the version guard for integer keys.
 - **No DLQ here.** A poison message is the relay's or the Kafka adapter's concern; the consumer only exposes `onError` to swap termination for continue.
 - **State-column literal only on creation with a state machine.** Otherwise the state column comes from `payload.after`.

@@ -41,6 +41,17 @@ let db: Database.Database | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('createProjectionConsumer — batch loop', () => {
+  it('does not expose a raw database handle on the public consumer API', () => {
+    db = new Database(':memory:');
+    const { plan, ddls } = setup();
+    bootstrapProjections(db, ddls);
+
+    const kafka = createInMemoryKafkaConsumer();
+    const consumer = createProjectionConsumer({ kafka, plan, db });
+
+    expect('getDbHandle' in consumer).toBe(false);
+  });
+
   it('applies every message in the batch in one SQLite transaction and commits offsets after DB COMMIT', async () => {
     db = new Database(':memory:');
     const { plan, ddls } = setup();

@@ -18,6 +18,26 @@ export type SeenEventsRetentionOpts = {
   intervalMs?: number;
 };
 
+function assertValidRetentionDays(value: number, label: string): number {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+    throw new Error(
+      `${label} must be a positive integer number of days; received ${String(value)}`,
+    );
+  }
+  return value;
+}
+
+function resolveRetentionDays(opts?: SeenEventsRetentionOpts): number {
+  if (opts?.retentionDays !== undefined) {
+    return assertValidRetentionDays(opts.retentionDays, 'retentionDays');
+  }
+
+  const raw = process.env.RNTME_SEEN_EVENTS_RETENTION_DAYS;
+  if (raw === undefined) return 30;
+
+  return assertValidRetentionDays(Number(raw), 'RNTME_SEEN_EVENTS_RETENTION_DAYS');
+}
+
 /**
  * Start a periodic DELETE sweep on the `seen_events` table. Runs one sweep
  * synchronously at start, then schedules recurring sweeps at `intervalMs`.
@@ -31,9 +51,7 @@ export function startSeenEventsRetention(
   db: Database.Database,
   opts?: SeenEventsRetentionOpts,
 ): () => void {
-  const days =
-    opts?.retentionDays ??
-    Number(process.env.RNTME_SEEN_EVENTS_RETENTION_DAYS ?? 30);
+  const days = resolveRetentionDays(opts);
   const intervalMs = opts?.intervalMs ?? 60 * 60 * 1000;
   const stmt = db.prepare('DELETE FROM seen_events WHERE applied_at < ?');
   const tick = (): void => {

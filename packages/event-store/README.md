@@ -15,9 +15,9 @@ src/
   index.ts                   (entry) Public API surface — re-exports types, store, relay, kafka, wire codec.
   store/
     interface.ts             (entry) EventStore interface, ReadFromOptions, EventRecord, AppendRawOptions, DeliveryAttemptRow.
-    sqlite.ts                (entry) SqliteEventStore class + mapSqliteError; opens better-sqlite3, runs DDL, asserts D9 schema, implements append/read/cursor/delivery-tracking/raw.
-    schema.ts                (entry) applyEventStoreSchema(db) + assertSchemaD9Compatible(db); CREATE TABLE event_log / publish_cursor / delivery_tracking + indexes.
-    row-mapper.ts            (entry) rowToEnvelope(row, serviceName) + EventLogRow type; reverses a sqlite row to a CloudEvents envelope (derives source / type / dataSchema at read time).
+    sqlite.ts                (entry) SqliteEventStore class + mapSqliteError; opens better-sqlite3, enforces one live writer per DB file in-process, pins DB serviceName metadata, runs DDL, asserts D9 schema, implements append/read/cursor/delivery-tracking/raw.
+    schema.ts                (entry) applyEventStoreSchema(db) + assertSchemaD9Compatible(db); CREATE TABLE event_log / publish_cursor / delivery_tracking / event_store_metadata + indexes.
+    row-mapper.ts            (entry) rowToEnvelope(row, serviceName) + EventLogRow type; reverses a sqlite row to a CloudEvents envelope (derives source / type / dataSchema from the DB-pinned serviceName at read time).
   relay/
     loop.ts                  (entry) createRelay({ store, kafka, cursorId, serviceName, now, nextId, ... }) — polling loop, bounded primary retry, DLQ emit (wrapper event), cursor advance.
     topic.ts                 (entry) defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregate>'.
@@ -29,7 +29,7 @@ src/
     wire-errors.ts           (entry) CloudEventDecodeError (codes: EVENT_STORE_WIRE_DECODE_MISSING_ATTR / _UNKNOWN_SPEC / _INVALID_INT).
   types/
     index.ts                 (internal) Barrel re-export of the four type modules.
-    actor.ts                 (entry) ActorRef union (user | system | service); local copy, must match @rntme/pdm.
+    actor.ts                 (entry) ActorRef union (user | system | service) + ACTOR_REF_KINDS runtime guard; local copy, must match @rntme/pdm.
     envelope.ts              (entry) EventEnvelope<TPayload> — CloudEvents 1.0 camelCase shape (see spec §3.1).
     append.ts                (entry) AppendEventInput, AppendRequest, AppendedEvent, AppendResult.
     errors.ts                (entry) EventStoreError, ConcurrencyConflict, DuplicateEventId, EventStoreErrorCode.
@@ -38,15 +38,11 @@ src/
 ## Quick start
 
 ```ts
-import {
-  SqliteEventStore,
-  createInMemoryKafkaProducer,
-  createRelay,
-} from '@rntme/event-store';
+import { SqliteEventStore, createInMemoryKafkaProducer, createRelay } from '@rntme/event-store';
 
 const store = new SqliteEventStore({
   filename: './events.db',
-  serviceName: 'issue-tracker',   // required; flows into CE source / type / dataSchema / topic.
+  serviceName: 'issue-tracker', // required; pinned into DB metadata on first open.
 });
 const kafka = createInMemoryKafkaProducer(); // swap for kafkajs / confluent-kafka in prod
 
@@ -91,69 +87,80 @@ relay.start();
 
 ### Store
 
-| Export | Purpose |
-| ------ | ------- |
-| `SqliteEventStore({ filename, serviceName, applySchema?, busyTimeoutMs? })` | Concrete `EventStore`. Opens better-sqlite3, sets `journal_mode=WAL`, `busy_timeout`, applies schema (unless `applySchema: false`), then calls `assertSchemaD9Compatible` which panics on pre-D9 event logs. `serviceName` flows into CE `source` / `type` / `dataSchema` at row-map time and into topic naming. |
-| `SqliteEventStore#appendEvents(requests)` | Atomic multi-subject append in one immediate transaction. Throws `ConcurrencyConflict` / `DuplicateEventId`. |
-| `SqliteEventStore#appendRaw(envelopes, opts?)` | Pre-numbered append for seed / replay tooling — caller supplies `rntVersion`. `opts.ignoreDuplicates` skips `UNIQUE(event_id)` collisions. |
-| `SqliteEventStore#readStream(subject)` | Replay one subject in `version ASC` order. Row-mapper re-derives `source` / `type` / `dataSchema` from `serviceName` + aggregate metadata. |
-| `SqliteEventStore#readFrom({ afterId, limit })` | Global `id`-ordered tail; envelopes only. |
-| `SqliteEventStore#readRecordsFrom({ afterId, limit })` | Same tail with `{ id, envelope }` pairs (relay uses this for cursor advance). |
-| `SqliteEventStore#readCursor(relayId)` | Returns persisted `last_event_id` for the named relay (`0` if unset). |
-| `SqliteEventStore#writeCursor(relayId, lastEventId)` | Upsert; throws if `lastEventId < existing` (monotonic guard). |
-| `SqliteEventStore#readDeliveryAttempt` / `recordDeliveryAttempt` / `updateLastError` / `markDelivered` / `markDlq` | `delivery_tracking` ops the relay uses for bounded-retry + DLQ. See Invariants. |
-| `SqliteEventStore#close()` | Close the underlying SQLite handle. |
-| `SqliteEventStore#rawDb()` | Test/advanced escape hatch — direct `better-sqlite3.Database`. |
-| `applyEventStoreSchema(db)` | Apply `event_log` + `publish_cursor` + `delivery_tracking` DDL to an externally owned database. Idempotent. |
-| `assertSchemaD9Compatible(db)` | Panics with `EVENT_STORE_SCHEMA_INCOMPATIBLE` if `event_log` exists but lacks the `correlation_id` column (the D9 sentinel, per spec §8 / §10). No-op on a fresh database. |
-| `mapSqliteError(err, subject, expectedVersion, attemptedVersion, eventId?)` | Translate raw SQLite UNIQUE errors into `ConcurrencyConflict` / `DuplicateEventId`. Pass-through for unrelated errors. |
-| `rowToEnvelope(row, serviceName)` | Map an `EventLogRow` to a typed `EventEnvelope`; derives CE `source`, `type`, `dataSchema` from the row + service name. |
+| Export                                                                                                             | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SqliteEventStore({ filename, serviceName, applySchema?, busyTimeoutMs? })`                                        | Concrete `EventStore`. Opens better-sqlite3, sets `journal_mode=WAL`, `busy_timeout`, applies schema (unless `applySchema: false`), calls `assertSchemaD9Compatible`, then pins/checks `event_store_metadata.service_name`. Reopening an initialized DB with a different `serviceName` throws `EVENT_STORE_SERVICE_NAME_MISMATCH`; an event log with rows but no service-name metadata throws `EVENT_STORE_SERVICE_NAME_UNINITIALIZED`. A second live `SqliteEventStore` for the same file in this process throws `EVENT_STORE_SQLITE_SINGLE_WRITER`; `:memory:` stores are exempt. |
+| `SqliteEventStore#appendEvents(requests)`                                                                          | Atomic multi-subject append in one immediate transaction. Throws `ConcurrencyConflict` / `DuplicateEventId`.                                                                                                                                                                                                                                                                                                                                                                   |
+| `SqliteEventStore#appendRaw(envelopes, opts?)`                                                                     | Pre-numbered append for seed / replay tooling — caller supplies `rntVersion`. `opts.ignoreDuplicates` pre-skips rows whose `event_id` already exists, making raw replay idempotent by event ID while still surfacing `(subject, version)` conflicts for different event IDs.                                                                                                                                                                                                   |
+| `SqliteEventStore#readStream(subject)`                                                                             | Replay one subject in `version ASC` order. Row-mapper derives `source` / `type` / `dataSchema` from the DB-pinned `serviceName` + aggregate metadata.                                                                                                                                                                                                                                                                                                                          |
+| `SqliteEventStore#readFrom({ afterId, limit })`                                                                    | Global `id`-ordered tail; envelopes only.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `SqliteEventStore#readRecordsFrom({ afterId, limit })`                                                             | Same tail with `{ id, envelope }` pairs (relay uses this for cursor advance).                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `SqliteEventStore#readCursor(relayId)`                                                                             | Returns persisted `last_event_id` for the named relay (`0` if unset).                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `SqliteEventStore#writeCursor(relayId, lastEventId)`                                                               | Upsert; throws if `lastEventId < existing` (monotonic guard).                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `SqliteEventStore#readDeliveryAttempt` / `recordDeliveryAttempt` / `updateLastError` / `markDelivered` / `markDlq` | `delivery_tracking` ops the relay uses for bounded-retry + DLQ. See Invariants.                                                                                                                                                                                                                                                                                                                                                                                                |
+| `SqliteEventStore#close()`                                                                                         | Close the underlying SQLite handle.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `SqliteEventStore#rawDb()`                                                                                         | Test/advanced escape hatch — direct `better-sqlite3.Database`.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `applyEventStoreSchema(db)`                                                                                        | Apply `event_log` + `publish_cursor` + `delivery_tracking` + `event_store_metadata` DDL to an externally owned database. Idempotent.                                                                                                                                                                                                                                                                                                                                           |
+| `assertSchemaD9Compatible(db)`                                                                                     | Panics with `EVENT_STORE_SCHEMA_INCOMPATIBLE` if `event_log` exists but lacks the `correlation_id` column (the D9 sentinel, per spec §8 / §10). No-op on a fresh database.                                                                                                                                                                                                                                                                                                     |
+| `mapSqliteError(err, subject, expectedVersion, attemptedVersion, eventId?)`                                        | Translate raw SQLite UNIQUE errors into `ConcurrencyConflict` / `DuplicateEventId`. Pass-through for unrelated errors.                                                                                                                                                                                                                                                                                                                                                         |
+| `rowToEnvelope(row, serviceName)`                                                                                  | Map an `EventLogRow` to a typed `EventEnvelope`; derives CE `source`, `type`, `dataSchema` from the row + service name.                                                                                                                                                                                                                                                                                                                                                        |
 
 ### Relay
 
-| Export | Purpose |
-| ------ | ------- |
-| `createRelay(opts)` | Polling loop. Reads `event_log` after the persisted cursor, encodes each envelope via `toCloudEventWire`, sends through `KafkaProducer.send`, retries primary-topic failures with exponential backoff (10 ms → `maxBackoffMs`) up to `maxAttempts`, then emits a DLQ wrapper event and advances the cursor. Requires `serviceName`, `now: () => string`, and `nextId: () => string`. |
-| `defaultTopicOf(serviceName, aggregateType)` | `rntme.${serviceName.toLowerCase()}.${aggregateType.toLowerCase()}`, e.g. `rntme.issue-tracker.issue`. No version suffix — versioning lives on the event (spec §5.4). Override via `RelayOptions.topicOf`. |
-| `buildDlqEnvelope({ serviceName, original, attempts, firstAttemptAt, lastError, now, nextId })` | Returns a fresh `EventEnvelope<DlqPayload>` wrapping the failed event. See "DLQ" below. |
-| `Relay#start()` / `Relay#stop()` | `start` is fire-and-forget; `stop()` resolves once the in-flight loop exits. |
+| Export                                                                                          | Purpose                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createRelay(opts)`                                                                             | Polling loop. Reads `event_log` after the persisted cursor, encodes each envelope via `toCloudEventWire`, sends through `KafkaProducer.send`, retries primary-topic failures with exponential backoff (10 ms → `maxBackoffMs`) up to `maxAttempts`, then emits a DLQ wrapper event and advances the cursor. Requires `serviceName`, `now: () => string`, and `nextId: () => string`. |
+| `defaultTopicOf(serviceName, aggregateType)`                                                    | `rntme.${serviceName.toLowerCase()}.${aggregateType.toLowerCase()}`, e.g. `rntme.issue-tracker.issue`. No version suffix — versioning lives on the event (spec §5.4). Override via `RelayOptions.topicOf`.                                                                                                                                                                           |
+| `buildDlqEnvelope({ serviceName, original, attempts, firstAttemptAt, lastError, now, nextId })` | Returns a fresh `EventEnvelope<DlqPayload>` wrapping the failed event. See "DLQ" below.                                                                                                                                                                                                                                                                                              |
+| `Relay#start()` / `Relay#stop()`                                                                | `start` is fire-and-forget; `stop()` resolves once the in-flight loop exits.                                                                                                                                                                                                                                                                                                         |
 
 `RelayOptions` defaults: `pollIntervalMs = 100`, `batchSize = 500`, `maxBackoffMs = 1000`, `maxAttempts = 10`, `topicOf = defaultTopicOf`, `onSendError = console.error`, `onDlqError = console.error`.
 
 ### Kafka / wire
 
-| Export | Purpose |
-| ------ | ------- |
-| `KafkaProducer` | One-method interface: `send({ topic, key, headers, value }) => Promise<void>`. Implement against kafkajs / confluent-kafka in prod. |
-| `KafkaMessage` | `{ topic, key, headers: Record<string,string>, value: string }`. Headers are the CE binary-mode attributes (lowercase `ce_*`); `value` is `JSON.stringify(envelope.data)`; `key` is `envelope.subject` (partition affinity per aggregate). |
-| `toCloudEventWire(env, topic)` | Encode a CE envelope into a `KafkaMessage` in binary content mode (`content-type: application/json`, `ce_specversion: 1.0`, and one header per CE attribute; optional attrs `ce_causationid`, `ce_commandid`, `ce_rntactorkind`, `ce_rntactorid`, `ce_traceparent` are omitted when null). |
-| `fromCloudEventWire(msg)` | Decode a `KafkaMessage` back to an `EventEnvelope`. Throws `CloudEventDecodeError` on missing required attrs / unknown `ce_specversion` / non-integer `ce_rntversion` or `ce_rntschemaversion`. |
-| `createInMemoryKafkaProducer()` | Test double. Exposes `sent: KafkaMessage[]`, `failNext(n, err)` to simulate transient outages, `reset()` between cases. |
+| Export                          | Purpose                                                                                                                                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `KafkaProducer`                 | One-method interface: `send({ topic, key, headers, value }) => Promise<void>`. Implement against kafkajs / confluent-kafka in prod.                                                                                                                                                        |
+| `KafkaMessage`                  | `{ topic, key, headers: Record<string,string>, value: string }`. Headers are the CE binary-mode attributes (lowercase `ce_*`); `value` is `JSON.stringify(envelope.data)`; `key` is `envelope.subject` (partition affinity per aggregate).                                                 |
+| `toCloudEventWire(env, topic)`  | Encode a CE envelope into a `KafkaMessage` in binary content mode (`content-type: application/json`, `ce_specversion: 1.0`, and one header per CE attribute; optional attrs `ce_causationid`, `ce_commandid`, `ce_rntactorkind`, `ce_rntactorid`, `ce_traceparent` are omitted when null). |
+| `fromCloudEventWire(msg)`       | Decode a `KafkaMessage` back to an `EventEnvelope`. Throws `CloudEventDecodeError` on missing required attrs / unknown `ce_specversion` / non-integer `ce_rntversion` or `ce_rntschemaversion`.                                                                                            |
+| `createInMemoryKafkaProducer()` | Test double. Exposes `sent: KafkaMessage[]`, `failNext(n, err)` to simulate transient outages, `reset()` between cases.                                                                                                                                                                    |
 
 ### Errors
 
-| Code | Class | Thrown when |
-| ---- | ----- | ----------- |
-| `CONCURRENCY_CONFLICT` | `ConcurrencyConflict(subject, expectedVersion, actualVersion)` | `expectedVersion` mismatches current `MAX(version)` for the subject, OR `UNIQUE(subject, version)` violated. |
-| `DUPLICATE_EVENT_ID` | `DuplicateEventId(eventId)` | `UNIQUE(event_id)` violated on append. |
-| `STORAGE_FAILURE` | `EventStoreError` (base) | Reserved for non-mapped storage failures; raw errors otherwise pass through. |
-| `EVENT_STORE_WIRE_DECODE_MISSING_ATTR` | `CloudEventDecodeError` | `fromCloudEventWire` saw a message missing a required `ce_*` header. |
-| `EVENT_STORE_WIRE_DECODE_UNKNOWN_SPEC` | `CloudEventDecodeError` | `ce_specversion` header is not `1.0`. |
-| `EVENT_STORE_WIRE_DECODE_INVALID_INT` | `CloudEventDecodeError` | `ce_rntversion` or `ce_rntschemaversion` header is not a base-10 integer. |
-| `EVENT_STORE_WIRE_DECODE_INVALID_ACTORKIND` | `CloudEventDecodeError` | `ce_rntactorkind` header is present but not one of `user`/`system`/`service`. |
-| `EVENT_STORE_SCHEMA_INCOMPATIBLE` | `Error` (plain, message-prefix code) | `assertSchemaD9Compatible` found a pre-D9 `event_log` (missing the `correlation_id` sentinel column). |
-| `EVENT_STORE_ROW_INVALID_ACTORKIND` | `Error` (plain, message-prefix code) | `rowToEnvelope` saw an `actor_kind` value outside `user`/`system`/`service` (DB corruption — write-time validation forbids this). |
+| Code                                        | Class                                                          | Thrown when                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `CONCURRENCY_CONFLICT`                      | `ConcurrencyConflict(subject, expectedVersion, actualVersion)` | `expectedVersion` mismatches current `MAX(version)` for the subject, OR `UNIQUE(subject, version)` violated.                      |
+| `DUPLICATE_EVENT_ID`                        | `DuplicateEventId(eventId)`                                    | `UNIQUE(event_id)` violated on append.                                                                                            |
+| `STORAGE_FAILURE`                           | `EventStoreError` (base)                                       | Reserved for non-mapped storage failures; raw errors otherwise pass through.                                                      |
+| `EVENT_STORE_WIRE_DECODE_MISSING_ATTR`      | `CloudEventDecodeError`                                        | `fromCloudEventWire` saw a message missing a required `ce_*` header.                                                              |
+| `EVENT_STORE_WIRE_DECODE_UNKNOWN_SPEC`      | `CloudEventDecodeError`                                        | `ce_specversion` header is not `1.0`.                                                                                             |
+| `EVENT_STORE_WIRE_DECODE_INVALID_INT`       | `CloudEventDecodeError`                                        | `ce_rntversion` or `ce_rntschemaversion` header is not a base-10 integer.                                                         |
+| `EVENT_STORE_WIRE_DECODE_INVALID_ACTORKIND` | `CloudEventDecodeError`                                        | `ce_rntactorkind` header is present but not one of `user`/`system`/`service`.                                                     |
+| `EVENT_STORE_SCHEMA_INCOMPATIBLE`           | `Error` (plain, message-prefix code)                           | `assertSchemaD9Compatible` found a pre-D9 `event_log` (missing the `correlation_id` sentinel column).                             |
+| `EVENT_STORE_ROW_INVALID_ACTORKIND`         | `Error` (plain, message-prefix code)                           | `rowToEnvelope` saw an `actor_kind` value outside `user`/`system`/`service` (DB corruption — write-time validation forbids this). |
 
 ### Types
 
 ```ts
 import type {
-  ActorRef, EventEnvelope,
-  AppendEventInput, AppendRequest, AppendResult, AppendedEvent,
-  EventStore, ReadFromOptions, EventRecord, DeliveryAttemptRow,
-  SqliteEventStoreOptions, EventLogRow,
-  KafkaMessage, KafkaProducer, InMemoryKafkaProducer,
-  Relay, RelayOptions,
+  ActorRef,
+  EventEnvelope,
+  AppendEventInput,
+  AppendRequest,
+  AppendResult,
+  AppendedEvent,
+  EventStore,
+  ReadFromOptions,
+  EventRecord,
+  DeliveryAttemptRow,
+  SqliteEventStoreOptions,
+  EventLogRow,
+  KafkaMessage,
+  KafkaProducer,
+  InMemoryKafkaProducer,
+  Relay,
+  RelayOptions,
   DlqPayload,
   EventStoreErrorCode,
 } from '@rntme/event-store';
@@ -170,7 +177,7 @@ These are fully specified in the CloudEvents envelope spec; this README is inten
 
 Two operational notes that are not derivable from the spec or code and so stay here:
 
-- CE `source`, `type`, and `dataSchema` are **not stored** on rows — the row-mapper derives them at read time from `serviceName` + `aggregate_type` + `event_type` + `schema_version`. Renaming the service after events exist changes what old events present on the wire.
+- CE `source`, `type`, and `dataSchema` are **not stored** on rows — the row-mapper derives them at read time from the DB-pinned `serviceName` + `aggregate_type` + `event_type` + `schema_version`. The first `SqliteEventStore` open initializes `event_store_metadata.service_name`; later opens with a different `serviceName` fail loudly instead of changing how old rows map to envelopes.
 - Store-facing input (`AppendEventInput`) carries `actor: ActorRef | null`; the split `rntActorKind` / `rntActorId` is a DB-row concern reassembled by `rowToEnvelope`.
 
 ## Topic naming
@@ -182,17 +189,17 @@ Two operational notes that are not derivable from the spec or code and so stay h
 - **`getDbHandle()` is exposed for db-studio mount only.** Writes through it bypass append semantics, monotonic cursor, and relay ordering — treat as read-only. Introduced for `@rntme/db-studio`.
 - **Caller mints `id` and `time`.** The store never generates them. Keeps appends deterministic for replay/golden tests. See `AppendEventInput` doc-comment in `src/types/append.ts`.
 - **Caller mints `correlationId`.** `NOT NULL` in the schema. For command-driven appends the binding layer supplies it; for seed/relay-generated events the producer mints one explicitly.
-- **`appendEvents` is atomic across subjects.** All requests in one call run inside `db.transaction(...).immediate(...)`. A `UNIQUE(event_id)` violation in the *second* subject rolls back the *first* (test: `sqlite-append-multi.test.ts` "rolls back both subjects when the second subject violates UNIQUE(event_id)").
+- **`appendEvents` is atomic across subjects.** All requests in one call run inside `db.transaction(...).immediate(...)`. A `UNIQUE(event_id)` violation in the _second_ subject rolls back the _first_ (test: `sqlite-append-multi.test.ts` "rolls back both subjects when the second subject violates UNIQUE(event_id)").
 - **`expectedVersion` is the pre-append `MAX(version)`.** `0` = brand-new subject. Mismatch throws `ConcurrencyConflict`. Omit to skip the pre-check; the `UNIQUE(subject, version)` constraint is the backstop (mapped via `mapSqliteError`).
 - **`UNIQUE(subject, version)` and `UNIQUE(event_id)` map to typed errors only when triggered through `appendEvents`.** Raw inserts bypass the mapper. Use `mapSqliteError` directly if you wrap your own statement.
 - **`writeCursor` rejects non-monotonic values.** A relay never rewinds; tests assert `tried < existing` throws (test: `cursor.test.ts` "writeCursor rejects non-monotonic values"). To rebuild from offset 0, drop the `publish_cursor` row out-of-band.
 - **Per-subject order in Kafka, not cross-subject.** Relay batches by `id ASC` and sets Kafka `key = envelope.subject`, so every event of one aggregate lands on one partition in version order. Cross-subject ordering is not guaranteed (smoke test asserts the per-subject invariant only).
-- **Relay advances cursor *only* after the full batch sends.** A crash between `kafka.send` and `writeCursor` replays the batch on restart; consumers must dedupe by `event_id` (test: `relay.test.ts` "retries after a transient Kafka failure ... cursor only advances on success").
+- **Relay advances cursor _only_ after the full batch sends.** A crash between `kafka.send` and `writeCursor` replays the batch on restart; consumers must dedupe by `event_id` (test: `relay.test.ts` "retries after a transient Kafka failure ... cursor only advances on success").
 - **`appendRaw` trusts the caller's `rntVersion`.** It supports non-contiguous versions (e.g., `5, 7`) and exists for seed/replay only — the command runtime never uses it (tests: `append-raw.test.ts`).
-- **`appendRaw({ ignoreDuplicates: true })` skips only `UNIQUE(event_id)`.** A `(subject, version)` collision still throws (test: `append-raw.test.ts` "still raises on (subject, version) conflict at different eventId").
-- **`ActorRef` is locally redeclared.** `src/types/actor.ts` keeps this package free of `@rntme/pdm`. The shape must stay byte-identical to the PDM definition; if PDM widens the union, mirror it here.
-- **SQLite is single-writer.** This store assumes one writer process. The `WAL` journal + `busy_timeout` cushion brief contention but cannot scale-out write-side. Future scale-out target is Turso (SQLite-compatible Rust); do not introduce a Postgres dialect path.
-- **`serviceName` is load-bearing.** It flows into CE `source`, `type`, `dataSchema`, and the Kafka topic. Changing it after events exist rewrites what the row-mapper produces and what `defaultTopicOf` computes — treat it as immutable per deployment.
+- **`appendRaw({ ignoreDuplicates: true })` skips by existing `event_id` before insert.** A `(subject, version)` collision at a different event ID still throws (test: `append-raw.test.ts` "still raises on (subject, version) conflict at different eventId").
+- **`ActorRef` is locally redeclared.** `src/types/actor.ts` keeps this package free of `@rntme/pdm`. `test/unit/actor-contract.test.ts` compares the normalized local union and `ACTOR_REF_KINDS` against PDM so widening either side fails this package's tests.
+- **SQLite is single-writer per file in this process.** The constructor rejects a second live `SqliteEventStore` for the same filename with `EVENT_STORE_SQLITE_SINGLE_WRITER`. `:memory:` stores remain independent and exempt. This is not a cross-process lock; future scale-out target is Turso (SQLite-compatible Rust), not a Postgres dialect path.
+- **`serviceName` is load-bearing and immutable per DB.** It flows into CE `source`, `type`, `dataSchema`, and the Kafka topic. `SqliteEventStore` records it in `event_store_metadata` on first initialization, rejects later opens with a different name via `EVENT_STORE_SERVICE_NAME_MISMATCH`, and rejects pre-metadata event logs that already contain rows via `EVENT_STORE_SERVICE_NAME_UNINITIALIZED` because their original service name cannot be recovered safely.
 - **Schema compatibility is asserted at startup.** `assertSchemaD9Compatible` runs in the `SqliteEventStore` constructor after `applyEventStoreSchema`. Pointing this build at a pre-D9 sqlite file will throw `EVENT_STORE_SCHEMA_INCOMPATIBLE`; drop the file and re-seed.
 
 ## Out of scope / known limits
@@ -200,7 +207,7 @@ Two operational notes that are not derivable from the spec or code and so stay h
 - **No Kafka client.** Bring your own `KafkaProducer` implementation. The in-memory producer is for tests and demos.
 - **No terminal-vs-retryable classification (A2).** All primary-topic errors go through the same bounded-retry + DLQ path; there is no early DLQ for "permanent" errors like schema violations vs. transient outages. A2 will add an `isTerminal(err)` predicate so schema errors skip the retries.
 - **No snapshot/replay-rebuild tooling.** Aggregate replay = `readStream(subject)` on every command; snapshots are tier 2.
-- **No multi-writer.** Two `SqliteEventStore` instances on the same file race despite WAL.
+- **No cross-process multi-writer.** The package enforces one live writer per DB file inside this Node.js process, but it does not claim an OS/process-wide lock.
 - **No event payload validation.** `data` is `unknown`; the `graph-ir-compiler` command runtime is responsible for shape.
 - **No event upcasting.** `rntSchemaVersion` is stored but the store does not transform old envelopes — that lives in the consumer.
 - **No automatic `id` / `time` / `correlationId` minting.** By design (deterministic tests).

@@ -1,5 +1,6 @@
 import type { EventEnvelope } from '../types/envelope.js';
 import type { ActorRef } from '../types/actor.js';
+import { isActorRefKind } from '../types/actor.js';
 
 export type EventLogRow = Readonly<{
   id: number;
@@ -50,7 +51,7 @@ export function rowToEnvelope(row: EventLogRow, serviceName: string): EventEnvel
 
 function toActorKind(kind: string | null, eventId: string): ActorRef['kind'] | null {
   if (kind === null) return null;
-  if (kind === 'user' || kind === 'system' || kind === 'service') return kind;
+  if (isActorRefKind(kind)) return kind;
   // Write-time validation forbids any other value. Seeing one here means row
   // corruption — surface loudly so the actor_id is not silently dropped.
   throw new Error(

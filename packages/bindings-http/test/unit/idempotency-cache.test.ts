@@ -43,6 +43,20 @@ describe('IdempotencyCache', () => {
     expect(hit).toBeNull();
   });
 
+  it('removes expired entries during normal reads', () => {
+    const db = new BetterSqlite3(':memory:');
+    const cache = new IdempotencyCache(db);
+    const now = Date.now();
+    cache.set('createOrder', 'abc', { status: 200, body: '{}' }, now - 25 * 3600 * 1000);
+
+    expect(cache.get('createOrder', 'abc', now)).toBeNull();
+
+    const row = db.prepare(
+      `SELECT COUNT(*) AS count FROM idempotency_cache WHERE command_name = ? AND key = ?`,
+    ).get('createOrder', 'abc') as { count: number };
+    expect(row.count).toBe(0);
+  });
+
   it('returns null for unknown key', () => {
     const db = new BetterSqlite3(':memory:');
     const cache = new IdempotencyCache(db);

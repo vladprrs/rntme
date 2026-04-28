@@ -13,7 +13,6 @@ export type ProjectionConsumerOptions = Readonly<{
 export type ProjectionConsumer = Readonly<{
   start(): void;
   stop(): Promise<void>;
-  getDbHandle(): Database;
 }>;
 
 /**
@@ -40,8 +39,7 @@ export function createProjectionConsumer(options: ProjectionConsumerOptions): Pr
             }
             db.prepare('COMMIT').run();
           } catch (err) {
-            db.prepare('ROLLBACK').run();
-            throw err;
+            throw rollbackAndPreserveOriginal(db, err);
           }
           await kafka.commitOffsets(batch);
         } catch (err) {
@@ -63,8 +61,32 @@ export function createProjectionConsumer(options: ProjectionConsumerOptions): Pr
       kafka.stop?.();
       await loop;
     },
-    getDbHandle() {
-      return db;
-    },
   };
+}
+
+function rollbackAndPreserveOriginal(db: Database, err: unknown): unknown {
+  try {
+    db.prepare('ROLLBACK').run();
+  } catch (rollbackError) {
+    return attachRollbackError(err, rollbackError);
+  }
+  return err;
+}
+
+function attachRollbackError(err: unknown, rollbackError: unknown): unknown {
+  if (err !== null && (typeof err === 'object' || typeof err === 'function')) {
+    try {
+      Object.defineProperty(err, 'rollbackError', {
+        value: rollbackError,
+        configurable: true,
+      });
+    } catch {
+      // Ignore attachment failures; the original batch error remains primary.
+    }
+    return err;
+  }
+  return Object.assign(new Error('Projection batch failed'), {
+    cause: err,
+    rollbackError,
+  });
 }
