@@ -83,7 +83,8 @@ describe('GraphIrQueryExecutor', () => {
       });
       expect(out.error.message).toMatch(/syntax/i);
       expect(out.error.detail).toMatchObject({
-        name: 'Error',
+        name: 'GraphIrRuntimeError',
+        code: 'RUNTIME_SQLITE_ERROR',
       });
     }
   });
