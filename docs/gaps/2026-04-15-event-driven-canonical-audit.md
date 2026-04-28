@@ -21,7 +21,7 @@
 | **D9** | CloudEvents 1.0 envelope end-to-end + correlationid / causationid | CE 1.0 envelope end-to-end; CE binary-mode on Kafka; correlation propagated HTTP → command → event → Kafka | ✅ resolved 2026-04-18 (branch `feature/cloudevents-envelope`, PR #5) |
 | **D10** | max-attempts + dedicated Kafka DLQ topic (`{topic}.dlq`) | max-attempts + `{topic}.dlq` + `delivery_tracking.dlq_at` | ✅ resolved 2026-04-17 (PR #4) |
 | **D11** | generated per-service schema registry (JSON Schema files from PDM alone via `deriveEventTypes`) | derivation function exists; serializer + committed files absent | ❌ gap — registry artifact missing though derivation is in-package |
-| **D12** | `Idempotency-Key` header → `(commandId, key)` response cache | none; OCC-only | ❌ gap — HTTP retry unsafe |
+| **D12** | `Idempotency-Key` header → `(commandId, key)` response cache | HTTP middleware/cache in `@rntme/bindings-http`; executor/gRPC contract still implicit | ⚠️ partial — HTTP replay closed, contract gap remains |
 
 Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 
@@ -250,7 +250,7 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 **Resolved.** CloudEvents 1.0 envelope shape lands end-to-end. `event_log` gains CE columns (`source`, `specversion`, `datacontenttype`, `dataschema`, `subject`, `correlationid`, `causationid`, `traceparent`, + `rnt*` extensions) — commit `46d6564`. CE binary-mode wire codec in relay + `InMemoryBus` (commits `e26d716`, `02878a7`, `94946e9`). Correlation propagates HTTP → command → event: `correlationMiddleware` in `bindings-http` reads `Correlation-Id` / `traceparent` (`ce37139`); `ExecuteCommandContext.correlation` threads through `graph-ir-compiler` and stamps per-event `correlationid` / `causationid` (`bf8f58d`). Seed path uses `seed:<uuid>` correlation and CE shape (`456040b`). DLQ emits a CE wrapper event retaining `traceparent` (`86206f0`, `02878a7`). Projection consumer renamed to CE field names (`b39effa`). Demo `seed.json` and e2e tests assert CE shape end-to-end (`0afac30`, `7e24233`). CodeRabbit review cycle addressed in `e76f30e`. Planning artifacts: `docs/superpowers/specs/2026-04-16-d9-cloudevents-envelope-design.md`, `docs/superpowers/plans/2026-04-16-d9-cloudevents-envelope-migration.md`.
 
-**Not yet in main.** Branch is code-complete, typechecks, tests green, PR #5 under review. D6 topic-naming service-segment fix bundled with this work (`94946e9` — `rntme.{serviceName}.{aggregate}.v1`).
+**Current status.** This is now part of the main runtime/event-store path. D6 topic-naming service-segment fix is bundled with the CloudEvents work (`rntme.{serviceName}.{aggregate}`).
 
 Original gap statement preserved below for historical context.
 
@@ -388,33 +388,58 @@ What is missing:
 
 ---
 
-## D12 · Command idempotency — ❌ gap
+## D12 · Command idempotency — ⚠️ partial
 
-**Best design (ADR D12).** `Idempotency-Key` HTTP header → middleware cache `idempotency_cache(command_id, key, response_json, created_at PK (command_id, key))`. Retention 24h. `executeCommand` accepts optional `idempotencyKey` param for non-HTTP callers.
+**Best design (ADR D12).** `Idempotency-Key` HTTP header → middleware cache
+`idempotency_cache(command_id, key, response_json, created_at PK (command_id, key))`.
+Retention 24h. `executeCommand` accepts optional idempotency metadata for
+non-HTTP callers, or the docs explicitly state why idempotency is transport
+owned.
 
-**Current state.** `packages/bindings-http/src/runtime/command-handler.ts:31-79` — no header read, no cache, no dedup. `packages/graph-ir-compiler/src/command-runtime/execute.ts:42-107` — `executeCommand` signature has no `idempotencyKey`. OCC catches some duplicates (`ConcurrencyConflict` when aggregate state moved), but:
+**Current state.** The HTTP replay-cache part is implemented:
 
-- For commands whose domain is idempotent (adding a line item), OCC does NOT fire — both appends succeed.
-- On a true retry (client lost the first response), client receives an error it cannot interpret ("conflict" — did the first call succeed or fail?).
+- `packages/bindings-http/src/idempotency/middleware.ts` reads
+  `Idempotency-Key`, derives a stable command run id, and replays cached
+  responses with `Idempotency-Replay: true`.
+- `packages/bindings-http/src/idempotency/cache.ts` creates
+  `idempotency_cache`, stores status/body/headers, reads by `(command_name, key)`,
+  and supports expiry cleanup.
+- `packages/bindings-http/src/router.ts` installs the middleware for command
+  routes and passes the cache into command handlers.
+- `packages/bindings-http/src/runtime/command-handler.ts` stores successful and
+  error command responses in the idempotency cache and derives pre-step keys
+  from the top-level run id.
 
-This gap is partially noted in `docs/gaps/commands-and-transactions-gaps.md` P1; included here for EDA completeness.
+Still open:
+
+- `packages/bindings/src/openapi/emit.ts` does not document
+  `Idempotency-Key` on command operations.
+- `packages/graph-ir-compiler/src/command-runtime/execute.ts` still has no
+  idempotency metadata in its execution context.
+- `packages/bindings-grpc` has no documented equivalent contract for command
+  retries.
+- Artifact-level defaults/overrides for idempotency scope and TTL are not
+  modeled.
 
 **Delta.**
 
-- No header reading.
-- No cache table.
-- `executeCommand` signature lacks the parameter.
-- OpenAPI emission (`packages/bindings`) does not document `Idempotency-Key`.
+- HTTP retry unsafety is mostly closed for bindings-http callers.
+- The remaining gap is contract completeness across OpenAPI, protobuf/gRPC,
+  artifact declarations, and non-HTTP command execution.
 
 **Remediation sketch.**
 
-1. New table `idempotency_cache` in the service's DB.
-2. Middleware in `packages/bindings-http` reads `Idempotency-Key`; before command execution, looks up `(command_id, key)`; on hit replays response; on miss runs command and caches response.
-3. `executeCommand(compiled, params, ctx, opts?: { idempotencyKey?: string })` — additive signature.
-4. Bindings emit `Idempotency-Key` header in OpenAPI for mutating ops.
-5. Retention cleanup job: `DELETE FROM idempotency_cache WHERE created_at < now() − 24h`.
+1. Add command idempotency defaults/overrides to the binding artifact or define
+   the implicit command-default rule.
+2. Emit `Idempotency-Key` in OpenAPI for mutating operations and document replay
+   headers.
+3. Decide whether `executeCommand`/`CommandExecutor` accepts optional
+   idempotency metadata.
+4. Define gRPC retry semantics, likely via metadata for platform callers.
+5. Keep cache-retention cleanup documented and tested.
 
-**Priority.** P1 — table stakes for production HTTP APIs.
+**Priority.** P1 — HTTP behavior is usable, but generated clients and gRPC/Zeebe
+callers still need a machine-readable contract.
 
 ---
 
@@ -455,17 +480,17 @@ The `schemaVersion` field is set to `1` on every event everywhere in the codebas
 
 - ✅ **D1** — `delivery_tracking` table + relay wiring (PR #4).
 - ✅ **D10** — bounded attempts + `{topic}.dlq` + `dlq_at` audit (PR #4).
-- ✅ **D9** — CloudEvents envelope end-to-end + correlation/causation propagation (PR #5, merge pending).
+- ✅ **D9** — CloudEvents envelope end-to-end + correlation/causation propagation.
 - ✅ **D6** — topic naming service-segment fix (bundled into D9 / PR #5).
 - ✅ **D5** — hybrid idempotency (last_event_version + seen_events) + graph-IR derived projections.
 
 ### Remaining, ordered by (priority, dependency)
 
-1. **P1 / D8 + D11** — schema registry generator + BACKWARD compat CI gate (single work unit).
-2. **P1 / D12** — `Idempotency-Key` middleware + cache.
-3. **P2 / D3** — production Kafka retention contract doc (and startup warning); ksqlDB cross-service read-layer story.
+1. **P0 / D8 + D11** — schema registry generator + BACKWARD compat CI gate (single work unit).
+2. **P1 / D12 remainder** — artifact/OpenAPI/gRPC idempotency contract.
+3. **P2 / D3** — production Kafka retention contract doc (and startup warning); external analytics/read-layer story.
 4. **P3 / D7** — condvar tail-latency optimization.
 
 D2, D4 conform today — no work required.
 
-Original ordering assumed Zeebe cross-service work as the next platform milestone, which is why D9 landed first. With D9 shipped, priority now rotates to D12 (HTTP idempotency) and D8+D11 (schema governance) before the second service is introduced.
+Original ordering assumed Zeebe cross-service work as the next platform milestone, which is why D9 landed first. With HTTP idempotency partially shipped, priority now rotates to D8+D11 schema governance plus the D12 contract remainder before the second production service is introduced.

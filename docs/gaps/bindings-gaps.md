@@ -1,113 +1,191 @@
 # Gaps: Bindings
 
-Thematic gap analysis comparing rntme's HTTP-binding emitter (`@rntme/bindings` + `@rntme/bindings-http`) against Medusa's HTTP/OpenAPI surface (survey C), filtered through the commerce-class demo case and the platform vision (per-service runtime behind LLM-authored DDD + Zeebe-orchestrated cross-service sagas).
-
-Inputs:
-- Survey C: `docs/superpowers/reports/2026-04-14-medusa-survey-c-http-openapi.md`
-- rntme emit: `packages/bindings/src/openapi/emit.ts`
-- rntme shapes: `packages/bindings/src/openapi/shapes.ts`
-- rntme runtime: `packages/bindings-http/src/router.ts`, `packages/bindings-http/src/runtime/command-handler.ts`
+This document tracks gaps in the binding layer after modules, gRPC, pre-fetch,
+callback bindings, and HTTP idempotency landed. The old "bindings has no
+idempotency/gRPC/callbacks" snapshot is no longer accurate.
 
 ## What rntme has today
 
-- **OpenAPI 3.1 emit** from a declarative artifact: paths + operations + JSON-Schema components generated in `packages/bindings/src/openapi/emit.ts:108`. Per-operation `deepMerge` passthrough for `openapi` overrides (`emit.ts:102`).
-- **Shape → JSON-Schema** covering scalars, arrays, nullability, and configurable decimal encoding (`packages/bindings/src/openapi/shapes.ts:39`).
-- **Standard error responses** injected per operation: `400 / 422 / 500` plus `409` for commands, all pointing at a single `ErrorResponse` schema (`packages/bindings/src/openapi/errors.ts:34`). The schema carries `{ code, message, details? }` but does **not** enumerate the code values.
-- **Hono + Zod runtime** (`packages/bindings-http/src/router.ts:30`): compiles the artifact to Hono routes, dispatches to query handler or command handler, maps Zod validation failures and `CommandExecutionError` to the declared error body (`packages/bindings-http/src/runtime/command-handler.ts:72`).
-- **Per-request concurrency semantics for commands**: `COMMAND_CONCURRENCY_CONFLICT` → 409, other `CommandExecutionError` codes → 422 (`packages/bindings-http/src/errors.ts:54`).
-- **OpenAPI passthrough** per operation/parameter for hand-authored hints (tags, summary, description, ad-hoc openapi keys), but no first-class support for content-negotiation, multipart, callbacks, or discriminators.
+- `packages/bindings` validates a declarative HTTP binding artifact and emits
+  OpenAPI 3.1. Types now include `pre[]`, `inputFrom`, `response`, and
+  `allowedRedirectHosts` in `packages/bindings/src/types/artifact.ts`.
+- `packages/bindings/src/validate/structural.ts` enforces callback-oriented GET
+  + redirect constraints and a `pre.length <= 2` gate for command bindings.
+- `packages/bindings-http` mounts Hono routes, extracts inputs, maps command
+  errors, runs pre-steps, caches idempotent HTTP command responses, emits
+  correlation context, and can record metrics.
+- `packages/bindings-http/src/idempotency/*` provides a SQLite-backed
+  `idempotency_cache`; `router.ts` wires `Idempotency-Key` middleware for
+  command routes.
+- `packages/runtime/src/plugins/adapter-client/*` implements module RPC calls
+  with retry/circuit-breaker/idempotency-key forwarding.
+- `packages/bindings-grpc` emits protobuf from validated bindings and mounts a
+  grpc-js server; `packages/runtime/src/plugins/grpc-surface.ts` exposes it as a
+  runtime surface.
+- OpenAPI still does not expose a first-class idempotency declaration, stable
+  error-code enum, multipart content, or top-level webhook/callback docs.
 
-## How Medusa handles it
+## Closed or downgraded since the original gap doc
 
-- **File-based routing** with per-route auth and CORS flags (`research/medusa/packages/core/framework/src/http/routes-loader.ts:48`).
-- **No native OpenAPI generation.** TypeScript types (`HttpTypes.AdminOrderListResponse`) are the contract; OpenAPI is not auto-emitted and there is no decorator/annotation pipeline (survey C §3).
-- **No API-level idempotency.** The `/admin/*` conflict error message still refers to `Idempotency-Key`, but the framework does not parse or persist the header; correctness is delegated to workflow compensation steps (`research/medusa/packages/core/framework/src/http/middlewares/error-handler.ts:51`).
-- **Standardized error envelope** `{ code, type, message }` with a small enum of codes emitted by `MedusaError` (`research/medusa/packages/core/framework/src/http/middlewares/error-handler.ts:36`).
-- **Multipart uploads** via Multer in-memory storage for admin routes (`research/medusa/packages/medusa/src/api/admin/uploads/middlewares.ts:14`), handed off to a workflow for final persistence (`research/medusa/packages/medusa/src/api/admin/uploads/route.ts:9`).
-- **Webhooks inbound only** (`/hooks/payment/:provider`) with `preserveRawBody: true` for signature verification (`research/medusa/packages/medusa/src/api/hooks/middlewares.ts:3`). No OpenAPI `callbacks`/`webhooks` documentation, no outbound-webhook registration API.
-- **HTTP-only.** No gRPC surface in the framework at all.
+- **Idempotency-Key middleware/storage:** closed for HTTP response replay cache.
+  Residual: contract exposure and non-HTTP/gRPC semantics.
+- **gRPC/protobuf binding emit:** closed at package and runtime-surface level.
+  Residual: shape coverage, docs, and project deployment integration.
+- **Vendor callbacks / redirects:** partially closed by `inputFrom` and
+  `response`/redirect support. OpenAPI `callbacks`/`webhooks` remain separate.
+- **Pre-fetch module calls:** closed as a primitive. Remaining work is error
+  catalog and production module packaging.
 
-## Gaps for commerce-class case
+## Gaps
 
-### [P0] [demo-blocker] Idempotency-Key middleware + storage
+### [P1] Idempotency contract in artifacts, OpenAPI, and gRPC
 
-**Why critical / DX impact.** A commerce demo (place-order, charge-payment, submit-issue) cannot ship without retry-safe POST semantics: any network hiccup on a command can produce duplicates. Medusa's own 409 message promises `Idempotency-Key` but the framework never implements it; rntme inherits the same gap and will hit it on the first retry test. This is also an authoring concern — the LLM must emit the same artifact for commands regardless of whether they are retry-safe, and today there is nothing to declare.
+**Why it matters.** Runtime HTTP replay cache exists, but the contract is still
+implicit. Agents and generated clients need to know which operations require or
+accept `Idempotency-Key`, how long replay is retained, and whether the same
+semantics apply to gRPC/module calls.
 
-**Pain point in rntme today** (concrete pattern/line). Command dispatch is header-agnostic: `makeCommandHandler` reads only path/query/body and runs `executeCommand` with no cache lookup keyed by request identity — `packages/bindings-http/src/runtime/command-handler.ts:63`. The 409 mapping (`packages/bindings-http/src/errors.ts:54`) surfaces concurrency conflicts but will not dedupe a replayed request, so a client retry after a transient 500 becomes a second write.
+**Current evidence.**
 
-**Medusa reference** (how they solve it). They don't. Survey C §4 documents the absence; the error handler string at `research/medusa/packages/core/framework/src/http/middlewares/error-handler.ts:51` reads `"You may retry the request with the provided Idempotency-Key."` as forward-compat text while the middleware is unimplemented. rntme has the same gap to close; no ready-made solution to port.
+- `packages/bindings-http/src/idempotency/middleware.ts` reads the header and
+  replays cached responses.
+- `packages/bindings-http/src/idempotency/cache.ts` creates and manages the
+  cache table.
+- `packages/bindings/src/openapi/emit.ts` does not add an `Idempotency-Key`
+  parameter to command operations.
+- `packages/graph-ir-compiler/src/command-runtime/execute.ts` still accepts no
+  idempotency option; dedupe is implemented at the HTTP binding layer.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-Once idempotency is an artifact-level declaration (e.g. `entry.http.idempotency: { scope: 'per-actor' | 'per-key', ttlSeconds }`), the LLM author can mark every state-mutating command retry-safe by default, and the business-user viz can render a "retry-safe ✓" badge on each command card plus a TTL slider. Without this, the UI must either hide retry behavior or lie about it, and the LLM has no lever to pull when a customer asks "make POST /orders idempotent".
+**Target.**
 
-### [P0] [non-blocker] gRPC/protobuf binding emit
+- Add an artifact-level declaration for mutating operations, with a safe default
+  for commands.
+- Emit OpenAPI header parameters and document replay headers/status behavior.
+- Decide whether gRPC command calls use metadata, a request field, or remain
+  caller-managed.
+- Keep module pre-step idempotency-key chaining aligned with the public command
+  contract.
 
-**Why critical / DX impact.** Platform vision: rntme is one per-service runtime inside an LLM-agent-driven DDD platform where Zeebe owns cross-service sagas and **gRPC is the sync inter-service call surface**. Today `@rntme/bindings` only knows how to emit OpenAPI 3.1 + Hono; a sibling service calling this one has to scrape REST. Shipping gRPC emit lets every rntme-authored service expose the same operations over both transports with one artifact as source of truth.
+**Acceptance gate.** A generated OpenAPI/protobuf client can discover and use
+idempotency without reading rntme source, and a retry of the same command
+returns the original outcome on HTTP and the documented behavior on gRPC.
 
-**Pain point in rntme today** (concrete pattern/line). `generateOpenApi` is the only emit target (`packages/bindings/src/openapi/emit.ts:108`) and it is hard-coded to return `openapi: '3.1.0'`. The resolver/plan pipeline assumes an HTTP method + path and builds `PathItem` objects (`packages/bindings/src/openapi/emit.ts:122`) — there is no transport-neutral operation model that could be projected to a `.proto` service/method.
+### [P1] Error catalog with stable codes in OpenAPI and protobuf
 
-**Medusa reference** (how they solve it). No direct Medusa analogue — Medusa is HTTP-only. Rationale from platform vision (inter-service gRPC transport).
+**Why it matters.** Agents, UI flows, and future Zeebe workers need to branch on
+machine-readable error codes. Runtime code already returns stable strings such
+as validation, guard, concurrency, pre-step, and adapter errors; generated
+contracts still mostly describe error `code` as a string.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-With a dual-transport artifact, the LLM authors one operation (e.g. `AssignIssue`) and both `openapi.json` and `service.proto` fall out. The business viz then shows a single "capability" card with two transport chips (`HTTP POST /v1/issues/:id/assign`, `gRPC IssueService/Assign`) instead of two disjoint surfaces the user has to correlate by hand. A generated artifact also eliminates drift between the sync-call surface consumed by peer services and the external REST surface consumed by SPAs.
+**Current evidence.**
 
-### [P1] [demo-blocker] Error catalog with stable codes in OpenAPI
+- `packages/bindings/src/openapi/errors.ts` emits `ErrorResponse` with a string
+  `code` but no enum/catalog.
+- `packages/bindings-http/src/errors.ts` and
+  `packages/graph-ir-compiler/src/command-runtime/errors.ts` contain runtime
+  codes.
+- `packages/bindings-grpc/src/server/errors.ts` maps runtime failures to gRPC
+  status, but the emitted protobuf does not publish a complete domain error
+  catalog.
 
-**Why critical / DX impact.** Clients (and Zeebe saga compensators) need to branch on `err.code`, not on human-readable `message`. rntme already has a closed set of codes in `CommandExecutionError` + HTTP runtime, but the OpenAPI document advertises `code: { type: 'string' }` with no enum, so generated SDK types on the consumer side cannot narrow. For the commerce demo this matters the moment the LLM is asked to author a "retry on COMMAND_CONCURRENCY_CONFLICT, surface COMMAND_GUARD_REJECTED to the user" flow.
+**Target.**
 
-**Pain point in rntme today** (concrete pattern/line). The `ErrorResponse` schema is a bare string/string record at `packages/bindings/src/openapi/errors.ts:5`: `code: { type: 'string' }` with no `enum`, no `x-error-codes` catalog, and no cross-reference to the runtime source of truth (`packages/graph-ir-compiler/src/command-runtime/errors.ts:1`). The runtime sends codes like `COMMAND_CONCURRENCY_CONFLICT` / `VALIDATION_ERROR` / `INVALID_BODY` (`packages/bindings-http/src/errors.ts:32`) that nothing in the emitted spec lists.
+- Define an append-only error catalog per generated service surface.
+- Emit OpenAPI enum or `x-error-codes` and protobuf-compatible error metadata.
+- Include pre-step/module errors and idempotency replay/conflict states.
+- Document source of truth to avoid hand-maintained drift.
 
-**Medusa reference** (how they solve it). Medusa ships a small fixed enum of codes (`invalid_state_error`, `invalid_request_error`, `api_error`) in its error handler at `research/medusa/packages/core/framework/src/http/middlewares/error-handler.ts:43` and documents them only via JSDoc (line 107-123) — also non-machine-readable, but at least centralized. rntme should go further and emit the enum into OpenAPI.
+**Acceptance gate.** Generated clients can exhaustively switch on documented
+error codes for commands and pre-step/module failures.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-A typed code enum turns error handling into a checklist: the LLM can be required to author a branch per code, the compiler can warn on unhandled codes, and the business viz can render each operation's error pills with colored chips ("409 CONCURRENCY" amber, "422 GUARD" red, "422 ILLEGAL_TRANSITION" red). Without the enum, the UI can only show "4xx happens, see logs" and the LLM has no structured lever to target.
+### [P2] Multipart/file upload and object storage
 
-### [P1] [non-blocker] Multipart / file upload handling
+**Why it matters.** Attachments, imports, and media are common workflow
+requirements, but not necessary to prove project-blueprint runtime value.
 
-**Why critical / DX impact.** Commerce-class demos routinely need product images, import CSVs, attachment uploads on tickets. Today rntme has no representation for `multipart/form-data` in the artifact or runtime, so every file-accepting endpoint must be hand-written outside the binding pipeline — which means it escapes both the LLM authoring loop and the viz.
+**Current evidence.**
 
-**Pain point in rntme today** (concrete pattern/line). `collectRequestBody` in `packages/bindings/src/openapi/emit.ts:83` assembles only JSON request bodies from declared body parameters; there is no `content: multipart/form-data` branch, no file-shape primitive in `packages/bindings/src/openapi/shapes.ts:8`, and the command handler assumes JSON at `packages/bindings-http/src/runtime/command-handler.ts:44` (`c.req.json()`).
+- `packages/bindings/src/openapi/parameters.ts` and
+  `packages/bindings/src/openapi/shapes.ts` emit JSON request/response shapes,
+  not multipart forms or file primitives.
+- `packages/bindings-http` command handling is JSON-oriented.
+- There is no `@rntme/storage` package or project-level object-store binding.
 
-**Medusa reference** (how they solve it). Admin uploads register per-route `multer({ storage: multer.memoryStorage() })` middleware (`research/medusa/packages/medusa/src/api/admin/uploads/middlewares.ts:14`) and route handlers read `req.files as Express.Multer.File[]` (`research/medusa/packages/medusa/src/api/admin/uploads/route.ts:9`). In-memory is called out as a production TODO but is the shipped default.
+**Target.**
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-Adding a `file` shape primitive + multipart content type lets the LLM author `POST /v1/products/:id/images` from a single operation spec, and the viz can render a per-operation upload affordance (drag-drop zone, accepted MIME list, size cap) next to the JSON-body editor. Until then, any file-accepting endpoint is invisible to the platform and must be documented out-of-band.
+- Add a file/blob input shape and multipart OpenAPI emission.
+- Decide whether bytes stream to a module/storage driver or buffer locally for
+  small files.
+- Pair with object storage configuration in runtime/deploy docs.
 
-### [P1] [non-blocker] Discriminator / oneOf in responses
+**Acceptance gate.** A blueprint can declare an attachment upload route that
+generates OpenAPI, runtime parsing, storage handoff, and UI affordance without a
+custom route.
 
-**Why critical / DX impact.** Polymorphic responses are endemic to commerce (`Order.items: (PhysicalLineItem | DigitalLineItem | SubscriptionLineItem)[]`, `Product.variants`, payment methods). Without `oneOf` + `discriminator`, the generated SDK collapses these into loose records and client code pattern-matches on string fields defensively. This also blocks the LLM from authoring correct type narrowing in consumers.
+### [P2] Discriminated unions and richer response shapes
 
-**Pain point in rntme today** (concrete pattern/line). `fieldTypeToJsonSchema` at `packages/bindings/src/openapi/shapes.ts:43` only knows `scalar` and `array` field kinds; there is no `union` / `tagged-variant` case, and `shapeToJsonSchema` emits a flat `{ type: 'object', required, properties }` at `packages/bindings/src/openapi/shapes.ts:58` with no `oneOf` or `discriminator` hook. Even with `openapi` passthrough, there is no shape-level discriminator to drive.
+**Why it matters.** Workflow UIs and integration modules eventually need
+variant responses (`pending | approved | rejected`, typed module results,
+polymorphic activities). Today shapes are mostly flat object/scalar/array.
 
-**Medusa reference** (how they solve it). No direct Medusa analogue — Medusa does not emit OpenAPI at all (survey C §3) and leans on TypeScript discriminated unions in `HttpTypes.*` for compile-time narrowing only. rntme needs a first-class solution beyond what Medusa ships.
+**Current evidence.**
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-A tagged-variant shape primitive lets the LLM describe "line item is one of these three" once and get both typed SDK narrowing and a viz that renders a segmented tab per variant with its own field editor. Without it, the LLM must inline enum-plus-optional-fields workarounds that the viz cannot disambiguate.
+- `packages/bindings/src/openapi/shapes.ts` has no first-class tagged union or
+  OpenAPI discriminator support.
+- `packages/bindings-grpc` shape emission is similarly constrained by the
+  resolved shape registry.
 
-### [P2] [non-blocker] Webhooks/callbacks emit in OpenAPI 3.1
+**Target.** Add a tagged-variant shape that emits OpenAPI `oneOf`/discriminator
+and a protobuf-compatible encoding with stable tags.
 
-**Why critical / DX impact.** OpenAPI 3.1 has both `webhooks` (top-level, for inbound events a server will receive) and per-operation `callbacks` (for operations that register a callback URL). Neither is emitted today. For commerce this matters once the demo integrates with payment providers or external fulfillment — but it sits behind idempotency + error catalog + multipart on the critical path.
+**Acceptance gate.** A generated UI/client can narrow response variants without
+stringly typed optional-field conventions.
 
-**Pain point in rntme today** (concrete pattern/line). `generateOpenApi` at `packages/bindings/src/openapi/emit.ts:139` builds the doc as `{ openapi, info, paths, components, servers? }` — no `webhooks` key, no `callbacks` per operation. The artifact type has no `webhook` kind alongside `query`/`command`.
+### [P2] OpenAPI webhooks/callbacks documentation
 
-**Medusa reference** (how they solve it). Inbound payment webhooks are mounted manually at `/hooks/payment/:provider` with raw-body preservation for signature verification (`research/medusa/packages/medusa/src/api/hooks/middlewares.ts:3`); there is no OpenAPI documentation of the callback shape and no registration API (survey C §7).
+**Why it matters.** Runtime callback endpoints exist for vendor returns, but the
+generated OpenAPI document still does not describe top-level `webhooks` or
+operation `callbacks`. This matters for external providers and partner docs, not
+for the next runtime slice.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-Emitting webhooks/callbacks in OpenAPI lets the LLM declare "this operation delivers `order.paid` to a registered URL" and the viz can render arrows between operations and webhook receivers in the same graph — completing the call diagram. Until then, inbound hooks exist only in prose.
+**Current evidence.**
 
-## Intersections with out-of-scope
+- `packages/bindings/src/openapi/emit.ts` builds `paths` and `components`, not
+  `webhooks` or operation-level `callbacks`.
+- Vendor-owned inbound webhooks remain module-owned per the modules integration
+  spec, not generic rntme binding routes.
 
-- **gRPC transport layer is not rntme.** The connection lifecycle, service mesh, retry policy, deadline propagation, and load balancing for gRPC live in the platform infra (Envoy/Istio/linkerd + Zeebe's job workers). rntme emits the `.proto` contract and a thin server stub per operation; it does not own the wire.
-- **Workflow-level sagas are not rntme.** Multi-service compensation (Medusa's workflow engine analogue) lives in Zeebe; rntme's command bindings must surface enough error codes for saga compensators to branch, but they do not themselves coordinate cross-service rollback.
-- **Object storage is not rntme.** Multipart handling stops at "extract file bytes + MIME and hand to a resolver". Actual blob persistence (S3, local, CDN) is a separate module.
-- **Idempotency store backing.** The middleware + artifact declaration are in scope; the durable dedup store (Redis? SQLite table? Turso?) is a runtime concern for `@rntme/bindings-http` and should not leak into the transport-neutral artifact.
-- **Auth.** Authentication/authorization middleware (bearer, session, publishable key) is adjacent but tracked in a separate gap doc; bindings only emit the `security` references.
+**Target.** Emit docs only for callback shapes rntme actually owns. Keep vendor
+webhook verification inside modules.
+
+## Boundaries
+
+- **Bindings do not own business execution.** Graph IR or a code executor
+  handles commands/queries; bindings own transport, inputs, responses, and
+  contract generation.
+- **Vendor webhook security belongs to modules.** rntme may document callback
+  returns, but provider signature verification is module code.
+- **Object storage is not the binding layer.** Multipart parsing should hand off
+  to a storage/module seam.
+
+## External API notes
+
+- Context7 check against OpenAPI 3.1 confirmed header parameters, JSON
+  Schema-based components, operation callbacks, top-level `webhooks`, and
+  discriminators are native OAS concepts. The roadmap should use those standard
+  constructs before adding rntme-specific extensions.
+- Context7 check against `grpc-node` confirmed `@grpc/grpc-js` unary calls use
+  `Metadata` for request/response metadata and standard gRPC status handling.
+  That supports idempotency via metadata for platform callers, but rntme still
+  needs to document the exact metadata key and error mapping.
 
 ## Open questions
 
-- **Separate artifact file `grpc-bindings.json` or merge into existing bindings artifact with transport: 'grpc'|'http' discriminator?** Trade-off: a single artifact keeps the "capability" mental model clean and lets the viz group transports per operation, but couples HTTP and gRPC schema evolution. Two artifacts let each transport evolve independently at the cost of duplication and drift.
-- **Idempotency scope default.** Per-key only (client-supplied `Idempotency-Key`) vs per-actor+body-hash (automatic). Commerce convention (Stripe) is per-key; rntme could default to per-key and let the artifact opt in to stricter body-hash binding.
-- **Error code enum source of truth.** Should the enum be hand-maintained in the artifact, or derived from `CommandErrorCode` + runtime validation codes at build time? Derivation avoids drift but couples bindings to `@rntme/graph-ir-compiler` at emit time.
-- **Tagged-variant encoding.** OpenAPI `discriminator` + `oneOf` vs `anyOf` + `const` tags. The former has better SDK ergonomics but stricter parser requirements; the latter is more portable.
-- **Webhook delivery semantics.** If rntme ever emits outbound webhooks, who owns retry/DLQ — the bindings runtime, the projection-consumer, or a dedicated delivery service? Likely the latter, which would push this gap further down the priority list.
-- **Multipart storage target.** In-request streaming to an object-store resolver vs buffered-then-passed (Medusa's choice). Streaming is better for large files but requires a different handler contract than the current JSON-body path.
+1. Should command idempotency be an artifact property or implied for all command
+   bindings? Recommended default: implied safe default with explicit override.
+2. Should the error catalog be derived from package code or declared in binding
+   artifacts? Recommended default: derived from package/runtime code plus
+   per-binding extensions.
+3. Should gRPC idempotency use metadata only or an explicit request field?
+   Recommended default: metadata for platform calls, documented in emitted
+   service docs.
