@@ -522,225 +522,225 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ### `@rntme-cli/cli` — total findings: 12
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-063, U-064, U-065, U-066, U-068, U-069, U-070, U-356
 - → REJECTED: U-060, U-061, U-062, U-067
 
 ### `@rntme-cli/deploy-core` — total findings: 7
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-071, U-072, U-073, U-074, U-075, U-076, U-077
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme-cli/deploy-dokploy` — total findings: 13
 
 - → DEV: U-087
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-078, U-079, U-080, U-081, U-083, U-084, U-086, U-088, U-089, U-090
 - → REJECTED: U-082, U-085
 
 ### `@rntme-cli/landing` — total findings: 10
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-091, U-092, U-093, U-094, U-095, U-096, U-097, U-098, U-099, U-100
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme-cli/platform-core` — total findings: 10
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-102, U-103, U-104, U-106, U-107, U-108, U-109, U-110
 - → REJECTED: U-101, U-105
 
 ### `@rntme-cli/platform-http` — total findings: 21
 
 - → DEV: U-113, U-122, U-123, U-358
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-111, U-112, U-114, U-115, U-116, U-117, U-118, U-119, U-120, U-121, U-124, U-125, U-126, U-127, U-128, U-129, U-130
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme-cli/platform-storage` — total findings: 11
 
 - → DEV: U-137, U-138
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-131, U-132, U-133, U-134, U-135, U-136, U-139, U-140, U-141
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/bindings` — total findings: 9
 
-- → DEV: 
+- → DEV:
 - → DECIDE: U-047
 - → PARK: U-039, U-040, U-041, U-042, U-043, U-044, U-045, U-046
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/bindings-grpc` — total findings: 13
 
 - → DEV: U-023
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-014, U-015, U-016, U-017, U-018, U-019, U-020, U-021, U-022, U-024, U-025, U-026
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/bindings-http` — total findings: 13
 
 - → DEV: U-032
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-027, U-028, U-029, U-030, U-031, U-033, U-034, U-035, U-036, U-037, U-038, U-355
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/blueprint` — total findings: 12
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-048, U-049, U-050, U-051, U-052, U-053, U-054, U-055, U-056, U-057, U-058, U-059
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/conformance-ai-llm` — total findings: 10
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-142, U-143, U-144, U-145, U-146, U-147, U-148, U-359, U-360, U-361
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/conformance-crm` — total findings: 8
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-149, U-150, U-151, U-152, U-153, U-154, U-155, U-156
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/conformance-identity` — total findings: 8
 
 - → DEV: U-157, U-158, U-159, U-160, U-161, U-162, U-163, U-164
-- → DECIDE: 
-- → PARK: 
-- → REJECTED: 
+- → DECIDE:
+- → PARK:
+- → REJECTED:
 
 ### `@rntme/contracts-ai-llm-v1` — total findings: 8
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-165, U-166, U-167, U-168, U-169, U-170, U-171, U-172
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/contracts-common-v1` — total findings: 8
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-173, U-174, U-175, U-176, U-177, U-178, U-179, U-362
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/contracts-crm-v1` — total findings: 8
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-180, U-181, U-182, U-183, U-184, U-185, U-186, U-187
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/contracts-identity-v1` — total findings: 7
 
 - → DEV: U-188, U-189, U-190, U-191, U-192, U-193, U-194
-- → DECIDE: 
-- → PARK: 
-- → REJECTED: 
+- → DECIDE:
+- → PARK:
+- → REJECTED:
 
 ### `@rntme/db-studio` — total findings: 12
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-195, U-196, U-197, U-198, U-199, U-200, U-201, U-202, U-203, U-204, U-205, U-357
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/event-store` — total findings: 10
 
 - → DEV: U-206, U-207, U-209
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-208, U-210, U-211, U-212, U-213, U-214, U-363
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/graph-ir-compiler` — total findings: 11
 
 - → DEV: U-215
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-216, U-218, U-219, U-220, U-221, U-222, U-223, U-224, U-364
 - → REJECTED: U-217
 
 ### `@rntme/issue-tracker-api-demo` — total findings: 10
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-225, U-226, U-227, U-228, U-229, U-230, U-231, U-232, U-233, U-234
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/module-skeleton` — total findings: 9
 
 - → DEV: U-235
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-236, U-237, U-238, U-239, U-240, U-241, U-242, U-365
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/pdm` — total findings: 7
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-243, U-244, U-245, U-246, U-247, U-248, U-249
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/pre-step-demo` — total findings: 13
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-250, U-251, U-252, U-253, U-254, U-255, U-256, U-257, U-258, U-259, U-260, U-261, U-262
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/projection-consumer` — total findings: 12
 
 - → DEV: U-263, U-264, U-265
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-266, U-267, U-268, U-269, U-270, U-271, U-272, U-273, U-366
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/qsm` — total findings: 9
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-274, U-275, U-276, U-277, U-278, U-279, U-280, U-281, U-282
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/runtime` — total findings: 22
 
 - → DEV: U-283, U-284, U-285, U-287, U-290, U-302
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-286, U-288, U-289, U-291, U-292, U-293, U-294, U-295, U-296, U-297, U-298, U-299, U-300, U-301, U-303, U-304
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/seed` — total findings: 14
 
 - → DEV: U-308
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-305, U-306, U-307, U-309, U-311, U-312, U-313, U-314, U-315, U-316, U-317, U-318
 - → REJECTED: U-310
 
 ### `@rntme/ui` — total findings: 22
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-319, U-320, U-321, U-322, U-323, U-324, U-325, U-326, U-327, U-328, U-329, U-330, U-331, U-332, U-333, U-334, U-335, U-336, U-337, U-338, U-339, U-340
-- → REJECTED: 
+- → REJECTED:
 
 ### `@rntme/ui-runtime` — total findings: 14
 
 - → DEV: U-346
-- → DECIDE: 
+- → DECIDE:
 - → PARK: U-341, U-342, U-343, U-344, U-345, U-347, U-348, U-349, U-350, U-351, U-352, U-353, U-354
-- → REJECTED: 
+- → REJECTED:
 
 ### `monorepo` — total findings: 13
 
-- → DEV: 
-- → DECIDE: 
+- → DEV:
+- → DECIDE:
 - → PARK: U-002, U-003, U-004, U-005, U-006, U-007, U-008, U-009, U-010, U-011, U-012, U-013
 - → REJECTED: U-001
 
@@ -1102,16 +1102,16 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 False positives, outdated findings, and merged duplicates.
 
 - U-001 — `monorepo` — RNT-230#B1 — [verify-systemic] submodule populated at 01c7c1a as of 2026-04-28
-- U-060 — `@rntme-cli/cli` — RNT-224#1 — 
-- U-061 — `@rntme-cli/cli` — RNT-224#2 — 
-- U-062 — `@rntme-cli/cli` — RNT-224#3 — 
-- U-067 — `@rntme-cli/cli` — RNT-224#8 — 
-- U-082 — `@rntme-cli/deploy-dokploy` — RNT-226#5 — 
-- U-085 — `@rntme-cli/deploy-dokploy` — RNT-226#8 — 
-- U-101 — `@rntme-cli/platform-core` — RNT-227#1 — 
-- U-105 — `@rntme-cli/platform-core` — RNT-227#5 — 
-- U-217 — `@rntme/graph-ir-compiler` — RNT-205#3 — 
-- U-310 — `@rntme/seed` — RNT-211#6 — 
+- U-060 — `@rntme-cli/cli` — RNT-224#1 —
+- U-061 — `@rntme-cli/cli` — RNT-224#2 —
+- U-062 — `@rntme-cli/cli` — RNT-224#3 —
+- U-067 — `@rntme-cli/cli` — RNT-224#8 —
+- U-082 — `@rntme-cli/deploy-dokploy` — RNT-226#5 —
+- U-085 — `@rntme-cli/deploy-dokploy` — RNT-226#8 —
+- U-101 — `@rntme-cli/platform-core` — RNT-227#1 —
+- U-105 — `@rntme-cli/platform-core` — RNT-227#5 —
+- U-217 — `@rntme/graph-ir-compiler` — RNT-205#3 —
+- U-310 — `@rntme/seed` — RNT-211#6 —
 
 
 ---
