@@ -3,6 +3,8 @@ import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { ReadableStream } from 'node:stream/web';
+import { TextEncoder } from 'node:util';
 import { loadService } from '../../src/load/load-service.js';
 import { startService } from '../../src/start/start-service.js';
 import type { RunningService } from '../../src/types.js';
@@ -45,7 +47,7 @@ describe('startService', () => {
   it('rejects oversized /api request bodies with 413', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
-    (loaded.value.manifest.surface.http as any).bodyLimit = { enabled: true, maxBytes: 8 };
+    loaded.value.manifest.surface.http.bodyLimit = { enabled: true, maxBytes: 8 };
     running = await startService(loaded.value);
 
     const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
@@ -61,7 +63,7 @@ describe('startService', () => {
   it('rejects oversized streamed /api request bodies without content-length', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
-    (loaded.value.manifest.surface.http as any).bodyLimit = { enabled: true, maxBytes: 8 };
+    loaded.value.manifest.surface.http.bodyLimit = { enabled: true, maxBytes: 8 };
     running = await startService(loaded.value);
 
     const encoder = new TextEncoder();
@@ -77,7 +79,7 @@ describe('startService', () => {
       headers: { 'content-type': 'application/json' },
       body,
       duplex: 'half',
-    } as RequestInit & { duplex: 'half' });
+    } as Parameters<typeof fetch>[1] & { duplex: 'half' });
 
     expect(res.status).toBe(413);
     expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
@@ -86,7 +88,7 @@ describe('startService', () => {
   it('rate limits /api requests with 429 and limit headers', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
-    (loaded.value.manifest.surface.http as any).rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    loaded.value.manifest.surface.http.rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
     running = await startService(loaded.value);
 
     const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
@@ -102,7 +104,7 @@ describe('startService', () => {
   it('does not trust forwarded client IP headers for /api rate limit keys', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
-    (loaded.value.manifest.surface.http as any).rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    loaded.value.manifest.surface.http.rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
     running = await startService(loaded.value);
 
     const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`, {

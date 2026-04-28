@@ -111,7 +111,7 @@ function bodyLimitMiddleware(config: ValidatedHttpBodyLimitConfig): MiddlewareHa
     const raw = c.req.raw.body;
     if (raw !== null) {
       const reader = raw.getReader();
-      const chunks: ArrayBuffer[] = [];
+      const chunks: Uint8Array<ArrayBuffer>[] = [];
       let total = 0;
       while (true) {
         const { value, done } = await reader.read();
@@ -120,9 +120,16 @@ function bodyLimitMiddleware(config: ValidatedHttpBodyLimitConfig): MiddlewareHa
         if (total > config.maxBytes) {
           return c.json({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: config.maxBytes }, 413);
         }
-        chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+        const chunk = new Uint8Array(value.byteLength);
+        chunk.set(value);
+        chunks.push(chunk);
       }
-      const body = new Blob(chunks);
+      const body = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        body.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
       c.req.raw = new Request(c.req.url, {
         method: c.req.method,
         headers: c.req.raw.headers,

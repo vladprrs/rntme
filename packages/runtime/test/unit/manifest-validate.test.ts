@@ -15,8 +15,8 @@ describe('validateManifest', () => {
     if (!r.ok) return;
     expect(r.value.surface.http.enabled).toBe(true);
     expect(r.value.surface.http.port).toBe(3000);
-    expect((r.value.surface.http as any).bodyLimit).toEqual({ enabled: true, maxBytes: 1_048_576 });
-    expect((r.value.surface.http as any).rateLimit).toEqual({ enabled: true, windowMs: 60_000, max: 600 });
+    expect(r.value.surface.http.bodyLimit).toEqual({ enabled: true, maxBytes: 1_048_576 });
+    expect(r.value.surface.http.rateLimit).toEqual({ enabled: true, windowMs: 60_000, max: 600 });
     expect(r.value.persistence.mode).toBe('ephemeral');
     expect(r.value.bus.mode).toBe('in-memory');
     expect(r.value.auth.headerName).toBe('x-actor-id');
@@ -78,15 +78,15 @@ describe('validateManifest', () => {
           http: {
             bodyLimit: { enabled: false, maxBytes: 4096 },
             rateLimit: { enabled: true, windowMs: 2000, max: 2 },
-          } as any,
+          },
         },
       },
       RUNTIME_VERSION,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect((r.value.surface.http as any).bodyLimit).toEqual({ enabled: false, maxBytes: 4096 });
-    expect((r.value.surface.http as any).rateLimit).toEqual({ enabled: true, windowMs: 2000, max: 2 });
+    expect(r.value.surface.http.bodyLimit).toEqual({ enabled: false, maxBytes: 4096 });
+    expect(r.value.surface.http.rateLimit).toEqual({ enabled: true, windowMs: 2000, max: 2 });
   });
 
   it('rejects partial module TLS key/certificate pairs', () => {

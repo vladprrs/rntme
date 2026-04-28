@@ -89,7 +89,7 @@ describe('parseManifest', () => {
     );
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect((r.value.modules?.[0]?.grpc as any).tls).toEqual({
+      expect(r.value.modules?.[0]?.grpc.tls).toEqual({
         rootCertPath: 'certs/ca.pem',
         privateKeyPath: 'certs/client-key.pem',
         certChainPath: 'certs/client.pem',
@@ -112,8 +112,8 @@ describe('parseManifest', () => {
     );
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect((r.value.surface?.http as any).bodyLimit).toEqual({ enabled: true, maxBytes: 2048 });
-      expect((r.value.surface?.http as any).rateLimit).toEqual({ enabled: true, windowMs: 1000, max: 10 });
+      expect(r.value.surface?.http?.bodyLimit).toEqual({ enabled: true, maxBytes: 2048 });
+      expect(r.value.surface?.http?.rateLimit).toEqual({ enabled: true, windowMs: 1000, max: 10 });
     }
   });
 
