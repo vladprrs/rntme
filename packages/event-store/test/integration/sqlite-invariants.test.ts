@@ -45,6 +45,19 @@ describe('SqliteEventStore integration invariants', () => {
     expect(() => open(filename, 'renamed-service')).toThrow(/EVENT_STORE_SERVICE_NAME_MISMATCH/);
   });
 
+  it('rejects existing event logs that predate persisted serviceName metadata', () => {
+    const filename = tempDbPath();
+    const store = open(filename, 'issue-tracker');
+    store.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'legacy-e1' })], 0)]);
+    store.rawDb().prepare("DELETE FROM event_store_metadata WHERE key = 'service_name'").run();
+    store.close();
+    openStores.pop();
+
+    expect(() => open(filename, 'issue-tracker')).toThrow(
+      /EVENT_STORE_SERVICE_NAME_UNINITIALIZED/,
+    );
+  });
+
   it('allows only one live SqliteEventStore writer per file in this process', () => {
     const filename = tempDbPath();
     const first = open(filename);

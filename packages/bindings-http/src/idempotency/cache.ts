@@ -33,6 +33,7 @@ export class IdempotencyCache {
   }
 
   set(commandName: string, key: string, response: CachedResponse, now: number): void {
+    this.pruneExpired(now);
     this.db.prepare(
       `INSERT OR REPLACE INTO idempotency_cache (command_name, key, status, body, headers_json, stored_at) VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
@@ -46,6 +47,7 @@ export class IdempotencyCache {
   }
 
   get(commandName: string, key: string, now: number): CachedResponse | null {
+    this.pruneExpired(now);
     const row = this.db.prepare(
       `SELECT status, body, headers_json, stored_at FROM idempotency_cache WHERE command_name = ? AND key = ?`,
     ).get(commandName, key) as

@@ -372,6 +372,14 @@ function ensureServiceName(db: BetterSqliteDatabase, serviceName: string): void 
     .get() as { value: string } | undefined;
 
   if (!row) {
+    const existingEvents = db
+      .prepare('SELECT 1 FROM event_log LIMIT 1')
+      .get() as { 1: number } | undefined;
+    if (existingEvents) {
+      throw new Error(
+        'EVENT_STORE_SERVICE_NAME_UNINITIALIZED: event log contains events but has no persisted serviceName metadata',
+      );
+    }
     db.prepare(
       `
       INSERT INTO event_store_metadata (key, value, updated_at)

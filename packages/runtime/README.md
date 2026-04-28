@@ -116,6 +116,11 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 | `EventBus` | `InMemoryBus` | `producer(): KafkaProducer`, `consumer({ groupId, topic }): KafkaConsumer`, optional `start()`, `stop()` |
 | `Surface` | `HttpSurface` | `mount(app: Hono, ctx: SurfaceContext): void`, optional `listen()` |
 
+`EventBus.consumer({ topic })` treats `topic` as the subscription contract. The default
+`InMemoryBus` accepts exact topic names and `*` wildcard patterns such as
+`rntme.issue-tracker.*`; messages outside the requested pattern are not delivered to
+that consumer.
+
 `SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`.
 
 Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports vitest and must not be loaded in production processes).
@@ -185,7 +190,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 ## Operability
 
-- **`seen_events` retention** must exceed max Kafka `retention.ms` of subscribed topics plus maximum consumer downtime; violation allows double-apply of late-redelivered envelopes. `startSeenEventsRetention(qsmDb)` is invoked by `startService` after `bootstrapProjections` creates the side-table and sweeps it periodically (defaults: 30-day retention, 1-hour interval). Override via `RNTME_SEEN_EVENTS_RETENTION_DAYS`.
+- **`seen_events` retention** must exceed max Kafka `retention.ms` of subscribed topics plus maximum consumer downtime; violation allows double-apply of late-redelivered envelopes. `startSeenEventsRetention(qsmDb)` is invoked by `startService` after `bootstrapProjections` creates the side-table and sweeps it periodically (defaults: 30-day retention, 1-hour interval). Override via `RNTME_SEEN_EVENTS_RETENTION_DAYS`; the value must be a positive integer number of days, and invalid values fail startup instead of sweeping with an unsafe cutoff.
 
 ## Out of scope / known limits
 
