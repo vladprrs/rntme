@@ -12,7 +12,9 @@ The shared conformance suite lives at `modules/crm/conformance/` and is consumed
 
 ## Vendors landed here
 
-None yet. The first vendor (`module-crm-bitrix24`, RU P0 priority — 57.5% RU market, 152-FZ data-residency) is brainstormed and planned separately after this conformance skeleton merges.
+| Vendor | Package | Notes |
+|---|---|---|
+| Bitrix24 | `@rntme/crm-bitrix24` (`modules/crm/bitrix24`) | Uses `@bitrix24/b24jssdk`; supports the CRM v1 canonical surface with documented partial behavior for labeled associations, idempotency, webhook retry, and best-effort sync. |
 
 ## Recommended capability presets (documentation-only — NOT validated tiers)
 
