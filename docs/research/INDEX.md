@@ -11,6 +11,7 @@ This directory contains dependency and technology research documents for the rnt
 | drizzle-orm + drizzle-kit | ^0.36.0 / ^0.30.0 (0.36.4 / 0.30.6) | 0.45.2 / 0.31.10 | KEEP + UPGRADE (security fix + migration infra) | [drizzle-orm-plus-drizzle-kit/README.md](./drizzle-orm-plus-drizzle-kit/README.md) |
 | @bitrix24/b24jssdk | 1.0.5 | 1.0.5 | KEEP PINNED (already on latest) | [bitrix24-b24jssdk/README.md](./bitrix24-b24jssdk/README.md) |
 | auth0 | 4.28.0 | 5.8.0 | KEEP + UPGRADE (with planned spike) | [auth0/README.md](./auth0/README.md) |
+| react + react-dom | ^18.3.0–^19.2.5 | 19.2.5 | KEEP + UPGRADE (unify on 19.2.5, update @types) | [react-plus-react-dom/README.md](./react-plus-react-dom/README.md) |
 
 ## Contributing
 
