@@ -1,7 +1,0 @@
-{
-  "backing": "entity-mirror",
-  "source": { "entity": "Publication" },
-  "keys": ["id"],
-  "grain": ["id"],
-  "exposed": ["productId", "status"]
-}

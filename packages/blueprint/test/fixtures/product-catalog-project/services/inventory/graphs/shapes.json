@@ -1,9 +1,0 @@
-{
-  "InventoryRow": {
-    "fields": {
-      "id": { "type": "integer", "nullable": false },
-      "productId": { "type": "integer", "nullable": false },
-      "availableQuantity": { "type": "integer", "nullable": false }
-    }
-  }
-}

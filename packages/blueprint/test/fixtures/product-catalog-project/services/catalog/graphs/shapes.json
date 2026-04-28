@@ -1,7 +1,0 @@
-{
-  "ProductRow": {
-    "fields": {
-      "productId": { "type": "integer", "nullable": false }
-    }
-  }
-}

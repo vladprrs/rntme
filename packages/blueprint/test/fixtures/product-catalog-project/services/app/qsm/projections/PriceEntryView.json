@@ -1,7 +1,0 @@
-{
-  "backing": "entity-mirror",
-  "source": { "entity": "PriceEntry" },
-  "keys": ["id"],
-  "grain": ["id"],
-  "exposed": ["productId", "status", "amount", "currency"]
-}

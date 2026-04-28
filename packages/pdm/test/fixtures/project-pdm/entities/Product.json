@@ -1,9 +1,0 @@
-{
-  "ownerService": "catalog",
-  "kind": "root",
-  "table": "products",
-  "fields": {
-    "productId": { "type": "integer", "nullable": false, "column": "product_id" }
-  },
-  "keys": ["productId"]
-}

@@ -1,8 +1,0 @@
-{
-  "id": "listPrices",
-  "signature": {
-    "inputs": {},
-    "output": { "type": "rowset<PriceRow>", "from": "pricing" }
-  },
-  "nodes": []
-}
