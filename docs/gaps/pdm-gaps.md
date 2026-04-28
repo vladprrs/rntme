@@ -1,116 +1,148 @@
 # Gaps: PDM
 
-Thematic gap analysis of rntme's Problem Domain Model (PDM) artifact vs. Medusa.js DML, scoped to what a commerce-class service (the canonical "Cart → Order → LineItem → Money" shape) would demand from the platform. Input evidence: the rntme PDM source, the demo PDM (`issue-tracker`), and Medusa survey A (`docs/superpowers/reports/2026-04-14-medusa-survey-a-domain-dml.md`).
-
-Scope reminder — rntme is a **per-service** artifact runtime inside a larger LLM-agent-driven DDD platform. Cross-service concerns (Zeebe sagas, gRPC transport, ksqlDB analytics, plugin SDK) are explicitly **out of PDM's scope** and are collected in the "Intersections" section below, not tagged as gaps.
+This document tracks the Problem Domain Model gaps after the project-first
+pivot. Medusa's DML remains a useful reference for rich domain modeling, but the
+rntme goal is not commerce parity. The goal is a project-level semantic catalog
+that agents can author safely and that service runtimes can compile into event
+schemas, read models, bindings, UI, and migrations.
 
 ## What rntme has today
 
-- Entity shape is a flat record of **scalar fields only**, typed `integer | decimal | string | boolean | date | datetime` — see `packages/pdm/src/types/artifact.ts:4` (the `ScalarPrimitive` union).
-- Fields are plain `{ type, nullable, column, generated? }` — no struct/object/nested shape is expressible (`packages/pdm/src/types/artifact.ts:19`).
-- Generated markers are a closed set of four: `id | createdAt | updatedAt | actor` (`packages/pdm/src/types/artifact.ts:17`). There is **no `deletedAt` kind**, so soft-delete is not a first-class lifecycle marker.
-- Relations are a thin `{ to, cardinality: 'one' | 'many', localKey, foreignKey }` shape (`packages/pdm/src/types/artifact.ts:28`). No `belongsTo`/`manyToMany`, no `cascades`, no `mappedBy`.
-- Structural validation walks relations and requires `localKey`/`foreignKey` to exist on the corresponding entities — strictly local to the service (`packages/pdm/src/validate/structural.ts:37`).
-- StateMachine is first-class on `Entity`, with `stateField` required to be a non-nullable `string` (`packages/pdm/src/validate/state-machine.ts:39`). This is what the demo `Issue` exploits for `draft → open → in_progress → resolved → closed`.
-- Zod parse layer (`packages/pdm/src/parse/schema.ts:5`) enforces the scalar enum and rejects anything outside it, so extending the type system requires both a type change and a schema change.
-- Entire artifact is one record: `{ entities: Record<string, Entity> }` (`packages/pdm/src/types/artifact.ts:60`). There is no notion of schema versioning, migrations, or cross-service boundary inside the artifact.
-- Demo PDM uses conventions to approximate missing features — e.g., `priority` and `status` are plain `string` fields rather than enums (`demo/issue-tracker-api/src/artifacts/pdm.json:12-13`), and `storyPoints` is `integer` rather than a richer unit (see line 14).
+- `packages/pdm/src/types/artifact.ts` defines a project/service-agnostic entity
+  artifact with `ownerService`, `kind`, `table`, `fields`, `relations`, `keys`,
+  and optional entity `stateMachine`.
+- Field types are still a closed scalar set:
+  `integer | decimal | string | boolean | date | datetime`. The Zod schema in
+  `packages/pdm/src/parse/schema.ts` mirrors that exact set.
+- Generated fields are still only `id | createdAt | updatedAt | actor`; there is
+  no generated `deletedAt`.
+- Relations are local only: `{ to, cardinality, localKey, foreignKey }`.
+  `packages/pdm/src/validate/structural.ts` rejects relation targets that are
+  not entities in the same PDM and validates only local/foreign key presence.
+- State machines are first-class and derive event specs through
+  `packages/pdm/src/derive/event-types.ts`. These event specs drive seed,
+  projection, command, and schema-governance work.
+- `packages/blueprint` has moved authoring context upward: project blueprint
+  folders now contain a project-level PDM, and service members consume that PDM.
+  The PDM package itself still exposes one JSON artifact shape, not the
+  multi-file project folder loader.
 
-## How Medusa handles it
+## Closed or reframed since the original gap doc
 
-- Entities are declared with `model.define(...)` producing a `DmlEntity` with implicit `created_at`, `updated_at`, and nullable `deleted_at` automatically present (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:29`).
-- Soft-delete is baked in: `deleted_at` ships on every entity and is auto-indexed with `deleted_at IS NULL` (`research/medusa/packages/core/utils/src/dml/helpers/entity-builder/create-default-properties.ts:14`).
-- Primitive set includes `text | number | float | boolean | dateTime | enum | json | array | id | autoincrement` (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:175`), broader than rntme's scalar set.
-- **Money**: `model.bigNumber()` stores a decimal value plus a `raw_<field>` JSONB precision sidecar on the same row (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:237`, and the property source at `research/medusa/packages/core/utils/src/dml/properties/big-number.ts:8`). Currency is adjacent, carried by the module (store supports `supported_currencies`) rather than on the field itself.
-- **Enums** are first-class: `model.enum(values)` accepts arrays or enum-like objects (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:359`).
-- **JSON**: `model.json()` stores arbitrary object shapes as JSONB (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:336`). Combined with relations, this is how Medusa expresses "embedded" shapes that do not warrant their own entity.
-- Relations are rich: `hasOne`, `hasMany`, `belongsTo`, `manyToMany`, with `mappedBy`, `cascades`, `searchable`, and pivot config (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:389`, and cascade plumbing at `research/medusa/packages/core/utils/src/dml/entity.ts:229`).
-- **Links** are module-level joiners (not a field type) declared with `isLink: true` on a `ModuleJoinerConfig` and managed via a join table outside each module's schema (`research/medusa/packages/modules/link-modules/src/definitions/product-sales-channel.ts:4`).
-- **Migrations** are generated from DML at runtime: `buildGenerateMigrationScript()` converts DML to MikroORM entities and emits SQL (`research/medusa/packages/core/utils/src/modules-sdk/migration-scripts/migration-generate.ts:44`).
-- **No first-class multi-tenancy** in DML — tenants are enforced at the service/query layer, not the schema (survey A §6, no property exists in `research/medusa/packages/core/utils/src/dml/`).
+- "Per-service PDM" is no longer the product model. The project-first spec and
+  `@rntme/blueprint` make PDM project-level, while runtime service intake still
+  consumes validated PDM data.
+- Commerce-specific `money` remains useful, but it should not be the only P0.
+  Workflow-heavy apps need enums, typed structs/json, lifecycle metadata, and
+  cross-service handles at least as urgently.
+- Multi-tenancy remains a query/binding/auth concern for now; do not add a PDM
+  tenant primitive without a concrete platform authorization spec.
 
-## Gaps for commerce-class case
+## Gaps
 
-### [P0] [demo-blocker] Money type (amount + currency) native in PDM
+### [P0] PDM structured type-system v2
 
-**Why critical / DX impact.**
-A cart/order service cannot be modelled honestly without `Money`. Today an LLM agent has to fabricate a two-field convention (`amount: decimal`, `currency: string`) for every price-like field, which leaks an implicit invariant (they must always move together) that neither the structural validator nor downstream graph-IR compiler can enforce.
+**Why it matters.** Agents currently encode important business meaning as
+strings and field-name conventions. `priority`, `status`, `currency`,
+`address_*`, and `metadata_json` all look like plain scalars to validators,
+Graph IR, bindings, OpenAPI/protobuf emitters, UI forms, and schema governance.
+That is too weak for repeatable agent-authored workflow apps.
 
-**Pain point in rntme today** (concrete pattern/line).
-`packages/pdm/src/types/artifact.ts:4` defines the closed `ScalarPrimitive` union as `integer | decimal | string | boolean | date | datetime`. The Zod parse layer echoes the same set at `packages/pdm/src/parse/schema.ts:5`, so there is no way to tag a pair of fields as "a single Money". The current workaround in practice is two fields plus a comment, which the QSM/graph-IR layers cannot introspect.
+**Current evidence.**
 
-**Medusa reference** (how they solve it).
-Medusa uses `model.bigNumber()` which stores the numeric value plus a sidecar `raw_<field>` JSONB metadata column on the same row to preserve precision (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:237` and the property definition at `research/medusa/packages/core/utils/src/dml/properties/big-number.ts:8`). Currency is carried adjacent on the module (store-level `supported_currencies`), not on the field — so a rntme-native `money` should adopt the value+metadata sidecar pattern but make **currency a co-located field on the same entity**, since a rntme PDM is one service and the currency cardinality decision is local.
+- `packages/pdm/src/types/artifact.ts` only exposes scalar fields.
+- `packages/pdm/src/parse/schema.ts` rejects any field shape beyond that scalar
+  enum.
+- `demo/issue-tracker-api/artifacts/pdm.json` still models workflow states and
+  priorities as strings.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-With `money` as a primitive, the LLM generator can emit `unitPrice: { type: 'money', currency: 'USD' }` in one step instead of two, and transition `affects: ['unitPrice']` now covers the pair atomically. The future observability UI can render Money fields with currency-aware formatting (symbol, precision) instead of raw decimals, and business users reviewing a "charge customer" command graph see `€12.50` rather than `1250 minor units` — a direct unblock for "visually verify commerce logic".
+**Target.** Design a PDM v2 field grammar with:
 
-### [P0] [demo-blocker] Nested / embedded objects in entity
+- `enum` with closed values and stable display labels;
+- `json` or typed `struct` for embedded value objects;
+- list/array semantics for struct/scalar collections only where downstream SQL
+  and UI handling are explicit;
+- a named money/composite recipe or first-class `money` if a real pilot needs it;
+- validator errors that explain which downstream surface is blocked.
 
-**Why critical / DX impact.**
-Commerce shapes like `Address` on a Customer, or `LineItem[]` embedded in a Cart snapshot, are not worth a full entity+relation round-trip every time but *must* be structurally typed for validation and UI rendering. Without this, rntme forces the LLM agent into a false choice: either promote every sub-shape to a full entity (explodes the relation graph) or flatten fields (loses structure).
+**Acceptance gate.** A [DEV] agent can add `enum` and typed embedded object
+fields to a project PDM and see consistent derived event schemas, QSM DDL,
+OpenAPI/protobuf shapes, and UI field rendering. If money is deferred, the doc
+must include the exact recommended composite convention.
 
-**Pain point in rntme today** (concrete pattern/line).
-`Entity.fields` is `Readonly<Record<string, Field>>` where `Field.type` is constrained to `ScalarPrimitive` — `packages/pdm/src/types/artifact.ts:52`. There is no object/struct/list-of-struct variant, and `packages/pdm/src/validate/structural.ts:37` only walks relations, not nested shapes. The demo `Issue` entity at `demo/issue-tracker-api/src/artifacts/pdm.json:5` works precisely because it has no sub-structure — an Order with embedded line items is not expressible here at all.
+### [P1] Foreign-service refs and project ownership semantics
 
-**Medusa reference** (how they solve it).
-Medusa offers two tools: `model.json()` for free-form embedded objects (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:336`) and `model.hasMany()` for child entities (`research/medusa/packages/core/utils/src/dml/entity-builder.ts:473`). The DML leaves the choice to the author — LineItems typically become a `hasMany(LineItem)` with cascade-delete from Order (`research/medusa/packages/core/utils/src/dml/entity.ts:229`), while an embedded shipping address on Order is `model.json()`. rntme needs at minimum a `json` scalar and ideally a typed-struct variant so the UI can render embedded shapes schematically.
+**Why it matters.** Project-level PDM now describes entities across services,
+but rntme still needs a way to distinguish local relations from handles to
+entities owned by another service. Modeling a WorkOS user, CRM contact, or
+approval subject as a plain scalar throws away service-boundary information; a
+local FK is also wrong because the target row is not owned by this service.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-A typed-struct variant lets the LLM agent express `billingAddress: Address` without inventing a foreign key, and keeps the graph-IR compiler able to reason about the full column set on an `UPDATE`. The visualization layer can render an entity as a nested card (Address fields indented under Customer) and can draw a `LineItem` list inside a Cart node on the command-graph canvas. Without this gap closed, embedded shapes appear as a wall of flat columns, which business users cannot map back to their mental model.
+**Current evidence.**
 
-### [P1] [non-blocker] Soft-delete markers as first-class
+- `Relation.to` is a string, and `validateStructural` requires it to resolve to
+  a local entity name.
+- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`
+  makes entity ownership project-level but does not introduce field-level
+  ownership or a foreign-reference relation kind.
+- `packages/blueprint/src/types/artifact.ts` records service descriptors and
+  project routing but not typed cross-service entity references.
 
-**Why critical / DX impact.**
-Order and cart lifecycles demand tombstones for auditability (void vs. delete, abandoned cart retention). Today rntme's `GeneratedKind` covers only create/update/actor — soft-delete has to be modelled by hand as a nullable datetime plus a convention, defeating the whole point of generated markers being a closed, compiler-known set.
+**Target.** Add one explicit modeling path for cross-service handles:
 
-**Pain point in rntme today** (concrete pattern/line).
-`packages/pdm/src/types/artifact.ts:17` declares `GeneratedKind = 'id' | 'createdAt' | 'updatedAt' | 'actor'` — there is no `'deletedAt'` member. The Zod schema mirrors it at `packages/pdm/src/parse/schema.ts:14`. The downstream derive layer at `packages/pdm/src/derive/event-types.ts` treats generated fields specially (they cannot appear in `transition.affects`), but a hand-rolled `deletedAt: datetime, nullable: true` is *not* excluded that way, so an LLM agent can accidentally list it in `affects` and corrupt the soft-delete semantics.
+- preferred: a relation kind such as `foreign-service-ref` with
+  `service/entity/localKey` and no local FK;
+- alternative: metadata on scalar fields, if validators and UI can still consume
+  it without parallel scanning complexity.
 
-**Medusa reference** (how they solve it).
-Medusa makes `deleted_at` part of the implicit default properties on every entity and auto-indexes it with `deleted_at IS NULL` for fast "live rows" queries (`research/medusa/packages/core/utils/src/dml/helpers/entity-builder/create-default-properties.ts:14`). The DML never asks an author to opt in; soft-delete is a platform guarantee.
+**Acceptance gate.** Validators can reject accidental local joins across service
+boundaries while UI/Graph IR/gRPC generation can still render or use a typed
+foreign handle.
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-With `'deletedAt'` added to `GeneratedKind`, the LLM can mark an entity soft-deletable by a single flag, and the structural validator will automatically forbid `deletedAt` from appearing in any transition's `affects`. The business-user UI can then render a "Deleted (soft)" badge on rows with non-null `deletedAt`, and graph-IR-compiled queries can default-append `WHERE deleted_at IS NULL` for entities marked soft-deletable — mirroring Medusa's index convention without needing a Postgres-only partial-index extension (SQLite expression indexes cover this on the Turso path).
+### [P2] Soft delete and schema evolution
 
-### [P1] [non-blocker] Medusa-style cross-module "link" → foreign-service-ref annotation
+**Why it matters.** Real workflow apps need lifecycle/audit semantics and safe
+roll-forward of existing services. Today soft delete is a hand-modeled nullable
+datetime, and PDM edits do not emit migration artifacts.
 
-**Why critical / DX impact.**
-A commerce stack is multi-service by design: Cart (cart-service) references `customer_id` (customer-service) and `product_id` (product-service). In Medusa's monolith, cross-module links are a first-class artifact. In rntme's per-service runtime, we *deliberately* do not want cross-service foreign keys — but we *do* need the PDM to record that a field is a handle into another service so Zeebe sagas, gRPC contracts, and the visualization layer know "this is not a local row".
+**Current evidence.**
 
-**Pain point in rntme today** (concrete pattern/line).
-`Relation.to` is typed as `string` and `packages/pdm/src/validate/structural.ts:40` rejects any `to` that is not a local entity name (`entityNames.has(rel.to)` check). There is no annotation path to say "this ID points at the customer-service". LLM agents writing a cart service today must model `customerId: integer` as a plain scalar with no relation at all, stripping all useful structure.
+- `GeneratedKind` lacks `deletedAt`.
+- `PdmArtifact` has no artifact version, prior-state reference, migration block,
+  or generated schema-diff API.
+- QSM/event-store DDL is generated for fresh databases; existing-data migration
+  remains manual.
 
-**Medusa reference** (how they solve it).
-Medusa's link is a module-level `ModuleJoinerConfig` with `isLink: true` that declares both endpoints and uses a physical join table (`research/medusa/packages/modules/link-modules/src/definitions/product-sales-channel.ts:4`). In rntme the **physical join table is wrong** — the target row lives in a different service's Turso, not ours — but the *declarative* part (this field is a typed handle to a named entity in a named service) maps cleanly to a new relation kind such as `foreign-service-ref` that emits no local FK but does emit Zeebe correlation metadata and gRPC contract entries.
+**Target.**
 
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-The LLM agent can now say `customer: { kind: 'foreign-service-ref', service: 'customer', entity: 'Customer', localKey: 'customerId' }` and the platform compiler routes it correctly: the structural validator does *not* look for `Customer` in this PDM, but the Zeebe wiring generator registers a correlation key, and the gRPC contract emitter adds a `GetCustomer(id)` stub. In the business-user UI, a foreign-service-ref renders as a dotted-edge node crossing the service boundary — visually distinct from local relations — so reviewers instantly see where the saga boundary is.
+- Add generated `deletedAt` or an entity-level soft-delete flag that downstream
+  query generation can honor.
+- Define a SQLite/libsql-only migration artifact produced from PDM/QSM deltas.
+- Keep Postgres-specific constructs out of scope.
 
-### [P2] [non-blocker] Migrations / schema evolution
+**Acceptance gate.** A PDM change produces a reviewable DDL/migration diff and
+soft-deleted entities default out of generated list queries unless explicitly
+included.
 
-**Why critical / DX impact.**
-Today a PDM edit has no emitted migration — the artifact is the schema, and evolution is manual. That blocks safe production roll-forward as soon as a second service ships. It is P2 because the demo runs on a fresh DB each test, so no commerce-class demo is blocked, but as soon as an LLM agent regenerates a PDM on an existing service it becomes a real problem.
+## Intersections and boundaries
 
-**Pain point in rntme today** (concrete pattern/line).
-`packages/pdm/src/types/artifact.ts:60` defines the artifact as a bare `{ entities }` record with no version, no prior-state reference, and no migration-step concept. There is no sibling to `packages/pdm/src/derive/event-types.ts` that produces a `schema diff → DDL steps` output; the whole evolution path is implicit.
-
-**Medusa reference** (how they solve it).
-Medusa generates migrations from DML at runtime via `buildGenerateMigrationScript()` — it converts DML to MikroORM entities and emits SQL with second-precision timestamps for ordering (`research/medusa/packages/core/utils/src/modules-sdk/migration-scripts/migration-generate.ts:44`). The emitted SQL targets Postgres (JSONB, ARRAY, partial indexes). A rntme analogue must emit **SQLite-dialect only** so it stays Turso-compatible — no JSONB, use `TEXT` with JSON1 extension functions; no `ARRAY`, use a child table; partial indexes are fine (SQLite has them).
-
-**Authorability / visualization** — how closing this gap affects what the LLM can author and what the business-user UI shows.
-The LLM agent can emit a new PDM version and the platform auto-produces a reviewable migration step, which the business-user UI surfaces as a diff card ("adds column `cart.coupon_code TEXT NULL`, backfills to NULL, indexes on `customer_id WHERE deleted_at IS NULL`"). Without this, schema changes are invisible until something breaks at runtime. The authorability win is that LLM-generated PDM edits become reviewable at the DDL level, not only at the artifact level.
-
-## Intersections with out-of-scope
-
-- **Cross-service entity links → Zeebe + gRPC, not PDM-proper.** The `foreign-service-ref` relation kind above is the PDM *hook*, but the actual saga orchestration and the sync call mesh live in Zeebe and gRPC — rntme's PDM only annotates, it does not implement. The join table Medusa uses for links is explicitly wrong for rntme: target rows are in another service's Turso.
-- **Cross-service analytics / read models → ksqlDB, not PDM.** Medusa's `manyToMany` spanning modules would, in rntme, be expressed as a ksqlDB projection over both services' event streams. PDM stays single-service-only.
-- **Multi-tenancy → service/query layer, not PDM.** Agrees with Medusa survey §6: no `tenant_id` primitive in the PDM type system. Tenant scoping enters at command-graph and binding layers, where the actor context is already available.
-- **Plugin/module SDK.** Medusa's extension hooks (e.g., link modules extending sibling entities with virtual fields) have no rntme analogue — extension happens by regenerating artifacts through an LLM agent, not through runtime plugin code.
-- **Postgres-specific DDL.** Any migration work must stay SQLite-dialect for Turso. JSONB → `TEXT` + JSON1; `ARRAY` → child table; enum types → `CHECK (col IN (...))`. No `CREATE EXTENSION`, no Postgres partial-index syntax divergences.
+- **Project-first belongs in `@rntme/blueprint`.** PDM should model semantics;
+  project folder structure, service registry, and routing stay in blueprint.
+- **Cross-service orchestration belongs outside PDM.** PDM may annotate handles;
+  Zeebe/worker specs decide process flow.
+- **Analytics belongs outside PDM.** Do not add PDM primitives whose only purpose
+  is ksqlDB/search/BI optimization.
+- **SQLite/libsql is the SQL target.** Any schema/migration design must stay
+  portable to Turso/libsql.
 
 ## Open questions
 
-- **Should PDM express `foreign-service-ref` as a first-class relation type, or keep it as a metadata tag on a scalar field?** First-class gives validators and visualization a rich hook; metadata tagging keeps the PDM type surface small and pushes the semantics into a separate "service-topology" artifact. Current leaning: first-class relation kind, because the graph-IR compiler already walks `Relation` and would need a parallel scan for tags — but we need to decide before the Money gap (P0) ships, because both touch the type system.
-- **Should `money` be a new `ScalarPrimitive` member, or a composite `{ kind: 'money', amount: decimal, currency: string }` handled one level above scalars?** Composite is closer to Medusa's value+sidecar model and avoids bloating `ScalarPrimitive`, but requires the parse layer to learn a second field-shape schema.
-- **Do we want `enum` as a primitive now, or keep simulating it with `string` + a validator hint?** Demo currently does the latter (`priority`, `status` as plain string at `demo/issue-tracker-api/src/artifacts/pdm.json:12`); the visualization UI would benefit from knowing the closed set explicitly.
+1. Should PDM v2 ship `enum` + typed `struct/json` first, with money documented
+   as a composite recipe, or should `money` be first-class in the same release?
+   Recommended default: enum + struct/json first.
+2. Should foreign-service refs be relation kinds or scalar metadata?
+   Recommended default: relation kind, because validators and UI already walk
+   relations.
+3. Should the schema evolution artifact live in PDM, QSM, or a higher
+   "blueprint migration" package? Recommended default: higher blueprint-level
+   migration plan that includes PDM/QSM/service artifacts.
