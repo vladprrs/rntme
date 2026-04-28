@@ -5,12 +5,16 @@ Per-RPC conformance scenarios for the Identity canonical contract `@rntme/contra
 ## File map
 
 - `src/types.ts` — local stub of `Scenario` and `CategoryConformanceSuite`. Replace with import from `@rntme/conformance-framework` once it lands.
-- `src/fixtures/{users,organizations,invitations}.ts` — canonical seed objects (proto-shaped) referenced from scenarios.
+- `src/capabilities.ts` — canonical RPC/event/capability registries plus structural coverage placeholders for error codes and events.
+- `src/fixtures/{users,organizations,invitations,sessions}.ts` — canonical seed objects (proto-shaped) referenced from scenarios.
+- `src/fixtures/ref.ts` — shared fixture `CanonicalRef` factory and fixture module version.
 - `src/scenarios/<RPC>.scenarios.ts` × 24 — one file per canonical RPC. All currently empty stubs; fill alongside the framework wiring.
 - `src/suite.ts` — assembled `CategoryConformanceSuite`.
 - `src/index.ts` — barrel.
 - `test/drift.test.ts` — drift detection: contract RPCs ↔ scenarios files ↔ suite keys.
 - `test/suite-shape.test.ts` — basic suite invariants.
+- `test/fixtures-sanity.test.ts` — protobuf `.verify()` coverage for canonical fixtures and fixture metadata.
+- `test/capabilities.test.ts` — registry and structural scenario-coverage guards for RPCs, events, and error codes.
 
 ## Quick start
 
@@ -20,6 +24,14 @@ import { identityConformanceSuite } from '@rntme/conformance-identity';
 console.log(identityConformanceSuite.category); // 'identity'
 console.log(identityConformanceSuite.contractVersion); // 'v1'
 console.log(Object.keys(identityConformanceSuite.scenariosByRpc).length); // 24
+```
+
+Template-based consumers may also import the generic alias:
+
+```ts
+import { suite } from '@rntme/conformance-identity';
+
+console.log(suite.scenariosByRpc.GetUser.length);
 ```
 
 ## What scenarios cover (when filled)
@@ -43,8 +55,17 @@ Both filter scenarios by the module's `capabilities[]`.
 ## Invariants & gotchas
 
 - **Drift test is mandatory CI.** Adding an RPC to `IdentityModule` without a matching `<RPC>.scenarios.ts` file fails `pnpm test`. This enforces modules-monorepo §7.2.
+- **Suite shape is canonicalized as camelCase.** Identity exposes `contractVersion` and `scenariosByRpc`; `suite` is a non-breaking alias for template consumers, not a separate shape.
+- **Capability registry is the typed source of truth.** `IDENTITY_CANONICAL_RPCS`, `IDENTITY_CANONICAL_EVENTS`, and `IDENTITY_SCENARIO_COVERAGE` must move together when the contract changes.
 - **Scenarios are vendor-agnostic.** A scenario references canonical proto types and fixture seeds — never vendor-specific behavior. Vendor adapters in `modules/identity/<vendor>/test/conformance.test.ts` import this suite and feed it through the framework runner.
 - **Stubs return empty `Scenario[]`.** Until `@rntme/conformance-framework` ships, the runner does not exist. Empty scenarios files preserve the structural invariant (one file per RPC) without committing to runtime semantics that may shift.
+
+## Out of scope
+
+- Actual scenario implementations beyond structural placeholders.
+- Live-vendor mode and sandbox credential handling.
+- The shared `@rntme/conformance-framework` runner and final cross-category type migration.
+- Renaming or reshaping sibling category packages outside Identity.
 
 ## Where to look first
 

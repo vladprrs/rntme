@@ -1,6 +1,6 @@
 {
   "name": "@rntme/conformance-identity",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "description": "Per-RPC conformance scenarios for the Identity canonical contract. Consumed by every Identity-category vendor module.",

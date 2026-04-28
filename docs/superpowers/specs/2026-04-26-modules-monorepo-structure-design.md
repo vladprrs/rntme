@@ -234,6 +234,19 @@ modules/<category>/conformance/                 # per-category, category-specifi
 └── package.json   →  @rntme/conformance-<category>
 ```
 
+The canonical suite contract uses the camelCase shape below. Category packages
+may export a package-specific name such as `identityConformanceSuite`, and may
+also export `suite` as a compatibility alias, but the underlying object shape is
+not category-specific.
+
+```ts
+export interface CategoryConformanceSuite {
+  readonly category: string;
+  readonly contractVersion: 'v1';
+  readonly scenariosByRpc: Readonly<Record<string, ReadonlyArray<Scenario>>>;
+}
+```
+
 ### 7.2 Authorship rule (Q10)
 
 rntme-team owns both layers. Critical discipline: **a PR that changes `packages/contracts/<category>/<v>/` MUST land matching changes in `modules/<category>/conformance/scenarios/` in the same PR.** A new canonical RPC without a conformance scenario does not get merged. This is what physically holds the (β) design honest — the canonical contract grows only as fast as its conformance suite.
