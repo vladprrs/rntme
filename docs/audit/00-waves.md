@@ -126,7 +126,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Units (1):**
 
-- [ ] U-087 — sanitizeCause aggressively redacts all error messages — `@rntme-cli/deploy-dokploy` — 🔫
+- [x] U-087 — sanitizeCause aggressively redacts all error messages — `@rntme-cli/deploy-dokploy` — closed in RNT-280
 
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
@@ -239,7 +239,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-083 | `@rntme-cli/deploy-dokploy` | RNT-226#6 | Medium | 📦 park | — | ✓ | src/config.ts; render.ts uses publicBaseUrl/endpoint unchecked |  [triage] park: real but no foreseeable shoot |
 | U-084 | `@rntme-cli/deploy-dokploy` | RNT-226#7 | Medium | 📦 park | — | ✓ | src/result.ts duplicates ok/err/isOk/isErr from deploy-core |  [triage] park: real but no foreseeable shoot |
 | U-086 | `@rntme-cli/deploy-dokploy` | RNT-226#9 | Medium | 📦 park | — | ✓ | src/render.ts assertNever throws plain Error |  [triage] park: real but no foreseeable shoot |
-| U-087 | `@rntme-cli/deploy-dokploy` | RNT-226#10 | Medium | 🔫 gun | W13 | ✓ | src/apply.ts sanitizeCause replaces all errors with redacted text |  [triage] gun: loaded — security/corruption/error-contract gap |
+| U-087 | `@rntme-cli/deploy-dokploy` | RNT-226#10 | Medium | ✅ closed | W13 | ✓ | src/apply.ts sanitizeCause now preserves benign Error messages and redacts credential-like values at the cause serialization boundary | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-280 |
 | U-088 | `@rntme-cli/deploy-dokploy` | RNT-226#11 | Low | 📦 park | — | ✓ | README.md links missing project-deployment-pipeline-design spec |  [triage] park: real but no foreseeable shoot |
 | U-089 | `@rntme-cli/deploy-dokploy` | RNT-226#12 | Low | 📦 park | — | ✓ | package.json version 0.0.0 |  [triage] park: real but no foreseeable shoot |
 | U-090 | `@rntme-cli/deploy-dokploy` | RNT-226#13 | Low | 📦 park | — | ✓ | All tests use FakeDokployClient; no platform-http contract tests |  [triage] park: real but no foreseeable shoot |
@@ -536,7 +536,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ### `@rntme-cli/deploy-dokploy` — total findings: 13
 
-- → DEV: U-087
+- → DEV:
 - → DECIDE:
 - → PARK: U-078, U-079, U-080, U-081, U-083, U-084, U-086, U-088, U-089, U-090
 - → REJECTED: U-082, U-085
