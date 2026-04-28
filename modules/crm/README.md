@@ -12,7 +12,11 @@ The shared conformance suite lives at `modules/crm/conformance/` and is consumed
 
 ## Vendors landed here
 
-None yet. The first vendor (`module-crm-bitrix24`, RU P0 priority — 57.5% RU market, 152-FZ data-residency) is brainstormed and planned separately after this conformance skeleton merges.
+| Vendor | Package | Preset | Status |
+|---|---|---|---|
+| amoCRM / Kommo | `@rntme/crm-amocrm` | Core | Implemented — Contacts, Companies, Leads (as Deals), Tasks (as Activities), Notes, Pipelines, Custom Fields, Associations, Owners. URL-encoded webhooks. SDK: `@shevernitskiy/amo`. |
+
+The first vendor (`module-crm-bitrix24`, RU P0 priority — 57.5% RU market, 152-FZ data-residency) is brainstormed and planned separately.
 
 ## Recommended capability presets (documentation-only — NOT validated tiers)
 

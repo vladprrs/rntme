@@ -1,0 +1,65 @@
+import { describe, it, expect } from 'vitest';
+import { AMOCRM_SUPPORTED_RPCS, AMOCRM_SUPPORTED_EVENTS } from '../src/capabilities.js';
+
+describe('conformance', () => {
+  it('exports supported RPCs matching canonical contract', () => {
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetContact');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateContact');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('UpdateContact');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteContact');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListContacts');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetCompany');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateCompany');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('UpdateCompany');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteCompany');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListCompanies');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetDeal');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateDeal');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('UpdateDeal');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteDeal');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListDeals');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetActivity');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateActivity');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('UpdateActivity');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteActivity');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListActivities');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetNote');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateNote');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteNote');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListNotes');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListPipelines');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListCustomFieldDefinitions');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListAssociations');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CreateAssociation');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('DeleteAssociation');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('SyncDelta');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('SubmitJob');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('GetJob');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('CancelJob');
+    expect(AMOCRM_SUPPORTED_RPCS).toContain('ListJobs');
+  });
+
+  it('exports supported events matching canonical contract', () => {
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ContactCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ContactUpdated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ContactDeleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.CompanyCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.CompanyUpdated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.CompanyDeleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.DealCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.DealUpdated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.DealStageChanged');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.DealClosed');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ActivityCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ActivityUpdated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.ActivityDeleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.NoteCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.NoteDeleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AssociationCreated');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AssociationDeleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AsyncJobSubmitted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AsyncJobStatusChanged');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AsyncJobCompleted');
+    expect(AMOCRM_SUPPORTED_EVENTS).toContain('rntme.crm.v1.AsyncJobFailed');
+  });
+});

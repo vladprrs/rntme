@@ -1,0 +1,37 @@
+{
+  "name": "@rntme/crm-amocrm",
+  "version": "0.0.0",
+  "category": "crm",
+  "vendor": "amocrm",
+  "contract": "crm/v1",
+  "capabilities": {
+    "vendors": ["amocrm", "kommo"],
+    "entities": ["contact", "company", "deal", "activity", "note"],
+    "rpcs": [
+      "GetContact", "ListContacts", "CreateContact", "UpdateContact", "DeleteContact",
+      "GetCompany", "ListCompanies", "CreateCompany", "UpdateCompany", "DeleteCompany",
+      "GetDeal", "ListDeals", "CreateDeal", "UpdateDeal", "DeleteDeal",
+      "GetActivity", "ListActivities", "CreateActivity", "UpdateActivity", "DeleteActivity",
+      "GetNote", "ListNotes", "CreateNote", "DeleteNote",
+      "ListPipelines", "ListCustomFieldDefinitions", "ListAssociations",
+      "CreateAssociation", "DeleteAssociation",
+      "SyncDelta",
+      "SubmitJob", "GetJob", "CancelJob", "ListJobs"
+    ],
+    "events": [
+      "ContactCreated", "ContactUpdated", "ContactDeleted",
+      "CompanyCreated", "CompanyUpdated", "CompanyDeleted",
+      "DealCreated", "DealUpdated", "DealStageChanged", "DealClosed",
+      "ActivityCreated", "ActivityUpdated", "ActivityDeleted",
+      "NoteCreated", "NoteDeleted",
+      "AssociationCreated", "AssociationDeleted",
+      "AsyncJobSubmitted", "AsyncJobStatusChanged", "AsyncJobCompleted", "AsyncJobFailed"
+    ],
+    "search_tiers": ["simple"],
+    "labeled_associations": false,
+    "bulk_operations": { "max_size": 1 },
+    "async_job_types": ["SYNC_FULL"],
+    "webhook_format": "urlencoded",
+    "webhook_retry_policy": "undocumented"
+  }
+}
