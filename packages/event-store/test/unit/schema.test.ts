@@ -30,21 +30,25 @@ describe('applyEventStoreSchema', () => {
        VALUES ('Issue-1','Issue','1',1,'X','e1',NULL,NULL,'2026-01-01T00:00:00Z','{}',1,'corr',NULL,NULL,NULL)`,
     ).run();
     expect(() =>
-      db.prepare(
-        `INSERT INTO event_log (subject, aggregate_type, aggregate_id, version, event_type,
+      db
+        .prepare(
+          `INSERT INTO event_log (subject, aggregate_type, aggregate_id, version, event_type,
                                 event_id, actor_kind, actor_id, occurred_at, payload_json, schema_version,
                                 correlation_id, causation_id, command_id, traceparent)
          VALUES ('Issue-1','Issue','1',1,'Y','e2',NULL,NULL,'2026-01-01T00:00:00Z','{}',1,'corr',NULL,NULL,NULL)`,
-      ).run(),
+        )
+        .run(),
     ).toThrow(/UNIQUE/);
     // event_id unique too
     expect(() =>
-      db.prepare(
-        `INSERT INTO event_log (subject, aggregate_type, aggregate_id, version, event_type,
+      db
+        .prepare(
+          `INSERT INTO event_log (subject, aggregate_type, aggregate_id, version, event_type,
                                 event_id, actor_kind, actor_id, occurred_at, payload_json, schema_version,
                                 correlation_id, causation_id, command_id, traceparent)
          VALUES ('Issue-2','Issue','2',1,'X','e1',NULL,NULL,'2026-01-01T00:00:00Z','{}',1,'corr',NULL,NULL,NULL)`,
-      ).run(),
+        )
+        .run(),
     ).toThrow(/UNIQUE/);
     // idx name list is not asserted (sqlite auto-names UNIQUE indexes); presence of the constraint is what matters
     expect(idx.length).toBeGreaterThanOrEqual(0);
@@ -65,9 +69,11 @@ describe('applyEventStoreSchema', () => {
       .all() as { name: string }[];
     expect(tables.map((t) => t.name)).toContain('delivery_tracking');
 
-    const cols = db
-      .prepare("PRAGMA table_info('delivery_tracking')")
-      .all() as { name: string; notnull: number; pk: number }[];
+    const cols = db.prepare("PRAGMA table_info('delivery_tracking')").all() as {
+      name: string;
+      notnull: number;
+      pk: number;
+    }[];
     const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
     expect(byName['event_id']?.pk).toBe(1);
     expect(byName['first_attempt_at']?.notnull).toBe(1);
@@ -76,6 +82,26 @@ describe('applyEventStoreSchema', () => {
     expect(byName['last_error']?.notnull).toBe(0);
     expect(byName['delivered_at']?.notnull).toBe(0);
     expect(byName['dlq_at']?.notnull).toBe(0);
+  });
+
+  it('creates event_store_metadata table for immutable store metadata', () => {
+    const db = new Database(':memory:');
+    applyEventStoreSchema(db);
+
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[];
+    expect(tables.map((t) => t.name)).toContain('event_store_metadata');
+
+    const cols = db.prepare("PRAGMA table_info('event_store_metadata')").all() as {
+      name: string;
+      notnull: number;
+      pk: number;
+    }[];
+    const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
+    expect(byName['key']?.pk).toBe(1);
+    expect(byName['value']?.notnull).toBe(1);
+    expect(byName['updated_at']?.notnull).toBe(1);
   });
 
   it('creates correlation/causation/command/traceparent columns on event_log', () => {
