@@ -102,6 +102,32 @@ function bodyLimitMiddleware(config: ValidatedHttpBodyLimitConfig): MiddlewareHa
       if (Number.isFinite(n) && n > config.maxBytes) {
         return c.json({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: config.maxBytes }, 413);
       }
+      if (Number.isFinite(n)) {
+        await next();
+        return;
+      }
+    }
+
+    const raw = c.req.raw.body;
+    if (raw !== null) {
+      const reader = raw.getReader();
+      const chunks: ArrayBuffer[] = [];
+      let total = 0;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > config.maxBytes) {
+          return c.json({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: config.maxBytes }, 413);
+        }
+        chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+      }
+      const body = new Blob(chunks);
+      c.req.raw = new Request(c.req.url, {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+        body,
+      });
     }
 
     await next();
@@ -120,6 +146,9 @@ function createInMemoryRateLimiter(config: ValidatedHttpRateLimitConfig): Middle
     }
 
     const now = Date.now();
+    for (const [bucketKey, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(bucketKey);
+    }
     const key = rateLimitKey(c);
     let entry = buckets.get(key);
     if (entry === undefined || entry.resetAt <= now) {
@@ -144,8 +173,9 @@ function createInMemoryRateLimiter(config: ValidatedHttpRateLimitConfig): Middle
   };
 }
 
-function rateLimitKey(c: Parameters<MiddlewareHandler>[0]): string {
-  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
-  if (forwardedFor) return forwardedFor;
-  return c.req.header('x-real-ip') ?? 'local';
+function rateLimitKey(_c: Parameters<MiddlewareHandler>[0]): string {
+  // Hono's Node adapter does not expose a trustworthy peer address here.
+  // Use a conservative per-process bucket instead of trusting spoofable
+  // X-Forwarded-For / X-Real-IP headers.
+  return 'process';
 }

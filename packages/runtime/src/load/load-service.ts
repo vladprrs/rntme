@@ -146,6 +146,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   let rawPdm: unknown;
   try {
     rawPdm = readJsonFile(dir, 'pdm.json');
+  } catch (e) {
+    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+  }
+
+  try {
     const pdmParsed = parsePdm(rawPdm);
     if (isErr(pdmParsed)) {
       return { ok: false, errors: [{ code: 'PDM_INVALID', details: pdmParsed.errors }] };
@@ -157,7 +162,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     validatedPdm = v.value;
     pdmResolver = createPdmResolver(validatedPdm);
   } catch (e) {
-    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    return { ok: false, errors: [{ code: 'PDM_INVALID', details: [{ message: e instanceof Error ? e.message : String(e) }] }] };
   }
 
   // 3. QSM
@@ -165,6 +170,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   let rawQsm: unknown;
   try {
     rawQsm = readJsonFile(dir, 'qsm.json');
+  } catch (e) {
+    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+  }
+
+  try {
     const qsmParsed = parseQsm(rawQsm);
     if (isQsmErr(qsmParsed)) {
       return { ok: false, errors: [{ code: 'QSM_INVALID', details: qsmParsed.errors }] };
@@ -175,7 +185,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     }
     validatedQsm = v.value;
   } catch (e) {
-    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    return { ok: false, errors: [{ code: 'QSM_INVALID', details: [{ message: e instanceof Error ? e.message : String(e) }] }] };
   }
 
   const eventTypes = deriveEventTypes(validatedPdm);

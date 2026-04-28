@@ -183,9 +183,11 @@ safety gate, not as a distributed quota system.
 ```
 
 TLS paths are resolved relative to the artifact directory passed to
-`startService(..., { artifactDir })`. When `grpc.tls` is omitted,
-`GrpcAdapterClient` falls back to insecure credentials and logs a production
-warning under `NODE_ENV=production`.
+`startService(..., { artifactDir })`. `privateKeyPath` and `certChainPath`
+must be provided together; `validateManifest` rejects partial client-certificate
+config before startup. When `grpc.tls` is omitted, `GrpcAdapterClient` falls
+back to insecure credentials and logs a production warning under
+`NODE_ENV=production`.
 
 ### `ServiceError` codes
 

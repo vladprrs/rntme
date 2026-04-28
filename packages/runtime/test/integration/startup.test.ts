@@ -58,6 +58,31 @@ describe('startService', () => {
     expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
   });
 
+  it('rejects oversized streamed /api request bodies without content-length', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    (loaded.value.manifest.surface.http as any).bodyLimit = { enabled: true, maxBytes: 8 };
+    running = await startService(loaded.value);
+
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ title: 'stream body is too large' })));
+        controller.close();
+      },
+    });
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+  });
+
   it('rate limits /api requests with 429 and limit headers', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
@@ -72,6 +97,23 @@ describe('startService', () => {
     expect(second.headers.get('retry-after')).toBe('60');
     expect(second.headers.get('x-ratelimit-limit')).toBe('1');
     expect(second.headers.get('x-ratelimit-remaining')).toBe('0');
+  });
+
+  it('does not trust forwarded client IP headers for /api rate limit keys', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    (loaded.value.manifest.surface.http as any).rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    running = await startService(loaded.value);
+
+    const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`, {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    });
+    const second = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`, {
+      headers: { 'x-forwarded-for': '203.0.113.11' },
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
   });
 
   it('wires a compiled query map through the default GraphIrQueryExecutor for gRPC', async () => {

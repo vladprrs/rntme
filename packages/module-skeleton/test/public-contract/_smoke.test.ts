@@ -34,11 +34,17 @@ describe('@rntme/module-skeleton public contract', () => {
     const manifest = {
       name: 'identity-auth0',
       version: '1.0.0',
+      category: 'identity',
+      vendor: 'auth0',
+      contract: 'identity/v1',
       contact: 'platform@example.com',
       grpcServiceName: 'rntme.identity.v1.IdentityModule',
       webhookPath: '/webhooks/auth0',
       secrets: [{ name: 'AUTH0_CLIENT_SECRET', scope: 'tenant' }],
-      capabilities: ['identity.users.read'],
+      capabilities: {
+        rpcs: ['GetUser'],
+        events: ['rntme.identity.v1.UserCreated'],
+      },
     };
 
     expect(ModuleManifestSchema.safeParse(manifest).success).toBe(true);

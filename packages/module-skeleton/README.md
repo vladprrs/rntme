@@ -26,23 +26,34 @@ A *platform module* is a service that uses `@rntme/runtime` infrastructure (even
 
 ## Module manifest contract
 
-Platform modules publish a strict `module.json` that matches spec §12:
+Platform modules publish a strict `module.json`. The canonical fields match
+the checked-in vendor modules (`modules/identity/{auth0,clerk,workos}`) and
+can also carry the optional runtime-adjacent fields from spec §12:
 
 ```json
 {
-  "name": "identity-clerk",
-  "version": "1.0.0",
+  "name": "@rntme/identity-clerk",
+  "version": "0.0.0",
+  "category": "identity",
+  "vendor": "clerk",
+  "contract": "identity/v1",
   "contact": "identity-team@example.com",
   "grpcServiceName": "rntme.identity.v1.IdentityModule",
   "webhookPath": "/webhooks/clerk",
   "secrets": [{ "name": "CLERK_SECRET_KEY", "scope": "tenant" }],
-  "capabilities": ["identity.users.read", "identity.users.write"]
+  "capabilities": {
+    "rpcs": ["GetUser", "CreateUser"],
+    "events": ["rntme.identity.v1.UserCreated"]
+  }
 }
 ```
 
-`secrets[].scope` is one of `tenant`, `project`, or `service`.
-`description` is optional. Unknown keys are rejected so module boot fails fast
-when the contract drifts.
+`category`, `vendor`, `contract`, and `capabilities.rpcs/events` are required.
+`contact`, `grpcServiceName`, `webhookPath`, `secrets`, `description`, and
+`limitations` are optional because current vendor packages publish capability
+metadata before all runtime surface fields are wired. `secrets[].scope` is one
+of `tenant`, `project`, or `service`. Unknown keys are rejected so module boot
+fails fast when the contract drifts.
 
 ## What is not here (yet)
 

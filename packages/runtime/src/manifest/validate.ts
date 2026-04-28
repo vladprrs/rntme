@@ -104,7 +104,7 @@ export function validateManifest(
 
   const modules = parsed.modules ?? [];
   const seenNames = new Set<string>();
-  for (const mod of modules) {
+  for (const [index, mod] of modules.entries()) {
     if (seenNames.has(mod.name)) {
       errors.push({
         code: 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME',
@@ -113,6 +113,18 @@ export function validateManifest(
       });
     } else {
       seenNames.add(mod.name);
+    }
+    const tls = mod.grpc.tls;
+    if (tls !== undefined) {
+      const hasPrivateKey = tls.privateKeyPath !== undefined;
+      const hasCertChain = tls.certChainPath !== undefined;
+      if (hasPrivateKey !== hasCertChain) {
+        errors.push({
+          code: 'MANIFEST_INVALID_TYPE',
+          path: `modules.${index}.grpc.tls`,
+          message: 'privateKeyPath and certChainPath must be provided together',
+        });
+      }
     }
   }
 

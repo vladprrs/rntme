@@ -88,4 +88,32 @@ describe('validateManifest', () => {
     expect((r.value.surface.http as any).bodyLimit).toEqual({ enabled: false, maxBytes: 4096 });
     expect((r.value.surface.http as any).rateLimit).toEqual({ enabled: true, windowMs: 2000, max: 2 });
   });
+
+  it('rejects partial module TLS key/certificate pairs', () => {
+    const r = validateManifest(
+      {
+        ...MIN,
+        modules: [
+          {
+            name: 'identity',
+            grpc: { address: 'identity:50051', tls: { privateKeyPath: 'client.key' } },
+            protoPath: 'identity.proto',
+          },
+        ],
+      },
+      RUNTIME_VERSION,
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'MANIFEST_INVALID_TYPE',
+            path: 'modules.0.grpc.tls',
+          }),
+        ]),
+      );
+    }
+  });
 });
