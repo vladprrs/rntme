@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { identityConformanceSuite } from '../src/suite.js';
+import { identityConformanceSuite, suite } from '../src/suite.js';
 
 describe('identityConformanceSuite', () => {
   it('declares category=identity, contractVersion=v1', () => {
     expect(identityConformanceSuite.category).toBe('identity');
     expect(identityConformanceSuite.contractVersion).toBe('v1');
+  });
+
+  it('exports a generic suite alias for template-based consumers', () => {
+    expect(suite).toBe(identityConformanceSuite);
   });
 
   it('contains exactly 24 RPC entries', () => {

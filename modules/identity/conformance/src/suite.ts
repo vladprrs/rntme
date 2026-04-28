@@ -54,3 +54,5 @@ export const identityConformanceSuite: CategoryConformanceSuite = {
     UpdateUser,
   },
 };
+
+export const suite = identityConformanceSuite;
