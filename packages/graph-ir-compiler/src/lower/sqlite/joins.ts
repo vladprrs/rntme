@@ -2,6 +2,7 @@ import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm, QsmRelation } from '@rntme/qsm';
 import { defaultTableName, isEntityMirrorSource } from '@rntme/qsm';
 import type { SqlExpr, SqlJoin } from './ast.js';
+import { internalError } from '../../types/errors.js';
 
 export type JoinChain = {
   from: string;
@@ -38,34 +39,34 @@ export function expandChain(
     if (!rel) {
       // Defensive: semantic validator (checkNavRelations) should have caught this.
       // If we're here, lowerToSqlite was called without going through the semantic layer.
-      throw new Error(`NAV_NOT_ALLOWED: relation "${key}" not declared in QSM.relations`);
+      throw internalError('lowering', `NAV_NOT_ALLOWED: relation "${key}" not declared in QSM.relations`);
     }
     if (rel.cardinality === 'many') {
       // Defensive: semantic validator (checkNavRelations) should have caught this.
       // If we're here, lowerToSqlite was called without going through the semantic layer.
-      throw new Error(`NAV_FAN_OUT_NOT_ALLOWED: relation "${key}" has cardinality "many"`);
+      throw internalError('lowering', `NAV_FAN_OUT_NOT_ALLOWED: relation "${key}" has cardinality "many"`);
     }
 
     const curProj = qsm.projections[curProjName];
-    if (!curProj) throw new Error(`expandChain: unknown source projection "${curProjName}"`);
+    if (!curProj) throw internalError('lowering', `expandChain: unknown source projection "${curProjName}"`);
     if (!isEntityMirrorSource(curProj.source)) {
-      throw new Error(`expandChain: projection "${curProjName}" is not an entity-mirror projection`);
+      throw internalError('lowering', `expandChain: projection "${curProjName}" is not an entity-mirror projection`);
     }
     const curEntity = pdm.entities[curProj.source.entity];
-    if (!curEntity) throw new Error(`expandChain: unknown PDM entity "${curProj.source.entity}"`);
+    if (!curEntity) throw internalError('lowering', `expandChain: unknown PDM entity "${curProj.source.entity}"`);
 
     const toProj = qsm.projections[rel.to];
-    if (!toProj) throw new Error(`expandChain: unknown target projection "${rel.to}"`);
+    if (!toProj) throw internalError('lowering', `expandChain: unknown target projection "${rel.to}"`);
     if (!isEntityMirrorSource(toProj.source)) {
-      throw new Error(`expandChain: projection "${rel.to}" is not an entity-mirror projection`);
+      throw internalError('lowering', `expandChain: projection "${rel.to}" is not an entity-mirror projection`);
     }
     const toEntity = pdm.entities[toProj.source.entity];
-    if (!toEntity) throw new Error(`expandChain: unknown PDM entity "${toProj.source.entity}"`);
+    if (!toEntity) throw internalError('lowering', `expandChain: unknown PDM entity "${toProj.source.entity}"`);
 
     const localField = curEntity.fields[rel.localKey];
     const foreignField = toEntity.fields[rel.foreignKey];
-    if (!localField) throw new Error(`expandChain: field "${rel.localKey}" missing on ${curEntity.table}`);
-    if (!foreignField) throw new Error(`expandChain: field "${rel.foreignKey}" missing on ${toEntity.table}`);
+    if (!localField) throw internalError('lowering', `expandChain: field "${rel.localKey}" missing on ${curEntity.table}`);
+    if (!foreignField) throw internalError('lowering', `expandChain: field "${rel.foreignKey}" missing on ${toEntity.table}`);
 
     steps.push({
       relation: relName,
@@ -91,7 +92,7 @@ export function chainToSqlJoins(
   let fromAlias = chain.from;
   for (const step of chain.steps) {
     const toProj = qsm.projections[step.toProjection];
-    if (!toProj) throw new Error(`chainToSqlJoins: unknown projection ${step.toProjection}`);
+    if (!toProj) throw internalError('lowering', `chainToSqlJoins: unknown projection ${step.toProjection}`);
     const toTable = toProj.table ?? defaultTableName(step.toProjection);
 
     const on: SqlExpr = {
@@ -107,4 +108,3 @@ export function chainToSqlJoins(
   }
   return joins;
 }
-

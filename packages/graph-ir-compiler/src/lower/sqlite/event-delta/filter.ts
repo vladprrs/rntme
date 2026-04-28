@@ -1,5 +1,6 @@
 import type { Expr } from '../../../types/authoring.js';
 import type { DerivedColumnBinding, DerivedSqlType } from '../../../types/projection.js';
+import { internalError } from '../../../types/errors.js';
 
 /**
  * Per-virtual-column metadata used when lowering a filter expression to SQL.
@@ -63,7 +64,8 @@ function renderExpr(
     const virt = resolveVirtualName(e);
     const meta = cols[virt];
     if (!meta) {
-      throw new Error(
+      throw internalError(
+        'lowering',
         `buildFilterArtifact: unknown virtual column "${virt}" referenced by filter expression`,
       );
     }
@@ -75,7 +77,8 @@ function renderExpr(
       return { sql: `'${String(raw).replace(/'/g, "''")}'`, sqlType: 'TEXT' };
     }
     if ('$param' in e) {
-      throw new Error(
+      throw internalError(
+        'lowering',
         'buildFilterArtifact: $param not supported in projection-role filter expressions (projection graphs take no inputs)',
       );
     }
@@ -88,12 +91,12 @@ function renderExpr(
     }
     const entries = Object.entries(e as Record<string, unknown>);
     if (entries.length !== 1) {
-      throw new Error(`buildFilterArtifact: malformed expression ${JSON.stringify(e)}`);
+      throw internalError('lowering', `buildFilterArtifact: malformed expression ${JSON.stringify(e)}`);
     }
     const [op, args] = entries[0] as [string, Expr[]];
     return renderOp(op, args, cols, bindings);
   }
-  throw new Error(`buildFilterArtifact: unsupported expression ${JSON.stringify(e)}`);
+  throw internalError('lowering', `buildFilterArtifact: unsupported expression ${JSON.stringify(e)}`);
 }
 
 function renderOp(
@@ -173,7 +176,7 @@ function renderOp(
         sqlType: 'TEXT',
       };
     default:
-      throw new Error(`buildFilterArtifact: unsupported operator "${op}" in projection-role filter`);
+      throw internalError('lowering', `buildFilterArtifact: unsupported operator "${op}" in projection-role filter`);
   }
 }
 
@@ -185,7 +188,8 @@ function resolveVirtualName(path: string): string {
   const parts = path.split('.');
   if (parts.length === 1) return parts[0]!;
   if (parts.length === 2) return parts[1]!;
-  throw new Error(
+  throw internalError(
+    'lowering',
     `buildFilterArtifact: dot-nav path "${path}" is not allowed on event-source virtual columns`,
   );
 }
@@ -210,5 +214,5 @@ function renderVirtual(virt: string, meta: EventSourceFilterColumn): string {
       return 'applied_at';
   }
   // exhaustive — TS knows this is unreachable
-  throw new Error(`buildFilterArtifact: cannot render virtual column "${virt}"`);
+  throw internalError('lowering', `buildFilterArtifact: cannot render virtual column "${virt}"`);
 }

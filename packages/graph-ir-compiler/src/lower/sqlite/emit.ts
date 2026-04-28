@@ -1,4 +1,5 @@
 import type { SqlExpr, SqlSelect } from './ast.js';
+import { internalError } from '../../types/errors.js';
 
 const q = (id: string): string => `"${id.replace(/"/g, '""')}"`;
 
@@ -58,7 +59,7 @@ function operator(op: string, args: SqlExpr[]): string {
   if (op === 'is_null' && args.length === 1) return `(${expr(args[0]!)} IS NULL)`;
   if (op === 'concat') return `(${args.map(expr).join(' || ')})`;
   if (op === 'coalesce') return `COALESCE(${args.map(expr).join(', ')})`;
-  throw new Error(`emit: unsupported operator ${op}`);
+  throw internalError('lowering', `emit: unsupported operator ${op}`);
 }
 
 export function emitSql(s: SqlSelect): string {

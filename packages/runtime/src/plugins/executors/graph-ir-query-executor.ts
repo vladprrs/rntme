@@ -1,4 +1,8 @@
-import { execute as executeGraphIr, type CompileResult } from '@rntme/graph-ir-compiler';
+import {
+  execute as executeGraphIr,
+  GraphIrRuntimeError,
+  type CompileResult,
+} from '@rntme/graph-ir-compiler';
 import type {
   QueryExecutor,
   QueryExecutorInput,
@@ -31,9 +35,16 @@ export class GraphIrQueryExecutor implements QueryExecutor {
         error: {
           code: 'QUERY_HANDLER_THREW',
           message: e instanceof Error ? e.message : String(e),
-          detail: e instanceof Error ? { name: e.name, stack: e.stack } : e,
+          detail: mapThrownDetail(e),
         },
       };
     }
   }
+}
+
+function mapThrownDetail(e: unknown): unknown {
+  if (e instanceof GraphIrRuntimeError) {
+    return { name: e.name, code: e.code, stack: e.stack };
+  }
+  return e instanceof Error ? { name: e.name, stack: e.stack } : e;
 }

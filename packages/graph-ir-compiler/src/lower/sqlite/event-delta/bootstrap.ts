@@ -1,4 +1,5 @@
 import type { DerivedTableSchema } from '../../../types/projection.js';
+import { internalError } from '../../../types/errors.js';
 
 /**
  * Emit the bootstrap SQL that rebuilds a derived projection from the full
@@ -29,7 +30,7 @@ export function buildBootstrapSql(
     .map((c) => {
       const s = groupKeySql[c.name];
       if (s === undefined) {
-        throw new Error(`buildBootstrapSql: missing groupKeySql entry for group column "${c.name}"`);
+        throw internalError('lowering', `buildBootstrapSql: missing groupKeySql entry for group column "${c.name}"`);
       }
       return `${s} AS ${q(c.name)}`;
     })
@@ -39,7 +40,7 @@ export function buildBootstrapSql(
     .map((c) => {
       const s = measureSql[c.name];
       if (s === undefined) {
-        throw new Error(`buildBootstrapSql: missing measureSql entry for measure column "${c.name}"`);
+        throw internalError('lowering', `buildBootstrapSql: missing measureSql entry for measure column "${c.name}"`);
       }
       return `${s} AS ${q(c.name)}`;
     })

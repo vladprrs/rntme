@@ -13,6 +13,7 @@ import { buildDeltaArtifact } from './delta.js';
 import { buildBootstrapSql } from './bootstrap.js';
 import { buildFilterArtifact, type EventSourceFilterColumn } from './filter.js';
 import { buildRelational } from '../../../relational/build.js';
+import { internalError } from '../../../types/errors.js';
 
 /**
  * Glue function: maps the semantic plan of a projection-role graph into a
@@ -29,10 +30,10 @@ export function lowerToEventDelta(
   const scan = findScanStep(semanticPlan);
   const aggregate = findAggregateStep(semanticPlan);
   if (!scan) {
-    throw new Error('lowerToEventDelta: plan has no scan step');
+    throw internalError('lowering', 'lowerToEventDelta: plan has no scan step');
   }
   if (!aggregate) {
-    throw new Error('lowerToEventDelta: plan has no aggregate (reduce) step');
+    throw internalError('lowering', 'lowerToEventDelta: plan has no aggregate (reduce) step');
   }
 
   // Build the virtual-column → metadata dictionary used by both schema builder
@@ -62,7 +63,7 @@ export function lowerToEventDelta(
     const virt = resolveVirtualName(path);
     const meta = columnMeta[virt];
     if (!meta) {
-      throw new Error(`lowerToEventDelta: group key "${name}" → unknown virtual column "${virt}"`);
+      throw internalError('lowering', `lowerToEventDelta: group key "${name}" -> unknown virtual column "${virt}"`);
     }
     groupKeySql[name] = renderVirtualForBootstrap(virt, meta.binding);
   }
@@ -73,11 +74,12 @@ export function lowerToEventDelta(
       measureSql[name] = 'COUNT(*)';
     } else if (m.fn === 'sum') {
       if (m.expr === undefined) {
-        throw new Error(`lowerToEventDelta: sum measure "${name}" missing expr`);
+        throw internalError('lowering', `lowerToEventDelta: sum measure "${name}" missing expr`);
       }
       measureSql[name] = `SUM(${renderExprForBootstrap(m.expr, columnMeta)})`;
     } else {
-      throw new Error(
+      throw internalError(
+        'lowering',
         `lowerToEventDelta: unsupported measure fn "${m.fn}" for "${name}" (projection-role allows count | sum)`,
       );
     }
@@ -139,7 +141,8 @@ function deriveBinding(
   if (virtualName in payloadFields) {
     return { kind: 'payloadField', fieldName: virtualName, sqlType };
   }
-  throw new Error(
+  throw internalError(
+    'lowering',
     `lowerToEventDelta: virtual column "${virtualName}" is neither a reserved event field nor a payload field`,
   );
 }
@@ -148,7 +151,7 @@ function resolveVirtualName(path: string): string {
   const parts = path.split('.');
   if (parts.length === 1) return parts[0]!;
   if (parts.length === 2) return parts[1]!;
-  throw new Error(`lowerToEventDelta: dot-nav path "${path}" is not allowed on event-source virtual columns`);
+  throw internalError('lowering', `lowerToEventDelta: dot-nav path "${path}" is not allowed on event-source virtual columns`);
 }
 
 function renderVirtualForBootstrap(virt: string, binding: DerivedColumnBinding): string {
@@ -170,7 +173,7 @@ function renderVirtualForBootstrap(virt: string, binding: DerivedColumnBinding):
     case 'exprScalar':
       return binding.sql;
   }
-  throw new Error(`lowerToEventDelta: cannot render virtual "${virt}"`);
+  throw internalError('lowering', `lowerToEventDelta: cannot render virtual "${virt}"`);
 }
 
 /**
@@ -189,7 +192,7 @@ function renderExprForBootstrap(
     const virt = resolveVirtualName(e);
     const meta = cols[virt];
     if (!meta) {
-      throw new Error(`lowerToEventDelta: expression refs unknown virtual column "${virt}"`);
+      throw internalError('lowering', `lowerToEventDelta: expression refs unknown virtual column "${virt}"`);
     }
     return renderVirtualForBootstrap(virt, meta.binding);
   }
@@ -198,18 +201,18 @@ function renderExprForBootstrap(
       return `'${String((e as { $literal: string }).$literal).replace(/'/g, "''")}'`;
     }
     if ('$param' in e) {
-      throw new Error('lowerToEventDelta: $param not supported in projection-role expressions');
+      throw internalError('lowering', 'lowerToEventDelta: $param not supported in projection-role expressions');
     }
     const entries = Object.entries(e as Record<string, unknown>);
     if (entries.length !== 1) {
-      throw new Error(`lowerToEventDelta: malformed expression ${JSON.stringify(e)}`);
+      throw internalError('lowering', `lowerToEventDelta: malformed expression ${JSON.stringify(e)}`);
     }
     const [op, args] = entries[0] as [string, Expr[]];
     const sep = op === 'mul' ? '*' : op === 'add' ? '+' : op === 'sub' ? '-' : op === 'div' ? '/' : null;
     if (sep === null) {
-      throw new Error(`lowerToEventDelta: unsupported operator "${op}" in projection-role expression`);
+      throw internalError('lowering', `lowerToEventDelta: unsupported operator "${op}" in projection-role expression`);
     }
     return `(${args.map((a) => renderExprForBootstrap(a, cols)).join(` ${sep} `)})`;
   }
-  throw new Error(`lowerToEventDelta: unsupported expression ${JSON.stringify(e)}`);
+  throw internalError('lowering', `lowerToEventDelta: unsupported expression ${JSON.stringify(e)}`);
 }

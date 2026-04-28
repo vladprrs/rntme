@@ -13,6 +13,7 @@ import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from
 import { compileCommand } from './command-runtime/compile.js';
 import { executeCommand, type ExecuteCommandContext, type CorrelationCtx } from './command-runtime/execute.js';
 import type { CommandResult } from './types/command.js';
+import { compileFailed, toGraphIrError } from './types/errors.js';
 
 export { compileCommand };
 export { executeCommand, type ExecuteCommandContext, type CorrelationCtx };
@@ -23,6 +24,7 @@ export { deriveEventTypeName } from './emit/event-type.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
+export { GraphIrCompileError, GraphIrInternalError, GraphIrRuntimeError } from './types/errors.js';
 export type { ValidatedPdm } from '@rntme/pdm';
 export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
@@ -71,7 +73,14 @@ export function compile(
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
 
-  const { graphs } = normalize(sv.value);
+  let canonical;
+  try {
+    canonical = normalize(sv.value);
+  } catch (e) {
+    return err([toGraphIrError(e, 'canonical')]);
+  }
+
+  const { graphs } = canonical;
   const graphIds = Object.keys(graphs);
   if (graphIds.length !== 1) {
     return err([
@@ -89,7 +98,12 @@ export function compile(
 
   const planR = buildSemanticPlan(graph, pdm, qsm);
   if (!planR.ok) return planR;
-  const rel = buildRelational(planR.value);
+  let rel;
+  try {
+    rel = buildRelational(planR.value);
+  } catch (e) {
+    return err([toGraphIrError(e, 'relational')]);
+  }
 
   const predicateOptionalParams = new Set<string>(
     Object.entries(graph.signature.inputs)
@@ -105,8 +119,15 @@ export function compile(
     }
   }
 
-  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
-  const sql = emitSql(ast);
+  let ast;
+  let paramOrder;
+  let sql;
+  try {
+    ({ ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm }));
+    sql = emitSql(ast);
+  } catch (e) {
+    return err([toGraphIrError(e, 'lowering')]);
+  }
 
   const shapeName = graph.signature.output.type.replace(/^rowset<|^row<|>$/g, '');
   return ok({ sql, paramOrder, shape: { name: shapeName }, optionalParams, paramDefaults });
@@ -132,7 +153,7 @@ export function run(
 ): unknown[] {
   const r = compile(rawSpec, rawPdm, rawQsm, options);
   if (!r.ok) {
-    throw Object.assign(new Error('compile failed'), { errors: r.errors });
+    throw compileFailed(r.errors);
   }
   return execute(r.value, paramValues, db);
 }
@@ -145,7 +166,7 @@ export function runCommand(
   ctx: ExecuteCommandContext,
 ): CommandResult {
   const r = compileCommand(rawSpec, rawPdm, rawQsm);
-  if (!r.ok) throw Object.assign(new Error('compile failed'), { errors: r.errors });
+  if (!r.ok) throw compileFailed(r.errors);
   return executeCommand(r.value, paramValues, ctx);
 }
 
@@ -164,7 +185,12 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };
 
-  const canonical = normalize(sv.value);
+  let canonical;
+  try {
+    canonical = normalize(sv.value);
+  } catch (e) {
+    return { ok: false, artifacts, errors: [toGraphIrError(e, 'canonical')] };
+  }
   artifacts.canonical = canonical;
 
   const graphIds = Object.keys(canonical.graphs);
@@ -190,7 +216,12 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
   if (!planR.ok) return { ok: false, artifacts, errors: planR.errors };
   artifacts.semanticPlan = planR.value;
 
-  const rel = buildRelational(planR.value);
+  let rel;
+  try {
+    rel = buildRelational(planR.value);
+  } catch (e) {
+    return { ok: false, artifacts, errors: [toGraphIrError(e, 'relational')] };
+  }
   artifacts.relational = rel;
 
   const predicateOptionalParams = new Set<string>(
@@ -199,8 +230,15 @@ export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Exp
       .map(([name]) => name),
   );
 
-  const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
-  const sql = emitSql(ast);
+  let ast;
+  let paramOrder;
+  let sql;
+  try {
+    ({ ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm }));
+    sql = emitSql(ast);
+  } catch (e) {
+    return { ok: false, artifacts, errors: [toGraphIrError(e, 'lowering')] };
+  }
 
   return {
     ok: true,

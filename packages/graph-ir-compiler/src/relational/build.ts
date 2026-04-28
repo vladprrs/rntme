@@ -1,5 +1,6 @@
 import type { SemanticPlan } from '../types/semantic-plan.js';
 import type { RelOp } from '../types/relational.js';
+import { internalError } from '../types/errors.js';
 
 export function buildRelational(plan: SemanticPlan): RelOp {
   let acc: RelOp | undefined;
@@ -16,15 +17,15 @@ export function buildRelational(plan: SemanticPlan): RelOp {
         };
         break;
       case 'filter':
-        if (!acc) throw new Error('filter without prior step');
+        if (!acc) throw internalError('relational', 'filter without prior step');
         acc = { op: 'Filter', child: acc, predicate: step.predicate };
         break;
       case 'project':
-        if (!acc) throw new Error('project without prior step');
+        if (!acc) throw internalError('relational', 'project without prior step');
         acc = { op: 'Project', child: acc, into: step.into, cols: step.fields };
         break;
       case 'aggregate':
-        if (!acc) throw new Error('aggregate without prior step');
+        if (!acc) throw internalError('relational', 'aggregate without prior step');
         acc = {
           op: 'Aggregate',
           child: acc,
@@ -34,15 +35,15 @@ export function buildRelational(plan: SemanticPlan): RelOp {
         };
         break;
       case 'sort':
-        if (!acc) throw new Error('sort without prior step');
+        if (!acc) throw internalError('relational', 'sort without prior step');
         acc = { op: 'Sort', child: acc, keys: step.by };
         break;
       case 'limit':
-        if (!acc) throw new Error('limit without prior step');
+        if (!acc) throw internalError('relational', 'limit without prior step');
         acc = { op: 'Limit', child: acc, count: step.count };
         break;
     }
   }
-  if (!acc) throw new Error('empty plan');
+  if (!acc) throw internalError('relational', 'empty plan');
   return acc;
 }

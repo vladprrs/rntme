@@ -12,6 +12,7 @@ import { buildEmitPlans } from '../emit/plan.js';
 import { inferRole } from '../role/infer.js';
 import { err, ok, ERROR_CODES, type Result } from '../types/result.js';
 import type { CompiledCommand, ReadPreludeCompileResult } from '../types/command.js';
+import { toGraphIrError } from '../types/errors.js';
 
 export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): Result<CompiledCommand> {
   const specR = parseAuthoringSpec(rawSpec);
@@ -49,7 +50,14 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
 
-  const { graphs } = normalize(sv.value);
+  let canonical;
+  try {
+    canonical = normalize(sv.value);
+  } catch (e) {
+    return err([toGraphIrError(e, 'canonical')]);
+  }
+
+  const { graphs } = canonical;
   const ids = Object.keys(graphs);
   if (ids.length !== 1)
     return err([
@@ -103,15 +111,28 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
     };
     const planR = buildSemanticPlan(readGraph, pdm, qsm);
     if (!planR.ok) return planR;
-    const rel = buildRelational(planR.value);
+    let rel;
+    try {
+      rel = buildRelational(planR.value);
+    } catch (e) {
+      return err([toGraphIrError(e, 'relational')]);
+    }
     const predicateOptionalParams = new Set<string>(
       Object.entries(graph.signature.inputs)
         .filter(([, i]) => i.mode === 'predicate_optional')
         .map(([n]) => n),
     );
-    const { ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm });
+    let ast;
+    let paramOrder;
+    let sql;
+    try {
+      ({ ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm }));
+      sql = emitSql(ast);
+    } catch (e) {
+      return err([toGraphIrError(e, 'lowering')]);
+    }
     readPrelude = {
-      sql: emitSql(ast),
+      sql,
       paramOrder,
       shape: { name: 'GuardRow' },
       optionalParams: [...predicateOptionalParams],
