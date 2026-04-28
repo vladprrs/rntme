@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERSION, exampleHandlers } from '@rntme/module-skeleton';
+import { VERSION, exampleHandlers, ModuleManifestSchema, parseModuleManifest } from '@rntme/module-skeleton';
 import type { CommandExecutionContext } from '@rntme/runtime';
 
 describe('@rntme/module-skeleton public contract', () => {
@@ -28,5 +28,27 @@ describe('@rntme/module-skeleton public contract', () => {
         }),
       }),
     );
+  });
+
+  it('exports the ModuleManifest validator from the built entrypoint', () => {
+    const manifest = {
+      name: 'identity-auth0',
+      version: '1.0.0',
+      category: 'identity',
+      vendor: 'auth0',
+      contract: 'identity/v1',
+      contact: 'platform@example.com',
+      grpcServiceName: 'rntme.identity.v1.IdentityModule',
+      webhookPath: '/webhooks/auth0',
+      secrets: [{ name: 'AUTH0_CLIENT_SECRET', scope: 'tenant' }],
+      capabilities: {
+        rpcs: ['GetUser'],
+        events: ['rntme.identity.v1.UserCreated'],
+      },
+    };
+
+    expect(ModuleManifestSchema.safeParse(manifest).success).toBe(true);
+    const parsed = parseModuleManifest(manifest);
+    expect(parsed).toEqual({ ok: true, value: manifest });
   });
 });

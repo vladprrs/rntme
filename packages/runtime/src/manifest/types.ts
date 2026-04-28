@@ -1,10 +1,33 @@
 import type { Ok } from '@rntme/pdm';
 import type { StudioConfig } from './schema.js';
 
+export type HttpBodyLimitConfig = { enabled?: boolean; maxBytes?: number };
+export type HttpRateLimitConfig = { enabled?: boolean; windowMs?: number; max?: number };
+export type ValidatedHttpBodyLimitConfig = { enabled: boolean; maxBytes: number };
+export type ValidatedHttpRateLimitConfig = { enabled: boolean; windowMs: number; max: number };
+export type ModuleGrpcTlsConfig = {
+  rootCertPath?: string;
+  privateKeyPath?: string;
+  certChainPath?: string;
+};
+export type ManifestModule = {
+  name: string;
+  grpc: { address: string; tls?: ModuleGrpcTlsConfig };
+  protoPath: string;
+};
+
 export type ParsedManifest = {
   rntmeVersion: string;
   service: { name: string; version: string };
-  surface?: { http?: { enabled?: boolean; port?: number }; grpc?: { enabled?: boolean; port?: number } };
+  surface?: {
+    http?: {
+      enabled?: boolean;
+      port?: number;
+      bodyLimit?: HttpBodyLimitConfig;
+      rateLimit?: HttpRateLimitConfig;
+    };
+    grpc?: { enabled?: boolean; port?: number };
+  };
   persistence?: {
     mode?: 'ephemeral' | 'persistent';
     eventStorePath?: string;
@@ -22,14 +45,19 @@ export type ParsedManifest = {
     mountPath?: string;
     maxRows?: number;
   };
-  modules?: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
+  modules?: ManifestModule[];
 };
 
 export type ValidatedManifest = {
   rntmeVersion: { major: number; minor: number; patch: number };
   service: { name: string; version: string };
   surface: {
-    http: { enabled: boolean; port: number };
+    http: {
+      enabled: boolean;
+      port: number;
+      bodyLimit: ValidatedHttpBodyLimitConfig;
+      rateLimit: ValidatedHttpRateLimitConfig;
+    };
     grpc?: { enabled: boolean; port: number } | undefined;
   };
   persistence:
@@ -43,7 +71,7 @@ export type ValidatedManifest = {
   };
   seed: { enabled: boolean; path: string };
   studio: StudioConfig;
-  modules: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
+  modules: ManifestModule[];
 };
 
 export type ManifestErrorCode =

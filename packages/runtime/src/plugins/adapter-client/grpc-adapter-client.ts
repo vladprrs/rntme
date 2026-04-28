@@ -11,7 +11,7 @@ import { CircuitBreaker } from './circuit-breaker.js';
 import type { ProtoRegistry } from './proto-registry.js';
 
 export type GrpcAdapterClientConfig = {
-  modules: Record<string, { address: string; protoPath: string }>;
+  modules: Record<string, { address: string; protoPath: string; credentials?: grpc.ChannelCredentials }>;
   registry: ProtoRegistry;
   logger?: Logger;
   circuit?: { windowMs?: number; minCalls?: number; errorRateThreshold?: number; halfOpenAfterMs?: number };
@@ -46,9 +46,20 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
     if (client !== undefined) return client;
     const cfg = this.cfg.modules[module];
     if (cfg === undefined) return undefined;
-    client = new grpc.Client(cfg.address, grpc.credentials.createInsecure());
+    const credentials = cfg.credentials ?? this.insecureFallbackCredentials(module);
+    client = new grpc.Client(cfg.address, credentials);
     this.clients.set(module, client);
     return client;
+  }
+
+  private insecureFallbackCredentials(module: string): grpc.ChannelCredentials {
+    if (process.env.NODE_ENV === 'production') {
+      this.logger.warn({
+        msg: 'grpc_module_insecure_credentials',
+        module,
+      });
+    }
+    return grpc.credentials.createInsecure();
   }
 
   async call(module: string, rpc: string, input: unknown, opts: AdapterCallOptions): Promise<AdapterResult> {

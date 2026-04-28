@@ -3,6 +3,8 @@ import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { ReadableStream } from 'node:stream/web';
+import { TextEncoder } from 'node:util';
 import { loadService } from '../../src/load/load-service.js';
 import { startService } from '../../src/start/start-service.js';
 import type { RunningService } from '../../src/types.js';
@@ -40,6 +42,80 @@ describe('startService', () => {
     expect((root as { name: string }).name).toBe('issue-tracker-api');
     const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
+  });
+
+  it('rejects oversized /api request bodies with 413', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    loaded.value.manifest.surface.http.bodyLimit = { enabled: true, maxBytes: 8 };
+    running = await startService(loaded.value);
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'this body is too large' }),
+    });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+  });
+
+  it('rejects oversized streamed /api request bodies without content-length', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    loaded.value.manifest.surface.http.bodyLimit = { enabled: true, maxBytes: 8 };
+    running = await startService(loaded.value);
+
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ title: 'stream body is too large' })));
+        controller.close();
+      },
+    });
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      duplex: 'half',
+    } as Parameters<typeof fetch>[1] & { duplex: 'half' });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+  });
+
+  it('rate limits /api requests with 429 and limit headers', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    loaded.value.manifest.surface.http.rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    running = await startService(loaded.value);
+
+    const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
+    const second = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+    expect(second.headers.get('retry-after')).toBe('60');
+    expect(second.headers.get('x-ratelimit-limit')).toBe('1');
+    expect(second.headers.get('x-ratelimit-remaining')).toBe('0');
+  });
+
+  it('does not trust forwarded client IP headers for /api rate limit keys', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    loaded.value.manifest.surface.http.rateLimit = { enabled: true, windowMs: 60_000, max: 1 };
+    running = await startService(loaded.value);
+
+    const first = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`, {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    });
+    const second = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`, {
+      headers: { 'x-forwarded-for': '203.0.113.11' },
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
   });
 
   it('wires a compiled query map through the default GraphIrQueryExecutor for gRPC', async () => {

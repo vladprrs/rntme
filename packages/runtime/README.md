@@ -137,6 +137,58 @@ Contract suites for all three interfaces live in `src/plugins/contract-tests.ts`
 | `seedMode` | `'strict'` | Passed to `applySeed`. `'strict'` rejects on a non-empty event-store with `SEED_STORE_NOT_EMPTY`. |
 | `skipSeed` | `false` | Test-only escape hatch that bypasses `applySeed` entirely. |
 
+### HTTP ingress limits
+
+`manifest.surface.http` supports two defensive defaults for every `/api/*`
+request:
+
+```json
+{
+  "surface": {
+    "http": {
+      "bodyLimit": { "enabled": true, "maxBytes": 1048576 },
+      "rateLimit": { "enabled": true, "windowMs": 60000, "max": 600 }
+    }
+  }
+}
+```
+
+If omitted, both controls are enabled. Oversized requests are rejected before
+the bindings router with `413` and `{ "error": "REQUEST_BODY_TOO_LARGE" }`.
+Rate-limited requests return `429`, `Retry-After`, and `X-RateLimit-*`
+headers. The default limiter is in-memory and per-process; use it as a local
+safety gate, not as a distributed quota system.
+
+### Module gRPC TLS
+
+`manifest.modules[]` declares external platform modules used by `pre[]`:
+
+```json
+{
+  "modules": [
+    {
+      "name": "identity",
+      "grpc": {
+        "address": "identity:50051",
+        "tls": {
+          "rootCertPath": "certs/ca.pem",
+          "privateKeyPath": "certs/client-key.pem",
+          "certChainPath": "certs/client.pem"
+        }
+      },
+      "protoPath": "protos/identity.proto"
+    }
+  ]
+}
+```
+
+TLS paths are resolved relative to the artifact directory passed to
+`startService(..., { artifactDir })`. `privateKeyPath` and `certChainPath`
+must be provided together; `validateManifest` rejects partial client-certificate
+config before startup. When `grpc.tls` is omitted, `GrpcAdapterClient` falls
+back to insecure credentials and logs a production warning under
+`NODE_ENV=production`.
+
 ### `ServiceError` codes
 
 | Code | Emitted from | Details shape |
@@ -179,6 +231,10 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **UI v2 routes mount at `/api` with a prefixed `httpMap`.** `loadService` builds `httpMap[id] = { method, path: '/api' + rb.entry.http.path }` before calling `ui.compile`. The compiled artifact embeds those absolute paths; `HttpSurface` then mounts `createBindingsRouter` at `/api` and the UI app at `/`. Fix: `d83e926 fix(runtime): prepend /api prefix to httpMap paths for v2 compiled screens`.
 - **Seed lifecycle — applied after DDL bootstrap, before relay.** Exact order in `startService`: `bus.start` → `wireEventPipeline` (which calls `bootstrapProjections(qsmDb, projectionDdls)`) → `applySeed` (if `service.seed !== null` and `!skipSeed`) → `pipeline.start()` (relay + consumer) → `HttpSurface.mount` → `serve`. `wireEventPipeline` does **not** auto-start; the split exists so seed runs before the consumer polls the bus. Fixes: `b266f85 fix(runtime): align seed manifest + loadService with runtime-seed plan`, spec §8.3.
 - **Modules are service-adjacent, not project intake.** Runtime wires `manifest.modules[]`, pre-fetch middleware, the idempotency cache, and gRPC surfaces for a service. It does not yet boot an entire project blueprint folder; `@rntme/blueprint` owns project composition until that runtime spec lands.
+- **Graph signature parsing covers API-shaped inputs.** Runtime graph loading
+  accepts scalar inputs plus `list<T>`, `row<T>`, and `rowset<T>` signatures.
+  gRPC proto emission now collects row/rowset input and output shapes from
+  `shapes.json` first, then PDM entities.
 - **`seedMode: 'strict'` swallows `SEED_STORE_NOT_EMPTY` only.** On persistent restarts the event-log is non-empty; `applySeed` rejects with that code and `startService` proceeds. Any other seed error tears down the pipeline and re-throws (`start-service.ts` lines 54–63). Spec §5.1, §8.3.
 - **Bus pass-through in env overrides.** `applyEnvOverrides` must preserve `v.bus` verbatim — dropping it silently disabled the in-memory bus. Fix: `efc3df6 fix(runtime,docs): bus passthrough in env override + post-migration READMEs`.
 - **`pdm-shape` field iteration.** `loadService` iterates `pdmResolver.resolveEntity(name).fields` (array), not `Object.entries`. A mismatched iteration shape returns an empty shape and downstream bindings fail `BINDINGS_INVALID`. Fix: `8410408 fix(runtime): loadService pdm-shape field iteration + drop dead GRAPH_INVALID`.
@@ -212,6 +268,9 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **Change startup order**: `src/start/start-service.ts` is the ordered orchestrator. Do not move seed before `bootstrapProjections` (DDL must exist first) or after `pipeline.start` (relay/consumer would observe a partially seeded log). Regression test: `test/integration/seed.test.ts`, `test/unit/wire-event-pipeline-order.test.ts`.
 - **Debug a failing `loadService`**: each step in `src/load/load-service.ts` returns a `ServiceError` with the layer-specific `details` array. Reproduce with `rntme-runtime validate <dir>` — emits `{ ok: false, errors: [...] }` JSON. Unit tests in `test/unit/load-service.errors.test.ts`.
 - **Add a manifest field**: edit `src/manifest/schema.ts` (Zod, `.strict()`), then `src/manifest/types.ts` (`ParsedManifest` + `ValidatedManifest` shapes), then fill defaults in `src/manifest/validate.ts` and optional env overrides in `applyEnvOverrides`. Add a parse error code to `ManifestErrorCode`. Tests: `test/unit/manifest-parse.test.ts`, `test/unit/manifest-validate.test.ts`, `test/unit/env-override.test.ts`.
+- **Tune `/api` ingress safety**: configure `surface.http.bodyLimit` and
+  `surface.http.rateLimit` in `manifest.json`. Tests:
+  `test/integration/startup.test.ts`.
 - **Reproduce an end-to-end failure**: `test/fixtures/issue-tracker/` is a full artifact bundle (manifest, PDM, QSM, bindings, graphs, UI sources, seed). `test/e2e/issue-tracker.test.ts` boots it via `startService`; `test/e2e/validate-cli.test.ts` exercises the CLI.
 - **Check observability wiring**: `src/plugins/observability.ts` defines every `rntme_*` metric. `HttpSurface` calls `mountObservability` with `manifest.observability.health.path` and `manifest.observability.metrics.path`. Integration test: `test/integration/health-metrics.test.ts`.
 

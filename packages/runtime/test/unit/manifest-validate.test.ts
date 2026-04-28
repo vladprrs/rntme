@@ -15,6 +15,8 @@ describe('validateManifest', () => {
     if (!r.ok) return;
     expect(r.value.surface.http.enabled).toBe(true);
     expect(r.value.surface.http.port).toBe(3000);
+    expect(r.value.surface.http.bodyLimit).toEqual({ enabled: true, maxBytes: 1_048_576 });
+    expect(r.value.surface.http.rateLimit).toEqual({ enabled: true, windowMs: 60_000, max: 600 });
     expect(r.value.persistence.mode).toBe('ephemeral');
     expect(r.value.bus.mode).toBe('in-memory');
     expect(r.value.auth.headerName).toBe('x-actor-id');
@@ -66,5 +68,52 @@ describe('validateManifest', () => {
       RUNTIME_VERSION,
     );
     expect(r.ok).toBe(true);
+  });
+
+  it('preserves explicit HTTP body and rate limit config', () => {
+    const r = validateManifest(
+      {
+        ...MIN,
+        surface: {
+          http: {
+            bodyLimit: { enabled: false, maxBytes: 4096 },
+            rateLimit: { enabled: true, windowMs: 2000, max: 2 },
+          },
+        },
+      },
+      RUNTIME_VERSION,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.surface.http.bodyLimit).toEqual({ enabled: false, maxBytes: 4096 });
+    expect(r.value.surface.http.rateLimit).toEqual({ enabled: true, windowMs: 2000, max: 2 });
+  });
+
+  it('rejects partial module TLS key/certificate pairs', () => {
+    const r = validateManifest(
+      {
+        ...MIN,
+        modules: [
+          {
+            name: 'identity',
+            grpc: { address: 'identity:50051', tls: { privateKeyPath: 'client.key' } },
+            protoPath: 'identity.proto',
+          },
+        ],
+      },
+      RUNTIME_VERSION,
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'MANIFEST_INVALID_TYPE',
+            path: 'modules.0.grpc.tls',
+          }),
+        ]),
+      );
+    }
   });
 });

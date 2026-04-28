@@ -63,10 +63,30 @@ function parseInputType(raw: string): InputType {
   ) {
     return { kind: 'scalar', primitive: raw };
   }
+  const list = /^list<(\w+)>$/.exec(raw);
+  if (list) {
+    const element = list[1] as ScalarPrimitive;
+    if (
+      element === 'integer' || element === 'decimal' || element === 'string' ||
+      element === 'boolean' || element === 'date' || element === 'datetime'
+    ) {
+      return { kind: 'list', element };
+    }
+  }
+  const row = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
+  if (row) {
+    return { kind: row[1] as 'rowset' | 'row', shape: row[2] as string };
+  }
   throw new Error(`unsupported input type: "${raw}"`);
 }
 
 function parseOutputType(raw: string): OutputType {
+  if (
+    raw === 'integer' || raw === 'decimal' || raw === 'string' ||
+    raw === 'boolean' || raw === 'date' || raw === 'datetime'
+  ) {
+    return { kind: 'scalar', primitive: raw };
+  }
   const m = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
   if (!m) throw new Error(`unsupported output type: "${raw}"`);
   return { kind: m[1] as 'rowset' | 'row', shape: m[2] as string };
@@ -126,6 +146,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   let rawPdm: unknown;
   try {
     rawPdm = readJsonFile(dir, 'pdm.json');
+  } catch (e) {
+    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+  }
+
+  try {
     const pdmParsed = parsePdm(rawPdm);
     if (isErr(pdmParsed)) {
       return { ok: false, errors: [{ code: 'PDM_INVALID', details: pdmParsed.errors }] };
@@ -137,7 +162,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     validatedPdm = v.value;
     pdmResolver = createPdmResolver(validatedPdm);
   } catch (e) {
-    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    return { ok: false, errors: [{ code: 'PDM_INVALID', details: [{ message: e instanceof Error ? e.message : String(e) }] }] };
   }
 
   // 3. QSM
@@ -145,6 +170,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   let rawQsm: unknown;
   try {
     rawQsm = readJsonFile(dir, 'qsm.json');
+  } catch (e) {
+    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+  }
+
+  try {
     const qsmParsed = parseQsm(rawQsm);
     if (isQsmErr(qsmParsed)) {
       return { ok: false, errors: [{ code: 'QSM_INVALID', details: qsmParsed.errors }] };
@@ -155,7 +185,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     }
     validatedQsm = v.value;
   } catch (e) {
-    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    return { ok: false, errors: [{ code: 'QSM_INVALID', details: [{ message: e instanceof Error ? e.message : String(e) }] }] };
   }
 
   const eventTypes = deriveEventTypes(validatedPdm);
@@ -227,8 +257,14 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
 
   // 6. Bindings
   let validatedBindings: ValidatedBindings;
+  let bRaw: unknown;
   try {
-    const bRaw = readJsonFile(dir, 'bindings.json');
+    bRaw = readJsonFile(dir, 'bindings.json');
+  } catch (e) {
+    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+  }
+
+  try {
     const bParsed = parseBindingArtifact(bRaw);
     if (!bParsed.ok) {
       return { ok: false, errors: [{ code: 'BINDINGS_INVALID', details: bParsed.errors }] };
@@ -240,7 +276,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     }
     validatedBindings = v.value;
   } catch (e) {
-    return { ok: false, errors: [{ code: 'IO_ERROR', details: { message: e instanceof Error ? e.message : String(e) } }] };
+    return { ok: false, errors: [{ code: 'BINDINGS_INVALID', details: [{ message: e instanceof Error ? e.message : String(e) }] }] };
   }
 
   // 7. UI v2 — compile from source format (ui/ directory)

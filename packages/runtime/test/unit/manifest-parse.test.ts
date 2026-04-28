@@ -66,6 +66,57 @@ describe('parseManifest', () => {
     }
   });
 
+  it('parses module grpc TLS certificate paths', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'subs', version: '1.0' },
+        modules: [
+          {
+            name: 'identity',
+            grpc: {
+              address: 'identity:50051',
+              tls: {
+                rootCertPath: 'certs/ca.pem',
+                privateKeyPath: 'certs/client-key.pem',
+                certChainPath: 'certs/client.pem',
+              },
+            },
+            protoPath: 'protos/identity.proto',
+          },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.modules?.[0]?.grpc.tls).toEqual({
+        rootCertPath: 'certs/ca.pem',
+        privateKeyPath: 'certs/client-key.pem',
+        certChainPath: 'certs/client.pem',
+      });
+    }
+  });
+
+  it('parses HTTP body and rate limit config', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'svc', version: '1.0' },
+        surface: {
+          http: {
+            bodyLimit: { enabled: true, maxBytes: 2048 },
+            rateLimit: { enabled: true, windowMs: 1000, max: 10 },
+          },
+        },
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.surface?.http?.bodyLimit).toEqual({ enabled: true, maxBytes: 2048 });
+      expect(r.value.surface?.http?.rateLimit).toEqual({ enabled: true, windowMs: 1000, max: 10 });
+    }
+  });
+
   it('rejects module with empty name', () => {
     const r = parseManifest(
       JSON.stringify({

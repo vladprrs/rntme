@@ -104,7 +104,7 @@ export function validateManifest(
 
   const modules = parsed.modules ?? [];
   const seenNames = new Set<string>();
-  for (const mod of modules) {
+  for (const [index, mod] of modules.entries()) {
     if (seenNames.has(mod.name)) {
       errors.push({
         code: 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME',
@@ -113,6 +113,18 @@ export function validateManifest(
       });
     } else {
       seenNames.add(mod.name);
+    }
+    const tls = mod.grpc.tls;
+    if (tls !== undefined) {
+      const hasPrivateKey = tls.privateKeyPath !== undefined;
+      const hasCertChain = tls.certChainPath !== undefined;
+      if (hasPrivateKey !== hasCertChain) {
+        errors.push({
+          code: 'MANIFEST_INVALID_TYPE',
+          path: `modules.${index}.grpc.tls`,
+          message: 'privateKeyPath and certChainPath must be provided together',
+        });
+      }
     }
   }
 
@@ -131,6 +143,15 @@ export function validateManifest(
       http: {
         enabled: parsed.surface?.http?.enabled ?? true,
         port: parsed.surface?.http?.port ?? 3000,
+        bodyLimit: {
+          enabled: parsed.surface?.http?.bodyLimit?.enabled ?? true,
+          maxBytes: parsed.surface?.http?.bodyLimit?.maxBytes ?? 1_048_576,
+        },
+        rateLimit: {
+          enabled: parsed.surface?.http?.rateLimit?.enabled ?? true,
+          windowMs: parsed.surface?.http?.rateLimit?.windowMs ?? 60_000,
+          max: parsed.surface?.http?.rateLimit?.max ?? 600,
+        },
       },
       grpc:
         parsed.surface?.grpc !== undefined
@@ -229,7 +250,7 @@ export function applyEnvOverrides(
     value: {
       ...v,
       surface: {
-        http: { enabled: v.surface.http.enabled, port },
+        http: { ...v.surface.http, port },
         grpc: v.surface.grpc,
       },
       persistence,
