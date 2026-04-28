@@ -8,6 +8,7 @@ This directory contains research-only documents for libraries, tools, and infras
 |---|---|---|---|---|
 | Docker node:20-alpine/slim runtime images | node:20-slim / node:20-alpine | node:22.22.2 / node:24.15.0 | **Node 20 EOL 2026-04-30 — urgent migration needed** | [docker-node-20-alpine-slim-runtime-images](./docker-node-20-alpine-slim-runtime-images/README.md) |
 | testcontainers + @testcontainers/postgresql | ^10.13.0 (10.28.0) | 11.14.0 | Ready for upgrade | [testcontainers-plus-testcontainers-postgresql](./testcontainers-plus-testcontainers-postgresql/README.md) |
+| @aws-sdk/client-s3 + @aws-sdk/s3-request-presigner | ^3.650.0 (lockfile: 3.1038.0) | 3.1038.0 | **Keep + Upgrade** — bump declared range; no breaking changes | [aws-sdk-client-s3-plus-aws-sdk-s3-request-presigner](./aws-sdk-client-s3-plus-aws-sdk-s3-request-presigner/README.md) |
 | Bitrix24 B24 JS SDK | TBD | TBD | TBD | [bitrix24-b24jssdk](./bitrix24-b24jssdk/README.md) |
 | Drizzle ORM + Drizzle Kit | TBD | TBD | TBD | [drizzle-orm-plus-drizzle-kit](./drizzle-orm-plus-drizzle-kit/README.md) |
 
