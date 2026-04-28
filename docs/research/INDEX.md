@@ -1,19 +1,20 @@
-# Research Index
+# rntme Dependency Research Index
 
-Research documents for rntme dependencies and technology choices.
+This directory contains research-only documents for libraries, tools, and infrastructure dependencies used by rntme. Each document captures current versions, latest stable versions, alternatives, architecture patterns, pitfalls, and concrete migration recommendations.
 
-| Topic | Path | Status | Last Updated |
-|---|---|---|---|
-| Bitrix24 B24JSSDK | [bitrix24-b24jssdk](./bitrix24-b24jssdk/) | Current | 2026-04-28 |
-| Drizzle ORM + Drizzle Kit | [drizzle-orm-plus-drizzle-kit](./drizzle-orm-plus-drizzle-kit/) | Current | 2026-04-28 |
-| Hono + Hono Node Server + Hono Zod OpenAPI | [hono-plus-hono-node-server-plus-hono-zod-openapi](./hono-plus-hono-node-server-plus-hono-zod-openapi/) | Current | 2026-04-28 |
-| Testcontainers + Testcontainers PostgreSQL | [testcontainers-plus-testcontainers-postgresql](./testcontainers-plus-testcontainers-postgresql/) | Current | 2026-04-28 |
-| TypeScript | [typescript](./typescript/) | Current | 2026-04-28 |
+## Research Documents
 
-## Adding New Research
+| Dependency / Technology | Current Version in rntme | Latest Stable | Status | Doc |
+|---|---|---|---|---|
+| Docker node:20-alpine/slim runtime images | node:20-slim / node:20-alpine | node:22.22.2 / node:24.15.0 | **Node 20 EOL 2026-04-30 — urgent migration needed** | [docker-node-20-alpine-slim-runtime-images](./docker-node-20-alpine-slim-runtime-images/README.md) |
+| testcontainers + @testcontainers/postgresql | ^10.13.0 (10.28.0) | 11.14.0 | Ready for upgrade | [testcontainers-plus-testcontainers-postgresql](./testcontainers-plus-testcontainers-postgresql/README.md) |
+| Bitrix24 B24 JS SDK | TBD | TBD | TBD | [bitrix24-b24jssdk](./bitrix24-b24jssdk/README.md) |
+| Drizzle ORM + Drizzle Kit | TBD | TBD | TBD | [drizzle-orm-plus-drizzle-kit](./drizzle-orm-plus-drizzle-kit/README.md) |
 
-When adding a new dependency research document:
+## How to Add a New Research Document
 
-1. Create a directory under `docs/research/<topic>/`
-2. Write `README.md` with all required sections per the research template
-3. Update this INDEX.md with the new entry
+1. Create a new directory under `docs/research/<dependency-name>/`.
+2. Write `README.md` following the template from the issue specification.
+3. Update this `INDEX.md` with a new row.
+4. Open a PR on a branch named `research/<topic>-RNT-XXX`.
+5. Post a final Multica comment summarizing findings, decisions, and follow-up tasks.
