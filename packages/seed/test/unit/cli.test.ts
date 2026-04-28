@@ -102,6 +102,16 @@ describe('rntme-seed validate', () => {
     const r = spawnSync('node', [CLI, 'validate', dir], { encoding: 'utf8' });
     expect(r.status).toBe(0);
   });
+
+  it('prints PDM parse errors when pdm.json is invalid', () => {
+    const dir = scaffoldArtifacts({ seedVersion: 1, events: [thingCreated()] });
+    writeFileSync(join(dir, 'pdm.json'), JSON.stringify({}));
+    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('PDM_PARSE_SCHEMA_VIOLATION');
+  });
 });
 
 describe('rntme-seed apply', () => {
@@ -153,5 +163,18 @@ describe('rntme-seed apply', () => {
     );
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/applied=0 skipped=1/);
+  });
+
+  it('prints PDM parse errors when pdm.json is invalid', () => {
+    const dir = scaffoldArtifacts({ seedVersion: 1, events: [thingCreated()] });
+    writeFileSync(join(dir, 'pdm.json'), JSON.stringify({}));
+    const storePath = join(dir, 'event-store.db');
+    const r = spawnSync(
+      'node',
+      [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
+      { encoding: 'utf8' },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('PDM_PARSE_SCHEMA_VIOLATION');
   });
 });

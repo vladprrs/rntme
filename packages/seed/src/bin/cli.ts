@@ -8,12 +8,23 @@ import {
   createPdmResolver,
   deriveEventTypes,
 } from '@rntme/pdm';
+import type { PdmError } from '@rntme/pdm';
 import { SqliteEventStore } from '@rntme/event-store';
 import { loadSeed } from '../load.js';
 import { applySeed } from '../apply.js';
 import type { ApplyMode, SeedError } from '../types.js';
 
 const DEFAULT_SERVICE_NAME = 'rntme-seed';
+
+type BuildCtx = {
+  pdm: ReturnType<typeof createPdmResolver>;
+  events: ReturnType<typeof deriveEventTypes>;
+  serviceName: string;
+};
+
+type BuildCtxResult =
+  | { ok: true; value: BuildCtx }
+  | { ok: false; message: string; errors?: readonly PdmError[] };
 
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
@@ -43,12 +54,12 @@ function runValidate(args: string[]): number {
 
   const serviceName = resolveServiceName(args, dir);
   const ctx = buildCtx(dir, serviceName);
-  if (ctx === null) {
-    console.error(`cannot read or validate pdm.json in ${dir}`);
+  if (!ctx.ok) {
+    emitBuildCtxFailure(ctx);
     return 1;
   }
 
-  const result = loadSeed(seedPath, ctx);
+  const result = loadSeed(seedPath, ctx.value);
   if (result.ok) {
     if (asJson) console.log('[]');
     else console.log(`ok: ${result.value.events.length} events`);
@@ -79,8 +90,8 @@ async function runApply(args: string[]): Promise<number> {
 
   const serviceName = resolveServiceName(args, dir);
   const ctx = buildCtx(dir, serviceName);
-  if (ctx === null) {
-    console.error(`cannot read or validate pdm.json in ${dir}`);
+  if (!ctx.ok) {
+    emitBuildCtxFailure(ctx);
     return 1;
   }
   const pathArg = getFlag(args, '--path');
@@ -90,7 +101,7 @@ async function runApply(args: string[]): Promise<number> {
     return 1;
   }
 
-  const result = loadSeed(seedPath, ctx);
+  const result = loadSeed(seedPath, ctx.value);
   if (!result.ok) {
     emitErrors(result.errors, false);
     return 1;
@@ -145,19 +156,31 @@ function resolveServiceName(args: string[], dir: string): string {
   return DEFAULT_SERVICE_NAME;
 }
 
-function buildCtx(dir: string, serviceName: string) {
+function buildCtx(dir: string, serviceName: string): BuildCtxResult {
   const pdmPath = join(dir, 'pdm.json');
-  if (!existsSync(pdmPath)) return null;
-  const raw = JSON.parse(readFileSync(pdmPath, 'utf8'));
+  const message = `cannot read or validate pdm.json in ${dir}`;
+  if (!existsSync(pdmPath)) return { ok: false, message };
+  const raw = readFileSync(pdmPath, 'utf8');
   const parsed = parsePdm(raw);
-  if (!parsed.ok) return null;
+  if (!parsed.ok) return { ok: false, message, errors: parsed.errors };
   const validated = validatePdm(parsed.value);
-  if (!validated.ok) return null;
+  if (!validated.ok) return { ok: false, message, errors: validated.errors };
   return {
-    pdm: createPdmResolver(validated.value),
-    events: deriveEventTypes(validated.value),
-    serviceName,
+    ok: true,
+    value: {
+      pdm: createPdmResolver(validated.value),
+      events: deriveEventTypes(validated.value),
+      serviceName,
+    },
   };
+}
+
+function emitBuildCtxFailure(result: Extract<BuildCtxResult, { ok: false }>): void {
+  console.error(result.message);
+  for (const e of result.errors ?? []) {
+    const prefix = e.path ? `pdm.json ${e.path}: ` : 'pdm.json: ';
+    console.error(`${prefix}${e.code} ${e.message}`);
+  }
 }
 
 function emitErrors(errors: readonly SeedError[], asJson: boolean): void {
