@@ -39,3 +39,4 @@ package-lock.json
 /graph_ir_rc_7.md
 .superpowers/
 /docs/ops/multica-superpowers-workflow.md
+.tmp/
