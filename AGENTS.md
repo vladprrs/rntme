@@ -186,6 +186,9 @@ Modules tree (vendor implementations):
 - **`modules/crm/conformance/`** — Workspace package `@rntme/conformance-crm`: 34
   scenario stubs + fixtures (incl. amoCRM URL-encoded webhook). →
   `modules/crm/conformance/README.md`.
+- **`modules/crm/bitrix24/`** — Workspace package `@rntme/crm-bitrix24`: Bitrix24
+  vendor module for `@rntme/contracts-crm-v1`, backed by the official
+  `@bitrix24/b24jssdk` SDK. → `modules/crm/bitrix24/README.md`.
 - **`@rntme/conformance-identity`** — Per-RPC conformance scenarios for
   the Identity canonical contract. Drift-tested against
   `service IdentityModule`. Imported by every Identity vendor module.
