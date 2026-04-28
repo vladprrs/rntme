@@ -49,13 +49,14 @@ export function createGrpcServer(opts: GrpcServerOptions): GrpcServerHandle {
 
   const server = new grpc.Server();
   server.addService(serviceDef, handlers as unknown as grpc.UntypedServiceImplementation);
+  const serverCredentials = opts.serverCredentials ?? grpc.ServerCredentials.createInsecure();
 
   return {
     server,
     protoSource,
     listen(port, host = '0.0.0.0'): Promise<number> {
       return new Promise((resolve, reject) => {
-        server.bindAsync(`${host}:${port}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {
+        server.bindAsync(`${host}:${port}`, serverCredentials, (err, boundPort) => {
           if (err !== null) return reject(err);
           resolve(boundPort);
         });
