@@ -5,6 +5,8 @@ This directory contains dependency and technology research documents for the rnt
 | Technology | Current version(s) | Latest stable | Recommendation | Document |
 |---|---|---|---|---|
 | pino | ^9.0.0 – ^9.5.0 | 10.3.1 | KEEP + UPGRADE | [pino/README.md](./pino/README.md) |
+| zod | ^4.0.0 (4.3.6) | 4.3.6 | KEEP + UPGRADE (patch) | [zod/README.md](./zod/README.md) |
+| @grpc/grpc-js + @grpc/proto-loader | ^1.10.0 – ^1.14.3 / ^0.7.13 | 1.14.3 / 0.8.0 | KEEP + UPGRADE + migrate bindings-grpc to proto-loader | [grpc-grpc-js-plus-grpc-proto-loader/README.md](./grpc-grpc-js-plus-grpc-proto-loader/README.md) |
 
 ## Contributing
 
