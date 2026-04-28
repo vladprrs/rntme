@@ -10,6 +10,7 @@ This directory contains research-only documents for libraries, tools, and infras
 | testcontainers + @testcontainers/postgresql | ^10.13.0 (10.28.0) | 11.14.0 | Ready for upgrade | [testcontainers-plus-testcontainers-postgresql](./testcontainers-plus-testcontainers-postgresql/README.md) |
 | Bitrix24 B24 JS SDK | TBD | TBD | TBD | [bitrix24-b24jssdk](./bitrix24-b24jssdk/README.md) |
 | Drizzle ORM + Drizzle Kit | TBD | TBD | TBD | [drizzle-orm-plus-drizzle-kit](./drizzle-orm-plus-drizzle-kit/README.md) |
+| prom-client | ^15.1.3 | 15.1.3 (2024-06-27) | **Already latest stable; plan OTel migration spike for H2 2026** | [prom-client](./prom-client/README.md) |
 
 ## How to Add a New Research Document
 
