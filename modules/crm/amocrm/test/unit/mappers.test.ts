@@ -11,6 +11,7 @@ import {
   mapAmoPipeline,
   mapAmoStatus,
   mapAmoTask,
+  structToJson,
   toStruct,
 } from '../../src/mappers.js';
 
@@ -48,6 +49,24 @@ describe('amoCRM mappers', () => {
     expect(contact.owner_canonical_id).toBe('99');
     expect(contact.tags).toEqual(['vip', 'q4-target']);
     expect(contact.status).toBe(crm.ContactStatus.CONTACT_STATUS_ACTIVE);
+    expect(contact.created_at?.seconds).toBe(1609459200);
+    expect(structToJson(contact.metadata?.public)).toMatchObject({
+      EMAIL: 'alice@example.com',
+      PHONE: '+14155551212',
+      POSITION: 'VP Engineering',
+    });
+  });
+
+  it('preserves id-keyed custom field values in public metadata', () => {
+    const contact = mapAmoContact({
+      id: 123,
+      name: 'Alice Smith',
+      custom_fields_values: [
+        { field_id: 575809, values: [{ value: 'Sales' }] },
+      ],
+    });
+
+    expect(structToJson(contact.metadata?.public)).toMatchObject({ '575809': 'Sales' });
   });
 
   it('maps a deleted contact', () => {

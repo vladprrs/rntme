@@ -94,6 +94,28 @@ describe('amoCRM handlers', () => {
     });
   });
 
+  it('dedupes repeated CreateContact calls with the same idempotency key', async () => {
+    const mockAdapter = adapter({
+      createContact: vi
+        .fn()
+        .mockResolvedValueOnce([{ id: 124, name: 'Bob' }])
+        .mockResolvedValueOnce([{ id: 125, name: 'Duplicate Bob' }]),
+    });
+    const module = createAmoCrmModule({ adapter: mockAdapter });
+    const request = crm.CreateContactRequest.create({
+      context: { idempotency_key: 'idem_repeat' },
+      email: 'bob@example.com',
+      name: { display: 'Bob' },
+    });
+
+    const first = await module.CreateContact(request);
+    const second = await module.CreateContact(request);
+
+    expect(first.ref?.canonical_id).toBe('124');
+    expect(second.ref?.canonical_id).toBe('124');
+    expect(mockAdapter.createContact).toHaveBeenCalledTimes(1);
+  });
+
   it('UpdateContact calls adapter', async () => {
     const mockAdapter = adapter();
     const module = createAmoCrmModule({ adapter: mockAdapter });
@@ -155,6 +177,24 @@ describe('amoCRM handlers', () => {
     await expect(module.CreateActivity(crm.CreateActivityRequest.create({ subject: 'Task' }))).rejects.toMatchObject({
       canonicalCode: 'CRM_STRUCTURAL_MISSING_REQUIRED_FIELD',
     });
+  });
+
+  it('rejects invalid CreateActivity due_at instead of defaulting to now', async () => {
+    const mockAdapter = adapter();
+    const module = createAmoCrmModule({ adapter: mockAdapter });
+
+    await expect(
+      module.CreateActivity(
+        crm.CreateActivityRequest.create({
+          context: { idempotency_key: 'idem_due_at' },
+          subject: 'Task',
+          due_at: { seconds: 'not-a-number' as never },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      canonicalCode: 'CRM_STRUCTURAL_MISSING_REQUIRED_FIELD',
+    });
+    expect(mockAdapter.createTask).not.toHaveBeenCalled();
   });
 
   it('GetNote calls adapter', async () => {
@@ -227,6 +267,18 @@ describe('amoCRM handlers', () => {
     expect(mockAdapter.deleteAssociation).toHaveBeenCalledWith('contact', 123, 'company', 456);
   });
 
+  it('rejects DeleteAssociation canonical ids with non-numeric entity ids', async () => {
+    const mockAdapter = adapter();
+    const module = createAmoCrmModule({ adapter: mockAdapter });
+
+    await expect(
+      module.DeleteAssociation(crm.DeleteAssociationRequest.create({ canonical_id: 'contact:abc:company:456' })),
+    ).rejects.toMatchObject({
+      canonicalCode: 'CRM_STRUCTURAL_MISSING_REQUIRED_FIELD',
+    });
+    expect(mockAdapter.deleteAssociation).not.toHaveBeenCalled();
+  });
+
   it('returns UNIMPLEMENTED for unsupported RPCs', async () => {
     const mockAdapter = adapter();
     const module = createAmoCrmModule({ adapter: mockAdapter });
@@ -275,5 +327,17 @@ describe('amoCRM handlers', () => {
         expect(error.canonicalCode).toBe('CRM_REFERENCES_CONTACT_NOT_FOUND');
       }
     }
+  });
+
+  it('maps 403 adapter errors to a permission-denied canonical code', async () => {
+    const mockAdapter = adapter({
+      getContact: vi.fn().mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403 })),
+    });
+    const module = createAmoCrmModule({ adapter: mockAdapter });
+
+    await expect(module.GetContact(crm.GetContactRequest.create({ canonical_id: '123' }))).rejects.toMatchObject({
+      code: 7,
+      canonicalCode: 'CRM_VENDOR_FORBIDDEN',
+    });
   });
 });

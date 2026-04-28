@@ -33,10 +33,10 @@ const module = createAmoCrmModule({ adapter });
 
 ## Webhooks
 
-amoCRM sends webhooks as `application/x-www-form-urlencoded` with bracket-notation nested keys (`leads[update][0][id]`). The receiver decodes this format and translates events into canonical CloudEvents.
+amoCRM sends webhooks as `application/x-www-form-urlencoded` with bracket-notation nested keys (`leads[update][0][id]`). The receiver verifies `X-Signature` with the configured webhook secret, decodes this format, dedupes repeated deliveries for 24h, and translates events into canonical CloudEvents.
 
 ```typescript
-const receiver = createAmoCrmWebhookReceiver();
+const receiver = createAmoCrmWebhookReceiver({ webhookSecret: process.env.AMOCRM_WEBHOOK_SECRET });
 
 const events = await receiver.receive({
   payload: 'leads[update][0][id]=42&leads[update][0][name]=Acme+Q4',
@@ -50,7 +50,8 @@ const events = await receiver.receive({
 |---|---|
 | HTTP 429 | `CRM_VENDOR_RATE_LIMITED` |
 | HTTP 404 | `CRM_CONSISTENCY_ENTITY_NOT_FOUND` |
-| HTTP 401/403 | `CRM_VENDOR_UNAUTHORIZED` |
+| HTTP 401 | `CRM_VENDOR_UNAUTHORIZED` |
+| HTTP 403 | `CRM_VENDOR_FORBIDDEN` |
 | HTTP 400/422 | `CRM_STRUCTURAL_MISSING_REQUIRED_FIELD` |
 | HTTP 409 | `CRM_CONSISTENCY_DUPLICATE` |
 | HTTP 5xx | `CRM_VENDOR_UNAVAILABLE` |
@@ -61,8 +62,8 @@ const events = await receiver.receive({
 - **Bulk operations**: `bulk_operations.max_size: 1` — amoCRM has no native batch API.
 - **Hard deletes**: Soft delete is preferred; hard delete is supported where the SDK allows it.
 - **Async jobs**: `SyncDelta`, `SubmitJob`, `GetJob`, `CancelJob`, `ListJobs` return `CRM_VENDOR_UNIMPLEMENTED` in this version.
-- **Activity update/delete**: amoCRM tasks API does not support update/delete through the SDK in the same way; returned as `UNIMPLEMENTED`.
-- **Note delete**: Not supported by amoCRM SDK; returned as `UNIMPLEMENTED`.
+- **Activity update/delete**: amoCRM tasks API does not support update/delete through the SDK in the same way; returned as `CRM_VENDOR_UNIMPLEMENTED`.
+- **Note delete**: Not supported by amoCRM SDK; returned as `CRM_VENDOR_UNIMPLEMENTED`.
 
 ## Testing
 

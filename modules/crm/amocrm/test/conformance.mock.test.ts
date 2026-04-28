@@ -129,6 +129,27 @@ describe('mock CRM conformance wiring', () => {
     }
   });
 
+  it('declares only fully-qualified emitted CloudEvent types and no async jobs', () => {
+    expect(moduleManifest.capabilities.events).toEqual([
+      'rntme.crm.v1.ContactCreated',
+      'rntme.crm.v1.ContactUpdated',
+      'rntme.crm.v1.ContactDeleted',
+      'rntme.crm.v1.CompanyCreated',
+      'rntme.crm.v1.CompanyUpdated',
+      'rntme.crm.v1.CompanyDeleted',
+      'rntme.crm.v1.DealCreated',
+      'rntme.crm.v1.DealUpdated',
+      'rntme.crm.v1.DealStageChanged',
+      'rntme.crm.v1.DealClosed',
+      'rntme.crm.v1.ActivityCreated',
+      'rntme.crm.v1.ActivityUpdated',
+      'rntme.crm.v1.ActivityDeleted',
+      'rntme.crm.v1.NoteCreated',
+      'rntme.crm.v1.NoteDeleted',
+    ]);
+    expect(moduleManifest.capabilities.async_job_types).toEqual([]);
+  });
+
   it('returns UNIMPLEMENTED for every unsupported canonical RPC', async () => {
     const module = createAmoCrmModule({ adapter: fakeAdapter });
 

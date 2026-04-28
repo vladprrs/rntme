@@ -8,15 +8,15 @@ export {
   GRPC_STATUS_UNIMPLEMENTED,
   isAmoCrmError,
 } from './errors.js';
-export { createAmoCrmModule } from './handlers.js';
-export type { AmoCrmModule, CreateAmoCrmModuleOptions } from './handlers.js';
+export { InMemoryIdempotencyStore, createAmoCrmModule } from './handlers.js';
+export type { AmoCrmModule, CreateAmoCrmModuleOptions, IdempotencyStore } from './handlers.js';
 export {
   InMemoryWebhookDedupeStore,
   createAmoCrmWebhookReceiver,
   decodeUrlEncodedPayload,
   translateAmoCrmWebhook,
 } from './webhooks.js';
-export type { AmoCrmWebhookReceiver, ReceiveWebhookRequest, WebhookDedupeStore } from './webhooks.js';
+export type { AmoCrmWebhookReceiver, CreateAmoCrmWebhookReceiverOptions, ReceiveWebhookRequest, WebhookDedupeStore } from './webhooks.js';
 export {
   canonicalRef,
   entityRef,

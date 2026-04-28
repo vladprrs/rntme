@@ -26,7 +26,17 @@ export const AMOCRM_SUPPORTED_RPCS = [
   'DeleteAssociation',
 ] as const;
 
-export const AMOCRM_UNSUPPORTED_RPCS = [] as const;
+export const AMOCRM_UNSUPPORTED_RPCS = [
+  'UpdateActivity',
+  'DeleteActivity',
+  'DeleteNote',
+  'ListAssociations',
+  'SyncDelta',
+  'SubmitJob',
+  'GetJob',
+  'CancelJob',
+  'ListJobs',
+] as const;
 
 export const AMOCRM_SUPPORTED_EVENTS = [
   'rntme.crm.v1.ContactCreated',
@@ -44,12 +54,6 @@ export const AMOCRM_SUPPORTED_EVENTS = [
   'rntme.crm.v1.ActivityDeleted',
   'rntme.crm.v1.NoteCreated',
   'rntme.crm.v1.NoteDeleted',
-  'rntme.crm.v1.AssociationCreated',
-  'rntme.crm.v1.AssociationDeleted',
-  'rntme.crm.v1.AsyncJobSubmitted',
-  'rntme.crm.v1.AsyncJobStatusChanged',
-  'rntme.crm.v1.AsyncJobCompleted',
-  'rntme.crm.v1.AsyncJobFailed',
 ] as const;
 
 export type SupportedAmoCrmRpc = (typeof AMOCRM_SUPPORTED_RPCS)[number];

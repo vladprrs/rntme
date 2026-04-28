@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { proto } from '@rntme/contracts-crm-v1';
 import {
   mapAmoCompany,
@@ -11,16 +12,31 @@ import type { CloudEvent, JsonObject, WebhookDedupeStore as DedupeStore } from '
 export type WebhookDedupeStore = DedupeStore;
 
 const crm = proto.rntme.contracts.crm.v1;
+const DEFAULT_WEBHOOK_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class InMemoryWebhookDedupeStore implements WebhookDedupeStore {
-  private readonly seenIds = new Set<string>();
+  private readonly seenIds = new Map<string, number>();
+
+  public constructor(private readonly ttlMs = DEFAULT_WEBHOOK_DEDUPE_TTL_MS) {}
 
   public seen(id: string): boolean {
-    return this.seenIds.has(id);
+    this.pruneExpired();
+    const expiresAt = this.seenIds.get(id);
+    return expiresAt !== undefined && expiresAt > Date.now();
   }
 
   public markSeen(id: string): void {
-    this.seenIds.add(id);
+    this.pruneExpired();
+    this.seenIds.set(id, Date.now() + this.ttlMs);
+  }
+
+  private pruneExpired(): void {
+    const now = Date.now();
+    for (const [id, expiresAt] of this.seenIds.entries()) {
+      if (expiresAt <= now) {
+        this.seenIds.delete(id);
+      }
+    }
   }
 }
 
@@ -31,6 +47,7 @@ export interface ReceiveWebhookRequest {
 
 export interface CreateAmoCrmWebhookReceiverOptions {
   readonly dedupeStore?: WebhookDedupeStore;
+  readonly webhookSecret?: string;
 }
 
 export interface AmoCrmWebhookReceiver {
@@ -42,6 +59,9 @@ export function createAmoCrmWebhookReceiver(options: CreateAmoCrmWebhookReceiver
 
   return {
     receive: async (request) => {
+      if (options.webhookSecret) {
+        verifySignature(request.payload, request.headers, options.webhookSecret);
+      }
       const decoded = decodeUrlEncodedPayload(request.payload);
       const events = translateAmoCrmWebhook(decoded);
       const result: CloudEvent[] = [];
@@ -100,7 +120,7 @@ export function translateAmoCrmWebhook(payload: JsonObject): CloudEvent[] {
 
 function buildCloudEvent(entityType: string, action: string, item: JsonObject, subdomain: string): CloudEvent | undefined {
   const id = readNumber(item, 'id') ?? 0;
-  const eventId = `${entityType}:${action}:${id}:${Date.now()}`;
+  const eventId = `${entityType}:${action}:${id}`;
   const time = new Date().toISOString();
   const source = subdomain || 'amocrm';
 
@@ -254,7 +274,14 @@ function readNumber(raw: JsonObject | undefined, key: string): number | undefine
     return undefined;
   }
   const value = raw[key];
-  return typeof value === 'number' ? value : undefined;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 function readRecord(raw: JsonObject | undefined, key: string): JsonObject | undefined {
@@ -271,4 +298,34 @@ function isRecord(value: unknown): value is JsonObject {
 
 function asObject(value: unknown): JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as JsonObject) : {};
+}
+
+function verifySignature(payload: string, headers: HeadersInit | Record<string, string | undefined>, secret: string): void {
+  const signature = getHeader(headers, 'x-signature');
+  const expected = createHmac('sha1', secret).update(payload).digest('hex');
+  if (!signature || !safeEqualHex(signature, expected)) {
+    throw new Error('Invalid amoCRM webhook signature');
+  }
+}
+
+function getHeader(headers: HeadersInit | Record<string, string | undefined>, name: string): string | undefined {
+  if (headers instanceof Headers) {
+    return headers.get(name) ?? undefined;
+  }
+  if (Array.isArray(headers)) {
+    const found = headers.find(([key]) => key.toLowerCase() === name);
+    return found?.[1];
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === name) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function safeEqualHex(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual, 'hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }

@@ -88,7 +88,7 @@ export function createAmoCrmAdapter(options: CreateAmoCrmAdapterOptions): AmoCrm
 }
 
 function asRecord(value: unknown): JsonObject {
-  return typeof value === 'object' && value !== null ? (value as JsonObject) : {};
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as JsonObject) : {};
 }
 
 function asArray<T>(value: unknown): T[] {

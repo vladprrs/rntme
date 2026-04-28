@@ -52,7 +52,7 @@ export function mapAmoCrmError(error: unknown, notFoundCode: string): AmoCrmErro
     return new AmoCrmError(message, GRPC_STATUS_UNAUTHENTICATED, 'CRM_VENDOR_UNAUTHORIZED', error);
   }
   if (status === 403) {
-    return new AmoCrmError(message, GRPC_STATUS_PERMISSION_DENIED, 'CRM_VENDOR_UNAUTHORIZED', error);
+    return new AmoCrmError(message, GRPC_STATUS_PERMISSION_DENIED, 'CRM_VENDOR_FORBIDDEN', error);
   }
   if (status === 404) {
     return new AmoCrmError(message, GRPC_STATUS_NOT_FOUND, notFoundCode, error);

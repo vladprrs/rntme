@@ -276,7 +276,7 @@ export function mapListMeta<T>(response: Paginated<T>, limit = 0, offset = 0): L
 
 export function toMetadata(raw: JsonObject): Metadata {
   return common.Metadata.create({
-    public: toStruct(readRecord(raw, 'custom_fields_values')),
+    public: toStruct(customFieldsToMetadata(raw)),
     private: toStruct({}),
     unsafe: toStruct({}),
   });
@@ -295,14 +295,14 @@ export function toStruct(value: unknown): ReturnType<typeof protobuf.Struct.crea
   return protobuf.Struct.create({ fields });
 }
 
-export function structToJson(struct: ReturnType<typeof protobuf.Struct.create> | null | undefined): JsonObject | undefined {
+export function structToJson(struct: { fields?: Record<string, unknown> | null } | null | undefined): JsonObject | undefined {
   if (!struct?.fields) {
     return undefined;
   }
 
   const output: JsonObject = {};
   for (const [key, value] of Object.entries(struct.fields)) {
-    output[key] = valueToJson(value);
+    output[key] = valueToJson(value as Parameters<typeof valueToJson>[0]);
   }
   return output;
 }
@@ -361,14 +361,62 @@ function toTimestamp(value: number | string | Date | undefined): { seconds: numb
   if (value === undefined || value === '') {
     return undefined;
   }
-  const millis = value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(value);
+  const millis = value instanceof Date ? value.getTime() : timestampLikeToMillis(value);
   if (!Number.isFinite(millis)) {
     return undefined;
   }
+  const seconds = Math.trunc(millis / 1000);
   return {
-    seconds: Math.trunc(millis / 1000),
-    nanos: (millis % 1000) * 1_000_000,
+    seconds,
+    nanos: Math.trunc((millis - seconds * 1000) * 1_000_000),
   };
+}
+
+function timestampLikeToMillis(value: number | string): number {
+  if (typeof value === 'number') {
+    return value < 1_000_000_000_000 ? value * 1000 : value;
+  }
+  const trimmed = value.trim();
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    return numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+  }
+  return Date.parse(value);
+}
+
+function customFieldsToMetadata(raw: JsonObject): JsonObject {
+  const metadata: JsonObject = {};
+  for (const field of readArray(raw, 'custom_fields_values')) {
+    const key =
+      readString(field, 'field_code') ||
+      numberOrString(field, 'field_id') ||
+      numberOrString(field, 'id') ||
+      readString(field, 'field_name') ||
+      readString(field, 'name');
+    if (!key) {
+      continue;
+    }
+
+    const values = readArray(field, 'values')
+      .map((value) => readUnknownFieldValue(value))
+      .filter((value) => value !== undefined);
+    if (values.length === 1) {
+      metadata[key] = values[0];
+    } else if (values.length > 1) {
+      metadata[key] = values;
+    }
+  }
+  return metadata;
+}
+
+function readUnknownFieldValue(raw: JsonObject): unknown {
+  for (const key of ['value', 'enum', 'enum_id']) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 function deriveDealStatus(raw: JsonObject, isDeleted: boolean): DealStatus {
@@ -485,7 +533,14 @@ function readNumber(raw: JsonObject | undefined, key: string): number | undefine
     return undefined;
   }
   const value = raw[key];
-  return typeof value === 'number' ? value : undefined;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 function readBoolean(raw: JsonObject | undefined, key: string): boolean {
@@ -510,6 +565,14 @@ function readArray(raw: JsonObject, key: string): JsonObject[] {
     return [];
   }
   return value.filter(isRecord);
+}
+
+function numberOrString(raw: JsonObject, key: string): string {
+  const value = raw[key];
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return typeof value === 'string' ? value : '';
 }
 
 function isRecord(value: unknown): value is JsonObject {

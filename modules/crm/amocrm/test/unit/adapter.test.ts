@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('AmoCrm adapter', () => {
+  afterEach(() => {
+    vi.doUnmock('@shevernitskiy/amo');
+    vi.resetModules();
+  });
+
   it('wraps SDK methods', async () => {
     const mockLead = { id: 1, name: 'Test Lead' };
     const mockContact = { id: 2, name: 'Test Contact' };
@@ -55,6 +60,7 @@ describe('AmoCrm adapter', () => {
       },
     };
 
+    vi.resetModules();
     vi.doMock('@shevernitskiy/amo', () => ({
       Amo: vi.fn().mockImplementation(() => mockAmo),
     }));
@@ -95,7 +101,26 @@ describe('AmoCrm adapter', () => {
 
     await adapter.deleteAssociation('contacts', 1, 'companies', 2);
     expect(mockAmo.link.deleteLinksByEntityId).toHaveBeenCalledWith(1, 'contacts', [{ to_entity_id: 2, to_entity_type: 'companies' }]);
+  });
 
-    vi.doUnmock('@shevernitskiy/amo');
+  it('does not treat array SDK responses as records', async () => {
+    const mockAmo = {
+      lead: {
+        getLeadById: vi.fn().mockResolvedValue([]),
+      },
+    };
+
+    vi.resetModules();
+    vi.doMock('@shevernitskiy/amo', () => ({
+      Amo: vi.fn().mockImplementation(() => mockAmo),
+    }));
+
+    const { createAmoCrmAdapter: createAdapter } = await import('../../src/adapter.js');
+    const adapter = createAdapter({
+      subdomain: 'test',
+      auth: { access_token: 'token', refresh_token: 'refresh', token_type: 'Bearer', expires_in: 3600, expires_at: Date.now() + 3600000, client_id: 'client', client_secret: 'secret', redirect_uri: 'http://localhost' },
+    });
+
+    await expect(adapter.getLead(1)).resolves.toEqual({});
   });
 });

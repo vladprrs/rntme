@@ -57,8 +57,34 @@ import type {
 } from './types.js';
 
 const crm = proto.rntme.contracts.crm.v1;
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 type Handler<Request, Response> = (request: Request) => Promise<Response>;
+
+export interface IdempotencyStore {
+  get<T>(key: string): T | undefined | Promise<T | undefined>;
+  set<T>(key: string, value: T, ttlMs: number): void | Promise<void>;
+}
+
+export class InMemoryIdempotencyStore implements IdempotencyStore {
+  private readonly entries = new Map<string, { expiresAt: number; value: unknown }>();
+
+  public get<T>(key: string): T | undefined {
+    const entry = this.entries.get(key);
+    if (!entry) {
+      return undefined;
+    }
+    if (entry.expiresAt <= Date.now()) {
+      this.entries.delete(key);
+      return undefined;
+    }
+    return entry.value as T;
+  }
+
+  public set<T>(key: string, value: T, ttlMs: number): void {
+    this.entries.set(key, { expiresAt: Date.now() + ttlMs, value });
+  }
+}
 
 export type AmoCrmModule = {
   GetContact: Handler<GetContactRequest, Contact>;
@@ -99,10 +125,12 @@ export type AmoCrmModule = {
 
 export interface CreateAmoCrmModuleOptions {
   readonly adapter: AmoCrmAdapter;
+  readonly idempotencyStore?: IdempotencyStore;
 }
 
 export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmModule {
   const { adapter } = options;
+  const idempotencyStore = options.idempotencyStore ?? new InMemoryIdempotencyStore();
 
   return {
     GetContact: async (request) =>
@@ -155,8 +183,10 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
             { code: 'POSITION', value: request.title },
           ]),
         };
-        const created = await adapter.createContact([payload]);
-        return mapAmoContact(created[0] ?? {});
+        return dedupeCreate(idempotencyStore, 'CreateContact', request.context.idempotency_key, async () => {
+          const created = await adapter.createContact([payload]);
+          return mapAmoContact(created[0] ?? {});
+        });
       }, 'CRM_REFERENCES_CONTACT_NOT_FOUND'),
 
     UpdateContact: async (request) =>
@@ -230,8 +260,10 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
             { code: 'INDUSTRY', value: request.industry },
           ]),
         };
-        const created = await adapter.createCompany([payload]);
-        return mapAmoCompany(created[0] ?? {});
+        return dedupeCreate(idempotencyStore, 'CreateCompany', request.context.idempotency_key, async () => {
+          const created = await adapter.createCompany([payload]);
+          return mapAmoCompany(created[0] ?? {});
+        });
       }, 'CRM_REFERENCES_COMPANY_NOT_FOUND'),
 
     UpdateCompany: async (request) =>
@@ -313,8 +345,10 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
         if (request.primary_contact_canonical_id) {
           payload.contacts = [{ id: Number(request.primary_contact_canonical_id) }];
         }
-        const created = await adapter.createLead([payload]);
-        return mapAmoLead(created[0] ?? {});
+        return dedupeCreate(idempotencyStore, 'CreateDeal', request.context.idempotency_key, async () => {
+          const created = await adapter.createLead([payload]);
+          return mapAmoLead(created[0] ?? {});
+        });
       }, 'CRM_REFERENCES_DEAL_NOT_FOUND'),
 
     UpdateDeal: async (request) =>
@@ -388,15 +422,18 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
           throw invalidArgument('CreateActivity requires idempotency_key');
         }
         const linked = request.linked_entities?.[0];
+        const completeTill = completeTillFromTimestamp(request.due_at);
         const payload: JsonObject = {
           text: request.subject || request.description || '',
           responsible_user_id: request.owner_canonical_id ? Number(request.owner_canonical_id) : undefined,
-          complete_till: request.due_at ? Math.floor(timestampToSeconds(request.due_at) ?? Date.now() / 1000) : undefined,
+          complete_till: completeTill,
           entity_id: linked ? Number(linked.canonical_id) : undefined,
           entity_type: linked ? linked.entity_type : undefined,
         };
-        const created = await adapter.createTask([payload]);
-        return mapAmoTask(created[0] ?? {});
+        return dedupeCreate(idempotencyStore, 'CreateActivity', request.context.idempotency_key, async () => {
+          const created = await adapter.createTask([payload]);
+          return mapAmoTask(created[0] ?? {});
+        });
       }, 'CRM_REFERENCES_ACTIVITY_NOT_FOUND'),
 
     UpdateActivity: unsupported('UpdateActivity'),
@@ -444,8 +481,10 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
           note_type: 'common',
           params: { text: request.content },
         };
-        const created = await adapter.createNote(entityType, [payload]);
-        return mapAmoNote(created[0] ?? {});
+        return dedupeCreate(idempotencyStore, 'CreateNote', request.context.idempotency_key, async () => {
+          const created = await adapter.createNote(entityType, [payload]);
+          return mapAmoNote(created[0] ?? {});
+        });
       }, 'CRM_REFERENCES_NOTE_NOT_FOUND'),
 
     DeleteNote: unsupported('DeleteNote'),
@@ -507,7 +546,12 @@ export function createAmoCrmModule(options: CreateAmoCrmModuleOptions): AmoCrmMo
           throw invalidArgument('DeleteAssociation requires canonical_id in format fromType:fromId:toType:toId');
         }
         const [fromType, fromIdStr, toType, toIdStr] = parts as [string, string, string, string];
-        await adapter.deleteAssociation(fromType, Number(fromIdStr), toType, Number(toIdStr));
+        const fromId = Number(fromIdStr);
+        const toId = Number(toIdStr);
+        if (!fromType || !toType || !Number.isInteger(fromId) || !Number.isInteger(toId)) {
+          throw invalidArgument('DeleteAssociation requires canonical_id with valid numeric ids');
+        }
+        await adapter.deleteAssociation(fromType, fromId, toType, toId);
         return crm.Association.create({
           ref: { canonical_id: request.canonical_id || '', vendor_id: request.canonical_id || '' },
         });
@@ -543,6 +587,22 @@ async function withErrorMap<T>(operation: () => Promise<T>, notFoundCode: string
   }
 }
 
+async function dedupeCreate<T>(
+  store: IdempotencyStore,
+  rpc: string,
+  idempotencyKey: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const key = `${rpc}:${idempotencyKey}`;
+  const cached = await store.get<T>(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const result = await operation();
+  await store.set(key, result, IDEMPOTENCY_TTL_MS);
+  return result;
+}
+
 function buildCustomFields(entries: { code: string; value: string | null | undefined }[]): JsonObject[] {
   return entries
     .filter((e) => e.value)
@@ -568,4 +628,15 @@ function timestampToSeconds(timestamp: proto.google.protobuf.ITimestamp | null |
     return seconds.toNumber();
   }
   return undefined;
+}
+
+function completeTillFromTimestamp(timestamp: proto.google.protobuf.ITimestamp | null | undefined): number | undefined {
+  if (!timestamp) {
+    return undefined;
+  }
+  const seconds = timestampToSeconds(timestamp);
+  if (seconds === undefined) {
+    throw invalidArgument('CreateActivity requires a valid due_at timestamp');
+  }
+  return Math.floor(seconds);
 }
