@@ -34,7 +34,8 @@
   "scripts": {
     "proto:gen": "node scripts/gen.mjs",
     "proto:check": "node scripts/check-proto-gen.mjs",
-    "check:imports": "pnpm run build && node scripts/check-imports.mjs",
+    "build:deps": "pnpm --dir ../../_common/v1 run build",
+    "check:imports": "pnpm run build:deps && pnpm run build && node scripts/check-imports.mjs",
     "build": "tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/",
     "test": "vitest run && pnpm run proto:check && pnpm run check:imports",
     "test:watch": "vitest",
