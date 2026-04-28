@@ -5,7 +5,14 @@ import type { ValidatedManifest } from '../../src/manifest/types.js';
 const base: ValidatedManifest = {
   rntmeVersion: { major: 1, minor: 0, patch: 0 },
   service: { name: 'svc', version: '1.0.0' },
-  surface: { http: { enabled: true, port: 3000 } },
+  surface: {
+    http: {
+      enabled: true,
+      port: 3000,
+      bodyLimit: { enabled: true, maxBytes: 1_048_576 },
+      rateLimit: { enabled: true, windowMs: 60_000, max: 600 },
+    },
+  },
   persistence: { mode: 'ephemeral' },
   bus: { mode: 'in-memory' },
   auth: { mode: 'header', headerName: 'x-actor-id', actorKind: 'user' },
