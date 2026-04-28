@@ -11,6 +11,7 @@ This directory contains research-only documents for libraries, tools, and infras
 | @aws-sdk/client-s3 + @aws-sdk/s3-request-presigner | ^3.650.0 (lockfile: 3.1038.0) | 3.1038.0 | **Keep + Upgrade** — bump declared range; no breaking changes | [aws-sdk-client-s3-plus-aws-sdk-s3-request-presigner](./aws-sdk-client-s3-plus-aws-sdk-s3-request-presigner/README.md) |
 | Bitrix24 B24 JS SDK | TBD | TBD | TBD | [bitrix24-b24jssdk](./bitrix24-b24jssdk/README.md) |
 | Drizzle ORM + Drizzle Kit | TBD | TBD | TBD | [drizzle-orm-plus-drizzle-kit](./drizzle-orm-plus-drizzle-kit/README.md) |
+| eslint + @eslint/js + @typescript-eslint/* + prettier | eslint ^9.10.0; @typescript-eslint ^8.6.0; prettier ^3.3.3 | eslint 10.2.1; typescript-eslint 8.59.1; prettier 3.8.3 | **Keep + Upgrade** — ESLint 9→10 is low-risk (flat config already adopted); adopt unified `typescript-eslint` package | [eslint-plus-eslint-js-plus-typescript-eslint-plus-prettier](./eslint-plus-eslint-js-plus-typescript-eslint-plus-prettier/README.md) |
 | tsx + esbuild | tsx ^4.19.0; esbuild ^0.23.0 | tsx 4.21.0; esbuild 0.28.0 | **Keep + Upgrade** — low-risk minor bump, security improvements | [tsx-plus-esbuild](./tsx-plus-esbuild/README.md) |
 
 ## How to Add a New Research Document
