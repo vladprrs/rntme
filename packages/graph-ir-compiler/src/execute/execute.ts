@@ -1,4 +1,5 @@
 import type BetterSqlite3 from 'better-sqlite3';
+import { runtimeError } from '../types/errors.js';
 
 export type ParamValues = Record<string, unknown>;
 
@@ -28,16 +29,12 @@ export function executeCompiled(
     if (optionalSet?.has(name)) {
       return null;
     }
-    throw Object.assign(new Error(`missing required param "${name}"`), {
-      code: 'RUNTIME_MISSING_REQUIRED_PARAM',
-    });
+    throw runtimeError('RUNTIME_MISSING_REQUIRED_PARAM', `missing required param "${name}"`);
   });
   try {
     const stmt = db.prepare(compiled.sql);
     return stmt.all(...positional);
   } catch (e) {
-    throw Object.assign(new Error(e instanceof Error ? e.message : 'sqlite error'), {
-      code: 'RUNTIME_SQLITE_ERROR',
-    });
+    throw runtimeError('RUNTIME_SQLITE_ERROR', e instanceof Error ? e.message : 'sqlite error');
   }
 }

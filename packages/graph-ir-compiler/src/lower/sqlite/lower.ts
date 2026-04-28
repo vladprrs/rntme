@@ -6,6 +6,7 @@ import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
 import { lowerExpr, type ExprLowerCtx } from './expr.js';
 import type { Expr } from '../../types/authoring.js';
+import { internalError } from '../../types/errors.js';
 
 export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 
@@ -184,7 +185,7 @@ function toSelect(rel: RelOp, paramOrder: string[], context: LowerContext): SqlS
       return child;
     }
     default:
-      throw new Error(`lowerToSqlite: operator ${rel.op} not yet supported`);
+      throw internalError('lowering', `lowerToSqlite: operator ${rel.op} not yet supported`);
   }
 }
 
@@ -242,7 +243,7 @@ function findScanMeta(rel: RelOp): ScanMeta {
   while (cur.op !== 'Scan') {
     if (cur.op === 'Join') cur = cur.left;
     else if ('child' in cur) cur = cur.child;
-    else throw new Error('no scan found');
+    else throw internalError('lowering', 'no scan found');
   }
   const scan = cur;
   const base: ScanMeta = { alias: scan.alias, fields: scan.fields };
@@ -262,7 +263,7 @@ function relOutputColumns(rel: RelOp): Set<string> {
     case 'Limit':
       return relOutputColumns(rel.child);
     case 'Join':
-      throw new Error('lower: relOutputColumns not implemented for Join');
+      throw internalError('lowering', 'lower: relOutputColumns not implemented for Join');
   }
 }
 
@@ -287,7 +288,7 @@ function makeColumnOf(
     }
     if (parts.length > 2 && context.pdm && scan.entity) {
       if (parts[0] !== scan.alias) {
-        throw new Error(`lower: path "${path}" root alias does not match scan`);
+        throw internalError('lowering', `lower: path "${path}" root alias does not match scan`);
       }
       // Resolve scan.entity → entity-mirror projection name
       let startProjName: string | undefined;
@@ -302,7 +303,8 @@ function makeColumnOf(
         }
       }
       if (!startProjName) {
-        throw new Error(
+        throw internalError(
+          'lowering',
           `NAV_PROJECTION_REQUIRED: scan on entity "${scan.entity}" has no entity-mirror projection; cannot resolve dot-nav "${path}"`,
         );
       }
@@ -325,17 +327,17 @@ function makeColumnOf(
         ? joinChain.steps[joinChain.steps.length - 1]!.toProjection
         : startProjName;
       const leafProj = context.qsm.projections[leafProjName];
-      if (!leafProj) throw new Error(`lower: unknown projection ${leafProjName}`);
+      if (!leafProj) throw internalError('lowering', `lower: unknown projection ${leafProjName}`);
       if (!isEntityMirrorSource(leafProj.source)) {
-        throw new Error(`lower: projection ${leafProjName} is not an entity-mirror projection (expected during dot-nav)`);
+        throw internalError('lowering', `lower: projection ${leafProjName} is not an entity-mirror projection (expected during dot-nav)`);
       }
       const leafEntity = context.pdm.entities[leafProj.source.entity];
-      if (!leafEntity) throw new Error(`lower: unknown entity ${leafProj.source.entity}`);
+      if (!leafEntity) throw internalError('lowering', `lower: unknown entity ${leafProj.source.entity}`);
       const col = leafEntity.fields[leafField]?.column;
-      if (!col) throw new Error(`lower: missing field ${leafField} on ${leafEntity.table}`);
+      if (!col) throw internalError('lowering', `lower: missing field ${leafField} on ${leafEntity.table}`);
       return { table: leafAlias, column: col };
     }
-    throw new Error(`lower: cannot resolve field path "${path}"`);
+    throw internalError('lowering', `lower: cannot resolve field path "${path}"`);
   };
 }
 

@@ -1,5 +1,6 @@
 import type { Expr } from '../../types/authoring.js';
 import type { SqlExpr } from './ast.js';
+import { internalError } from '../../types/errors.js';
 
 export type ExprLowerCtx = {
   alias: string;
@@ -40,5 +41,5 @@ export function lowerExpr(e: Expr, ctx: ExprLowerCtx): SqlExpr {
     const [op, args] = Object.entries(e as Record<string, unknown>)[0] as [string, Expr[]];
     return { kind: 'op', op, args: args.map((a) => lowerExpr(a, ctx)) };
   }
-  throw new Error(`lowerExpr: unsupported ${JSON.stringify(e)}`);
+  throw internalError('lowering', `lowerExpr: unsupported ${JSON.stringify(e)}`);
 }

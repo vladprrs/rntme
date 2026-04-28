@@ -1,9 +1,12 @@
 import type { Expr } from '../types/authoring.js';
 import type { EmitPlan } from '../types/command.js';
+import { runtimeError } from '../types/errors.js';
 
 export function evalExprAtRuntime(expr: Expr, params: Record<string, unknown>): unknown {
   if (expr === null || typeof expr === 'number' || typeof expr === 'boolean') return expr;
-  if (typeof expr === 'string') throw new Error(`field paths are not allowed in emit payload at runtime: ${expr}`);
+  if (typeof expr === 'string') {
+    throw runtimeError('RUNTIME_INTERNAL_ERROR', `field paths are not allowed in emit payload at runtime: ${expr}`);
+  }
   if (typeof expr === 'object') {
     if ('$param' in expr) {
       const v = (params as Record<string, unknown>)[(expr as { $param: string }).$param];
@@ -11,7 +14,7 @@ export function evalExprAtRuntime(expr: Expr, params: Record<string, unknown>): 
     }
     if ('$literal' in expr) return (expr as { $literal: string }).$literal;
   }
-  throw new Error(`unsupported expr in emit payload: ${JSON.stringify(expr)}`);
+  throw runtimeError('RUNTIME_INTERNAL_ERROR', `unsupported expr in emit payload: ${JSON.stringify(expr)}`);
 }
 
 export type DerivedPayload = {

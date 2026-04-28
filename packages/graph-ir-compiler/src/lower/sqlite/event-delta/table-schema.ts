@@ -7,6 +7,7 @@ import type {
   DerivedSqlType,
   DerivedTableSchema,
 } from '../../../types/projection.js';
+import { internalError } from '../../../types/errors.js';
 
 /**
  * Per-virtual-column metadata for an event-source scan (the event_log row mirror),
@@ -35,7 +36,8 @@ export function buildDerivedTableSchema(
 ): DerivedTableSchema {
   const agg = findAggregate(rootRel);
   if (!agg) {
-    throw new Error(
+    throw internalError(
+      'lowering',
       'buildDerivedTableSchema: expected a reduce (Aggregate) op at the root of a projection-role plan',
     );
   }
@@ -44,7 +46,8 @@ export function buildDerivedTableSchema(
     const virt = resolveVirtualName(path);
     const meta = eventSourceColumnTypes[virt];
     if (!meta) {
-      throw new Error(
+      throw internalError(
+        'lowering',
         `buildDerivedTableSchema: group key "${name}" references unknown virtual column "${virt}"`,
       );
     }
@@ -69,7 +72,7 @@ export function buildDerivedTableSchema(
     }
     if (m.fn === 'sum') {
       if (m.expr === undefined) {
-        throw new Error(`buildDerivedTableSchema: sum measure "${name}" missing expr`);
+        throw internalError('lowering', `buildDerivedTableSchema: sum measure "${name}" missing expr`);
       }
       const { sql, bindings, sqlType } = buildSumInitial(m.expr, eventSourceColumnTypes);
       return {
@@ -81,7 +84,8 @@ export function buildDerivedTableSchema(
         bindings,
       };
     }
-    throw new Error(
+    throw internalError(
+      'lowering',
       `buildDerivedTableSchema: unsupported measure fn "${m.fn}" for "${name}"; projection-role allows count | sum`,
     );
   });
@@ -113,7 +117,8 @@ function resolveVirtualName(path: string): string {
   if (parts.length === 1) return parts[0]!;
   if (parts.length === 2) return parts[1]!;
   // Dot-nav beyond alias.field has no meaning on event-source virtual columns.
-  throw new Error(
+  throw internalError(
+    'lowering',
     `buildDerivedTableSchema: dot-nav path "${path}" is not allowed in projection-role group keys`,
   );
 }
@@ -153,7 +158,7 @@ function renderExpr(
     const virt = resolveVirtualName(e);
     const meta = cols[virt];
     if (!meta) {
-      throw new Error(`buildSumInitial: unknown virtual column "${virt}" referenced from expression`);
+      throw internalError('lowering', `buildSumInitial: unknown virtual column "${virt}" referenced from expression`);
     }
     bindings.push(meta.binding);
     return { sql: '?', sqlType: meta.sqlType };
@@ -163,13 +168,14 @@ function renderExpr(
       return { sql: `'${String((e as { $literal: string }).$literal).replace(/'/g, "''")}'`, sqlType: 'TEXT' };
     }
     if ('$param' in e) {
-      throw new Error(
+      throw internalError(
+        'lowering',
         'buildSumInitial: $param not supported in projection-role sum expressions (projection graphs take no inputs)',
       );
     }
     const entries = Object.entries(e as Record<string, unknown>);
     if (entries.length !== 1) {
-      throw new Error(`buildSumInitial: malformed expression ${JSON.stringify(e)}`);
+      throw internalError('lowering', `buildSumInitial: malformed expression ${JSON.stringify(e)}`);
     }
     const [op, args] = entries[0] as [string, Expr[]];
     if (op === 'mul' || op === 'add' || op === 'sub' || op === 'div') {
@@ -182,11 +188,12 @@ function renderExpr(
         sqlType: anyReal ? 'REAL' : 'INTEGER',
       };
     }
-    throw new Error(
+    throw internalError(
+      'lowering',
       `buildSumInitial: unsupported operator "${op}" in projection-role sum expression`,
     );
   }
-  throw new Error(`buildSumInitial: unsupported expression ${JSON.stringify(e)}`);
+  throw internalError('lowering', `buildSumInitial: unsupported expression ${JSON.stringify(e)}`);
 }
 
 function q(id: string): string {

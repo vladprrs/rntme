@@ -11,6 +11,7 @@ import type { CanonicalGraph, CanonicalFilter } from './types/canonical.js';
 import type { Expr } from './types/authoring.js';
 import type { DerivedCompileResult } from './types/projection.js';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from './types/result.js';
+import { toGraphIrError } from './types/errors.js';
 
 export type CompileProjectionOpts = Readonly<{
   graphId: string;
@@ -41,7 +42,14 @@ export function compileProjectionGraph(
   const sv = validateStructural(specR.value, pdm, qsm);
   if (!sv.ok) return sv;
 
-  const { graphs } = normalize(sv.value);
+  let canonical;
+  try {
+    canonical = normalize(sv.value);
+  } catch (e) {
+    return err([toGraphIrError(e, 'canonical')]);
+  }
+
+  const { graphs } = canonical;
   const graph = graphs[opts.graphId];
   if (!graph) {
     return err([
@@ -106,12 +114,11 @@ export function compileProjectionGraph(
     const result = lowerToEventDelta(planR.value, pdm, src, opts.projectionTable, filterExpr);
     return ok(result);
   } catch (e) {
+    const graphIrError = toGraphIrError(e, 'lowering');
     return err([
       {
-        layer: 'lowering',
-        code: ERROR_CODES.PROJ_ROLE_UNINFERRABLE,
-        message: e instanceof Error ? e.message : String(e),
-        location: { graphId: graph.id },
+        ...graphIrError,
+        location: graphIrError.location ?? { graphId: graph.id },
       },
     ]);
   }

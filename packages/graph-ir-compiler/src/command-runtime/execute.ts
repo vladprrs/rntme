@@ -6,6 +6,7 @@ import { replayAggregateState } from './replay.js';
 import { checkTransitionLegal } from './transition.js';
 import { derivePayload, evalExprAtRuntime } from '../emit/payload.js';
 import { CommandExecutionError } from './errors.js';
+import { runtimeError } from '../types/errors.js';
 
 export type CorrelationCtx = Readonly<{
   commandId: string;
@@ -52,7 +53,9 @@ export function executeCommand(
   ctx: ExecuteCommandContext,
 ): CommandResult {
   if (compiled.readPrelude) {
-    if (!ctx.qsmDb) throw new Error('executeCommand: qsmDb required when readPrelude is present');
+    if (!ctx.qsmDb) {
+      throw runtimeError('RUNTIME_INTERNAL_ERROR', 'executeCommand: qsmDb required when readPrelude is present');
+    }
     const positional = preludePositional(compiled, paramValues);
     const rows = ctx.qsmDb.prepare(compiled.readPrelude.sql).all(...positional);
     if (rows.length === 0) {
@@ -63,7 +66,9 @@ export function executeCommand(
     }
   }
 
-  if (compiled.emits.length === 0) throw new Error('executeCommand: no emits in compiled command');
+  if (compiled.emits.length === 0) {
+    throw runtimeError('RUNTIME_INTERNAL_ERROR', 'executeCommand: no emits in compiled command');
+  }
 
   const head = compiled.emits[0]!;
   const aggregateId = String(evalExprAtRuntime(head.aggregateIdExpr, paramValues) ?? '');

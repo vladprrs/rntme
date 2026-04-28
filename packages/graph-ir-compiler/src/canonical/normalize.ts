@@ -7,6 +7,7 @@ import type {
   CanonicalEmit,
 } from '../types/canonical.js';
 import type { Expr, FieldExpr } from '../types/authoring.js';
+import { internalError } from '../types/errors.js';
 
 function camelCase(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
@@ -102,7 +103,7 @@ export function normalize(
           return out;
         }
         default:
-          throw new Error(`unsupported node type in canonical normalize: ${(n as { type: string }).type}`);
+          throw internalError('canonical', `unsupported node type in canonical normalize: ${(n as { type: string }).type}`);
       }
     });
 
