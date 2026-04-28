@@ -131,6 +131,7 @@ function asRecords(value: unknown): Bitrix24Record[] {
   if (Array.isArray(value)) return value.filter(isRecord);
   if (isRecord(value) && Array.isArray(value.result)) return value.result.filter(isRecord);
   if (isRecord(value) && Array.isArray(value.items)) return value.items.filter(isRecord);
+  if (isRecord(value) && Array.isArray(value.categories)) return value.categories.filter(isRecord);
   return [];
 }
 

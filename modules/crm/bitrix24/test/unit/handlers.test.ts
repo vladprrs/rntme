@@ -298,4 +298,31 @@ describe('Bitrix24 CRM handlers', () => {
     expect(fetched.progress_percentage).toBe(100);
     expect(fetched.record_count).toBe(3);
   });
+
+  it('fetches stages for lowercase crm.category.list ids', async () => {
+    const lists: unknown[] = [];
+    const module = createBitrix24CrmModule({
+      adapter: adapter({
+        list: async (method: string, params?: Record<string, unknown>) => {
+          lists.push({ method, params });
+          if (method === 'crm.category.list') return [{ id: 3, name: 'Enterprise' }];
+          if (method === 'crm.status.list') return [{ STATUS_ID: 'C3:NEW', NAME: 'New', EXTRA: { SEMANTICS: 'P' } }];
+          return [];
+        },
+      }),
+    });
+
+    const result = await module.ListPipelines(crm.ListPipelinesRequest.create({ entity_type: 'deal' }));
+
+    expect(lists).toContainEqual({
+      method: 'crm.category.list',
+      params: { entityTypeId: 2 },
+    });
+    expect(lists).toContainEqual({
+      method: 'crm.status.list',
+      params: { filter: { ENTITY_ID: 'DEAL_STAGE_3' } },
+    });
+    expect(result.items[0]?.canonical_id).toBe('bitrix24:pipeline:3');
+    expect(result.items[0]?.stages?.[0]?.canonical_id).toBe('bitrix24:stage:3:C3:NEW');
+  });
 });

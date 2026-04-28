@@ -191,13 +191,13 @@ export function mapBitrix24Owner(input: Bitrix24Record) {
 }
 
 export function mapBitrix24Pipeline(category: Bitrix24Record, stages: Bitrix24Record[]): Pipeline {
-  const id = readString(category, 'ID') || '0';
+  const id = readStringAny(category, 'ID', 'id') || '0';
   return {
     canonical_id: canonicalId('pipeline', id),
     vendor_id: id,
-    name: readString(category, 'NAME') || 'Default',
+    name: readStringAny(category, 'NAME', 'name') || 'Default',
     entity_type: 'deal',
-    is_default: id === '0' || String(category.IS_DEFAULT ?? '').toUpperCase() === 'Y',
+    is_default: id === '0' || readBooleanAny(category, 'IS_DEFAULT', 'isDefault'),
     stages: stages.map((stage, index) => mapStage(stage, id, index)),
     vendor_raw: struct(category),
   };
@@ -291,7 +291,7 @@ export function timestamp(input: unknown) {
 
 function mapStage(stage: Bitrix24Record, pipelineId: string, index: number) {
   const id = readString(stage, 'STATUS_ID');
-  const semantic = semanticOf(stage.SEMANTICS ?? stage.STAGE_SEMANTIC_ID);
+  const semantic = semanticOf(stage.SEMANTICS ?? stage.STAGE_SEMANTIC_ID ?? (isRecord(stage.EXTRA) ? stage.EXTRA.SEMANTICS : undefined));
   return {
     canonical_id: canonicalId('stage', id, pipelineId),
     vendor_id: id,
@@ -387,6 +387,23 @@ function domainFrom(value: string): string {
 function readString(input: Bitrix24Record, key: string): string {
   const value = input[key];
   return value === undefined || value === null ? '' : String(value);
+}
+
+function readStringAny(input: Bitrix24Record, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = readString(input, key);
+    if (value) return value;
+  }
+  return '';
+}
+
+function readBooleanAny(input: Bitrix24Record, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const value = input[key];
+    if (value === true) return true;
+    if (String(value ?? '').toUpperCase() === 'Y') return true;
+  }
+  return false;
 }
 
 function readNumber(input: Bitrix24Record, key: string): number {

@@ -76,4 +76,23 @@ describe('Bitrix24 CRM mapping', () => {
     expect(field.options).toEqual(['Yes']);
     expect(pipeline.stages?.[0]?.semantic).toBe(StageSemantic.STAGE_SEMANTIC_WON);
   });
+
+  it('maps crm.category.list lowercase fields and nested stage semantics', () => {
+    const pipeline = mapBitrix24Pipeline(
+      { id: 3, name: 'Enterprise', isDefault: 'N' },
+      [{ STATUS_ID: 'C3:LOSE', NAME: 'Lost', SORT: '30', EXTRA: { SEMANTICS: 'F' } }],
+    );
+
+    expect(pipeline).toMatchObject({
+      canonical_id: 'bitrix24:pipeline:3',
+      vendor_id: '3',
+      name: 'Enterprise',
+      is_default: false,
+    });
+    expect(pipeline.stages?.[0]).toMatchObject({
+      canonical_id: 'bitrix24:stage:3:C3:LOSE',
+      semantic: StageSemantic.STAGE_SEMANTIC_LOST,
+      is_terminal: true,
+    });
+  });
 });

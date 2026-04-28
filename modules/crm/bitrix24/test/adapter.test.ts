@@ -66,6 +66,20 @@ describe('Bitrix24 SDK adapter', () => {
     expect(result).toEqual([{ ID: '1' }]);
   });
 
+  it('unwraps Bitrix24 crm.category.list categories payloads', async () => {
+    const make = vi.fn().mockResolvedValue({
+      isSuccess: true,
+      getData: () => ({ result: { categories: [{ id: 2, name: 'Enterprise' }] } }),
+    });
+    const adapter = createBitrix24Adapter({
+      hook: { actions: { v2: { call: { make } } } },
+    });
+
+    const result = await adapter.list('crm.category.list', { entityTypeId: 2, start: 0 });
+
+    expect(result).toEqual([{ id: 2, name: 'Enterprise' }]);
+  });
+
   it('maps unsuccessful SDK responses into canonical CRM errors', async () => {
     const adapter = createBitrix24Adapter({
       hook: {

@@ -256,11 +256,11 @@ export function createBitrix24CrmModule(options: CreateBitrix24CrmModuleOptions 
     },
 
     ListPipelines: async (request) => {
-      const categories = await adapter.list('crm.category.list', listParams(request.base, { entityTypeId: 2 }));
+      const categories = await adapter.list('crm.category.list', { ...listParams(request.base, {}), entityTypeId: 2 });
       const categoryItems = categories.length ? categories : [{ ID: '0', NAME: 'Default', IS_DEFAULT: 'Y' }];
       const pipelines = await Promise.all(
         categoryItems.map(async (category) => {
-          const categoryId = String(category.ID ?? '0');
+          const categoryId = String(category.ID ?? category.id ?? '0');
           const stages = await adapter.list('crm.status.list', { filter: { ENTITY_ID: categoryId === '0' ? 'DEAL_STAGE' : `DEAL_STAGE_${categoryId}` } });
           return mapBitrix24Pipeline(category, stages);
         }),
@@ -679,7 +679,20 @@ function referenceCode(entityType: string): string {
 }
 
 function omitEmpty(input: Bitrix24Record): Bitrix24Record {
-  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0)));
+  return Object.fromEntries(
+    Object.entries(input).filter(
+      ([, value]) =>
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        !(Array.isArray(value) && value.length === 0) &&
+        !(isPlainObject(value) && Object.keys(value).length === 0),
+    ),
+  );
+}
+
+function isPlainObject(value: unknown): value is Bitrix24Record {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function asRecord(value: unknown): Bitrix24Record {
