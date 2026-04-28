@@ -1,9 +1,18 @@
 {
   "name": "@rntme/contracts-identity-v1",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "description": "Canonical Identity contract v1 — protobuf service IdentityModule, six entity types, seventeen CloudEvents payloads, IDENTITY_<LAYER>_<KIND> error codes.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladprrs/rntme.git",
+    "directory": "packages/contracts/identity/v1"
+  },
+  "bugs": {
+    "url": "https://github.com/vladprrs/rntme/issues"
+  },
+  "homepage": "https://github.com/vladprrs/rntme#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,14 +33,17 @@
   ],
   "scripts": {
     "proto:gen": "node scripts/gen.mjs",
+    "proto:check": "node scripts/check-proto-gen.mjs",
+    "check:imports": "pnpm run build && node scripts/check-imports.mjs",
     "build": "tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run proto:check && pnpm run check:imports",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
     "@rntme/contracts-common-v1": "workspace:*",
+    "long": "^5.3.2",
     "protobufjs": "^8.0.1"
   },
   "devDependencies": {
