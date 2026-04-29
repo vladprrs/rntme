@@ -619,14 +619,14 @@ export type IntrospectDeps = {
   domain: string;
   jwksCacheTtlMs?: number;
   jwksTimeoutMs?: number;
-  jwksFetcher?: typeof fetch;
+  jwksResolver?: Parameters<typeof jwtVerify>[1];
   now?: () => number;
 };
 
 export function createIntrospectSession(deps: IntrospectDeps) {
   const issuer  = `https://${deps.domain}/`;
   const jwksUrl = new URL(`https://${deps.domain}/.well-known/jwks.json`);
-  const jwks = createRemoteJWKSet(jwksUrl, {
+  const jwks = deps.jwksResolver ?? createRemoteJWKSet(jwksUrl, {
     cacheMaxAge: deps.jwksCacheTtlMs ?? 3_600_000,
     timeoutDuration: deps.jwksTimeoutMs ?? 5_000,
     // jose v5 has no documented custom-fetch option; tests inject a local getKey resolver.
