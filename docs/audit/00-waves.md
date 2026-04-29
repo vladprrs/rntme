@@ -135,7 +135,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Units (1):**
 
-- [ ] U-346 — Missing CSP and security headers in HTML shell — `@rntme/ui-runtime` — 🔫
+- [x] U-346 — Missing CSP and security headers in HTML shell — `@rntme/ui-runtime` — closed in RNT-281
 
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
@@ -494,7 +494,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-343 | `@rntme/ui-runtime` | RNT-213#H2 | High | 📦 park | — | ✓ | buildUrl/resolveParamValue/dispatch duplicated across driver/entry/registry |  [triage] park: real but no foreseeable shoot |
 | U-344 | `@rntme/ui-runtime` | RNT-213#H3 | High | 📦 park | — | ✓ | 5/9 files lack unit tests; entry.tsx and registry.ts uncovered |  [triage] park: real but no foreseeable shoot |
 | U-345 | `@rntme/ui-runtime` | RNT-213#M1 | Medium | 📦 park | — | ✓ | server/index.ts uses !fp.startsWith(resolvedAssetsDir + sep) |  [triage] park: real but no foreseeable shoot |
-| U-346 | `@rntme/ui-runtime` | RNT-213#M2 | Medium | 🔫 gun | W14 | ✓ | static-shell.ts emits HTML without CSP, X-Frame-Options, Referrer-Policy |  [triage] decide: needs product/architectural input |
+| U-346 | `@rntme/ui-runtime` | RNT-213#M2 | Medium | ✅ closed | W14 | ✓ | createApp shell responses now send CSP, X-Frame-Options, Referrer-Policy, X-Content-Type-Options, and Permissions-Policy | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-281 |
 | U-347 | `@rntme/ui-runtime` | RNT-213#M3 | Medium | 📦 park | — | ✓ | layout-manager.tsx renders Renderer without ErrorBoundary |  [triage] park: real but no foreseeable shoot |
 | U-348 | `@rntme/ui-runtime` | RNT-213#M4 | Medium | 📦 park | — | ✓ | client/index.ts exports createDriver but entry.tsx reimplements fetchEndpoint/buildUrl |  [triage] park: real but no foreseeable shoot |
 | U-349 | `@rntme/ui-runtime` | RNT-213#M5 | Medium | 📦 park | — | ✓ | driver.ts and registry.ts use globalThis.alert?.(text) for errors |  [triage] park: real but no foreseeable shoot |
@@ -732,7 +732,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ### `@rntme/ui-runtime` — total findings: 14
 
-- → DEV: U-346
+- → DEV:
 - → DECIDE:
 - → PARK: U-341, U-342, U-343, U-344, U-345, U-347, U-348, U-349, U-350, U-351, U-352, U-353, U-354
 - → REJECTED:

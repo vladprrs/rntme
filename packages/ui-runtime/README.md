@@ -62,6 +62,7 @@ serve({ fetch: root.fetch, port: 3000 });
 ```
 
 `createApp` returns a Hono instance. Any request not matched by `/_manifest.json`, `/_layouts/:name`, `/_screens/:name`, or `/assets/:file` is answered with the HTML shell — the SPA resolves deep links client-side.
+Shell responses include a restrictive CSP that allows only same-origin script/style/assets needed by the static shell, plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, and `Permissions-Policy` hardening headers.
 
 ### Client — build the SPA bundle
 
@@ -162,6 +163,7 @@ Routes mounted by `createApp`:
 
 - **Screen and layout JSON are consumed verbatim** (spec §4, Rendering). The client passes `currentScreen.spec` and `currentLayout.spec` straight into json-render `<Renderer>`; this package does not re-validate or rewrite them.
 - **Routing is history-based, not hash-based** (`client/entry.tsx`). `hydrateApp` calls `window.history.pushState`/`replaceState` and listens to `popstate`. For this to function, the server must serve the HTML shell on every unknown path — the SPA fallback route in `createApp` does.
+- **HTML shell responses carry security headers** (`server/index.ts`). `/` and SPA fallback responses send a restrictive `Content-Security-Policy` with no inline script/style and same-origin `script-src`/`style-src`, plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
 - **Path-param precedence is exact-first** (`router.ts` and `test/unit/router.test.ts`). `/issues/browse` matches the literal pattern before `/issues/:id`. Do not rely on insertion order.
 - **`/assets/:file` is sandboxed** (`server/index.ts`). Resolved paths outside `resolve(assetsDir)` return 404; this prevents path traversal via `../`.
 - **`:name.json` suffix is optional on layouts and screens** (`server/index.ts`). The handler strips a trailing `.json` before lookup, so both `/_screens/home` and `/_screens/home.json` work. The client always requests the `.json` form (`screen-loader.ts`).
