@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land one new workspace package — `@rntme/contracts-crm-v1` — implementing the protobuf shapes (`crm.proto` + `crm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-crm-v1'` to access `Contact`, `Company`, `Deal`, `Activity`, `Note`, `AsyncJob`, the `CrmModule` service descriptor, and all twenty-one event payload types.
+**Goal:** Land one new workspace package — `@rntme/contracts-crm-v1` — implementing the protobuf shapes (`crm.proto` + `crm-events.proto`), generated TS bindings, error codes, and README defined by `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md`. After this plan, `pnpm -r run build && test && lint && typecheck` passes for the new package and consumers can `import { proto } from '@rntme/contracts-crm-v1'` to access `Contact`, `Company`, `Deal`, `Activity`, `Note`, `AsyncJob`, the `CrmModule` service descriptor, and all twenty-one event payload types.
 
 **Architecture:** One leaf workspace package under `packages/contracts/crm/v1/`. Owns its `proto/*.proto` source and generates `src/proto.gen.{js,d.ts}` via `protobufjs-cli` static-module codegen (`pbjs --target static-module --wrap es6` followed by `pbts`). Declares a workspace dependency on `@rntme/contracts-common-v1` (created by Identity plan 1) and imports its proto via the `protobufjs` `--path` resolver staging-tree pattern adopted from the merged Identity package. Tests are vitest round-trip cases that assert encode→decode preserves the canonical shape, plus a drift-detector test that asserts every RPC short-name in `service CrmModule` matches the expected list.
 
 **Tech Stack:** TypeScript 5.5, `protobufjs` runtime + direct `protobufjs-cli` dev dependency for `pbjs`/`pbts`, Node 20+, pnpm 9.12+ workspaces, vitest, eslint flat config — identical to the merged Identity contract package, inheriting the codegen pipeline decision (closes spec OQ-CRMV1-1 by reuse).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper messages), §7 (aggregates), §8 (service & request/response), §9 (events), §10 (error codes), §13 (merge order).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md` §4 (layout), §5 (status enums), §6 (helper messages), §7 (aggregates), §8 (service & request/response), §9 (events), §10 (error codes), §13 (merge order).
 
 **Depends on:** Identity plan 1 (`docs/superpowers/plans/done/identity-canonical-contract/01-common-and-identity-contracts.md`) must be merged first — `packages/contracts/_common/v1/` must exist as a workspace package, the `pnpm-workspace.yaml` glob `packages/contracts/*/v*` must be in place, and `tsconfig.base.json` must exist at repo root. This plan does **not** create or modify `_common/v1/`. AI/LLM plan 1 is **not** a dependency of this plan — the two are sibling categories that touch only their own subdirectories.
 
@@ -101,7 +101,7 @@ Create `packages/contracts/crm/v1/package.json`:
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "Canonical CRM contract v1 for rntme: Contact, Company, Deal, Activity, Note, AsyncJob; 21 CloudEvents payloads; labeled associations. See docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md.",
+  "description": "Canonical CRM contract v1 for rntme: Contact, Company, Deal, Activity, Note, AsyncJob; 21 CloudEvents payloads; labeled associations. See docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -2791,12 +2791,12 @@ This contract introduces eight capability fields. Until `module-manifest-validat
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` — design.
+- `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md` — design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — directory layout, capability-based UNION conformance.
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — sibling spec; defines `_common/v1/` reused here.
 - `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — sibling spec; introduced AsyncJob pattern reused here.
 - `docs/superpowers/plans/done/crm-canonical-contract/01-crm-contracts.md` — this plan.
-- `docs/superpowers/plans/crm-canonical-contract/02-crm-conformance-skeleton.md` — companion plan for conformance package.
+- `docs/superpowers/plans/done/crm-canonical-contract/02-crm-conformance-skeleton.md` — companion plan for conformance package.
 ```
 
 - [ ] **Step 2: Commit**
@@ -2940,7 +2940,7 @@ Expected: no output (no commits in this plan touched Identity v1, `_common/v1/`,
 
 - [ ] **Step 7: Confirm spec coverage**
 
-Run a quick mental cross-check against `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md`:
+Run a quick mental cross-check against `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md`:
 - §4 layout — `packages/contracts/crm/v1/` exists with the right structure ✓
 - §5 status enums — 12 enums in proto, tested ✓
 - §6 helper messages — 6 helper messages in proto, tested ✓
