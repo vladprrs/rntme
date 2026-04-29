@@ -10,6 +10,15 @@ export type CreateAppOptions = {
   assetsDir?: string;
 };
 
+const SHELL_SECURITY_HEADERS = {
+  'content-security-policy':
+    "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'",
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'x-frame-options': 'DENY',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+} as const;
+
 export function createApp(opts: CreateAppOptions): Hono {
   const assetsDir =
     opts.assetsDir ??
@@ -60,11 +69,19 @@ export function createApp(opts: CreateAppOptions): Hono {
     });
   });
 
+  const htmlShell = () => new Response(shell, {
+    status: 200,
+    headers: {
+      'content-type': 'text/html; charset=UTF-8',
+      ...SHELL_SECURITY_HEADERS,
+    },
+  });
+
   // HTML shell — root
-  app.get('/', (c) => c.html(shell));
+  app.get('/', htmlShell);
 
   // SPA fallback
-  app.get('/*', (c) => c.html(shell));
+  app.get('/*', htmlShell);
 
   return app;
 }
