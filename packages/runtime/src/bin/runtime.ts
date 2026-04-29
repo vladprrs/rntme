@@ -37,7 +37,7 @@ async function main(): Promise<void> {
       console.error(JSON.stringify({ ok: false, errors: r.errors }, null, 2));
       process.exit(1);
     }
-    const running = await startService(r.value);
+    const running = await startService(r.value, { artifactDir: dir });
     const shutdown = async (): Promise<void> => {
       await running.stop();
       process.exit(0);

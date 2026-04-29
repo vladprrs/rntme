@@ -26,6 +26,12 @@ import { startSeenEventsRetention } from '../projections/seen-events-retention.j
 import { buildAdapterClient } from './build-adapter-client.js';
 import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 import { buildGrpcSurface, collectShapesFromService } from './build-grpc-surface.js';
+import {
+  buildKafkaJsClientConfigFromEnv,
+  parseRuntimeAuthEnv,
+  RuntimeBootError,
+} from './runtime-env.js';
+import { KafkaJsEventBus } from '../plugins/kafka-js-bus.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -39,14 +45,25 @@ export type RuntimeConfig = {
   queryExecutor?: QueryExecutor;
   externalAdapterClient?: ExternalAdapterClient;
   artifactDir?: string;
+  runtimeEnv?: Record<string, string | undefined>;
 };
 
 export async function startService(
   service: ValidatedService,
   config: Partial<RuntimeConfig> = {},
 ): Promise<RunningService> {
+  const runtimeEnv = config.runtimeEnv ?? process.env;
+  const authEnv = parseRuntimeAuthEnv(runtimeEnv);
+  const adapter =
+    config.externalAdapterClient
+    ?? buildRuntimeAdapterClient(service.manifest, config.artifactDir, authEnv);
   const db: DbDriver = config.db ?? new BetterSqliteDriver();
-  const bus: EventBus = config.bus ?? new InMemoryBus();
+  const kafkaClientConfig = buildKafkaJsClientConfigFromEnv(
+    runtimeEnv,
+    service.manifest.service.name,
+  );
+  const bus: EventBus =
+    config.bus ?? (kafkaClientConfig === null ? new InMemoryBus() : new KafkaJsEventBus(kafkaClientConfig));
   const actorFromRequest =
     config.actorFromRequest ?? buildActorFromRequest(service.manifest);
 
@@ -108,10 +125,6 @@ export async function startService(
     config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
   const queryExecutor =
     config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
-
-  const adapter =
-    config.externalAdapterClient
-    ?? (config.artifactDir !== undefined ? buildAdapterClient(service.manifest, config.artifactDir) : null);
 
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
@@ -183,4 +196,30 @@ export async function startService(
       if (bus.stop) await bus.stop();
     },
   };
+}
+
+function buildRuntimeAdapterClient(
+  manifest: ValidatedService['manifest'],
+  artifactDir: string | undefined,
+  authEnv: ReturnType<typeof parseRuntimeAuthEnv>,
+): ExternalAdapterClient | null {
+  if (authEnv === null) {
+    return artifactDir !== undefined ? buildAdapterClient(manifest, artifactDir) : null;
+  }
+
+  if (artifactDir === undefined) {
+    throw new RuntimeBootError(
+      'RUNTIME_BOOT_AUTH_ARTIFACT_DIR_MISSING',
+      'artifactDir is required when RNTME_AUTH_PROVIDER is set',
+    );
+  }
+  if (!manifest.modules.some((module) => module.name === authEnv.moduleSlug)) {
+    throw new RuntimeBootError(
+      'RUNTIME_BOOT_AUTH_MODULE_MISSING',
+      `auth module "${authEnv.moduleSlug}" is not declared in manifest.modules`,
+    );
+  }
+  return buildAdapterClient(manifest, artifactDir, {
+    [authEnv.moduleSlug]: authEnv.moduleEndpoint,
+  });
 }

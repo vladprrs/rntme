@@ -168,6 +168,21 @@ describe('startService', () => {
     expect(res.status).toBe(200);
   });
 
+  it('fails boot when auth provider env is set without a module endpoint', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+
+    await expect(
+      startService(loaded.value, {
+        runtimeEnv: {
+          RNTME_AUTH_PROVIDER: 'auth0',
+          RNTME_AUTH_AUDIENCE: 'https://notes.example.com/api',
+          RNTME_AUTH_MODULE_SLUG: 'identity-auth0',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'RUNTIME_BOOT_AUTH_ENDPOINT_MISSING' });
+  });
+
   it('boots a GrpcSurface alongside HttpSurface when manifest.surface.grpc.enabled', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));

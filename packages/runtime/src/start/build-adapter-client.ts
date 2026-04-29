@@ -4,7 +4,11 @@ import * as grpc from '@grpc/grpc-js';
 import type { ValidatedManifest } from '../manifest/types.js';
 import { GrpcAdapterClient, ProtoRegistry, type ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 
-export function buildAdapterClient(manifest: ValidatedManifest, artifactDir: string): ExternalAdapterClient | null {
+export function buildAdapterClient(
+  manifest: ValidatedManifest,
+  artifactDir: string,
+  addressOverrides: Readonly<Record<string, string>> = {},
+): ExternalAdapterClient | null {
   const modules = manifest.modules ?? [];
   if (modules.length === 0) return null;
 
@@ -14,9 +18,10 @@ export function buildAdapterClient(manifest: ValidatedManifest, artifactDir: str
     const absProtoPath = resolve(artifactDir, m.protoPath);
     registry.registerModule(m.name, absProtoPath);
     const credentials = buildCredentials(m.grpc.tls, artifactDir);
+    const address = addressOverrides[m.name] ?? m.grpc.address;
     modulesCfg[m.name] = credentials === undefined
-      ? { address: m.grpc.address, protoPath: absProtoPath }
-      : { address: m.grpc.address, protoPath: absProtoPath, credentials };
+      ? { address, protoPath: absProtoPath }
+      : { address, protoPath: absProtoPath, credentials };
   }
   return new GrpcAdapterClient({ modules: modulesCfg, registry });
 }
