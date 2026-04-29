@@ -11,6 +11,7 @@ import type {
   MiddlewareDecl,
   ProjectBlueprint,
   ProjectRoutingContext,
+  ServiceKind,
   ServiceGraphSpec,
 } from '../types/artifact.js';
 import type { ValidatedBindings } from '@rntme/bindings';
@@ -19,6 +20,10 @@ type CompositionServiceInput = CompositionService & {
   graphSpec?: ServiceGraphSpec | null;
   bindings?: ValidatedBindings | null;
 };
+
+function isIntegrationKind(kind: ServiceKind): boolean {
+  return kind === 'integration' || kind === 'integration-module';
+}
 
 export function validateBlueprintComposition(input: {
   project: ProjectBlueprint;
@@ -106,7 +111,7 @@ export function validateBlueprintComposition(input: {
       continue;
     }
 
-    if (provider.kind !== 'integration') {
+    if (!isIntegrationKind(provider.kind)) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,

@@ -119,7 +119,7 @@ const artifact = {
   },
 };
 
-function buildAppAndStore(): {
+function buildAppAndStore(opts: { commandName?: string; forceGuardRejected?: boolean } = {}): {
   app: Hono;
   store: SqliteEventStore;
   actor: ActorRef | null;
@@ -136,6 +136,15 @@ function buildAppAndStore(): {
   let seq = 0;
   const commandExecutor: CommandExecutor = {
     execute: async (input) => {
+      if (opts.forceGuardRejected === true) {
+        return {
+          ok: false,
+          error: {
+            code: 'COMMAND_GUARD_REJECTED',
+            message: 'guard rejected',
+          },
+        };
+      }
       try {
         const value = executeCommand(plan.compiledCommands[input.commandName]!, input.inputs, input.ctx);
         return { ok: true, value };
@@ -166,9 +175,10 @@ function buildAppAndStore(): {
   };
   const app = new Hono();
   app.use('*', correlationMiddleware());
+  const handlerPlan = opts.commandName === undefined ? bp : { ...bp, commandName: opts.commandName };
   app.post(
     honoPath(bp.entry.http.path),
-    makeCommandHandler(bp as CommandBindingPlan, {
+    makeCommandHandler(handlerPlan as CommandBindingPlan, {
       commandExecutor,
       eventStore: store,
       qsmDb: null,
@@ -224,6 +234,35 @@ describe('makeCommandHandler — happy path', () => {
     expect(events).toHaveLength(1);
     expect(events[0]!.rntActorKind).toBe('user');
     expect(events[0]!.rntActorId).toBe('alice');
+  });
+});
+
+describe('makeCommandHandler — notes ownership guard status', () => {
+  let ctx: ReturnType<typeof buildAppAndStore>;
+  beforeEach(() => {
+    ctx = buildAppAndStore({ commandName: 'deleteNote', forceGuardRejected: true });
+  });
+  afterEach(() => {
+    ctx.store.close();
+  });
+
+  it('returns 404 for deleteNote guard rejection', async () => {
+    const res = await ctx.app.fetch(
+      new Request('http://x/v1/issues/42/actions/report', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: 1,
+          reporterId: 2,
+          title: 'x',
+          priority: 'high',
+          storyPoints: 3,
+        }),
+      }),
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe('COMMAND_GUARD_REJECTED');
   });
 });
 

@@ -58,6 +58,13 @@ function originOf(url: string): string | null {
   }
 }
 
+function commandErrorStatus(plan: CommandBindingPlan, code: string): number {
+  if (plan.commandName === 'deleteNote' && code === 'COMMAND_GUARD_REJECTED') {
+    return 404;
+  }
+  return errorToHttp(code).status;
+}
+
 async function safeParseJsonBody(c: Context): Promise<Record<string, unknown> | null> {
   try {
     const j = await c.req.json();
@@ -209,7 +216,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
 
     if (plan.response !== null) {
       if (!out.ok) {
-        const { status } = errorToHttp(out.error.code);
+        const status = commandErrorStatus(plan, out.error.code);
         if (out.error.code === 'COMMAND_HANDLER_THREW' || status === 500) {
           deps.onError?.(out.error.detail ?? out.error, c);
         }
@@ -220,7 +227,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         : { ...requestScope, result: null, error: out.error };
       const rendered = out.ok
         ? renderOkResponse(plan.response, scope)
-        : renderErrResponse(plan.response, scope, out.error.code);
+        : renderErrResponse(plan.response, scope, out.error.code, commandErrorStatus(plan, out.error.code));
 
       if (rendered.kind === 'redirect' && isAbsoluteUrl(rendered.location)) {
         const origin = originOf(rendered.location);
@@ -260,19 +267,19 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
       }
 
       if (rendered.kind === 'json') {
-        return c.json(rendered.body, rendered.status as 200 | 201 | 400 | 409 | 422 | 500);
+        return c.json(rendered.body, rendered.status as 200 | 201 | 400 | 404 | 409 | 422 | 500);
       }
       return c.redirect(rendered.location, rendered.status as RedirectStatusCode);
     }
 
     if (!out.ok) {
-      const { status } = errorToHttp(out.error.code);
+      const status = commandErrorStatus(plan, out.error.code);
       if (out.error.code === 'COMMAND_HANDLER_THREW' || status === 500) {
         deps.onError?.(out.error.detail ?? out.error, c);
       }
       return c.json(
         commandErrorBody({ code: out.error.code, message: out.error.message }),
-        status as 400 | 409 | 422 | 500,
+        status as 400 | 404 | 409 | 422 | 500,
       );
     }
 

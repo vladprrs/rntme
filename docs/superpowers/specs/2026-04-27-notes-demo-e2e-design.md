@@ -1,6 +1,6 @@
 # Notes Demo E2E — design
 
-**Status:** brainstorming approved, awaiting user review of this spec
+**Status:** superseded by `2026-04-29-notes-demo-auth0-design.md`
 **Author:** brainstorm 2026-04-27
 **Related:**
 - `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md` — упомянутый ниже platform deploy-flow (PR #9, #10 в `rntme-cli`). Этот спек активирует его в проде и прогоняет первый e2e.

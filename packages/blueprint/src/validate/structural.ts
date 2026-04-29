@@ -8,7 +8,12 @@ import {
 import type {
   ProjectBlueprint,
   ServiceDescriptor,
+  ServiceKind,
 } from '../types/artifact.js';
+
+function isIntegrationKind(kind: ServiceKind): boolean {
+  return kind === 'integration' || kind === 'integration-module';
+}
 
 export function validateBlueprintStructural(input: {
   project: ProjectBlueprint;
@@ -50,11 +55,11 @@ export function validateBlueprintStructural(input: {
     }
 
     const isMod = slug.startsWith('mod-');
-    if (isMod && service.kind !== 'integration') {
+    if (isMod && !isIntegrationKind(service.kind)) {
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.BLUEPRINT_STRUCT_MOD_KIND_MISMATCH,
-        message: `service "${slug}" must use kind "integration"`,
+        message: `service "${slug}" must use an integration kind`,
         path: `services/${slug}/service.json.kind`,
       });
     }

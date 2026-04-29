@@ -15,7 +15,7 @@ const expectErrorCodes = (
 
 const svc = (
   slug: string,
-  kind: 'domain' | 'integration',
+  kind: 'domain' | 'integration' | 'integration-module',
   artifacts: Partial<{
     hasGraphs: boolean;
     hasBindings: boolean;
@@ -181,6 +181,31 @@ describe('validateBlueprintComposition', () => {
       },
       services: {
         catalog: svc('catalog', 'domain', { hasBindings: true }),
+      },
+    });
+
+    expect(r.ok).toBe(true);
+  });
+
+  it('allows auth middleware moduleSlug to reference an integration-module service', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
       },
     });
 

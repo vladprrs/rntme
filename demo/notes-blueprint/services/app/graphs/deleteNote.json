@@ -8,6 +8,26 @@
   },
   "nodes": [
     {
+      "id": "all",
+      "type": "findMany",
+      "config": {
+        "source": { "projection": "NoteView" }
+      }
+    },
+    {
+      "id": "guard",
+      "type": "filter",
+      "config": {
+        "input": "all",
+        "expr": {
+          "and": [
+            { "eq": ["noteView.id", { "$param": "id" }] },
+            { "eq": ["noteView.ownerSub", { "$pre": "session.user_id" }] }
+          ]
+        }
+      }
+    },
+    {
       "id": "emit",
       "type": "emit",
       "config": {

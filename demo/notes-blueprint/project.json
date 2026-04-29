@@ -1,6 +1,6 @@
 {
   "name": "notes-demo",
-  "services": ["app"],
+  "services": ["app", "identity-auth0"],
   "routes": {
     "ui": {
       "/": "app"
@@ -10,9 +10,16 @@
     }
   },
   "middleware": {
-    "requestContext": { "kind": "request-context" }
+    "requestContext": { "kind": "request-context" },
+    "auth": {
+      "kind": "auth",
+      "provider": "auth0",
+      "audience": "https://notes-demo.rntme.com/api",
+      "moduleSlug": "identity-auth0"
+    }
   },
   "mounts": [
-    { "target": "ui:/", "use": ["requestContext"] }
+    { "target": "ui:/", "use": ["requestContext"] },
+    { "target": "http:/api", "use": ["requestContext", "auth"] }
   ]
 }

@@ -9,10 +9,11 @@
       "rntVersion": 1,
       "eventType": "NoteCreate",
       "data": {
-        "title": "Welcome",
-        "body": "First note from seed"
+        "title": "Welcome to notes-demo",
+        "body": "This is a system-seeded note. Anyone can see it; no one can delete it.",
+        "ownerSub": "system"
       },
-      "time": "2026-04-27T00:00:00.000Z",
+      "time": "2026-04-29T00:00:00.000Z",
       "rntSchemaVersion": 1
     }
   ]

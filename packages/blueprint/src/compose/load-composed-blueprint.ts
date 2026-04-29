@@ -33,6 +33,11 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   const pdmResolver = createPdmResolver(loaded.value.pdm);
   const allEventTypes = deriveEventTypes(loaded.value.pdm);
   const validatedServices: Record<string, ValidatedServiceMember> = {};
+  const declaredModules = new Set(
+    Object.values(services)
+      .filter((service) => service.kind === 'integration' || service.kind === 'integration-module')
+      .map((service) => service.slug),
+  );
 
   for (const slug of loaded.value.project.services) {
     const service = services[slug];
@@ -44,6 +49,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
       pdm: loaded.value.pdm,
       pdmResolver,
       allEventTypes,
+      declaredModules,
     });
     if (!loadedService.ok) return loadedService;
 

@@ -23,7 +23,7 @@ const authMiddleware = z
 
 export const ServiceDescriptorSchema = z
   .object({
-    kind: z.enum(['domain', 'integration']),
+    kind: z.enum(['domain', 'integration', 'integration-module']),
   })
   .strict();
 
