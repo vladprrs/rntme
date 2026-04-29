@@ -33,7 +33,7 @@ Modules below this baseline are technically valid but rarely useful in practice.
 
 ## Vendor modules
 
-- [`@rntme/identity-auth0`](./auth0/) — Auth0 Management API backed Identity module. It supports users, organizations, organization memberships, organization invitations, and best-effort log/event translation. Canonical session RPCs are intentionally unclaimed because Auth0 session/token semantics differ from the canonical contract.
+- [`@rntme/identity-auth0`](./auth0/) — Auth0 Management API backed Identity module. It supports users, organizations, organization memberships, organization invitations, `IntrospectSession` via OIDC JWKS validation, and best-effort log/event translation. Other canonical session RPCs remain unclaimed because Auth0 session/token semantics differ from the canonical contract.
 - [`@rntme/identity-clerk`](./clerk/) — Clerk implementation backed by the official `@clerk/backend` SDK.
 - [`@rntme/identity-workos`](./workos/) — WorkOS implementation backed by the official `@workos-inc/node` SDK.
 

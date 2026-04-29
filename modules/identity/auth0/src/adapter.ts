@@ -7,11 +7,12 @@ import type {
   ListParams,
   ListResult,
 } from './types.js';
-import { failedPrecondition } from './errors.js';
+import { failedPrecondition, managementNotConfigured } from './errors.js';
 
 type ApiResponse<T> = { data: T };
 type Auth0List<T> = T[] | { users?: T[]; organizations?: T[]; invitations?: T[]; members?: T[]; total?: number; length?: number; next?: string };
 type Manager = Record<string, (...args: never[]) => Promise<ApiResponse<unknown>>>;
+type ManagementClientFactory = () => ManagementClient;
 
 export interface Auth0Adapter {
   getUser(id: string): Promise<Auth0User>;
@@ -77,16 +78,42 @@ function asManager(value: unknown): Manager {
 }
 
 export class Auth0ManagementAdapter implements Auth0Adapter {
-  private readonly users: Manager;
-  private readonly organizations: Manager;
+  private client: ManagementClient | null;
+  private readonly clientFactory: ManagementClientFactory | null;
+  private readonly eagerUsers: Manager | null;
+  private readonly eagerOrganizations: Manager | null;
   private readonly connection?: string;
   private readonly invitationClientId?: string;
 
-  constructor(client: ManagementClient, options: Auth0ManagementOptions = {}) {
-    this.users = asManager(client.users);
-    this.organizations = asManager(client.organizations);
+  constructor(client: ManagementClient | ManagementClientFactory, options: Auth0ManagementOptions = {}) {
+    if (typeof client === 'function') {
+      this.client = null;
+      this.clientFactory = client;
+      this.eagerUsers = null;
+      this.eagerOrganizations = null;
+    } else {
+      this.client = client;
+      this.clientFactory = null;
+      this.eagerUsers = asManager(client.users);
+      this.eagerOrganizations = asManager(client.organizations);
+    }
     this.connection = options.connection;
     this.invitationClientId = options.invitationClientId ?? process.env.AUTH0_INVITATION_CLIENT_ID;
+  }
+
+  private get managementClient(): ManagementClient {
+    if (this.client) return this.client;
+    if (!this.clientFactory) throw managementNotConfigured();
+    this.client = this.clientFactory();
+    return this.client;
+  }
+
+  private get users(): Manager {
+    return this.eagerUsers ?? asManager(this.managementClient.users);
+  }
+
+  private get organizations(): Manager {
+    return this.eagerOrganizations ?? asManager(this.managementClient.organizations);
   }
 
   async getUser(id: string): Promise<Auth0User> {
@@ -224,14 +251,14 @@ export function createManagementClient(options: Auth0ManagementOptions = {}): Ma
   const clientId = options.clientId ?? process.env.AUTH0_CLIENT_ID;
   const clientSecret = options.clientSecret ?? process.env.AUTH0_CLIENT_SECRET;
 
-  if (!domain) throw new Error('AUTH0_DOMAIN is required');
+  if (!domain) throw managementNotConfigured('AUTH0_DOMAIN is required for Auth0 Mgmt API calls');
   if (token) return new ManagementClient({ domain, token });
   if (clientId && clientSecret) return new ManagementClient({ domain, clientId, clientSecret });
-  throw new Error('AUTH0_MANAGEMENT_TOKEN or AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET is required');
+  throw managementNotConfigured('AUTH0_MANAGEMENT_TOKEN or AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET is required for Auth0 Mgmt API calls');
 }
 
 export function createAuth0Adapter(options: Auth0ManagementOptions = {}): Auth0Adapter {
-  return new Auth0ManagementAdapter(createManagementClient(options), {
+  return new Auth0ManagementAdapter(() => createManagementClient(options), {
     ...options,
     connection: options.connection ?? process.env.AUTH0_CONNECTION,
     invitationClientId: options.invitationClientId ?? process.env.AUTH0_INVITATION_CLIENT_ID,

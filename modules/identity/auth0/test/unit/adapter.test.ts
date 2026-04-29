@@ -1,7 +1,37 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Auth0ManagementAdapter } from '../../src/adapter.js';
+import { Auth0ManagementAdapter, createAuth0Adapter } from '../../src/adapter.js';
 
 describe('Auth0 management adapter', () => {
+  it('does not require Management API credentials until a Management-backed RPC is used', async () => {
+    const previous = {
+      domain: process.env.AUTH0_DOMAIN,
+      token: process.env.AUTH0_MANAGEMENT_TOKEN,
+      clientId: process.env.AUTH0_CLIENT_ID,
+      clientSecret: process.env.AUTH0_CLIENT_SECRET,
+    };
+    delete process.env.AUTH0_DOMAIN;
+    delete process.env.AUTH0_MANAGEMENT_TOKEN;
+    delete process.env.AUTH0_CLIENT_ID;
+    delete process.env.AUTH0_CLIENT_SECRET;
+
+    try {
+      const adapter = createAuth0Adapter({ domain: 'tenant.example.test' });
+
+      await expect(adapter.listUsers({ limit: 1 })).rejects.toMatchObject({
+        identityCode: 'IDENTITY_CONFIG_MGMT_NOT_CONFIGURED',
+      });
+    } finally {
+      if (previous.domain === undefined) delete process.env.AUTH0_DOMAIN;
+      else process.env.AUTH0_DOMAIN = previous.domain;
+      if (previous.token === undefined) delete process.env.AUTH0_MANAGEMENT_TOKEN;
+      else process.env.AUTH0_MANAGEMENT_TOKEN = previous.token;
+      if (previous.clientId === undefined) delete process.env.AUTH0_CLIENT_ID;
+      else process.env.AUTH0_CLIENT_ID = previous.clientId;
+      if (previous.clientSecret === undefined) delete process.env.AUTH0_CLIENT_SECRET;
+      else process.env.AUTH0_CLIENT_SECRET = previous.clientSecret;
+    }
+  });
+
   it('uses Auth0 offset pagination parameters without mixing pagination styles', async () => {
     const getAll = vi.fn(async () => ({ data: { users: [] } }));
     const adapter = new Auth0ManagementAdapter({
