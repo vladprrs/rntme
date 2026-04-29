@@ -1,3 +1,4 @@
+import { URL } from 'node:url';
 import { createRemoteJWKSet, errors as joseErrors, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
 import { SessionStatus, TokenType } from '@rntme/contracts-identity-v1';
 import type { IntrospectSessionRequest } from './types.js';
