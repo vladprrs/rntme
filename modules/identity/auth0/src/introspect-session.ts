@@ -92,7 +92,7 @@ export async function introspectJwtToSession(request: IntrospectSessionRequest, 
   }
 }
 
-function normalizeBearerToken(raw: string | undefined): string {
+function normalizeBearerToken(raw: string | null | undefined): string {
   const token = raw?.trim() ?? '';
   const match = /^Bearer\s+(.+)$/i.exec(token);
   return (match?.[1] ?? token).trim();
