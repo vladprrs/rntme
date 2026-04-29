@@ -48,7 +48,7 @@ export function resolveAuth0IssuerFromEnv(): string | null {
 }
 
 export async function introspectJwtToSession(request: IntrospectSessionRequest, deps: IntrospectJwtDeps): Promise<Session> {
-  const token = request.token?.trim();
+  const token = normalizeBearerToken(request.token);
   if (!token) return inactiveSession('MALFORMED');
 
   const audience = request.audience?.trim();
@@ -90,6 +90,12 @@ export async function introspectJwtToSession(request: IntrospectSessionRequest, 
   } catch (e) {
     return inactiveSession(classifyIntrospectError(e));
   }
+}
+
+function normalizeBearerToken(raw: string | undefined): string {
+  const token = raw?.trim() ?? '';
+  const match = /^Bearer\s+(.+)$/i.exec(token);
+  return (match?.[1] ?? token).trim();
 }
 
 function inactiveSession(reason: DeactivationReason): Session {

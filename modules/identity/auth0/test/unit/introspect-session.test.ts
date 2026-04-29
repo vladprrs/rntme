@@ -53,6 +53,20 @@ describe('IntrospectSession', () => {
     expect(session.session_id?.length ?? 0).toBeGreaterThan(0);
   });
 
+  it('accepts Authorization Bearer token values from HTTP bindings', async () => {
+    const { token, jwksResolver } = await signAccessToken('auth0|alice');
+
+    const mod = createAuth0IdentityModule(stubAuth0Adapter(), {
+      auth0Issuer: issuer,
+      jwksResolver,
+    });
+
+    const session = await mod.IntrospectSession({ token: `Bearer ${token}`, audience });
+
+    expect(session.user_id).toBe('auth0|alice');
+    expect(session.status).toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+  });
+
   it('returns TOKEN_EXPIRED for an expired token without throwing', async () => {
     const { privateKey, kid, jwksResolver } = await setupKeys();
     const { token } = await signAccessToken('auth0|alice', {

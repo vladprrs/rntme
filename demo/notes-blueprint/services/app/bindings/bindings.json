@@ -23,7 +23,7 @@
           "module": "identity-auth0",
           "rpc": "IntrospectSession",
           "input": {
-            "token": { "from": "header", "name": "authorization" },
+            "token": "$header.authorization",
             "audience": "https://notes-demo.rntme.com/api"
           },
           "bindAs": "session",
@@ -49,7 +49,7 @@
           "module": "identity-auth0",
           "rpc": "IntrospectSession",
           "input": {
-            "token": { "from": "header", "name": "authorization" },
+            "token": "$header.authorization",
             "audience": "https://notes-demo.rntme.com/api"
           },
           "bindAs": "session"
@@ -73,7 +73,7 @@
           "module": "identity-auth0",
           "rpc": "IntrospectSession",
           "input": {
-            "token": { "from": "header", "name": "authorization" },
+            "token": "$header.authorization",
             "audience": "https://notes-demo.rntme.com/api"
           },
           "bindAs": "session"
@@ -97,7 +97,7 @@
           "module": "identity-auth0",
           "rpc": "IntrospectSession",
           "input": {
-            "token": { "from": "header", "name": "authorization" },
+            "token": "$header.authorization",
             "audience": "https://notes-demo.rntme.com/api"
           },
           "bindAs": "session"

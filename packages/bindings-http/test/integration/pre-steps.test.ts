@@ -4,6 +4,9 @@ import type { ExternalAdapterClient } from '../../src/runtime-contract.js';
 
 const fakeAdapter: ExternalAdapterClient = {
   async call(module, rpc, input, opts) {
+    if (module === 'identity' && rpc === 'EchoInput') {
+      return { ok: true, value: input };
+    }
     if (module === 'payments' && rpc === 'CreateCustomer')
       return { ok: true, value: { id: `cust-${opts.idempotencyKey.slice(0, 4)}` } };
     if (module === 'payments' && rpc === 'ChargeCard')
@@ -72,5 +75,49 @@ describe('runPreSteps', () => {
       expect(out.httpStatus).toBe(401);
       expect(out.body.code).toBe('BINDINGS_AUTH_SESSION_INACTIVE');
     }
+  });
+
+  it('resolves bearer authorization header into IntrospectSession token input', async () => {
+    let capturedInput: unknown;
+    const adapter: ExternalAdapterClient = {
+      async call(module, rpc, input) {
+        capturedInput = input;
+        if (module === 'identity' && rpc === 'IntrospectSession') {
+          return { ok: true, value: { session_id: 's1', status: 1, user_id: 'auth0|alice' } };
+        }
+        return { ok: false, errors: [{ code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH', message: 'unknown rpc', httpStatus: 500 }] };
+      },
+    };
+
+    const out = await runPreSteps(
+      [
+        {
+          kind: 'module-rpc',
+          module: 'identity',
+          rpc: 'IntrospectSession',
+          input: { token: '$header.authorization', audience: 'https://notes-demo.rntme.com/api' },
+          bindAs: 'session',
+        },
+      ],
+      {
+        scope: {
+          body: {},
+          query: {},
+          auth: {},
+          config: {},
+          header: { authorization: 'Bearer header.jwt.token' },
+        },
+        adapterClient: adapter,
+        runId: 'run-4',
+        correlationId: 'corr-4',
+        logger: () => {},
+      },
+    );
+
+    expect(out.ok).toBe(true);
+    expect(capturedInput).toEqual({
+      token: 'Bearer header.jwt.token',
+      audience: 'https://notes-demo.rntme.com/api',
+    });
   });
 });
