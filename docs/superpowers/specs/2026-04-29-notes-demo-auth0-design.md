@@ -23,6 +23,18 @@
 - Demo blueprint — `demo/notes-blueprint/`
 - Implementation plan — `docs/superpowers/plans/2026-04-29-notes-demo-auth0.md`
 
+## 0. PLAN review amendments (2026-04-29)
+
+This section is authoritative over older wording in this document and the executable plan.
+
+1. **Preserve the canonical Identity `Session` response.** `IntrospectSession` currently returns `Session`, and the done Identity spec explicitly calls this out (`2026-04-26-identity-canonical-contract-design.md` §OQ-IDV1-3). This Auth0 demo may add `audience` to `IntrospectSessionRequest`, but it must not introduce an `IntrospectSessionResponse` shape. The Auth0 handler returns a canonical `Session`:
+   - valid token: `status=SESSION_STATUS_ACTIVE`, `user_id=<JWT sub>`, `session_id=<JWT jti or sub>`, `token_type=TOKEN_TYPE_JWT_ACCESS`, `expires_at=<JWT exp>`, and whitelisted token details under `vendor_raw.claims`;
+   - invalid token: `status != SESSION_STATUS_ACTIVE` and `vendor_raw.deactivation_reason` is one of `TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, `UNKNOWN`.
+2. **Use canonical `Session.user_id` in graph `$pre` references.** Older `$pre.session.subject_id` references should be implemented as `$pre.session.user_id`; `ownerSub` stores the Auth0/OIDC subject string, but it is carried through the canonical field `Session.user_id`.
+3. **`jose@5.x` test injection must use documented APIs.** `jose` v5 documents `createRemoteJWKSet(url, { cacheMaxAge, cooldownDuration, timeoutDuration, headers, agent })` and does not document a custom fetcher option. Unit tests should inject a `JWTVerifyGetKey`/local JWKS resolver (for example `createLocalJWKSet(jwks)`) rather than relying on `Symbol.for('jose.fetch')` or `[customFetch]`. Production code can still use `createRemoteJWKSet(new URL(...), { cacheMaxAge, timeoutDuration })`.
+4. **Use the repo's actual bindings error codes.** The current code emits `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` and `BINDINGS_STRUCTURAL_PRE_TOO_MANY`, not `BINDINGS_PRE_QUERY_FORBIDDEN` / `BINDINGS_PRE_TOO_MANY`.
+5. **Ownership denial must be explicitly remapped to 404.** The existing command guard failure is `COMMAND_GUARD_REJECTED` and maps to HTTP 422. For `deleteNote`, the implementation must add a binding response or handler mapping that returns HTTP 404 for this specific ownership guard so "missing note" and "not your note" do not diverge.
+
 ## 1. Goal, scope, non-goals
 
 **Goal.** Bring `demo/notes-blueprint/` to production-shape: replace the no-auth preview with a demo that has real OIDC login through Auth0, entity-level ownership enforcement, and connection to managed Redpanda Cloud as the event bus. The demo deploys through the existing `platform.rntme.com` → `@rntme-cli/deploy-dokploy` pipeline without any new workload kinds: identity-auth0 ships as the existing `integration-module` workload, the edge stays Nginx, the domain side stays one service. The canonical module pattern (`pre[]` → gRPC call into the Identity module → result in payload) executes end-to-end.
@@ -30,11 +42,11 @@
 **In scope (one spec, one plan):**
 
 1. **`@rntme/identity-auth0` extension** — claim `IntrospectSession` RPC, JWKS-based JWT-validation handler (no Mgmt API call); `ResolveIdentity` and other RPCs unchanged.
-2. **`@rntme/bindings` validator extension (K1)** — `pre[]` allowed on query bindings; the `BINDINGS_PRE_QUERY_FORBIDDEN` error is removed; the "max 2 steps" cap stays.
-3. **`@rntme/bindings-http` extension** — query handler runs `pre[]` symmetrically with the command handler; auth-aware 401 mapping when the IntrospectSession step returns `is_active=false`.
+2. **`@rntme/bindings` validator extension (K1)** — `pre[]` with steps allowed on query bindings; the current `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` check is removed; the "max 2 steps" cap stays.
+3. **`@rntme/bindings-http` extension** — query handler runs `pre[]` symmetrically with the command handler; auth-aware 401 mapping when the IntrospectSession step returns a `Session` whose `status` is not `SESSION_STATUS_ACTIVE`.
 4. **`@rntme/blueprint` middleware schema** — `kind: "auth"` is a known kind with `provider`, `audience`, `moduleSlug` typed; cross-artifact validator enforces `audience` equality between `project.json` and every `bindings.json` pre-step input.
-5. **Notes blueprint** — `Note.fields.ownerSub`, `create` transition `affects=["title","body","ownerSub"]`, all four bindings get `pre: [{ module: "identity-auth0", rpc: "IntrospectSession", input: { token, audience }, bindAs: "session" }]`; `createNote.json` graph injects `ownerSub` from `$pre: "session.subject_id"`; `deleteNote.json` graph guards via `findMany → filter on (id ∧ ownerSub) → limit 1 → emit`; `listNotes`/`getNote` graphs unchanged in structure but `NoteView.exposed` includes `ownerSub`.
-6. **`@rntme/contracts-identity-v1`** — additive `audience: string` field on `IntrospectSessionRequest` and `deactivation_reason: string` on `IntrospectSessionResponse`. No version bump (additive in proto3).
+5. **Notes blueprint** — `Note.fields.ownerSub`, `create` transition `affects=["title","body","ownerSub"]`, all four bindings get `pre: [{ module: "identity-auth0", rpc: "IntrospectSession", input: { token, audience }, bindAs: "session" }]`; `createNote.json` graph injects `ownerSub` from `$pre: "session.user_id"`; `deleteNote.json` graph guards via `findMany → filter on (id ∧ ownerSub) → limit 1 → emit`; `listNotes`/`getNote` graphs unchanged in structure but `NoteView.exposed` includes `ownerSub`.
+6. **`@rntme/contracts-identity-v1`** — additive `audience: string` field on `IntrospectSessionRequest`. `IntrospectSession` still returns canonical `Session`; invalid-token reason is carried in `Session.vendor_raw.deactivation_reason`.
 7. **`@rntme/ui-auth-shell` (new package)** — wraps ui-runtime with `@auth0/auth0-spa-js` PKCE flow, login/logout chrome, transport middleware with Bearer injection, `currentUser` injection into ui-runtime initial data-state.
 8. **`@rntme-cli/deploy-core` extensions** — `EdgeMiddleware` discriminated-union gets a fifth variant `kind: "auth"` (noop in Nginx, marker for plan); `ExternalEventBusConfig.security` becomes a discriminated union supporting `protocol: "sasl_ssl"` with `mechanism: "scram-sha-256"|"scram-sha-512"` and strict `secretRefs: { username, password }`.
 9. **`@rntme-cli/deploy-dokploy` extensions** — render `kind: "auth"` middleware: domain-service workload gets env `RNTME_AUTH_PROVIDER=auth0`, `RNTME_AUTH_AUDIENCE=...`, `RNTME_AUTH_MODULE_SLUG=identity-auth0`, `RNTME_AUTH_MODULE_ENDPOINT=<rendered-resource-name-of-identity-auth0>:50051`. SASL_SSL/SCRAM env: `RNTME_EVENT_BUS_PROTOCOL`, `..._MECHANISM`, `..._USERNAME` (secret), `..._PASSWORD` (secret). Edge nginx unchanged (auth → noop).
@@ -62,8 +74,8 @@
 | # | Question | Decision |
 |---|---|---|
 | Q1 | Scope cut | Auth + ownership + notes-blueprint + Redpanda Cloud (external) — one spec, one plan. Operaton, Redpanda-as-container — separate specs. |
-| Q2 | Where does JWT verification live? | **D — canonical module pattern: `IntrospectSession` in `@rntme/identity-auth0`.** Domain service calls it via `pre[]` in every binding; bindings-http maps `is_active=false` → 401. |
-| Q3 | Ownership enforcement model | **E1 — payload-injection in graph IR + IR-side guard for delete.** `createNote` injects `ownerSub` from `$pre: "session.subject_id"` in `emit.payload`; `deleteNote` filters `NoteView` by `id ∧ ownerSub` and emits only if a row matches. CloudEvents envelope is **not** changed. |
+| Q2 | Where does JWT verification live? | **D — canonical module pattern: `IntrospectSession` in `@rntme/identity-auth0`.** Domain service calls it via `pre[]` in every binding; bindings-http maps canonical `Session.status !== SESSION_STATUS_ACTIVE` → 401. |
+| Q3 | Ownership enforcement model | **E1 — payload-injection in graph IR + IR-side guard for delete.** `createNote` injects `ownerSub` from `$pre: "session.user_id"` in `emit.payload`; `deleteNote` filters `NoteView` by `id ∧ ownerSub` and emits only if a row matches. CloudEvents envelope is **not** changed. |
 | Q4a | Auth0 SDK on the client | **F1 — `@auth0/auth0-spa-js`** with Authorization Code + PKCE. |
 | Q4b | Where does auth state live? | **G1 — auth-shell wrapper around ui-runtime.** ui-runtime stays auth-agnostic; the shell injects a Bearer-aware transport and seeds `currentUser` into initial data-state. The shell never exposes `getAccessToken()`. |
 | Q5.1 | Auth0 audience | Custom API in Auth0 dashboard, identifier `https://notes-demo.rntme.com/api`. The Mgmt API URL `https://demo-rntme.us.auth0.com/api/v2/` is a **separate** audience and not used here. |
@@ -73,7 +85,7 @@
 | Q5.5 | `ExternalEventBusConfig` shape for Redpanda Cloud | Discriminated union: `protocol: "plaintext"` (no extra fields) or `protocol: "sasl_ssl"` (requires `mechanism` + `secretRefs.{username,password}`). |
 | Q5.6 | UI auth-shell location | New package `@rntme/ui-auth-shell`. Vanilla DOM chrome (no React/Vue). |
 | Q5.7 | deploy-dokploy `kind: "auth"` rendering | **Edge noop** (per Q2 D); marker drives env wiring on the domain-service workload. |
-| K1 | Allow `pre[]` on query bindings? | **Yes.** Validator's `BINDINGS_PRE_QUERY_FORBIDDEN` removed; `bindings-http` query handler runs `pre[]` symmetrically with the command handler. |
+| K1 | Allow `pre[]` on query bindings? | **Yes.** Validator's current `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` branch is removed; `bindings-http` query handler runs `pre[]` symmetrically with the command handler. |
 
 ## 3. End-to-end flows
 
@@ -133,10 +145,11 @@ ui-runtime → fetch GET /api/notes  (Authorization: Bearer <jwt>)
    │             (in-memory cache, 1h TTL, lazy on miss)
    │          b. jwtVerify (RS256), iss=https://demo-rntme.us.auth0.com/,
    │             aud contains audience param, exp > now (clockTolerance 30s)
-   │          c. return { is_active: true, subject_id: "auth0|abc123",
-   │                      expires_at, claims: <whitelist>, deactivation_reason: "" }
+   │          c. return canonical Session { status: SESSION_STATUS_ACTIVE,
+   │                      user_id: "auth0|abc123", expires_at,
+   │                      vendor_raw.claims: <whitelist> }
    │
-   │     3. if response.is_active=false → 401
+   │     3. if session.status !== SESSION_STATUS_ACTIVE → 401
    │     4. bindAs: "session" → scope.pre.session = response
    │     5. execute graph listNotes (no actor.sub used — pure read of all active notes)
    │     6. response: { notes: [...] }, 200
@@ -151,14 +164,14 @@ ui-runtime → fetch POST /api/notes  (Authorization: Bearer <jwt>)
    ├─► edge ──► app:3000/api/notes (POST)
    │
    │   bindings-http (command handler):
-   │     1. runPreSteps([IntrospectSession]) → scope.pre.session = { subject_id: "auth0|abc123", … }
+   │     1. runPreSteps([IntrospectSession]) → scope.pre.session = { user_id: "auth0|abc123", … }
    │     2. construct command params from HTTP body: id, title, body
    │     3. graph IR createNote evaluates:
    │          emit { aggregate: "Note", aggregateId: $param.id,
    │                 transition: "create",
    │                 payload: { title: $param.title,
    │                            body:  $param.body,
-   │                            ownerSub: $pre.session.subject_id } }
+   │                            ownerSub: $pre.session.user_id } }
    │     4. event-store appends CloudEvent type="NoteCreate"
    │     5. publish to Redpanda Cloud topic="rntme.app.note"
    │        (SASL_SSL/SCRAM-SHA-512, creds from RNTME_EVENT_BUS_USERNAME/PASSWORD env)
@@ -176,10 +189,10 @@ ui-runtime → fetch POST /api/notes/<id>/actions/delete  (Authorization: Bearer
    ├─► edge ──► app:3000/api/notes/<id>/actions/delete (POST)
    │
    │   bindings-http (command handler):
-   │     1. runPreSteps → scope.pre.session.subject_id = "auth0|abc123"
+   │     1. runPreSteps → scope.pre.session.user_id = "auth0|abc123"
    │     2. params: { id: <path.id> }
    │     3. graph IR deleteNote (nodes: findMany "all" → filter "guard" → emit):
-   │          guard.expr = (noteView.id == $param.id) AND (noteView.ownerSub == $pre.session.subject_id)
+   │          guard.expr = (noteView.id == $param.id) AND (noteView.ownerSub == $pre.session.user_id)
    │          if guard yields zero rows → emit does NOT fire → command result "guard failed"
    │          if guard yields one row → emit publishes NoteDelete CloudEvent
    │     4. on guard-failed → HTTP 404 (security-conscious; same code for "no such note" and "not your note")
@@ -207,11 +220,11 @@ When the access token expires (Auth0 default 24h), the next API call returns 401
 
 | # | Package | Δ | Change |
 |---|---|---|---|
-| 1 | `@rntme/contracts-identity-v1` | XS | `IntrospectSessionRequest.audience: string` (additive). `IntrospectSessionResponse.deactivation_reason: string` (additive). Regenerate TS bindings. README: `audience` listed as required for tier-1 OIDC vendors. |
+| 1 | `@rntme/contracts-identity-v1` | XS | `IntrospectSessionRequest.audience: string` (additive). `IntrospectSession` continues to return canonical `Session`. Invalid-token reason is carried in `Session.vendor_raw.deactivation_reason`. Regenerate TS bindings. README: `audience` listed as required for OIDC/JWT vendors. |
 | 2 | `@rntme/identity-auth0` | M | `module.json#capabilities.rpcs` adds `IntrospectSession`; limitations rewritten. New `src/introspect-session.ts` with `jose`-based JWKS verifier. `src/handlers.ts` dispatch updated. `src/capabilities.ts` `CLAIMED_RPCS` updated. Mock-conformance scenarios for IntrospectSession (≥6). Existing UNIMPLEMENTED tests for the other session RPCs split off and kept. R13 fix: lazy Mgmt SDK init. |
 | 3 | `@rntme/blueprint` | XS | Middleware schema already accepts `kind: nonEmptyString` — no parse change. New cross-artifact validator: `audience` equality between `project.json#middleware.auth.audience` and every `bindings.json#bindings.X.pre[].input.audience` in services that mount that auth middleware. Error code `BLUEPRINT_AUTH_AUDIENCE_MISMATCH`. `ComposedProjectInput.middleware` typing extended for `kind: "auth"` discriminated case. |
-| 4 | `@rntme/bindings` | S | Validator removes "pre[] only on commands" check. Error code `BINDINGS_PRE_QUERY_FORBIDDEN` retired. "Max 2 pre-steps" cap stays. Unit tests added. |
-| 5 | `@rntme/bindings-http` | M | Query handler runs `runPreSteps` symmetrically with the command handler. `router.ts` requires `externalAdapterClient` when **any** binding has `pre[]`. Auth-aware 401 mapping when `module===project.middleware.auth.moduleSlug && rpc==="IntrospectSession"` and `is_active=false`. PII masking in pre-result logs (`claims.*` replaced with `<masked>`). |
+| 4 | `@rntme/bindings` | S | Validator removes the current `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` branch for query bindings with pre steps. "Max 2 pre-steps" cap stays. Unit tests added. |
+| 5 | `@rntme/bindings-http` | M | Query handler runs `runPreSteps` symmetrically with the command handler. `router.ts` requires `externalAdapterClient` when **any** binding has `pre[]`. Auth-aware 401 mapping when `module===project.middleware.auth.moduleSlug && rpc==="IntrospectSession"` and returned `Session.status !== SESSION_STATUS_ACTIVE`. PII masking in pre-result logs (`vendor_raw.claims.*` replaced with `<masked>`). |
 | 6 | `@rntme/graph-ir-compiler` | S | Expression evaluator gains `$pre: "<bindAs>.<dot-path>"` directive. Allowed in `emit.payload.<field>`, `filter.where.eq[]`, `filter.where.and[].eq[]`, `findMany`/`findOne` filters. Disallowed in `aggregateId`, `transition`. Compile-time error `GRAPH_IR_PRE_REF_NOT_ALLOWED_IN_<position>` for misuse. Cross-artifact validation (`$pre` references an existing `bindAs`) lives in `@rntme/blueprint`, not here. |
 | 7 | `@rntme/runtime` | M | Boot reads `RNTME_AUTH_PROVIDER`, `RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`, `RNTME_AUTH_MODULE_ENDPOINT`. If `provider=auth0` and endpoint is non-empty, build `ExternalAdapterClient` registry with the single module `identity-auth0` → `<endpoint>` (gRPC over HTTP/2) and pass to `bindings-http.createBindingsRouter`. If provider set but endpoint missing → boot fails `RUNTIME_BOOT_AUTH_ENDPOINT_MISSING`. Kafka client reads `RNTME_EVENT_BUS_PROTOCOL`/`MECHANISM`/`USERNAME`/`PASSWORD` for SASL_SSL/SCRAM. |
 | 8 | `@rntme-cli/deploy-core` | S | `ExternalEventBusConfig.security` becomes a discriminated union `{ protocol: "plaintext" } \| { protocol: "sasl_ssl"; mechanism; secretRefs }`. Plan validators added. `EdgeMiddleware` union extended with `kind: "auth"` (`provider`, `audience`, `moduleSlug`, `policy`, `config`). `supportedMiddlewareKinds` extended. `planMiddleware` validates that `moduleSlug` references an existing `integration-module` workload in the same plan. |
@@ -347,7 +360,7 @@ Flat `<ShapeName>: { fields: ... }` record — no `shapes:` wrapper, matching th
         "payload": {
           "title":    { "$param": "title" },
           "body":     { "$param": "body" },
-          "ownerSub": { "$pre":   "session.subject_id" }
+          "ownerSub": { "$pre":   "session.user_id" }
         }
       }
     }
@@ -382,7 +395,7 @@ Flat `<ShapeName>: { fields: ... }` record — no `shapes:` wrapper, matching th
         "expr": {
           "and": [
             { "eq": ["noteView.id",       { "$param": "id" }] },
-            { "eq": ["noteView.ownerSub", { "$pre":   "session.subject_id" }] }
+            { "eq": ["noteView.ownerSub", { "$pre":   "session.user_id" }] }
           ]
         }
       }
@@ -401,7 +414,7 @@ Flat `<ShapeName>: { fields: ... }` record — no `shapes:` wrapper, matching th
 }
 ```
 
-The runtime semantic for `assignIssueWithCapacityGuard` (existing fixture) sets the precedent: when an upstream `filter` reduces to an empty rowset, the downstream `emit` does not fire and the command returns a "guard failed" result (mapped by `bindings-http` to HTTP 404 — security-conscious; does not distinguish "no such note" from "not your note"). The exact error-code surface from the empty-emit path — whether a generic `RUNTIME_COMMAND_GUARD_FAILED` or a more specific code — is finalised in the plan, after a review of how the runtime currently surfaces empty-emit outcomes. The graph itself does not need to encode the error code; the bindings-http response mapping does.
+The runtime semantic for `assignIssueWithCapacityGuard` (existing fixture) sets the precedent: when an upstream `filter` reduces to an empty rowset, the downstream `emit` does not fire and the command returns `COMMAND_GUARD_REJECTED`. Current `bindings-http` maps that code to HTTP 422, so the notes implementation must add an explicit binding-level response or command-handler mapping for `deleteNote` that returns HTTP 404. This preserves the security-conscious behavior: the API does not distinguish "no such note" from "not your note".
 
 ### 5.8 `services/app/graphs/listNotes.json` and `getNote.json`
 
@@ -573,18 +586,13 @@ message IntrospectSessionRequest {
   string audience = 2;
 }
 
-message IntrospectSessionResponse {
-  bool   is_active   = 1;
-  string subject_id  = 2;
-  google.protobuf.Timestamp expires_at = 3;
-  google.protobuf.Struct    claims     = 4;
-  string deactivation_reason = 5;
-}
+// IntrospectSession still returns canonical Session.
+// Invalid-token details are carried in Session.vendor_raw.deactivation_reason.
 ```
 
-`audience` and `deactivation_reason` are additive in proto3 — no contract version bump. `error-codes.json` is unchanged for this RPC: invalid-token outcomes are reported via `is_active=false` + `deactivation_reason`, not gRPC errors. gRPC errors only on transport-level problems (`IDENTITY_TRANSPORT_JWKS_UNREACHABLE`).
+`audience` is additive in proto3 — no contract version bump. `error-codes.json` is unchanged for this RPC: invalid-token outcomes are reported via canonical `Session.status != SESSION_STATUS_ACTIVE` plus `Session.vendor_raw.deactivation_reason`, not gRPC errors. gRPC errors only on transport-level problems (`IDENTITY_TRANSPORT_JWKS_UNREACHABLE`).
 
-`deactivation_reason` enum-string values: `TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, `UNKNOWN`. Empty string when `is_active=true`.
+`vendor_raw.deactivation_reason` enum-string values: `TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, `UNKNOWN`. It is absent when `status=SESSION_STATUS_ACTIVE`.
 
 ### 6.3 Handler implementation
 
@@ -604,7 +612,8 @@ type Auth0OidcOptions = {
 
 ```ts
 import { jwtVerify, createRemoteJWKSet, errors as joseErrors } from 'jose';
-import type { IntrospectSessionRequest, IntrospectSessionResponse } from '@rntme/contracts-identity-v1';
+import { SessionStatus, TokenType } from '@rntme/contracts-identity-v1';
+import type { IntrospectSessionRequest, Session } from '@rntme/contracts-identity-v1';
 
 export type IntrospectDeps = {
   domain: string;
@@ -620,10 +629,10 @@ export function createIntrospectSession(deps: IntrospectDeps) {
   const jwks = createRemoteJWKSet(jwksUrl, {
     cacheMaxAge: deps.jwksCacheTtlMs ?? 3_600_000,
     timeoutDuration: deps.jwksTimeoutMs ?? 5_000,
-    // fetcher option name in jose 5.x — confirm in plan
+    // jose v5 has no documented custom-fetch option; tests inject a local getKey resolver.
   });
 
-  return async function introspectSession(req: IntrospectSessionRequest): Promise<IntrospectSessionResponse> {
+  return async function introspectSession(req: IntrospectSessionRequest): Promise<Session> {
     if (!req.token || !req.audience) return inactive('MALFORMED');
     try {
       const { payload } = await jwtVerify(req.token, jwks, {
@@ -632,11 +641,12 @@ export function createIntrospectSession(deps: IntrospectDeps) {
         clockTolerance: 30,
       });
       return {
-        is_active: true,
-        subject_id: String(payload.sub ?? ''),
+        user_id: String(payload.sub ?? ''),
+        session_id: typeof payload.jti === 'string' ? payload.jti : String(payload.sub ?? ''),
+        status: SessionStatus.SESSION_STATUS_ACTIVE,
+        token_type: TokenType.TOKEN_TYPE_JWT_ACCESS,
         expires_at: payload.exp ? secondsToTs(payload.exp) : undefined,
-        claims: pickPublicClaims(payload),
-        deactivation_reason: '',
+        vendor_raw: { claims: pickPublicClaims(payload) },
       };
     } catch (err) {
       return inactive(classifyJoseError(err));
@@ -676,12 +686,12 @@ function pickPublicClaims(p: Record<string, unknown>): Record<string, unknown> {
 
 `modules/identity/auth0/test/integration/conformance/introspect-session.ts` adds at minimum:
 
-1. Valid token with correct iss/aud/exp → `{is_active: true, subject_id: ...}`.
-2. Expired token → `{is_active: false, deactivation_reason: "TOKEN_EXPIRED"}`.
-3. Wrong audience → `{is_active: false, deactivation_reason: "INVALID_AUDIENCE"}`.
-4. Wrong issuer → `{is_active: false, deactivation_reason: "INVALID_ISSUER"}`.
-5. Malformed token (not three parts) → `{is_active: false, deactivation_reason: "MALFORMED"}`.
-6. Empty audience in request → `{is_active: false, deactivation_reason: "MALFORMED"}`.
+1. Valid token with correct iss/aud/exp → `{status: SESSION_STATUS_ACTIVE, user_id: ...}`.
+2. Expired token → `{status: SESSION_STATUS_EXPIRED, vendor_raw.deactivation_reason: "TOKEN_EXPIRED"}`.
+3. Wrong audience → `{status: SESSION_STATUS_UNSPECIFIED, vendor_raw.deactivation_reason: "INVALID_AUDIENCE"}`.
+4. Wrong issuer → `{status: SESSION_STATUS_UNSPECIFIED, vendor_raw.deactivation_reason: "INVALID_ISSUER"}`.
+5. Malformed token (not three parts) → `{status: SESSION_STATUS_UNSPECIFIED, vendor_raw.deactivation_reason: "MALFORMED"}`.
+6. Empty audience in request → `{status: SESSION_STATUS_UNSPECIFIED, vendor_raw.deactivation_reason: "MALFORMED"}`.
 7. Optional: JWKS-unreachable → gRPC error `IDENTITY_TRANSPORT_JWKS_UNREACHABLE`.
 
 The mock-vendor (part of `@rntme/conformance-framework`) generates JWTs against a local test keypair and serves a mock JWKS endpoint.
@@ -696,23 +706,23 @@ Mgmt-API handlers (User/Org/Membership/Invitation) are untouched. `src/adapter.t
 
 ### 7.1 Validator — `@rntme/bindings`
 
-`packages/bindings/src/validate/structural.ts` ~line 164: remove the "pre[] only on commands" check. Keep "max 2 pre-fetch steps". `BINDINGS_PRE_QUERY_FORBIDDEN` retired.
+`packages/bindings/src/validate/structural.ts` currently emits `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` for query bindings with one or more pre steps. Remove that branch. Keep the "max 2 pre-fetch steps" check and its current code `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
 
-Unit test added: query binding with one valid `module-rpc` pre-step validates ok; query binding with three pre-steps fails on `BINDINGS_PRE_TOO_MANY`.
+Unit test added: query binding with one valid `module-rpc` pre-step validates ok; query binding with three pre-steps fails on `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
 
 ### 7.2 Runtime query path — `@rntme/bindings-http`
 
 The query handler runs `runPreSteps` symmetrically with the command handler. `router.ts` updates the precondition: `externalAdapterClient` is required when **any** binding has `pre[]` (commands or queries). Idempotency cache is unchanged: queries are not cached there.
 
-Auth-aware 401 mapping. `bindings-http` reads `project.json#middleware.auth.moduleSlug` (if any). For each pre-step in any binding where `module === moduleSlug && rpc === "IntrospectSession"`, after `runPreSteps`, if the bound result has `is_active === false`, the handler replies HTTP 401 with body:
+Auth-aware 401 mapping. `bindings-http` reads `project.json#middleware.auth.moduleSlug` (if any). For each pre-step in any binding where `module === moduleSlug && rpc === "IntrospectSession"`, after `runPreSteps`, if the bound canonical `Session.status !== SESSION_STATUS_ACTIVE`, the handler replies HTTP 401 with body:
 
 ```json
-{ "code": "RUNTIME_AUTH_TOKEN_INVALID", "message": "authentication required", "reason": "<deactivation_reason>" }
+{ "code": "RUNTIME_AUTH_TOKEN_INVALID", "message": "authentication required", "reason": "<vendor_raw.deactivation_reason>" }
 ```
 
-This is the only place where `is_active=false` becomes a 401: the rest of the runtime treats it as a regular pre-step result.
+This is the only place where an inactive IntrospectSession result becomes a 401: the rest of the runtime treats it as a regular pre-step result.
 
-PII masking. `runPreSteps` and command/query handlers, when logging the pre-step result, must replace any field matching `claims.*` with `<masked>` (R12). One central mask helper in `pre/run-pre-steps.ts` log paths.
+PII masking. `runPreSteps` and command/query handlers, when logging the pre-step result, must replace any field matching `vendor_raw.claims.*` with `<masked>` (R12). One central mask helper in `pre/run-pre-steps.ts` log paths.
 
 ### 7.3 Graph IR `$pre` directive — `@rntme/graph-ir-compiler`
 
@@ -971,7 +981,7 @@ mountUiRuntime({
 });
 ```
 
-`currentUser.sub` from the ID-token's `sub` claim equals the `subject_id` returned by IntrospectSession on the server side — guaranteed by OIDC spec, no cross-validation needed. ui-runtime treats `currentUser` as a readonly key (action dispatchers cannot overwrite).
+`currentUser.sub` from the ID-token's `sub` claim equals the `user_id` returned by IntrospectSession on the server side — guaranteed by OIDC spec, no cross-validation needed. ui-runtime treats `currentUser` as a readonly key (action dispatchers cannot overwrite).
 
 ### 9.6 Login chrome
 
@@ -1013,7 +1023,7 @@ Target gzip total ≤ 100 kB: ui-runtime + shell (~10 kB) + `@auth0/auth0-spa-js
 | R9 | `audience` mismatch between project.json and bindings.json | Manual edit drift | Cross-artifact validator emits `BLUEPRINT_AUTH_AUDIENCE_MISMATCH`. Must-have in plan. |
 | R10 | Auth0 SPA app configured as Implicit Grant (legacy) instead of Authorization Code + PKCE | First login fails "unsupported response type" | Plan walkthrough explicitly: Application Type = SPA, Grant Types = Authorization Code + Refresh Token. |
 | R11 | RedirectUri in Auth0 dashboard does not match shell config | Auth0 returns "Callback not allowed" | Plan walkthrough fixes the exact URL string with screenshot/inline steps. |
-| R12 | PII (email, name) in `IntrospectSessionResponse.claims` leaks into server-access logs | `LOG_LEVEL=debug` | `pickPublicClaims` whitelist on identity-auth0 side; `bindings-http` masks `claims.*` in pre-result logs. Single mask helper. |
+| R12 | PII (email, name) in `Session.vendor_raw.claims` leaks into server-access logs | `LOG_LEVEL=debug` | `pickPublicClaims` whitelist on identity-auth0 side; `bindings-http` masks `vendor_raw.claims.*` in pre-result logs. Single mask helper. |
 | R13 | identity-auth0 runs without Mgmt creds (by design) → noisy logs | Container logs | Lazy Mgmt SDK init; first Mgmt call returns `IDENTITY_CONFIG_MGMT_NOT_CONFIGURED` without periodic noise. **In scope.** |
 | R14 | Auth0 SPA `clientId`/`audience` exposed in `/config.json` | Anyone with dev tools | **Not a risk** — public values per OIDC. SPA app has no client_secret (PKCE replaces it). |
 | R15 | Redpanda Cloud SASL credentials leaked through Dokploy MCP `application-one` | Any MCP call | Per memory `dokploy_mcp_leaks_secrets.md`: do not paste responses to shared contexts. Rotate Redpanda Cloud user creds after deploy. |

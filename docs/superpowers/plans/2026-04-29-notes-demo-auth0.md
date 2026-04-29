@@ -4,13 +4,23 @@
 
 **Goal:** Bring `demo/notes-blueprint/` to production-shape: real Auth0 OIDC login, ownership-enforcement on Note edits, external Redpanda Cloud event bus over SASL_SSL/SCRAM, end-to-end deploy through `platform.rntme.com` to Dokploy.
 
-**Architecture:** Auth lives in the canonical Identity module pattern. `@rntme/identity-auth0` claims `IntrospectSession` (OIDC JWKS verify, no Mgmt API call). All four notes-blueprint bindings carry `pre: [IntrospectSession]`. Ownership is enforced inside graph IR via a new `$pre` directive: `createNote` injects `payload.ownerSub` from `$pre.session.subject_id`; `deleteNote` filters `NoteView` by `id ∧ ownerSub` so its `emit` only fires when the actor owns the note. Edge does no auth (Nginx noop). UI runs through a new `@rntme/ui-auth-shell` package wrapping ui-runtime with `@auth0/auth0-spa-js` PKCE + Bearer-injecting transport.
+**Architecture:** Auth lives in the canonical Identity module pattern. `@rntme/identity-auth0` claims `IntrospectSession` (OIDC JWKS verify, no Mgmt API call). All four notes-blueprint bindings carry `pre: [IntrospectSession]`. Ownership is enforced inside graph IR via a new `$pre` directive: `createNote` injects `payload.ownerSub` from `$pre.session.user_id`; `deleteNote` filters `NoteView` by `id ∧ ownerSub` so its `emit` only fires when the actor owns the note. Edge does no auth (Nginx noop). UI runs through a new `@rntme/ui-auth-shell` package wrapping ui-runtime with `@auth0/auth0-spa-js` PKCE + Bearer-injecting transport.
 
 **Tech Stack:** TypeScript, pnpm 9 workspace, Hono, Vitest, `jose@5.x` for JWKS, `@auth0/auth0-spa-js@2.x`, KafkaJS for Redpanda, esbuild SPA build, Dokploy.
 
 **Spec:** `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`. Read §1–§13 before starting.
 
 **Phase plan:** Seven phases. Phases 1–4 are independent (Tracks A and B). Phase 5 depends on all four; Phase 6 follows; Phase 7 closes.
+
+## PLAN review corrections (2026-04-29)
+
+Apply these corrections before executing any task below. They are authoritative where older snippets in this plan still use the previous names.
+
+1. **Canonical Identity response stays `Session`.** The current `identity.proto` defines `rpc IntrospectSession(IntrospectSessionRequest) returns (Session)`, and the done Identity spec says `IntrospectSession(token) -> Session`. Do not add an `IntrospectSessionResponse` message. Add only `audience = 2` to `IntrospectSessionRequest`. Invalid-token details go in `Session.vendor_raw.deactivation_reason`; the HTTP layer checks `Session.status`.
+2. **Use `Session.user_id`, not a new `subject_id` field.** Auth0/OIDC `sub` is mapped to canonical `Session.user_id`. Notes ownership references are `$pre.session.user_id`.
+3. **Use documented `jose@5` APIs.** `jose` v5 documents `createRemoteJWKSet(url, { cacheMaxAge, cooldownDuration, timeoutDuration, headers, agent })`; it does not document `Symbol.for('jose.fetch')` or `[customFetch]`. Unit tests should inject a local key resolver (`createLocalJWKSet(jwks)` or a `JWTVerifyGetKey`) while production uses `createRemoteJWKSet(...)`.
+4. **Use current bindings error codes.** Replace `BINDINGS_PRE_QUERY_FORBIDDEN` with `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND`; replace `BINDINGS_PRE_TOO_MANY` with `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
+5. **Map note ownership denial to 404 explicitly.** Current command guard failures are `COMMAND_GUARD_REJECTED` and map to HTTP 422. The `deleteNote` binding or handler must explicitly map this command's ownership guard to HTTP 404 so "missing note" and "not your note" share the same response.
 
 ```
 Phase 1 ┐
@@ -34,7 +44,7 @@ Phase 7
 
 ### Phase 1 (Contract + identity-auth0)
 
-- Modify: `packages/contracts/identity/v1/proto/identity.proto` — add `audience` to `IntrospectSessionRequest`, `deactivation_reason` to `IntrospectSessionResponse`.
+- Modify: `packages/contracts/identity/v1/proto/identity.proto` — add `audience` to `IntrospectSessionRequest`; keep `IntrospectSession` returning canonical `Session`.
 - Modify: `packages/contracts/identity/v1/scripts/build.mjs` (or equivalent build/regenerate command) — regenerate TS bindings.
 - Modify: `packages/contracts/identity/v1/README.md`.
 - Modify: `modules/identity/auth0/package.json` — add `jose@^5.x`.
@@ -50,15 +60,14 @@ Phase 7
 
 ### Phase 2 (Bindings + Graph IR)
 
-- Modify: `packages/bindings/src/validate/structural.ts:164` — remove `BINDINGS_PRE_QUERY_FORBIDDEN` check.
-- Modify: `packages/bindings/src/errors.ts` (if it lists codes) — drop `BINDINGS_PRE_QUERY_FORBIDDEN`.
+- Modify: `packages/bindings/src/validate/structural.ts:164` — remove `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` check for query bindings with pre steps.
 - Modify: `packages/bindings/test/unit/validate-structural.test.ts` — query-pre[] passes; 3-step pre fails.
 - Modify: `packages/bindings/README.md` — pre[] now allowed on queries.
 - Modify: `packages/bindings-http/src/runtime/handler.ts` (query handler) — call `runPreSteps`.
 - Modify: `packages/bindings-http/src/router.ts:60` — error message mentions queries too.
-- Modify: `packages/bindings-http/src/runtime/command-handler.ts` — auth-aware 401 mapping for IntrospectSession `is_active=false`.
+- Modify: `packages/bindings-http/src/runtime/command-handler.ts` — auth-aware 401 mapping for IntrospectSession `Session.status !== SESSION_STATUS_ACTIVE`.
 - Modify: `packages/bindings-http/src/runtime/handler.ts` — same 401 mapping.
-- Modify: `packages/bindings-http/src/pre/run-pre-steps.ts` — PII masking helper for `claims.*` in any log path.
+- Modify: `packages/bindings-http/src/pre/run-pre-steps.ts` — PII masking helper for `vendor_raw.claims.*` in any log path.
 - Modify: `packages/bindings-http/test/unit/...` — add tests.
 - Modify: `packages/bindings-http/README.md`.
 - Modify: `packages/graph-ir-compiler/src/parse/schema.ts` — `$pre` in `expr` union.
@@ -132,16 +141,16 @@ Phase 7
 
 ## Phase 1 — Contract + identity-auth0 IntrospectSession
 
-### Task 1.1: Add `audience` to `IntrospectSessionRequest` and `deactivation_reason` to response
+### Task 1.1: Add `audience` to `IntrospectSessionRequest`
 
 **Files:**
 - Modify: `packages/contracts/identity/v1/proto/identity.proto`
 
-- [ ] **Step 1: Open the proto and find `IntrospectSessionRequest` / `IntrospectSessionResponse`**
+- [ ] **Step 1: Open the proto and find `IntrospectSessionRequest` / `IntrospectSession`**
 
 Run: `grep -n "IntrospectSession" packages/contracts/identity/v1/proto/identity.proto`
 
-Expected: locations of both messages.
+Expected: location of `IntrospectSessionRequest` and the service method returning `Session`.
 
 - [ ] **Step 2: Edit the request to add `audience`**
 
@@ -154,33 +163,27 @@ message IntrospectSessionRequest {
 }
 ```
 
-- [ ] **Step 3: Edit the response to add `deactivation_reason`**
+- [ ] **Step 3: Preserve the response type**
 
-Add to `IntrospectSessionResponse`:
+Confirm the service method remains:
 
 ```proto
-message IntrospectSessionResponse {
-  bool   is_active   = 1;
-  string subject_id  = 2;
-  google.protobuf.Timestamp expires_at = 3;
-  google.protobuf.Struct    claims     = 4;
-  string deactivation_reason = 5;
-}
+rpc IntrospectSession(IntrospectSessionRequest) returns (Session);
 ```
 
-(Field numbers assume current shape; confirm and renumber if 1–4 differ. Both fields are additive in proto3 — no breaking change.)
+Do not add an `IntrospectSessionResponse` message. Invalid-token reasons are carried in `Session.vendor_raw.deactivation_reason`.
 
 - [ ] **Step 4: Regenerate TS bindings**
 
 Run: `pnpm -F @rntme/contracts-identity-v1 build`
 
-Expected: build succeeds, `src/` is regenerated, both new fields appear in TS types.
+Expected: build succeeds, `src/` is regenerated, `IntrospectSessionRequest.audience` appears in TS types, and `IntrospectSession` still returns `Session`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add packages/contracts/identity/v1/proto/identity.proto packages/contracts/identity/v1/src
-git commit -m "feat(contracts-identity-v1): add audience and deactivation_reason to IntrospectSession"
+git commit -m "feat(contracts-identity-v1): add audience to IntrospectSession request"
 ```
 
 ### Task 1.2: Add `jose` dependency to identity-auth0
@@ -220,7 +223,8 @@ git commit -m "chore(identity-auth0): add jose dependency for JWKS verify"
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import { SignJWT, exportJWK, generateKeyPair } from 'jose';
+import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
+import { SessionStatus } from '@rntme/contracts-identity-v1';
 import { createIntrospectSession } from '../../src/introspect-session.js';
 
 const TEST_DOMAIN = 'tenant.us.auth0.com';
@@ -234,15 +238,10 @@ async function setup() {
   jwk.alg = 'RS256';
   jwk.use = 'sig';
   const jwks = { keys: [jwk] };
-  const fetcher: typeof fetch = async (url) => {
-    if (String(url).endsWith('/.well-known/jwks.json')) {
-      return new Response(JSON.stringify(jwks), { headers: { 'content-type': 'application/json' } });
-    }
-    throw new Error(`unexpected fetch: ${url}`);
-  };
+  const jwksResolver = createLocalJWKSet(jwks);
   const introspect = createIntrospectSession({
     domain: TEST_DOMAIN,
-    jwksFetcher: fetcher,
+    jwksResolver,
   });
   return { privateKey, introspect };
 }
@@ -259,13 +258,13 @@ async function makeToken(privateKey: CryptoKey, opts: { sub?: string; aud?: stri
 }
 
 describe('introspectSession', () => {
-  it('returns is_active=true with subject_id for a valid token', async () => {
+  it('returns an active canonical Session for a valid token', async () => {
     const { privateKey, introspect } = await setup();
     const token = await makeToken(privateKey, {});
     const r = await introspect({ token, audience: TEST_AUDIENCE });
-    expect(r.is_active).toBe(true);
-    expect(r.subject_id).toBe('auth0|abc123');
-    expect(r.deactivation_reason).toBe('');
+    expect(r.status).toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect(r.user_id).toBe('auth0|abc123');
+    expect((r.vendor_raw as { deactivation_reason?: string } | undefined)?.deactivation_reason).toBeUndefined();
   });
 });
 ```
@@ -285,16 +284,17 @@ Expected: import error or runtime error (function does not exist).
 
 ```ts
 import { jwtVerify, createRemoteJWKSet, errors as joseErrors } from 'jose';
+import { SessionStatus, TokenType } from '@rntme/contracts-identity-v1';
 import type {
   IntrospectSessionRequest,
-  IntrospectSessionResponse,
+  Session,
 } from '@rntme/contracts-identity-v1';
 
 export type IntrospectDeps = {
   domain: string;
   jwksCacheTtlMs?: number;
   jwksTimeoutMs?: number;
-  jwksFetcher?: typeof fetch;
+  jwksResolver?: Parameters<typeof jwtVerify>[1];
   now?: () => number;
 };
 
@@ -306,15 +306,14 @@ const PUBLIC_CLAIMS = [
 export function createIntrospectSession(deps: IntrospectDeps) {
   const issuer = `https://${deps.domain}/`;
   const jwksUrl = new URL(`https://${deps.domain}/.well-known/jwks.json`);
-  const jwks = createRemoteJWKSet(jwksUrl, {
+  const jwks = deps.jwksResolver ?? createRemoteJWKSet(jwksUrl, {
     cacheMaxAge: deps.jwksCacheTtlMs ?? 3_600_000,
     timeoutDuration: deps.jwksTimeoutMs ?? 5_000,
-    [Symbol.for('jose.fetch')]: deps.jwksFetcher,
-  } as Parameters<typeof createRemoteJWKSet>[1]);
+  });
 
   return async function introspectSession(
     req: IntrospectSessionRequest,
-  ): Promise<IntrospectSessionResponse> {
+  ): Promise<Session> {
     if (!req.token || !req.audience) {
       return inactive('MALFORMED');
     }
@@ -325,26 +324,27 @@ export function createIntrospectSession(deps: IntrospectDeps) {
         clockTolerance: 30,
       });
       return {
-        is_active: true,
-        subject_id: String(payload.sub ?? ''),
+        session_id: typeof payload.jti === 'string' ? payload.jti : String(payload.sub ?? ''),
+        user_id: String(payload.sub ?? ''),
+        token_type: TokenType.TOKEN_TYPE_JWT_ACCESS,
+        status: SessionStatus.SESSION_STATUS_ACTIVE,
         expires_at: payload.exp ? secondsToTs(payload.exp) : undefined,
-        claims: pickPublicClaims(payload),
-        deactivation_reason: '',
-      } as IntrospectSessionResponse;
+        vendor_raw: { claims: pickPublicClaims(payload) },
+      } as Session;
     } catch (err) {
       return inactive(classifyJoseError(err));
     }
   };
 }
 
-function inactive(reason: string): IntrospectSessionResponse {
+function inactive(reason: string): Session {
   return {
-    is_active: false,
-    subject_id: '',
+    session_id: '',
+    user_id: '',
+    status: reason === 'TOKEN_EXPIRED' ? SessionStatus.SESSION_STATUS_EXPIRED : SessionStatus.SESSION_STATUS_UNSPECIFIED,
     expires_at: undefined,
-    claims: {},
-    deactivation_reason: reason,
-  } as IntrospectSessionResponse;
+    vendor_raw: { deactivation_reason: reason },
+  } as Session;
 }
 
 function classifyJoseError(err: unknown): string {
@@ -373,7 +373,7 @@ function secondsToTs(seconds: number): { seconds: number; nanos: number } {
 }
 ```
 
-Note on the `Symbol.for('jose.fetch')` line: jose 5.x's actual fetcher option key needs verification — if the symbol-based hook is not the correct option in the chosen pinned version, replace with whatever is documented (e.g., a `[customFetch]` exported by `jose`). This is the one place this plan defers to the library version pinned in 1.2.
+Context7 was unavailable during PLAN review, so this was verified against official `jose` v5 docs/source: `createRemoteJWKSet` supports `cacheMaxAge`, `cooldownDuration`, `timeoutDuration`, `headers`, and `agent`; it does not document a custom fetcher. Keep unit tests on injected local key resolution instead of network-fetch mocking.
 
 - [ ] **Step 2: Run the test — expect pass**
 
@@ -403,40 +403,40 @@ Append to the `describe` block:
     const exp = Math.floor(Date.now() / 1000) - 3600;
     const token = await makeToken(privateKey, { exp });
     const r = await introspect({ token, audience: TEST_AUDIENCE });
-    expect(r.is_active).toBe(false);
-    expect(r.deactivation_reason).toBe('TOKEN_EXPIRED');
-    expect(r.subject_id).toBe('');
+    expect(r.status).toBe(SessionStatus.SESSION_STATUS_EXPIRED);
+    expect((r.vendor_raw as { deactivation_reason?: string }).deactivation_reason).toBe('TOKEN_EXPIRED');
+    expect(r.user_id).toBe('');
   });
 
   it('returns INVALID_AUDIENCE on aud mismatch', async () => {
     const { privateKey, introspect } = await setup();
     const token = await makeToken(privateKey, { aud: 'https://other.api/' });
     const r = await introspect({ token, audience: TEST_AUDIENCE });
-    expect(r.is_active).toBe(false);
-    expect(r.deactivation_reason).toBe('INVALID_AUDIENCE');
+    expect(r.status).not.toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect((r.vendor_raw as { deactivation_reason?: string }).deactivation_reason).toBe('INVALID_AUDIENCE');
   });
 
   it('returns INVALID_ISSUER on iss mismatch', async () => {
     const { privateKey, introspect } = await setup();
     const token = await makeToken(privateKey, { iss: 'https://other.auth0.com/' });
     const r = await introspect({ token, audience: TEST_AUDIENCE });
-    expect(r.is_active).toBe(false);
-    expect(r.deactivation_reason).toBe('INVALID_ISSUER');
+    expect(r.status).not.toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect((r.vendor_raw as { deactivation_reason?: string }).deactivation_reason).toBe('INVALID_ISSUER');
   });
 
   it('returns MALFORMED on a non-JWT string', async () => {
     const { introspect } = await setup();
     const r = await introspect({ token: 'not.a.jwt', audience: TEST_AUDIENCE });
-    expect(r.is_active).toBe(false);
-    expect(r.deactivation_reason).toBe('MALFORMED');
+    expect(r.status).not.toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect((r.vendor_raw as { deactivation_reason?: string }).deactivation_reason).toBe('MALFORMED');
   });
 
   it('returns MALFORMED on empty audience in request', async () => {
     const { privateKey, introspect } = await setup();
     const token = await makeToken(privateKey, {});
     const r = await introspect({ token, audience: '' });
-    expect(r.is_active).toBe(false);
-    expect(r.deactivation_reason).toBe('MALFORMED');
+    expect(r.status).not.toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect((r.vendor_raw as { deactivation_reason?: string }).deactivation_reason).toBe('MALFORMED');
   });
 ```
 
@@ -575,13 +575,13 @@ export const introspectSessionScenarios: ScenarioFile = {
     {
       name: 'valid_token',
       input: { token: '<valid-jwt>', audience: 'https://example.api/' },
-      expect: { is_active: true, subject_id: /^auth0\|/, deactivation_reason: '' },
+      expect: { status: 'SESSION_STATUS_ACTIVE', user_id: /^auth0\|/ },
     },
-    { name: 'expired_token', input: { token: '<expired-jwt>', audience: 'https://example.api/' }, expect: { is_active: false, deactivation_reason: 'TOKEN_EXPIRED' } },
-    { name: 'wrong_audience', input: { token: '<valid-jwt>', audience: 'https://wrong.api/' }, expect: { is_active: false, deactivation_reason: 'INVALID_AUDIENCE' } },
-    { name: 'wrong_issuer', input: { token: '<other-issuer-jwt>', audience: 'https://example.api/' }, expect: { is_active: false, deactivation_reason: 'INVALID_ISSUER' } },
-    { name: 'malformed', input: { token: 'not.a.jwt', audience: 'https://example.api/' }, expect: { is_active: false, deactivation_reason: 'MALFORMED' } },
-    { name: 'empty_audience', input: { token: '<valid-jwt>', audience: '' }, expect: { is_active: false, deactivation_reason: 'MALFORMED' } },
+    { name: 'expired_token', input: { token: '<expired-jwt>', audience: 'https://example.api/' }, expect: { status: 'SESSION_STATUS_EXPIRED', vendor_raw: { deactivation_reason: 'TOKEN_EXPIRED' } } },
+    { name: 'wrong_audience', input: { token: '<valid-jwt>', audience: 'https://wrong.api/' }, expect: { statusNot: 'SESSION_STATUS_ACTIVE', vendor_raw: { deactivation_reason: 'INVALID_AUDIENCE' } } },
+    { name: 'wrong_issuer', input: { token: '<other-issuer-jwt>', audience: 'https://example.api/' }, expect: { statusNot: 'SESSION_STATUS_ACTIVE', vendor_raw: { deactivation_reason: 'INVALID_ISSUER' } } },
+    { name: 'malformed', input: { token: 'not.a.jwt', audience: 'https://example.api/' }, expect: { statusNot: 'SESSION_STATUS_ACTIVE', vendor_raw: { deactivation_reason: 'MALFORMED' } } },
+    { name: 'empty_audience', input: { token: '<valid-jwt>', audience: '' }, expect: { statusNot: 'SESSION_STATUS_ACTIVE', vendor_raw: { deactivation_reason: 'MALFORMED' } } },
   ],
 };
 ```
@@ -625,13 +625,13 @@ In `modules/identity/README.md`, in the auth0 row, change "Canonical session RPC
 
 - [ ] **Step 3: Update contracts README**
 
-In `packages/contracts/identity/v1/README.md`, in the IntrospectSession description, add: "`audience` is required; the module validates it against the JWT `aud` claim. `deactivation_reason` is populated when `is_active=false` (`TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, `UNKNOWN`)."
+In `packages/contracts/identity/v1/README.md`, in the IntrospectSession description, add: "`audience` is optional for backward compatibility but required by OIDC/JWT vendor modules such as Auth0; the module validates it against the JWT `aud` claim. Invalid-token outcomes return canonical `Session` with `status != SESSION_STATUS_ACTIVE` and `vendor_raw.deactivation_reason` (`TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, `UNKNOWN`)."
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add modules/identity/auth0/README.md modules/identity/README.md packages/contracts/identity/v1/README.md
-git commit -m "docs: identity-auth0 IntrospectSession claim + audience/deactivation_reason"
+git commit -m "docs: identity-auth0 IntrospectSession claim + audience"
 ```
 
 ### Task 1.10: Phase 1 final test pass
@@ -709,7 +709,7 @@ describe('pre[] on query bindings', () => {
     const result = validateStructural(artifact);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'BINDINGS_PRE_TOO_MANY')).toBe(true);
+      expect(result.errors.some((e) => e.code === 'BINDINGS_STRUCTURAL_PRE_TOO_MANY')).toBe(true);
     }
   });
 });
@@ -721,13 +721,12 @@ describe('pre[] on query bindings', () => {
 
 Run: `pnpm -F @rntme/bindings vitest run test/unit/validate-structural.test.ts`
 
-Expected: first test fails with `BINDINGS_PRE_QUERY_FORBIDDEN`; second passes.
+Expected: first test fails with `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND`; second passes.
 
-### Task 2.2: Remove `BINDINGS_PRE_QUERY_FORBIDDEN`
+### Task 2.2: Remove `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` for query pre steps
 
 **Files:**
 - Modify: `packages/bindings/src/validate/structural.ts`
-- Modify: `packages/bindings/src/errors.ts` (if it lists codes)
 
 - [ ] **Step 1: Open the validator**
 
@@ -737,13 +736,13 @@ Confirm the block around line 164.
 
 - [ ] **Step 2: Remove the check**
 
-Delete the `if (entry.kind !== 'command' && entry.pre…)` branch that emits `BINDINGS_PRE_QUERY_FORBIDDEN`. Keep the "max 2" cap intact.
+Delete the `if (!isCommand)` branch inside `if (entry.pre !== undefined && entry.pre.length > 0)` that emits `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND`. Keep the "max 2" cap intact.
 
 - [ ] **Step 3: Drop the error code, if any export**
 
-Run: `grep -n "BINDINGS_PRE_QUERY_FORBIDDEN" packages/bindings/src/`
+Run: `grep -RIn "BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND" packages/bindings/src packages/bindings/test`
 
-Remove every reference. If the package exports a closed `BindingsErrorCode` union type, remove the literal there too.
+Remove or update the query-pre references. Keep the code itself only if another non-command binding kind still needs it; currently query and command are the only binding kinds.
 
 - [ ] **Step 4: Run the failing test now passes**
 
@@ -760,7 +759,7 @@ Expected: green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/bindings/src/validate/structural.ts packages/bindings/src/errors.ts packages/bindings/test/unit/validate-structural.test.ts
+git add packages/bindings/src/validate/structural.ts packages/bindings/test/unit/validate/pre-structural.test.ts
 git commit -m "feat(bindings): allow pre[] on query bindings (K1)"
 ```
 
@@ -786,7 +785,7 @@ import { makeHandler } from '../../src/runtime/handler.js';
 
 describe('query handler runs pre[]', () => {
   it('calls externalAdapterClient.call before executing the graph', async () => {
-    const adapterCall = vi.fn(async () => ({ ok: true, value: { is_active: true, subject_id: 'auth0|x', deactivation_reason: '' } }));
+    const adapterCall = vi.fn(async () => ({ ok: true, value: { status: SessionStatus.SESSION_STATUS_ACTIVE, user_id: 'auth0|x', vendor_raw: {} } }));
     const externalAdapterClient = { call: adapterCall };
     const plan = /* QueryBindingPlan with pre: [{ module: 'identity-auth0', rpc: 'IntrospectSession', input: {...}, bindAs: 'session' }] */;
     const handler = makeHandler(plan, { db: makeInMemoryDb(), externalAdapterClient });
@@ -798,8 +797,8 @@ describe('query handler runs pre[]', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns 401 when IntrospectSession is_active=false on a pre-step bound to the auth middleware', async () => {
-    const externalAdapterClient = { call: vi.fn(async () => ({ ok: true, value: { is_active: false, deactivation_reason: 'TOKEN_EXPIRED' } })) };
+  it('returns 401 when IntrospectSession returns an inactive Session on a pre-step bound to the auth middleware', async () => {
+    const externalAdapterClient = { call: vi.fn(async () => ({ ok: true, value: { status: SessionStatus.SESSION_STATUS_EXPIRED, vendor_raw: { deactivation_reason: 'TOKEN_EXPIRED' } } })) };
     const plan = /* QueryBindingPlan with same pre, plus authMiddlewareModuleSlug: 'identity-auth0' */;
     const handler = makeHandler(plan, { db: makeInMemoryDb(), externalAdapterClient, authMiddlewareModuleSlug: 'identity-auth0' });
     const app = new Hono(); app.get('/x', handler);
@@ -861,16 +860,16 @@ if ((plan.pre?.length ?? 0) > 0) {
   const isAuthSlug = deps.authMiddlewareModuleSlug;
   const authStep = isAuthSlug ? plan.pre.find((p) => p.kind === 'module-rpc' && p.module === isAuthSlug && p.rpc === 'IntrospectSession') : undefined;
   if (authStep) {
-    const session = r.systemFields.pre[authStep.bindAsName] as { is_active?: boolean; deactivation_reason?: string } | undefined;
-    if (!session || session.is_active === false) {
-      return c.json({ code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required', reason: session?.deactivation_reason ?? 'UNKNOWN' }, 401);
+    const session = r.systemFields.pre[authStep.bindName] as { status?: number; vendor_raw?: { deactivation_reason?: string } } | undefined;
+    if (!session || session.status !== SessionStatus.SESSION_STATUS_ACTIVE) {
+      return c.json({ code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required', reason: session?.vendor_raw?.deactivation_reason ?? 'UNKNOWN' }, 401);
     }
   }
   preScope = r.systemFields.pre;
 }
 ```
 
-(Names like `bindAsName` depend on the compile-plan output; consult `packages/bindings-http/src/startup/compile-plan.ts` and use whatever it exposes.)
+(Use `bindName`; `packages/bindings-http/src/startup/compile-plan.ts` currently exposes `CompiledPreStep.bindName`.)
 
 - [ ] **Step 3: Pass `pre` into graph executor**
 
@@ -940,8 +939,8 @@ For every log of `pre`/`preResult`/`systemFields.pre`, wrap with `maskClaimsForL
 
 ```ts
 it('maskClaimsForLog masks nested claims field', () => {
-  const input = { pre: { session: { is_active: true, subject_id: 'x', claims: { email: 'a@b' } } } };
-  expect(maskClaimsForLog(input)).toEqual({ pre: { session: { is_active: true, subject_id: 'x', claims: '<masked>' } } });
+  const input = { pre: { session: { status: SessionStatus.SESSION_STATUS_ACTIVE, user_id: 'x', vendor_raw: { claims: { email: 'a@b' } } } } };
+  expect(maskClaimsForLog(input)).toEqual({ pre: { session: { status: SessionStatus.SESSION_STATUS_ACTIVE, user_id: 'x', vendor_raw: { claims: '<masked>' } } } });
 });
 ```
 
@@ -953,7 +952,7 @@ Expected: green.
 
 ```bash
 git add packages/bindings-http/src/pre/run-pre-steps.ts packages/bindings-http/test/unit/
-git commit -m "feat(bindings-http): mask claims.* in pre-result logs (R12)"
+git commit -m "feat(bindings-http): mask vendor_raw.claims in pre-result logs (R12)"
 ```
 
 ### Task 2.6: Failing test — `$pre` directive in graph IR
@@ -977,7 +976,7 @@ describe('$pre directive', () => {
         id: 'emit', type: 'emit',
         config: {
           aggregate: 'X', aggregateId: { $param: 'id' }, transition: 'create',
-          payload: { ownerSub: { $pre: 'session.subject_id' } },
+          payload: { ownerSub: { $pre: 'session.user_id' } },
         },
       },
     ],
@@ -992,7 +991,7 @@ describe('$pre directive', () => {
     const events: unknown[] = [];
     await execute(minimalGraph, {
       params: { id: 'note-1' },
-      pre: { session: { subject_id: 'auth0|abc' } },
+      pre: { session: { user_id: 'auth0|abc' } },
       eventBus: { publish: async (e) => { events.push(e); } },
       // …other deps stubbed out (db, projections) per existing test pattern
     });
@@ -1003,7 +1002,7 @@ describe('$pre directive', () => {
   it('rejects $pre in emit.aggregateId', () => {
     const bad = {
       ...minimalGraph,
-      nodes: [{ ...minimalGraph.nodes[0], config: { ...minimalGraph.nodes[0].config, aggregateId: { $pre: 'session.subject_id' } } }],
+      nodes: [{ ...minimalGraph.nodes[0], config: { ...minimalGraph.nodes[0].config, aggregateId: { $pre: 'session.user_id' } } }],
     };
     const r = parseGraph(bad);
     expect(r.ok).toBe(false);
@@ -2148,7 +2147,7 @@ Replace contents with §5.3 of the spec:
         "payload": {
           "title":    { "$param": "title" },
           "body":     { "$param": "body" },
-          "ownerSub": { "$pre":   "session.subject_id" }
+          "ownerSub": { "$pre":   "session.user_id" }
         }
       }
     }
@@ -2181,7 +2180,7 @@ Replace contents with §5.3 of the spec:
         "expr": {
           "and": [
             { "eq": ["noteView.id",       { "$param": "id" }] },
-            { "eq": ["noteView.ownerSub", { "$pre":   "session.subject_id" }] }
+            { "eq": ["noteView.ownerSub", { "$pre":   "session.user_id" }] }
           ]
         }
       }
@@ -2610,4 +2609,4 @@ git commit -m "docs: notes-demo Auth0 production-shape deployment recorded"
 - **Phase 5 covers spec §5** end-to-end: PDM, QSM, shapes, both write graphs, identity-auth0 service stub, project.json, bindings, seed, validation, README + supersede.
 - **Phase 6** deploys; **Phase 7** smokes against §10.1 hard-gate (7 points).
 
-No placeholders found. Cross-check on names: `bindAs`/`bindAsName` consistent with bindings-http compile-plan output (Task 2.4 step 2 explicitly defers to `compile-plan.ts`); `RNTME_AUTH_*` env names consistent across Phase 3 and Phase 4 (config.json read from `/config.json` static asset, populated by deploy-dokploy render). `routesMountedOnTarget` helper introduced in Task 3.3 — use that name in Phase 5 if it surfaces.
+No placeholders found. Cross-check on names: `bindAs`/`bindName` consistent with bindings-http compile-plan output; `RNTME_AUTH_*` env names consistent across Phase 3 and Phase 4 (config.json read from `/config.json` static asset, populated by deploy-dokploy render). `routesMountedOnTarget` helper introduced in Task 3.3 — use that name in Phase 5 if it surfaces.
