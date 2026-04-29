@@ -1245,7 +1245,7 @@ REJECTED=$(jq '.rejected | length' .tmp/audit-waves/ledger.json)
 cat > docs/audit/00-waves.md <<EOF
 # Audit waves — consolidated planning
 
-> **Status:** initial build. See [spec](../../specs/done/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
+> **Status:** initial build. See [spec](../superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
 
 | Field | Value |
 |---|---|
