@@ -24,6 +24,26 @@ describe('createApp', () => {
     expect(html).toContain('main.js');
   });
 
+  it('can serve an auth shell that loads /config.json before app.js', async () => {
+    const app = createApp({
+      artifact: {
+        manifest: testManifest,
+        layouts: { main: testLayout },
+        screens: { home: testScreen, about: testScreen },
+      },
+      assetsDir: '/tmp/nonexistent-assets',
+      authShell: true,
+    });
+
+    const res = await app.request('/');
+
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('/config.json');
+    expect(html).toContain('/assets/app.js');
+    expect(html).not.toContain('/assets/main.js');
+  });
+
   it('serves shell responses with CSP and security headers', async () => {
     const app = makeApp();
 

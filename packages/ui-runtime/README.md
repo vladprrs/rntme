@@ -11,26 +11,29 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
   - `@json-render/core`, `@json-render/react`, `@json-render/shadcn` — canonical Spec rendering, state store, shadcn component catalog (60+ components).
   - `zod` — action parameter schemas registered on the json-render catalog.
   - `esbuild`, `@tailwindcss/cli` — build-time SPA bundling and Tailwind v4 CSS generation (dev-dependencies).
+  - Optional `@rntme/ui-auth-shell` browser bundle path for Auth0-backed demos.
 - Consumed by:
   - `@rntme/runtime` or an embedding Hono app that mounts the returned router and pairs it with HTTP bindings.
   - `demo/issue-tracker-api` mounts `createApp({ artifact })` at `/` and `@rntme/bindings-http` at `/api`.
 - Position in pipeline:
   `@rntme/ui` compiled artifact
     -> `server/index.ts` (Hono sub-router: HTML shell, manifest/layouts/screens JSON, static assets)
-    | `client/entry.tsx` -> bundled by `build.ts` -> `build/main.{js,css}` (SPA: router, screen loader, json-render driver, layout manager).
+    | `client/no-auth-entry.ts` -> bundled by `build.ts` -> `build/main.js` (default no-auth SPA).
+    | auth-shell entry -> bundled by `build.ts` -> `build/app.js` (loads Auth0 shell after `/config.json`).
 
 ## File map
 
 ```
 packages/ui-runtime/src/
   index.ts                   (entry `.`)            Re-exports `createApp` and `CreateAppOptions` from server.
-  build.ts                   (CLI)                  esbuild bundles `client/entry.tsx` -> `build/main.js`; Tailwind v4 CLI emits `build/main.css`.
+  build.ts                   (CLI)                  esbuild bundles no-auth `build/main.js`, auth `build/app.js`; Tailwind v4 CLI emits `build/main.css`.
   server/
     index.ts                 (entry `./server`)     `createApp({ artifact, assetsDir? })` -> Hono app.
     static-shell.ts          (internal)             `buildHtmlShell()` emits the SPA bootstrap HTML (`#root`, `/assets/main.{js,css}`).
   client/
     index.ts                 (entry `./client`)     Re-exports `matchRoute`, `expandTemplate`, `createScreenLoader`, `createRegistry`, `createDriver`, `AppShell` plus their types.
-    entry.tsx                (bundle entry)         `hydrateApp({ rootSelector })` — fetches manifest, wires store/registry/loader/router, renders `<AppShell>`, listens to `popstate`.
+    entry.tsx                (runtime bootstrap)    `mountUiRuntime({ manifestUrl, target, transport?, initialState? })`; `hydrateApp({ rootSelector })` is the no-auth convenience wrapper.
+    no-auth-entry.ts         (bundle entry)         Calls `hydrateApp({ rootSelector: '#root' })` for the existing no-auth shell.
     driver.ts                (internal)             `createDriver({ fetchFn, onStateChange, onNavigate, defaultHeaders? })` — screen data fetching (sets `/data/__status*`, `/data/__error*`) and action dispatch (navigation and command).
     layout-manager.tsx       (internal)             `<AppShell>` composes json-render `StateProvider`/`ActionProvider`/`VisibilityProvider`/`ValidationProvider` and renders layout + screen `<Renderer>` trees.
     registry.ts              (internal)             `createRegistry(bridge)` — binds the shadcn catalog plus `navigate` and `dispatch` actions (zod-validated) to the `RuntimeBridge`.
@@ -74,7 +77,10 @@ pnpm -F @rntme/ui-runtime build        # runs `tsc -p tsconfig.json` then `tsx s
 #   build/main.css     Tailwind v4 output scanning build/main.js for class names
 ```
 
-The shell emitted by `buildHtmlShell()` loads `/assets/main.js` and `/assets/main.css`. `createApp` serves them from `opts.assetsDir` (default: `<package>/build`). Override when bundling elsewhere:
+The default shell emitted by `buildHtmlShell()` loads `/assets/main.js` and `/assets/main.css`.
+`createApp({ authShell: true })` instead inlines a small `/config.json` loader and then loads
+`/assets/app.js`, which mounts `@rntme/ui-auth-shell`. `createApp` serves assets from
+`opts.assetsDir` (default: `<package>/build`). Override when bundling elsewhere:
 
 ```ts
 createApp({ artifact, assetsDir: '/abs/path/to/build' });
@@ -141,6 +147,7 @@ Routes mounted by `createApp`:
 | `createScreenLoader` | `(fetchFn?: typeof fetch) => ScreenLoader` | `.loadScreen(name)` hits `/_screens/:name.json`, `.loadLayout(name)` hits `/_layouts/:name.json`, both cached per-instance. |
 | `createRegistry` | `(bridge: RuntimeBridge) => { catalog, registry, handlers }` | Wires the `@json-render/shadcn` catalog plus `navigate` and `dispatch` actions; `dispatch` routes compiled screen actions (`navigation`/`command`/`refetch`) through the bridge. |
 | `createDriver` | `(opts: DriverOptions) => Driver` | `enterScreen(screen)` fetches every `data` endpoint in parallel and writes status/error into `/data/__status*` and `/data/__error*`; `dispatchAction(action, stateGetter?)` resolves `paramsFromState`, issues the HTTP call, and forwards `onSuccess.navigateTo` / `onError.showAlert`. |
+| `mountUiRuntime` | `({ manifestUrl, target, transport?, initialState? }) => Promise<{ unmount }>` | Browser bootstrap used by the auth shell. All manifest/screen/data/action fetches use `transport ?? fetch`; `initialState.currentUser` is readonly. |
 | `AppShell` | `(props: AppShellProps) => ReactElement` | Renders optional layout spec, then screen spec, wrapped in json-render `StateProvider`/`ActionProvider`/`VisibilityProvider`/`ValidationProvider`. |
 | `RouteMatch`, `ScreenLoader`, `RuntimeBridge`, `Driver`, `DriverOptions`, `AppShellProps` | types | Public shapes used by consumers. |
 
