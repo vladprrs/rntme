@@ -31,9 +31,9 @@ const first = <T>(xs: T[]): T => {
 };
 
 describe('pre[] structural validation', () => {
-  it('rejects pre[] on a query binding', () => {
-    const bad = clone(base);
-    const primary = bad.bindings.primary;
+  it('allows pre[] on a query binding when length ≤ 2', () => {
+    const good = clone(base);
+    const primary = good.bindings.primary;
     if (!primary) throw new Error('missing primary');
     primary.pre = [
       {
@@ -44,12 +44,11 @@ describe('pre[] structural validation', () => {
         bindAs: 'x',
       },
     ];
-    const r = validateStructural(bad);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(first(r.errors).code).toBe('BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND');
+    const r = validateStructural(good);
+    expect(r.ok).toBe(true);
   });
 
-  it('rejects pre.length > 2', () => {
+  it('rejects pre.length > 2 even on queries', () => {
     const bad = clone(base);
     const primary = bad.bindings.primary;
     if (!primary) throw new Error('missing primary');

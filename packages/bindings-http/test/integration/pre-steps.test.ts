@@ -8,6 +8,9 @@ const fakeAdapter: ExternalAdapterClient = {
       return { ok: true, value: { id: `cust-${opts.idempotencyKey.slice(0, 4)}` } };
     if (module === 'payments' && rpc === 'ChargeCard')
       return { ok: false, errors: [{ code: 'EXTERNAL_VENDOR_DOMAIN', message: 'PAYMENTS_CARD_DECLINED: card declined', domainCode: 'PAYMENTS_CARD_DECLINED', httpStatus: 409 }] };
+    if (module === 'identity' && rpc === 'IntrospectSession') {
+      return { ok: true, value: { session_id: 's1', status: 3, user_id: 'u1' } };
+    }
     return { ok: false, errors: [{ code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH', message: 'unknown rpc', httpStatus: 500 }] };
   },
 };
@@ -50,6 +53,24 @@ describe('runPreSteps', () => {
     if (!out.ok) {
       expect(out.httpStatus).toBe(409);
       expect(out.body.code).toBe('PAYMENTS_CARD_DECLINED');
+    }
+  });
+
+  it('returns 401 BINDINGS_AUTH_SESSION_INACTIVE when IntrospectSession Session is non-ACTIVE', async () => {
+    const out = await runPreSteps(
+      [{ kind: 'module-rpc', module: 'identity', rpc: 'IntrospectSession', input: {}, bindAs: 'session' }],
+      {
+        scope: { body: {}, query: {}, auth: {}, config: {} },
+        adapterClient: fakeAdapter,
+        runId: 'run-3',
+        correlationId: 'corr-3',
+        logger: () => {},
+      },
+    );
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.httpStatus).toBe(401);
+      expect(out.body.code).toBe('BINDINGS_AUTH_SESSION_INACTIVE');
     }
   });
 });

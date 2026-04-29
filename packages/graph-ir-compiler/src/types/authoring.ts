@@ -47,6 +47,7 @@ export type Expr =
   | null
   | { $literal: string }
   | { $param: string }
+  | { $pre: string }
   | { [K in ExprOp]?: Expr[] }
   | { between: [Expr, Expr, Expr] }
   | { case: { when: Array<[Expr, Expr]>; else: Expr } }

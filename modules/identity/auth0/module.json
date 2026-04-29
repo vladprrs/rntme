@@ -23,7 +23,8 @@
       "CreateInvitation",
       "ListInvitations",
       "GetInvitation",
-      "RevokeInvitation"
+      "RevokeInvitation",
+      "IntrospectSession"
     ],
     "events": [
       "UserCreated",

@@ -12,6 +12,18 @@ export function evalExprAtRuntime(expr: Expr, params: Record<string, unknown>): 
       const v = (params as Record<string, unknown>)[(expr as { $param: string }).$param];
       return v === undefined ? null : v;
     }
+    if ('$pre' in expr) {
+      const path = (expr as { $pre: string }).$pre.split('.').filter((s) => s.length > 0);
+      let cur: unknown = params.pre;
+      for (const seg of path) {
+        if (cur === null || cur === undefined) return cur ?? null;
+        if (typeof cur !== 'object' || Array.isArray(cur)) {
+          throw runtimeError('RUNTIME_INTERNAL_ERROR', `$pre path resolves through non-object at "${seg}"`);
+        }
+        cur = (cur as Record<string, unknown>)[seg];
+      }
+      return cur === undefined ? null : cur;
+    }
     if ('$literal' in expr) return (expr as { $literal: string }).$literal;
   }
   throw runtimeError('RUNTIME_INTERNAL_ERROR', `unsupported expr in emit payload: ${JSON.stringify(expr)}`);

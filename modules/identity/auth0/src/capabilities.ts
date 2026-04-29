@@ -17,9 +17,10 @@ export const CLAIMED_RPCS = [
   'ListInvitations',
   'GetInvitation',
   'RevokeInvitation',
+  'IntrospectSession',
 ] as const;
 
-export const SESSION_RPCS = ['GetSession', 'ListSessions', 'IntrospectSession', 'RevokeSession'] as const;
+export const SESSION_RPCS = ['GetSession', 'ListSessions', 'RevokeSession'] as const;
 
 export const CLAIMED_EVENTS = [
   'UserCreated',

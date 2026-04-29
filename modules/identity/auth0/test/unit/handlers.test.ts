@@ -2,30 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ResolutionInputType } from '@rntme/contracts-identity-v1';
 import { createAuth0IdentityModule } from '../../src/handlers.js';
 import { GrpcStatus } from '../../src/errors.js';
-import type { Auth0Adapter } from '../../src/adapter.js';
+import { stubAuth0Adapter } from '../helpers/stub-auth0-adapter.js';
 
-function adapter(overrides: Partial<Auth0Adapter> = {}): Auth0Adapter {
-  return {
-    getUser: vi.fn(async () => ({ user_id: 'auth0|u1', email: 'ada@example.com' })),
-    listUsers: vi.fn(async () => ({ items: [{ user_id: 'auth0|u1', email: 'ada@example.com' }], total: 1, hasMore: false })),
-    createUser: vi.fn(async () => ({ user_id: 'auth0|new', email: 'new@example.com' })),
-    updateUser: vi.fn(async () => ({ user_id: 'auth0|u1', email: 'updated@example.com' })),
-    deleteUser: vi.fn(async (id) => ({ user_id: id, email: 'deleted@example.com', blocked: true })),
-    getOrganization: vi.fn(async () => ({ id: 'org_123', name: 'acme' })),
-    listOrganizations: vi.fn(async () => ({ items: [], total: 0, hasMore: false })),
-    createOrganization: vi.fn(async () => ({ id: 'org_new', name: 'new-org' })),
-    updateOrganization: vi.fn(async () => ({ id: 'org_123', name: 'updated-org' })),
-    deleteOrganization: vi.fn(async (id) => ({ id, name: 'deleted-org' })),
-    listMemberships: vi.fn(async () => ({ items: [], total: 0, hasMore: false })),
-    addMembership: vi.fn(async () => ({ organization_id: 'org_123', user_id: 'auth0|u1', roles: ['rol_admin'] })),
-    removeMembership: vi.fn(async () => ({ organization_id: 'org_123', user_id: 'auth0|u1', roles: [] })),
-    createInvitation: vi.fn(async () => ({ id: 'inv_123', organization_id: 'org_123', invitee: { email: 'ada@example.com' } })),
-    listInvitations: vi.fn(async () => ({ items: [], total: 0, hasMore: false })),
-    getInvitation: vi.fn(async () => ({ id: 'inv_123', organization_id: 'org_123', invitee: { email: 'ada@example.com' } })),
-    revokeInvitation: vi.fn(async () => ({ id: 'inv_123', organization_id: 'org_123', invitee: { email: 'ada@example.com' }, revoked: true })),
-    ...overrides,
-  };
-}
+const adapter = stubAuth0Adapter;
 
 describe('Auth0 identity handlers', () => {
   it('delegates supported user RPCs through the adapter and maps responses', async () => {
@@ -95,7 +74,7 @@ describe('Auth0 identity handlers', () => {
     );
   });
 
-  it('returns gRPC-style UNIMPLEMENTED for unclaimed membership/session RPCs', async () => {
+  it('returns gRPC-style UNIMPLEMENTED for membership-only and unclaimed session RPCs (except IntrospectSession)', async () => {
     const module = createAuth0IdentityModule(adapter());
 
     await expect(module.GetMembership({ canonical_id: 'org_123:auth0|u1' })).rejects.toMatchObject({
@@ -110,8 +89,8 @@ describe('Auth0 identity handlers', () => {
     await expect(module.ListSessions({})).rejects.toMatchObject({
       code: GrpcStatus.UNIMPLEMENTED,
     });
-    await expect(module.IntrospectSession({ token: 'token' })).rejects.toMatchObject({
-      code: GrpcStatus.UNIMPLEMENTED,
+    await expect(module.IntrospectSession({ token: '', audience: 'x' })).rejects.toMatchObject({
+      code: GrpcStatus.FAILED_PRECONDITION,
     });
     await expect(module.RevokeSession({ canonical_id: 'sess_1' })).rejects.toMatchObject({
       code: GrpcStatus.UNIMPLEMENTED,

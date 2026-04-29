@@ -72,6 +72,7 @@ export type CompiledPreStep = PreStep & {
 export type QueryBindingPlan = BindingPlanCommon & {
   kind: 'query';
   compiled: QueryCompileResult;
+  pre: CompiledPreStep[];
 };
 
 export type CommandBindingPlan = BindingPlanCommon & {
@@ -182,7 +183,12 @@ export function buildPlan(
             inputFrom: entry.inputFrom ?? null,
             response: entry.response ?? null,
           }
-        : { ...common, kind: 'query', compiled: queryCache.get(entry.graph)! };
+        : {
+            ...common,
+            kind: 'query',
+            compiled: queryCache.get(entry.graph)!,
+            pre: compilePre(entry.pre ?? []),
+          };
   }
   return {
     plans,

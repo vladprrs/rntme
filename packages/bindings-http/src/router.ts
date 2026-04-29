@@ -54,10 +54,14 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
       'createBindingsRouter: commandExecutor is required when any binding has kind "command"',
     );
   }
-  const anyPre = Object.values(plan.plans).some((p) => p.kind === 'command' && p.pre.length > 0);
+  const anyPre = Object.values(plan.plans).some((p) => {
+    if (p.kind === 'command') return p.pre.length > 0;
+    if (p.kind === 'query') return p.pre.length > 0;
+    return false;
+  });
   if (anyPre && opts.externalAdapterClient === undefined) {
     throw new Error(
-      'createBindingsRouter: externalAdapterClient is required when any command binding has pre[]',
+      'createBindingsRouter: externalAdapterClient is required when any binding has pre[]',
     );
   }
   const commandExecutor = opts.commandExecutor!;
@@ -65,7 +69,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   const now = opts.now ?? ((): string => new Date().toISOString());
   const nextId = opts.nextId ?? ((): string => randomUUID());
   const actorFromRequest = opts.actorFromRequest ?? ((): ActorRef | null => null);
-  const logger = opts.logger ?? pino({ level: process.env.LOG_LEVEL ?? 'info' });
+  const resolvedLogger = opts.logger ?? pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
   const cache = opts.idempotencyCache ?? new IdempotencyCache(opts.db);
   const pathToCommand: Map<string, string> = new Map();
@@ -97,7 +101,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               onError: opts.onError,
               externalAdapterClient: opts.externalAdapterClient,
               idempotencyCache: cache,
-              logger,
+              logger: resolvedLogger,
               metrics: opts.metrics,
             }
           : {
@@ -109,7 +113,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
               actorFromRequest,
               externalAdapterClient: opts.externalAdapterClient,
               idempotencyCache: cache,
-              logger,
+              logger: resolvedLogger,
               metrics: opts.metrics,
             };
       const method = bp.entry.http.method;
@@ -117,7 +121,19 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
       else if (method === 'GET') app.get(route, makeCommandHandler(bp, deps));
       else throw new Error(`unsupported http.method on command binding "${bp.bindingId}": ${method}`);
     } else {
-      const deps = opts.onError !== undefined ? { db: opts.db, onError: opts.onError } : { db: opts.db };
+      const deps =
+        opts.onError !== undefined
+          ? {
+              db: opts.db,
+              onError: opts.onError,
+              externalAdapterClient: opts.externalAdapterClient,
+              logger: resolvedLogger,
+            }
+          : {
+              db: opts.db,
+              externalAdapterClient: opts.externalAdapterClient,
+              logger: resolvedLogger,
+            };
       const handler = makeHandler(bp, deps);
       if (bp.entry.http.method === 'GET') app.get(route, handler);
       else app.post(route, handler);

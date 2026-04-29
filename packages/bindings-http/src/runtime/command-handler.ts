@@ -177,7 +177,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
         },
       });
       if (!preResult.ok) {
-        return c.json(preResult.body, preResult.httpStatus as 200 | 201 | 400 | 409 | 422 | 500 | 502 | 503 | 504);
+        return c.json(preResult.body, preResult.httpStatus as 200 | 201 | 400 | 401 | 409 | 422 | 500 | 502 | 503 | 504);
       }
 
       const preScope = (preResult.systemFields.pre ?? {}) as Record<string, unknown>;
@@ -191,7 +191,7 @@ export function makeCommandHandler(plan: CommandBindingPlan, deps: CommandHandle
               : undefined);
         flattened[step.bindName] = value;
       }
-      graphInputs = { ...graphInputs, ...flattened };
+      graphInputs = { ...graphInputs, ...flattened, pre: preScope };
     }
 
     const out = await deps.commandExecutor.execute({

@@ -28,6 +28,7 @@ const expr: z.ZodType<unknown> = z.lazy(() =>
     z.null(),
     z.object({ $literal: z.string() }).strict(),
     z.object({ $param: z.string() }).strict(),
+    z.object({ $pre: z.string() }).strict(),
     z.object({ $list: z.array(expr) }).strict(),
     z.object({ between: z.tuple([expr, expr, expr]) }).strict(),
     z
