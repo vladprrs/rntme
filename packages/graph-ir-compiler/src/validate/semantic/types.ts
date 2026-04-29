@@ -55,6 +55,9 @@ export function inferExprType(
       }
       return ok({ type: p.type, nullable: p.nullable });
     }
+    if ('$pre' in expr) {
+      return ok({ type: 'string', nullable: true });
+    }
     const opEntry = Object.entries(expr as Record<string, unknown>)[0];
     if (!opEntry) return err([{ layer: 'semantic', code: ERROR_CODES.SEM_TYPE_MISMATCH, message: 'empty expr' }]);
     const [op, raw] = opEntry;

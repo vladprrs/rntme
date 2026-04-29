@@ -12,9 +12,11 @@ export type ProjectRouteMap = {
 };
 
 export type MiddlewareDecl = {
-  kind: string;
+  kind: 'auth' | string;
   provider?: string;
   policy?: string;
+  audience?: string;
+  moduleSlug?: string;
 };
 
 export type MountDecl = {

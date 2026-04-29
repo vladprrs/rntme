@@ -50,8 +50,14 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     validatedServices[slug] = loadedService.value;
   }
 
+  const composedValidation = validateBlueprintComposition({
+    project: loaded.value.project,
+    services: validatedServices,
+  });
+  if (!composedValidation.ok) return composedValidation;
+
   const bindingRegistry = buildBindingRegistry({
-    httpBaseByService: routing.value.httpBaseByService,
+    httpBaseByService: composedValidation.value.httpBaseByService,
     bindingsByService: collectServiceBindings(validatedServices),
   });
 
@@ -72,7 +78,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   return ok({
     project: loaded.value.project,
     pdm: loaded.value.pdm,
-    routing: routing.value,
+    routing: composedValidation.value,
     bindingRegistry,
     services: validatedServices,
   });
