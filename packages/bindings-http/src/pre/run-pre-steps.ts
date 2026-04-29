@@ -5,7 +5,7 @@ import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../runtime-contract.js';
 import { evaluateExpression, type ExpressionScope } from './expression.js';
 import { deriveStepKey } from '../idempotency/derive-keys.js';
 import type { PreStepsResult } from './types.js';
-import { inactiveIntrospectSession } from './auth-session.js';
+import { introspectSessionInactiveReason } from './auth-session.js';
 import { sanitizePreStepLogEvent } from './log-sanitize.js';
 
 export type RunPreStepsOpts = {
@@ -78,7 +78,8 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
       return { ok: false, httpStatus: firstError.httpStatus, body };
     }
 
-    if (inactiveIntrospectSession(step.rpc, result.value)) {
+    const inactiveReason = introspectSessionInactiveReason(step.rpc, result.value);
+    if (inactiveReason !== null) {
       log({
         pre_step: 'module-rpc',
         index: i,
@@ -86,11 +87,12 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
         rpc: step.rpc,
         bindAs: bindName,
         result: 'inactive_session',
+        reason: inactiveReason,
       });
       return {
         ok: false,
         httpStatus: 401,
-        body: { code: 'BINDINGS_AUTH_SESSION_INACTIVE', message: 'Session is not active' },
+        body: { code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required', reason: inactiveReason },
       };
     }
 

@@ -12,7 +12,15 @@ const fakeAdapter: ExternalAdapterClient = {
     if (module === 'payments' && rpc === 'ChargeCard')
       return { ok: false, errors: [{ code: 'EXTERNAL_VENDOR_DOMAIN', message: 'PAYMENTS_CARD_DECLINED: card declined', domainCode: 'PAYMENTS_CARD_DECLINED', httpStatus: 409 }] };
     if (module === 'identity' && rpc === 'IntrospectSession') {
-      return { ok: true, value: { session_id: 's1', status: 3, user_id: 'u1' } };
+      return {
+        ok: true,
+        value: {
+          session_id: 's1',
+          status: 3,
+          user_id: 'u1',
+          vendor_raw: { deactivation_reason: 'TOKEN_EXPIRED' },
+        },
+      };
     }
     return { ok: false, errors: [{ code: 'EXTERNAL_MODULE_SCHEMA_MISMATCH', message: 'unknown rpc', httpStatus: 500 }] };
   },
@@ -59,7 +67,7 @@ describe('runPreSteps', () => {
     }
   });
 
-  it('returns 401 BINDINGS_AUTH_SESSION_INACTIVE when IntrospectSession Session is non-ACTIVE', async () => {
+  it('returns 401 auth-token-invalid with deactivation reason when IntrospectSession Session is non-ACTIVE', async () => {
     const out = await runPreSteps(
       [{ kind: 'module-rpc', module: 'identity', rpc: 'IntrospectSession', input: {}, bindAs: 'session' }],
       {
@@ -73,7 +81,11 @@ describe('runPreSteps', () => {
     expect(out.ok).toBe(false);
     if (!out.ok) {
       expect(out.httpStatus).toBe(401);
-      expect(out.body.code).toBe('BINDINGS_AUTH_SESSION_INACTIVE');
+      expect(out.body).toEqual({
+        code: 'RUNTIME_AUTH_TOKEN_INVALID',
+        message: 'authentication required',
+        reason: 'TOKEN_EXPIRED',
+      });
     }
   });
 
