@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 20+, pnpm 9.12+ (for tooling-based systemic verification: `pnpm ls`, `pnpm why`); `git` (for `git log` / `git submodule status` checks); Bash (for invariant grep checks); `jq` (for working-ledger manipulation); Explore agents (for parallel per-package verification).
 
-**Source spec:** `docs/superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md`.
+**Source spec:** `docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md`.
 
 **Out of scope for this plan:** Writing fixes for any audit finding. Estimating effort. Discovering new findings outside what falls into evidence verification (per spec §6 E3 — adjacent findings during verification ARE in scope, but expanded exploration is not). Editing original audit snapshots.
 
@@ -37,7 +37,7 @@ docs/audit/00-waves.md                   # the consolidated planning document
 ### Plan-related files
 
 ```
-docs/superpowers/plans/2026-04-28-audit-waves-buildout.md   # this plan
+docs/superpowers/plans/done/2026-04-28-audit-waves-buildout.md   # this plan
 ```
 
 ---
@@ -76,7 +76,7 @@ Create `.tmp/audit-waves/ledger.json` with shell:
 cat > .tmp/audit-waves/ledger.json <<'EOF'
 {
   "build_metadata": {
-    "spec": "docs/superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md",
+    "spec": "docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md",
     "audit_corpus_dir": "docs/audit/",
     "audit_comment_date": "2026-04-28",
     "build_started_at": null,
@@ -217,7 +217,7 @@ After completion: count findings in audit (look for section markers like `### 1.
 - [ ] **Step 4: Commit checkpoint**
 
 ```bash
-git add docs/superpowers/plans/2026-04-28-audit-waves-buildout.md  # commit plan if not yet committed
+git add docs/superpowers/plans/done/2026-04-28-audit-waves-buildout.md  # commit plan if not yet committed
 git commit -m "docs(plan): add audit-waves buildout plan" || echo "already committed"
 # .tmp/ is gitignored — extraction state isn't in git, but plan is
 ```
@@ -1236,7 +1236,7 @@ Goal: produce `docs/audit/00-waves.md` from the working ledger. Single output fi
 - [ ] **Step 1: Write the file header**
 
 ```bash
-SPEC_LINK="docs/superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md"
+SPEC_LINK="docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md"
 BUILD_DATE=$(jq -r '.build_metadata.build_started_at' .tmp/audit-waves/ledger.json)
 BUILD_HASH=$(jq -r '.build_metadata.build_commit_hash' .tmp/audit-waves/ledger.json)
 TOTAL=$(jq '.units | length' .tmp/audit-waves/ledger.json)
@@ -1245,7 +1245,7 @@ REJECTED=$(jq '.rejected | length' .tmp/audit-waves/ledger.json)
 cat > docs/audit/00-waves.md <<EOF
 # Audit waves — consolidated planning
 
-> **Status:** initial build. See [spec](../superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
+> **Status:** initial build. See [spec](../../specs/done/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
 
 | Field | Value |
 |---|---|
@@ -1618,7 +1618,7 @@ git add docs/audit/00-waves.md
 git commit -m "$(cat <<'EOF'
 docs(audit): publish consolidated waves planning document
 
-Builds on docs/superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md.
+Builds on docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md.
 Aggregates 32 architecture audits (RNT-199..230) into a single living
 planning document with three lenses (wave timeline / findings ledger /
 per-package index) and three non-execution tracks (DECIDE / PARK /
@@ -1675,7 +1675,7 @@ from RNT-199..230 (snapshots in `docs/audit/<pkg>/README.md`).
 
 It is updated as units close, get re-categorised, or as DECIDE answers arrive.
 Process is canonical in
-`docs/superpowers/specs/2026-04-28-audit-consolidation-and-waves-design.md`.
+`docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md`.
 
 When working on audit follow-up, read the spec for process and `00-waves.md`
 for state. Do not edit per-package audit snapshots.

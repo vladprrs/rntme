@@ -13,7 +13,7 @@
 - Vitest supports `vitest run <file>` for a single test file; this plan's `pnpm -F @rntme/conformance-crm run test test/drift.test.ts` command is valid because the package script expands to `vitest run test/drift.test.ts`.
 - pnpm workspace filtering accepts `--filter` / `-F <package_selector>` for package-scoped script runs.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §11 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
+**Spec reference:** `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md` §11 (conformance suite). Modules-monorepo `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 (conformance suite layout, authorship rule, anti-conformance, capability-coverage report).
 
 **Depends on:**
 - Plan 1 must be merged first — `@rntme/contracts-crm-v1` must exist as a workspace package and its generated proto must export `CrmModule` so the drift-detection test can introspect it.
@@ -172,7 +172,7 @@ When you scaffold a new CRM vendor module, fill out `module.json#capabilities[]`
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` — canonical contract design.
+- `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md` — canonical contract design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability UNION conformance.
 
 ## Where to look first
@@ -2968,9 +2968,9 @@ Frozen metadata + `scenarios` keyed by canonical RPC name (34 keys). Every scena
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §11 — conformance suite design.
+- `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md` §11 — conformance suite design.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7 — conformance suite layout, anti-conformance, capability-coverage report.
-- `docs/superpowers/plans/crm-canonical-contract/02-crm-conformance-skeleton.md` — this plan.
+- `docs/superpowers/plans/done/crm-canonical-contract/02-crm-conformance-skeleton.md` — this plan.
 - `docs/superpowers/plans/done/crm-canonical-contract/01-crm-contracts.md` — companion plan for contracts package.
 ```
 
@@ -3079,7 +3079,7 @@ Expected: empty (this plan only touched `modules/crm/` and the two doc files).
 
 - [ ] **Step 5: Confirm spec coverage**
 
-Cross-check against `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md`:
+Cross-check against `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md`:
 - §11.1 layout — `modules/crm/` + `conformance/` exists with the right structure ✓
 - §11.2 per-RPC scenarios — 34 stub files, one per canonical RPC, each citing spec §11.2 ✓
 - §11.3 anti-conformance — documented in scenario stub comments (esp. ListCustomFieldDefinitions, CreateAssociation); runner-side enforcement deferred to framework ✓
