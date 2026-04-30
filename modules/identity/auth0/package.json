@@ -45,6 +45,7 @@
     "jose": "^5"
   },
   "peerDependencies": {
+    "@rntme/ui-runtime": "workspace:*",
     "react": "^19.2.5"
   },
   "devDependencies": {
@@ -53,6 +54,7 @@
     "@types/react": "^18.3.3",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
+    "@rntme/ui-runtime": "workspace:*",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "eslint": "^9.10.0",

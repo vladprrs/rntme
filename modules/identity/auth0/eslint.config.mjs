@@ -6,7 +6,7 @@ export default [
   { ignores: ['dist/**', 'node_modules/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.ts', 'test/**/*.ts'],
+    files: ['src/**/*.ts', 'client/**/*.{ts,tsx}', 'test/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: { sourceType: 'module', ecmaVersion: 2022 },
@@ -14,6 +14,10 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
       },
     },
     plugins: {

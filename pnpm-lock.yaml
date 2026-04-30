@@ -262,6 +262,9 @@ importers:
       '@eslint/js':
         specifier: ^9.10.0
         version: 9.39.4
+      '@rntme/ui-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/ui-runtime
       '@testing-library/jest-dom':
         specifier: ^6.5.0
         version: 6.9.1
