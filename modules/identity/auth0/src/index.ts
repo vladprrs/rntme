@@ -17,3 +17,5 @@ export {
 } from './mapping.js';
 export { translateAuth0LogEvent } from './events.js';
 export { auth0MockConformanceSuite } from './conformance.js';
+export { createIdentityAuth0GrpcServer } from './server.js';
+export type { Auth0IdentityModule, IdentityAuth0GrpcServer, IdentityAuth0GrpcServerOptions } from './server.js';

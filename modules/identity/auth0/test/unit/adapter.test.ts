@@ -1,16 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Auth0ManagementAdapter, createAuth0Adapter } from '../../src/adapter.js';
+import { Auth0ManagementAdapter, createAuth0Adapter, createManagementClient } from '../../src/adapter.js';
 
 describe('Auth0 management adapter', () => {
   it('does not require Management API credentials until a Management-backed RPC is used', async () => {
     const previous = {
       domain: process.env.AUTH0_DOMAIN,
       token: process.env.AUTH0_MANAGEMENT_TOKEN,
+      managementClientId: process.env.AUTH0_MANAGEMENT_CLIENT_ID,
+      managementClientSecret: process.env.AUTH0_MANAGEMENT_CLIENT_SECRET,
       clientId: process.env.AUTH0_CLIENT_ID,
       clientSecret: process.env.AUTH0_CLIENT_SECRET,
     };
     delete process.env.AUTH0_DOMAIN;
     delete process.env.AUTH0_MANAGEMENT_TOKEN;
+    delete process.env.AUTH0_MANAGEMENT_CLIENT_ID;
+    delete process.env.AUTH0_MANAGEMENT_CLIENT_SECRET;
     delete process.env.AUTH0_CLIENT_ID;
     delete process.env.AUTH0_CLIENT_SECRET;
 
@@ -25,6 +29,44 @@ describe('Auth0 management adapter', () => {
       else process.env.AUTH0_DOMAIN = previous.domain;
       if (previous.token === undefined) delete process.env.AUTH0_MANAGEMENT_TOKEN;
       else process.env.AUTH0_MANAGEMENT_TOKEN = previous.token;
+      if (previous.managementClientId === undefined) delete process.env.AUTH0_MANAGEMENT_CLIENT_ID;
+      else process.env.AUTH0_MANAGEMENT_CLIENT_ID = previous.managementClientId;
+      if (previous.managementClientSecret === undefined) delete process.env.AUTH0_MANAGEMENT_CLIENT_SECRET;
+      else process.env.AUTH0_MANAGEMENT_CLIENT_SECRET = previous.managementClientSecret;
+      if (previous.clientId === undefined) delete process.env.AUTH0_CLIENT_ID;
+      else process.env.AUTH0_CLIENT_ID = previous.clientId;
+      if (previous.clientSecret === undefined) delete process.env.AUTH0_CLIENT_SECRET;
+      else process.env.AUTH0_CLIENT_SECRET = previous.clientSecret;
+    }
+  });
+
+  it('accepts the shared Auth0 Management client env names', () => {
+    const previous = {
+      domain: process.env.AUTH0_DOMAIN,
+      token: process.env.AUTH0_MANAGEMENT_TOKEN,
+      managementClientId: process.env.AUTH0_MANAGEMENT_CLIENT_ID,
+      managementClientSecret: process.env.AUTH0_MANAGEMENT_CLIENT_SECRET,
+      clientId: process.env.AUTH0_CLIENT_ID,
+      clientSecret: process.env.AUTH0_CLIENT_SECRET,
+    };
+    process.env.AUTH0_DOMAIN = 'tenant.example.test';
+    delete process.env.AUTH0_MANAGEMENT_TOKEN;
+    process.env.AUTH0_MANAGEMENT_CLIENT_ID = 'management-client-id';
+    process.env.AUTH0_MANAGEMENT_CLIENT_SECRET = 'management-client-secret';
+    delete process.env.AUTH0_CLIENT_ID;
+    delete process.env.AUTH0_CLIENT_SECRET;
+
+    try {
+      expect(createManagementClient()).toBeDefined();
+    } finally {
+      if (previous.domain === undefined) delete process.env.AUTH0_DOMAIN;
+      else process.env.AUTH0_DOMAIN = previous.domain;
+      if (previous.token === undefined) delete process.env.AUTH0_MANAGEMENT_TOKEN;
+      else process.env.AUTH0_MANAGEMENT_TOKEN = previous.token;
+      if (previous.managementClientId === undefined) delete process.env.AUTH0_MANAGEMENT_CLIENT_ID;
+      else process.env.AUTH0_MANAGEMENT_CLIENT_ID = previous.managementClientId;
+      if (previous.managementClientSecret === undefined) delete process.env.AUTH0_MANAGEMENT_CLIENT_SECRET;
+      else process.env.AUTH0_MANAGEMENT_CLIENT_SECRET = previous.managementClientSecret;
       if (previous.clientId === undefined) delete process.env.AUTH0_CLIENT_ID;
       else process.env.AUTH0_CLIENT_ID = previous.clientId;
       if (previous.clientSecret === undefined) delete process.env.AUTH0_CLIENT_SECRET;

@@ -89,11 +89,25 @@ describe('Auth0 identity handlers', () => {
     await expect(module.ListSessions({})).rejects.toMatchObject({
       code: GrpcStatus.UNIMPLEMENTED,
     });
-    await expect(module.IntrospectSession({ token: '', audience: 'x' })).rejects.toMatchObject({
-      code: GrpcStatus.FAILED_PRECONDITION,
-    });
     await expect(module.RevokeSession({ canonical_id: 'sess_1' })).rejects.toMatchObject({
       code: GrpcStatus.UNIMPLEMENTED,
     });
+
+    const previousAuth0Issuer = process.env.AUTH0_ISSUER;
+    const previousAuth0Domain = process.env.AUTH0_DOMAIN;
+    try {
+      delete process.env.AUTH0_ISSUER;
+      delete process.env.AUTH0_DOMAIN;
+      const envlessModule = createAuth0IdentityModule(adapter());
+
+      await expect(envlessModule.IntrospectSession({ token: '', audience: 'x' })).rejects.toMatchObject({
+        code: GrpcStatus.FAILED_PRECONDITION,
+      });
+    } finally {
+      if (previousAuth0Issuer === undefined) delete process.env.AUTH0_ISSUER;
+      else process.env.AUTH0_ISSUER = previousAuth0Issuer;
+      if (previousAuth0Domain === undefined) delete process.env.AUTH0_DOMAIN;
+      else process.env.AUTH0_DOMAIN = previousAuth0Domain;
+    }
   });
 });
