@@ -248,13 +248,13 @@ export class Auth0ManagementAdapter implements Auth0Adapter {
 export function createManagementClient(options: Auth0ManagementOptions = {}): ManagementClient {
   const domain = options.domain ?? process.env.AUTH0_DOMAIN;
   const token = options.token ?? process.env.AUTH0_MANAGEMENT_TOKEN;
-  const clientId = options.clientId ?? process.env.AUTH0_CLIENT_ID;
-  const clientSecret = options.clientSecret ?? process.env.AUTH0_CLIENT_SECRET;
+  const clientId = options.clientId ?? process.env.AUTH0_MANAGEMENT_CLIENT_ID ?? process.env.AUTH0_CLIENT_ID;
+  const clientSecret = options.clientSecret ?? process.env.AUTH0_MANAGEMENT_CLIENT_SECRET ?? process.env.AUTH0_CLIENT_SECRET;
 
   if (!domain) throw managementNotConfigured('AUTH0_DOMAIN is required for Auth0 Mgmt API calls');
   if (token) return new ManagementClient({ domain, token });
   if (clientId && clientSecret) return new ManagementClient({ domain, clientId, clientSecret });
-  throw managementNotConfigured('AUTH0_MANAGEMENT_TOKEN or AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET is required for Auth0 Mgmt API calls');
+  throw managementNotConfigured('AUTH0_MANAGEMENT_TOKEN or AUTH0_MANAGEMENT_CLIENT_ID/AUTH0_MANAGEMENT_CLIENT_SECRET is required for Auth0 Mgmt API calls');
 }
 
 export function createAuth0Adapter(options: Auth0ManagementOptions = {}): Auth0Adapter {

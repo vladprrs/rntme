@@ -1,0 +1,47 @@
+name: identity-auth0 image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: GHCR image tag to publish
+        required: true
+        type: string
+  push:
+    tags:
+      - identity-auth0-*
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: modules/identity/auth0/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/vladprrs/rntme-identity-auth0:${{ steps.image.outputs.tag }}
+            ghcr.io/vladprrs/rntme-identity-auth0:${{ github.sha }}

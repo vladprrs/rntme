@@ -206,6 +206,9 @@ importers:
 
   modules/identity/auth0:
     dependencies:
+      '@grpc/grpc-js':
+        specifier: ^1.14.3
+        version: 1.14.3
       '@rntme/conformance-identity':
         specifier: workspace:*
         version: link:../conformance

@@ -13,6 +13,9 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "rntme-identity-auth0": "./dist/bin/server.js"
+  },
   "files": [
     "dist",
     "module.json",
@@ -21,6 +24,7 @@
   "scripts": {
     "build": "pnpm run build:deps && tsc -p tsconfig.json",
     "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build",
+    "start": "node dist/bin/server.js",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "test": "pnpm run build:deps && vitest run",
     "test:watch": "vitest",
@@ -31,6 +35,7 @@
     "@rntme/conformance-identity": "workspace:*",
     "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/contracts-identity-v1": "workspace:*",
+    "@grpc/grpc-js": "^1.14.3",
     "auth0": "4.28.0",
     "jose": "^5"
   },
