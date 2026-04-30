@@ -1,6 +1,8 @@
 # @rntme/identity-auth0
 
 Auth0 vendor module for the canonical Identity contract `@rntme/contracts-identity-v1`.
+This is a mixed module: it exposes backend Identity RPC handlers and a browser
+client contribution for Auth0 login in generated UIs.
 
 ## File map
 
@@ -11,6 +13,9 @@ Auth0 vendor module for the canonical Identity contract `@rntme/contracts-identi
 - `src/events.ts` - Auth0 log record to canonical identity event translator.
 - `src/capabilities.ts` - claimed RPCs, session RPCs, and claimed events.
 - `src/conformance.ts` - mock conformance suite selection.
+- `client/index.ts` - browser boot orchestrator and client exports.
+- `client/components/LoginScreen.tsx` - anonymous login component.
+- `client/components/UserBadge.tsx` - authenticated user/logout component.
 - `module.json` - module manifest and Auth0 limitations.
 - `test/unit/` and `test/integration/` - unit coverage plus mock conformance wiring.
 
@@ -24,12 +29,36 @@ pnpm -F @rntme/identity-auth0 run test:conformance:mock
 
 Live Auth0 Management API use requires a tenant with Management API credentials and the scopes needed for users, organizations, members, roles, and invitations. `IntrospectSession` uses OIDC JWKS validation and does not require Management API credentials.
 
-## API
+## Backend API
 
 - `createAuth0Adapter(options)` creates an Auth0 Management SDK-backed adapter.
 - `createAuth0IdentityModule(adapter)` wraps an adapter with canonical Identity RPC handlers.
 - `translateAuth0LogEvent(log)` converts claimed Auth0 log records into canonical identity events and returns `null` for unsupported or underspecified records.
 - `IntrospectSession({ token, audience })` verifies Auth0/OIDC JWT access tokens against the issuer JWKS and returns a canonical `Session`.
+
+## Browser Client
+
+`module.json#client` points to `./dist/client/index.js` and declares:
+
+- `boot(ctx)` - constructs `Auth0Client`, handles redirect callbacks, writes
+  `/auth/status` as `anon` or `authed`, writes `/auth/user` with `{ sub, email,
+  name }`, registers a Bearer transport middleware through `ctx.transport.use`,
+  and registers `login` / `logout` operations.
+- `LoginScreen` - anonymous branch component that dispatches the module-level
+  `login` operation.
+- `UserBadge` - authenticated branch component that reads `/auth/user` and
+  dispatches `logout`.
+
+Required `project.json#modules.identity.publicConfig` keys are `domain`,
+`clientId`, `audience`, and `redirectUri`; optional `scope` defaults to
+`openid profile email`. The access token stays in the module-private `boot`
+closure and is never written to the json-render state store.
+
+Project layouts must use `visible: { "$state": "/auth/status", ... }` gates
+around anonymous and authenticated branches. The Notes demo uses an anonymous
+`LoginScreen` branch and an authenticated topbar with `UserBadge`; its routed
+screen root is also gated so mount-time authenticated data fetches do not run
+before login.
 
 ## Supported Capabilities
 
@@ -55,6 +84,7 @@ Live Auth0 Management API use requires a tenant with Management API credentials 
 
 - Auth0 Management SDK `4.28.0` is the integration boundary; normal SDK-covered operations do not use raw REST.
 - Management SDK construction is lazy. Missing Management API credentials do not affect `IntrospectSession`, but Management-backed RPCs fail with `IDENTITY_CONFIG_MGMT_NOT_CONFIGURED`.
+- Browser Auth0 SDK integration is isolated to `client/`; backend RPC handlers never read browser public config.
 - `IntrospectSession` returns inactive canonical `Session` values for invalid user tokens. The reason is in `vendor_raw.deactivation_reason`: `TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, or `UNKNOWN`.
 - Organization metadata values are stringified before writes because Auth0 organization metadata stores string-like values.
 - Membership role values are Auth0 role ids. Role-name and permission expansion depends on additional scopes and is not guaranteed.
@@ -73,6 +103,7 @@ Live Auth0 Management API use requires a tenant with Management API credentials 
 ## Where to Look First
 
 - Capability surface: `CLAIMED_RPCS`, `SESSION_RPCS`, and `CLAIMED_EVENTS` in `src/capabilities.ts`.
+- Browser auth path: `boot`, `LoginScreen`, and `UserBadge` under `client/`.
 - SDK wiring: `Auth0ManagementAdapter` in `src/adapter.ts`.
 - JWKS verifier: `introspectJwtToSession` in `src/introspect-session.ts`.
 - Handler behavior: `createAuth0IdentityModule` in `src/handlers.ts`.
