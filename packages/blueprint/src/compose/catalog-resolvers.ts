@@ -52,8 +52,6 @@ export function catalogValidationResolvers(
         return undefined;
       }
 
-      const moduleLevel = matches.filter((m) => m.appliesTo === null);
-      if (moduleLevel.length === 1) return toDesc(moduleLevel[0]!);
       return undefined;
     },
   };

@@ -95,6 +95,18 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
 
   const bus = createLifecycleBus();
   const chain = createTransportChain((req) => fetchImpl(req));
+  const runtimeFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const req =
+      input instanceof Request && init === undefined
+        ? input
+        : new Request(
+            typeof input === 'string'
+              ? new URL(input, window.location.href).toString()
+              : input,
+            init,
+          );
+    return chain.fetch(req);
+  }) as typeof fetch;
 
   let publicConfig: Record<string, Record<string, unknown>> = {};
   if (opts.modules?.some((m) => m.boot)) {
@@ -130,7 +142,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   async function fetchEndpoint(statePath: string, endpoint: CompiledDataEndpoint): Promise<void> {
     const url = buildUrl(endpoint.path, endpoint.params, (p) => store.get(p));
     try {
-      const res = await fetchImpl(url, {
+      const res = await runtimeFetch(url, {
         method: endpoint.method,
         headers: { 'content-type': 'application/json' },
       });
@@ -156,7 +168,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
       getScreen: () => currentScreen,
       store,
       fetchEndpoint,
-      fetchFn: fetchImpl,
+      fetchFn: runtimeFetch,
       operationRegistry,
     },
     surface,
@@ -180,6 +192,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     for (const [k, v] of Object.entries(match.params)) {
       store.set(`/route/params/${k}`, v);
     }
+    bus.emit('navigate', { path, params: match.params });
 
     if (routeEntry.layout !== currentLayoutName) {
       currentLayout = await loader.loadLayout(routeEntry.layout);

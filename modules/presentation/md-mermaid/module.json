@@ -8,7 +8,7 @@
       {
         "type": "Markdown",
         "props": {
-          "content": {
+          "source": {
             "type": "string",
             "required": true
           }
@@ -17,7 +17,7 @@
       {
         "type": "Mermaid",
         "props": {
-          "chart": {
+          "source": {
             "type": "string",
             "required": true
           }

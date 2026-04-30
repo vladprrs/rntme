@@ -49,13 +49,13 @@
     "md": {
       "type": "Markdown",
       "props": {
-        "content": "# Hello"
+        "source": "# Hello"
       }
     },
     "chart": {
       "type": "Mermaid",
       "props": {
-        "chart": "graph LR;A-->B"
+        "source": "graph LR;A-->B"
       }
     },
     "editor": {

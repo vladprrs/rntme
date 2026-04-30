@@ -5,7 +5,7 @@ import { Markdown } from '../src/Markdown.js';
 
 describe('Markdown', () => {
   it('renders markdown text', () => {
-    const h = renderToStaticMarkup(React.createElement(Markdown, { content: '# Hi' }));
+    const h = renderToStaticMarkup(React.createElement(Markdown, { source: '# Hi' }));
     expect(h).toContain('Hi');
   });
 });

@@ -17,6 +17,7 @@ export function buildCatalog(
   }> = [];
   const modulesWithBoot: string[] = [];
   const categoryToModule: Record<string, string> = {};
+  const publicConfig: Record<string, Record<string, unknown>> = {};
   const seenTypes = new Map<string, string>();
 
   for (const [moduleName, mod] of Object.entries(discovered)) {
@@ -37,6 +38,7 @@ export function buildCatalog(
     }
 
     if (m.client?.boot) modulesWithBoot.push(moduleName);
+    publicConfig[moduleName] = { ...mod.publicConfig };
 
     for (const c of m.client?.components ?? []) {
       const props = c.props as Record<string, PropSchema>;
@@ -71,7 +73,8 @@ export function buildCatalog(
   return ok({
     components,
     operations,
-    modulesWithBoot: [...new Set(modulesWithBoot)].sort(),
+    modulesWithBoot,
     categoryToModule,
+    publicConfig,
   } satisfies CatalogManifest);
 }

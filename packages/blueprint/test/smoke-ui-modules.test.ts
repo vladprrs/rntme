@@ -18,12 +18,17 @@ describe('loadComposedBlueprint (UI modules)', () => {
     expect(types).toContain('Mermaid');
     expect(types).toContain('RichTextEditor');
     expect(r.value.catalogManifest!.categoryToModule.analytics).toBe('@rntme/analytics-google-analytics');
+    expect(r.value.catalogManifest!.publicConfig['@rntme/analytics-google-analytics']).toEqual({
+      measurementId: 'G-INTEGRATION',
+    });
 
     expect(r.value.publicConfigJson).toContain('G-INTEGRATION');
     expect(r.value.virtualEntrySource).toContain('@rntme/presentation-md-mermaid/client');
     expect(r.value.virtualEntrySource).toContain('@rntme/presentation-tiptap/client');
     expect(r.value.virtualEntrySource).toContain('@rntme/analytics-google-analytics/client');
     expect(r.value.virtualEntrySource).toContain('hydrateApp');
+    expect(r.value.virtualEntrySource).toContain('moduleCatalogComponents: rntmeModuleCatalogComponents');
+    expect(r.value.virtualEntrySource).toContain('"source":{"type":"string","required":true}');
 
     expect(r.value.services.app?.compiledUi?.screens.home).toBeDefined();
   });

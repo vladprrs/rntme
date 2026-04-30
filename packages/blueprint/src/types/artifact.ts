@@ -46,6 +46,7 @@ export type CatalogManifest = {
   }>;
   readonly modulesWithBoot: readonly string[];
   readonly categoryToModule: Readonly<Record<string, string>>;
+  readonly publicConfig: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 };
 
 export type ProjectBlueprint = {

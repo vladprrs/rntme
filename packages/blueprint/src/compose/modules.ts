@@ -6,8 +6,6 @@ import { parseModuleManifest, type ModuleManifest } from '@rntme/module-skeleton
 
 import { ERROR_CODES, err, ok, type BlueprintError, type Result } from '../types/result.js';
 
-const nodeRequire = createRequire(import.meta.url);
-
 export type DiscoveredModule = {
   manifest: ModuleManifest;
   packageDir: string;
@@ -106,10 +104,22 @@ export function discoverModules(input: {
   return ok(out);
 }
 
-/** Resolve the on-disk package root using the manifest entry export. */
+/** Resolve the on-disk package root from the project, with exports-safe fallbacks. */
 export function defaultResolvePackage(packageName: string, projectDir: string): string {
-  const resolved = nodeRequire.resolve(`${packageName}/module.json`, {
-    paths: [projectDir, process.cwd()],
-  });
-  return dirname(resolved);
+  const projectRequire = createRequire(join(projectDir, 'project.json'));
+  try {
+    return dirname(projectRequire.resolve(`${packageName}/package.json`));
+  } catch (error) {
+    const fallback = join(projectDir, 'node_modules', ...packageName.split('/'), 'module.json');
+    try {
+      readFileSync(fallback);
+      return dirname(fallback);
+    } catch {
+      try {
+        return dirname(projectRequire.resolve(`${packageName}/module.json`));
+      } catch {
+        throw error;
+      }
+    }
+  }
 }
