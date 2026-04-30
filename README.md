@@ -113,7 +113,6 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/bindings-grpc`](packages/bindings-grpc) | gRPC adapter surface for module and service integration through `CommandExecutor` / `QueryExecutor`. |
 | [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
 | [`@rntme/ui-runtime`](packages/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
-| [`@rntme/ui-auth-shell`](packages/ui-auth-shell) | Browser auth wrapper for ui-runtime: Auth0 PKCE login/logout chrome, Bearer-injecting transport, and authenticated initial state. |
 | [`@rntme/db-studio`](packages/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
 | [`@rntme/runtime`](packages/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 | [`@rntme/module-skeleton`](packages/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
@@ -156,7 +155,6 @@ flowchart TB
     BG["@rntme/bindings-grpc"]:::pkg
     UI["@rntme/ui"]:::pkg
     UIR["@rntme/ui-runtime"]:::pkg
-    UIA["@rntme/ui-auth-shell"]:::pkg
     DS["@rntme/db-studio"]:::pkg
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
@@ -170,7 +168,6 @@ flowchart TB
     BH --> B & GIR & ES
     BG --> B & GIR & ES
     UIR --> UI
-    UIA --> UIR
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
     RT --> BH & BG & UIR & DS & PC & SD & GIR & ES
