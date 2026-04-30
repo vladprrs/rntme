@@ -69,11 +69,11 @@ A fourth illustrative case (auth0, AI streaming) is described to verify the mode
 | Q3 | Module package shape | **Workspace package (2a).** Each module is a `pnpm` workspace package with `package.json`. Imports work as `@rntme/<name>/client`. Same convention as backend modules. |
 | Q4 | Bundle build location | **Domain-service Dockerfile (a).** Existing `pnpm build` step in the service's image extends to: generate virtual entry from `project.json` → run esbuild → emit per-project `build/main.js`. Platform unchanged. |
 | Q5 | Module client → runtime contract | **Convention (a).** Each component declared in `module.json` is a named export from `client.entry`. Host's auto-generated virtual entry imports them by name and merges into the catalog. Single source of truth = manifest. |
-| Q6 | How module operations connect to component instances | **α — component self-registration.** Component on mount registers its operations under its `elementId` via `useOperationRegistry().register(elementId, handlers)`. Manifest stays declarative (for validate); registration logic lives next to the editor instance (closure over imperative API). No `module.exports.operations`, no command-bus. |
+| Q6 | How module operations connect to component instances | **α — component self-registration.** Component on mount registers its operations under its `elementId` via `useOperationRegistry().register(elementId, handlers)`. Because `@json-render/react` does not expose the element map key to components today, rntme injects a reserved prop such as `__rntmeElementId` before render. Manifest stays declarative (for validate); registration logic lives next to the editor instance (closure over imperative API). No `module.exports.operations`, no command-bus. |
 | Q7 | App lifecycle hooks (init SDK, page-view tracking, identify on login) | **`boot(ctx)` per module.** Module declares `client.boot: true`, exports `boot(ctx)`. Host runs all boots before mount. `ctx` exposes config, state, transport.use, on(event), registerOperation. |
 | Q8 | Module-level operations vs component-bound | **Both, unified.** `client.operations[]` carries optional `appliesTo: [componentType, ...]`. If present → component-bound (dispatch requires `target`). If absent → module-level (registered in boot via `ctx.registerOperation`). Single `kind: "module-action"` covers both. |
-| Q9 | Action composition (track + save on one click) | **Array form for `on.click`.** `on: { click: ["trackSave", "save"] }` runs sequentially. Minor extension to spec format; covers more than just analytics. Single string remains valid for the common case. |
-| Q10 | Vendor swap (GA → Amplitude, Auth0 → Clerk) | **Canonical-contract pattern, extended to UI.** `module.json` declares `category` + `contract`. `project.json#modules` maps category → vendor package. Blueprint `module-action` actions reference `category: "..."` (canonical) when there's a contract; `module: "..."` when not (singleton vendors like tiptap). Swap = one line in `project.json`. |
+| Q9 | Action composition (track + save on one click) | **Existing json-render binding arrays.** Current specs use `on: { press: { "action": "dispatch", "params": { "name": "save" } } }`; json-render already supports arrays of those binding objects and runs them sequentially. Do not introduce `"on": { "click": ["trackSave", "save"] }` action-id strings. |
+| Q10 | Vendor swap (GA → Amplitude, Auth0 → Clerk) | **Canonical-contract pattern, extended to UI.** `module.json` declares `category` + `contract`. `project.json#modules` maps category keys to `{ "package": "...", "publicConfig": {...} }`. Blueprint `module-action` actions reference `category: "..."` (canonical) when there's a contract; `module: "..."` when not (singleton vendors like tiptap). Swap = one package line in `project.json`. |
 | Q11 | Auth gating: wrapper component or state-gated? | **State-gated.** Identity module writes `/auth/status: 'booting' \| 'anon' \| 'authed'` via `boot(ctx)`. Identity module also registers `<SignIn />` (or vendor-specific equivalent) as a regular `client.components[]` element. Project's root layout uses existing json-render `visible` to gate the app body slot vs login chrome. **No `wrapper` slot in manifest.** |
 | Q12 | What prevents data-bindings from firing during anon phase | **Driver gating rule.** `@rntme/ui-runtime` driver does not run `enterScreen` data-fetches for screens whose root layout has `visible:false` (because it's gated by `/auth/status`). Same rule covers any future case where layout is hidden. |
 | Q13 | RBAC for UI controls (hide Edit / Delete / Admin) | **No new module primitive.** Use existing `visible` field reading from state. `/currentUser` (set by identity module) covers "anon vs authed". Per-row `canX` flags returned by server queries cover ownership/role-based hiding. Add `eq` and `contains` operators to `visible` evaluator (one-line cases need it). |
@@ -89,9 +89,10 @@ A fourth illustrative case (auth0, AI streaming) is described to verify the mode
 
 ```
 project.json#modules = {
-  "presentation-md":   "@rntme/presentation-md-mermaid",
-  "presentation-rte":  "@rntme/presentation-tiptap",
-  "analytics":         "@rntme/analytics-google-analytics"
+  "presentation-md":  { "package": "@rntme/presentation-md-mermaid" },
+  "presentation-rte": { "package": "@rntme/presentation-tiptap" },
+  "analytics":        { "package": "@rntme/analytics-google-analytics",
+                        "publicConfig": { "measurementId": "G-XXXXXXX" } }
 }
         |
         v
@@ -123,7 +124,7 @@ project.json#modules = {
 domain-service Dockerfile build step:
   generate srv/__rntme_ui_entry.ts   from catalogManifest + project.json#modules
   esbuild srv/__rntme_ui_entry.ts → build/main.js
-  emit /srv/config.json             from publicConfigSchema + ProjectDeploymentConfig.modules
+  emit /srv/config.json             from project.json#modules[*].publicConfig
 ```
 
 ### 3.2 SPA boot at runtime
@@ -223,11 +224,18 @@ Layout (the screen author writes this, not the module):
   "elements": {
     "form":    { "type": "Stack", "children": ["toolbar", "editor", "saveBtn"] },
     "toolbar": { "type": "Toolbar", "children": ["bBtn", "iBtn", "imgBtn"] },
-    "bBtn":    { "type": "Button", "props": { "label": "B" }, "on": { "click": "bold" } },
-    "iBtn":    { "type": "Button", "props": { "label": "I" }, "on": { "click": "italic" } },
-    "imgBtn":  { "type": "Button", "props": { "label": "Image" }, "on": { "click": "image" } },
+    "bBtn":    { "type": "Button", "props": { "label": "B" },
+                 "on": { "press": { "action": "dispatch", "params": { "name": "bold" } } } },
+    "iBtn":    { "type": "Button", "props": { "label": "I" },
+                 "on": { "press": { "action": "dispatch", "params": { "name": "italic" } } } },
+    "imgBtn":  { "type": "Button", "props": { "label": "Image" },
+                 "on": { "press": { "action": "dispatch", "params": { "name": "image" } } } },
     "editor":  { "type": "RichTextEditor", "props": { "value": { "$state": "/form/body" } } },
-    "saveBtn": { "type": "Button", "props": { "label": "Save" }, "on": { "click": ["trackSave", "save"] } }
+    "saveBtn": { "type": "Button", "props": { "label": "Save" },
+                 "on": { "press": [
+                   { "action": "dispatch", "params": { "name": "trackSave" } },
+                   { "action": "dispatch", "params": { "name": "save" } }
+                 ] } }
   }
 }
 ```
@@ -259,11 +267,10 @@ driver.dispatch("bold")
   → handler({}) → editor.chain().focus().toggleBold().run()
 ```
 
-Driver dispatch on `saveBtn` click (array form):
+Driver dispatch on `saveBtn` press (json-render binding-array form):
 
 ```
-driver.dispatch(["trackSave", "save"])
-  → for each id in array, dispatch sequentially
+json-render executes the two `dispatch` bindings sequentially
   → trackSave: module-action category=analytics name=track → operationRegistry.lookup("@rntme/analytics-google-analytics", "track") → window.gtag(...)
   → save: command → bindings-http POST /api/notes/<id> with body
 ```
@@ -306,14 +313,20 @@ import type { ModuleBootContext } from '@rntme/ui-runtime/client';
 export function boot(ctx: ModuleBootContext) {
   const { config, state, on, registerOperation } = ctx;
   loadGAScript(config.measurementId);
-  on('navigate', ({ path }) => window.gtag('event', 'page_view', { page_path: path }));
+  on('navigate', ({ path }) => window.gtag('event', 'page_view', {
+    page_location: new URL(path, window.location.origin).toString(),
+    page_path: path
+  }));
   state.subscribe('/currentUser', (u) => {
     if (u?.sub) window.gtag('config', config.measurementId, { user_id: u.sub });
+    else window.gtag('config', config.measurementId, { user_id: null });
   });
   registerOperation('track',    ({ event, props }) => window.gtag('event', event, props ?? {}));
   registerOperation('identify', ({ userId, traits }) => window.gtag('config', config.measurementId, { user_id: userId, ...(traits ?? {}) }));
 }
 ```
+
+Implementation note: the GA module must initialize the tag with `send_page_view: false`, then emit SPA navigations explicitly from the `navigate` lifecycle event. `user_id` must be a non-PII application identifier; send `null` on sign-out.
 
 ## 4. Module manifest extension
 
@@ -371,6 +384,7 @@ type PropSchema = {
 | `MODULE_MANIFEST_DUPLICATE_OPERATION` | Two entries in `client.operations[]` with same `name` |
 | `MODULE_MANIFEST_OPERATION_BAD_APPLIES_TO` | `appliesTo[]` contains a `type` not in this module's `client.components[]` |
 | `MODULE_MANIFEST_CATEGORY_REQUIRES_CONTRACT` | `category` set without `contract` (or vice versa) |
+| `MODULE_MANIFEST_VENDOR_REQUIRED` | `category` + `contract` set without `vendor` |
 
 Cross-module validation (in `@rntme/blueprint` compose) below.
 
@@ -427,7 +441,7 @@ Boot lifecycle:
 Two layers:
 
 - **Module-level handlers**: registered in `boot(ctx)` via `ctx.registerOperation(name, h)`. Keyed by `(moduleName, name)`.
-- **Component-bound handlers**: registered in component `useEffect` via `useOperationRegistry().register(elementId, handlers)`. Keyed by `(elementId, name)`. Returns an unregister function called on unmount.
+- **Component-bound handlers**: registered in component `useEffect` via `useOperationRegistry().register(elementId, handlers)`. Keyed by `(elementId, name)`. Returns an unregister function called on unmount. rntme injects the authored element key as a reserved prop such as `__rntmeElementId` before passing specs to json-render.
 
 Hook:
 
@@ -512,19 +526,32 @@ type CompiledAction =
 
 Note: at compile time, `category` is resolved to the concrete module name from `project.json#modules`. The compiled artifact carries `module` only (no `category`), so the driver doesn't need the project-modules map at runtime for resolution.
 
-### 7.4 Spec format change for `on`
+### 7.4 Spec format for `on`
 
-Current `on.click` is a single action ID string. Extension:
+Current rntme UI specs use json-render action binding objects:
 
-```ts
-type ElementOn = {
-  click?:  string | string[];     // single ID or array (sequential dispatch)
-  change?: string | string[];
-  // ...other event names unchanged
-};
+```jsonc
+{
+  "on": {
+    "press": { "action": "dispatch", "params": { "name": "save" } }
+  }
+}
 ```
 
-`expand` and `validate` accept both forms; runtime driver dispatches sequentially; failures in array dispatch follow first-fails-aborts-remaining unless an explicit catch is wired (out of scope; for now just abort).
+Composition uses json-render's existing array form, not action-id strings:
+
+```jsonc
+{
+  "on": {
+    "press": [
+      { "action": "dispatch", "params": { "name": "trackSave" } },
+      { "action": "dispatch", "params": { "name": "save" } }
+    ]
+  }
+}
+```
+
+`expand` and `validate` preserve this shape; runtime driver dispatches sequentially through json-render's existing binding-array execution. Failures in array dispatch follow first-fails-aborts-remaining unless an explicit catch is wired (out of scope).
 
 ## 8. `visible` evaluator extension
 
@@ -625,7 +652,7 @@ hydrateApp({ rootSelector: '#root', components, modules });
 
 ### 10.4 `/config.json`
 
-`deploy-dokploy` (or whichever deploy adapter is in use — already extended in the auth0 spec) writes a per-project `/srv/config.json` containing the public config for each module from `ProjectDeploymentConfig.modules[<moduleName>].publicConfig`. The runtime serves it as a non-bindings, non-auth route.
+For this v1 plan, `@rntme/blueprint` compose reads `project.json#modules[<key>].publicConfig`, validates it against each module's `client.config.schema`, and emits the public config next to the UI build artifacts. A deploy adapter may later project the same data into `/srv/config.json`, but this spec must not depend on unmerged `rntme-cli` deployment changes. The runtime serves the generated config as a non-bindings, non-auth route.
 
 Shape:
 
@@ -646,10 +673,9 @@ In `@rntme/blueprint` after collecting modules:
 |---|---|
 | `BLUEPRINT_MODULE_NOT_FOUND` | `project.json#modules` references a package that doesn't resolve in the workspace |
 | `BLUEPRINT_DUPLICATE_COMPONENT` | Two modules declare same component `type` |
-| `BLUEPRINT_DUPLICATE_OPERATION` | Two modules in the project declare the same module-level operation `name`. (Modules within the same canonical category cannot coexist in `project.json#modules` — that's `BLUEPRINT_CATEGORY_AMBIGUOUS`. So this fires only across categories.) |
 | `BLUEPRINT_CATEGORY_AMBIGUOUS` | A `category` resolves to two different modules in `project.json#modules` |
-| `BLUEPRINT_CATEGORY_NOT_DECLARED` | Module declares `category` but is mapped to a different category key in `project.json#modules` |
-| `BLUEPRINT_CONFIG_REQUIRED_MISSING` | A module's `client.config.schema` requires a key not present in `ProjectDeploymentConfig.modules[<name>].publicConfig` |
+| `BLUEPRINT_CATEGORY_NOT_DECLARED` / `BLUEPRINT_CATEGORY_MISMATCH` | Module declares `category` but is mapped to a different category key in `project.json#modules` |
+| `BLUEPRINT_CONFIG_REQUIRED_MISSING` | A module's `client.config.schema` requires a key not present in `project.json#modules[<key>].publicConfig` |
 | `BLUEPRINT_CONFIG_TYPE_MISMATCH` | A config value doesn't match its declared type |
 
 ## 12. Component changes summary
@@ -658,10 +684,10 @@ In `@rntme/blueprint` after collecting modules:
 |---|---|---|---|
 | 1 | `@rntme/module-skeleton` | S | Relax `ModuleManifestSchema`: `category`/`vendor`/`contract`/`capabilities.*` optional. Add `client` block schema. New error codes per §4.3. New tests for UI-only manifest, mixed manifest, empty manifest. |
 | 2 | `@rntme/ui` | M | Extend `ActionDef` with `module-action`. Extend `validate/structural.ts` for the new kind. Extend `validate/references.ts` for component target/operation/category lookups. Extend `validate/structural.ts` for `eq`/`contains` operators in `visible`. Extend `emit/http-map.ts` to canonicalize `category` → `module` and pass through `module-action` shape. New error codes per §7.2. New `ValidateResolvers` field `resolveOperation`. `resolveComponent` (currently unused) becomes load-bearing. |
-| 3 | `@rntme/ui-runtime` | L | Export `useTransport`, `useStateStore`, `useOperationRegistry` hooks from `client/`. New `boot` orchestrator in `entry.tsx`. New `ModuleBootContext` type. Driver dispatcher for `kind: "module-action"`. Driver gating rule for hidden layouts (data-fetch skip). State subscription mechanism wired to layout-visibility recompute. `hydrateApp` accepts `components: Record<string, React.FC>` and `modules: ModuleSpec[]`. Component catalog merges shadcn + project components. `on:click` array form support. |
+| 3 | `@rntme/ui-runtime` | L | Export `useTransport`, `useStateStore`, `useOperationRegistry` hooks from `client/`. New `boot` orchestrator in `entry.tsx`. New `ModuleBootContext` type. Driver dispatcher for `kind: "module-action"` through the existing json-render `dispatch` action. Driver gating rule for hidden layouts (data-fetch skip). State subscription mechanism wired to layout-visibility recompute. `hydrateApp` accepts `components: Record<string, React.FC>` and `modules: ModuleSpec[]`. Component catalog merges shadcn + project components. |
 | 4 | `@rntme/blueprint` | L | Project compose reads `project.json#modules`, fetches each `module.json`, builds `catalogManifest.json`. Cross-module validation per §11. Virtual-entry generator script (or a sibling `@rntme/ui-bundler` if size warrants). Pass union to `@rntme/ui` validator. |
-| 5 | `modules/presentation/md-mermaid/` (new) | M | New workspace package. `module.json` with `client.components: [Markdown, Mermaid]`. `client/index.ts` exporting React components for markdown (using `marked` or `react-markdown`) and mermaid (using `mermaid`). No `boot`, no `operations`, no `category`. Unit tests for component render. |
-| 6 | `modules/presentation/tiptap/` (new) | M | New workspace package. `module.json` with `client.components: [RichTextEditor]` and `client.operations: [toggleBold, toggleItalic, insertImage]`. `client/components/RichTextEditor.tsx` uses `@tiptap/react` + `@tiptap/starter-kit`, registers operations via `useOperationRegistry`. Unit tests for component render and operation dispatch (with mocked registry). |
+| 5 | `modules/presentation/md-mermaid/` (new) | M | New workspace package. `module.json` with `client.components: [Markdown, Mermaid]`. `client/index.ts` exporting React components for markdown using `react-markdown` + `remark-gfm` (safe React rendering, no raw HTML) and mermaid using `mermaid.initialize({ startOnLoad: false })` + `render()`. No `boot`, no `operations`, no `category`. Unit tests for component render. |
+| 6 | `modules/presentation/tiptap/` (new) | M | New workspace package. `module.json` with `client.components: [RichTextEditor]` and `client.operations: [toggleBold, toggleItalic, insertImage]`. `client/components/RichTextEditor.tsx` uses `@tiptap/react` + `@tiptap/pm` + `@tiptap/starter-kit` + `@tiptap/extension-image`, registers operations via `useOperationRegistry`. Unit tests for component render and operation dispatch (with mocked registry). |
 | 7 | `modules/analytics/google-analytics/` (new) | M | New workspace package. `module.json` with `category: "analytics"`, `contract: "analytics/v1"`, `client.boot: true`, `client.operations: [track, identify]`, `client.config.schema: { measurementId }`. `client/index.ts` exporting `boot(ctx)`. Unit tests for boot wiring (mock `ctx`), operation dispatch, lifecycle subscription. |
 | 8 | `packages/contracts/analytics/v1/` (new) | XS | Canonical contract directory. `client.componentTypes: []` (analytics has no canonical components in v1). `client.operations: [track, identify]` with shared params schema. README. |
 | 9 | `AGENTS.md` | XS | §3 (package layering) lists module client surface; §6 (how-tos) adds "Add a UI module" recipe; §10 (glossary) defines `ModuleBootContext`, `module-action`, "state-gated rendering". |

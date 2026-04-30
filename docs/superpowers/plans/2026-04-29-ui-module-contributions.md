@@ -6,7 +6,7 @@
 
 **Architecture:** Three orthogonal manifest slots — `client.components[]` (catalog entries), `client.operations[]` (named handlers, optionally bound to a component type), `client.boot: true` (one-shot startup hook). State-gated rendering replaces a wrapper-component primitive: identity-style modules write `/auth/status` to the state store and the project's root layout uses existing json-render `visible` to gate the app body. New action kind `module-action` in `@rntme/ui` dispatches to either component-bound (by `target` element ID) or module-level (by `module`/`category`) handlers. Per-project SPA bundling: `@rntme/blueprint` compose generates a virtual TypeScript entry that imports each module's `client/` named exports; existing `pnpm build` step in the domain-service Dockerfile runs `esbuild` on it.
 
-**Tech Stack:** TypeScript, pnpm 9 workspace, Vitest, Zod (manifest schema), React 18, json-render (`@json-render/core`/`react`/`shadcn`), esbuild, Tailwind v4. New module deps: `marked`/`react-markdown` + `mermaid` (MD/Mermaid module), `@tiptap/react` + `@tiptap/starter-kit` (tiptap module).
+**Tech Stack:** TypeScript, pnpm 9 workspace, Vitest, Zod (manifest schema), repo-pinned React (`@rntme/ui-runtime/package.json` currently uses `react`/`react-dom` `^19.2.5`; do not introduce a second React major), json-render (`@json-render/core`/`react`/`shadcn`), esbuild, Tailwind v4. New module deps: `react-markdown` + `remark-gfm` + `mermaid` (MD/Mermaid module), `@tiptap/react` + `@tiptap/pm` + `@tiptap/starter-kit` + `@tiptap/extension-image` (tiptap module).
 
 **Spec:** `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`. Read §1–§15 before starting.
 
@@ -32,6 +32,94 @@ Phase 1 (manifest schema)
 
 ---
 
+## PLAN challenge amendments (2026-04-30)
+
+These amendments are mandatory and supersede any lower task snippet that still shows the old shape.
+
+### A. Preserve json-render event bindings; do not switch `on` to action-id strings
+
+Current runtime specs use json-render action binding objects:
+
+```jsonc
+{
+  "on": {
+    "press": { "action": "dispatch", "params": { "name": "save" } }
+  }
+}
+```
+
+`@json-render/react` already supports arrays of these binding objects and executes them sequentially. Therefore:
+
+- Do **not** change `ElementJson.on` or `CompiledElement.on` to `string | string[]`.
+- Do **not** require screen authors to write `"on": { "click": "save" }`.
+- For composed UI actions, use the existing binding-array shape:
+
+```jsonc
+{
+  "on": {
+    "press": [
+      { "action": "dispatch", "params": { "name": "trackSave" } },
+      { "action": "dispatch", "params": { "name": "save" } }
+    ]
+  }
+}
+```
+
+Phase 2 should validate this existing shape when it needs validation, but no runtime action-dispatch rewrite is required just for arrays.
+
+### B. Component-bound operations require an element-id bridge
+
+`@json-render/react` passes `ComponentRenderProps.element` to component renderers, but the element object does not currently include the map key (`editor`, `saveBtn`, etc.). A component cannot register handlers under `target: "editor"` unless rntme injects the element ID.
+
+Phase 3 must include an explicit wrapper/transform before rendering:
+
+- Add the element map key to each rendered element as a reserved runtime prop, e.g. `props.__rntmeElementId`.
+- Document that module components receive it through their renderer props and pass it to `useOperationRegistry().register(elementId, handlers)`.
+- Add a unit test proving `RichTextEditor` registers under the authored element key and unregisters on unmount.
+
+### C. Exact `project.json#modules` authoring shape
+
+Use an object form rather than package-string shorthand so config and future metadata have a stable home:
+
+```jsonc
+{
+  "modules": {
+    "presentation-md": { "package": "@rntme/presentation-md-mermaid" },
+    "presentation-rte": { "package": "@rntme/presentation-tiptap" },
+    "analytics": {
+      "package": "@rntme/analytics-google-analytics",
+      "publicConfig": { "measurementId": "G-XXXXXXX" }
+    }
+  }
+}
+```
+
+Key semantics:
+
+- If `module.json` declares `category`, the `project.json#modules` key MUST equal that category. Otherwise compose raises `BLUEPRINT_CATEGORY_NOT_DECLARED` or `BLUEPRINT_CATEGORY_MISMATCH`.
+- If a module has no canonical category, the key is a local alias and is not available for `category:` action addressing.
+- `publicConfig` is the only config used in this plan. It is validated during compose against `client.config.schema` and emitted into the local compose output used by the SPA. Deploy-adapter integration can consume the same shape later, but this plan must not assume an already-merged `rntme-cli` deployment change.
+
+### D. Manifest schema corrections
+
+- `capabilities.rpcs` and `capabilities.events` must become optional with defaults to `[]`; backend-only manifests remain valid when either list is omitted.
+- `vendor` is required whenever `category` and `contract` are present. UI-only singleton modules may omit all three.
+- The empty-manifest check is: non-empty `capabilities` (`rpcs.length + events.length > 0`) OR non-empty `client` (`boot` or at least one component/operation).
+- Keep package-local error codes in TypeScript unions (`UNKNOWN_OPERATION`, etc.). Spec prose may prefix them with package names for readability, but `UiErrorCode` currently uses unprefixed codes.
+
+### E. Scoped operation names
+
+Do not reject duplicate module-level operation names across modules. Operations are addressed by `target` or by `module`/`category`, so `track` can exist in analytics and another future category without ambiguity. Only reject duplicate operation names within the same module manifest.
+
+### F. Third-party API decisions verified during PLAN review
+
+Context7 was unavailable because the workspace quota was exceeded, so this review fell back to official/project docs:
+
+- Tiptap React docs require `@tiptap/react`, `@tiptap/pm`, and `@tiptap/starter-kit`. `insertImage` requires adding an image extension; do not rely on StarterKit for it.
+- Mermaid docs recommend `mermaid.initialize({ startOnLoad: false })` before `render()`/`run()`; do not use deprecated `mermaid.init`.
+- `react-markdown` is the markdown renderer for v1 because its README documents safe rendering without `dangerouslySetInnerHTML`. Do not use `marked` unless the implementation also adds sanitization.
+- Google Analytics config must set `send_page_view: false` during script initialization and send SPA navigations explicitly. `user_id` must not be PII; send `null` on sign-out.
+
 ## File structure
 
 ### Phase 1 — `@rntme/module-skeleton`
@@ -42,10 +130,10 @@ Phase 1 (manifest schema)
 
 ### Phase 2 — `@rntme/ui`
 
-- Modify: `packages/ui/src/types/source.ts` — add `ModuleAction` to `ActionDef`; allow `string | string[]` on `ElementJson.on.<event>` values.
-- Modify: `packages/ui/src/types/compiled.ts` — add `CompiledModuleAction` to `CompiledAction`; preserve same `on` array form on `CompiledElement`.
+- Modify: `packages/ui/src/types/source.ts` — add `ModuleAction` to `ActionDef`; preserve existing json-render `ElementJson.on` binding object / binding-array shape.
+- Modify: `packages/ui/src/types/compiled.ts` — add `CompiledModuleAction` to `CompiledAction`; preserve existing json-render `CompiledElement.on` binding object / binding-array shape.
 - Modify: `packages/ui/src/types/result.ts` — add new error codes per spec §4.3, §7.2, §11.
-- Modify: `packages/ui/src/validate/structural.ts` — accept `module-action`; enforce array-form `on.click`; accept new `visible` operator shapes.
+- Modify: `packages/ui/src/validate/structural.ts` — accept `module-action`; validate json-render binding arrays when present; accept new `visible` operator shapes.
 - Modify: `packages/ui/src/validate/references.ts` — module-action target/operation/category resolution.
 - Modify: `packages/ui/src/validate/index.ts` — extend `ValidateResolvers` with `resolveOperation`, `resolveCategoryToModule`.
 - Modify: `packages/ui/src/emit/emit.ts` — canonicalize `category` → `module` in compiled actions.
@@ -61,9 +149,9 @@ Phase 1 (manifest schema)
 - Create: `packages/ui-runtime/src/client/module-context.ts` — `ModuleBootContext` type + factory.
 - Create: `packages/ui-runtime/src/client/hooks.ts` — `useTransport`, `useStateStore`, `useOperationRegistry`.
 - Create: `packages/ui-runtime/src/client/visibility.ts` — evaluator for `{ $state, eq?, contains?, not? }` shapes.
-- Modify: `packages/ui-runtime/src/client/driver.ts` — `module-action` dispatch; array-form `on:click` sequential dispatch; data-fetch gating rule when layout `visible:false`.
+- Modify: `packages/ui-runtime/src/client/driver.ts` / `registry.ts` — `module-action` dispatch from the existing `dispatch` action handler; data-fetch gating rule when layout `visible:false`. Do not duplicate json-render's existing event-binding array dispatcher.
 - Modify: `packages/ui-runtime/src/client/registry.ts` — accept dynamic per-project component catalog; preserve shadcn defaults; module-action handler registration.
-- Modify: `packages/ui-runtime/src/client/layout-manager.tsx` — provide `OperationRegistryProvider`; pre-evaluate visibility via `visibility.ts`.
+- Modify: `packages/ui-runtime/src/client/layout-manager.tsx` — provide `OperationRegistryProvider`; inject reserved element IDs before rendering; pre-evaluate visibility via `visibility.ts`.
 - Modify: `packages/ui-runtime/src/client/entry.tsx` — boot orchestrator (load `/config.json` → run boots in order → mount); accept `components` and `modules` on `hydrateApp`.
 - Modify: `packages/ui-runtime/src/client/index.ts` — export new hooks and types.
 - Tests: `packages/ui-runtime/test/unit/operation-registry.test.ts`, `lifecycle-bus.test.ts`, `transport-chain.test.ts`, `visibility.test.ts`, `driver.test.ts` (extend), `entry.test.ts` (new).
@@ -75,7 +163,7 @@ Phase 1 (manifest schema)
 - Create: `packages/blueprint/src/compose/validate-modules.ts` — duplicate detection, category mapping, public config validation.
 - Create: `packages/blueprint/src/compose/virtual-entry.ts` — emit `__rntme_ui_entry.ts` from `catalogManifest`.
 - Modify: `packages/blueprint/src/compose/index.ts` (or wherever the compose entry lives) — wire new steps in; emit `catalogManifest.json` next to the existing UI artifact.
-- Modify: `packages/blueprint/src/types/composition.ts` (or equivalent) — extend `ComposedProjectInput` with `modules` map and per-module config.
+- Modify: `packages/blueprint/src/types/composition.ts` (or equivalent) — extend `ComposedProjectInput` with `modules` map and per-module public config.
 - Modify: `packages/blueprint/src/parse/schema.ts` — recognise `project.json#modules` map.
 - Tests: `packages/blueprint/test/unit/compose-modules.test.ts`, `compose-catalog.test.ts`, `validate-modules.test.ts`, `virtual-entry.test.ts`.
 - Test fixtures: `packages/blueprint/test/fixtures/project-with-modules/` covering UI-only, mixed, and conflicting-module cases.
@@ -98,7 +186,7 @@ Phase 1 (manifest schema)
 
 ### Phase 6 — `modules/presentation/tiptap/` (new package)
 
-Mirror Phase 5 layout. Components: `RichTextEditor.tsx`. Operations: `toggleBold`, `toggleItalic`, `insertImage` registered via `useOperationRegistry`.
+Mirror Phase 5 layout. Components: `RichTextEditor.tsx`. Operations: `toggleBold`, `toggleItalic`, `insertImage` registered via `useOperationRegistry`. Include `@tiptap/pm` and `@tiptap/extension-image`; add an implementation note that StarterKit does not supply image insertion.
 
 ### Phase 7 — `modules/analytics/google-analytics/` + `packages/contracts/analytics/v1/` (new packages)
 
@@ -120,7 +208,7 @@ Mirror Phase 5 layout. Components: `RichTextEditor.tsx`. Operations: `toggleBold
 ### Phase 9 — Integration smoke
 
 - Create: `packages/blueprint/test/fixtures/integration-smoke/` — minimal project consuming all three modules.
-- Create: `packages/blueprint/test/integration/end-to-end.test.ts` — drives compose → validate → catalog manifest assertions.
+- Create: `packages/blueprint/test/integration/end-to-end.test.ts` — drives compose → validate → catalog manifest + virtual entry + generated public config assertions. This is not a live Dokploy gate.
 
 ---
 
@@ -153,8 +241,8 @@ export const ModuleCapabilitiesSchema = z
   .object({
     vendors: z.array(z.string().min(1)).optional(),
     entities: z.array(z.string().min(1)).optional(),
-    rpcs: z.array(z.string().min(1)),
-    events: z.array(z.string().min(1)),
+    rpcs: z.array(z.string().min(1)).default([]),
+    events: z.array(z.string().min(1)).default([]),
     search_tiers: z.array(z.string().min(1)).optional(),
     labeled_associations: z.boolean().optional(),
     bulk_operations: z.record(z.unknown()).optional(),
@@ -251,12 +339,19 @@ export const ModuleManifestSchema = z
         message: 'MODULE_MANIFEST_EMPTY: manifest must declare a non-empty `capabilities` or `client` surface',
       });
     }
-    // Rule 2: category set ↔ contract set.
+    // Rule 2: category set ↔ contract set; vendor required for canonical membership.
     if ((value.category && !value.contract) || (!value.category && value.contract)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: value.category ? ['contract'] : ['category'],
         message: 'MODULE_MANIFEST_CATEGORY_REQUIRES_CONTRACT: `category` and `contract` must both be set or both omitted',
+      });
+    }
+    if (value.category && value.contract && !value.vendor) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['vendor'],
+        message: 'MODULE_MANIFEST_VENDOR_REQUIRED: canonical modules must declare `vendor`',
       });
     }
     // Rule 3: client.components[].type is unique within the module.
@@ -540,12 +635,12 @@ git commit -m "docs(module-skeleton): document client block (UI module contribut
 
 ## Phase 2 — `@rntme/ui` compiler
 
-### Task 2.1: Extend `ActionDef` and element `on` shape in `types/source.ts`
+### Task 2.1: Extend `ActionDef` and preserve existing element `on` shape in `types/source.ts`
 
 **Files:**
 - Modify: `packages/ui/src/types/source.ts`
 
-- [ ] **Step 1: Add `ModuleActionDef` to the `ActionDef` union and broaden `on`**
+- [ ] **Step 1: Add `ModuleActionDef` to the `ActionDef` union**
 
 Append to `packages/ui/src/types/source.ts` (and update the `ActionDef` union):
 
@@ -567,11 +662,11 @@ export type ModuleActionDef = {
 export type ActionDef = NavigationAction | CommandAction | RefetchAction | ModuleActionDef;
 ```
 
-Update `ElementJson.on`'s value type to admit either a string action ID or an array (still `unknown` is technically ok in Zod-less land, but tighten in the structural validator). Keep the source-side type loose:
+Do not change `ElementJson.on` to action-id strings. Keep the existing json-render binding-object shape loose:
 
 ```ts
 // inside ElementJson:
-on?: Record<string, string | string[] | unknown>;
+on?: Record<string, unknown>;
 ```
 
 - [ ] **Step 2: Typecheck**
@@ -583,7 +678,7 @@ Expected: PASS.
 
 ```bash
 git add packages/ui/src/types/source.ts
-git commit -m "feat(ui): add ModuleActionDef to ActionDef; broaden element on shape"
+git commit -m "feat(ui): add ModuleActionDef to ActionDef"
 ```
 
 ### Task 2.2: Extend `CompiledAction` in `types/compiled.ts`
@@ -616,11 +711,11 @@ export type CompiledAction =
 
 (Keep the existing pre-existing fields verbatim — only the addition of `CompiledModuleAction` is new.)
 
-Also update `CompiledElement.on` to allow string or string[]:
+Do not change `CompiledElement.on` to `string | string[]`; preserve the existing json-render action binding object / binding-array shape:
 
 ```ts
 // inside CompiledElement:
-on?: Record<string, string | string[]>;
+on?: Record<string, unknown>;
 ```
 
 - [ ] **Step 2: Typecheck**
@@ -632,7 +727,7 @@ Expected: PASS.
 
 ```bash
 git add packages/ui/src/types/compiled.ts
-git commit -m "feat(ui): add CompiledModuleAction; allow array on.<event>"
+git commit -m "feat(ui): add CompiledModuleAction"
 ```
 
 ### Task 2.3: Extend `UiErrorCode` with new codes
@@ -661,6 +756,8 @@ Inside `packages/ui/src/types/result.ts`, append the following codes to the `UiE
 'ON_HANDLER_ARRAY_INVALID'
 ```
 
+`ON_HANDLER_ARRAY_INVALID` applies only to invalid json-render binding arrays, not to action-id string arrays.
+
 - [ ] **Step 2: Typecheck**
 
 Run: `pnpm -F @rntme/ui typecheck`
@@ -683,7 +780,7 @@ git commit -m "feat(ui): add error codes for module-action, prop validation, vis
 Add to `packages/ui/test/unit/validate.test.ts` (append to existing file):
 
 ```ts
-describe('structural — module-action + array on + visible operators', () => {
+describe('structural — module-action + json-render binding arrays + visible operators', () => {
   it('rejects module-action with both target and module', () => {
     const action = { kind: 'module-action', target: 'a', module: '@rntme/x', name: 'op' };
     // wrap in a minimal screen and validate; expect MODULE_ACTION_AMBIGUOUS_ADDRESSING
@@ -704,16 +801,16 @@ describe('structural — module-action + array on + visible operators', () => {
     // expect ok
   });
 
-  it('rejects on.click array containing non-strings (ON_HANDLER_ARRAY_INVALID)', () => {
-    // element.on = { click: [1, 'save'] } → ON_HANDLER_ARRAY_INVALID
+  it('rejects on.press array containing non-binding objects (ON_HANDLER_ARRAY_INVALID)', () => {
+    // element.on = { press: [1, { action: 'dispatch', params: { name: 'save' } }] } → ON_HANDLER_ARRAY_INVALID
   });
 
-  it('accepts on.click as a single string', () => {
-    // element.on = { click: 'save' } → ok
+  it('accepts on.press as a single json-render binding object', () => {
+    // element.on = { press: { action: 'dispatch', params: { name: 'save' } } } → ok
   });
 
-  it('accepts on.click as a string array', () => {
-    // element.on = { click: ['trackSave', 'save'] } → ok
+  it('accepts on.press as a json-render binding object array', () => {
+    // element.on = { press: [{ action: 'dispatch', params: { name: 'trackSave' } }, { action: 'dispatch', params: { name: 'save' } }] } → ok
   });
 
   it('accepts visible: { $state: "/x" } (truthy)', () => {});
@@ -772,19 +869,25 @@ function validateModuleAction(
 
 Wire `validateModuleAction` into the existing per-action dispatcher.
 
-For the array `on` form, locate the part of structural validation that walks elements (the visit pass). Add:
+For the array `on` form, locate the part of structural validation that walks elements (the visit pass). Validate the existing json-render binding object shape:
 
 ```ts
+function isJsonRenderBinding(value: unknown): value is { action: string; params?: Record<string, unknown> } {
+  return !!value &&
+    typeof value === 'object' &&
+    typeof (value as { action?: unknown }).action === 'string';
+}
+
 function validateElementOn(el: CompiledElement, pathPrefix: string, errors: UiError[]): void {
   if (!el.on) return;
   for (const [evt, handler] of Object.entries(el.on)) {
-    if (typeof handler === 'string') continue;
+    if (isJsonRenderBinding(handler)) continue;
     if (Array.isArray(handler)) {
       for (let i = 0; i < handler.length; i++) {
-        if (typeof handler[i] !== 'string') {
+        if (!isJsonRenderBinding(handler[i])) {
           errors.push({
             code: 'ON_HANDLER_ARRAY_INVALID',
-            message: `on.${evt}[${i}] must be an action ID string`,
+            message: `on.${evt}[${i}] must be a json-render action binding object`,
             path: `${pathPrefix}/on/${evt}/${i}`,
           });
         }
@@ -793,7 +896,7 @@ function validateElementOn(el: CompiledElement, pathPrefix: string, errors: UiEr
     }
     errors.push({
       code: 'ON_HANDLER_ARRAY_INVALID',
-      message: `on.${evt} must be a string action ID or an array of strings`,
+      message: `on.${evt} must be a json-render action binding object or an array of binding objects`,
       path: `${pathPrefix}/on/${evt}`,
     });
   }
@@ -1735,7 +1838,7 @@ git add packages/ui-runtime/src/client/visibility.ts packages/ui-runtime/test/un
 git commit -m "feat(ui-runtime): visible evaluator (truthy + eq + contains + not)"
 ```
 
-### Task 3.7: Driver — `module-action` dispatch + array `on:click`
+### Task 3.7: Runtime dispatch — `module-action` through existing json-render `dispatch`
 
 **Files:**
 - Modify: `packages/ui-runtime/src/client/driver.ts`
@@ -1764,15 +1867,8 @@ describe('driver — module-action dispatch', () => {
     expect(handler).toHaveBeenCalledWith({ event: 'a' });
   });
 
-  it('runs array on:click sequentially', async () => {
-    const trace: string[] = [];
-    const reg = createOperationRegistry();
-    reg.registerModule('@rntme/x', 'a', async () => { trace.push('a'); });
-    reg.registerModule('@rntme/x', 'b', async () => { trace.push('b'); });
-    const driver = createDriver({ /* ... */, registry: reg });
-    await driver.dispatchActionList(['actA', 'actB'], { actA: { kind: 'module-action', module: '@rntme/x', name: 'a' }, actB: { kind: 'module-action', module: '@rntme/x', name: 'b' }});
-    expect(trace).toEqual(['a', 'b']);
-  });
+  // Do not add driver-level action-id array dispatch. json-render already runs
+  // arrays of binding objects sequentially before they reach this handler.
 });
 ```
 
@@ -1816,27 +1912,14 @@ case 'module-action': {
 }
 ```
 
-Add `dispatchActionList` for array form:
-
-```ts
-async dispatchActionList(ids: string[] | string, actions: Record<string, CompiledAction>): Promise<void> {
-  const list = Array.isArray(ids) ? ids : [ids];
-  for (const id of list) {
-    const action = actions[id];
-    if (!action) throw new Error(`unknown action: ${id}`);
-    await this.dispatchAction(action, /* stateGetter passed by caller */);
-  }
-}
-```
-
-Update existing call sites in `entry.tsx`/`registry.ts` that resolve `on.click` to call `driver.dispatchActionList(handler, screen.actions ?? {})` whether `handler` is string or string[].
+Wire `module-action` into the existing `createRegistry(...).actions.dispatch` path in `packages/ui-runtime/src/client/registry.ts`; json-render continues to resolve `on.press`/`on.click` binding objects and arrays before calling `dispatch`.
 
 - [ ] **Step 3: Tests pass, commit**
 
 ```bash
 pnpm -F @rntme/ui-runtime test --run unit/driver.test.ts
 git add packages/ui-runtime/src/client/driver.ts packages/ui-runtime/test/unit/driver.test.ts
-git commit -m "feat(ui-runtime): driver dispatches module-action and runs on:click arrays sequentially"
+git commit -m "feat(ui-runtime): dispatch module-action through runtime registry"
 ```
 
 ### Task 3.8: Driver gating rule — skip data fetches under hidden layouts
@@ -2061,7 +2144,7 @@ Create the fixture: `packages/blueprint/test/fixtures/project-with-modules/proje
   "name": "fixture-app",
   "services": ["app"],
   "modules": {
-    "presentation-md": "@rntme/presentation-md-mermaid"
+    "presentation-md": { "package": "@rntme/presentation-md-mermaid" }
   }
 }
 ```
@@ -2074,12 +2157,16 @@ Plus a fake `node_modules/@rntme/presentation-md-mermaid/module.json` (or use a 
 // packages/blueprint/src/compose/modules.ts
 import { readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { createRequire } from 'node:module';
 import { parseModuleManifest, type ModuleManifest } from '@rntme/module-skeleton';
+
+const require = createRequire(import.meta.url);
 
 export type DiscoveredModule = {
   manifest: ModuleManifest;
   packageDir: string;          // absolute path to the module's directory
   projectKey: string;           // key from project.json#modules (e.g. "presentation-md", "analytics")
+  publicConfig: Record<string, unknown>;
 };
 
 export type DiscoverError = { code: string; message: string; path: string };
@@ -2094,8 +2181,9 @@ export async function discoverModules(opts: {
   const errors: DiscoverError[] = [];
   const out: Record<string, DiscoveredModule> = {};
   const projectJson = JSON.parse(await readFile(join(opts.projectDir, 'project.json'), 'utf-8'));
-  const modules: Record<string, string> = projectJson.modules ?? {};
-  for (const [projectKey, packageName] of Object.entries(modules)) {
+  const modules: Record<string, { package: string; publicConfig?: Record<string, unknown> }> = projectJson.modules ?? {};
+  for (const [projectKey, moduleRef] of Object.entries(modules)) {
+    const packageName = moduleRef.package;
     let packageDir: string;
     try {
       packageDir = (opts.resolvePackage ?? defaultResolvePackage)(packageName, opts.projectDir);
@@ -2123,7 +2211,15 @@ export async function discoverModules(opts: {
       for (const e of parsed.errors) errors.push({ code: 'BLUEPRINT_MODULE_MANIFEST_INVALID', message: e.message, path: `${packageName}/module.json:${e.path}` });
       continue;
     }
-    out[parsed.value.name] = { manifest: parsed.value, packageDir, projectKey };
+    if (parsed.value.category && parsed.value.category !== projectKey) {
+      errors.push({
+        code: 'BLUEPRINT_CATEGORY_MISMATCH',
+        message: `module "${packageName}" declares category "${parsed.value.category}" but is wired under key "${projectKey}"`,
+        path: `project.json#modules.${projectKey}`,
+      });
+      continue;
+    }
+    out[parsed.value.name] = { manifest: parsed.value, packageDir, projectKey, publicConfig: moduleRef.publicConfig ?? {} };
   }
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: out };
@@ -2217,7 +2313,6 @@ export function buildCatalog(discovered: Record<string, DiscoveredModule>): Cata
   const modulesWithBoot: string[] = [];
   const categoryToModule: Record<string, string> = {};
   const seenComponentTypes = new Map<string, string>();
-  const seenOperations = new Map<string, string>();
 
   for (const [moduleName, mod] of Object.entries(discovered)) {
     const m = mod.manifest;
@@ -2239,15 +2334,6 @@ export function buildCatalog(discovered: Record<string, DiscoveredModule>): Cata
       }
     }
     for (const op of m.client?.operations ?? []) {
-      const isModuleLevel = !op.appliesTo;
-      if (isModuleLevel) {
-        const prev = seenOperations.get(op.name);
-        if (prev && prev !== moduleName) {
-          errors.push({ code: 'BLUEPRINT_DUPLICATE_OPERATION', message: `module-level operation "${op.name}" declared by both "${prev}" and "${moduleName}"`, path: `${moduleName}/module.json` });
-        } else {
-          seenOperations.set(op.name, moduleName);
-        }
-      }
       operations.push({
         name: op.name,
         module: moduleName,
@@ -2573,17 +2659,18 @@ git commit -m "feat(blueprint): wire module discovery + catalog + virtual entry 
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
   },
   "dependencies": {
-    "marked": "^12.0.0",
+    "react-markdown": "^10.0.0",
+    "remark-gfm": "^4.0.0",
     "mermaid": "^11.0.0"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@types/react": "^18.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^18.3.3",
     "@types/react-dom": "^18.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.0.0",
@@ -2664,14 +2751,17 @@ describe('<Markdown>', () => {
 
 ```tsx
 // modules/presentation/md-mermaid/src/components/Markdown.tsx
-import { useMemo } from 'react';
-import { marked } from 'marked';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export type MarkdownProps = { source: string };
 
 export function Markdown({ source }: MarkdownProps): JSX.Element {
-  const html = useMemo(() => marked.parse(source ?? '', { async: false }) as string, [source]);
-  return <div className="rntme-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className="rntme-markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{source ?? ''}</ReactMarkdown>
+    </div>
+  );
 }
 ```
 
@@ -2790,7 +2880,7 @@ git commit -m "feat(presentation-md-mermaid): module entry + manifest sanity"
 ```markdown
 # @rntme/presentation-md-mermaid
 
-UI-only module that contributes two json-render component types: `<Markdown>` (parses GFM via `marked`) and `<Mermaid>` (renders flowcharts/diagrams via `mermaid`).
+UI-only module that contributes two json-render component types: `<Markdown>` (renders GFM via `react-markdown` + `remark-gfm`) and `<Mermaid>` (renders flowcharts/diagrams via `mermaid`).
 
 ## File map
 
@@ -2829,20 +2919,20 @@ In a project that uses this module:
 
 | Component | Props | Notes |
 |---|---|---|
-| `<Markdown>` | `source: string` (required) | GFM via `marked@12`. Renders into a `div.rntme-markdown` with `dangerouslySetInnerHTML`; `marked` sanitizes output. |
+| `<Markdown>` | `source: string` (required) | GFM via `react-markdown` + `remark-gfm`. Renders React elements and does not use `dangerouslySetInnerHTML`. |
 | `<Mermaid>`  | `source: string` (required) | Mermaid v11 with `securityLevel: 'strict'`. Renders SVG asynchronously into a `div.rntme-mermaid`; on parse failure, shows "Invalid mermaid source". |
 
 ## Invariants & gotchas
 
-- `marked` parses synchronously (`async: false`); failures throw and currently bubble up — the consumer's React error boundary catches them.
+- Markdown rendering uses `react-markdown`'s safe-by-default React rendering path; do not replace it with raw HTML without a sanitizer.
 - Mermaid renders are async — the SVG element appears one tick after mount. Tests use `waitFor`.
 - Both components are pure rendering: no state writes, no operations, no lifecycle subscription.
-- Bundling: ~80 kB gzip combined (`marked` ~15 kB, `mermaid` ~70 kB). Each project paying that cost should actually use the module.
+- Bundling: each project paying Mermaid/markdown cost should actually use the module; track the exact gzip budget in the integration smoke once bundle output exists.
 
 ## Where to look first
 
 - "I want a different markdown engine" → fork to `@rntme/presentation-md-markdown-it` (or whatever); declare same `Markdown` type so screens are interchangeable.
-- "I want syntax highlighting in code blocks" → `marked` extensions; modify `Markdown.tsx`.
+- "I want syntax highlighting in code blocks" → add a rehype/remark plugin; modify `Markdown.tsx`.
 - "Mermaid renders are too small/big" → component does no styling beyond wrapper; consumer styles `div.rntme-mermaid svg` via Tailwind/global CSS.
 
 ## Specs
@@ -2874,11 +2964,13 @@ git commit -m "docs(presentation-md-mermaid): README"
 {
   "name": "@rntme/presentation-tiptap",
   "dependencies": {
-    "@tiptap/react": "^2.2.0",
-    "@tiptap/starter-kit": "^2.2.0"
+    "@tiptap/react": "^3.0.0",
+    "@tiptap/pm": "^3.0.0",
+    "@tiptap/starter-kit": "^3.0.0",
+    "@tiptap/extension-image": "^3.0.0"
   },
   "peerDependencies": {
-    "react": "^18.0.0", "react-dom": "^18.0.0",
+    "react": "^19.0.0", "react-dom": "^19.0.0",
     "@rntme/ui-runtime": "workspace:*"
   }
 }
@@ -2938,7 +3030,7 @@ describe('<RichTextEditor>', () => {
     const reg = createOperationRegistry();
     const { unmount } = render(
       <RegistryProvider value={reg}>
-        <RichTextEditor elementId="ed1" value={{ type: 'doc', content: [] }} />
+        <RichTextEditor __rntmeElementId="ed1" value={{ type: 'doc', content: [] }} />
       </RegistryProvider>
     );
     expect(reg.lookupComponent('ed1', 'toggleBold')).toBeDefined();
@@ -2957,25 +3049,26 @@ describe('<RichTextEditor>', () => {
 import { useEffect } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
 import { useOperationRegistry } from '@rntme/ui-runtime/client';
 
 export type RichTextEditorProps = {
   value: object;                    // tiptap document JSON
   placeholder?: string;
-  elementId: string;                // injected by json-render renderer
+  __rntmeElementId: string;         // injected by rntme before json-render renders the element
 };
 
-export function RichTextEditor({ value, elementId }: RichTextEditorProps): JSX.Element {
-  const editor = useEditor({ extensions: [StarterKit], content: value });
+export function RichTextEditor({ value, __rntmeElementId }: RichTextEditorProps): JSX.Element {
+  const editor = useEditor({ extensions: [StarterKit, Image], content: value });
   const reg = useOperationRegistry();
   useEffect(() => {
     if (!editor) return;
-    return reg.register(elementId, {
+    return reg.register(__rntmeElementId, {
       toggleBold:   () => editor.chain().focus().toggleBold().run(),
       toggleItalic: () => editor.chain().focus().toggleItalic().run(),
       insertImage:  ({ url, alt }) => editor.chain().focus().setImage({ src: String(url), alt: alt as string | undefined }).run(),
     });
-  }, [editor, elementId, reg]);
+  }, [editor, __rntmeElementId, reg]);
   return <EditorContent editor={editor} />;
 }
 ```
@@ -3223,7 +3316,7 @@ describe('boot()', () => {
     (window as any).gtag = vi.fn();
     boot(ctx as any);
     (ctx as any).__lifecycle['navigate'][0]({ path: '/x', params: {} });
-    expect((window as any).gtag).toHaveBeenCalledWith('event', 'page_view', { page_path: '/x' });
+    expect((window as any).gtag).toHaveBeenCalledWith('event', 'page_view', expect.objectContaining({ page_location: 'http://localhost/x' }));
   });
 });
 ```
@@ -3244,7 +3337,7 @@ function loadGAScript(measurementId: string): void {
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag(...args: unknown[]) { window.dataLayer.push(args); };
   window.gtag('js', new Date());
-  window.gtag('config', measurementId);
+  window.gtag('config', measurementId, { send_page_view: false });
   const s = document.createElement('script');
   s.async = true;
   s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
@@ -3256,12 +3349,14 @@ export function boot(ctx: ModuleBootContext): void {
   loadGAScript(measurementId);
 
   ctx.on('navigate', ({ path }) => {
-    window.gtag?.('event', 'page_view', { page_path: path });
+    const pageLocation = new URL(path, window.location.origin).toString();
+    window.gtag?.('event', 'page_view', { page_location: pageLocation, page_path: path });
   });
 
   ctx.state.subscribe('/currentUser', (u) => {
     const user = u as { sub?: string } | null;
     if (user?.sub) window.gtag?.('config', measurementId, { user_id: user.sub });
+    else window.gtag?.('config', measurementId, { user_id: null });
   });
 
   ctx.registerOperation('track', (params) => {
@@ -3392,7 +3487,7 @@ Add `module-action` to the action-kinds table; add new error codes; mention the 
 
 - [ ] **Step 2: `packages/ui-runtime/README.md`**
 
-Document `useTransport`, `useStateStore`, `useOperationRegistry`, `ModuleBootContext`, the boot lifecycle, the visibility-driven driver gating rule, and `on:click` array form.
+Document `useTransport`, `useStateStore`, `useOperationRegistry`, `ModuleBootContext`, the boot lifecycle, the visibility-driven driver gating rule, and json-render event binding arrays.
 
 - [ ] **Step 3: `packages/blueprint/README.md`**
 
