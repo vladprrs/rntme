@@ -2,6 +2,8 @@
 
 This index consolidates the RNT-293 dependency research queue. Each document is research-only evidence for future migration planning; runtime dependency changes belong in separate implementation issues.
 
+> **Decision status (as of 2026-04-30):** all 28 research areas are **deferred**. See [`docs/superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md`](../superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md) for per-cluster decisions, re-evaluate triggers, and the 6-month refresh cadence (next refresh: 2026-10-30).
+
 | Issue | Dependency area | Research document |
 |---|---|---|
 | RNT-298 | hono + @hono/node-server + @hono/zod-openapi | [README.md](hono-plus-hono-node-server-plus-hono-zod-openapi/README.md) |

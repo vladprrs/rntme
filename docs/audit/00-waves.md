@@ -28,7 +28,14 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 - 2026-04-28T13:04:52Z — initial build at `b6047e5ac4986ac2e9dfc26075a309fd18c3a227`
 - 2026-04-29 — reconciled completed waves W4/W7/W8/W10/W15 after merged PR evidence.
+- 2026-04-30 — added Deferred initiatives section (dependency upgrades).
 
+
+---
+
+## Deferred initiatives
+
+- **Dependency upgrades (RNT-298…325):** all 28 research clusters deferred per [`2026-04-30-dependency-upgrade-deferral-design.md`](../superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md). Audit volumes that surface outdated-version units (e.g. U-004 — multiple versions of grpc-js / protobufjs / better-sqlite3 / typescript / vitest across packages) MUST cross-reference that spec instead of opening duplicate fix work. Re-evaluate triggers and 6-month refresh cadence (next: 2026-10-30) are tracked there.
 
 ---
 
