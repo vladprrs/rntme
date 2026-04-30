@@ -10,7 +10,7 @@ COPY demo ./demo
 RUN corepack enable \
   && pnpm install --frozen-lockfile \
   && pnpm -r --filter "@rntme/*" build \
-  && pnpm --filter @rntme/runtime --prod deploy /out
+  && pnpm --filter @rntme/runtime --prod --config.node-linker=hoisted deploy /out
 
 FROM node:20-alpine
 WORKDIR /srv
