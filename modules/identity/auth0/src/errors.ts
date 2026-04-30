@@ -36,6 +36,10 @@ export function failedPrecondition(message: string): IdentityModuleError {
   return new IdentityModuleError(message, GrpcStatus.FAILED_PRECONDITION, 'IDENTITY_PRECONDITION_FAILED');
 }
 
+export function managementNotConfigured(message = 'Auth0 Mgmt API credentials are not configured'): IdentityModuleError {
+  return new IdentityModuleError(message, GrpcStatus.FAILED_PRECONDITION, 'IDENTITY_CONFIG_MGMT_NOT_CONFIGURED');
+}
+
 function statusCodeOf(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined;
   const record = error as Record<string, unknown>;

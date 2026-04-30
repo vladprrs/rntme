@@ -222,7 +222,10 @@ message ResolveIdentityRequest {
   string organization_id = 3;
 }
 
-message IntrospectSessionRequest { string token = 1; }
+message IntrospectSessionRequest {
+  string token = 1;
+  string audience = 2;
+}
 
 message CreateUserRequest {
   rntme.contracts.common.v1.CommandContext context = 1;

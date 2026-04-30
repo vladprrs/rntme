@@ -30,6 +30,7 @@ export function loadServiceMember(input: {
   pdm: ValidatedPdm;
   pdmResolver: PdmResolver;
   allEventTypes: readonly EventTypeSpec[];
+  declaredModules?: ReadonlySet<string>;
 }): Result<ValidatedServiceMember> {
   const eventTypes = eventTypesForService(
     input.service.slug,
@@ -100,7 +101,10 @@ export function loadServiceMember(input: {
       );
     }
 
-    const validated = validateBindings(parsed.value, resolvers.value);
+    const consistencyOpts = input.declaredModules === undefined
+      ? undefined
+      : { declaredModules: input.declaredModules };
+    const validated = validateBindings(parsed.value, resolvers.value, consistencyOpts);
     if (!validated.ok) {
       return serviceErr(
         ERROR_CODES.BLUEPRINT_SERVICE_BINDINGS_INVALID,

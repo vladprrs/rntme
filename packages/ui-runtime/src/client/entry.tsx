@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import type { CompiledManifest, CompiledScreen, CompiledDataEndpoint } from '@rntme/ui';
-import { createStateStore } from '@json-render/core';
 import { matchRoute } from './router.js';
 import { createScreenLoader } from './screen-loader.js';
 import { createRegistry } from './registry.js';
 import { AppShell } from './layout-manager.js';
+import { createRuntimeStateStore } from './state.js';
 
 function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
   if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
@@ -42,16 +42,29 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
   return qs ? `${url}?${qs}` : url;
 }
 
-export async function hydrateApp(opts: { rootSelector: string }): Promise<void> {
-  const container = document.querySelector(opts.rootSelector);
-  if (!container) throw new Error(`hydrateApp: ${opts.rootSelector} not found`);
+export type MountUiRuntimeOptions = {
+  manifestUrl: string;
+  target: HTMLElement;
+  transport?: typeof fetch | undefined;
+  initialState?: Record<string, unknown> | undefined;
+};
 
-  const manifestRes = await fetch('/_manifest.json');
+export type MountUiRuntimeResult = {
+  unmount: () => void;
+};
+
+export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<MountUiRuntimeResult> {
+  const fetchImpl = opts.transport ?? fetch.bind(window);
+
+  const manifestRes = await fetchImpl(opts.manifestUrl);
   const manifest = (await manifestRes.json()) as CompiledManifest;
 
-  const loader = createScreenLoader();
+  const loader = createScreenLoader(fetchImpl);
   const patterns = Object.keys(manifest.routes);
-  const store = createStateStore();
+  const store = createRuntimeStateStore({
+    initialState: opts.initialState,
+    readonlyKeys: ['currentUser'],
+  });
 
   let currentLayout: CompiledScreen | null = null;
   let currentScreen: CompiledScreen | null = null;
@@ -60,7 +73,7 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
   async function fetchEndpoint(statePath: string, endpoint: CompiledDataEndpoint): Promise<void> {
     const url = buildUrl(endpoint.path, endpoint.params, (p) => store.get(p));
     try {
-      const res = await fetch(url, {
+      const res = await fetchImpl(url, {
         method: endpoint.method,
         headers: { 'content-type': 'application/json' },
       });
@@ -80,6 +93,7 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
     getScreen: () => currentScreen,
     store,
     fetchEndpoint,
+    fetchFn: fetchImpl,
   });
 
   // Create action handlers using the defineRegistry handlers() function
@@ -121,7 +135,7 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
     }
   }
 
-  const root = createRoot(container);
+  const root = createRoot(opts.target);
 
   function rerender(): void {
     root.render(
@@ -152,10 +166,24 @@ export async function hydrateApp(opts: { rootSelector: string }): Promise<void> 
   window.addEventListener('popstate', () => {
     void enterRoute(window.location.pathname);
   });
+
+  return {
+    unmount: () => root.unmount(),
+  };
 }
 
-void hydrateApp({ rootSelector: '#root' }).catch((err: unknown) => {
-  console.error('[rntme ui-runtime]', err);
-  const el = document.querySelector('#root');
-  if (el) el.textContent = err instanceof Error ? err.message : String(err);
-});
+export async function hydrateApp(opts: {
+  rootSelector: string;
+  manifestUrl?: string | undefined;
+  transport?: typeof fetch | undefined;
+  initialState?: Record<string, unknown> | undefined;
+}): Promise<MountUiRuntimeResult> {
+  const target = document.querySelector<HTMLElement>(opts.rootSelector);
+  if (!target) throw new Error(`hydrateApp: ${opts.rootSelector} not found`);
+  return mountUiRuntime({
+    manifestUrl: opts.manifestUrl ?? '/_manifest.json',
+    target,
+    transport: opts.transport,
+    initialState: opts.initialState,
+  });
+}

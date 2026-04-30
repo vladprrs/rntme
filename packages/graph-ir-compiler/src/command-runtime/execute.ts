@@ -32,14 +32,29 @@ function preludePositional(
   const optionalSet = rp.optionalParams.length ? new Set(rp.optionalParams) : undefined;
   const defaults = rp.paramDefaults ?? {};
   return rp.paramOrder.map((name) => {
-    if (Object.prototype.hasOwnProperty.call(paramValues, name)) {
-      const v = paramValues[name];
+    const resolved = resolveParamValue(name, paramValues);
+    if (resolved.found) {
+      const v = resolved.value;
       return v === undefined ? null : v;
     }
     if (Object.hasOwn(defaults, name)) return defaults[name];
     if (optionalSet?.has(name)) return null;
     return null;
   });
+}
+
+function resolveParamValue(name: string, paramValues: Record<string, unknown>): { found: boolean; value: unknown } {
+  if (Object.prototype.hasOwnProperty.call(paramValues, name)) {
+    return { found: true, value: paramValues[name] };
+  }
+  if (!name.startsWith('pre.')) return { found: false, value: undefined };
+  let cur: unknown = paramValues.pre;
+  for (const segment of name.slice('pre.'.length).split('.').filter((s) => s.length > 0)) {
+    if (cur === null || cur === undefined) return { found: true, value: null };
+    if (typeof cur !== 'object' || Array.isArray(cur)) return { found: true, value: null };
+    cur = (cur as Record<string, unknown>)[segment];
+  }
+  return { found: true, value: cur ?? null };
 }
 
 function stateFieldForPlan(plan: CompiledCommand['emits'][number]): string {

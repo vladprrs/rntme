@@ -47,6 +47,7 @@ export type Expr =
   | null
   | { $literal: string }
   | { $param: string }
+  | { $pre: string }
   | { [K in ExprOp]?: Expr[] }
   | { between: [Expr, Expr, Expr] }
   | { case: { when: Array<[Expr, Expr]>; else: Expr } }
@@ -66,11 +67,19 @@ export type FieldExpr =
       };
     };
 
+export type PreRef = { $pre: string };
+
+export type FindManySource =
+  | { entity: string | PreRef }
+  | { projection: string | PreRef }
+  | { eventType: string | PreRef }
+  | PreRef;
+
 export type FindManyNode = {
   id: string;
   type: 'findMany';
   config: {
-    source: { entity: string } | { projection: string } | { eventType: string };
+    source: FindManySource;
   };
 };
 
@@ -130,7 +139,7 @@ export type EmitNode = {
   config: {
     aggregate: string;
     aggregateId: Expr;
-    transition: string;
+    transition: string | PreRef;
     payload: Record<string, Expr>;
     actor?: Expr;
   };

@@ -4627,6 +4627,9 @@ export namespace rntme {
 
                     /** IntrospectSessionRequest token */
                     token?: (string|null);
+
+                    /** IntrospectSessionRequest audience */
+                    audience?: (string|null);
                 }
 
                 /** Represents an IntrospectSessionRequest. */
@@ -4640,6 +4643,9 @@ export namespace rntme {
 
                     /** IntrospectSessionRequest token. */
                     public token: string;
+
+                    /** IntrospectSessionRequest audience. */
+                    public audience: string;
 
                     /**
                      * Creates a new IntrospectSessionRequest instance using the specified properties.

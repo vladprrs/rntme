@@ -16,7 +16,21 @@
           { "name": "title", "in": "body", "bindTo": "title", "required": true },
           { "name": "body", "in": "body", "bindTo": "body", "required": true }
         ]
-      }
+      },
+      "pre": [
+        {
+          "kind": "module-rpc",
+          "module": "identity-auth0",
+          "rpc": "IntrospectSession",
+          "input": {
+            "token": "$header.authorization",
+            "audience": "https://notes-demo.rntme.com/api"
+          },
+          "bindAs": "session",
+          "timeoutMs": 5000,
+          "retry": { "attempts": 1, "retryOn": "never" }
+        }
+      ]
     },
     "deleteNote": {
       "kind": "command",
@@ -28,7 +42,19 @@
         "parameters": [
           { "name": "id", "in": "path", "bindTo": "id", "required": true }
         ]
-      }
+      },
+      "pre": [
+        {
+          "kind": "module-rpc",
+          "module": "identity-auth0",
+          "rpc": "IntrospectSession",
+          "input": {
+            "token": "$header.authorization",
+            "audience": "https://notes-demo.rntme.com/api"
+          },
+          "bindAs": "session"
+        }
+      ]
     },
     "listNotes": {
       "kind": "query",
@@ -40,7 +66,19 @@
         "parameters": [
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
-      }
+      },
+      "pre": [
+        {
+          "kind": "module-rpc",
+          "module": "identity-auth0",
+          "rpc": "IntrospectSession",
+          "input": {
+            "token": "$header.authorization",
+            "audience": "https://notes-demo.rntme.com/api"
+          },
+          "bindAs": "session"
+        }
+      ]
     },
     "getNote": {
       "kind": "query",
@@ -52,7 +90,19 @@
         "parameters": [
           { "name": "id", "in": "path", "bindTo": "id", "required": true }
         ]
-      }
+      },
+      "pre": [
+        {
+          "kind": "module-rpc",
+          "module": "identity-auth0",
+          "rpc": "IntrospectSession",
+          "input": {
+            "token": "$header.authorization",
+            "audience": "https://notes-demo.rntme.com/api"
+          },
+          "bindAs": "session"
+        }
+      ]
     }
   }
 }

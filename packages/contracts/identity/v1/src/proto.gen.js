@@ -12243,6 +12243,7 @@ export const rntme = $root.rntme = (() => {
                      * @memberof rntme.contracts.identity.v1
                      * @interface IIntrospectSessionRequest
                      * @property {string|null} [token] IntrospectSessionRequest token
+                     * @property {string|null} [audience] IntrospectSessionRequest audience
                      */
 
                     /**
@@ -12267,6 +12268,14 @@ export const rntme = $root.rntme = (() => {
                      * @instance
                      */
                     IntrospectSessionRequest.prototype.token = "";
+
+                    /**
+                     * IntrospectSessionRequest audience.
+                     * @member {string} audience
+                     * @memberof rntme.contracts.identity.v1.IntrospectSessionRequest
+                     * @instance
+                     */
+                    IntrospectSessionRequest.prototype.audience = "";
 
                     /**
                      * Creates a new IntrospectSessionRequest instance using the specified properties.
@@ -12294,6 +12303,8 @@ export const rntme = $root.rntme = (() => {
                             writer = $Writer.create();
                         if (message.token != null && Object.hasOwnProperty.call(message, "token"))
                             writer.uint32(/* id 1, wireType 2 =*/10).string(message.token);
+                        if (message.audience != null && Object.hasOwnProperty.call(message, "audience"))
+                            writer.uint32(/* id 2, wireType 2 =*/18).string(message.audience);
                         return writer;
                     };
 
@@ -12334,6 +12345,10 @@ export const rntme = $root.rntme = (() => {
                                     message.token = reader.string();
                                     break;
                                 }
+                            case 2: {
+                                    message.audience = reader.string();
+                                    break;
+                                }
                             default:
                                 reader.skipType(tag & 7);
                                 break;
@@ -12372,6 +12387,9 @@ export const rntme = $root.rntme = (() => {
                         if (message.token != null && message.hasOwnProperty("token"))
                             if (!$util.isString(message.token))
                                 return "token: string expected";
+                        if (message.audience != null && message.hasOwnProperty("audience"))
+                            if (!$util.isString(message.audience))
+                                return "audience: string expected";
                         return null;
                     };
 
@@ -12389,6 +12407,8 @@ export const rntme = $root.rntme = (() => {
                         let message = new $root.rntme.contracts.identity.v1.IntrospectSessionRequest();
                         if (object.token != null)
                             message.token = String(object.token);
+                        if (object.audience != null)
+                            message.audience = String(object.audience);
                         return message;
                     };
 
@@ -12405,10 +12425,14 @@ export const rntme = $root.rntme = (() => {
                         if (!options)
                             options = {};
                         let object = {};
-                        if (options.defaults)
+                        if (options.defaults) {
                             object.token = "";
+                            object.audience = "";
+                        }
                         if (message.token != null && message.hasOwnProperty("token"))
                             object.token = message.token;
+                        if (message.audience != null && message.hasOwnProperty("audience"))
+                            object.audience = message.audience;
                         return object;
                     };
 

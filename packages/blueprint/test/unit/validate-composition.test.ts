@@ -15,7 +15,7 @@ const expectErrorCodes = (
 
 const svc = (
   slug: string,
-  kind: 'domain' | 'integration',
+  kind: 'domain' | 'integration' | 'integration-module',
   artifacts: Partial<{
     hasGraphs: boolean;
     hasBindings: boolean;
@@ -187,6 +187,31 @@ describe('validateBlueprintComposition', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('allows auth middleware moduleSlug to reference an integration-module service', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+    });
+
+    expect(r.ok).toBe(true);
+  });
+
   it('rejects unknown middleware providers and bad mount references', () => {
     const r = validateBlueprintComposition({
       project: {
@@ -239,5 +264,114 @@ describe('validateBlueprintComposition', () => {
     if (!r.ok) {
       expect(r.errors).toHaveLength(5);
     }
+  });
+
+  it('rejects auth middleware audience mismatches in mounted service binding pre-steps', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'notes',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes.example/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: {
+          ...svc('app', 'domain', { hasBindings: true }),
+          bindings: {
+            resolved: {
+              listNotes: {
+                entry: {
+                  graph: 'listNotes',
+                  target: { engine: 'sqlite', dialect: 'sqlite' },
+                  pre: [
+                    {
+                      kind: 'module-rpc',
+                      module: 'identity-auth0',
+                      rpc: 'IntrospectSession',
+                      input: { audience: 'https://wrong.example/api' },
+                      bindAs: 'session',
+                    },
+                  ],
+                  http: { method: 'GET', path: '/notes', parameters: [] },
+                },
+              },
+            },
+          } as never,
+        },
+        'identity-auth0': svc('identity-auth0', 'integration'),
+      },
+    });
+
+    expectErrorCodes(r, ['BLUEPRINT_AUTH_AUDIENCE_MISMATCH']);
+  });
+
+  it('rejects graph $pre references not backed by the binding pre[].bindAs names', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'notes',
+        services: ['app'],
+        routes: { http: { '/api': 'app' } },
+      },
+      services: {
+        app: {
+          ...svc('app', 'domain', { hasBindings: true, hasGraphs: true }),
+          graphSpec: {
+            version: '1.0-rc7',
+            shapes: {},
+            graphs: {
+              createNote: {
+                id: 'createNote',
+                signature: {
+                  inputs: {},
+                  output: { type: 'row<CommandResult>', from: 'e' },
+                },
+                nodes: [
+                  {
+                    id: 'e',
+                    type: 'emit',
+                    config: {
+                      aggregate: 'Note',
+                      aggregateId: { $param: 'id' },
+                      transition: 'create',
+                      payload: { ownerSub: { $pre: 'session.user_id' } },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          bindings: {
+            resolved: {
+              createNote: {
+                entry: {
+                  graph: 'createNote',
+                  target: { engine: 'sqlite', dialect: 'sqlite' },
+                  pre: [
+                    {
+                      kind: 'module-rpc',
+                      module: 'identity-auth0',
+                      rpc: 'IntrospectSession',
+                      input: { audience: 'https://notes.example/api' },
+                      bindAs: 'actor',
+                    },
+                  ],
+                  http: { method: 'POST', path: '/notes', parameters: [] },
+                },
+              },
+            },
+          } as never,
+        },
+      },
+    });
+
+    expectErrorCodes(r, ['BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING']);
   });
 });

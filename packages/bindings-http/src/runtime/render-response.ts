@@ -21,8 +21,13 @@ export function renderOkResponse(shape: ResponseShape, scope: RenderScope): Rend
   return renderBranch(shape.onOk, scope, 200);
 }
 
-export function renderErrResponse(shape: ResponseShape, scope: RenderScope, errorCode: string): RenderedResponse {
-  return renderBranch(shape.onErr, scope, errorToHttp(errorCode).status);
+export function renderErrResponse(
+  shape: ResponseShape,
+  scope: RenderScope,
+  errorCode: string,
+  status = errorToHttp(errorCode).status,
+): RenderedResponse {
+  return renderBranch(shape.onErr, scope, status);
 }
 
 function invalidRedirect(message: string): RenderedResponse {

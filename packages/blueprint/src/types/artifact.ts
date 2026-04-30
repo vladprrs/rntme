@@ -4,7 +4,7 @@ import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';
 import type { CompiledArtifact } from '@rntme/ui';
 
-export type ServiceKind = 'domain' | 'integration';
+export type ServiceKind = 'domain' | 'integration' | 'integration-module';
 
 export type ProjectRouteMap = {
   ui?: Readonly<Record<string, string>>;
@@ -12,9 +12,11 @@ export type ProjectRouteMap = {
 };
 
 export type MiddlewareDecl = {
-  kind: string;
+  kind: 'auth' | string;
   provider?: string;
   policy?: string;
+  audience?: string;
+  moduleSlug?: string;
 };
 
 export type MountDecl = {

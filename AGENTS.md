@@ -481,7 +481,16 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
 4. The CLI command surface lives in `@rntme-cli/cli`; verify current incantations against `rntme-cli/packages/cli/README.md`.
 
-### 6.17 Add a category contract package
+### 6.17 Wire Auth0 into a project blueprint
+
+1. Read `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §5-§9 and use `demo/notes-blueprint/` as the worked example.
+2. Add an Identity integration module service, for example `services/identity-auth0/service.json` with `kind: "integration-module"`, and include it in `project.json#services`.
+3. Add `project.json#middleware.auth` with `kind: "auth"`, `provider: "auth0"`, `audience`, and `moduleSlug`, then mount it only on protected HTTP routes.
+4. Add `pre[]` to protected bindings: call `identity-auth0.IntrospectSession`, pass the Authorization header token and the same audience, and bind the canonical `Session` as `session`.
+5. Reference `$pre.session.user_id` in Graph IR for owner writes or guards. Do not use vendor-specific `subject_id`; Auth0 `sub` is carried through canonical `Session.user_id`.
+6. Keep secrets out of blueprints. Auth0 domain/client/audience public browser config is deploy-rendered; Auth0 and Redpanda secret values live in deploy target/Dokploy secret refs.
+
+### 6.18 Add a category contract package
 
 A category contract is a versioned protobuf surface implemented by every vendor module in that category (Identity, Payments, …). To add one:
 
@@ -507,7 +516,7 @@ A category contract is a versioned protobuf surface implemented by every vendor 
 
 Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
 
-### 6.18 Add an Identity vendor module
+### 6.19 Add an Identity vendor module
 
 The first vendor module is shipped by a separate brainstorm + plan
 (spec: TBD). When that lands, the steps will be:
@@ -669,6 +678,12 @@ Known categorical entries to watch for:
   modules: `"delegated"` when vendor SaaS owns the agent loop, `"local"`
   when a module hosts an in-process agent runtime, and `"none"` when the
   module does not implement an Agent surface.
+- **Audience** — OIDC/API identifier that the access token was issued for.
+  Auth blueprints keep `project.json#middleware.auth.audience` equal to
+  every `IntrospectSession` pre-step input audience.
+- **Auth middleware** — Project middleware marker with `kind: "auth"`.
+  The edge does not verify JWTs; runtime bindings call the configured
+  Identity module through `pre[]` and reject inactive sessions.
 - **boundary-event-only streaming** — AI/LLM v1 emits CloudEvents only at
   state transitions (`started`, `finished`, `failed`, `requires_action`),
   never per chunk. Future token streaming belongs in a server-streaming
@@ -739,6 +754,9 @@ Known categorical entries to watch for:
 - **PDM** — Project Domain Model. The project-level entity/field/relation/
   state-machine artifact shared across services.
 - **Pre-step** — A `pre[]` entry on a command binding; either `system` (idempotency-key) or `module-rpc`. Cap of 2 per binding.
+- **`$pre` directive** — Graph IR expression directive for reading values
+  produced by binding `pre[]` steps, for example
+  `{ "$pre": "session.user_id" }`.
 - **Project blueprint** — Folder with `project.json` + project-level PDM + per-service artifacts + modules. Canonical authoring/versioning/deploy unit.
 - **Project PDM** — PDM artifact at the project level, shared across all services in the project.
 - **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.

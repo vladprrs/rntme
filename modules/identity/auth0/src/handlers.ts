@@ -1,6 +1,8 @@
+import type { JWTVerifyGetKey } from 'jose';
 import { ResolutionInputType } from '@rntme/contracts-identity-v1';
 import type { Auth0Adapter } from './adapter.js';
-import { invalidArgument, mapAuth0Error, unimplemented } from './errors.js';
+import { failedPrecondition, invalidArgument, mapAuth0Error, unimplemented } from './errors.js';
+import { introspectJwtToSession, resolveAuth0IssuerFromEnv } from './introspect-session.js';
 import {
   mapAuth0Invitation,
   mapAuth0Membership,
@@ -53,6 +55,20 @@ import type {
 
 export interface HandlerOptions {
   readonly defaultConnection?: string;
+  /** Issuer URL for IntrospectSession JWKS (default: `AUTH0_ISSUER` or `https://AUTH0_DOMAIN/`). */
+  readonly auth0Issuer?: string;
+  /** Test-only local JWKS resolver; production uses `/.well-known/jwks.json` under the issuer. */
+  readonly jwksResolver?: JWTVerifyGetKey;
+}
+
+function resolveAuth0IssuerForIntrospect(options: HandlerOptions): string | null {
+  const explicit = options.auth0Issuer?.trim();
+  if (explicit) {
+    const t = explicit;
+    if (/^https?:\/\//i.test(t)) return t.endsWith('/') ? t : `${t}/`;
+    return `https://${t.replace(/\/$/, '')}/`;
+  }
+  return resolveAuth0IssuerFromEnv();
 }
 
 function baseParams(base?: ListRequest | null): ListParams {
@@ -243,7 +259,14 @@ export function createAuth0IdentityModule(adapter: Auth0Adapter, _options: Handl
 
     GetSession: (_request: GetSessionRequest): Promise<Session> => Promise.reject(unimplemented('GetSession')),
     ListSessions: (_request: ListSessionsRequest): Promise<SessionList> => Promise.reject(unimplemented('ListSessions')),
-    IntrospectSession: (_request: IntrospectSessionRequest): Promise<Session> => Promise.reject(unimplemented('IntrospectSession')),
+    IntrospectSession: (request: IntrospectSessionRequest): Promise<Session> =>
+      invoke(async () => {
+        const issuerUrl = resolveAuth0IssuerForIntrospect(_options);
+        if (!issuerUrl) {
+          throw failedPrecondition('IntrospectSession requires AUTH0_ISSUER or AUTH0_DOMAIN (or auth0Issuer in HandlerOptions)');
+        }
+        return introspectJwtToSession(request, { issuerUrl, jwksResolver: _options.jwksResolver });
+      }),
     RevokeSession: (_request: RevokeSessionRequest): Promise<Session> => Promise.reject(unimplemented('RevokeSession')),
   };
 }

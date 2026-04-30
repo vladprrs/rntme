@@ -6,24 +6,56 @@ import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const buildDir = join(__dirname, '..', 'build');
+const sharedBuildOptions = {
+  bundle: true,
+  format: 'esm' as const,
+  platform: 'browser' as const,
+  target: 'es2022' as const,
+  sourcemap: true,
+  loader: {
+    '.css': 'empty' as const,
+  },
+  external: [],
+};
 
 if (!existsSync(buildDir)) mkdirSync(buildDir, { recursive: true });
 
 // 1. Build JS first — Tailwind needs the bundle to scan for class names
 await build({
-  entryPoints: [join(__dirname, 'client', 'entry.tsx')],
+  entryPoints: [join(__dirname, 'client', 'no-auth-entry.ts')],
   outfile: join(buildDir, 'main.js'),
-  bundle: true,
-  format: 'esm',
-  platform: 'browser',
-  target: 'es2022',
-  sourcemap: true,
-  loader: {
-    '.css': 'empty',
-  },
-  external: [],
+  ...sharedBuildOptions,
 });
 console.log('JS built → build/main.js');
+
+await build({
+  stdin: {
+    contents: `
+      import { mountAuthenticatedApp } from '../../ui-auth-shell/src/index.ts';
+
+      const cfg = window.__RNTME_AUTH_SHELL_CONFIG__;
+      const target = document.getElementById('root');
+      if (!target) throw new Error('RNTME_ROOT_MISSING');
+
+      void mountAuthenticatedApp({
+        ...cfg,
+        runtime: {
+          ...cfg.runtime,
+          target
+        }
+      }).catch((err) => {
+        console.error('[rntme ui-auth-shell]', err);
+        target.textContent = err instanceof Error ? err.message : String(err);
+      });
+    `,
+    resolveDir: __dirname,
+    sourcefile: 'auth-entry.ts',
+    loader: 'ts',
+  },
+  outfile: join(buildDir, 'app.js'),
+  ...sharedBuildOptions,
+});
+console.log('Auth shell JS built → build/app.js');
 
 // 2. Build CSS with Tailwind CSS 4 — scans build/main.js via @source directive
 try {

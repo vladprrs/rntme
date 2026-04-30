@@ -38,12 +38,14 @@ src/
     read-dir.ts                         (internal) Filesystem helpers: readTextFile, readJsonFile, readGraphsDir.
   start/
     start-service.ts                    (entry) `startService(service, config?)`, RuntimeConfig, boot/shutdown orchestration.
+    runtime-env.ts                      (entry) RNTME_AUTH_* and RNTME_EVENT_BUS_* deploy env parsing.
     wire-event-pipeline.ts              (internal) Assembles event-store + relay + projection-consumer; exposes start()/stop().
     build-actor-from-request.ts         (entry) `buildActorFromRequest(manifest)` — header → ActorRef resolver.
   plugins/
     interfaces.ts                       (entry) DbDriver, DbHandle, DbOpenOpts, EventBus, Surface, SurfaceContext.
     better-sqlite-driver.ts             (entry) `BetterSqliteDriver` — default DbDriver (SQLite via better-sqlite3).
     in-memory-bus.ts                    (entry) `InMemoryBus` — default EventBus backed by InMemoryKafkaConsumer.
+    kafka-js-bus.ts                     (entry) KafkaJS-backed EventBus used when RNTME_EVENT_BUS_BROKERS is set.
     http-surface.ts                     (entry) `HttpSurface` — default Surface mounting bindings at /api and UI at /.
     observability.ts                    (entry) createMetrics, mountObservability, Metrics, HealthProbe.
     contract-tests.ts                   (test-only) Vitest contract suites for DbDriver, EventBus, Surface. Not re-exported from index.ts.
@@ -100,6 +102,8 @@ rntme-runtime start ./artifacts
 | `parseManifest` | `(raw: string) => ManifestResult<ParsedManifest>` | Zod-strict JSON parse of the manifest. |
 | `validateManifest` | `(parsed, runtimeVersion) => ManifestResult<ValidatedManifest>` | Semver + persistence-mode validation, fills defaults. |
 | `applyEnvOverrides` | `(v, env) => ManifestResult<ValidatedManifest>` | Merges `RNTME_HTTP_PORT`, `RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PATH`, `RNTME_AUTH_HEADER_NAME`. |
+| `parseRuntimeAuthEnv` | `(env) => RuntimeAuthEnv \| null` | Parses `RNTME_AUTH_*` runtime module wiring and fails fast on incomplete Auth0 config. |
+| `buildKafkaJsClientConfigFromEnv` | `(env, clientId) => KafkaJsClientConfig \| null` | Builds KafkaJS client config from `RNTME_EVENT_BUS_*`, including `ssl: true` and SCRAM SASL for `sasl_ssl`. |
 | `createMetrics` | `(serviceName: string) => Metrics` | Prom-client registry with the `rntme_*` counters and gauges. |
 | `mountObservability` | `(app, { healthPath, metricsPath, probe, metrics }) => void` | Attaches `/health` and `/metrics` routes to a Hono app. |
 | `VERSION` | `string` | Package version marker (`'0.0.0'` in-repo). |
@@ -136,6 +140,28 @@ Contract suites for all three interfaces live in `src/plugins/contract-tests.ts`
 | `onReady` | `undefined` | Callback invoked once the HTTP listener is bound. |
 | `seedMode` | `'strict'` | Passed to `applySeed`. `'strict'` rejects on a non-empty event-store with `SEED_STORE_NOT_EMPTY`. |
 | `skipSeed` | `false` | Test-only escape hatch that bypasses `applySeed` entirely. |
+| `externalAdapterClient` | `manifest.modules[]` + `artifactDir` | Overrides module client wiring for tests/embedding. |
+| `artifactDir` | `undefined` | Base directory for `manifest.modules[].protoPath` and TLS paths. Required for module wiring. |
+| `runtimeEnv` | `process.env` | Test/embed override for deploy env vars such as `RNTME_AUTH_*` and `RNTME_EVENT_BUS_*`. |
+
+### Deploy runtime env
+
+Auth0 pre-step wiring is controlled by `RNTME_AUTH_PROVIDER=auth0`,
+`RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`, and
+`RNTME_AUTH_MODULE_ENDPOINT`. If provider is set but endpoint is missing,
+startup fails with `RUNTIME_BOOT_AUTH_ENDPOINT_MISSING`. When auth env is
+present, `startService` overrides that module's manifest gRPC address with the
+endpoint, builds a `GrpcAdapterClient`, and passes it to `bindings-http`. The
+CLI passes `artifactDir` to `startService` so module proto paths resolve in
+deployed containers.
+
+External Kafka-compatible event bus env is read from `RNTME_EVENT_BUS_BROKERS`,
+`RNTME_EVENT_BUS_PROTOCOL`, `RNTME_EVENT_BUS_MECHANISM`,
+`RNTME_EVENT_BUS_USERNAME`, and `RNTME_EVENT_BUS_PASSWORD`. If brokers are
+absent, runtime uses `InMemoryBus`. For `sasl_ssl`, runtime builds KafkaJS
+config with `ssl: true` and `sasl: { mechanism, username, password }`; missing
+SASL credentials fail boot with `RUNTIME_BOOT_EVENT_BUS_SASL_INCOMPLETE`. Do
+not log SASL username or password values.
 
 ### HTTP ingress limits
 

@@ -3,6 +3,14 @@ export const VERSION = '0.0.0';
 export { loadService } from './load/load-service.js';
 export { startService, type RuntimeConfig } from './start/start-service.js';
 export { buildActorFromRequest } from './start/build-actor-from-request.js';
+export {
+  buildKafkaJsClientConfigFromEnv,
+  parseRuntimeAuthEnv,
+  RuntimeBootError,
+  type KafkaJsClientConfig,
+  type KafkaJsSaslMechanism,
+  type RuntimeAuthEnv,
+} from './start/runtime-env.js';
 
 export type {
   ValidatedService,
@@ -33,6 +41,7 @@ export type {
 } from './plugins/interfaces.js';
 export { BetterSqliteDriver } from './plugins/better-sqlite-driver.js';
 export { InMemoryBus } from './plugins/in-memory-bus.js';
+export { KafkaJsEventBus } from './plugins/kafka-js-bus.js';
 export { HttpSurface } from './plugins/http-surface.js';
 export { GrpcSurface, type GrpcSurfaceOptions } from './plugins/grpc-surface.js';
 export {

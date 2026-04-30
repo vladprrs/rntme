@@ -3,9 +3,27 @@ import { z } from 'zod';
 const nonEmptyString = z.string().min(1);
 const pathKey = z.string().startsWith('/');
 
+const genericMiddleware = z
+  .object({
+    kind: nonEmptyString,
+    provider: nonEmptyString.optional(),
+    policy: nonEmptyString.optional(),
+  })
+  .strict();
+
+const authMiddleware = z
+  .object({
+    kind: z.literal('auth'),
+    provider: nonEmptyString,
+    audience: nonEmptyString,
+    moduleSlug: nonEmptyString,
+    policy: nonEmptyString.optional(),
+  })
+  .strict();
+
 export const ServiceDescriptorSchema = z
   .object({
-    kind: z.enum(['domain', 'integration']),
+    kind: z.enum(['domain', 'integration', 'integration-module']),
   })
   .strict();
 
@@ -23,13 +41,7 @@ export const ProjectBlueprintSchema = z
     middleware: z
       .record(
         nonEmptyString,
-        z
-          .object({
-            kind: nonEmptyString,
-            provider: nonEmptyString.optional(),
-            policy: nonEmptyString.optional(),
-          })
-          .strict(),
+        z.union([authMiddleware, genericMiddleware]),
       )
       .optional(),
     mounts: z

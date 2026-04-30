@@ -36,6 +36,12 @@ console.log(errorCodes.references.includes(code));
 - `pnpm run proto:gen`
 - `pnpm run build` / `test` / `lint` / `typecheck`
 
+## Session Introspection
+
+`IntrospectSession` returns the canonical `Session` entity, not a vendor-specific response wrapper. `IntrospectSessionRequest.audience` is optional for backward compatibility but required by OIDC/JWT vendor modules such as Auth0; those modules validate it against the JWT `aud` claim.
+
+Invalid-token outcomes should not throw for ordinary user-token failures. They return a canonical `Session` with `status != SESSION_STATUS_ACTIVE` and `vendor_raw.deactivation_reason` set to one of `TOKEN_EXPIRED`, `INVALID_SIGNATURE`, `INVALID_ISSUER`, `INVALID_AUDIENCE`, `MALFORMED`, or `UNKNOWN`.
+
 ## Spec
 
 `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`

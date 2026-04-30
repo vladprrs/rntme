@@ -157,14 +157,6 @@ function checkBinding(
   }
 
   if (entry.pre !== undefined && entry.pre.length > 0) {
-    if (!isCommand) {
-      errors.push({
-        layer: 'structural',
-        code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND,
-        message: `binding "${id}": pre[] is only allowed on command bindings`,
-        path: `bindings.${id}.pre`,
-      });
-    }
     if (entry.pre.length > 2) {
       errors.push({
         layer: 'structural',

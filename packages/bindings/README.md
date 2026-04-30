@@ -1,6 +1,6 @@
 # @rntme/bindings
 
-HTTP bindings artifact: parser, four-layer validator, and OpenAPI 3.1 emitter for rntme query and command graphs. Current bindings also cover project-routed refs, command `pre[]` middleware, callback bindings, `inputFrom`, and response shapes used by HTTP/gRPC surfaces.
+HTTP bindings artifact: parser, four-layer validator, and OpenAPI 3.1 emitter for rntme query and command graphs. Current bindings also cover project-routed refs, query/command `pre[]` middleware, callback bindings, `inputFrom`, and response shapes used by HTTP/gRPC surfaces.
 
 ## Role in the system
 
@@ -134,7 +134,7 @@ Both methods return `null` on miss (never throw, never `undefined`). `GraphSigna
 
 ### Error codes
 
-`BINDINGS_PARSE_SCHEMA_VIOLATION`, `BINDINGS_DUPLICATE_BINDING_ID`, `BINDINGS_DUPLICATE_METHOD_PATH`, `BINDINGS_DUPLICATE_PARAM_NAME`, `BINDINGS_DUPLICATE_BIND_TO`, `BINDINGS_PATH_PLACEHOLDER_MISMATCH`, `BINDINGS_BODY_ON_GET`, `BINDINGS_PATH_NOT_REQUIRED`, `BINDINGS_COMMAND_METHOD_NOT_POST`, `BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN`, `BINDINGS_UNRESOLVED_GRAPH`, `BINDINGS_UNKNOWN_BIND_TO`, `BINDINGS_UNRESOLVED_OUTPUT_SHAPE`, `BINDINGS_GRAPH_HAS_ROOT_INPUT`, `BINDINGS_UNSUPPORTED_OUTPUT_TYPE`, `BINDINGS_REQUIRED_MISMATCH`, `BINDINGS_TYPE_LOCATION_INVALID`, `BINDINGS_UNBOUND_INPUT`, `BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH`, `BINDINGS_QUERY_ON_COMMAND_GRAPH`, `BINDINGS_INTERNAL`.
+`BINDINGS_PARSE_SCHEMA_VIOLATION`, `BINDINGS_DUPLICATE_BINDING_ID`, `BINDINGS_DUPLICATE_METHOD_PATH`, `BINDINGS_DUPLICATE_PARAM_NAME`, `BINDINGS_DUPLICATE_BIND_TO`, `BINDINGS_PATH_PLACEHOLDER_MISMATCH`, `BINDINGS_BODY_ON_GET`, `BINDINGS_PATH_NOT_REQUIRED`, `BINDINGS_COMMAND_METHOD_NOT_POST`, `BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN`, `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND`, `BINDINGS_STRUCTURAL_PRE_TOO_MANY`, `BINDINGS_STRUCTURAL_PRE_DUPLICATE_BIND_AS`, `BINDINGS_UNRESOLVED_GRAPH`, `BINDINGS_UNKNOWN_BIND_TO`, `BINDINGS_UNRESOLVED_OUTPUT_SHAPE`, `BINDINGS_GRAPH_HAS_ROOT_INPUT`, `BINDINGS_UNSUPPORTED_OUTPUT_TYPE`, `BINDINGS_REQUIRED_MISMATCH`, `BINDINGS_TYPE_LOCATION_INVALID`, `BINDINGS_UNBOUND_INPUT`, `BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH`, `BINDINGS_QUERY_ON_COMMAND_GRAPH`, `BINDINGS_INTERNAL`.
 
 Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON path into the artifact), optional `hint`. Code strings are part of the public API — append, never reorder, never delete.
 
@@ -153,7 +153,7 @@ Every `BindingsError` carries `layer`, `code`, `message`, optional `path` (JSON 
 - Branded stages enforce ordering at the type level. `StructurallyValid`, `ResolvedBindings`, `ValidatedBindings` are constructed only by the matching validators. `generateOpenApi` accepts `ValidatedBindings` only — casting around the brand bypasses all consistency checks.
 - Passthrough deep-merge replaces arrays in full. `binding.http.openapi` and `parameter.openapi` are merged into the emitted operation/parameter objects; nested objects merge key-wise but `tags`, `parameters`, `required`, etc. are overwritten as a whole. See `deepMerge` and `test/unit/openapi/passthrough.test.ts`.
 - The Zod schema is `.strict()` end-to-end. Unknown keys at any level (artifact, binding entry, http, parameter, openapi defaults) fail with `BINDINGS_PARSE_SCHEMA_VIOLATION`; there is no `additionalProperties: true` escape hatch in the artifact format.
-- `pre[]` is command-only and capped at two steps. Valid kinds are `system` (idempotency-key) and `module-rpc`; `bindAs` names must be unique and referenced modules must exist in the manifest.
+- `pre[]` is allowed on query and command bindings and is capped at two steps. Valid kinds are `system` (idempotency-key) and `module-rpc`; `bindAs` names must be unique and referenced modules must exist in the manifest. More than two steps returns `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
 - Callback bindings use `http.method: "GET"` plus `inputFrom` and redirect responses (`response.onOk` / `response.onErr`). GET commands without a redirect response are rejected.
 - `ResponseShape` and `InputSource` keep callback and pre-fetch runtime behavior in the artifact instead of ad hoc HTTP handlers.
 - `kind` defaults to `'query'` at the parse layer (Zod `.default('query')`). A binding entry with no `kind` field is treated as a query throughout.

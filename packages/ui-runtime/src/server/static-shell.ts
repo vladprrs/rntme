@@ -1,4 +1,26 @@
-export function buildHtmlShell(): string {
+export type BuildHtmlShellOptions = {
+  authShell?: boolean | undefined;
+};
+
+export function buildHtmlShell(opts: BuildHtmlShellOptions = {}): string {
+  const script = opts.authShell
+    ? `<script>
+  fetch('/config.json').then(function (res) {
+    if (!res.ok) throw new Error('config.json HTTP ' + res.status);
+    return res.json();
+  }).then(function (cfg) {
+    window.__RNTME_AUTH_SHELL_CONFIG__ = cfg;
+    var script = document.createElement('script');
+    script.type = 'module';
+    script.src = '/assets/app.js';
+    document.body.appendChild(script);
+  }).catch(function (err) {
+    var root = document.getElementById('root');
+    if (root) root.textContent = err instanceof Error ? err.message : String(err);
+  });
+  </script>`
+    : '<script type="module" src="/assets/main.js"></script>';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +31,7 @@ export function buildHtmlShell(): string {
 </head>
 <body>
   <div id="root"></div>
-  <script type="module" src="/assets/main.js"></script>
+  ${script}
 </body>
 </html>`;
 }

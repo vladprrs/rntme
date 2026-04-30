@@ -5,6 +5,8 @@ import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../runtime-contract.js';
 import { evaluateExpression, type ExpressionScope } from './expression.js';
 import { deriveStepKey } from '../idempotency/derive-keys.js';
 import type { PreStepsResult } from './types.js';
+import { introspectSessionInactiveReason } from './auth-session.js';
+import { sanitizePreStepLogEvent } from './log-sanitize.js';
 
 export type RunPreStepsOpts = {
   scope: Omit<ExpressionScope, 'pre' | 'system'>;
@@ -17,6 +19,9 @@ export type RunPreStepsOpts = {
 export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promise<PreStepsResult> {
   const pre_acc: Record<string, unknown> = {};
   const system_acc: Record<string, unknown> = {};
+  const log = (evt: Record<string, unknown>): void => {
+    opts.logger(sanitizePreStepLogEvent(evt));
+  };
 
   for (let i = 0; i < pre.length; i++) {
     const step = pre[i]!;
@@ -27,7 +32,7 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
       const value = performSystemOp(step.op, step.bytes);
       system_acc[bindName] = value;
       pre_acc[bindName] = value;
-      opts.logger({ pre_step: 'system', index: i, op: step.op, bindAs: bindName });
+      log({ pre_step: 'system', index: i, op: step.op, bindAs: bindName });
       continue;
     }
 
@@ -60,10 +65,11 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
       const body = firstError.code === 'EXTERNAL_VENDOR_DOMAIN'
         ? { code: firstError.domainCode ?? 'EXTERNAL_VENDOR_DOMAIN', message: firstError.message }
         : { code: firstError.code, message: firstError.message };
-      opts.logger({
+      log({
         pre_step: 'module-rpc',
         index: i,
-        module: step.module, rpc: step.rpc,
+        module: step.module,
+        rpc: step.rpc,
         bindAs: bindName,
         result: 'error',
         code: firstError.code,
@@ -72,10 +78,32 @@ export async function runPreSteps(pre: PreStep[], opts: RunPreStepsOpts): Promis
       return { ok: false, httpStatus: firstError.httpStatus, body };
     }
 
+    const inactiveReason = introspectSessionInactiveReason(step.rpc, result.value);
+    if (inactiveReason !== null) {
+      log({
+        pre_step: 'module-rpc',
+        index: i,
+        module: step.module,
+        rpc: step.rpc,
+        bindAs: bindName,
+        result: 'inactive_session',
+        reason: inactiveReason,
+      });
+      return {
+        ok: false,
+        httpStatus: 401,
+        body: { code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required', reason: inactiveReason },
+      };
+    }
+
     pre_acc[bindName] = result.value;
-    opts.logger({
+    log({
       pre_step: 'module-rpc',
-      index: i, module: step.module, rpc: step.rpc, bindAs: bindName, result: 'ok',
+      index: i,
+      module: step.module,
+      rpc: step.rpc,
+      bindAs: bindName,
+      result: 'ok',
     });
   }
 

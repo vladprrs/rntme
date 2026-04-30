@@ -6,6 +6,7 @@
     "id": { "type": "string", "nullable": false, "column": "id" },
     "title": { "type": "string", "nullable": false, "column": "title" },
     "body": { "type": "string", "nullable": false, "column": "body" },
+    "ownerSub": { "type": "string", "nullable": false, "column": "owner_sub" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "createdAt": {
       "type": "datetime",
@@ -23,7 +24,7 @@
       "create": {
         "from": null,
         "to": "active",
-        "affects": ["title", "body"]
+        "affects": ["title", "body", "ownerSub"]
       },
       "delete": {
         "from": "active",

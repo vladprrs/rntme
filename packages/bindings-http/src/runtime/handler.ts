@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import type { Context } from 'hono';
 import type BetterSqlite3 from 'better-sqlite3';
+import type { Logger } from 'pino';
 import { execute } from '@rntme/graph-ir-compiler';
 import type { QueryBindingPlan } from '../startup/compile-plan.js';
 import {
@@ -9,10 +11,14 @@ import {
 } from '../errors.js';
 import { extractQuery, extractPath } from './extract.js';
 import { remapToGraphInputs } from './remap.js';
+import type { ExternalAdapterClient } from '../runtime-contract.js';
+import { runPreSteps } from '../pre/run-pre-steps.js';
 
 export type HandlerDeps = {
   db: BetterSqlite3.Database;
   onError?: (err: unknown, ctx: Context) => void;
+  externalAdapterClient?: ExternalAdapterClient | undefined;
+  logger?: Logger | undefined;
 };
 
 type Handler = (c: Context) => Promise<Response>;
@@ -55,13 +61,57 @@ export function makeHandler(plan: QueryBindingPlan, deps: HandlerDeps): Handler 
       bodyValues = bodyParsed.data as Record<string, unknown>;
     }
 
+    const queryData = queryParsed.data as Record<string, unknown>;
+    const headerValues = Object.fromEntries(c.req.raw.headers.entries());
+
     // 4. Remap http names → graph input names.
     const combined: Record<string, unknown> = {
-      ...(queryParsed.data as Record<string, unknown>),
+      ...queryData,
       ...(pathParsed.data as Record<string, unknown>),
       ...bodyValues,
     };
-    const graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    let graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+
+    if (plan.pre.length > 0) {
+      if (deps.externalAdapterClient === undefined) {
+        return c.json({ code: 'BINDINGS_CONFIG_ADAPTER_MISSING', message: 'pre[] requires externalAdapterClient' }, 500);
+      }
+      const requestScope = {
+        body: bodyValues,
+        form: {},
+        query: queryData,
+        header: headerValues,
+        auth: { userId: null as string | null },
+        config: {},
+      };
+
+      const preResult = await runPreSteps(plan.pre, {
+        scope: requestScope,
+        adapterClient: deps.externalAdapterClient,
+        runId: randomUUID(),
+        correlationId: randomUUID(),
+        logger: (evt) => {
+          deps.logger?.info(evt, 'query-pre-step');
+        },
+      });
+      if (!preResult.ok) {
+        return c.json(preResult.body, preResult.httpStatus as 401 | 400 | 500);
+      }
+
+      const preScope = (preResult.systemFields.pre ?? {}) as Record<string, unknown>;
+      const flattened: Record<string, unknown> = {};
+      for (const step of plan.pre) {
+        const raw = preScope[step.bindName];
+        const value =
+          step.bindPick === null
+            ? raw
+            : raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+              ? (raw as Record<string, unknown>)[step.bindPick]
+              : undefined;
+        flattened[step.bindName] = value;
+      }
+      graphInputs = { ...graphInputs, ...flattened, pre: preScope };
+    }
 
     // 5. Execute.
     let rows: unknown[];

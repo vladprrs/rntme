@@ -18,7 +18,8 @@
         "transition": "create",
         "payload": {
           "title": { "$param": "title" },
-          "body": { "$param": "body" }
+          "body": { "$param": "body" },
+          "ownerSub": { "$pre": "session.user_id" }
         }
       }
     }

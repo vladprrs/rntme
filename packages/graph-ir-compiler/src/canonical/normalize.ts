@@ -13,10 +13,12 @@ function camelCase(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
-function sourceAlias(source: { entity: string } | { projection: string } | { eventType: string }): string {
-  if ('entity' in source) return camelCase(source.entity);
-  if ('projection' in source) return camelCase(source.projection);
-  return camelCase(source.eventType);
+function sourceAlias(source: { entity?: unknown; projection?: unknown; eventType?: unknown; $pre?: unknown }): string {
+  if ('$pre' in source) return 'pre';
+  if ('entity' in source && typeof source.entity === 'string') return camelCase(source.entity);
+  if ('projection' in source && typeof source.projection === 'string') return camelCase(source.projection);
+  if ('eventType' in source && typeof source.eventType === 'string') return camelCase(source.eventType);
+  return 'pre';
 }
 
 export function normalize(
@@ -38,7 +40,7 @@ export function normalize(
             kind: 'findMany',
             id: n.id,
             scope,
-            source: n.config.source,
+            source: n.config.source as { entity: string } | { projection: string } | { eventType: string },
             alias: sourceAlias(n.config.source),
           };
           return node;
@@ -96,7 +98,7 @@ export function normalize(
             scope,
             aggregate: n.config.aggregate,
             aggregateId: n.config.aggregateId as Expr,
-            transition: n.config.transition,
+            transition: n.config.transition as string,
             payload: n.config.payload as Record<string, Expr>,
           };
           if (n.config.actor !== undefined) out.actor = n.config.actor as Expr;

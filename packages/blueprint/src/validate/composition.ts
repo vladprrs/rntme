@@ -5,15 +5,29 @@ import {
   type BlueprintError,
   type Result,
 } from '../types/result.js';
+import { bindAsName } from '@rntme/bindings';
 import type {
   CompositionService,
+  MiddlewareDecl,
   ProjectBlueprint,
   ProjectRoutingContext,
+  ServiceKind,
+  ServiceGraphSpec,
 } from '../types/artifact.js';
+import type { ValidatedBindings } from '@rntme/bindings';
+
+type CompositionServiceInput = CompositionService & {
+  graphSpec?: ServiceGraphSpec | null;
+  bindings?: ValidatedBindings | null;
+};
+
+function isIntegrationKind(kind: ServiceKind): boolean {
+  return kind === 'integration' || kind === 'integration-module';
+}
 
 export function validateBlueprintComposition(input: {
   project: ProjectBlueprint;
-  services: Record<string, CompositionService>;
+  services: Record<string, CompositionServiceInput>;
 }): Result<ProjectRoutingContext> {
   const errors: BlueprintError[] = [];
   const httpBaseByService: Record<string, string> = {};
@@ -81,25 +95,30 @@ export function validateBlueprintComposition(input: {
   }
 
   for (const [name, declaration] of Object.entries(input.project.middleware ?? {})) {
-    if (declaration.provider === undefined) continue;
+    const providerSlug = authModuleSlugForComposition(declaration);
+    if (providerSlug === undefined) continue;
 
-    const provider = input.services[declaration.provider];
+    const provider = input.services[providerSlug];
     if (provider === undefined) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE,
-        message: `middleware "${name}" references unknown provider service "${declaration.provider}"`,
-        path: `project.middleware.${name}.provider`,
+        message: `middleware "${name}" references unknown provider service "${providerSlug}"`,
+        path: declaration.kind === 'auth' && declaration.moduleSlug !== undefined
+          ? `project.middleware.${name}.moduleSlug`
+          : `project.middleware.${name}.provider`,
       });
       continue;
     }
 
-    if (provider.kind !== 'integration') {
+    if (!isIntegrationKind(provider.kind)) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,
-        message: `middleware "${name}" provider "${declaration.provider}" must be an integration service`,
-        path: `project.middleware.${name}.provider`,
+        message: `middleware "${name}" provider "${providerSlug}" must be an integration service`,
+        path: declaration.kind === 'auth' && declaration.moduleSlug !== undefined
+          ? `project.middleware.${name}.moduleSlug`
+          : `project.middleware.${name}.provider`,
       });
     }
   }
@@ -126,8 +145,116 @@ export function validateBlueprintComposition(input: {
     }
   }
 
+  errors.push(...checkMountedAuthAudiences(input.project, input.services));
+  errors.push(...checkGraphPreRefs(input.services));
+
   if (errors.length > 0) return err(errors);
   return ok({ httpBaseByService, uiPathsByService });
+}
+
+function authModuleSlugForComposition(declaration: MiddlewareDecl): string | undefined {
+  if (declaration.kind === 'auth') {
+    return declaration.moduleSlug ?? declaration.provider;
+  }
+  return declaration.provider;
+}
+
+function mountedServicesForMiddleware(project: ProjectBlueprint, middlewareName: string): Set<string> {
+  const services = new Set<string>();
+  for (const mount of project.mounts ?? []) {
+    if (!mount.use.includes(middlewareName)) continue;
+    const service = serviceForMountTarget(project, mount.target);
+    if (service !== undefined) services.add(service);
+  }
+  return services;
+}
+
+function serviceForMountTarget(project: ProjectBlueprint, target: string): string | undefined {
+  if (target.startsWith('http:')) {
+    const route = target.slice('http:'.length);
+    return project.routes?.http?.[route];
+  }
+  if (target.startsWith('ui:')) {
+    const route = target.slice('ui:'.length);
+    return project.routes?.ui?.[route];
+  }
+  return undefined;
+}
+
+function checkMountedAuthAudiences(
+  project: ProjectBlueprint,
+  services: Record<string, CompositionServiceInput>,
+): BlueprintError[] {
+  const errors: BlueprintError[] = [];
+  for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
+    if (declaration.kind !== 'auth' || declaration.audience === undefined || declaration.moduleSlug === undefined) continue;
+    for (const serviceSlug of mountedServicesForMiddleware(project, middlewareName)) {
+      const bindings = services[serviceSlug]?.bindings;
+      if (bindings === undefined || bindings === null) continue;
+      for (const [bindingId, resolved] of Object.entries(bindings.resolved)) {
+        for (const [idx, step] of (resolved.entry.pre ?? []).entries()) {
+          if (step.kind !== 'module-rpc') continue;
+          if (step.module !== declaration.moduleSlug || step.rpc !== 'IntrospectSession') continue;
+          const input = step.input as Record<string, unknown>;
+          const audience = typeof input.audience === 'string' ? input.audience : undefined;
+          if (audience !== declaration.audience) {
+            errors.push({
+              layer: 'composition',
+              code: ERROR_CODES.BLUEPRINT_AUTH_AUDIENCE_MISMATCH,
+              message: `binding "${bindingId}" IntrospectSession pre[${idx}] audience must match auth middleware "${middlewareName}"`,
+              path: `services.${serviceSlug}.bindings.${bindingId}.pre[${idx}].input.audience`,
+            });
+          }
+        }
+      }
+    }
+  }
+  return errors;
+}
+
+function checkGraphPreRefs(services: Record<string, CompositionServiceInput>): BlueprintError[] {
+  const errors: BlueprintError[] = [];
+  for (const [serviceSlug, service] of Object.entries(services)) {
+    if (service.graphSpec === undefined || service.graphSpec === null) continue;
+    if (service.bindings === undefined || service.bindings === null) continue;
+    for (const [bindingId, resolved] of Object.entries(service.bindings.resolved)) {
+      const graph = service.graphSpec.graphs[resolved.entry.graph];
+      if (graph === undefined) continue;
+      const refs = collectPreRefHeads(graph);
+      if (refs.size === 0) continue;
+      const allowed = new Set((resolved.entry.pre ?? []).map((step) => bindAsName(step.bindAs)));
+      for (const ref of refs) {
+        if (allowed.has(ref)) continue;
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING,
+          message: `graph "${graph.id}" references $pre.${ref}, but binding "${bindingId}" has no pre[].bindAs "${ref}"`,
+          path: `services.${serviceSlug}.graphs.${graph.id}`,
+        });
+      }
+    }
+  }
+  return errors;
+}
+
+function collectPreRefHeads(value: unknown): Set<string> {
+  const out = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (node === null || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    if (typeof obj.$pre === 'string') {
+      const head = obj.$pre.split('.')[0];
+      if (head) out.add(head);
+      return;
+    }
+    for (const child of Object.values(obj)) walk(child);
+  };
+  walk(value);
+  return out;
 }
 
 function collectRouteTargets(project: ProjectBlueprint): Set<string> {

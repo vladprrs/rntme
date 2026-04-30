@@ -44,6 +44,25 @@ Project-first blueprint parser/validator for rntme.
 - `src/compose/load-composed-blueprint.ts`
 - `test/fixtures/product-catalog-project/`
 
+## Auth and graph pre-step validation
+
+`project.json` supports typed auth middleware:
+
+```json
+{
+  "middleware": {
+    "auth": {
+      "kind": "auth",
+      "provider": "auth0",
+      "audience": "https://notes-demo.rntme.com/api",
+      "moduleSlug": "identity-auth0"
+    }
+  }
+}
+```
+
+When auth middleware is mounted on a service route, every `IntrospectSession` binding pre-step for that service must use the same `input.audience`; mismatches return `BLUEPRINT_AUTH_AUDIENCE_MISMATCH`. Blueprint composition also checks graph `$pre` references against each binding's `pre[].bindAs` names and returns `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING` for undefined refs.
+
 ## Specs
 
 - [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.

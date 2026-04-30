@@ -41,6 +41,7 @@ src/
       map-reduce.ts                         (internal) checkMapReduceCoverage — STRUCT_MAP_SHAPE_COVERAGE / STRUCT_REDUCE_SHAPE_COVERAGE; every shape field is produced exactly once.
       tier1-nodes.ts                        (internal) checkTier1Nodes — TIER1_UNSUPPORTED_NODE for distinct, lookupOne, etc.
       tier1-expr.ts                         (internal) checkTier1Expr — TIER1_UNSUPPORTED_EXPR for $list, exists, lookup-expr, named predicate refs.
+      pre-ref-positions.ts                  (internal) checkPreRefPositions — rejects `$pre` in aggregateId, transition, and source positions.
       command-shape.ts                      (internal) checkCommandShape — CMD_OUTPUT_SHAPE_INVALID for emit-bearing graphs whose output type is not 'CommandResult'.
       role.ts                               (internal) checkGraphRole — structural pre-check for GRAPH_MIXED_ROLE (rowset output + emit node combination).
     semantic/
@@ -67,7 +68,7 @@ src/
     sqlite/
       lower.ts                              (internal) lowerToSqlite(rel, ctx) — folds RelOp to SqlSelect AST and accumulates paramOrder; owns wrapPredicateOptional, makeColumnOf (dot-nav join synthesis), measureToAggSql.
       ast.ts                                (internal) SqlExpr / SqlSelect / SqlJoin / SqlOrderKey types — typed SQLite AST.
-      expr.ts                               (internal) lowerExpr(e, ctx) — Expr → SqlExpr; appends to ctx.paramOrder on each $param visit (positional binding).
+      expr.ts                               (internal) lowerExpr(e, ctx) — Expr → SqlExpr; appends to ctx.paramOrder on each $param or $pre visit (positional binding).
       joins.ts                              (internal) expandChain / chainToSqlJoins — walks QSM.relations, returns JoinChain with path-qualified aliases (parts.slice(1, i+1).join('_')).
       emit.ts                               (internal) emitSql(ast) — string serialiser; uses double-quoted identifiers, '?' placeholders, NULLS FIRST/LAST, LIKE.
 
@@ -77,7 +78,7 @@ src/
   emit/
     plan.ts                                 (internal) buildEmitPlans(graph, pdm) — for each emit node, joins canonical config with PDM's derived event-type table to produce EmitPlan[].
     event-type.ts                           (entry — deriveEventTypeName) deriveEventTypeName(aggregate, transition) = PascalCase(aggregate)+PascalCase(transition); lookupEventTypeSpec(pdm, agg, t).
-    payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly: stateField ← plan.toState; field paths are rejected at runtime (params/literals only).
+    payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly: stateField ← plan.toState; field paths are rejected at runtime (params/literals/$pre only).
 
   command-runtime/
     compile.ts                              (entry — compileCommand) compileCommand(spec, pdm, qsm) — full structural+semantic compile, role check, optional read-prelude (lowered as a query), CMD_MULTI_AGGREGATE_NOT_ALLOWED.
@@ -189,6 +190,10 @@ const result = executeCommand(compiled.value, { issueId: 1, title: 'bug', priori
 
 `runCommand(spec, pdm, qsm, params, ctx)` and `run(spec, pdm, qsm, params, db)` collapse compile+execute into a single call (and throw on compile failure).
 
+### `$pre` directive
+
+Graph expressions may reference pre-step results with `{ "$pre": "session.user_id" }`. Query filters lower these as positional SQL parameters named `pre.session.user_id`; `execute(...)` resolves them from `params.pre.session.user_id`. Command emit payloads resolve the same directive at runtime from the command input's `pre` object. `$pre` is allowed in filter expressions and emit payload fields, and is rejected in `emit.aggregateId`, `emit.transition`, and `findMany.config.source` with `GRAPH_IR_PRE_REF_NOT_ALLOWED_IN_*` errors.
+
 ## API
 
 ### Top-level functions
@@ -289,7 +294,7 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Tier 1 MVP compiles exactly one graph per call.** `compile` and `compileCommand` reject specs whose `graphs` map size ≠ 1 with `STRUCT_DUPLICATE_GRAPH_ID` (per `index.ts` and `command-runtime/compile.ts`).
 - **`predicate_optional` is only legal in `filter` predicates.** `checkParamContext` (`validate/semantic/param-context.ts`) emits `SEM_PARAM_CONTEXT` if a `predicate_optional` param appears in `map`, `reduce`, `sort`, `limit`, or `emit`.
 - **Role inference promotes `query` → `command` when any `emit` exists.** `inferRole` (`role/infer.ts`) returns `'command'` only if there is no root input and ≥1 emit and the output is non-rowset; rowset+emit yields `GRAPH_MIXED_ROLE`. The structural pre-check `validate/structural/role.ts` blocks the impossible combinations early.
-- **Emit payload runtime allows `$param` and `$literal` only.** `evalExprAtRuntime` (`emit/payload.ts`) throws on field-path strings and on any other expression; payload field expressions must be assembled before reaching runtime.
+- **Emit payload runtime allows `$param`, `$literal`, and `$pre` only.** `evalExprAtRuntime` (`emit/payload.ts`) throws on field-path strings and on any other expression; payload field expressions must be assembled before reaching runtime.
 - **Creation transitions append at `version=0` (expected version of an empty stream).** `replayAggregateState` returns `{ state: null, version: 0 }` for an empty stream; `executeCommand` passes `expectedVersion: 0` so the first append succeeds with `lastVersion = 1`. `checkTransitionLegal` rejects creation against an existing aggregate with `COMMAND_ILLEGAL_TRANSITION`.
 - **State field for the after-payload is the first `affects` field outside the explicit payload.** `stateFieldFromPlan` in `emit/payload.ts` (and `stateFieldForPlan` in `command-runtime/execute.ts`) — typically `status`. Authors who include `status` in `payload` change which field carries `plan.toState`.
 - **`COMMAND_CONCURRENCY_CONFLICT` is the only event-store error mapped.** `executeCommand` catches `ConcurrencyConflict` from `appendEvents` and wraps it as `CommandExecutionError`; other store errors propagate unchanged.

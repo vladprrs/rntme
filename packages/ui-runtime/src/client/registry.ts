@@ -11,6 +11,7 @@ export type RuntimeBridge = {
   getScreen: () => CompiledScreen | null;
   store: StateStore;
   fetchEndpoint: (statePath: string, endpoint: CompiledDataEndpoint) => Promise<void>;
+  fetchFn: typeof fetch;
 };
 
 const catalog = defineCatalog(schema, {
@@ -85,7 +86,7 @@ export function createRegistry(bridge: RuntimeBridge) {
         });
 
         try {
-          const res = await fetch(url, {
+          const res = await bridge.fetchFn(url, {
             method: action.method,
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(cmdParams),
