@@ -138,9 +138,9 @@ export type ComposedBlueprint = {
   services: Record<string, ValidatedServiceMember>;
   routing: ProjectRoutingContext;
   bindingRegistry: Record<string, RoutedBindingEntry>;
-  catalogManifest: CatalogManifest | null;
+  catalogManifest?: CatalogManifest | null;
   /** Serialized JSON object: module package name → public config slice (spec §10.4). */
-  publicConfigJson: string | null;
+  publicConfigJson?: string | null;
   /** Deterministic virtual entry TypeScript source (spec §10.2). */
-  virtualEntrySource: string | null;
+  virtualEntrySource?: string | null;
 };
