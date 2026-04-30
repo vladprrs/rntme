@@ -1,3 +1,5 @@
+import type { ParamValue } from './source.js';
+
 /** _manifest.json — loaded by runtime at startup */
 export type CompiledManifest = {
   version: '2.0';
@@ -41,6 +43,16 @@ export type CompiledDataEndpoint = {
   refetchOn?: Array<'mount' | 'params'>;
 };
 
+export type CompiledModuleAction = {
+  kind: 'module-action';
+  target?: string;
+  module?: string;
+  name: string;
+  params?: Record<string, ParamValue>;
+  onSuccess?: { showAlert?: string; navigateTo?: string };
+  onError?: { showAlert?: string };
+};
+
 export type CompiledAction =
   | { kind: 'navigation'; navigateTo: string; paramsFromState?: Record<string, string> }
   | {
@@ -51,7 +63,8 @@ export type CompiledAction =
       onSuccess?: { navigateTo?: string; refetchData?: string[]; clearFormState?: string[] };
       onError?: { showAlert?: boolean };
     }
-  | { kind: 'refetch'; targets: string[] };
+  | { kind: 'refetch'; targets: string[] }
+  | CompiledModuleAction;
 
 /** Full compiled artifact — all files in one structure (used by compiler internally) */
 export type CompiledArtifact = {

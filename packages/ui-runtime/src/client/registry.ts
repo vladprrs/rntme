@@ -70,7 +70,12 @@ export function createRegistry(bridge: RuntimeBridge) {
           return;
         }
 
-        // Command action
+        if (action.kind === 'module-action') {
+          return;
+        }
+
+        if (action.kind !== 'command') return;
+
         const cmdParams: Record<string, unknown> = {};
         if (action.paramsFromState) {
           for (const [param, statePath] of Object.entries(action.paramsFromState)) {

@@ -11,8 +11,10 @@ describe('compile (integration)', () => {
       httpMap: {},
       resolvers: {
         resolveBinding: () => undefined,
-        resolveComponent: () => ({ childrenModel: 'list' }),
+        resolveComponent: () => ({ childrenModel: 'list', props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
     expect(result.ok).toBe(true);
@@ -35,8 +37,10 @@ describe('compile (integration)', () => {
       httpMap: {},
       resolvers: {
         resolveBinding: () => undefined,
-        resolveComponent: () => ({ childrenModel: 'list' }),
+        resolveComponent: () => ({ childrenModel: 'list', props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
     expect(result.ok).toBe(true);
@@ -55,8 +59,10 @@ describe('compile (integration)', () => {
       httpMap: {},
       resolvers: {
         resolveBinding: () => undefined,
-        resolveComponent: () => ({ childrenModel: 'list' }),
+        resolveComponent: () => ({ childrenModel: 'list', props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
     expect(result.ok).toBe(false);

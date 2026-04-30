@@ -48,12 +48,49 @@ can also carry the optional runtime-adjacent fields from spec §12:
 }
 ```
 
-`category`, `vendor`, `contract`, and `capabilities.rpcs/events` are required.
-`contact`, `grpcServiceName`, `webhookPath`, `secrets`, `description`, and
-`limitations` are optional because current vendor packages publish capability
-metadata before all runtime surface fields are wired. `secrets[].scope` is one
-of `tenant`, `project`, or `service`. Unknown keys are rejected so module boot
-fails fast when the contract drifts.
+Backend modules: `category`, `vendor`, `contract`, and non-empty
+`capabilities.rpcs` / `capabilities.events` are typical. UI-only modules may
+omit `category`/`vendor`/`contract` and declare only `client`. At least one of
+non-empty `capabilities` or non-empty `client` is required
+(`MODULE_MANIFEST_EMPTY` otherwise). `contact`, `grpcServiceName`, `webhookPath`,
+`secrets`, `description`, `client`, and `limitations` are optional. Canonical
+modules that set `category` must also set `contract` and `vendor`.
+`secrets[].scope` is one of `tenant`, `project`, or `service`. Unknown keys are
+rejected so module boot fails fast when the contract drifts.
+
+## Client (UI) contributions
+
+A module may contribute UI in three orthogonal ways. All three are declared inside an optional `client` block in `module.json`. Backend-only modules omit the block entirely; UI-only modules omit `capabilities`. At least one of `capabilities` or `client` must be non-empty (`MODULE_MANIFEST_EMPTY` otherwise).
+
+```jsonc
+{
+  "name": "@rntme/presentation-md-mermaid",
+  "version": "0.0.0",
+  "client": {
+    "entry": "./client/index.ts",
+    "boot": false,
+    "bootTimeoutMs": 10000,
+    "config": {
+      "schema": { "key": { "type": "string", "required": true } }
+    },
+    "components": [
+      { "type": "Markdown", "props": { "source": { "type": "string", "required": true } } }
+    ],
+    "operations": [
+      { "name": "track", "params": { "event": { "type": "string", "required": true } } },
+      { "name": "toggleBold", "appliesTo": ["RichTextEditor"], "params": {} }
+    ]
+  }
+}
+```
+
+- `client.components[]` — element types the module registers in the json-render catalog. Each `type` is the named export from `client.entry`.
+- `client.operations[]` — named operations addressable from screen actions via `kind: "module-action"`. With `appliesTo` they are component-bound (registered by the component on mount via `useOperationRegistry`); without it they are module-level (registered in `boot(ctx)` via `ctx.registerOperation`).
+- `client.boot` — when `true`, `client.entry` exports `boot(ctx: ModuleBootContext)`. Runs once at SPA start before mount.
+- `client.config.schema` — public config the module needs (served via `/config.json`). Public means the value lands in the SPA bundle's runtime fetch; never put secrets here.
+- `client.bootTimeoutMs` — per-boot timeout (default 10000). Boot rejection or timeout fails SPA bootstrap.
+
+See `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` for the full model and `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/` for reference implementations.
 
 ## What is not here (yet)
 

@@ -1,31 +1,38 @@
 import { ok, err, type Result, type UiError } from '../types/result.js';
 import type { ExpandedSource } from '../expand/expand.js';
-import { validateStructural } from './structural.js';
-import { validateReferences } from './references.js';
+import { validateStructural, validateSpecSemantics } from './structural.js';
+import {
+  validateReferences,
+  validateModuleActions,
+  validateComponentTypesAndProps,
+} from './references.js';
+import type { ValidateResolvers } from './resolvers-type.js';
 
-export type ValidateResolvers = {
-  resolveBinding: (id: string) => unknown | undefined;
-  resolveComponent: (type: string) => { childrenModel: 'none' | 'list' } | undefined;
-  resolveRoute: (path: string) => boolean;
-};
+export type { ValidateResolvers, OperationDescriptor, ComponentInfo } from './resolvers-type.js';
 
 export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers): Result<void> {
   const errors: UiError[] = [];
 
-  // Structural validation — layouts
   for (const [name, layout] of Object.entries(expanded.layouts)) {
     errors.push(...validateStructural(layout.spec, `layout:${name}`, true));
   }
 
-  // Structural validation — screens
   for (const [name, screen] of Object.entries(expanded.screens)) {
     errors.push(...validateStructural(screen.spec, `screen:${name}`, false));
   }
 
-  // Stop early if structural errors
   if (errors.length > 0) return err(...errors);
 
-  // Route resolver that knows about manifest routes
+  for (const [name, layout] of Object.entries(expanded.layouts)) {
+    errors.push(...validateSpecSemantics(layout.spec, layout.screen, `layout:${name}`));
+  }
+
+  for (const [name, screen] of Object.entries(expanded.screens)) {
+    errors.push(...validateSpecSemantics(screen.spec, screen.screen, `screen:${name}`));
+  }
+
+  if (errors.length > 0) return err(...errors);
+
   const routePatterns = Object.keys(expanded.manifest.routes);
   const resolveRoute = (path: string): boolean => {
     return routePatterns.some((pattern) => {
@@ -42,19 +49,22 @@ export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers)
     resolveRoute: (path) => resolvers.resolveRoute(path) || resolveRoute(path),
   };
 
-  // Reference validation — screens
   for (const [name, screen] of Object.entries(expanded.screens)) {
     errors.push(
       ...validateReferences(screen.spec, screen.screen, `screen:${name}`, mergedResolvers),
     );
   }
 
-  // Reference validation — layouts
   for (const [name, layout] of Object.entries(expanded.layouts)) {
     errors.push(
       ...validateReferences(layout.spec, layout.screen, `layout:${name}`, mergedResolvers),
     );
   }
+
+  if (errors.length > 0) return err(...errors);
+
+  validateModuleActions(expanded, mergedResolvers, errors);
+  validateComponentTypesAndProps(expanded, mergedResolvers, errors);
 
   if (errors.length > 0) return err(...errors);
   return ok(undefined);

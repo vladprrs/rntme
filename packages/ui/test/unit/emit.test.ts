@@ -67,8 +67,10 @@ describe('emit', () => {
       },
       resolvers: {
         resolveBinding: () => ({}),
-        resolveComponent: () => ({ childrenModel: 'list' }),
+        resolveComponent: () => ({ childrenModel: 'list', props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
     expect(result.ok).toBe(true);
@@ -79,5 +81,46 @@ describe('emit', () => {
     const doSearch = home.actions!['doSearch'] as { kind: string; targets: string[] };
     expect(doSearch.kind).toBe('refetch');
     expect(doSearch.targets).toEqual(['/data/results']);
+  });
+});
+
+describe('emit — module-action canonicalization', () => {
+  it('replaces category with concrete module via resolveCategoryToModule', () => {
+    const r = resolve(join(fixtures, 'minimal-app'));
+    if (!r.ok) throw new Error('resolve failed');
+    const e = expand(r.value);
+    if (!e.ok) throw new Error('expand failed');
+    e.value.screens['home']!.screen.actions = {
+      t: { kind: 'module-action', category: 'analytics', name: 'track', params: { event: 'x' } },
+    };
+    const result = emit(e.value, mockHttpMap, {
+      resolveCategoryToModule: (cat) => (cat === 'analytics' ? '@rntme/analytics-google-analytics' : undefined),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const compiledAction = result.value.screens['home']!.actions!.t as {
+      kind: string;
+      module?: string;
+      category?: string;
+    };
+    expect(compiledAction.kind).toBe('module-action');
+    expect(compiledAction.module).toBe('@rntme/analytics-google-analytics');
+    expect(compiledAction.category).toBeUndefined();
+  });
+
+  it('passes through component-bound module-action verbatim', () => {
+    const r = resolve(join(fixtures, 'minimal-app'));
+    if (!r.ok) throw new Error('resolve failed');
+    const e = expand(r.value);
+    if (!e.ok) throw new Error('expand failed');
+    e.value.screens['home']!.screen.actions = {
+      b: { kind: 'module-action', target: 'editor', name: 'toggleBold' },
+    };
+    const result = emit(e.value, mockHttpMap, { resolveCategoryToModule: () => undefined });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const act = result.value.screens['home']!.actions!.b as { kind: string; target?: string; module?: string };
+    expect(act.target).toBe('editor');
+    expect(act.module).toBeUndefined();
   });
 });

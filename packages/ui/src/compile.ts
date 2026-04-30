@@ -22,5 +22,7 @@ export function compile(opts: CompileOptions): Result<CompiledArtifact> {
   const valid = validate(expanded.value, opts.resolvers);
   if (!valid.ok) return err(...valid.errors);
 
-  return emit(expanded.value, opts.httpMap);
+  return emit(expanded.value, opts.httpMap, {
+    resolveCategoryToModule: opts.resolvers.resolveCategoryToModule,
+  });
 }

@@ -296,8 +296,10 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       httpMap,
       resolvers: {
         resolveBinding: (id) => validatedBindings.resolved[id] ?? undefined,
-        resolveComponent: () => ({ childrenModel: 'list' as const }),
+        resolveComponent: () => ({ childrenModel: 'list' as const, props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
     if (!uiResult.ok) {
