@@ -1,6 +1,6 @@
 # UI Module Contributions — design
 
-**Status:** brainstorming approved, awaiting user review of this spec
+**Status:** challenged after PR #89 foundation merge; RNT-388 follow-up scope is blueprint/modules/docs/smoke only
 **Author:** brainstorm 2026-04-29
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — backend module pattern (gRPC RPCs, `ExternalAdapterClient`, `pre[]`). This spec adds a parallel UI-contribution surface to the same module unit, without changing backend semantics.
@@ -18,6 +18,31 @@
 - First UI-only modules — `modules/presentation/md-mermaid/` (new), `modules/presentation/tiptap/` (new)
 - First mixed module — `modules/analytics/google-analytics/` (new) demonstrates `boot` + module-level operations
 - Implementation plan — `docs/superpowers/plans/2026-04-29-ui-module-contributions.md` (writing-plans next)
+
+## RNT-388 scope correction (2026-04-30)
+
+PR #89 merged the foundation slice into `main` at `853a62d2b11b60a9199f98d29fbe0182437eb251`. The merged foundation already includes:
+
+- `packages/module-skeleton`: optional capabilities, UI `client` schema, UI-only/mixed/backend-only manifest tests.
+- `packages/ui`: `module-action`, visible operators, operation/category resolver interfaces, and json-render binding object/array preservation.
+- `packages/ui-runtime`: operation registry, module context, hooks, lifecycle bus, transport chain, visibility evaluator, and reserved `props.__rntmeElementId` injection.
+
+The remaining RNT-388 implementation scope is therefore:
+
+1. `@rntme/blueprint` parses `project.json#modules` object form: `{ key: { package, publicConfig } }`.
+2. Blueprint discovers module packages, parses `module.json`, validates category/key mapping and public config, builds a catalog manifest, and feeds that catalog into `@rntme/ui` compile resolvers.
+3. Blueprint emits or exposes virtual UI entry source and public config/catalog sidecars. Existing `loadComposedBlueprint(dir)` is currently in-memory, so this slice should expose generated strings/objects on the composed result and defer deploy-file write locations to a later deploy/CLI plan.
+4. First module packages are added: `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/`.
+5. `packages/contracts/analytics/v1/` is added for canonical analytics operation names and param shapes.
+6. Docs and a local blueprint integration smoke fixture prove compose -> validate -> catalog manifest -> virtual entry/public config behavior. No live Dokploy evidence is required for this slice.
+
+Inherited decisions remain unchanged:
+
+- Preserve json-render binding object and binding-array `on` shape; do not introduce action-id string arrays.
+- Component-bound operations depend on `props.__rntmeElementId` injected by `ui-runtime`.
+- If `module.json` declares `category`, the `project.json#modules` key must equal that category; category-less module keys are local aliases, not category-addressable names.
+- Duplicate component types across modules are invalid. Duplicate operation names across different modules are allowed because actions are addressed by `target`, `module`, or `category`; only duplicate operation names inside one module manifest are invalid.
+- `publicConfig` is the only module config in this slice. Secrets/env/deploy adapter propagation is out of scope.
 
 ## 1. Goal, scope, non-goals
 

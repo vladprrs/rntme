@@ -10,27 +10,337 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`. Read §1–§15 before starting.
 
-**Phase plan:** Nine phases. Phase 1 (manifest) is the foundation. Phases 2–4 are independent (UI compiler / UI runtime / blueprint compose) and can proceed in parallel after Phase 1. Phases 5–7 (three modules) depend on 1–4 being complete. Phase 8 (docs) interleaves with all. Phase 9 closes with integration smoke.
+**Phase plan:** PR #89 (`853a62d2b11b60a9199f98d29fbe0182437eb251`) already merged the foundation slice from the original nine-phase plan: module manifest schema, `@rntme/ui` `module-action` validation/emit, and `@rntme/ui-runtime` registry/hooks/visibility/transport/lifecycle scaffolding. RNT-388 is the follow-up slice only: `@rntme/blueprint` module parsing/discovery/catalog/virtual-entry integration, first UI module packages, analytics contract, docs, and blueprint integration smoke. Historical Phase 1-3 task bodies below are retained for traceability but are **not** part of the RNT-388 DEV scope.
 
 ```
-Phase 1 (manifest schema)
+DONE: Phase 1 (manifest schema, PR #89)
      │
-     ├── Phase 2 (UI compiler)
-     ├── Phase 3 (UI runtime)
-     └── Phase 4 (blueprint compose)
+     ├── DONE: Phase 2 (UI compiler, PR #89)
+     ├── DONE: Phase 3 (UI runtime foundation, PR #89)
+     └── RNT-388: Phase 4 (blueprint compose)
               │
-              ├── Phase 5 (MD/Mermaid module)
-              ├── Phase 6 (tiptap module)
-              └── Phase 7 (GA + analytics/v1)
+              ├── RNT-388: Phase 5 (MD/Mermaid module)
+              ├── RNT-388: Phase 6 (tiptap module)
+              └── RNT-388: Phase 7 (GA + analytics/v1)
                         │
                         ▼
-                   Phase 8 (docs touch — interleaves throughout)
+                   RNT-388: Phase 8 (docs touch — interleaves throughout)
                         │
                         ▼
-                   Phase 9 (integration smoke)
+                   RNT-388: Phase 9 (integration smoke)
 ```
 
 ---
+
+## RNT-388 PLAN challenge result (2026-04-30)
+
+**Verdict:** the old plan is not directly implementation-ready because it still presents PR #89 foundation work as open work. DEV must implement the RNT-388 follow-up below and skip historical Phase 1-3 task bodies unless a regression is discovered. This is a plan correction, not a product-code implementation.
+
+**Current baseline on `main`:**
+
+| Area | Status on `853a62d` | RNT-388 action |
+|---|---|---|
+| `packages/module-skeleton/src/manifest-shape.ts` | `client` schema, optional capabilities, UI-only/mixed/backend-only tests already merged | Do not rewrite; add tests only if module package manifests expose a bug |
+| `packages/ui/src/*` | `module-action`, visible operators, binding-array preservation, operation/category resolvers already merged | Use catalog-backed resolvers from blueprint; do not change `on` shape |
+| `packages/ui-runtime/src/client/*` | operation registry, hooks, lifecycle bus, transport chain, visibility, element-id injection already merged | Reuse; only touch if module packages reveal missing exports or boot wiring |
+| `packages/blueprint/src/parse/schema.ts` | no `project.json#modules` field | Implement |
+| `packages/blueprint/src/compose/compile-service-ui.ts` | placeholder component/operation/category resolvers | Replace with catalog-backed resolvers |
+| `packages/blueprint/src/compose/*` | no module discovery, catalog, public config, or virtual entry emission | Implement |
+| `modules/presentation/*`, `modules/analytics/google-analytics`, `packages/contracts/analytics/v1` | not present | Create |
+
+**External API verification:** Context7 was attempted first as required, but the workspace quota returned "Monthly quota exceeded." Fallbacks used official/project docs:
+
+- Tiptap React install docs (`https://tiptap.dev/docs/editor/getting-started/install/react`) require `@tiptap/react`, `@tiptap/pm`, and `@tiptap/starter-kit`; Image extension docs (`https://tiptap.dev/docs/editor/extensions/nodes/image`) require `@tiptap/extension-image` and use `editor.commands.setImage(...)`.
+- Mermaid usage/API docs (`https://mermaid.js.org/config/usage`) require `mermaid.initialize({ startOnLoad: false })` before programmatic render/run and mark `mermaid.init` deprecated.
+- React Markdown project docs/npm README (`https://www.npmjs.com/package/react-markdown`) describe the safe React rendering path without `dangerouslySetInnerHTML`.
+- Google GA4 pageview docs (`https://developers.google.com/analytics/devguides/collection/ga4/views`) require disabling automatic page views with `send_page_view: false` before manual SPA `page_view` events; User-ID docs (`https://developers.google.com/analytics/devguides/collection/ga4/user-id`) require non-PII app IDs with `null` on sign-out.
+
+### RNT-388 DEV Scope
+
+Implement these tasks in order. Each task must commit after passing its listed gate. Keep PR #89 behavior intact: json-render binding objects/arrays remain unchanged, `props.__rntmeElementId` is the component-bound operation bridge, and duplicate operation names are invalid only within one module manifest.
+
+### Task R1: Add `project.json#modules` parse/types/error surface
+
+**Files:**
+- Modify: `packages/blueprint/src/parse/schema.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+- Modify: `packages/blueprint/src/types/result.ts`
+- Modify: `packages/blueprint/test/unit/parse.test.ts`
+
+Add a `modules` object to `ProjectBlueprintSchema`:
+
+```ts
+modules: z
+  .record(
+    nonEmptyString,
+    z
+      .object({
+        package: nonEmptyString,
+        publicConfig: z.record(z.unknown()).optional(),
+      })
+      .strict(),
+  )
+  .optional(),
+```
+
+Add types:
+
+```ts
+export type ProjectModuleDecl = {
+  package: string;
+  publicConfig?: Readonly<Record<string, unknown>>;
+};
+
+export type ProjectModuleMap = Readonly<Record<string, ProjectModuleDecl>>;
+```
+
+Extend `ProjectBlueprint` with `modules?: ProjectModuleMap`. Add blueprint error codes:
+
+```ts
+BLUEPRINT_MODULE_RESOLVE_FAILED
+BLUEPRINT_MODULE_MANIFEST_INVALID
+BLUEPRINT_CATEGORY_NOT_DECLARED
+BLUEPRINT_CATEGORY_MISMATCH
+BLUEPRINT_DUPLICATE_COMPONENT
+BLUEPRINT_MODULE_PUBLIC_CONFIG_INVALID
+BLUEPRINT_MODULE_ENTRY_EXPORT_MISSING
+```
+
+Test accepts:
+
+```json
+"modules": {
+  "presentation-md": { "package": "@rntme/presentation-md-mermaid" },
+  "analytics": {
+    "package": "@rntme/analytics-google-analytics",
+    "publicConfig": { "measurementId": "G-XXXXXXX" }
+  }
+}
+```
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/parse.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R2: Discover module packages and parse manifests
+
+**Files:**
+- Create: `packages/blueprint/src/compose/modules.ts`
+- Create: `packages/blueprint/test/unit/compose-modules.test.ts`
+- Create fixtures under `packages/blueprint/test/fixtures/project-with-modules/`
+
+`discoverModules({ rootDir, project })` returns `Result<DiscoveredModule[]>`. Each item carries `projectKey`, `packageName`, `moduleDir`, parsed `manifest`, and `publicConfig`.
+
+Resolution order:
+
+1. Use `createRequire(join(rootDir, 'project.json')).resolve(`${packageName}/package.json`)`, then read sibling `module.json`.
+2. If package exports block package.json, fall back to `rootDir/node_modules/<scope>/<name>/module.json` for scoped packages and `rootDir/node_modules/<name>/module.json` for unscoped packages.
+3. Test resolver may be injectable so unit fixtures do not require a real install.
+
+Validation:
+
+- Missing package/module manifest: `BLUEPRINT_MODULE_RESOLVE_FAILED` at `project.modules.<key>.package`.
+- `parseModuleManifest` failure: `BLUEPRINT_MODULE_MANIFEST_INVALID` with cause.
+- If manifest declares `category`, `projectKey` must equal `manifest.category`; otherwise `BLUEPRINT_CATEGORY_MISMATCH`.
+- If a screen later uses `category: "analytics"`, only manifests with `category: "analytics"` are eligible. Local alias keys for category-less modules are not category-addressable.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/compose-modules.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R3: Build catalog and validate public config/conflicts
+
+**Files:**
+- Create: `packages/blueprint/src/compose/catalog.ts`
+- Create: `packages/blueprint/src/compose/validate-modules.ts`
+- Create: `packages/blueprint/test/unit/compose-catalog.test.ts`
+- Create: `packages/blueprint/test/unit/validate-modules.test.ts`
+
+Catalog shape:
+
+```ts
+export type CatalogManifest = {
+  components: Array<{ type: string; module: string; props: Record<string, PropSchema> }>;
+  operations: Array<{
+    name: string;
+    module: string;
+    appliesTo: string[] | null;
+    params: Record<string, PropSchema>;
+    category: string | null;
+  }>;
+  modulesWithBoot: string[];
+  categoryToModule: Record<string, string>;
+  publicConfig: Record<string, Record<string, unknown>>;
+};
+```
+
+Conflict rules:
+
+- Duplicate component `type` across modules is `BLUEPRINT_DUPLICATE_COMPONENT`.
+- Duplicate operation names across different modules are allowed. The UI action must address a module/category/target; only duplicate names inside one manifest stay invalid in `@rntme/module-skeleton`.
+- `categoryToModule` is one-to-one because `project.json#modules` key equals category for canonical modules.
+- `publicConfig` is validated against `client.config.schema`: required fields and literal type checks only (`string`, `number`, `boolean`, `object`, `array`). Do not read secrets or deploy env in this task.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/compose-catalog.test.ts unit/validate-modules.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R4: Feed the catalog into UI compilation
+
+**Files:**
+- Modify: `packages/blueprint/src/compose/compile-service-ui.ts`
+- Modify: `packages/blueprint/src/compose/load-composed-blueprint.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+- Modify: `packages/blueprint/test/unit/load-composed-blueprint.test.ts`
+
+Extend `ComposedBlueprint` with `catalogManifest: CatalogManifest | null` or `catalogManifest?: CatalogManifest`; prefer a single project-level catalog because `project.json#modules` is project-level and multiple UI services should validate against the same module catalog.
+
+Change `compileServiceUi` to accept optional `catalogManifest` and pass these resolvers into `@rntme/ui.compile`:
+
+- `resolveComponent(type)` finds `catalogManifest.components[type]`, returns declared props plus `childrenModel: 'list'` for module components unless a future manifest field says otherwise.
+- `resolveOperation(name, opts)`:
+  - with `opts.module`: match same module and operation name.
+  - with `opts.category`: map category to module, then match.
+  - with `opts.targetElementType`: match operation name where `appliesTo` contains the target type.
+  - without an address: return `undefined`; do not globally resolve duplicate names.
+- `resolveCategoryToModule(category)` reads `catalogManifest.categoryToModule`.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/load-composed-blueprint.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R5: Emit virtual UI entry and public config sidecars
+
+**Files:**
+- Create: `packages/blueprint/src/compose/virtual-entry.ts`
+- Create: `packages/blueprint/test/unit/virtual-entry.test.ts`
+- Modify: `packages/blueprint/src/index.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+
+`renderVirtualEntry(catalogManifest)` emits deterministic ESM source that:
+
+- imports each unique module package's client entry once;
+- builds `components` from named exports declared in `client.components[]`;
+- builds `modules` from packages with `client.boot: true`;
+- calls `hydrateApp({ rootSelector: '#root', components, modules })`.
+
+Add `renderPublicConfig(catalogManifest)` or equivalent helper returning only `catalogManifest.publicConfig`. Keep this local to compose output; do not assume a merged `rntme-cli` deploy change.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/virtual-entry.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R6: Add first module packages and analytics contract
+
+**Files:**
+- Create `modules/presentation/md-mermaid/`
+- Create `modules/presentation/tiptap/`
+- Create `modules/analytics/google-analytics/`
+- Create `packages/contracts/analytics/v1/`
+- Modify `pnpm-lock.yaml` via `pnpm install --lockfile-only` if dependencies change
+
+Module package requirements:
+
+- Follow existing module package shape (`package.json`, `tsconfig.json`, `tsconfig.check.json`, `eslint.config.mjs`, `vitest.config.ts`, `module.json`, `src/`, `test/unit/`, `README.md`).
+- `md-mermaid`: package deps `react-markdown`, `remark-gfm`, `mermaid`; components `Markdown` and `Mermaid`; Mermaid must call `mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })` and render asynchronously.
+- `tiptap`: deps `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-image`; component `RichTextEditor`; operations `toggleBold`, `toggleItalic`, `insertImage` registered under `props.__rntmeElementId`.
+- `google-analytics`: `category: "analytics"`, `vendor: "google-analytics"`, `contract: "analytics/v1"`, `client.boot: true`, operations `track` and `identify`; initialize GA4 with `send_page_view: false`, send navigation page views explicitly, never send PII as `user_id`, and send `null` on sign-out.
+- Analytics contract package exports canonical operation names and param shapes only. Do not add runtime GA code to contracts.
+
+Gates:
+
+```bash
+pnpm install --lockfile-only
+pnpm -F @rntme/presentation-md-mermaid test
+pnpm -F @rntme/presentation-tiptap test
+pnpm -F @rntme/analytics-google-analytics test
+pnpm -F @rntme/contracts-analytics-v1 build
+```
+
+### Task R7: Documentation
+
+**Files:**
+- Modify: `CLAUDE.md`
+- Modify: `AGENTS.md`
+- Modify: `README.md`
+- Modify: `packages/blueprint/README.md`
+- Modify: `packages/ui/README.md`
+- Modify: `packages/ui-runtime/README.md`
+- Modify: `packages/module-skeleton/README.md`
+- Module READMEs from Task R6
+
+Docs must state that adding a new UI capability after RNT-388 means adding a module package plus a `project.json#modules` entry, not editing core packages. Include collision rules, `publicConfig` boundaries, `module-action` addressing, and the json-render binding-array shape.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test
+pnpm -F @rntme/ui test
+pnpm -F @rntme/ui-runtime test
+pnpm -F @rntme/module-skeleton test
+```
+
+### Task R8: Integration smoke fixture
+
+**Files:**
+- Create: `packages/blueprint/test/fixtures/integration-smoke/`
+- Create: `packages/blueprint/test/integration/end-to-end.test.ts`
+
+Fixture must include `project.json#modules` consuming:
+
+```json
+{
+  "presentation-md": { "package": "@rntme/presentation-md-mermaid" },
+  "presentation-rte": { "package": "@rntme/presentation-tiptap" },
+  "analytics": {
+    "package": "@rntme/analytics-google-analytics",
+    "publicConfig": { "measurementId": "G-XXXXXXX" }
+  }
+}
+```
+
+Assertions:
+
+- compose succeeds;
+- catalog contains `Markdown`, `Mermaid`, `RichTextEditor`;
+- catalog maps `analytics` to `@rntme/analytics-google-analytics`;
+- duplicate component fixture fails with `BLUEPRINT_DUPLICATE_COMPONENT`;
+- missing GA `measurementId` fails with `BLUEPRINT_MODULE_PUBLIC_CONFIG_INVALID`;
+- compiled UI accepts `kind: "module-action"` for `target: "editor"` and `category: "analytics"`;
+- virtual entry imports all three module packages and exports or invokes the expected runtime bootstrap;
+- public config sidecar contains only `publicConfig`, no secrets.
+
+Final gate:
+
+```bash
+pnpm -F @rntme/blueprint test
+pnpm -F @rntme/ui test
+pnpm -F @rntme/ui-runtime test
+pnpm -F @rntme/module-skeleton test
+pnpm -r --filter './modules/**' test
+pnpm -r --filter './packages/contracts/analytics/v1' build
+```
+
+### RNT-388 Open Product/Architecture Decisions
+
+- **Artifact write location:** `loadComposedBlueprint(dir)` is currently an in-memory composer. RNT-388 should expose virtual entry/public config/catalog on the composed result and test them there. A later deploy/CLI plan should decide where generated files are written into deploy artifacts.
+- **Per-service vs project-level catalog:** use project-level catalog for this slice. If later product work needs service-specific catalogs, add a separate spec.
+- **Live Dokploy evidence:** not required for this plan. The integration smoke is local compose/validate/catalog/virtual-entry evidence.
 
 ## PLAN challenge amendments (2026-04-30)
 
