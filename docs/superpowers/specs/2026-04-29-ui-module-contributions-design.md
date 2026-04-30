@@ -142,14 +142,17 @@ project.json#modules = {
         |
         v
 @rntme/ui emit:
-  produces CompiledArtifact (unchanged shape) + sidecar
-    catalogManifest = { components: [...], operations: [...], modulesWithBoot: [...] }
+  produces CompiledArtifact (unchanged shape)
         |
         v
-domain-service Dockerfile build step:
-  generate srv/__rntme_ui_entry.ts   from catalogManifest + project.json#modules
-  esbuild srv/__rntme_ui_entry.ts → build/main.js
-  emit /srv/config.json             from project.json#modules[*].publicConfig
+@rntme/blueprint compose output:
+  catalogManifest   = { components: [...], operations: [...], modulesWithBoot: [...] }
+  virtualEntrySource = rendered TypeScript bootstrap source
+  publicConfig       = project.json#modules[*].publicConfig sidecar
+        |
+        v
+ later deploy/CLI slice:
+  choose where to write virtual entry, catalog, and public config artifacts
 ```
 
 ### 3.2 SPA boot at runtime
@@ -613,7 +616,7 @@ The gating is reactive: when `/auth/status` flips from `anon` → `authed`, the 
 
 ### 10.1 Project compose output
 
-`@rntme/blueprint`'s compose step emits, alongside the existing artifacts, a `catalogManifest.json`:
+For the RNT-388 slice, `@rntme/blueprint`'s compose step exposes a `catalogManifest` object on the composed result alongside existing in-memory artifacts. A later deploy/CLI slice may choose where to persist the same object, for example as `catalogManifest.json`, but RNT-388 must not depend on a new deploy artifact writer:
 
 ```jsonc
 {
@@ -635,13 +638,13 @@ The gating is reactive: when `/auth/status` flips from `anon` → `authed`, the 
 }
 ```
 
-This file feeds:
+This catalog feeds:
 - The UI compiler validator (passes union as `resolveComponent` and operation lookup table).
-- The Dockerfile build step (drives virtual entry generation).
+- The virtual entry renderer (drives deterministic module imports and bootstrap source).
 
 ### 10.2 Virtual entry generation
 
-In the domain-service Dockerfile, **before** `pnpm build`, a small node script (lives in `@rntme/blueprint` or a sibling tool) reads `catalogManifest.json` and writes `srv/__rntme_ui_entry.ts`:
+RNT-388 adds a `@rntme/blueprint` helper that renders virtual entry source from the in-memory `catalogManifest`. The source is exposed on the composed result for local validation. A later deploy/CLI slice can decide whether to write it as `srv/__rntme_ui_entry.ts` before `pnpm build`:
 
 ```ts
 // auto-generated; do not edit
@@ -666,10 +669,10 @@ hydrateApp({ rootSelector: '#root', components, modules });
 
 ### 10.3 Bundling
 
-`pnpm build` in the domain service runs:
+The target bundling flow remains:
 
-1. `@rntme/ui` compile → `CompiledArtifact` + `catalogManifest.json` in `srv/ui-build/`.
-2. Virtual entry generator → `srv/__rntme_ui_entry.ts`.
+1. `@rntme/ui` compile → `CompiledArtifact` + catalog manifest.
+2. Virtual entry generator → virtual entry TypeScript source.
 3. `esbuild srv/__rntme_ui_entry.ts → srv/ui-build/main.js` (existing options preserved: ESM, browser, es2022, CSS as `empty`).
 4. Tailwind CLI scans `srv/ui-build/main.js` → `srv/ui-build/main.css` (existing).
 
@@ -677,7 +680,7 @@ hydrateApp({ rootSelector: '#root', components, modules });
 
 ### 10.4 `/config.json`
 
-For this v1 plan, `@rntme/blueprint` compose reads `project.json#modules[<key>].publicConfig`, validates it against each module's `client.config.schema`, and emits the public config next to the UI build artifacts. A deploy adapter may later project the same data into `/srv/config.json`, but this spec must not depend on unmerged `rntme-cli` deployment changes. The runtime serves the generated config as a non-bindings, non-auth route.
+For this v1 plan, `@rntme/blueprint` compose reads `project.json#modules[<key>].publicConfig`, validates it against each module's `client.config.schema`, and exposes the public config sidecar on the composed result. A deploy adapter may later project the same data into `/srv/config.json`, but this spec must not depend on unmerged `rntme-cli` deployment changes. At runtime, the generated config is served as a non-bindings, non-auth route.
 
 Shape:
 
@@ -696,12 +699,13 @@ In `@rntme/blueprint` after collecting modules:
 
 | Code | Condition |
 |---|---|
-| `BLUEPRINT_MODULE_NOT_FOUND` | `project.json#modules` references a package that doesn't resolve in the workspace |
+| `BLUEPRINT_MODULE_RESOLVE_FAILED` | `project.json#modules` references a package or `module.json` that doesn't resolve in the workspace |
+| `BLUEPRINT_MODULE_MANIFEST_INVALID` | A resolved `module.json` fails `parseModuleManifest` |
 | `BLUEPRINT_DUPLICATE_COMPONENT` | Two modules declare same component `type` |
-| `BLUEPRINT_CATEGORY_AMBIGUOUS` | A `category` resolves to two different modules in `project.json#modules` |
-| `BLUEPRINT_CATEGORY_NOT_DECLARED` / `BLUEPRINT_CATEGORY_MISMATCH` | Module declares `category` but is mapped to a different category key in `project.json#modules` |
-| `BLUEPRINT_CONFIG_REQUIRED_MISSING` | A module's `client.config.schema` requires a key not present in `project.json#modules[<key>].publicConfig` |
-| `BLUEPRINT_CONFIG_TYPE_MISMATCH` | A config value doesn't match its declared type |
+| `BLUEPRINT_CATEGORY_NOT_DECLARED` | A UI action uses `category`, but the configured module key is a local alias for a category-less module |
+| `BLUEPRINT_CATEGORY_MISMATCH` | A module declares `category`, but the `project.json#modules` key is different |
+| `BLUEPRINT_MODULE_PUBLIC_CONFIG_INVALID` | A module's `client.config.schema` requires a missing key or a config value doesn't match its declared literal type |
+| `BLUEPRINT_MODULE_ENTRY_EXPORT_MISSING` | The virtual entry renderer cannot map a manifest component or boot declaration to the expected client entry export |
 
 ## 12. Component changes summary
 
@@ -710,7 +714,7 @@ In `@rntme/blueprint` after collecting modules:
 | 1 | `@rntme/module-skeleton` | S | Relax `ModuleManifestSchema`: `category`/`vendor`/`contract`/`capabilities.*` optional. Add `client` block schema. New error codes per §4.3. New tests for UI-only manifest, mixed manifest, empty manifest. |
 | 2 | `@rntme/ui` | M | Extend `ActionDef` with `module-action`. Extend `validate/structural.ts` for the new kind. Extend `validate/references.ts` for component target/operation/category lookups. Extend `validate/structural.ts` for `eq`/`contains` operators in `visible`. Extend `emit/http-map.ts` to canonicalize `category` → `module` and pass through `module-action` shape. New error codes per §7.2. New `ValidateResolvers` field `resolveOperation`. `resolveComponent` (currently unused) becomes load-bearing. |
 | 3 | `@rntme/ui-runtime` | L | Export `useTransport`, `useStateStore`, `useOperationRegistry` hooks from `client/`. New `boot` orchestrator in `entry.tsx`. New `ModuleBootContext` type. Driver dispatcher for `kind: "module-action"` through the existing json-render `dispatch` action. Driver gating rule for hidden layouts (data-fetch skip). State subscription mechanism wired to layout-visibility recompute. `hydrateApp` accepts `components: Record<string, React.FC>` and `modules: ModuleSpec[]`. Component catalog merges shadcn + project components. |
-| 4 | `@rntme/blueprint` | L | Project compose reads `project.json#modules`, fetches each `module.json`, builds `catalogManifest.json`. Cross-module validation per §11. Virtual-entry generator script (or a sibling `@rntme/ui-bundler` if size warrants). Pass union to `@rntme/ui` validator. |
+| 4 | `@rntme/blueprint` | L | Project compose reads `project.json#modules`, fetches each `module.json`, builds an in-memory `catalogManifest`, validates cross-module rules per §11, renders virtual entry/public config sidecars on the composed result, and passes the union to `@rntme/ui` validator. |
 | 5 | `modules/presentation/md-mermaid/` (new) | M | New workspace package. `module.json` with `client.components: [Markdown, Mermaid]`. `client/index.ts` exporting React components for markdown using `react-markdown` + `remark-gfm` (safe React rendering, no raw HTML) and mermaid using `mermaid.initialize({ startOnLoad: false })` + `render()`. No `boot`, no `operations`, no `category`. Unit tests for component render. |
 | 6 | `modules/presentation/tiptap/` (new) | M | New workspace package. `module.json` with `client.components: [RichTextEditor]` and `client.operations: [toggleBold, toggleItalic, insertImage]`. `client/components/RichTextEditor.tsx` uses `@tiptap/react` + `@tiptap/pm` + `@tiptap/starter-kit` + `@tiptap/extension-image`, registers operations via `useOperationRegistry`. Unit tests for component render and operation dispatch (with mocked registry). |
 | 7 | `modules/analytics/google-analytics/` (new) | M | New workspace package. `module.json` with `category: "analytics"`, `contract: "analytics/v1"`, `client.boot: true`, `client.operations: [track, identify]`, `client.config.schema: { measurementId }`. `client/index.ts` exporting `boot(ctx)`. Unit tests for boot wiring (mock `ctx`), operation dispatch, lifecycle subscription. |
@@ -732,7 +736,7 @@ In `@rntme/blueprint` after collecting modules:
 | R6 | A module's TS source uses runtime APIs not exported from `@rntme/ui-runtime/client` | Build | Stable export surface in `@rntme/ui-runtime/client/index.ts`. Module's TS imports get caught by `tsc` during the service build. |
 | R7 | `/auth/status` not set yet when the SPA tries to render a `visible: { $state: "/auth/status", eq: ... }` element (race between hydration and identity boot) | Runtime | Identity module's `boot` MUST set `/auth/status: "booting"` synchronously at start. Visibility evaluator treats `undefined` state path as falsy → element hidden until the boot writes a real status. |
 | R8 | Driver gating rule (skip fetch when layout hidden) breaks the existing notes demo's mount-time data fetches | Existing behaviour | Default-on rule, but demo without `visible` on root layout is unaffected (root visibility evaluates true). New rule activates only when project explicitly gates. Migration is opt-in. |
-| R9 | Module category mapping in `project.json` references a category that no module declares | Compose | `BLUEPRINT_MODULE_NOT_FOUND` if package doesn't resolve. `BLUEPRINT_CATEGORY_NOT_DECLARED` if package resolves but doesn't declare that category. |
+| R9 | Module category mapping in `project.json` references a category that no module declares | Compose | `BLUEPRINT_MODULE_RESOLVE_FAILED` if package/module manifest doesn't resolve. `BLUEPRINT_CATEGORY_NOT_DECLARED` if package resolves but doesn't declare that category. |
 | R10 | Components that need to read from outside their tree (e.g., a "remote" toolbar button outside the editor's parent) can't access component-bound operations the obvious way | Authoring | The operation registry is keyed by `elementId`, not by tree position; any element in the spec can target any other by ID. Documented invariant; no actual limitation. |
 | R11 | Public config in `/config.json` accidentally leaks a secret value (e.g., a developer puts an API secret under `client.config.schema` without realising it's served unauthenticated) | Security | `module.json#client.config.schema` keys are documented as **public**. Validator warns if a key name matches secret-like patterns (`*_SECRET`, `*_KEY` other than `clientId`/`measurementId`/etc.). Final defense: deploy-dokploy's `secretRefs` are kept disjoint from `publicConfig`. |
 | R12 | Conflicting transport middleware order across modules (e.g., auth wants Bearer added; analytics wants requests measured) | Runtime | Middleware composes left-to-right around `baseFetch`. Analytics measurements naturally wrap auth (outer middleware sees the request post-auth-injection). Document the wrapping order. |
@@ -753,7 +757,7 @@ Per `CLAUDE.md` "Every plan must include a documentation-touch task":
 | `README.md` packages-table | edit | Add `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/`. Update dep graph for `@rntme/ui-runtime`'s new public hooks. |
 | `packages/ui/README.md` | edit | "Add an action kind" (now four kinds); "Operate-on-component validation" subsection; new error codes table; updated authoring file layout shows `module-action`. |
 | `packages/ui-runtime/README.md` | edit | New `useTransport`/`useStateStore`/`useOperationRegistry` hook docs; `ModuleBootContext` reference; boot lifecycle ordering; driver gating rule. |
-| `packages/blueprint/README.md` | edit | Project compose flow updated; module-discovery + cross-module validation; `catalogManifest.json` output. |
+| `packages/blueprint/README.md` | edit | Project compose flow updated; module-discovery + cross-module validation; composed-result `catalogManifest`, virtual entry source, and public config sidecars. |
 | `packages/module-skeleton/README.md` | edit | Add UI-only and mixed manifest examples; document `client.components`/`operations`/`boot`. |
 | `modules/presentation/md-mermaid/README.md` (new) | create | File map / Quick start / API / Invariants / Where to look first / Specs. |
 | `modules/presentation/tiptap/README.md` (new) | create | Same template. |
