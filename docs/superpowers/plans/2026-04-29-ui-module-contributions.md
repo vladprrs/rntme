@@ -1,6 +1,6 @@
 # UI Module Contributions Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. For RNT-388, the executable task list is **only** `Task R1` through `Task R8` in the "RNT-388 DEV Scope" section. The historical original plan appendix is retained for reference and must not be executed as checklist work.
 
 **Goal:** Make a module the unit of UI extension. Adding a new auth provider, payment provider, analytics vendor, rich-text editor, markdown renderer, AI-LLM vendor, or any future client-side capability is **only** a new module under `modules/<category>/<vendor>/` plus per-project wiring in `project.json` — no edits to core packages.
 
@@ -10,27 +10,337 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`. Read §1–§15 before starting.
 
-**Phase plan:** Nine phases. Phase 1 (manifest) is the foundation. Phases 2–4 are independent (UI compiler / UI runtime / blueprint compose) and can proceed in parallel after Phase 1. Phases 5–7 (three modules) depend on 1–4 being complete. Phase 8 (docs) interleaves with all. Phase 9 closes with integration smoke.
+**Phase plan:** PR #89 (`853a62d2b11b60a9199f98d29fbe0182437eb251`) already merged the foundation slice from the original nine-phase plan: module manifest schema, `@rntme/ui` `module-action` validation/emit, and `@rntme/ui-runtime` registry/hooks/visibility/transport/lifecycle scaffolding. RNT-388 is the follow-up slice only: `@rntme/blueprint` module parsing/discovery/catalog/virtual-entry integration, first UI module packages, analytics contract, docs, and blueprint integration smoke. Historical task bodies below are retained for traceability but are **not** part of the RNT-388 DEV scope.
 
 ```
-Phase 1 (manifest schema)
+DONE: Phase 1 (manifest schema, PR #89)
      │
-     ├── Phase 2 (UI compiler)
-     ├── Phase 3 (UI runtime)
-     └── Phase 4 (blueprint compose)
+     ├── DONE: Phase 2 (UI compiler, PR #89)
+     ├── DONE: Phase 3 (UI runtime foundation, PR #89)
+     └── RNT-388: Phase 4 (blueprint compose)
               │
-              ├── Phase 5 (MD/Mermaid module)
-              ├── Phase 6 (tiptap module)
-              └── Phase 7 (GA + analytics/v1)
+              ├── RNT-388: Phase 5 (MD/Mermaid module)
+              ├── RNT-388: Phase 6 (tiptap module)
+              └── RNT-388: Phase 7 (GA + analytics/v1)
                         │
                         ▼
-                   Phase 8 (docs touch — interleaves throughout)
+                   RNT-388: Phase 8 (docs touch — interleaves throughout)
                         │
                         ▼
-                   Phase 9 (integration smoke)
+                   RNT-388: Phase 9 (integration smoke)
 ```
 
 ---
+
+## RNT-388 PLAN challenge result (2026-04-30)
+
+**Verdict:** the old plan is not directly implementation-ready because it still presents PR #89 foundation work as open work. DEV must implement the RNT-388 follow-up below and skip historical Phase 1-3 task bodies unless a regression is discovered. This is a plan correction, not a product-code implementation.
+
+**Current baseline on `main`:**
+
+| Area | Status on `853a62d` | RNT-388 action |
+|---|---|---|
+| `packages/module-skeleton/src/manifest-shape.ts` | `client` schema, optional capabilities, UI-only/mixed/backend-only tests already merged | Do not rewrite; add tests only if module package manifests expose a bug |
+| `packages/ui/src/*` | `module-action`, visible operators, binding-array preservation, operation/category resolvers already merged | Use catalog-backed resolvers from blueprint; do not change `on` shape |
+| `packages/ui-runtime/src/client/*` | operation registry, hooks, lifecycle bus, transport chain, visibility, element-id injection already merged | Reuse; only touch if module packages reveal missing exports or boot wiring |
+| `packages/blueprint/src/parse/schema.ts` | no `project.json#modules` field | Implement |
+| `packages/blueprint/src/compose/compile-service-ui.ts` | placeholder component/operation/category resolvers | Replace with catalog-backed resolvers |
+| `packages/blueprint/src/compose/*` | no module discovery, catalog, public config, or virtual entry emission | Implement |
+| `modules/presentation/*`, `modules/analytics/google-analytics`, `packages/contracts/analytics/v1` | not present | Create |
+
+**External API verification:** Context7 was attempted first as required, but the workspace quota returned "Monthly quota exceeded." Fallbacks used official/project docs:
+
+- Tiptap React install docs (`https://tiptap.dev/docs/editor/getting-started/install/react`) require `@tiptap/react`, `@tiptap/pm`, and `@tiptap/starter-kit`; Image extension docs (`https://tiptap.dev/docs/editor/extensions/nodes/image`) require `@tiptap/extension-image` and use `editor.commands.setImage(...)`.
+- Mermaid usage/API docs (`https://mermaid.js.org/config/usage`) require `mermaid.initialize({ startOnLoad: false })` before programmatic render/run and mark `mermaid.init` deprecated.
+- React Markdown project docs/npm README (`https://www.npmjs.com/package/react-markdown`) describe the safe React rendering path without `dangerouslySetInnerHTML`.
+- Google GA4 pageview docs (`https://developers.google.com/analytics/devguides/collection/ga4/views`) require disabling automatic page views with `send_page_view: false` before manual SPA `page_view` events; User-ID docs (`https://developers.google.com/analytics/devguides/collection/ga4/user-id`) require non-PII app IDs with `null` on sign-out.
+
+### RNT-388 DEV Scope
+
+Implement these tasks in order. Each task must commit after passing its listed gate. Keep PR #89 behavior intact: json-render binding objects/arrays remain unchanged, `props.__rntmeElementId` is the component-bound operation bridge, and duplicate operation names are invalid only within one module manifest.
+
+### Task R1: Add `project.json#modules` parse/types/error surface
+
+**Files:**
+- Modify: `packages/blueprint/src/parse/schema.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+- Modify: `packages/blueprint/src/types/result.ts`
+- Modify: `packages/blueprint/test/unit/parse.test.ts`
+
+Add a `modules` object to `ProjectBlueprintSchema`:
+
+```ts
+modules: z
+  .record(
+    nonEmptyString,
+    z
+      .object({
+        package: nonEmptyString,
+        publicConfig: z.record(z.unknown()).optional(),
+      })
+      .strict(),
+  )
+  .optional(),
+```
+
+Add types:
+
+```ts
+export type ProjectModuleDecl = {
+  package: string;
+  publicConfig?: Readonly<Record<string, unknown>>;
+};
+
+export type ProjectModuleMap = Readonly<Record<string, ProjectModuleDecl>>;
+```
+
+Extend `ProjectBlueprint` with `modules?: ProjectModuleMap`. Add blueprint error codes:
+
+```ts
+BLUEPRINT_MODULE_RESOLVE_FAILED
+BLUEPRINT_MODULE_MANIFEST_INVALID
+BLUEPRINT_CATEGORY_NOT_DECLARED
+BLUEPRINT_CATEGORY_MISMATCH
+BLUEPRINT_DUPLICATE_COMPONENT
+BLUEPRINT_MODULE_PUBLIC_CONFIG_INVALID
+BLUEPRINT_MODULE_ENTRY_EXPORT_MISSING
+```
+
+Test accepts:
+
+```json
+"modules": {
+  "presentation-md": { "package": "@rntme/presentation-md-mermaid" },
+  "analytics": {
+    "package": "@rntme/analytics-google-analytics",
+    "publicConfig": { "measurementId": "G-XXXXXXX" }
+  }
+}
+```
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/parse.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R2: Discover module packages and parse manifests
+
+**Files:**
+- Create: `packages/blueprint/src/compose/modules.ts`
+- Create: `packages/blueprint/test/unit/compose-modules.test.ts`
+- Create fixtures under `packages/blueprint/test/fixtures/project-with-modules/`
+
+`discoverModules({ rootDir, project })` returns `Result<DiscoveredModule[]>`. Each item carries `projectKey`, `packageName`, `moduleDir`, parsed `manifest`, and `publicConfig`.
+
+Resolution order:
+
+1. Use `createRequire(join(rootDir, 'project.json')).resolve(`${packageName}/package.json`)`, then read sibling `module.json`.
+2. If package exports block package.json, fall back to `rootDir/node_modules/<scope>/<name>/module.json` for scoped packages and `rootDir/node_modules/<name>/module.json` for unscoped packages.
+3. Test resolver may be injectable so unit fixtures do not require a real install.
+
+Validation:
+
+- Missing package/module manifest: `BLUEPRINT_MODULE_RESOLVE_FAILED` at `project.modules.<key>.package`.
+- `parseModuleManifest` failure: `BLUEPRINT_MODULE_MANIFEST_INVALID` with cause.
+- If manifest declares `category`, `projectKey` must equal `manifest.category`; otherwise `BLUEPRINT_CATEGORY_MISMATCH`.
+- If a screen later uses `category: "analytics"`, only manifests with `category: "analytics"` are eligible. Local alias keys for category-less modules are not category-addressable.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/compose-modules.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R3: Build catalog and validate public config/conflicts
+
+**Files:**
+- Create: `packages/blueprint/src/compose/catalog.ts`
+- Create: `packages/blueprint/src/compose/validate-modules.ts`
+- Create: `packages/blueprint/test/unit/compose-catalog.test.ts`
+- Create: `packages/blueprint/test/unit/validate-modules.test.ts`
+
+Catalog shape:
+
+```ts
+export type CatalogManifest = {
+  components: Array<{ type: string; module: string; props: Record<string, PropSchema> }>;
+  operations: Array<{
+    name: string;
+    module: string;
+    appliesTo: string[] | null;
+    params: Record<string, PropSchema>;
+    category: string | null;
+  }>;
+  modulesWithBoot: string[];
+  categoryToModule: Record<string, string>;
+  publicConfig: Record<string, Record<string, unknown>>;
+};
+```
+
+Conflict rules:
+
+- Duplicate component `type` across modules is `BLUEPRINT_DUPLICATE_COMPONENT`.
+- Duplicate operation names across different modules are allowed. The UI action must address a module/category/target; only duplicate names inside one manifest stay invalid in `@rntme/module-skeleton`.
+- `categoryToModule` is one-to-one because `project.json#modules` key equals category for canonical modules.
+- `publicConfig` is validated against `client.config.schema`: required fields and literal type checks only (`string`, `number`, `boolean`, `object`, `array`). Do not read secrets or deploy env in this task.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/compose-catalog.test.ts unit/validate-modules.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R4: Feed the catalog into UI compilation
+
+**Files:**
+- Modify: `packages/blueprint/src/compose/compile-service-ui.ts`
+- Modify: `packages/blueprint/src/compose/load-composed-blueprint.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+- Modify: `packages/blueprint/test/unit/load-composed-blueprint.test.ts`
+
+Extend `ComposedBlueprint` with `catalogManifest: CatalogManifest | null` or `catalogManifest?: CatalogManifest`; prefer a single project-level catalog because `project.json#modules` is project-level and multiple UI services should validate against the same module catalog.
+
+Change `compileServiceUi` to accept optional `catalogManifest` and pass these resolvers into `@rntme/ui.compile`:
+
+- `resolveComponent(type)` finds `catalogManifest.components[type]`, returns declared props plus `childrenModel: 'list'` for module components unless a future manifest field says otherwise.
+- `resolveOperation(name, opts)`:
+  - with `opts.module`: match same module and operation name.
+  - with `opts.category`: map category to module, then match.
+  - with `opts.targetElementType`: match operation name where `appliesTo` contains the target type.
+  - without an address: return `undefined`; do not globally resolve duplicate names.
+- `resolveCategoryToModule(category)` reads `catalogManifest.categoryToModule`.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/load-composed-blueprint.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R5: Emit virtual UI entry and public config sidecars
+
+**Files:**
+- Create: `packages/blueprint/src/compose/virtual-entry.ts`
+- Create: `packages/blueprint/test/unit/virtual-entry.test.ts`
+- Modify: `packages/blueprint/src/index.ts`
+- Modify: `packages/blueprint/src/types/artifact.ts`
+
+`renderVirtualEntry(catalogManifest)` emits deterministic ESM source that:
+
+- imports each unique module package's client entry once;
+- builds `components` from named exports declared in `client.components[]`;
+- builds `modules` from packages with `client.boot: true`;
+- calls `hydrateApp({ rootSelector: '#root', components, modules })`.
+
+Add `renderPublicConfig(catalogManifest)` or equivalent helper returning only `catalogManifest.publicConfig`. Keep this local to compose output; do not assume a merged `rntme-cli` deploy change.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test --run unit/virtual-entry.test.ts
+pnpm -F @rntme/blueprint typecheck
+```
+
+### Task R6: Add first module packages and analytics contract
+
+**Files:**
+- Create `modules/presentation/md-mermaid/`
+- Create `modules/presentation/tiptap/`
+- Create `modules/analytics/google-analytics/`
+- Create `packages/contracts/analytics/v1/`
+- Modify `pnpm-lock.yaml` via `pnpm install --lockfile-only` if dependencies change
+
+Module package requirements:
+
+- Follow existing module package shape (`package.json`, `tsconfig.json`, `tsconfig.check.json`, `eslint.config.mjs`, `vitest.config.ts`, `module.json`, `src/`, `test/unit/`, `README.md`).
+- `md-mermaid`: package deps `react-markdown`, `remark-gfm`, `mermaid`; components `Markdown` and `Mermaid`; Mermaid must call `mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })` and render asynchronously.
+- `tiptap`: deps `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-image`; component `RichTextEditor`; operations `toggleBold`, `toggleItalic`, `insertImage` registered under `props.__rntmeElementId`.
+- `google-analytics`: `category: "analytics"`, `vendor: "google-analytics"`, `contract: "analytics/v1"`, `client.boot: true`, operations `track` and `identify`; initialize GA4 with `send_page_view: false`, send navigation page views explicitly, never send PII as `user_id`, and send `null` on sign-out.
+- Analytics contract package exports canonical operation names and param shapes only. Do not add runtime GA code to contracts.
+
+Gates:
+
+```bash
+pnpm install --lockfile-only
+pnpm -F @rntme/presentation-md-mermaid test
+pnpm -F @rntme/presentation-tiptap test
+pnpm -F @rntme/analytics-google-analytics test
+pnpm -F @rntme/contracts-analytics-v1 build
+```
+
+### Task R7: Documentation
+
+**Files:**
+- Modify: `CLAUDE.md`
+- Modify: `AGENTS.md`
+- Modify: `README.md`
+- Modify: `packages/blueprint/README.md`
+- Modify: `packages/ui/README.md`
+- Modify: `packages/ui-runtime/README.md`
+- Modify: `packages/module-skeleton/README.md`
+- Module READMEs from Task R6
+
+Docs must state that adding a new UI capability after RNT-388 means adding a module package plus a `project.json#modules` entry, not editing core packages. Include collision rules, `publicConfig` boundaries, `module-action` addressing, and the json-render binding-array shape.
+
+Gate:
+
+```bash
+pnpm -F @rntme/blueprint test
+pnpm -F @rntme/ui test
+pnpm -F @rntme/ui-runtime test
+pnpm -F @rntme/module-skeleton test
+```
+
+### Task R8: Integration smoke fixture
+
+**Files:**
+- Create: `packages/blueprint/test/fixtures/integration-smoke/`
+- Create: `packages/blueprint/test/integration/end-to-end.test.ts`
+
+Fixture must include `project.json#modules` consuming:
+
+```json
+{
+  "presentation-md": { "package": "@rntme/presentation-md-mermaid" },
+  "presentation-rte": { "package": "@rntme/presentation-tiptap" },
+  "analytics": {
+    "package": "@rntme/analytics-google-analytics",
+    "publicConfig": { "measurementId": "G-XXXXXXX" }
+  }
+}
+```
+
+Assertions:
+
+- compose succeeds;
+- catalog contains `Markdown`, `Mermaid`, `RichTextEditor`;
+- catalog maps `analytics` to `@rntme/analytics-google-analytics`;
+- duplicate component fixture fails with `BLUEPRINT_DUPLICATE_COMPONENT`;
+- missing GA `measurementId` fails with `BLUEPRINT_MODULE_PUBLIC_CONFIG_INVALID`;
+- compiled UI accepts `kind: "module-action"` for `target: "editor"` and `category: "analytics"`;
+- virtual entry imports all three module packages and exports or invokes the expected runtime bootstrap;
+- public config sidecar contains only `publicConfig`, no secrets.
+
+Final gate:
+
+```bash
+pnpm -F @rntme/blueprint test
+pnpm -F @rntme/ui test
+pnpm -F @rntme/ui-runtime test
+pnpm -F @rntme/module-skeleton test
+pnpm -r --filter './modules/**' test
+pnpm -r --filter './packages/contracts/analytics/v1' build
+```
+
+### RNT-388 Open Product/Architecture Decisions
+
+- **Artifact write location:** `loadComposedBlueprint(dir)` is currently an in-memory composer. RNT-388 should expose virtual entry/public config/catalog on the composed result and test them there. A later deploy/CLI plan should decide where generated files are written into deploy artifacts.
+- **Per-service vs project-level catalog:** use project-level catalog for this slice. If later product work needs service-specific catalogs, add a separate spec.
+- **Live Dokploy evidence:** not required for this plan. The integration smoke is local compose/validate/catalog/virtual-entry evidence.
 
 ## PLAN challenge amendments (2026-04-30)
 
@@ -120,7 +430,9 @@ Context7 was unavailable because the workspace quota was exceeded, so this revie
 - `react-markdown` is the markdown renderer for v1 because its README documents safe rendering without `dangerouslySetInnerHTML`. Do not use `marked` unless the implementation also adds sanitization.
 - Google Analytics config must set `send_page_view: false` during script initialization and send SPA navigations explicitly. `user_id` must not be PII; send `null` on sign-out.
 
-## File structure
+## Non-executable Original File Structure Reference
+
+This section mirrors the original nine-phase plan for traceability. It is superseded by the RNT-388 tasks above; do not use it as the DEV checklist.
 
 ### Phase 1 — `@rntme/module-skeleton`
 
@@ -212,6 +524,10 @@ Mirror Phase 5 layout. Components: `RichTextEditor.tsx`. Operations: `toggleBold
 
 ---
 
+## Archived Original Detailed Plan (Non-Executable)
+
+The remaining detailed task bodies are preserved only to help DEV understand the old design intent. They predate PR #89 and can conflict with the current baseline; for RNT-388, follow `Task R1` through `Task R8` above instead.
+
 ## Phase 1 — Module manifest schema extension
 
 ### Task 1.1: Extend `ModuleManifestSchema` with relaxed top-level + `client` block
@@ -219,7 +535,7 @@ Mirror Phase 5 layout. Components: `RichTextEditor.tsx`. Operations: `toggleBold
 **Files:**
 - Modify: `packages/module-skeleton/src/manifest-shape.ts`
 
-- [ ] **Step 1: Update the schema**
+- [archived] **Step 1: Update the schema**
 
 Replace the contents of `packages/module-skeleton/src/manifest-shape.ts` with:
 
@@ -419,12 +735,12 @@ export function parseModuleManifest(raw: unknown): ModuleManifestResult {
 }
 ```
 
-- [ ] **Step 2: Verify it builds**
+- [archived] **Step 2: Verify it builds**
 
 Run: `pnpm -F @rntme/module-skeleton typecheck`
 Expected: PASS (no type errors).
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/module-skeleton/src/manifest-shape.ts
@@ -436,7 +752,7 @@ git commit -m "feat(module-skeleton): relax top-level fields; add client block s
 **Files:**
 - Modify: `packages/module-skeleton/test/unit/manifest-shape.test.ts` (or create if missing)
 
-- [ ] **Step 1: Write failing tests**
+- [archived] **Step 1: Write failing tests**
 
 Append to (or create) `packages/module-skeleton/test/unit/manifest-shape.test.ts`:
 
@@ -567,12 +883,12 @@ describe('parseModuleManifest — relaxed top-level + client block', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests, expect them to pass with the schema from Task 1.1**
+- [archived] **Step 2: Run tests, expect them to pass with the schema from Task 1.1**
 
 Run: `pnpm -F @rntme/module-skeleton test --run unit/manifest-shape.test.ts`
 Expected: all 8 tests pass.
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/module-skeleton/test/unit/manifest-shape.test.ts
@@ -584,7 +900,7 @@ git commit -m "test(module-skeleton): cover relaxed manifest + client block"
 **Files:**
 - Modify: `packages/module-skeleton/README.md`
 
-- [ ] **Step 1: Add a "Client (UI) contributions" section**
+- [archived] **Step 1: Add a "Client (UI) contributions" section**
 
 Add the following block immediately after the existing "Module manifest contract" section in `packages/module-skeleton/README.md`:
 
@@ -624,7 +940,7 @@ A module may contribute UI in three orthogonal ways. All three are declared insi
 See `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` for the full model and `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/` for reference implementations.
 ```
 
-- [ ] **Step 2: Commit**
+- [archived] **Step 2: Commit**
 
 ```bash
 git add packages/module-skeleton/README.md
@@ -640,7 +956,7 @@ git commit -m "docs(module-skeleton): document client block (UI module contribut
 **Files:**
 - Modify: `packages/ui/src/types/source.ts`
 
-- [ ] **Step 1: Add `ModuleActionDef` to the `ActionDef` union**
+- [archived] **Step 1: Add `ModuleActionDef` to the `ActionDef` union**
 
 Append to `packages/ui/src/types/source.ts` (and update the `ActionDef` union):
 
@@ -669,12 +985,12 @@ Do not change `ElementJson.on` to action-id strings. Keep the existing json-rend
 on?: Record<string, unknown>;
 ```
 
-- [ ] **Step 2: Typecheck**
+- [archived] **Step 2: Typecheck**
 
 Run: `pnpm -F @rntme/ui typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/ui/src/types/source.ts
@@ -686,7 +1002,7 @@ git commit -m "feat(ui): add ModuleActionDef to ActionDef"
 **Files:**
 - Modify: `packages/ui/src/types/compiled.ts`
 
-- [ ] **Step 1: Add `CompiledModuleAction`**
+- [archived] **Step 1: Add `CompiledModuleAction`**
 
 Append to the `CompiledAction` union in `packages/ui/src/types/compiled.ts`:
 
@@ -718,12 +1034,12 @@ Do not change `CompiledElement.on` to `string | string[]`; preserve the existing
 on?: Record<string, unknown>;
 ```
 
-- [ ] **Step 2: Typecheck**
+- [archived] **Step 2: Typecheck**
 
 Run: `pnpm -F @rntme/ui typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/ui/src/types/compiled.ts
@@ -735,7 +1051,7 @@ git commit -m "feat(ui): add CompiledModuleAction"
 **Files:**
 - Modify: `packages/ui/src/types/result.ts`
 
-- [ ] **Step 1: Append codes to the frozen union**
+- [archived] **Step 1: Append codes to the frozen union**
 
 Inside `packages/ui/src/types/result.ts`, append the following codes to the `UiErrorCode` union (preserving existing codes — append, do not reorder or rename):
 
@@ -758,12 +1074,12 @@ Inside `packages/ui/src/types/result.ts`, append the following codes to the `UiE
 
 `ON_HANDLER_ARRAY_INVALID` applies only to invalid json-render binding arrays, not to action-id string arrays.
 
-- [ ] **Step 2: Typecheck**
+- [archived] **Step 2: Typecheck**
 
 Run: `pnpm -F @rntme/ui typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/ui/src/types/result.ts
@@ -775,7 +1091,7 @@ git commit -m "feat(ui): add error codes for module-action, prop validation, vis
 **Files:**
 - Modify: `packages/ui/src/validate/structural.ts`
 
-- [ ] **Step 1: Failing tests first**
+- [archived] **Step 1: Failing tests first**
 
 Add to `packages/ui/test/unit/validate.test.ts` (append to existing file):
 
@@ -826,7 +1142,7 @@ Flesh each test out by constructing a minimal `ExpandedSource` with one screen +
 Run: `pnpm -F @rntme/ui test --run unit/validate.test.ts`
 Expected: new tests fail with the specified codes (validator does not emit them yet).
 
-- [ ] **Step 2: Implement structural rules**
+- [archived] **Step 2: Implement structural rules**
 
 Edit `packages/ui/src/validate/structural.ts`. Locate the action-validation pass (it currently iterates over each screen's actions and validates per-kind for `command`, `navigation`, `refetch`). Add a `module-action` arm:
 
@@ -942,12 +1258,12 @@ function validateVisible(visible: unknown, pathPrefix: string, errors: UiError[]
 
 Call `validateVisible(el.visible, ...)` and `validateElementOn(el, ...)` from the existing element walk.
 
-- [ ] **Step 3: Run tests**
+- [archived] **Step 3: Run tests**
 
 Run: `pnpm -F @rntme/ui test --run unit/validate.test.ts`
 Expected: all tests pass (including the newly added structural-layer cases).
 
-- [ ] **Step 4: Commit**
+- [archived] **Step 4: Commit**
 
 ```bash
 git add packages/ui/src/validate/structural.ts packages/ui/test/unit/validate.test.ts
@@ -960,7 +1276,7 @@ git commit -m "feat(ui): structural validation for module-action, array on, visi
 - Modify: `packages/ui/src/validate/index.ts`
 - Modify: `packages/ui/src/validate/references.ts`
 
-- [ ] **Step 1: Extend `ValidateResolvers`**
+- [archived] **Step 1: Extend `ValidateResolvers`**
 
 In `packages/ui/src/validate/index.ts`, extend `ValidateResolvers`:
 
@@ -984,7 +1300,7 @@ export type ValidateResolvers = {
 
 Re-export `PropSchema` from `@rntme/module-skeleton`'s exports OR locally re-declare (must be structurally compatible). Either way, document the source.
 
-- [ ] **Step 2: Failing tests in `validate.test.ts`**
+- [archived] **Step 2: Failing tests in `validate.test.ts`**
 
 Append:
 
@@ -1008,7 +1324,7 @@ Each test constructs a minimal `ExpandedSource` and calls `validate` with stub r
 Run: `pnpm -F @rntme/ui test --run unit/validate.test.ts`
 Expected: new tests fail with the named codes.
 
-- [ ] **Step 3: Implement reference rules**
+- [archived] **Step 3: Implement reference rules**
 
 In `packages/ui/src/validate/references.ts`, add a new pass after the existing binding-resolution pass:
 
@@ -1194,12 +1510,12 @@ validateModuleActions(expanded, resolvers, errors);
 validateComponentTypesAndProps(expanded, resolvers, errors);
 ```
 
-- [ ] **Step 4: Run tests**
+- [archived] **Step 4: Run tests**
 
 Run: `pnpm -F @rntme/ui test --run unit/validate.test.ts`
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [archived] **Step 5: Commit**
 
 ```bash
 git add packages/ui/src/validate/index.ts packages/ui/src/validate/references.ts packages/ui/test/unit/validate.test.ts
@@ -1212,7 +1528,7 @@ git commit -m "feat(ui): reference validation for module-action and component pr
 - Modify: `packages/ui/src/emit/http-map.ts`
 - Modify: `packages/ui/src/emit/emit.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 Append to `packages/ui/test/unit/emit.test.ts`:
 
@@ -1257,7 +1573,7 @@ describe('emit — module-action canonicalization', () => {
 Run: `pnpm -F @rntme/ui test --run unit/emit.test.ts`
 Expected: tests fail (emit doesn't know about `module-action` yet).
 
-- [ ] **Step 2: Implement in emit**
+- [archived] **Step 2: Implement in emit**
 
 In `packages/ui/src/emit/http-map.ts`, locate `resolveScreenHttp`. Add a branch in the action-walking switch:
 
@@ -1310,12 +1626,12 @@ export function emit(
 
 Existing callers (`compile()`) pass through ctx; default no-op preserves behaviour for callers without modules.
 
-- [ ] **Step 3: Run tests**
+- [archived] **Step 3: Run tests**
 
 Run: `pnpm -F @rntme/ui test`
 Expected: all tests pass.
 
-- [ ] **Step 4: Commit**
+- [archived] **Step 4: Commit**
 
 ```bash
 git add packages/ui/src/emit/http-map.ts packages/ui/src/emit/emit.ts packages/ui/test/unit/emit.test.ts
@@ -1327,7 +1643,7 @@ git commit -m "feat(ui): emit canonicalizes category to concrete module in compi
 **Files:**
 - Modify: `packages/ui/src/compile.ts`
 
-- [ ] **Step 1: Extend `CompileOptions`**
+- [archived] **Step 1: Extend `CompileOptions`**
 
 ```ts
 export type CompileOptions = {
@@ -1340,12 +1656,12 @@ export type CompileOptions = {
 
 `resolvers.resolveCategoryToModule` is already part of the resolver shape (Task 2.5). In `compile()`, pass `{ resolveCategoryToModule: opts.resolvers.resolveCategoryToModule }` into `emit()`.
 
-- [ ] **Step 2: Run all UI tests**
+- [archived] **Step 2: Run all UI tests**
 
 Run: `pnpm -F @rntme/ui test`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [archived] **Step 3: Commit**
 
 ```bash
 git add packages/ui/src/compile.ts
@@ -1362,7 +1678,7 @@ git commit -m "feat(ui): thread resolveCategoryToModule from compile to emit"
 - Create: `packages/ui-runtime/src/client/operation-registry.ts`
 - Create: `packages/ui-runtime/test/unit/operation-registry.test.ts`
 
-- [ ] **Step 1: Write failing test**
+- [archived] **Step 1: Write failing test**
 
 Create `packages/ui-runtime/test/unit/operation-registry.test.ts`:
 
@@ -1407,7 +1723,7 @@ describe('OperationRegistry', () => {
 Run: `pnpm -F @rntme/ui-runtime test --run unit/operation-registry.test.ts`
 Expected: import error (file doesn't exist).
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 Create `packages/ui-runtime/src/client/operation-registry.ts`:
 
@@ -1453,12 +1769,12 @@ export function createOperationRegistry(): OperationRegistry {
 }
 ```
 
-- [ ] **Step 3: Run test**
+- [archived] **Step 3: Run test**
 
 Run: `pnpm -F @rntme/ui-runtime test --run unit/operation-registry.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [archived] **Step 4: Commit**
 
 ```bash
 git add packages/ui-runtime/src/client/operation-registry.ts packages/ui-runtime/test/unit/operation-registry.test.ts
@@ -1471,7 +1787,7 @@ git commit -m "feat(ui-runtime): scoped operation registry (component + module)"
 - Create: `packages/ui-runtime/src/client/lifecycle-bus.ts`
 - Create: `packages/ui-runtime/test/unit/lifecycle-bus.test.ts`
 
-- [ ] **Step 1: Write failing test**
+- [archived] **Step 1: Write failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -1504,7 +1820,7 @@ describe('LifecycleBus', () => {
 
 Run: import error expected.
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/ui-runtime/src/client/lifecycle-bus.ts
@@ -1536,12 +1852,12 @@ export function createLifecycleBus(): LifecycleBus {
 }
 ```
 
-- [ ] **Step 3: Run test**
+- [archived] **Step 3: Run test**
 
 Run: `pnpm -F @rntme/ui-runtime test --run unit/lifecycle-bus.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [archived] **Step 4: Commit**
 
 ```bash
 git add packages/ui-runtime/src/client/lifecycle-bus.ts packages/ui-runtime/test/unit/lifecycle-bus.test.ts
@@ -1554,7 +1870,7 @@ git commit -m "feat(ui-runtime): lifecycle event bus"
 - Create: `packages/ui-runtime/src/client/transport-chain.ts`
 - Create: `packages/ui-runtime/test/unit/transport-chain.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -1595,7 +1911,7 @@ describe('TransportChain', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/ui-runtime/src/client/transport-chain.ts
@@ -1624,7 +1940,7 @@ export function createTransportChain(baseFetch: (req: Request) => Promise<Respon
 }
 ```
 
-- [ ] **Step 3: Run test, then commit**
+- [archived] **Step 3: Run test, then commit**
 
 Run: `pnpm -F @rntme/ui-runtime test --run unit/transport-chain.test.ts`
 Expected: PASS.
@@ -1639,7 +1955,7 @@ git commit -m "feat(ui-runtime): transport-chain composable fetch middleware"
 **Files:**
 - Create: `packages/ui-runtime/src/client/module-context.ts`
 
-- [ ] **Step 1: Implement**
+- [archived] **Step 1: Implement**
 
 ```ts
 // packages/ui-runtime/src/client/module-context.ts
@@ -1682,7 +1998,7 @@ export function createModuleBootContext(opts: {
 }
 ```
 
-- [ ] **Step 2: Typecheck and commit**
+- [archived] **Step 2: Typecheck and commit**
 
 Run: `pnpm -F @rntme/ui-runtime typecheck`
 Expected: PASS.
@@ -1697,7 +2013,7 @@ git commit -m "feat(ui-runtime): ModuleBootContext factory"
 **Files:**
 - Create: `packages/ui-runtime/src/client/hooks.ts`
 
-- [ ] **Step 1: Implement**
+- [archived] **Step 1: Implement**
 
 ```ts
 // packages/ui-runtime/src/client/hooks.ts
@@ -1735,7 +2051,7 @@ export function useOperationRegistry(): {
 }
 ```
 
-- [ ] **Step 2: Typecheck and commit**
+- [archived] **Step 2: Typecheck and commit**
 
 ```bash
 pnpm -F @rntme/ui-runtime typecheck
@@ -1749,7 +2065,7 @@ git commit -m "feat(ui-runtime): React context hooks (useTransport/useStateStore
 - Create: `packages/ui-runtime/src/client/visibility.ts`
 - Create: `packages/ui-runtime/test/unit/visibility.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1787,7 +2103,7 @@ describe('evaluateVisible', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/ui-runtime/src/client/visibility.ts
@@ -1830,7 +2146,7 @@ function deepEq(a: unknown, b: unknown): boolean {
 }
 ```
 
-- [ ] **Step 3: Run test, commit**
+- [archived] **Step 3: Run test, commit**
 
 ```bash
 pnpm -F @rntme/ui-runtime test --run unit/visibility.test.ts
@@ -1843,7 +2159,7 @@ git commit -m "feat(ui-runtime): visible evaluator (truthy + eq + contains + not
 **Files:**
 - Modify: `packages/ui-runtime/src/client/driver.ts`
 
-- [ ] **Step 1: Failing test in `driver.test.ts`**
+- [archived] **Step 1: Failing test in `driver.test.ts`**
 
 Append:
 
@@ -1872,7 +2188,7 @@ describe('driver — module-action dispatch', () => {
 });
 ```
 
-- [ ] **Step 2: Implement in `driver.ts`**
+- [archived] **Step 2: Implement in `driver.ts`**
 
 Add to `DriverOptions`:
 
@@ -1914,7 +2230,7 @@ case 'module-action': {
 
 Wire `module-action` into the existing `createRegistry(...).actions.dispatch` path in `packages/ui-runtime/src/client/registry.ts`; json-render continues to resolve `on.press`/`on.click` binding objects and arrays before calling `dispatch`.
 
-- [ ] **Step 3: Tests pass, commit**
+- [archived] **Step 3: Tests pass, commit**
 
 ```bash
 pnpm -F @rntme/ui-runtime test --run unit/driver.test.ts
@@ -1928,7 +2244,7 @@ git commit -m "feat(ui-runtime): dispatch module-action through runtime registry
 - Modify: `packages/ui-runtime/src/client/driver.ts`
 - Modify: `packages/ui-runtime/src/client/entry.tsx`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 Append to `driver.test.ts`:
 
@@ -1955,7 +2271,7 @@ describe('driver — visibility gating', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 Inside `driver.enterScreen`, after resolving the layout:
 
@@ -1980,7 +2296,7 @@ In `entry.tsx`'s `enterRoute`, subscribe to `/auth/status` (or any state-path re
 
 Identify the relevant state paths by walking the compiled layout's root `visible` for `$state`. Store the path on a small reactive subscription. When the path's value changes, re-evaluate.
 
-- [ ] **Step 3: Tests pass, commit**
+- [archived] **Step 3: Tests pass, commit**
 
 ```bash
 pnpm -F @rntme/ui-runtime test --run unit/driver.test.ts
@@ -1993,7 +2309,7 @@ git commit -m "feat(ui-runtime): driver skips data-fetch when layout root is vis
 **Files:**
 - Modify: `packages/ui-runtime/src/client/entry.tsx`
 
-- [ ] **Step 1: Define new public types and bootstrap loop**
+- [archived] **Step 1: Define new public types and bootstrap loop**
 
 Replace the existing `hydrateApp` and supporting setup. Pseudocode:
 
@@ -2072,7 +2388,7 @@ function AppShell({ components, bus, chain, registry }: { components: Record<str
 }
 ```
 
-- [ ] **Step 2: Update `index.ts` exports**
+- [archived] **Step 2: Update `index.ts` exports**
 
 In `packages/ui-runtime/src/client/index.ts`:
 
@@ -2086,12 +2402,12 @@ export { evaluateVisible } from './visibility.js';
 export type { Visible } from './visibility.js';
 ```
 
-- [ ] **Step 3: Smoke build**
+- [archived] **Step 3: Smoke build**
 
 Run: `pnpm -F @rntme/ui-runtime build`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [archived] **Step 4: Commit**
 
 ```bash
 git add packages/ui-runtime/src/client/entry.tsx packages/ui-runtime/src/client/index.ts
@@ -2109,7 +2425,7 @@ git commit -m "feat(ui-runtime): boot orchestrator + dynamic component catalog +
 - Create: `packages/blueprint/test/unit/compose-modules.test.ts`
 - Create: `packages/blueprint/test/fixtures/project-with-modules/` (project.json + 2 fake module dirs)
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2151,7 +2467,7 @@ Create the fixture: `packages/blueprint/test/fixtures/project-with-modules/proje
 
 Plus a fake `node_modules/@rntme/presentation-md-mermaid/module.json` (or use a workspace-symlinked package once Phase 5 is built; for v1 of this test, mock the resolver).
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/blueprint/src/compose/modules.ts
@@ -2234,7 +2550,7 @@ function defaultResolvePackage(name: string, base: string): string {
 
 (Adjust import style / module resolution to whatever the existing blueprint package uses; the project may be ESM-only.)
 
-- [ ] **Step 3: Run test, commit**
+- [archived] **Step 3: Run test, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test --run unit/compose-modules.test.ts
@@ -2248,7 +2564,7 @@ git commit -m "feat(blueprint): discoverModules — read project.json#modules an
 - Create: `packages/blueprint/src/compose/catalog.ts`
 - Create: `packages/blueprint/test/unit/compose-catalog.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2287,7 +2603,7 @@ describe('buildCatalog', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/blueprint/src/compose/catalog.ts
@@ -2348,7 +2664,7 @@ export function buildCatalog(discovered: Record<string, DiscoveredModule>): Cata
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test --run unit/compose-catalog.test.ts
@@ -2362,7 +2678,7 @@ git commit -m "feat(blueprint): buildCatalog merges module component/operation d
 - Create: `packages/blueprint/src/compose/validate-modules.ts`
 - Create: `packages/blueprint/test/unit/validate-modules.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2394,7 +2710,7 @@ describe('validatePublicConfig', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/blueprint/src/compose/validate-modules.ts
@@ -2435,7 +2751,7 @@ function literalMatchesSchema(v: unknown, s: PropSchema): boolean {
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test --run unit/validate-modules.test.ts
@@ -2449,7 +2765,7 @@ git commit -m "feat(blueprint): validatePublicConfig — required + type checks"
 - Create: `packages/blueprint/src/compose/virtual-entry.ts`
 - Create: `packages/blueprint/test/unit/virtual-entry.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2476,7 +2792,7 @@ describe('renderVirtualEntry', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // packages/blueprint/src/compose/virtual-entry.ts
@@ -2518,7 +2834,7 @@ hydrateApp({ rootSelector: '#root', components, modules });
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test --run unit/virtual-entry.test.ts
@@ -2531,7 +2847,7 @@ git commit -m "feat(blueprint): renderVirtualEntry emits ESM SPA bootstrap from 
 **Files:**
 - Modify: `packages/blueprint/src/compose/index.ts` (or wherever the existing compose entry lives)
 
-- [ ] **Step 1: Identify the existing compose entry function and add module-discovery**
+- [archived] **Step 1: Identify the existing compose entry function and add module-discovery**
 
 Pseudocode for the integration point:
 
@@ -2596,7 +2912,7 @@ export async function composeProject(opts: ComposeOptions): Promise<Result<Compo
 
 Adapt to whatever the actual signature in the current blueprint `composeProject` is. The pattern is: read modules early, build catalog, feed catalog into UI validator and emit, write virtual entry + catalog manifest.
 
-- [ ] **Step 2: Smoke test compose against fixture**
+- [archived] **Step 2: Smoke test compose against fixture**
 
 Add `packages/blueprint/test/integration/compose-with-modules.test.ts`:
 
@@ -2616,7 +2932,7 @@ describe('compose with modules', () => {
 });
 ```
 
-- [ ] **Step 3: Run, commit**
+- [archived] **Step 3: Run, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test
@@ -2633,7 +2949,7 @@ git commit -m "feat(blueprint): wire module discovery + catalog + virtual entry 
 **Files:**
 - Create: `modules/presentation/md-mermaid/package.json`, `tsconfig.json`, `tsconfig.check.json`, `eslint.config.mjs`, `vitest.config.ts`, `module.json`
 
-- [ ] **Step 1: Author boilerplate**
+- [archived] **Step 1: Author boilerplate**
 
 `package.json`:
 
@@ -2714,7 +3030,7 @@ git commit -m "feat(blueprint): wire module discovery + catalog + virtual entry 
 
 (Copy `tsconfig.check.json`, `eslint.config.mjs`, `vitest.config.ts` from `packages/ui-runtime/` as templates and adjust paths.)
 
-- [ ] **Step 2: Install deps and commit**
+- [archived] **Step 2: Install deps and commit**
 
 Run: `pnpm install`
 Expected: workspace package linked, deps installed.
@@ -2730,7 +3046,7 @@ git commit -m "scaffold: @rntme/presentation-md-mermaid workspace package"
 - Create: `modules/presentation/md-mermaid/src/components/Markdown.tsx`
 - Create: `modules/presentation/md-mermaid/test/unit/Markdown.test.tsx`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```tsx
 import { describe, expect, it } from 'vitest';
@@ -2747,7 +3063,7 @@ describe('<Markdown>', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```tsx
 // modules/presentation/md-mermaid/src/components/Markdown.tsx
@@ -2765,7 +3081,7 @@ export function Markdown({ source }: MarkdownProps): JSX.Element {
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/presentation-md-mermaid test --run unit/Markdown.test.tsx
@@ -2779,7 +3095,7 @@ git commit -m "feat(presentation-md-mermaid): Markdown renderer"
 - Create: `modules/presentation/md-mermaid/src/components/Mermaid.tsx`
 - Create: `modules/presentation/md-mermaid/test/unit/Mermaid.test.tsx`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```tsx
 import { describe, expect, it, vi } from 'vitest';
@@ -2794,7 +3110,7 @@ describe('<Mermaid>', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```tsx
 // modules/presentation/md-mermaid/src/components/Mermaid.tsx
@@ -2819,7 +3135,7 @@ export function Mermaid({ source }: MermaidProps): JSX.Element {
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/presentation-md-mermaid test
@@ -2833,7 +3149,7 @@ git commit -m "feat(presentation-md-mermaid): Mermaid renderer"
 - Create: `modules/presentation/md-mermaid/src/index.ts`
 - Create: `modules/presentation/md-mermaid/test/unit/manifest.test.ts`
 
-- [ ] **Step 1: Implement entry**
+- [archived] **Step 1: Implement entry**
 
 ```ts
 // modules/presentation/md-mermaid/src/index.ts
@@ -2841,7 +3157,7 @@ export { Markdown }  from './components/Markdown.js';
 export { Mermaid }   from './components/Mermaid.js';
 ```
 
-- [ ] **Step 2: Manifest sanity test**
+- [archived] **Step 2: Manifest sanity test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2862,7 +3178,7 @@ describe('module.json', () => {
 });
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/presentation-md-mermaid test
@@ -2875,7 +3191,7 @@ git commit -m "feat(presentation-md-mermaid): module entry + manifest sanity"
 **Files:**
 - Create: `modules/presentation/md-mermaid/README.md`
 
-- [ ] **Step 1: Author**
+- [archived] **Step 1: Author**
 
 ```markdown
 # @rntme/presentation-md-mermaid
@@ -2940,7 +3256,7 @@ In a project that uses this module:
 - `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §3.4 (canonical "MD/Mermaid" example) and §10 (bundle pipeline).
 ```
 
-- [ ] **Step 2: Commit**
+- [archived] **Step 2: Commit**
 
 ```bash
 git add modules/presentation/md-mermaid/README.md
@@ -2956,7 +3272,7 @@ git commit -m "docs(presentation-md-mermaid): README"
 **Files:**
 - Create: `modules/presentation/tiptap/{package.json, tsconfig*, eslint.config.mjs, vitest.config.ts, module.json}`
 
-- [ ] **Step 1: Author**
+- [archived] **Step 1: Author**
 
 `package.json` (key parts):
 
@@ -3002,7 +3318,7 @@ git commit -m "docs(presentation-md-mermaid): README"
 }
 ```
 
-- [ ] **Step 2: Install + commit**
+- [archived] **Step 2: Install + commit**
 
 ```bash
 pnpm install
@@ -3016,7 +3332,7 @@ git commit -m "scaffold: @rntme/presentation-tiptap workspace package"
 - Create: `modules/presentation/tiptap/src/components/RichTextEditor.tsx`
 - Create: `modules/presentation/tiptap/test/unit/RichTextEditor.test.tsx`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```tsx
 import { describe, expect, it, vi } from 'vitest';
@@ -3042,7 +3358,7 @@ describe('<RichTextEditor>', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```tsx
 // modules/presentation/tiptap/src/components/RichTextEditor.tsx
@@ -3073,7 +3389,7 @@ export function RichTextEditor({ value, __rntmeElementId }: RichTextEditorProps)
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/presentation-tiptap test
@@ -3087,7 +3403,7 @@ git commit -m "feat(presentation-tiptap): RichTextEditor with operation self-reg
 - Create: `modules/presentation/tiptap/src/index.ts`
 - Create: `modules/presentation/tiptap/test/unit/manifest.test.ts`
 
-- [ ] **Step 1: Author and test**
+- [archived] **Step 1: Author and test**
 
 ```ts
 // src/index.ts
@@ -3106,7 +3422,7 @@ describe('module.json', () => {
 });
 ```
 
-- [ ] **Step 2: Test, commit**
+- [archived] **Step 2: Test, commit**
 
 ```bash
 pnpm -F @rntme/presentation-tiptap test
@@ -3139,7 +3455,7 @@ git commit -m "docs(presentation-tiptap): README"
 **Files:**
 - Create: `packages/contracts/analytics/v1/{package.json, tsconfig.json, src/operations.ts, src/index.ts, README.md}`
 
-- [ ] **Step 1: Author files**
+- [archived] **Step 1: Author files**
 
 `package.json`:
 
@@ -3212,7 +3528,7 @@ Canonical UI contract for the `analytics` category. Vendor modules implementing 
 - Server-side event ingestion — separate spec.
 ```
 
-- [ ] **Step 2: Build, commit**
+- [archived] **Step 2: Build, commit**
 
 ```bash
 pnpm install
@@ -3226,7 +3542,7 @@ git commit -m "feat(contracts-analytics-v1): canonical UI contract for analytics
 **Files:**
 - Create: `modules/analytics/google-analytics/{package.json, tsconfig.json, module.json, src/index.ts, test/...}`
 
-- [ ] **Step 1: Author manifest**
+- [archived] **Step 1: Author manifest**
 
 `module.json`:
 
@@ -3257,7 +3573,7 @@ git commit -m "feat(contracts-analytics-v1): canonical UI contract for analytics
 
 `package.json` deps include `@rntme/contracts-analytics-v1`, `@rntme/ui-runtime` as peer.
 
-- [ ] **Step 2: Commit scaffold**
+- [archived] **Step 2: Commit scaffold**
 
 ```bash
 pnpm install
@@ -3271,7 +3587,7 @@ git commit -m "scaffold: @rntme/analytics-google-analytics workspace package"
 - Create: `modules/analytics/google-analytics/src/index.ts`
 - Create: `modules/analytics/google-analytics/test/unit/boot.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -3321,7 +3637,7 @@ describe('boot()', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [archived] **Step 2: Implement**
 
 ```ts
 // modules/analytics/google-analytics/src/index.ts
@@ -3371,7 +3687,7 @@ export function boot(ctx: ModuleBootContext): void {
 }
 ```
 
-- [ ] **Step 3: Test, commit**
+- [archived] **Step 3: Test, commit**
 
 ```bash
 pnpm -F @rntme/analytics-google-analytics test
@@ -3405,7 +3721,7 @@ git commit -m "docs(analytics-google-analytics): README"
 **Files:**
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Update the paragraph**
+- [archived] **Step 1: Update the paragraph**
 
 Locate the "Architecture in one paragraph" section and append a sentence after the existing executor-seam mention:
 
@@ -3421,11 +3737,11 @@ git commit -m "docs(CLAUDE.md): mention module UI contribution surface"
 **Files:**
 - Modify: `AGENTS.md`
 
-- [ ] **Step 1: §3 (package layering)**
+- [archived] **Step 1: §3 (package layering)**
 
 Add a row near the existing UI-related entries describing `modules/<cat>/<vendor>/client/` flow → `@rntme/blueprint` compose → `@rntme/ui` validate → SPA bundle.
 
-- [ ] **Step 2: §6 (how-tos)** — three new entries:
+- [archived] **Step 2: §6 (how-tos)** — three new entries:
 
 ```markdown
 **Add a UI-only module (renderer/widget).**
@@ -3448,7 +3764,7 @@ Add a row near the existing UI-related entries describing `modules/<cat>/<vendor
 3. Add a `category` + `contract` if a canonical UI contract exists for your module class.
 ```
 
-- [ ] **Step 3: §10 (glossary)** — new entries:
+- [archived] **Step 3: §10 (glossary)** — new entries:
 
 ```markdown
 - **module-action** — UI action kind dispatched to either a component-bound handler (by `target` element ID) or a module-level handler (by `module` package name or canonical `category`).
@@ -3467,7 +3783,7 @@ git commit -m "docs(AGENTS.md): UI module contribution layering, how-tos, glossa
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add module rows**
+- [archived] **Step 1: Add module rows**
 
 Add the three new modules to the packages table; mention `@rntme/contracts-analytics-v1`. Update the dep graph paragraph to note `@rntme/ui-runtime/client` exports module-facing hooks.
 
@@ -3481,15 +3797,15 @@ git commit -m "docs(README): packages table — md-mermaid, tiptap, GA, analytic
 **Files:**
 - Modify: `packages/ui/README.md`, `packages/ui-runtime/README.md`, `packages/blueprint/README.md`
 
-- [ ] **Step 1: `packages/ui/README.md`**
+- [archived] **Step 1: `packages/ui/README.md`**
 
 Add `module-action` to the action-kinds table; add new error codes; mention the new `resolveOperation`/`resolveCategoryToModule` resolvers.
 
-- [ ] **Step 2: `packages/ui-runtime/README.md`**
+- [archived] **Step 2: `packages/ui-runtime/README.md`**
 
 Document `useTransport`, `useStateStore`, `useOperationRegistry`, `ModuleBootContext`, the boot lifecycle, the visibility-driven driver gating rule, and json-render event binding arrays.
 
-- [ ] **Step 3: `packages/blueprint/README.md`**
+- [archived] **Step 3: `packages/blueprint/README.md`**
 
 Document the new compose steps: `discoverModules`, `buildCatalog`, `validatePublicConfig`, `renderVirtualEntry`. Document the `catalogManifest.json` artifact.
 
@@ -3508,7 +3824,7 @@ git commit -m "docs(READMEs): UI/ui-runtime/blueprint module-contribution surfac
 - Create: `packages/blueprint/test/fixtures/integration-smoke/project.json`
 - Create: `packages/blueprint/test/fixtures/integration-smoke/services/app/ui/{manifest.json, layouts/main.{spec,screen}.json, screens/home.{spec,screen}.json}`
 
-- [ ] **Step 1: Author fixture**
+- [archived] **Step 1: Author fixture**
 
 `project.json`:
 
@@ -3560,7 +3876,7 @@ git commit -m "docs(READMEs): UI/ui-runtime/blueprint module-contribution surfac
 }
 ```
 
-- [ ] **Step 2: Commit fixture**
+- [archived] **Step 2: Commit fixture**
 
 ```bash
 git add packages/blueprint/test/fixtures/integration-smoke
@@ -3572,7 +3888,7 @@ git commit -m "test(blueprint): integration-smoke fixture"
 **Files:**
 - Create: `packages/blueprint/test/integration/end-to-end.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [archived] **Step 1: Failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -3612,7 +3928,7 @@ describe('end-to-end compose with three modules', () => {
 
 (Adjust `screens/home.json` output path based on actual emit shape from `@rntme/ui`.)
 
-- [ ] **Step 2: Run, commit**
+- [archived] **Step 2: Run, commit**
 
 ```bash
 pnpm -F @rntme/blueprint test
@@ -3622,7 +3938,7 @@ git commit -m "test(blueprint): end-to-end compose with three modules"
 
 ### Task 9.3: Run the entire workspace test pass
 
-- [ ] **Step 1: Full repo test**
+- [archived] **Step 1: Full repo test**
 
 Run from repo root:
 
@@ -3634,7 +3950,7 @@ pnpm -r run lint
 
 Expected: PASS across all packages.
 
-- [ ] **Step 2: Final commit (if any drift cleanup needed)**
+- [archived] **Step 2: Final commit (if any drift cleanup needed)**
 
 ```bash
 git status
@@ -3646,11 +3962,11 @@ git commit -m "chore: post-integration cleanup"
 
 ## Self-review (run before declaring done)
 
-- [ ] **Spec coverage:** every numbered "in scope" item from spec §1 is implemented by a Task above. Every error code from spec §4.3 / §7.2 / §11 appears in code (`module-skeleton`, `@rntme/ui`, `@rntme/blueprint`).
-- [ ] **`module.json` schema parses every shape from spec §3.1 fixture.**
-- [ ] **`module-action` dispatches both component-bound and module-level paths in tests.**
-- [ ] **State-gated rendering exercise:** Phase 9 fixture does not exercise the auth/login state-gate (no identity module included). That is correct — auth migration is out-of-scope per spec §15. The `evaluateVisible` unit tests cover the operator surface independently.
-- [ ] **Documentation-touch checklist (spec §14) matches Phase 8 task list.**
+- [archived] **Spec coverage:** every numbered "in scope" item from spec §1 is implemented by a Task above. Every error code from spec §4.3 / §7.2 / §11 appears in code (`module-skeleton`, `@rntme/ui`, `@rntme/blueprint`).
+- [archived] **`module.json` schema parses every shape from spec §3.1 fixture.**
+- [archived] **`module-action` dispatches both component-bound and module-level paths in tests.**
+- [archived] **State-gated rendering exercise:** Phase 9 fixture does not exercise the auth/login state-gate (no identity module included). That is correct — auth migration is out-of-scope per spec §15. The `evaluateVisible` unit tests cover the operator surface independently.
+- [archived] **Documentation-touch checklist (spec §14) matches Phase 8 task list.**
 
 If any spec requirement is not covered by a Task, add the Task before handing off.
 
