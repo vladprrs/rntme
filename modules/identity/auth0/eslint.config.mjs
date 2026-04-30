@@ -18,6 +18,8 @@ export default [
         document: 'readonly',
         Request: 'readonly',
         Headers: 'readonly',
+        Response: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {
