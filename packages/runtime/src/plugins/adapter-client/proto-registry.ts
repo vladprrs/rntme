@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import * as protobuf from 'protobufjs';
+import protobuf from 'protobufjs';
 import type * as grpc from '@grpc/grpc-js';
 
 export type MethodDescriptor = grpc.MethodDefinition<object, object>;
@@ -14,10 +14,11 @@ export class ProtoRegistry {
   private modules: Map<string, LoadedModule> = new Map();
 
   registerModule(moduleName: string, protoPath: string): void {
-    const src = readFileSync(protoPath, 'utf8');
-    const parsed = protobuf.parse(src, { keepCase: true });
-    const root = parsed.root;
-    const pkg = parsed.package ?? '';
+    readFileSync(protoPath, 'utf8');
+    const root = new protobuf.Root();
+    root.loadSync(protoPath, { keepCase: true });
+    root.resolveAll();
+    const pkg = packageNameFor(root);
     const pkgPrefix = pkg.length > 0 ? `${pkg}.` : '';
 
     // Find the first Service in the file.
@@ -61,4 +62,19 @@ export class ProtoRegistry {
   hasModule(moduleName: string): boolean {
     return this.modules.has(moduleName);
   }
+}
+
+function packageNameFor(root: protobuf.Root): string {
+  const found: { service: protobuf.Service | null } = { service: null };
+  const walk = (obj: protobuf.ReflectionObject): void => {
+    if (obj instanceof protobuf.Service && found.service === null) {
+      found.service = obj;
+      return;
+    }
+    if (obj instanceof protobuf.Namespace) {
+      for (const child of Object.values(obj.nested ?? {})) walk(child);
+    }
+  };
+  for (const child of Object.values(root.nested ?? {})) walk(child);
+  return found.service === null ? '' : found.service.fullName.replace(/^\./, '').split('.').slice(0, -1).join('.');
 }
