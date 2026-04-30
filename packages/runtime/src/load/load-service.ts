@@ -282,6 +282,8 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   // 7. UI v2 — compile from source format (ui/ directory)
   let compiledUi: CompiledArtifact;
   const uiSourceDir = join(dir, 'ui');
+  const uiBuildDir = join(dir, 'ui-build');
+  const uiAssetsDir = existsSync(uiBuildDir) ? uiBuildDir : null;
   if (!existsSync(uiSourceDir)) {
     return { ok: false, errors: [{ code: 'UI_INVALID', details: [{ message: 'ui/ source directory not found' }] }] };
   }
@@ -355,6 +357,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       qsm: validatedQsm,
       bindings: validatedBindings,
       compiledUi,
+      uiAssetsDir,
       graphSpec,
       openApiDoc: openapi.value,
       projectionApplyPlan,

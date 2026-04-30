@@ -24,6 +24,7 @@ export type ValidatedService = {
   qsm: ValidatedQsm;
   bindings: ValidatedBindings;
   compiledUi: CompiledArtifact;
+  uiAssetsDir: string | null;
   graphSpec: GraphSpec;
   openApiDoc: OpenApiDoc;
   projectionApplyPlan: ApplyPlan;
