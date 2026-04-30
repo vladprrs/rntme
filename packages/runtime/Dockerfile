@@ -8,21 +8,18 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages ./packages
 COPY demo ./demo
 RUN corepack enable \
-  && pnpm config set node-linker hoisted \
   && pnpm install --frozen-lockfile \
-  && pnpm -r --filter "@rntme/*" build \
-  && pnpm --filter @rntme/runtime --prod deploy /out \
-  && test -f /out/node_modules/@rntme/pdm/package.json \
-  && test ! -L /out/node_modules/@rntme/pdm \
-  && node --input-type=module -e "await import('/out/dist/load/load-service.js')"
+  && pnpm -r --filter "@rntme/*" build
 
 FROM node:20-alpine
 WORKDIR /srv
-COPY --from=builder /out ./
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/packages ./packages
+RUN node --input-type=module -e "await import('/srv/packages/runtime/dist/load/load-service.js')"
 ENV NODE_ENV=production \
     RNTME_ARTIFACTS_DIR=/srv/artifacts \
     RNTME_HTTP_PORT=3000
 USER node
 EXPOSE 3000
-ENTRYPOINT ["node", "dist/bin/runtime.js", "start"]
+ENTRYPOINT ["node", "packages/runtime/dist/bin/runtime.js", "start"]
 CMD ["/srv/artifacts"]
