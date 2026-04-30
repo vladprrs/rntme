@@ -8,12 +8,11 @@ import { buildHtmlShell } from './static-shell.js';
 export type CreateAppOptions = {
   artifact: CompiledArtifact;
   assetsDir?: string;
-  authShell?: boolean;
 };
 
 const SHELL_SECURITY_HEADERS = {
   'content-security-policy':
-    "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'",
+    "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https:; frame-src https:; img-src 'self' data: https:; font-src 'self'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'x-frame-options': 'DENY',
@@ -26,7 +25,7 @@ export function createApp(opts: CreateAppOptions): Hono {
     join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'build');
 
   const app = new Hono();
-  const shell = buildHtmlShell({ authShell: opts.authShell });
+  const shell = buildHtmlShell();
 
   // Serve compiled manifest
   app.get('/_manifest.json', (c) => c.json(opts.artifact.manifest));
@@ -75,12 +74,6 @@ export function createApp(opts: CreateAppOptions): Hono {
     headers: {
       'content-type': 'text/html; charset=UTF-8',
       ...SHELL_SECURITY_HEADERS,
-      ...(opts.authShell
-        ? {
-            'content-security-policy':
-              "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'",
-          }
-        : {}),
     },
   });
 

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 import type { OperationRegistry } from './operation-registry.js';
 import type { TransportChain } from './transport-chain.js';
 import type { StateStore } from '@json-render/core';
@@ -32,4 +32,17 @@ export function useOperationRegistry(): {
   const c = useContext(RegistryContext);
   if (!c) throw new Error('useOperationRegistry requires <RegistryProvider>');
   return { register: (eid, hs) => c.registerComponent(eid, hs) };
+}
+
+export function useModuleAction(
+  moduleName: string,
+  name: string,
+): (params?: Record<string, unknown>) => Promise<void> {
+  const registry = useContext(RegistryContext);
+  return useCallback(
+    async (params: Record<string, unknown> = {}) => {
+      await registry?.lookupModule(moduleName, name)?.(params);
+    },
+    [moduleName, name, registry],
+  );
 }

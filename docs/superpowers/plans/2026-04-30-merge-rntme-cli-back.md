@@ -199,7 +199,7 @@ git mv packages/projection-consumer  packages/runtime/projection-consumer
 git mv packages/bindings-http        packages/runtime/bindings-http
 git mv packages/bindings-grpc        packages/runtime/bindings-grpc
 git mv packages/ui-runtime           packages/runtime/ui-runtime
-git mv packages/ui-auth-shell        packages/runtime/ui-auth-shell
+# Legacy standalone Auth0 browser package is gone; identity module client blocks stay under modules/.
 git mv packages/db-studio            packages/runtime/db-studio
 ```
 

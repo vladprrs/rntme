@@ -11,6 +11,7 @@ export {
   useTransport,
   useStateStore,
   useOperationRegistry,
+  useModuleAction,
   TransportProvider,
   StoreProvider,
   RegistryProvider,

@@ -4,11 +4,25 @@
     "shell": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "lg" },
-      "children": ["header"]
+      "children": ["anonRoot", "authedTopbar"]
     },
-    "header": {
+    "anonRoot": {
+      "type": "LoginScreen",
+      "visible": { "$state": "/auth/status", "eq": "anon" }
+    },
+    "authedTopbar": {
+      "type": "Stack",
+      "props": { "direction": "horizontal", "gap": "md" },
+      "visible": { "$state": "/auth/status", "eq": "authed" },
+      "children": ["title", "userBadge"]
+    },
+    "title": {
       "type": "Heading",
       "props": { "level": 1, "text": "Notes" }
+    },
+    "userBadge": {
+      "type": "UserBadge",
+      "props": { "display": "email" }
     }
   }
 }

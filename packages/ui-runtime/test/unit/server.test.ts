@@ -21,27 +21,8 @@ describe('createApp', () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain('<div id="root">');
-    expect(html).toContain('main.js');
-  });
-
-  it('can serve an auth shell that loads /config.json before app.js', async () => {
-    const app = createApp({
-      artifact: {
-        manifest: testManifest,
-        layouts: { main: testLayout },
-        screens: { home: testScreen, about: testScreen },
-      },
-      assetsDir: '/tmp/nonexistent-assets',
-      authShell: true,
-    });
-
-    const res = await app.request('/');
-
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain('/config.json');
-    expect(html).toContain('/assets/app.js');
-    expect(html).not.toContain('/assets/main.js');
+    expect(html).toContain('<link rel="stylesheet" href="/assets/main.css">');
+    expect(html).toContain('<script type="module" src="/assets/main.js"></script>');
   });
 
   it('serves shell responses with CSP and security headers', async () => {
@@ -52,7 +33,7 @@ describe('createApp', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get('content-security-policy')).toBe(
-        "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'",
+        "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https:; frame-src https:; img-src 'self' data: https:; font-src 'self'",
       );
       expect(res.headers.get('x-content-type-options')).toBe('nosniff');
       expect(res.headers.get('referrer-policy')).toBe('no-referrer');

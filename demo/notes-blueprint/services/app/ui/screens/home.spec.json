@@ -4,6 +4,7 @@
     "page": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "lg" },
+      "visible": { "$state": "/auth/status", "eq": "authed" },
       "children": ["create-section", "delete-section", "list-section"]
     },
     "create-section": {

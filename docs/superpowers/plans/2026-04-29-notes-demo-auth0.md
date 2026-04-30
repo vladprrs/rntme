@@ -1480,6 +1480,8 @@ git commit -m "docs: deploy-core/deploy-dokploy/runtime READMEs for auth + SASL"
 
 ## Phase 4 — UI auth-shell + ui-runtime
 
+**Status update (2026-04-30):** Phase 4 is superseded by `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md`. Phases 1-3, 5-7 remain authoritative.
+
 ### Task 4.1: Scaffold `@rntme/ui-auth-shell`
 
 **Files:**

@@ -47,5 +47,56 @@
     "Auth0 exposes app_metadata and user_metadata differently from canonical public/private/unsafe metadata; mappings preserve visibility best-effort and keep vendor_raw for audit.",
     "Lifecycle events are translated from Auth0 log/event payloads when the log record contains enough identity, organization, or invitation data.",
     "Auth0 Management API mutations do not accept rntme idempotency keys or correlation ids; callers must use rntme-side retry/dedupe controls for command replay safety."
-  ]
+  ],
+  "client": {
+    "entry": "./dist/client/index.js",
+    "boot": true,
+    "config": {
+      "schema": {
+        "domain": {
+          "type": "string",
+          "required": true
+        },
+        "clientId": {
+          "type": "string",
+          "required": true
+        },
+        "audience": {
+          "type": "string",
+          "required": true
+        },
+        "redirectUri": {
+          "type": "string",
+          "required": true
+        },
+        "scope": {
+          "type": "string"
+        }
+      }
+    },
+    "components": [
+      {
+        "type": "LoginScreen",
+        "props": {}
+      },
+      {
+        "type": "UserBadge",
+        "props": {
+          "display": {
+            "type": "string"
+          }
+        }
+      }
+    ],
+    "operations": [
+      {
+        "name": "login",
+        "params": {}
+      },
+      {
+        "name": "logout",
+        "params": {}
+      }
+    ]
+  }
 }

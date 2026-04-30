@@ -66,7 +66,10 @@ export class HttpSurface implements Surface {
       metrics: this.opts.metrics,
     });
 
-    const uiApp = createUiApp({ artifact: ctx.service.compiledUi });
+    const uiApp = createUiApp({
+      artifact: ctx.service.compiledUi,
+      ...(ctx.service.uiAssetsDir === null ? {} : { assetsDir: ctx.service.uiAssetsDir }),
+    });
     // Mount correlation middleware BEFORE the bindings router so every
     // /api request gets a CorrelationCtx. Command handlers read it via
     // `c.var.correlation` (typed by CorrelationVariables).

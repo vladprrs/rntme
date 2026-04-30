@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { parseModuleManifest, type ModuleManifest } from '@rntme/module-skeleton';
 
@@ -106,11 +106,12 @@ export function discoverModules(input: {
 
 /** Resolve the on-disk package root from the project, with exports-safe fallbacks. */
 export function defaultResolvePackage(packageName: string, projectDir: string): string {
-  const projectRequire = createRequire(join(projectDir, 'project.json'));
+  const absProjectDir = resolve(projectDir);
+  const projectRequire = createRequire(join(absProjectDir, 'project.json'));
   try {
     return dirname(projectRequire.resolve(`${packageName}/package.json`));
   } catch (error) {
-    const fallback = join(projectDir, 'node_modules', ...packageName.split('/'), 'module.json');
+    const fallback = join(absProjectDir, 'node_modules', ...packageName.split('/'), 'module.json');
     try {
       readFileSync(fallback);
       return dirname(fallback);
@@ -118,8 +119,34 @@ export function defaultResolvePackage(packageName: string, projectDir: string): 
       try {
         return dirname(projectRequire.resolve(`${packageName}/module.json`));
       } catch {
+        const workspaceDir = workspacePackageDir(packageName, absProjectDir);
+        if (workspaceDir !== null) return workspaceDir;
         throw error;
       }
     }
   }
+}
+
+function workspacePackageDir(packageName: string, projectDir: string): string | null {
+  const candidates = [
+    join(projectDir, '..', '..'),
+    join(projectDir, '..', '..', '..'),
+  ];
+  for (const root of candidates) {
+    const dir = join(root, ...workspacePackagePathSegments(packageName));
+    try {
+      readFileSync(join(dir, 'module.json'));
+      return resolve(dir);
+    } catch {
+      // Keep trying candidate roots.
+    }
+  }
+  return null;
+}
+
+function workspacePackagePathSegments(packageName: string): string[] {
+  if (packageName.startsWith('@rntme/identity-')) {
+    return ['modules', 'identity', packageName.slice('@rntme/identity-'.length)];
+  }
+  return ['node_modules', ...packageName.split('/')];
 }

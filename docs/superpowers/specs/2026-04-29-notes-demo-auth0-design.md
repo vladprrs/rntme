@@ -1,6 +1,7 @@
 # Notes Demo — Auth0 + Ownership + Redpanda Cloud — design
 
 **Status:** brainstorming approved, awaiting user review of this spec
+**Status update (2026-04-30):** §6 (UI auth-shell) is superseded by `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md`. Phases 1-3, 5-7 remain authoritative.
 **Author:** brainstorm 2026-04-29
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern (`pre[]` in command bindings, `ExternalAdapterClient`, three-tier integration). This spec extends `pre[]` to query bindings (K1) and uses the module pattern end-to-end.

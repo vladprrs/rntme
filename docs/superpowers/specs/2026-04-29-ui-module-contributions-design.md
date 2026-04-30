@@ -5,7 +5,7 @@
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — backend module pattern (gRPC RPCs, `ExternalAdapterClient`, `pre[]`). This spec adds a parallel UI-contribution surface to the same module unit, without changing backend semantics.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module repo layout, canonical contracts, conformance. UI contributions inherit the same `category`/`vendor`/`contract` pattern; canonical contracts get UI-side fields (component types, operation names) in addition to RPCs and events.
-- `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` — Auth0 demo plan with separate `packages/ui-auth-shell/`. **Not modified by this spec.** Auth0 plan executes as written; v2 migration of `ui-auth-shell` into `modules/identity/auth0/client/` under this model is a separate later spec.
+- `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` — Auth0 demo plan with a separate legacy browser auth package. **Not modified by this spec.** The Auth0 plan executed first; the later migration moved the browser auth path into `modules/identity/auth0/client/` under this model.
 - `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md` — UI artifact v2 (compiled artifact shape, validator phases). Extended here with module-driven component types and a new action kind `module-action`.
 - Memories: `rntme_vision_framing`, `project_pre_stable_stage`.
 
@@ -76,7 +76,7 @@ A fourth illustrative case (auth0, AI streaming) is described to verify the mode
 **Out of scope (separate specs):**
 
 - Server-side streaming bindings (`kind: "stream"` in `bindings.json`, SSE/fetch-stream surface in `bindings-http`, gRPC streaming proxy). Required for the AI-LLM end-to-end use case but is server-side machinery, parallel to this UI work. Will be its own spec when AI demo is planned.
-- Migration of existing `packages/ui-auth-shell/` into `modules/identity/auth0/client/`. The Auth0 demo plan continues to use the separate-package shape; v2 migration is a follow-up spec.
+- Migration of the existing legacy Auth0 browser package into `modules/identity/auth0/client/`. The Auth0 demo plan continued to use the separate-package shape until the follow-up migration spec.
 - Module-owned routes / full screens (axis A2 from the brainstorm taxonomy). No current use case demands it.
 - Module-owned PDM/QSM (sub-blueprint shape). Not required by any v1 use case; would conflict with single-event-store invariants.
 - Dynamic runtime module loading (module federation / dynamic-import bundles). v1 uses static esbuild bundling; modules ship TS via workspace symlinks. Dynamic loading is heavy infra and unjustified at pre-revenue scale.
@@ -722,7 +722,7 @@ In `@rntme/blueprint` after collecting modules:
 | 9 | `AGENTS.md` | XS | §3 (package layering) lists module client surface; §6 (how-tos) adds "Add a UI module" recipe; §10 (glossary) defines `ModuleBootContext`, `module-action`, "state-gated rendering". |
 | 10 | `README.md` | XS | Packages table updated with new modules; dep graph notes UI-runtime's new exports; MVP scope mentions module-driven UI extension. |
 | 11 | Per-package READMEs | XS | `@rntme/ui`, `@rntme/ui-runtime`, `@rntme/blueprint`, `@rntme/module-skeleton`, plus new modules' READMEs. |
-| 12 | `demo/notes-blueprint/` | none | Notes demo continues with the existing auth0 plan and `packages/ui-auth-shell/`. v2 migration of the auth0 path into this model is a separate spec. |
+| 12 | `demo/notes-blueprint/` | none | Notes demo continues with the existing Auth0 plan and its legacy browser package. The later migration moves that auth path into this model. |
 
 ## 13. Risk register
 
@@ -767,7 +767,7 @@ Per `CLAUDE.md` "Every plan must include a documentation-touch task":
 ## 15. Out of scope (re-statement and future hooks)
 
 - **Server-side streaming bindings.** `kind: "stream"` in `bindings.json`; SSE/fetch-stream proxying in `bindings-http`; gRPC streaming proxy. Required for AI demo end-to-end; separate spec.
-- **`packages/ui-auth-shell/` migration into `modules/identity/auth0/client/`.** Mechanical move once this spec is implemented; auth0 demo stays on the separate-package shape until then.
+- **Legacy Auth0 browser package migration into `modules/identity/auth0/client/`.** Mechanical move once this spec is implemented; the Auth0 demo stayed on the separate-package shape until the follow-up migration.
 - **A2 — module-owned routes/screens.** No use case; would require fragment merging at compile + route-conflict policy.
 - **Sub-blueprint shape (module-as-mini-service).** Conflicts with single-event-store; no use case yet.
 - **Dynamic runtime module loading.** Static esbuild bundling is the v1 answer.

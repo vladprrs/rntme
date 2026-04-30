@@ -18,7 +18,7 @@ That rationale is gone. `gh repo view vladprrs/rntme-cli` reports `"visibility":
 - **Boundary confusion.** `rntme-cli/apps/landing/` is *not* in the parent's `pnpm-workspace.yaml` (only `rntme-cli/packages/*` is wired in). Root-level `pnpm -r` silently skips it. Specs reference `rntme-cli/...` paths next to `packages/...` paths with no rule for which side owns what.
 - **CI surface.** `.github/workflows/ci.yml` carries `submodules: recursive`; PRs from forks cannot clone (already documented as accepted, but moot now that the submodule is public).
 
-Beyond the merge-back, a flat `packages/*` containing every library hides an architectural axis the codebase already enforces in code: the **artifact → runtime** layering. Today `@rntme/bindings` (an artifact validator + OpenAPI generator) and `@rntme/bindings-http` (a Hono surface that consumes `Validated*` bindings) sit side by side because both names start with `bindings`. The same is true for `@rntme/ui` (artifact validator) vs `@rntme/ui-runtime` + `@rntme/ui-auth-shell` (SPA surfaces). Folder layout encodes none of this.
+Beyond the merge-back, a flat `packages/*` containing every library hides an architectural axis the codebase already enforces in code: the **artifact → runtime** layering. Today `@rntme/bindings` (an artifact validator + OpenAPI generator) and `@rntme/bindings-http` (a Hono surface that consumes `Validated*` bindings) sit side by side because both names start with `bindings`. The same is true for `@rntme/ui` (artifact validator) vs `@rntme/ui-runtime` and module-provided SPA surfaces. Folder layout encodes none of this.
 
 ## 2. Goals
 
@@ -49,7 +49,7 @@ packages/
     bindings-http/                        @rntme/bindings-http
     bindings-grpc/                        @rntme/bindings-grpc
     ui-runtime/                           @rntme/ui-runtime
-    ui-auth-shell/                        @rntme/ui-auth-shell
+    module-provided-auth-ui/              identity module client blocks
     db-studio/                            @rntme/db-studio
   platform/                               # commercial control plane
     platform-core/                        @rntme/platform-core
@@ -146,7 +146,7 @@ git mv packages/projection-consumer  packages/runtime/projection-consumer
 git mv packages/bindings-http        packages/runtime/bindings-http
 git mv packages/bindings-grpc        packages/runtime/bindings-grpc
 git mv packages/ui-runtime           packages/runtime/ui-runtime
-git mv packages/ui-auth-shell        packages/runtime/ui-auth-shell
+# Legacy standalone Auth0 browser package is gone; identity module client blocks stay under modules/.
 git mv packages/db-studio            packages/runtime/db-studio
 git mv packages/module-skeleton      packages/tooling/module-skeleton
 

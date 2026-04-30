@@ -180,8 +180,10 @@ Modules tree (vendor implementations):
 
 - **`modules/<category>/`** — Category container. Holds the category
   README and a `conformance/` workspace package. Vendor modules live as
-  `modules/<category>/<vendor>/` (e.g. `modules/identity/clerk/`); none
-  shipped yet.
+  `modules/<category>/<vendor>/` (e.g. `modules/identity/auth0/`).
+  Presentation, analytics, and identity modules can contribute UI through
+  `module.json#client`; identity modules are mixed modules because they
+  also expose backend canonical contract capabilities.
 - **`modules/crm/`** — CRM category root: README + `conformance/` workspace package.
 - **`modules/crm/conformance/`** — Workspace package `@rntme/conformance-crm`: 34
   scenario stubs + fixtures (incl. amoCRM URL-encoded webhook). →
@@ -497,6 +499,16 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. Add `pre[]` to protected bindings: call `identity-auth0.IntrospectSession`, pass the Authorization header token and the same audience, and bind the canonical `Session` as `session`.
 5. Reference `$pre.session.user_id` in Graph IR for owner writes or guards. Do not use vendor-specific `subject_id`; Auth0 `sub` is carried through canonical `Session.user_id`.
 6. Keep secrets out of blueprints. Auth0 domain/client/audience public browser config is deploy-rendered; Auth0 and Redpanda secret values live in deploy target/Dokploy secret refs.
+
+### 6.17a Add a new identity provider
+
+1. Read `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md` and mirror `modules/identity/auth0/`.
+2. Scaffold `modules/identity/<vendor>/` with the standard module package layout plus a `client/` subtree.
+3. Declare every required public browser config key in `module.json#client.config.schema`.
+4. Implement `client/index.ts#boot(ctx)` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
+5. Export `client/components/LoginScreen.tsx` and `client/components/UserBadge.tsx` by name from `client/index.ts`, then register them in `module.json#client.components`.
+6. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
+7. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
 
 ### 6.18 Add a category contract package
 
