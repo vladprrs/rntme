@@ -21,6 +21,13 @@ const authMiddleware = z
   })
   .strict();
 
+const moduleProjectRefSchema = z
+  .object({
+    package: nonEmptyString,
+    publicConfig: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
 export const ServiceDescriptorSchema = z
   .object({
     kind: z.enum(['domain', 'integration', 'integration-module']),
@@ -54,5 +61,6 @@ export const ProjectBlueprintSchema = z
           .strict(),
       )
       .optional(),
+    modules: z.record(nonEmptyString, moduleProjectRefSchema).optional(),
   })
   .strict();

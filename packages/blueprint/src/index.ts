@@ -34,4 +34,5 @@ export type {
   ServiceKind,
   ValidatedBlueprint,
   ValidatedServiceMember,
+  CatalogManifest,
 } from './types/artifact.js';

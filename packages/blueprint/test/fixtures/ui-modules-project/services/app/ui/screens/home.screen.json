@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "title": "Home"
+  },
+  "data": {
+    "/data/catalog": {
+      "binding": "catalog.listProducts",
+      "refetchOn": [
+        "mount"
+      ]
+    },
+    "/data/prices": {
+      "binding": "pricing.listPrices",
+      "refetchOn": [
+        "mount"
+      ]
+    },
+    "/data/inventory": {
+      "binding": "inventory.listInventory",
+      "refetchOn": [
+        "mount"
+      ]
+    }
+  },
+  "actions": {
+    "gaTrack": {
+      "kind": "module-action",
+      "category": "analytics",
+      "name": "track",
+      "params": {
+        "event": "fixture_smoke"
+      }
+    },
+    "bold": {
+      "kind": "module-action",
+      "target": "editor",
+      "name": "toggleBold"
+    }
+  }
+}

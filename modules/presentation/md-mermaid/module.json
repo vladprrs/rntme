@@ -1,0 +1,28 @@
+{
+  "name": "@rntme/presentation-md-mermaid",
+  "version": "0.0.0",
+  "description": "Markdown and Mermaid UI presentation module.",
+  "client": {
+    "entry": "./dist/client.js",
+    "components": [
+      {
+        "type": "Markdown",
+        "props": {
+          "content": {
+            "type": "string",
+            "required": true
+          }
+        }
+      },
+      {
+        "type": "Mermaid",
+        "props": {
+          "chart": {
+            "type": "string",
+            "required": true
+          }
+        }
+      }
+    ]
+  }
+}

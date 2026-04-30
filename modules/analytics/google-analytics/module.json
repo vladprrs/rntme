@@ -1,0 +1,32 @@
+{
+  "name": "@rntme/analytics-google-analytics",
+  "version": "0.0.0",
+  "category": "analytics",
+  "vendor": "google-analytics",
+  "contract": "analytics/v1",
+  "client": {
+    "entry": "./dist/client.js",
+    "boot": true,
+    "config": {
+      "schema": {
+        "measurementId": { "type": "string", "required": true }
+      }
+    },
+    "operations": [
+      {
+        "name": "track",
+        "params": {
+          "event": { "type": "string", "required": true },
+          "props": { "type": "object", "required": false }
+        }
+      },
+      {
+        "name": "identify",
+        "params": {
+          "userId": { "type": "string", "required": true },
+          "traits": { "type": "object", "required": false }
+        }
+      }
+    ]
+  }
+}

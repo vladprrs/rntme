@@ -18,3 +18,15 @@ describe('loadComposedBlueprint (smoke)', () => {
     expect(r.value.services.app?.compiledUi?.screens.home).toBeDefined();
   });
 });
+
+describe('catalog fields on legacy fixture', () => {
+  it('has null catalog when project.json omits modules', () => {
+    const legacyDir = join(here, 'fixtures', 'product-catalog-project');
+    const r = loadComposedBlueprint(legacyDir);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.catalogManifest).toBeNull();
+    expect(r.value.virtualEntrySource).toBeNull();
+    expect(r.value.publicConfigJson).toBeNull();
+  });
+});

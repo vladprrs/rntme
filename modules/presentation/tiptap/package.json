@@ -1,0 +1,54 @@
+{
+  "name": "@rntme/presentation-tiptap",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Tiptap rich text UI module for rntme.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "module.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && vitest run",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@tiptap/extension-image": "^2.10.0",
+    "@tiptap/pm": "^2.10.0",
+    "@tiptap/react": "^2.10.0",
+    "@tiptap/starter-kit": "^2.10.0"
+  },
+  "peerDependencies": {
+    "@rntme/ui-runtime": "workspace:*",
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@rntme/ui-runtime": "workspace:*",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "react": "^19.2.5",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1",
+    "react-dom": "^19.2.5"
+  }
+}
