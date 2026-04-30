@@ -191,10 +191,7 @@ class KafkaJsConsumerAdapter implements KafkaConsumer {
 
 async function loadKafkaJs(): Promise<KafkaJsModule> {
   try {
-    const dynamicImport = Function('specifier', 'return import(specifier)') as (
-      specifier: string,
-    ) => Promise<KafkaJsModule>;
-    return await dynamicImport('kafkajs');
+    return (await import('kafkajs')) as unknown as KafkaJsModule;
   } catch {
     throw new RuntimeBootError(
       'RUNTIME_BOOT_KAFKAJS_UNAVAILABLE',
