@@ -7,12 +7,12 @@ export function buildCatalog(
   discovered: Record<string, DiscoveredModule>,
 ): Result<CatalogManifest> {
   const errors: BlueprintError[] = [];
-  const components: Array<{ type: string; module: string; props: Record<string, import('../types/result.js').PropSchema> }> = [];
+  const components: Array<{ type: string; module: string; props: Record<string, PropSchema> }> = [];
   const operations: Array<{
     name: string;
     module: string;
     appliesTo: string[] | null;
-    params: Record<string, import('../types/result.js').PropSchema>;
+    params: Record<string, PropSchema>;
     category: string | null;
   }> = [];
   const modulesWithBoot: string[] = [];

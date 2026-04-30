@@ -1,9 +1,7 @@
 import type { ModuleBootContext } from '@rntme/ui-runtime/client';
 
 declare global {
-  // eslint-disable-next-line no-var
   var gtag: ((...args: unknown[]) => void) | undefined;
-  // eslint-disable-next-line no-var
   var dataLayer: unknown[] | undefined;
 }
 
@@ -27,11 +25,12 @@ export function boot(ctx: ModuleBootContext): void {
   const mid = ctx.config.measurementId;
   if (typeof mid !== 'string' || !mid) return;
   ensureGtag(mid);
-  if (typeof document !== 'undefined') {
-    const s = document.createElement('script');
+  const doc = globalThis.document;
+  if (typeof doc !== 'undefined') {
+    const s = doc.createElement('script');
     s.async = true;
     s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(mid)}`;
-    document.head.appendChild(s);
+    doc.head.appendChild(s);
   }
 
   ctx.registerOperation('track', (params) => {
@@ -57,9 +56,10 @@ export function boot(ctx: ModuleBootContext): void {
 
   ctx.on('navigate', (e) => {
     const g = (globalThis as { gtag?: (...a: unknown[]) => void }).gtag;
+    const win = globalThis.window;
     const loc =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}${e.path}`
+      typeof win !== 'undefined'
+        ? `${win.location.origin}${e.path}`
         : `http://localhost${e.path}`;
     g?.('event', 'page_view', { page_location: loc });
   });

@@ -77,7 +77,7 @@ export function validateModuleClientExports(
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(join(dm.packageDir, 'package.json'), 'utf-8'));
-    } catch (e) {
+    } catch {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_MODULE_ENTRY_EXPORT_MISSING,

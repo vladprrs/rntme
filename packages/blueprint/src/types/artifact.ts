@@ -3,6 +3,7 @@ import type { EventTypeSpec, ValidatedPdm } from '@rntme/pdm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';
 import type { CompiledArtifact } from '@rntme/ui';
+import type { PropSchema } from './result.js';
 
 export type ServiceKind = 'domain' | 'integration' | 'integration-module';
 
@@ -35,13 +36,13 @@ export type CatalogManifest = {
   readonly components: ReadonlyArray<{
     readonly type: string;
     readonly module: string;
-    readonly props: Readonly<Record<string, import('./result.js').PropSchema>>;
+    readonly props: Readonly<Record<string, PropSchema>>;
   }>;
   readonly operations: ReadonlyArray<{
     readonly name: string;
     readonly module: string;
     readonly appliesTo: readonly string[] | null;
-    readonly params: Readonly<Record<string, import('./result.js').PropSchema>>;
+    readonly params: Readonly<Record<string, PropSchema>>;
     readonly category: string | null;
   }>;
   readonly modulesWithBoot: readonly string[];
