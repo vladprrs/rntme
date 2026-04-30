@@ -12,15 +12,13 @@ COPY modules/identity ./modules/identity
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm -F @rntme/identity-auth0... build
+RUN node -e "const fs=require('fs');const p=require('./package.json');delete p.devDependencies;fs.writeFileSync('package.json', JSON.stringify(p));"
+RUN pnpm --filter @rntme/identity-auth0 --prod deploy /out
 
 FROM node:20-alpine
 WORKDIR /srv
 
-COPY --from=builder /build/modules/identity/auth0/dist ./dist
-COPY --from=builder /build/modules/identity/auth0/package.json ./package.json
-COPY --from=builder /build/modules/identity/auth0/module.json ./module.json
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/packages/contracts ./packages/contracts
+COPY --from=builder /out ./
 
 ENV NODE_ENV=production \
     PORT=50051
