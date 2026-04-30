@@ -9,13 +9,12 @@ COPY packages ./packages
 COPY demo ./demo
 RUN corepack enable \
   && pnpm install --frozen-lockfile \
-  && pnpm -r --filter "@rntme/*" build
+  && pnpm -r --filter "@rntme/*" build \
+  && pnpm --filter @rntme/runtime --prod deploy /out
 
 FROM node:20-alpine
 WORKDIR /srv
-COPY --from=builder /build/packages/runtime/dist ./dist
-COPY --from=builder /build/packages/runtime/package.json ./package.json
-COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /out ./
 ENV NODE_ENV=production \
     RNTME_ARTIFACTS_DIR=/srv/artifacts \
     RNTME_HTTP_PORT=3000
