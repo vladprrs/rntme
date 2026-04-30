@@ -8,9 +8,13 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages ./packages
 COPY demo ./demo
 RUN corepack enable \
+  && pnpm config set node-linker hoisted \
   && pnpm install --frozen-lockfile \
   && pnpm -r --filter "@rntme/*" build \
-  && pnpm --filter @rntme/runtime --prod --config.node-linker=hoisted deploy /out
+  && pnpm --filter @rntme/runtime --prod deploy /out \
+  && test -f /out/node_modules/@rntme/pdm/package.json \
+  && test ! -L /out/node_modules/@rntme/pdm \
+  && node --input-type=module -e "await import('/out/dist/load/load-service.js')"
 
 FROM node:20-alpine
 WORKDIR /srv

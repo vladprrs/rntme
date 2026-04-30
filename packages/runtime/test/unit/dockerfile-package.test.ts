@@ -9,8 +9,24 @@ describe("runtime Docker package", () => {
       "utf8",
     );
 
+    expect(dockerfile).toContain("pnpm config set node-linker hoisted");
     expect(dockerfile).toContain(
-      "pnpm --filter @rntme/runtime --prod --config.node-linker=hoisted deploy /out",
+      "pnpm --filter @rntme/runtime --prod deploy /out",
+    );
+  });
+
+  it("asserts the packaged image can resolve workspace packages during build", async () => {
+    const dockerfile = await readFile(
+      join(import.meta.dirname, "../../Dockerfile"),
+      "utf8",
+    );
+
+    expect(dockerfile).toContain(
+      "test -f /out/node_modules/@rntme/pdm/package.json",
+    );
+    expect(dockerfile).toContain("test ! -L /out/node_modules/@rntme/pdm");
+    expect(dockerfile).toContain(
+      "await import('/out/dist/load/load-service.js')",
     );
   });
 });
