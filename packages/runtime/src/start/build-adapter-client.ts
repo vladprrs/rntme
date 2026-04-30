@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, resolve } from 'node:path';
 import * as grpc from '@grpc/grpc-js';
@@ -29,11 +29,20 @@ export function buildAdapterClient(
 
 function resolveModuleProtoPath(artifactDir: string, protoPath: string): string {
   const absProtoPath = resolve(artifactDir, protoPath);
-  if (existsSync(absProtoPath)) return absProtoPath;
+  if (canRead(absProtoPath)) return absProtoPath;
   if (basename(protoPath) === 'identity-auth0.proto') {
     return fileURLToPath(new URL('../../assets/protos/identity-auth0.proto', import.meta.url));
   }
   return absProtoPath;
+}
+
+function canRead(path: string): boolean {
+  try {
+    readFileSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function buildCredentials(
