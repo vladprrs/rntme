@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md`. Read §1–§15 before starting.
 
+**PLAN challenge amendments (2026-04-30):**
+- Context7 quota was unavailable during plan review; Auth0 SPA SDK calls were checked against official Auth0 generated docs instead. `Auth0Client`, `handleRedirectCallback`, `isAuthenticated`, `getTokenSilently`, `getIdTokenClaims`, `loginWithRedirect`, and `logout({ logoutParams: { returnTo } })` are valid v2 surfaces.
+- Client module code must import runtime hooks/providers from `@rntme/ui-runtime/client`, not `@rntme/ui-runtime`. The package root currently exports server/mount APIs only.
+- Do not mutate `req.headers` in the Bearer middleware. Clone headers and return `next(new Request(req, { headers }))`, matching the existing ui-runtime transport-chain tests.
+- The current `AppShell` renders layout and routed screen as siblings; there is no `Outlet` component/slot. M4 must gate both the auth layout branches and the routed screen root, then add a runtime data-fetch skip when the current screen root is invisible.
+- `BLUEPRINT_AUTH_MODULE_MISMATCH` cannot be implemented inside `validateBlueprintComposition` as originally sketched because that function does not receive discovered module manifests/catalog. Add the module/vendor/package-slug check after module discovery/catalog construction in the compose path.
+- The CLI submodule currently still renders the old auth-shell-shaped `/srv/config.json`. M5 is not "verify if applicable": it must replace that shape and propagate `publicConfigJson` through platform-http, deploy-core, and deploy-dokploy.
+
 **Phase plan:** Eight tasks, one commit per task, in order. M1–M3 build the new path. M4 wires the demo. M5–M7 retire the old path. M8 documents and runs the final verification sweep.
 
 ```
@@ -25,7 +33,7 @@ M3 (boot + transport + ops)
 M4 (notes-demo project.json#modules + layout gating)
    │
    ▼
-M5 (verify publicConfig sidecar in deploy-dokploy if applicable)
+M5 (replace old auth-shell config with publicConfig sidecar)
    │
    ▼
 M6 (remove app.js + authShell branches from ui-runtime)
@@ -318,8 +326,8 @@ export function useModuleAction(
   name: string,
 ): (params?: Record<string, unknown>) => Promise<void> {
   const registry = useContext(RegistryContext);
+  if (!registry) throw new Error('useModuleAction requires <RegistryProvider>');
   return async (params = {}) => {
-    if (!registry) return;
     const handler = registry.lookupModule(moduleName, name);
     if (!handler) return;
     await handler(params);
@@ -364,8 +372,7 @@ Create `modules/identity/auth0/test/unit/client/LoginScreen.test.tsx`:
 import * as React from 'react';
 import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { createOperationRegistry } from '@rntme/ui-runtime/client';
-import { RegistryProvider } from '@rntme/ui-runtime';
+import { createOperationRegistry, RegistryProvider } from '@rntme/ui-runtime/client';
 import { LoginScreen } from '../../../client/components/LoginScreen.js';
 
 describe('LoginScreen', () => {
@@ -395,7 +402,7 @@ Create `modules/identity/auth0/client/components/LoginScreen.tsx`:
 
 ```tsx
 import * as React from 'react';
-import { useModuleAction } from '@rntme/ui-runtime';
+import { useModuleAction } from '@rntme/ui-runtime/client';
 
 export function LoginScreen(): React.ReactElement {
   const login = useModuleAction('@rntme/identity-auth0', 'login');
@@ -422,9 +429,12 @@ Create `modules/identity/auth0/test/unit/client/UserBadge.test.tsx`:
 import * as React from 'react';
 import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { createOperationRegistry } from '@rntme/ui-runtime/client';
-import { createRuntimeStateStore } from '@rntme/ui-runtime/client';
-import { RegistryProvider, StoreProvider } from '@rntme/ui-runtime';
+import {
+  createOperationRegistry,
+  createRuntimeStateStore,
+  RegistryProvider,
+  StoreProvider,
+} from '@rntme/ui-runtime/client';
 import { UserBadge } from '../../../client/components/UserBadge.js';
 
 function withProviders(store: ReturnType<typeof createRuntimeStateStore>, registry: ReturnType<typeof createOperationRegistry>, ui: React.ReactElement) {
@@ -475,7 +485,7 @@ Create `modules/identity/auth0/client/components/UserBadge.tsx`:
 
 ```tsx
 import * as React from 'react';
-import { useModuleAction, useStateStore } from '@rntme/ui-runtime';
+import { useModuleAction, useStateStore } from '@rntme/ui-runtime/client';
 
 type AuthUser = { sub: string; email: string | null; name: string | null };
 
@@ -641,8 +651,9 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   let token: string | null = null;
 
   ctx.transport.use(async (req, next) => {
-    if (token) req.headers.set('authorization', `Bearer ${token}`);
-    const res = await next(req);
+    const headers = new Headers(req.headers);
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    const res = await next(new Request(req, { headers }));
     if (res.status === 401) {
       token = null;
       ctx.state.set('/auth/status', 'anon');
@@ -808,9 +819,12 @@ git commit -m "feat(identity-auth0): boot orchestrator with Auth0Client, Bearer 
 **Files:**
 - Modify: `demo/notes-blueprint/project.json`
 - Modify: `demo/notes-blueprint/services/app/ui/layouts/main.screen.json`
+- Modify: `demo/notes-blueprint/services/app/ui/screens/home.spec.json`
 - Modify: `packages/artifacts/blueprint/src/types/result.ts` (add error code)
-- Modify: `packages/artifacts/blueprint/src/validate/composition.ts` (add validator)
-- Create or modify: `packages/artifacts/blueprint/test/unit/validate-composition.test.ts` (or the existing composition test file — verify path before editing)
+- Modify: `packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts` or `packages/artifacts/blueprint/src/compose/validate-modules.ts` (add auth/module catalog consistency validator)
+- Create or modify: `packages/artifacts/blueprint/test/smoke-ui-modules.test.ts` and/or `packages/artifacts/blueprint/test/unit/validate-composition.test.ts` (verify the current test shape before editing)
+- Modify: `packages/runtime/ui-runtime/src/client/entry.tsx` (skip routed-screen data fetch when screen root is invisible)
+- Modify: `packages/runtime/ui-runtime/test/unit/entry.test.ts` (coverage for the skip)
 
 - [ ] **Step 1: Update `demo/notes-blueprint/project.json`**
 
@@ -862,33 +876,119 @@ Replace the file with:
     "shell": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "lg" },
-      "children": ["anonRoot", "authedRoot"]
+      "children": ["anonRoot", "authedTopbar"]
     },
     "anonRoot": {
       "type": "LoginScreen",
       "visible": { "$state": "/auth/status", "eq": "anon" }
     },
-    "authedRoot": {
-      "type": "Stack",
-      "props": { "direction": "vertical", "gap": "md" },
-      "visible": { "$state": "/auth/status", "eq": "authed" },
-      "children": ["topbar", "outlet"]
-    },
-    "topbar": {
+    "authedTopbar": {
       "type": "Stack",
       "props": { "direction": "horizontal", "gap": "sm" },
+      "visible": { "$state": "/auth/status", "eq": "authed" },
       "children": ["title", "userBadge"]
     },
     "title":     { "type": "Heading",   "props": { "level": 1, "text": "Notes" } },
-    "userBadge": { "type": "UserBadge", "props": { "display": "email" } },
-    "outlet":    { "type": "Outlet" }
+    "userBadge": { "type": "UserBadge", "props": { "display": "email" } }
   }
 }
 ```
 
-If `Outlet` is not registered in the runtime's default component registry under that name at the time M4 runs, replace `"type": "Outlet"` with the closest existing primitive used by other demos (verify via `grep -rn "createRegistry\|defaultComponents" packages/runtime/ui-runtime/src/client/registry.ts`) and record the substitution in `demo/notes-blueprint/README.md` during M8.
+Current `AppShell` renders the layout and routed screen as siblings; it does not support an `Outlet` component. Do not invent an `Outlet` unless this task explicitly adds slot semantics and tests them. For this migration, the layout owns only login/topbar chrome, and the routed screen is gated separately in Step 3.
 
-- [ ] **Step 3: Add the `BLUEPRINT_AUTH_MODULE_MISMATCH` error code**
+- [ ] **Step 3: Gate the routed notes screen root**
+
+Modify `demo/notes-blueprint/services/app/ui/screens/home.spec.json` so the existing root element `page` is visible only when authenticated:
+
+```jsonc
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "visible": { "$state": "/auth/status", "eq": "authed" },
+      "children": ["create-section", "delete-section", "list-section"]
+    }
+    // ...existing child elements unchanged...
+  }
+}
+```
+
+- [ ] **Step 4: Skip screen data fetches while the screen root is invisible**
+
+Add a focused unit test in `packages/runtime/ui-runtime/test/unit/entry.test.ts`:
+
+```ts
+it('does not fetch routed screen data when the screen root is invisible', async () => {
+  const { mountUiRuntime } = await import('../../src/client/entry.js');
+  const manifest: CompiledManifest = {
+    version: '2.0',
+    metadata: { title: 'Notes' },
+    routes: { '/': { layout: 'main', screen: 'home' } },
+  };
+  const layout: CompiledScreen = {
+    spec: { root: 'layout', elements: { layout: { type: 'Stack', props: {} } } },
+  };
+  const screen: CompiledScreen = {
+    spec: {
+      root: 'page',
+      elements: {
+        page: {
+          type: 'Stack',
+          props: {},
+          visible: { $state: '/auth/status', eq: 'authed' },
+        },
+      },
+    },
+    data: {
+      '/data/notes': { method: 'GET', path: '/api/notes', refetchOn: ['mount'] },
+    },
+  };
+  const transport = vi.fn(async (input: RequestInfo | URL) => {
+    const url = requestPath(input);
+    if (url === '/_manifest.json') return Response.json(manifest);
+    if (url === '/_layouts/main.json') return Response.json(layout);
+    if (url === '/_screens/home.json') return Response.json(screen);
+    if (url === '/api/notes') return Response.json([{ id: 'n1' }]);
+    return new Response('missing', { status: 404 });
+  }) as unknown as typeof fetch;
+
+  await mountUiRuntime({
+    manifestUrl: '/_manifest.json',
+    target: document.querySelector<HTMLElement>('#root')!,
+    transport,
+    initialState: { auth: { status: 'anon' } },
+  });
+
+  expect(vi.mocked(transport).mock.calls.map(([input]) => requestPath(input))).not.toContain('/api/notes');
+});
+```
+
+Then update `packages/runtime/ui-runtime/src/client/entry.tsx` so `enterRoute` checks the current screen root before running `refetchOn: ["mount"]` data fetches. Use the existing `evaluateVisible` helper; do not duplicate visibility semantics.
+
+```ts
+import { evaluateVisible } from './visibility.js';
+
+function screenRootIsVisible(screen: CompiledScreen | null, getState: (path: string) => unknown): boolean {
+  if (!screen?.spec) return true;
+  const root = screen.spec.elements[screen.spec.root];
+  return evaluateVisible(root?.visible, getState);
+}
+
+// in enterRoute, after rerender():
+if (currentScreen.data && screenRootIsVisible(currentScreen, (p) => store.get(p))) {
+  const fetches = Object.entries(currentScreen.data)
+    .filter(([, ep]) => ep.refetchOn?.includes('mount'))
+    .map(([statePath, ep]) => fetchEndpoint(statePath, ep));
+  await Promise.all(fetches);
+}
+```
+
+Run: `pnpm -F @rntme/ui-runtime vitest run test/unit/entry.test.ts`
+Expected: PASS, including the new invisible-root data-fetch skip.
+
+- [ ] **Step 5: Add the `BLUEPRINT_AUTH_MODULE_MISMATCH` error code**
 
 In `packages/artifacts/blueprint/src/types/result.ts`, find the `ERROR_CODES` const (a `Readonly<Record<string,string>>` or string-union — match the existing shape) and add:
 
@@ -898,64 +998,54 @@ BLUEPRINT_AUTH_MODULE_MISMATCH: 'BLUEPRINT_AUTH_MODULE_MISMATCH',
 
 If `BlueprintErrorCode` is a string-union type, also add it there.
 
-- [ ] **Step 4: Implement the validator in `packages/artifacts/blueprint/src/validate/composition.ts`**
+- [ ] **Step 6: Implement the auth/module consistency validator in the module compose path**
 
-Inside the existing `validateBlueprintComposition` function (or its module), after the catalog is available and before returning, add:
+Do not add this validator to `validateBlueprintComposition`; it only receives `project` + `services` and does not know module manifests. Add it after `discoverModules(...)` and `buildCatalog(...)` in `loadComposedBlueprint`, or as a helper in `packages/artifacts/blueprint/src/compose/validate-modules.ts` called from that location.
+
+Validation rules:
+
+1. For every `project.middleware.*` entry with `kind: "auth"`, `provider` must match the vendor of `catalog.categoryToModule.identity`.
+2. `catalog.categoryToModule.identity` must exist when auth middleware exists.
+3. `middleware.auth.moduleSlug` must match the package-local name of the identity module package. For `@rntme/identity-auth0`, the expected module service slug is `identity-auth0`. This preserves the existing backend/deploy convention where `moduleSlug` points at an integration-module service, while `project.json#modules.identity.package` points at the module package.
 
 ```ts
-// When middleware.auth.provider is set, the project must declare an identity
-// module under the "identity" category, and middleware.auth.moduleSlug must
-// reference the same vendor.
-const auth = project.middleware?.auth;
-if (auth && auth.kind === 'auth') {
-  const identityPkg = catalog?.categoryToModule['identity'];
-  if (!identityPkg) {
-    errors.push({
-      layer: 'composition',
-      code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
-      path: 'project.middleware.auth',
-      message: `middleware.auth.provider="${auth.provider}" but no module under category "identity" is declared in project.json#modules`,
-    });
-  } else {
-    const manifest = discovered?.[identityPkg]?.manifest;
-    if (manifest && manifest.vendor && manifest.vendor !== auth.provider) {
-      errors.push({
-        layer: 'composition',
-        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
-        path: 'project.middleware.auth.provider',
-        message: `middleware.auth.provider="${auth.provider}" does not match identity module vendor="${manifest.vendor}"`,
-      });
-    }
-  }
+function packageLocalName(pkg: string): string {
+  return pkg.includes('/') ? pkg.slice(pkg.lastIndexOf('/') + 1) : pkg;
 }
 ```
 
-Wire `catalog` and `discovered` into the validator's parameters if they are not already passed. (They are already produced in `loadComposedBlueprint` per recon.)
+Return `BLUEPRINT_AUTH_MODULE_MISMATCH` at `project.middleware.<name>` when no identity module is declared, at `project.middleware.<name>.provider` when the vendor differs, and at `project.middleware.<name>.moduleSlug` when the service slug differs from the package-local name.
 
-- [ ] **Step 5: Add unit tests for the new validator**
+- [ ] **Step 7: Add tests for the new validator**
 
-Add (or extend) `packages/artifacts/blueprint/test/unit/validate-composition.test.ts` with three cases:
+Add (or extend) `packages/artifacts/blueprint/test/unit/validate-composition.test.ts` (or the on-disk smoke fixture file) with the cases below:
 
 1. `middleware.auth.provider="auth0"` + `modules.identity = { package: "@rntme/identity-auth0" }` (vendor=auth0) → no `BLUEPRINT_AUTH_MODULE_MISMATCH`.
 2. `middleware.auth.provider="auth0"` + no `modules.identity` declared → emits `BLUEPRINT_AUTH_MODULE_MISMATCH` at `project.middleware.auth`.
 3. `middleware.auth.provider="clerk"` + `modules.identity = { package: "@rntme/identity-auth0" }` (vendor=auth0) → emits `BLUEPRINT_AUTH_MODULE_MISMATCH` at `project.middleware.auth.provider`.
+4. `middleware.auth.moduleSlug="identity-clerk"` + `modules.identity.package="@rntme/identity-auth0"` → emits `BLUEPRINT_AUTH_MODULE_MISMATCH` at `project.middleware.auth.moduleSlug`.
 
-Reuse existing fixture builders in the test directory; do not create new on-disk fixtures unless the existing tests already use that shape.
+Use on-disk smoke fixtures when package discovery is required; `validate-composition.test.ts` alone cannot exercise manifest vendor discovery unless you refactor the helper for direct injection.
 
-Run: `pnpm -F @rntme/blueprint test --run unit/validate-composition.test.ts`
-Expected: all three cases pass.
+Run the focused test file(s) you edited, for example:
 
-- [ ] **Step 6: Verify blueprint compose accepts the updated demo**
+```bash
+pnpm -F @rntme/blueprint vitest run test/smoke-ui-modules.test.ts test/unit/validate-composition.test.ts
+```
+
+Expected: all four auth/module consistency cases pass, and existing module smoke coverage remains green.
+
+- [ ] **Step 8: Verify blueprint compose accepts the updated demo**
 
 Run: `pnpm -F @rntme/blueprint test`
 Expected: PASS — including the new validator tests and any existing notes-demo fixtures.
 
 If a notes-demo fixture is wired into blueprint tests and asserts the old `project.json` shape, update it to match the file from Step 1 before committing. Re-run until green.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add demo/notes-blueprint/project.json demo/notes-blueprint/services/app/ui/layouts/main.screen.json packages/artifacts/blueprint/src/types/result.ts packages/artifacts/blueprint/src/validate/composition.ts packages/artifacts/blueprint/test/unit/validate-composition.test.ts
+git add demo/notes-blueprint/project.json demo/notes-blueprint/services/app/ui/layouts/main.screen.json demo/notes-blueprint/services/app/ui/screens/home.spec.json packages/artifacts/blueprint/src/types/result.ts packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts packages/artifacts/blueprint/src/compose/validate-modules.ts packages/artifacts/blueprint/test packages/runtime/ui-runtime/src/client/entry.tsx packages/runtime/ui-runtime/test/unit/entry.test.ts
 git commit -m "feat(notes-demo): wire identity module + auth-vendor validator"
 ```
 
@@ -964,8 +1054,13 @@ git commit -m "feat(notes-demo): wire identity module + auth-vendor validator"
 ## Task M5: Wire `publicConfig` sidecar in deploy-dokploy (verify or add)
 
 **Files:**
-- Possibly modify: `packages/deploy/deploy-dokploy/src/render.ts`
-- Possibly modify: `packages/deploy/deploy-core/src/plan.ts` (if the publicConfig artifact is not surfaced as a workload file)
+- Modify: `apps/platform-http/src/deploy/executor.ts`
+- Modify: `apps/platform-http/test/unit/deploy/executor.test.ts`
+- Modify: `packages/deploy/deploy-core/src/composed-project.ts`
+- Modify: `packages/deploy/deploy-core/src/plan.ts`
+- Modify: `packages/deploy/deploy-core/test/unit/plan.test.ts`
+- Modify: `packages/deploy/deploy-dokploy/src/render.ts`
+- Modify: `packages/deploy/deploy-dokploy/test/unit/render.test.ts`
 
 `merged CLI/platform packages` is a git submodule. This task only edits files inside the submodule; the parent repo records a submodule pointer bump.
 
@@ -977,32 +1072,28 @@ Run:
 grep -rn "config\.json\|publicConfigJson\|virtualEntrySource\|RNTME_AUTH\|@RNTME_AUTH_SHELL_CONFIG@\|app\.js" packages/deploy/deploy-dokploy/src packages/deploy/deploy-core/src
 ```
 
-Record what you find. Three cases:
-
-(a) **No references at all.** The deploy adapter never produced an auth-shell-shaped `/config.json`, so M5 must add publicConfig sidecar emission. Proceed to Step 2.
-(b) **Old auth-shell wiring exists** (e.g., handcrafted `{auth0:..., runtime:...}` block). Replace it with `publicConfigJson` from the composed blueprint result. Proceed to Step 2 then Step 3.
-(c) **Sidecar already wired correctly** — the renderer already writes `publicConfigJson` to `/srv/config.json`. Skip to Step 4.
+Expected current baseline: `packages/deploy/deploy-dokploy/src/render.ts` still hand-builds `/srv/config.json` as `{ auth0: {...}, runtime: {...} }`, and `deploy-core` has no `publicConfigJson` field on `ComposedProjectInput`/`DomainServiceWorkload`. This task must replace the old shape; it is not a no-op.
 
 - [ ] **Step 2: Surface `publicConfigJson` from the composed plan into the renderer**
 
-The blueprint composer already produces `publicConfigJson: string | null` on `ComposedBlueprint` (see `packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts`). The deploy planner must propagate it onto the domain-service workload's static-asset list.
+The blueprint composer already produces `publicConfigJson: string | null` on `ComposedBlueprint` (see `packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts`). The deploy path must preserve it as a UI static sidecar, separate from backend runtime artifact files under `/srv/artifacts`.
 
-In `packages/deploy/deploy-core/src/plan.ts`, ensure the workload that serves UI static assets includes a generated file for `config.json` whose contents come from `composed.publicConfigJson` (fallback `'{}'`). The file lives next to `index.html`/`assets/main.js` in the served directory.
+Implement this propagation:
 
-In `packages/deploy/deploy-dokploy/src/render.ts`, when rendering that workload, emit a generated file entry:
+1. In `packages/deploy/deploy-core/src/composed-project.ts`, add `publicConfigJson?: string | null` to `ComposedProjectInput`.
+2. In `apps/platform-http/src/deploy/executor.ts#toDeployCoreInput`, copy `value.publicConfigJson ?? null` from the composed blueprint into the deploy-core input.
+3. In `packages/deploy/deploy-core/src/plan.ts`, add `publicConfigJson: string | null` to `DomainServiceWorkload` and set it from `project.publicConfigJson ?? null` for every domain-service workload.
+4. In `packages/deploy/deploy-dokploy/src/render.ts`, remove the hand-built `auth0`/`runtime` config block and render:
 
 ```ts
-{
-  path: 'config.json',
-  contents: composed.publicConfigJson ?? '{}',
-}
+'/srv/config.json': workload.publicConfigJson ?? '{}'
 ```
 
-If a hand-crafted auth-shell config block exists, delete it. The Bearer-verification env vars on the **backend** workload (`RNTME_AUTH_*`, Kafka `SASL_*`) are unrelated to publicConfig and stay.
+The Bearer-verification env vars on the **backend** workload (`RNTME_AUTH_*`, Kafka `SASL_*`) are unrelated to publicConfig and stay.
 
 - [ ] **Step 3: Drop any `authShell` flag from the renderer**
 
-If the renderer calls `buildHtmlShell({ authShell: true })`, change the call to `buildHtmlShell()`. The flag itself is removed in M6. For now, just stop opting in.
+If any CLI-side renderer calls `buildHtmlShell({ authShell: true })`, change the call to `buildHtmlShell()`. The flag itself is removed in M6. For now, just stop opting in. If no such CLI call exists, record "no CLI authShell call sites" in the commit body.
 
 - [ ] **Step 4: Verify**
 
@@ -1015,6 +1106,17 @@ pnpm -F @rntme/deploy-core test
 
 Expected: PASS. If snapshot tests existed for the old auth-shell config layout, update them to reflect the new sidecar shape (`Record<modulePackageName, publicConfig>`).
 
+Minimum test expectations:
+
+```ts
+expect(input.publicConfigJson).toContain('@rntme/identity-auth0');
+expect(app?.files?.['/srv/config.json']).toEqual(
+  JSON.stringify({ '@rntme/identity-auth0': { domain: 'tenant.us.auth0.com', clientId: 'auth0-public-client-id', audience: 'https://commerce.example.com/api', redirectUri: 'https://commerce.example.com' } }, null, 2) + '\n',
+);
+expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('auth0');
+expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('runtime');
+```
+
 - [ ] **Step 5: Commit (in submodule, then bump parent)**
 
 ```bash
@@ -1026,7 +1128,7 @@ git add apps packages/deploy packages/platform
 git commit -m "chore(merged CLI/platform packages): bump submodule for publicConfig sidecar emission"
 ```
 
-If Step 1 found case (c) and no edits were needed, do not create empty commits — skip Step 5 and note "M5 no-op: deploy-dokploy already emits publicConfigJson" in the M8 commit message instead.
+Do not create empty commits. The expected baseline requires edits in the current submodule revision.
 
 ---
 
@@ -1207,8 +1309,8 @@ Cover:
 Document:
 
 - Required environment variables for deploy: `AUTH0_SPA_CLIENT_ID` (substituted into `project.json#modules.identity.publicConfig.clientId`), Auth0 backend audience, Redpanda SASL keys, `RNTME_AUTH_*` envs.
-- Layout structure: anon branch renders `<LoginScreen />`; authed branch renders Topbar + `<UserBadge />` + Outlet.
-- If M4 substituted `Outlet` for another primitive name, record the substitution here.
+- Layout structure: anon branch renders `<LoginScreen />`; authed branch renders a horizontal topbar + `<UserBadge />`; the routed notes screen root is separately visible only while `/auth/status === "authed"`.
+- Record that no `Outlet` primitive is used in this migration because the current `AppShell` renders layout and routed screen as siblings.
 
 - [ ] **Step 6: Mark Phase 4 of the original auth0 spec/plan as superseded**
 

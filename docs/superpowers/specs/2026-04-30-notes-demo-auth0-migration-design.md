@@ -4,6 +4,8 @@
 **Supersedes (Phase 4 only):** `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §6 (UI auth-shell)
 **Builds on:** `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` (RNT-388)
 
+**PLAN challenge update (2026-04-30):** This spec is still directionally correct, but the implementation plan must account for the current `main` runtime shape: module clients import hooks/providers from `@rntme/ui-runtime/client`; the current `AppShell` has no `Outlet` slot and renders layout + routed screen as siblings; auth/module consistency validation belongs in module compose after discovery/catalog build, not in the route-only composition validator; and deploy-dokploy currently emits the old auth-shell `/srv/config.json` shape, so the CLI path must propagate `publicConfigJson` explicitly.
+
 ## 1. Why this spec exists
 
 Both source plans are merged on `main`:
@@ -59,7 +61,7 @@ demo/notes-blueprint/project.json
                                                                                     <LoginScreen />
                                                                                   authed branch:
                                                                                     <Topbar><UserBadge /></Topbar>
-                                                                                    <Outlet />  ← notes app
+                                                                                    routed screen root visible when authed
 ```
 
 The runtime APIs already exist on `main` (`packages/runtime/ui-runtime/src/client/{module-context,transport-chain,operation-registry,lifecycle-bus,visibility,state}.ts`). This spec changes only authoring (module manifest + module client code + demo blueprint) and removes parallel mechanisms.
@@ -173,8 +175,9 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
 
   // Bearer middleware. Token lives in this closure only — never written to state.
   ctx.transport.use(async (req, next) => {
-    if (token) req.headers.set('authorization', `Bearer ${token}`);
-    const res = await next(req);
+    const headers = new Headers(req.headers);
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    const res = await next(new Request(req, { headers }));
     if (res.status === 401) {
       token = null;
       ctx.state.set('/auth/status', 'anon');
@@ -211,7 +214,7 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
 
 ### 7.2 Components
 
-`LoginScreen.tsx` — a self-contained anon screen. The Sign-in button calls the registered `login` operation through the `useOperationRegistry` hook (or whichever client-side hook the runtime exposes for module-level operations). No props.
+`LoginScreen.tsx` — a self-contained anon screen. The Sign-in button calls the registered `login` operation through a `useModuleAction` helper exported from `@rntme/ui-runtime/client`. No props.
 
 `UserBadge.tsx` — reads `/auth/user` via `useStateStore`, renders email or name (per `display` prop, default `email`), and a Logout button that calls the `logout` operation. Returns `null` when `/auth/user` is `null`.
 
@@ -269,12 +272,13 @@ The `modules.identity` key equals the module's declared `category: "identity"` (
 Today `moduleSlug` is a free-form string (`"identity-auth0"`). RNT-388 builds `categoryToModule["identity"] = "@rntme/identity-auth0"`. To prevent drift, blueprint composition must validate that the auth middleware references a module the catalog actually has:
 
 - For `provider: "auth0"`, look up `categoryToModule["identity"]` → must equal a package whose manifest has `vendor: "auth0"`. Otherwise raise `BLUEPRINT_AUTH_MODULE_MISMATCH`.
+- `middleware.auth.moduleSlug` remains the integration-module **service slug**, not the package name. It must match the package-local name of the identity package: `@rntme/identity-auth0` → `identity-auth0`. A mismatch also raises `BLUEPRINT_AUTH_MODULE_MISMATCH`.
 
-This is a small additive validator in `packages/artifacts/blueprint/src/validate/composition.ts`, not a manifest change. (Phase 2 of the original auth0 plan added `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`; this fits the same module.)
+This is a small additive validator in the `@rntme/blueprint` module compose path after `discoverModules(...)` + `buildCatalog(...)`, not inside the route-only `validateBlueprintComposition` function. (Phase 2 of the original auth0 plan added `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`; this fits the same package but needs module manifest/catalog context.)
 
 ### 8.3 Layout screen and login screen
 
-`services/app/ui/screens/layout.json` adds a state-gated split:
+`services/app/ui/screens/layout.json` adds a state-gated split for auth chrome:
 
 ```jsonc
 {
@@ -291,17 +295,16 @@ This is a small additive validator in `packages/artifacts/blueprint/src/validate
         {
           "type": "Topbar",
           "children": [{ "type": "UserBadge", "props": { "display": "email" } }]
-        },
-        { "type": "Outlet" }
+        }
       ]
     }
   }
 }
 ```
 
-`Topbar`, `Stack`, `Outlet` are layout primitives provided by the repo-pinned shadcn defaults already shipped with `@rntme/ui-runtime`. If a primitive is missing under that name, the migration plan substitutes the closest existing primitive and records the substitution in the demo's README.
+`Topbar` and `Stack` are layout primitives provided by the repo-pinned shadcn defaults already shipped with `@rntme/ui-runtime`; if `Topbar` is not present, use a horizontal `Stack` as the topbar. Current `AppShell` renders layout and routed screen as siblings and does not provide an `Outlet` primitive. Therefore the routed notes screen root must also declare `visible: { "$state": "/auth/status", "eq": "authed" }`, and `@rntme/ui-runtime` must skip `refetchOn: ["mount"]` data fetches when that root is invisible. This prevents anon users from seeing or fetching the notes screen before Auth0 boot marks the session as authed.
 
-The notes screens (list/detail/create) render under `<Outlet />`. They were already authored with `module-action` dispatch in mind (per the merged auth0 work), so no edits beyond removing any inline references to old shell artifacts.
+The notes screens (list/detail/create) render as the normal routed screen below the layout chrome. They were already authored with command dispatch in mind, so the migration only adds the root visibility gate and removes any inline references to old shell artifacts.
 
 ### 8.4 No standalone login screen file
 
@@ -309,15 +312,16 @@ The notes screens (list/detail/create) render under `<Outlet />`. They were alre
 
 ## 9. Deploy adapter changes
 
-`packages/deploy/deploy-dokploy/src/render.ts` previously emitted a custom `/srv/config.json` with shape `{ auth0: {...}, runtime: {...} }`. After the migration:
+`packages/deploy/deploy-dokploy/src/render.ts` currently emits a custom `/srv/config.json` with shape `{ auth0: {...}, runtime: {...} }`. After the migration:
 
 - `/srv/config.json` is the byte-for-byte output of `@rntme/blueprint`'s `renderPublicConfig(catalogManifest)`. Shape: `Record<modulePackageName, publicConfig>`.
+- `apps/platform-http/src/deploy/executor.ts` must copy `ComposedBlueprint.publicConfigJson` into deploy-core input; `@rntme/deploy-core` must carry it onto each domain-service workload; `@rntme/deploy-dokploy` must write that value to `/srv/config.json` (fallback `{}`).
 - `RNTME_AUTH_*` envs on the **domain-service** workload (used by the backend HTTP middleware to verify Bearer tokens) keep their current names and values. They are independent of the SPA-side `publicConfig`.
 - The Nginx noop block from the original auth0 plan stays.
 
 `packages/runtime/runtime/` reads `RNTME_AUTH_*` and Kafka SASL envs as before.
 
-`packages/deploy/deploy-core/src/plan.ts` validators that check `auth.provider`/`auth.audience`/`auth.moduleSlug`/module-workload existence keep their current behavior. A new validator added by §8.2 (`BLUEPRINT_AUTH_MODULE_MISMATCH`) prevents `moduleSlug` from drifting from `categoryToModule['identity']`.
+`packages/deploy/deploy-core/src/plan.ts` validators that check `auth.provider`/`auth.audience`/`auth.moduleSlug`/module-workload existence keep their current behavior. A new blueprint compose validator added by §8.2 (`BLUEPRINT_AUTH_MODULE_MISMATCH`) prevents `moduleSlug` from drifting from `categoryToModule['identity']` before deploy planning starts.
 
 ## 10. ui-runtime build pipeline
 
@@ -375,7 +379,7 @@ A subset of (1)–(5) is executable as a Vitest + jsdom integration test under `
 
 | Risk                                                                                   | Mitigation                                                                                                                                  |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Layout primitive (`Topbar`, `Stack`, `Outlet`) name not in shadcn defaults             | M4 substitutes the nearest existing primitive and records the choice in the demo README. If a critical primitive is missing, file follow-up. |
+| Layout primitive (`Topbar`, `Stack`) name not in shadcn defaults                       | M4 substitutes the nearest existing primitive and records the choice in the demo README. Do not use `Outlet` unless a separate runtime slot primitive is added with tests. |
 | `useOperationRegistry` hook surface inadequate for module-bound (no `target`) ops      | If the existing hook only addresses component-bound operations, M2 also adds a `useModuleOperation(category, name)` thin wrapper.            |
 | `@auth0/auth0-spa-js` pulls Node-only deps when bundled into the module package        | esbuild already runs on the virtual entry (browser target). Verify in M3 by emitting and inspecting the bundle.                              |
 | `getTokenSilently` triggers iframe network call before `/api/manifest` is reachable    | Existing flow already does this in `ui-auth-shell`; behavior is unchanged. Smoke step (1) covers it.                                         |
