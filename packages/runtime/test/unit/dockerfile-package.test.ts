@@ -12,9 +12,6 @@ describe("runtime Docker package", () => {
     expect(dockerfile).toContain("COPY --from=builder /build/node_modules ./node_modules");
     expect(dockerfile).toContain("COPY --from=builder /build/packages ./packages");
     expect(dockerfile).toContain(
-      "COPY --from=builder /build/packages/runtime/assets/protos/identity-auth0.proto /srv/artifacts/identity-auth0.proto",
-    );
-    expect(dockerfile).toContain(
       'ENTRYPOINT ["node", "packages/runtime/dist/bin/runtime.js", "start"]',
     );
   });
@@ -28,6 +25,6 @@ describe("runtime Docker package", () => {
     expect(dockerfile).toContain(
       "await import('/srv/packages/runtime/dist/load/load-service.js')",
     );
-    expect(dockerfile).toContain("fs.access('/srv/artifacts/identity-auth0.proto')");
+    expect(dockerfile).toContain("fs.access('/srv/packages/runtime/assets/protos/identity-auth0.proto')");
   });
 });
