@@ -1,3 +1,20 @@
+export { createOperationRegistry, type OperationRegistry, type OperationHandler } from './operation-registry.js';
+export { createLifecycleBus, type LifecycleBus, type LifecycleEvents } from './lifecycle-bus.js';
+export {
+  createTransportChain,
+  type TransportChain,
+  type TransportMiddleware,
+} from './transport-chain.js';
+export { evaluateVisible, type Visible } from './visibility.js';
+export { createModuleBootContext, type ModuleBootContext } from './module-context.js';
+export {
+  useTransport,
+  useStateStore,
+  useOperationRegistry,
+  TransportProvider,
+  StoreProvider,
+  RegistryProvider,
+} from './hooks.js';
 export { matchRoute, expandTemplate, type RouteMatch } from './router.js';
 export { createScreenLoader, type ScreenLoader } from './screen-loader.js';
 export { createRegistry, type RuntimeBridge } from './registry.js';

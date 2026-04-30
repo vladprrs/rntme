@@ -36,8 +36,10 @@ export function compileServiceUi(input: {
             input.serviceSlug,
             id,
           ),
-        resolveComponent: () => ({ childrenModel: 'list' as const }),
+        resolveComponent: () => ({ childrenModel: 'list' as const, props: {} }),
         resolveRoute: () => true,
+        resolveOperation: () => undefined,
+        resolveCategoryToModule: () => undefined,
       },
     });
 

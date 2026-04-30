@@ -74,4 +74,75 @@ describe('mountUiRuntime', () => {
     ]);
     expect(render).toHaveBeenCalled();
   });
+
+  it('wires module-action dispatch to the mounted operation registry', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/': { layout: 'main', screen: 'home' }
+      }
+    };
+    const layout: CompiledScreen = {
+      spec: {
+        root: 'layout',
+        elements: {
+          layout: { type: 'Stack', props: {} }
+        }
+      }
+    };
+    const screen: CompiledScreen = {
+      spec: {
+        root: 'page',
+        elements: {
+          page: { type: 'Heading', props: { text: 'Home' } }
+        }
+      },
+      actions: {
+        trackSave: {
+          kind: 'module-action',
+          module: '@rntme/analytics-google-analytics',
+          name: 'track',
+          params: { event: 'note_saved' }
+        }
+      }
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') return Response.json(layout);
+      if (url === '/_screens/home.json') return Response.json(screen);
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+    const handler = vi.fn();
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport
+    });
+
+    const app = render.mock.calls.at(-1)?.[0] as {
+      props: {
+        actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<void>>;
+        operationRegistry: {
+          registerModule: (
+            moduleName: string,
+            name: string,
+            h: (params: Record<string, unknown>) => void,
+          ) => void;
+        };
+      };
+    };
+    app.props.operationRegistry.registerModule(
+      '@rntme/analytics-google-analytics',
+      'track',
+      handler,
+    );
+
+    await app.props.actionHandlers.dispatch({ name: 'trackSave' });
+
+    expect(handler).toHaveBeenCalledWith({ event: 'note_saved' });
+  });
 });

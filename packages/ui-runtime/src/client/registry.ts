@@ -5,6 +5,7 @@ import { shadcnComponents } from '@json-render/shadcn';
 import { z } from 'zod';
 import type { CompiledScreen, CompiledAction, CompiledDataEndpoint } from '@rntme/ui';
 import type { StateStore } from '@json-render/core';
+import type { OperationRegistry } from './operation-registry.js';
 
 export type RuntimeBridge = {
   onNavigate: (path: string) => void;
@@ -12,6 +13,7 @@ export type RuntimeBridge = {
   store: StateStore;
   fetchEndpoint: (statePath: string, endpoint: CompiledDataEndpoint) => Promise<void>;
   fetchFn: typeof fetch;
+  operationRegistry?: OperationRegistry;
 };
 
 const catalog = defineCatalog(schema, {
@@ -30,6 +32,19 @@ const catalog = defineCatalog(schema, {
 });
 
 export function createRegistry(bridge: RuntimeBridge) {
+  function resolveActionParams(params: Record<string, unknown> | undefined): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    if (!params) return out;
+    for (const [k, v] of Object.entries(params)) {
+      if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
+        out[k] = bridge.store.get((v as { $state: string }).$state);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
+
   const { registry, handlers } = defineRegistry(catalog, {
     components: shadcnComponents,
     actions: {
@@ -70,7 +85,20 @@ export function createRegistry(bridge: RuntimeBridge) {
           return;
         }
 
-        // Command action
+        if (action.kind === 'module-action') {
+          const params = resolveActionParams(
+            action.params as Record<string, unknown> | undefined,
+          );
+          if (action.target) {
+            await bridge.operationRegistry?.lookupComponent(action.target, action.name)?.(params);
+          } else if (action.module) {
+            await bridge.operationRegistry?.lookupModule(action.module, action.name)?.(params);
+          }
+          return;
+        }
+
+        if (action.kind !== 'command') return;
+
         const cmdParams: Record<string, unknown> = {};
         if (action.paramsFromState) {
           for (const [param, statePath] of Object.entries(action.paramsFromState)) {

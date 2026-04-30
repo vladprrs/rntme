@@ -34,8 +34,6 @@ export type DataBinding = {
 export type ParamValue = string | number | boolean | StateRef;
 export type StateRef = { $state: string };
 
-export type ActionDef = NavigationAction | CommandAction | RefetchAction;
-
 export type NavigationAction = {
   kind: 'navigation';
   navigateTo: string;
@@ -54,6 +52,19 @@ export type RefetchAction = {
   kind: 'refetch';
   targets: string[];
 };
+
+export type ModuleActionDef = {
+  kind: 'module-action';
+  target?: string;
+  module?: string;
+  category?: string;
+  name: string;
+  params?: Record<string, ParamValue>;
+  onSuccess?: { showAlert?: string; navigateTo?: string };
+  onError?: { showAlert?: string };
+};
+
+export type ActionDef = NavigationAction | CommandAction | RefetchAction | ModuleActionDef;
 
 /**
  * A json-render Spec. The `elements` map can include regular elements

@@ -1,10 +1,12 @@
 import type { CompiledScreen, CompiledAction, CompiledDataEndpoint } from '@rntme/ui';
+import type { OperationRegistry } from './operation-registry.js';
 
 export type DriverOptions = {
   fetchFn: typeof fetch;
   onStateChange: (path: string, value: unknown) => void;
   onNavigate: (path: string) => void;
   defaultHeaders?: Record<string, string>;
+  operationRegistry?: OperationRegistry;
 };
 
 export type Driver = {
@@ -43,7 +45,23 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
 }
 
 export function createDriver(opts: DriverOptions): Driver {
-  const { fetchFn, onStateChange, onNavigate, defaultHeaders = {} } = opts;
+  const { fetchFn, onStateChange, onNavigate, defaultHeaders = {}, operationRegistry } = opts;
+
+  function resolveActionParams(
+    params: Record<string, unknown> | undefined,
+    stateGetter?: (path: string) => unknown,
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    if (!params) return out;
+    for (const [k, v] of Object.entries(params)) {
+      if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
+        out[k] = stateGetter?.((v as { $state: string }).$state);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
 
   async function fetchEndpoint(
     statePath: string,
@@ -81,6 +99,24 @@ export function createDriver(opts: DriverOptions): Driver {
     },
 
     async dispatchAction(action, stateGetter) {
+      if (action.kind === 'module-action') {
+        if (!operationRegistry) return;
+        const params = resolveActionParams(
+          action.params as Record<string, unknown> | undefined,
+          stateGetter,
+        );
+        try {
+          if (action.target) {
+            await operationRegistry.lookupComponent(action.target, action.name)?.(params);
+          } else if (action.module) {
+            await operationRegistry.lookupModule(action.module, action.name)?.(params);
+          }
+        } catch (e) {
+          console.error('[rntme] module-action dispatch failed:', e);
+        }
+        return;
+      }
+
       if (action.kind === 'navigation') {
         let target = action.navigateTo;
         if (action.paramsFromState && stateGetter) {

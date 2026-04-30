@@ -1,11 +1,14 @@
 import { ok, type Result } from '../types/result.js';
 import type { CompiledArtifact, CompiledScreen } from '../types/compiled.js';
 import type { ExpandedSource } from '../expand/expand.js';
-import { resolveScreenHttp, type HttpEntry } from './http-map.js';
+import { resolveScreenHttp, type HttpEntry, type EmitModuleContext } from './http-map.js';
+
+const defaultEmitCtx: EmitModuleContext = { resolveCategoryToModule: () => undefined };
 
 export function emit(
   expanded: ExpandedSource,
   httpMap: Record<string, HttpEntry>,
+  ctx: EmitModuleContext = defaultEmitCtx,
 ): Result<CompiledArtifact> {
   const manifest = {
     version: '2.0' as const,
@@ -23,7 +26,7 @@ export function emit(
 
   const screens: Record<string, CompiledScreen> = {};
   for (const [name, screen] of Object.entries(expanded.screens)) {
-    const { data, actions } = resolveScreenHttp(screen.screen, httpMap);
+    const { data, actions } = resolveScreenHttp(screen.screen, httpMap, ctx);
     screens[name] = {
       spec: screen.spec,
       ...(Object.keys(data).length > 0 ? { data } : {}),
@@ -33,7 +36,7 @@ export function emit(
 
   const layouts: Record<string, CompiledScreen> = {};
   for (const [name, layout] of Object.entries(expanded.layouts)) {
-    const { data, actions } = resolveScreenHttp(layout.screen, httpMap);
+    const { data, actions } = resolveScreenHttp(layout.screen, httpMap, ctx);
     layouts[name] = {
       spec: layout.spec,
       ...(Object.keys(data).length > 0 ? { data } : {}),

@@ -172,3 +172,85 @@ describe('createDriver', () => {
     expect(onStateChange).not.toHaveBeenCalled();
   });
 });
+
+describe('driver — module-action dispatch', () => {
+  it('dispatches component-bound op via target', async () => {
+    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const reg = createOperationRegistry();
+    const handler = vi.fn();
+    reg.registerComponent('editor', { toggleBold: handler });
+    const driver = createDriver({
+      fetchFn: vi.fn() as unknown as typeof fetch,
+      onStateChange: vi.fn(),
+      onNavigate: vi.fn(),
+      operationRegistry: reg,
+    });
+    await driver.dispatchAction(
+      { kind: 'module-action', target: 'editor', name: 'toggleBold' },
+      () => ({}),
+    );
+    expect(handler).toHaveBeenCalledWith({});
+  });
+
+  it('dispatches module-level op via module', async () => {
+    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const reg = createOperationRegistry();
+    const handler = vi.fn();
+    reg.registerModule('@rntme/x', 'track', handler);
+    const driver = createDriver({
+      fetchFn: vi.fn() as unknown as typeof fetch,
+      onStateChange: vi.fn(),
+      onNavigate: vi.fn(),
+      operationRegistry: reg,
+    });
+    await driver.dispatchAction(
+      { kind: 'module-action', module: '@rntme/x', name: 'track', params: { event: 'click' } },
+      () => ({}),
+    );
+    expect(handler).toHaveBeenCalledWith({ event: 'click' });
+  });
+});
+
+describe('registry — module-action dispatch', () => {
+  it('dispatches module actions through json-render dispatch handlers', async () => {
+    const { createRegistry } = await import('../../src/client/registry.js');
+    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const operationRegistry = createOperationRegistry();
+    const handler = vi.fn();
+    operationRegistry.registerModule('@rntme/analytics-google-analytics', 'track', handler);
+
+    const screen = {
+      actions: {
+        trackSave: {
+          kind: 'module-action',
+          module: '@rntme/analytics-google-analytics',
+          name: 'track',
+          params: { event: 'note_saved' },
+        },
+      },
+    } as const;
+
+    const { handlers } = createRegistry({
+      onNavigate: vi.fn(),
+      getScreen: () => screen,
+      store: {
+        get: vi.fn(),
+        set: vi.fn(),
+        update: vi.fn(),
+        getSnapshot: () => ({}),
+        subscribe: () => () => undefined,
+      },
+      fetchEndpoint: vi.fn(),
+      fetchFn: vi.fn() as unknown as typeof fetch,
+      operationRegistry,
+    });
+    const actionHandlers = handlers(
+      () => vi.fn(),
+      () => ({}),
+    );
+
+    await actionHandlers.dispatch({ name: 'trackSave' });
+
+    expect(handler).toHaveBeenCalledWith({ event: 'note_saved' });
+  });
+});
