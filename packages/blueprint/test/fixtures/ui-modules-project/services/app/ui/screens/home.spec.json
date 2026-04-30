@@ -1,0 +1,68 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": {
+        "direction": "vertical",
+        "gap": 16
+      },
+      "children": [
+        "md",
+        "chart",
+        "editor",
+        "products",
+        "prices",
+        "inventory"
+      ]
+    },
+    "products": {
+      "type": "DataList",
+      "props": {
+        "title": "Products"
+      },
+      "repeat": {
+        "statePath": "/data/catalog",
+        "key": "productId"
+      }
+    },
+    "prices": {
+      "type": "DataList",
+      "props": {
+        "title": "Prices"
+      },
+      "repeat": {
+        "statePath": "/data/prices",
+        "key": "id"
+      }
+    },
+    "inventory": {
+      "type": "DataList",
+      "props": {
+        "title": "Inventory"
+      },
+      "repeat": {
+        "statePath": "/data/inventory",
+        "key": "id"
+      }
+    },
+    "md": {
+      "type": "Markdown",
+      "props": {
+        "source": "# Hello"
+      }
+    },
+    "chart": {
+      "type": "Mermaid",
+      "props": {
+        "source": "graph LR;A-->B"
+      }
+    },
+    "editor": {
+      "type": "RichTextEditor",
+      "props": {
+        "placeholder": "Type\u2026"
+      }
+    }
+  }
+}

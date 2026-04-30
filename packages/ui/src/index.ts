@@ -19,7 +19,7 @@ export { resolve } from './resolve/resolve.js';
 export { expand } from './expand/expand.js';
 export type { ExpandedSource } from './expand/expand.js';
 export { validate } from './validate/index.js';
-export type { ValidateResolvers, OperationDescriptor, ComponentInfo } from './validate/index.js';
+export type { ValidateResolvers, OperationDescriptor, ComponentInfo, PropSchema } from './validate/index.js';
 export type { EmitModuleContext } from './emit/http-map.js';
 export { emit } from './emit/emit.js';
 export type { HttpEntry } from './emit/http-map.js';

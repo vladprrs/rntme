@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listPrices": {
+      "kind": "query",
+      "graph": "listPrices",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/prices",
+        "parameters": []
+      }
+    }
+  }
+}

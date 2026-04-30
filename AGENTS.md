@@ -258,6 +258,14 @@ Each entry names the entry file, the spec to read first, and the
 concrete steps. See each package README's "Where to look first" for
 deeper, per-task pointers.
 
+### 6.0 Add a UI module (client-only extension)
+
+1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11 and `packages/module-skeleton/README.md` for the `client` block.
+2. Create `modules/<category>/<vendor>/` with `package.json`, `module.json`, and `src/client.ts` (or `src/client.tsx`) exporting `./client` from `package.json` `exports` (include `"./module.json": "./module.json"` for compose resolution).
+3. Add the package to the root `pnpm-workspace.yaml` glob if a new path is needed (`modules/*/*` already covers nested vendors).
+4. Wire the module in the consumer `project.json` under `modules` (object form). If the manifest declares `category`, the project key **must** match that category string.
+5. Run `pnpm -F @rntme/blueprint test` on a fixture that references the module to verify catalog + UI validation + virtual entry emission.
+
 ### 6.1 Add a new graph operator
 
 1. Read `packages/graph-ir-compiler/README.md` "Where to look first".

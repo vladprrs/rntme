@@ -8,7 +8,7 @@ import {
 } from './references.js';
 import type { ValidateResolvers } from './resolvers-type.js';
 
-export type { ValidateResolvers, OperationDescriptor, ComponentInfo } from './resolvers-type.js';
+export type { ValidateResolvers, OperationDescriptor, ComponentInfo, PropSchema } from './resolvers-type.js';
 
 export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers): Result<void> {
   const errors: UiError[] = [];

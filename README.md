@@ -101,7 +101,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 | Package | Purpose |
 | ------- | ------- |
-| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project-level PDM, service artifacts, route/middleware composition, and the project-routed binding registry. |
+| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project-level PDM, service artifacts, route/middleware composition, project-routed binding registry, and optional `project.json#modules` UI catalog + virtual entry. |
 | [`@rntme/pdm`](packages/pdm) | Platform Domain Model: project-shared entities, ownership classification, fields, relations, and optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares per-service read-side tables, projection-per-file directories, relation metadata for JOINs, DDL, and event-handler specs. |
 | [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |

@@ -1,6 +1,7 @@
 import { createPdmResolver, deriveEventTypes } from '@rntme/pdm';
 import { loadBlueprint } from '../load/load-blueprint.js';
 import type {
+  CatalogManifest,
   ComposedBlueprint,
   CompositionService,
   ValidatedServiceMember,
@@ -9,6 +10,14 @@ import { ok, type Result } from '../types/result.js';
 import { validateBlueprintComposition } from '../validate/composition.js';
 import { buildBindingRegistry } from './binding-registry.js';
 import { compileServiceUi } from './compile-service-ui.js';
+import { buildCatalog } from './catalog.js';
+import { discoverModules } from './modules.js';
+import { renderVirtualEntry } from './virtual-entry.js';
+import {
+  buildPublicConfigSidecar,
+  validateModuleClientExports,
+  validateModulePublicConfigs,
+} from './validate-modules.js';
 import { discoverServiceArtifacts } from './discover-service-artifacts.js';
 import { loadServiceMember } from './load-service-member.js';
 
@@ -29,6 +38,34 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     services,
   });
   if (!routing.ok) return routing;
+
+  const hasModules =
+    loaded.value.project.modules !== undefined &&
+    Object.keys(loaded.value.project.modules).length > 0;
+
+  let catalogManifest: CatalogManifest | null = null;
+  let publicConfigJson: string | null = null;
+  let virtualEntrySource: string | null = null;
+
+  if (hasModules) {
+    const discovered = discoverModules({ projectDir: dir });
+    if (!discovered.ok) return discovered;
+
+    const catalog = buildCatalog(discovered.value);
+    if (!catalog.ok) return catalog;
+
+    const pub = validateModulePublicConfigs(discovered.value);
+    if (!pub.ok) return pub;
+
+    const exp = validateModuleClientExports(discovered.value, catalog.value);
+    if (!exp.ok) return exp;
+
+    const virtualResult = renderVirtualEntry(catalog.value);
+    if (!virtualResult.ok) return virtualResult;
+    catalogManifest = catalog.value;
+    publicConfigJson = buildPublicConfigSidecar(discovered.value);
+    virtualEntrySource = virtualResult.value;
+  }
 
   const pdmResolver = createPdmResolver(loaded.value.pdm);
   const allEventTypes = deriveEventTypes(loaded.value.pdm);
@@ -72,6 +109,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
       rootDir: dir,
       serviceSlug: slug,
       bindingRegistry,
+      catalogManifest,
     });
     if (!compiledUi.ok) return compiledUi;
 
@@ -87,6 +125,9 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     routing: composedValidation.value,
     bindingRegistry,
     services: validatedServices,
+    catalogManifest,
+    publicConfigJson,
+    virtualEntrySource,
   });
 }
 

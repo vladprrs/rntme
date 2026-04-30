@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { compile, type CompiledArtifact } from '@rntme/ui';
-import type { RoutedBindingEntry } from '../types/artifact.js';
+import type { CatalogManifest, RoutedBindingEntry } from '../types/artifact.js';
 import {
   ERROR_CODES,
   err,
@@ -12,11 +12,13 @@ import {
   buildUiHttpMap,
   resolveProjectBindingRef,
 } from './binding-registry.js';
+import { catalogValidationResolvers } from './catalog-resolvers.js';
 
 export function compileServiceUi(input: {
   rootDir: string;
   serviceSlug: string;
   bindingRegistry: Record<string, RoutedBindingEntry>;
+  catalogManifest?: CatalogManifest | null;
 }): Result<CompiledArtifact | null> {
   const relPath = `services/${input.serviceSlug}/ui`;
   const sourceDir = join(input.rootDir, relPath);
@@ -26,6 +28,7 @@ export function compileServiceUi(input: {
   }
 
   try {
+    const catRes = catalogValidationResolvers(input.catalogManifest ?? null);
     const compiled = compile({
       sourceDir,
       httpMap: buildUiHttpMap(input.bindingRegistry, input.serviceSlug),
@@ -36,10 +39,10 @@ export function compileServiceUi(input: {
             input.serviceSlug,
             id,
           ),
-        resolveComponent: () => ({ childrenModel: 'list' as const, props: {} }),
+        resolveComponent: (ty) => catRes.resolveComponent(ty) ?? { childrenModel: 'list' as const, props: {} },
         resolveRoute: () => true,
-        resolveOperation: () => undefined,
-        resolveCategoryToModule: () => undefined,
+        resolveOperation: catRes.resolveOperation,
+        resolveCategoryToModule: catRes.resolveCategoryToModule,
       },
     });
 

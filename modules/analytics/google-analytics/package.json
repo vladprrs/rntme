@@ -1,0 +1,48 @@
+{
+  "name": "@rntme/analytics-google-analytics",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Google Analytics 4 UI module (analytics category).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "module.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build:deps && pnpm build && vitest run",
+    "build:deps": "pnpm -F @rntme/contracts-analytics-v1 run build",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "@rntme/contracts-analytics-v1": "workspace:*"
+  },
+  "peerDependencies": {
+    "@rntme/ui-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@rntme/ui-runtime": "workspace:*",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

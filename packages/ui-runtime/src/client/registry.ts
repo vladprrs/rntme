@@ -2,8 +2,9 @@ import { defineCatalog } from '@json-render/core';
 import { schema, defineRegistry } from '@json-render/react';
 import { shadcnComponentDefinitions } from '@json-render/shadcn/catalog';
 import { shadcnComponents } from '@json-render/shadcn';
+import * as React from 'react';
 import { z } from 'zod';
-import type { CompiledScreen, CompiledAction, CompiledDataEndpoint } from '@rntme/ui';
+import type { CompiledScreen, CompiledAction, CompiledDataEndpoint, PropSchema } from '@rntme/ui';
 import type { StateStore } from '@json-render/core';
 import type { OperationRegistry } from './operation-registry.js';
 
@@ -16,22 +17,53 @@ export type RuntimeBridge = {
   operationRegistry?: OperationRegistry;
 };
 
-const catalog = defineCatalog(schema, {
-  components: shadcnComponentDefinitions,
-  actions: {
-    navigate: {
-      params: z.object({ to: z.string() }).passthrough(),
-      description:
-        'Client-side navigation. :param placeholders in `to` are replaced from remaining params.',
-    },
-    dispatch: {
-      params: z.object({ name: z.string() }),
-      description: 'Execute a screen-defined action by name (command, refetch).',
-    },
-  },
-});
+function propsRecordToZod(props: Record<string, PropSchema>): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const [k, sch] of Object.entries(props)) {
+    let inner: z.ZodTypeAny;
+    switch (sch.type) {
+      case 'string':
+        inner = z.string();
+        break;
+      case 'number':
+        inner = z.number();
+        break;
+      case 'boolean':
+        inner = z.boolean();
+        break;
+      case 'object':
+        inner = z.record(z.string(), z.unknown());
+        break;
+      case 'array':
+        inner = z.array(z.unknown());
+        break;
+      default:
+        inner = z.unknown();
+    }
+    if (sch.array === true) inner = z.array(inner);
+    shape[k] = sch.required === true ? inner : inner.optional();
+  }
+  return z.object(shape);
+}
 
-export function createRegistry(bridge: RuntimeBridge) {
+export type ModuleSurfaceForRegistry = {
+  readonly components: ReadonlyArray<{ type: string; props: Record<string, PropSchema> }>;
+  readonly reactByType: Record<string, React.ComponentType<Record<string, unknown>>>;
+};
+
+const sharedActions = {
+  navigate: {
+    params: z.object({ to: z.string() }).passthrough(),
+    description:
+      'Client-side navigation. :param placeholders in `to` are replaced from remaining params.',
+  },
+  dispatch: {
+    params: z.object({ name: z.string() }),
+    description: 'Execute a screen-defined action by name (command, refetch).',
+  },
+} as const;
+
+export function createRegistry(bridge: RuntimeBridge, surface?: ModuleSurfaceForRegistry | undefined) {
   function resolveActionParams(params: Record<string, unknown> | undefined): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (!params) return out;
@@ -45,8 +77,23 @@ export function createRegistry(bridge: RuntimeBridge) {
     return out;
   }
 
+  const extraDefs: Record<string, { props: z.ZodObject<Record<string, z.ZodTypeAny>> }> = {};
+  const extraReact: Record<string, React.ComponentType<Record<string, unknown>>> = {};
+  if (surface) {
+    for (const c of surface.components) {
+      extraDefs[c.type] = { props: propsRecordToZod(c.props) };
+      const R = surface.reactByType[c.type];
+      if (R) extraReact[c.type] = R;
+    }
+  }
+
+  const catalog = defineCatalog(schema, {
+    components: { ...shadcnComponentDefinitions, ...(extraDefs as typeof shadcnComponentDefinitions) },
+    actions: { ...sharedActions },
+  });
+
   const { registry, handlers } = defineRegistry(catalog, {
-    components: shadcnComponents,
+    components: { ...shadcnComponents, ...extraReact },
     actions: {
       navigate: async (params) => {
         if (!params) return;
@@ -86,13 +133,11 @@ export function createRegistry(bridge: RuntimeBridge) {
         }
 
         if (action.kind === 'module-action') {
-          const params = resolveActionParams(
-            action.params as Record<string, unknown> | undefined,
-          );
+          const p = resolveActionParams(action.params as Record<string, unknown> | undefined);
           if (action.target) {
-            await bridge.operationRegistry?.lookupComponent(action.target, action.name)?.(params);
+            await bridge.operationRegistry?.lookupComponent(action.target, action.name)?.(p);
           } else if (action.module) {
-            await bridge.operationRegistry?.lookupModule(action.module, action.name)?.(params);
+            await bridge.operationRegistry?.lookupModule(action.module, action.name)?.(p);
           }
           return;
         }

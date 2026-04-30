@@ -1,12 +1,20 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import type { CompiledManifest, CompiledScreen, CompiledDataEndpoint } from '@rntme/ui';
+import type {
+  CompiledManifest,
+  CompiledScreen,
+  CompiledDataEndpoint,
+  PropSchema,
+} from '@rntme/ui';
 import { matchRoute } from './router.js';
 import { createScreenLoader } from './screen-loader.js';
-import { createRegistry } from './registry.js';
+import { createRegistry, type ModuleSurfaceForRegistry } from './registry.js';
 import { AppShell } from './layout-manager.js';
 import { createRuntimeStateStore } from './state.js';
 import { createOperationRegistry } from './operation-registry.js';
+import { createLifecycleBus } from './lifecycle-bus.js';
+import { createTransportChain } from './transport-chain.js';
+import { createModuleBootContext, type ModuleBootContext } from './module-context.js';
 
 function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
   if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
@@ -17,7 +25,6 @@ function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown):
 
 function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: (path: string) => unknown): string {
   let url = path;
-  // Replace path params like {id} with actual values (resolving $state refs)
   url = url.replace(/\{([^}]+)\}/g, (_, key: string) => {
     const raw = params?.[key];
     const value = resolveParamValue(raw, stateGetter);
@@ -25,7 +32,6 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
     return `{${key}}`;
   });
 
-  // Build query string from remaining params (non-path-template params)
   const queryParams: Record<string, unknown> = {};
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -43,11 +49,26 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
   return qs ? `${url}?${qs}` : url;
 }
 
+export type ModuleSpec = {
+  name: string;
+  boot?: (ctx: ModuleBootContext) => void | Promise<void>;
+  bootTimeoutMs?: number;
+};
+
 export type MountUiRuntimeOptions = {
   manifestUrl: string;
   target: HTMLElement;
   transport?: typeof fetch | undefined;
   initialState?: Record<string, unknown> | undefined;
+  /** Project UI modules: React components keyed by json-render `type` (from module manifests). */
+  moduleComponents?: Record<string, React.ComponentType<Record<string, unknown>>> | undefined;
+  /** Prop schemas for module components (from compose catalog). */
+  moduleCatalogComponents?: ReadonlyArray<{
+    type: string;
+    props: Record<string, PropSchema>;
+  }>;
+  /** Optional `boot()` hooks (run before UI mount; use `/config.json` for publicConfig). */
+  modules?: ModuleSpec[] | undefined;
 };
 
 export type MountUiRuntimeResult = {
@@ -72,10 +93,56 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   let currentLayoutName: string | null = null;
   const operationRegistry = createOperationRegistry();
 
+  const bus = createLifecycleBus();
+  const chain = createTransportChain((req) => fetchImpl(req));
+  const runtimeFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const req =
+      input instanceof Request && init === undefined
+        ? input
+        : new Request(
+            typeof input === 'string'
+              ? new URL(input, window.location.href).toString()
+              : input,
+            init,
+          );
+    return chain.fetch(req);
+  }) as typeof fetch;
+
+  let publicConfig: Record<string, Record<string, unknown>> = {};
+  if (opts.modules?.some((m) => m.boot)) {
+    try {
+      const cfgRes = await fetchImpl('/config.json');
+      if (cfgRes.ok) {
+        publicConfig = (await cfgRes.json()) as Record<string, Record<string, unknown>>;
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  for (const m of opts.modules ?? []) {
+    if (!m.boot) continue;
+    const ctx = createModuleBootContext({
+      moduleName: m.name,
+      config: publicConfig[m.name] ?? {},
+      store,
+      bus,
+      chain,
+      registry: operationRegistry,
+    });
+    const ms = m.bootTimeoutMs ?? 10_000;
+    await Promise.race([
+      Promise.resolve(m.boot(ctx)),
+      new Promise<never>((_, rej) =>
+        setTimeout(() => rej(new Error(`boot timeout: ${m.name}`)), ms),
+      ),
+    ]);
+  }
+
   async function fetchEndpoint(statePath: string, endpoint: CompiledDataEndpoint): Promise<void> {
     const url = buildUrl(endpoint.path, endpoint.params, (p) => store.get(p));
     try {
-      const res = await fetchImpl(url, {
+      const res = await runtimeFetch(url, {
         method: endpoint.method,
         headers: { 'content-type': 'application/json' },
       });
@@ -87,21 +154,26 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     }
   }
 
-  const { registry, handlers } = createRegistry({
-    onNavigate: (path) => {
-      window.history.pushState({}, '', path);
-      void enterRoute(path);
-    },
-    getScreen: () => currentScreen,
-    store,
-    fetchEndpoint,
-    fetchFn: fetchImpl,
-    operationRegistry,
-  });
+  const surface: ModuleSurfaceForRegistry | undefined =
+    opts.moduleCatalogComponents !== undefined && opts.moduleComponents !== undefined
+      ? { components: opts.moduleCatalogComponents, reactByType: opts.moduleComponents }
+      : undefined;
 
-  // Create action handlers using the defineRegistry handlers() function
-  // getSetState returns a setState function compatible with json-render's SetState type
-  // getState returns the current state snapshot
+  const { registry, handlers } = createRegistry(
+    {
+      onNavigate: (path) => {
+        window.history.pushState({}, '', path);
+        void enterRoute(path);
+      },
+      getScreen: () => currentScreen,
+      store,
+      fetchEndpoint,
+      fetchFn: runtimeFetch,
+      operationRegistry,
+    },
+    surface,
+  );
+
   const actionHandlers = handlers(
     () => (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
       const next = updater(store.getSnapshot());
@@ -120,6 +192,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     for (const [k, v] of Object.entries(match.params)) {
       store.set(`/route/params/${k}`, v);
     }
+    bus.emit('navigate', { path, params: match.params });
 
     if (routeEntry.layout !== currentLayoutName) {
       currentLayout = await loader.loadLayout(routeEntry.layout);
@@ -129,7 +202,6 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     currentScreen = await loader.loadScreen(routeEntry.screen);
     rerender();
 
-    // Fetch data for mount-triggered endpoints
     if (currentScreen.data) {
       const fetches = Object.entries(currentScreen.data)
         .filter(([, ep]) => ep.refetchOn?.includes('mount'))
@@ -153,13 +225,11 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     );
   }
 
-  // Subscribe to store changes to trigger re-renders
   store.subscribe(() => rerender());
 
   const initialPath = window.location.pathname || '/';
   const initialMatch = matchRoute(patterns, initialPath);
   if (!initialMatch) {
-    // No matching route — redirect to the first route in the manifest
     const defaultRoute = patterns[0] ?? '/';
     window.history.replaceState({}, '', defaultRoute);
     await enterRoute(defaultRoute);
@@ -181,6 +251,9 @@ export async function hydrateApp(opts: {
   manifestUrl?: string | undefined;
   transport?: typeof fetch | undefined;
   initialState?: Record<string, unknown> | undefined;
+  moduleComponents?: Record<string, React.ComponentType<Record<string, unknown>>> | undefined;
+  moduleCatalogComponents?: MountUiRuntimeOptions['moduleCatalogComponents'];
+  modules?: ModuleSpec[] | undefined;
 }): Promise<MountUiRuntimeResult> {
   const target = document.querySelector<HTMLElement>(opts.rootSelector);
   if (!target) throw new Error(`hydrateApp: ${opts.rootSelector} not found`);
@@ -189,5 +262,10 @@ export async function hydrateApp(opts: {
     target,
     transport: opts.transport,
     initialState: opts.initialState,
+    ...(opts.moduleComponents !== undefined ? { moduleComponents: opts.moduleComponents } : {}),
+    ...(opts.moduleCatalogComponents !== undefined
+      ? { moduleCatalogComponents: opts.moduleCatalogComponents }
+      : {}),
+    ...(opts.modules !== undefined ? { modules: opts.modules } : {}),
   });
 }

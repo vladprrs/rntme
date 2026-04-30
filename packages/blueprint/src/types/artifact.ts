@@ -3,6 +3,7 @@ import type { EventTypeSpec, ValidatedPdm } from '@rntme/pdm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';
 import type { CompiledArtifact } from '@rntme/ui';
+import type { PropSchema } from './result.js';
 
 export type ServiceKind = 'domain' | 'integration' | 'integration-module';
 
@@ -24,12 +25,38 @@ export type MountDecl = {
   use: readonly string[];
 };
 
+
+export type ModuleProjectRef = {
+  readonly package: string;
+  readonly publicConfig?: Readonly<Record<string, unknown>>;
+};
+
+/** Catalog union built from resolved UI modules (spec §10.1). */
+export type CatalogManifest = {
+  readonly components: ReadonlyArray<{
+    readonly type: string;
+    readonly module: string;
+    readonly props: Readonly<Record<string, PropSchema>>;
+  }>;
+  readonly operations: ReadonlyArray<{
+    readonly name: string;
+    readonly module: string;
+    readonly appliesTo: readonly string[] | null;
+    readonly params: Readonly<Record<string, PropSchema>>;
+    readonly category: string | null;
+  }>;
+  readonly modulesWithBoot: readonly string[];
+  readonly categoryToModule: Readonly<Record<string, string>>;
+  readonly publicConfig: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+};
+
 export type ProjectBlueprint = {
   name: string;
   services: readonly string[];
   routes?: ProjectRouteMap;
   middleware?: Readonly<Record<string, MiddlewareDecl>>;
   mounts?: readonly MountDecl[];
+  modules?: Readonly<Record<string, ModuleProjectRef>>;
 };
 
 export type ServiceDescriptor = {
@@ -111,4 +138,9 @@ export type ComposedBlueprint = {
   services: Record<string, ValidatedServiceMember>;
   routing: ProjectRoutingContext;
   bindingRegistry: Record<string, RoutedBindingEntry>;
+  catalogManifest?: CatalogManifest | null;
+  /** Serialized JSON object: module package name → public config slice (spec §10.4). */
+  publicConfigJson?: string | null;
+  /** Deterministic virtual entry TypeScript source (spec §10.2). */
+  virtualEntrySource?: string | null;
 };
