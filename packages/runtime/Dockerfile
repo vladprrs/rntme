@@ -15,7 +15,9 @@ FROM node:20-alpine
 WORKDIR /srv
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/packages ./packages
-RUN node --input-type=module -e "await import('/srv/packages/runtime/dist/load/load-service.js')"
+RUN mkdir -p /srv/artifacts
+COPY --from=builder /build/packages/runtime/assets/protos/identity-auth0.proto /srv/artifacts/identity-auth0.proto
+RUN node --input-type=module -e "await import('/srv/packages/runtime/dist/load/load-service.js'); await import('node:fs/promises').then(fs => fs.access('/srv/artifacts/identity-auth0.proto'))"
 ENV NODE_ENV=production \
     RNTME_ARTIFACTS_DIR=/srv/artifacts \
     RNTME_HTTP_PORT=3000
