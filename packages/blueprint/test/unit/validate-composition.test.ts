@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ModuleManifest } from '@rntme/module-skeleton';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 
 const expectErrorCodes = (
@@ -36,6 +37,9 @@ const svc = (
     ...artifacts,
   },
 });
+
+const moduleManifest = (name: string, vendor: string): ModuleManifest =>
+  ({ name, vendor } as Partial<ModuleManifest> as ModuleManifest);
 
 describe('validateBlueprintComposition', () => {
   it('builds routing context for valid project routes + middleware mounts', () => {
@@ -210,6 +214,125 @@ describe('validateBlueprintComposition', () => {
     });
 
     expect(r.ok).toBe(true);
+  });
+
+  it('allows auth middleware when the identity module vendor matches the provider', () => {
+    const input = {
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: ['@rntme/identity-auth0'],
+        categoryToModule: { identity: '@rntme/identity-auth0' },
+        publicConfig: {},
+      },
+      discoveredModules: {
+        '@rntme/identity-auth0': {
+          manifest: moduleManifest('@rntme/identity-auth0', 'auth0'),
+          packageDir: '/tmp/identity-auth0',
+          projectKey: 'identity',
+          publicConfig: {},
+        },
+      },
+    };
+
+    const r = validateBlueprintComposition(input);
+
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects auth middleware when module context has no identity module', () => {
+    const input = {
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: [],
+        categoryToModule: {},
+        publicConfig: {},
+      },
+      discoveredModules: {},
+    };
+
+    const r = validateBlueprintComposition(input);
+
+    expectErrorCodes(r, ['BLUEPRINT_AUTH_MODULE_MISMATCH']);
+  });
+
+  it('rejects auth middleware when the identity module vendor does not match the provider', () => {
+    const input = {
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'clerk',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: ['@rntme/identity-auth0'],
+        categoryToModule: { identity: '@rntme/identity-auth0' },
+        publicConfig: {},
+      },
+      discoveredModules: {
+        '@rntme/identity-auth0': {
+          manifest: moduleManifest('@rntme/identity-auth0', 'auth0'),
+          packageDir: '/tmp/identity-auth0',
+          projectKey: 'identity',
+          publicConfig: {},
+        },
+      },
+    };
+
+    const r = validateBlueprintComposition(input);
+
+    expectErrorCodes(r, ['BLUEPRINT_AUTH_MODULE_MISMATCH']);
   });
 
   it('rejects unknown middleware providers and bad mount references', () => {

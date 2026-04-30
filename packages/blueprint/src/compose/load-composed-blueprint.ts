@@ -54,6 +54,14 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     const catalog = buildCatalog(discovered.value);
     if (!catalog.ok) return catalog;
 
+    const moduleComposition = validateBlueprintComposition({
+      project: loaded.value.project,
+      services,
+      catalogManifest: catalog.value,
+      discoveredModules: discovered.value,
+    });
+    if (!moduleComposition.ok) return moduleComposition;
+
     const pub = validateModulePublicConfigs(discovered.value);
     if (!pub.ok) return pub;
 

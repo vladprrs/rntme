@@ -15,6 +15,7 @@ import { createOperationRegistry } from './operation-registry.js';
 import { createLifecycleBus } from './lifecycle-bus.js';
 import { createTransportChain } from './transport-chain.js';
 import { createModuleBootContext, type ModuleBootContext } from './module-context.js';
+import { evaluateVisible, type Visible } from './visibility.js';
 
 function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
   if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
@@ -182,6 +183,13 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     () => store.getSnapshot(),
   );
 
+  function isCurrentScreenRootVisible(): boolean {
+    const spec = currentScreen?.spec;
+    if (!spec) return false;
+    const root = spec.elements[spec.root] as { visible?: Visible } | undefined;
+    return evaluateVisible(root?.visible, (path) => store.get(path));
+  }
+
   async function enterRoute(path: string): Promise<void> {
     const match = matchRoute(patterns, path);
     if (!match) return;
@@ -202,7 +210,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     currentScreen = await loader.loadScreen(routeEntry.screen);
     rerender();
 
-    if (currentScreen.data) {
+    if (currentScreen.data && isCurrentScreenRootVisible()) {
       const fetches = Object.entries(currentScreen.data)
         .filter(([, ep]) => ep.refetchOn?.includes('mount'))
         .map(([statePath, ep]) => fetchEndpoint(statePath, ep));

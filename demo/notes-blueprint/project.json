@@ -1,6 +1,17 @@
 {
   "name": "notes-demo",
   "services": ["app", "identity-auth0"],
+  "modules": {
+    "identity": {
+      "package": "@rntme/identity-auth0",
+      "publicConfig": {
+        "domain": "demo-rntme.us.auth0.com",
+        "clientId": "${AUTH0_SPA_CLIENT_ID}",
+        "audience": "https://notes-demo.rntme.com/api",
+        "redirectUri": "https://notes-demo.rntme.com/"
+      }
+    }
+  },
   "routes": {
     "ui": {
       "/": "app"

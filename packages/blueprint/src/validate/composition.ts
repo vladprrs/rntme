@@ -7,6 +7,7 @@ import {
 } from '../types/result.js';
 import { bindAsName } from '@rntme/bindings';
 import type {
+  CatalogManifest,
   CompositionService,
   MiddlewareDecl,
   ProjectBlueprint,
@@ -15,6 +16,7 @@ import type {
   ServiceGraphSpec,
 } from '../types/artifact.js';
 import type { ValidatedBindings } from '@rntme/bindings';
+import type { DiscoveredModule } from '../compose/modules.js';
 
 type CompositionServiceInput = CompositionService & {
   graphSpec?: ServiceGraphSpec | null;
@@ -28,6 +30,8 @@ function isIntegrationKind(kind: ServiceKind): boolean {
 export function validateBlueprintComposition(input: {
   project: ProjectBlueprint;
   services: Record<string, CompositionServiceInput>;
+  catalogManifest?: CatalogManifest | null;
+  discoveredModules?: Record<string, DiscoveredModule> | null;
 }): Result<ProjectRoutingContext> {
   const errors: BlueprintError[] = [];
   const httpBaseByService: Record<string, string> = {};
@@ -146,10 +150,70 @@ export function validateBlueprintComposition(input: {
   }
 
   errors.push(...checkMountedAuthAudiences(input.project, input.services));
+  errors.push(...checkAuthModuleVendors(
+    input.project,
+    input.services,
+    input.catalogManifest,
+    input.discoveredModules,
+  ));
   errors.push(...checkGraphPreRefs(input.services));
 
   if (errors.length > 0) return err(errors);
   return ok({ httpBaseByService, uiPathsByService });
+}
+
+function checkAuthModuleVendors(
+  project: ProjectBlueprint,
+  services: Record<string, CompositionServiceInput>,
+  catalogManifest?: CatalogManifest | null,
+  discoveredModules?: Record<string, DiscoveredModule> | null,
+): BlueprintError[] {
+  if (catalogManifest == null || discoveredModules == null) return [];
+
+  const errors: BlueprintError[] = [];
+  for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
+    if (declaration.kind !== 'auth') continue;
+    if (
+      declaration.moduleSlug === undefined &&
+      declaration.provider !== undefined &&
+      services[declaration.provider] !== undefined
+    ) {
+      continue;
+    }
+
+    const identityModule = catalogManifest?.categoryToModule.identity;
+    if (identityModule === undefined) {
+      errors.push({
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+        message: `auth middleware "${middlewareName}" requires a project.modules.identity module`,
+        path: `project.middleware.${middlewareName}`,
+      });
+      continue;
+    }
+
+    const discovered = discoveredModules?.[identityModule];
+    if (discovered === undefined) {
+      errors.push({
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+        message: `auth middleware "${middlewareName}" references identity module "${identityModule}" but it was not discovered`,
+        path: `project.middleware.${middlewareName}`,
+      });
+      continue;
+    }
+
+    if (declaration.provider === undefined) continue;
+    if (discovered.manifest.vendor !== declaration.provider) {
+      errors.push({
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+        message: `auth middleware "${middlewareName}" provider "${declaration.provider}" must match identity module vendor "${discovered.manifest.vendor}"`,
+        path: `project.middleware.${middlewareName}.provider`,
+      });
+    }
+  }
+  return errors;
 }
 
 function authModuleSlugForComposition(declaration: MiddlewareDecl): string | undefined {

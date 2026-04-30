@@ -220,4 +220,63 @@ describe('mountUiRuntime', () => {
     expect(navigate).toHaveBeenCalledWith({ path: '/', params: {} });
     expect(seenAuth).toEqual(['Bearer module']);
   });
+
+  it('skips mount refetches when the loaded screen root is not visible', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/': { layout: 'main', screen: 'home' }
+      }
+    };
+    const layout: CompiledScreen = {
+      spec: {
+        root: 'layout',
+        elements: {
+          layout: { type: 'Stack', props: {} }
+        }
+      }
+    };
+    const screen: CompiledScreen = {
+      spec: {
+        root: 'page',
+        elements: {
+          page: {
+            type: 'Stack',
+            props: {},
+            visible: { $state: '/auth/status', eq: 'authed' }
+          }
+        }
+      },
+      data: {
+        '/data/notes': {
+          method: 'GET',
+          path: '/api/notes',
+          refetchOn: ['mount']
+        }
+      }
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestPath(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') return Response.json(layout);
+      if (url === '/_screens/home.json') return Response.json(screen);
+      if (url === '/api/notes') return Response.json([{ id: 'n1' }]);
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport,
+      initialState: { '/auth/status': 'anon' }
+    });
+
+    expect(vi.mocked(transport).mock.calls.map(([input]) => requestPath(input))).toEqual([
+      '/_manifest.json',
+      '/_layouts/main.json',
+      '/_screens/home.json'
+    ]);
+  });
 });
