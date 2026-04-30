@@ -4,6 +4,8 @@ import { Renderer, StateProvider, ActionProvider, VisibilityProvider, Validation
 import type { Spec } from '@json-render/react';
 import type { StateStore } from '@json-render/core';
 import type { ComponentRegistry } from '@json-render/react';
+import type { OperationRegistry } from './operation-registry.js';
+import { RegistryProvider, StoreProvider } from './hooks.js';
 
 export type AppShellProps = {
   layoutSpec: CompiledSpec | null;
@@ -11,15 +13,31 @@ export type AppShellProps = {
   registry: ComponentRegistry;
   actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<void>>;
   store: StateStore;
+  operationRegistry?: OperationRegistry;
 };
 
-export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, store }: AppShellProps): React.ReactElement {
+function injectRuntimeElementIds(spec: CompiledSpec | null): CompiledSpec | null {
+  if (!spec) return null;
+  const elements: CompiledSpec['elements'] = {};
+  for (const [key, element] of Object.entries(spec.elements)) {
+    elements[key] = {
+      ...element,
+      props: {
+        ...element.props,
+        __rntmeElementId: key,
+      },
+    };
+  }
+  return { ...spec, elements };
+}
+
+export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, store, operationRegistry }: AppShellProps): React.ReactElement {
   if (!screenSpec) {
     return React.createElement('div', { id: 'rntme-loading' }, 'Loading...');
   }
 
-  const layoutRendererSpec = layoutSpec as unknown as Spec | null;
-  const screenRendererSpec = screenSpec as unknown as Spec;
+  const layoutRendererSpec = injectRuntimeElementIds(layoutSpec) as unknown as Spec | null;
+  const screenRendererSpec = injectRuntimeElementIds(screenSpec) as unknown as Spec;
 
   const content = React.createElement(
     'div',
@@ -33,13 +51,18 @@ export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, sto
       React.createElement(Renderer, { spec: screenRendererSpec, registry }),
     ),
   );
+  const runtimeContext = operationRegistry
+    ? React.createElement(StoreProvider, { value: store },
+        React.createElement(RegistryProvider, { value: operationRegistry }, content),
+      )
+    : content;
 
   return React.createElement(
     StateProvider, { store, children: null } as React.ComponentProps<typeof StateProvider>,
     React.createElement(ActionProvider, { handlers: actionHandlers, children: null } as React.ComponentProps<typeof ActionProvider>,
       React.createElement(VisibilityProvider, { children: null } as React.ComponentProps<typeof VisibilityProvider>,
         React.createElement(ValidationProvider, { children: null } as React.ComponentProps<typeof ValidationProvider>,
-          content,
+          runtimeContext,
         ),
       ),
     ),

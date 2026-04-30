@@ -6,6 +6,7 @@ import { createScreenLoader } from './screen-loader.js';
 import { createRegistry } from './registry.js';
 import { AppShell } from './layout-manager.js';
 import { createRuntimeStateStore } from './state.js';
+import { createOperationRegistry } from './operation-registry.js';
 
 function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
   if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
@@ -69,6 +70,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   let currentLayout: CompiledScreen | null = null;
   let currentScreen: CompiledScreen | null = null;
   let currentLayoutName: string | null = null;
+  const operationRegistry = createOperationRegistry();
 
   async function fetchEndpoint(statePath: string, endpoint: CompiledDataEndpoint): Promise<void> {
     const url = buildUrl(endpoint.path, endpoint.params, (p) => store.get(p));
@@ -94,6 +96,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     store,
     fetchEndpoint,
     fetchFn: fetchImpl,
+    operationRegistry,
   });
 
   // Create action handlers using the defineRegistry handlers() function
@@ -145,6 +148,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
         registry,
         actionHandlers,
         store,
+        operationRegistry,
       }),
     );
   }
