@@ -18,12 +18,13 @@ export function DeployTargetsPage(props: {
         </div>
       </header>
       <DataTable
-        headers={['Slug', 'Kind', 'Public URL', 'Default']}
+        headers={['Slug', 'Kind', 'Event bus', 'Public URL', 'Default']}
         rows={props.targets.map((target) => ({
           key: target.id,
           cells: [
             <a class="font-medium text-blue-700 hover:underline" href={`/${props.subject.org.slug}/deploy-targets/${target.slug}`}>{target.slug}</a>,
             target.kind,
+            displayEventBus(target),
             displayPublicUrl(target.publicBaseUrl, props.publicDeployDomain),
             target.isDefault ? 'Yes' : 'No',
           ],
@@ -50,6 +51,7 @@ export function DeployTargetDetailPage(props: {
       <h1 class="text-xl font-semibold tracking-tight">{target.displayName}</h1>
       <dl class="mt-4 grid gap-3 text-sm">
         <div><dt class="font-medium">Kind</dt><dd>{target.kind}</dd></div>
+        <div><dt class="font-medium">Event bus</dt><dd>{displayEventBus(target)}</dd></div>
         <div><dt class="font-medium">Dokploy URL</dt><dd>{target.dokployUrl}</dd></div>
         <div><dt class="font-medium">Public URL</dt><dd>{displayPublicUrl(target.publicBaseUrl, props.publicDeployDomain)}</dd></div>
         <div><dt class="font-medium">Project</dt><dd>{target.dokployProjectId ?? target.dokployProjectName ?? 'Not configured'}</dd></div>
@@ -61,4 +63,9 @@ export function DeployTargetDetailPage(props: {
 
 function displayPublicUrl(publicBaseUrl: string | null, publicDeployDomain: string): string {
   return publicBaseUrl ?? `Auto (${publicDeployDomain})`;
+}
+
+function displayEventBus(target: DeployTarget): string {
+  if (target.eventBus.mode === 'provisioned') return 'Provisioned Redpanda';
+  return 'External Kafka/Redpanda';
 }

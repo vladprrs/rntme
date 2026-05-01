@@ -7,7 +7,10 @@ import type {
 } from '../../../src/index.js';
 import { SeededIds } from '../../../src/ids.js';
 import { err, isOk, ok, type PlatformError } from '../../../src/types/result.js';
-import { UpdateDeployTargetRequestSchema } from '../../../src/schemas/deploy-target.js';
+import {
+  CreateDeployTargetRequestSchema,
+  UpdateDeployTargetRequestSchema,
+} from '../../../src/schemas/deploy-target.js';
 import {
   createDeployTarget,
   deleteDeployTarget,
@@ -63,6 +66,49 @@ describe('deploy target use-cases', () => {
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         row: expect.objectContaining({ publicBaseUrl: null }),
+      }),
+    );
+  });
+
+  it('accepts provisioned Redpanda deploy target event bus config', async () => {
+    const { deps, repo } = setup();
+    const parsed = CreateDeployTargetRequestSchema.parse({
+      slug: 'dokploy-redpanda',
+      displayName: 'Dokploy Redpanda',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'project-1',
+      apiToken: 'dokploy-token',
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        topicPrefix: 'rntme.notes',
+      },
+      modules: {},
+      auth: {},
+      policyValues: {},
+      isDefault: false,
+    });
+
+    const result = await createDeployTarget(deps, {
+      orgId: '11111111-1111-4111-8111-111111111111',
+      accountId: '22222222-2222-4222-8222-222222222222',
+      tokenId: null,
+      req: parsed,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        row: expect.objectContaining({
+          eventBusConfig: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            topicPrefix: 'rntme.notes',
+          },
+        }),
       }),
     );
   });

@@ -17,13 +17,29 @@ const KafkaSecuritySchema = z
   ])
   .optional();
 
-export const EventBusConfigSchema = z.object({
+const ExternalEventBusConfigSchema = z.object({
   kind: z.literal('kafka'),
   mode: z.literal('external').optional(),
   brokers: z.array(z.string().min(1)).min(1),
   topicPrefix: z.string().optional(),
   security: KafkaSecuritySchema,
 });
+
+const ProvisionedEventBusConfigSchema = z.object({
+  kind: z.literal('kafka'),
+  mode: z.literal('provisioned'),
+  provider: z.literal('redpanda'),
+  image: z.string().min(1).optional(),
+  topicPrefix: z.string().optional(),
+});
+
+export const EventBusConfigSchema = z.preprocess((value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const candidate = value as Record<string, unknown>;
+    if (candidate.mode === undefined) return { ...candidate, mode: 'external' };
+  }
+  return value;
+}, z.discriminatedUnion('mode', [ExternalEventBusConfigSchema, ProvisionedEventBusConfigSchema]));
 export type EventBusConfig = z.infer<typeof EventBusConfigSchema>;
 
 export const PolicyValuesSchema = z.record(z.string(), z.record(z.string(), z.unknown())).default({});

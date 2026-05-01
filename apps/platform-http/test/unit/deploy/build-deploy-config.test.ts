@@ -10,7 +10,11 @@ describe('buildProjectDeploymentConfig', () => {
       orgSlug: 'acme',
       environment: 'default',
       mode: 'preview',
-      eventBus: target().eventBus,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'external',
+        brokers: ['redpanda:9092'],
+      },
     });
   });
 
@@ -43,6 +47,27 @@ describe('buildProjectDeploymentConfig', () => {
         username: 'redpanda-username',
         password: 'redpanda-password',
       },
+    });
+  });
+
+  it('passes provisioned Redpanda event bus config through to deploy-core', () => {
+    const provisionedTarget = {
+      ...target(),
+      eventBus: {
+        kind: 'kafka' as const,
+        mode: 'provisioned' as const,
+        provider: 'redpanda' as const,
+        topicPrefix: 'rntme.notes',
+      },
+    };
+
+    const config = buildProjectDeploymentConfig(provisionedTarget, 'acme', {});
+
+    expect(config.eventBus).toEqual({
+      kind: 'kafka',
+      mode: 'provisioned',
+      provider: 'redpanda',
+      topicPrefix: 'rntme.notes',
     });
   });
 
