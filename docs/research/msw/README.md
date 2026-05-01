@@ -3,7 +3,7 @@
 Researched: 2026-04-28
 Repository: /home/coder/work/rntme
 Domain/ecosystem: npm/api-mocking
-Current version(s) in rntme: ^2.4.9 (rntme-cli package.json; API mocking tests)
+Current version(s) in rntme: ^2.4.9 (apps/cli package.json; API mocking tests)
 Latest stable version: 2.13.6 (2026-04-24, GitHub releases)
 Confidence: HIGH
 
@@ -16,9 +16,9 @@ Confidence: HIGH
 
 ## Summary
 
-MSW (Mock Service Worker) is the industry-standard API mocking library for JavaScript/TypeScript, intercepting HTTP requests at the network level for both browser and Node.js environments. It is used in rntme-cli for integration testing of CLI commands that make HTTP calls to the rntme platform API.
+MSW (Mock Service Worker) is the industry-standard API mocking library for JavaScript/TypeScript, intercepting HTTP requests at the network level for both browser and Node.js environments. It is used in `apps/cli` for integration testing of CLI commands that make HTTP calls to the rntme platform API.
 
-The current version in rntme-cli is `^2.4.9` (released ~2024-09), while the latest stable is `2.13.6` (2026-04-24) — a gap of ~9 minor versions. MSW 2.x introduced a major API overhaul (from the `rest.*` + `ctx` composition API to the `http.*` + `HttpResponse` standard Fetch API approach) in late 2023. rntme-cli is already on 2.x and uses the modern API, so the migration from 2.4.9 → 2.13.6 is a straightforward semver-minor upgrade with no breaking changes expected.
+The current version in `apps/cli` is `^2.4.9` (released ~2024-09), while the latest stable is `2.13.6` (2026-04-24) — a gap of ~9 minor versions. MSW 2.x introduced a major API overhaul (from the `rest.*` + `ctx` composition API to the `http.*` + `HttpResponse` standard Fetch API approach) in late 2023. `apps/cli` is already on 2.x and uses the modern API, so the migration from 2.4.9 → 2.13.6 is a straightforward semver-minor upgrade with no breaking changes expected.
 
 MSW remains the dominant choice in the ecosystem (17.9k GitHub stars, actively maintained by @kettanaito). Alternatives like `nock` (15.0.0) and `jest-fetch-mock` (3.0.3) exist but are either less actively maintained or framework-specific. For rntme's use case (Vitest + Node.js integration tests), MSW is the correct and optimal choice.
 
@@ -28,12 +28,12 @@ Primary recommendation: **KEEP + UPGRADE** to `^2.13.6` in a follow-up migration
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---:|---|---|---|---|
-| msw | ^2.4.9 | rntme-cli | `packages/cli/package.json` | dev/test | Integration test mocking |
+| msw | ^2.4.9 | apps/cli | `apps/cli/package.json` | dev/test | Integration test mocking |
 
 **Code references:**
 
 ```ts
-// rntme-cli/packages/cli/test/integration/commands.test.ts
+// apps/cli/test/integration/commands.test.ts
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -52,8 +52,8 @@ server.use(
 
 **Verification commands:**
 ```bash
-grep -r "msw" rntme-cli --include="package.json"
-grep -r "msw\|mockServiceWorker" rntme-cli --include="*.ts" -l
+grep -r "msw" apps/cli --include="package.json"
+grep -r "msw\|mockServiceWorker" apps/cli --include="*.ts" -l
 ```
 
 ## Latest Versions / Release State
@@ -80,7 +80,7 @@ grep -r "msw\|mockServiceWorker" rntme-cli --include="*.ts" -l
 | Library | Version | Purpose | Why Standard |
 |---|---:|---|---|
 | msw | ^2.13.6 | API mocking for tests | Industry standard, network-level interception, works in browser + Node.js |
-| vitest | ^2.1.1 → ^3.x | Test runner | Already used in rntme-cli; native ESM support, modern alternative to Jest |
+| vitest | ^2.1.1 → ^3.x | Test runner | Already used in apps/cli; native ESM support, modern alternative to Jest |
 
 ### Supporting
 | Library | Version | Purpose | When to Use |
@@ -99,7 +99,7 @@ grep -r "msw\|mockServiceWorker" rntme-cli --include="*.ts" -l
 
 Installation / upgrade commands, if eventually recommended:
 ```bash
-# rntme-cli/packages/cli
+# apps/cli
 pnpm add -D msw@^2.13.6
 ```
 
@@ -225,9 +225,9 @@ Warning signs: ReferenceError in test setup before any mocks are used.
 
 ## Code Examples
 
-### Basic HTTP Mock (rntme-cli current pattern)
+### Basic HTTP Mock (apps/cli current pattern)
 ```ts
-// Source: rntme-cli/packages/cli/test/integration/commands.test.ts
+// Source: apps/cli/test/integration/commands.test.ts
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -292,7 +292,7 @@ Deprecated/outdated:
 | Area | Finding | Impact | Risk | Evidence |
 |---|---|---|---|---|
 | Breaking changes | None within 2.x semver line | Low | LOW | [MSW changelog](https://github.com/mswjs/msw/releases) — all 2.x releases are backward-compatible |
-| API drift | rntme-cli already uses 2.x modern API (`http`, `HttpResponse`) | None | LOW | Source inspection of `commands.test.ts` |
+| API drift | apps/cli already uses 2.x modern API (`http`, `HttpResponse`) | None | LOW | Source inspection of `commands.test.ts` |
 | Dependency updates | `@mswjs/interceptors` bump (0.35.8 → 0.41.3) | Low | LOW | Patch-level internal dependency |
 | Node.js compatibility | Already requires Node ≥18 | None | LOW | `engines.node: ">=18"` in both 2.4.9 and 2.13.6 |
 | TypeScript compatibility | Already uses TS ≥4.8 | None | LOW | `peerDependencies.typescript: ">= 4.8.x"` |
@@ -301,7 +301,7 @@ Deprecated/outdated:
 | Effort | Update package.json + lockfile + run tests | ~15 min | LOW | Straightforward semver-minor bump |
 
 **Migration path:**
-1. Update `rntme-cli/packages/cli/package.json`: `"msw": "^2.13.6"`
+1. Update `apps/cli/package.json`: `"msw": "^2.13.6"`
 2. Run `pnpm install` (or equivalent) to update lockfile
 3. Run `pnpm test` in `packages/cli`
 4. Verify all tests pass; no code changes expected
@@ -312,13 +312,13 @@ Decision: **KEEP + UPGRADE**
 
 Rationale:
 - MSW is the industry standard for API mocking with excellent browser/Node.js parity.
-- rntme-cli is already on the modern 2.x API; upgrade is a simple semver-minor bump.
+- apps/cli is already on the modern 2.x API; upgrade is a simple semver-minor bump.
 - No security vulnerabilities in current version; latest has bug fixes and new features.
 - Alternatives (nock, jest-fetch-mock) are inferior for rntme's Vitest + Node.js setup.
 - Potential future enhancement: integrate `openapi-msw` for type-safe mocks aligned with rntme's blueprint-generated OpenAPI specs.
 
 Follow-up tasks to create later:
-- [ ] **RNT-xxx**: Bump msw to `^2.13.6` in `rntme-cli/packages/cli/package.json`
+- [ ] **RNT-xxx**: Bump msw to `^2.13.6` in `apps/cli/package.json`
 - [ ] **RNT-xxx**: Evaluate `openapi-msw` integration for compile-time mock safety
 - [ ] **RNT-xxx**: Extract reusable MSW handlers/fixtures from `commands.test.ts` into `test/mocks/` directory
 
@@ -329,7 +329,7 @@ Follow-up tasks to create later:
    - What's unclear: Whether the added dependency and build-step integration justify the type-safety gains for CLI tests.
    - Recommendation: Spike in a separate issue after the basic upgrade is done.
 
-2. **Should mock handlers be shared across rntme-cli and other packages?**
+2. **Should mock handlers be shared across apps/cli and other packages?**
    - What we know: Only `packages/cli` uses msw today.
    - What's unclear: Whether future packages (e.g., web UI, VS Code extension) will need the same mock fixtures.
    - Recommendation: Keep mocks colocated with tests for now; extract to a shared package only when a second consumer appears.
@@ -344,7 +344,7 @@ Follow-up tasks to create later:
 
 ### Secondary (MEDIUM confidence)
 - npm registry (`npm view msw versions`) — Version availability, dependency tree
-- rntme-cli source inspection — Actual usage patterns, test structure
+- apps/cli source inspection — Actual usage patterns, test structure
 
 ### Tertiary (LOW confidence - needs validation)
 - Community benchmarks comparing msw vs nock performance in Vitest (anecdotal)

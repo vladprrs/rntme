@@ -64,11 +64,11 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 - **Готовность к [DEV]:** После закрытия #1 (документарное расхождение) и #2 (rollback path) пакет можно считать готовым к поддержке без изобретения продуктовых решений.
 
 Файлы, на которые ссылается аудит:
-- `packages/projection-consumer/src/consumer.ts`
-- `packages/projection-consumer/src/apply/apply-event.ts`
-- `packages/projection-consumer/src/apply/bind.ts`
-- `packages/projection-consumer/src/store/bootstrap.ts`
-- `packages/projection-consumer/src/types/apply.ts`
-- `packages/projection-consumer/src/index.ts`
-- `packages/projection-consumer/README.md`
-- `packages/projection-consumer/test/unit/consumer-rollback.test.ts`
+- `packages/runtime/projection-consumer/src/consumer.ts`
+- `packages/runtime/projection-consumer/src/apply/apply-event.ts`
+- `packages/runtime/projection-consumer/src/apply/bind.ts`
+- `packages/runtime/projection-consumer/src/store/bootstrap.ts`
+- `packages/runtime/projection-consumer/src/types/apply.ts`
+- `packages/runtime/projection-consumer/src/index.ts`
+- `packages/runtime/projection-consumer/README.md`
+- `packages/runtime/projection-consumer/test/unit/consumer-rollback.test.ts`

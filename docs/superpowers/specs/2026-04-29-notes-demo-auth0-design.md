@@ -15,12 +15,12 @@
 **Implementation locations:**
 - Identity contract — `packages/contracts/identity/v1/`
 - Auth0 module — `modules/identity/auth0/`
-- Bindings validator + http runtime — `packages/bindings/`, `packages/bindings-http/`
-- Graph IR compiler — `packages/graph-ir-compiler/`
-- Runtime boot pipeline — `packages/runtime/`
-- Deploy library — `rntme-cli/packages/deploy-core/`, `rntme-cli/packages/deploy-dokploy/`
+- Bindings validator + http runtime — `packages/artifacts/bindings/`, `packages/runtime/bindings-http/`
+- Graph IR compiler — `packages/artifacts/graph-ir-compiler/`
+- Runtime boot pipeline — `packages/runtime/runtime/`
+- Deploy library — `packages/deploy/deploy-core/`, `packages/deploy/deploy-dokploy/`
 - New UI auth shell — `packages/ui-auth-shell/`
-- UI runtime — `packages/ui-runtime/`
+- UI runtime — `packages/runtime/ui-runtime/`
 - Demo blueprint — `demo/notes-blueprint/`
 - Implementation plan — `docs/superpowers/plans/2026-04-29-notes-demo-auth0.md`
 
@@ -38,7 +38,7 @@ This section is authoritative over older wording in this document and the execut
 
 ## 1. Goal, scope, non-goals
 
-**Goal.** Bring `demo/notes-blueprint/` to production-shape: replace the no-auth preview with a demo that has real OIDC login through Auth0, entity-level ownership enforcement, and connection to managed Redpanda Cloud as the event bus. The demo deploys through the existing `platform.rntme.com` → `@rntme-cli/deploy-dokploy` pipeline without any new workload kinds: identity-auth0 ships as the existing `integration-module` workload, the edge stays Nginx, the domain side stays one service. The canonical module pattern (`pre[]` → gRPC call into the Identity module → result in payload) executes end-to-end.
+**Goal.** Bring `demo/notes-blueprint/` to production-shape: replace the no-auth preview with a demo that has real OIDC login through Auth0, entity-level ownership enforcement, and connection to managed Redpanda Cloud as the event bus. The demo deploys through the existing `platform.rntme.com` → `@rntme/deploy-dokploy` pipeline without any new workload kinds: identity-auth0 ships as the existing `integration-module` workload, the edge stays Nginx, the domain side stays one service. The canonical module pattern (`pre[]` → gRPC call into the Identity module → result in payload) executes end-to-end.
 
 **In scope (one spec, one plan):**
 
@@ -49,8 +49,8 @@ This section is authoritative over older wording in this document and the execut
 5. **Notes blueprint** — `Note.fields.ownerSub`, `create` transition `affects=["title","body","ownerSub"]`, all four bindings get `pre: [{ module: "identity-auth0", rpc: "IntrospectSession", input: { token, audience }, bindAs: "session" }]`; `createNote.json` graph injects `ownerSub` from `$pre: "session.user_id"`; `deleteNote.json` graph guards via `findMany → filter on (id ∧ ownerSub) → limit 1 → emit`; `listNotes`/`getNote` graphs unchanged in structure but `NoteView.exposed` includes `ownerSub`.
 6. **`@rntme/contracts-identity-v1`** — additive `audience: string` field on `IntrospectSessionRequest`. `IntrospectSession` still returns canonical `Session`; invalid-token reason is carried in `Session.vendor_raw.deactivation_reason`.
 7. **`@rntme/ui-auth-shell` (new package)** — wraps ui-runtime with `@auth0/auth0-spa-js` PKCE flow, login/logout chrome, transport middleware with Bearer injection, `currentUser` injection into ui-runtime initial data-state.
-8. **`@rntme-cli/deploy-core` extensions** — `EdgeMiddleware` discriminated-union gets a fifth variant `kind: "auth"` (noop in Nginx, marker for plan); `ExternalEventBusConfig.security` becomes a discriminated union supporting `protocol: "sasl_ssl"` with `mechanism: "scram-sha-256"|"scram-sha-512"` and strict `secretRefs: { username, password }`.
-9. **`@rntme-cli/deploy-dokploy` extensions** — render `kind: "auth"` middleware: domain-service workload gets env `RNTME_AUTH_PROVIDER=auth0`, `RNTME_AUTH_AUDIENCE=...`, `RNTME_AUTH_MODULE_SLUG=identity-auth0`, `RNTME_AUTH_MODULE_ENDPOINT=<rendered-resource-name-of-identity-auth0>:50051`. SASL_SSL/SCRAM env: `RNTME_EVENT_BUS_PROTOCOL`, `..._MECHANISM`, `..._USERNAME` (secret), `..._PASSWORD` (secret). Edge nginx unchanged (auth → noop).
+8. **`@rntme/deploy-core` extensions** — `EdgeMiddleware` discriminated-union gets a fifth variant `kind: "auth"` (noop in Nginx, marker for plan); `ExternalEventBusConfig.security` becomes a discriminated union supporting `protocol: "sasl_ssl"` with `mechanism: "scram-sha-256"|"scram-sha-512"` and strict `secretRefs: { username, password }`.
+9. **`@rntme/deploy-dokploy` extensions** — render `kind: "auth"` middleware: domain-service workload gets env `RNTME_AUTH_PROVIDER=auth0`, `RNTME_AUTH_AUDIENCE=...`, `RNTME_AUTH_MODULE_SLUG=identity-auth0`, `RNTME_AUTH_MODULE_ENDPOINT=<rendered-resource-name-of-identity-auth0>:50051`. SASL_SSL/SCRAM env: `RNTME_EVENT_BUS_PROTOCOL`, `..._MECHANISM`, `..._USERNAME` (secret), `..._PASSWORD` (secret). Edge nginx unchanged (auth → noop).
 10. **`@rntme/runtime` extensions** — boot pipeline reads `RNTME_AUTH_*` env, constructs `ExternalAdapterClient` registry with one registered module `identity-auth0`, passes it to `bindings-http`. SASL_SSL env consumed by Kafka client config.
 11. **`@rntme/graph-ir-compiler` extension** — expression evaluator gains `$pre: "<bindAs>.<dot.path>"` directive for referencing pre-step results in `emit.payload` and `filter.where`.
 12. **Deploy walkthrough** — Auth0 dashboard manual setup (custom API audience, SPA application, redirect URIs), Redpanda Cloud SASL user, Dokploy secrets, `rntme project publish`, deploy-target create/update, deploy.
@@ -228,12 +228,12 @@ When the access token expires (Auth0 default 24h), the next API call returns 401
 | 5 | `@rntme/bindings-http` | M | Query handler runs `runPreSteps` symmetrically with the command handler. `router.ts` requires `externalAdapterClient` when **any** binding has `pre[]`. Auth-aware 401 mapping when `module===project.middleware.auth.moduleSlug && rpc==="IntrospectSession"` and returned `Session.status !== SESSION_STATUS_ACTIVE`. PII masking in pre-result logs (`vendor_raw.claims.*` replaced with `<masked>`). |
 | 6 | `@rntme/graph-ir-compiler` | S | Expression evaluator gains `$pre: "<bindAs>.<dot-path>"` directive. Allowed in `emit.payload.<field>`, `filter.where.eq[]`, `filter.where.and[].eq[]`, `findMany`/`findOne` filters. Disallowed in `aggregateId`, `transition`. Compile-time error `GRAPH_IR_PRE_REF_NOT_ALLOWED_IN_<position>` for misuse. Cross-artifact validation (`$pre` references an existing `bindAs`) lives in `@rntme/blueprint`, not here. |
 | 7 | `@rntme/runtime` | M | Boot reads `RNTME_AUTH_PROVIDER`, `RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`, `RNTME_AUTH_MODULE_ENDPOINT`. If `provider=auth0` and endpoint is non-empty, build `ExternalAdapterClient` registry with the single module `identity-auth0` → `<endpoint>` (gRPC over HTTP/2) and pass to `bindings-http.createBindingsRouter`. If provider set but endpoint missing → boot fails `RUNTIME_BOOT_AUTH_ENDPOINT_MISSING`. Kafka client reads `RNTME_EVENT_BUS_PROTOCOL`/`MECHANISM`/`USERNAME`/`PASSWORD` for SASL_SSL/SCRAM. |
-| 8 | `@rntme-cli/deploy-core` | S | `ExternalEventBusConfig.security` becomes a discriminated union `{ protocol: "plaintext" } \| { protocol: "sasl_ssl"; mechanism; secretRefs }`. Plan validators added. `EdgeMiddleware` union extended with `kind: "auth"` (`provider`, `audience`, `moduleSlug`, `policy`, `config`). `supportedMiddlewareKinds` extended. `planMiddleware` validates that `moduleSlug` references an existing `integration-module` workload in the same plan. |
-| 9 | `@rntme-cli/deploy-dokploy` | S | `render.ts` for domain-service workloads emits `RNTME_AUTH_*` env when an `auth` middleware is mounted on its routes, and SASL env (incl. `RNTME_EVENT_BUS_USERNAME`/`PASSWORD` as `secret: true` resolving Dokploy secret refs). `nginx.ts` does not emit any block for `kind: "auth"` (intentional noop). gRPC port `50051` is the convention for integration-module workloads. |
+| 8 | `@rntme/deploy-core` | S | `ExternalEventBusConfig.security` becomes a discriminated union `{ protocol: "plaintext" } \| { protocol: "sasl_ssl"; mechanism; secretRefs }`. Plan validators added. `EdgeMiddleware` union extended with `kind: "auth"` (`provider`, `audience`, `moduleSlug`, `policy`, `config`). `supportedMiddlewareKinds` extended. `planMiddleware` validates that `moduleSlug` references an existing `integration-module` workload in the same plan. |
+| 9 | `@rntme/deploy-dokploy` | S | `render.ts` for domain-service workloads emits `RNTME_AUTH_*` env when an `auth` middleware is mounted on its routes, and SASL env (incl. `RNTME_EVENT_BUS_USERNAME`/`PASSWORD` as `secret: true` resolving Dokploy secret refs). `nginx.ts` does not emit any block for `kind: "auth"` (intentional noop). gRPC port `50051` is the convention for integration-module workloads. |
 | 10 | `demo/notes-blueprint/` | M | See §5. PDM, QSM, graphs, bindings, project.json, seed, services/identity-auth0, README — all updated. |
 | 11 | `@rntme/ui-auth-shell` | **New M** | New workspace package. `mountAuthenticatedApp(config)` API. `@auth0/auth0-spa-js` PKCE flow. Vanilla-DOM login/logout chrome. Bearer-injecting transport. `currentUser` injection into ui-runtime initial data-state. `getAccessToken()` not exposed. Unit tests. |
 | 12 | `@rntme/ui-runtime` | XS | `bootstrap` accepts `transport?: typeof fetch` and `initialState?: Record<string, unknown>` with readonly-keys protection. SPA build entry replaced with shell-mount `app.js`. Static `/config.json` served from disk by domain-service workload (deploy-dokploy renders it as a generated file). |
-| 13 | `@rntme-cli/cli` | none | No changes. |
+| 13 | `@rntme/cli` | none | No changes. |
 | 14 | `platform-*` (control plane) | none | No changes. The deploy-flow already works. |
 
 ## 5. Blueprint shape
@@ -707,7 +707,7 @@ Mgmt-API handlers (User/Org/Membership/Invitation) are untouched. `src/adapter.t
 
 ### 7.1 Validator — `@rntme/bindings`
 
-`packages/bindings/src/validate/structural.ts` currently emits `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` for query bindings with one or more pre steps. Remove that branch. Keep the "max 2 pre-fetch steps" check and its current code `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
+`packages/artifacts/bindings/src/validate/structural.ts` currently emits `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` for query bindings with one or more pre steps. Remove that branch. Keep the "max 2 pre-fetch steps" check and its current code `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
 
 Unit test added: query binding with one valid `module-rpc` pre-step validates ok; query binding with three pre-steps fails on `BINDINGS_STRUCTURAL_PRE_TOO_MANY`.
 
@@ -764,7 +764,7 @@ Payload injection lives in **graph IR** via `$pre`, not in `bindings.json`. This
 
 ### 8.1 `ExternalEventBusConfig` — SASL_SSL/SCRAM
 
-`packages/deploy-core/src/config.ts`:
+`packages/deploy/deploy-core/src/config.ts`:
 
 ```ts
 export type ExternalEventBusSecurity =
@@ -805,7 +805,7 @@ RNTME_EVENT_BUS_PROTOCOL = <plaintext | sasl_ssl>
 
 ### 8.2 `EdgeMiddleware` — `kind: "auth"`
 
-`packages/deploy-core/src/edge.ts`:
+`packages/deploy/deploy-core/src/edge.ts`:
 
 ```ts
 export type EdgeMiddleware =

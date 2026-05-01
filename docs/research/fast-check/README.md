@@ -37,8 +37,8 @@ grep -r "fast-check" --include="*.md" .
 ```
 
 **Audit references:**
-- `docs/audit/00-waves.md` — U-103: "fast-check declared but unused in devDependencies — `@rntme-cli/platform-core`"
-- `docs/audit/@rntme-cli/platform-core/README.md` — Recommendation: "2. Удалить или начать использовать `fast-check`."
+- `docs/audit/00-waves.md` — U-103: "fast-check declared but unused in devDependencies — `@rntme/platform-core`"
+- `docs/audit/@rntme/platform-core/README.md` — Recommendation: "2. Удалить или начать использовать `fast-check`."
 
 ## Latest Versions / Release State
 
@@ -352,7 +352,7 @@ Deprecated/outdated:
 
 ### Secondary (MEDIUM confidence)
 - **npm search** — Verified jsverify is unmaintained (last release 2018-10-31), no viable alternatives to fast-check in JS/TS ecosystem
-- **rntme audit docs** (`docs/audit/00-waves.md`, `docs/audit/@rntme-cli/platform-core/README.md`) — Confirmed zero usage, triage recommendation
+- **rntme audit docs** (`docs/audit/00-waves.md`, `docs/audit/@rntme/platform-core/README.md`) — Confirmed zero usage, triage recommendation
 
 ### Tertiary (LOW confidence - needs validation)
 - **WebSearch/GitHub** — Community adoption patterns, StackOverflow discussions on PBT in TypeScript

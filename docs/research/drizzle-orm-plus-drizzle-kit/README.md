@@ -3,7 +3,7 @@
 Researched: 2026-04-28
 Repository: /home/coder/work/rntme
 Domain/ecosystem: npm/database-orm
-Current version(s) in rntme: drizzle-orm ^0.36.0 (resolved 0.36.4); drizzle-kit ^0.30.0 (resolved 0.30.6) (rntme-cli/packages/platform-storage package.json; schema/migration code)
+Current version(s) in rntme: drizzle-orm ^0.36.0 (resolved 0.36.4); drizzle-kit ^0.30.0 (resolved 0.30.6) (packages/platform/platform-storage package.json; schema/migration code)
 Latest stable version: drizzle-orm 0.45.2 (2026-03-27); drizzle-kit 0.31.10 (2026-03-17)
 Confidence: HIGH
 
@@ -26,15 +26,15 @@ Primary recommendation: **KEEP + UPGRADE** to latest stable (0.45.2 / 0.31.10) i
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---:|---|---|---|---|
-| drizzle-orm | ^0.36.0 (resolved 0.36.4) | @rntme-cli/platform-storage | `rntme-cli/packages/platform-storage/package.json` | prod | pg driver, schema definitions, query builder |
-| drizzle-kit | ^0.30.0 (resolved 0.30.6) | @rntme-cli/platform-storage | `rntme-cli/packages/platform-storage/package.json` | dev | migrations, schema generation |
-| pg | ^8.12.0 | @rntme-cli/platform-storage | `rntme-cli/packages/platform-storage/package.json` | prod | underlying PostgreSQL driver |
+| drizzle-orm | ^0.36.0 (resolved 0.36.4) | @rntme/platform-storage | `packages/platform/platform-storage/package.json` | prod | pg driver, schema definitions, query builder |
+| drizzle-kit | ^0.30.0 (resolved 0.30.6) | @rntme/platform-storage | `packages/platform/platform-storage/package.json` | dev | migrations, schema generation |
+| pg | ^8.12.0 | @rntme/platform-storage | `packages/platform/platform-storage/package.json` | prod | underlying PostgreSQL driver |
 
 Verified via:
 ```bash
 grep -A2 -B2 "drizzle-orm@" pnpm-lock.yaml  # shows 0.36.4
 grep -A2 -B2 "drizzle-kit@" pnpm-lock.yaml  # shows 0.30.6
-cat rntme-cli/packages/platform-storage/package.json
+cat packages/platform/platform-storage/package.json
 ```
 
 Usage patterns observed:
@@ -401,7 +401,7 @@ Rationale:
 
 ### Secondary (MEDIUM confidence)
 - [rntme design doc: 2026-04-18-drizzle-adoption-design.md](/docs/superpowers/specs/2026-04-18-drizzle-adoption-design.md) — Internal architecture decisions, phased rollout plan
-- [rntme audit: platform-storage](/docs/audit/@rntme-cli/platform-storage/README.md) — Current usage patterns, known issues
+- [rntme audit: platform-storage](/docs/audit/@rntme/platform-storage/README.md) — Current usage patterns, known issues
 
 ### Tertiary (LOW confidence - needs validation)
 - Web search for "Drizzle ORM vs Prisma 2026" and similar comparisons — General ecosystem sentiment

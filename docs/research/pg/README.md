@@ -13,18 +13,18 @@
 ## <user_constraints>
 
 - **Research-only:** Do NOT modify `package.json`, `pnpm-lock.yaml`, source code, migrations, or deploy configuration.
-- **Authoritative sources:** Context7 (where available), official npm registry, GitHub releases/changelog, official `node-postgres` docs, and verified code inspection of the `rntme-cli` submodule.
-- **Scope boundary:** The main `rntme` repo is SQLite-only (`better-sqlite3`). This research focuses on the `pg` dependency present only in the private `rntme-cli` submodule (`packages/platform-storage`, `packages/platform-http`).
+- **Authoritative sources:** Context7 (where available), official npm registry, GitHub releases/changelog, official `node-postgres` docs, and verified code inspection of the platform packages.
+- **Scope boundary:** The main `rntme` repo is SQLite-only (`better-sqlite3`). This research focuses on the `pg` dependency present only in the platform packages (`packages/platform/platform-storage`, `apps/platform-http`).
 
 ---
 
 ## <research_summary>
 
-The `pg` package is the canonical Node.js PostgreSQL client. In the rntme workspace it is a **transitive dependency of the commercial platform layer only** (`rntme-cli`), powering the control-plane database at `platform.rntme.com`. The main open-source runtime (`@rntme/*` packages) deliberately avoids PostgreSQL, targeting SQLite ≥ 3.30 with Turso as the scale-out story.
+The `pg` package is the canonical Node.js PostgreSQL client. In the rntme workspace it is a **transitive dependency of the commercial platform layer only** (`packages/platform/platform-storage` and `apps/platform-http`), powering the control-plane database at `platform.rntme.com`. The main open-source runtime (`@rntme/*` packages) deliberately avoids PostgreSQL, targeting SQLite ≥ 3.30 with Turso as the scale-out story.
 
-Within `rntme-cli`, `pg` is consumed exclusively through **Drizzle ORM's `node-postgres` driver** (`drizzle-orm/node-postgres`) and occasional raw `pool.query()` calls for complex SQL (advisory locks, dynamic WHERE, RLS policies). The architecture is Postgres-native: RLS-based multi-tenancy, two-role access model (`platform_owner` / `platform_app`), and Testcontainers-backed integration tests.
+Within the platform packages, `pg` is consumed exclusively through **Drizzle ORM's `node-postgres` driver** (`drizzle-orm/node-postgres`) and occasional raw `pool.query()` calls for complex SQL (advisory locks, dynamic WHERE, RLS policies). The architecture is Postgres-native: RLS-based multi-tenancy, two-role access model (`platform_owner` / `platform_app`), and Testcontainers-backed integration tests.
 
-**Primary recommendation:** `KEEP + UPGRADE` to `pg@8.20.x` and align `drizzle-orm` to `^0.45.x` in a dedicated platform-cli maintenance window. The current `8.12.0 → 8.20.0` delta is low-risk (no breaking changes in the 8.x line), includes SCRAM-SHA-256-PLUS channel binding, ESM support, per-query timeouts, and min-pool-size controls. `pg` remains the right choice for the platform layer because RLS, composite types, and mature multi-tenant patterns are required there; replacing it with SQLite would invalidate the platform's security model.
+**Primary recommendation:** `KEEP + UPGRADE` to `pg@8.20.x` and align `drizzle-orm` to `^0.45.x` in a dedicated platform maintenance window. The current `8.12.0 → 8.20.0` delta is low-risk (no breaking changes in the 8.x line), includes SCRAM-SHA-256-PLUS channel binding, ESM support, per-query timeouts, and min-pool-size controls. `pg` remains the right choice for the platform layer because RLS, composite types, and mature multi-tenant patterns are required there; replacing it with SQLite would invalidate the platform's security model.
 
 ---
 
@@ -32,17 +32,17 @@ Within `rntme-cli`, `pg` is consumed exclusively through **Drizzle ORM's `node-p
 
 | Source file | Runtime / Dev / Build / Test | Verified command |
 |---|---|---|
-| `rntme-cli/packages/platform-storage/package.json` | prod | `cat rntme-cli/packages/platform-storage/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
-| `rntme-cli/packages/platform-http/package.json` | prod | `cat rntme-cli/packages/platform-http/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
-| `rntme-cli/packages/platform-storage/src/pg/pool.ts` | runtime | `grep -n "import pg" rntme-cli/packages/platform-storage/src/pg/pool.ts` |
-| `rntme-cli/packages/platform-storage/src/pg/tx.ts` | runtime | `grep -n "Pool\|PoolClient" rntme-cli/packages/platform-storage/src/pg/tx.ts` |
-| `rntme-cli/packages/platform-storage/src/migrate.ts` | runtime | `grep -n "drizzle-orm/node-postgres/migrator" rntme-cli/packages/platform-storage/src/migrate.ts` |
-| `rntme-cli/packages/platform-storage/src/repos/pg-*.ts` (11 files) | runtime | `ls rntme-cli/packages/platform-storage/src/repos/pg-*.ts` |
-| `rntme-cli/packages/platform-storage/test/integration/harness.ts` | test | `grep -n "PostgreSqlContainer" rntme-cli/packages/platform-storage/test/integration/harness.ts` |
-| `rntme-cli/packages/platform-http/src/middleware/tx.ts` | runtime | `grep -n "Pool\|PoolClient" rntme-cli/packages/platform-http/src/middleware/tx.ts` |
+| `packages/platform/platform-storage/package.json` | prod | `cat packages/platform/platform-storage/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
+| `apps/platform-http/package.json` | prod | `cat apps/platform-http/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
+| `packages/platform/platform-storage/src/pg/pool.ts` | runtime | `grep -n "import pg" packages/platform/platform-storage/src/pg/pool.ts` |
+| `packages/platform/platform-storage/src/pg/tx.ts` | runtime | `grep -n "Pool\|PoolClient" packages/platform/platform-storage/src/pg/tx.ts` |
+| `packages/platform/platform-storage/src/migrate.ts` | runtime | `grep -n "drizzle-orm/node-postgres/migrator" packages/platform/platform-storage/src/migrate.ts` |
+| `packages/platform/platform-storage/src/repos/pg-*.ts` (11 files) | runtime | `ls packages/platform/platform-storage/src/repos/pg-*.ts` |
+| `packages/platform/platform-storage/test/integration/harness.ts` | test | `grep -n "PostgreSqlContainer" packages/platform/platform-storage/test/integration/harness.ts` |
+| `apps/platform-http/src/middleware/tx.ts` | runtime | `grep -n "Pool\|PoolClient" apps/platform-http/src/middleware/tx.ts` |
 | `pnpm-lock.yaml` (root) | lockfile | `grep -A2 'pg:' pnpm-lock.yaml \| head -10` |
 
-**Key observation:** The main rntme monorepo (`packages/*`, `demo/*`, `modules/*`) has **zero** imports of `"pg"`. The dependency is isolated to `rntme-cli/`, consistent with the spec decision that the platform control plane uses Postgres (for RLS, composite FK, mature multi-tenant features) while the per-service runtime uses SQLite.
+**Key observation:** The main rntme monorepo (`packages/*`, `demo/*`, `modules/*`) has **zero** imports of `"pg"`. The dependency is isolated to `packages/platform/platform-storage` and `apps/platform-http`, consistent with the spec decision that the platform control plane uses Postgres (for RLS, composite FK, mature multi-tenant features) while the per-service runtime uses SQLite.
 
 ---
 
@@ -81,19 +81,19 @@ Within `rntme-cli`, `pg` is consumed exclusively through **Drizzle ORM's `node-p
 
 ### Alternatives Considered
 
-| Alternative | Maturity | RLS Support | Why NOT chosen for rntme-cli |
+| Alternative | Maturity | RLS Support | Why NOT chosen for the platform layer |
 |---|---|---|---|
 | **`postgres` (postgres.js)** | HIGH | Yes | Excellent performance, but no Drizzle `node-postgres` driver parity for advanced pg features (advisory locks, LISTEN/NOTIFY). Would require a custom Drizzle driver or abandoning Drizzle. |
-| **`pg-promise`** | HIGH | Yes | Adds query-formatting and task/tx helpers, but rntme-cli already has its own transaction helper (`tx.ts`). Extra abstraction without clear win. |
+| **`pg-promise`** | HIGH | Yes | Adds query-formatting and task/tx helpers, but the platform layer already has its own transaction helper (`tx.ts`). Extra abstraction without clear win. |
 | **`node-postgres` native (`pg-native`)** | MEDIUM | Yes | Optional peer dep; requires `libpq` compilation. Adds native dependency complexity for marginal throughput gains on a control-plane API. |
-| **`@neondatabase/serverless`** | HIGH | Yes | Neon-specific serverless driver with HTTP fallback. Overfit to Neon; rntme-cli targets generic Postgres (self-hosted or managed). |
+| **`@neondatabase/serverless`** | HIGH | Yes | Neon-specific serverless driver with HTTP fallback. Overfit to Neon; the platform layer targets generic Postgres (self-hosted or managed). |
 | **`@vercel/postgres`** | MEDIUM | Yes | Vercel/Neon-specific. Not portable. |
 | **SQLite (better-sqlite3)** | HIGH | No | SQLite lacks RLS, composite FK enforcement, and mature multi-tenant row policies. Explicitly ruled out by platform spec for the control plane. |
 
 ### Example upgrade commands (do NOT run)
 ```bash
 # Upgrade pg + types
-cd rntme-cli/packages/platform-storage
+cd packages/platform/platform-storage
 pnpm add pg@^8.20.0 @types/pg@^8.20.0
 
 # Upgrade drizzle-orm + kit
@@ -114,7 +114,7 @@ pnpm run test:integration
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    platform.rntme.com                        │
-│  (Hono HTTP server — @rntme-cli/platform-http)              │
+│  (Hono HTTP server — @rntme/platform-http)              │
 └───────────────────────┬─────────────────────────────────────┘
                         │ HTTP request
                         ▼
@@ -156,7 +156,7 @@ pnpm run test:integration
 ### Recommended Project Structure (already implemented)
 
 ```
-rntme-cli/packages/platform-storage/
+packages/platform/platform-storage/
 ├── src/
 │   ├── pg/
 │   │   ├── pool.ts          # Pool + Drizzle factory
@@ -175,7 +175,7 @@ rntme-cli/packages/platform-storage/
 ### Verified patterns (from official docs + code inspection)
 
 #### Pattern 1: Pool + Drizzle ORM wrapper
-Source: `rntme-cli/packages/platform-storage/src/pg/pool.ts` (verified in repo)
+Source: `packages/platform/platform-storage/src/pg/pool.ts` (verified in repo)
 ```typescript
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -190,7 +190,7 @@ export function createDb(pool: pg.Pool) {
 ```
 
 #### Pattern 2: Transaction-scoped RLS tenant isolation
-Source: `rntme-cli/packages/platform-storage/src/pg/tx.ts` (verified in repo)
+Source: `packages/platform/platform-storage/src/pg/tx.ts` (verified in repo)
 ```typescript
 export async function withTransaction<T>(
   pool: Pool,
@@ -218,8 +218,8 @@ export async function withTransaction<T>(
 ### Anti-patterns
 
 1. **Using `pg.Client` directly for server workloads.** A single `Client` holds one connection; server code should use `pg.Pool` (already followed).
-2. **Mixing Drizzle ORM and raw SQL on the same client without discipline.** rntme-cli solves this by typing the client as `PgQueryable = pg.Pool | PoolClient` and passing it to both Drizzle and raw query functions.
-3. **Setting RLS variables on the pool instead of per-client.** rntme-cli correctly sets `app.org_id` on the checked-out `PoolClient` before each transaction.
+2. **Mixing Drizzle ORM and raw SQL on the same client without discipline.** This codebase solves this by typing the client as `PgQueryable = pg.Pool | PoolClient` and passing it to both Drizzle and raw query functions.
+3. **Setting RLS variables on the pool instead of per-client.** The platform layer correctly sets `app.org_id` on the checked-out `PoolClient` before each transaction.
 4. **Forgetting `client.release()` on error paths.** The `tx.ts` helper uses `try/finally` to guarantee release.
 
 ---
@@ -239,7 +239,7 @@ export async function withTransaction<T>(
 ### Pitfall 1: Event-loop blocking on idle pools without `allowExitOnIdle`
 **What goes wrong:** A Node.js process with an active `pg.Pool` will not exit because the pool's internal timers keep the event loop alive.
 **Root cause:** `pg.Pool` schedules reaper and idle-check timers by default.
-**Prevention:** Set `allowExitOnIdle: true` on pools that should not prevent process exit (e.g., CLI tools, one-off scripts). The rntme-cli platform server should NOT set this because it is long-running.
+**Prevention:** Set `allowExitOnIdle: true` on pools that should not prevent process exit (e.g., CLI tools, one-off scripts). The platform HTTP server should NOT set this because it is long-running.
 **Warning signs:** Tests hang after completion; `process.exit()` is required.
 
 ### Pitfall 2: `pool.query()` vs `client.query()` — RLS variable scoping
@@ -250,7 +250,7 @@ export async function withTransaction<T>(
 
 ### Pitfall 3: Unbounded `max` pool size causing Postgres connection exhaustion
 **What goes wrong:** Default `pg.Pool` has no max limit. Under load, Node.js opens hundreds of connections and exhausts Postgres `max_connections`.
-**Root cause:** `pg.Pool` default `max` was historically unbounded (changed in recent docs to 10, but verify your version). The rntme-cli `pool.ts` explicitly sets `max: 10`.
+**Root cause:** `pg.Pool` default `max` was historically unbounded (changed in recent docs to 10, but verify your version). `packages/platform/platform-storage/src/pg/pool.ts` explicitly sets `max: 10`.
 **Prevention:** Always set `max` based on `Postgres max_connections / (app instances * pools per instance)`.
 **Warning signs:** `FATAL: sorry, too many clients already` in Postgres logs; intermittent `ECONNREFUSED`.
 
@@ -266,7 +266,7 @@ export async function withTransaction<T>(
 
 ### Example 1: Pool creation with explicit limits (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/pg/pool.ts
+// packages/platform/platform-storage/src/pg/pool.ts
 import pg from 'pg';
 
 export function createPool(databaseUrl: string, opts: { max?: number } = {}): pg.Pool {
@@ -279,7 +279,7 @@ export function createPool(databaseUrl: string, opts: { max?: number } = {}): pg
 
 ### Example 2: Drizzle ORM schema definition with pg-core (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/schema/projects.ts
+// packages/platform/platform-storage/src/schema/projects.ts
 import { pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
 
 export const project = pgTable('project', {
@@ -292,7 +292,7 @@ export const project = pgTable('project', {
 
 ### Example 3: Raw SQL query with parameterized values (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/repos/pg-deployment-repo.ts (pattern)
+// packages/platform/platform-storage/src/repos/pg-deployment-repo.ts (pattern)
 const inserted = await db.query(
   `INSERT INTO deployment (id, project_id, org_id, status, payload, created_at)
    VALUES ($1, $2, $3, $4, $5::jsonb, $6)
@@ -317,7 +317,7 @@ const inserted = await db.query(
 8. **`drizzle-orm` 0.45.x (2025):** Continued stability improvements; 1.0 beta in progress with API freeze expected mid-2025.
 
 ### Deprecated / Outdated approaches
-- **`pg.connect()` singleton (removed in pg@7.0).** rntme-cli already uses explicit `new pg.Pool()`.
+- **`pg.connect()` singleton (removed in pg@7.0).** The platform layer already uses explicit `new pg.Pool()`.
 - **`stream.close()` on `pg-query-stream` (removed in v4).** Use `stream.destroy()`.
 - **Manual `libpq` compilation for performance.** The pure-JS `pg-protocol` parser (introduced in 8.2.0) is now within 5–10% of native bindings for most workloads.
 
@@ -326,22 +326,22 @@ const inserted = await db.query(
 ## <migration_assessment>
 
 ### Breaking changes: 8.12.0 → 8.20.0
-**Risk level: LOW.** The `pg` 8.x line has maintained backward compatibility since 8.0.0 (2020). Notable API changes that *could* affect rntme-cli:
-- `pool.connect()` now returns `Client` (8.18.0). rntme-cli does not use the return value of `connect()` directly (uses `pool.connect()` via `tx.ts` which ignores the return).
-- Internal query queue deprecated (8.19.0). rntme-cli does not use the internal queue explicitly.
-- ESM support (8.15.0). rntme-cli uses ESM (`import pg from 'pg'`) already; this is a benefit, not a risk.
+**Risk level: LOW.** The `pg` 8.x line has maintained backward compatibility since 8.0.0 (2020). Notable API changes that *could* affect the platform layer:
+- `pool.connect()` now returns `Client` (8.18.0). The platform layer does not use the return value of `connect()` directly (uses `pool.connect()` via `tx.ts` which ignores the return).
+- Internal query queue deprecated (8.19.0). The platform layer does not use the internal queue explicitly.
+- ESM support (8.15.0). The platform layer uses ESM (`import pg from 'pg'`) already; this is a benefit, not a risk.
 
 ### Drizzle-ORM compatibility
 - `drizzle-orm@0.36.0` → `0.45.2` is a larger jump. Drizzle 0.40+ introduced stricter type inference and some `pg-core` API changes. **Upgrade `pg` and `drizzle-orm` in the same PR** and run the full integration suite.
 
 ### Migration path / effort
-1. Bump `pg` to `^8.20.0` in `platform-storage/package.json` and `platform-http/package.json`.
+1. Bump `pg` to `^8.20.0` in `packages/platform/platform-storage/package.json` and `apps/platform-http/package.json`.
 2. Bump `@types/pg` to `^8.20.0` in both packages.
 3. Bump `drizzle-orm` to `^0.45.0` and `drizzle-kit` to latest compatible.
 4. Run `pnpm install`.
 5. Run unit tests: `pnpm -r run test`.
-6. Run integration tests: `pnpm -F @rntme-cli/platform-storage test:integration` (requires Docker).
-7. Verify migration generation still works: `pnpm -F @rntme-cli/platform-storage run db:generate`.
+6. Run integration tests: `pnpm -F @rntme/platform-storage test:integration` (requires Docker).
+7. Verify migration generation still works: `pnpm -F @rntme/platform-storage run db:generate`.
 
 ### Test strategy
 - **Unit tests:** Mock `Pool` / `PoolClient` (already in place in `platform-http/test/unit`).
@@ -356,7 +356,7 @@ const inserted = await db.query(
 
 ### Security implications
 - **SCRAM-SHA-256-PLUS (8.14.0):** If the production Postgres supports channel binding, enabling this strengthens TLS auth. Requires no code change — negotiated automatically.
-- **SSL defaults:** `pg@8.0.0+` defaults to `rejectUnauthorized: true`. rntme-cli should verify that managed Postgres connections (e.g., Dokploy-managed DB) have valid TLS certs or explicitly set `rejectUnauthorized: false` in connection strings.
+- **SSL defaults:** `pg@8.0.0+` defaults to `rejectUnauthorized: true`. The platform layer should verify that managed Postgres connections (e.g., Dokploy-managed DB) have valid TLS certs or explicitly set `rejectUnauthorized: false` in connection strings.
 
 ### Performance implications
 - `pg-protocol` parser improvements in 8.2.0+ give 10–50% query parsing speedup.
@@ -374,9 +374,9 @@ const inserted = await db.query(
 
 **Rationale:**
 1. `pg` is the de-facto standard Node.js PostgreSQL client with 13k+ GitHub stars, active maintenance, and a stable 8.x API since 2020.
-2. The rntme-cli platform layer **requires** PostgreSQL features (RLS, composite FK, stored config variables) that SQLite cannot provide.
+2. The platform layer **requires** PostgreSQL features (RLS, composite FK, stored config variables) that SQLite cannot provide.
 3. The current version (`8.12.0`) is 8 releases behind latest (`8.20.0`). The delta is low-risk and delivers security (SCRAM-SHA-256-PLUS), DX (ESM, per-query timeouts), and operational (min pool size, `onConnect`) improvements.
-4. `drizzle-orm` is the right abstraction level for rntme-cli: type-safe schema definitions, migration generation, and the ability to drop to raw SQL when needed.
+4. `drizzle-orm` is the right abstraction level for the platform layer: type-safe schema definitions, migration generation, and the ability to drop to raw SQL when needed.
 5. No alternative (postgres.js, pg-promise, native bindings) offers a compelling enough advantage to justify a migration away from the current stack.
 
 **Follow-up tasks:**
@@ -390,11 +390,11 @@ const inserted = await db.query(
 
 ## <open_questions>
 
-1. **Drizzle ORM 1.0 timeline:** Should rntme-cli wait for Drizzle 1.0 (stable API freeze) before the next major upgrade, or adopt 0.45.x now? *Recommendation: adopt 0.45.x now; 1.0 may introduce breaking schema-definition changes.*
+1. **Drizzle ORM 1.0 timeline:** Should the platform layer wait for Drizzle 1.0 (stable API freeze) before the next major upgrade, or adopt 0.45.x now? *Recommendation: adopt 0.45.x now; 1.0 may introduce breaking schema-definition changes.*
 2. **Postgres 17 readiness:** Is the production platform target ready to upgrade from Postgres 15/16 to 17? `pg@8.20.0` supports Postgres 17, but RLS policies and Drizzle schema should be validated.
 3. **pg-native evaluation:** For high-throughput platform APIs, has anyone benchmarked `pg-native` vs pure-JS `pg` on the actual query mix (mostly simple CRUD + some raw SQL)? *Recommendation: skip unless profiling reveals parser as bottleneck.*
 4. **Connection pool monitoring:** Should the platform expose pool metrics (total, idle, waiting clients) to the health-check endpoint? *Recommendation: yes, using `pool.totalCount`, `pool.idleCount`, `pool.waitingCount`.*
-5. **Serverless/edge future:** If rntme-cli ever needs to run in a serverless environment (Vercel, Cloudflare Workers), `pg` (TCP-based) will not work. Is there a long-term plan to evaluate Neon serverless driver or HTTP-based Postgres? *Recommendation: defer until serverless is a concrete requirement; document as known constraint.*
+5. **Serverless/edge future:** If the platform layer ever needs to run in a serverless environment (Vercel, Cloudflare Workers), `pg` (TCP-based) will not work. Is there a long-term plan to evaluate Neon serverless driver or HTTP-based Postgres? *Recommendation: defer until serverless is a concrete requirement; document as known constraint.*
 
 ---
 
@@ -403,7 +403,7 @@ const inserted = await db.query(
 ### Primary (HIGH confidence)
 1. **Official npm registry:** `npm view pg@latest`, `npm view @types/pg@latest` — version numbers, dependency tree, license.
 2. **GitHub changelog (brianc/node-postgres):** `CHANGELOG.md` — release notes for every minor version from 8.0.0 to 8.20.0.
-3. **Direct code inspection:** `rntme-cli/packages/platform-storage/src/pg/pool.ts`, `tx.ts`, `migrate.ts`, `repos/pg-*.ts`, `schema/*.ts`, `test/integration/harness.ts` — verified usage patterns, imports, and architecture.
+3. **Direct code inspection:** `packages/platform/platform-storage/src/pg/pool.ts`, `tx.ts`, `migrate.ts`, `repos/pg-*.ts`, `schema/*.ts`, `test/integration/harness.ts` — verified usage patterns, imports, and architecture.
 4. **Lockfile inspection:** `pnpm-lock.yaml` at repo root — exact resolved versions and transitive dependency graph.
 5. **AGENTS.md / platform spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — rationale for Postgres in platform layer vs SQLite in runtime.
 
@@ -422,7 +422,7 @@ const inserted = await db.query(
 
 | Field | Value |
 |---|---|
-| **Research scope** | `pg` package in rntme workspace: versions, alternatives, migration path, security posture, and architecture fit for the `rntme-cli` platform layer. |
+| **Research scope** | `pg` package in rntme workspace: versions, alternatives, migration path, security posture, and architecture fit for the `packages/platform/platform-storage` and `apps/platform-http` platform layer. |
 | **Confidence breakdown** | Version data: HIGH (npm registry, lockfile). Usage patterns: HIGH (direct source inspection). Alternatives analysis: MEDIUM (docs + Context7 partial coverage, no live benchmarking). Migration risk: LOW (8.x line is backward-compatible). |
 | **Research date** | 2026-04-28 |
 | **Validity window** | Valid until `pg@8.21.0` or `drizzle-orm@0.46.0` is released, or until PostgreSQL 18 introduces breaking protocol changes. Re-evaluate quarterly. |

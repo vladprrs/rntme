@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.7
+
+# ---------- builder ----------
+FROM node:20-alpine AS build
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /repo
+
+# 1) Copy only the workspace + package manifests first so `pnpm install` can
+#    resolve the filtered closure without invalidating the layer on every
+#    landing source change.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/landing/package.json             ./apps/landing/package.json
+
+# 2) Install only what @rntme/landing needs.
+RUN pnpm install --frozen-lockfile --filter @rntme/landing...
+
+# 3) Copy landing source.
+COPY apps/landing ./apps/landing
+
+# 4) Build-time env. Required vars fail the build if absent (src/env.ts).
+ARG TALLY_FORM_ID
+ARG GITHUB_URL
+ARG DOCS_URL
+ARG PLATFORM_URL
+ARG DEMO_URL=""
+ARG PLAUSIBLE_DOMAIN=""
+ENV TALLY_FORM_ID=$TALLY_FORM_ID \
+    GITHUB_URL=$GITHUB_URL \
+    DOCS_URL=$DOCS_URL \
+    PLATFORM_URL=$PLATFORM_URL \
+    DEMO_URL=$DEMO_URL \
+    PLAUSIBLE_DOMAIN=$PLAUSIBLE_DOMAIN
+
+RUN pnpm -F @rntme/landing build
+
+# Sanity check: dist/ must contain index.html. If not, fail the build here
+# rather than ship an empty nginx image.
+RUN test -f /repo/apps/landing/dist/index.html || (echo "dist/index.html missing after astro build" && exit 1)
+
+# ---------- runtime ----------
+FROM nginx:alpine AS runtime
+COPY --from=build /repo/apps/landing/dist /usr/share/nginx/html
+COPY apps/landing/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Validate the nginx config at build time so a bad conf fails the image
+# instead of the container silently not binding.
+RUN nginx -t
+
+EXPOSE 80

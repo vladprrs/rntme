@@ -1,3 +1,5 @@
+> **Status:** SUPERSEDED by `2026-04-30-merge-rntme-cli-back-design.md` (submodule merge-back planned for this PR; original privacy rationale obsoleted when the repo was made public).
+
 # rntme-cli — private git submodule for the agent-facing CLI
 
 **Status:** design

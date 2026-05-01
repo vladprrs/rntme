@@ -40,7 +40,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: packages/runtime/Dockerfile
+          file: packages/runtime/runtime/Dockerfile
           push: true
           tags: |
             ghcr.io/vladprrs/rntme-runtime:${{ steps.ver.outputs.v }}

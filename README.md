@@ -63,7 +63,7 @@ flowchart LR
     V["4-layer validator<br/>(parse → structural → reference → consistency)"]:::validator
     REG["project-routed bindings<br/>+ composed project model"]:::runtime
     R["rntme runtime<br/>(per-service today;<br/>project intake deferred)"]:::runtime
-    DEPLOY["@rntme-cli/deploy-core<br/>+ deploy-dokploy"]:::deploy
+    DEPLOY["@rntme/deploy-core<br/>+ deploy-dokploy"]:::deploy
     DB[("SQLite / Turso")]:::storage
     SVC["Running project<br/>(HTTP + UI)"]:::runtime
 
@@ -88,11 +88,11 @@ flowchart LR
 
 ## The commercial platform (`platform.rntme.com`)
 
-The `@rntme/runtime` stack is open-source and free — that's the trust engine. The commercial platform, hosted in the [`rntme-cli`](rntme-cli/) submodule and live at [`platform.rntme.com`](https://platform.rntme.com), is the monetization layer. It grows along four pillars:
+The `@rntme/runtime` stack is open-source and free — that's the trust engine. The commercial platform, hosted from `apps/platform-http` and live at [`platform.rntme.com`](https://platform.rntme.com), is the monetization layer. It grows along four pillars:
 
 1. **Control plane** — organizations, projects, services, environments, API tokens, RBAC, SSO (WorkOS-backed). *Partially live.*
 2. **Registry** — publish and pull validated blueprints; content-addressed artifact bundles on S3-compatible storage; versions, tags, history, diff, lineage. *Partially live.*
-3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme-cli/deploy-core` planner plus `@rntme-cli/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md).
+3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme/deploy-core` planner plus `@rntme/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md).
 4. **Governance layer** — blueprint review UI for humans (including business users who never touch code); approval workflows; audit trail; policy gates that block bad blueprints before deploy.
 
 Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md). Strategic context: [`vision.md`](vision.md) §8 *The future platform*.
@@ -101,21 +101,21 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 | Package | Purpose |
 | ------- | ------- |
-| [`@rntme/blueprint`](packages/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project-level PDM, service artifacts, route/middleware composition, project-routed binding registry, and optional `project.json#modules` UI catalog + virtual entry. |
-| [`@rntme/pdm`](packages/pdm) | Platform Domain Model: project-shared entities, ownership classification, fields, relations, and optional stateMachine per entity; derives event-type specs from transitions. |
-| [`@rntme/qsm`](packages/qsm) | Query-Side Materialized projections: declares per-service read-side tables, projection-per-file directories, relation metadata for JOINs, DDL, and event-handler specs. |
-| [`@rntme/event-store`](packages/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
-| [`@rntme/seed`](packages/seed) | Declarative `seed.json`: parse and validate envelopes against the PDM, append to the event store (used by `@rntme/runtime` for reference data). |
-| [`@rntme/projection-consumer`](packages/projection-consumer) | Kafka → SQLite projection updater with three-layer idempotency and batch transactions. |
-| [`@rntme/graph-ir-compiler`](packages/graph-ir-compiler) | Graph IR → SQLite compiler (query path) and state-machine-gated command runtime (command path) behind executor seams. |
-| [`@rntme/bindings`](packages/bindings) | HTTP bindings artifact + four-layer validator + OpenAPI 3.1 emitter, including `pre[]`, callback bindings, input sources, and response shapes. |
-| [`@rntme/bindings-http`](packages/bindings-http) | Hono sub-router that executes validated query/command bindings with pre-fetch orchestration, callback redirects, and idempotency cache support. |
-| [`@rntme/bindings-grpc`](packages/bindings-grpc) | gRPC adapter surface for module and service integration through `CommandExecutor` / `QueryExecutor`. |
-| [`@rntme/ui`](packages/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
-| [`@rntme/ui-runtime`](packages/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
-| [`@rntme/db-studio`](packages/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
-| [`@rntme/runtime`](packages/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
-| [`@rntme/module-skeleton`](packages/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
+| [`@rntme/blueprint`](packages/artifacts/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project-level PDM, service artifacts, route/middleware composition, project-routed binding registry, and optional `project.json#modules` UI catalog + virtual entry. |
+| [`@rntme/pdm`](packages/artifacts/pdm) | Platform Domain Model: project-shared entities, ownership classification, fields, relations, and optional stateMachine per entity; derives event-type specs from transitions. |
+| [`@rntme/qsm`](packages/artifacts/qsm) | Query-Side Materialized projections: declares per-service read-side tables, projection-per-file directories, relation metadata for JOINs, DDL, and event-handler specs. |
+| [`@rntme/event-store`](packages/runtime/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
+| [`@rntme/seed`](packages/artifacts/seed) | Declarative `seed.json`: parse and validate envelopes against the PDM, append to the event store (used by `@rntme/runtime` for reference data). |
+| [`@rntme/projection-consumer`](packages/runtime/projection-consumer) | Kafka → SQLite projection updater with three-layer idempotency and batch transactions. |
+| [`@rntme/graph-ir-compiler`](packages/artifacts/graph-ir-compiler) | Graph IR → SQLite compiler (query path) and state-machine-gated command runtime (command path) behind executor seams. |
+| [`@rntme/bindings`](packages/artifacts/bindings) | HTTP bindings artifact + four-layer validator + OpenAPI 3.1 emitter, including `pre[]`, callback bindings, input sources, and response shapes. |
+| [`@rntme/bindings-http`](packages/runtime/bindings-http) | Hono sub-router that executes validated query/command bindings with pre-fetch orchestration, callback redirects, and idempotency cache support. |
+| [`@rntme/bindings-grpc`](packages/runtime/bindings-grpc) | gRPC adapter surface for module and service integration through `CommandExecutor` / `QueryExecutor`. |
+| [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
+| [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
+| [`@rntme/db-studio`](packages/runtime/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
+| [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
+| [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
 | **Canonical contracts** |  |
 | [`@rntme/contracts-common-v1`](packages/contracts/_common/v1) | Shared cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort, `Metadata`) imported by every category contract. |
 | [`@rntme/contracts-ai-llm-v1`](packages/contracts/ai-llm/v1) | Canonical AI/LLM contract: `service AiLlmModule` (14 RPCs), Completion, AssistantThread, AsyncJob, sixteen CloudEvents payloads, MCP-shape tools, `AI_LLM_<LAYER>_<KIND>` error codes. |
@@ -129,8 +129,8 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/conformance-ai-llm`](modules/ai-llm/conformance) | AI/LLM conformance scenarios + fixtures (14 RPCs, binary media). Drift-tested against `service AiLlmModule`. Imported by every AI/LLM vendor module. |
 
 | **Deployment (CLI-side)** |  |
-| [`@rntme-cli/deploy-core`](rntme-cli/packages/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
-| [`@rntme-cli/deploy-dokploy`](rntme-cli/packages/deploy-dokploy) | Dokploy adapter that renders and applies redacted deployment plans. |
+| [`@rntme/deploy-core`](packages/deploy/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
+| [`@rntme/deploy-dokploy`](packages/deploy/deploy-dokploy) | Dokploy adapter that renders and applies redacted deployment plans. |
 
 ### Demo
 
@@ -180,17 +180,6 @@ Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio
 ## Quick start
 
 Requirements: **Node.js ≥ 20**, **pnpm ≥ 9** (CI uses pnpm 9.12.0).
-
-### Private submodule (`rntme-cli/`)
-
-Some CLI code lives in a private submodule at `rntme-cli/` backed by
-`vladprrs/rntme-cli`. Clone the monorepo with
-`git clone --recurse-submodules https://github.com/vladprrs/rntme.git`, or
-after a plain clone run `git submodule update --init --recursive`. New git
-worktrees created with `git worktree add` do not initialise submodules
-automatically — run `git submodule update --init --recursive` inside each
-new worktree. External contributors without access to the private repo will
-see `pnpm -r` skip `@rntme-cli/*` workspace members.
 
 ```bash
 pnpm install

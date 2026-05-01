@@ -39,7 +39,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 ### 2. [HIGH] Отсутствует интеграционное и e2e покрытие
 **Evidence:**
-- `find packages/qsm/test -type d` → только `unit/`, `fixtures/`
+- `find packages/artifacts/qsm/test -type d` → только `unit/`, `fixtures/`
 - `test/smoke.test.ts` — всего 2 теста, покрывает только `entity-mirror` + пустые relations
 - Нет тестов на взаимодействие с `@rntme/graph-ir-compiler` (JOIN-цепочки) или `@rntme/projection-consumer`
 **Impact:** Изменения в `QsmResolver` или `ResolvedRelation` могут сломать compiler/consumer без падения QSM-тестов. Регресс relations-migration (2026-04-16) не защищён на уровне QSM.

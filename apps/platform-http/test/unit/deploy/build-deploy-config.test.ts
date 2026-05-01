@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest';
+import type { DeployTarget } from '@rntme/platform-core';
+import { buildProjectDeploymentConfig, buildDokployTargetConfig } from '../../../src/deploy/build-deploy-config.js';
+
+describe('buildProjectDeploymentConfig', () => {
+  it('maps target event bus and preview/default constants', () => {
+    const config = buildProjectDeploymentConfig(target(), 'acme', {});
+
+    expect(config).toMatchObject({
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      eventBus: target().eventBus,
+    });
+  });
+
+  it('preserves sasl_ssl security mechanism and secret refs', () => {
+    const config = buildProjectDeploymentConfig(
+      {
+        ...target(),
+        eventBus: {
+          kind: 'kafka',
+          mode: 'external',
+          brokers: ['redpanda.example.com:9092'],
+          security: {
+            protocol: 'sasl_ssl',
+            mechanism: 'scram-sha-512',
+            secretRefs: {
+              username: 'redpanda-username',
+              password: 'redpanda-password',
+            },
+          },
+        },
+      },
+      'acme',
+      {},
+    );
+
+    expect(config.eventBus?.security).toEqual({
+      protocol: 'sasl_ssl',
+      mechanism: 'scram-sha-512',
+      secretRefs: {
+        username: 'redpanda-username',
+        password: 'redpanda-password',
+      },
+    });
+  });
+
+  it('maps deploy target modules, override images, auth, and policy overrides', () => {
+    const config = buildProjectDeploymentConfig({
+      ...target(),
+      modules: {
+        'identity-auth0': {
+          image: 'registry/identity-auth0:1',
+          env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
+        },
+      },
+      auth: { auth0: { clientId: 'public-client-id' } },
+    }, 'acme', {
+      integrationModuleImages: { stripe: 'registry/stripe:1' },
+      policyOverrides: { timeout: { edge: { upstreamTimeoutMs: 1000 } } },
+      runtimeImage: 'ghcr.io/acme/rntme-runtime:rnt-364',
+    });
+
+    expect(config.runtimeImage).toBe('ghcr.io/acme/rntme-runtime:rnt-364');
+    expect(config.modules).toEqual({
+      'identity-auth0': {
+        image: 'registry/identity-auth0:1',
+        env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
+      },
+      stripe: { image: 'registry/stripe:1' },
+    });
+    expect(config.auth).toEqual({ auth0: { clientId: 'public-client-id' } });
+    expect(config.policies).toEqual({
+      rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } },
+      timeout: { edge: { upstreamTimeoutMs: 1000 } },
+    });
+  });
+});
+
+describe('buildDokployTargetConfig', () => {
+  it('normalizes Dokploy endpoint and forwards project ref', () => {
+    expect(buildDokployTargetConfig(target(), { publicBaseUrl: 'https://app.example.test' })).toEqual({
+      endpoint: 'https://dokploy.example.test',
+      projectId: 'project-1',
+      projectName: undefined,
+      allowCreateProject: false,
+      publicBaseUrl: 'https://app.example.test',
+    });
+  });
+
+  it('uses the deploy target public app base URL by default', () => {
+    expect(buildDokployTargetConfig(target(), {})).toMatchObject({
+      endpoint: 'https://dokploy.example.test',
+      publicBaseUrl: 'https://notes.example.test',
+    });
+  });
+
+  it('derives a wildcard public app URL for legacy targets without a configured URL', () => {
+    expect(
+      buildDokployTargetConfig(
+        { ...target(), publicBaseUrl: null },
+        {},
+        { orgSlug: 'acme', projectSlug: 'notes-demo', environment: 'default', publicDeployDomain: '*.rntme.com' },
+      ).publicBaseUrl,
+    ).toBe('https://acme-notes-demo-default.rntme.com');
+  });
+
+  it('rejects legacy targets without a public app base URL unless an override is provided', () => {
+    expect(() =>
+      buildDokployTargetConfig({ ...target(), publicBaseUrl: null }, {}),
+    ).toThrow(/DEPLOY_TARGET_PUBLIC_BASE_URL_REQUIRED/);
+    expect(
+      buildDokployTargetConfig(
+        { ...target(), publicBaseUrl: null },
+        { publicBaseUrl: 'https://override.example.test' },
+      ).publicBaseUrl,
+    ).toBe('https://override.example.test');
+  });
+});
+
+function target(): DeployTarget {
+  return {
+    id: 'target-1',
+    orgId: '11111111-1111-4111-8111-111111111111',
+    slug: 'staging',
+    displayName: 'Staging',
+    kind: 'dokploy',
+    dokployUrl: 'https://dokploy.example.test/api',
+    publicBaseUrl: 'https://notes.example.test',
+    dokployProjectId: 'project-1',
+    dokployProjectName: null,
+    allowCreateProject: false,
+    apiTokenRedacted: '***',
+    eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    modules: {},
+    auth: {},
+    policyValues: { rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } } },
+    isDefault: true,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+  };
+}

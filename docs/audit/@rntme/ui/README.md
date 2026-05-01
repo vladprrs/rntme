@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Audit Report: @rntme/ui (packages/ui)
+## Audit Report: @rntme/ui (packages/artifacts/ui)
 
 **Verdict:** needs cleanup — solid foundation with several medium/high gaps between spec and implementation, plus missing validation layers and test coverage holes.
 
@@ -53,8 +53,8 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 | M7 | **`isRefElement` guard is overly permissive** | `src/types/source.ts:83` `'$ref' in el` — any object with a `$ref` property passes, even if it also has `type`, `props`, etc. A malformed element that accidentally includes both shapes would be treated as a ref. | Could misclassify malformed elements, causing confusing errors in `expand` or `validate`. | Make the guard stricter: `return '$ref' in el && !('type' in el)` or use a more precise discriminant. |
 | M8 | **`collectFragments` exits early on first cycle** | `src/resolve/resolve.ts:58` `return` after pushing `CIRCULAR_REF` aborts the entire fragment collection, missing other independent cycles or errors. | One cycle hides other unrelated errors, forcing fix→recompile→fix cycles. | Change to `continue` instead of `return`, collecting all cycle errors. |
 | M9 | **No tests for route parameter matching in validation** | `src/validate/index.ts:30-38` implements `:param` segment matching, but no test exercises navigation to `/issues/:id` with `navigateTo: "/issues/123"`. | Route parameter logic is untested. Regressions possible. | Add validate unit tests for parameterized route matching. |
-| M10 | **Missing `composite: true` in tsconfig** | `packages/ui/tsconfig.json:6` `"composite": false`. Most workspace packages use `composite: true` for project references. | Breaks workspace-level incremental builds and project-reference graph. | Set `composite: true` and verify `pnpm -r run build` still passes. |
-| M11 | **No per-package lint config** | No `eslint.config.mjs` or `.eslintrc` in `packages/ui/`. | Inconsistent code style; no static analysis for common bugs (unused vars, etc.). | Add `eslint.config.mjs` following the pattern of sibling packages (e.g. `packages/bindings/`). |
+| M10 | **Missing `composite: true` in tsconfig** | `packages/artifacts/ui/tsconfig.json:6` `"composite": false`. Most workspace packages use `composite: true` for project references. | Breaks workspace-level incremental builds and project-reference graph. | Set `composite: true` and verify `pnpm -r run build` still passes. |
+| M11 | **No per-package lint config** | No `eslint.config.mjs` or `.eslintrc` in `packages/artifacts/ui/`. | Inconsistent code style; no static analysis for common bugs (unused vars, etc.). | Add `eslint.config.mjs` following the pattern of sibling packages (e.g. `packages/artifacts/bindings/`). |
 
 ### Low
 

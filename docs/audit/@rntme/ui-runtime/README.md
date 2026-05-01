@@ -36,9 +36,9 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### 2. HIGH
 
 **H1. Отсутствие ESLint — единственный пакет в `packages/` без lint**
-- **Evidence:** `find packages -maxdepth 2 -name "eslint.config.mjs"` — 13 пакетов имеют конфиг, `packages/ui-runtime` и `packages/ui` — нет. `package.json#scripts` не содержит `"lint"`.
+- **Evidence:** `find packages -maxdepth 2 -name "eslint.config.mjs"` — 13 пакетов имеют конфиг, `packages/runtime/ui-runtime` и `packages/artifacts/ui` — нет. `package.json#scripts` не содержит `"lint"`.
 - **Impact:** Нет проверки на unused vars, inconsistent type imports, no-console. Код со временем будет дрейфовать от conventions остального монорепо.
-- **Recommendation:** Скопировать `eslint.config.mjs` из `packages/runtime/` и добавить `"lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""` в `package.json#scripts`.
+- **Recommendation:** Скопировать `eslint.config.mjs` из `packages/runtime/runtime/` и добавить `"lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""` в `package.json#scripts`.
 
 **H2. Массовое дублирование логики между client-модулями**
 - **Evidence:**

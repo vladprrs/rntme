@@ -1,13 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'node:path';
 
-const pkg = (name: string) =>
-  resolve(__dirname, '../../packages', name, 'src/index.ts');
+const pkg = (...segments: string[]) =>
+  resolve(__dirname, '../../packages', ...segments, 'src/index.ts');
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@rntme/runtime': pkg('runtime'),
+      '@rntme/runtime': pkg('runtime', 'runtime'),
     },
   },
   test: {

@@ -3,7 +3,7 @@
 Researched: 2026-04-28
 Repository: /home/coder/work/rntme
 Domain/ecosystem: npm/lint-format-tooling
-Current version(s) in rntme: eslint ^9.10.0; @eslint/js ^9.10.0; @typescript-eslint/eslint-plugin/parser ^8.6.0; prettier ^3.3.3 (all packages/modules/rntme-cli package.json; lint/format configs)
+Current version(s) in rntme: eslint ^9.10.0; @eslint/js ^9.10.0; @typescript-eslint/eslint-plugin/parser ^8.6.0; prettier ^3.3.3 (workspace package.json files across apps, packages, and modules; lint/format configs)
 Latest stable version: eslint 10.2.1 (2025-04-16); @eslint/js 10.0.1 (2025-04-16); @typescript-eslint 8.59.1 (2025-04-26); prettier 3.8.3 (2025-04-15)
 Confidence: HIGH
 
@@ -26,9 +26,9 @@ The standard expert stack for TypeScript monorepos in 2024–2026 remains **ESLi
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---|---|---|---|---|
-| eslint | ^9.10.0 | All packages & modules | `packages/*/package.json`, `modules/*/package.json`, `rntme-cli/packages/*/package.json` | dev | Flat config (`eslint.config.mjs`) in every package. No legacy `.eslintrc` remains. |
-| @eslint/js | ^9.10.0 | Contract packages, CLI packages, modules | `packages/contracts/*/package.json`, `rntme-cli/packages/*/package.json`, `modules/*/package.json` | dev | Imported as `js.configs.recommended` in flat configs. |
-| @typescript-eslint/eslint-plugin | ^8.6.0 | All packages & modules | `packages/*/package.json`, `modules/*/package.json`, `rntme-cli/packages/*/package.json` | dev | Enabled manually in each `eslint.config.mjs`. |
+| eslint | ^9.10.0 | All packages & modules | `packages/*/package.json`, `modules/*/package.json`, `apps/*, packages/platform/*, packages/deploy/*/package.json` | dev | Flat config (`eslint.config.mjs`) in every package. No legacy `.eslintrc` remains. |
+| @eslint/js | ^9.10.0 | Contract packages, CLI packages, modules | `packages/contracts/*/package.json`, `apps/*, packages/platform/*, packages/deploy/*/package.json`, `modules/*/package.json` | dev | Imported as `js.configs.recommended` in flat configs. |
+| @typescript-eslint/eslint-plugin | ^8.6.0 | All packages & modules | `packages/*/package.json`, `modules/*/package.json`, `apps/*, packages/platform/*, packages/deploy/*/package.json` | dev | Enabled manually in each `eslint.config.mjs`. |
 | @typescript-eslint/parser | ^8.6.0 | All packages & modules | Same as above | dev | Used with `parserOptions: { sourceType: 'module', ecmaVersion: 2022 }`. |
 | prettier | ^3.3.3 | All packages & modules | Same as above | dev | Invoked via `prettier --write .` in `format` scripts. One `.prettierrc.cjs` found in `packages/graph-ir-compiler`. |
 

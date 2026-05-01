@@ -11,7 +11,7 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 COPY . .
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter '@rntme-cli/platform-http...' build
+RUN pnpm --filter '@rntme/platform-http...' build
 
 # stage 2 — runtime
 FROM node:20-slim AS runtime
@@ -21,6 +21,6 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 
 COPY --from=builder /app /app
 
-WORKDIR /app/rntme-cli/packages/platform-http
+WORKDIR /app/apps/platform-http
 EXPOSE 3000
 CMD ["node", "dist/bin/server.js"]

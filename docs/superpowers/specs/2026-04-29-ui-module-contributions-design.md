@@ -10,10 +10,10 @@
 - Memories: `rntme_vision_framing`, `project_pre_stable_stage`.
 
 **Implementation locations:**
-- Module manifest extension — `packages/module-skeleton/src/manifest-shape.ts` (relax existing schema; add `client` block)
-- UI compiler validator — `packages/ui/src/validate/`
-- UI runtime registries + hooks + boot orchestrator — `packages/ui-runtime/src/client/`
-- Project composition (module discovery, virtual entry generation) — `packages/blueprint/`
+- Module manifest extension — `packages/tooling/module-skeleton/src/manifest-shape.ts` (relax existing schema; add `client` block)
+- UI compiler validator — `packages/artifacts/ui/src/validate/`
+- UI runtime registries + hooks + boot orchestrator — `packages/runtime/ui-runtime/src/client/`
+- Project composition (module discovery, virtual entry generation) — `packages/artifacts/blueprint/`
 - Bundle pipeline — domain-service Dockerfile build step (existing `pnpm build`)
 - First UI-only modules — `modules/presentation/md-mermaid/` (new), `modules/presentation/tiptap/` (new)
 - First mixed module — `modules/analytics/google-analytics/` (new) demonstrates `boot` + module-level operations
@@ -23,9 +23,9 @@
 
 PR #89 merged the foundation slice into `main` at `853a62d2b11b60a9199f98d29fbe0182437eb251`. The merged foundation already includes:
 
-- `packages/module-skeleton`: optional capabilities, UI `client` schema, UI-only/mixed/backend-only manifest tests.
-- `packages/ui`: `module-action`, visible operators, operation/category resolver interfaces, and json-render binding object/array preservation.
-- `packages/ui-runtime`: operation registry, module context, hooks, lifecycle bus, transport chain, visibility evaluator, and reserved `props.__rntmeElementId` injection.
+- `packages/tooling/module-skeleton`: optional capabilities, UI `client` schema, UI-only/mixed/backend-only manifest tests.
+- `packages/artifacts/ui`: `module-action`, visible operators, operation/category resolver interfaces, and json-render binding object/array preservation.
+- `packages/runtime/ui-runtime`: operation registry, module context, hooks, lifecycle bus, transport chain, visibility evaluator, and reserved `props.__rntmeElementId` injection.
 
 The remaining RNT-388 implementation scope is therefore:
 
@@ -360,7 +360,7 @@ Implementation note: the GA module must initialize the tag with `send_page_view:
 
 ### 4.1 Schema diff
 
-Existing `ModuleManifestSchema` (in `packages/module-skeleton/src/manifest-shape.ts`) requires `category`, `vendor`, `contract`, `capabilities.rpcs[]`, `capabilities.events[]`. Diff:
+Existing `ModuleManifestSchema` (in `packages/tooling/module-skeleton/src/manifest-shape.ts`) requires `category`, `vendor`, `contract`, `capabilities.rpcs[]`, `capabilities.events[]`. Diff:
 
 - **Optional now:** `category`, `vendor`, `contract`. Required only when the module declares a server-side gRPC surface OR claims canonical-contract membership. UI-only singletons (MD/Mermaid, tiptap initially) omit them.
 - **Optional now:** `capabilities.rpcs[]`, `capabilities.events[]`, `grpcServiceName`, `webhookPath`, `secrets[]`. Whole `capabilities` block is optional for UI-only modules.
@@ -502,7 +502,7 @@ The runtime never sees `category` directly: `@rntme/ui`'s emit phase resolves ev
 
 ### 7.1 Source format
 
-Extend `ActionDef` in `packages/ui/src/types/source.ts`:
+Extend `ActionDef` in `packages/artifacts/ui/src/types/source.ts`:
 
 ```ts
 type ActionDef =
@@ -597,7 +597,7 @@ type Visible =
 
 ## 9. Driver gating rule (data-bindings respect `visible`)
 
-In `packages/ui-runtime/src/client/driver.ts`'s `enterScreen`:
+In `packages/runtime/ui-runtime/src/client/driver.ts`'s `enterScreen`:
 
 ```
 For each screen entered:
@@ -680,7 +680,7 @@ The target bundling flow remains:
 
 ### 10.4 `/config.json`
 
-For this v1 plan, `@rntme/blueprint` compose reads `project.json#modules[<key>].publicConfig`, validates it against each module's `client.config.schema`, and exposes the public config sidecar on the composed result. A deploy adapter may later project the same data into `/srv/config.json`, but this spec must not depend on unmerged `rntme-cli` deployment changes. At runtime, the generated config is served as a non-bindings, non-auth route.
+For this v1 plan, `@rntme/blueprint` compose reads `project.json#modules[<key>].publicConfig`, validates it against each module's `client.config.schema`, and exposes the public config sidecar on the composed result. A deploy adapter may later project the same data into `/srv/config.json`, but this spec must not depend on unmerged `merged CLI/platform packages` deployment changes. At runtime, the generated config is served as a non-bindings, non-auth route.
 
 Shape:
 
@@ -755,10 +755,10 @@ Per `CLAUDE.md` "Every plan must include a documentation-touch task":
 | `AGENTS.md` §6 (how-to recipes) | edit | "Add a UI-only module" recipe; "Add a stateful module component with operations" recipe; "Add an analytics-style module with `boot`" recipe. |
 | `AGENTS.md` §10 (glossary) | edit | `ModuleBootContext`, `module-action`, "state-gated rendering", "component-bound operation", "module-level operation", "canonical UI contract". |
 | `README.md` packages-table | edit | Add `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/`. Update dep graph for `@rntme/ui-runtime`'s new public hooks. |
-| `packages/ui/README.md` | edit | "Add an action kind" (now four kinds); "Operate-on-component validation" subsection; new error codes table; updated authoring file layout shows `module-action`. |
-| `packages/ui-runtime/README.md` | edit | New `useTransport`/`useStateStore`/`useOperationRegistry` hook docs; `ModuleBootContext` reference; boot lifecycle ordering; driver gating rule. |
-| `packages/blueprint/README.md` | edit | Project compose flow updated; module-discovery + cross-module validation; composed-result `catalogManifest`, virtual entry source, and public config sidecars. |
-| `packages/module-skeleton/README.md` | edit | Add UI-only and mixed manifest examples; document `client.components`/`operations`/`boot`. |
+| `packages/artifacts/ui/README.md` | edit | "Add an action kind" (now four kinds); "Operate-on-component validation" subsection; new error codes table; updated authoring file layout shows `module-action`. |
+| `packages/runtime/ui-runtime/README.md` | edit | New `useTransport`/`useStateStore`/`useOperationRegistry` hook docs; `ModuleBootContext` reference; boot lifecycle ordering; driver gating rule. |
+| `packages/artifacts/blueprint/README.md` | edit | Project compose flow updated; module-discovery + cross-module validation; composed-result `catalogManifest`, virtual entry source, and public config sidecars. |
+| `packages/tooling/module-skeleton/README.md` | edit | Add UI-only and mixed manifest examples; document `client.components`/`operations`/`boot`. |
 | `modules/presentation/md-mermaid/README.md` (new) | create | File map / Quick start / API / Invariants / Where to look first / Specs. |
 | `modules/presentation/tiptap/README.md` (new) | create | Same template. |
 | `modules/analytics/google-analytics/README.md` (new) | create | Same template. |

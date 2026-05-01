@@ -384,7 +384,7 @@ Even after the modules tree extracts, the boundary is firm:
 | `packages/contracts/<category>/v<n>/` (canonical proto + events + error codes) | `categories/<category>/<vendor>/` (vendor implementations) |
 | `packages/conformance-framework/` (shared test harness) | category-conformance suites *may* move to `categories/<category>/conformance/` (decided at extract-time) |
 | `packages/module-manifest-validator/` | — |
-| `packages/runtime/`, `packages/bindings-*/`, etc. | — |
+| `packages/runtime/runtime/`, `packages/bindings-*/`, etc. | — |
 
 This split is intentional: contracts and runtime co-evolve and must not version-skew. Vendor implementations are downstream and may release on independent cadences.
 
@@ -417,7 +417,7 @@ Modules tree extracts to a separate `rntme-modules` repo when **any** of the fol
 A concrete external contribution attempt arrives: GitHub issue, email, or PR PoC with the form *"I want to add `<category>-<vendor>` and need contributor flow"*. Aspirational interest (`"would be nice if..."`) does not count. One bona-fide attempt → trigger.
 
 **T2 — Vendor SDK CI-cost threshold.**
-Average wall-clock time-to-merge for a runtime-only PR (changes touching `packages/runtime/`, `packages/bindings-*/`, `packages/event-store/`, etc., NO changes under `modules/`) exceeds **2 minutes** measured over the last 30 days of merged PRs. Measurement is automated; tooling lands in plan 3.
+Average wall-clock time-to-merge for a runtime-only PR (changes touching `packages/runtime/runtime/`, `packages/bindings-*/`, `packages/runtime/event-store/`, etc., NO changes under `modules/`) exceeds **2 minutes** measured over the last 30 days of merged PRs. Measurement is automated; tooling lands in plan 3.
 
 **T3 — Module-only maintainer rights request.**
 Someone (internal or external) needs merge rights on `modules/<category>/<vendor>/` without runtime review rights. Achievable in main repo via CODEOWNERS + branch-protection, but politically awkward. One such request → trigger.

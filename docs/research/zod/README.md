@@ -19,7 +19,7 @@ Confidence: HIGH
 
 Zod remains the de-facto standard for TypeScript-first schema validation (34k+ GitHub stars, maintained by Colin McDonnell / @colinhacks). The library is actively maintained with a predictable release cadence. rntme is already on Zod 4 — the latest major version released in 2025 as a ground-up rewrite with dramatic speed improvements, a simpler internal structure, and new features.
 
-rntme currently uses zod `^4.0.0` (resolved to `4.3.6`) across **15 packages** in the monorepo, including all core runtime packages (`@rntme/bindings`, `@rntme/pdm`, `@rntme/qsm`, `@rntme/blueprint`, `@rntme/graph-ir-compiler`, `@rntme/runtime`, `@rntme/seed`, `@rntme/ui`, `@rntme/ui-runtime`, `@rntme/db-studio`) and CLI-side packages (`@rntme-cli/cli`, `@rntme-cli/deploy-core`, `@rntme-cli/platform-core`, `@rntme-cli/platform-http`). The `@rntme-cli/platform-http` package also depends on `@hono/zod-openapi` `^0.16.0` for OpenAPI schema generation from Zod schemas.
+rntme currently uses zod `^4.0.0` (resolved to `4.3.6`) across **15 packages** in the monorepo, including all core runtime packages (`@rntme/bindings`, `@rntme/pdm`, `@rntme/qsm`, `@rntme/blueprint`, `@rntme/graph-ir-compiler`, `@rntme/runtime`, `@rntme/seed`, `@rntme/ui`, `@rntme/ui-runtime`, `@rntme/db-studio`) and CLI-side packages (`@rntme/cli`, `@rntme/deploy-core`, `@rntme/platform-core`, `@rntme/platform-http`). The `@rntme/platform-http` package also depends on `@hono/zod-openapi` `^0.16.0` for OpenAPI schema generation from Zod schemas.
 
 The latest stable release is `v4.3.6`. Zod 4 is a major rewrite that introduced breaking changes primarily for **library authors** relying on internal APIs (`_def`, `.constructor`, subclass internals). For typical end-users (like rntme), the migration from v3 to v4 was straightforward — most schema definitions work unchanged. rntme has already completed this migration and is running on v4.
 
@@ -40,10 +40,10 @@ Primary recommendation: **KEEP current zod ^4.0.0 pinned to the latest patch (4.
 | `@rntme/ui-runtime` | `^4.0.0` | UI runtime registry | `packages/ui-runtime/src/client/registry.ts` | runtime | Client-side schema resolution |
 | `@rntme/db-studio` | `^4.0.0` | Hrana endpoint schemas | `packages/db-studio/src/hrana/schema.ts` | runtime | libSQL Hrana v3 protocol schemas |
 | `@rntme/bindings-http` | `^4.0.0` | HTTP primitive schemas | `packages/bindings-http/src/startup/zod-schema.ts`, `src/startup/primitive-schema.ts`, `src/errors.ts` | runtime | Builds Zod schemas from Graph IR primitives for request validation |
-| `@rntme-cli/cli` | `^4.0.0` | CLI schemas | (various) | build/runtime | CLI command/config validation |
-| `@rntme-cli/deploy-core` | `^4.0.0` | Deployment plan schemas | (various) | build/runtime | Target-neutral deployment plan validation |
-| `@rntme-cli/platform-core` | `^4.0.0` | Platform core schemas | (various) | runtime | Platform entity validation |
-| `@rntme-cli/platform-http` | `^4.0.0` | HTTP server schemas | (various) | runtime | Also depends on `@hono/zod-openapi` `^0.16.0` for OpenAPI emission |
+| `@rntme/cli` | `^4.0.0` | CLI schemas | (various) | build/runtime | CLI command/config validation |
+| `@rntme/deploy-core` | `^4.0.0` | Deployment plan schemas | (various) | build/runtime | Target-neutral deployment plan validation |
+| `@rntme/platform-core` | `^4.0.0` | Platform core schemas | (various) | runtime | Platform entity validation |
+| `@rntme/platform-http` | `^4.0.0` | HTTP server schemas | (various) | runtime | Also depends on `@hono/zod-openapi` `^0.16.0` for OpenAPI emission |
 
 **Verification commands used:**
 ```bash
@@ -140,7 +140,7 @@ flowchart LR
 | `z.object()` | Structural validation of JSON artifacts | All `schema.ts` files | `.strict()` used extensively to reject unknown keys |
 | `z.enum()` | Closed set validation | `packages/pdm/src/parse/schema.ts:12` | Used for primitives, HTTP methods, input modes |
 | `z.union()` / `z.discriminatedUnion()` | Polymorphic types | `packages/bindings/src/parse/schema.ts` | Discriminated unions for pre-steps, input sources |
-| `@hono/zod-openapi` | OpenAPI spec generation | `rntme-cli/packages/platform-http` | Bridges Zod schemas to OpenAPI 3.1 documentation |
+| `@hono/zod-openapi` | OpenAPI spec generation | `apps/platform-http` | Bridges Zod schemas to OpenAPI 3.1 documentation |
 | `zod/mini` (potential) | Tree-shakable validation for frontend | Not currently used | Could reduce bundle size for `@rntme/ui-runtime` |
 
 ### Recommended Project Structure
