@@ -1,3 +1,4 @@
+import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
 import type { CatalogManifest } from '../types/artifact.js';
 import type { PropSchema } from '../types/result.js';
 import { ERROR_CODES, err, ok, type BlueprintError, type Result } from '../types/result.js';
@@ -18,6 +19,7 @@ export function buildCatalog(
   const modulesWithBoot: string[] = [];
   const categoryToModule: Record<string, string> = {};
   const publicConfig: Record<string, Record<string, unknown>> = {};
+  const moduleEdgeAuth: Record<string, EdgeAuthDescriptor | null> = {};
   const seenTypes = new Map<string, string>();
 
   for (const [moduleName, mod] of Object.entries(discovered)) {
@@ -39,6 +41,7 @@ export function buildCatalog(
 
     if (m.client?.boot) modulesWithBoot.push(moduleName);
     publicConfig[moduleName] = { ...mod.publicConfig };
+    moduleEdgeAuth[moduleName] = m.capabilities?.edgeAuth ?? null;
 
     for (const c of m.client?.components ?? []) {
       const props = c.props as Record<string, PropSchema>;
@@ -76,5 +79,6 @@ export function buildCatalog(
     modulesWithBoot,
     categoryToModule,
     publicConfig,
+    moduleEdgeAuth,
   } satisfies CatalogManifest);
 }
