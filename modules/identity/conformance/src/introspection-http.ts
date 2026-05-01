@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 
 export type IntrospectionHttpHarness = {
   /** Base URL of a running HTTP introspection server (e.g. http://localhost:50052). */
@@ -18,6 +18,13 @@ export type IntrospectionHttpHarness = {
 export function runIntrospectionHttpConformance(label: string, makeHarness: () => IntrospectionHttpHarness): void {
   describe(`HTTP introspection conformance — ${label}`, () => {
     const h = makeHarness();
+
+    beforeAll(async () => {
+      if (h.setup !== undefined) await h.setup();
+    });
+    afterAll(async () => {
+      if (h.teardown !== undefined) await h.teardown();
+    });
 
     it('rejects requests with no Authorization header', async () => {
       const res = await fetch(`${h.baseUrl}/introspect`, {
