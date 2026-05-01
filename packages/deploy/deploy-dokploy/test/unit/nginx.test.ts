@@ -385,4 +385,34 @@ describe('auth middleware rendering', () => {
     expect(rendered).not.toContain('auth_request');
     expect(rendered).not.toContain('rntme_auth_');
   });
+
+  it('rejects audiences containing quote or control characters', () => {
+    expect(() =>
+      renderNginxConfig(
+        {
+          routes: [
+            {
+              id: 'http:/api',
+              kind: 'http',
+              path: '/api',
+              targetService: 'app',
+              targetWorkload: 'app',
+            },
+          ],
+          middleware: [
+            {
+              mountTarget: 'http:/api',
+              name: 'auth',
+              kind: 'auth',
+              provider: 'auth0',
+              audience: 'https://evil.com"; return 200; #',
+              moduleSlug: 'identity-auth0',
+              moduleIntrospectPort: 50052,
+            },
+          ],
+        },
+        { app: 'http://app:3000', 'identity-auth0': 'http://identity-auth0:50052' },
+      ),
+    ).toThrow(TypeError);
+  });
 });

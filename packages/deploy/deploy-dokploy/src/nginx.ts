@@ -65,6 +65,7 @@ function buildAuthBlocks(
   const seen = new Map<string, AuthBlock>();
   for (const m of middlewares) {
     assertSafeSlug(m.moduleSlug);
+    assertSafeAudience(m.audience);
     const audHash = sha256Hex8(m.audience);
     const key = `${m.moduleSlug}__${audHash}`;
     if (seen.has(key)) continue;
@@ -234,6 +235,14 @@ function assertSafeUpstreamHost(host: string): void {
 function assertSafeSlug(slug: string): void {
   if (!/^[A-Za-z0-9-]+$/.test(slug)) {
     throw new TypeError(`unsafe slug for nginx upstream/location: ${slug}`);
+  }
+}
+
+function assertSafeAudience(audience: string): void {
+  // Allow common URI chars; reject quote/backslash/control chars that would break
+  // out of the double-quoted nginx directive value.
+  if (!/^[A-Za-z0-9:/?#@!$&'()*+,;=._~%-]+$/.test(audience)) {
+    throw new TypeError(`unsafe audience for nginx directive: ${audience}`);
   }
 }
 
