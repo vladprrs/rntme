@@ -17,6 +17,7 @@ export const DEPLOY_CORE_ERROR_CODES = {
   DEPLOY_PLAN_ROUTE_TARGET_MISSING_WORKLOAD: 'DEPLOY_PLAN_ROUTE_TARGET_MISSING_WORKLOAD',
   DEPLOY_PLAN_MISSING_MIDDLEWARE_DECLARATION: 'DEPLOY_PLAN_MISSING_MIDDLEWARE_DECLARATION',
   DEPLOY_PLAN_MOUNT_TARGET_MISSING_ROUTE: 'DEPLOY_PLAN_MOUNT_TARGET_MISSING_ROUTE',
+  DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING: 'DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING',
 } as const;
 
 export type DeploymentPlanErrorCode = keyof typeof DEPLOY_CORE_ERROR_CODES;
@@ -28,5 +29,6 @@ export type DeploymentPlanError = {
   readonly service?: string;
   readonly route?: string;
   readonly middleware?: string;
+  readonly moduleSlug?: string;
   readonly policy?: string;
 };

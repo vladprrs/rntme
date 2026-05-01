@@ -9,3 +9,4 @@ export {
   IDENTITY_ENTITY_TYPES,
   IDENTITY_SCENARIO_COVERAGE,
 } from './capabilities.js';
+export { runIntrospectionHttpConformance, type IntrospectionHttpHarness } from './introspection-http.js';

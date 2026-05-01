@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { main } from '../../src/bin/cli.js';
+
+const DEMO_BLUEPRINT = resolve(fileURLToPath(import.meta.url), '../../../../../demo/notes-blueprint');
 
 const BASE = 'https://test.platform';
 const PAT = 'rntme_pat_aaaaaaaaaaaaaaaaaaaaaa';
@@ -99,5 +103,36 @@ describe('project create', () => {
     const r = await runCli(['--org', 'acme', 'project', 'create', 'test']);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain('test');
+  });
+});
+
+describe('project publish folder resolution', () => {
+  it('accepts a positional folder argument', async () => {
+    const r = await runCli([
+      'project', 'publish', DEMO_BLUEPRINT,
+      '--dry-run', '--org', 'test', '--project', 'notes-demo',
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('project bundle validated');
+  });
+
+  it('accepts --folder flag (back-compat)', async () => {
+    const r = await runCli([
+      'project', 'publish',
+      '--folder', DEMO_BLUEPRINT,
+      '--dry-run', '--org', 'test', '--project', 'notes-demo',
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('project bundle validated');
+  });
+
+  it('rejects positional + --folder together with CLI_CONFIG_INVALID', async () => {
+    const r = await runCli([
+      'project', 'publish', DEMO_BLUEPRINT,
+      '--folder', DEMO_BLUEPRINT,
+      '--dry-run', '--org', 'test', '--project', 'notes-demo',
+    ]);
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('cannot use positional and --folder together');
   });
 });

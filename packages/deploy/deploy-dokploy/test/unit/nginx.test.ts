@@ -86,7 +86,7 @@ describe('renderNginxConfig', () => {
     expect(rendered).toContain('proxy_send_timeout 3s;');
   });
 
-  it('renders auth middleware as comments only', () => {
+  it('renders auth middleware with auth_request enforcement', () => {
     const edge: EdgePlan = {
       routes: [
         {
@@ -105,17 +105,19 @@ describe('renderNginxConfig', () => {
           provider: 'auth0',
           audience: 'https://commerce.example.com/api',
           moduleSlug: 'identity-auth0',
+          moduleIntrospectPort: 50052,
         },
       ],
     };
 
     const rendered = renderNginxConfig(edge, {
       app: 'http://app:3000',
+      'identity-auth0': 'http://app-identity-auth0:50052',
     });
 
     expect(rendered).toContain('# auth middleware: provider=auth0, audience=https://commerce.example.com/api');
-    expect(rendered).toContain('# - delegated to runtime via identity module RPC; edge does not validate JWT');
-    expect(rendered).not.toContain('auth_request');
+    expect(rendered).toContain('auth_request');
+    expect(rendered).not.toContain('# - delegated to runtime via identity module RPC; edge does not validate JWT');
   });
 
   it('rejects unsafe route paths before rendering locations', () => {
@@ -292,6 +294,125 @@ describe('renderNginxConfig', () => {
 
     expect(() =>
       renderNginxConfig(edge, { catalog: 'http://catalog.internal:3000; proxy_pass http://bad' }),
+    ).toThrow(TypeError);
+  });
+});
+
+describe('auth middleware rendering', () => {
+  function authEdge(): EdgePlan {
+    return {
+      routes: [
+        {
+          id: 'http:/api',
+          kind: 'http',
+          path: '/api',
+          targetService: 'app',
+          targetWorkload: 'app',
+        },
+      ],
+      middleware: [
+        {
+          mountTarget: 'http:/api',
+          name: 'auth',
+          kind: 'auth',
+          provider: 'auth0',
+          audience: 'https://notes-demo.rntme.com/api',
+          moduleSlug: 'identity-auth0',
+          moduleIntrospectPort: 50052,
+        },
+      ],
+    };
+  }
+
+  it('renders an upstream block per (slug, audience) pair', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+    expect(rendered).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('server rntme-acme-notes-identity-auth0:50052;');
+  });
+
+  it('renders an internal location with X-Rntme-Audience set', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+    expect(rendered).toMatch(/location = \/_rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('internal;');
+    expect(rendered).toMatch(/proxy_pass\s+http:\/\/rntme_auth_identity-auth0__[0-9a-f]{8}\/introspect;/);
+    expect(rendered).toContain('proxy_set_header   X-Rntme-Audience   "https://notes-demo.rntme.com/api";');
+    expect(rendered).toContain('proxy_pass_request_body off;');
+  });
+
+  it('renders auth_request and forwards X-Rntme-User-* on /api', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+    expect(rendered).toMatch(/auth_request\s+\/_rntme_auth_identity-auth0__[0-9a-f]{8};/);
+    expect(rendered).toContain('proxy_set_header      X-Rntme-User-Sub      $rntme_user_sub;');
+    expect(rendered).toContain('proxy_set_header      X-Rntme-User-Audience $rntme_user_audience;');
+    expect(rendered).toMatch(/error_page 401\s+= @rntme_auth_401_identity-auth0__[0-9a-f]{8};/);
+  });
+
+  it('renders a named 401 location returning JSON', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+    expect(rendered).toMatch(/location @rntme_auth_401_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('default_type application/json;');
+    expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
+  });
+
+  it('does NOT render auth_request for routes without auth middleware', () => {
+    const rendered = renderNginxConfig(
+      {
+        routes: [
+          {
+            id: 'http:/public',
+            kind: 'http',
+            path: '/public',
+            targetService: 'app',
+            targetWorkload: 'app',
+          },
+        ],
+        middleware: [],
+      },
+      { app: 'http://rntme-acme-notes-app:3000' },
+    );
+    expect(rendered).not.toContain('auth_request');
+    expect(rendered).not.toContain('rntme_auth_');
+  });
+
+  it('rejects audiences containing quote or control characters', () => {
+    expect(() =>
+      renderNginxConfig(
+        {
+          routes: [
+            {
+              id: 'http:/api',
+              kind: 'http',
+              path: '/api',
+              targetService: 'app',
+              targetWorkload: 'app',
+            },
+          ],
+          middleware: [
+            {
+              mountTarget: 'http:/api',
+              name: 'auth',
+              kind: 'auth',
+              provider: 'auth0',
+              audience: 'https://evil.com"; return 200; #',
+              moduleSlug: 'identity-auth0',
+              moduleIntrospectPort: 50052,
+            },
+          ],
+        },
+        { app: 'http://app:3000', 'identity-auth0': 'http://identity-auth0:50052' },
+      ),
     ).toThrow(TypeError);
   });
 });

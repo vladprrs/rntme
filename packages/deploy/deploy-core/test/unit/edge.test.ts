@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildProjectDeploymentPlan } from '../../src/plan.js';
+import { planEdge } from '../../src/edge.js';
 import type { ComposedProjectInput } from '../../src/composed-project.js';
 import type { ProjectDeploymentConfig } from '../../src/config.js';
+import type { DeploymentWorkload } from '../../src/plan.js';
 
 const baseProject: ComposedProjectInput = {
   name: 'commerce',
@@ -9,6 +11,17 @@ const baseProject: ComposedProjectInput = {
     app: { slug: 'app', kind: 'domain' },
     catalog: { slug: 'catalog', kind: 'domain' },
     'mod-workos': { slug: 'mod-workos', kind: 'integration' },
+  },
+  modules: {
+    'mod-workos': {
+      edgeAuth: {
+        kind: 'introspection-sidecar',
+        transport: 'http',
+        method: 'GET',
+        path: '/introspect',
+        port: 50052,
+      },
+    },
   },
   routes: {
     ui: { '/': 'app' },
@@ -138,6 +151,7 @@ describe('edge planning', () => {
         provider: 'auth0',
         audience: 'https://commerce.example.com/api',
         moduleSlug: 'mod-workos',
+        moduleIntrospectPort: 50052,
       },
     ]);
   });
@@ -348,5 +362,107 @@ describe('edge planning', () => {
         }),
       );
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planEdge direct tests — moduleIntrospectPort
+// ---------------------------------------------------------------------------
+
+function baseConfigWithModuleImage(moduleSlug: string): ProjectDeploymentConfig {
+  return {
+    orgSlug: 'acme',
+    environment: 'default',
+    mode: 'preview',
+    eventBus: {
+      kind: 'kafka',
+      mode: 'external',
+      brokers: ['redpanda.internal:9092'],
+    },
+    modules: {
+      [moduleSlug]: {
+        image: `ghcr.io/acme/${moduleSlug}:latest`,
+        expose: false,
+        env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
+      },
+    },
+  };
+}
+
+function workloadsWith(
+  moduleSlug: string,
+  opts: { expose: boolean; env: Record<string, string> },
+): readonly DeploymentWorkload[] {
+  return [
+    { kind: 'domain-service', slug: 'app', serviceSlug: 'app', resourceName: 'rntme-acme-p-app', runtime: { image: 'img' }, artifact: { source: 'composed-project', serviceSlug: 'app' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+    { kind: 'integration-module', slug: moduleSlug, serviceSlug: moduleSlug, resourceName: `rntme-acme-p-${moduleSlug}`, image: `ghcr.io/acme/${moduleSlug}:latest`, expose: opts.expose, env: opts.env, secretRefs: {} },
+    { kind: 'edge-gateway', slug: 'edge', resourceName: 'rntme-acme-p-edge', image: 'nginx:1.27-alpine' },
+  ];
+}
+
+describe('planEdge — moduleIntrospectPort', () => {
+  it('plans auth middleware with moduleIntrospectPort from module edgeAuth', () => {
+    const result = planEdge(
+      {
+        name: 'p',
+        services: {
+          app: { slug: 'app', kind: 'domain' },
+          'identity-auth0': { slug: 'identity-auth0', kind: 'integration' },
+        },
+        modules: {
+          'identity-auth0': {
+            edgeAuth: {
+              kind: 'introspection-sidecar',
+              transport: 'http',
+              method: 'GET',
+              path: '/introspect',
+              port: 50052,
+            },
+          },
+        },
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://demo.example.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      /* config */ baseConfigWithModuleImage('identity-auth0'),
+      /* workloads */ workloadsWith('identity-auth0', { expose: false, env: { AUTH0_DOMAIN: 'd' } }),
+    );
+    expect(result.errors).toHaveLength(0);
+    const auth = result.edge.middleware.find((m) => m.kind === 'auth')!;
+    expect(auth.moduleIntrospectPort).toBe(50052);
+  });
+
+  it('rejects auth middleware when module has no edgeAuth', () => {
+    const result = planEdge(
+      {
+        name: 'p',
+        services: {
+          app: { slug: 'app', kind: 'domain' },
+          'identity-noop': { slug: 'identity-noop', kind: 'integration' },
+        },
+        modules: { 'identity-noop': { edgeAuth: null } },
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'noop',
+            audience: 'https://demo.example.com/api',
+            moduleSlug: 'identity-noop',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      baseConfigWithModuleImage('identity-noop'),
+      workloadsWith('identity-noop', { expose: false, env: {} }),
+    );
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain('DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING');
   });
 });

@@ -486,6 +486,8 @@ under `packages/runtime/event-store/test/`.
 6. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
 7. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
 
+**Two transports.** Identity modules consumed by `kind: "auth"` middleware MUST expose `IntrospectSession` via two transports: gRPC (for runtime pre-step calls) and HTTP `GET /introspect` (for edge `auth_request`). Both wrap the same in-process handler. The module declares its HTTP port via `module.json#capabilities.edgeAuth.port` (default `50052`); deploy planning fails with `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` if a module targeted by an auth middleware does not declare this. See `packages/contracts/identity/v1/README.md#http-introspection-transport`.
+
 ### 6.16 Add a category contract package
 
 A category contract is a versioned protobuf surface implemented by every vendor module in that category (Identity, Payments, …). To add one:

@@ -1,4 +1,5 @@
 import type { InputMode, ValidatedBindings } from '@rntme/bindings';
+import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
 import type { EventTypeSpec, ValidatedPdm } from '@rntme/pdm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';
@@ -48,6 +49,7 @@ export type CatalogManifest = {
   readonly modulesWithBoot: readonly string[];
   readonly categoryToModule: Readonly<Record<string, string>>;
   readonly publicConfig: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly moduleEdgeAuth: Readonly<Record<string, EdgeAuthDescriptor | null>>;
 };
 
 export type ProjectBlueprint = {

@@ -29,8 +29,9 @@ WORKDIR /srv
 COPY --from=builder /out ./
 
 ENV NODE_ENV=production \
-    PORT=50051
+    PORT=50051 \
+    HTTP_PORT=50052
 
 USER node
-EXPOSE 50051
+EXPOSE 50051 50052
 CMD ["node", "dist/bin/server.js"]

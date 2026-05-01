@@ -36,7 +36,14 @@
       "InvitationCreated",
       "InvitationAccepted",
       "InvitationRevoked"
-    ]
+    ],
+    "edgeAuth": {
+      "kind": "introspection-sidecar",
+      "transport": "http",
+      "method": "GET",
+      "path": "/introspect",
+      "port": 50052
+    }
   },
   "limitations": [
     "Only IntrospectSession is claimed via OIDC JWKS validation. RevokeSession, ListSessions, GetSession remain unclaimed because Auth0 server-side sessions do not map to the canonical Session entity (no listable session resource, no programmatic revoke without Mgmt session-scope).",

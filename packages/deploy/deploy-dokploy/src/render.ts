@@ -261,6 +261,10 @@ function renderResource(
         })),
       ],
       labels,
+      ports: [
+        { containerPort: 50051, protocol: 'http' as const },
+        { containerPort: 50052, protocol: 'http' as const },
+      ],
     };
   }
 

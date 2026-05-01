@@ -89,6 +89,8 @@ export const IDENTITY_SCENARIO_COVERAGE = {
     { code: 'IDENTITY_VENDOR_UNAVAILABLE', rpc: 'ListUsers' },
     { code: 'IDENTITY_VENDOR_UNAUTHORIZED', rpc: 'ListUsers' },
     { code: 'IDENTITY_VENDOR_INVALID_REQUEST', rpc: 'ListUsers' },
+    { code: 'IDENTITY_HTTP_TOKEN_MISSING', rpc: 'IntrospectSession' },
+    { code: 'IDENTITY_HTTP_AUDIENCE_MISSING', rpc: 'IntrospectSession' },
   ],
   events: [
     { event: 'UserCreated', rpc: 'CreateUser' },

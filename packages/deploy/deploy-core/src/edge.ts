@@ -47,6 +47,7 @@ export type EdgeMiddleware =
       readonly provider: string;
       readonly audience: string;
       readonly moduleSlug: string;
+      readonly moduleIntrospectPort: number;
       readonly policy?: string;
       readonly config?: unknown;
     };
@@ -221,6 +222,19 @@ function planMiddleware(
           }
         }
 
+        const moduleInfo = project.modules?.[decl.moduleSlug];
+        const edgeAuth = moduleInfo?.edgeAuth;
+        if (edgeAuth === null || edgeAuth === undefined) {
+          errors.push({
+            code: 'DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING',
+            message: `auth middleware "${middlewareName}" requires module "${decl.moduleSlug}" to declare capabilities.edgeAuth`,
+            middleware: middlewareName,
+            moduleSlug: decl.moduleSlug,
+            path: `modules.${decl.moduleSlug}.capabilities.edgeAuth`,
+          });
+          continue;
+        }
+
         planned.push({
           mountTarget: mount.target,
           name: middlewareName,
@@ -228,6 +242,7 @@ function planMiddleware(
           provider: decl.provider,
           audience: decl.audience,
           moduleSlug: decl.moduleSlug,
+          moduleIntrospectPort: edgeAuth.port,
           ...(decl.policy !== undefined ? { policy: decl.policy } : {}),
           ...(decl.config !== undefined ? { config: decl.config } : {}),
         });

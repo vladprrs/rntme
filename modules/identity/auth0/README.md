@@ -93,6 +93,25 @@ before login.
 - Lifecycle event translation depends on Auth0 log payload shape and returns `null` when required ids are missing.
 - Auth0 Management API mutations do not accept rntme idempotency keys or correlation ids. Use rntme-side retry/dedupe controls for replay safety.
 
+## Two transports: gRPC + HTTP introspection
+
+The container exposes two ports:
+
+| Port | Transport | Caller | Endpoint |
+|---:|---|---|---|
+| 50051 | gRPC | runtime pre-step `module-rpc IntrospectSession` | `IdentityModule/IntrospectSession` |
+| 50052 | HTTP | edge nginx via `auth_request` | `GET /introspect` |
+
+Both transports share the in-process `IntrospectSession` handler — there is no duplicated validation logic. The HTTP transport exists so edge can reject unauthenticated requests at nginx without involving the runtime, while runtime continues to call gRPC for the canonical `Session` shape.
+
+Required env:
+
+| Var | Default | Note |
+|---|---|---|
+| `PORT` (or `GRPC_PORT`) | `50051` | gRPC listener port. |
+| `HTTP_PORT` | `50052` | HTTP introspection port. Must match `module.json#capabilities.edgeAuth.port`. |
+| `AUTH0_DOMAIN` or `AUTH0_ISSUER` | — required | JWKS issuer; `IntrospectSession` derives `https://<AUTH0_DOMAIN>/.well-known/jwks.json`. |
+
 ## Out of Scope
 
 - Auth0 session management RPCs are intentionally unclaimed. `GetSession`, `ListSessions`, and `RevokeSession` return a gRPC-style `UNIMPLEMENTED` error.
