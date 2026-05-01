@@ -91,6 +91,80 @@ describe('renderDokployPlan', () => {
     expect(JSON.stringify(r.value)).not.toContain('apiToken');
   });
 
+  it('renders provisioned Redpanda as an internal compose resource before applications', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            resourceName: 'rntme-acme-commerce-event-bus',
+            internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+            topicPrefix: 'rntme.notes',
+            image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-event-bus-data',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.resources.map((resource) => resource.kind)).toEqual([
+      'compose',
+      'application',
+      'application',
+    ]);
+    const redpanda = r.value.resources[0];
+    expect(redpanda).toMatchObject({
+      logicalId: 'event-bus',
+      kind: 'compose',
+      infrastructureKind: 'event-bus',
+      name: 'rntme-acme-commerce-event-bus',
+      image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+      labels: {
+        'rntme.infrastructure': 'event-bus',
+        'rntme.provider': 'redpanda',
+      },
+    });
+    expect(redpanda).not.toHaveProperty('ingress');
+    expect(redpanda).not.toHaveProperty('ports');
+    expect(redpanda.kind).toBe('compose');
+    if (redpanda.kind !== 'compose') return;
+    expect(redpanda.composeFile).toContain('redpanda start');
+    expect(redpanda.composeFile).toContain('rntme-acme-commerce-event-bus-data');
+
+    const domain = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.workloadKind === 'domain-service',
+    );
+    expect(domain?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_BROKERS',
+      value: 'rntme-acme-commerce-event-bus:9092',
+      secret: false,
+    });
+    expect(domain?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_PROTOCOL',
+      value: 'plaintext',
+      secret: false,
+    });
+    expect(domain?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_TOPIC_PREFIX',
+      value: 'rntme.notes',
+      secret: false,
+    });
+  });
+
   it('renders edge gateway port and public ingress metadata', () => {
     const r = renderDokployPlan(plan, {
       endpoint: 'https://dokploy.example.com',
