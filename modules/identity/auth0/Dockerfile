@@ -8,6 +8,11 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/contracts ./packages/contracts
+# ui-runtime + ui are needed because @rntme/identity-auth0 has @rntme/ui-runtime
+# as a peerDependency (PR #104, RNT-405). pnpm workspace resolution requires the
+# workspace package to exist even though only --prod runtime install is performed.
+COPY packages/runtime/ui-runtime ./packages/runtime/ui-runtime
+COPY packages/artifacts/ui ./packages/artifacts/ui
 COPY modules/identity ./modules/identity
 
 RUN pnpm install --frozen-lockfile

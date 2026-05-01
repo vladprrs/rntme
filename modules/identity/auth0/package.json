@@ -46,6 +46,7 @@
     "jose": "^5"
   },
   "peerDependencies": {
+    "@rntme/ui-runtime": "workspace:*",
     "react": "^19.2.5"
   },
   "devDependencies": {
