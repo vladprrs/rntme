@@ -126,7 +126,7 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 `rntme.issue-tracker.*`; messages outside the requested pattern are not delivered to
 that consumer.
 
-`SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`.
+`SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`. Service identity metadata is exposed at `/service.json` so the UI shell owns `/` and SPA deep-link fallbacks.
 
 Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports vitest and must not be loaded in production processes).
 

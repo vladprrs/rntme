@@ -37,12 +37,16 @@ describe('startService', () => {
     expect(body.ok).toBe(true);
   });
 
-  it('exposes OpenAPI + service identity', async () => {
+  it('serves the UI shell at / and exposes OpenAPI + service identity', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
     running = await startService(loaded.value);
-    const root = await (await fetch(`http://127.0.0.1:${running.httpPort}/`)).json();
-    expect((root as { name: string }).name).toBe('issue-tracker-api');
+    const root = await fetch(`http://127.0.0.1:${running.httpPort}/`);
+    expect(root.status).toBe(200);
+    expect(root.headers.get('content-type')).toContain('text/html');
+    expect(await root.text()).toContain('<div id="root">');
+    const service = await (await fetch(`http://127.0.0.1:${running.httpPort}/service.json`)).json();
+    expect((service as { name: string }).name).toBe('issue-tracker-api');
     const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
