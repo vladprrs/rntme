@@ -19,3 +19,5 @@ export { translateAuth0LogEvent } from './events.js';
 export { auth0MockConformanceSuite } from './conformance.js';
 export { createIdentityAuth0GrpcServer } from './server.js';
 export type { Auth0IdentityModule, IdentityAuth0GrpcServer, IdentityAuth0GrpcServerOptions } from './server.js';
+export { createIdentityAuth0HttpApp, createIdentityAuth0HttpServer } from './http-server.js';
+export type { IdentityAuth0HttpAppOptions, IdentityAuth0HttpServer, IdentityAuth0HttpServerOptions } from './http-server.js';
