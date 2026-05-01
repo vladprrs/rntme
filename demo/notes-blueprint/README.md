@@ -21,6 +21,10 @@ layout has an anonymous branch that renders `LoginScreen` when
 the current renderer, so the screen root is gated separately on
 `/auth/status == "authed"`.
 
+The blueprint includes `node_modules/@rntme/identity-auth0/{package.json,module.json}`
+metadata so platform-side bundle validation can resolve the UI module from the
+uploaded project version without depending on the monorepo workspace layout.
+
 ## Auth and ownership
 
 - `createNote` ignores any client-supplied owner and writes `ownerSub` from
