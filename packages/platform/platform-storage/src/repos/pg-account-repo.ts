@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { ok, err, type Result, type PlatformError, type AccountRepo, type Account } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type AccountRepo, type Account } from '@rntme/platform-core';
 import { createDb, type Db, type PgQueryable } from '../pg/pool.js';
 import { account } from '../schema/identity.js';
 import { randomUUID } from 'node:crypto';

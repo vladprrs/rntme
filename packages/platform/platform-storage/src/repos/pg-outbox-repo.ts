@@ -1,4 +1,4 @@
-import { ok, err, type Result, type PlatformError, type OutboxRepo } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type OutboxRepo } from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
 
 export class PgOutboxRepo implements OutboxRepo {

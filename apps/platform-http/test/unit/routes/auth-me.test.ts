@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Hono } from 'hono';
-import type { AuthSubject } from '@rntme-cli/platform-core';
+import type { AuthSubject } from '@rntme/platform-core';
 
 const mockSubject: AuthSubject = {
   account: {

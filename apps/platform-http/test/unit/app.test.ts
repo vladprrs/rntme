@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import pino from 'pino';
 import type { Pool } from 'pg';
-import type { BlobStore } from '@rntme-cli/platform-core';
-import { RandomIds } from '@rntme-cli/platform-core';
+import type { BlobStore } from '@rntme/platform-core';
+import { RandomIds } from '@rntme/platform-core';
 import { parseEnv } from '../../src/config/env.js';
 import { createApp, type AppDeps } from '../../src/app.js';
 

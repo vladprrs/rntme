@@ -10,8 +10,8 @@ import {
   type TokenRepo,
   type WorkosEventLogRepo,
   isOk,
-} from '@rntme-cli/platform-core';
-import { withTransaction, PgOrganizationRepo, PgProjectRepo, PgTokenRepo } from '@rntme-cli/platform-storage';
+} from '@rntme/platform-core';
+import { withTransaction, PgOrganizationRepo, PgProjectRepo, PgTokenRepo } from '@rntme/platform-storage';
 
 export function webhookWorkosRoute(deps: {
   workos: WorkOSClient;

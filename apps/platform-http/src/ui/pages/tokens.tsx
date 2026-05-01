@@ -1,6 +1,6 @@
 import { Layout } from '../layout.js';
 import { EmptyState } from '../components/empty-state.js';
-import type { Organization } from '@rntme-cli/platform-core';
+import type { Organization } from '@rntme/platform-core';
 import { TokenRow, type TokenSummary } from '../fragments/token-row.js';
 import { hasScope } from '../scopes.js';
 import type { EnrichedSubject } from './org.js';

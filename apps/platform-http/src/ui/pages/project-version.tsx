@@ -1,7 +1,7 @@
 import { Layout } from '../layout.js';
 import { DataTable } from '../components/table.js';
 import { RelativeTime } from '../components/relative-time.js';
-import type { AuthSubject, DeployTarget, Organization, Project, ProjectVersion } from '@rntme-cli/platform-core';
+import type { AuthSubject, DeployTarget, Organization, Project, ProjectVersion } from '@rntme/platform-core';
 import type { EnrichedSubject } from './org.js';
 
 export function ProjectVersionPage(props: {

@@ -9,7 +9,7 @@ import {
   publishProjectVersion,
   type BlobStore,
   type Ids,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import type { PoolClient } from 'pg';
 import { requireOrgMatch, requireScope } from '../middleware/auth.js';
 import { materializeAndCompose } from '../blueprint/load.js';

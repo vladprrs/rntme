@@ -1,4 +1,4 @@
-import type { AuthSubject, Deployment, DeploymentLogLine, Organization, Project } from '@rntme-cli/platform-core';
+import type { AuthSubject, Deployment, DeploymentLogLine, Organization, Project } from '@rntme/platform-core';
 import { Layout } from '../layout.js';
 import { DeploymentLogsFragment } from '../fragments/deployment-logs.js';
 import { DeploymentStatusFragment } from '../fragments/deployment-status.js';

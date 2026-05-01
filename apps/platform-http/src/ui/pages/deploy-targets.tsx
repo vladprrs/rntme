@@ -1,4 +1,4 @@
-import type { AuthSubject, DeployTarget, Organization } from '@rntme-cli/platform-core';
+import type { AuthSubject, DeployTarget, Organization } from '@rntme/platform-core';
 import { DataTable } from '../components/table.js';
 import { Layout } from '../layout.js';
 import type { EnrichedSubject } from './org.js';

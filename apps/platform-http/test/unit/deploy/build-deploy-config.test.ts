@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DeployTarget } from '@rntme-cli/platform-core';
+import type { DeployTarget } from '@rntme/platform-core';
 import { buildProjectDeploymentConfig, buildDokployTargetConfig } from '../../../src/deploy/build-deploy-config.js';
 
 describe('buildProjectDeploymentConfig', () => {

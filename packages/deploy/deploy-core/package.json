@@ -1,5 +1,5 @@
 {
-  "name": "@rntme-cli/deploy-core",
+  "name": "@rntme/deploy-core",
   "version": "0.0.0",
   "type": "module",
   "private": true,

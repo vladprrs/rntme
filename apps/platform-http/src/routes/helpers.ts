@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
-import { isOk } from '@rntme-cli/platform-core';
-import type { Result, PlatformError } from '@rntme-cli/platform-core';
-import type { OrganizationRepo, ProjectRepo } from '@rntme-cli/platform-core';
+import { isOk } from '@rntme/platform-core';
+import type { Result, PlatformError } from '@rntme/platform-core';
+import type { OrganizationRepo, ProjectRepo } from '@rntme/platform-core';
 import { errorEnvelope, statusForCode } from '../middleware/error-handler.js';
 
 export function respond<T>(

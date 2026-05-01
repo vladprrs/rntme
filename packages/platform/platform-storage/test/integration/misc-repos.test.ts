@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { isOk } from '@rntme-cli/platform-core';
+import { isOk } from '@rntme/platform-core';
 import { startPostgres, stopPostgres, resetSchema } from './harness.js';
 import { PgOrganizationRepo } from '../../src/repos/pg-org-repo.js';
 import { PgAccountRepo } from '../../src/repos/pg-account-repo.js';

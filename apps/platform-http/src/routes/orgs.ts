@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import type { Ids } from '@rntme-cli/platform-core';
+import type { Ids } from '@rntme/platform-core';
 import { respond } from './helpers.js';
-import { isOk } from '@rntme-cli/platform-core';
+import { isOk } from '@rntme/platform-core';
 import { resolveDeps as defaultResolveDeps, type RequestRepos } from '../resolve-deps.js';
 import type { PoolClient } from 'pg';
 

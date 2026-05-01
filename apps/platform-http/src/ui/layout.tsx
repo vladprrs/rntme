@@ -1,5 +1,5 @@
 import type { JSX } from 'hono/jsx/jsx-runtime';
-import type { AuthSubject, Organization } from '@rntme-cli/platform-core';
+import type { AuthSubject, Organization } from '@rntme/platform-core';
 import { Header } from './components/header.js';
 
 type LayoutBase = {

@@ -9,7 +9,7 @@ import {
   canonicalize,
   isOk,
   type CanonicalBundle,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';
 import { runDeployment } from '../../src/deploy/executor.js';
 import { SmokeVerifier } from '../../src/deploy/smoke-verifier.js';

@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { isOk } from '@rntme-cli/platform-core';
+import { isOk } from '@rntme/platform-core';
 import { withTransaction } from '../../src/pg/tx.js';
 import { PgDeploymentRepo } from '../../src/repos/pg-deployment-repo.js';
 import { integrationContainersAvailable } from './docker-available.js';

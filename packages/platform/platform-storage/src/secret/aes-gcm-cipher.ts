@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import type { EncryptedSecret, SecretCipher } from '@rntme-cli/platform-core';
+import type { EncryptedSecret, SecretCipher } from '@rntme/platform-core';
 
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;

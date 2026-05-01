@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
-import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme-cli/platform-core';
+import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
 describe('runDeployment', () => {

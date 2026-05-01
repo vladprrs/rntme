@@ -3,7 +3,7 @@ import { TokenRow } from '../../../src/ui/fragments/token-row.js';
 import { TokensPage } from '../../../src/ui/pages/tokens.js';
 import type { TokenSummary } from '../../../src/ui/fragments/token-row.js';
 import type { EnrichedSubject } from '../../../src/ui/pages/org.js';
-import type { Organization } from '@rntme-cli/platform-core';
+import type { Organization } from '@rntme/platform-core';
 
 const subject: EnrichedSubject = {
   account: { id: 'a1', displayName: 'Ada' },

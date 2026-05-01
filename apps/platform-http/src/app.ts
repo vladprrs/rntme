@@ -40,9 +40,9 @@ import type {
   BlobStore,
   Ids,
   SecretCipher,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import { resolveDeps } from './resolve-deps.js';
-import { PgDeploymentRepo } from '@rntme-cli/platform-storage';
+import { PgDeploymentRepo } from '@rntme/platform-storage';
 
 export type AppDeps = {
   env: Env;

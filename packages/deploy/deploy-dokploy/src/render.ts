@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme-cli/deploy-core';
+import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
 import type { DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';

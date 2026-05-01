@@ -1,5 +1,5 @@
 import { clearTimeout, setTimeout } from 'node:timers';
-import type { VerificationReport } from '@rntme-cli/platform-core';
+import type { VerificationReport } from '@rntme/platform-core';
 
 export type SmokeFetcher = (
   url: string,

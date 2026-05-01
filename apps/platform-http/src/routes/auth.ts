@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import type { WorkOSClient } from '../auth/workos-client.js';
 import type { Env } from '../config/env.js';
-import type { OrganizationRepo, AccountRepo, MembershipMirrorRepo } from '@rntme-cli/platform-core';
-import { isOk } from '@rntme-cli/platform-core';
+import type { OrganizationRepo, AccountRepo, MembershipMirrorRepo } from '@rntme/platform-core';
+import { isOk } from '@rntme/platform-core';
 
 export function authRoutes(deps: {
   workos: WorkOSClient;

@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import type { PgQueryable } from '../pg/pool.js';
-import { ok, err, type Result, type PlatformError, type TokenRepo, type ApiToken, type Scope } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type TokenRepo, type ApiToken, type Scope } from '@rntme/platform-core';
 
 function row(r: Record<string, unknown>): ApiToken {
   return {

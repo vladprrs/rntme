@@ -1,5 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { ok, err, type Result, type PlatformError, type ProjectRepo, type Project } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type ProjectRepo, type Project } from '@rntme/platform-core';
 import { createDb, type Db, type PgQueryable } from '../pg/pool.js';
 import { project } from '../schema/projects.js';
 

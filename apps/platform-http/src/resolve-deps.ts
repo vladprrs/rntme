@@ -11,7 +11,7 @@ import {
   PgTokenRepo,
   PgAuditRepo,
   PgOutboxRepo,
-} from '@rntme-cli/platform-storage';
+} from '@rntme/platform-storage';
 import type {
   OrganizationRepo,
   AccountRepo,
@@ -24,7 +24,7 @@ import type {
   TokenRepo,
   AuditRepo,
   OutboxRepo,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 
 export type RequestRepos = {
   organizations: OrganizationRepo;

@@ -7,7 +7,7 @@ import {
   ok,
 } from '../../src/index.js';
 
-describe('@rntme-cli/deploy-dokploy package surface', () => {
+describe('@rntme/deploy-dokploy package surface', () => {
   it('exports Result helpers and Dokploy error codes', () => {
     const success = ok({ rendered: true });
     const failure = err([

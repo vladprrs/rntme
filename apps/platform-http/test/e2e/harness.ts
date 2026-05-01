@@ -12,8 +12,8 @@ import {
   PgTokenRepo,
   S3BlobStore,
   AesGcmSecretCipher,
-} from '@rntme-cli/platform-storage';
-import { RandomIds } from '@rntme-cli/platform-core';
+} from '@rntme/platform-storage';
+import { RandomIds } from '@rntme/platform-core';
 import { createApp, type AppDeps } from '../../src/app.js';
 import { createLogger } from '../../src/logger.js';
 import { parseEnv } from '../../src/config/env.js';

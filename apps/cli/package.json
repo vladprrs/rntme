@@ -1,5 +1,5 @@
 {
-  "name": "@rntme-cli/cli",
+  "name": "@rntme/cli",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@rntme/blueprint": "workspace:*",
-    "@rntme-cli/platform-core": "workspace:*",
+    "@rntme/platform-core": "workspace:*",
     "@truestamp/canonify": "^1.0.0",
     "zod": "^4.0.0"
   }

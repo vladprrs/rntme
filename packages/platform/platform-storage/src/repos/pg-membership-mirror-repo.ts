@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { ok, err, type Result, type PlatformError, type MembershipMirrorRepo, type MembershipMirror } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type MembershipMirrorRepo, type MembershipMirror } from '@rntme/platform-core';
 import { createDb, type Db, type PgQueryable } from '../pg/pool.js';
 import { membershipMirror } from '../schema/identity.js';
 

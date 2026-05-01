@@ -1,4 +1,4 @@
-import type { Organization } from '@rntme-cli/platform-core';
+import type { Organization } from '@rntme/platform-core';
 
 export type HeaderSubject = {
   readonly account: { readonly displayName: string };

@@ -1,4 +1,4 @@
-import type { EdgeMiddleware, EdgePlan, EdgeRoute } from '@rntme-cli/deploy-core';
+import type { EdgeMiddleware, EdgePlan, EdgeRoute } from '@rntme/deploy-core';
 
 export function renderNginxConfig(
   edge: EdgePlan,

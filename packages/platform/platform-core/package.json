@@ -1,5 +1,5 @@
 {
-  "name": "@rntme-cli/platform-core",
+  "name": "@rntme/platform-core",
   "version": "0.0.0",
   "type": "module",
   "private": true,

@@ -9,7 +9,7 @@ import {
   type PlatformError,
   type ProjectVersionSummary,
   type Result,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 
 export type MaterializeResult = {
   readonly composed: ComposedBlueprint;

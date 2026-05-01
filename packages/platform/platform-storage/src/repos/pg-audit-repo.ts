@@ -1,4 +1,4 @@
-import { ok, err, type Result, type PlatformError, type AuditRepo, type AuditLogEntry } from '@rntme-cli/platform-core';
+import { ok, err, type Result, type PlatformError, type AuditRepo, type AuditLogEntry } from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
 
 function row(r: Record<string, unknown>): AuditLogEntry {

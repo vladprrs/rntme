@@ -12,7 +12,7 @@ import {
   type PlatformError,
   type PolicyValues,
   type Result,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
 
 type DbRow = Record<string, unknown>;

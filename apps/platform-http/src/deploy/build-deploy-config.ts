@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import type { DokployTargetConfig } from '@rntme-cli/deploy-dokploy';
+import type { DokployTargetConfig } from '@rntme/deploy-dokploy';
 import type {
   DeploymentPolicyConfig,
   IntegrationModuleDeploymentConfig,
   ProjectDeploymentConfig,
-} from '@rntme-cli/deploy-core';
-import type { DeployTarget } from '@rntme-cli/platform-core';
+} from '@rntme/deploy-core';
+import type { DeployTarget } from '@rntme/platform-core';
 import { normalizeDokployBaseUrl } from './dokploy-client-factory.js';
 
 type DeployConfigOverrides = {

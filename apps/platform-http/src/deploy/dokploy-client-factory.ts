@@ -3,8 +3,8 @@ import type {
   DokployClient,
   DokployProjectRef,
   RenderedDokployResource,
-} from '@rntme-cli/deploy-dokploy';
-import type { DeployTargetWithSecret, SecretCipher } from '@rntme-cli/platform-core';
+} from '@rntme/deploy-dokploy';
+import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 
 export type DokployClientFactory = (target: DeployTargetWithSecret) => DokployClient;
 

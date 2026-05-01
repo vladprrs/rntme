@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { CreateTokenInputSchema, createToken, listTokens, revokeToken } from '@rntme-cli/platform-core';
-import type { Ids } from '@rntme-cli/platform-core';
+import { CreateTokenInputSchema, createToken, listTokens, revokeToken } from '@rntme/platform-core';
+import type { Ids } from '@rntme/platform-core';
 import { requireScope, requireOrgMatch } from '../middleware/auth.js';
 import { respond } from './helpers.js';
 import { resolveDeps as defaultResolveDeps, type RequestRepos } from '../resolve-deps.js';

@@ -1,4 +1,4 @@
-import type { AuthSubject, Deployment, Organization, Project } from '@rntme-cli/platform-core';
+import type { AuthSubject, Deployment, Organization, Project } from '@rntme/platform-core';
 import { DataTable } from '../components/table.js';
 import { RelativeTime } from '../components/relative-time.js';
 import { Layout } from '../layout.js';

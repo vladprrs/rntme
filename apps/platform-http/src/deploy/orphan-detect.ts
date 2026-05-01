@@ -1,5 +1,5 @@
 import { clearInterval, setInterval } from 'node:timers';
-import { isOk, type DeploymentRepo, type PlatformError, type Result } from '@rntme-cli/platform-core';
+import { isOk, type DeploymentRepo, type PlatformError, type Result } from '@rntme/platform-core';
 import type { Logger } from 'pino';
 
 export type OrphanDetectDeps = {

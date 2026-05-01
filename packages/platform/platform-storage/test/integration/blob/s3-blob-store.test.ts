@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { S3BlobStore } from '../../../src/blob/s3-blob-store.js';
-import { isOk } from '@rntme-cli/platform-core';
+import { isOk } from '@rntme/platform-core';
 import { dockerAvailable } from '../docker-available.js';
 
 const externalS3 = readExternalS3();

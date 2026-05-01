@@ -3,7 +3,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { startPostgres, stopPostgres, resetSchema, type PgHandles } from './harness.js';
 import { integrationContainersAvailable } from './docker-available.js';
-import { archiveOrgCascade, syncWorkosEvent, isOk } from '@rntme-cli/platform-core';
+import { archiveOrgCascade, syncWorkosEvent, isOk } from '@rntme/platform-core';
 import {
   PgOrganizationRepo,
   PgProjectRepo,

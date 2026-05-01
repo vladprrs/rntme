@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
-import { FakeStore } from '@rntme-cli/platform-core/testing';
+import { FakeStore } from '@rntme/platform-core/testing';
 import { authRoutes } from '../../../src/routes/auth.js';
 
 const mockWorkos = {

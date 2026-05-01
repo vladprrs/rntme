@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
-import type { BlobStore } from '@rntme-cli/platform-core';
+import type { BlobStore } from '@rntme/platform-core';
 import type { WorkOSClient } from '../auth/workos-client.js';
 
 type WorkOSWithOptionalKeys = WorkOSClient & {

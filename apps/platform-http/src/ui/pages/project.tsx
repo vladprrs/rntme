@@ -2,7 +2,7 @@ import { Layout } from '../layout.js';
 import { DataTable } from '../components/table.js';
 import { EmptyState } from '../components/empty-state.js';
 import { RelativeTime } from '../components/relative-time.js';
-import type { AuthSubject, Organization, Project, ProjectVersion } from '@rntme-cli/platform-core';
+import type { AuthSubject, Organization, Project, ProjectVersion } from '@rntme/platform-core';
 import type { EnrichedSubject } from './org.js';
 
 export function ProjectPage(props: {

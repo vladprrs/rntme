@@ -6,10 +6,10 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
-import type { ComposedProjectInput, ProjectDeploymentConfig, ProjectDeploymentPlan } from '@rntme-cli/deploy-core';
-import { buildProjectDeploymentPlan } from '@rntme-cli/deploy-core';
-import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme-cli/deploy-dokploy';
-import { applyDokployPlan, renderDokployPlan } from '@rntme-cli/deploy-dokploy';
+import type { ComposedProjectInput, ProjectDeploymentConfig, ProjectDeploymentPlan } from '@rntme/deploy-core';
+import { buildProjectDeploymentPlan } from '@rntme/deploy-core';
+import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
+import { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
 import { build, type Plugin } from 'esbuild';
 import {
   isOk,
@@ -21,7 +21,7 @@ import {
   type DeploymentRepo,
   type ProjectVersionRepo,
   type VerificationReport,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import type { Logger } from 'pino';
 import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-deploy-config.js';
 import type { DokployClientFactory } from './dokploy-client-factory.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EdgePlan } from '@rntme-cli/deploy-core';
+import type { EdgePlan } from '@rntme/deploy-core';
 import { renderNginxConfig } from '../../src/nginx.js';
 
 describe('renderNginxConfig', () => {

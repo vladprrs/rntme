@@ -6,7 +6,7 @@ import {
   type ProjectVersionRepo,
   type ProjectVersionSummary,
   type Result,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
 
 export class PgProjectVersionRepo implements ProjectVersionRepo {

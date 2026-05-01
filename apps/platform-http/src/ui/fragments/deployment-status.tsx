@@ -1,4 +1,4 @@
-import type { Deployment } from '@rntme-cli/platform-core';
+import type { Deployment } from '@rntme/platform-core';
 
 export function DeploymentStatusFragment(props: { deployment: Deployment }) {
   const terminal = !['queued', 'running'].includes(props.deployment.status);

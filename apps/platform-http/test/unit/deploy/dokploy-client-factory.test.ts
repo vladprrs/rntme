@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
-import type { RenderedDokployResource } from '@rntme-cli/deploy-dokploy';
-import type { DeployTargetWithSecret, SecretCipher } from '@rntme-cli/platform-core';
+import type { RenderedDokployResource } from '@rntme/deploy-dokploy';
+import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../../src/deploy/dokploy-client-factory.js';
 import { createMockDokployApp } from '../../fixtures/mock-dokploy.js';
 

@@ -1,4 +1,4 @@
-import type { DeploymentLogLine } from '@rntme-cli/platform-core';
+import type { DeploymentLogLine } from '@rntme/platform-core';
 
 export function DeploymentLogsFragment(props: { lines: readonly DeploymentLogLine[]; lastLineId: number }) {
   return (

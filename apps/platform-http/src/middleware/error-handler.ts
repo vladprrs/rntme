@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import type { PlatformError, ErrorCode } from '@rntme-cli/platform-core';
+import type { PlatformError, ErrorCode } from '@rntme/platform-core';
 
 const STATUS: Partial<Record<ErrorCode, number>> = {
   PLATFORM_AUTH_MISSING: 401,

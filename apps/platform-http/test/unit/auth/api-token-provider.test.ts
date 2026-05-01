@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { isOk } from '@rntme-cli/platform-core';
-import { FakeStore } from '@rntme-cli/platform-core/testing';
+import { isOk } from '@rntme/platform-core';
+import { FakeStore } from '@rntme/platform-core/testing';
 import { ApiTokenProvider } from '../../../src/auth/api-token-provider.js';
 
 async function setup() {

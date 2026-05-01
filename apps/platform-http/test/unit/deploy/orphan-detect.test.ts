@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ok } from '@rntme-cli/platform-core';
+import { ok } from '@rntme/platform-core';
 import { startOrphanDetectLoop } from '../../../src/deploy/orphan-detect.js';
 
 describe('startOrphanDetectLoop', () => {

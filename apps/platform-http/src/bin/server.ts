@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import { RandomIds } from '@rntme-cli/platform-core';
+import { RandomIds } from '@rntme/platform-core';
 import {
   createPool,
   createDb,
@@ -12,7 +12,7 @@ import {
   PgTokenRepo,
   AesGcmSecretCipher,
   S3BlobStore,
-} from '@rntme-cli/platform-storage';
+} from '@rntme/platform-storage';
 import { parseEnv } from '../config/env.js';
 import { createLogger } from '../logger.js';
 import { createApp } from '../app.js';

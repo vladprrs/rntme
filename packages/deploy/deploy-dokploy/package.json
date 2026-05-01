@@ -1,5 +1,5 @@
 {
-  "name": "@rntme-cli/deploy-dokploy",
+  "name": "@rntme/deploy-dokploy",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -19,7 +19,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@rntme-cli/deploy-core": "workspace:*"
+    "@rntme/deploy-core": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",

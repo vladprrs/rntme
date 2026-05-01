@@ -1,5 +1,5 @@
 import { Layout } from '../layout.js';
-import type { Organization } from '@rntme-cli/platform-core';
+import type { Organization } from '@rntme/platform-core';
 
 export function NoOrgPage(props: {
   orgs: readonly Pick<Organization, 'id' | 'slug' | 'displayName'>[];

@@ -16,7 +16,7 @@ import type {
   MembershipMirrorRepo,
   TokenRepo,
   Ids,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import {
   getDeployment,
   getProjectVersion,
@@ -30,7 +30,7 @@ import {
   startDeployment,
   createToken,
   revokeToken,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import { TokenCreated } from './fragments/token-created.js';
 import { TokenRow } from './fragments/token-row.js';
 import { hasScope } from './scopes.js';

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Hono } from 'hono';
 import { requireAuth, requireScope } from '../../../src/middleware/auth.js';
-import type { IdentityProvider } from '@rntme-cli/platform-core';
-import { ok, err } from '@rntme-cli/platform-core';
+import type { IdentityProvider } from '@rntme/platform-core';
+import { ok, err } from '@rntme/platform-core';
 
 function makeProvider(subject: unknown | null): IdentityProvider {
   return {

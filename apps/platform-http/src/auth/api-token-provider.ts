@@ -12,7 +12,7 @@ import {
   type OrganizationRepo,
   type AccountRepo,
   type MembershipMirrorRepo,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 
 type Deps = {
   tokens: TokenRepo;

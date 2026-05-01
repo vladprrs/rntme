@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { setCookie } from 'hono/cookie';
-import type { IdentityProvider, AuthSubject, Scope } from '@rntme-cli/platform-core';
-import { isOk } from '@rntme-cli/platform-core';
+import type { IdentityProvider, AuthSubject, Scope } from '@rntme/platform-core';
+import { isOk } from '@rntme/platform-core';
 
 declare module 'hono' {
   interface ContextVariableMap {

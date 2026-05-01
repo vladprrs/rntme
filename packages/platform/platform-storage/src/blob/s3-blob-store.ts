@@ -8,7 +8,7 @@ import {
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { ok, err, type BlobStore, type Result, type PlatformError } from '@rntme-cli/platform-core';
+import { ok, err, type BlobStore, type Result, type PlatformError } from '@rntme/platform-core';
 
 export type S3BlobStoreOpts = {
   endpoint: string;

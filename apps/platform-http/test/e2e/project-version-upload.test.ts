@@ -9,7 +9,7 @@ import {
   canonicalize,
   isOk,
   type CanonicalBundle,
-} from '@rntme-cli/platform-core';
+} from '@rntme/platform-core';
 import { bootE2e, type E2eEnv } from './harness.js';
 import { e2eContainersAvailable } from './docker-available.js';
 

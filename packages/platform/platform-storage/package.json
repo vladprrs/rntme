@@ -1,5 +1,5 @@
 {
-  "name": "@rntme-cli/platform-storage",
+  "name": "@rntme/platform-storage",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -19,7 +19,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@rntme-cli/platform-core": "workspace:*",
+    "@rntme/platform-core": "workspace:*",
     "@aws-sdk/client-s3": "^3.650.0",
     "@aws-sdk/s3-request-presigner": "^3.650.0",
     "drizzle-orm": "^0.36.0",
