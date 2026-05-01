@@ -1,12 +1,12 @@
 # Notes-demo recovery — design
 
-**Status:** brainstorming approved, awaiting user review of this spec
+**Status:** implementation in progress (Phase 1 merged via PR #108; Phase 2 pending)
 **Author:** brainstorm 2026-05-01
 **Related:**
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — blueprint composition (Track A).
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — `deploy-core` / `deploy-dokploy`.
 - `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md` — platform / CLI orchestration (Track C — implemented; *not* missing as the user's stale grep suggested).
-- `docs/superpowers/specs/done/2026-04-30-merge-rntme-cli-back-design.md` — relocation that produced the regressions noted below.
+- `docs/superpowers/specs/2026-04-30-merge-rntme-cli-back-design.md` — relocation that produced the regressions noted below.
 - `demo/notes-blueprint/README.md` — Auth0 / Redpanda inputs the deploy target must satisfy.
 
 ## 1. Problem
