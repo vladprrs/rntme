@@ -115,6 +115,12 @@ export function buildKafkaJsClientConfigFromEnv(
   };
 }
 
+export function parseRuntimeEventBusTopicPrefixFromEnv(
+  env: Record<string, string | undefined>,
+): string | null {
+  return trim(env.RNTME_EVENT_BUS_TOPIC_PREFIX) ?? null;
+}
+
 function trim(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   const trimmed = value.trim();

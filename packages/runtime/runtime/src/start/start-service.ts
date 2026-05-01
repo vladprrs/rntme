@@ -28,6 +28,7 @@ import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 import { buildGrpcSurface, collectShapesFromService } from './build-grpc-surface.js';
 import {
   buildKafkaJsClientConfigFromEnv,
+  parseRuntimeEventBusTopicPrefixFromEnv,
   parseRuntimeAuthEnv,
   RuntimeBootError,
 } from './runtime-env.js';
@@ -54,6 +55,7 @@ export async function startService(
 ): Promise<RunningService> {
   const runtimeEnv = config.runtimeEnv ?? process.env;
   const authEnv = parseRuntimeAuthEnv(runtimeEnv);
+  const eventBusTopicPrefix = parseRuntimeEventBusTopicPrefixFromEnv(runtimeEnv);
   const adapter =
     config.externalAdapterClient
     ?? buildRuntimeAdapterClient(service.manifest, config.artifactDir, authEnv);
@@ -69,7 +71,9 @@ export async function startService(
 
   if (bus.start) await bus.start();
 
-  const pipeline = wireEventPipeline(service, db, bus);
+  const pipeline = wireEventPipeline(service, db, bus, {
+    topicPrefix: eventBusTopicPrefix,
+  });
 
   if (service.seed !== null && !config.skipSeed) {
     try {

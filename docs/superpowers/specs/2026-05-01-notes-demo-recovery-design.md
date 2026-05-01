@@ -1,6 +1,6 @@
 # Notes-demo recovery — design
 
-**Status:** implementation in progress (Phase 1 merged via PR #108; Phase 2 pending)
+**Status:** implementation in progress (PR #108 open; Phase 2 root cause identified and runtime topic-prefix fix added)
 **Author:** brainstorm 2026-05-01
 **Related:**
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — blueprint composition (Track A).
@@ -56,11 +56,14 @@ The goal is not to introduce new features in `deploy-core`, `deploy-dokploy`, or
 - Fix `apps/platform-http/src/deploy/executor.ts:575` (`readUiRuntimeCss`) to read from `packages/runtime/ui-runtime/build/main.css`. Fall back to the legacy `packages/ui-runtime/build/main.css` only if the new path is absent (defensive, removable later).
 - Walk the live publish + deploy path with the configured target and `configOverrides.runtimeImage=<new main tag>`.
 - If `/` still returns 502: open Dokploy `application-readLogs` for the `app` container at boot time, identify root cause, fix, redeploy.
+- If the 502 is caused by the runtime ignoring deploy-rendered `eventBus.topicPrefix`, patch runtime topic naming so
+  `RNTME_EVENT_BUS_TOPIC_PREFIX` scopes relay publish topics and projection subscriptions.
 - After the deploy reaches plain `succeeded`, manual smoke check in the browser per `demo/notes-blueprint/README.md` §"User test after deploy" steps 1–5.
 
 ### 4.2 Out of scope
 
-- Any new code in `deploy-core`, `deploy-dokploy`, `platform-core` beyond the single executor path-fix.
+- Any new code in `deploy-core`, `deploy-dokploy`, or `platform-core` beyond the single executor path-fix. Runtime
+  boot fixes are allowed only when Step 7 evidence proves they are the 502 root cause.
 - Wiring Dokploy secret references (encrypted env in Dokploy) instead of literal `secretRefs`. Tracked as follow-up.
 - Multi-environment deploys; `environment=default` only.
 - `.env` cleanup (the duplicate `RNTME_EVENT_BUS_USERNAME` line) — local-only; tracked as a one-line follow-up.
