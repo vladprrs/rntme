@@ -11,7 +11,10 @@ COPY packages/contracts ./packages/contracts
 COPY modules/identity ./modules/identity
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm -F @rntme/identity-auth0... build
+# build:image skips tsconfig.client.json — the auth0 image runs only the gRPC
+# server, and the client TS imports @rntme/ui-runtime/client which is not in
+# this Docker context (consumed by the runtime image's bundling step instead).
+RUN pnpm -F @rntme/identity-auth0 run build:image
 RUN node -e "const fs=require('fs');const p=require('./package.json');delete p.devDependencies;fs.writeFileSync('package.json', JSON.stringify(p));"
 RUN pnpm --filter @rntme/identity-auth0 --prod deploy /out
 
