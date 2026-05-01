@@ -1,6 +1,7 @@
 import type {
   DokployApplication,
   DokployClient,
+  DokployCompose,
   DokployProjectRef,
   RenderedDokployResource,
 } from '@rntme/deploy-dokploy';
@@ -19,6 +20,17 @@ type DokployApiApplication = DokployApiApplicationSummary & {
   env?: string;
 };
 
+type DokployApiComposeSummary = {
+  composeId: string;
+  name: string;
+};
+
+type DokployApiCompose = DokployApiComposeSummary & {
+  appName?: string;
+  composeFile?: string;
+  env?: string;
+};
+
 type DokployApiDomain = {
   domainId: string;
   host: string;
@@ -34,6 +46,7 @@ type DokployApiEnvironment = {
   environmentId: string;
   name: string;
   applications?: readonly DokployApiApplicationSummary[];
+  composes?: readonly DokployApiComposeSummary[];
 };
 
 type DokployApiProject = {
@@ -100,7 +113,10 @@ export function createDokployClientFactory(
       findApplicationByName: async (environmentId: string, name: string) => {
         return findApplicationByName(request, environmentId, name);
       },
-      createApplication: async (environmentId: string, resource: RenderedDokployResource) => {
+      createApplication: async (
+        environmentId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
         const app = await request<DokployApiApplication>('POST', '/api/application.create', {
           environmentId,
           name: resource.name,
@@ -114,7 +130,10 @@ export function createDokployClientFactory(
         }
         return toDokployApplication(app);
       },
-      updateApplication: async (applicationId: string, resource: RenderedDokployResource) => {
+      updateApplication: async (
+        applicationId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
         const app = await request<DokployApiApplication | boolean>('POST', '/api/application.update', {
           applicationId,
           name: resource.name,
@@ -127,7 +146,10 @@ export function createDokployClientFactory(
         }
         return toDokployApplication(app);
       },
-      configureApplication: async (applicationId: string, resource: RenderedDokployResource) => {
+      configureApplication: async (
+        applicationId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
         const appName = resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63);
         await request('POST', '/api/application.update', {
           applicationId,
@@ -196,6 +218,68 @@ export function createDokployClientFactory(
       startApplication: async (applicationId: string) => {
         await request('POST', '/api/application.start', { applicationId });
       },
+      findComposeByName: async (environmentId: string, name: string) => {
+        return findComposeByName(request, environmentId, name);
+      },
+      createCompose: async (
+        environmentId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        const compose = await request<DokployApiCompose>('POST', '/api/compose.create', {
+          environmentId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        if (compose.composeId === undefined || compose.composeId === '') {
+          const created = await findComposeByName(request, environmentId, resource.name);
+          if (created === null) throw new Error(`Dokploy compose ${resource.name} not found after create`);
+          return created;
+        }
+        return toDokployCompose(compose, resource);
+      },
+      updateCompose: async (
+        composeId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        const compose = await request<DokployApiCompose | boolean>('POST', '/api/compose.update', {
+          composeId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          sourceType: 'raw',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        if (typeof compose !== 'object' || compose === null || compose.composeId === undefined || compose.composeId === '') {
+          const updated = await request<DokployApiCompose>('GET', '/api/compose.one', { composeId });
+          return toDokployCompose(updated, resource);
+        }
+        return toDokployCompose(compose, resource);
+      },
+      configureCompose: async (
+        composeId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        await request('POST', '/api/compose.update', {
+          composeId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          sourceType: 'raw',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        await request('POST', '/api/compose.saveEnvironment', {
+          composeId,
+          env: envBlock(resource),
+        });
+      },
+      deployCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.deploy', { composeId });
+      },
     };
   };
 }
@@ -217,6 +301,27 @@ async function findApplicationByName(
         if (app) {
           const details = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId: app.applicationId });
           return toDokployApplication(details);
+        }
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+async function findComposeByName(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  environmentId: string,
+  name: string,
+): Promise<DokployCompose | null> {
+  const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+  for (const p of projects) {
+    for (const e of p.environments || []) {
+      if (e.environmentId === environmentId) {
+        const compose = e.composes?.find((c) => c.name === name);
+        if (compose) {
+          const details = await request<DokployApiCompose>('GET', '/api/compose.one', { composeId: compose.composeId });
+          return toDokployCompose(details);
         }
         return null;
       }
@@ -266,6 +371,20 @@ function toDokployApplication(details: DokployApiApplication): DokployApplicatio
     name: details.name,
     ...(details.appName ? { appName: details.appName } : {}),
     ...(details.dockerImage ? { image: details.dockerImage } : {}),
+    env: parseEnvBlock(details.env),
+  };
+}
+
+function toDokployCompose(
+  details: DokployApiCompose,
+  rendered?: Extract<RenderedDokployResource, { kind: 'compose' }>,
+): DokployCompose {
+  return {
+    id: details.composeId,
+    name: details.name,
+    ...(details.appName ? { appName: details.appName } : {}),
+    ...(details.composeFile ? { composeFile: details.composeFile } : {}),
+    ...(rendered === undefined ? {} : { image: rendered.image, labels: rendered.labels }),
     env: parseEnvBlock(details.env),
   };
 }
