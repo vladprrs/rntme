@@ -3,7 +3,7 @@
   "services": ["app", "identity-auth0"],
   "modules": {
     "identity": {
-      "package": "@rntme/identity-auth0",
+      "package": "rntme_identity_auth0",
       "publicConfig": {
         "domain": "demo-rntme.us.auth0.com",
         "clientId": "${AUTH0_SPA_CLIENT_ID}",

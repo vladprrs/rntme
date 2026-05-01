@@ -397,6 +397,7 @@ async function bundleVirtualEntrySource(
   rootDir: string,
 ): Promise<Record<string, string>> {
   const workspaceRoot = findWorkspaceRoot();
+  const outdir = join(rootDir, '.rntme-ui-build');
   const result = await build({
     stdin: {
       contents: virtualEntrySource,
@@ -409,25 +410,28 @@ async function bundleVirtualEntrySource(
     platform: 'browser',
     format: 'esm',
     target: 'es2022',
-    sourcemap: true,
+    splitting: true,
+    sourcemap: false,
+    minify: true,
     write: false,
-    outfile: join(rootDir, '.rntme-ui-build', 'main.js'),
+    outdir,
+    entryNames: 'main',
+    chunkNames: 'chunks/[name]-[hash]',
     nodePaths: workspaceNodePaths(workspaceRoot),
     loader: { '.css': 'empty' },
     plugins: [workspacePackageResolver(workspaceRoot)],
   });
 
   const js = result.outputFiles.find((file) => file.path.endsWith('/main.js') || file.path.endsWith('\\main.js'));
-  const map = result.outputFiles.find(
-    (file) => file.path.endsWith('/main.js.map') || file.path.endsWith('\\main.js.map'),
-  );
   if (js === undefined) throw new Error('DEPLOY_EXECUTOR_UI_BUNDLE_MISSING_MAIN_JS');
 
-  return {
-    'ui-build/main.js': js.text,
-    ...(map === undefined ? {} : { 'ui-build/main.js.map': map.text }),
-    'ui-build/main.css': readUiRuntimeCss(workspaceRoot),
-  };
+  const files: Record<string, string> = { 'ui-build/main.css': readUiRuntimeCss(workspaceRoot) };
+  for (const file of result.outputFiles) {
+    const rel = relative(outdir, file.path).split('\\').join('/');
+    if (rel.startsWith('..') || rel === '') continue;
+    files[`ui-build/${rel}`] = file.text;
+  }
+  return files;
 }
 
 function workspacePackageResolver(workspaceRoot: string): Plugin {

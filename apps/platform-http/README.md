@@ -66,6 +66,11 @@ legacy `packages/ui-runtime/build/main.css`. The legacy location predates the
 2026-04-30 merge-back relocation; remove the fallback once no working tree
 relies on it.
 
+UI module client bundles are emitted as minified ESM chunks with source maps
+omitted from Dokploy file mounts. The Dokploy adapter lists existing
+application mounts through `mounts.listByServiceId` before create/update so
+re-deploys update the current files instead of recreating duplicate mounts.
+
 ## Security headers (UI only)
 
 Applied by `securityHeaders()` middleware on UI responses:

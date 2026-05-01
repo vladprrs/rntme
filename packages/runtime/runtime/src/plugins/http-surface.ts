@@ -52,7 +52,7 @@ export class HttpSurface implements Surface {
     const router = createBindingsRouter(routerOpts);
     const rateLimiter = createInMemoryRateLimiter(ctx.service.manifest.surface.http.rateLimit);
 
-    app.get('/', (c) =>
+    app.get('/service.json', (c) =>
       c.json({
         name: ctx.service.manifest.service.name,
         version: ctx.service.manifest.service.version,

@@ -13,7 +13,12 @@
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["noteView.id", { "$param": "id" }] }
+        "expr": {
+          "and": [
+            { "eq": ["noteView.id", { "$param": "id" }] },
+            { "eq": ["noteView.status", { "$literal": "active" }] }
+          ]
+        }
       }
     },
     {

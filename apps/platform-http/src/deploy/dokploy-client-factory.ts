@@ -232,8 +232,9 @@ async function configureFileMounts(
 ): Promise<void> {
   if (files === undefined) return;
 
-  const mountsResponse = await request<unknown>('GET', '/api/mounts.allNamedByApplicationId', {
-    applicationId,
+  const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
+    serviceType: 'application',
+    serviceId: applicationId,
   });
   const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
 

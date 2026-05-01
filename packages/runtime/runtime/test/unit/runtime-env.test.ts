@@ -53,6 +53,7 @@ describe('runtime env parsing', () => {
     ).toEqual({
       clientId: 'notes',
       brokers: ['redpanda-1:9092', 'redpanda-2:9092'],
+      connectionTimeout: 10000,
     });
   });
 
@@ -71,12 +72,29 @@ describe('runtime env parsing', () => {
     ).toEqual({
       clientId: 'notes',
       brokers: ['redpanda.example.com:9092'],
+      connectionTimeout: 10000,
       ssl: true,
       sasl: {
         mechanism: 'scram-sha-512',
         username: 'notes-demo',
         password: 'scram-password',
       },
+    });
+  });
+
+  it('allows deploy env to override the KafkaJS connection timeout', () => {
+    expect(
+      buildKafkaJsClientConfigFromEnv(
+        {
+          RNTME_EVENT_BUS_BROKERS: 'redpanda.example.com:9092',
+          RNTME_EVENT_BUS_CONNECTION_TIMEOUT_MS: '15000',
+        },
+        'notes',
+      ),
+    ).toEqual({
+      clientId: 'notes',
+      brokers: ['redpanda.example.com:9092'],
+      connectionTimeout: 15000,
     });
   });
 
