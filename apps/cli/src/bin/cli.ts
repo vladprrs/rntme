@@ -220,8 +220,15 @@ export async function main(argv: string[]): Promise<number> {
           return runProjectShow(showArgs, commonFlags);
         }
         case 'publish': {
+          const positional = positionals[2];
+          const flagFolder = asString(values['folder']);
+          if (positional !== undefined && flagFolder !== undefined) {
+            process.stderr.write('CLI_CONFIG_INVALID: cannot use positional and --folder together\n');
+            return 1;
+          }
+          const folder = positional ?? flagFolder;
           const publishArgs: Parameters<typeof runProjectPublish>[0] = {};
-          setIfDefined(publishArgs, 'folder', asString(values['folder']));
+          setIfDefined(publishArgs, 'folder', folder);
           setIfDefined(publishArgs, 'createProject', asBool(values['create-project']));
           setIfDefined(publishArgs, 'dryRun', asBool(values['dry-run']));
           return runProjectPublish(publishArgs, commonFlags);
