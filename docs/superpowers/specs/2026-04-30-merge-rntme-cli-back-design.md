@@ -5,6 +5,8 @@
 > Scope: re-merge the `rntme-cli` git submodule into the parent monorepo, unify the npm scope, and reorganize `packages/` by architectural role (artifact validators vs runtime engines vs platform vs deploy vs tooling). One PR.
 > Non-goals: renaming individual packages, restructuring `modules/*` or `demo/*`, splitting `cli`/`platform-http` into sub-packages, replacing `demo/issue-tracker-api`.
 
+> **Challenge note (2026-05-01):** implementation must graft the parent repo's pinned `rntme-cli` commit unless an explicit update decision is made. At review time the parent pin was `be1e20f8e586d9d198f14465ec16290a9f500cdf`, while `rntme-cli/main` had advanced to `26c164a239b32eaf308e8377b788de950ac93729`. Also, `git subtree add` requires a clean index and a non-existing prefix, so the executable sequence commits submodule removal before the subtree graft.
+
 ## 1. Problem
 
 The `rntme-cli/` git submodule was introduced **2026-04-18** (`docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`) under one rationale:
@@ -107,18 +109,25 @@ The folder name `artifacts/` was picked over `validators/` because the contents 
 ```
 # 1. add submodule repo as plain remote, fetch its history
 git remote add rntme-cli https://github.com/vladprrs/rntme-cli.git
-git fetch rntme-cli main
+git fetch rntme-cli '+refs/heads/*:refs/remotes/rntme-cli/*'
 
-# 2. dismount the submodule (gitlink + .gitmodules + .git/modules cache)
+# 2. capture the parent repo's pinned submodule commit
+submodule_pin="$(git ls-tree HEAD rntme-cli | awk '{print $3}')"
+git cat-file -e "$submodule_pin^{commit}"
+
+# 3. dismount the submodule (gitlink + .gitmodules + .git/modules cache)
 git submodule deinit -f rntme-cli
 git rm rntme-cli
 # remove the .gitmodules entry (delete file if it becomes empty)
 rm -rf .git/modules/rntme-cli
+git add -A
+git commit -m "chore(merge): remove rntme-cli submodule before subtree graft"
 
-# 3. graft the submodule history at the same prefix as a subtree
-git subtree add --prefix=rntme-cli rntme-cli/main
+# 4. graft the pinned submodule history at the same prefix as a subtree
+git subtree add --prefix=rntme-cli "$submodule_pin" \
+  -m "chore(merge): graft rntme-cli history via subtree"
 
-# 4. relocate the merged subtree to the target layout
+# 5. relocate the merged subtree to the target layout
 git mv rntme-cli/packages/cli              apps/cli
 git mv rntme-cli/packages/platform-http    apps/platform-http
 git mv rntme-cli/apps/landing              apps/landing
@@ -131,7 +140,7 @@ git mv rntme-cli/packages/deploy-dokploy   packages/deploy/deploy-dokploy
 git rm rntme-cli/{package.json,pnpm-workspace.yaml,tsconfig.base.json,README.md,pnpm-lock.yaml}
 rmdir rntme-cli/packages rntme-cli/apps rntme-cli
 
-# 5. relocate existing packages/* into role folders
+# 6. relocate existing packages/* into role folders
 mkdir -p packages/{artifacts,runtime,tooling}
 git mv packages/pdm                  packages/artifacts/pdm
 git mv packages/qsm                  packages/artifacts/qsm
@@ -150,15 +159,17 @@ git mv packages/ui-runtime           packages/runtime/ui-runtime
 git mv packages/db-studio            packages/runtime/db-studio
 git mv packages/module-skeleton      packages/tooling/module-skeleton
 
-# 6. unify the npm scope (6 package.json files + every import in the repo)
+# 7. unify the npm scope (6 package.json files + code/config imports)
 #    Each of the 6 cli-side package.json files: "@rntme-cli/X" → "@rntme/X".
-#    Then sweep imports + workspace deps:
-grep -rl '@rntme-cli/' --include='*.ts' --include='*.json' --include='*.md' --include='*.mjs' \
+#    Then sweep imports + workspace deps, excluding historical docs that get banners:
+grep -rl '@rntme-cli/' --include='*.ts' --include='*.tsx' --include='*.json' --include='*.mjs' \
+  apps packages modules demo .github package.json pnpm-workspace.yaml \
   | xargs sed -i 's|@rntme-cli/|@rntme/|g'
 
-# 7. update workspace, CI, top-level docs (Section 6), per-package READMEs,
+# 8. update workspace, CI, top-level docs (Section 6), per-package READMEs,
 #    spec status notes (Section 6.3), then rebuild lockfile
 pnpm install
+pnpm install --frozen-lockfile
 pnpm -r run build && pnpm -r run typecheck && pnpm -r run test && pnpm -r run lint
 ```
 
@@ -186,21 +197,25 @@ CLAUDE.md mandates that any plan touching the doc surface land doc updates in th
 | `docs/architecture.md` | Pointwise replace `rntme-cli/...` paths and `@rntme-cli/*` names. |
 | `vision.md` | Verify no path references; drop CLI/platform submodule mentions. |
 
-### 6.2 — Per-package READMEs
+### 6.2 — Per-package READMEs and audit docs
 
 Each package README is rewritten where it references its own location (`packages/<old>/...` → `packages/<role>/<pkg>/...`). The "consumed from the parent monorepo" / "private subproject" framing in the 6 cli-side READMEs is removed. Cross-package links resolve by package name (`@rntme/qsm`) when possible to survive the move.
 
+`docs/audit/` is a current package-audit surface, not a historical spec archive. Rename the `docs/audit/@rntme-cli/*` directories to `docs/audit/@rntme/*` and update old package paths inside audit README files.
+
 ### 6.3 — Specs and plans (historical, not rewritten)
 
-23 files in `docs/superpowers/specs/done/` and `docs/superpowers/plans/` reference `rntme-cli/...` or `@rntme-cli/*`. They describe point-in-time decisions and are not rewritten. Two treatments:
+Approximately 35 files in `docs/superpowers/specs/done/` and `docs/superpowers/plans/done/` reference `rntme-cli/...` or `@rntme-cli/*`, including nested `done/<track>/...` plan files. They describe point-in-time decisions and are not rewritten. Two treatments:
 
 1. **`2026-04-18-rntme-cli-submodule-design.md`** — front-of-document banner:
-   > **Status:** SUPERSEDED by `2026-04-30-merge-rntme-cli-back-design.md` (submodule re-merged into monorepo on 2026-04-30; original privacy rationale obsoleted when the repo was made public).
+   > **Status:** SUPERSEDED by `2026-04-30-merge-rntme-cli-back-design.md` (submodule merge-back planned for this PR; original privacy rationale obsoleted when the repo was made public).
 
 2. **All other affected specs/plans** — front-of-document path note:
-   > **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After 2026-04-30 they moved per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
+   > **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After the merge-back PR lands they move per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
 
-Active (not-`done/`) plans get their paths updated, since they are still being executed.
+Use future-safe wording in these banners: the merge happens when this PR lands, not retroactively on 2026-04-30.
+
+Active (not-`done/`) specs and plans get their paths updated, since they are still being executed. The merge-back spec/plan may retain old paths where the old layout is the explicit migration subject.
 
 ### 6.4 — CLI-skills sources
 
@@ -227,16 +242,17 @@ Per memory `dokploy_watchpaths_semantics.md`, Dokploy compares `watchPaths` agai
 | `landing` | rntme.com | `apps/landing/**` | verify against new path |
 | `platform-http` | platform.rntme.com | `apps/platform-http/**` | verify against new path |
 
-Updates are made via `dokploy-mcp` (memory `dokploy_mcp_url_gotcha.md`, `dokploy_mcp_patched_install.md`, `dokploy_docker_build_context.md`). Smoke: push an empty commit, confirm both deploys trigger.
+Updates are made via `dokploy-mcp` (memory `dokploy_mcp_url_gotcha.md`, `dokploy_mcp_patched_install.md`, `dokploy_docker_build_context.md`). Use provider-specific save calls for `watchPaths` (for example `application_saveGithubProvider` when the app uses GitHub) and `application_saveBuildType` for Dockerfile settings. Smoke with a reversible commit that touches both watched app paths; do not use an empty commit for watch-path verification because it may not contain a modified path for Dokploy to match.
 
 ## 9. Acceptance gates
 
 PR does not merge until:
 
-- [ ] `pnpm install` succeeds; lockfile rebuilt without manual edits.
+- [ ] `pnpm install` succeeds; lockfile rebuilt without manual edits; `pnpm install --frozen-lockfile` succeeds immediately after regeneration.
 - [ ] `pnpm -r run build`, `typecheck`, `test`, `lint` all green locally and in CI.
 - [ ] `grep -rn "@rntme-cli/" --include='*.ts' --include='*.json' --include='*.mjs'` returns empty (only historical specs may reference it, after status-note treatment).
-- [ ] `grep -rn "rntme-cli/packages\|rntme-cli/apps" --include='*.ts' --include='*.md'` returns only historical specs/plans with the path-note banner.
+- [ ] `grep -rn "rntme-cli/packages\|rntme-cli/apps" --include='*.ts' --include='*.md'` returns only historical specs/plans with the path-note banner, plus this merge-back spec/plan where the old paths are the migration subject.
+- [ ] `grep -Rln 'rntme-cli\|@rntme-cli' docs/audit` returns empty.
 - [ ] `.gitmodules` is absent; no submodule entries in `git config -f .git/config --get-regexp '^submodule\.'`.
 - [ ] `git blame apps/cli/src/<sample>.ts` traces to the original submodule commit (sanity check on subtree + `git mv`).
 - [ ] Top-level docs (CLAUDE.md, AGENTS.md, README.md, docs/architecture.md) carry no stale submodule references.
@@ -245,7 +261,7 @@ Post-merge (same day, separate task list, not blocking PR merge but blocking "do
 
 - [ ] Dokploy `landing` app: `watchPaths` and `dockerContextPath` updated; smoke commit triggers deploy.
 - [ ] Dokploy `platform-http` app: `watchPaths` and `dockerContextPath` updated; smoke commit triggers deploy.
-- [ ] `gh repo archive vladprrs/rntme-cli --yes` + description suffix `Archived 2026-04-30 — merged into vladprrs/rntme`.
+- [ ] `gh repo archive vladprrs/rntme-cli --yes` + description suffix noting it was archived after merge into `vladprrs/rntme`.
 - [ ] Memory files updated.
 
 ## 10. Rollback
