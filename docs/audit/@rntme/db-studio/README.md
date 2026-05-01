@@ -46,7 +46,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
    - **Recommendation:** Use a proper SQL parser to identify the *outermost* LIMIT, or document the limitation explicitly. Add a test for nested LIMIT behavior.
 
 4. **`StudioLogger` interface is defined but never wired from runtime**
-   - **Evidence:** `packages/runtime/src/plugins/http-surface.ts:74-78` — `mountStudio()` is called without a `logger` field. `src/mount.ts` has `logger?.info(...)` which is always a no-op in production.
+   - **Evidence:** `packages/runtime/runtime/src/plugins/http-surface.ts:74-78` — `mountStudio()` is called without a `logger` field. `src/mount.ts` has `logger?.info(...)` which is always a no-op in production.
    - **Impact:** Studio operations are invisible in runtime logs, making debugging production issues impossible.
    - **Recommendation:** Wire the runtime logger into the `mountStudio` call in `http-surface.ts`.
 
@@ -63,7 +63,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 #### Low Severity
 
 7. **Error code inconsistency in manifest validation**
-   - **Evidence:** `packages/runtime/src/manifest/validate.ts:21` uses `MANIFEST_INVALID_TYPE` for `maxRows` bounds, while other studio-specific errors use `RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT`.
+   - **Evidence:** `packages/runtime/runtime/src/manifest/validate.ts:21` uses `MANIFEST_INVALID_TYPE` for `maxRows` bounds, while other studio-specific errors use `RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT`.
    - **Impact:** Inconsistent error taxonomy makes automated alerting and client error handling harder.
    - **Recommendation:** Use `RUNTIME_MANIFEST_STUDIO_MAXROWS_INVALID` or similar.
 
@@ -83,7 +83,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
     - **Recommendation:** Add `StudioLogger` to the API table and Quick start example.
 
 11. **`mountPath` trailing slash not validated**
-    - **Evidence:** `StudioConfigSchema` in `packages/runtime/src/manifest/schema.ts` only checks `startsWith('/')`.
+    - **Evidence:** `StudioConfigSchema` in `packages/runtime/runtime/src/manifest/schema.ts` only checks `startsWith('/')`.
     - **Impact:** A trailing slash like `/_studio/` creates double slashes in routes (`/_studio//hrana/...`) and breaks the landing page root match.
     - **Recommendation:** Add `z.string().regex(/\\/$/, { message: 'must not end with /' })` or normalize the path in `mountStudio`.
 

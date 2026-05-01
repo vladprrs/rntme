@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/platform-core`
+# Architecture audit — `@rntme/platform-core`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-227` (`ca378534-30c3-464e-939a-3ec303478aa8`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/platform-core |
-| **Package / scope** | `@rntme-cli/platform-core` |
+| **Issue title** | Audit: package architecture — @rntme/platform-core |
+| **Package / scope** | `@rntme/platform-core` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `480a686a-7626-4f62-a213-ddcde7349ee7` |
 | **Audit comment date** | 2026-04-28 |

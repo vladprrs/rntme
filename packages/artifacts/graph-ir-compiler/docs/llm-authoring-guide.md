@@ -457,5 +457,5 @@ Shape нужен только как target для `map.config.into` или `red
 ## 13. Живые примеры
 
 Прогоняемые примеры (+ их SQL) — в [`examples.md`](./examples.md).
-Полный набор тестовых спек — `packages/graph-ir-compiler/test/e2e/*.test.ts`.
-Эталонная «kitchen sink»-спека — `packages/graph-ir-compiler/test/golden/category-sales/graph.json`.
+Полный набор тестовых спек — `packages/artifacts/graph-ir-compiler/test/e2e/*.test.ts`.
+Эталонная «kitchen sink»-спека — `packages/artifacts/graph-ir-compiler/test/golden/category-sales/graph.json`.

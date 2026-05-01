@@ -28,21 +28,19 @@
 
 ## 2. Repository map
 
-- `packages/`               — workspace packages (see §3 for layering)
+- `apps/`                   — runnable workspaces (`cli`, `platform-http`,
+  `landing`)
+- `packages/`               — workspace packages grouped by role:
+  `artifacts/`, `runtime/`, `platform/`, `deploy/`, `tooling/`, and
+  `contracts/`
 - `demo/issue-tracker-api/` — end-to-end wiring of every package; the
   canonical worked example
-- `rntme-cli/`              — private git submodule (`vladprrs/rntme-cli`)
-  hosting `@rntme-cli/*` packages:
-    - `@rntme-cli/cli`            — the `rntme` CLI binary (stub today).
-    - `@rntme-cli/platform-core`  — platform domain, use-cases, deploy target/deployment seams.
-    - `@rntme-cli/platform-storage` — Postgres + RLS repos, encrypted deploy secrets, and rustfs adapters.
-    - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`, REST/UI deploy surface, and background deploy executor.
-    - `@rntme-cli/deploy-core` — target-neutral project deployment planning.
-    - `@rntme-cli/deploy-dokploy` — Dokploy target adapter for deployments.
-  Specs: `docs/superpowers/specs/done/2026-04-18-rntme-cli-submodule-design.md`
-  and `docs/superpowers/specs/done/2026-04-19-platform-api-design.md`.
-  Deployment spec:
-  `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
+- `apps/cli/`               — `@rntme/cli`, the `rntme` CLI binary.
+- `apps/platform-http/`     — `@rntme/platform-http`, Hono server at
+  `platform.rntme.com`, REST/UI deploy surface, and background deploy executor.
+- `apps/landing/`           — `@rntme/landing`, the public landing site.
+- `packages/platform/`      — platform domain/storage packages.
+- `packages/deploy/`        — deploy planner and Dokploy adapter packages.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
@@ -89,7 +87,7 @@ ASCII dependency diagram. Arrow means "depends on".
                                              demo/issue-tracker-api
 
               Deployment (CLI-side; consumes validated/composed projects)
-              @rntme-cli/deploy-core ─── @rntme-cli/deploy-dokploy
+              @rntme/deploy-core ─── @rntme/deploy-dokploy
 ```
 
 One-line purpose per package (read the per-package README before touching):
@@ -99,57 +97,63 @@ One-line purpose per package (read the per-package README before touching):
   service registry metadata, raw service-level multi-file QSM artifacts)
   and Track B composition (project routes/middleware validation,
   service artifact discovery, project-routed binding registry).
-  → `packages/blueprint/README.md`.
+  → `packages/artifacts/blueprint/README.md`.
 - **`@rntme/pdm`** — Parsing, validating, and resolving the project-shared
   PDM artifact. Canonical entity/field/relation/state source with
-  root/owned entity classification. → `packages/pdm/README.md`.
+  root/owned entity classification. → `packages/artifacts/pdm/README.md`.
 - **`@rntme/qsm`** — Query-side model on top of PDM: projections,
   derived DDL, resolver, relation metadata for JOINs. →
-  `packages/qsm/README.md`.
+  `packages/artifacts/qsm/README.md`.
 - **`@rntme/event-store`** — SQLite-backed event log with optimistic
   concurrency, monotonic cursor, and Kafka-style relay. →
-  `packages/event-store/README.md`.
+  `packages/runtime/event-store/README.md`.
 - **`@rntme/graph-ir-compiler`** — Parses the rc7 Graph IR, validates it
   (structural + semantic), lowers to SQL, emits, and executes queries
-  and commands. → `packages/graph-ir-compiler/README.md`.
+  and commands. → `packages/artifacts/graph-ir-compiler/README.md`.
 - **`@rntme/bindings`** — HTTP bindings artifact: four-layer validator
   (parse → structural → references → consistency), `pre[]`,
   `inputFrom`, callback response shapes, and OpenAPI 3.1 emitter. →
-  `packages/bindings/README.md`.
+  `packages/artifacts/bindings/README.md`.
 - **`@rntme/bindings-http`** — Hono runtime for the bindings artifact;
   routes queries and commands, runs pre-fetch orchestration, applies the
   idempotency cache, callback redirects, maps errors to 400/409/422. →
-  `packages/bindings-http/README.md`.
+  `packages/runtime/bindings-http/README.md`.
 - **`@rntme/projection-consumer`** — Reads envelope events off the bus,
   applies them to projection tables idempotently, rolls back on fail. →
-  `packages/projection-consumer/README.md`.
+  `packages/runtime/projection-consumer/README.md`.
 - **`@rntme/seed`** — Seed-envelope authoring: parse, validate, wrap
   payloads, and apply via the event-store's `appendRaw`. →
-  `packages/seed/README.md`.
+  `packages/artifacts/seed/README.md`.
 - **`@rntme/ui`** — UI artifact compiler: JSON authoring → parse →
   validate → resolve → expand → compile → emit. No rendering. →
-  `packages/ui/README.md`.
+  `packages/artifacts/ui/README.md`.
 - **`@rntme/ui-runtime`** — Serves the compiled UI artifact. Hono
   sub-router on the server side, React + json-render SPA on the client
-  side. → `packages/ui-runtime/README.md`.
-- **`@rntme/db-studio`** — Hrana v3 read-only HTTP endpoint over the service's SQLite handles, mountable at a configurable path for browser studio UIs (libsqlstudio.com). → `packages/db-studio/README.md`.
+  side. → `packages/runtime/ui-runtime/README.md`.
+- **`@rntme/db-studio`** — Hrana v3 read-only HTTP endpoint over the service's SQLite handles, mountable at a configurable path for browser studio UIs (libsqlstudio.com). → `packages/runtime/db-studio/README.md`.
 - **`@rntme/runtime`** — Top-level service orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
   seams, modules, projections, seed, bindings + UI. →
-  `packages/runtime/README.md`.
+  `packages/runtime/runtime/README.md`.
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
   module-integration track; depends on `@rntme/runtime`. →
-  `packages/module-skeleton/README.md`.
-- **`@rntme-cli/deploy-core`** — Target-neutral project deployment
+  `packages/tooling/module-skeleton/README.md`.
+- **`@rntme/deploy-core`** — Target-neutral project deployment
   planning from a validated/composed project model. Preview MVP only; no
   raw blueprint loading. The platform executor consumes project-version
   bundles, revalidates them, and calls this planner. →
-  `rntme-cli/packages/deploy-core/README.md`.
-- **`@rntme-cli/deploy-dokploy`** — Dokploy target adapter: render/apply
+  `packages/deploy/deploy-core/README.md`.
+- **`@rntme/deploy-dokploy`** — Dokploy target adapter: render/apply
   redacted deployment plans through the Dokploy HTTP API. Deploy target
   credentials are stored encrypted by `platform-storage`, not in rendered
   plans. →
-  `rntme-cli/packages/deploy-dokploy/README.md`.
+  `packages/deploy/deploy-dokploy/README.md`.
+- **`@rntme/cli`** — CLI binary and agent skill source bundle. →
+  `apps/cli/README.md`.
+- **`@rntme/platform-http`** — Platform HTTP/UI app and deployment executor. →
+  `apps/platform-http/README.md`.
+- **`@rntme/landing`** — Public landing site. →
+  `apps/landing/README.md`.
 
 Canonical contracts:
 
@@ -262,7 +266,7 @@ deeper, per-task pointers.
 
 ### 6.0 Add a UI module (client-only extension)
 
-1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11 and `packages/module-skeleton/README.md` for the `client` block.
+1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11 and `packages/tooling/module-skeleton/README.md` for the `client` block.
 2. Create `modules/<category>/<vendor>/` with `package.json`, `module.json`, and `src/client.ts` (or `src/client.tsx`) exporting `./client` from `package.json` `exports` (include `"./module.json": "./module.json"` for compose resolution).
 3. Add the package to the root `pnpm-workspace.yaml` glob if a new path is needed (`modules/*/*` already covers nested vendors).
 4. Wire the module in the consumer `project.json` under `modules` (object form). If the manifest declares `category`, the project key **must** match that category string.
@@ -270,7 +274,7 @@ deeper, per-task pointers.
 
 ### 6.1 Add a new graph operator
 
-1. Read `packages/graph-ir-compiler/README.md` "Where to look first".
+1. Read `packages/artifacts/graph-ir-compiler/README.md` "Where to look first".
 2. Read `graph_ir_rc_7.md` for IR semantics of the operator family.
 3. Add the operator's shape to `src/parse/schema.ts` (Zod).
 4. Extend the semantic-plan stage (`src/semantic-plan/`) if the
@@ -283,32 +287,32 @@ deeper, per-task pointers.
 
 ### 6.2 Add a new projection backing
 
-1. Read `packages/qsm/README.md` and
-   `packages/projection-consumer/README.md`.
-2. Extend `QsmArtifactSchema` in `packages/qsm/src/parse/schema.ts` with
+1. Read `packages/artifacts/qsm/README.md` and
+   `packages/runtime/projection-consumer/README.md`.
+2. Extend `QsmArtifactSchema` in `packages/artifacts/qsm/src/parse/schema.ts` with
    the new `backing` variant.
-3. Add a validator rule in `packages/qsm/src/validate/structural.ts`.
+3. Add a validator rule in `packages/artifacts/qsm/src/validate/structural.ts`.
 4. Extend `deriveProjectionHandler` in
-   `packages/qsm/src/derive/handler.ts` and `compileApplyPlan` in
-   `packages/projection-consumer/src/apply/compile.ts`.
+   `packages/artifacts/qsm/src/derive/handler.ts` and `compileApplyPlan` in
+   `packages/runtime/projection-consumer/src/apply/compile.ts`.
 5. Add cross-ref check in
-   `packages/qsm/src/validate/cross-ref.ts` if the backing references
+   `packages/artifacts/qsm/src/validate/cross-ref.ts` if the backing references
    PDM.
 6. Spec first: `docs/superpowers/specs/done/2026-04-14-mutations-design.md`
    §6.
 
 ### 6.3 Add a new HTTP binding kind
 
-1. Read `packages/bindings/README.md` and
-   `packages/bindings-http/README.md`.
-2. Extend `BindingKind` in `packages/bindings/src/types/artifact.ts`.
+1. Read `packages/artifacts/bindings/README.md` and
+   `packages/runtime/bindings-http/README.md`.
+2. Extend `BindingKind` in `packages/artifacts/bindings/src/types/artifact.ts`.
 3. Update `parse/schema.ts` default and `validate/structural.ts`
    method rules.
 4. Update the kind × role matrix in
-   `packages/bindings/src/validate/consistency.ts`.
-5. Extend `BindingPlan` union in `packages/bindings-http` and add a
+   `packages/artifacts/bindings/src/validate/consistency.ts`.
+5. Extend `BindingPlan` union in `packages/runtime/bindings-http` and add a
    handler in `runtime/`.
-6. Add OpenAPI emission rules in `packages/bindings/src/openapi/`.
+6. Add OpenAPI emission rules in `packages/artifacts/bindings/src/openapi/`.
 7. Specs first: `docs/superpowers/specs/done/2026-04-14-bindings-design.md`
    and `docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`.
 
@@ -316,39 +320,39 @@ deeper, per-task pointers.
 
 No precedent in the codebase yet — the only concrete driver is
 `SqliteEventStore`. Read
-`packages/event-store/README.md` (the `EventStore` interface and
-contract) and `packages/runtime/README.md`'s plugin-seam section for
+`packages/runtime/event-store/README.md` (the `EventStore` interface and
+contract) and `packages/runtime/runtime/README.md`'s plugin-seam section for
 the closest analog (`DbDriver`). The new driver should implement the
 exported `EventStore` interface and pass the same regression suite
-under `packages/event-store/test/`.
+under `packages/runtime/event-store/test/`.
 
 ### 6.5 Add a new field type to PDM
 
-1. Read `packages/pdm/README.md`.
+1. Read `packages/artifacts/pdm/README.md`.
 2. Extend the `FieldType` enum in
-   `packages/pdm/src/types/artifact.ts`.
+   `packages/artifacts/pdm/src/types/artifact.ts`.
 3. Update `parse/schema.ts`, `validate/structural.ts`, and
    `resolvers/pdm-resolver.ts`.
 4. Update QSM mirror DDL in
-   `packages/qsm/src/derive/ddl.ts` and the graph-ir-compiler's
-   lowering in `packages/graph-ir-compiler/src/lower/sqlite/`.
-5. Update `packages/bindings/src/openapi/shapes.ts` for the JSON-schema
+   `packages/artifacts/qsm/src/derive/ddl.ts` and the graph-ir-compiler's
+   lowering in `packages/artifacts/graph-ir-compiler/src/lower/sqlite/`.
+5. Update `packages/artifacts/bindings/src/openapi/shapes.ts` for the JSON-schema
    mapping.
 6. Spec first: `docs/superpowers/specs/done/2026-04-14-mutations-design.md`.
 
 ### 6.6 Wire a new package into the runtime
 
-1. Read `packages/runtime/README.md`, specifically the plugin-seam
+1. Read `packages/runtime/runtime/README.md`, specifically the plugin-seam
    table and the boot-order invariant.
 2. If the package is a new backing (driver/bus/surface), implement the
    corresponding interface in
-   `packages/runtime/src/plugins/interfaces.ts`.
+   `packages/runtime/runtime/src/plugins/interfaces.ts`.
 3. Register the default implementation in the relevant
-   `packages/runtime/src/plugins/*.ts`.
+   `packages/runtime/runtime/src/plugins/*.ts`.
 4. Update the manifest schema if the package needs declarative
-   configuration (`packages/runtime/src/manifest/schema.ts`).
+   configuration (`packages/runtime/runtime/src/manifest/schema.ts`).
 5. Add an entry to the plugin-seam contract suite in
-   `packages/runtime/src/plugins/contract-tests.ts`.
+   `packages/runtime/runtime/src/plugins/contract-tests.ts`.
 6. Spec first:
    `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`.
 
@@ -398,14 +402,14 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 ### 6.11 Add a platform module (code-executor-based integration service)
 
 1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
-2. Copy `packages/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
+2. Copy `packages/tooling/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
 3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
-5. Follow the health-check convention in `packages/module-skeleton/README.md`.
+5. Follow the health-check convention in `packages/tooling/module-skeleton/README.md`.
 
 ### 6.12 Expose a service over gRPC
 
-1. Read `packages/bindings-grpc/README.md` and spec §6.2.
+1. Read `packages/runtime/bindings-grpc/README.md` and spec §6.2.
 2. In `artifacts/manifest.json`, add:
 
 ```json
@@ -421,7 +425,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.13 Call a module via pre-fetch from a command binding
 
-1. Read spec §7 and `packages/bindings-http/src/pre/` source.
+1. Read spec §7 and `packages/runtime/bindings-http/src/pre/` source.
 2. Declare the module in `artifacts/manifest.json`:
 
 ```json
@@ -478,7 +482,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.15 Compose a multi-service project
 
-1. Read `packages/blueprint/README.md` and `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
+1. Read `packages/artifacts/blueprint/README.md` and `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 2. Lay out the project blueprint folder: `project.json`, `pdm/`, `services/<name>/...`, and `modules/<name>/...`.
 3. Validate with `loadProjectBlueprint(...)`; the validator surfaces composition errors such as missing services in routes, missing PDM ownership, and duplicate paths.
 4. Compile the project-routed binding registry and verify the expected service prefixes resolve.
@@ -486,10 +490,10 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 
 ### 6.16 Deploy a project via Dokploy
 
-1. Read `rntme-cli/packages/deploy-core/README.md`, `rntme-cli/packages/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
+1. Read `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 2. From a validated/composed project model, call `planDeployment(...)`; it returns a target-neutral, redacted plan.
 3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
-4. The CLI command surface lives in `@rntme-cli/cli`; verify current incantations against `rntme-cli/packages/cli/README.md`.
+4. The CLI command surface lives in `@rntme/cli`; verify current incantations against `apps/cli/README.md`.
 
 ### 6.17 Wire Auth0 into a project blueprint
 
@@ -541,7 +545,7 @@ Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contr
 The first vendor module is shipped by a separate brainstorm + plan
 (spec: TBD). When that lands, the steps will be:
 
-1. Copy `packages/module-skeleton/` to `modules/identity/<vendor>/`.
+1. Copy `packages/tooling/module-skeleton/` to `modules/identity/<vendor>/`.
 2. Implement `service IdentityModule` from
    `@rntme/contracts-identity-v1` against the vendor's SDK.
 3. Declare supported RPCs and events in `module.json#capabilities[]`.
@@ -561,7 +565,7 @@ the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
 The first AI/LLM vendor module is shipped by a separate brainstorm + plan.
 When that lands, the steps will mirror Identity:
 
-1. Copy `packages/module-skeleton/` to `modules/ai-llm/<vendor>/`.
+1. Copy `packages/tooling/module-skeleton/` to `modules/ai-llm/<vendor>/`.
 2. Implement `service AiLlmModule` from `@rntme/contracts-ai-llm-v1`
    against the vendor's SDK (or gateway routing).
 3. Provide an idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
@@ -670,7 +674,7 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   commands-and-transactions, queries-and-projections, infra).
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
   `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2 +
-  `packages/bindings-grpc/README.md`.
+  `packages/runtime/bindings-grpc/README.md`.
 
 ## 9. Memory and prior decisions
 
@@ -686,7 +690,7 @@ Known categorical entries to watch for:
 - `rntme_predicate_optional_bug` — `wrapPredicateOptional` SQL
   positional alignment when mixing `predicate_optional` with other
   params. Regression tests live at
-  `packages/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts`
+  `packages/artifacts/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts`
   and `.../test/e2e/predicate-optional.e2e.test.ts`.
 - `rntme_turso_target` — future scale-out is Turso, not Postgres.
 - `project_platform_vision` — rntme as one per-service runtime inside a
@@ -739,7 +743,7 @@ Known categorical entries to watch for:
   modules whose vendor offers a native stateful API. Modules without it
   declare `capabilities.thread: false` and return `UNIMPLEMENTED` for
   thread RPCs; no module-local emulation.
-- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` from a composed project; rendered by an adapter (`@rntme-cli/deploy-dokploy`) to a target-specific shape.
+- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme/deploy-core` from a composed project; rendered by an adapter (`@rntme/deploy-dokploy`) to a target-specific shape.
 - **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
   PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).

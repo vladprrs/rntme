@@ -158,7 +158,7 @@ generateDrizzleSchema(
 
 ### 4.6 Graph IR compiler — `sql` tag + named params
 
-Lowerer (`packages/graph-ir-compiler/src/lower/sqlite/`) **не** переписывается на Drizzle builder. AST-based лоуэринг остаётся as-is.
+Lowerer (`packages/artifacts/graph-ir-compiler/src/lower/sqlite/`) **не** переписывается на Drizzle builder. AST-based лоуэринг остаётся as-is.
 
 **Единственное функциональное изменение:** `emit/emit.ts` и `execute/execute.ts` переходят с positional `?` на named placeholders, и с `paramOrder: string[]` на `params: Record<string, unknown>`:
 
@@ -175,7 +175,7 @@ Lowerer (`packages/graph-ir-compiler/src/lower/sqlite/`) **не** перепис
 - Demo `issue-tracker-api/artifacts/manifest.json` упрощается: `studio` блок редуцируется до `{ "enabled": boolean }` (без `mountPath`, `maxRows`).
 - Dev workflow: `pnpm drizzle-kit studio` запускается отдельно от сервиса; открывает браузер на `local.drizzle.studio`.
 
-**Prod guard.** `packages/runtime/src/load/load-service.ts` добавляет check:
+**Prod guard.** `packages/runtime/runtime/src/load/load-service.ts` добавляет check:
 - Если `process.env.NODE_ENV === 'production'` и `manifest.studio?.enabled === true` → boot fails с `RUNTIME_STUDIO_NOT_ALLOWED_IN_PROD`.
 - Если `manifest.studio?.enabled === true` и `manifest.eventStorePath === ':memory:'` (или projection DB `:memory:`) → fails с `RUNTIME_STUDIO_REQUIRES_FILE_DB`.
 

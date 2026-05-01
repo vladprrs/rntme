@@ -34,7 +34,7 @@ For rntme's specific use case — a runtime that boots from validated JSON artif
 | `node:20-slim` | `node:20-slim` (Docker Hub, ~71 MB amd64) | Root build, test runner | `Dockerfile`, `Dockerfile.test` | build / test | Builder stage + runtime stage for platform-http; test runner installs deps and runs `pnpm -r run test` |
 | `node:20-alpine` | `node:20-alpine` (Docker Hub, ~48 MB amd64) | Production runtime | `packages/runtime/Dockerfile` | runtime | Publishes `ghcr.io/vladprrs/rntme-runtime:dev`; installs `python3 make g++` for native module compilation; copies `dist/`, `package.json`, `node_modules/` |
 | `ghcr.io/vladprrs/rntme-runtime:1.0` | `1.0` (project-published) | Service consumers | `packages/runtime/Dockerfile.template`, `demo/issue-tracker-api/Dockerfile` | runtime | Thin artifact-only image; copies `artifacts/` into the runtime base |
-| `node:20-alpine` | `node:20-alpine` (Docker Hub) | Landing site build | `rntme-cli/apps/landing/Dockerfile` | build | Astro static build; runtime is `nginx:alpine` (not Node) |
+| `node:20-alpine` | `node:20-alpine` (Docker Hub) | Landing site build | `apps/landing/Dockerfile` | build | Astro static build; runtime is `nginx:alpine` (not Node) |
 
 **Commands used to verify usage:**
 ```bash
@@ -48,7 +48,7 @@ grep -r "node:" --include="package.json" -n | grep -v node_modules | grep -v .wo
 - Production runtime Dockerfile: `packages/runtime/Dockerfile:4,14`
 - Runtime template: `packages/runtime/Dockerfile.template:6`
 - Demo service Dockerfile: `demo/issue-tracker-api/Dockerfile:1`
-- Landing build Dockerfile: `rntme-cli/apps/landing/Dockerfile:4`
+- Landing build Dockerfile: `apps/landing/Dockerfile:4`
 
 ## Latest Versions / Release State
 
@@ -275,8 +275,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter '@rntme-cli/platform-http...' build
-RUN pnpm --filter '@rntme-cli/platform-storage...' build
+RUN pnpm --filter '@rntme/platform-http...' build
+RUN pnpm --filter '@rntme/platform-storage...' build
 CMD ["pnpm", "-r", "run", "test"]
 ```
 
@@ -291,13 +291,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter '@rntme-cli/platform-http...' build
+RUN pnpm --filter '@rntme/platform-http...' build
 
 FROM node:22-slim AS runtime
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 COPY --from=builder /app /app
-WORKDIR /app/rntme-cli/packages/platform-http
+WORKDIR /app/apps/platform-http
 EXPOSE 3000
 CMD ["node", "dist/bin/server.js"]
 ```
@@ -345,7 +345,7 @@ Deprecated/outdated:
 | Security scanning | `node:20-*` images will start flagging as EOL in Trivy/Scout | HIGH | LOW | Trivy database marks EOL images |
 
 **Migration effort estimate:** 1–2 days
-- Update 4 Dockerfiles (root `Dockerfile`, `Dockerfile.test`, `packages/runtime/Dockerfile`, `rntme-cli/apps/landing/Dockerfile`)
+- Update 4 Dockerfiles (root `Dockerfile`, `Dockerfile.test`, `packages/runtime/Dockerfile`, `apps/landing/Dockerfile`)
 - Update `package.json` engines field
 - Run full test matrix (`pnpm -r run test`, `pnpm -r run build`, `pnpm -r run typecheck`, `pnpm -r run lint`)
 - Rebuild and publish new `ghcr.io/vladprrs/rntme-runtime` image with a new tag (e.g., `1.1` or `2.0`)
@@ -395,7 +395,7 @@ Deprecated/outdated:
    - What's unclear: Whether rntme has a recurring calendar reminder or automation for LTS upgrades.
    - Recommendation: Add a quarterly review task to check Node LTS status and plan migrations 3–6 months before EOL.
 
-4. **Does the landing app (`rntme-cli/apps/landing/Dockerfile`) need Node 22?**
+4. **Does the landing app (`apps/landing/Dockerfile`) need Node 22?**
    - What we know: The landing app uses `node:20-alpine` only for the Astro build stage; the runtime is `nginx:alpine`.
    - What's unclear: Whether Astro or any build plugin has Node 22 compatibility issues.
    - Recommendation: Test the landing build with `node:22-alpine`; if it passes, update the Dockerfile. Risk is very low.

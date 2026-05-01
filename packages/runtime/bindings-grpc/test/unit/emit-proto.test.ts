@@ -24,7 +24,7 @@ describe('emitProto', () => {
       packageName: 'x.y',
       serviceName: 'Svc',
     });
-    expect(out).not.toContain('packages/bindings-grpc/test/fixtures/golden/minimal.proto');
+    expect(out).not.toContain('packages/runtime/bindings-grpc/test/fixtures/golden/minimal.proto');
   });
 
   it('always emits CommandResult with command_id and correlation_id', () => {

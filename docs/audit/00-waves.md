@@ -130,11 +130,11 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
 
-### Wave W13 — Per-package cleanup — rntme-cli
+### Wave W13 — Per-package cleanup — unified CLI/platform packages
 
 **Units (1):**
 
-- [x] U-087 — sanitizeCause aggressively redacts all error messages — `@rntme-cli/deploy-dokploy` — closed in RNT-280
+- [x] U-087 — sanitizeCause aggressively redacts all error messages — `@rntme/deploy-dokploy` — closed in RNT-280
 
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
@@ -152,12 +152,12 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Units (6):**
 
-- [x] U-113 — In-memory rate limiter breaks under multi-process — `@rntme-cli/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
-- [x] U-122 — CORS regex potentially vulnerable to ReDoS — `@rntme-cli/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
-- [x] U-123 — log-redactor patterns miss many secret formats — `@rntme-cli/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
-- [x] U-137 — getWithSecretById callable with RLS-enabled client (no guard) — `@rntme-cli/platform-storage` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
-- [x] U-138 — AesGcmSecretCipher rejects cross-version decrypt (rotation undocumented) — `@rntme-cli/platform-storage` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
-- [x] U-358 — No unit test for cors middleware — `@rntme-cli/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-113 — In-memory rate limiter breaks under multi-process — `@rntme/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-122 — CORS regex potentially vulnerable to ReDoS — `@rntme/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-123 — log-redactor patterns miss many secret formats — `@rntme/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-137 — getWithSecretById callable with RLS-enabled client (no guard) — `@rntme/platform-storage` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-138 — AesGcmSecretCipher rejects cross-version decrypt (rotation undocumented) — `@rntme/platform-storage` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
+- [x] U-358 — No unit test for cors middleware — `@rntme/platform-http` — closed in RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6`
 
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
@@ -180,7 +180,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-011 | `monorepo` | RNT-230#M4 | Medium | 📦 park | — | ✓ | Only bindings-http, contracts-*, demo/* have .gitignore; 22 packages don't | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
 | U-012 | `monorepo` | RNT-230#M5 | Medium | 📦 park | — | ✓ | db-studio, ui, ui-runtime have no description in package.json | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
 | U-013 | `monorepo` | RNT-230#L1 | Low | 📦 park | — | ✓ | issue-tracker-api-demo, pre-step-demo have no exports/main fields | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
-| U-014 | `@rntme/bindings-grpc` | RNT-200#1 | Blocker | 📦 park | — | ✓ | packages/bindings-grpc/src/server/handler.ts | [verify] src/server/handler.ts line 60 sets actor: null in CommandExecutionContext for every gRPC command [triage] park: real but no foreseeable shoot |
+| U-014 | `@rntme/bindings-grpc` | RNT-200#1 | Blocker | 📦 park | — | ✓ | packages/runtime/bindings-grpc/src/server/handler.ts | [verify] src/server/handler.ts line 60 sets actor: null in CommandExecutionContext for every gRPC command [triage] park: real but no foreseeable shoot |
 | U-015 | `@rntme/bindings-grpc` | RNT-200#2 | High | 📦 park | — | ✓ | src/server/handler.ts, src/server/errors.ts, src/types.ts | [verify] src/server/handler.ts line 8, src/server/errors.ts lines 2-5, src/types.ts lines 2-5 all import from @rntme/bindings-http/executor-contract [triage] park: real but no foreseeable shoot |
 | U-016 | `@rntme/bindings-grpc` | RNT-200#3 | High | 📦 park | — | ✓ | src/emit/scalars.ts and src/emit/shapes.ts | [verify] src/emit/scalars.ts switch has no default branch nor fallback return; shapes.ts default throws (partial confirmation: scalars.ts truly lacks fallback) [triage] park: real but no foreseeable shoot |
 | U-017 | `@rntme/bindings-grpc` | RNT-200#4 | High | 📦 park | — | ✓ | demo/issue-tracker-api/test/e2e/grpc.test.ts | [verify] demo/issue-tracker-api/test/e2e/grpc.test.ts line 49 asserts (error !== null \\|\\| typeof response === 'object'), unfalsifiable [triage] park: real but no foreseeable shoot |
@@ -190,7 +190,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-021 | `@rntme/bindings-grpc` | RNT-200#8 | Medium | 📦 park | — | skip | src/server/handler.ts — { [toSnakeCase(fromField)]: qout.value } | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-022 | `@rntme/bindings-grpc` | RNT-200#9 | Low | 📦 park | — | skip | README.md — orchestrators expect health endpoint | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-023 | `@rntme/bindings-grpc` | RNT-200#10 | Low | ✅ closed | W8 | skip | src/server/create-server.ts — grpc.ServerCredentials.createInsecure() | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-278 / PR #78 / merge `c5ecc7d8d8fa97cd085d67f9b58ac9a66fda4796` |
-| U-024 | `@rntme/bindings-grpc` | RNT-200#11 | Low | 📦 park | — | skip | packages/runtime/src/start/build-grpc-surface.ts and inline TODO | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-024 | `@rntme/bindings-grpc` | RNT-200#11 | Low | 📦 park | — | skip | packages/runtime/runtime/src/start/build-grpc-surface.ts and inline TODO | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-025 | `@rntme/bindings-grpc` | RNT-200#12 | Low | 📦 park | — | skip | no src/types/result.ts with ERROR_CODES in package | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-026 | `@rntme/bindings-grpc` | RNT-200#13 | Low | 📦 park | — | skip | test/ analysis: only QUERY_NOT_FOUND stub in create-server.test.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-027 | `@rntme/bindings-http` | RNT-201#1 | Blocker | 📦 park | — | ✓ | src/index.ts exports buildDefaultGraphIrCommandMap, correlationMiddleware, VERSION | [verify] src/index.ts lines 1-19 export VERSION='0.0.0', buildDefaultGraphIrCommandMap, correlationMiddleware as described. [triage] park: real but no foreseeable shoot |
@@ -226,80 +226,80 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-057 | `@rntme/blueprint` | RNT-202#L1 | Low | 📦 park | — | skip | src/types/result.ts: Layer type vs ERROR_CODES mismatch | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-058 | `@rntme/blueprint` | RNT-202#L2 | Low | 📦 park | — | skip | src/parse/schema.ts: ServiceDescriptorSchema missing slug | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-059 | `@rntme/blueprint` | RNT-202#L3 | Low | 📦 park | — | skip | src/compose/service-graphs.ts: hardcoded version '1.0-rc7' | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-063 | `@rntme-cli/cli` | RNT-224#4 | Medium | 📦 park | — | ✓ | src/commands/skills/install.ts has its own writeOk/writeErr instead of runCommand |  [triage] park: real but no foreseeable shoot |
-| U-064 | `@rntme-cli/cli` | RNT-224#5 | Medium | 📦 park | — | ✓ | package.json and src/api/client.ts hardcode "0.0.0"; readVersion reads it |  [triage] park: real but no foreseeable shoot |
-| U-065 | `@rntme-cli/cli` | RNT-224#6 | Medium | 📦 park | — | ✓ | no tests for logout, project list/show, project version, token cmds, skills install |  [triage] park: real but no foreseeable shoot |
-| U-066 | `@rntme-cli/cli` | RNT-224#7 | Medium | 📦 park | — | partial | postbuild script seeks package.json via ../../package.json relative to dist/bin/cli.js |  [triage] park: real but no foreseeable shoot |
-| U-068 | `@rntme-cli/cli` | RNT-224#9 | Low | 📦 park | — | skip | test passes --org/--project to init; runInit ignores them; parseArgs strict:false | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-069 | `@rntme-cli/cli` | RNT-224#10 | Low | 📦 park | — | skip | src/skills/adapters/cursor.ts throws Error when frontmatter missing | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-070 | `@rntme-cli/cli` | RNT-224#11 | Low | 📦 park | — | skip | README mentions project publish --dry-run as validation; no validate command exists | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-071 | `@rntme-cli/deploy-core` | RNT-225#1 | Medium | 📦 park | — | ✓ | src/edge.ts — four near-identical middleware dispatch blocks |  [triage] park: real but no foreseeable shoot |
-| U-072 | `@rntme-cli/deploy-core` | RNT-225#2 | Medium | 📦 park | — | ✓ | package.json declares zod dep; grep finds zero usages in src/test |  [triage] park: real but no foreseeable shoot |
-| U-073 | `@rntme-cli/deploy-core` | RNT-225#3 | Medium | 📦 park | — | ✓ | 12 unit tests; body-limit, timeout, empty project, edge cases uncovered |  [triage] park: real but no foreseeable shoot |
-| U-074 | `@rntme-cli/deploy-core` | RNT-225#4 | Low | 📦 park | — | skip | src/plan.ts — redundant config.eventBus===undefined OR clause | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-075 | `@rntme-cli/deploy-core` | RNT-225#5 | Low | 📦 park | — | skip | src/errors.ts — single struct with optional fields; not code-discriminated | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-076 | `@rntme-cli/deploy-core` | RNT-225#6 | Low | 📦 park | — | skip | vitest.config.ts sets passWithNoTests: true | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-077 | `@rntme-cli/deploy-core` | RNT-225#7 | Low | 📦 park | — | skip | buildProjectDeploymentPlan accepts plain structural inputs without checks | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-078 | `@rntme-cli/deploy-dokploy` | RNT-226#1 | High | 📦 park | — | ✓ | src/apply.ts jsonEqual; resourceMatches uses JSON.stringify |  [triage] park: real but no foreseeable shoot |
-| U-079 | `@rntme-cli/deploy-dokploy` | RNT-226#2 | High | 📦 park | — | ✓ | src/apply.ts apply loop; no rollback on partial failure |  [triage] park: real but no foreseeable shoot |
-| U-080 | `@rntme-cli/deploy-dokploy` | RNT-226#3 | High | 📦 park | — | ✓ | src/client.ts methods take full RenderedDokployResource |  [triage] park: real but no foreseeable shoot |
-| U-081 | `@rntme-cli/deploy-dokploy` | RNT-226#4 | High | 📦 park | — | ✓ | src/apply.ts sequential for...of with await per iteration |  [triage] park: real but no foreseeable shoot |
-| U-083 | `@rntme-cli/deploy-dokploy` | RNT-226#6 | Medium | 📦 park | — | ✓ | src/config.ts; render.ts uses publicBaseUrl/endpoint unchecked |  [triage] park: real but no foreseeable shoot |
-| U-084 | `@rntme-cli/deploy-dokploy` | RNT-226#7 | Medium | 📦 park | — | ✓ | src/result.ts duplicates ok/err/isOk/isErr from deploy-core |  [triage] park: real but no foreseeable shoot |
-| U-086 | `@rntme-cli/deploy-dokploy` | RNT-226#9 | Medium | 📦 park | — | ✓ | src/render.ts assertNever throws plain Error |  [triage] park: real but no foreseeable shoot |
-| U-087 | `@rntme-cli/deploy-dokploy` | RNT-226#10 | Medium | ✅ closed | W13 | ✓ | src/apply.ts sanitizeCause now preserves benign Error messages and redacts credential-like values at the cause serialization boundary | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-280 |
-| U-088 | `@rntme-cli/deploy-dokploy` | RNT-226#11 | Low | 📦 park | — | ✓ | README.md links missing project-deployment-pipeline-design spec |  [triage] park: real but no foreseeable shoot |
-| U-089 | `@rntme-cli/deploy-dokploy` | RNT-226#12 | Low | 📦 park | — | ✓ | package.json version 0.0.0 |  [triage] park: real but no foreseeable shoot |
-| U-090 | `@rntme-cli/deploy-dokploy` | RNT-226#13 | Low | 📦 park | — | ✓ | All tests use FakeDokployClient; no platform-http contract tests |  [triage] park: real but no foreseeable shoot |
-| U-091 | `@rntme-cli/landing` | RNT-223#1 | High | 📦 park | — | ✓ | Problem.astro & MicroJobs.astro both use data-section-num=02; AhaSection/LiveDemoCard 04; HowItWorks/SnowflakeToRuntime 05 |  [triage] park: real but no foreseeable shoot |
-| U-092 | `@rntme-cli/landing` | RNT-223#2 | High | 📦 park | — | ✓ | data-section-num + id=sNN hardcoded in each .astro; SideRail.tsx, index.astro, CONTENT.md duplicate ordering |  [triage] park: real but no foreseeable shoot |
-| U-093 | `@rntme-cli/landing` | RNT-223#3 | High | 📦 park | — | ✓ | 3 test files (~100 lines); no Astro component tests, no integration build tests, no a11y automation |  [triage] park: real but no foreseeable shoot |
-| U-094 | `@rntme-cli/landing` | RNT-223#4 | Medium | 📦 park | — | ✓ | loadEnv() called at module level in BaseLayout, StatusBar, Hero, Footer, LiveDemoCard, PilotForm |  [triage] park: real but no foreseeable shoot |
-| U-095 | `@rntme-cli/landing` | RNT-223#5 | Medium | 📦 park | — | ✓ | MicroJobs.astro, SnowflakeToRuntime.astro, LiveDemoCard.astro not imported into any page |  [triage] park: real but no foreseeable shoot |
-| U-096 | `@rntme-cli/landing` | RNT-223#6 | Medium | 📦 park | — | ✓ | CONTENT.md duplicates copy, section structure, env deps but is not generated from code |  [triage] park: real but no foreseeable shoot |
-| U-097 | `@rntme-cli/landing` | RNT-223#7 | Low | 📦 park | — | skip | .impeccable.md declares Lighthouse 95+ but no pa11y/axe-core/lighthouse-ci in CI | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-098 | `@rntme-cli/landing` | RNT-223#8 | Low | 📦 park | — | skip | No sitemap-index.xml, no JSON-LD for Organization/Product/FAQ | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-099 | `@rntme-cli/landing` | RNT-223#9 | Low | 📦 park | — | skip | .impeccable.md references SHAPE-BRIEF.md §4 but file does not exist in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-100 | `@rntme-cli/landing` | RNT-223#10 | Low | 📦 park | — | skip | package.json#version is 0.0.0; does not reflect real deploys | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-102 | `@rntme-cli/platform-core` | RNT-227#2 | High | 📦 park | — | ✓ | test/unit/use-cases/ lacks archive-org-cascade.test.ts |  [triage] park: real but no foreseeable shoot |
-| U-103 | `@rntme-cli/platform-core` | RNT-227#3 | High | 📦 park | — | ✓ | fast-check declared in devDependencies, zero usage in tests |  [triage] park: real but no foreseeable shoot |
-| U-104 | `@rntme-cli/platform-core` | RNT-227#4 | Medium | 📦 park | — | ✓ | MembershipMirrorSchema uses z.string().min(1) for role, not RoleSchema |  [triage] park: real but no foreseeable shoot |
-| U-106 | `@rntme-cli/platform-core` | RNT-227#6 | Medium | 📦 park | — | ✓ | package.json version 0.0.0; consumed by platform-http, platform-storage, cli |  [triage] park: real but no foreseeable shoot |
-| U-107 | `@rntme-cli/platform-core` | RNT-227#7 | Medium | 📦 park | — | ✓ | vitest.config.ts has no coverage block |  [triage] park: real but no foreseeable shoot |
-| U-108 | `@rntme-cli/platform-core` | RNT-227#8 | Low | 📦 park | — | skip | README references docs/superpowers/specs/done/... not in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-109 | `@rntme-cli/platform-core` | RNT-227#9 | Low | 📦 park | — | skip | src/blob/store.ts BlobStore interface exposes presignedGet | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-110 | `@rntme-cli/platform-core` | RNT-227#10 | Low | 📦 park | — | skip | package.json ./testing subpath exports only fakes.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-111 | `@rntme-cli/platform-http` | RNT-228#1 | High | 📦 park | — | ✓ | src/app.ts createApp ~180 LOC mixes middleware/auth/routes/jobs/tx |  [triage] park: real but no foreseeable shoot |
-| U-112 | `@rntme-cli/platform-http` | RNT-228#2 | High | 📦 park | — | ✓ | src/app.ts setImmediate runDeployment; src/deploy/executor.ts in HTTP proc |  [triage] park: real but no foreseeable shoot |
-| U-113 | `@rntme-cli/platform-http` | RNT-228#3 | High | ✅ closed | W15 | ✓ | src/middleware/rate-limit.ts InMemoryRateLimiter uses Map | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
-| U-114 | `@rntme-cli/platform-http` | RNT-228#4 | High | 📦 park | — | ✓ | src/middleware/error-handler.ts returns 500 without logging cause |  [triage] park: real but no foreseeable shoot |
-| U-115 | `@rntme-cli/platform-http` | RNT-228#5 | High | 📦 park | — | ✓ | package.json @hono/zod-openapi listed; no imports in src/ |  [triage] park: real but no foreseeable shoot |
-| U-116 | `@rntme-cli/platform-http` | RNT-228#6 | High | 📦 park | — | ✓ | src/deploy/dokploy-client-factory.ts (278 LOC) lives in platform-http |  [triage] park: real but no foreseeable shoot |
-| U-117 | `@rntme-cli/platform-http` | RNT-228#7 | High | 📦 park | — | ✓ | src/middleware/body-limit.ts builds new Blob from chunks, replaces req |  [triage] park: real but no foreseeable shoot |
-| U-118 | `@rntme-cli/platform-http` | RNT-228#8 | Medium | 📦 park | — | ✓ | src/app.ts and src/ui/app.tsx each instantiate auth providers |  [triage] park: real but no foreseeable shoot |
-| U-119 | `@rntme-cli/platform-http` | RNT-228#9 | Medium | 📦 park | — | ✓ | src/app.ts withOrgTx duplicated in test/e2e/deploy-flow.test.ts |  [triage] park: real but no foreseeable shoot |
-| U-120 | `@rntme-cli/platform-http` | RNT-228#10 | Medium | 📦 park | — | ✓ | AppDeps poolRepos vs UiDeps poolRepos diverge on workosEventLog |  [triage] park: real but no foreseeable shoot |
-| U-121 | `@rntme-cli/platform-http` | RNT-228#11 | Medium | 📦 park | — | skip | src/routes/ops.ts ready-check calls workos.listApiKeys | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-122 | `@rntme-cli/platform-http` | RNT-228#12 | Medium | ✅ closed | W15 | skip | src/middleware/cors.ts builds RegExp from PLATFORM_CORS_ORIGINS | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
-| U-123 | `@rntme-cli/platform-http` | RNT-228#13 | Medium | ✅ closed | W15 | skip | src/deploy/log-redactor.ts uses simplistic regex patterns | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
-| U-124 | `@rntme-cli/platform-http` | RNT-228#14 | Medium | 📦 park | — | skip | src/ui/app.tsx uses orgSlug/projSlug params without validation | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-125 | `@rntme-cli/platform-http` | RNT-228#15 | Medium | 📦 park | — | skip | tsconfig.json excludes test/; tsconfig.check.json includes test/ | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-126 | `@rntme-cli/platform-http` | RNT-228#16 | Low | 📦 park | — | skip | src/index.ts exports only VERSION | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-127 | `@rntme-cli/platform-http` | RNT-228#17 | Low | 📦 park | — | skip | test/e2e uses describe.skipIf(!e2eContainersAvailable()) | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-128 | `@rntme-cli/platform-http` | RNT-228#18 | Low | 📦 park | — | skip | test/unit/middleware only covers rate-limit; auth/cors/tx untested | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap |
-| U-129 | `@rntme-cli/platform-http` | RNT-228#19 | Low | 📦 park | — | skip | src/index.ts VERSION='0.0.0'; build-deploy-config mode='preview' hardcoded | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-130 | `@rntme-cli/platform-http` | RNT-228#20 | Low | 📦 park | — | skip | src/auth/workos-client.ts casts as WorkOSClient bypassing SDK types | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-131 | `@rntme-cli/platform-storage` | RNT-229#1 | High | 📦 park | — | ✓ | pg-deploy-target-repo.ts, pg-deployment-repo.ts, pg-project-version-repo.ts |  [triage] park: real but no foreseeable shoot |
-| U-132 | `@rntme-cli/platform-storage` | RNT-229#2 | High | 📦 park | — | ✓ | pg-deploy-target-repo.ts withOptionalTransaction nested in withTransaction |  [triage] park: real but no foreseeable shoot |
-| U-133 | `@rntme-cli/platform-storage` | RNT-229#3 | Medium | 📦 park | — | ✓ | pg-org-repo.ts (Drizzle) vs pg-deploy-target-repo.ts (raw SQL) |  [triage] park: real but no foreseeable shoot |
-| U-134 | `@rntme-cli/platform-storage` | RNT-229#4 | Medium | 📦 park | — | ✓ | test/integration/identity-repos.test.ts uses env.pool bypassing RLS |  [triage] park: real but no foreseeable shoot |
-| U-135 | `@rntme-cli/platform-storage` | RNT-229#5 | Medium | 📦 park | — | ✓ | drizzle/0003_deploy.sql uses no NULLIF; src/sql/policies.sql uses NULLIF |  [triage] park: real but no foreseeable shoot |
-| U-136 | `@rntme-cli/platform-storage` | RNT-229#6 | Medium | 📦 park | — | skip | s3-blob-store.ts all ops return PLATFORM_STORAGE_BLOB_UPLOAD_FAILED | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-137 | `@rntme-cli/platform-storage` | RNT-229#7 | Low | ✅ closed | W15 | skip | pg-deploy-target-repo.ts getWithSecretById has no runtime guard | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
-| U-138 | `@rntme-cli/platform-storage` | RNT-229#8 | Low | ✅ closed | W15 | skip | aes-gcm-cipher.ts decrypt throws on keyVersion mismatch | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
-| U-139 | `@rntme-cli/platform-storage` | RNT-229#9 | Low | 📦 park | — | skip | PgProjectVersionRepo and PgAuditRepo lack dedicated test files | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-140 | `@rntme-cli/platform-storage` | RNT-229#10 | Low | 📦 park | — | skip | test/integration/harness.ts hardcodes TRUNCATE list of 11 tables | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-141 | `@rntme-cli/platform-storage` | RNT-229#11 | Low | 📦 park | — | skip | src/index.ts re-exports * from './schema/index.js' | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-063 | `@rntme/cli` | RNT-224#4 | Medium | 📦 park | — | ✓ | src/commands/skills/install.ts has its own writeOk/writeErr instead of runCommand |  [triage] park: real but no foreseeable shoot |
+| U-064 | `@rntme/cli` | RNT-224#5 | Medium | 📦 park | — | ✓ | package.json and src/api/client.ts hardcode "0.0.0"; readVersion reads it |  [triage] park: real but no foreseeable shoot |
+| U-065 | `@rntme/cli` | RNT-224#6 | Medium | 📦 park | — | ✓ | no tests for logout, project list/show, project version, token cmds, skills install |  [triage] park: real but no foreseeable shoot |
+| U-066 | `@rntme/cli` | RNT-224#7 | Medium | 📦 park | — | partial | postbuild script seeks package.json via ../../package.json relative to dist/bin/cli.js |  [triage] park: real but no foreseeable shoot |
+| U-068 | `@rntme/cli` | RNT-224#9 | Low | 📦 park | — | skip | test passes --org/--project to init; runInit ignores them; parseArgs strict:false | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-069 | `@rntme/cli` | RNT-224#10 | Low | 📦 park | — | skip | src/skills/adapters/cursor.ts throws Error when frontmatter missing | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-070 | `@rntme/cli` | RNT-224#11 | Low | 📦 park | — | skip | README mentions project publish --dry-run as validation; no validate command exists | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-071 | `@rntme/deploy-core` | RNT-225#1 | Medium | 📦 park | — | ✓ | src/edge.ts — four near-identical middleware dispatch blocks |  [triage] park: real but no foreseeable shoot |
+| U-072 | `@rntme/deploy-core` | RNT-225#2 | Medium | 📦 park | — | ✓ | package.json declares zod dep; grep finds zero usages in src/test |  [triage] park: real but no foreseeable shoot |
+| U-073 | `@rntme/deploy-core` | RNT-225#3 | Medium | 📦 park | — | ✓ | 12 unit tests; body-limit, timeout, empty project, edge cases uncovered |  [triage] park: real but no foreseeable shoot |
+| U-074 | `@rntme/deploy-core` | RNT-225#4 | Low | 📦 park | — | skip | src/plan.ts — redundant config.eventBus===undefined OR clause | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-075 | `@rntme/deploy-core` | RNT-225#5 | Low | 📦 park | — | skip | src/errors.ts — single struct with optional fields; not code-discriminated | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-076 | `@rntme/deploy-core` | RNT-225#6 | Low | 📦 park | — | skip | vitest.config.ts sets passWithNoTests: true | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-077 | `@rntme/deploy-core` | RNT-225#7 | Low | 📦 park | — | skip | buildProjectDeploymentPlan accepts plain structural inputs without checks | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-078 | `@rntme/deploy-dokploy` | RNT-226#1 | High | 📦 park | — | ✓ | src/apply.ts jsonEqual; resourceMatches uses JSON.stringify |  [triage] park: real but no foreseeable shoot |
+| U-079 | `@rntme/deploy-dokploy` | RNT-226#2 | High | 📦 park | — | ✓ | src/apply.ts apply loop; no rollback on partial failure |  [triage] park: real but no foreseeable shoot |
+| U-080 | `@rntme/deploy-dokploy` | RNT-226#3 | High | 📦 park | — | ✓ | src/client.ts methods take full RenderedDokployResource |  [triage] park: real but no foreseeable shoot |
+| U-081 | `@rntme/deploy-dokploy` | RNT-226#4 | High | 📦 park | — | ✓ | src/apply.ts sequential for...of with await per iteration |  [triage] park: real but no foreseeable shoot |
+| U-083 | `@rntme/deploy-dokploy` | RNT-226#6 | Medium | 📦 park | — | ✓ | src/config.ts; render.ts uses publicBaseUrl/endpoint unchecked |  [triage] park: real but no foreseeable shoot |
+| U-084 | `@rntme/deploy-dokploy` | RNT-226#7 | Medium | 📦 park | — | ✓ | src/result.ts duplicates ok/err/isOk/isErr from deploy-core |  [triage] park: real but no foreseeable shoot |
+| U-086 | `@rntme/deploy-dokploy` | RNT-226#9 | Medium | 📦 park | — | ✓ | src/render.ts assertNever throws plain Error |  [triage] park: real but no foreseeable shoot |
+| U-087 | `@rntme/deploy-dokploy` | RNT-226#10 | Medium | ✅ closed | W13 | ✓ | src/apply.ts sanitizeCause now preserves benign Error messages and redacts credential-like values at the cause serialization boundary | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-280 |
+| U-088 | `@rntme/deploy-dokploy` | RNT-226#11 | Low | 📦 park | — | ✓ | README.md links missing project-deployment-pipeline-design spec |  [triage] park: real but no foreseeable shoot |
+| U-089 | `@rntme/deploy-dokploy` | RNT-226#12 | Low | 📦 park | — | ✓ | package.json version 0.0.0 |  [triage] park: real but no foreseeable shoot |
+| U-090 | `@rntme/deploy-dokploy` | RNT-226#13 | Low | 📦 park | — | ✓ | All tests use FakeDokployClient; no platform-http contract tests |  [triage] park: real but no foreseeable shoot |
+| U-091 | `@rntme/landing` | RNT-223#1 | High | 📦 park | — | ✓ | Problem.astro & MicroJobs.astro both use data-section-num=02; AhaSection/LiveDemoCard 04; HowItWorks/SnowflakeToRuntime 05 |  [triage] park: real but no foreseeable shoot |
+| U-092 | `@rntme/landing` | RNT-223#2 | High | 📦 park | — | ✓ | data-section-num + id=sNN hardcoded in each .astro; SideRail.tsx, index.astro, CONTENT.md duplicate ordering |  [triage] park: real but no foreseeable shoot |
+| U-093 | `@rntme/landing` | RNT-223#3 | High | 📦 park | — | ✓ | 3 test files (~100 lines); no Astro component tests, no integration build tests, no a11y automation |  [triage] park: real but no foreseeable shoot |
+| U-094 | `@rntme/landing` | RNT-223#4 | Medium | 📦 park | — | ✓ | loadEnv() called at module level in BaseLayout, StatusBar, Hero, Footer, LiveDemoCard, PilotForm |  [triage] park: real but no foreseeable shoot |
+| U-095 | `@rntme/landing` | RNT-223#5 | Medium | 📦 park | — | ✓ | MicroJobs.astro, SnowflakeToRuntime.astro, LiveDemoCard.astro not imported into any page |  [triage] park: real but no foreseeable shoot |
+| U-096 | `@rntme/landing` | RNT-223#6 | Medium | 📦 park | — | ✓ | CONTENT.md duplicates copy, section structure, env deps but is not generated from code |  [triage] park: real but no foreseeable shoot |
+| U-097 | `@rntme/landing` | RNT-223#7 | Low | 📦 park | — | skip | .impeccable.md declares Lighthouse 95+ but no pa11y/axe-core/lighthouse-ci in CI | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-098 | `@rntme/landing` | RNT-223#8 | Low | 📦 park | — | skip | No sitemap-index.xml, no JSON-LD for Organization/Product/FAQ | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-099 | `@rntme/landing` | RNT-223#9 | Low | 📦 park | — | skip | .impeccable.md references SHAPE-BRIEF.md §4 but file does not exist in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-100 | `@rntme/landing` | RNT-223#10 | Low | 📦 park | — | skip | package.json#version is 0.0.0; does not reflect real deploys | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-102 | `@rntme/platform-core` | RNT-227#2 | High | 📦 park | — | ✓ | test/unit/use-cases/ lacks archive-org-cascade.test.ts |  [triage] park: real but no foreseeable shoot |
+| U-103 | `@rntme/platform-core` | RNT-227#3 | High | 📦 park | — | ✓ | fast-check declared in devDependencies, zero usage in tests |  [triage] park: real but no foreseeable shoot |
+| U-104 | `@rntme/platform-core` | RNT-227#4 | Medium | 📦 park | — | ✓ | MembershipMirrorSchema uses z.string().min(1) for role, not RoleSchema |  [triage] park: real but no foreseeable shoot |
+| U-106 | `@rntme/platform-core` | RNT-227#6 | Medium | 📦 park | — | ✓ | package.json version 0.0.0; consumed by platform-http, platform-storage, cli |  [triage] park: real but no foreseeable shoot |
+| U-107 | `@rntme/platform-core` | RNT-227#7 | Medium | 📦 park | — | ✓ | vitest.config.ts has no coverage block |  [triage] park: real but no foreseeable shoot |
+| U-108 | `@rntme/platform-core` | RNT-227#8 | Low | 📦 park | — | skip | README references docs/superpowers/specs/done/... not in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-109 | `@rntme/platform-core` | RNT-227#9 | Low | 📦 park | — | skip | src/blob/store.ts BlobStore interface exposes presignedGet | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-110 | `@rntme/platform-core` | RNT-227#10 | Low | 📦 park | — | skip | package.json ./testing subpath exports only fakes.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-111 | `@rntme/platform-http` | RNT-228#1 | High | 📦 park | — | ✓ | src/app.ts createApp ~180 LOC mixes middleware/auth/routes/jobs/tx |  [triage] park: real but no foreseeable shoot |
+| U-112 | `@rntme/platform-http` | RNT-228#2 | High | 📦 park | — | ✓ | src/app.ts setImmediate runDeployment; src/deploy/executor.ts in HTTP proc |  [triage] park: real but no foreseeable shoot |
+| U-113 | `@rntme/platform-http` | RNT-228#3 | High | ✅ closed | W15 | ✓ | src/middleware/rate-limit.ts InMemoryRateLimiter uses Map | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-114 | `@rntme/platform-http` | RNT-228#4 | High | 📦 park | — | ✓ | src/middleware/error-handler.ts returns 500 without logging cause |  [triage] park: real but no foreseeable shoot |
+| U-115 | `@rntme/platform-http` | RNT-228#5 | High | 📦 park | — | ✓ | package.json @hono/zod-openapi listed; no imports in src/ |  [triage] park: real but no foreseeable shoot |
+| U-116 | `@rntme/platform-http` | RNT-228#6 | High | 📦 park | — | ✓ | src/deploy/dokploy-client-factory.ts (278 LOC) lives in platform-http |  [triage] park: real but no foreseeable shoot |
+| U-117 | `@rntme/platform-http` | RNT-228#7 | High | 📦 park | — | ✓ | src/middleware/body-limit.ts builds new Blob from chunks, replaces req |  [triage] park: real but no foreseeable shoot |
+| U-118 | `@rntme/platform-http` | RNT-228#8 | Medium | 📦 park | — | ✓ | src/app.ts and src/ui/app.tsx each instantiate auth providers |  [triage] park: real but no foreseeable shoot |
+| U-119 | `@rntme/platform-http` | RNT-228#9 | Medium | 📦 park | — | ✓ | src/app.ts withOrgTx duplicated in test/e2e/deploy-flow.test.ts |  [triage] park: real but no foreseeable shoot |
+| U-120 | `@rntme/platform-http` | RNT-228#10 | Medium | 📦 park | — | ✓ | AppDeps poolRepos vs UiDeps poolRepos diverge on workosEventLog |  [triage] park: real but no foreseeable shoot |
+| U-121 | `@rntme/platform-http` | RNT-228#11 | Medium | 📦 park | — | skip | src/routes/ops.ts ready-check calls workos.listApiKeys | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-122 | `@rntme/platform-http` | RNT-228#12 | Medium | ✅ closed | W15 | skip | src/middleware/cors.ts builds RegExp from PLATFORM_CORS_ORIGINS | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-123 | `@rntme/platform-http` | RNT-228#13 | Medium | ✅ closed | W15 | skip | src/deploy/log-redactor.ts uses simplistic regex patterns | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-124 | `@rntme/platform-http` | RNT-228#14 | Medium | 📦 park | — | skip | src/ui/app.tsx uses orgSlug/projSlug params without validation | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-125 | `@rntme/platform-http` | RNT-228#15 | Medium | 📦 park | — | skip | tsconfig.json excludes test/; tsconfig.check.json includes test/ | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-126 | `@rntme/platform-http` | RNT-228#16 | Low | 📦 park | — | skip | src/index.ts exports only VERSION | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-127 | `@rntme/platform-http` | RNT-228#17 | Low | 📦 park | — | skip | test/e2e uses describe.skipIf(!e2eContainersAvailable()) | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-128 | `@rntme/platform-http` | RNT-228#18 | Low | 📦 park | — | skip | test/unit/middleware only covers rate-limit; auth/cors/tx untested | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap |
+| U-129 | `@rntme/platform-http` | RNT-228#19 | Low | 📦 park | — | skip | src/index.ts VERSION='0.0.0'; build-deploy-config mode='preview' hardcoded | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-130 | `@rntme/platform-http` | RNT-228#20 | Low | 📦 park | — | skip | src/auth/workos-client.ts casts as WorkOSClient bypassing SDK types | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-131 | `@rntme/platform-storage` | RNT-229#1 | High | 📦 park | — | ✓ | pg-deploy-target-repo.ts, pg-deployment-repo.ts, pg-project-version-repo.ts |  [triage] park: real but no foreseeable shoot |
+| U-132 | `@rntme/platform-storage` | RNT-229#2 | High | 📦 park | — | ✓ | pg-deploy-target-repo.ts withOptionalTransaction nested in withTransaction |  [triage] park: real but no foreseeable shoot |
+| U-133 | `@rntme/platform-storage` | RNT-229#3 | Medium | 📦 park | — | ✓ | pg-org-repo.ts (Drizzle) vs pg-deploy-target-repo.ts (raw SQL) |  [triage] park: real but no foreseeable shoot |
+| U-134 | `@rntme/platform-storage` | RNT-229#4 | Medium | 📦 park | — | ✓ | test/integration/identity-repos.test.ts uses env.pool bypassing RLS |  [triage] park: real but no foreseeable shoot |
+| U-135 | `@rntme/platform-storage` | RNT-229#5 | Medium | 📦 park | — | ✓ | drizzle/0003_deploy.sql uses no NULLIF; src/sql/policies.sql uses NULLIF |  [triage] park: real but no foreseeable shoot |
+| U-136 | `@rntme/platform-storage` | RNT-229#6 | Medium | 📦 park | — | skip | s3-blob-store.ts all ops return PLATFORM_STORAGE_BLOB_UPLOAD_FAILED | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-137 | `@rntme/platform-storage` | RNT-229#7 | Low | ✅ closed | W15 | skip | pg-deploy-target-repo.ts getWithSecretById has no runtime guard | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-138 | `@rntme/platform-storage` | RNT-229#8 | Low | ✅ closed | W15 | skip | aes-gcm-cipher.ts decrypt throws on keyVersion mismatch | [verify] not in sample [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-139 | `@rntme/platform-storage` | RNT-229#9 | Low | 📦 park | — | skip | PgProjectVersionRepo and PgAuditRepo lack dedicated test files | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-140 | `@rntme/platform-storage` | RNT-229#10 | Low | 📦 park | — | skip | test/integration/harness.ts hardcodes TRUNCATE list of 11 tables | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-141 | `@rntme/platform-storage` | RNT-229#11 | Low | 📦 park | — | skip | src/index.ts re-exports * from './schema/index.js' | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-142 | `@rntme/conformance-ai-llm` | RNT-218#1 | High | 📦 park | — | ✓ | Cross-category interface divergence between AI-LLM, Identity, and CRM |  [triage] park: real but no foreseeable shoot |
 | U-143 | `@rntme/conformance-ai-llm` | RNT-218#2 | Medium | 📦 park | — | ✓ | Conformance framework stub duplicated verbatim across AI-LLM and Identity |  [triage] park: real but no foreseeable shoot |
 | U-144 | `@rntme/conformance-ai-llm` | RNT-218#3 | Medium | 📦 park | — | ✓ | build:deps script inconsistent across AI-LLM, Identity, and CRM |  [triage] park: real but no foreseeable shoot |
@@ -373,7 +373,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-212 | `@rntme/event-store` | RNT-204#7 | Low | 📦 park | — | skip | src/store/interface.ts + src/store/sqlite.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-213 | `@rntme/event-store` | RNT-204#8 | Low | 📦 park | — | skip | package.json + src/index.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-214 | `@rntme/event-store` | RNT-204#9 | Low | 📦 park | — | skip | README §Out of scope | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-215 | `@rntme/graph-ir-compiler` | RNT-205#1 | High | ✅ closed | W7 | ✓ | packages/graph-ir-compiler/src no longer has direct `throw new Error` / `Object.assign(new Error...)` hits per FINISH evidence | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-277 / PR #68 / merge `b634c2606a24fe887a273c151ccbeb329828b0dc` |
+| U-215 | `@rntme/graph-ir-compiler` | RNT-205#1 | High | ✅ closed | W7 | ✓ | packages/artifacts/graph-ir-compiler/src no longer has direct `throw new Error` / `Object.assign(new Error...)` hits per FINISH evidence | [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-277 / PR #68 / merge `b634c2606a24fe887a273c151ccbeb329828b0dc` |
 | U-216 | `@rntme/graph-ir-compiler` | RNT-205#2 | High | 📦 park | — | ✓ | Four top-level functions repeat parse→validate→normalize pipeline |  [triage] park: real but no foreseeable shoot |
 | U-218 | `@rntme/graph-ir-compiler` | RNT-205#4 | Medium | 📦 park | — | ✓ | command-runtime/compile.ts manually calls parsePdm/validatePdm/parseQsm/validateQsm |  [triage] park: real but no foreseeable shoot |
 | U-219 | `@rntme/graph-ir-compiler` | RNT-205#5 | Medium | 📦 park | — | ✓ | projection-compile.ts catch returns PROJ_ROLE_UNINFERRABLE for any lowering error |  [triage] park: real but no foreseeable shoot |
@@ -490,8 +490,8 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-331 | `@rntme/ui` | RNT-212#M7 | Medium | 📦 park | — | skip | isRefElement uses `'$ref' in el`; passes objects with both shapes | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-332 | `@rntme/ui` | RNT-212#M8 | Medium | 📦 park | — | skip | collectFragments uses `return` after CIRCULAR_REF, aborting collection | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-333 | `@rntme/ui` | RNT-212#M9 | Medium | 📦 park | — | skip | validate/index.ts implements :param matching but no test exercises it | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-334 | `@rntme/ui` | RNT-212#M10 | Medium | 📦 park | — | skip | packages/ui/tsconfig.json has composite: false | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-335 | `@rntme/ui` | RNT-212#M11 | Medium | 📦 park | — | skip | No eslint.config.mjs or .eslintrc in packages/ui/ | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-334 | `@rntme/ui` | RNT-212#M10 | Medium | 📦 park | — | skip | packages/artifacts/ui/tsconfig.json has composite: false | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-335 | `@rntme/ui` | RNT-212#M11 | Medium | 📦 park | — | skip | No eslint.config.mjs or .eslintrc in packages/artifacts/ui/ | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-336 | `@rntme/ui` | RNT-212#L1 | Low | 📦 park | — | skip | UiError.path is logical (e.g. screen:home/actions/submit), not file/offset | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-337 | `@rntme/ui` | RNT-212#L2 | Low | 📦 park | — | skip | CommandAction.onSuccess fields not validated against routes/bindings | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-338 | `@rntme/ui` | RNT-212#L3 | Low | 📦 park | — | skip | ResolvedSource.baseDir and ExpandedSource.baseDir carry FS path through | [verify] not in sample [triage] park: real but no foreseeable shoot |
@@ -512,15 +512,15 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 | U-353 | `@rntme/ui-runtime` | RNT-213#L4 | Low | 📦 park | — | ✓ | entry.tsx redirects unmatched paths to patterns[0] |  [triage] park: real but no foreseeable shoot |
 | U-354 | `@rntme/ui-runtime` | RNT-213#L5 | Low | 📦 park | — | ✓ | screen-loader.ts Map cache without TTL or version invalidation |  [triage] park: real but no foreseeable shoot |
 | U-355 | `@rntme/bindings-http` | discovered-during-U-031 | Medium | 📦 park | — | ✓ | lines 48-62 use `throw new Error(...)` for missing eventStore/commandExecutor/externalAdapterClient — violates Result<T> convention | [verify] discovered during verification of U-031 [triage] park: real but no foreseeable shoot |
-| U-356 | `@rntme-cli/cli` | discovered | Medium | 📦 park | — | ✓ | src/commands/init.ts:66-84 implements its own writeOk/writeErr like skills/install.ts. Both init and skills install commands skip runCommand from harness.ts. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
+| U-356 | `@rntme/cli` | discovered | Medium | 📦 park | — | ✓ | src/commands/init.ts:66-84 implements its own writeOk/writeErr like skills/install.ts. Both init and skills install commands skip runCommand from harness.ts. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-357 | `@rntme/db-studio` | discovered | Medium | 📦 park | — | ✓ | build-time tsconfig has "exclude": ["dist", "node_modules", "test"]; tsconfig.check.json includes test/**/*.ts(x). Confirms U-125 (in skip). | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
-| U-358 | `@rntme-cli/platform-http` | discovered | Medium | ✅ closed | W15 | ✓ | auth.test.ts and tx.test.ts now exist (U-128 partially obsolete) but cors.test.ts is still missing — and the regex-from-glob path in cors.ts (U-122) is the riskiest middleware to leave untested. | [verify] discovered during verification [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
+| U-358 | `@rntme/platform-http` | discovered | Medium | ✅ closed | W15 | ✓ | auth.test.ts and tx.test.ts now exist (U-128 partially obsolete) but cors.test.ts is still missing — and the regex-from-glob path in cors.ts (U-122) is the riskiest middleware to leave untested. | [verify] discovered during verification [triage] gun: loaded — security/corruption/error-contract gap [fix] RNT-282 / PR #84 / merge `65066779c19c69a80cb3c07f97e4a52bee8e68a6` |
 | U-359 | `@rntme/conformance-ai-llm` | discovered | Medium | 📦 park | — | ✓ | src/fixtures/media/index.ts fallback resolve(here, '../../../src/fixtures/media', filename) was claimed dead. Verified via node path.resolve: from dist/fixtures/media/ the fallback resolves to <pkg>/src/fixtures/media/<filename> which exists. Audit RNT-218#6 finding is incorrect; the path executes post-build (when tsc has not copied .png/.mp3/.pdf into dist/) and points to the real source fixtures. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-360 | `@rntme/conformance-ai-llm` | discovered | Medium | 📦 park | — | ✓ | modules/ai-llm/conformance/package.json test:watch = 'pnpm run build:deps && vitest'. Identity's test:watch = 'vitest' (no build:deps). CRM has no build:deps at all. AI-LLM forces a full contracts rebuild on every watch invocation. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-361 | `@rntme/conformance-ai-llm` | discovered | Medium | 📦 park | — | ✓ | src/fixtures/content-blocks.ts imports { proto } from '@rntme/contracts-ai-llm-v1' and references proto.rntme.contracts.ai_llm.v1.ContentBlockType.CONTENT_BLOCK_TYPE_TEXT etc. This couples fixtures at runtime to the generated proto package; raw literal block-type strings would be plan-aligned and decoupled. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-362 | `@rntme/contracts-common-v1` | discovered | Medium | 📦 park | — | ✓ | src/index.ts (2 lines) only does `export * as proto from './proto.gen.js'` and `export type { rntme as Rntme }`. No named CanonicalRef/CommandContext/Name/ListRequest exports — this is the same shape as U-173 (Low, in skip). Adjacent severe finding: error-codes.json is `{}` (3 bytes) — empty placeholder, no actual codes registered, which combines with U-174 (no error-codes.ts) to mean the package has zero error-code surface despite the contracts pattern. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
-| U-363 | `@rntme/event-store` | discovered | Medium | 📦 park | — | ✓ | packages/event-store/src/store/schema.ts line 12 declares `actor_kind TEXT` with no CHECK constraint. Validation lives at read time in row-mapper.ts:51-58 (toActorKind throws EVENT_STORE_ROW_INVALID_ACTORKIND on bad value). This means a corrupted/manual write (e.g. via getDbHandle, db-studio, or a future schema migration) can persist arbitrary actor_kind strings; corruption surfaces only when that row is read, not at insert. A CHECK(actor_kind IN ('user','system','service') OR actor_kind IS NULL) constraint would mirror the row-mapper invariant and fail-fast at write. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
-| U-364 | `@rntme/graph-ir-compiler` | discovered | Medium | 📦 park | — | ✓ | /home/coder/project/packages/graph-ir-compiler/src/projection-compile.ts | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
+| U-363 | `@rntme/event-store` | discovered | Medium | 📦 park | — | ✓ | packages/runtime/event-store/src/store/schema.ts line 12 declares `actor_kind TEXT` with no CHECK constraint. Validation lives at read time in row-mapper.ts:51-58 (toActorKind throws EVENT_STORE_ROW_INVALID_ACTORKIND on bad value). This means a corrupted/manual write (e.g. via getDbHandle, db-studio, or a future schema migration) can persist arbitrary actor_kind strings; corruption surfaces only when that row is read, not at insert. A CHECK(actor_kind IN ('user','system','service') OR actor_kind IS NULL) constraint would mirror the row-mapper invariant and fail-fast at write. | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
+| U-364 | `@rntme/graph-ir-compiler` | discovered | Medium | 📦 park | — | ✓ | /home/coder/project/packages/artifacts/graph-ir-compiler/src/projection-compile.ts | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-365 | `@rntme/module-skeleton` | discovered | Medium | 📦 park | — | ✓ |  | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 | U-366 | `@rntme/projection-consumer` | discovered | Medium | 📦 park | — | ✓ |  | [verify] discovered during verification [triage] park: real but no foreseeable shoot |
 
@@ -528,49 +528,49 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ## Lens C — Per-package index (auditor view)
 
-### `@rntme-cli/cli` — total findings: 12
+### `@rntme/cli` — total findings: 12
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-063, U-064, U-065, U-066, U-068, U-069, U-070, U-356
 - → REJECTED: U-060, U-061, U-062, U-067
 
-### `@rntme-cli/deploy-core` — total findings: 7
+### `@rntme/deploy-core` — total findings: 7
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-071, U-072, U-073, U-074, U-075, U-076, U-077
 - → REJECTED:
 
-### `@rntme-cli/deploy-dokploy` — total findings: 13
+### `@rntme/deploy-dokploy` — total findings: 13
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-078, U-079, U-080, U-081, U-083, U-084, U-086, U-088, U-089, U-090
 - → REJECTED: U-082, U-085
 
-### `@rntme-cli/landing` — total findings: 10
+### `@rntme/landing` — total findings: 10
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-091, U-092, U-093, U-094, U-095, U-096, U-097, U-098, U-099, U-100
 - → REJECTED:
 
-### `@rntme-cli/platform-core` — total findings: 10
+### `@rntme/platform-core` — total findings: 10
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-102, U-103, U-104, U-106, U-107, U-108, U-109, U-110
 - → REJECTED: U-101, U-105
 
-### `@rntme-cli/platform-http` — total findings: 21
+### `@rntme/platform-http` — total findings: 21
 
 - → DEV:
 - → DECIDE:
 - → PARK: U-111, U-112, U-114, U-115, U-116, U-117, U-118, U-119, U-120, U-121, U-124, U-125, U-126, U-127, U-128, U-129, U-130
 - → REJECTED:
 
-### `@rntme-cli/platform-storage` — total findings: 11
+### `@rntme/platform-storage` — total findings: 11
 
 - → DEV:
 - → DECIDE:
@@ -797,23 +797,23 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-048 — Malformed service.json silently ignored at load — `@rntme/blueprint`
 - U-049 — Hardcoded scalar registry in binding-resolvers.ts — `@rntme/blueprint`
 - U-050 — Stub resolvers in compileServiceUi bypass UI validation — `@rntme/blueprint`
-- U-078 — resourceMatches uses JSON.stringify for complex object comparison — `@rntme-cli/deploy-dokploy`
-- U-079 — No rollback/cleanup mechanism on partial apply failure — `@rntme-cli/deploy-dokploy`
-- U-080 — DokployClient tightly coupled to RenderedDokployResource — `@rntme-cli/deploy-dokploy`
-- U-081 — Sequential resource apply with no concurrency control — `@rntme-cli/deploy-dokploy`
-- U-091 — data-section-num / id collisions between live and dead components — `@rntme-cli/landing`
-- U-092 — Section metadata scattered across ~15 files — `@rntme-cli/landing`
-- U-093 — Test coverage critically thin — `@rntme-cli/landing`
-- U-102 — archiveOrgCascade missing unit tests inside package — `@rntme-cli/platform-core`
-- U-103 — fast-check declared but unused in devDependencies — `@rntme-cli/platform-core`
-- U-111 — God object createApp mixes responsibilities — `@rntme-cli/platform-http`
-- U-112 — Deploy executor runs inside HTTP process — `@rntme-cli/platform-http`
-- U-114 — errorHandler does not log unhandled errors — `@rntme-cli/platform-http`
-- U-115 — Unused dependency @hono/zod-openapi — `@rntme-cli/platform-http`
-- U-116 — Dokploy client leaked into platform-http — `@rntme-cli/platform-http`
-- U-117 — bodyLimit middleware buffers stream and rebuilds Request — `@rntme-cli/platform-http`
-- U-131 — Duplicated transaction/helpers across repo files — `@rntme-cli/platform-storage`
-- U-132 — Transaction / Result semantics mismatch (no rollback on Result.error) — `@rntme-cli/platform-storage`
+- U-078 — resourceMatches uses JSON.stringify for complex object comparison — `@rntme/deploy-dokploy`
+- U-079 — No rollback/cleanup mechanism on partial apply failure — `@rntme/deploy-dokploy`
+- U-080 — DokployClient tightly coupled to RenderedDokployResource — `@rntme/deploy-dokploy`
+- U-081 — Sequential resource apply with no concurrency control — `@rntme/deploy-dokploy`
+- U-091 — data-section-num / id collisions between live and dead components — `@rntme/landing`
+- U-092 — Section metadata scattered across ~15 files — `@rntme/landing`
+- U-093 — Test coverage critically thin — `@rntme/landing`
+- U-102 — archiveOrgCascade missing unit tests inside package — `@rntme/platform-core`
+- U-103 — fast-check declared but unused in devDependencies — `@rntme/platform-core`
+- U-111 — God object createApp mixes responsibilities — `@rntme/platform-http`
+- U-112 — Deploy executor runs inside HTTP process — `@rntme/platform-http`
+- U-114 — errorHandler does not log unhandled errors — `@rntme/platform-http`
+- U-115 — Unused dependency @hono/zod-openapi — `@rntme/platform-http`
+- U-116 — Dokploy client leaked into platform-http — `@rntme/platform-http`
+- U-117 — bodyLimit middleware buffers stream and rebuilds Request — `@rntme/platform-http`
+- U-131 — Duplicated transaction/helpers across repo files — `@rntme/platform-storage`
+- U-132 — Transaction / Result semantics mismatch (no rollback on Result.error) — `@rntme/platform-storage`
 - U-142 — Cross-category conformance interface divergence — `@rntme/conformance-ai-llm`
 - U-149 — CategoryConformanceSuite/Scenario type schema diverges from identity and ai-llm conformance — `@rntme/conformance-crm`
 - U-150 — Missing build:deps script breaks CI on fresh clones — `@rntme/conformance-crm`
@@ -887,31 +887,31 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-057 — Layer type does not cover all used error codes — `@rntme/blueprint`
 - U-058 — ServiceDescriptorSchema does not validate slug — `@rntme/blueprint`
 - U-059 — No runtime versioning of ServiceGraphSpec — `@rntme/blueprint`
-- U-068 — init silently ignores --org and --project flags — `@rntme-cli/cli`
-- U-069 — Cursor adapter throws instead of returning Result — `@rntme-cli/cli`
-- U-070 — No validate command in dispatcher despite user expectations — `@rntme-cli/cli`
-- U-074 — Redundant guard in plan.ts errors check — `@rntme-cli/deploy-core`
-- U-075 — DeploymentPlanError lacks per-code type safety — `@rntme-cli/deploy-core`
-- U-076 — passWithNoTests enabled in vitest.config.ts — `@rntme-cli/deploy-core`
-- U-077 — No runtime validation of input data to plan builder — `@rntme-cli/deploy-core`
-- U-088 — README references nonexistent spec file — `@rntme-cli/deploy-dokploy`
-- U-089 — Package version stuck at 0.0.0 prevents semver tracking — `@rntme-cli/deploy-dokploy`
-- U-090 — No integration tests against real Dokploy client factory — `@rntme-cli/deploy-dokploy`
-- U-097 — Missing automated accessibility check — `@rntme-cli/landing`
-- U-098 — Missing sitemap and structured data — `@rntme-cli/landing`
-- U-099 — .impeccable.md references missing SHAPE-BRIEF.md — `@rntme-cli/landing`
-- U-100 — package.json version 0.0.0 is meaningless — `@rntme-cli/landing`
-- U-108 — README links to spec documents not present in repository — `@rntme-cli/platform-core`
-- U-109 — BlobStore in domain package contains presignedGet infra detail — `@rntme-cli/platform-core`
-- U-110 — ./testing subpath exports only fakes.ts — `@rntme-cli/platform-core`
-- U-126 — index.ts exposes effectively empty public API — `@rntme-cli/platform-http`
-- U-127 — E2E tests silently skip without Docker — `@rntme-cli/platform-http`
-- U-128 — Critical middleware lack unit tests — `@rntme-cli/platform-http`
-- U-129 — Hardcoded version and deploy mode — `@rntme-cli/platform-http`
-- U-130 — workos-client.ts uses unsafe type cast hack — `@rntme-cli/platform-http`
-- U-139 — Missing dedicated tests for PgProjectVersionRepo and PgAuditRepo — `@rntme-cli/platform-storage`
-- U-140 — resetSchema in test harness hardcodes table list — `@rntme-cli/platform-storage`
-- U-141 — platform-storage publicly exports Drizzle schemas (ORM coupling) — `@rntme-cli/platform-storage`
+- U-068 — init silently ignores --org and --project flags — `@rntme/cli`
+- U-069 — Cursor adapter throws instead of returning Result — `@rntme/cli`
+- U-070 — No validate command in dispatcher despite user expectations — `@rntme/cli`
+- U-074 — Redundant guard in plan.ts errors check — `@rntme/deploy-core`
+- U-075 — DeploymentPlanError lacks per-code type safety — `@rntme/deploy-core`
+- U-076 — passWithNoTests enabled in vitest.config.ts — `@rntme/deploy-core`
+- U-077 — No runtime validation of input data to plan builder — `@rntme/deploy-core`
+- U-088 — README references nonexistent spec file — `@rntme/deploy-dokploy`
+- U-089 — Package version stuck at 0.0.0 prevents semver tracking — `@rntme/deploy-dokploy`
+- U-090 — No integration tests against real Dokploy client factory — `@rntme/deploy-dokploy`
+- U-097 — Missing automated accessibility check — `@rntme/landing`
+- U-098 — Missing sitemap and structured data — `@rntme/landing`
+- U-099 — .impeccable.md references missing SHAPE-BRIEF.md — `@rntme/landing`
+- U-100 — package.json version 0.0.0 is meaningless — `@rntme/landing`
+- U-108 — README links to spec documents not present in repository — `@rntme/platform-core`
+- U-109 — BlobStore in domain package contains presignedGet infra detail — `@rntme/platform-core`
+- U-110 — ./testing subpath exports only fakes.ts — `@rntme/platform-core`
+- U-126 — index.ts exposes effectively empty public API — `@rntme/platform-http`
+- U-127 — E2E tests silently skip without Docker — `@rntme/platform-http`
+- U-128 — Critical middleware lack unit tests — `@rntme/platform-http`
+- U-129 — Hardcoded version and deploy mode — `@rntme/platform-http`
+- U-130 — workos-client.ts uses unsafe type cast hack — `@rntme/platform-http`
+- U-139 — Missing dedicated tests for PgProjectVersionRepo and PgAuditRepo — `@rntme/platform-storage`
+- U-140 — resetSchema in test harness hardcodes table list — `@rntme/platform-storage`
+- U-141 — platform-storage publicly exports Drizzle schemas (ORM coupling) — `@rntme/platform-storage`
 - U-146 — test:watch runs build:deps unnecessarily — `@rntme/conformance-ai-llm`
 - U-147 — Dead fallback path in resolution logic — `@rntme/conformance-ai-llm`
 - U-148 — Fixture runtime coupling to contract package — `@rntme/conformance-ai-llm`
@@ -994,32 +994,32 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-054 — GraphJson.nodes lacks structural typing — `@rntme/blueprint`
 - U-055 — validate/index.ts barrel inconsistent with public API — `@rntme/blueprint`
 - U-056 — Insufficient test coverage for critical edge cases — `@rntme/blueprint`
-- U-063 — skills install bypasses harness pattern — `@rntme-cli/cli`
-- U-064 — Version pinned to 0.0.0 in package.json and client — `@rntme-cli/cli`
-- U-065 — Insufficient test coverage across commands — `@rntme-cli/cli`
-- U-066 — postbuild script uses fragile relative paths — `@rntme-cli/cli`
-- U-071 — Code duplication in edge.ts middleware dispatch — `@rntme-cli/deploy-core`
-- U-072 — Dead zod dependency in package.json — `@rntme-cli/deploy-core`
-- U-073 — Insufficient unit test coverage for middleware kinds and edge cases — `@rntme-cli/deploy-core`
-- U-083 — No validation of publicBaseUrl and endpoint in DokployTargetConfig — `@rntme-cli/deploy-dokploy`
-- U-084 — Result helpers re-exported from local copy duplicates deploy-core — `@rntme-cli/deploy-dokploy`
-- U-086 — assertNever in render.ts throws plain Error breaking Result contract — `@rntme-cli/deploy-dokploy`
-- U-094 — loadEnv() called at module level in 6+ components — `@rntme-cli/landing`
-- U-095 — Dead code in src/components/ — `@rntme-cli/landing`
-- U-096 — CONTENT.md is a manual copy of components — `@rntme-cli/landing`
-- U-104 — MembershipMirrorSchema role uses raw string instead of RoleSchema — `@rntme-cli/platform-core`
-- U-106 — Version 0.0.0 with no change-management mechanism — `@rntme-cli/platform-core`
-- U-107 — No coverage configuration in vitest — `@rntme-cli/platform-core`
-- U-118 — Auth providers created twice for API and UI — `@rntme-cli/platform-http`
-- U-119 — withOrgTx duplicated between prod and tests — `@rntme-cli/platform-http`
-- U-120 — Inconsistent poolRepos types in AppDeps vs UiDeps — `@rntme-cli/platform-http`
-- U-121 — ops ready-check breaks on some WorkOS plans — `@rntme-cli/platform-http`
-- U-124 — UI routes lack query/path param validation — `@rntme-cli/platform-http`
-- U-125 — tsconfig vs tsconfig.check inconsistent on tests — `@rntme-cli/platform-http`
-- U-133 — Inconsistent choice of Drizzle vs raw SQL across repos — `@rntme-cli/platform-storage`
-- U-134 — RLS test coverage gap for identity repositories — `@rntme-cli/platform-storage`
-- U-135 — Schema drift between drizzle migration and runtime policies.sql — `@rntme-cli/platform-storage`
-- U-136 — S3BlobStore uses single error code for all operations — `@rntme-cli/platform-storage`
+- U-063 — skills install bypasses harness pattern — `@rntme/cli`
+- U-064 — Version pinned to 0.0.0 in package.json and client — `@rntme/cli`
+- U-065 — Insufficient test coverage across commands — `@rntme/cli`
+- U-066 — postbuild script uses fragile relative paths — `@rntme/cli`
+- U-071 — Code duplication in edge.ts middleware dispatch — `@rntme/deploy-core`
+- U-072 — Dead zod dependency in package.json — `@rntme/deploy-core`
+- U-073 — Insufficient unit test coverage for middleware kinds and edge cases — `@rntme/deploy-core`
+- U-083 — No validation of publicBaseUrl and endpoint in DokployTargetConfig — `@rntme/deploy-dokploy`
+- U-084 — Result helpers re-exported from local copy duplicates deploy-core — `@rntme/deploy-dokploy`
+- U-086 — assertNever in render.ts throws plain Error breaking Result contract — `@rntme/deploy-dokploy`
+- U-094 — loadEnv() called at module level in 6+ components — `@rntme/landing`
+- U-095 — Dead code in src/components/ — `@rntme/landing`
+- U-096 — CONTENT.md is a manual copy of components — `@rntme/landing`
+- U-104 — MembershipMirrorSchema role uses raw string instead of RoleSchema — `@rntme/platform-core`
+- U-106 — Version 0.0.0 with no change-management mechanism — `@rntme/platform-core`
+- U-107 — No coverage configuration in vitest — `@rntme/platform-core`
+- U-118 — Auth providers created twice for API and UI — `@rntme/platform-http`
+- U-119 — withOrgTx duplicated between prod and tests — `@rntme/platform-http`
+- U-120 — Inconsistent poolRepos types in AppDeps vs UiDeps — `@rntme/platform-http`
+- U-121 — ops ready-check breaks on some WorkOS plans — `@rntme/platform-http`
+- U-124 — UI routes lack query/path param validation — `@rntme/platform-http`
+- U-125 — tsconfig vs tsconfig.check inconsistent on tests — `@rntme/platform-http`
+- U-133 — Inconsistent choice of Drizzle vs raw SQL across repos — `@rntme/platform-storage`
+- U-134 — RLS test coverage gap for identity repositories — `@rntme/platform-storage`
+- U-135 — Schema drift between drizzle migration and runtime policies.sql — `@rntme/platform-storage`
+- U-136 — S3BlobStore uses single error code for all operations — `@rntme/platform-storage`
 - U-143 — Type duplication across conformance categories — `@rntme/conformance-ai-llm`
 - U-144 — build:deps script inconsistency across conformance packages — `@rntme/conformance-ai-llm`
 - U-145 — Missing per-RPC assertion registry — `@rntme/conformance-ai-llm`
@@ -1091,7 +1091,7 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-348 — driver.ts exported but entry.tsx does not use it — `@rntme/ui-runtime`
 - U-349 — globalThis.alert used for error reporting in production — `@rntme/ui-runtime`
 - U-355 — createBindingsRouter throws raw Error instead of Result<T> — `@rntme/bindings-http`
-- U-356 — runInit also bypasses harness pattern (sibling of U-063) — `@rntme-cli/cli`
+- U-356 — runInit also bypasses harness pattern (sibling of U-063) — `@rntme/cli`
 - U-357 — tsconfig.json excludes test/ but tsconfig.check.json includes it — `@rntme/db-studio`
 - U-359 — U-147 fallback path is functional, not dead — `@rntme/conformance-ai-llm`
 - U-360 — U-146 confirmed: test:watch chains build:deps in ai-llm only — `@rntme/conformance-ai-llm`
@@ -1110,14 +1110,14 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 False positives, outdated findings, and merged duplicates.
 
 - U-001 — `monorepo` — RNT-230#B1 — [verify-systemic] submodule populated at 01c7c1a as of 2026-04-28
-- U-060 — `@rntme-cli/cli` — RNT-224#1 —
-- U-061 — `@rntme-cli/cli` — RNT-224#2 —
-- U-062 — `@rntme-cli/cli` — RNT-224#3 —
-- U-067 — `@rntme-cli/cli` — RNT-224#8 —
-- U-082 — `@rntme-cli/deploy-dokploy` — RNT-226#5 —
-- U-085 — `@rntme-cli/deploy-dokploy` — RNT-226#8 —
-- U-101 — `@rntme-cli/platform-core` — RNT-227#1 —
-- U-105 — `@rntme-cli/platform-core` — RNT-227#5 —
+- U-060 — `@rntme/cli` — RNT-224#1 —
+- U-061 — `@rntme/cli` — RNT-224#2 —
+- U-062 — `@rntme/cli` — RNT-224#3 —
+- U-067 — `@rntme/cli` — RNT-224#8 —
+- U-082 — `@rntme/deploy-dokploy` — RNT-226#5 —
+- U-085 — `@rntme/deploy-dokploy` — RNT-226#8 —
+- U-101 — `@rntme/platform-core` — RNT-227#1 —
+- U-105 — `@rntme/platform-core` — RNT-227#5 —
 - U-217 — `@rntme/graph-ir-compiler` — RNT-205#3 —
 - U-310 — `@rntme/seed` — RNT-211#6 —
 

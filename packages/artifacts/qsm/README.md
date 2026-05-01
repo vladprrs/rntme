@@ -246,7 +246,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 - "Add a resolver method (e.g. group relations by source projection)" → `src/resolvers/qsm-resolver.ts`; extend `QsmResolver` in `src/types/resolvers.ts`; tests in `test/unit/resolvers.test.ts`.
 - "Update a Zod-level schema rule" → `src/parse/schema.ts`; failing shape produces a `QSM_PARSE_SCHEMA_VIOLATION`; tests in `test/unit/parse.test.ts`.
 - "Investigate an entity-mirror duplicate or missing-state-machine error" → `validate/cross-ref.ts` (`mirrorsByEntity`, `entity-mirror` block); fixtures in `test/fixtures/issue-tracker.{pdm,qsm}.json`.
-- "Trace how a relation flows through compilation" → start at `createQsmResolver` (`src/resolvers/qsm-resolver.ts`), then read consumer code in `packages/graph-ir-compiler/src/lower/sqlite/joins.ts` (relations spec §3).
+- "Trace how a relation flows through compilation" → start at `createQsmResolver` (`src/resolvers/qsm-resolver.ts`), then read consumer code in `packages/artifacts/graph-ir-compiler/src/lower/sqlite/joins.ts` (relations spec §3).
 - "End-to-end smoke" → `test/smoke.test.ts` parses → validates → derives DDL + handlers against the issue-tracker fixtures.
 - "Reproduce a relation B2 mismatch" → `test/unit/validate/relations-crossref.test.ts` covers each `QSM_XREF_RELATION_*` code (TO / LOCAL_KEY / FOREIGN_KEY / CARDINALITY mismatch, foreign-key-not-a-key, unknown source/target projection).
 - "Reproduce a relation key-shape rejection" → `test/unit/validate/relations-structural.test.ts` covers `QSM_RELATION_KEY_MALFORMED`, `QSM_RELATION_TO_MISSING`, `QSM_RELATION_KEY_MISSING`.

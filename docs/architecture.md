@@ -132,7 +132,7 @@ C4Context
 
 **Why only one storage actor.** rntme treats storage as a per-service concern. The `DbDriver` plugin seam (see §3) lets the same runtime run against `BetterSqlite`, an in-memory driver for tests, or Turso without changing any artifact.
 
-**Why the platform is external.** The commercial platform owns registry, deploy, governance, SSO, and organization control-plane concerns. `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy` consume validated/composed project models, but they are not in the service-runtime boot path. Platform deploy state lives in Postgres: encrypted deploy targets, queued deployment records, append-only deployment logs, rendered plan digests, apply results, and smoke-verification reports.
+**Why the platform is external.** The commercial platform owns registry, deploy, governance, SSO, and organization control-plane concerns. `@rntme/deploy-core` and `@rntme/deploy-dokploy` consume validated/composed project models, but they are not in the service-runtime boot path. Platform deploy state lives in Postgres: encrypted deploy targets, queued deployment records, append-only deployment logs, rendered plan digests, apply results, and smoke-verification reports.
 
 ## 3. L2 — Containers
 
@@ -178,8 +178,8 @@ flowchart TB
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
     MS["@rntme/module-skeleton"]:::pkg
-    DC["@rntme-cli/deploy-core"]:::pkg
-    DD["@rntme-cli/deploy-dokploy"]:::pkg
+    DC["@rntme/deploy-core"]:::pkg
+    DD["@rntme/deploy-dokploy"]:::pkg
     DEMO["demo/issue-tracker-api"]:::demo
 
     BP --> PDM & QSM
@@ -197,23 +197,23 @@ flowchart TB
     DEMO --> RT
 ```
 
-**Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme-cli/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models. The demo is a deprecated historical single-service consumer of `@rntme/runtime`.
+**Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models. The demo is a deprecated historical single-service consumer of `@rntme/runtime`.
 
 ### 3.3 Platform deploy flow
 
 The platform HTTP service exposes deploy-target and deployment REST routes plus matching server-rendered UI screens. Deploy targets hold Dokploy endpoint/project metadata, event-bus configuration, policy values, default-target selection, and an encrypted Dokploy API token. Starting a deployment resolves a project version and target, creates a queued deployment record, then schedules the executor.
 
-The executor fetches the immutable project-version bundle from S3-compatible storage, materializes and revalidates it with `@rntme/blueprint`, builds a target-neutral plan with `@rntme-cli/deploy-core`, renders/applies a redacted Dokploy plan with `@rntme-cli/deploy-dokploy`, appends sanitized logs, records apply results and the rendered digest, runs smoke verification, and finalizes the deployment as succeeded, warning, failed, or orphaned. This keeps deploy orchestration in the commercial control plane while the open runtime remains focused on serving validated projects.
+The executor fetches the immutable project-version bundle from S3-compatible storage, materializes and revalidates it with `@rntme/blueprint`, builds a target-neutral plan with `@rntme/deploy-core`, renders/applies a redacted Dokploy plan with `@rntme/deploy-dokploy`, appends sanitized logs, records apply results and the rendered digest, runs smoke verification, and finalizes the deployment as succeeded, warning, failed, or orphaned. This keeps deploy orchestration in the commercial control plane while the open runtime remains focused on serving validated projects.
 
 ### 3.4 Plugin seams — extension without editing artifacts
 
-Three interfaces live in `packages/runtime/src/plugins/`:
+Three interfaces live in `packages/runtime/runtime/src/plugins/`:
 
 - **`DbDriver`** — storage adapter. Default: `BetterSqliteDriver`. Alternate: in-memory for tests, future Turso driver.
 - **`EventBus`** — message transport. Default: `InMemoryBus`. Alternate: Kafka / NATS via a custom implementation.
 - **`Surface`** — HTTP (or equivalent) entry point. Default: `HttpSurface` (Hono-based). Alternate: any surface that can route bindings.
 
-The manifest (`manifest.json`) selects defaults; a caller passing a custom implementation replaces one seam without editing any other artifact. See `packages/runtime/README.md` for the exact interface shapes.
+The manifest (`manifest.json`) selects defaults; a caller passing a custom implementation replaces one seam without editing any other artifact. See `packages/runtime/runtime/README.md` for the exact interface shapes.
 
 ### 3.5 Boot & seed lifecycle (sequence #3)
 
@@ -923,7 +923,7 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 **Spec.** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md` (design landed; package scaffold in progress).
 
-**Status (2026-04-18).** Only `packages/db-studio/test/` is present; `src/`, `package.json`, and `README.md` are not yet tracked. The runtime manifest carries a `studio: { enabled: false, mountPath: '/_studio', maxRows: 10000 }` block; `http-surface.ts` will mount the sub-router when enabled. This subsection describes intent; refer to the spec for the authoritative shape until the package lands.
+**Status (2026-04-18).** Only `packages/runtime/db-studio/test/` is present; `src/`, `package.json`, and `README.md` are not yet tracked. The runtime manifest carries a `studio: { enabled: false, mountPath: '/_studio', maxRows: 10000 }` block; `http-surface.ts` will mount the sub-router when enabled. This subsection describes intent; refer to the spec for the authoritative shape until the package lands.
 
 **Planned safety.** Three layers of read-only guard: a second SQLite file handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with a PRAGMA allow-list, and a server-side row cap (default 10,000) wrapping every result.
 
@@ -933,7 +933,7 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 **Spec.** `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md` (landed): manifest schema, plugin-seam registration, Docker entry, boot order.
 
-**Plugin seams** (see also §3.3) live in `packages/runtime/src/plugins/interfaces.ts` and are implemented by default in:
+**Plugin seams** (see also §3.3) live in `packages/runtime/runtime/src/plugins/interfaces.ts` and are implemented by default in:
 
 - `plugins/better-sqlite-driver.ts` — `BetterSqliteDriver` (default `DbDriver`; reads `eventStorePath` and `qsmPath` from the manifest, falls back to ephemeral `:memory:` in dev).
 - `plugins/in-memory-bus.ts` — `InMemoryBus` (default `EventBus`; in-process Kafka emulation for tests and single-node deploys).
@@ -960,7 +960,7 @@ Runtime intake is intentionally still deferred: `@rntme/runtime` boots one servi
 
 ### 4.12 CLI-side deployment packages
 
-`@rntme-cli/deploy-core` turns a validated/composed project model into a target-neutral, redacted deployment plan. `@rntme-cli/deploy-dokploy` renders and applies that plan against Dokploy. Both packages live in the `rntme-cli/` submodule and are not runtime dependencies.
+`@rntme/deploy-core` turns a validated/composed project model into a target-neutral, redacted deployment plan. `@rntme/deploy-dokploy` renders and applies that plan against Dokploy. Both packages live under `packages/deploy/` and are not runtime dependencies.
 
 ## 5. L4 — Code
 
@@ -1003,7 +1003,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Result<T>` — success / error discriminator
 
-- **Package / module:** `packages/pdm/src/types/result.ts` (and per-package copies in `qsm`, `bindings`, `event-store`, `graph-ir-compiler`, `projection-consumer`, `ui`, `seed`, `runtime`).
+- **Package / module:** `packages/artifacts/pdm/src/types/result.ts` (and per-package copies in `qsm`, `bindings`, `event-store`, `graph-ir-compiler`, `projection-consumer`, `ui`, `seed`, `runtime`).
 - **Purpose:** Make success / failure a first-class value across every package boundary; remove the need for exception handling at public APIs.
 - **Contract:** `type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E }`. Constructors `ok(value)` and `err(error)`; discriminators `isOk` and `isErr`.
 - **Constructed by:** Any function whose public return can fail at a package boundary. Prohibited constructors inside `try/catch` that translate a native throw must still land on `err(...)` before exiting the package.
@@ -1033,7 +1033,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `ERROR_CODES` registry — stable machine-readable identifiers
 
-- **Package / module:** each owner's `types/result.ts` (for example `packages/pdm/src/types/result.ts`, `packages/bindings/src/types/result.ts`).
+- **Package / module:** each owner's `types/result.ts` (for example `packages/artifacts/pdm/src/types/result.ts`, `packages/artifacts/bindings/src/types/result.ts`).
 - **Purpose:** Give every validation / runtime failure a stable, documented identifier callers can match on.
 - **Contract:** Frozen object `ERROR_CODES` exporting keys of shape `<PKG>_<LAYER>_<KIND>` (for example `PDM_SM_UNREACHABLE_STATE`, `QSM_XREF_ENTITY_MIRROR_DUPLICATE`, `BINDINGS_CONS_MODE_MISMATCH`). The type `PdmErrorCode` / `QsmErrorCode` / `BindingsErrorCode` is a union of the values.
 - **Constructed by:** Never at call sites — codes are referenced by name only.
@@ -1055,7 +1055,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Entity, Field, Relation (PDM)
 
-- **Package / module:** `packages/pdm/src/types/artifact.ts` + `parse/schema.ts`.
+- **Package / module:** `packages/artifacts/pdm/src/types/artifact.ts` + `parse/schema.ts`.
 - **Purpose:** The PDM artifact's three core nouns — entities (tables), their fields (columns), and relations (foreign-key-like associations between entities).
 - **Contract:** `Entity = { name, fields: Field[], keys: string[], stateField?, relations?: Relation[] }`; `Field = { name, type, nullable, column, generated? }`; `Relation = { name, to, localKey, foreignKey, cardinality }`.
 - **Constructed by:** Zod parse in `parse/schema.ts` emits the shape; structural and state-machine validators promote it to `ValidatedPdm`.
@@ -1065,7 +1065,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `StateMachine` + `Transition`
 
-- **Package / module:** `packages/pdm/src/types/artifact.ts` + `validate/state-machine.ts`.
+- **Package / module:** `packages/artifacts/pdm/src/types/artifact.ts` + `validate/state-machine.ts`.
 - **Purpose:** Encode per-entity finite-state machines that drive event-sourced mutations; the validator enforces reachability and declared effects.
 - **Contract:** `StateMachine = { stateField, states: string[], initial: null, transitions: Transition[] }`; `Transition = { name, from, to, affects: string[], payload?, ... }`.
 - **Constructed by:** `validate/state-machine.ts` after `validate/structural.ts`.
@@ -1075,7 +1075,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Projection` + `Backing`
 
-- **Package / module:** `packages/qsm/src/types/artifact.ts` + `validate/structural.ts` + `validate/cross-ref.ts`.
+- **Package / module:** `packages/artifacts/qsm/src/types/artifact.ts` + `validate/structural.ts` + `validate/cross-ref.ts`.
 - **Purpose:** Declare a read-side materialized table backed by a PDM entity (`entity-mirror`) or by a future graph IR (`derived`, MVP-gated).
 - **Contract:** `Projection = { backing, source, keys, grain, exposed, table }`; `ProjectionBacking = 'entity-mirror' | 'derived'`.
 - **Constructed by:** QSM cross-ref validator promotes `StructurallyValidQsm` to `ValidatedQsm` only if each projection passes its backing-specific rules.
@@ -1085,7 +1085,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `RelationMetadata` (post-2026-04-16)
 
-- **Package / module:** `packages/qsm/src/types/artifact.ts` + `validate/cross-ref.ts`.
+- **Package / module:** `packages/artifacts/qsm/src/types/artifact.ts` + `validate/cross-ref.ts`.
 - **Purpose:** Read-side relation graph used by the Graph-IR compiler to emit JOINs. Owned by QSM (not PDM) as of 2026-04-16.
 - **Contract:** `{ "<ProjectionName>.<relationName>": { to, localKey, foreignKey, cardinality, role? } }`.
 - **Constructed by:** QSM cross-ref validator after B2 parity check against PDM.
@@ -1095,7 +1095,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Graph IR `Operator` + `SemanticPlan`
 
-- **Package / module:** `packages/graph-ir-compiler/src/types/authoring.ts` + `semantic-plan/build.ts`.
+- **Package / module:** `packages/artifacts/graph-ir-compiler/src/types/authoring.ts` + `semantic-plan/build.ts`.
 - **Purpose:** Canonical rc7 rowset operators (`findMany`, `filter`, `map`, `reduce`, `sort`, `limit`, `emit`) and the typed `PlanStep[]` that carries them through the compiler.
 - **Contract:** Operators are a discriminated union; `SemanticPlan = { steps: PlanStep[] }`.
 - **Constructed by:** Produced by `buildSemanticPlan(canonicalGraph, pdm, qsm)` after structural + semantic validation.
@@ -1105,7 +1105,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `EventTypeSpec` — derived event shape
 
-- **Package / module:** `packages/pdm/src/derive/event-types.ts` + `packages/pdm/src/types/artifact.ts`.
+- **Package / module:** `packages/artifacts/pdm/src/derive/event-types.ts` + `packages/artifacts/pdm/src/types/artifact.ts`.
 - **Purpose:** One spec per PDM state-machine transition. Drives downstream shape of envelopes, projection handlers, and OpenAPI command shapes.
 - **Contract:** `{ aggregate, transition, eventType, affects, payload, isCreation, isSelfLoop, fromStates, toState }`.
 - **Constructed by:** `deriveEventTypes(ValidatedPdm)` at boot.
@@ -1117,7 +1117,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Envelope` / CloudEvents 1.0 shape
 
-- **Package / module:** `packages/event-store/src/types/envelope.ts`.
+- **Package / module:** `packages/runtime/event-store/src/types/envelope.ts`.
 - **Purpose:** The single serialization shape for every event in rntme — CloudEvents 1.0 on the wire, camelCase in memory.
 - **Contract:** In-memory `EventEnvelope<TPayload>` with `id`, `time`, `type`, `source`, `subject`, `correlationId`, `rntAggregateType`, `rntAggregateId`, `rntVersion`, `rntSchemaVersion`, `data`, `actor`. On the wire, CE-mandated attributes are `ce_*` headers in Kafka binary content mode; `data` is the JSON body.
 - **Constructed by:** Command handlers (via `@rntme/graph-ir-compiler`) and the seed loader; never by consumers.
@@ -1127,17 +1127,17 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `EventStore` interface
 
-- **Package / module:** `packages/event-store/src/store/interface.ts`.
+- **Package / module:** `packages/runtime/event-store/src/store/interface.ts`.
 - **Purpose:** The single seam the rest of rntme talks to for event-sourced writes, reads, and per-event delivery-tracking.
 - **Contract:** `appendEvents`, `appendRaw`, `readStream`, `readFrom`, `readRecordsFrom`, `readCursor` / `writeCursor`, plus `readDeliveryAttempt`, `recordDeliveryAttempt`, `updateLastError`, `markDelivered`, `markDlq`.
-- **Constructed by:** The default implementation is `SqliteEventStore({ filename, serviceName })` in `packages/event-store/src/store/sqlite.ts`. A manifest may supply a different driver via the `DbDriver` seam.
+- **Constructed by:** The default implementation is `SqliteEventStore({ filename, serviceName })` in `packages/runtime/event-store/src/store/sqlite.ts`. A manifest may supply a different driver via the `DbDriver` seam.
 - **Invariant:** `appendEvents` is atomic across subjects (single `BEGIN IMMEDIATE`); optimistic concurrency is enforced on `(subject, expectedVersion)`; `appendRaw` is reserved for seed and replay (bypass command validation, trusts caller's `rntVersion`).
 - **Spec(s):** `2026-04-17-cloudevents-envelope-design.md`, `2026-04-17-relay-dlq-delivery-tracking-design.md`.
 - **Related:** `Relay`, `ApplyPlan`, `Seed envelope`.
 
 #### `PublishCursor` — per-relay monotonic offset
 
-- **Package / module:** `packages/event-store/src/store/` (table `publish_cursor`).
+- **Package / module:** `packages/runtime/event-store/src/store/` (table `publish_cursor`).
 - **Purpose:** Track how far each relay has published, so at-least-once delivery replays from a known point after a crash.
 - **Contract:** Row per `relayId` carrying `last_event_id` and `updated_at`; `writeCursor(relayId, lastEventId)` UPSERTs and rejects non-monotonic values.
 - **Constructed by:** Each relay instance allocates its own `cursorId` at `createRelay`.
@@ -1147,17 +1147,17 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Relay` (at-least-once publisher)
 
-- **Package / module:** `packages/event-store/src/relay/loop.ts`.
+- **Package / module:** `packages/runtime/event-store/src/relay/loop.ts`.
 - **Purpose:** Drain `readRecordsFrom(cursor)` batches, encode each envelope to CloudEvents 1.0 binary, publish to `KafkaProducer`, advance the cursor.
 - **Contract:** `createRelay({ store, cursorId, kafka, serviceName, onDlqError? })` returns `{ start, stop }`.
-- **Constructed by:** `packages/runtime/src/start/start-service.ts` after `wireEventPipeline` and `applySeed`.
+- **Constructed by:** `packages/runtime/runtime/src/start/start-service.ts` after `wireEventPipeline` and `applySeed`.
 - **Invariant:** At-least-once delivery, per-subject Kafka order (key = `subject`), exponential-backoff retry up to `maxAttempts`, then DLQ emit; unbounded DLQ retry.
 - **Spec(s):** `2026-04-17-relay-dlq-delivery-tracking-design.md`.
 - **Related:** `PublishCursor`, `DLQ`, `ApplyPlan`, sequence #6.
 
 #### `DLQ` payload + delivery tracking
 
-- **Package / module:** `packages/event-store/src/relay/dlq-envelope.ts` + `packages/event-store/src/store/` (`delivery_tracking` table).
+- **Package / module:** `packages/runtime/event-store/src/relay/dlq-envelope.ts` + `packages/runtime/event-store/src/store/` (`delivery_tracking` table).
 - **Purpose:** Capture events that exceeded primary-topic retries, without blocking the cursor.
 - **Contract:** `DlqPayload = { failedEvent, reason: 'max-attempts-exceeded', attempts, firstAttemptAt, lastError }` wrapped in a fresh `EventEnvelope` with `type = '{serviceName}.Relay.EventDeliveryFailed'`, published to `{primaryTopic}.dlq`. Per-event `delivery_tracking` row records attempt count, timestamps, last error.
 - **Constructed by:** The relay on retry exhaustion.
@@ -1167,7 +1167,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `ApplyPlan` + three-layer idempotency
 
-- **Package / module:** `packages/projection-consumer/src/types/apply.ts` + `packages/projection-consumer/src/apply/*`.
+- **Package / module:** `packages/runtime/projection-consumer/src/types/apply.ts` + `packages/runtime/projection-consumer/src/apply/*`.
 - **Purpose:** Per-event handler bundle for mirror and derived projections; the concrete unit of idempotent read-side apply.
 - **Contract:** `ApplyPlan = { handlersByEventType, mirrorsByAggregate }`. Mirror handlers run under a three-layer guard: pre-check `last_event_version`, `INSERT ... ON CONFLICT DO UPDATE WHERE last_event_version < excluded.last_event_version` (creation), `UPDATE ... WHERE last_event_version < ?` (non-creation). Derived handlers gate on `seen_events(event_id, projection_id)` before a delta UPSERT.
 - **Constructed by:** `compileApplyPlan({ pdm, qsm, events, derivedHandlers? })` — pure, no DB.
@@ -1177,10 +1177,10 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Seed envelope` + before-relay invariant
 
-- **Package / module:** `packages/seed/src/apply.ts` + `packages/seed/src/types.ts`.
+- **Package / module:** `packages/artifacts/seed/src/apply.ts` + `packages/artifacts/seed/src/types.ts`.
 - **Purpose:** Allow a service to arrive at a useful initial state by declaring envelopes that are appended through the normal event store, then projected through the normal pipeline, but without double-publishing through Kafka.
 - **Contract:** `applySeed(validatedSeed, store, { mode: 'strict' | 'upsertByEventId', ... })`. Default `eventId` = `seed:{aggregateType}:{aggregateId}:v{version}`, default `actor` = `{ kind: 'system', id: 'seed' }`.
-- **Constructed by:** `packages/runtime/src/start/start-service.ts` between `wireEventPipeline` and `pipeline.start` (the strict boot-order invariant; see §3.4).
+- **Constructed by:** `packages/runtime/runtime/src/start/start-service.ts` between `wireEventPipeline` and `pipeline.start` (the strict boot-order invariant; see §3.4).
 - **Invariant:** Seed envelopes must be appended BEFORE the relay's cursor starts advancing; the spec-§3.1 invariant is what prevents seed events from being re-published through Kafka.
 - **Spec(s):** `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`.
 - **Related:** `Relay`, `ApplyPlan`, `startService`.
@@ -1189,7 +1189,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `BindingKind × Role` matrix
 
-- **Package / module:** `packages/bindings/src/validate/consistency.ts` + `packages/bindings/src/types/artifact.ts`.
+- **Package / module:** `packages/artifacts/bindings/src/validate/consistency.ts` + `packages/artifacts/bindings/src/types/artifact.ts`.
 - **Purpose:** Ensure a binding's `kind` (`query | command`) agrees with the target graph's role, and that the output shape matches.
 - **Contract:** `BindingKind = 'query' | 'command'`. Matrix: `query × query` requires `rowset<T>` output; `command × command` requires `row<CommandResult>`; other combinations are errors.
 - **Constructed by:** Enforced in `checkGraphShape` during consistency validation.
@@ -1199,7 +1199,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `BindingPlan` — discriminated plan
 
-- **Package / module:** `packages/bindings-http/src/startup/compile-plan.ts` + `packages/bindings-http/src/types/`.
+- **Package / module:** `packages/runtime/bindings-http/src/startup/compile-plan.ts` + `packages/runtime/bindings-http/src/types/`.
 - **Purpose:** The runtime pairing of a binding with its compiled graph, ready for per-request execution.
 - **Contract:** `QueryBindingPlan | CommandBindingPlan` discriminated-union; each carries the compile result, input Zod schemas, and the HTTP path / method.
 - **Constructed by:** `buildPlan` at router creation. Compile errors aggregate; a partial router is never mounted.
@@ -1209,7 +1209,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### HTTP error → status mapping
 
-- **Package / module:** `packages/bindings-http/src/errors.ts`.
+- **Package / module:** `packages/runtime/bindings-http/src/errors.ts`.
 - **Purpose:** Single source of truth for HTTP error codes emitted by `bindings-http`.
 - **Contract:** `VALIDATION_ERROR | INVALID_BODY → 400`; `COMMAND_CONCURRENCY_CONFLICT → 409`; any other `CommandExecutionError → 422`; uncaught → `500`.
 - **Constructed by:** The query and command handler modules; `commandErrorStatus(err) → 409 | 422`.
@@ -1219,20 +1219,20 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### OpenAPI 3.1 emitter
 
-- **Package / module:** `packages/bindings/src/openapi/emit.ts` + siblings (`shapes.ts`, `parameters.ts`, `responses.ts`, `errors.ts`, `command-result.ts`, `passthrough.ts`).
+- **Package / module:** `packages/artifacts/bindings/src/openapi/emit.ts` + siblings (`shapes.ts`, `parameters.ts`, `responses.ts`, `errors.ts`, `command-result.ts`, `passthrough.ts`).
 - **Purpose:** Emit an OpenAPI 3.1 document from a `ValidatedBindings` artifact, for tooling and client generation.
 - **Contract:** `generateOpenApi(validated, resolvers, options?) → Result<OpenApiDoc>`. Produces `paths` per `(method, path)`, `components.schemas` for row shapes, and the built-in `CommandResult` shape plus standard 400 / 409 / 422 / 500 schemas. Passthrough `x-*` annotations deep-merge.
-- **Constructed by:** `packages/bindings-http/src/router.ts` at startup, served at `/openapi.json`.
+- **Constructed by:** `packages/runtime/bindings-http/src/router.ts` at startup, served at `/openapi.json`.
 - **Invariant:** Emission is pure over `ValidatedBindings`; a missing resolver is a failure, not silent omission.
 - **Spec(s):** `2026-04-14-bindings-design.md` (§7).
 - **Related:** `BindingPlan`, `BindingKind × Role`.
 
 #### UI compile pipeline + `CompiledArtifact`
 
-- **Package / module:** `packages/ui/src/compile.ts` + siblings (`resolve/`, `expand/`, `validate/`, `emit/`); output type in `packages/ui/src/types/compiled.ts`.
+- **Package / module:** `packages/artifacts/ui/src/compile.ts` + siblings (`resolve/`, `expand/`, `validate/`, `emit/`); output type in `packages/artifacts/ui/src/types/compiled.ts`.
 - **Purpose:** Take a multi-file UI authoring tree and produce a single JSON artifact (`manifest`, `layouts`, `screens`) consumed by `@rntme/ui-runtime`.
 - **Contract:** `compile(options) → Result<CompiledArtifact>`. Six-stage pipeline: parse (implicit in resolve) → resolve → expand → validate (structural + references) → compile orchestrator → emit.
-- **Constructed by:** `packages/runtime` at boot (or by an external build step that persists the artifact).
+- **Constructed by:** `packages/runtime/runtime` at boot (or by an external build step that persists the artifact).
 - **Invariant:** Compiled specs contain no `$ref` or `$param` tokens. Manifest version is literal `"2.0"`. Structural errors short-circuit reference validation.
 - **Spec(s):** `docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`.
 - **Related:** `BindingPlan` (for HTTP-map resolution during emit), `Surface` plugin (serves the artifact).
@@ -1241,7 +1241,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `DbDriver` plugin seam
 
-- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/better-sqlite-driver.ts`.
+- **Package / module:** `packages/runtime/runtime/src/plugins/interfaces.ts` + `packages/runtime/runtime/src/plugins/better-sqlite-driver.ts`.
 - **Purpose:** Swap the underlying storage engine (`BetterSqliteDriver`, in-memory for tests, future Turso) without changing any authored artifact.
 - **Contract:** `DbDriver` interface (`openEventStore`, `openProjectionDb`, lifecycle hooks). Default: `BetterSqliteDriver` reading `eventStorePath` / `qsmPath` from the manifest.
 - **Constructed by:** `startService` at boot, selected from the manifest or overridden by the caller.
@@ -1251,7 +1251,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `EventBus` plugin seam
 
-- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/in-memory-bus.ts`.
+- **Package / module:** `packages/runtime/runtime/src/plugins/interfaces.ts` + `packages/runtime/runtime/src/plugins/in-memory-bus.ts`.
 - **Purpose:** Swap the publish transport (`InMemoryBus` for single-process / tests, Kafka / NATS in production) without changing artifacts or the relay.
 - **Contract:** `EventBus` interface with `publish(topic, envelope, headers?)`; `start()` / `stop()` lifecycle. Default: `InMemoryBus` with in-process subscription fan-out.
 - **Constructed by:** `startService` via manifest selection.
@@ -1261,7 +1261,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `Surface` plugin seam
 
-- **Package / module:** `packages/runtime/src/plugins/interfaces.ts` + `packages/runtime/src/plugins/http-surface.ts`.
+- **Package / module:** `packages/runtime/runtime/src/plugins/interfaces.ts` + `packages/runtime/runtime/src/plugins/http-surface.ts`.
 - **Purpose:** Swap the network entry point (Hono-based `HttpSurface` today; gRPC or other transports are the future extension path).
 - **Contract:** `Surface` interface mounts bindings at `/api`, the UI at `/`, optional db-studio at `/_studio`, and Prometheus at `/metrics` + `/health`.
 - **Constructed by:** `startService` via manifest.
@@ -1271,7 +1271,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Service `manifest.json`
 
-- **Package / module:** `packages/runtime/src/manifest/schema.ts` + `parse.ts` + `validate.ts`.
+- **Package / module:** `packages/runtime/runtime/src/manifest/schema.ts` + `parse.ts` + `validate.ts`.
 - **Purpose:** Single declarative entry that tells the runtime which artifacts to load, which plugin seams to use, and which features to enable (db-studio, observability).
 - **Contract:** Zod-strict schema. Top-level keys include `serviceName`, `eventStorePath`, `qsmPath`, `artifacts: { pdm, qsm, bindings, graphs, ui, seed }`, `studio: { enabled, mountPath, maxRows }`, `observability: { … }`.
 - **Constructed by:** Author once per service; validated at boot by `loadService`.
@@ -1293,7 +1293,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Kafka topic convention `rntme.{svc}.{agg}`
 
-- **Package / module:** `packages/event-store/src/relay/topic.ts`.
+- **Package / module:** `packages/runtime/event-store/src/relay/topic.ts`.
 - **Purpose:** Fix a single, predictable topic name per `(service, aggregate)` pair so any downstream consumer (Zeebe sagas, other rntme services, or external analytics) can subscribe without per-service configuration.
 - **Contract:** `defaultTopicOf(service, aggregate)` returns `rntme.{service}.{aggregate}`, both lowercased. DLQ topic is `{primaryTopic}.dlq`.
 - **Constructed by:** The relay when publishing; the consumer when subscribing.
@@ -1303,17 +1303,17 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### `db-studio` Hrana v3 endpoint (in-flight)
 
-- **Package / module:** `packages/db-studio/` (scaffold only at 2026-04-18).
+- **Package / module:** `packages/runtime/db-studio/` (scaffold only at 2026-04-18).
 - **Purpose:** Expose both rntme SQLite files (event log and projection DB) via the libSQL Hrana v3 wire protocol, so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
 - **Contract:** Two endpoints — `POST /_studio/hrana/events/v3/pipeline` and `POST /_studio/hrana/qsm/v3/pipeline` — speaking the Hrana v3 JSON wire protocol for `execute` / `batch` requests.
-- **Constructed by:** `packages/runtime/src/plugins/http-surface.ts` when `manifest.studio.enabled === true`.
+- **Constructed by:** `packages/runtime/runtime/src/plugins/http-surface.ts` when `manifest.studio.enabled === true`.
 - **Invariant:** Read-only enforced at three layers — a second SQLite handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with PRAGMA allow-list, and a row cap (default 10,000). The endpoint never mutates.
 - **Spec(s):** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 - **Related:** `Surface`, `DbDriver`, manifest `studio` block.
 
 #### Project blueprint
 
-- **Package / module:** `packages/blueprint/`.
+- **Package / module:** `packages/artifacts/blueprint/`.
 - **Purpose:** Make the validated project blueprint folder the canonical authoring/versioning/deploy unit above service artifacts.
 - **Contract:** Folder contains `project.json`, project-level PDM, `services/<name>/...`, and `modules/<name>/...`. Validation covers project routes, middleware, PDM ownership, service discovery, service members, and project-routed binding refs.
 - **Constructed by:** `loadProjectBlueprint(...)` and the project composition pipeline.
@@ -1353,7 +1353,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Deployment plan
 
-- **Package / module:** `rntme-cli/packages/deploy-core`, `rntme-cli/packages/deploy-dokploy`.
+- **Package / module:** `packages/deploy/deploy-core`, `packages/deploy/deploy-dokploy`.
 - **Purpose:** Convert a validated/composed project into a target-neutral redacted deployment descriptor, then render/apply it for a target.
 - **Contract:** `planDeployment(...)` produces the core plan; `renderDokployPlan(...)` and `applyDokployPlan(...)` handle Dokploy.
 - **Constructed by:** CLI-side deploy pipeline, not runtime boot.
@@ -1382,17 +1382,17 @@ Finding format:
 
 All source files fit in a 350-line window; no single file exceeds 400. Most "large" files concentrate at compilation and validation boundaries, which is intrinsic to the artifact-driven design and not itself a smell. Two concerns worth recording:
 
-> **[minor]** `packages/runtime/src/load/load-service.ts` — 366 lines.
+> **[minor]** `packages/runtime/runtime/src/load/load-service.ts` — 366 lines.
 > - **Why it is a smell:** The orchestrator reads every artifact, validates each against its owner package, and wires plugin seams in a single file. As the artifact set grows (db-studio, observability, future seams), this file will attract unrelated concerns.
 > - **Possible direction:** Split by phase — artifact loading, validator orchestration, plugin wiring — once a seventh concern joins.
 > - **Links:** `2026-04-15-runtime-packaging-design.md`.
 
-> **[minor]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` — 345 lines.
+> **[minor]** `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts` — 345 lines.
 > - **Why it is a smell:** This file owns both the top-level `RelOp → SqlSelect` traversal and the private `wrapPredicateOptional` helper. The helper is the site of the 2026-04-16 param-alignment bug; its collocation with the traversal makes it easy to forget that edits here must preserve paramOrder append order.
 > - **Possible direction:** Extract `wrapPredicateOptional` plus its regression assertions into `lower/sqlite/predicate-optional.ts` so a future contributor sees the helper as a first-class unit with its own tests.
 > - **Links:** `2026-04-16-predicate-optional-fix-design.md`; §7.7.
 
-> **[info]** `packages/seed/src/validate.ts` — 352 lines.
+> **[info]** `packages/artifacts/seed/src/validate.ts` — 352 lines.
 > - **Why it is a smell:** Seed validation simulates the state machine per stream and enforces intra-file invariants, which is intrinsically stateful. Size reflects the rules, not drift.
 > - **Possible direction:** none at this cutoff; the file earns its length.
 > - **Links:** `2026-04-15-runtime-seed-design.md`.
@@ -1405,7 +1405,7 @@ An audit of every `@rntme/*` dependency against the AGENTS.md §3 layering diagr
 
 One bookkeeping note:
 
-> **[info]** `packages/runtime` depends on ten `@rntme/*` packages.
+> **[info]** `packages/runtime/runtime` depends on ten `@rntme/*` packages.
 > - **Why it is a smell:** A single package depending on most of the workspace is expected for the orchestrator — but if any layer below runtime ever grows a runtime-side helper, runtime's breadth could attract unrelated code.
 > - **Possible direction:** keep `runtime/src/plugins/*` as the only place that composes pluginable seams; resist adding "miscellaneous helpers" there.
 > - **Links:** `AGENTS.md §3`; `2026-04-15-runtime-packaging-design.md`.
@@ -1417,7 +1417,7 @@ The 4-layer validator pattern (§6.0) is applied intentionally in pdm, qsm, bind
 > **[minor]** Layer-name drift across validators.
 > - **Why it is a smell:** The same concept ("lookup references in a foreign artifact") is called `cross-ref` in `@rntme/qsm`, `references` in `@rntme/bindings`, and `references` in `@rntme/ui`. `@rntme/pdm` has no reference layer (state-machine replaces it). Readers moving between packages must re-learn the vocabulary.
 > - **Possible direction:** Pick one name (`references` reads more naturally for external readers) and rename `cross-ref` in a mechanical patch; keep error-code prefixes (`QSM_XREF_*`) as-is since they are public API.
-> - **Links:** `packages/qsm/src/validate/cross-ref.ts`, `packages/bindings/src/validate/references.ts`, `packages/ui/src/validate/references.ts`.
+> - **Links:** `packages/artifacts/qsm/src/validate/cross-ref.ts`, `packages/artifacts/bindings/src/validate/references.ts`, `packages/artifacts/ui/src/validate/references.ts`.
 
 > **[minor]** Number-of-layers drift.
 > - **Why it is a smell:** pdm runs 2 layers (structural + state-machine); qsm runs 2 layers (structural + cross-ref); bindings runs 3 (structural + references + consistency); ui runs 2 (structural + references, per layout / screen). The §6.0 entry labels the pattern "4-layer" counting parse as layer 1; in practice the post-parse layer count is 2–3.
@@ -1427,7 +1427,7 @@ The 4-layer validator pattern (§6.0) is applied intentionally in pdm, qsm, bind
 > **[info]** UI validator iterates per unit, others operate on the whole artifact.
 > - **Why it is a smell:** The UI validator visits every layout / screen separately, aggregates errors, then exits; pdm / qsm / bindings validators short-circuit on first-failing layer. This is a deliberate product choice (UI errors are batched per screen for author ergonomics), not drift.
 > - **Possible direction:** leave as-is; document the choice in the UI package README.
-> - **Links:** `packages/ui/src/compile.ts`.
+> - **Links:** `packages/artifacts/ui/src/compile.ts`.
 
 ### 7.4 Brand / `Result` violations
 
@@ -1435,12 +1435,12 @@ An audit of every `as ValidatedX`, `as StructurallyValidX`, `as ResolvedX` cast 
 
 Two housekeeping notes:
 
-> **[minor]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` uses `{} as unknown as ValidatedQsm` in a default-parameter fallback.
+> **[minor]** `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts` uses `{} as unknown as ValidatedQsm` in a default-parameter fallback.
 > - **Why it is a smell:** The fallback lives in production code, not in a test fixture. The only reason it is not a brand leak is that the caller of the lowerer already has a `ValidatedQsm` in every real path — the fallback only runs if someone calls the lowerer without a qsm resolver at all, which no real caller does. But the cast stands as a "how-to-leak" footgun for any future contributor who removes it accidentally.
 > - **Possible direction:** Replace the `LowerContext` default with a required-shape refactor (thread `ValidatedQsm` through every caller) or move the fallback into a clearly-marked `test/support/` module.
 > - **Links:** §6.0 "Branded `Validated*` family" entry.
 
-> **[minor]** `packages/bindings-http/src/runtime/handler.ts` wraps `c.req.json()` in a bare `try / catch`.
+> **[minor]** `packages/runtime/bindings-http/src/runtime/handler.ts` wraps `c.req.json()` in a bare `try / catch`.
 > - **Why it is a smell:** The catch sees a native throw (malformed JSON) and returns a 400; this is correct behaviour. The smell is that the extraction layer mixes two kinds of error — schema parse via Zod (returned as a structured failure) and body-shape native throw — so the call-site has two different error shapes to juggle. Pushing the catch into the `extract/` helper would let the handler see one shape.
 > - **Possible direction:** Move JSON parsing into `bindings-http/src/runtime/extract.ts` and have it return `Result<unknown, InvalidBodyError>`; the handler then only deals with `Result` values.
 > - **Links:** `2026-04-14-bindings-http-design.md` §5.
@@ -1500,30 +1500,30 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 ### 7.6 Naming drift
 
 > **[minor]** `envelope` vs `EventRecord`.
-> - **Why it is a smell:** `packages/event-store/src/types/envelope.ts` defines `EventEnvelope` (the CloudEvents wrapper shared across relay / bus / consumer). `packages/event-store/src/store/interface.ts` defines `EventRecord` (an envelope plus the store's monotonic row id). Specs alternate between the two. A reader who grep-searches for "envelope" misses record-level code.
+> - **Why it is a smell:** `packages/runtime/event-store/src/types/envelope.ts` defines `EventEnvelope` (the CloudEvents wrapper shared across relay / bus / consumer). `packages/runtime/event-store/src/store/interface.ts` defines `EventRecord` (an envelope plus the store's monotonic row id). Specs alternate between the two. A reader who grep-searches for "envelope" misses record-level code.
 > - **Possible direction:** Rename `EventRecord` to `EventEnvelopeRow` (or similar) so the core concept is a single name-root.
-> - **Links:** `packages/event-store/src/types/envelope.ts`, `packages/event-store/src/store/interface.ts`.
+> - **Links:** `packages/runtime/event-store/src/types/envelope.ts`, `packages/runtime/event-store/src/store/interface.ts`.
 
 > **[minor]** `Surface` vs `HttpSurface` vs `router`.
 > - **Why it is a smell:** The manifest uses `surface.http.port`; the runtime plugin class is `HttpSurface implements Surface`; `@rntme/bindings-http` exposes `createBindingsRouter`. A reader needs three mental models for "the HTTP entry point".
 > - **Possible direction:** Keep `Surface` as the plugin-seam name; retire "router" as public API in favour of a `mountBindings(surface, plan)` helper.
-> - **Links:** `packages/runtime/src/plugins/http-surface.ts`, `packages/bindings-http/src/router.ts`.
+> - **Links:** `packages/runtime/runtime/src/plugins/http-surface.ts`, `packages/runtime/bindings-http/src/router.ts`.
 
 > **[minor]** `backing` vs "projection kind" vs "projection type".
 > - **Why it is a smell:** Code uses `ProjectionBacking`; comments in `graph-ir-compiler/src/lower/sqlite/lower.ts` drift to "projection kind"; READMEs (QSM, projection-consumer) sometimes say "projection type". Three words, one concept.
 > - **Possible direction:** Pick `backing` (already the code name) and normalise READMEs; add a one-line glossary note in §8.
-> - **Links:** `packages/qsm/src/types/artifact.ts`, comments in `packages/graph-ir-compiler/src/lower/sqlite/lower.ts`.
+> - **Links:** `packages/artifacts/qsm/src/types/artifact.ts`, comments in `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts`.
 
 > **[minor]** `Binding` overloaded across HTTP bindings, OpenAPI `BindingKind`, and `ColumnBinding` in projection-consumer.
 > - **Why it is a smell:** `@rntme/bindings` binds HTTP endpoints to graphs; `@rntme/projection-consumer` uses `ColumnBinding` for SQL-parameter→envelope-field resolution. The overlap is mostly harmless but surfaces in error messages and variable names like `binding.target`.
 > - **Possible direction:** Rename `ColumnBinding` to `ColumnSource` in projection-consumer; the pure term "source" is already used for projection-source in QSM.
-> - **Links:** `packages/projection-consumer/src/types/apply.ts`, `packages/bindings/src/types/artifact.ts`.
+> - **Links:** `packages/runtime/projection-consumer/src/types/apply.ts`, `packages/artifacts/bindings/src/types/artifact.ts`.
 
 ### 7.7 Known bugs
 
-> **[info]** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts::wrapPredicateOptional` — **fixed 2026-04-16** (commit swapped the OR arguments).
+> **[info]** `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts::wrapPredicateOptional` — **fixed 2026-04-16** (commit swapped the OR arguments).
 > - **Why it is a smell (history):** The helper wraps a filter predicate with `(predSql) OR (? IS NULL)` per optional param. The pre-fix version emitted the guard `?` before the inner predicate's `?` in SQL text, but appended inner params first to `paramOrder`; SQLite binds `?` in walk-order, so mixed filters (required + optional params) silently bound the guard to the wrong value.
-> - **Regression tests:** `packages/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts` ("aligns param positions when required and predicate_optional params are mixed") and `packages/graph-ir-compiler/test/e2e/predicate-optional.e2e.test.ts`.
+> - **Regression tests:** `packages/artifacts/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts` ("aligns param positions when required and predicate_optional params are mixed") and `packages/artifacts/graph-ir-compiler/test/e2e/predicate-optional.e2e.test.ts`.
 > - **Links:** `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`; memory `rntme_predicate_optional_bug`.
 
 > **[info]** Demo list / search endpoints return raw FK ids instead of JOIN-enriched rows.
@@ -1538,20 +1538,20 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > - **Possible direction:** Update `AGENTS.md §§2, 7` and the `CLAUDE.md` paragraph to call rc7 "historical context" and apply the generic "latest authoritative spec wins" rule.
 > - **Links:** memory `rntme_graph_ir_rc7_not_canon`.
 
-> **[minor]** `packages/runtime/src/plugins/contract-tests.ts` exists but is not exported from `index.ts`.
+> **[minor]** `packages/runtime/runtime/src/plugins/contract-tests.ts` exists but is not exported from `index.ts`.
 > - **Why it is a smell:** Contract tests import `vitest`, so re-exporting them from production entries would contaminate runtime consumers with a test-only dependency. The workaround (import directly from the src path) is correct but undocumented in the package README; a new contributor does not know the file exists.
-> - **Possible direction:** Add a "Testing plugin seams" section to `packages/runtime/README.md` linking to `src/plugins/contract-tests.ts`.
-> - **Links:** `packages/runtime/src/plugins/contract-tests.ts`.
+> - **Possible direction:** Add a "Testing plugin seams" section to `packages/runtime/runtime/README.md` linking to `src/plugins/contract-tests.ts`.
+> - **Links:** `packages/runtime/runtime/src/plugins/contract-tests.ts`.
 
-> **[minor]** `packages/qsm/src/derive/ddl.ts` accepts `opts.derivedSchemas` to produce DDL for derived projections.
+> **[minor]** `packages/artifacts/qsm/src/derive/ddl.ts` accepts `opts.derivedSchemas` to produce DDL for derived projections.
 > - **Why it is a smell:** The main `validateQsm()` rejects `backing: 'derived'` with `QSM_BACKING_DERIVED_NOT_SUPPORTED`, but the DDL generator has a fully functional code path for derived specs reachable only via this option. Nothing in the package README mentions it.
-> - **Possible direction:** Either document the forward-compat path in the QSM README, or move it into a `packages/qsm/src/derive/derived/` subdirectory with a clearly-gated export.
-> - **Links:** `packages/qsm/src/derive/ddl.ts` `buildDerivedSpec`; §6.1 Projection entry.
+> - **Possible direction:** Either document the forward-compat path in the QSM README, or move it into a `packages/artifacts/qsm/src/derive/derived/` subdirectory with a clearly-gated export.
+> - **Links:** `packages/artifacts/qsm/src/derive/ddl.ts` `buildDerivedSpec`; §6.1 Projection entry.
 
-> **[minor]** `packages/ui-runtime/src/build.ts` runs Tailwind v4 as a post-step; the ordering constraint is enforced only in the script's comments.
+> **[minor]** `packages/runtime/ui-runtime/src/build.ts` runs Tailwind v4 as a post-step; the ordering constraint is enforced only in the script's comments.
 > - **Why it is a smell:** If a future contributor re-orders the build steps (esbuild → Tailwind) to a parallel pair, Tailwind's `@source` scan runs against an out-of-date bundle and silently prunes shadcn classes. Nothing in the `build.ts` type surface prevents this.
 > - **Possible direction:** Add an assertion that `build/main.js` exists and has been written within the current run before invoking Tailwind.
-> - **Links:** `packages/ui-runtime/src/build.ts`.
+> - **Links:** `packages/runtime/ui-runtime/src/build.ts`.
 
 ### 7.9 Vision alignment (highest-risk lens)
 
@@ -1562,40 +1562,40 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 > **[major]** PDM's `ScalarPrimitive` closed union has implicit domain constraints that are not expressed in Zod.
 > - **Why it is a smell:** `string` in PDM is an unbounded SQLite TEXT; an agent has no way to know that a specific field is expected to be, for example, an e-mail address or ISO-4217 currency code. The closed primitive set keeps the validator simple but shifts domain invariants off-artifact.
 > - **Possible direction:** Add a `constraint` mini-DSL (regex, enum, range) to `Field` that the Zod schema understands and the Graph-IR compiler checks at filter time.
-> - **Links:** `packages/pdm/src/parse/schema.ts` `scalarSchema`; `docs/gaps/pdm-gaps.md`.
+> - **Links:** `packages/artifacts/pdm/src/parse/schema.ts` `scalarSchema`; `docs/gaps/pdm-gaps.md`.
 
 > **[major]** Binding input `mode` × `required` × `type-by-location` is a four-dimensional matrix enforced at validator time but not surfaced to an author generator.
 > - **Why it is a smell:** An agent drafting a binding has to learn the REQUIRED_BY_MODE rule, the path-placeholder rule, and the type/location matrix by reading four files. A mistake produces an error code but not a structural hint about what was expected.
 > - **Possible direction:** Expose the matrix as a machine-readable artifact (JSON) that an agent can consult at draft time.
-> - **Links:** `packages/bindings/src/validate/consistency.ts`; `2026-04-14-bindings-design.md` §6.
+> - **Links:** `packages/artifacts/bindings/src/validate/consistency.ts`; `2026-04-14-bindings-design.md` §6.
 
 > **[minor]** Seed artefact defaults (`eventId` template, `actor.system:seed`) are implicit.
 > - **Why it is a smell:** An agent writing a seed file by hand or by scaffold does not know it can omit `eventId` and get the deterministic default; the example fixtures supply explicit ids.
 > - **Possible direction:** Promote the default rule to a first-class section of `2026-04-15-runtime-seed-design.md` and surface it in an agent prompt template.
-> - **Links:** `packages/seed/src/apply.ts`.
+> - **Links:** `packages/artifacts/seed/src/apply.ts`.
 
 #### Validation tightness
 
 > **[info]** Bindings cross-ref layer resolves graph signatures via `BindingResolvers`.
 > - **Why it is a smell (negative evidence):** The layer checks every `bindTo` against the target graph's inputs and every output against the declared rowset shape. This is precisely the coverage the vision demands; no gap found as of cutoff.
-> - **Links:** `packages/bindings/src/validate/references.ts`.
+> - **Links:** `packages/artifacts/bindings/src/validate/references.ts`.
 
 > **[major]** `ValidatedQsm` + `ValidatedBindings` do not cover the case where a command binding's response schema drifts from `CommandResult`.
 > - **Why it is a smell:** The `row<CommandResult>` requirement is enforced at binding validation, but the runtime response is assembled by `bindings-http` from `executeCommand`'s return value; if the return-shape ever gains a field the binding layer would not see it until the response JSON is served.
 > - **Possible direction:** Add a runtime contract test that round-trips a command binding through execute and validates the emitted JSON against `CommandResult`'s JSON Schema.
-> - **Links:** `packages/bindings-http/src/runtime/command-handler.ts`; `packages/bindings/src/openapi/command-result.ts`.
+> - **Links:** `packages/runtime/bindings-http/src/runtime/command-handler.ts`; `packages/artifacts/bindings/src/openapi/command-result.ts`.
 
 #### Implementation leakage
 
 > **[major]** The UI-authoring state-path grammar includes `/data/__status` and `/data/__error` sentinels tied to the driver's per-endpoint fetch model.
 > - **Why it is a smell:** An author writing a UI must learn sentinel prefixes that exist only because the driver emits them. The authoring surface leaks the runtime's internal bookkeeping.
 > - **Possible direction:** Either rename sentinels to a domain-neutral namespace (`$loading`, `$error`) or hide them behind a compiled virtual accessor that the author references without knowing the prefix.
-> - **Links:** `packages/ui/src/validate/references.ts` (state-path coverage rule); `packages/ui-runtime/src/client/driver.ts`.
+> - **Links:** `packages/artifacts/ui/src/validate/references.ts` (state-path coverage rule); `packages/runtime/ui-runtime/src/client/driver.ts`.
 
 > **[minor]** Bindings authoring exposes the `CommandResult` shape explicitly — authors of a command binding write `row<CommandResult>`, which implies knowing that the runtime emits CloudEvents envelopes with an `aggregateId / version / eventIds` triple.
 > - **Why it is a smell:** Arguably this is a necessary leak (the shape IS the contract), but it couples the binding author to the event-log topology. An author who wanted to "return the created row" has to make a second list call.
 > - **Possible direction:** Leave as-is (the alternative would hide event-sourcing semantics from authors who must know them anyway) but record the trade-off.
-> - **Links:** `packages/bindings/src/openapi/command-result.ts`.
+> - **Links:** `packages/artifacts/bindings/src/openapi/command-result.ts`.
 
 #### Brand integrity
 
@@ -1606,36 +1606,36 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 #### Extensibility vs. hardcoding
 
 > **[major]** `BindingKind` is a closed `type` (`'query' | 'command'`).
-> - **Why it is a smell:** Adding a third binding kind (for example `subscription` for server-sent events, or `websocket`) requires editing `packages/bindings/src/types/artifact.ts`, every validator layer, every handler in `bindings-http`, and the OpenAPI emitter. There is no plugin seam.
+> - **Why it is a smell:** Adding a third binding kind (for example `subscription` for server-sent events, or `websocket`) requires editing `packages/artifacts/bindings/src/types/artifact.ts`, every validator layer, every handler in `bindings-http`, and the OpenAPI emitter. There is no plugin seam.
 > - **Possible direction:** Introduce a `BindingHandler` plugin registry in `bindings-http` so new kinds can be registered without editing the core type.
-> - **Links:** `packages/bindings/src/types/artifact.ts`; `packages/bindings-http/src/runtime/`.
+> - **Links:** `packages/artifacts/bindings/src/types/artifact.ts`; `packages/runtime/bindings-http/src/runtime/`.
 
 > **[major]** `DbDriver`, `EventBus`, `Surface` seams exist, but the manifest schema hard-codes the selector names (`better-sqlite`, `in-memory`, `http`).
 > - **Why it is a smell:** Introducing a new driver (for example Turso) requires editing the manifest Zod schema and the plugin registry. The plugin-seam pattern is there but its registry is not open to a consumer without a code change.
 > - **Possible direction:** Allow the manifest to name an arbitrary string; let the runtime look it up in a constructor-passed registry keyed by name.
-> - **Links:** `packages/runtime/src/manifest/schema.ts`; `packages/runtime/src/plugins/interfaces.ts`.
+> - **Links:** `packages/runtime/runtime/src/manifest/schema.ts`; `packages/runtime/runtime/src/plugins/interfaces.ts`.
 
-> **[minor]** The UI runtime's catalog is bound to shadcn in `packages/ui-runtime/src/client/registry.ts`.
+> **[minor]** The UI runtime's catalog is bound to shadcn in `packages/runtime/ui-runtime/src/client/registry.ts`.
 > - **Why it is a smell:** A consumer cannot swap the component library without forking the runtime.
 > - **Possible direction:** Accept a catalog factory function at `createApp` time; pass it through to the SPA via a bootstrap endpoint.
-> - **Links:** `packages/ui-runtime/src/client/registry.ts`.
+> - **Links:** `packages/runtime/ui-runtime/src/client/registry.ts`.
 
 #### Scale properties
 
 > **[major]** Relay uses a single cursor per service.
 > - **Why it is a smell:** Number-of-services scale is fine, but number-of-consumers per service cannot grow beyond the single-relay model. If a second consumer wants its own pace (for example an analytics projection that is deliberately slower), there is no way to lag without blocking the primary relay.
 > - **Possible direction:** Allow multiple relay instances, each with its own `cursorId`; partition delivery by a hash of the subject.
-> - **Links:** `packages/event-store/src/relay/loop.ts`; `2026-04-17-relay-dlq-delivery-tracking-design.md`.
+> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; `2026-04-17-relay-dlq-delivery-tracking-design.md`.
 
 > **[minor]** Single-writer SQLite.
 > - **Why it is a smell:** A deployment that wants to scale write throughput cannot add a second rntme process against the same database file. Turso will help (SQLite-compatible), but the code path assumes `WAL + busy_timeout` is the answer to contention.
 > - **Possible direction:** Record the Turso migration path in `rntme_turso_target` and include the multi-writer test case when it lands.
-> - **Links:** memory `rntme_turso_target`; `packages/event-store/src/store/sqlite.ts`.
+> - **Links:** memory `rntme_turso_target`; `packages/runtime/event-store/src/store/sqlite.ts`.
 
 > **[info]** Per-subject ordering in Kafka is preserved (key = subject) but cross-subject ordering is not.
 > - **Why it is a smell:** A saga that reasons across subjects (for example "issue created" then "user updated") must tolerate out-of-order delivery.
 > - **Possible direction:** Delegate cross-subject ordering to Zeebe; ensure the topic convention (`rntme.{svc}.{agg}`) feeds Zeebe cleanly.
-> - **Links:** `packages/event-store/src/relay/loop.ts`; memory `project_platform_vision`.
+> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; memory `project_platform_vision`.
 
 ## 8. Glossary
 
@@ -1670,7 +1670,7 @@ Seeded from `AGENTS.md §10` and extended with terms introduced in §§6–7. Cr
 - **Callback binding** — GET command binding whose success/failure response redirects; used for vendor callbacks. (§6.5)
 - **Idempotency cache** — SQLite-backed cache of `(idempotency-key, command-run-id) → response`, 24h TTL, used by HTTP retries. (§6.5)
 - **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution. (§4.10, §6.5)
-- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme-cli/deploy-core` and rendered/applied by target adapters such as `@rntme-cli/deploy-dokploy`. (§4.12, §6.5)
+- **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme/deploy-core` and rendered/applied by target adapters such as `@rntme/deploy-dokploy`. (§4.12, §6.5)
 - **MVP gate** — A feature parsed but validator-rejected (or implementation-gated behind an opt-in) until its backing lands. Enforced in code, not README-only. (§6.4, §7.5)
 - **`BindingKind × Role`** — The matrix that pairs a binding's declared kind (`query` / `command`) with its target graph's inferred role and the required output shape (`rowset<T>` / `row<CommandResult>`). (§6.3)
 - **`BindingPlan`** — `QueryBindingPlan | CommandBindingPlan` — the runtime pairing of a binding with its compiled graph and request Zod schemas. (§6.3)

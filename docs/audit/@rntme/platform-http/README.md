@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/platform-http`
+# Architecture audit — `@rntme/platform-http`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-228` (`f9b67162-9df9-4b8f-90ea-98d0c256ac30`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/platform-http |
-| **Package / scope** | `@rntme-cli/platform-http` |
+| **Issue title** | Audit: package architecture — @rntme/platform-http |
+| **Package / scope** | `@rntme/platform-http` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `17571ba7-144c-4570-af1a-f908571f5a88` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-# Audit Report: @rntme-cli/platform-http
+# Audit Report: @rntme/platform-http
 
 ## Verdict: needs cleanup (архитектурный риск)
 
@@ -55,8 +55,8 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 ### 6. Dokploy-клиент просочился в platform-http
 **Evidence:** `src/deploy/dokploy-client-factory.ts` (278 LOC)
-**Impact:** Фабрика Dokploy-клиента, знание API-путей `/api/application.create`, парсинг ответов Dokploy — всё это живёт в `platform-http`, хотя есть отдельный пакет `@rntme-cli/deploy-dokploy`. Нарушает границы слоёв.
-**Recommendation:** Перенести `createDokployClientFactory` и типы в `@rntme-cli/deploy-dokploy`. Требует продуктового решения.
+**Impact:** Фабрика Dokploy-клиента, знание API-путей `/api/application.create`, парсинг ответов Dokploy — всё это живёт в `platform-http`, хотя есть отдельный пакет `@rntme/deploy-dokploy`. Нарушает границы слоёв.
+**Recommendation:** Перенести `createDokployClientFactory` и типы в `@rntme/deploy-dokploy`. Требует продуктового решения.
 
 ### 7. `bodyLimit` middleware создаёт новый Request с потерей потока
 **Evidence:** `src/middleware/body-limit.ts:34-41`
@@ -75,7 +75,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### 9. `withOrgTx` скопирован в тестах и production
 **Evidence:** `src/app.ts:79-93` vs `test/e2e/deploy-flow.test.ts:120-135`
 **Impact:** Логика транзакций с `set_config('app.org_id', ...)` дублируется. Изменения в одном месте сломают другое.
-**Recommendation:** Вынести в `@rntme-cli/platform-storage` или shared-утилиту. Quick win.
+**Recommendation:** Вынести в `@rntme/platform-storage` или shared-утилиту. Quick win.
 
 ### 10. Разные типы `poolRepos` в `AppDeps` и `UiDeps`
 **Evidence:** `src/app.ts:47-67` vs `src/ui/app.tsx:53-67`

@@ -1,4 +1,4 @@
-# @rntme-cli/deploy-dokploy
+# @rntme/deploy-dokploy
 
 Dokploy target adapter for rntme project deployments.
 
@@ -9,7 +9,7 @@ resources and applies them through an injected Dokploy HTTP client. It does not
 load raw blueprints, store platform credentials, or run browser verification.
 
 On the platform path, deploy target credentials are decrypted inside
-`@rntme-cli/platform-http`'s Dokploy client factory. This package receives only
+`@rntme/platform-http`'s Dokploy client factory. This package receives only
 redacted target configuration and the injected client seam.
 
 ## Public API

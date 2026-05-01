@@ -16,7 +16,7 @@ Confidence: HIGH
 
 ## Summary
 
-Astro is a content-focused static site generator with an islands architecture that ships zero JavaScript by default. It is the dominant choice for marketing sites, documentation, and landing pages in the React ecosystem when performance and SEO are priorities. The rntme landing site (`rntme-cli/apps/landing`) uses Astro 5.x with React islands and MDX content files — a standard, well-suited stack for this use case.
+Astro is a content-focused static site generator with an islands architecture that ships zero JavaScript by default. It is the dominant choice for marketing sites, documentation, and landing pages in the React ecosystem when performance and SEO are priorities. The rntme landing site (`apps/landing`) uses Astro 5.x with React islands and MDX content files — a standard, well-suited stack for this use case.
 
 Astro 6.0 was released on 2026-03-10, and 6.1.10 is the latest stable as of 2026-04-28. The v6 release is a healthy, incremental major: it requires Node 22+, upgrades to Vite 7 and Zod 4, stabilizes several experimental features (Fonts API, CSP, Live Content Collections), and redesigns the dev server to use Vite's Environment API for runtime fidelity. There are no security advisories for Astro in npm audit.
 
@@ -28,29 +28,29 @@ Primary recommendation: KEEP + UPGRADE to Astro 6.x + @astrojs/react 5.x + @astr
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---:|---|---|---|---|
-| astro | ^5.0.0 | landing | `rntme-cli/apps/landing/package.json` | build + dev + preview | Static site generator |
-| @astrojs/react | ^4.0.0 | landing | `rntme-cli/apps/landing/package.json` | build + dev | React islands integration |
-| @astrojs/mdx | ^4.0.0 | landing | `rntme-cli/apps/landing/package.json` | build + dev | MDX content support |
-| react | ^18.3.0 | landing | `rntme-cli/apps/landing/package.json` | runtime | React islands |
-| react-dom | ^18.3.0 | landing | `rntme-cli/apps/landing/package.json` | runtime | React islands |
+| astro | ^5.0.0 | landing | `apps/landing/package.json` | build + dev + preview | Static site generator |
+| @astrojs/react | ^4.0.0 | landing | `apps/landing/package.json` | build + dev | React islands integration |
+| @astrojs/mdx | ^4.0.0 | landing | `apps/landing/package.json` | build + dev | MDX content support |
+| react | ^18.3.0 | landing | `apps/landing/package.json` | runtime | React islands |
+| react-dom | ^18.3.0 | landing | `apps/landing/package.json` | runtime | React islands |
 
 ### Verification commands used
 
 ```bash
 cd /home/coder/work/rntme
 grep -r "astro" --include="package.json" -l | grep -v node_modules
-# → rntme-cli/apps/landing/package.json
+# → apps/landing/package.json
 
-cat rntme-cli/apps/landing/package.json | jq '.dependencies | {astro, "@astrojs/react", "@astrojs/mdx", react, "react-dom"}'
+cat apps/landing/package.json | jq '.dependencies | {astro, "@astrojs/react", "@astrojs/mdx", react, "react-dom"}'
 # → astro: "^5.0.0", @astrojs/react: "^4.0.0", @astrojs/mdx: "^4.0.0", react: "^18.3.0", react-dom: "^18.3.0"
 
-find rntme-cli/apps/landing/src -name "*.astro" | wc -l
+find apps/landing/src -name "*.astro" | wc -l
 # → 13 Astro components/pages
 
-find rntme-cli/apps/landing/src -name "*.mdx" | wc -l
+find apps/landing/src -name "*.mdx" | wc -l
 # → 6 MDX content files
 
-find rntme-cli/apps/landing/src -name "*.tsx" | wc -l
+find apps/landing/src -name "*.tsx" | wc -l
 # → 3 React components (AhaReveal.tsx, SideRail, etc.)
 ```
 
@@ -193,7 +193,7 @@ When to use: When content needs to be referenced in multiple places or processed
 Example:
 ```mdx
 ---
-// Source: rntme-cli/apps/landing/src/content/competitors.mdx
+// Source: apps/landing/src/content/competitors.mdx
 export const competitors = [
   { shape: "Prompt + code", tools: "Cursor + Supabase", body: "..." },
 ];
@@ -209,7 +209,7 @@ When to use: Every page should use a layout for consistent HTML structure.
 Example:
 ```astro
 ---
-// Source: rntme-cli/apps/landing/src/layouts/BaseLayout.astro
+// Source: apps/landing/src/layouts/BaseLayout.astro
 const { title, description, canonical = Astro.url.href } = Astro.props;
 ---
 <!doctype html>
@@ -426,7 +426,7 @@ Follow-up tasks to create later:
 1. **Does Dokploy/CI already use Node 22+?**
    - What we know: Astro 6 requires Node 22.12.0+.
    - What's unclear: Current `.nvmrc` and Dokploy base image version.
-   - Recommendation: Check `rntme-cli/apps/landing/Dockerfile` and CI configs before scheduling upgrade.
+   - Recommendation: Check `apps/landing/Dockerfile` and CI configs before scheduling upgrade.
 
 2. **Should rntme adopt the Astro Fonts API?**
    - What we know: Astro 6 has a built-in Fonts API that self-hosts fonts with fallbacks.
@@ -450,8 +450,8 @@ Follow-up tasks to create later:
 - `https://docs.astro.build/en/guides/upgrade-to/v6/` — Official v6 migration guide (verified via web fetch)
 - `https://astro.build/blog/astro-6/` — Astro 6 release blog post (verified via web fetch)
 - `npm view astro@6.1.10`, `npm view @astrojs/react@5.0.4`, `npm view @astrojs/mdx@5.0.4` — npm registry version metadata
-- `rntme-cli/apps/landing/package.json` — Current dependency versions
-- `rntme-cli/apps/landing/src/` — Source code audit for API usage
+- `apps/landing/package.json` — Current dependency versions
+- `apps/landing/src/` — Source code audit for API usage
 
 ### Secondary (MEDIUM confidence)
 - GitHub releases `astro@6.0.0` — Release notes and breaking changes

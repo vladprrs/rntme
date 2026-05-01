@@ -5,7 +5,7 @@ Current deploy (2026-04-20):
 - **Project:** `runtime` (`RK4scgw5bryx2qolyzkSc`)
 - **Environment:** `production` (`2HJhor6CZm0SX4vLDLI4q`)
 - **Application:** `rntme-landing` (`M5WfXaxcgKVHppiTldEbD`)
-- **Source:** GitHub `vladprrs/rntme-cli`, branch `main`
+- **Source:** GitHub `vladprrs/rntme`, branch `main`
 - **Build type:** `dockerfile` at `apps/landing/Dockerfile`, build context = repo root, target stage = `runtime`
 - **Watch paths:** `apps/landing/**`, `packages/**/package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` (auto-deploy on matching push)
 - **Domain:** `rntme.com` (apex), Let's Encrypt, port 80
@@ -39,7 +39,7 @@ If the application needs to be re-created (e.g. destructive config edit):
 
 1. `application.create` in project `runtime`, environment `production` (see IDs above).
 2. `application.saveBuildType` → `dockerfile`, file `apps/landing/Dockerfile`, context empty (defaults to repo root), build stage `runtime`.
-3. `application.saveGithubProvider` → owner `vladprrs`, repo `rntme-cli`, branch `main`, buildPath `/`, triggerType `push`, githubId from `github.githubProviders`, watchPaths as listed above.
+3. `application.saveGithubProvider` → owner `vladprrs`, repo `rntme`, branch `main`, buildPath `/`, triggerType `push`, githubId from `github.githubProviders`, watchPaths as listed above.
 4. `application.saveEnvironment` → paste the env block with real `TALLY_FORM_ID`. Set BOTH `env` AND `buildArgs` (the Dockerfile's ARGs pull from buildArgs).
 5. `domain.create` → host `rntme.com`, port 80, https true, certificateType `letsencrypt`, domainType `application`, path `/`.
 6. `application.deploy` to trigger the first build.

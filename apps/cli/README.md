@@ -1,4 +1,4 @@
-# @rntme-cli/cli
+# @rntme/cli
 
 The **rntme CLI** is a command-line interface for interacting with the rntme platform. It provides tools for authentication, publishing project blueprint versions, managing projects, token management, and project deploy planning through the deploy packages.
 
@@ -7,9 +7,9 @@ The **rntme CLI** is a command-line interface for interacting with the rntme pla
 ### 1. Install
 
 ```bash
-npm install -g @rntme-cli/cli
+npm install -g @rntme/cli
 # or
-pnpm add -g @rntme-cli/cli
+pnpm add -g @rntme/cli
 ```
 
 ### 2. Create a project blueprint

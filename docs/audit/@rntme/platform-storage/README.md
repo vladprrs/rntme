@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/platform-storage`
+# Architecture audit — `@rntme/platform-storage`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-229` (`408fa332-724c-42f8-a11b-4ebd0eb99983`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/platform-storage |
-| **Package / scope** | `@rntme-cli/platform-storage` |
+| **Issue title** | Audit: package architecture — @rntme/platform-storage |
+| **Package / scope** | `@rntme/platform-storage` |
 | **Verdict (summary)** | needs cleanup — несколько medium/high рисков, нет blockers, но debt накапливается быстро. |
 | **Audit comment id** | `5b17a0dc-39cf-4a0b-ae99-998a72021aca` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Audit Report: `@rntme-cli/platform-storage`
+## Audit Report: `@rntme/platform-storage`
 
 **Verdict:** needs cleanup — несколько medium/high рисков, нет blockers, но debt накапливается быстро.
 
@@ -96,4 +96,4 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 4. **Schema exports:** нужны ли Drizzle schemas за пределами пакета (например, для миграций в другом пакете)?
 
 ### Build / CI состояние
-- `pnpm install` на уровне workspace падает из-за отсутствия `@rntme/bindings`, `@rntme/pdm` и др. (зависимости из основного `rntme` mono-repo). `rntme-cli` не является standalone репозиторием для локальной разработки без основного mono-repo. Это workspace-level issue, не специфичен для `platform-storage`, но блокирует CI для этого пакета в изоляции.
+- `pnpm install` на уровне workspace ранее падал в изоляции из-за зависимостей из основного `rntme` mono-repo. После merge-back пакет не является standalone-репозиторием; это workspace-level issue, не специфичен для `platform-storage`.

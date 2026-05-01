@@ -240,7 +240,7 @@ Today, rntme is a per-service runtime. Tomorrow, it is the control plane around 
 
 1. **Control plane.** Organizations, projects, services, environments, API tokens, RBAC, SSO. Multi-tenancy. *Partially live at `platform.rntme.com`.*
 2. **Registry.** Publish and pull validated blueprints. Content-addressed artifact bundles. Versions, tags, history, diff, lineage. *Designed; partially live.*
-3. **Deploy surface.** Promote a blueprint version onto managed infrastructure. Environments. Rollbacks. Preview deploys. The current deploy surface is built on `@rntme-cli/deploy-core` and `@rntme-cli/deploy-dokploy`; see `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
+3. **Deploy surface.** Promote a blueprint version onto managed infrastructure. Environments. Rollbacks. Preview deploys. The current deploy surface is built on `@rntme/deploy-core` and `@rntme/deploy-dokploy`; see `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 4. **Governance layer.** Blueprint review UI for humans — including business users who never touch code. Approval workflows. Audit trail. Policy gates that block bad blueprints before deploy.
 
 **Roadmap rule.** Every commercial feature should map to one of these four pillars. Anything that doesn't is probably the wrong feature.

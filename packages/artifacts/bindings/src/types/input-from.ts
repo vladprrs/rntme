@@ -1,4 +1,4 @@
-// packages/bindings/src/types/input-from.ts
+// packages/artifacts/bindings/src/types/input-from.ts
 
 // Expression template for dynamic values (e.g., "$body.customerId", "$pre.session.url")
 export type ExpressionTemplate = string;

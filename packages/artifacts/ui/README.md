@@ -156,7 +156,7 @@ Expected on-disk shape under `sourceDir`:
 
 Every route entry (`manifest.routes[pattern].screen`) and every layout entry (`manifest.layouts[name]`) is a base path; `resolve.readPair` appends `.spec.json` and `.screen.json`. Fragments are referenced by base path via `{ "$ref": "fragments/<name>" }`.
 
-See `packages/ui/test/fixtures/fragment-app/` for a full minimal example exercising one layout, one screen, and one fragment.
+See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal example exercising one layout, one screen, and one fragment.
 
 ### Action kinds
 

@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/landing`
+# Architecture audit — `@rntme/landing`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-223` (`e68b7679-9e94-4267-aa40-d32e6a18b986`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/landing |
-| **Package / scope** | `@rntme-cli/landing` |
+| **Issue title** | Audit: package architecture — @rntme/landing |
+| **Package / scope** | `@rntme/landing` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `3a3ff012-cc4f-4646-82d8-b06080857458` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Audit Report: `@rntme-cli/landing`
+## Audit Report: `@rntme/landing`
 
 **Verdict: needs cleanup**
 
@@ -90,7 +90,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 1. Удалить или отделить мёртвые компоненты (`MicroJobs`, `SnowflakeToRuntime`).
 2. Проверить и устранить коллизии `data-section-num` / `id`.
 3. Добавить интеграционный тест на уникальность секционных ID.
-4. Запускать `astro check` в CI явно для `@rntme-cli/landing`.
+4. Запускать `astro check` в CI явно для `@rntme/landing`.
 5. Исправить ссылку на `SHAPE-BRIEF.md` в `.impeccable.md`.
 6. Установить осмысленную версию в `package.json`.
 

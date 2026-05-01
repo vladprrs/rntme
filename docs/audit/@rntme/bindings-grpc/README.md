@@ -34,7 +34,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### BLOCKER
 
 **B1. `actor: null` во всех gRPC-командах**
-Evidence: `packages/bindings-grpc/src/server/handler.ts:60`
+Evidence: `packages/runtime/bindings-grpc/src/server/handler.ts:60`
 Impact: Любая команда, пришедшая по gRPC, теряет actor-атрибуцию. Ломается audit trail и actor-based guard. HTTP-surface в `bindings-http` передаёт `actor: deps.actorFromRequest(c)`. gRPC-surface не принимает `actorFromRequest` в опциях и всегда ставит `null`.
 Рекомендация: добавить `actorFromRequest?: (metadata: grpc.Metadata) => ActorRef | null` в `GrpcServerOptions` и пробросить в handler.
 
@@ -89,7 +89,7 @@ Impact: Внутрикластерный трафик без mTLS.
 Рекомендация: roadmap item; пока задокументировать как known limitation.
 
 **L3. `collectShapesFromService` собирает только output-шейпы**
-Evidence: `packages/runtime/src/start/build-grpc-surface.ts:38-47` и inline TODO.
+Evidence: `packages/runtime/runtime/src/start/build-grpc-surface.ts:38-47` и inline TODO.
 Impact: Если binding имеет `row`/`rowset` input, соответствующее message не попадёт в `.proto`.
 Рекомендация: реализовать полный shape registry когда появится первый модуль с row-typed inputs (уже tracked).
 

@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/deploy-core`
+# Architecture audit — `@rntme/deploy-core`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-225` (`7dc6b75d-147d-4197-81e3-a4a40802e9d2`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/deploy-core |
-| **Package / scope** | `@rntme-cli/deploy-core` |
+| **Issue title** | Audit: package architecture — @rntme/deploy-core |
+| **Package / scope** | `@rntme/deploy-core` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `7701424f-5442-4314-b9e1-7be46f3fcc18` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит @rntme-cli/deploy-core
+## Архитектурный аудит @rntme/deploy-core
 
 **Verdict: needs cleanup.** Архитектура пакета соответствует спеке и product vision, публичный API чистый, границы ответственности соблюдены. Однако есть конкретные проблемы качества кода и покрытия тестами, которые нужно устранить до того, как пакет начнёт расти (production mode, новые middleware kinds, multi-environment).
 

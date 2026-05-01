@@ -24,7 +24,7 @@ const projectVersion = {
 };
 
 function writeBlueprint(dir: string): void {
-  cpSync(resolve('../../../packages/blueprint/test/fixtures/product-catalog-project'), dir, {
+  cpSync(resolve('../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project'), dir, {
     recursive: true,
   });
 }

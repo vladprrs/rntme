@@ -1,3 +1,5 @@
+> **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After the merge-back PR lands they move per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
+
 # Platform API Fix-02 Implementation Plan
 
 > **For agentic workers:** Use superpowers:subagent-driven-development or equivalent to implement this plan. Steps use `- [ ]` checkbox syntax.

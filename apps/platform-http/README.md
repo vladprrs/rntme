@@ -1,6 +1,6 @@
-# @rntme-cli/platform-http
+# @rntme/platform-http
 
-Hono HTTP server that wires `@rntme-cli/platform-core` use-cases to the REST surface and server-rendered UI at `platform.rntme.com`. WorkOS AuthKit handles humans with auto-refreshing sealed sessions; bearer API tokens handle machines.
+Hono HTTP server that wires `@rntme/platform-core` use-cases to the REST surface and server-rendered UI at `platform.rntme.com`. WorkOS AuthKit handles humans with auto-refreshing sealed sessions; bearer API tokens handle machines.
 
 ## Surfaces
 
@@ -56,8 +56,8 @@ UI mutations (`POST /:orgSlug/tokens`, `DELETE /:orgSlug/tokens/:id`, `POST /:or
 Deploy-target REST routes require `deploy:target:manage`; start deployment
 requires `deploy:execute`; deployment reads require `project:read`. The
 background executor fetches the immutable project-version bundle, revalidates
-it, plans with `@rntme-cli/deploy-core`, applies with
-`@rntme-cli/deploy-dokploy`, writes sanitized logs, records apply/smoke
+it, plans with `@rntme/deploy-core`, applies with
+`@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
 
 ## Security headers (UI only)
@@ -71,11 +71,11 @@ Applied by `securityHeaders()` middleware on UI responses:
 ## Development
 
 ```bash
-pnpm -F @rntme-cli/platform-http test       # unit + e2e (testcontainers)
-pnpm -F @rntme-cli/platform-http typecheck
-pnpm -F @rntme-cli/platform-http lint
-pnpm -F @rntme-cli/platform-http build      # tsc (includes TSX)
-pnpm -F @rntme-cli/platform-http start      # runs dist/bin/server.js
+pnpm -F @rntme/platform-http test       # unit + e2e (testcontainers)
+pnpm -F @rntme/platform-http typecheck
+pnpm -F @rntme/platform-http lint
+pnpm -F @rntme/platform-http build      # tsc (includes TSX)
+pnpm -F @rntme/platform-http start      # runs dist/bin/server.js
 ```
 
 ## Env vars

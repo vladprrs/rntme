@@ -1,3 +1,5 @@
+> **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After the merge-back PR lands they move per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
+
 # Platform API — Errata 01
 
 **Date:** 2026-04-19 (same day; fix batch after post-landing code review)

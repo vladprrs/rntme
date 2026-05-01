@@ -33,7 +33,7 @@ Primary recommendation: **KEEP + UPGRADE** to `^2.13.6` in a follow-up migration
 **Code references:**
 
 ```ts
-// rntme-cli/packages/cli/test/integration/commands.test.ts
+// apps/cli/test/integration/commands.test.ts
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -99,7 +99,7 @@ grep -r "msw\|mockServiceWorker" rntme-cli --include="*.ts" -l
 
 Installation / upgrade commands, if eventually recommended:
 ```bash
-# rntme-cli/packages/cli
+# apps/cli
 pnpm add -D msw@^2.13.6
 ```
 
@@ -227,7 +227,7 @@ Warning signs: ReferenceError in test setup before any mocks are used.
 
 ### Basic HTTP Mock (rntme-cli current pattern)
 ```ts
-// Source: rntme-cli/packages/cli/test/integration/commands.test.ts
+// Source: apps/cli/test/integration/commands.test.ts
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -301,7 +301,7 @@ Deprecated/outdated:
 | Effort | Update package.json + lockfile + run tests | ~15 min | LOW | Straightforward semver-minor bump |
 
 **Migration path:**
-1. Update `rntme-cli/packages/cli/package.json`: `"msw": "^2.13.6"`
+1. Update `apps/cli/package.json`: `"msw": "^2.13.6"`
 2. Run `pnpm install` (or equivalent) to update lockfile
 3. Run `pnpm test` in `packages/cli`
 4. Verify all tests pass; no code changes expected
@@ -318,7 +318,7 @@ Rationale:
 - Potential future enhancement: integrate `openapi-msw` for type-safe mocks aligned with rntme's blueprint-generated OpenAPI specs.
 
 Follow-up tasks to create later:
-- [ ] **RNT-xxx**: Bump msw to `^2.13.6` in `rntme-cli/packages/cli/package.json`
+- [ ] **RNT-xxx**: Bump msw to `^2.13.6` in `apps/cli/package.json`
 - [ ] **RNT-xxx**: Evaluate `openapi-msw` integration for compile-time mock safety
 - [ ] **RNT-xxx**: Extract reusable MSW handlers/fixtures from `commands.test.ts` into `test/mocks/` directory
 

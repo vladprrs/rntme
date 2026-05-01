@@ -12,7 +12,7 @@ service artifact folder.
   `loadService()` and `startService()`.
 - `packages/blueprint` can load/compose project blueprint folders, project-level
   PDM, routes/middleware, service members, and a project-routed binding registry.
-- `rntme-cli/packages/deploy-core` and `deploy-dokploy` model project deployment
+- `packages/deploy/deploy-core` and `deploy-dokploy` model project deployment
   planning/adaptation, but the main repo runtime still uses one service process
   per artifact folder.
 - Runtime default persistence is better-sqlite3; bus default is `InMemoryBus`.

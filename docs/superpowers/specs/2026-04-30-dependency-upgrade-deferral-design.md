@@ -32,7 +32,7 @@ These are the conditions under which the deferral logic is sound. If any of them
 - **rntme is pre-revenue, no users.** No external pressure to apply application-level security patches. The threat surface is internal.
 - **Three large migrations are on the horizon and will obsolete significant portions of current dependency choices:**
   - **Bun migration** — replaces `better-sqlite3` (Bun has built-in SQLite) and `@hono/node-server` (Bun has native `serve()`).
-  - **Platform-on-rntme dogfooding** — rewrites `rntme-cli/packages/platform-*` on top of rntme primitives, obsoleting the current `pg` / `drizzle-orm` / `drizzle-kit` / `@aws-sdk/*` / `@workos-inc/node` / `@hono/zod-openapi` / `testcontainers` choices in those packages.
+  - **Platform-on-rntme dogfooding** — rewrites `packages/platform/platform-*` on top of rntme primitives, obsoleting the current `pg` / `drizzle-orm` / `drizzle-kit` / `@aws-sdk/*` / `@workos-inc/node` / `@hono/zod-openapi` / `testcontainers` choices in those packages.
   - **Identity module rework** — rescopes `modules/identity/auth0` and `modules/identity/workos`, obsoleting their current SDK versions before any v5/v8 migration cost is paid.
 - **TypeScript 6.0 is an explicit bridge to TS 7.0** (Go rewrite). 5 → 6 → 7 is strictly more expensive than 5 → 7 once 7.0 RC is published.
 - **Engineering opportunity cost is high.** Audit waves W2–W15 are in flight (`docs/audit/00-waves.md`); MVP work outranks tooling debt at the current stage.
@@ -60,7 +60,7 @@ Each cluster: current → researched-latest, decision, re-evaluate trigger. All 
 | 13 | `@types/react` in `ui-runtime` (mismatched with React 19 runtime) | `^18.3.x` → `19.2.14` | Defer | TS types break ui-runtime build OR TypeScript 6/7 wave fires |
 | 14 | `@json-render/core/react/shadcn` (`ui-runtime`) | `^0.17.0` → `0.18.0` | Defer | Required by a feature OR bundled into another UI wave |
 | 15 | `tailwindcss`, `@tailwindcss/cli` (`ui-runtime`) | `^4.2.2` → `4.2.4` | Defer | Same |
-| 16 | `msw` (rntme-cli tests) | `^2.4.9` → `2.13.6` | Defer | Test failure from staleness OR bundled into tooling wave |
+| 16 | `msw` (merged CLI/platform packages tests) | `^2.4.9` → `2.13.6` | Defer | Test failure from staleness OR bundled into tooling wave |
 | 17 | `tsx`, `esbuild` (`ui-runtime`, demo) | mixed → `4.21.0` / `0.28.0` | Defer | Same |
 | 18 | `vitest` repo-wide | `^2.1.x` → `4.1.5` | Defer | Bundled into TypeScript 7 wave (see #20) OR vitest 2.x stops working on a future Node version |
 | 19 | `eslint`, `@eslint/js`, `@typescript-eslint/*`, `prettier` repo-wide | mixed → `10.2.1` / `10.0.1` / `8.59.1` / `3.8.3` | Defer | Bundled into TypeScript 7 wave (see #20) OR ESLint 9.x dropped from active support, breaks on future Node, or `@typescript-eslint` requires TS 6+ |
@@ -68,7 +68,7 @@ Each cluster: current → researched-latest, decision, re-evaluate trigger. All 
 | 21 | `node:20-alpine`/`slim` Docker base, GitHub Actions stack | `node:20` / mixed → `node:22` / latest | Defer | Any of: (a) Node 20 OS-level CVE — Node 20 LTS reaches EOL in April 2026, monitor NVD, (b) first user-facing deploy of any rntme service, (c) Bun migration |
 | 22 | `prom-client` | `15.1.3` → `15.1.3` (already latest) | No-op | OpenTelemetry migration spike (Q3–Q4 2026 per research recommendation) |
 | 23 | `zod`, `@clerk/backend`, `@bitrix24/b24jssdk`, `@shevernitskiy/amo` | all on latest | No-op | New major release of any one (caught by 6-month research-refresh, Section 6) |
-| 24 | `fast-check` (declared but unused in `packages/platform-core`) | — → remove | Defer (trivial) | Any housekeeping PR may delete in a one-liner; no formal trigger |
+| 24 | `fast-check` (declared but unused in `packages/platform/platform-core`) | — → remove | Defer (trivial) | Any housekeeping PR may delete in a one-liner; no formal trigger |
 
 ### Notes on the matrix
 

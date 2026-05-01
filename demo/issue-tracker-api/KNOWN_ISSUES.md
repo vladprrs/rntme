@@ -33,7 +33,7 @@ Status: **all resolved** — the demo boots with declarative seeding and all pre
 
 **Resolution:** Swapped OR argument order in `wrapPredicateOptional` (`args: [acc, isNull]`) so inner `?` precedes guard `?` in emitted SQL, aligning with `paramOrder` push order. Regression tests added at unit and e2e level with mixed required + predicate_optional params.
 
-**Where:** `packages/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`.
+**Where:** `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`.
 
 **The bug:** `wrapPredicateOptional` wraps an inner predicate SQL expression as `(? IS NULL) OR (<inner>)` and appends the guard param to `paramOrder` **after** all inner params are already pushed. better-sqlite3 (and SQLite generally) binds `?` placeholders by walk-order of the SQL text, not by array index — so the guard `?` on the left of the `OR` resolves to the *first* value in `paramOrder`, not the last. Whenever the surrounding filter contains any `$param` other than the predicate-optional one, the guard silently binds to the wrong value and the filter's semantics collapse.
 
@@ -73,7 +73,7 @@ Everything in "What works today". The SPA at `/ui` can list and open issues; JOI
 
 - Memory: `rntme_predicate_optional_bug.md` — upstream analysis of Finding 3 (code re-verified 2026-04-15; matches this document).
 - Memory: `rntme_turso_target.md` — relevant to the seed design: whatever we build must stay SQLite-compatible for the planned Turso migration.
-- Compiler: `packages/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`, `packages/graph-ir-compiler/src/lower/sqlite/joins.ts:48`, `packages/graph-ir-compiler/src/validate/semantic/sources.ts:37`.
-- Runtime: `packages/runtime/src/start/start-service.ts`, `packages/runtime/src/start/wire-event-pipeline.ts`.
-- Seed: `packages/seed/README.md`, `packages/runtime/src/load/load-service.ts`.
+- Compiler: `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts:159-177`, `packages/artifacts/graph-ir-compiler/src/lower/sqlite/joins.ts:48`, `packages/artifacts/graph-ir-compiler/src/validate/semantic/sources.ts:37`.
+- Runtime: `packages/runtime/runtime/src/start/start-service.ts`, `packages/runtime/runtime/src/start/wire-event-pipeline.ts`.
+- Seed: `packages/artifacts/seed/README.md`, `packages/runtime/runtime/src/load/load-service.ts`.
 - Demo artifacts: `demo/issue-tracker-api/artifacts/{pdm,qsm,bindings,seed}.json`, `demo/issue-tracker-api/artifacts/graphs/{issueDetail,issuesByProject,searchIssues}.json`.

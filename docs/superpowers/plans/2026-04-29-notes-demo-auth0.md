@@ -60,42 +60,42 @@ Phase 7
 
 ### Phase 2 (Bindings + Graph IR)
 
-- Modify: `packages/bindings/src/validate/structural.ts:164` — remove `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` check for query bindings with pre steps.
-- Modify: `packages/bindings/test/unit/validate-structural.test.ts` — query-pre[] passes; 3-step pre fails.
-- Modify: `packages/bindings/README.md` — pre[] now allowed on queries.
-- Modify: `packages/bindings-http/src/runtime/handler.ts` (query handler) — call `runPreSteps`.
-- Modify: `packages/bindings-http/src/router.ts:60` — error message mentions queries too.
-- Modify: `packages/bindings-http/src/runtime/command-handler.ts` — auth-aware 401 mapping for IntrospectSession `Session.status !== SESSION_STATUS_ACTIVE`.
-- Modify: `packages/bindings-http/src/runtime/handler.ts` — same 401 mapping.
-- Modify: `packages/bindings-http/src/pre/run-pre-steps.ts` — PII masking helper for `vendor_raw.claims.*` in any log path.
-- Modify: `packages/bindings-http/test/unit/...` — add tests.
-- Modify: `packages/bindings-http/README.md`.
-- Modify: `packages/graph-ir-compiler/src/parse/schema.ts` — `$pre` in `expr` union.
-- Modify: `packages/graph-ir-compiler/src/execute/...` (locate evaluator) — resolve `$pre`.
-- Modify: `packages/graph-ir-compiler/src/validate/...` — disallow `$pre` in aggregateId/transition/source.
-- Create: `packages/graph-ir-compiler/test/unit/pre-directive.test.ts`.
-- Modify: `packages/graph-ir-compiler/README.md`.
-- Modify: `packages/blueprint/src/parse/schema.ts` — `auth` middleware kind typed (provider/audience/moduleSlug).
-- Modify: `packages/blueprint/src/validate/composition.ts` — `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`.
-- Modify: `packages/blueprint/test/unit/...`.
-- Modify: `packages/blueprint/README.md`.
+- Modify: `packages/artifacts/bindings/src/validate/structural.ts:164` — remove `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` check for query bindings with pre steps.
+- Modify: `packages/artifacts/bindings/test/unit/validate-structural.test.ts` — query-pre[] passes; 3-step pre fails.
+- Modify: `packages/artifacts/bindings/README.md` — pre[] now allowed on queries.
+- Modify: `packages/runtime/bindings-http/src/runtime/handler.ts` (query handler) — call `runPreSteps`.
+- Modify: `packages/runtime/bindings-http/src/router.ts:60` — error message mentions queries too.
+- Modify: `packages/runtime/bindings-http/src/runtime/command-handler.ts` — auth-aware 401 mapping for IntrospectSession `Session.status !== SESSION_STATUS_ACTIVE`.
+- Modify: `packages/runtime/bindings-http/src/runtime/handler.ts` — same 401 mapping.
+- Modify: `packages/runtime/bindings-http/src/pre/run-pre-steps.ts` — PII masking helper for `vendor_raw.claims.*` in any log path.
+- Modify: `packages/runtime/bindings-http/test/unit/...` — add tests.
+- Modify: `packages/runtime/bindings-http/README.md`.
+- Modify: `packages/artifacts/graph-ir-compiler/src/parse/schema.ts` — `$pre` in `expr` union.
+- Modify: `packages/artifacts/graph-ir-compiler/src/execute/...` (locate evaluator) — resolve `$pre`.
+- Modify: `packages/artifacts/graph-ir-compiler/src/validate/...` — disallow `$pre` in aggregateId/transition/source.
+- Create: `packages/artifacts/graph-ir-compiler/test/unit/pre-directive.test.ts`.
+- Modify: `packages/artifacts/graph-ir-compiler/README.md`.
+- Modify: `packages/artifacts/blueprint/src/parse/schema.ts` — `auth` middleware kind typed (provider/audience/moduleSlug).
+- Modify: `packages/artifacts/blueprint/src/validate/composition.ts` — `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`.
+- Modify: `packages/artifacts/blueprint/test/unit/...`.
+- Modify: `packages/artifacts/blueprint/README.md`.
 
 ### Phase 3 (Deploy library + runtime env)
 
-- Modify: `rntme-cli/packages/deploy-core/src/config.ts` — `ExternalEventBusSecurity` discriminated union.
-- Modify: `rntme-cli/packages/deploy-core/src/edge.ts` — `EdgeMiddleware` kind:`auth` variant + `supportedMiddlewareKinds`.
-- Modify: `rntme-cli/packages/deploy-core/src/plan.ts` — validators (SASL completeness, mechanism, auth provider/audience/moduleSlug, module workload existence, module env `AUTH0_DOMAIN`).
-- Modify: `rntme-cli/packages/deploy-core/src/composed-project.ts` (and types) — `auth` middleware kind passthrough typed.
-- Modify: `rntme-cli/packages/deploy-core/test/unit/plan.test.ts`.
-- Modify: `rntme-cli/packages/deploy-core/README.md`.
-- Modify: `rntme-cli/packages/deploy-dokploy/src/render.ts` — auth env on domain-service; SASL env; generated `/srv/config.json`.
-- Modify: `rntme-cli/packages/deploy-dokploy/src/nginx.ts` — comment-only for auth, no block.
-- Modify: `rntme-cli/packages/deploy-dokploy/test/unit/render.test.ts` — snapshot for notes-demo plan.
-- Modify: `rntme-cli/packages/deploy-dokploy/README.md`.
-- Modify: `packages/runtime/src/start/...` (boot pipeline) — read `RNTME_AUTH_*`, init `ExternalAdapterClient` registry.
-- Modify: `packages/runtime/src/...` (Kafka client config) — SASL_SSL env consumption.
-- Modify: `packages/runtime/test/...`.
-- Modify: `packages/runtime/README.md`.
+- Modify: `packages/deploy/deploy-core/src/config.ts` — `ExternalEventBusSecurity` discriminated union.
+- Modify: `packages/deploy/deploy-core/src/edge.ts` — `EdgeMiddleware` kind:`auth` variant + `supportedMiddlewareKinds`.
+- Modify: `packages/deploy/deploy-core/src/plan.ts` — validators (SASL completeness, mechanism, auth provider/audience/moduleSlug, module workload existence, module env `AUTH0_DOMAIN`).
+- Modify: `packages/deploy/deploy-core/src/composed-project.ts` (and types) — `auth` middleware kind passthrough typed.
+- Modify: `packages/deploy/deploy-core/test/unit/plan.test.ts`.
+- Modify: `packages/deploy/deploy-core/README.md`.
+- Modify: `packages/deploy/deploy-dokploy/src/render.ts` — auth env on domain-service; SASL env; generated `/srv/config.json`.
+- Modify: `packages/deploy/deploy-dokploy/src/nginx.ts` — comment-only for auth, no block.
+- Modify: `packages/deploy/deploy-dokploy/test/unit/render.test.ts` — snapshot for notes-demo plan.
+- Modify: `packages/deploy/deploy-dokploy/README.md`.
+- Modify: `packages/runtime/runtime/src/start/...` (boot pipeline) — read `RNTME_AUTH_*`, init `ExternalAdapterClient` registry.
+- Modify: `packages/runtime/runtime/src/...` (Kafka client config) — SASL_SSL env consumption.
+- Modify: `packages/runtime/runtime/test/...`.
+- Modify: `packages/runtime/runtime/README.md`.
 
 ### Phase 4 (UI auth-shell + ui-runtime)
 
@@ -109,9 +109,9 @@ Phase 7
 - Create: `packages/ui-auth-shell/test/unit/transport.test.ts`.
 - Create: `packages/ui-auth-shell/test/unit/config.test.ts`.
 - Create: `packages/ui-auth-shell/test/unit/auth0-client.test.ts`.
-- Modify: `packages/ui-runtime/src/client/entry.tsx` (or wherever the SPA bootstrap is) — accept `transport` and `initialState` opts; readonly-keys protection for initialState.
-- Modify: `packages/ui-runtime/src/build.ts` — emit `app.js` calling `mountAuthenticatedApp`; HTML reads `window.__RNTME_AUTH_SHELL_CONFIG__` from inlined script that fetches `/config.json`.
-- Modify: `packages/ui-runtime/README.md`.
+- Modify: `packages/runtime/ui-runtime/src/client/entry.tsx` (or wherever the SPA bootstrap is) — accept `transport` and `initialState` opts; readonly-keys protection for initialState.
+- Modify: `packages/runtime/ui-runtime/src/build.ts` — emit `app.js` calling `mountAuthenticatedApp`; HTML reads `window.__RNTME_AUTH_SHELL_CONFIG__` from inlined script that fetches `/config.json`.
+- Modify: `packages/runtime/ui-runtime/README.md`.
 - Modify: root workspace `package.json`/`pnpm-workspace.yaml` to include `packages/ui-auth-shell`.
 
 ### Phase 5 (Notes blueprint)
@@ -653,7 +653,7 @@ Phase 1 complete. Track A first leg (Contract + identity-auth0 IntrospectSession
 ### Task 2.1: Failing test — `pre[]` allowed on query bindings
 
 **Files:**
-- Modify: `packages/bindings/test/unit/validate-structural.test.ts`
+- Modify: `packages/artifacts/bindings/test/unit/validate-structural.test.ts`
 
 - [ ] **Step 1: Add the test**
 
@@ -726,11 +726,11 @@ Expected: first test fails with `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND`; second
 ### Task 2.2: Remove `BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND` for query pre steps
 
 **Files:**
-- Modify: `packages/bindings/src/validate/structural.ts`
+- Modify: `packages/artifacts/bindings/src/validate/structural.ts`
 
 - [ ] **Step 1: Open the validator**
 
-Run: `sed -n '155,180p' packages/bindings/src/validate/structural.ts`
+Run: `sed -n '155,180p' packages/artifacts/bindings/src/validate/structural.ts`
 
 Confirm the block around line 164.
 
@@ -740,7 +740,7 @@ Delete the `if (!isCommand)` branch inside `if (entry.pre !== undefined && entry
 
 - [ ] **Step 3: Drop the error code, if any export**
 
-Run: `grep -RIn "BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND" packages/bindings/src packages/bindings/test`
+Run: `grep -RIn "BINDINGS_STRUCTURAL_PRE_ON_NON_COMMAND" packages/artifacts/bindings/src packages/artifacts/bindings/test`
 
 Remove or update the query-pre references. Keep the code itself only if another non-command binding kind still needs it; currently query and command are the only binding kinds.
 
@@ -759,18 +759,18 @@ Expected: green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/bindings/src/validate/structural.ts packages/bindings/test/unit/validate/pre-structural.test.ts
+git add packages/artifacts/bindings/src/validate/structural.ts packages/artifacts/bindings/test/unit/validate/pre-structural.test.ts
 git commit -m "feat(bindings): allow pre[] on query bindings (K1)"
 ```
 
 ### Task 2.3: Failing test — query handler runs `pre[]`
 
 **Files:**
-- Modify: `packages/bindings-http/test/unit/` — locate the existing query-handler test or create a small one near it.
+- Modify: `packages/runtime/bindings-http/test/unit/` — locate the existing query-handler test or create a small one near it.
 
 - [ ] **Step 1: Find the existing handler test**
 
-Run: `ls packages/bindings-http/test/unit/`
+Run: `ls packages/runtime/bindings-http/test/unit/`
 
 Identify the query-handler test file (or create `runtime-handler-pre.test.ts`).
 
@@ -811,7 +811,7 @@ describe('query handler runs pre[]', () => {
 });
 ```
 
-(Stub `makeInMemoryDb()` and the QueryBindingPlan factory using existing test helpers in this repo. Look at `packages/bindings-http/test/unit/` for the pattern.)
+(Stub `makeInMemoryDb()` and the QueryBindingPlan factory using existing test helpers in this repo. Look at `packages/runtime/bindings-http/test/unit/` for the pattern.)
 
 - [ ] **Step 3: Run — expect failure**
 
@@ -822,9 +822,9 @@ Expected: assertions fail (handler does not call adapter; or 200 instead of 401)
 ### Task 2.4: Implement `runPreSteps` in query handler + 401 mapping
 
 **Files:**
-- Modify: `packages/bindings-http/src/runtime/handler.ts`
-- Modify: `packages/bindings-http/src/router.ts`
-- Modify: `packages/bindings-http/src/runtime/command-handler.ts`
+- Modify: `packages/runtime/bindings-http/src/runtime/handler.ts`
+- Modify: `packages/runtime/bindings-http/src/router.ts`
+- Modify: `packages/runtime/bindings-http/src/runtime/command-handler.ts`
 
 - [ ] **Step 1: Update `HandlerDeps` and the factory**
 
@@ -869,7 +869,7 @@ if ((plan.pre?.length ?? 0) > 0) {
 }
 ```
 
-(Use `bindName`; `packages/bindings-http/src/startup/compile-plan.ts` currently exposes `CompiledPreStep.bindName`.)
+(Use `bindName`; `packages/runtime/bindings-http/src/startup/compile-plan.ts` currently exposes `CompiledPreStep.bindName`.)
 
 - [ ] **Step 3: Pass `pre` into graph executor**
 
@@ -887,7 +887,7 @@ And widen the check from "any command binding has pre[]" to "any binding has pre
 
 - [ ] **Step 5: Mirror 401 mapping in command handler**
 
-In `packages/bindings-http/src/runtime/command-handler.ts`, apply the same `authMiddlewareModuleSlug` check after `runPreSteps` returns and before idempotency-cache and graph execution.
+In `packages/runtime/bindings-http/src/runtime/command-handler.ts`, apply the same `authMiddlewareModuleSlug` check after `runPreSteps` returns and before idempotency-cache and graph execution.
 
 - [ ] **Step 6: Run Phase 2 tests**
 
@@ -898,14 +898,14 @@ Expected: green, including the new pre tests.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/bindings-http/src/runtime/handler.ts packages/bindings-http/src/runtime/command-handler.ts packages/bindings-http/src/router.ts packages/bindings-http/test/unit/
+git add packages/runtime/bindings-http/src/runtime/handler.ts packages/runtime/bindings-http/src/runtime/command-handler.ts packages/runtime/bindings-http/src/router.ts packages/runtime/bindings-http/test/unit/
 git commit -m "feat(bindings-http): query handler runs pre[]; 401 mapping for IntrospectSession"
 ```
 
 ### Task 2.5: PII masking in pre-result logs
 
 **Files:**
-- Modify: `packages/bindings-http/src/pre/run-pre-steps.ts`
+- Modify: `packages/runtime/bindings-http/src/pre/run-pre-steps.ts`
 - Modify: any log call sites for pre results (search and update).
 
 - [ ] **Step 1: Add `maskClaims` helper**
@@ -931,7 +931,7 @@ export function maskClaimsForLog(value: unknown): unknown {
 
 - [ ] **Step 2: Replace log call sites**
 
-Run: `grep -rn "console\.\(log\|debug\|info\)\|logger\..*pre\|preResult" packages/bindings-http/src/`
+Run: `grep -rn "console\.\(log\|debug\|info\)\|logger\..*pre\|preResult" packages/runtime/bindings-http/src/`
 
 For every log of `pre`/`preResult`/`systemFields.pre`, wrap with `maskClaimsForLog(...)`.
 
@@ -951,14 +951,14 @@ Run: `pnpm -F @rntme/bindings-http test`
 Expected: green.
 
 ```bash
-git add packages/bindings-http/src/pre/run-pre-steps.ts packages/bindings-http/test/unit/
+git add packages/runtime/bindings-http/src/pre/run-pre-steps.ts packages/runtime/bindings-http/test/unit/
 git commit -m "feat(bindings-http): mask vendor_raw.claims in pre-result logs (R12)"
 ```
 
 ### Task 2.6: Failing test — `$pre` directive in graph IR
 
 **Files:**
-- Create: `packages/graph-ir-compiler/test/unit/pre-directive.test.ts`
+- Create: `packages/artifacts/graph-ir-compiler/test/unit/pre-directive.test.ts`
 
 - [ ] **Step 1: Write the test**
 
@@ -1024,9 +1024,9 @@ Expected: parse rejects unknown `$pre` directive.
 ### Task 2.7: Implement `$pre` directive
 
 **Files:**
-- Modify: `packages/graph-ir-compiler/src/parse/schema.ts`
-- Modify: `packages/graph-ir-compiler/src/execute/...` (locate evaluator)
-- Modify: `packages/graph-ir-compiler/src/validate/...` (positional disallow)
+- Modify: `packages/artifacts/graph-ir-compiler/src/parse/schema.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/execute/...` (locate evaluator)
+- Modify: `packages/artifacts/graph-ir-compiler/src/validate/...` (positional disallow)
 
 - [ ] **Step 1: Extend `expr` union**
 
@@ -1076,15 +1076,15 @@ Expected: all existing fixtures still green; new `$pre` tests green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/graph-ir-compiler/src packages/graph-ir-compiler/test/unit/pre-directive.test.ts
+git add packages/artifacts/graph-ir-compiler/src packages/artifacts/graph-ir-compiler/test/unit/pre-directive.test.ts
 git commit -m "feat(graph-ir-compiler): \$pre directive for pre-step result references"
 ```
 
 ### Task 2.8: Blueprint validators — audience equality + `$pre` reference defined
 
 **Files:**
-- Modify: `packages/blueprint/src/validate/composition.ts`
-- Modify: `packages/blueprint/test/unit/validate-composition.test.ts`
+- Modify: `packages/artifacts/blueprint/src/validate/composition.ts`
+- Modify: `packages/artifacts/blueprint/test/unit/validate-composition.test.ts`
 
 - [ ] **Step 1: Add `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` validator**
 
@@ -1125,7 +1125,7 @@ Run: `pnpm -F @rntme/blueprint test`
 Expected: green.
 
 ```bash
-git add packages/blueprint/src/validate/composition.ts packages/blueprint/test/unit/validate-composition.test.ts
+git add packages/artifacts/blueprint/src/validate/composition.ts packages/artifacts/blueprint/test/unit/validate-composition.test.ts
 git commit -m "feat(blueprint): cross-artifact validators for auth audience and \$pre references"
 ```
 
@@ -1142,7 +1142,7 @@ Expected: all green.
 In each of `bindings`, `bindings-http`, `graph-ir-compiler`, `blueprint` READMEs, add a one-line entry under "Invariants & gotchas" or equivalent describing the new behavior. Commit.
 
 ```bash
-git add packages/bindings/README.md packages/bindings-http/README.md packages/graph-ir-compiler/README.md packages/blueprint/README.md
+git add packages/artifacts/bindings/README.md packages/runtime/bindings-http/README.md packages/artifacts/graph-ir-compiler/README.md packages/artifacts/blueprint/README.md
 git commit -m "docs: bindings/graph-ir-compiler/blueprint README updates for pre[] on queries and \$pre directive"
 ```
 
@@ -1153,8 +1153,8 @@ git commit -m "docs: bindings/graph-ir-compiler/blueprint README updates for pre
 ### Task 3.1: `ExternalEventBusConfig` discriminated union
 
 **Files:**
-- Modify: `rntme-cli/packages/deploy-core/src/config.ts`
-- Modify: `rntme-cli/packages/deploy-core/test/unit/plan.test.ts`
+- Modify: `packages/deploy/deploy-core/src/config.ts`
+- Modify: `packages/deploy/deploy-core/test/unit/plan.test.ts`
 
 - [ ] **Step 1: Replace `security` shape**
 
@@ -1203,20 +1203,20 @@ it('accepts sasl_ssl with valid mechanism and both secretRefs', () => { /* … *
 
 - [ ] **Step 4: Test + commit**
 
-Run: `pnpm -F @rntme-cli/deploy-core test`
+Run: `pnpm -F @rntme/deploy-core test`
 
 Expected: green.
 
 ```bash
-git add rntme-cli/packages/deploy-core/src/config.ts rntme-cli/packages/deploy-core/src/plan.ts rntme-cli/packages/deploy-core/test/unit/
+git add packages/deploy/deploy-core/src/config.ts packages/deploy/deploy-core/src/plan.ts packages/deploy/deploy-core/test/unit/
 git commit -m "feat(deploy-core): ExternalEventBusConfig.security discriminated union with SASL_SSL/SCRAM"
 ```
 
 ### Task 3.2: `EdgeMiddleware` `kind: 'auth'` variant
 
 **Files:**
-- Modify: `rntme-cli/packages/deploy-core/src/edge.ts`
-- Modify: `rntme-cli/packages/deploy-core/test/unit/edge.test.ts`
+- Modify: `packages/deploy/deploy-core/src/edge.ts`
+- Modify: `packages/deploy/deploy-core/test/unit/edge.test.ts`
 
 - [ ] **Step 1: Extend `EdgeMiddleware` union**
 
@@ -1260,20 +1260,20 @@ Add cases that:
 
 - [ ] **Step 4: Test + commit**
 
-Run: `pnpm -F @rntme-cli/deploy-core test`
+Run: `pnpm -F @rntme/deploy-core test`
 
 Expected: green.
 
 ```bash
-git add rntme-cli/packages/deploy-core/src/edge.ts rntme-cli/packages/deploy-core/test/unit/edge.test.ts
+git add packages/deploy/deploy-core/src/edge.ts packages/deploy/deploy-core/test/unit/edge.test.ts
 git commit -m "feat(deploy-core): EdgeMiddleware kind=auth with provider/audience/moduleSlug + validators"
 ```
 
 ### Task 3.3: deploy-dokploy renders auth + SASL env
 
 **Files:**
-- Modify: `rntme-cli/packages/deploy-dokploy/src/render.ts`
-- Modify: `rntme-cli/packages/deploy-dokploy/test/unit/render.test.ts`
+- Modify: `packages/deploy/deploy-dokploy/src/render.ts`
+- Modify: `packages/deploy/deploy-dokploy/test/unit/render.test.ts`
 
 - [ ] **Step 1: SASL env on domain-service workload**
 
@@ -1374,23 +1374,23 @@ Add a render snapshot test that builds a `ProjectDeploymentPlan` shaped like the
 
 - [ ] **Step 6: Test + commit**
 
-Run: `pnpm -F @rntme-cli/deploy-dokploy test`
+Run: `pnpm -F @rntme/deploy-dokploy test`
 
 Expected: green.
 
 ```bash
-git add rntme-cli/packages/deploy-core/src/config.ts rntme-cli/packages/deploy-dokploy/src/render.ts rntme-cli/packages/deploy-dokploy/src/nginx.ts rntme-cli/packages/deploy-dokploy/test/unit/render.test.ts
+git add packages/deploy/deploy-core/src/config.ts packages/deploy/deploy-dokploy/src/render.ts packages/deploy/deploy-dokploy/src/nginx.ts packages/deploy/deploy-dokploy/test/unit/render.test.ts
 git commit -m "feat(deploy-dokploy): render auth env, SASL env, generated config.json; nginx noop for kind=auth"
 ```
 
 ### Task 3.4: Runtime — read `RNTME_AUTH_*` env, init `ExternalAdapterClient`
 
 **Files:**
-- Modify: `packages/runtime/src/start/...` (boot pipeline)
+- Modify: `packages/runtime/runtime/src/start/...` (boot pipeline)
 
 - [ ] **Step 1: Locate boot env parsing**
 
-Run: `grep -rn "parseEnv\|process\.env\.RNTME_" packages/runtime/src/`
+Run: `grep -rn "parseEnv\|process\.env\.RNTME_" packages/runtime/runtime/src/`
 
 Identify the env reader.
 
@@ -1422,7 +1422,7 @@ if (env.authProvider === 'auth0' && env.authModuleEndpoint) {
 const router = createBindingsRouter({ /* …existing… */, externalAdapterClient, authMiddlewareModuleSlug: env.authModuleSlug });
 ```
 
-(`createGrpcAdapterClient` is whatever ExternalAdapterClient gRPC factory exists; if there is none, this task gates on Phase 1 producing a usable client. Search `packages/bindings-http/src/runtime-contract.ts` for the interface and pick the closest existing implementation. If the registry is hand-coded, accept a record and do `transport.call(module, rpc, input)` via gRPC HTTP/2.)
+(`createGrpcAdapterClient` is whatever ExternalAdapterClient gRPC factory exists; if there is none, this task gates on Phase 1 producing a usable client. Search `packages/runtime/bindings-http/src/runtime-contract.ts` for the interface and pick the closest existing implementation. If the registry is hand-coded, accept a record and do `transport.call(module, rpc, input)` via gRPC HTTP/2.)
 
 - [ ] **Step 4: SASL env into Kafka client**
 
@@ -1451,7 +1451,7 @@ Run: `pnpm -F @rntme/runtime test`
 Expected: green.
 
 ```bash
-git add packages/runtime/src
+git add packages/runtime/runtime/src
 git commit -m "feat(runtime): consume RNTME_AUTH_* and SASL_SSL env in boot pipeline"
 ```
 
@@ -1459,7 +1459,7 @@ git commit -m "feat(runtime): consume RNTME_AUTH_* and SASL_SSL env in boot pipe
 
 - [ ] **Step 1: Full Phase 3 test**
 
-Run: `pnpm -F @rntme-cli/deploy-core test && pnpm -F @rntme-cli/deploy-dokploy test && pnpm -F @rntme/runtime test`
+Run: `pnpm -F @rntme/deploy-core test && pnpm -F @rntme/deploy-dokploy test && pnpm -F @rntme/runtime test`
 
 Expected: green.
 
@@ -1472,7 +1472,7 @@ Expected: green.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add rntme-cli/packages/deploy-core/README.md rntme-cli/packages/deploy-dokploy/README.md packages/runtime/README.md
+git add packages/deploy/deploy-core/README.md packages/deploy/deploy-dokploy/README.md packages/runtime/runtime/README.md
 git commit -m "docs: deploy-core/deploy-dokploy/runtime READMEs for auth + SASL"
 ```
 
@@ -1527,7 +1527,7 @@ mkdir -p packages/ui-auth-shell/src packages/ui-auth-shell/test/unit
 }
 ```
 
-`tsconfig.json`, `tsconfig.check.json`, `vitest.config.ts`, `eslint.config.mjs` — copy structure from `packages/ui-runtime/`. `README.md` — minimal stub for now (filled in Task 4.10).
+`tsconfig.json`, `tsconfig.check.json`, `vitest.config.ts`, `eslint.config.mjs` — copy structure from `packages/runtime/ui-runtime/`. `README.md` — minimal stub for now (filled in Task 4.10).
 
 - [ ] **Step 2: Install + typecheck baseline**
 
@@ -1942,12 +1942,12 @@ git commit -m "feat(ui-auth-shell): mountAuthenticatedApp orchestrator"
 ### Task 4.8: ui-runtime accepts `transport` and `initialState`
 
 **Files:**
-- Modify: `packages/ui-runtime/src/client/entry.tsx`
-- Modify: `packages/ui-runtime/src/index.ts` — export `mountUiRuntime`.
+- Modify: `packages/runtime/ui-runtime/src/client/entry.tsx`
+- Modify: `packages/runtime/ui-runtime/src/index.ts` — export `mountUiRuntime`.
 
 - [ ] **Step 1: Locate the SPA bootstrap**
 
-Run: `grep -n "createRoot\|hydrateRoot" packages/ui-runtime/src/client/entry.tsx`
+Run: `grep -n "createRoot\|hydrateRoot" packages/runtime/ui-runtime/src/client/entry.tsx`
 
 - [ ] **Step 2: Wrap into a function**
 
@@ -1976,7 +1976,7 @@ export async function mountUiRuntime(opts: {
 - [ ] **Step 3: Re-export from index**
 
 ```ts
-// packages/ui-runtime/src/index.ts
+// packages/runtime/ui-runtime/src/index.ts
 export { createApp } from './server/index.js';
 export type { CreateAppOptions } from './server/index.js';
 export { mountUiRuntime } from './client/entry.js';
@@ -1986,7 +1986,7 @@ export { mountUiRuntime } from './client/entry.js';
 
 - [ ] **Step 4: Update SPA bundle build to call shell**
 
-Modify `packages/ui-runtime/src/build.ts` (or the esbuild entry) so the produced `app.js` is:
+Modify `packages/runtime/ui-runtime/src/build.ts` (or the esbuild entry) so the produced `app.js` is:
 
 ```ts
 import { mountAuthenticatedApp } from '@rntme/ui-auth-shell';
@@ -2015,7 +2015,7 @@ Run: `pnpm -F @rntme/ui-runtime test && pnpm -F @rntme/ui-auth-shell test`
 Expected: green.
 
 ```bash
-git add packages/ui-runtime/src packages/ui-runtime/README.md
+git add packages/runtime/ui-runtime/src packages/runtime/ui-runtime/README.md
 git commit -m "feat(ui-runtime): mountUiRuntime export with transport/initialState; SPA bundle loads /config.json then auth-shell"
 ```
 
@@ -2033,10 +2033,10 @@ Build + serve the bundle locally, point `/config.json` at a test Auth0 SPA appli
 
 - [ ] **Step 3: Commit READMEs**
 
-`packages/ui-auth-shell/README.md`: full content per spec §9. `packages/ui-runtime/README.md`: note the new bootstrap flow.
+`packages/ui-auth-shell/README.md`: full content per spec §9. `packages/runtime/ui-runtime/README.md`: note the new bootstrap flow.
 
 ```bash
-git add packages/ui-auth-shell/README.md packages/ui-runtime/README.md
+git add packages/ui-auth-shell/README.md packages/runtime/ui-runtime/README.md
 git commit -m "docs: ui-auth-shell + ui-runtime READMEs"
 ```
 
@@ -2432,8 +2432,8 @@ Project `rntme-demos` (or create per Q5/spec):
 - [ ] **Step 1: From repo root**
 
 ```bash
-pnpm -F @rntme-cli/cli build
-alias rntme="node $(pwd)/rntme-cli/packages/cli/dist/bin/rntme.js"
+pnpm -F @rntme/cli build
+alias rntme="node $(pwd)/apps/cli/dist/bin/rntme.js"
 rntme login
 rntme whoami
 rntme project create notes-demo   # if not already present from any prior run

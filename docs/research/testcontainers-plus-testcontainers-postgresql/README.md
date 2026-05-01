@@ -28,8 +28,8 @@ Experts in 2024-2026 continue to use `testcontainers` as the primary tool for Do
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---|---|---|---|---|
-| `testcontainers` | `^10.13.0` (10.28.0) | `platform-http` | `rntme-cli/packages/platform-http/package.json` | dev/test | `GenericContainer` for MinIO e2e tests |
-| `@testcontainers/postgresql` | `^10.13.0` (10.28.0) | `platform-storage`, `platform-http` | `rntme-cli/packages/platform-storage/package.json`, `rntme-cli/packages/platform-http/package.json` | dev/test | `PostgreSqlContainer` for PG integration/e2e tests |
+| `testcontainers` | `^10.13.0` (10.28.0) | `platform-http` | `apps/platform-http/package.json` | dev/test | `GenericContainer` for MinIO e2e tests |
+| `@testcontainers/postgresql` | `^10.13.0` (10.28.0) | `platform-storage`, `platform-http` | `packages/platform/platform-storage/package.json`, `apps/platform-http/package.json` | dev/test | `PostgreSqlContainer` for PG integration/e2e tests |
 | `postgres:16-alpine` | n/a (image tag) | `platform-storage`, `platform-http` | `test/integration/harness.ts`, `test/e2e/harness.ts` | test | Explicit image tag already passed to constructor |
 | `minio/minio:latest` | n/a (image tag) | `platform-http` | `test/e2e/harness.ts` | test | Explicit image tag already passed to constructor |
 
@@ -41,9 +41,9 @@ grep "testcontainers" pnpm-lock.yaml
 ```
 
 **Code references:**
-- PostgreSQL harness (integration): `rntme-cli/packages/platform-storage/test/integration/harness.ts:24`
-- PostgreSQL harness (e2e): `rntme-cli/packages/platform-http/test/e2e/harness.ts:40`
-- Docker availability guard: `rntme-cli/packages/platform-storage/test/integration/docker-available.ts`, `rntme-cli/packages/platform-http/test/e2e/docker-available.ts`
+- PostgreSQL harness (integration): `packages/platform/platform-storage/test/integration/harness.ts:24`
+- PostgreSQL harness (e2e): `apps/platform-http/test/e2e/harness.ts:40`
+- Docker availability guard: `packages/platform/platform-storage/test/integration/docker-available.ts`, `apps/platform-http/test/e2e/docker-available.ts`
 
 ## Latest Versions / Release State
 
@@ -124,7 +124,7 @@ What: Start testcontainers when Docker is available; fall back to an external UR
 When to use: When tests must run both locally (Docker) and in CI (external managed DB for speed/reliability).
 Example:
 ```ts
-// Source: rntme-cli/packages/platform-storage/test/integration/harness.ts
+// Source: packages/platform/platform-storage/test/integration/harness.ts
 export async function startPostgres(): Promise<PgHandles> {
   const externalUrl = process.env.PLATFORM_TEST_DATABASE_URL;
   let container: StartedPostgreSqlContainer | null = null;
@@ -144,7 +144,7 @@ What: Skip integration/e2e tests when Docker is not available, preventing false 
 When to use: Always, for any test suite that depends on testcontainers.
 Example:
 ```ts
-// Source: rntme-cli/packages/platform-storage/test/integration/docker-available.ts
+// Source: packages/platform/platform-storage/test/integration/docker-available.ts
 export function integrationContainersAvailable(): boolean {
   if (process.env['PLATFORM_TEST_DATABASE_URL']) return true;
   if (process.env['SKIP_TESTCONTAINERS'] === '1') return false;
@@ -213,7 +213,7 @@ await container.stop();
 
 ### Generic Container (MinIO)
 ```ts
-// Source: rntme-cli/packages/platform-http/test/e2e/harness.ts
+// Source: apps/platform-http/test/e2e/harness.ts
 const minio = await new GenericContainer('minio/minio:latest')
   .withCommand(['server', '/data'])
   .withEnvironment({ MINIO_ROOT_USER: 'minio', MINIO_ROOT_PASSWORD: 'minio12345' })
@@ -227,7 +227,7 @@ await minio.stop();
 
 ### Teardown Pattern
 ```ts
-// Source: rntme-cli/packages/platform-http/test/e2e/harness.ts
+// Source: apps/platform-http/test/e2e/harness.ts
 return {
   // ...
   teardown: async () => {
@@ -270,7 +270,7 @@ Deprecated/outdated:
 
 **Migration effort estimate:** <1 day (update `package.json` specs, run `pnpm install`, verify tests pass locally and in CI).
 
-**Test strategy:** Run `pnpm -F @rntme-cli/platform-storage test` and `pnpm -F @rntme-cli/platform-http test` after upgrade. No code changes expected in harness files.
+**Test strategy:** Run `pnpm -F @rntme/platform-storage test` and `pnpm -F @rntme/platform-http test` after upgrade. No code changes expected in harness files.
 
 ## Recommendation
 

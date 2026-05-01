@@ -29,7 +29,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 #### HIGH
 
 1. **Runtime fixture copy is significantly out of sync with demo artifacts**
-   - **Evidence:** `diff -r demo/issue-tracker-api/artifacts packages/runtime/test/fixtures/issue-tracker` shows 30+ divergences across `bindings.json`, `graphs/*.json`, `pdm.json`, `qsm.json`, `seed.json`, `shapes.json`. The README claims they are "kept in sync" (README.md:229) but they are not.
+   - **Evidence:** `diff -r demo/issue-tracker-api/artifacts packages/runtime/runtime/test/fixtures/issue-tracker` shows 30+ divergences across `bindings.json`, `graphs/*.json`, `pdm.json`, `qsm.json`, `seed.json`, `shapes.json`. The README claims they are "kept in sync" (README.md:229) but they are not.
    - **Impact:** Runtime e2e tests exercise stale artifacts, undermining regression coverage for JOIN enrichment, seed normalization, and derived projections.
    - **Recommendation:** Add a CI check (`diff -r` or `rsync --dry-run`) that fails on divergence. Better: have runtime tests reference the demo package artifacts directly and remove the fixture copy.
 

@@ -100,16 +100,16 @@ _None found._
 
 ```bash
 # Verify stub manifest shape
-grep -A5 'export type ModuleManifest' packages/module-skeleton/src/manifest-shape.ts
+grep -A5 'export type ModuleManifest' packages/tooling/module-skeleton/src/manifest-shape.ts
 
 # Verify VERSION hard-coding
-grep "VERSION" packages/module-skeleton/src/index.ts
+grep "VERSION" packages/tooling/module-skeleton/src/index.ts
 
 # Verify tsconfig.check.json excludes contract tests
-cat packages/module-skeleton/tsconfig.check.json | jq '.include'
+cat packages/tooling/module-skeleton/tsconfig.check.json | jq '.include'
 
 # Verify duplicated mkCtx
-grep -n 'function mkCtx' packages/module-skeleton/test/**/*.test.ts
+grep -n 'function mkCtx' packages/tooling/module-skeleton/test/**/*.test.ts
 ```
 
 ---

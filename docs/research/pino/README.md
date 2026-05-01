@@ -18,7 +18,7 @@ Confidence: HIGH
 
 Pino remains the de-facto standard for high-performance structured JSON logging in the Node.js ecosystem (18k+ GitHub stars, maintained by Matteo Collina and the pinojs org). The library is actively maintained with a predictable release cadence: major versions align with Node.js LTS drops.
 
-rntme currently uses pino `^9.x` across three packages (`@rntme/runtime`, `@rntme/bindings-http`, `@rntme-cli/platform-http`). The latest stable release is `v10.3.1`. The only breaking change in v10 is the removal of Node.js 18 support. Since rntme already requires Node.js `>=20` (per root `package.json` engines and Dockerfiles), this is a **zero-risk, drop-in upgrade**.
+rntme currently uses pino `^9.x` across three packages (`@rntme/runtime`, `@rntme/bindings-http`, `@rntme/platform-http`). The latest stable release is `v10.3.1`. The only breaking change in v10 is the removal of Node.js 18 support. Since rntme already requires Node.js `>=20` (per root `package.json` engines and Dockerfiles), this is a **zero-risk, drop-in upgrade**.
 
 The current rntme usage is basic but sound: default pino instances with environment-driven `level`, optional parent logger injection, and redaction of secrets in the platform HTTP server. There is significant room for improvement: no child loggers for request correlation, no `pino-http` middleware (custom Hono middleware instead), no transports for local development (e.g. `pino-pretty`), and no standard serializers for `req`/`res`/`err`.
 
@@ -30,7 +30,7 @@ Primary recommendation: **Upgrade to pino ^10.3.1 now (trivial migration); later
 |---|---:|---|---|---|---|
 | `@rntme/runtime` | `^9.5.0` | gRPC adapter client | `packages/runtime/src/plugins/adapter-client/grpc-adapter-client.ts:26` | runtime | Falls back to `pino({ level: process.env.LOG_LEVEL ?? 'info' })` when no logger injected |
 | `@rntme/bindings-http` | `^9.0.0` | HTTP router, command handler | `packages/bindings-http/src/router.ts:68`, `packages/bindings-http/src/runtime/command-handler.ts:6` | runtime | Creates default pino instance; passes `Logger` type through deps |
-| `@rntme-cli/platform-http` | `^9.4.0` | Platform HTTP server, logger middleware | `rntme-cli/packages/platform-http/src/logger.ts`, `src/middleware/logger.ts`, `src/app.ts` | runtime | Custom `createLogger(env)` with `redact` paths for secrets; custom Hono `loggerMiddleware` |
+| `@rntme/platform-http` | `^9.4.0` | Platform HTTP server, logger middleware | `apps/platform-http/src/logger.ts`, `src/middleware/logger.ts`, `src/app.ts` | runtime | Custom `createLogger(env)` with `redact` paths for secrets; custom Hono `loggerMiddleware` |
 
 **Verification commands used:**
 ```bash
@@ -111,9 +111,9 @@ flowchart LR
 | Component | Responsibility | Implementation mapping | Notes |
 |---|---|---|---|
 | `pino` core | JSON serialization, level filtering, child logger creation | `packages/runtime/src/plugins/adapter-client/grpc-adapter-client.ts` | Should be created once and injected |
-| `redact` | Mask sensitive fields (auth tokens, secrets) | `rntme-cli/packages/platform-http/src/logger.ts:7-18` | Good practice; should be centralized |
+| `redact` | Mask sensitive fields (auth tokens, secrets) | `apps/platform-http/src/logger.ts:7-18` | Good practice; should be centralized |
 | `child` logger | Bind request-scoped context (requestId, userId) | Not currently used | Missing pattern in rntme |
-| HTTP middleware | Log request start/complete with timing | `rntme-cli/packages/platform-http/src/middleware/logger.ts` | Custom implementation; consider `pino-http` |
+| HTTP middleware | Log request start/complete with timing | `apps/platform-http/src/middleware/logger.ts` | Custom implementation; consider `pino-http` |
 | Transports | Route logs to destinations (pretty, file, ES) | Not currently used | Add `pino-pretty` transport for dev |
 
 ### Recommended Project Structure
@@ -326,7 +326,7 @@ Rationale:
 - Current usage is sound but underutilized: rntme is missing child loggers, `pino-http`, `pino-pretty` for dev, and standard serializers.
 
 Follow-up tasks to create later:
-1. **Upgrade pino to `^10.3.1`** across all three packages (`@rntme/runtime`, `@rntme/bindings-http`, `@rntme-cli/platform-http`).
+1. **Upgrade pino to `^10.3.1`** across all three packages (`@rntme/runtime`, `@rntme/bindings-http`, `@rntme/platform-http`).
 2. **Centralize logger factory**: Move `createLogger` to a shared package (`@rntme/runtime` or new `@rntme/observability`) so redaction and level config are consistent.
 3. **Adopt `pino-http`**: Replace custom Hono `loggerMiddleware` with `pino-http` for automatic req/res serialization and response-time accuracy.
 4. **Add `pino-pretty` dev transport**: Improve local development DX with human-readable logs when `NODE_ENV=development`.

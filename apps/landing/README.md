@@ -1,11 +1,11 @@
-# @rntme-cli/landing
+# @rntme/landing
 
 Marketing landing for `rntme.com`. See `docs/superpowers/specs/2026-04-20-landing-design.md` for the design and `SHAPE-BRIEF.md` for the UX direction.
 
 ## Dev
 
     pnpm install
-    pnpm -F @rntme-cli/landing dev
+    pnpm -F @rntme/landing dev
 
 Required env (see `src/env.ts`):
 
@@ -18,6 +18,6 @@ Required env (see `src/env.ts`):
 
 ## Build
 
-    pnpm -F @rntme-cli/landing build
+    pnpm -F @rntme/landing build
 
 Output: `dist/`. The Dockerfile in this directory wraps the `dist/` in an nginx:alpine image.

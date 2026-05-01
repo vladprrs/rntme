@@ -9,7 +9,7 @@
 Both source plans are merged on `main`:
 
 - `2026-04-29-ui-module-contributions.md` (RNT-388, commit `bb4b4ce`) — established the module-as-UI-extension contract: `project.json#modules`, `client.boot/components/operations`, `module-action`, `transport-chain`, state-gated rendering, virtual entry, `publicConfig` sidecar.
-- `2026-04-29-notes-demo-auth0.md` (commit `e786c6a`) — landed Auth0 OIDC introspection, ownership-via-`$pre`, Redpanda SASL_SSL, and a UI auth path **predating RNT-388**: a separate `packages/ui-auth-shell` package with `mountAuthenticatedApp`, vanilla-DOM chrome, hardcoded Auth0 SDK, a `/config.json` shape unique to that shell, and a special branch in `packages/ui-runtime/src/build.ts` producing a second `app.js` bundle.
+- `2026-04-29-notes-demo-auth0.md` (commit `e786c6a`) — landed Auth0 OIDC introspection, ownership-via-`$pre`, Redpanda SASL_SSL, and a UI auth path **predating RNT-388**: a separate `packages/ui-auth-shell` package with `mountAuthenticatedApp`, vanilla-DOM chrome, hardcoded Auth0 SDK, a `/config.json` shape unique to that shell, and a special branch in `packages/runtime/ui-runtime/src/build.ts` producing a second `app.js` bundle.
 
 After RNT-388, the auth path has a properly-typed home: a mixed module under `modules/identity/auth0/` with a `client` block. The shell package is now a parallel implementation of the same idea with worse boundaries (vanilla DOM, hardcoded vendor, build-time fork). This spec migrates the auth0 path onto the RNT-388 contract and deletes the shell.
 
@@ -21,7 +21,7 @@ After this migration:
 - `demo/notes-blueprint/project.json` declares `modules: { identity: { package: "@rntme/identity-auth0", publicConfig: {...} } }`. No `/config.json` shape unique to auth.
 - The login/topbar UX is authored in JSON: a layout screen with `visible:` gates over `/auth/status`, with module-contributed `<LoginScreen />` (anon branch) and `<UserBadge />` (authed branch topbar).
 - `packages/ui-auth-shell` is deleted from the workspace.
-- `packages/ui-runtime/src/build.ts` builds a single SPA bundle from the standard `no-auth-entry.ts`. The auth-shell branch is removed.
+- `packages/runtime/ui-runtime/src/build.ts` builds a single SPA bundle from the standard `no-auth-entry.ts`. The auth-shell branch is removed.
 - Any future identity vendor (Clerk, WorkOS) is one new `modules/identity/<vendor>/` package + a `project.json#modules` swap, no edits to runtime/blueprint/demo.
 
 ## 3. Non-goals
@@ -62,7 +62,7 @@ demo/notes-blueprint/project.json
                                                                                     <Outlet />  ← notes app
 ```
 
-The runtime APIs already exist on `main` (`packages/ui-runtime/src/client/{module-context,transport-chain,operation-registry,lifecycle-bus,visibility,state}.ts`). This spec changes only authoring (module manifest + module client code + demo blueprint) and removes parallel mechanisms.
+The runtime APIs already exist on `main` (`packages/runtime/ui-runtime/src/client/{module-context,transport-chain,operation-registry,lifecycle-bus,visibility,state}.ts`). This spec changes only authoring (module manifest + module client code + demo blueprint) and removes parallel mechanisms.
 
 ## 5. Module manifest changes
 
@@ -270,7 +270,7 @@ Today `moduleSlug` is a free-form string (`"identity-auth0"`). RNT-388 builds `c
 
 - For `provider: "auth0"`, look up `categoryToModule["identity"]` → must equal a package whose manifest has `vendor: "auth0"`. Otherwise raise `BLUEPRINT_AUTH_MODULE_MISMATCH`.
 
-This is a small additive validator in `packages/blueprint/src/validate/composition.ts`, not a manifest change. (Phase 2 of the original auth0 plan added `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`; this fits the same module.)
+This is a small additive validator in `packages/artifacts/blueprint/src/validate/composition.ts`, not a manifest change. (Phase 2 of the original auth0 plan added `BLUEPRINT_AUTH_AUDIENCE_MISMATCH` and `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING`; this fits the same module.)
 
 ### 8.3 Layout screen and login screen
 
@@ -309,23 +309,23 @@ The notes screens (list/detail/create) render under `<Outlet />`. They were alre
 
 ## 9. Deploy adapter changes
 
-`rntme-cli/packages/deploy-dokploy/src/render.ts` previously emitted a custom `/srv/config.json` with shape `{ auth0: {...}, runtime: {...} }`. After the migration:
+`packages/deploy/deploy-dokploy/src/render.ts` previously emitted a custom `/srv/config.json` with shape `{ auth0: {...}, runtime: {...} }`. After the migration:
 
 - `/srv/config.json` is the byte-for-byte output of `@rntme/blueprint`'s `renderPublicConfig(catalogManifest)`. Shape: `Record<modulePackageName, publicConfig>`.
 - `RNTME_AUTH_*` envs on the **domain-service** workload (used by the backend HTTP middleware to verify Bearer tokens) keep their current names and values. They are independent of the SPA-side `publicConfig`.
 - The Nginx noop block from the original auth0 plan stays.
 
-`packages/runtime/` reads `RNTME_AUTH_*` and Kafka SASL envs as before.
+`packages/runtime/runtime/` reads `RNTME_AUTH_*` and Kafka SASL envs as before.
 
-`rntme-cli/packages/deploy-core/src/plan.ts` validators that check `auth.provider`/`auth.audience`/`auth.moduleSlug`/module-workload existence keep their current behavior. A new validator added by §8.2 (`BLUEPRINT_AUTH_MODULE_MISMATCH`) prevents `moduleSlug` from drifting from `categoryToModule['identity']`.
+`packages/deploy/deploy-core/src/plan.ts` validators that check `auth.provider`/`auth.audience`/`auth.moduleSlug`/module-workload existence keep their current behavior. A new validator added by §8.2 (`BLUEPRINT_AUTH_MODULE_MISMATCH`) prevents `moduleSlug` from drifting from `categoryToModule['identity']`.
 
 ## 10. ui-runtime build pipeline
 
-`packages/ui-runtime/src/build.ts`:
+`packages/runtime/ui-runtime/src/build.ts`:
 
 - The second `build(...)` block that produces `build/app.js` from inline stdin importing `mountAuthenticatedApp` is removed entirely.
 - The remaining build produces `build/main.js` from `client/no-auth-entry.ts` + `build/main.css` from Tailwind.
-- The `__RNTME_AUTH_SHELL_CONFIG__` window indirection in any HTML template is removed. The standard `hydrateApp` in `packages/ui-runtime/src/client/entry.tsx` already fetches `/config.json` itself when at least one module declares `boot: true`.
+- The `__RNTME_AUTH_SHELL_CONFIG__` window indirection in any HTML template is removed. The standard `hydrateApp` in `packages/runtime/ui-runtime/src/client/entry.tsx` already fetches `/config.json` itself when at least one module declares `boot: true`.
 
 Per-project SPA bundling (esbuild on the blueprint-emitted virtual entry) lives in the deploy renderer as already specified by RNT-388.
 
@@ -336,7 +336,7 @@ A single commit removes the package:
 - `rm -r packages/ui-auth-shell`.
 - Drop the entry from `pnpm-workspace.yaml` `packages:` list.
 - Remove `@rntme/ui-auth-shell` references from any other `package.json` (devDeps/peerDeps).
-- Remove mentions from `README.md`, `AGENTS.md`, `packages/ui-runtime/README.md`, and from any prior plan/spec frontmatter that linked to it.
+- Remove mentions from `README.md`, `AGENTS.md`, `packages/runtime/ui-runtime/README.md`, and from any prior plan/spec frontmatter that linked to it.
 
 No back-compat shim, no re-export. The pre-revenue project rule (`project_pre_stable_stage.md`) authorizes hard removal.
 
@@ -350,8 +350,8 @@ Eight tasks, one commit each. Tasks M1–M3 build the new path; M4 wires the dem
 | M2  | Implement `client/components/LoginScreen.tsx` and `UserBadge.tsx` + unit tests.                                                     | `modules/identity/auth0/client/components/`, `test/unit/`                                    | component tests pass                                                                                                                  |
 | M3  | Implement `client/index.ts` with `boot`, transport middleware, lifecycle, registered ops; unit test the boot lifecycle.             | `modules/identity/auth0/client/index.ts`, `test/unit/boot.test.ts`                           | boot test passes; `pnpm -F @rntme/identity-auth0 build`                                                                               |
 | M4  | notes-demo `project.json#modules` + layout-screen with visible gates; remove any `login.json` workaround if present.                | `demo/notes-blueprint/project.json`, layout screen JSON                                      | `pnpm validate:notes-blueprint-seed` if applicable; `pnpm -F @rntme/blueprint test` covering project-with-modules-identity fixture   |
-| M5  | deploy-dokploy renderer: `/srv/config.json` from `renderPublicConfig`; drop hand-built auth0 block; add `BLUEPRINT_AUTH_MODULE_MISMATCH` validator. | `rntme-cli/packages/deploy-dokploy/src/render.ts`, `packages/blueprint/src/validate/composition.ts`, tests | `pnpm -F @rntme-cli/deploy-dokploy test`, `pnpm -F @rntme/blueprint test`                                                              |
-| M6  | Remove the `app.js` esbuild branch in `packages/ui-runtime/src/build.ts`.                                                           | one file                                                                                     | `pnpm -F @rntme/ui-runtime build` produces only `main.js` + `main.css`                                                                |
+| M5  | deploy-dokploy renderer: `/srv/config.json` from `renderPublicConfig`; drop hand-built auth0 block; add `BLUEPRINT_AUTH_MODULE_MISMATCH` validator. | `packages/deploy/deploy-dokploy/src/render.ts`, `packages/artifacts/blueprint/src/validate/composition.ts`, tests | `pnpm -F @rntme/deploy-dokploy test`, `pnpm -F @rntme/blueprint test`                                                              |
+| M6  | Remove the `app.js` esbuild branch in `packages/runtime/ui-runtime/src/build.ts`.                                                           | one file                                                                                     | `pnpm -F @rntme/ui-runtime build` produces only `main.js` + `main.css`                                                                |
 | M7  | Delete `packages/ui-auth-shell`; clean workspace and READMEs.                                                                       | `rm -r`, `pnpm-workspace.yaml`, READMEs                                                      | `pnpm install --frozen-lockfile=false && pnpm -r run typecheck`                                                                       |
 | M8  | Docs: AGENTS.md §6 ("how to add an identity provider"), §3 layering note, CLAUDE.md "Architecture in one paragraph", module README, demo README, mark Phase 4 of the original auth0 spec superseded. | docs                                                                                         | `pnpm -r run lint`, manual read-through                                                                                               |
 

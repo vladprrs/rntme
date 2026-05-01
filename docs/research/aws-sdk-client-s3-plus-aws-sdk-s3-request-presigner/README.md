@@ -28,16 +28,16 @@ Primary recommendation: **KEEP + UPGRADE** — bump the declared dependency rang
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---:|---|---|---|---|
-| `@aws-sdk/client-s3` | `^3.650.0` (lockfile: `3.1038.0`) | `platform-storage` | `rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts` | runtime | S3 client for blob operations |
-| `@aws-sdk/s3-request-presigner` | `^3.650.0` (lockfile: `3.1038.0`) | `platform-storage` | `rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts` | runtime | Presigned URL generation |
+| `@aws-sdk/client-s3` | `^3.650.0` (lockfile: `3.1038.0`) | `platform-storage` | `packages/platform/platform-storage/src/blob/s3-blob-store.ts` | runtime | S3 client for blob operations |
+| `@aws-sdk/s3-request-presigner` | `^3.650.0` (lockfile: `3.1038.0`) | `platform-storage` | `packages/platform/platform-storage/src/blob/s3-blob-store.ts` | runtime | Presigned URL generation |
 
 **Commands used to verify usage:**
 ```bash
 # Find package.json references
-grep -r "@aws-sdk/client-s3\|@aws-sdk/s3-request-presigner" rntme-cli/packages/platform-storage/package.json
+grep -r "@aws-sdk/client-s3\|@aws-sdk/s3-request-presigner" packages/platform/platform-storage/package.json
 
 # Find source imports
-grep -r "from '@aws-sdk/client-s3'\|from '@aws-sdk/s3-request-presigner'" rntme-cli/packages/platform-storage/src/
+grep -r "from '@aws-sdk/client-s3'\|from '@aws-sdk/s3-request-presigner'" packages/platform/platform-storage/src/
 
 # Check lockfile resolved version
 grep -A2 "@aws-sdk/client-s3" pnpm-lock.yaml
@@ -120,7 +120,7 @@ flowchart LR
 
 | Component | Responsibility | Implementation mapping | Notes |
 |---|---|---|---|
-| `S3BlobStore` | Adapter implementing `BlobStore` interface | `rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts` | Wraps AWS SDK; handles errors as `PlatformError` |
+| `S3BlobStore` | Adapter implementing `BlobStore` interface | `packages/platform/platform-storage/src/blob/s3-blob-store.ts` | Wraps AWS SDK; handles errors as `PlatformError` |
 | `S3Client` | Low-level S3 API client | `@aws-sdk/client-s3` | Configured with custom endpoint, path-style, static credentials |
 | `getSignedUrl` | Presigned URL generation | `@aws-sdk/s3-request-presigner` | Uses same client config for signing |
 | `BlobStore` interface | Abstract blob storage contract | `platform-core` | Allows swapping S3 for local filesystem or other backends |
@@ -145,7 +145,7 @@ When to use: All rntme deployments that use non-AWS S3 backends; required for Mi
 
 Example:
 ```ts
-// Source: rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts
+// Source: packages/platform/platform-storage/src/blob/s3-blob-store.ts
 const client = new S3Client({
   endpoint: opts.endpoint,
   region: opts.region ?? 'us-east-1',
@@ -162,7 +162,7 @@ When to use: Serving blueprint bundles, artifacts, or user uploads to browsers/A
 
 Example:
 ```ts
-// Source: rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts
+// Source: packages/platform/platform-storage/src/blob/s3-blob-store.ts
 const cmd = new GetObjectCommand({ Bucket: this.opts.bucket, Key: key });
 const url = await getSignedUrl(this.client, cmd, { expiresIn: expiresSeconds });
 ```
@@ -321,7 +321,7 @@ Deprecated/outdated:
 - Node 20 compatibility is confirmed, but Node 20 EOL is 2026-04-30 — coordinate AWS SDK upgrade with Node runtime upgrade.
 
 **Follow-up tasks to create later:**
-- [ ] Bump `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` to `^3.1038.0` in `rntme-cli/packages/platform-storage/package.json`
+- [ ] Bump `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` to `^3.1038.0` in `packages/platform/platform-storage/package.json`
 - [ ] Evaluate adding `@aws-sdk/lib-storage` for multipart upload support in blueprint bundle uploads
 - [ ] Coordinate with Node 22 runtime migration (see RNT-316 / docker-node runtime research)
 - [ ] Add integration test for presigned URL expiry validation
@@ -355,7 +355,7 @@ Deprecated/outdated:
 ### Secondary (MEDIUM confidence)
 - [GitHub aws-sdk-js-v3](https://github.com/aws/aws-sdk-js-v3) — source code, issue tracker, release notes
 - [pnpm lockfile analysis](/home/coder/work/rntme/pnpm-lock.yaml) — resolved version verification
-- [rntme source analysis](/home/coder/work/rntme/rntme-cli/packages/platform-storage/src/blob/s3-blob-store.ts) — runtime usage patterns
+- [rntme source analysis](/home/coder/work/rntme/packages/platform/platform-storage/src/blob/s3-blob-store.ts) — runtime usage patterns
 
 ### Tertiary (LOW confidence - needs validation)
 - MinIO client (`minio` npm package) — evaluated as alternative; not a drop-in replacement

@@ -63,8 +63,8 @@ Layer 7 — Demos (2):
 
 #### BLOCKER
 
-**B1. rntme-cli submodule — пустая директория**
-- Evidence: pnpm-workspace.yaml включает rntme-cli/packages/*, но .gitmodules указывает на https://github.com/vladprrs/rntme-cli.git, а директория пуста
+**B1. legacy CLI submodule — superseded**
+- Evidence at audit time: pnpm-workspace.yaml referenced the separate CLI package tree while `.gitmodules` pointed at the CLI repo and the directory was empty. Current layout has these packages merged under `apps/` and `packages/{platform,deploy}/`.
 - Impact: Любой pnpm install или pnpm -r run build может падать на отсутствующем workspace member. Невозможен полный workspace build.
 - Recommendation: Либо инициализировать submodule (git submodule update --init), либо убрать из pnpm-workspace.yaml если CLI — отдельный repo.
 - Owner: infra/devops
@@ -119,7 +119,7 @@ Layer 7 — Demos (2):
 #### MEDIUM
 
 **M1. Internal import bypassing exports**
-- Evidence: packages/runtime/src/index.ts содержит комментарий: Import directly from '@rntme/runtime/src/plugins/contract-tests.js' in test files.
+- Evidence: packages/runtime/runtime/src/index.ts содержит комментарий: Import directly from '@rntme/runtime/src/plugins/contract-tests.js' in test files.
 - Impact: Хрупкий контракт. Изменение внутренней структуры директорий ломает тесты внешних пакетов.
 - Recommendation: Добавить ./contract-tests в exports runtime, либо вынести contract-tests в отдельный пакет @rntme/contract-tests.
 - Owner: @rntme/runtime
@@ -171,7 +171,7 @@ Layer 7 — Demos (2):
 
 ### 4. Follow-up implementation tasks
 
-1. **[DEV] B1**: Инициализировать или удалить rntme-cli submodule
+1. **[DEV] B1**: Удалить legacy submodule wiring after merge-back
 2. **[DEV] B2**: Сплит runtime на runtime-core + runtime-full
 3. **[DEV] B3**: Извлечь shared bindings types из bindings-http
 4. **[DEV] H1**: Внедрить pnpm.catalogs для external deps

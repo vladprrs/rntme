@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/deploy-dokploy`
+# Architecture audit — `@rntme/deploy-dokploy`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-226` (`79ce411d-fb7b-4976-9390-96519025de04`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/deploy-dokploy |
-| **Package / scope** | `@rntme-cli/deploy-dokploy` |
+| **Issue title** | Audit: package architecture — @rntme/deploy-dokploy |
+| **Package / scope** | `@rntme/deploy-dokploy` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `55cfe0be-e015-4acb-91e2-96084d9384be` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит `@rntme-cli/deploy-dokploy`
+## Архитектурный аудит `@rntme/deploy-dokploy`
 
 **Verdict: needs cleanup** — пакет в целом спроектирован чисто (render/apply/client разделены, секреты не просачиваются), но есть конкретные архитектурные риски и пробелы, которые стоит закрыть до production.
 

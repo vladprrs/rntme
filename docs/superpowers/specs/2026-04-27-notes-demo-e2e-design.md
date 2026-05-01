@@ -3,18 +3,18 @@
 **Status:** superseded by `2026-04-29-notes-demo-auth0-design.md`
 **Author:** brainstorm 2026-04-27
 **Related:**
-- `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md` — упомянутый ниже platform deploy-flow (PR #9, #10 в `rntme-cli`). Этот спек активирует его в проде и прогоняет первый e2e.
+- `docs/superpowers/specs/done/2026-04-26-project-deploy-flow-design.md` — упомянутый ниже platform deploy-flow (PR #9, #10 в `merged CLI/platform packages`). Этот спек активирует его в проде и прогоняет первый e2e.
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — `deploy-core` / `deploy-dokploy` library design.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — project-first blueprint folder shape, на которой строится Notes блюпринт.
 
 ## 1. Goal, scope, non-goals
 
-**Goal.** Прогнать первый сквозной e2e деплой через `platform.rntme.com` против реального Dokploy на том же Hetzner-сервере, на специально написанном минималистичном Notes blueprint, и оставить деплой живым как пример. Параллельно ввести в продакшен тот самый deploy-flow (PR #9–13 в `rntme-cli`), который сейчас merged на `rntme-cli/main`, но не запущен на проде (submodule pointer в parent отстаёт, env-var отсутствует, миграция не накатана).
+**Goal.** Прогнать первый сквозной e2e деплой через `platform.rntme.com` против реального Dokploy на том же Hetzner-сервере, на специально написанном минималистичном Notes blueprint, и оставить деплой живым как пример. Параллельно ввести в продакшен тот самый deploy-flow (PR #9–13 в `merged CLI/platform packages`), который сейчас merged на `apps/ packages/main`, но не запущен на проде (submodule pointer в parent отстаёт, env-var отсутствует, миграция не накатана).
 
 **В scope.**
 - Новый блюпринт `demo/notes-blueprint/` (1 сущность, 2 команды, 2 query, 1 UI page).
 - Локальная валидация блюпринта через `@rntme/blueprint.loadComposedBlueprint` — гейт перед прод-работами.
-- Bump submodule `rntme-cli` в parent с `5d36a09` → `f971282` (rntme-cli/main HEAD).
+- Bump submodule `merged CLI/platform packages` в parent с `5d36a09` → `f971282` (apps/ packages/main HEAD).
 - Установка `PLATFORM_SECRET_ENCRYPTION_KEY` (32 hex bytes, через Dokploy MCP) в env приложения platform-http.
 - Применение миграции `0002_project_first.sql` на прод-Postgres (drop `service`/`artifact_version`/`artifact_tag`; create `project_version`/`deploy_target`/`deployment`/`deployment_log_line`). Миграция применяется автоматически в `runMigrations` при старте контейнера.
 - Редеплой `platform-http` через push parent → Dokploy watchPaths auto-deploy.
@@ -23,7 +23,7 @@
 - Documentation touches.
 
 **Non-goals.**
-- Реализация / правка платформенного кода — он уже мерджнут в rntme-cli/main, активируем как есть.
+- Реализация / правка платформенного кода — он уже мерджнут в apps/ packages/main, активируем как есть.
 - Поправки `deploy-core` / `deploy-dokploy`.
 - Production mode — `mode: "preview"`, `environment: "default"`.
 - Дополнительные проверки (agent-browser smoke, per-route checks).
@@ -115,7 +115,7 @@ Entity-mirror проекция Note, exposes `["title","body","createdAt","statu
 - `listNotes.json` — `findMany {projection:"NoteView"}` → `filter { eq: ["noteView.status", "active"] }` → `sort by noteView.createdAt desc nulls last` → `limit 100`. Output `rowset<NoteView>`.
 - `getNote.json` — `findMany {projection:"NoteView"}` → `filter { eq: ["noteView.id", {$param:"id"}] }` → `limit 1`. Output `rowset<NoteView>` because current query bindings require rowset outputs.
 
-Точные конструкции `findMany` / `filter` сверяются с фикстурами `packages/runtime/test/fixtures/issue-tracker/graphs/listIssues.json` и `searchIssues.json` при имплементации.
+Точные конструкции `findMany` / `filter` сверяются с фикстурами `packages/runtime/runtime/test/fixtures/issue-tracker/graphs/listIssues.json` и `searchIssues.json` при имплементации.
 
 ### 2.5 Bindings: `services/app/bindings/bindings.json`
 
@@ -142,7 +142,7 @@ Entity-mirror проекция Note, exposes `["title","body","createdAt","statu
 
 ### 2.7 Seed: `services/app/seed/seed.json`
 
-Один CloudEvent — welcome-заметка, чтобы UI не был пустым после деплоя. Используем UUID `00000000-0000-0000-0000-000000000001` как стабильный id для seed-заметки. Eventtype текущей конвенции — `NoteCreate` (`PascalCase(entity) + PascalCase(transition)`, см. `packages/pdm/src/derive/event-types.ts`).
+Один CloudEvent — welcome-заметка, чтобы UI не был пустым после деплоя. Используем UUID `00000000-0000-0000-0000-000000000001` как стабильный id для seed-заметки. Eventtype текущей конвенции — `NoteCreate` (`PascalCase(entity) + PascalCase(transition)`, см. `packages/artifacts/pdm/src/derive/event-types.ts`).
 
 ### 2.8 Локальный гейт
 
@@ -176,12 +176,12 @@ openssl rand -hex 32
 ### 3.2 Шаг 2 — bump submodule
 
 ```bash
-cd rntme-cli
+cd /home/coder/work/rntme
 git fetch origin
-git checkout f9712825e414ba009738dbe8f9919fa95fcc67b5  # rntme-cli/main HEAD
+git checkout f9712825e414ba009738dbe8f9919fa95fcc67b5  # apps/ packages/main HEAD
 cd ..
-git add rntme-cli
-git commit -m "chore: bump rntme-cli to f971282 (project deploy flow live)"
+git add apps packages/deploy packages/platform
+git commit -m "chore: bump merged CLI/platform packages to f971282 (project deploy flow live)"
 ```
 
 Прямой commit в parent main без PR. Pre-stable, активация известного merged-кода.
@@ -192,7 +192,7 @@ git commit -m "chore: bump rntme-cli to f971282 (project deploy flow live)"
 git push origin main
 ```
 
-Dokploy watchPaths сматчит литеральный gitlink path `rntme-cli` в `commits[].modified` (по `dokploy_watchpaths_semantics.md`). Триггерится редеплой platform-http.
+Dokploy watchPaths сматчит литеральный gitlink path `merged CLI/platform packages` в `commits[].modified` (по `dokploy_watchpaths_semantics.md`). Триггерится редеплой platform-http.
 
 Через Dokploy MCP мониторим:
 - последний deployment на app id platform-http,
@@ -223,8 +223,8 @@ Dokploy watchPaths сматчит литеральный gitlink path `rntme-cli
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm -F @rntme-cli/cli build
-alias rntme="node /home/coder/work/rntme/rntme-cli/packages/cli/dist/bin/rntme.js"
+pnpm -F @rntme/cli build
+alias rntme="node /home/coder/work/rntme/apps/cli/dist/bin/rntme.js"
 
 rntme login
 # WorkOS AuthKit (через test@rntme.com) или PAT с /tokens
@@ -319,7 +319,7 @@ Polling `/logs?sinceLineId=` каждые 2 сек. Видим прогресс 
 | R7 | UI не работает на edge — `succeeded` row, но белый экран / fetch падает | 4.9 | По hard gate (5.3) — **это провал прогона**. Фиксим. |
 | R8 | Dokploy API token / encryption key утёк в логи / MCP response | На любом шаге | По `dokploy_mcp_leaks_secrets.md`: не вставлять MCP-ответы в shared контексты. После прогона ротировать Dokploy токен; encryption key никогда не печатать. |
 | R9 | Encryption key потерян / не сохранён | После Phase 2 | Все existing `deploy_target.api_token_ciphertext` перестают расшифровываться. Реакция: пересоздать deploy_targets вручную через UI; миграция дешифрования — отдельный спек. **Поэтому ключ записывается офлайн в момент генерации (3.1).** |
-| R10 | Локальная валидация blueprint'а проходит, а server-side нет (версии `@rntme/blueprint` разошлись) | 4.4 | Платформа использует `@rntme/blueprint` той же checkout-точки что rntme-cli/f971282. Расхождение возможно если parent workspace ушёл вперёд после bump'а. Реакция: повторно локально валидировать из той же точки, или bump'нуть submodule до соответствия. |
+| R10 | Локальная валидация blueprint'а проходит, а server-side нет (версии `@rntme/blueprint` разошлись) | 4.4 | Платформа использует `@rntme/blueprint` той же checkout-точки что apps/ packages/f971282. Расхождение возможно если parent workspace ушёл вперёд после bump'а. Реакция: повторно локально валидировать из той же точки, или bump'нуть submodule до соответствия. |
 
 ### 5.2 Откат не определён
 
@@ -374,7 +374,7 @@ Phase 1 (blueprint local), Phase 2 (platform activation), Phase 3 (e2e walkthrou
 Три ответственности остаются разделёнными:
 
 - `@rntme/blueprint` валидирует композицию проекта.
-- `@rntme-cli/deploy-core` + `@rntme-cli/deploy-dokploy` планируют и применяют деплой.
+- `@rntme/deploy-core` + `@rntme/deploy-dokploy` планируют и применяют деплой.
 - `platform-http` оркестрирует интент пользователя (CLI publish, UI Deploy click) и наблюдаемость.
 
 Этот спек ничего не строит — он активирует уже мерджнутый код в проде на уже существующей инфраструктуре, и доказывает работоспособность одним сквозным прогоном на минимальном блюпринте. Минимальный блюпринт (Notes) — необходимый артефакт демо, не реальный продукт; его файловая структура заведомо повторяет рабочую фикстуру `product-catalog-project`, чтобы расхождения между «фикстурой для тестов» и «блюпринтом для прод-деплоя» не маскировали баги.

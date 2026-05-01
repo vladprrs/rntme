@@ -28,18 +28,18 @@ The two companion packages have both undergone **major version bumps**:
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---:|---|---|---|---|
-| `hono` | `^4.6.0` | `@rntme/bindings-http`, `@rntme/db-studio`, `@rntme/ui-runtime`, `@rntme-cli/platform-http` | `packages/bindings-http/package.json`, `packages/db-studio/package.json`, `packages/ui-runtime/package.json`, `rntme-cli/packages/platform-http/package.json` | Runtime | HTTP framework core |
-| `@hono/node-server` | `^1.13.0` / `^1.13.1` | `@rntme/runtime`, `@rntme-cli/platform-http` | `packages/runtime/package.json`, `rntme-cli/packages/platform-http/package.json` | Runtime | Node.js adapter for `serve()` |
-| `@hono/zod-openapi` | `^0.16.0` | `@rntme-cli/platform-http` | `rntme-cli/packages/platform-http/package.json` | Runtime | OpenAPI 3.1 + Zod route definitions |
+| `hono` | `^4.6.0` | `@rntme/bindings-http`, `@rntme/db-studio`, `@rntme/ui-runtime`, `@rntme/platform-http` | `packages/bindings-http/package.json`, `packages/db-studio/package.json`, `packages/ui-runtime/package.json`, `apps/platform-http/package.json` | Runtime | HTTP framework core |
+| `@hono/node-server` | `^1.13.0` / `^1.13.1` | `@rntme/runtime`, `@rntme/platform-http` | `packages/runtime/package.json`, `apps/platform-http/package.json` | Runtime | Node.js adapter for `serve()` |
+| `@hono/zod-openapi` | `^0.16.0` | `@rntme/platform-http` | `apps/platform-http/package.json` | Runtime | OpenAPI 3.1 + Zod route definitions |
 
 **Code references:**
 ```bash
 # Verified via
-grep -r "hono" --include="package.json" packages/ rntme-cli/packages/
+grep -r "hono" --include="package.json" packages/ packages/
 grep -r "@hono" --include="*.ts" packages/ | head -20
 ```
 
-**Runtime usage pattern:** `@rntme/runtime` calls `serve()` from `@hono/node-server` to boot the HTTP surface (`packages/runtime/src/start/start-service.ts`). `@rntme/bindings-http` creates Hono sub-routers from validated binding artifacts. `@rntme/db-studio` uses Hono for the libSQL Hrana v3 read-only HTTP endpoint. `@rntme/ui-runtime` serves the SPA bundle via Hono. The platform HTTP server (`@rntme-cli/platform-http`) uses Hono + `@hono/zod-openapi` for control-plane REST APIs.
+**Runtime usage pattern:** `@rntme/runtime` calls `serve()` from `@hono/node-server` to boot the HTTP surface (`packages/runtime/src/start/start-service.ts`). `@rntme/bindings-http` creates Hono sub-routers from validated binding artifacts. `@rntme/db-studio` uses Hono for the libSQL Hrana v3 read-only HTTP endpoint. `@rntme/ui-runtime` serves the SPA bundle via Hono. The platform HTTP server (`@rntme/platform-http`) uses Hono + `@hono/zod-openapi` for control-plane REST APIs.
 
 ## Latest Versions / Release State
 
@@ -99,7 +99,7 @@ flowchart LR
 |---|---|---|---|
 | `@hono/node-server` | Bridge Node.js `IncomingMessage` to Web Standards `Request` | `packages/runtime/src/start/start-service.ts` | v2 uses lazy `Request` instantiation for speed |
 | Hono Router | Match URL paths to handlers, execute middleware chain | `packages/bindings-http/src/` | TrieRouter is default; 1.5-2x faster in 4.12 |
-| `@hono/zod-openapi` | Generate OpenAPI 3.1 spec from Zod schemas + Hono routes | `rntme-cli/packages/platform-http/src/` | v1.x requires Zod v4 peer dep |
+| `@hono/zod-openapi` | Generate OpenAPI 3.1 spec from Zod schemas + Hono routes | `apps/platform-http/src/` | v1.x requires Zod v4 peer dep |
 | Hono Context | Encapsulate request/response lifecycle | Used throughout bindings-http | `c.req.valid()`, `c.json()`, `c.text()` |
 
 ### Pattern 1: Sub-router Composition
@@ -125,7 +125,7 @@ What: Define routes with Zod schemas inline, deriving both runtime validation an
 When to use: Platform HTTP APIs where type safety and documentation must stay in sync.
 Example:
 ```ts
-// Source: rntme-cli/packages/platform-http/src/ (conceptual)
+// Source: apps/platform-http/src/ (conceptual)
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
 

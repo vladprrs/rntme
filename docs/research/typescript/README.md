@@ -27,9 +27,9 @@ Primary recommendation: **KEEP + UPGRADE** to TypeScript 6.0.3 in a dedicated mi
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---|---|---|---|---|
-| `typescript` | `^5.5.4` | 34 packages | All `package.json` under `packages/*`, `modules/*`, `demo/*`, `rntme-cli/packages/*` | dev | `devDependency` everywhere |
-| `typescript` | `^5.6.0` | 4 packages | `packages/ui`, `packages/ui-runtime`, `packages/db-studio`, `rntme-cli/apps/landing` | dev | Slightly newer pin for frontend-facing packages |
-| `@types/node` | `^20.14.0` | 16 packages | `modules/*`, `rntme-cli/packages/*` | dev | Type definitions for Node.js APIs |
+| `typescript` | `^5.5.4` | 34 packages | All `package.json` under `packages/*`, `modules/*`, `demo/*`, `apps/*, packages/platform/*, packages/deploy/*` | dev | `devDependency` everywhere |
+| `typescript` | `^5.6.0` | 4 packages | `packages/ui`, `packages/ui-runtime`, `packages/db-studio`, `apps/landing` | dev | Slightly newer pin for frontend-facing packages |
+| `@types/node` | `^20.14.0` | 16 packages | `modules/*`, `apps/*, packages/platform/*, packages/deploy/*` | dev | Type definitions for Node.js APIs |
 
 Verified via:
 ```bash

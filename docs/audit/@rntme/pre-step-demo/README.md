@@ -118,7 +118,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### Требуют продуктового/архитектурного решения Влада
 
 1. **H2 (Fake module vs module contract)** — нужно ли превращать fake module в reference module skeleton, или явно документировать что это transport stub?
-2. **H1 (Failure scenario coverage)** — нужны ли E2E-тесты на circuit breaker / retry / timeout в demo, или это ответственность `packages/bindings-http/test/`?
+2. **H1 (Failure scenario coverage)** — нужны ли E2E-тесты на circuit breaker / retry / timeout в demo, или это ответственность `packages/runtime/bindings-http/test/`?
 3. **H3 (Seed + read-prelude)** — нужно ли демо покрывать P2 callback flow полностью (initiate command + projection + callback + complete command), или текущий scope (только callback binding) достаточен?
 4. **L3 (Artifact drift)** — какой source of truth для `customerId` nullable: PDM или graph signature?
 

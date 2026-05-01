@@ -1,12 +1,12 @@
-# Architecture audit — `@rntme-cli/cli`
+# Architecture audit — `@rntme/cli`
 
 This document mirrors the read-only architecture audit posted on Multica so it can be reviewed offline and linked from the repo.
 
 | | |
 |---|---|
 | **Multica issue** | `RNT-224` (`09e692bc-df2a-415e-84e7-d22f45c0a921`) |
-| **Issue title** | Audit: package architecture — @rntme-cli/cli |
-| **Package / scope** | `@rntme-cli/cli` |
+| **Issue title** | Audit: package architecture — @rntme/cli |
+| **Package / scope** | `@rntme/cli` |
 | **Verdict (summary)** | needs cleanup |
 | **Audit comment id** | `b5371c27-d3f7-4713-a3d7-2a227dee5da9` |
 | **Audit comment date** | 2026-04-28 |
@@ -18,7 +18,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-# Audit Report: @rntme-cli/cli
+# Audit Report: @rntme/cli
 
 **Verdict: needs cleanup** — пакет имеет прочную архитектурную основу (Result<T>, harness pattern, typed API client, Zod schemas), но содержит несколько серьёзных расхождений между кодом, тестами и документацией.
 
@@ -39,7 +39,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### 3. README документирует несуществующие команды `deploy`
 **Evidence:** `README.md:62-64` описывает `deploy plan`, `deploy render dokploy`, `deploy apply dokploy`, но в `src/bin/cli.ts` нет ни одной `deploy`-ветки.
 **Impact:** Документация вводит в заблуждение; пользователи ожидают функциональность, которой нет.
-**Rec:** Либо реализовать deploy-команды (требует интеграции с `@rntme-cli/deploy-core`/`deploy-dokploy`), либо удалить из README и завести follow-up issue.
+**Rec:** Либо реализовать deploy-команды (требует интеграции с `@rntme/deploy-core`/`deploy-dokploy`), либо удалить из README и завести follow-up issue.
 
 ---
 

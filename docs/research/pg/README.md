@@ -32,14 +32,14 @@ Within `rntme-cli`, `pg` is consumed exclusively through **Drizzle ORM's `node-p
 
 | Source file | Runtime / Dev / Build / Test | Verified command |
 |---|---|---|
-| `rntme-cli/packages/platform-storage/package.json` | prod | `cat rntme-cli/packages/platform-storage/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
-| `rntme-cli/packages/platform-http/package.json` | prod | `cat rntme-cli/packages/platform-http/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
-| `rntme-cli/packages/platform-storage/src/pg/pool.ts` | runtime | `grep -n "import pg" rntme-cli/packages/platform-storage/src/pg/pool.ts` |
-| `rntme-cli/packages/platform-storage/src/pg/tx.ts` | runtime | `grep -n "Pool\|PoolClient" rntme-cli/packages/platform-storage/src/pg/tx.ts` |
-| `rntme-cli/packages/platform-storage/src/migrate.ts` | runtime | `grep -n "drizzle-orm/node-postgres/migrator" rntme-cli/packages/platform-storage/src/migrate.ts` |
-| `rntme-cli/packages/platform-storage/src/repos/pg-*.ts` (11 files) | runtime | `ls rntme-cli/packages/platform-storage/src/repos/pg-*.ts` |
-| `rntme-cli/packages/platform-storage/test/integration/harness.ts` | test | `grep -n "PostgreSqlContainer" rntme-cli/packages/platform-storage/test/integration/harness.ts` |
-| `rntme-cli/packages/platform-http/src/middleware/tx.ts` | runtime | `grep -n "Pool\|PoolClient" rntme-cli/packages/platform-http/src/middleware/tx.ts` |
+| `packages/platform/platform-storage/package.json` | prod | `cat packages/platform/platform-storage/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
+| `apps/platform-http/package.json` | prod | `cat apps/platform-http/package.json \| jq '.dependencies.pg, .devDependencies["@types/pg"]'` |
+| `packages/platform/platform-storage/src/pg/pool.ts` | runtime | `grep -n "import pg" packages/platform/platform-storage/src/pg/pool.ts` |
+| `packages/platform/platform-storage/src/pg/tx.ts` | runtime | `grep -n "Pool\|PoolClient" packages/platform/platform-storage/src/pg/tx.ts` |
+| `packages/platform/platform-storage/src/migrate.ts` | runtime | `grep -n "drizzle-orm/node-postgres/migrator" packages/platform/platform-storage/src/migrate.ts` |
+| `packages/platform/platform-storage/src/repos/pg-*.ts` (11 files) | runtime | `ls packages/platform/platform-storage/src/repos/pg-*.ts` |
+| `packages/platform/platform-storage/test/integration/harness.ts` | test | `grep -n "PostgreSqlContainer" packages/platform/platform-storage/test/integration/harness.ts` |
+| `apps/platform-http/src/middleware/tx.ts` | runtime | `grep -n "Pool\|PoolClient" apps/platform-http/src/middleware/tx.ts` |
 | `pnpm-lock.yaml` (root) | lockfile | `grep -A2 'pg:' pnpm-lock.yaml \| head -10` |
 
 **Key observation:** The main rntme monorepo (`packages/*`, `demo/*`, `modules/*`) has **zero** imports of `"pg"`. The dependency is isolated to `rntme-cli/`, consistent with the spec decision that the platform control plane uses Postgres (for RLS, composite FK, mature multi-tenant features) while the per-service runtime uses SQLite.
@@ -93,7 +93,7 @@ Within `rntme-cli`, `pg` is consumed exclusively through **Drizzle ORM's `node-p
 ### Example upgrade commands (do NOT run)
 ```bash
 # Upgrade pg + types
-cd rntme-cli/packages/platform-storage
+cd packages/platform/platform-storage
 pnpm add pg@^8.20.0 @types/pg@^8.20.0
 
 # Upgrade drizzle-orm + kit
@@ -114,7 +114,7 @@ pnpm run test:integration
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    platform.rntme.com                        │
-│  (Hono HTTP server — @rntme-cli/platform-http)              │
+│  (Hono HTTP server — @rntme/platform-http)              │
 └───────────────────────┬─────────────────────────────────────┘
                         │ HTTP request
                         ▼
@@ -156,7 +156,7 @@ pnpm run test:integration
 ### Recommended Project Structure (already implemented)
 
 ```
-rntme-cli/packages/platform-storage/
+packages/platform/platform-storage/
 ├── src/
 │   ├── pg/
 │   │   ├── pool.ts          # Pool + Drizzle factory
@@ -175,7 +175,7 @@ rntme-cli/packages/platform-storage/
 ### Verified patterns (from official docs + code inspection)
 
 #### Pattern 1: Pool + Drizzle ORM wrapper
-Source: `rntme-cli/packages/platform-storage/src/pg/pool.ts` (verified in repo)
+Source: `packages/platform/platform-storage/src/pg/pool.ts` (verified in repo)
 ```typescript
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -190,7 +190,7 @@ export function createDb(pool: pg.Pool) {
 ```
 
 #### Pattern 2: Transaction-scoped RLS tenant isolation
-Source: `rntme-cli/packages/platform-storage/src/pg/tx.ts` (verified in repo)
+Source: `packages/platform/platform-storage/src/pg/tx.ts` (verified in repo)
 ```typescript
 export async function withTransaction<T>(
   pool: Pool,
@@ -266,7 +266,7 @@ export async function withTransaction<T>(
 
 ### Example 1: Pool creation with explicit limits (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/pg/pool.ts
+// packages/platform/platform-storage/src/pg/pool.ts
 import pg from 'pg';
 
 export function createPool(databaseUrl: string, opts: { max?: number } = {}): pg.Pool {
@@ -279,7 +279,7 @@ export function createPool(databaseUrl: string, opts: { max?: number } = {}): pg
 
 ### Example 2: Drizzle ORM schema definition with pg-core (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/schema/projects.ts
+// packages/platform/platform-storage/src/schema/projects.ts
 import { pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
 
 export const project = pgTable('project', {
@@ -292,7 +292,7 @@ export const project = pgTable('project', {
 
 ### Example 3: Raw SQL query with parameterized values (verified from repo)
 ```typescript
-// rntme-cli/packages/platform-storage/src/repos/pg-deployment-repo.ts (pattern)
+// packages/platform/platform-storage/src/repos/pg-deployment-repo.ts (pattern)
 const inserted = await db.query(
   `INSERT INTO deployment (id, project_id, org_id, status, payload, created_at)
    VALUES ($1, $2, $3, $4, $5::jsonb, $6)
@@ -340,8 +340,8 @@ const inserted = await db.query(
 3. Bump `drizzle-orm` to `^0.45.0` and `drizzle-kit` to latest compatible.
 4. Run `pnpm install`.
 5. Run unit tests: `pnpm -r run test`.
-6. Run integration tests: `pnpm -F @rntme-cli/platform-storage test:integration` (requires Docker).
-7. Verify migration generation still works: `pnpm -F @rntme-cli/platform-storage run db:generate`.
+6. Run integration tests: `pnpm -F @rntme/platform-storage test:integration` (requires Docker).
+7. Verify migration generation still works: `pnpm -F @rntme/platform-storage run db:generate`.
 
 ### Test strategy
 - **Unit tests:** Mock `Pool` / `PoolClient` (already in place in `platform-http/test/unit`).
@@ -403,7 +403,7 @@ const inserted = await db.query(
 ### Primary (HIGH confidence)
 1. **Official npm registry:** `npm view pg@latest`, `npm view @types/pg@latest` — version numbers, dependency tree, license.
 2. **GitHub changelog (brianc/node-postgres):** `CHANGELOG.md` — release notes for every minor version from 8.0.0 to 8.20.0.
-3. **Direct code inspection:** `rntme-cli/packages/platform-storage/src/pg/pool.ts`, `tx.ts`, `migrate.ts`, `repos/pg-*.ts`, `schema/*.ts`, `test/integration/harness.ts` — verified usage patterns, imports, and architecture.
+3. **Direct code inspection:** `packages/platform/platform-storage/src/pg/pool.ts`, `tx.ts`, `migrate.ts`, `repos/pg-*.ts`, `schema/*.ts`, `test/integration/harness.ts` — verified usage patterns, imports, and architecture.
 4. **Lockfile inspection:** `pnpm-lock.yaml` at repo root — exact resolved versions and transitive dependency graph.
 5. **AGENTS.md / platform spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — rationale for Postgres in platform layer vs SQLite in runtime.
 

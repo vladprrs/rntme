@@ -1,4 +1,4 @@
-# @rntme-cli/platform-core
+# @rntme/platform-core
 
 Domain + use-cases + seam interfaces for the rntme platform control-plane.
 

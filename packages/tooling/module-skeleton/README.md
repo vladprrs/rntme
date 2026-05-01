@@ -115,5 +115,5 @@ Integration tests should use an in-memory event-store (`new SqliteEventStore({ f
 ## References
 
 - Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §5, §12.
-- Default executors: `packages/runtime/src/plugins/executors/`.
-- Contract tests: `runCommandExecutorContract` in `packages/runtime/src/plugins/contract-tests.ts`.
+- Default executors: `packages/runtime/runtime/src/plugins/executors/`.
+- Contract tests: `runCommandExecutorContract` in `packages/runtime/runtime/src/plugins/contract-tests.ts`.

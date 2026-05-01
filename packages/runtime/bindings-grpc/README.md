@@ -67,4 +67,4 @@ await handle.stop();
 
 ## Limitations (MVP)
 
-- Shape collection at boot currently reads output shapes only; multi-shape input requires a centralised shape registry. Tracked as inline TODO in `packages/runtime/src/start/build-grpc-surface.ts`; revisit when plan 5 ships a module that needs it.
+- Shape collection at boot currently reads output shapes only; multi-shape input requires a centralised shape registry. Tracked as inline TODO in `packages/runtime/runtime/src/start/build-grpc-surface.ts`; revisit when plan 5 ships a module that needs it.

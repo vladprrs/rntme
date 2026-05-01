@@ -42,7 +42,7 @@ describe.skipIf(!e2eContainersAvailable())('project version upload flow', () => 
     });
     expect(created.status).toBe(201);
 
-    const built = buildBundle(resolve(process.cwd(), '../../../packages/blueprint/test/fixtures/product-catalog-project'));
+    const built = buildBundle(resolve(process.cwd(), '../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project'));
     expect(built.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
 
     const first = await publish(auth.plain, built.bytes);

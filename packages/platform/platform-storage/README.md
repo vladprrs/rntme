@@ -1,6 +1,6 @@
-# @rntme-cli/platform-storage
+# @rntme/platform-storage
 
-Postgres (Drizzle + RLS) and rustfs (S3-compatible) adapters that implement the repository and blob-store interfaces declared in `@rntme-cli/platform-core`.
+Postgres (Drizzle + RLS) and rustfs (S3-compatible) adapters that implement the repository and blob-store interfaces declared in `@rntme/platform-core`.
 
 ## Deploy storage
 
@@ -15,7 +15,7 @@ Deploy targets and deployment records live in Postgres with tenant RLS:
 
 `AesGcmSecretCipher.fromEnv(env)` reads `PLATFORM_SECRET_ENCRYPTION_KEY`
 (64 hex chars) and implements the `SecretCipher` seam from
-`@rntme-cli/platform-core`.
+`@rntme/platform-core`.
 
 For key rotation, construct a key ring with the new current key and any retained
 previous keys:

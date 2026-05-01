@@ -22,7 +22,7 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
 ## File map
 
 ```
-packages/ui-runtime/src/
+packages/runtime/ui-runtime/src/
   index.ts                   (entry `.`)            Re-exports `createApp` and `CreateAppOptions` from server.
   build.ts                   (CLI)                  esbuild bundles `build/main.js`; Tailwind v4 CLI emits `build/main.css`.
   server/
@@ -182,7 +182,7 @@ Routes mounted by `createApp`:
 
 ## Out of scope / known limits
 
-- **No authoring.** Authoring lives in `packages/ui` (manifest + `.spec.json` + `.screen.json` + fragments + compiler). This package only consumes `CompiledArtifact`.
+- **No authoring.** Authoring lives in `packages/artifacts/ui` (manifest + `.spec.json` + `.screen.json` + fragments + compiler). This package only consumes `CompiledArtifact`.
 - **No HTTP API bindings behind screens.** `createDriver` fetches `/api/*` URLs baked into the compiled screens; the `/api/*` server lives in `@rntme/bindings-http` and is mounted by the host app alongside `createApp`.
 - **No SSR or streaming render** (spec §6). The shell is a static HTML stub; the SPA hydrates client-side only.
 - **No auth, RBAC, or role-based visibility** (spec §6). Visibility logic terminates at json-render's `VisibilityProvider`.

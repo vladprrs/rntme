@@ -16,7 +16,7 @@ Confidence: HIGH
 
 ## Summary
 
-React 19 has been the stable major version since December 2024, with the latest patch 19.2.5 released in April 2026. rntme currently has a **version split**: the `@rntme/ui-runtime` package already upgraded to React 19 (19.2.5) while the landing app (`@rntme-cli/landing`) and type definitions remain on React 18.3.x. The `@json-render/react` dependency (rntme's UI rendering engine) requires React ^19.2.3 as a peer dependency, which is the primary driver for the ui-runtime upgrade.
+React 19 has been the stable major version since December 2024, with the latest patch 19.2.5 released in April 2026. rntme currently has a **version split**: the `@rntme/ui-runtime` package already upgraded to React 19 (19.2.5) while the landing app (`@rntme/landing`) and type definitions remain on React 18.3.x. The `@json-render/react` dependency (rntme's UI rendering engine) requires React ^19.2.3 as a peer dependency, which is the primary driver for the ui-runtime upgrade.
 
 React 19 introduces Server Components, the `use` API, Actions, `useActionState`, `useOptimistic`, and improved hydration. However, rntme's current usage is limited to classic client-side SPA patterns (`createRoot`, `React.createElement`, basic hooks). The landing app uses minimal React (two small interactive components with `useState`/`useEffect`). For rntme's architecture — a declarative UI runtime compiled from JSON artifacts into a client-side SPA — React remains the standard choice. The main question is whether to unify on React 19 across all packages or keep the split.
 
@@ -28,20 +28,20 @@ Primary recommendation: **KEEP + UPGRADE** to React 19.2.5 across all packages, 
 |---|---:|---|---|---|---|
 | react | ^19.2.5 | @rntme/ui-runtime | `packages/ui-runtime/package.json` | prod | SPA runtime via `createRoot`, `React.createElement` |
 | react-dom | ^19.2.5 | @rntme/ui-runtime | `packages/ui-runtime/package.json` | prod | Client-side hydration root |
-| react | ^18.3.0 | @rntme-cli/landing | `rntme-cli/apps/landing/package.json` | prod | Astro island components (2 interactive components) |
-| react-dom | ^18.3.0 | @rntme-cli/landing | `rntme-cli/apps/landing/package.json` | prod | Astro island hydration |
+| react | ^18.3.0 | @rntme/landing | `apps/landing/package.json` | prod | Astro island components (2 interactive components) |
+| react-dom | ^18.3.0 | @rntme/landing | `apps/landing/package.json` | prod | Astro island hydration |
 | @types/react | ^18.3.3 | @rntme/ui-runtime | `packages/ui-runtime/package.json` | dev | Type definitions (mismatched with runtime 19.2.5) |
 | @types/react-dom | ^18.3.0 | @rntme/ui-runtime | `packages/ui-runtime/package.json` | dev | Type definitions (mismatched with runtime 19.2.5) |
-| @types/react | ^18.3.0 | @rntme-cli/landing | `rntme-cli/apps/landing/package.json` | dev | Type definitions |
-| @types/react-dom | ^18.3.0 | @rntme-cli/landing | `rntme-cli/apps/landing/package.json` | dev | Type definitions |
+| @types/react | ^18.3.0 | @rntme/landing | `apps/landing/package.json` | dev | Type definitions |
+| @types/react-dom | ^18.3.0 | @rntme/landing | `apps/landing/package.json` | dev | Type definitions |
 | @json-render/react | ^0.17.0 | @rntme/ui-runtime | `packages/ui-runtime/package.json` | prod | Peer dep: react ^19.2.3 |
-| @astrojs/react | ^4.0.0 | @rntme-cli/landing | `rntme-cli/apps/landing/package.json` | dev | React integration for Astro; peer dep allows up to 19.0.0-beta |
+| @astrojs/react | ^4.0.0 | @rntme/landing | `apps/landing/package.json` | dev | React integration for Astro; peer dep allows up to 19.0.0-beta |
 
 Verified via:
 ```bash
-grep -r "from ['\"]react['\"]" packages/ui-runtime/src rntme-cli/apps/landing/src
+grep -r "from ['\"]react['\"]" packages/ui-runtime/src apps/landing/src
 cat packages/ui-runtime/package.json
-cat rntme-cli/apps/landing/package.json
+cat apps/landing/package.json
 npm view react version
 npm view @types/react version
 npm view @astrojs/react@4.0.0 peerDependencies
@@ -303,7 +303,7 @@ Deprecated/outdated:
 
 | Area | Finding | Impact | Risk | Evidence |
 |---|---|---|---|---|
-| **Runtime version gap** | ui-runtime on 19.2.5, landing on 18.3.0 | MEDIUM | LOW | `packages/ui-runtime/package.json`, `rntme-cli/apps/landing/package.json` |
+| **Runtime version gap** | ui-runtime on 19.2.5, landing on 18.3.0 | MEDIUM | LOW | `packages/ui-runtime/package.json`, `apps/landing/package.json` |
 | **Type definition gap** | @types packages at 18.x while runtime is 19.x | MEDIUM | MEDIUM | Type mismatches, missing new API types |
 | **Astro integration** | `@astrojs/react@4.0.0` peer deps cap at 19.0.0-beta | MEDIUM | MEDIUM | `npm view @astrojs/react@4.0.0 peerDependencies` |
 | **Breaking changes** | React 19 removed string refs, legacy APIs | LOW | LOW | rntme code does not use deprecated APIs |
@@ -321,9 +321,9 @@ Deprecated/outdated:
 7. Manual smoke test of landing app islands and ui-runtime demo
 
 **Test strategy:**
-- Unit tests: `pnpm -F @rntme/ui-runtime test`, `pnpm -F @rntme-cli/landing test`
+- Unit tests: `pnpm -F @rntme/ui-runtime test`, `pnpm -F @rntme/landing test`
 - Typecheck: `pnpm -r run typecheck`
-- Build: `pnpm -F @rntme/ui-runtime build`, `pnpm -F @rntme-cli/landing build`
+- Build: `pnpm -F @rntme/ui-runtime build`, `pnpm -F @rntme/landing build`
 - E2E: Run demo app and verify UI renders correctly
 
 **Compatibility:**
@@ -344,7 +344,7 @@ Rationale:
 - No security issues in current versions; upgrade is for alignment and future-proofing, not urgency
 
 **Follow-up tasks to create later:**
-1. `[DEV]` Upgrade landing app (`@rntme-cli/landing`) to React 19.2.5 and update @types
+1. `[DEV]` Upgrade landing app (`@rntme/landing`) to React 19.2.5 and update @types
 2. `[DEV]` Upgrade `@astrojs/react` to a version supporting React 19 stable
 3. `[DEV]` Upgrade `@types/react` and `@types/react-dom` in `ui-runtime` to 19.x
 4. `[DEV]` Run `types-react-codemod preset-19` on landing app and verify types
@@ -386,7 +386,7 @@ Rationale:
 ### Secondary (MEDIUM confidence)
 - `@json-render/react` peerDependencies (`npm view @json-render/react@0.17.0 peerDependencies`) — Confirms React 19 requirement
 - `@astrojs/react` peerDependencies (`npm view @astrojs/react@4.0.0 peerDependencies`) — React 19 beta cap
-- rntme codebase analysis (`packages/ui-runtime/src`, `rntme-cli/apps/landing/src`) — Current usage patterns
+- rntme codebase analysis (`packages/ui-runtime/src`, `apps/landing/src`) — Current usage patterns
 
 ### Tertiary (LOW confidence - needs validation)
 - Astro React integration changelog — Specific version compatibility with React 19 stable

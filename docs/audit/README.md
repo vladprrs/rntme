@@ -32,13 +32,13 @@ These documents are **not** a substitute for the live issue thread (attachments,
 | `RNT-220` | `@rntme/conformance-identity` | architectural risk | [@rntme/conformance-identity/README.md](./@rntme/conformance-identity/README.md) |
 | `RNT-221` | `@rntme/issue-tracker-api-demo` | needs cleanup | [@rntme/issue-tracker-api-demo/README.md](./@rntme/issue-tracker-api-demo/README.md) |
 | `RNT-222` | `@rntme/pre-step-demo` | needs cleanup — функциональность работает (4/4 тестов зелёные), но есть… | [@rntme/pre-step-demo/README.md](./@rntme/pre-step-demo/README.md) |
-| `RNT-223` | `@rntme-cli/landing` | needs cleanup | [@rntme-cli/landing/README.md](./@rntme-cli/landing/README.md) |
-| `RNT-224` | `@rntme-cli/cli` | needs cleanup | [@rntme-cli/cli/README.md](./@rntme-cli/cli/README.md) |
-| `RNT-225` | `@rntme-cli/deploy-core` | needs cleanup | [@rntme-cli/deploy-core/README.md](./@rntme-cli/deploy-core/README.md) |
-| `RNT-226` | `@rntme-cli/deploy-dokploy` | needs cleanup | [@rntme-cli/deploy-dokploy/README.md](./@rntme-cli/deploy-dokploy/README.md) |
-| `RNT-227` | `@rntme-cli/platform-core` | needs cleanup | [@rntme-cli/platform-core/README.md](./@rntme-cli/platform-core/README.md) |
-| `RNT-228` | `@rntme-cli/platform-http` | needs cleanup | [@rntme-cli/platform-http/README.md](./@rntme-cli/platform-http/README.md) |
-| `RNT-229` | `@rntme-cli/platform-storage` | needs cleanup — несколько medium/high рисков, нет blockers, но debt нак… | [@rntme-cli/platform-storage/README.md](./@rntme-cli/platform-storage/README.md) |
+| `RNT-223` | `@rntme/landing` | needs cleanup | [@rntme/landing/README.md](./@rntme/landing/README.md) |
+| `RNT-224` | `@rntme/cli` | needs cleanup | [@rntme/cli/README.md](./@rntme/cli/README.md) |
+| `RNT-225` | `@rntme/deploy-core` | needs cleanup | [@rntme/deploy-core/README.md](./@rntme/deploy-core/README.md) |
+| `RNT-226` | `@rntme/deploy-dokploy` | needs cleanup | [@rntme/deploy-dokploy/README.md](./@rntme/deploy-dokploy/README.md) |
+| `RNT-227` | `@rntme/platform-core` | needs cleanup | [@rntme/platform-core/README.md](./@rntme/platform-core/README.md) |
+| `RNT-228` | `@rntme/platform-http` | needs cleanup | [@rntme/platform-http/README.md](./@rntme/platform-http/README.md) |
+| `RNT-229` | `@rntme/platform-storage` | needs cleanup — несколько medium/high рисков, нет blockers, но debt нак… | [@rntme/platform-storage/README.md](./@rntme/platform-storage/README.md) |
 | `RNT-230` | `monorepo-dependency-graph` | needs cleanup — includes blocker-level workspace issues | [monorepo-dependency-graph/README.md](./monorepo-dependency-graph/README.md) |
 
 ## Notes
