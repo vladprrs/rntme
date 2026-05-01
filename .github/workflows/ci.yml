@@ -7,6 +7,11 @@ on:
 jobs:
   build-typecheck-test-lint:
     runs-on: ubuntu-latest
+    env:
+      TALLY_FORM_ID: ci-placeholder
+      GITHUB_URL: https://github.com/vladprrs/rntme
+      DOCS_URL: https://docs.rntme.com
+      PLATFORM_URL: https://platform.rntme.com
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

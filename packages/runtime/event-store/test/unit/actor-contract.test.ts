@@ -6,7 +6,7 @@ import { ACTOR_REF_KINDS } from '../../src/types/actor.js';
 describe('ActorRef contract', () => {
   it('keeps actor shape and runtime kinds in sync with @rntme/pdm ActorRef', () => {
     const pdmArtifactPath = fileURLToPath(
-      new URL('../../../pdm/src/types/artifact.ts', import.meta.url),
+      new URL('../../../../artifacts/pdm/src/types/artifact.ts', import.meta.url),
     );
     const eventStoreActorPath = fileURLToPath(new URL('../../src/types/actor.ts', import.meta.url));
     const pdmSource = readFileSync(pdmArtifactPath, 'utf8');

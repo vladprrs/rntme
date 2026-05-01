@@ -9,14 +9,10 @@ WORKDIR /repo
 #    resolve the filtered closure without invalidating the layer on every
 #    landing source change.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY packages/cli/package.json             ./packages/cli/package.json
-COPY packages/platform-core/package.json   ./packages/platform-core/package.json
-COPY packages/platform-http/package.json   ./packages/platform-http/package.json
-COPY packages/platform-storage/package.json ./packages/platform-storage/package.json
 COPY apps/landing/package.json             ./apps/landing/package.json
 
-# 2) Install only what @rntme-cli/landing needs.
-RUN pnpm install --frozen-lockfile --filter @rntme-cli/landing...
+# 2) Install only what @rntme/landing needs.
+RUN pnpm install --frozen-lockfile --filter @rntme/landing...
 
 # 3) Copy landing source.
 COPY apps/landing ./apps/landing
@@ -35,7 +31,7 @@ ENV TALLY_FORM_ID=$TALLY_FORM_ID \
     DEMO_URL=$DEMO_URL \
     PLAUSIBLE_DOMAIN=$PLAUSIBLE_DOMAIN
 
-RUN pnpm -F @rntme-cli/landing build
+RUN pnpm -F @rntme/landing build
 
 # Sanity check: dist/ must contain index.html. If not, fail the build here
 # rather than ship an empty nginx image.

@@ -13,7 +13,7 @@ import { createBindingsRouter } from '../../src/router.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compilerRoot = join(here, '..', '..', '..', 'graph-ir-compiler');
+const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
 const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
 const spec = loadJson(join(compilerRoot, 'test', 'golden', 'category-sales', 'graph.json'));
 const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.pdm.json'));

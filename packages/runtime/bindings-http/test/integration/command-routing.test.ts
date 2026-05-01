@@ -23,7 +23,7 @@ function wrapWithMiddleware(router: ReturnType<typeof createBindingsRouter>): Ho
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compilerRoot = join(here, '..', '..', '..', 'graph-ir-compiler');
+const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
 const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
 const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json'));
 const qsm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json'));

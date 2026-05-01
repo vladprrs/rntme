@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { compileForGraph } from '../../src/startup/compile-plan.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compilerRoot = join(here, '..', '..', '..', 'graph-ir-compiler');
+const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
 
 const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
 
