@@ -31,7 +31,23 @@ to a target adapter.
   `mechanism` must be `scram-sha-256` or `scram-sha-512`; `secretRefs.username`
   and `secretRefs.password` are required and are secret names, not secret values.
 
-Edge middleware supports `kind: "auth"` as a runtime marker:
+### Edge auth
+
+`mounts: [...].use: ["auth"]` declares an `auth` middleware. Planning enforces:
+
+- The middleware decl provides `provider`, `audience`, `moduleSlug`.
+- An integration-module workload exists for `moduleSlug`.
+- The module's `module.json#capabilities.edgeAuth` is present and describes an HTTP introspection endpoint (today only `kind: "introspection-sidecar"` is supported).
+- For Auth0 modules, `AUTH0_DOMAIN` env is set on the workload.
+
+If any of the above is missing, planning fails with one of:
+
+- `DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE` — provider/audience/moduleSlug missing.
+- `DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING` — no integration-module workload for `moduleSlug`.
+- `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` — module does not declare `capabilities.edgeAuth`.
+- `DEPLOY_PLAN_AUTH_MODULE_ENV_INCOMPLETE` — Auth0 module missing `AUTH0_DOMAIN`.
+
+The planned auth middleware carries `moduleIntrospectPort` (sourced from `capabilities.edgeAuth.port`) so the renderer can wire `auth_request` into the right port. Public SPA config comes from the composed project `publicConfigJson` sidecar, not from deployment auth settings.
 
 ```json
 {
@@ -41,10 +57,6 @@ Edge middleware supports `kind: "auth"` as a runtime marker:
   "moduleSlug": "identity-auth0"
 }
 ```
-
-The matching integration module workload must exist, and Auth0 modules must
-carry non-empty `AUTH0_DOMAIN` env. Public SPA config comes from the composed
-project `publicConfigJson` sidecar, not from deployment auth settings.
 
 ## Where to look first
 
