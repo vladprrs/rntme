@@ -3,6 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import {
   canonicalBundleDigest,
@@ -50,7 +51,7 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
     });
     expect(created.status).toBe(201);
 
-    const built = buildBundle(resolve(process.cwd(), '../../../demo/notes-blueprint'));
+    const built = buildBundle(fileURLToPath(new URL('../../../../demo/notes-blueprint', import.meta.url)));
     const published = await env.app.request(`/v1/orgs/${orgSlug}/projects/${projectSlug}/versions`, {
       method: 'POST',
       headers: {

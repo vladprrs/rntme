@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runProjectPublish } from '../../../../src/commands/project/publish.js';
 
 const projectVersion = {
@@ -24,9 +25,11 @@ const projectVersion = {
 };
 
 function writeBlueprint(dir: string): void {
-  cpSync(resolve('../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project'), dir, {
-    recursive: true,
-  });
+  cpSync(
+    fileURLToPath(new URL('../../../../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project', import.meta.url)),
+    dir,
+    { recursive: true },
+  );
 }
 
 describe('runProjectPublish', () => {

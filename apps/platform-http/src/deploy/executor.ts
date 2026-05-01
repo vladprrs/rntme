@@ -412,6 +412,7 @@ async function bundleVirtualEntrySource(
     sourcemap: true,
     write: false,
     outfile: join(rootDir, '.rntme-ui-build', 'main.js'),
+    nodePaths: workspaceNodePaths(workspaceRoot),
     loader: { '.css': 'empty' },
     plugins: [workspacePackageResolver(workspaceRoot)],
   });
@@ -460,6 +461,16 @@ function discoverWorkspacePackageDirs(workspaceRoot: string): Map<string, string
     collectPackageDirs(join(workspaceRoot, parent), dirs);
   }
   return dirs;
+}
+
+function workspaceNodePaths(workspaceRoot: string): string[] {
+  const packageDirs = discoverWorkspacePackageDirs(workspaceRoot);
+  const paths = [join(workspaceRoot, 'node_modules')];
+  for (const packageDir of packageDirs.values()) {
+    const nodeModules = join(packageDir, 'node_modules');
+    if (existsSync(nodeModules)) paths.push(nodeModules);
+  }
+  return paths;
 }
 
 function collectPackageDirs(dir: string, output: Map<string, string>): void {
@@ -546,7 +557,8 @@ function findWorkspaceRoot(): string {
     let current = start;
     while (true) {
       if (
-        existsSync(join(current, 'packages', 'ui-runtime', 'package.json')) &&
+        (existsSync(join(current, 'packages', 'runtime', 'ui-runtime', 'package.json')) ||
+          existsSync(join(current, 'packages', 'ui-runtime', 'package.json'))) &&
         existsSync(join(current, 'modules'))
       ) {
         return current;

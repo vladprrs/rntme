@@ -3,6 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import {
   canonicalBundleDigest,
@@ -42,7 +43,9 @@ describe.skipIf(!e2eContainersAvailable())('project version upload flow', () => 
     });
     expect(created.status).toBe(201);
 
-    const built = buildBundle(resolve(process.cwd(), '../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project'));
+    const built = buildBundle(
+      fileURLToPath(new URL('../../../../packages/artifacts/blueprint/test/fixtures/product-catalog-project', import.meta.url)),
+    );
     expect(built.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
 
     const first = await publish(auth.plain, built.bytes);

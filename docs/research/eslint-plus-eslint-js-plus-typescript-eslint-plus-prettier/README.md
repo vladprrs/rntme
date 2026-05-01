@@ -3,7 +3,7 @@
 Researched: 2026-04-28
 Repository: /home/coder/work/rntme
 Domain/ecosystem: npm/lint-format-tooling
-Current version(s) in rntme: eslint ^9.10.0; @eslint/js ^9.10.0; @typescript-eslint/eslint-plugin/parser ^8.6.0; prettier ^3.3.3 (all packages/modules/rntme-cli package.json; lint/format configs)
+Current version(s) in rntme: eslint ^9.10.0; @eslint/js ^9.10.0; @typescript-eslint/eslint-plugin/parser ^8.6.0; prettier ^3.3.3 (workspace package.json files across apps, packages, and modules; lint/format configs)
 Latest stable version: eslint 10.2.1 (2025-04-16); @eslint/js 10.0.1 (2025-04-16); @typescript-eslint 8.59.1 (2025-04-26); prettier 3.8.3 (2025-04-15)
 Confidence: HIGH
 

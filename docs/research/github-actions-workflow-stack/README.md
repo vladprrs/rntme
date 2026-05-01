@@ -24,7 +24,7 @@ rntme's CI/CD pipeline uses a conventional GitHub Actions stack for Node.js/pnpm
 
 | Package / image / tool | Current version | Used by | Source file(s) | Runtime/dev/build/test | Notes |
 |---|---|---|---|---|---|
-| `actions/checkout` | v4 | CI + Release | `.github/workflows/ci.yml:11`, `.github/workflows/release.yml:14` | build/test/deploy | No SHA pinning; submodules: recursive in CI |
+| `actions/checkout` | v4 | CI + Release | `.github/workflows/ci.yml:11`, `.github/workflows/release.yml:14` | build/test/deploy | No SHA pinning; no submodule checkout after the merge-back |
 | `pnpm/action-setup` | v4 | CI + Release | `.github/workflows/ci.yml:14`, `.github/workflows/release.yml:16` | build/test/deploy | Pinned to pnpm 9.12.0 |
 | `actions/setup-node` | v4 | CI + Release | `.github/workflows/ci.yml:17`, `.github/workflows/release.yml:20` | build/test/deploy | Node 20, cache: pnpm |
 | `docker/login-action` | v3 | Release | `.github/workflows/release.yml:34` | deploy | GHCR login via GITHUB_TOKEN |

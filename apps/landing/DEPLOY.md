@@ -46,6 +46,6 @@ If the application needs to be re-created (e.g. destructive config edit):
 
 ## First-deploy gotchas (observed 2026-04-20)
 
-- pnpm install inside the build stage needs workspace manifests for every `packages/*` so pnpm can resolve the filtered closure. Dockerfile copies each `packages/*/package.json` explicitly.
+- pnpm install inside the build stage uses `--filter @rntme/landing...`; because the landing app currently has no workspace-package dependencies, the Dockerfile only needs the root workspace manifests plus `apps/landing/package.json`.
 - `node:20-alpine` is the build image; Astro 5 integrations (`@astrojs/react@^4`, `@astrojs/mdx@^4`) require Node ≥ 18.20 / 20.3 / 22. Node 20.x is fine; do NOT bump the base image to Node 18 without also pinning integration majors downward.
 - Fontshare CDN is an external dependency. If fontshare.com is ever down, the landing still renders in the fallback stack (ui-sans-serif/system-ui). Self-hosting is an open P2 item.
