@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   SqliteEventStore,
   createRelay,
+  defaultTopicPatternOf,
   type EventStore,
   type Relay,
 } from '@rntme/event-store';
@@ -22,10 +23,15 @@ export type EventPipeline = {
   stop(): Promise<void>;
 };
 
+export type EventPipelineOptions = {
+  topicPrefix?: string | null;
+};
+
 export function wireEventPipeline(
   service: ValidatedService,
   db: DbDriver,
   bus: EventBus,
+  options: EventPipelineOptions = {},
 ): EventPipeline {
   const manifest = service.manifest;
   const serviceName = manifest.service.name;
@@ -51,6 +57,7 @@ export function wireEventPipeline(
     pollIntervalMs: 10,
     batchSize: 100,
     serviceName,
+    ...(options.topicPrefix === undefined ? {} : { topicPrefix: options.topicPrefix }),
     now: () => new Date().toISOString(),
     nextId: () => randomUUID(),
   });
@@ -58,7 +65,7 @@ export function wireEventPipeline(
   const projectionConsumer = createProjectionConsumer({
     kafka: bus.consumer({
       groupId: `${serviceName}:projection`,
-      topic: `rntme.${serviceName.toLowerCase()}.*`,
+      topic: defaultTopicPatternOf(serviceName, options.topicPrefix),
     }),
     plan: service.projectionApplyPlan,
     db: qsmDb,

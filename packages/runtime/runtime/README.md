@@ -104,6 +104,7 @@ rntme-runtime start ./artifacts
 | `applyEnvOverrides` | `(v, env) => ManifestResult<ValidatedManifest>` | Merges `RNTME_HTTP_PORT`, `RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PATH`, `RNTME_AUTH_HEADER_NAME`. |
 | `parseRuntimeAuthEnv` | `(env) => RuntimeAuthEnv \| null` | Parses `RNTME_AUTH_*` runtime module wiring and fails fast on incomplete Auth0 config. |
 | `buildKafkaJsClientConfigFromEnv` | `(env, clientId) => KafkaJsClientConfig \| null` | Builds KafkaJS client config from `RNTME_EVENT_BUS_*`, including `ssl: true` and SCRAM SASL for `sasl_ssl`. |
+| `parseRuntimeEventBusTopicPrefixFromEnv` | `(env) => string \| null` | Reads optional `RNTME_EVENT_BUS_TOPIC_PREFIX`; when present, relay publish topics and projection subscriptions are scoped under that prefix. |
 | `createMetrics` | `(serviceName: string) => Metrics` | Prom-client registry with the `rntme_*` counters and gauges. |
 | `mountObservability` | `(app, { healthPath, metricsPath, probe, metrics }) => void` | Attaches `/health` and `/metrics` routes to a Hono app. |
 | `VERSION` | `string` | Package version marker (`'0.0.0'` in-repo). |
@@ -161,7 +162,11 @@ External Kafka-compatible event bus env is read from `RNTME_EVENT_BUS_BROKERS`,
 absent, runtime uses `InMemoryBus`. For `sasl_ssl`, runtime builds KafkaJS
 config with `ssl: true` and `sasl: { mechanism, username, password }`; missing
 SASL credentials fail boot with `RUNTIME_BOOT_EVENT_BUS_SASL_INCOMPLETE`. Do
-not log SASL username or password values.
+not log SASL username or password values. Optional `RNTME_EVENT_BUS_TOPIC_PREFIX`
+scopes both relay publish topics and projection subscriptions. With service
+`app` and prefix `rntme.rnt364.smoke`, runtime publishes `Note` events to
+`rntme.rnt364.smoke.app.note` and subscribes projections to
+`rntme.rnt364.smoke.app.*`.
 
 ### HTTP ingress limits
 

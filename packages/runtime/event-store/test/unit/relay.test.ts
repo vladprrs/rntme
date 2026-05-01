@@ -34,6 +34,11 @@ describe('defaultTopicOf', () => {
   it('lowercases the serviceName segment', () => {
     expect(defaultTopicOf('IssueTracker', 'Issue')).toBe('rntme.issuetracker.issue');
   });
+  it('prefixes topics when an event-bus topic prefix is provided', () => {
+    expect(defaultTopicOf('app', 'Note', 'rntme.rnt364.smoke')).toBe(
+      'rntme.rnt364.smoke.app.note',
+    );
+  });
 });
 
 describe('createRelay', () => {

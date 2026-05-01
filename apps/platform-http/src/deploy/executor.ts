@@ -571,9 +571,13 @@ function findWorkspaceRoot(): string {
   return process.cwd();
 }
 
-function readUiRuntimeCss(workspaceRoot: string): string {
-  const cssPath = join(workspaceRoot, 'packages', 'ui-runtime', 'build', 'main.css');
-  if (existsSync(cssPath)) return readFileSync(cssPath, 'utf8');
+export function readUiRuntimeCss(workspaceRoot: string): string {
+  for (const cssPath of [
+    join(workspaceRoot, 'packages', 'runtime', 'ui-runtime', 'build', 'main.css'),
+    join(workspaceRoot, 'packages', 'ui-runtime', 'build', 'main.css'),
+  ]) {
+    if (existsSync(cssPath)) return readFileSync(cssPath, 'utf8');
+  }
   return '/* rntme ui runtime styles unavailable at deploy bundle time */\n';
 }
 

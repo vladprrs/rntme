@@ -10,11 +10,12 @@ export type RelayOptions = Readonly<{
   kafka: KafkaProducer;
   cursorId: string;
   serviceName: string;
+  topicPrefix?: string | null;
   now: () => string;
   nextId: () => string;
   pollIntervalMs?: number;
   batchSize?: number;
-  topicOf?: (serviceName: string, aggregateType: string) => string;
+  topicOf?: (serviceName: string, aggregateType: string, topicPrefix?: string | null) => string;
   maxBackoffMs?: number;
   /** Default: 10. Number of primary-topic send attempts before DLQ. Must be an integer >= 1. */
   maxAttempts?: number;
@@ -81,7 +82,11 @@ export function createRelay(opts: RelayOptions): Relay {
           highestDeliveredId = rec.id;
           continue;
         }
-        const primaryTopic = topicOf(opts.serviceName, rec.envelope.rntAggregateType);
+        const primaryTopic = topicOf(
+          opts.serviceName,
+          rec.envelope.rntAggregateType,
+          opts.topicPrefix,
+        );
 
         // Short-circuit on restart: if attemptCount already reached the cap
         // (relay crashed mid-DLQ-emit, leaving counter == maxAttempts and dlq_at NULL),
