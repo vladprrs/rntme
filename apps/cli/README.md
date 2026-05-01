@@ -1,6 +1,6 @@
 # @rntme/cli
 
-The **rntme CLI** is a command-line interface for interacting with the rntme platform. It provides tools for authentication, publishing project blueprint versions, managing projects, token management, and project deploy planning through the deploy packages.
+The **rntme CLI** is a command-line interface for interacting with the rntme platform. It provides tools for authentication, publishing project blueprint versions, managing projects, and token management. Deploy operations (planning, rendering, applying) are server-side and triggered through the platform control plane.
 
 ## Quick Start
 
@@ -30,13 +30,15 @@ rntme login
 ### 4. Validate the blueprint
 
 ```bash
-rntme project publish --dry-run --org my-org --project my-project .
+rntme project publish --dry-run --org my-org --project my-project demo/notes-blueprint
 ```
+
+You can also pass the folder via `--folder demo/notes-blueprint`. The two forms are mutually exclusive.
 
 ### 5. Publish
 
 ```bash
-rntme project publish --org my-org --project my-project .
+rntme project publish --org my-org --project my-project demo/notes-blueprint
 ```
 
 ## Commands
@@ -59,10 +61,6 @@ Commands:
   token list              List tokens in the org
   token revoke <id>       Revoke a token
 
-  deploy plan             Produce a redacted project deployment plan
-  deploy render dokploy   Render the plan for Dokploy
-  deploy apply dokploy    Apply the rendered Dokploy plan
-
 Global options:
   --json                  Output JSON instead of human-readable text
   --base-url <url>        API base URL (default: https://platform.rntme.com)
@@ -76,6 +74,8 @@ Global options:
   -h, --help              Show this help and exit
   -v, --version           Print the rntme CLI version and exit
 ```
+
+> **Deploy operations** (planning, rendering, applying) are server-side on the platform control plane. Trigger them via the platform UI or by `POST` to `/v1/orgs/<org>/projects/<project>/deployments` on `https://platform.rntme.com`. The CLI does not bundle deploy commands.
 
 ## Environment Variables
 
