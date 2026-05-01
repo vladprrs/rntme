@@ -33,7 +33,7 @@ type KafkaJsBatch = {
 type KafkaJsConsumer = {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  subscribe(input: { topic: string; fromBeginning: boolean }): Promise<void>;
+  subscribe(input: { topic: string | RegExp; fromBeginning: boolean }): Promise<void>;
   run(input: {
     eachBatch: (input: {
       batch: KafkaJsBatch;
@@ -159,7 +159,7 @@ class KafkaJsConsumerAdapter implements KafkaConsumer {
     if (this.started) return;
     this.started = true;
     await this.consumer.connect();
-    await this.consumer.subscribe({ topic: this.topic, fromBeginning: false });
+    await this.consumer.subscribe({ topic: toKafkaJsSubscriptionTopic(this.topic), fromBeginning: false });
     void this.consumer.run({
       eachBatch: async ({ batch, heartbeat }) => {
         this.pushBatch({
@@ -187,6 +187,15 @@ class KafkaJsConsumerAdapter implements KafkaConsumer {
       this.waiters.push(resolve);
     });
   }
+}
+
+export function toKafkaJsSubscriptionTopic(topic: string): string | RegExp {
+  if (!topic.includes('*')) return topic;
+  const pattern = topic
+    .split('*')
+    .map((part) => part.replace(/[\\^$+?.()|[\]{}]/g, '\\$&'))
+    .join('.*');
+  return new RegExp(`^${pattern}$`);
 }
 
 async function loadKafkaJs(): Promise<KafkaJsModule> {
