@@ -1,5 +1,17 @@
 export type ServiceKind = 'domain' | 'integration';
 
+export type EdgeAuthDescriptor = {
+  readonly kind: 'introspection-sidecar';
+  readonly transport: 'http';
+  readonly method: string;
+  readonly path: string;
+  readonly port: number;
+};
+
+export type ComposedProjectModuleInfo = {
+  readonly edgeAuth?: EdgeAuthDescriptor | null;
+};
+
 export type ComposedProjectService = {
   readonly slug: string;
   readonly kind: ServiceKind;
@@ -32,4 +44,5 @@ export type ComposedProjectInput = {
   readonly routes?: ProjectRouteMap;
   readonly middleware?: Readonly<Record<string, ProjectMiddlewareDecl>>;
   readonly mounts?: readonly ProjectMountDecl[];
+  readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
 };
