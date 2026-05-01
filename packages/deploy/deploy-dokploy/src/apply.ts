@@ -315,10 +315,10 @@ function networkNameMap(
   );
 }
 
-function resolveNetworkReferences(
-  resource: RenderedDokployResource,
+function resolveNetworkReferences<T extends RenderedDokployResource>(
+  resource: T,
   networkNames: Readonly<Record<string, string>>,
-): RenderedDokployResource {
+): T {
   if (resource.kind === 'compose') {
     return {
       ...resource,
@@ -326,7 +326,7 @@ function resolveNetworkReferences(
         ...item,
         value: replaceNetworkNames(item.value, networkNames),
       })),
-    };
+    } as T;
   }
 
   return {
@@ -345,7 +345,7 @@ function resolveNetworkReferences(
             ]),
           ),
         }),
-  };
+  } as T;
 }
 
 function replaceNetworkNames(

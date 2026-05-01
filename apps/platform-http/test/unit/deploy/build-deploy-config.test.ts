@@ -40,14 +40,18 @@ describe('buildProjectDeploymentConfig', () => {
       {},
     );
 
-    expect(config.eventBus?.security).toEqual({
-      protocol: 'sasl_ssl',
-      mechanism: 'scram-sha-512',
-      secretRefs: {
-        username: 'redpanda-username',
-        password: 'redpanda-password',
-      },
-    });
+    expect(config.eventBus).toEqual(
+      expect.objectContaining({
+        security: {
+          protocol: 'sasl_ssl',
+          mechanism: 'scram-sha-512',
+          secretRefs: {
+            username: 'redpanda-username',
+            password: 'redpanda-password',
+          },
+        },
+      }),
+    );
   });
 
   it('passes provisioned Redpanda event bus config through to deploy-core', () => {

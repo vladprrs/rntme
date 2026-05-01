@@ -141,6 +141,17 @@ export async function runDeployment(
       return;
     }
 
+    await appendLog(
+      deps,
+      deploymentId,
+      orgId,
+      'info',
+      'plan',
+      plan.value.infrastructure.eventBus.mode === 'provisioned'
+        ? 'Provisioning Redpanda event bus'
+        : 'Using external Kafka/Redpanda event bus',
+    );
+
     await appendLog(deps, deploymentId, orgId, 'info', 'render', 'Rendering Dokploy plan');
     const rendered = (deps.renderPlan ?? renderDokployPlan)(
       plan.value as ProjectDeploymentPlan,

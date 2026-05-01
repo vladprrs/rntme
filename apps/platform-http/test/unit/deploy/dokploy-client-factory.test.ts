@@ -360,7 +360,7 @@ function target(): DeployTargetWithSecret {
   };
 }
 
-function renderedEdgeResource(): RenderedDokployResource {
+function renderedEdgeResource(): Extract<RenderedDokployResource, { kind: 'application' }> {
   return {
     logicalId: 'edge',
     kind: 'application',
@@ -381,7 +381,7 @@ function renderedEdgeResource(): RenderedDokployResource {
   };
 }
 
-function renderedDomainResource(): RenderedDokployResource {
+function renderedDomainResource(): Extract<RenderedDokployResource, { kind: 'application' }> {
   return {
     logicalId: 'app',
     kind: 'application',

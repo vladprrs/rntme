@@ -29,6 +29,39 @@ describe('runDeployment', () => {
     expect(deployments.touchHeartbeat).toHaveBeenCalled();
   });
 
+  it('logs provisioned Redpanda event bus provisioning before apply', async () => {
+    const { deps, deployments } = setup({
+      planProject: vi.fn(() =>
+        ok({
+          project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+          infrastructure: {
+            eventBus: {
+              kind: 'kafka' as const,
+              mode: 'provisioned' as const,
+              provider: 'redpanda' as const,
+              resourceName: 'rntme-acme-shop-event-bus',
+              internalBrokers: ['rntme-acme-shop-event-bus:9092'],
+              image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+              persistence: { mode: 'persistent' as const, volumeName: 'rntme-acme-shop-event-bus-data' },
+            },
+          },
+          workloads: [],
+          edge: { routes: [], middleware: [] },
+          diagnostics: { warnings: [] },
+        }),
+      ) as never,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'plan',
+        message: 'Provisioning Redpanda event bus',
+      }),
+    );
+  });
+
   it('finalizes blueprint revalidation failures', async () => {
     const { deps, deployments } = setup({
       loadComposed: () => ({ ok: false, errors: [{ code: 'BAD_BLUEPRINT', message: 'token=secret-value' }] }),
