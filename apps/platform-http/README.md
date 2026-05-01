@@ -60,6 +60,12 @@ it, plans with `@rntme/deploy-core`, applies with
 `@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
 
+The deploy executor's `readUiRuntimeCss` looks for the bundled SPA stylesheet
+in `packages/runtime/ui-runtime/build/main.css` first, then falls back to the
+legacy `packages/ui-runtime/build/main.css`. The legacy location predates the
+2026-04-30 merge-back relocation; remove the fallback once no working tree
+relies on it.
+
 ## Security headers (UI only)
 
 Applied by `securityHeaders()` middleware on UI responses:
