@@ -36,7 +36,6 @@ export function renderNginxConfig(
       route,
       upstreams[route.targetWorkload] ?? `http://${route.targetWorkload}:3000`,
       edge.middleware,
-      authBlocks,
     ),
   );
 
@@ -119,7 +118,6 @@ function renderLocation(
   route: EdgeRoute,
   upstream: string,
   middleware: readonly EdgeMiddleware[],
-  authBlocks: readonly AuthBlock[],
 ): string {
   assertSafeLocationPath(route.path);
   assertSafeUpstreamUrl(upstream);
