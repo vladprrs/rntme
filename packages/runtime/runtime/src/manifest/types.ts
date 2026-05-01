@@ -1,5 +1,4 @@
 import type { Ok } from '@rntme/pdm';
-import type { StudioConfig } from './schema.js';
 
 export type HttpBodyLimitConfig = { enabled?: boolean; maxBytes?: number };
 export type HttpRateLimitConfig = { enabled?: boolean; windowMs?: number; max?: number };
@@ -40,11 +39,6 @@ export type ParsedManifest = {
     metrics?: { path?: string };
   };
   seed?: { enabled?: boolean; path?: string };
-  studio?: {
-    enabled?: boolean;
-    mountPath?: string;
-    maxRows?: number;
-  };
   modules?: ManifestModule[];
 };
 
@@ -70,7 +64,6 @@ export type ValidatedManifest = {
     metrics: { path: string };
   };
   seed: { enabled: boolean; path: string };
-  studio: StudioConfig;
   modules: ManifestModule[];
 };
 
@@ -85,7 +78,6 @@ export type ManifestErrorCode =
   | 'MANIFEST_VERSION_MAJOR_MISMATCH'
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
   | 'MANIFEST_MISSING_QSM_PATH'
-  | 'RUNTIME_MANIFEST_STUDIO_PATH_CONFLICT'
   | 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME';
 
 export type ManifestError = {

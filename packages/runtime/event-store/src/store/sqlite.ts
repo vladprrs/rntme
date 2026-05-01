@@ -71,17 +71,6 @@ export class SqliteEventStore implements EventStore {
     return this.db;
   }
 
-  /**
-   * Return the underlying SQLite `Database` handle.
-   *
-   * Exposed for db-studio mount. Consumers MUST NOT issue writes through this
-   * handle outside event-store APIs — doing so bypasses append semantics,
-   * monotonic cursor, and relay invariants.
-   */
-  getDbHandle(): BetterSqliteDatabase {
-    return this.rawDb();
-  }
-
   appendEvents(requests: readonly AppendRequest[]): AppendResult[] {
     const selectMax = this.db.prepare(
       'SELECT COALESCE(MAX(version), 0) AS v FROM event_log WHERE subject = ?',

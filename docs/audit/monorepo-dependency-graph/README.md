@@ -38,17 +38,14 @@ Layer 2 — Compilation (2):
 Layer 3 — Transport (2):
   @rntme/bindings, @rntme/bindings-{http,grpc}
   
-Layer 4 — Runtime (3):
-  @rntme/runtime, @rntme/ui-runtime, @rntme/db-studio
+Layer 4 — Runtime (2):
+  @rntme/runtime, @rntme/ui-runtime
   
 Layer 5 — Tooling (2):
   @rntme/blueprint, @rntme/seed
   
 Layer 6 — Modules (8):
   @rntme/{conformance,crm-amocrm,crm-bitrix24,identity-auth0,...}
-  
-Layer 7 — Demos (2):
-  @rntme/issue-tracker-api-demo, @rntme/pre-step-demo
 ```
 
 **Ключевые ребра:**
@@ -69,8 +66,8 @@ Layer 7 — Demos (2):
 - Recommendation: Либо инициализировать submodule (git submodule update --init), либо убрать из pnpm-workspace.yaml если CLI — отдельный repo.
 - Owner: infra/devops
 
-**B2. @rntme/runtime — god package (12 workspace deps)**
-- Evidence: runtime зависит от: bindings, bindings-grpc, bindings-http, db-studio, event-store, graph-ir-compiler, pdm, projection-consumer, qsm, seed, ui, ui-runtime
+**B2. @rntme/runtime — god package (11 workspace deps)**
+- Evidence: runtime зависит от: bindings, bindings-grpc, bindings-http, event-store, graph-ir-compiler, pdm, projection-consumer, qsm, seed, ui, ui-runtime
 - Impact: Любое изменение в любом core-пакете требует пересборки runtime. Невозможно использовать runtime без всего стека. Циклический риск при расширении.
 - Recommendation: Разделить runtime на runtime-core (только orchestration) и runtime-full (сборка). Вынести seed, ui, ui-runtime в опциональные peer deps.
 - Owner: @rntme/runtime
@@ -142,19 +139,11 @@ Layer 7 — Demos (2):
 - Recommendation: Добавить .gitignore в каждый пакет (или root-level с **/dist/).
 - Owner: infra
 
-**M5. Отсутствие описаний у 3 пакетов**
-- Evidence: db-studio, ui, ui-runtime — no description
+**M5. Отсутствие описаний у 2 пакетов**
+- Evidence: ui, ui-runtime — no description
 - Impact: Непонятно назначение пакетов для новых разработчиков.
 - Recommendation: Добавить description в package.json.
 - Owner: соответствующие пакеты
-
-#### LOW
-
-**L1. packages без exports (demo packages)**
-- Evidence: issue-tracker-api-demo, pre-step-demo — нет exports/main
-- Impact: Нормально для приложений, но не консистентно.
-- Recommendation: Не критично. Можно добавить "private": true без exports.
-- Owner: demo/
 
 ---
 

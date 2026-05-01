@@ -113,7 +113,6 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/bindings-grpc`](packages/runtime/bindings-grpc) | gRPC adapter surface for module and service integration through `CommandExecutor` / `QueryExecutor`. |
 | [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
 | [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
-| [`@rntme/db-studio`](packages/runtime/db-studio) | libSQL Hrana v3 read-only HTTP endpoint over rntme's two SQLite handles, usable by any Hrana-compatible browser studio. |
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 | [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
 | **Canonical contracts** |  |
@@ -134,9 +133,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 ### Demo
 
-> **Deprecated historical reference.** `demo/issue-tracker-api` is a single-service example from the pre project-first model. Keep it useful for runtime smoke tests, but do not treat it as the canonical project blueprint example.
-
-[`demo/issue-tracker-api`](demo/issue-tracker-api) is an end-to-end issue tracker — an example from the *ticketing* wedge class (alongside approvals, customer-ops, onboarding, back-office). It wires every package together: PDM with a stateMachine, QSM entity-mirror projections, 14 graphs (queries + commands), bindings → OpenAPI, a full event pipeline with the in-memory Kafka bridge, a Hono HTTP server, and a declarative UI served at `GET /ui`.
+[`demo/notes-blueprint`](demo/notes-blueprint) is the canonical project-shape example: a project blueprint folder with `project.json`, project-level PDM, and one or more services under `services/`.
 
 ### Dependency graph
 
@@ -155,12 +152,10 @@ flowchart TB
     BG["@rntme/bindings-grpc"]:::pkg
     UI["@rntme/ui"]:::pkg
     UIR["@rntme/ui-runtime"]:::pkg
-    DS["@rntme/db-studio"]:::pkg
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
     MS["@rntme/module-skeleton"]:::pkg
-    DEMO["demo/issue-tracker-api"]:::demo
 
     BP --> PDM & QSM
     QSM --> PDM
@@ -170,12 +165,11 @@ flowchart TB
     UIR --> UI
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
-    RT --> BH & BG & UIR & DS & PC & SD & GIR & ES
+    RT --> BH & BG & UIR & PC & SD & GIR & ES
     MS --> RT
-    DEMO --> RT
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `db-studio` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md). `demo/issue-tracker-api` is the historical single-service consumer of `@rntme/runtime`.
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, and `ui` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md).
 
 ## Quick start
 
@@ -193,36 +187,17 @@ The runtime is the production face of the project. Given a folder of artifacts i
 
 ```bash
 docker run --rm -p 3000:3000 \
-  -v "$(pwd)/demo/issue-tracker-api/artifacts:/srv/artifacts:ro" \
+  -v "$(pwd)/path/to/service/artifacts:/srv/artifacts:ro" \
   ghcr.io/vladprrs/rntme-runtime:1.0
 ```
 
-Or embed it (the demo does this):
+Or embed it:
 
 ```ts
 import { loadService, startService } from '@rntme/runtime';
 const loaded = loadService('./artifacts');
 if (loaded.ok) await startService(loaded.value);
 ```
-
-### Run the demo
-
-```bash
-pnpm -F @rntme/issue-tracker-api-demo start
-# ➜ issue-tracker-api-demo listening on http://localhost:3000
-# UI: http://localhost:3000/ui
-```
-
-```bash
-curl -s 'http://localhost:3000/v1/issues?status=open&limit=5'
-
-curl -s -X POST http://localhost:3000/v1/issues \
-  -H 'content-type: application/json' \
-  -H 'x-actor-id: alice' \
-  -d '{"issueId":7001,"title":"Demo","projectId":1,"reporterId":1,"priority":"high","storyPoints":3}'
-```
-
-See [`demo/issue-tracker-api/README.md`](demo/issue-tracker-api/README.md) for the full route inventory, seed instructions and example flow.
 
 ## Developer commands
 
@@ -235,8 +210,6 @@ Each library package exposes the same scripts. Run them across all packages from
 | `pnpm -r run test` | `vitest run` in every package (unit + integration + e2e + golden). |
 | `pnpm -r run lint` | ESLint on `src/**` and `test/**`. |
 | `pnpm -F <name> test:watch` | Vitest watch mode for one package. |
-| `pnpm -F @rntme/issue-tracker-api-demo start` | Start the demo via `@rntme/runtime` (`tsx src/server.ts`; override port with `RNTME_HTTP_PORT`). |
-| `pnpm -F @rntme/issue-tracker-api-demo start:runtime-cli` | Start via the `rntme-runtime start ./artifacts` CLI. |
 
 CI runs `build → typecheck → test → lint` on every push and PR to `main` (see `.github/workflows/ci.yml`).
 
@@ -251,7 +224,7 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 - `docs/superpowers/specs/done/2026-04-14-mutations-design.md` — CQRS / ES design: stateMachine, event envelope, command role, event store, relay, projection consumer.
 - `docs/superpowers/specs/done/2026-04-14-bindings-design.md` — bindings artifact, four-layer validation, OpenAPI emission.
 - `docs/superpowers/specs/done/2026-04-14-bindings-http-design.md` — Hono runtime for bindings.
-- `docs/superpowers/specs/*.md` — active specs (e.g. CloudEvents envelope, DLQ, QSM relations migration, architecture overview, db-studio).
+- `docs/superpowers/specs/*.md` — active specs (e.g. CloudEvents envelope, DLQ, QSM relations migration, architecture overview).
 - `docs/superpowers/plans/*.md` — per-feature implementation plans.
 - `docs/superpowers/reports/*.md` — gap analyses (spec vs. implementation).
 
@@ -268,7 +241,6 @@ What ships today:
 - JSON authoring; no YAML.
 - UI artifact (`@rntme/ui` + `@rntme/ui-runtime`): shadcn-catalog-based React SPA with route-local `data` (query bindings) and `actions` (command or navigation bindings), four-layer validation, `NextAppSpec`-compatible format. No SSR.
 - CloudEvents 1.0 envelope end-to-end; topics follow `rntme.{svc}.{agg}` (no `.v1` suffix — breaking event changes use a new `eventType`, not a topic version).
-- Read-only libSQL Hrana endpoint (`@rntme/db-studio`) over both runtime SQLite handles, usable from any Hrana-compatible browser studio.
 - Project blueprint composition: `project.json` + project-level PDM + N services + modules; project routes/middleware validated; project-routed binding registry compiled. Runtime intake at the project level is not yet wired.
 - Platform modules integration: `manifest.modules[]` declares external services; pre-fetch middleware (`pre[]`) supports `system` (idempotency-key) + `module-rpc` steps; HTTP idempotency cache (24h TTL); callback bindings (GET + 302). Module communication is gRPC-based (`@rntme/bindings-grpc`).
 

@@ -12,7 +12,6 @@ These documents are **not** a substitute for the live issue thread (attachments,
 | `RNT-200` | `@rntme/bindings-grpc` | needs cleanup | [@rntme/bindings-grpc/README.md](./@rntme/bindings-grpc/README.md) |
 | `RNT-201` | `@rntme/bindings-http` | needs cleanup | [@rntme/bindings-http/README.md](./@rntme/bindings-http/README.md) |
 | `RNT-202` | `@rntme/blueprint` | needs cleanup | [@rntme/blueprint/README.md](./@rntme/blueprint/README.md) |
-| `RNT-203` | `@rntme/db-studio` | needs cleanup — well-scoped and generally well-implemented, but has sev… | [@rntme/db-studio/README.md](./@rntme/db-studio/README.md) |
 | `RNT-204` | `@rntme/event-store` | needs cleanup | [@rntme/event-store/README.md](./@rntme/event-store/README.md) |
 | `RNT-205` | `@rntme/graph-ir-compiler` | needs cleanup — multiple medium-to-high architectural risks and debt it… | [@rntme/graph-ir-compiler/README.md](./@rntme/graph-ir-compiler/README.md) |
 | `RNT-206` | `@rntme/module-skeleton` | needs cleanup — architectural risk: low, but several gaps block it from… | [@rntme/module-skeleton/README.md](./@rntme/module-skeleton/README.md) |
@@ -30,8 +29,6 @@ These documents are **not** a substitute for the live issue thread (attachments,
 | `RNT-218` | `@rntme/conformance-ai-llm` | OK — the package matches its implementation plan and all tests pass. Ho… | [@rntme/conformance-ai-llm/README.md](./@rntme/conformance-ai-llm/README.md) |
 | `RNT-219` | `@rntme/conformance-crm` | needs cleanup — structural drift from sibling conformance packages and … | [@rntme/conformance-crm/README.md](./@rntme/conformance-crm/README.md) |
 | `RNT-220` | `@rntme/conformance-identity` | architectural risk | [@rntme/conformance-identity/README.md](./@rntme/conformance-identity/README.md) |
-| `RNT-221` | `@rntme/issue-tracker-api-demo` | needs cleanup | [@rntme/issue-tracker-api-demo/README.md](./@rntme/issue-tracker-api-demo/README.md) |
-| `RNT-222` | `@rntme/pre-step-demo` | needs cleanup — функциональность работает (4/4 тестов зелёные), но есть… | [@rntme/pre-step-demo/README.md](./@rntme/pre-step-demo/README.md) |
 | `RNT-223` | `@rntme/landing` | needs cleanup | [@rntme/landing/README.md](./@rntme/landing/README.md) |
 | `RNT-224` | `@rntme/cli` | needs cleanup | [@rntme/cli/README.md](./@rntme/cli/README.md) |
 | `RNT-225` | `@rntme/deploy-core` | needs cleanup | [@rntme/deploy-core/README.md](./@rntme/deploy-core/README.md) |

@@ -33,8 +33,8 @@
 - `packages/`               — workspace packages grouped by role:
   `artifacts/`, `runtime/`, `platform/`, `deploy/`, `tooling/`, and
   `contracts/`
-- `demo/issue-tracker-api/` — end-to-end wiring of every package; the
-  canonical worked example
+- `demo/notes-blueprint/`   — canonical project-shape example
+  (`project.json` + project-level PDM + services).
 - `apps/cli/`               — `@rntme/cli`, the `rntme` CLI binary.
 - `apps/platform-http/`     — `@rntme/platform-http`, Hono server at
   `platform.rntme.com`, REST/UI deploy surface, and background deploy executor.
@@ -73,18 +73,16 @@ ASCII dependency diagram. Arrow means "depends on".
                     /          \
        @rntme/bindings-http   @rntme/bindings-grpc
                     \          /
-                     \        /       @rntme/ui ─── @rntme/ui-runtime       @rntme/db-studio
-                      \      /                 \           |                     |
-                       \    /                   \          |                     |
-                        +--+---------------------+---------+---------------------+
+                     \        /       @rntme/ui ─── @rntme/ui-runtime
+                      \      /                 \           |
+                       \    /                   \          |
+                        +--+---------------------+---------+
                                                     |
                                              @rntme/seed
                                                     |
                                              @rntme/projection-consumer
                                                     |
                                              @rntme/runtime ─── @rntme/module-skeleton
-                                                    |
-                                             demo/issue-tracker-api
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
@@ -130,7 +128,6 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/ui-runtime`** — Serves the compiled UI artifact. Hono
   sub-router on the server side, React + json-render SPA on the client
   side. → `packages/runtime/ui-runtime/README.md`.
-- **`@rntme/db-studio`** — Hrana v3 read-only HTTP endpoint over the service's SQLite handles, mountable at a configurable path for browser studio UIs (libsqlstudio.com). → `packages/runtime/db-studio/README.md`.
 - **`@rntme/runtime`** — Top-level service orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
   seams, modules, projections, seed, bindings + UI. →
@@ -207,8 +204,8 @@ Modules tree (vendor implementations):
   → `modules/ai-llm/conformance/README.md`.
 - **`@rntme/conformance-ai-llm`** — npm name for the package above (same
   relationship as `@rntme/conformance-identity` ↔ `modules/identity/conformance/`).
-- **`demo/issue-tracker-api`** — End-to-end worked example wiring every
-  package above. → `demo/issue-tracker-api/README.md`.
+- **`demo/notes-blueprint`** — Canonical project-shape example
+  (`project.json` + project-level PDM + services).
 
 ## 4. Project-wide conventions
 
@@ -254,7 +251,6 @@ Modules tree (vendor implementations):
 | `pnpm -r run test` | Vitest in every package |
 | `pnpm -r run lint` | ESLint across `src/` and `test/` |
 | `pnpm -F @rntme/<pkg> test:watch` | Watch mode for one package |
-| `pnpm -F @rntme/issue-tracker-api-demo start` | Run the demo on `:3000` |
 
 CI runs `build → typecheck → test → lint` on push and PRs to `main`.
 
@@ -366,14 +362,7 @@ under `packages/runtime/event-store/test/`.
 4. Update this file (§8) if the spec documents a decision that agents
    will look for later.
 
-### 6.8 Run the demo locally
-
-1. Read `demo/issue-tracker-api/README.md`.
-2. `pnpm install --frozen-lockfile`.
-3. `pnpm -F @rntme/issue-tracker-api-demo start`.
-4. Hit `http://localhost:3000/health`, `/api/openapi.json`, and `/ui`.
-
-### 6.9 Reproduce a failing CI test
+### 6.8 Reproduce a failing CI test
 
 1. From the workspace root, `pnpm -F @rntme/<pkg> test` to narrow the
    failure to one package.
@@ -381,25 +370,8 @@ under `packages/runtime/event-store/test/`.
 3. Most fixtures live under `packages/<pkg>/test/fixtures/`;
    the per-package README "Where to look first" names the test
    families.
-4. If the failure touches the demo, run `pnpm -F
-   @rntme/issue-tracker-api-demo test` — it exercises the full
-   pipeline.
 
-### 6.10 Browse service databases via db-studio
-
-1. In `artifacts/manifest.json` add:
-
-```json
-"studio": { "enabled": true, "mountPath": "/_studio", "maxRows": 10000 }
-```
-
-2. Boot the service. Open `http://<host>/_studio` — the landing page lists the two Hrana URLs.
-3. Go to `https://libsqlstudio.com`, create a "libSQL Remote (HTTP)" connection, paste the URL.
-4. Writes, `ATTACH`, non-read-only `PRAGMA` are rejected inline. Intended for dev only.
-
-Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
-
-### 6.11 Add a platform module (code-executor-based integration service)
+### 6.9 Add a platform module (code-executor-based integration service)
 
 1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
 2. Copy `packages/tooling/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
@@ -407,7 +379,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
 5. Follow the health-check convention in `packages/tooling/module-skeleton/README.md`.
 
-### 6.12 Expose a service over gRPC
+### 6.10 Expose a service over gRPC
 
 1. Read `packages/runtime/bindings-grpc/README.md` and spec §6.2.
 2. In `artifacts/manifest.json`, add:
@@ -423,7 +395,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. To obtain the `.proto` file for client codegen: instantiate `emitProto(validated, shapes, { packageName, serviceName })` in a one-off script, or (later) via `rntme-runtime emit-proto <serviceDir>` (follow-up).
 5. `CommandExecutor` / `QueryExecutor` are the same seam as HTTP; domain services don't change anything to add gRPC.
 
-### 6.13 Call a module via pre-fetch from a command binding
+### 6.11 Call a module via pre-fetch from a command binding
 
 1. Read spec §7 and `packages/runtime/bindings-http/src/pre/` source.
 2. Declare the module in `artifacts/manifest.json`:
@@ -454,7 +426,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 6. HTTP retries are safe: pass `Idempotency-Key` header from the client; the cache survives process restarts in `persistent` mode.
 7. Invariants enforced by validator: `pre.length ≤ 2`, unique `bindAs`, `module` declared in manifest, `kind: command` only.
 
-### 6.14 Define a vendor-callback endpoint (OAuth redirect, magic link, hosted checkout return)
+### 6.12 Define a vendor-callback endpoint (OAuth redirect, magic link, hosted checkout return)
 
 1. Read spec §8.
 2. In `artifacts/bindings.json`, add a command binding with:
@@ -480,7 +452,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 5. Redirect templates support `{$result.field}` / `{$error.field}` substitutions. Omit `status` to default to 302.
 6. Callback endpoint **lives on the domain service**, not the module — see spec §8.5.
 
-### 6.15 Compose a multi-service project
+### 6.13 Compose a multi-service project
 
 1. Read `packages/artifacts/blueprint/README.md` and `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
 2. Lay out the project blueprint folder: `project.json`, `pdm/`, `services/<name>/...`, and `modules/<name>/...`.
@@ -488,14 +460,14 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 4. Compile the project-routed binding registry and verify the expected service prefixes resolve.
 5. Until project-level runtime intake lands, run individual services with `@rntme/runtime` as before.
 
-### 6.16 Deploy a project via Dokploy
+### 6.14 Deploy a project via Dokploy
 
 1. Read `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
 2. From a validated/composed project model, call `planDeployment(...)`; it returns a target-neutral, redacted plan.
 3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
 4. The CLI command surface lives in `@rntme/cli`; verify current incantations against `apps/cli/README.md`.
 
-### 6.17 Wire Auth0 into a project blueprint
+### 6.15 Wire Auth0 into a project blueprint
 
 1. Read `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §5-§9 and use `demo/notes-blueprint/` as the worked example.
 2. Add an Identity integration module service, for example `services/identity-auth0/service.json` with `kind: "integration-module"`, and include it in `project.json#services`.
@@ -504,7 +476,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 5. Reference `$pre.session.user_id` in Graph IR for owner writes or guards. Do not use vendor-specific `subject_id`; Auth0 `sub` is carried through canonical `Session.user_id`.
 6. Keep secrets out of blueprints. Auth0 domain/client/audience public browser config is deploy-rendered; Auth0 and Redpanda secret values live in deploy target/Dokploy secret refs.
 
-### 6.17a Add a new identity provider
+### 6.15a Add a new identity provider
 
 1. Read `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md` and mirror `modules/identity/auth0/`.
 2. Scaffold `modules/identity/<vendor>/` with the standard module package layout plus a `client/` subtree.
@@ -514,7 +486,7 @@ Spec first: `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
 6. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
 7. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
 
-### 6.18 Add a category contract package
+### 6.16 Add a category contract package
 
 A category contract is a versioned protobuf surface implemented by every vendor module in that category (Identity, Payments, …). To add one:
 
@@ -540,7 +512,7 @@ A category contract is a versioned protobuf surface implemented by every vendor 
 
 Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` is the worked example of a category contract.
 
-### 6.19 Add an Identity vendor module
+### 6.17 Add an Identity vendor module
 
 The first vendor module is shipped by a separate brainstorm + plan
 (spec: TBD). When that lands, the steps will be:
@@ -560,7 +532,7 @@ Until that brainstorm lands, stop here — do NOT freelance an
 implementation, because it would freeze a vendor-shaped contract before
 the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
 
-### 6.19 Add an AI/LLM vendor module
+### 6.18 Add an AI/LLM vendor module
 
 The first AI/LLM vendor module is shipped by a separate brainstorm + plan.
 When that lands, the steps will mirror Identity:
@@ -586,7 +558,7 @@ Reference the canonical contract at `packages/contracts/ai-llm/v1/` and the
 conformance suite at `modules/ai-llm/conformance/`.
 
 
-### 6.20 Add a CRM vendor module
+### 6.19 Add a CRM vendor module
 
 The pattern is the same as Identity / AI-LLM vendor modules but with the CRM canonical contract. Each vendor lands at `modules/crm/<vendor>/` with:
 

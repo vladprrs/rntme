@@ -43,7 +43,6 @@
     "@rntme/bindings": "workspace:*",
     "@rntme/bindings-grpc": "workspace:*",
     "@rntme/bindings-http": "workspace:*",
-    "@rntme/db-studio": "workspace:*",
     "@rntme/event-store": "workspace:*",
     "@rntme/graph-ir-compiler": "workspace:*",
     "@rntme/pdm": "workspace:*",

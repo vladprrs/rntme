@@ -178,7 +178,7 @@ Below is the canonical `artifacts/ui.json` from the bundled issue-tracker exampl
       }
     }
   },
-  "baseDir": "./demo/issue-tracker-api/artifacts/ui",
+  "baseDir": "./artifacts/ui",
   "layouts": {
     "main": {
       "spec": {

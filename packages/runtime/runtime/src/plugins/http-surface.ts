@@ -78,16 +78,6 @@ export class HttpSurface implements Surface {
     app.use('/api/*', correlationMiddleware());
     app.route('/api', router);
 
-    const studioCfg = ctx.service.manifest.studio;
-    if (studioCfg?.enabled) {
-      const { mountStudio } = await import('@rntme/db-studio');
-      mountStudio(app, {
-        eventStoreDb: ctx.eventStore.getDbHandle(),
-        qsmDb: ctx.qsmDb,
-        config: studioCfg,
-      });
-    }
-
     app.route('/', uiApp);
   }
 }
