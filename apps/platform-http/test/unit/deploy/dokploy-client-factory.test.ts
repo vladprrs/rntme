@@ -76,7 +76,7 @@ describe('createDokployClientFactory', () => {
     const fetcher = vi.fn(async (url: string | URL | Request, init?: FetchInit) => {
       calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined });
       if (String(url).includes('/api/domain.byApplicationId')) return jsonResponse([]);
-      if (String(url).includes('/api/mounts.allNamedByApplicationId')) return jsonResponse([]);
+      if (String(url).includes('/api/mounts.listByServiceId')) return jsonResponse([]);
       return jsonResponse({});
     });
     const cipher: SecretCipher = {
@@ -93,7 +93,7 @@ describe('createDokployClientFactory', () => {
       '/api/application.update',
       '/api/application.saveEnvironment',
       '/api/application.saveDockerProvider',
-      '/api/mounts.allNamedByApplicationId',
+      '/api/mounts.listByServiceId',
       '/api/mounts.create',
       '/api/domain.byApplicationId',
       '/api/domain.create',
@@ -123,6 +123,44 @@ describe('createDokployClientFactory', () => {
       certificateType: 'letsencrypt',
     });
     expect(JSON.stringify(calls)).not.toContain('updateTraefikConfig');
+  });
+
+  it('updates existing application file mounts listed by service id', async () => {
+    type FetchInit = Parameters<typeof globalThis.fetch>[1];
+    const calls: { url: string; body: unknown }[] = [];
+    const fetcher = vi.fn(async (url: string | URL | Request, init?: FetchInit) => {
+      calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (String(url).includes('/api/mounts.listByServiceId')) {
+        return jsonResponse([
+          {
+            mountId: 'mount-1',
+            mountPath: '/etc/nginx/nginx.conf',
+            filePath: '/etc/nginx/nginx.conf',
+          },
+        ]);
+      }
+      if (String(url).includes('/api/domain.byApplicationId')) return jsonResponse([]);
+      return jsonResponse({});
+    });
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+
+    const client = createDokployClientFactory(cipher, fetcher as typeof globalThis.fetch)(target());
+    await client.configureApplication('app-1', renderedEdgeResource());
+
+    expect(calls.some((call) => new URL(call.url).pathname === '/api/mounts.create')).toBe(false);
+    const updateCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.update');
+    expect(updateCall?.body).toMatchObject({
+      mountId: 'mount-1',
+      applicationId: 'app-1',
+      serviceType: 'application',
+      serviceId: 'app-1',
+      mountPath: '/etc/nginx/nginx.conf',
+      filePath: '/etc/nginx/nginx.conf',
+      content: 'events {}',
+    });
   });
 
   it('configures generated artifact builds with Dokploy build-type fields', async () => {

@@ -23,9 +23,11 @@ describe('loadComposedBlueprint (UI modules)', () => {
     });
 
     expect(r.value.publicConfigJson).toContain('G-INTEGRATION');
-    expect(r.value.virtualEntrySource).toContain('@rntme/presentation-md-mermaid/client');
-    expect(r.value.virtualEntrySource).toContain('@rntme/presentation-tiptap/client');
-    expect(r.value.virtualEntrySource).toContain('@rntme/analytics-google-analytics/client');
+    expect(r.value.virtualEntrySource).toContain("import('@rntme/ui-runtime/client')");
+    expect(r.value.virtualEntrySource).toContain("import('@rntme/presentation-md-mermaid/client')");
+    expect(r.value.virtualEntrySource).toContain("import('@rntme/presentation-tiptap/client')");
+    expect(r.value.virtualEntrySource).toContain("import('@rntme/analytics-google-analytics/client')");
+    expect(r.value.virtualEntrySource).not.toContain("import * as React from 'react'");
     expect(r.value.virtualEntrySource).toContain('hydrateApp');
     expect(r.value.virtualEntrySource).toContain('moduleCatalogComponents: rntmeModuleCatalogComponents');
     expect(r.value.virtualEntrySource).toContain('"source":{"type":"string","required":true}');
