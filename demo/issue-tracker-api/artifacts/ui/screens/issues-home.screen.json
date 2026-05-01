@@ -1,9 +1,0 @@
-{
-  "metadata": { "title": "Home" },
-  "data": {
-    "/data/stats": {
-      "binding": "issuesByProject",
-      "refetchOn": ["mount"]
-    }
-  }
-}

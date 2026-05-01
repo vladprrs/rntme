@@ -201,65 +201,6 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
-  demo/issue-tracker-api:
-    dependencies:
-      '@rntme/db-studio':
-        specifier: workspace:*
-        version: link:../../packages/runtime/db-studio
-      '@rntme/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime/runtime
-    devDependencies:
-      '@grpc/grpc-js':
-        specifier: ^1.12.0
-        version: 1.14.3
-      '@rntme/bindings':
-        specifier: workspace:*
-        version: link:../../packages/artifacts/bindings
-      '@rntme/bindings-grpc':
-        specifier: workspace:*
-        version: link:../../packages/runtime/bindings-grpc
-      '@types/node':
-        specifier: ^20.14.0
-        version: 20.19.39
-      protobufjs:
-        specifier: ^7.4.0
-        version: 7.5.5
-      tsx:
-        specifier: ^4.19.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.1
-        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
-
-  demo/pre-step-demo:
-    dependencies:
-      '@grpc/grpc-js':
-        specifier: ^1.10.0
-        version: 1.14.3
-      '@rntme/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime/runtime
-    devDependencies:
-      '@types/node':
-        specifier: ^20.14.0
-        version: 20.19.39
-      protobufjs:
-        specifier: ^7.2.0
-        version: 7.5.5
-      tsx:
-        specifier: ^4.19.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.5.4
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.1
-        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
-
   modules/ai-llm/conformance:
     dependencies:
       '@rntme/contracts-ai-llm-v1':
@@ -1344,43 +1285,6 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
-  packages/runtime/db-studio:
-    dependencies:
-      hono:
-        specifier: ^4.6.0
-        version: 4.12.12
-      zod:
-        specifier: ^4.0.0
-        version: 4.3.6
-    devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.12
-        version: 7.6.13
-      '@types/node':
-        specifier: ^20.14.0
-        version: 20.19.39
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.6.0
-        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.6.0
-        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
-      eslint:
-        specifier: ^9.10.0
-        version: 9.39.4(jiti@2.6.1)
-      prettier:
-        specifier: ^3.3.3
-        version: 3.8.2
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.0
-        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
-
   packages/runtime/event-store:
     dependencies:
       better-sqlite3:
@@ -1475,9 +1379,6 @@ importers:
       '@rntme/bindings-http':
         specifier: workspace:*
         version: link:../bindings-http
-      '@rntme/db-studio':
-        specifier: workspace:*
-        version: link:../db-studio
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../event-store

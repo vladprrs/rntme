@@ -1,6 +1,8 @@
 # Audit waves — consolidated planning
 
 > **Status:** reconciled through merged waves W4, W7, W8, W10, W13, W14, and W15. See [spec](../superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
+>
+> **2026-05-01 note.** Three packages were removed wholesale: `@rntme/db-studio` (superseded by Drizzle Studio per the drizzle-adoption spec), `@rntme/issue-tracker-api-demo` (replaced by `demo/notes-blueprint` as the project-shape canonical example), and `@rntme/pre-step-demo`. All `📦 park` findings against those packages are obsolete; their per-package audit folders under `docs/audit/@rntme/` were deleted alongside the packages. Skip those rows when triaging.
 
 | Field | Value |
 |---|---|

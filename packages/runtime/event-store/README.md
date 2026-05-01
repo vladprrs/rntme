@@ -186,7 +186,6 @@ Two operational notes that are not derivable from the spec or code and so stay h
 
 ## Invariants & gotchas
 
-- **`getDbHandle()` is exposed for db-studio mount only.** Writes through it bypass append semantics, monotonic cursor, and relay ordering — treat as read-only. Introduced for `@rntme/db-studio`.
 - **Caller mints `id` and `time`.** The store never generates them. Keeps appends deterministic for replay/golden tests. See `AppendEventInput` doc-comment in `src/types/append.ts`.
 - **Caller mints `correlationId`.** `NOT NULL` in the schema. For command-driven appends the binding layer supplies it; for seed/relay-generated events the producer mints one explicitly.
 - **`appendEvents` is atomic across subjects.** All requests in one call run inside `db.transaction(...).immediate(...)`. A `UNIQUE(event_id)` violation in the _second_ subject rolls back the _first_ (test: `sqlite-append-multi.test.ts` "rolls back both subjects when the second subject violates UNIQUE(event_id)").

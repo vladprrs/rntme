@@ -11,8 +11,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
-    "validate:issue-tracker-seed": "rntme-seed validate demo/issue-tracker-api/artifacts"
+    "lint": "pnpm -r run lint"
   },
   "devDependencies": {
     "@rntme/seed": "workspace:*"

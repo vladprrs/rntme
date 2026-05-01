@@ -173,14 +173,12 @@ flowchart TB
     BG["@rntme/bindings-grpc"]:::pkg
     UI["@rntme/ui"]:::pkg
     UIR["@rntme/ui-runtime"]:::pkg
-    DS["@rntme/db-studio"]:::pkg
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
     MS["@rntme/module-skeleton"]:::pkg
     DC["@rntme/deploy-core"]:::pkg
     DD["@rntme/deploy-dokploy"]:::pkg
-    DEMO["demo/issue-tracker-api"]:::demo
 
     BP --> PDM & QSM
     QSM --> PDM
@@ -190,14 +188,13 @@ flowchart TB
     UIR --> UI
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
-    RT --> BH & BG & UIR & DS & PC & SD & GIR & ES
+    RT --> BH & BG & UIR & PC & SD & GIR & ES
     MS --> RT
     DC --> BP
     DD --> DC
-    DEMO --> RT
 ```
 
-**Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models. The demo is a deprecated historical single-service consumer of `@rntme/runtime`.
+**Caption.** Arrows mean "depends on". `@rntme/blueprint` is the top project-composition layer. `@rntme/runtime` is still the per-service orchestrator; it boots plugin/executor seams, wires modules, projections, bindings, gRPC/HTTP, and UI. `@rntme/deploy-*` packages are CLI-side deployment containers that consume validated/composed project models.
 
 ### 3.3 Platform deploy flow
 
@@ -903,7 +900,7 @@ sequenceDiagram
 
 **Caption.** Compilation is once-per-artifact at build or boot time; the SPA never re-runs validation. Per-screen lazy loading keeps the initial payload small: the shell + manifest is fetched up front, and each route pulls exactly one layout and one screen.
 
-### 4.8 Orchestration layer: `@rntme/seed`, `@rntme/db-studio`, `@rntme/runtime`
+### 4.8 Orchestration layer: `@rntme/seed`, `@rntme/runtime`
 
 #### 4.8.1 `@rntme/seed`
 
@@ -917,17 +914,7 @@ sequenceDiagram
 
 See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
-#### 4.8.2 `@rntme/db-studio` (in-flight scaffold)
-
-**Purpose.** Expose a read-only libSQL Hrana v3 HTTP endpoint over rntme's two SQLite databases (event log + projection DB), so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
-
-**Spec.** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md` (design landed; package scaffold in progress).
-
-**Status (2026-04-18).** Only `packages/runtime/db-studio/test/` is present; `src/`, `package.json`, and `README.md` are not yet tracked. The runtime manifest carries a `studio: { enabled: false, mountPath: '/_studio', maxRows: 10000 }` block; `http-surface.ts` will mount the sub-router when enabled. This subsection describes intent; refer to the spec for the authoritative shape until the package lands.
-
-**Planned safety.** Three layers of read-only guard: a second SQLite file handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with a PRAGMA allow-list, and a server-side row cap (default 10,000) wrapping every result.
-
-#### 4.8.3 `@rntme/runtime`
+#### 4.8.2 `@rntme/runtime`
 
 **Purpose.** Service orchestrator: loads and validates every artifact (`manifest.json` + PDM / QSM / bindings / graphs / UI / seed), boots the plugin seams, wires the event pipeline, applies seed, and mounts the HTTP surface.
 
@@ -937,7 +924,7 @@ See sequence #3 in §3.4 for the boot-time placement of `applySeed`.
 
 - `plugins/better-sqlite-driver.ts` — `BetterSqliteDriver` (default `DbDriver`; reads `eventStorePath` and `qsmPath` from the manifest, falls back to ephemeral `:memory:` in dev).
 - `plugins/in-memory-bus.ts` — `InMemoryBus` (default `EventBus`; in-process Kafka emulation for tests and single-node deploys).
-- `plugins/http-surface.ts` — `HttpSurface` (default `Surface`; Hono app that mounts bindings at `/api`, the UI at `/`, and — when enabled — db-studio at `/_studio`).
+- `plugins/http-surface.ts` — `HttpSurface` (default `Surface`; Hono app that mounts bindings at `/api` and the UI at `/`).
 - `plugins/observability.ts` — Prometheus `/metrics` and a `/health` probe; consumed by any surface.
 
 **Boot order (strict; tested in `test/integration/start-service.test.ts`):** `bus.start → wireEventPipeline (no auto-start) → applySeed → pipeline.start (relay + consumer) → HTTP listen`. Reordering any step breaks the before-relay invariant.
@@ -1263,7 +1250,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 - **Package / module:** `packages/runtime/runtime/src/plugins/interfaces.ts` + `packages/runtime/runtime/src/plugins/http-surface.ts`.
 - **Purpose:** Swap the network entry point (Hono-based `HttpSurface` today; gRPC or other transports are the future extension path).
-- **Contract:** `Surface` interface mounts bindings at `/api`, the UI at `/`, optional db-studio at `/_studio`, and Prometheus at `/metrics` + `/health`.
+- **Contract:** `Surface` interface mounts bindings at `/api`, the UI at `/`, and Prometheus at `/metrics` + `/health`.
 - **Constructed by:** `startService` via manifest.
 - **Invariant:** A `Surface` implementation must dispatch `bindings-http` `BindingPlan` values without per-binding custom code; otherwise adding a binding would require a surface change.
 - **Spec(s):** `2026-04-15-runtime-packaging-design.md` + `2026-04-14-bindings-http-design.md`.
@@ -1272,8 +1259,8 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 #### Service `manifest.json`
 
 - **Package / module:** `packages/runtime/runtime/src/manifest/schema.ts` + `parse.ts` + `validate.ts`.
-- **Purpose:** Single declarative entry that tells the runtime which artifacts to load, which plugin seams to use, and which features to enable (db-studio, observability).
-- **Contract:** Zod-strict schema. Top-level keys include `serviceName`, `eventStorePath`, `qsmPath`, `artifacts: { pdm, qsm, bindings, graphs, ui, seed }`, `studio: { enabled, mountPath, maxRows }`, `observability: { … }`.
+- **Purpose:** Single declarative entry that tells the runtime which artifacts to load, which plugin seams to use, and which features to enable (observability).
+- **Contract:** Zod-strict schema. Top-level keys include `serviceName`, `eventStorePath`, `qsmPath`, `artifacts: { pdm, qsm, bindings, graphs, ui, seed }`, `observability: { … }`.
 - **Constructed by:** Author once per service; validated at boot by `loadService`.
 - **Invariant:** Manifest major version is checked at boot (`fail-fast`); reordering or removing fields is a breaking change.
 - **Spec(s):** `2026-04-15-runtime-packaging-design.md`.
@@ -1283,7 +1270,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 - **Package / module:** each owner's README "Out of scope" section.
 - **Purpose:** Record features that are deliberately deferred — parsed but rejected by the validator, or absent from the runtime — so a reader does not mistake them for bugs.
-- **Contract:** Not a type; a convention. Current gates include: `cardinality: 'many'` in QSM relations (parsed, rejected by compiler), `derived` backing (parsed, rejected by `validateQsm()` but implemented in `derive/ddl.ts` behind an opt-in), composite-key projections, cross-service relations (`relation.to` is local-only), db-studio (spec landed, scaffold only).
+- **Contract:** Not a type; a convention. Current gates include: `cardinality: 'many'` in QSM relations (parsed, rejected by compiler), `derived` backing (parsed, rejected by `validateQsm()` but implemented in `derive/ddl.ts` behind an opt-in), composite-key projections, cross-service relations (`relation.to` is local-only).
 - **Constructed by:** Owners add a gate to their README when a feature is designed but not yet shipped.
 - **Invariant:** A gate must be enforced somewhere in code (validator rejection, feature flag default-off, missing runtime dispatcher) — not a README-only aspiration.
 - **Spec(s):** individual owners' specs.
@@ -1300,16 +1287,6 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 - **Invariant:** No version suffix (`.v1` etc.). Event versioning lives inside the envelope (`rntSchemaVersion` for additive changes; a new `eventType` for breaking changes).
 - **Spec(s):** `2026-04-17-cloudevents-envelope-design.md` (§6).
 - **Related:** `Envelope`, `Relay`, `DLQ`.
-
-#### `db-studio` Hrana v3 endpoint (in-flight)
-
-- **Package / module:** `packages/runtime/db-studio/` (scaffold only at 2026-04-18).
-- **Purpose:** Expose both rntme SQLite files (event log and projection DB) via the libSQL Hrana v3 wire protocol, so operators can attach any Hrana-compatible browser studio (for example `libsqlstudio.com`) without bundling a custom UI.
-- **Contract:** Two endpoints — `POST /_studio/hrana/events/v3/pipeline` and `POST /_studio/hrana/qsm/v3/pipeline` — speaking the Hrana v3 JSON wire protocol for `execute` / `batch` requests.
-- **Constructed by:** `packages/runtime/runtime/src/plugins/http-surface.ts` when `manifest.studio.enabled === true`.
-- **Invariant:** Read-only enforced at three layers — a second SQLite handle opened read-only (never `:memory:`), a SQL classifier whitelist (`SELECT` / `EXPLAIN` / `PRAGMA` only) with PRAGMA allow-list, and a row cap (default 10,000). The endpoint never mutates.
-- **Spec(s):** `docs/superpowers/specs/done/2026-04-18-db-studio-design.md`.
-- **Related:** `Surface`, `DbDriver`, manifest `studio` block.
 
 #### Project blueprint
 
@@ -1383,7 +1360,7 @@ Finding format:
 All source files fit in a 350-line window; no single file exceeds 400. Most "large" files concentrate at compilation and validation boundaries, which is intrinsic to the artifact-driven design and not itself a smell. Two concerns worth recording:
 
 > **[minor]** `packages/runtime/runtime/src/load/load-service.ts` — 366 lines.
-> - **Why it is a smell:** The orchestrator reads every artifact, validates each against its owner package, and wires plugin seams in a single file. As the artifact set grows (db-studio, observability, future seams), this file will attract unrelated concerns.
+> - **Why it is a smell:** The orchestrator reads every artifact, validates each against its owner package, and wires plugin seams in a single file. As the artifact set grows (observability, future seams), this file will attract unrelated concerns.
 > - **Possible direction:** Split by phase — artifact loading, validator orchestration, plugin wiring — once a seventh concern joins.
 > - **Links:** `2026-04-15-runtime-packaging-design.md`.
 
@@ -1494,9 +1471,6 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > **[info]** `@rntme/bindings` — HTTP methods are `GET` and `POST` only; no PUT / PATCH / DELETE. Single content type: `application/json`. No multipart / file upload.
 > - **Links:** `2026-04-14-bindings-design.md` §5; IR rc7 §24.
 
-> **[info]** `@rntme/db-studio` — Package is a scaffold at cutoff (2026-04-18); spec landed, source not yet tracked.
-> - **Links:** `2026-04-18-db-studio-design.md`.
-
 ### 7.6 Naming drift
 
 > **[minor]** `envelope` vs `EventRecord`.
@@ -1525,11 +1499,6 @@ Each entry below is an `info` finding: a feature deliberately deferred, enforced
 > - **Why it is a smell (history):** The helper wraps a filter predicate with `(predSql) OR (? IS NULL)` per optional param. The pre-fix version emitted the guard `?` before the inner predicate's `?` in SQL text, but appended inner params first to `paramOrder`; SQLite binds `?` in walk-order, so mixed filters (required + optional params) silently bound the guard to the wrong value.
 > - **Regression tests:** `packages/artifacts/graph-ir-compiler/test/unit/lower/sqlite/predicate-optional.test.ts` ("aligns param positions when required and predicate_optional params are mixed") and `packages/artifacts/graph-ir-compiler/test/e2e/predicate-optional.e2e.test.ts`.
 > - **Links:** `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`; memory `rntme_predicate_optional_bug`.
-
-> **[info]** Demo list / search endpoints return raw FK ids instead of JOIN-enriched rows.
-> - **Why it is a smell:** `demo/issue-tracker-api` list endpoints expose fields like `createdBy: "u-1"` rather than `createdBy: { id, name }`. A UI author has to issue a second query per row, defeating the single-endpoint experience.
-> - **Possible direction:** Brainstorm JOIN compilation in graph-ir-compiler; until then, record this as a known limitation.
-> - **Links:** memory `demo_join_enrichment_todo`.
 
 ### 7.8 Undocumented extensions
 
@@ -1674,7 +1643,6 @@ Seeded from `AGENTS.md §10` and extended with terms introduced in §§6–7. Cr
 - **MVP gate** — A feature parsed but validator-rejected (or implementation-gated behind an opt-in) until its backing lands. Enforced in code, not README-only. (§6.4, §7.5)
 - **`BindingKind × Role`** — The matrix that pairs a binding's declared kind (`query` / `command`) with its target graph's inferred role and the required output shape (`rowset<T>` / `row<CommandResult>`). (§6.3)
 - **`BindingPlan`** — `QueryBindingPlan | CommandBindingPlan` — the runtime pairing of a binding with its compiled graph and request Zod schemas. (§6.3)
-- **Hrana** — The libSQL JSON wire protocol used by `@rntme/db-studio` to expose read-only access to rntme's SQLite files for external browser studios. (§4.8.2, §6.5)
 - **Topic convention** — `rntme.{service}.{aggregate}`, lowercased, no version suffix. Breaking event changes use a new `eventType`, not a new topic. (§6.5)
 
 ## 9. How to use and maintain this document
