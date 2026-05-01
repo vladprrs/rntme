@@ -1,0 +1,52 @@
+{
+  "name": "@rntme-cli/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "rntme CLI — create and operate rntme services from artifacts.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "rntme": "./dist/bin/cli.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "postbuild": "node -e \"const f='dist/bin/cli.js';const fs=require('fs');if(!fs.existsSync(f))process.exit(0);const s=fs.readFileSync(f,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+s);fs.chmodSync(f,0o755);\" && node scripts/copy-skills-assets.cjs",
+    "test": "vitest run test/unit test/integration",
+    "test:e2e": "vitest run test/e2e",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write .",
+    "gen:snapshots": "node scripts/gen-skill-snapshots.cjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@rntme/bindings": "workspace:*",
+    "@rntme/graph-ir-compiler": "workspace:*",
+    "@rntme/pdm": "workspace:*",
+    "@rntme/qsm": "workspace:*",
+    "@rntme/seed": "workspace:*",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "msw": "^2.4.9",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  },
+  "dependencies": {
+    "@rntme/blueprint": "workspace:*",
+    "@rntme-cli/platform-core": "workspace:*",
+    "@truestamp/canonify": "^1.0.0",
+    "zod": "^4.0.0"
+  }
+}

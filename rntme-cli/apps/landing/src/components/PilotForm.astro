@@ -1,0 +1,36 @@
+---
+import { loadEnv } from "../env";
+import SectionMarker from "./SectionMarker.astro";
+
+const env = loadEnv();
+const applyUrl = `https://tally.so/r/${env.TALLY_FORM_ID}`;
+
+const questions = [
+  { k: "01", title: "Team",                body: "Size, what you've shipped, your current stack." },
+  { k: "02", title: "The second service",  body: "What you'd build on rntme next — domain, scope, why this one." },
+  { k: "03", title: "Timeline",            body: "When you'd start; when it needs to be live." },
+  { k: "04", title: "Contact",             body: "Name, role, work email." },
+];
+---
+<section class="section pilot" data-section-num="08" id="s08" aria-labelledby="pilot-headline">
+  <a id="pilot" aria-hidden="true"></a>
+  <SectionMarker num="08" label="Early access" right="Paid · hands-on integration" />
+  <h2 id="pilot-headline">We work with your team directly.</h2>
+  <p class="lede">
+    If you already shipped one AI-built workflow app and you know the second one will
+    turn into maintenance debt, work with us. Paid engagement. We stay on through
+    your first rntme service.
+  </p>
+  <ol class="steps pilot-questions">
+    {questions.map((q) => (
+      <li class="step">
+        <div class="step-k">{q.k}</div>
+        <div><h3>{q.title}</h3><p>{q.body}</p></div>
+      </li>
+    ))}
+  </ol>
+  <div class="cta-row">
+    <a class="btn btn-primary" href={applyUrl}>Apply on Tally →</a>
+    <span class="cta-meta">Four questions · about 3 min</span>
+  </div>
+</section>

@@ -1,0 +1,77 @@
+---
+import { competitors } from "../content/competitors.mdx";
+import SectionMarker from "./SectionMarker.astro";
+---
+<section class="section compare" data-section-num="03" id="s03" aria-labelledby="cmp-headline">
+  <SectionMarker num="03" label="Compare" right="What teams do today" />
+  <h2 id="cmp-headline">What teams do today.</h2>
+  <p class="lede compare-lede">
+    Five common shapes. All of them ship the first app. None of them stay coherent
+    across the next four.
+  </p>
+
+  <dl class="compare-rows">
+    {competitors.map((c) => (
+      <div class="compare-row">
+        <dt class="compare-row-head">
+          <span class="compare-shape">{c.shape}</span>
+          <span class="compare-tools">{c.tools}</span>
+        </dt>
+        <dd class="compare-body">{c.body}</dd>
+      </div>
+    ))}
+  </dl>
+</section>
+
+<style>
+  .compare-lede {
+    max-width: 58ch;
+  }
+
+  .compare-rows {
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-border-strong);
+  }
+  .compare-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 24ch) 1fr;
+    gap: var(--space-4);
+    align-items: baseline;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .compare-row-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+  }
+  .compare-shape {
+    font-family: var(--font-display);
+    font-weight: var(--fw-medium);
+    font-size: var(--fs-body);
+    color: var(--color-text);
+  }
+  .compare-tools {
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    color: var(--color-text-subtle);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+  .compare-body {
+    margin: 0;
+    color: var(--color-text-muted);
+    max-width: 60ch;
+  }
+
+  @media (max-width: 720px) {
+    .compare-row {
+      grid-template-columns: 1fr;
+      gap: var(--space-2);
+    }
+  }
+</style>

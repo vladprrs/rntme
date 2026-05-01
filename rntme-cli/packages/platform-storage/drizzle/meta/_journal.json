@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776580867960,
+      "tag": "0000_watery_human_robot",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0001_org_archived_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0002_project_first",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777217376425,
+      "tag": "0003_deploy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777296616377,
+      "tag": "0004_public_base_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0005_platform_rate_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777473000000,
+      "tag": "0006_deploy_target_auth_modules",
+      "breakpoints": true
+    }
+  ]
+}

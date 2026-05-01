@@ -1,0 +1,21 @@
+---
+import { objections } from "../content/objections.mdx";
+import SectionMarker from "./SectionMarker.astro";
+---
+<section class="section objections" data-section-num="09" id="s09" aria-labelledby="obj-headline">
+  <SectionMarker num="09" label="FAQ" right="The questions you're actually asking" />
+  <h2 id="obj-headline">Honest answers.</h2>
+  <div class="accordion">
+    {objections.map((o, i) => (
+      <details open={i === 0}>
+        <summary>
+          <svg class="chev" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m5 3 4 4-4 4"/>
+          </svg>
+          <span>{o.q}</span>
+        </summary>
+        <div class="ans"><div>{o.a}</div></div>
+      </details>
+    ))}
+  </div>
+</section>
