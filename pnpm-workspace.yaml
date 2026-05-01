@@ -1,6 +1,10 @@
 packages:
-  - "packages/*"
+  - "packages/artifacts/*"
+  - "packages/runtime/*"
+  - "packages/platform/*"
+  - "packages/deploy/*"
+  - "packages/tooling/*"
   - "packages/contracts/*/v*"
+  - "apps/*"
   - "modules/*/*"
   - "demo/*"
-  - "rntme-cli/packages/*"
