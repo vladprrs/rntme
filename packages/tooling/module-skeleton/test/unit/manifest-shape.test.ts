@@ -182,3 +182,66 @@ describe('parseModuleManifest — relaxed top-level + client block', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+describe('capabilities.edgeAuth', () => {
+  it('parses introspection-sidecar with full descriptor', () => {
+    const result = parseModuleManifest({
+      name: 'test',
+      version: '1.0.0',
+      capabilities: {
+        rpcs: ['IntrospectSession'],
+        events: [],
+        edgeAuth: {
+          kind: 'introspection-sidecar',
+          transport: 'http',
+          method: 'GET',
+          path: '/introspect',
+          port: 50052,
+        },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.capabilities?.edgeAuth?.kind).toBe('introspection-sidecar');
+      expect(result.value.capabilities?.edgeAuth?.port).toBe(50052);
+    }
+  });
+
+  it('rejects unknown edgeAuth.kind', () => {
+    const result = parseModuleManifest({
+      name: 'test',
+      version: '1.0.0',
+      capabilities: {
+        rpcs: ['IntrospectSession'],
+        events: [],
+        edgeAuth: {
+          kind: 'native-jwt-validation',
+          transport: 'http',
+          method: 'GET',
+          path: '/introspect',
+          port: 50052,
+        },
+      },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects port outside 1..65535', () => {
+    const result = parseModuleManifest({
+      name: 'test',
+      version: '1.0.0',
+      capabilities: {
+        rpcs: ['IntrospectSession'],
+        events: [],
+        edgeAuth: {
+          kind: 'introspection-sidecar',
+          transport: 'http',
+          method: 'GET',
+          path: '/introspect',
+          port: 0,
+        },
+      },
+    });
+    expect(result.ok).toBe(false);
+  });
+});

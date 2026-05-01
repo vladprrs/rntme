@@ -7,12 +7,23 @@ export const ModuleSecretSchema = z
   })
   .strict();
 
+export const EdgeAuthDescriptorSchema = z
+  .object({
+    kind: z.literal('introspection-sidecar'),
+    transport: z.literal('http'),
+    method: z.literal('GET'),
+    path: z.string().startsWith('/'),
+    port: z.number().int().min(1).max(65_535),
+  })
+  .strict();
+
 export const ModuleCapabilitiesSchema = z
   .object({
     vendors: z.array(z.string().min(1)).optional(),
     entities: z.array(z.string().min(1)).optional(),
     rpcs: z.array(z.string().min(1)).default([]),
     events: z.array(z.string().min(1)).default([]),
+    edgeAuth: EdgeAuthDescriptorSchema.optional(),
     search_tiers: z.array(z.string().min(1)).optional(),
     labeled_associations: z.boolean().optional(),
     bulk_operations: z.record(z.unknown()).optional(),
@@ -144,6 +155,7 @@ export const ModuleManifestSchema = z
   });
 
 export type ModuleSecret = z.infer<typeof ModuleSecretSchema>;
+export type EdgeAuthDescriptor = z.infer<typeof EdgeAuthDescriptorSchema>;
 export type ModuleCapabilities = z.infer<typeof ModuleCapabilitiesSchema>;
 export type PropSchema = z.infer<typeof PropSchemaSchema>;
 export type ComponentDeclaration = z.infer<typeof ComponentDeclarationSchema>;

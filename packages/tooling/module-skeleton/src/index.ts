@@ -2,6 +2,7 @@ export const VERSION = '0.0.0';
 
 export { exampleHandlers } from './handlers.js';
 export {
+  EdgeAuthDescriptorSchema,
   ModuleCapabilitiesSchema,
   ModuleManifestSchema,
   ModuleSecretSchema,
@@ -10,6 +11,7 @@ export {
 export type {
   ClientBlock,
   ComponentDeclaration,
+  EdgeAuthDescriptor,
   ModuleCapabilities,
   ModuleManifest,
   ModuleManifestError,
