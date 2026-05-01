@@ -313,6 +313,17 @@ async function toDeployCoreInput(
       ? {}
       : await bundleVirtualEntrySource(value.virtualEntrySource, rootDir);
 
+  // Build modules map: service slug → { edgeAuth }. catalogManifest.moduleEdgeAuth is keyed by
+  // the module manifest name (== package name, e.g. "@rntme/identity-auth0"); project.modules is
+  // keyed by role (e.g. "identity"). The deploy-core contract uses the service slug as key
+  // (last path segment of the package name, e.g. "identity-auth0").
+  const moduleEdgeAuth = value.catalogManifest?.moduleEdgeAuth ?? {};
+  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null }> = {};
+  for (const moduleRef of Object.values(value.project.modules ?? {})) {
+    const slug = moduleRef.package.split('/').pop()!;
+    modules[slug] = { edgeAuth: moduleEdgeAuth[moduleRef.package] ?? null };
+  }
+
   return {
     name: value.project.name,
     publicConfigJson,
@@ -333,6 +344,7 @@ async function toDeployCoreInput(
     ...(value.project.routes === undefined ? {} : { routes: value.project.routes }),
     ...(value.project.middleware === undefined ? {} : { middleware: value.project.middleware }),
     ...(value.project.mounts === undefined ? {} : { mounts: value.project.mounts }),
+    ...(Object.keys(modules).length > 0 ? { modules } : {}),
   };
 }
 
