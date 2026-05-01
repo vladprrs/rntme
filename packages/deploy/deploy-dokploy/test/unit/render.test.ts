@@ -293,6 +293,46 @@ describe('renderDokployPlan', () => {
     ]);
   });
 
+  it('exposes ports 50051 and 50052 on integration-module workloads', () => {
+    const integrationPlan: ProjectDeploymentPlan = {
+      ...plan,
+      workloads: [
+        {
+          kind: 'integration-module',
+          slug: 'identity-auth0',
+          serviceSlug: 'identity-auth0',
+          resourceName: 'rntme-acme-commerce-identity-auth0',
+          image: 'identity-auth0:latest',
+          expose: false,
+          env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
+          secretRefs: {},
+        },
+        {
+          kind: 'edge-gateway',
+          slug: 'edge',
+          resourceName: 'rntme-acme-commerce-edge',
+          image: 'nginx:1.27-alpine',
+        },
+      ],
+    };
+
+    const r = renderDokployPlan(integrationPlan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    const moduleRes = r.value.resources.find((res) => res.workloadKind === 'integration-module');
+    expect(moduleRes).toBeDefined();
+    expect(moduleRes?.ports).toEqual([
+      { containerPort: 50051, protocol: 'http' },
+      { containerPort: 50052, protocol: 'http' },
+    ]);
+  });
+
   it('renders create target project when allowed', () => {
     const r = renderDokployPlan(plan, {
       endpoint: 'https://dokploy.example.com',
