@@ -1,12 +1,8 @@
+import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
+
 export type ServiceKind = 'domain' | 'integration';
 
-export type EdgeAuthDescriptor = {
-  readonly kind: 'introspection-sidecar';
-  readonly transport: 'http';
-  readonly method: string;
-  readonly path: string;
-  readonly port: number;
-};
+export type { EdgeAuthDescriptor };
 
 export type ComposedProjectModuleInfo = {
   readonly edgeAuth?: EdgeAuthDescriptor | null;

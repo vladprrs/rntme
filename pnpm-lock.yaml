@@ -1029,6 +1029,9 @@ importers:
 
   packages/deploy/deploy-core:
     dependencies:
+      '@rntme/module-skeleton':
+        specifier: workspace:*
+        version: link:../../tooling/module-skeleton
       zod:
         specifier: ^4.0.0
         version: 4.3.6
