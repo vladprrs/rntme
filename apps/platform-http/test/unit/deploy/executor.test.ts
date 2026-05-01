@@ -1,9 +1,12 @@
 import { Buffer } from 'node:buffer';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
 import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
-import { runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
+import { readUiRuntimeCss, runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
 describe('runDeployment', () => {
   it('runs plan, render, apply, smoke verify and finalizes as succeeded', async () => {
@@ -97,9 +100,18 @@ describe('runDeployment', () => {
     expect(runtimeFiles['seed.json']).toContain('"seed-1"');
     expect(runtimeFiles['shapes.json']).toContain('"NoteView"');
     expect(runtimeFiles['ui/manifest.json']).toContain('"2.0"');
-    expect(runtimeFiles['ui-build/main.css']).toEqual(expect.any(String));
+    const uiBuildFiles = Object.entries(runtimeFiles).filter(([path]) => path.startsWith('ui-build/'));
+    const jsBundle = uiBuildFiles
+      .filter(([path]) => path.endsWith('.js'))
+      .map(([, content]) => content)
+      .join('\n');
+    expect(runtimeFiles['ui-build/main.css']).toContain('tailwindcss');
+    expect(runtimeFiles['ui-build/main.css']).not.toContain('rntme ui runtime styles unavailable');
     expect(runtimeFiles['ui-build/main.js']).toContain('hydrateApp');
-    expect(runtimeFiles['ui-build/main.js']).toContain('Auth0Client');
+    expect(jsBundle).toContain('Auth0Client');
+    expect(runtimeFiles['ui-build/main.js.map']).toBeUndefined();
+    expect(uiBuildFiles).not.toHaveLength(0);
+    expect(uiBuildFiles.every(([, content]) => content.length < 950_000)).toBe(true);
   });
 
   it('fails deployment when auth0 public config placeholder has no target client id', async () => {
@@ -356,8 +368,10 @@ function composedBlueprint(): ComposedBlueprint {
     publicConfigJson: '{"@rntme/identity-auth0":{"domain":"tenant.us.auth0.com","clientId":"${AUTH0_SPA_CLIENT_ID}","audience":"https://shop.example.test/api","redirectUri":"https://shop.example.test/"}}',
     virtualEntrySource: [
       '// test virtual entry',
-      "import { hydrateApp } from '@rntme/ui-runtime/client';",
-      "import * as identityAuth0 from '@rntme/identity-auth0/client';",
+      "const [{ hydrateApp }, identityAuth0] = await Promise.all([",
+      "  import('@rntme/ui-runtime/client'),",
+      "  import('@rntme/identity-auth0/client'),",
+      ']);',
       "void hydrateApp({ rootSelector: '#root', modules: [{ name: '@rntme/identity-auth0', boot: identityAuth0.boot }] });",
     ].join('\n'),
     pdm: { entities: {} } as never,
@@ -448,3 +462,45 @@ function composedBlueprintWithModuleEdgeAuth(): ComposedBlueprint {
     },
   };
 }
+
+describe('readUiRuntimeCss', () => {
+  function workspaceWith(layout: 'new' | 'legacy' | 'none', cssContent = '/* fixture css */'): string {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-ui-css-test-'));
+    if (layout === 'new') {
+      mkdirSync(join(root, 'packages', 'runtime', 'ui-runtime', 'build'), { recursive: true });
+      writeFileSync(join(root, 'packages', 'runtime', 'ui-runtime', 'build', 'main.css'), cssContent);
+    }
+    if (layout === 'legacy') {
+      mkdirSync(join(root, 'packages', 'ui-runtime', 'build'), { recursive: true });
+      writeFileSync(join(root, 'packages', 'ui-runtime', 'build', 'main.css'), cssContent);
+    }
+    return root;
+  }
+
+  it('reads CSS from the new packages/runtime/ui-runtime location', () => {
+    const root = workspaceWith('new', '/* css from new path */');
+    try {
+      expect(readUiRuntimeCss(root)).toBe('/* css from new path */');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to legacy packages/ui-runtime location when new path is absent', () => {
+    const root = workspaceWith('legacy', '/* css from legacy path */');
+    try {
+      expect(readUiRuntimeCss(root)).toBe('/* css from legacy path */');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('returns the placeholder banner when neither path exists', () => {
+    const root = workspaceWith('none');
+    try {
+      expect(readUiRuntimeCss(root)).toBe('/* rntme ui runtime styles unavailable at deploy bundle time */\n');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

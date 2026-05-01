@@ -182,7 +182,7 @@ Two operational notes that are not derivable from the spec or code and so stay h
 
 ## Topic naming
 
-`defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregateType>'` (both segments lowercased), e.g. `rntme.issue-tracker.issue`. The service segment is mandatory — that is the unit of multi-tenancy / multi-service deploy. No version suffix: event versioning lives on the envelope (`rntSchemaVersion` for additive evolution; a new `eventType` for breaking changes). The DLQ topic is always `<primaryTopic>.dlq`. See spec §5.4.
+`defaultTopicOf(serviceName, aggregateType) → 'rntme.<serviceName>.<aggregateType>'` (service and aggregate segments lowercased), e.g. `rntme.issue-tracker.issue`. When a deploy target supplies a topic prefix, `defaultTopicOf(serviceName, aggregateType, topicPrefix)` emits `<topicPrefix>.<serviceName>.<aggregateType>`, e.g. `rntme.rnt364.smoke.issue-tracker.issue`. The service segment remains mandatory — that is the unit of multi-tenancy / multi-service deploy inside the prefix. No version suffix: event versioning lives on the envelope (`rntSchemaVersion` for additive evolution; a new `eventType` for breaking changes). The DLQ topic is always `<primaryTopic>.dlq`. See spec §5.4.
 
 ## Invariants & gotchas
 

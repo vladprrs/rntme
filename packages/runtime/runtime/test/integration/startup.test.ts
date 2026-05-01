@@ -5,8 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ReadableStream } from 'node:stream/web';
 import { TextEncoder } from 'node:util';
+import type { KafkaMessage, KafkaProducer } from '@rntme/event-store';
+import type { KafkaBatch, KafkaConsumer } from '@rntme/projection-consumer';
 import { loadService } from '../../src/load/load-service.js';
 import { startService } from '../../src/start/start-service.js';
+import type { EventBus } from '../../src/plugins/interfaces.js';
 import type { RunningService } from '../../src/types.js';
 import { emitProto } from '@rntme/bindings-grpc';
 import { collectShapesFromService } from '../../src/start/build-grpc-surface.js';
@@ -34,12 +37,16 @@ describe('startService', () => {
     expect(body.ok).toBe(true);
   });
 
-  it('exposes OpenAPI + service identity', async () => {
+  it('serves the UI shell at / and exposes OpenAPI + service identity', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
     running = await startService(loaded.value);
-    const root = await (await fetch(`http://127.0.0.1:${running.httpPort}/`)).json();
-    expect((root as { name: string }).name).toBe('issue-tracker-api');
+    const root = await fetch(`http://127.0.0.1:${running.httpPort}/`);
+    expect(root.status).toBe(200);
+    expect(root.headers.get('content-type')).toContain('text/html');
+    expect(await root.text()).toContain('<div id="root">');
+    const service = await (await fetch(`http://127.0.0.1:${running.httpPort}/service.json`)).json();
+    expect((service as { name: string }).name).toBe('issue-tracker-api');
     const openapi = await (await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`)).json();
     expect((openapi as { openapi: string }).openapi).toBe('3.1.0');
   });
@@ -194,7 +201,67 @@ describe('startService', () => {
     expect(running.httpPort).toBeGreaterThan(0);
     expect(running.grpcPort).toBeGreaterThan(0);
   });
+
+  it('applies RNTME_EVENT_BUS_TOPIC_PREFIX to relay topics and projection subscriptions', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    const bus = new CapturingEventBus();
+    running = await startService(loaded.value, {
+      bus,
+      runtimeEnv: { RNTME_EVENT_BUS_TOPIC_PREFIX: 'rntme.rnt364.smoke' },
+    });
+    const base = `http://127.0.0.1:${running.httpPort}`;
+
+    const create = await fetch(`${base}/api/v1/issues`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-actor-id': 'alice',
+      },
+      body: JSON.stringify({
+        issueId: 9201,
+        title: 'event bus prefix',
+        projectId: 1,
+        reporterId: 1,
+        priority: 'high',
+        storyPoints: 1,
+      }),
+    });
+    expect(create.status).toBe(200);
+
+    const deadline = Date.now() + 1000;
+    while (bus.sent.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+
+    expect(bus.sent.map((message) => message.topic)).toEqual([
+      'rntme.rnt364.smoke.issue-tracker-api.issue',
+    ]);
+    expect(bus.consumerTopics).toEqual(['rntme.rnt364.smoke.issue-tracker-api.*']);
+  });
 });
+
+class CapturingEventBus implements EventBus {
+  readonly sent: KafkaMessage[] = [];
+  readonly consumerTopics: string[] = [];
+
+  producer(): KafkaProducer {
+    return {
+      send: async (message): Promise<void> => {
+        this.sent.push(message);
+      },
+    };
+  }
+
+  consumer(opts: { groupId: string; topic: string }): KafkaConsumer {
+    this.consumerTopics.push(opts.topic);
+    return {
+      stop(): void {},
+      async commitOffsets(_batch: KafkaBatch): Promise<void> {},
+      async *[Symbol.asyncIterator](): AsyncIterator<KafkaBatch> {},
+    };
+  }
+}
 
 function loadProto(src: string, serviceName: string): { root: protobuf.Root; service: protobuf.Service } {
   const { root } = protobuf.parse(src, { keepCase: true });

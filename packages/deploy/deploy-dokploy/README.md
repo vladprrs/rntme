@@ -38,6 +38,10 @@ Domain-service workloads always receive `RNTME_EVENT_BUS_BROKERS` and
 - `RNTME_EVENT_BUS_PASSWORD` with `secret: true`
 - optional `RNTME_EVENT_BUS_TOPIC_PREFIX`
 
+The runtime applies its own KafkaJS connection-timeout default for external
+brokers. Targets that need a non-default handshake budget can provide
+`RNTME_EVENT_BUS_CONNECTION_TIMEOUT_MS` as an additional service env var.
+
 The username/password values are secret references, not plaintext credentials.
 
 When `kind: "auth"` middleware is mounted on a domain-service route, render

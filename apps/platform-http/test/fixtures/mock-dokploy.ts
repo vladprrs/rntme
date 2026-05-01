@@ -99,9 +99,11 @@ export function createMockDokployApp() {
     return c.json(app);
   });
 
-  app.get('/api/mounts.allNamedByApplicationId', async (c) => {
-    const applicationId = c.req.query('applicationId');
-    return c.json(Array.from(mounts.values()).filter((mount) => mount.applicationId === applicationId));
+  app.get('/api/mounts.listByServiceId', async (c) => {
+    const serviceType = c.req.query('serviceType');
+    const serviceId = c.req.query('serviceId');
+    if (serviceType !== 'application') return c.json([]);
+    return c.json(Array.from(mounts.values()).filter((mount) => mount.applicationId === serviceId));
   });
 
   app.post('/api/mounts.create', async (c) => {

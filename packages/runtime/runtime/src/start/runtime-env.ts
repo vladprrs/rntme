@@ -10,6 +10,7 @@ export type KafkaJsSaslMechanism = 'scram-sha-256' | 'scram-sha-512';
 export type KafkaJsClientConfig = {
   readonly clientId: string;
   readonly brokers: readonly string[];
+  readonly connectionTimeout: number;
   readonly ssl?: true;
   readonly sasl?: {
     readonly mechanism: KafkaJsSaslMechanism;
@@ -28,6 +29,7 @@ export class RuntimeBootError extends Error {
       | 'RUNTIME_BOOT_AUTH_MODULE_MISSING'
       | 'RUNTIME_BOOT_EVENT_BUS_SASL_INCOMPLETE'
       | 'RUNTIME_BOOT_EVENT_BUS_SASL_MECHANISM_UNSUPPORTED'
+      | 'RUNTIME_BOOT_EVENT_BUS_CONNECTION_TIMEOUT_INVALID'
       | 'RUNTIME_BOOT_KAFKAJS_UNAVAILABLE',
     message: string,
   ) {
@@ -82,8 +84,13 @@ export function buildKafkaJsClientConfigFromEnv(
   if (brokers === undefined || brokers.length === 0) return null;
 
   const protocol = trim(env.RNTME_EVENT_BUS_PROTOCOL) ?? 'plaintext';
+  const connectionTimeout = parsePositiveIntegerEnv(
+    env.RNTME_EVENT_BUS_CONNECTION_TIMEOUT_MS,
+    'RNTME_EVENT_BUS_CONNECTION_TIMEOUT_MS',
+    10000,
+  );
   if (protocol !== 'sasl_ssl') {
-    return { clientId, brokers };
+    return { clientId, brokers, connectionTimeout };
   }
 
   const mechanism = trim(env.RNTME_EVENT_BUS_MECHANISM);
@@ -106,6 +113,7 @@ export function buildKafkaJsClientConfigFromEnv(
   return {
     clientId,
     brokers,
+    connectionTimeout,
     ssl: true,
     sasl: {
       mechanism,
@@ -115,8 +123,26 @@ export function buildKafkaJsClientConfigFromEnv(
   };
 }
 
+export function parseRuntimeEventBusTopicPrefixFromEnv(
+  env: Record<string, string | undefined>,
+): string | null {
+  return trim(env.RNTME_EVENT_BUS_TOPIC_PREFIX) ?? null;
+}
+
 function trim(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;
+}
+
+function parsePositiveIntegerEnv(value: string | undefined, name: string, fallback: number): number {
+  const trimmed = trim(value);
+  if (trimmed === undefined) return fallback;
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    throw new RuntimeBootError(
+      'RUNTIME_BOOT_EVENT_BUS_CONNECTION_TIMEOUT_INVALID',
+      `${name} must be a positive integer number of milliseconds`,
+    );
+  }
+  return Number(trimmed);
 }
