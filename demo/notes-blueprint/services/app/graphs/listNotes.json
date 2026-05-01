@@ -13,7 +13,7 @@
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["noteView.status", "active"] }
+        "expr": { "eq": ["noteView.status", { "$literal": "active" }] }
       }
     },
     {
