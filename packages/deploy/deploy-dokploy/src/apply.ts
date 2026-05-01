@@ -1,4 +1,4 @@
-import type { DokployApplication, DokployClient } from './client.js';
+import type { DokployApplication, DokployClient, DokployCompose } from './client.js';
 import type {
   DokployDeploymentError,
   DokployPartialFailure,
@@ -9,8 +9,10 @@ import { err, ok, type Result } from './result.js';
 
 export type DeploymentApplyResource = {
   readonly logicalId: string;
-  readonly workloadSlug: string;
-  readonly kind: 'domain-service' | 'integration-module' | 'edge-gateway';
+  readonly resourceKind: 'application' | 'compose';
+  readonly workloadSlug?: string;
+  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway';
+  readonly infrastructureKind?: 'event-bus';
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -38,16 +40,61 @@ export async function applyDokployPlan(
   client: DokployClient,
 ): Promise<Result<DeploymentApplyResult, DokployDeploymentError>> {
   const applied: DeploymentApplyResource[] = [];
+  const orderedResources = [...rendered.resources].sort((a, b) => {
+    if (a.kind === b.kind) return 0;
+    return a.kind === 'compose' ? -1 : 1;
+  });
   const prepared: Array<{
-    readonly resource: RenderedDokployResource;
+    readonly resource: Extract<RenderedDokployResource, { kind: 'application' }>;
     readonly target: DokployApplication;
     readonly created: boolean;
+  }> = [];
+  const networkTargets: Array<{
+    readonly resource: RenderedDokployResource;
+    readonly target: DokployApplication | DokployCompose;
   }> = [];
 
   try {
     const { environmentId } = await client.ensureEnvironment(rendered.targetProject, rendered.deployment.environment);
 
-    for (const resource of rendered.resources) {
+    for (const resource of orderedResources) {
+      if (resource.kind === 'compose') {
+        const existingResult = await findExistingCompose(client, environmentId, resource, applied);
+        if (!existingResult.ok) return existingResult;
+
+        const existing = existingResult.value;
+        if (existing === null) {
+          const createResult = await createComposeTarget(client, environmentId, resource, applied);
+          if (!createResult.ok) return createResult;
+          networkTargets.push({ resource, target: createResult.value });
+          const created = appliedResource(resource, createResult.value, 'created');
+          const lifecycleResult = await runComposeLifecycle(client, created, resource, [
+            ...applied,
+            created,
+          ]);
+          if (!lifecycleResult.ok) return lifecycleResult;
+          applied.push(created);
+          continue;
+        }
+
+        networkTargets.push({ resource, target: existing });
+        if (resourceMatches(existing, resource)) {
+          applied.push(appliedResource(resource, existing, 'unchanged'));
+          continue;
+        }
+
+        const updateResult = await updateComposeTarget(client, existing.id, resource, applied);
+        if (!updateResult.ok) return updateResult;
+        const updated = appliedResource(resource, updateResult.value, 'updated');
+        const lifecycleResult = await runComposeLifecycle(client, updated, resource, [
+          ...applied,
+          updated,
+        ]);
+        if (!lifecycleResult.ok) return lifecycleResult;
+        applied.push(updated);
+        continue;
+      }
+
       const existingResult = await findExistingApplication(client, environmentId, resource, applied);
       if (!existingResult.ok) return existingResult;
 
@@ -56,12 +103,14 @@ export async function applyDokployPlan(
         const createResult = await createApplicationTarget(client, environmentId, resource, applied);
         if (!createResult.ok) return createResult;
         prepared.push({ resource, target: createResult.value, created: true });
+        networkTargets.push({ resource, target: createResult.value });
       } else {
         prepared.push({ resource, target: existing, created: false });
+        networkTargets.push({ resource, target: existing });
       }
     }
 
-    const networkNames = networkNameMap(prepared);
+    const networkNames = networkNameMap(networkTargets);
 
     for (const item of prepared) {
       const resource = resolveNetworkReferences(item.resource, networkNames);
@@ -111,7 +160,7 @@ export async function applyDokployPlan(
 async function findExistingApplication(
   client: DokployClient,
   environmentId: string,
-  resource: RenderedDokployResource,
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication | null, DokployDeploymentError>> {
   try {
@@ -124,7 +173,7 @@ async function findExistingApplication(
 async function createApplicationTarget(
   client: DokployClient,
   environmentId: string,
-  resource: RenderedDokployResource,
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication, DokployDeploymentError>> {
   try {
@@ -137,7 +186,7 @@ async function createApplicationTarget(
 async function updateApplicationTarget(
   client: DokployClient,
   applicationId: string,
-  resource: RenderedDokployResource,
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication, DokployDeploymentError>> {
   try {
@@ -150,7 +199,7 @@ async function updateApplicationTarget(
 async function runApplicationLifecycle(
   client: DokployClient,
   target: DeploymentApplyResource,
-  resource: RenderedDokployResource,
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
 ): Promise<Result<void, DokployDeploymentError>> {
   try {
@@ -168,13 +217,85 @@ async function runApplicationLifecycle(
   return ok(undefined);
 }
 
+async function findExistingCompose(
+  client: DokployClient,
+  environmentId: string,
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  applied: readonly DeploymentApplyResource[],
+): Promise<Result<DokployCompose | null, DokployDeploymentError>> {
+  try {
+    return ok(await client.findComposeByName(environmentId, resource.name));
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'find');
+  }
+}
+
+async function createComposeTarget(
+  client: DokployClient,
+  environmentId: string,
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  applied: readonly DeploymentApplyResource[],
+): Promise<Result<DokployCompose, DokployDeploymentError>> {
+  try {
+    return ok(await client.createCompose(environmentId, resource));
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'create');
+  }
+}
+
+async function updateComposeTarget(
+  client: DokployClient,
+  composeId: string,
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  applied: readonly DeploymentApplyResource[],
+): Promise<Result<DokployCompose, DokployDeploymentError>> {
+  try {
+    return ok(await client.updateCompose(composeId, resource));
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'update');
+  }
+}
+
+async function runComposeLifecycle(
+  client: DokployClient,
+  target: DeploymentApplyResource,
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  applied: readonly DeploymentApplyResource[],
+): Promise<Result<void, DokployDeploymentError>> {
+  try {
+    await client.configureCompose(target.targetResourceId, resource);
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'configure');
+  }
+
+  try {
+    await client.deployCompose(target.targetResourceId);
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'deploy');
+  }
+
+  return ok(undefined);
+}
+
 function appliedResource(
   resource: RenderedDokployResource,
   target: { readonly id: string; readonly name: string },
   action: DeploymentApplyResource['action'],
 ): DeploymentApplyResource {
+  if (resource.kind === 'compose') {
+    return {
+      logicalId: resource.logicalId,
+      resourceKind: 'compose',
+      infrastructureKind: resource.infrastructureKind,
+      targetResourceId: target.id,
+      targetResourceName: target.name,
+      action,
+    };
+  }
+
   return {
     logicalId: resource.logicalId,
+    resourceKind: 'application',
     workloadSlug: resource.workloadSlug,
     kind: resource.workloadKind,
     targetResourceId: target.id,
@@ -186,7 +307,7 @@ function appliedResource(
 function networkNameMap(
   prepared: readonly {
     readonly resource: RenderedDokployResource;
-    readonly target: DokployApplication;
+    readonly target: DokployApplication | DokployCompose;
   }[],
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
@@ -198,6 +319,16 @@ function resolveNetworkReferences(
   resource: RenderedDokployResource,
   networkNames: Readonly<Record<string, string>>,
 ): RenderedDokployResource {
+  if (resource.kind === 'compose') {
+    return {
+      ...resource,
+      env: resource.env.map((item) => ({
+        ...item,
+        value: replaceNetworkNames(item.value, networkNames),
+      })),
+    };
+  }
+
   return {
     ...resource,
     env: resource.env.map((item) => ({
@@ -245,10 +376,20 @@ function partialFailure(
       partialFailure: buildPartialFailure(applied, {
         action,
         resourceName: resource.name,
-        workloadSlug: resource.workloadSlug,
+        ...resourceIdentifier(resource),
       }),
     },
   ]);
+}
+
+function resourceIdentifier(resource: RenderedDokployResource): {
+  readonly resourceKind: 'application' | 'compose';
+  readonly workloadSlug?: string;
+  readonly infrastructureKind?: 'event-bus';
+} {
+  return resource.kind === 'compose'
+    ? { resourceKind: 'compose', infrastructureKind: resource.infrastructureKind }
+    : { resourceKind: 'application', workloadSlug: resource.workloadSlug };
 }
 
 function buildPartialFailure(
@@ -266,23 +407,29 @@ function buildPartialFailure(
 function resourceMatches(
   existing: {
     readonly image?: string;
-    readonly build?: RenderedDokployResource['build'];
-    readonly ports?: RenderedDokployResource['ports'];
-    readonly ingress?: RenderedDokployResource['ingress'];
+    readonly composeFile?: string;
+    readonly build?: Extract<RenderedDokployResource, { kind: 'application' }>['build'];
+    readonly ports?: Extract<RenderedDokployResource, { kind: 'application' }>['ports'];
+    readonly ingress?: Extract<RenderedDokployResource, { kind: 'application' }>['ingress'];
     readonly env?: RenderedDokployResource['env'];
     readonly labels?: RenderedDokployResource['labels'];
-    readonly files?: RenderedDokployResource['files'];
+    readonly files?: Extract<RenderedDokployResource, { kind: 'application' }>['files'];
   },
   resource: RenderedDokployResource,
 ): boolean {
   if (existing.image === undefined || existing.image !== resource.image) return false;
-  if (!optionalComparableMatches(existing.build, resource.build)) return false;
-  if (!optionalComparableMatches(existing.ports, resource.ports)) return false;
-  if (!optionalComparableMatches(existing.ingress, resource.ingress)) return false;
   if (existing.env === undefined || !jsonEqual(existing.env, resource.env)) return false;
   if (existing.labels === undefined || !jsonEqual(sortRecord(existing.labels), sortRecord(resource.labels))) {
     return false;
   }
+
+  if (resource.kind === 'compose') {
+    return existing.composeFile === resource.composeFile;
+  }
+
+  if (!optionalComparableMatches(existing.build, resource.build)) return false;
+  if (!optionalComparableMatches(existing.ports, resource.ports)) return false;
+  if (!optionalComparableMatches(existing.ingress, resource.ingress)) return false;
 
   if (resource.files === undefined) return existing.files === undefined;
   if (existing.files === undefined) return false;

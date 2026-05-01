@@ -11,8 +11,10 @@ export type DokployDeploymentErrorCode = keyof typeof DEPLOY_DOKPLOY_ERROR_CODES
 
 export type DokployPartialFailureResource = {
   readonly logicalId: string;
-  readonly workloadSlug: string;
-  readonly kind: 'domain-service' | 'integration-module' | 'edge-gateway';
+  readonly resourceKind: 'application' | 'compose';
+  readonly workloadSlug?: string;
+  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway';
+  readonly infrastructureKind?: 'event-bus';
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -21,7 +23,9 @@ export type DokployPartialFailureResource = {
 export type DokployPartialFailureStep = {
   readonly action: 'find' | 'create' | 'update' | 'configure' | 'deploy' | 'start';
   readonly resourceName: string;
-  readonly workloadSlug: string;
+  readonly resourceKind: 'application' | 'compose';
+  readonly workloadSlug?: string;
+  readonly infrastructureKind?: 'event-bus';
 };
 
 export type DokployPartialFailure = {

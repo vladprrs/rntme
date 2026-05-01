@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { applyDokployPlan } from '../../src/apply.js';
-import type { DokployApplication, DokployClient, DokployProjectRef } from '../../src/client.js';
+import type {
+  DokployApplication,
+  DokployClient,
+  DokployCompose,
+  DokployProjectRef,
+} from '../../src/client.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from '../../src/render.js';
 
 const rendered: RenderedDokployPlan = {
@@ -34,6 +39,23 @@ const rendered: RenderedDokployPlan = {
   warnings: [],
 };
 
+const renderedWithCompose: RenderedDokployPlan = {
+  ...rendered,
+  resources: [
+    {
+      logicalId: 'event-bus',
+      kind: 'compose',
+      infrastructureKind: 'event-bus',
+      name: 'rntme-acme-commerce-event-bus',
+      image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+      composeFile: 'services:\n  redpanda:\n    image: docker.redpanda.com/redpandadata/redpanda:v24.3.6\n',
+      env: [],
+      labels: { 'rntme.infrastructure': 'event-bus' },
+    },
+    ...rendered.resources,
+  ],
+};
+
 describe('applyDokployPlan', () => {
   it('creates missing resources and returns structured result', async () => {
     const client = new FakeDokployClient();
@@ -45,6 +67,7 @@ describe('applyDokployPlan', () => {
     expect(r.value.resources).toEqual([
       {
         logicalId: 'catalog',
+        resourceKind: 'application',
         workloadSlug: 'catalog',
         kind: 'domain-service',
         targetResourceId: 'app_1',
@@ -71,6 +94,68 @@ describe('applyDokployPlan', () => {
     expect(r.value.verificationHints.healthUrl).toBe('https://commerce.example.com/health');
     expect(r.value.verificationHints.uiUrl).toBeUndefined();
     expect(JSON.stringify(r.value)).not.toContain('token');
+  });
+
+  it('applies compose resources before application resources', async () => {
+    const client = new FakeDokployClient();
+    const r = await applyDokployPlan(renderedWithCompose, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-event-bus',
+      'configure-compose:compose_1:rntme-acme-commerce-event-bus',
+      'deploy-compose:compose_1',
+      'create:rntme-acme-commerce-catalog',
+      'configure:app_1:rntme-acme-commerce-catalog',
+      'deploy:app_1',
+    ]);
+    expect(r.value.resources).toEqual([
+      {
+        logicalId: 'event-bus',
+        resourceKind: 'compose',
+        infrastructureKind: 'event-bus',
+        targetResourceId: 'compose_1',
+        targetResourceName: 'rntme-acme-commerce-event-bus',
+        action: 'created',
+      },
+      {
+        logicalId: 'catalog',
+        resourceKind: 'application',
+        workloadSlug: 'catalog',
+        kind: 'domain-service',
+        targetResourceId: 'app_1',
+        targetResourceName: 'rntme-acme-commerce-catalog',
+        action: 'created',
+      },
+    ]);
+  });
+
+  it('leaves matching compose resources unchanged', async () => {
+    const client = new FakeDokployClient([], [
+      {
+        id: 'compose_existing',
+        name: 'rntme-acme-commerce-event-bus',
+        image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+        composeFile: 'services:\n  redpanda:\n    image: docker.redpanda.com/redpandadata/redpanda:v24.3.6\n',
+        env: [],
+        labels: { 'rntme.infrastructure': 'event-bus' },
+      },
+    ]);
+    const r = await applyDokployPlan(
+      { ...renderedWithCompose, resources: [renderedWithCompose.resources[0]] },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]).toMatchObject({
+      resourceKind: 'compose',
+      targetResourceId: 'compose_existing',
+      action: 'unchanged',
+    });
+    expect(client.updateComposeCalls).toEqual([]);
   });
 
   it('configures and deploys created applications before returning success', async () => {
@@ -189,6 +274,7 @@ describe('applyDokployPlan', () => {
 
     expect(r.value.resources[0]).toEqual({
       logicalId: 'catalog',
+      resourceKind: 'application',
       workloadSlug: 'catalog',
       kind: 'domain-service',
       targetResourceId: 'app_existing',
@@ -374,6 +460,7 @@ describe('applyDokployPlan', () => {
   it('returns partial failure metadata with applied resources and retry safety', async () => {
     const client = new FakeDokployClient(
       [{ id: 'app_existing', name: 'rntme-acme-commerce-billing' }],
+      [],
       { failFindFor: 'rntme-acme-commerce-search' },
     );
     const r = await applyDokployPlan(
@@ -401,6 +488,7 @@ describe('applyDokployPlan', () => {
             failedStep: {
               action: 'find',
               resourceName: 'rntme-acme-commerce-search',
+              resourceKind: 'application',
               workloadSlug: 'search',
             },
             retrySafe: true,
@@ -412,7 +500,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('reports create as the failed step when application creation fails', async () => {
-    const client = new FakeDokployClient([], { failCreateFor: 'rntme-acme-commerce-catalog' });
+    const client = new FakeDokployClient([], [], { failCreateFor: 'rntme-acme-commerce-catalog' });
     const r = await applyDokployPlan(rendered, client);
 
     expect(r.ok).toBe(false);
@@ -425,6 +513,7 @@ describe('applyDokployPlan', () => {
             failedStep: {
               action: 'create',
               resourceName: 'rntme-acme-commerce-catalog',
+              resourceKind: 'application',
               workloadSlug: 'catalog',
             },
             retrySafe: true,
@@ -438,6 +527,7 @@ describe('applyDokployPlan', () => {
   it('reports update as the failed step when application update fails', async () => {
     const client = new FakeDokployClient(
       [{ id: 'app_existing', name: 'rntme-acme-commerce-catalog' }],
+      [],
       { failUpdateFor: 'rntme-acme-commerce-catalog' },
     );
     const r = await applyDokployPlan(rendered, client);
@@ -452,6 +542,7 @@ describe('applyDokployPlan', () => {
             failedStep: {
               action: 'update',
               resourceName: 'rntme-acme-commerce-catalog',
+              resourceKind: 'application',
               workloadSlug: 'catalog',
             },
             retrySafe: true,
@@ -463,7 +554,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('reports lifecycle failures after resource apply as partial failures', async () => {
-    const client = new FakeDokployClient([], { failDeployFor: 'app_1' });
+    const client = new FakeDokployClient([], [], { failDeployFor: 'app_1' });
     const r = await applyDokployPlan(rendered, client);
 
     expect(r.ok).toBe(false);
@@ -476,6 +567,7 @@ describe('applyDokployPlan', () => {
             failedStep: {
               action: 'deploy',
               resourceName: 'rntme-acme-commerce-catalog',
+              resourceKind: 'application',
               workloadSlug: 'catalog',
             },
             retrySafe: true,
@@ -491,7 +583,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('returns environment initialization failures with a sanitized cause', async () => {
-    const client = new FakeDokployClient([], { failEnvironment: true });
+    const client = new FakeDokployClient([], [], { failEnvironment: true });
     const r = await applyDokployPlan(rendered, client);
 
     expect(r.ok).toBe(false);
@@ -506,7 +598,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('preserves benign client error messages in serialized apply errors', async () => {
-    const client = new FakeDokployClient([], {
+    const client = new FakeDokployClient([], [], {
       failEnvironment: true,
       failMessage: 'Dokploy returned 502 while ensuring environment',
       includeSecretFixture: false,
@@ -526,7 +618,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('redacts sensitive bearer and API token text while preserving diagnostic context', async () => {
-    const client = new FakeDokployClient([], {
+    const client = new FakeDokployClient([], [], {
       failEnvironment: true,
       failMessage:
         'request failed with Bearer bearer-secret and apiToken=api-secret at https://dokploy.example.com/hook?apiToken=query-secret&ok=true password=pw-secret secret: sec-secret token=generic-secret while ensuring environment',
@@ -553,7 +645,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('redacts the existing token fixture value without dropping benign context', async () => {
-    const client = new FakeDokployClient([], {
+    const client = new FakeDokployClient([], [], {
       failEnvironment: true,
       failMessage: 'environment failed after Dokploy timeout',
     });
@@ -568,7 +660,7 @@ describe('applyDokployPlan', () => {
   });
 
   it('redacts JSON-style credential keys while preserving surrounding diagnostic context', async () => {
-    const client = new FakeDokployClient([], {
+    const client = new FakeDokployClient([], [], {
       failEnvironment: true,
       failMessage:
         'Dokploy response body {"apiToken":"json-secret","password":"pw-secret",' +
@@ -599,6 +691,7 @@ describe('applyDokployPlan', () => {
 
 class FakeDokployClient implements DokployClient {
   private readonly apps = new Map<string, DokployApplication>();
+  readonly composeResources = new Map<string, DokployCompose>();
   readonly createCalls: Array<{
     readonly environmentId: string;
     readonly resource: RenderedDokployResource;
@@ -611,6 +704,9 @@ class FakeDokployClient implements DokployClient {
     readonly applicationId: string;
     readonly resource: RenderedDokployResource;
   }> = [];
+  readonly createComposeCalls: unknown[] = [];
+  readonly updateComposeCalls: unknown[] = [];
+  readonly configureComposeCalls: unknown[] = [];
   readonly deployCalls: Array<{ readonly applicationId: string }> = [];
   readonly startCalls: Array<{ readonly applicationId: string }> = [];
   readonly lifecycleCalls: string[] = [];
@@ -619,6 +715,7 @@ class FakeDokployClient implements DokployClient {
 
   constructor(
     existing: DokployApplication[] = [],
+    existingCompose: DokployCompose[] = [],
     private readonly failures: {
       readonly failEnvironment?: boolean;
       readonly failFindFor?: string;
@@ -632,6 +729,7 @@ class FakeDokployClient implements DokployClient {
     } = {},
   ) {
     for (const app of existing) this.apps.set(app.name, app);
+    for (const compose of existingCompose) this.composeResources.set(compose.name, compose);
   }
 
   async ensureEnvironment(
@@ -696,6 +794,58 @@ class FakeDokployClient implements DokployClient {
     this.lifecycleCalls.push(`start:${id}`);
     this.startCalls.push({ applicationId: id });
     if (this.failures.failStartFor === id) throw secretError('start failed');
+  }
+
+  async findComposeByName(_environmentId: string, name: string): Promise<DokployCompose | null> {
+    return this.composeResources.get(name) ?? null;
+  }
+
+  async createCompose(
+    environmentId: string,
+    resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  ): Promise<DokployCompose> {
+    this.createComposeCalls.push({ environmentId, resource });
+    this.lifecycleCalls.push(`create-compose:${resource.name}`);
+    const created = {
+      id: `compose_${this.composeResources.size + 1}`,
+      name: resource.name,
+      image: resource.image,
+      composeFile: resource.composeFile,
+      env: resource.env,
+      labels: resource.labels,
+    };
+    this.composeResources.set(resource.name, created);
+    return created;
+  }
+
+  async updateCompose(
+    composeId: string,
+    resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  ): Promise<DokployCompose> {
+    this.updateComposeCalls.push({ composeId, resource });
+    this.lifecycleCalls.push(`update-compose:${composeId}:${resource.name}`);
+    const updated = {
+      id: composeId,
+      name: resource.name,
+      image: resource.image,
+      composeFile: resource.composeFile,
+      env: resource.env,
+      labels: resource.labels,
+    };
+    this.composeResources.set(resource.name, updated);
+    return updated;
+  }
+
+  async configureCompose(
+    composeId: string,
+    resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+  ): Promise<void> {
+    this.configureComposeCalls.push({ composeId, resource });
+    this.lifecycleCalls.push(`configure-compose:${composeId}:${resource.name}`);
+  }
+
+  async deployCompose(composeId: string): Promise<void> {
+    this.lifecycleCalls.push(`deploy-compose:${composeId}`);
   }
 }
 
