@@ -117,4 +117,40 @@ describe('project deployment commands', () => {
       `https://platform.example/v1/orgs/acme/projects/notes-demo/deployments/${deployment.id}/logs?sinceLineId=0&limit=200`,
     ]);
   });
+
+  it('does not stream plain-text log lines when --json is set', async () => {
+    const failed = {
+      ...deployment,
+      status: 'failed',
+      errorCode: 'DEPLOY_EXECUTOR_SMOKE_FAILED',
+      errorMessage: 'smoke verification failed',
+      finishedAt: '2026-05-02T12:01:00.000Z',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ deployment: failed }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        lines: [{
+          id: 1,
+          deploymentId: deployment.id,
+          orgId: deployment.orgId,
+          ts: '2026-05-02T12:00:01.000Z',
+          level: 'error',
+          step: 'verify',
+          message: 'protected-api GET /api/notes returned 500',
+        }],
+        lastLineId: 1,
+      }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    const exit = await runProjectDeploymentWatch(
+      { deploymentId: deployment.id, pollIntervalMs: 1 },
+      { ...flags, json: true },
+    );
+
+    expect(exit).toBe(10);
+    const writes = writeSpy.mock.calls.map((call) => String(call[0]));
+    expect(writes.some((line) => line.includes('protected-api GET /api/notes'))).toBe(false);
+  });
 });

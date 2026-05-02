@@ -51,8 +51,10 @@ export async function runProjectDeploymentWatch(args: ProjectDeploymentWatchArgs
         });
         if (!isOk(logs)) return logs;
 
-        for (const line of logs.value.lines) {
-          process.stdout.write(`[${line.level}] ${line.step}: ${line.message}\n`);
+        if (flags.json !== true && flags.quiet !== true) {
+          for (const line of logs.value.lines) {
+            process.stdout.write(`[${line.level}] ${line.step}: ${line.message}\n`);
+          }
         }
         sinceLineId = logs.value.lastLineId;
 
