@@ -120,7 +120,7 @@ function input(req: { targetSlug?: string } = {}) {
     tokenId: null,
     req: {
       projectVersionSeq: 1,
-      targetSlug: req.targetSlug,
+      targetSlug: req.targetSlug ?? 'staging',
       configOverrides: {},
     },
   };
