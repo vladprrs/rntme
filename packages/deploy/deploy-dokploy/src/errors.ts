@@ -21,7 +21,7 @@ export type DokployPartialFailureResource = {
 };
 
 export type DokployPartialFailureStep = {
-  readonly action: 'find' | 'create' | 'update' | 'configure' | 'deploy' | 'start';
+  readonly action: 'find' | 'create' | 'update' | 'configure' | 'deploy' | 'start' | 'inspect';
   readonly resourceName: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;

@@ -29,6 +29,11 @@ export type DokployCompose = {
   readonly labels?: Readonly<Record<string, string>>;
 };
 
+export type DokployApplicationInspection = {
+  readonly status: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
+  readonly message?: string;
+};
+
 export type DokployClient = {
   ensureEnvironment(ref: DokployProjectRef, environmentName: string): Promise<{ environmentId: string }>;
   findApplicationByName(environmentId: string, name: string): Promise<DokployApplication | null>;
@@ -46,6 +51,7 @@ export type DokployClient = {
   ): Promise<void>;
   deployApplication(applicationId: string): Promise<void>;
   startApplication(applicationId: string): Promise<void>;
+  inspectApplication?(applicationId: string): Promise<DokployApplicationInspection>;
   findComposeByName(environmentId: string, name: string): Promise<DokployCompose | null>;
   createCompose(
     environmentId: string,

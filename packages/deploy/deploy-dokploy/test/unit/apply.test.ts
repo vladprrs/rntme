@@ -110,6 +110,8 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-catalog',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
+      'start:app_1',
+      'inspect:app_1',
     ]);
     expect(r.value.resources).toEqual([
       {
@@ -196,6 +198,8 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-catalog',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
+      'start:app_1',
+      'inspect:app_1',
     ]);
     expect(client.configureCalls).toEqual([
       {
@@ -208,6 +212,44 @@ describe('applyDokployPlan', () => {
         }),
       },
     ]);
+  });
+
+  it('starts and inspects applications after deploy before returning success', async () => {
+    const client = new FakeDokployClient();
+
+    const r = await applyDokployPlan(rendered, client);
+
+    expect(r.ok).toBe(true);
+    expect(client.lifecycleCalls).toEqual([
+      'create:rntme-acme-commerce-catalog',
+      'configure:app_1:rntme-acme-commerce-catalog',
+      'deploy:app_1',
+      'start:app_1',
+      'inspect:app_1',
+    ]);
+  });
+
+  it('returns a partial failure when application task inspection reports rejected', async () => {
+    const client = new FakeDokployClient([], [], { inspectStatus: 'rejected' });
+
+    const r = await applyDokployPlan(rendered, client);
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
+          partialFailure: expect.objectContaining({
+            failedStep: {
+              action: 'inspect',
+              resourceName: 'rntme-acme-commerce-catalog',
+              resourceKind: 'application',
+              workloadSlug: 'catalog',
+            },
+          }),
+        }),
+      );
+    }
   });
 
   it('joins trailing slash project URLs for health checks and includes UI hints when present', async () => {
@@ -724,6 +766,7 @@ class FakeDokployClient implements DokployClient {
       readonly failConfigureFor?: string;
       readonly failDeployFor?: string;
       readonly failStartFor?: string;
+      readonly inspectStatus?: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
       readonly failMessage?: string;
       readonly includeSecretFixture?: boolean;
     } = {},
@@ -794,6 +837,14 @@ class FakeDokployClient implements DokployClient {
     this.lifecycleCalls.push(`start:${id}`);
     this.startCalls.push({ applicationId: id });
     if (this.failures.failStartFor === id) throw secretError('start failed');
+  }
+
+  async inspectApplication(id: string): Promise<{ status: 'running' | 'done' | 'failed' | 'rejected' | 'unknown'; message?: string }> {
+    this.lifecycleCalls.push(`inspect:${id}`);
+    return {
+      status: this.failures.inspectStatus ?? 'running',
+      message: this.failures.inspectStatus === undefined ? undefined : `task ${this.failures.inspectStatus}`,
+    };
   }
 
   async findComposeByName(_environmentId: string, name: string): Promise<DokployCompose | null> {

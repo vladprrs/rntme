@@ -214,6 +214,23 @@ async function runApplicationLifecycle(
     return partialFailure(cause, resource, applied, 'deploy');
   }
 
+  try {
+    await client.startApplication(target.targetResourceId);
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'start');
+  }
+
+  if (client.inspectApplication !== undefined) {
+    try {
+      const inspected = await client.inspectApplication(target.targetResourceId);
+      if (inspected.status === 'failed' || inspected.status === 'rejected') {
+        return partialFailure(new Error(inspected.message ?? `Dokploy application status ${inspected.status}`), resource, applied, 'inspect');
+      }
+    } catch (cause) {
+      return partialFailure(cause, resource, applied, 'inspect');
+    }
+  }
+
   return ok(undefined);
 }
 

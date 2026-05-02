@@ -112,7 +112,7 @@ describe('createDokployClientFactory', () => {
       serviceType: 'application',
       serviceId: 'app-1',
       mountPath: '/etc/nginx/nginx.conf',
-      filePath: '/etc/nginx/nginx.conf',
+      filePath: '/etc/dokploy/rntme/app-1/1652e2a03ff06855-etc_nginx_nginx.conf',
       content: 'events {}',
     });
     expect(calls[6]?.body).toMatchObject({
@@ -158,7 +158,7 @@ describe('createDokployClientFactory', () => {
       serviceType: 'application',
       serviceId: 'app-1',
       mountPath: '/etc/nginx/nginx.conf',
-      filePath: '/etc/nginx/nginx.conf',
+      filePath: '/etc/dokploy/rntme/app-1/1652e2a03ff06855-etc_nginx_nginx.conf',
       content: 'events {}',
     });
   });
@@ -319,6 +319,67 @@ describe('createDokployClientFactory', () => {
     await expect(client.configureApplication(created.id, renderedEdgeResource())).resolves.toBeUndefined();
     await expect(client.deployApplication(created.id)).resolves.toBeUndefined();
     await expect(client.startApplication(created.id)).resolves.toBeUndefined();
+  });
+
+  it('updates the first matching file mount and deletes duplicate mounts for the same mountPath', async () => {
+    type FetchInit = Parameters<typeof globalThis.fetch>[1];
+    const calls: { url: string; body: unknown }[] = [];
+    const fetcher = vi.fn(async (url: string | URL | Request, init?: FetchInit) => {
+      calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (String(url).includes('/api/mounts.listByServiceId')) {
+        return jsonResponse([
+          { mountId: 'mount-1', mountPath: '/etc/nginx/nginx.conf', filePath: '/old/nginx.conf' },
+          { mountId: 'mount-2', mountPath: '/etc/nginx/nginx.conf', filePath: '/stale/nginx.conf' },
+        ]);
+      }
+      if (String(url).includes('/api/domain.byApplicationId')) return jsonResponse([]);
+      return jsonResponse({});
+    });
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+
+    const client = createDokployClientFactory(cipher, fetcher as typeof globalThis.fetch)(target());
+    await client.configureApplication('app-1', renderedEdgeResource());
+
+    const paths = calls.map((call) => new URL(call.url).pathname);
+    expect(paths).toContain('/api/mounts.update');
+    expect(paths).toContain('/api/mounts.delete');
+    const updateCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.update');
+    expect(updateCall?.body).toMatchObject({
+      mountId: 'mount-1',
+      mountPath: '/etc/nginx/nginx.conf',
+      filePath: '/etc/dokploy/rntme/app-1/1652e2a03ff06855-etc_nginx_nginx.conf',
+      content: 'events {}',
+    });
+    const deleteCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.delete');
+    expect(deleteCall?.body).toEqual({ mountId: 'mount-2' });
+  });
+
+  it('inspects application status after deploy/start', async () => {
+    const fetcher = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes('/api/application.one')) {
+        return jsonResponse({
+          applicationId: 'app-1',
+          name: 'rntme-acme-notes-edge',
+          applicationStatus: 'rejected',
+          lastDeploymentStatus: 'error',
+          statusMessage: 'invalid mount config for type "bind": bind source path does not exist',
+        });
+      }
+      return jsonResponse({});
+    });
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+
+    const client = createDokployClientFactory(cipher, fetcher as typeof globalThis.fetch)(target());
+    await expect(client.inspectApplication?.('app-1')).resolves.toEqual({
+      status: 'rejected',
+      message: 'invalid mount config for type "bind": bind source path does not exist',
+    });
   });
 
   it('throws a redacted decrypt failure', () => {
