@@ -324,15 +324,21 @@ async function toDeployCoreInput(
       ? {}
       : await bundleVirtualEntrySource(value.virtualEntrySource, rootDir);
 
-  // Build modules map: service slug → { edgeAuth }. catalogManifest.moduleEdgeAuth is keyed by
-  // the module manifest name (== package name, e.g. "@rntme/identity-auth0"); project.modules is
-  // keyed by role (e.g. "identity"). The deploy-core contract uses the service slug as key
-  // (last path segment of the package name, e.g. "identity-auth0").
-  const moduleEdgeAuth = value.catalogManifest?.moduleEdgeAuth ?? {};
+  // Build modules map: service slug → { edgeAuth }. catalogManifest is keyed by
+  // the resolved module manifest name (for example "@rntme/identity-auth0"),
+  // while project.modules may use a local package alias such as
+  // "rntme_identity_auth0". categoryToModule bridges the project role key to
+  // the canonical manifest name used by the catalog.
+  const catalogManifest = value.catalogManifest;
+  const moduleEdgeAuth = catalogManifest?.moduleEdgeAuth ?? {};
   const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null }> = {};
-  for (const moduleRef of Object.values(value.project.modules ?? {})) {
-    const slug = moduleRef.package.split('/').pop()!;
-    modules[slug] = { edgeAuth: moduleEdgeAuth[moduleRef.package] ?? null };
+  for (const [projectKey, moduleRef] of Object.entries(value.project.modules ?? {})) {
+    const manifestName = catalogManifest?.categoryToModule[projectKey] ?? moduleRef.package;
+    const edgeAuth = moduleEdgeAuth[manifestName] ?? moduleEdgeAuth[moduleRef.package] ?? null;
+    const slugs = new Set([manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
+    for (const slug of slugs) {
+      modules[slug] = { edgeAuth };
+    }
   }
 
   return {

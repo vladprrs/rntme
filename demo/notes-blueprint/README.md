@@ -25,7 +25,9 @@ The blueprint includes `node_modules/rntme_identity_auth0/{package.json,module.j
 metadata so platform-side bundle validation can resolve the UI module from the
 uploaded project version without depending on the monorepo workspace layout.
 The embedded `module.json` still declares the canonical module name
-`@rntme/identity-auth0`, so the generated UI imports the real package name.
+`@rntme/identity-auth0`, so the generated UI imports the real package name. It
+also mirrors the module's `capabilities.edgeAuth` declaration so deploy
+planning can render nginx `auth_request` enforcement for `/api`.
 
 ## Auth and ownership
 
@@ -45,7 +47,7 @@ The embedded `module.json` still declares the canonical module name
 pnpm install --frozen-lockfile
 pnpm --filter @rntme/blueprint... build
 pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  const r = loadComposedBlueprint('../../demo/notes-blueprint'); \
+  const r = loadComposedBlueprint('../../../demo/notes-blueprint'); \
   if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
   console.log('OK:', r.value.project.services.join(','));"
 ```
@@ -68,6 +70,9 @@ Required deploy inputs:
   `RNTME_AUTH_AUDIENCE=https://notes-demo.rntme.com/api`,
   `RNTME_AUTH_MODULE_SLUG=identity-auth0`, and
   `RNTME_AUTH_MODULE_ENDPOINT=<identity-auth0-service>:50051`.
+- The identity module also exposes HTTP introspection on port `50052`; the
+  edge gateway uses it to reject missing or invalid `Authorization` before the
+  app runtime sees the request.
 - Redpanda Cloud deploy targets provide `RNTME_EVENT_BUS_BROKERS`,
   `RNTME_EVENT_BUS_PROTOCOL=sasl_ssl`,
   `RNTME_EVENT_BUS_MECHANISM=scram-sha-256` or `scram-sha-512`,

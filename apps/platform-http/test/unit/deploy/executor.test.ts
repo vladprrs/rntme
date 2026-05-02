@@ -227,6 +227,34 @@ describe('runDeployment', () => {
     });
   });
 
+  it('maps module edgeAuth when project package is a local alias for a canonical manifest name', async () => {
+    const planProject = vi.fn(() =>
+      ok({
+        project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        workloads: [],
+        edge: { routes: [], middleware: [] },
+        diagnostics: { warnings: [] },
+      }),
+    );
+    const { deps } = setup({
+      loadComposed: () => ({ ok: true, value: composedBlueprintWithAliasedAuthModuleEdgeAuth() }),
+      planProject: planProject as never,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(planProject).toHaveBeenCalledTimes(1);
+    const deployInput = (planProject.mock.calls as unknown as Array<[{ modules?: Record<string, { edgeAuth: unknown }> }, unknown]>)[0]![0];
+    expect(deployInput.modules?.['identity-auth0']?.edgeAuth).toEqual({
+      kind: 'introspection-sidecar',
+      transport: 'http',
+      method: 'GET',
+      path: '/introspect',
+      port: 50052,
+    });
+  });
+
   it('derives a wildcard public app URL from org, project, and environment for legacy targets', async () => {
     const renderPlan = vi.fn(() =>
       ok({
@@ -491,6 +519,25 @@ function composedBlueprintWithModuleEdgeAuth(): ComposedBlueprint {
           path: '/introspect',
           port: 50052,
         },
+      },
+    },
+  };
+}
+
+function composedBlueprintWithAliasedAuthModuleEdgeAuth(): ComposedBlueprint {
+  const base = composedBlueprintWithModuleEdgeAuth();
+  return {
+    ...base,
+    project: {
+      ...base.project,
+      modules: {
+        identity: { package: 'rntme_identity_auth0' },
+      },
+    },
+    catalogManifest: {
+      ...base.catalogManifest!,
+      categoryToModule: {
+        identity: '@rntme/identity-auth0',
       },
     },
   };
