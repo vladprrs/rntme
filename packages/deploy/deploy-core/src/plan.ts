@@ -11,6 +11,7 @@ import {
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
 import { err, ok, type Result } from './result.js';
+import { resolveVars, applyVars } from './vars.js';
 
 export type PlannedProject = {
   readonly orgSlug: string;
@@ -105,6 +106,10 @@ export function buildProjectDeploymentPlan(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
 ): Result<ProjectDeploymentPlan, DeploymentPlanError> {
+  const resolved = resolveVars(project.varsManifest ?? {}, config);
+  if (!resolved.ok) return resolved;
+  const vars = resolved.value;
+
   const errors: DeploymentPlanError[] = [];
 
   if (config.mode === 'production') {
@@ -144,7 +149,7 @@ export function buildProjectDeploymentPlan(
     });
   }
 
-  const workloads = buildWorkloads(project, config, errors);
+  const workloads = buildWorkloads(project, config, errors, vars);
   const { edge, errors: edgeErrors } = planEdge(project, config, workloads);
   errors.push(...edgeErrors);
 
@@ -171,9 +176,11 @@ function buildWorkloads(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
   errors: DeploymentPlanError[],
+  vars: import('./vars.js').ResolvedVars,
 ): DeploymentWorkload[] {
   const workloads: DeploymentWorkload[] = [];
   const runtimeImage = config.runtimeImage ?? 'ghcr.io/vladprrs/rntme-runtime:latest';
+  const publicConfigJson = applyVars(project.publicConfigJson ?? '{}', vars);
 
   for (const service of Object.values(project.services)) {
     if (service.kind === 'domain') {
@@ -185,7 +192,7 @@ function buildWorkloads(
         runtime: { image: runtimeImage },
         artifact: { source: 'composed-project', serviceSlug: service.slug },
         runtimeFiles: service.runtimeFiles ?? {},
-        publicConfigJson: project.publicConfigJson ?? '{}',
+        publicConfigJson,
         persistence: { mode: 'ephemeral' },
       });
       continue;

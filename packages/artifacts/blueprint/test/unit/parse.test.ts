@@ -16,3 +16,24 @@ describe('parseProjectBlueprint', () => {
     expect(r.success).toBe(true);
   });
 });
+
+describe('parseProjectBlueprint vars', () => {
+  it('accepts a vars block with from + required', () => {
+    const r = parseProjectBlueprint({
+      name: 'demo',
+      services: ['app'],
+      vars: { FOO: { from: 'target.auth.auth0.clientId', required: true } },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.vars).toEqual({ FOO: { from: 'target.auth.auth0.clientId', required: true } });
+  });
+
+  it('rejects vars entry missing from', () => {
+    const r = parseProjectBlueprint({
+      name: 'demo',
+      services: ['app'],
+      vars: { FOO: { required: true } },
+    });
+    expect(r.ok).toBe(false);
+  });
+});

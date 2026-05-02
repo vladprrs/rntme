@@ -7,7 +7,7 @@ const stubFetcher = (
     { status: number; body?: string; contentType?: string; latencyMs?: number; throws?: 'timeout' | 'error' }
   >,
 ): SmokeFetcher => {
-  return async (url) => {
+  return async (url, opts) => {
     const response = responses[url];
     if (!response) throw new Error(`no stub for ${url}`);
     if (response.throws === 'timeout') return { status: 'timeout', latencyMs: response.latencyMs ?? 5_000 };
@@ -51,8 +51,12 @@ describe('SmokeVerifier', () => {
       'edge-health',
       'ui',
       'config-json',
-      'protected-api-get-notes',
-      'protected-api-post-notes',
+      'protected-api-get-notes (no-auth)',
+      'protected-api-get-notes (Bearer invalid.token.here)',
+      'protected-api-get-notes (Bearer )',
+      'protected-api-post-notes (no-auth)',
+      'protected-api-post-notes (Bearer invalid.token.here)',
+      'protected-api-post-notes (Bearer )',
     ]);
   });
 
@@ -82,7 +86,7 @@ describe('SmokeVerifier', () => {
     expect(report.partialOk).toBe(false);
     expect(report.checks).toContainEqual(
       expect.objectContaining({
-        name: 'protected-api-get-notes',
+        name: 'protected-api-get-notes (no-auth)',
         status: 500,
         ok: false,
       }),

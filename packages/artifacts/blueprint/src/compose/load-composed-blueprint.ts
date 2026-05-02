@@ -136,6 +136,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     catalogManifest,
     publicConfigJson,
     virtualEntrySource,
+    varsManifest: loaded.value.project.vars ?? {},
   });
 }
 

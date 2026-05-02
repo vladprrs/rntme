@@ -41,4 +41,5 @@ export type ComposedProjectInput = {
   readonly middleware?: Readonly<Record<string, ProjectMiddlewareDecl>>;
   readonly mounts?: readonly ProjectMountDecl[];
   readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
+  readonly varsManifest?: import('./vars.js').VarsManifest;
 };

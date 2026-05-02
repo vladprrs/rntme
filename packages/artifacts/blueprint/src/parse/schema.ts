@@ -62,5 +62,16 @@ export const ProjectBlueprintSchema = z
       )
       .optional(),
     modules: z.record(nonEmptyString, moduleProjectRefSchema).optional(),
+    vars: z
+      .record(
+        z.string().regex(/^[A-Z][A-Z0-9_]*$/),
+        z
+          .object({
+            from: nonEmptyString,
+            required: z.boolean().default(true),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();

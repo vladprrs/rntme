@@ -34,6 +34,7 @@ export type DeploymentApplyResult = {
     readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
     readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
+    readonly protectedRoutes?: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
   };
 };
 
@@ -475,6 +476,7 @@ function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult
     configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
     protectedRouteChecks: rendered.urls.protectedRouteChecks,
+    ...(rendered.urls.protectedRoutes === undefined ? {} : { protectedRoutes: rendered.urls.protectedRoutes }),
   };
 
   if (rendered.urls.uiUrl === undefined) return base;

@@ -41,4 +41,12 @@ export {
   type DeploymentPlanError,
   type DeploymentPlanErrorCode,
 } from './errors.js';
+export { DEPLOY_RENDER_ERROR_CODES } from './errors-render.js';
+export type { DeploymentRenderErrorCode, DeploymentRenderError } from './errors-render.js';
+export { DEPLOY_APPLY_ERROR_CODES } from './errors-apply.js';
+export type { DeploymentApplyErrorCode, DeploymentApplyError } from './errors-apply.js';
+export { DEPLOY_VERIFY_ERROR_CODES } from './errors-verify.js';
+export type { DeploymentVerifyErrorCode, DeploymentVerifyError } from './errors-verify.js';
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
+export { resolveVars, applyVars } from './vars.js';
+export type { VarBinding, VarsManifest, ResolvedVars, TargetForVars } from './vars.js';

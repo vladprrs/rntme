@@ -3,14 +3,22 @@ import type { VerificationReport } from '@rntme/platform-core';
 
 export type SmokeFetcher = (
   url: string,
-  opts: { method: 'HEAD' | 'GET' | 'POST'; timeoutMs: number },
+  opts: { method: 'HEAD' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; timeoutMs: number; headers?: Record<string, string> },
 ) => Promise<{ status: number | 'timeout' | 'error'; latencyMs: number; body?: string; contentType?: string }>;
+
+export type ProtectedRouteSpec = Readonly<{
+  name: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+}>;
 
 export type VerificationHints = {
   readonly healthUrl: string;
   readonly uiUrl?: string;
   readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
+  readonly protectedRoutes?: readonly ProtectedRouteSpec[];
+  /** @deprecated Use protectedRoutes instead. Kept for one transition PR. */
   readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
 };
 
@@ -61,38 +69,44 @@ export class SmokeVerifier {
       });
     }
 
-    for (const check of verificationHints.protectedRouteChecks ?? []) {
-      const response = await this.fetcher(check.url, {
-        method: check.method,
-        timeoutMs: 5_000,
-      });
-      checks.push({
-        name: check.name,
-        url: check.url,
-        status: response.status,
-        latencyMs: response.latencyMs,
-        ok: response.status === 401 && isJson(response.contentType),
-      });
+    const protectedRoutes = verificationHints.protectedRoutes ?? verificationHints.protectedRouteChecks ?? [];
+    for (const route of protectedRoutes) {
+      for (const auth of [undefined, 'Bearer invalid.token.here', 'Bearer '] as const) {
+        const headers = auth ? { Authorization: auth } : undefined;
+        const r = await this.fetcher(route.url, { method: route.method, timeoutMs: 5_000, headers });
+        let bodyOk = false;
+        try {
+          const parsed = r.body ? JSON.parse(r.body) : {};
+          bodyOk = parsed?.code === 'RUNTIME_AUTH_TOKEN_INVALID';
+        } catch {
+          bodyOk = false;
+        }
+        checks.push({
+          name: `${route.name} (${auth ?? 'no-auth'})`,
+          url: route.url,
+          status: r.status,
+          latencyMs: r.latencyMs,
+          ok: r.status === 401 && isJson(r.contentType) && bodyOk,
+        });
+      }
     }
 
     for (const url of verificationHints.publicRouteUrls) {
+      const r = await this.fetcher(url, { method: 'GET', timeoutMs: 5_000 });
       checks.push({
-        name: 'public-route',
+        name: `public-route ${url}`,
         url,
-        status: 0,
-        latencyMs: 0,
-        ok: true,
-        note: 'not auto-checked in MVP',
+        status: r.status,
+        latencyMs: r.latencyMs,
+        ok: is2xx(r.status),
       });
     }
 
-    const critical = checks.filter((check) => check.note !== 'not auto-checked in MVP');
-    const criticalOk = critical.length > 0 && critical.every((check) => check.ok);
-    const optionalFailed = checks.some((check) => !check.ok && check.note === 'not auto-checked in MVP');
+    const ok = checks.every((check) => check.ok);
     return {
       checks,
-      ok: criticalOk && !optionalFailed,
-      partialOk: criticalOk && optionalFailed,
+      ok,
+      partialOk: false,
     };
   }
 }
@@ -102,8 +116,14 @@ export const defaultSmokeFetcher: SmokeFetcher = async (url, opts) => {
   const ctrl = new globalThis.AbortController();
   const timeout = setTimeout(() => ctrl.abort(), opts.timeoutMs);
   try {
-    const response = await globalThis.fetch(url, { method: opts.method, signal: ctrl.signal });
-    const body = opts.method === 'GET' || opts.method === 'POST' ? await response.text() : undefined;
+    const response = await globalThis.fetch(url, {
+      method: opts.method,
+      signal: ctrl.signal,
+      ...(opts.headers ? { headers: opts.headers } : {}),
+    });
+    const body = opts.method === 'GET' || opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH' || opts.method === 'DELETE'
+      ? await response.text()
+      : undefined;
     const contentType = response.headers.get('content-type');
     return {
       status: response.status,

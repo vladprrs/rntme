@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest';
+import { validateBlueprintStructural } from '../../src/validate/structural.js';
+import { validateBlueprintComposition } from '../../src/validate/composition.js';
+
+const baseInput = {
+  serviceDirs: ['app'],
+  services: { app: { kind: 'domain' as const } },
+};
+
+describe('structural vars', () => {
+  it('rejects vars.from with unknown root', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { FOO: { from: 'project.junk.path', required: true } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]!.code).toBe('BLUEPRINT_VARS_FROM_UNKNOWN_ROOT');
+      expect(r.errors[0]!.path).toBe('project.vars.FOO.from');
+    }
+  });
+
+  it('accepts vars with known root', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { CID: { from: 'target.auth.auth0.clientId', required: true } },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+});
+
+const composeBase = {
+  services: {
+    app: {
+      kind: 'domain' as const,
+      artifacts: { hasBindings: true, hasUi: true, hasGraphs: true, hasQsm: true, hasSeed: false },
+    },
+  },
+};
+
+describe('consistency vars', () => {
+  it('rejects placeholder not declared in vars', () => {
+    const r = validateBlueprintComposition({
+      ...composeBase,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        modules: { id: { package: 'mod-x', publicConfig: { key: '${UNDECLARED}' } } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'BLUEPRINT_CONSISTENCY_VAR_UNDECLARED')).toBe(true);
+    }
+  });
+
+  it('rejects vars entry never referenced', () => {
+    const r = validateBlueprintComposition({
+      ...composeBase,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { UNUSED: { from: 'target.auth.auth0.clientId', required: true } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'BLUEPRINT_CONSISTENCY_VAR_UNUSED')).toBe(true);
+    }
+  });
+
+  it('accepts placeholder declared in vars', () => {
+    const r = validateBlueprintComposition({
+      ...composeBase,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { K: { from: 'target.auth.auth0.clientId', required: true } },
+        modules: { id: { package: 'mod-x', publicConfig: { key: '${K}' } } },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+});

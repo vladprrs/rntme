@@ -5,6 +5,7 @@ import {
   type BlueprintError,
   type Result,
 } from '../types/result.js';
+import { extractPlaceholders } from '../types/vars.js';
 import { bindAsName } from '@rntme/bindings';
 import type {
   CatalogManifest,
@@ -161,9 +162,43 @@ export function validateBlueprintComposition(input: {
     input.catalogManifest,
   ));
   errors.push(...checkGraphPreRefs(input.services));
+  errors.push(...validateVars(input.project));
 
   if (errors.length > 0) return err(errors);
   return ok({ httpBaseByService, uiPathsByService });
+}
+
+function validateVars(project: ProjectBlueprint): BlueprintError[] {
+  const errors: BlueprintError[] = [];
+  const declared = new Set(Object.keys(project.vars ?? {}));
+  const used = new Set<string>();
+
+  for (const [moduleKey, mod] of Object.entries(project.modules ?? {})) {
+    for (const placeholder of extractPlaceholders(mod.publicConfig ?? {})) {
+      used.add(placeholder);
+      if (!declared.has(placeholder)) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_CONSISTENCY_VAR_UNDECLARED,
+          message: `placeholder "${placeholder}" used in modules.${moduleKey}.publicConfig is not declared in project.vars`,
+          path: `project.modules.${moduleKey}.publicConfig`,
+        });
+      }
+    }
+  }
+
+  for (const name of declared) {
+    if (!used.has(name)) {
+      errors.push({
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_CONSISTENCY_VAR_UNUSED,
+        message: `vars.${name} is declared but never referenced as \${${name}}`,
+        path: `project.vars.${name}`,
+      });
+    }
+  }
+
+  return errors;
 }
 
 function checkAuthModuleVendors(

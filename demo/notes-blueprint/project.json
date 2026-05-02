@@ -1,6 +1,9 @@
 {
   "name": "notes-demo",
   "services": ["app", "identity-auth0"],
+  "vars": {
+    "AUTH0_SPA_CLIENT_ID": { "from": "target.auth.auth0.clientId", "required": true }
+  },
   "modules": {
     "identity": {
       "package": "rntme_identity_auth0",

@@ -59,6 +59,7 @@ export type ProjectBlueprint = {
   middleware?: Readonly<Record<string, MiddlewareDecl>>;
   mounts?: readonly MountDecl[];
   modules?: Readonly<Record<string, ModuleProjectRef>>;
+  vars?: Readonly<Record<string, { from: string; required: boolean }>>;
 };
 
 export type ServiceDescriptor = {
@@ -145,4 +146,5 @@ export type ComposedBlueprint = {
   publicConfigJson?: string | null;
   /** Deterministic virtual entry TypeScript source (spec §10.2). */
   virtualEntrySource?: string | null;
+  varsManifest: Readonly<Record<string, { from: string; required: boolean }>>;
 };

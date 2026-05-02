@@ -1,0 +1,16 @@
+export const DEPLOY_VERIFY_ERROR_CODES = {
+  DEPLOY_VERIFY_HEALTH_NON_200: 'DEPLOY_VERIFY_HEALTH_NON_200',
+  DEPLOY_VERIFY_UI_NON_200: 'DEPLOY_VERIFY_UI_NON_200',
+  DEPLOY_VERIFY_CONFIG_NON_200: 'DEPLOY_VERIFY_CONFIG_NON_200',
+  DEPLOY_VERIFY_PROTECTED_ROUTE_NOT_401: 'DEPLOY_VERIFY_PROTECTED_ROUTE_NOT_401',
+  DEPLOY_VERIFY_PROTECTED_ROUTE_BAD_BODY: 'DEPLOY_VERIFY_PROTECTED_ROUTE_BAD_BODY',
+  DEPLOY_VERIFY_TIMEOUT: 'DEPLOY_VERIFY_TIMEOUT',
+} as const;
+
+export type DeploymentVerifyErrorCode = keyof typeof DEPLOY_VERIFY_ERROR_CODES;
+export type DeploymentVerifyError = Readonly<{
+  code: DeploymentVerifyErrorCode;
+  message: string;
+  url?: string;
+  status?: number | 'timeout' | 'error';
+}>;
