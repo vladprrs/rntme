@@ -120,12 +120,14 @@ describe('runDeployment', () => {
     expect(planProject).toHaveBeenCalledTimes(1);
     const calls = planProject.mock.calls as unknown as Array<[{
       publicConfigJson?: string | null;
+      varsManifest?: Record<string, { from: string; required: boolean }>;
       services: { api: { runtimeFiles: Record<string, string> } };
     }, unknown]>;
     const input = calls[0]![0];
     const runtimeFiles = input.services.api.runtimeFiles;
-    expect(input.publicConfigJson).toContain('"clientId":"target-spa-client"');
-    expect(input.publicConfigJson).not.toContain('${AUTH0_SPA_CLIENT_ID}');
+    // Vars substitution now happens inside the planner, so the input still carries the raw placeholder.
+    expect(input.publicConfigJson).toContain('${AUTH0_SPA_CLIENT_ID}');
+    expect(input.varsManifest).toEqual({ AUTH0_SPA_CLIENT_ID: { from: 'target.auth.auth0.clientId', required: true } });
     expect(runtimeFiles['bindings.json']).toContain('"bindings"');
     expect(runtimeFiles['graphs/listNotes.json']).toContain('"listNotes"');
     expect(runtimeFiles['manifest.json']).toContain('"service"');
@@ -148,18 +150,28 @@ describe('runDeployment', () => {
     expect(uiBuildFiles.every(([, content]) => content.length < 950_000)).toBe(true);
   });
 
-  it('fails deployment when auth0 public config placeholder has no target client id', async () => {
+  it('fails deployment when planner reports a target var missing', async () => {
     const { deps, deployments } = setup({
       loadComposed: () => ({ ok: true, value: composedBlueprint() }),
       targetAuth: {},
+      planProject: vi.fn(() => ({
+        ok: false as const,
+        errors: [{
+          code: 'DEPLOY_PLAN_TARGET_VAR_MISSING',
+          message: 'vars.AUTH0_SPA_CLIENT_ID: target staging does not provide "target.auth.auth0.clientId"',
+          varName: 'AUTH0_SPA_CLIENT_ID',
+          fromPath: 'target.auth.auth0.clientId',
+          targetSlug: 'staging',
+        }],
+      })),
     });
 
     await runDeployment('deployment-1', 'org-1', deps);
 
     expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
       status: 'failed',
-      errorCode: 'DEPLOY_EXECUTOR_UNCAUGHT',
-      errorMessage: 'AUTH0_SPA_CLIENT_ID deploy target auth.auth0.clientId is required',
+      errorCode: 'DEPLOY_PLAN_TARGET_VAR_MISSING',
+      errorMessage: expect.stringContaining('AUTH0_SPA_CLIENT_ID'),
     });
   });
 
@@ -501,6 +513,7 @@ function composedBlueprint(): ComposedBlueprint {
   return {
     project: { name: 'shop', services: ['api'], routes: { ui: { '/': 'api' } } },
     publicConfigJson: '{"@rntme/identity-auth0":{"domain":"tenant.us.auth0.com","clientId":"${AUTH0_SPA_CLIENT_ID}","audience":"https://shop.example.test/api","redirectUri":"https://shop.example.test/"}}',
+    varsManifest: { AUTH0_SPA_CLIENT_ID: { from: 'target.auth.auth0.clientId', required: true } },
     virtualEntrySource: [
       '// test virtual entry',
       "const [{ hydrateApp }, identityAuth0] = await Promise.all([",

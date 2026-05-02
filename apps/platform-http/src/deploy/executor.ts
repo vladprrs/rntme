@@ -369,7 +369,6 @@ async function toDeployCoreInput(
 ): Promise<ComposedProjectInput> {
   if (!isComposedBlueprint(value)) return value;
 
-  const publicConfigJson = resolvePublicConfigPlaceholders(value.publicConfigJson ?? null, config);
   const uiBuildFiles =
     value.virtualEntrySource === null || value.virtualEntrySource === undefined
       ? {}
@@ -394,7 +393,8 @@ async function toDeployCoreInput(
 
   return {
     name: value.project.name,
-    publicConfigJson,
+    publicConfigJson: value.publicConfigJson ?? null,
+    varsManifest: value.varsManifest,
     services: Object.fromEntries(
       await Promise.all(
         value.project.services.map(async (slug) => [
@@ -456,20 +456,6 @@ async function buildRuntimeArtifactFiles(
   }
 
   return files;
-}
-
-function resolvePublicConfigPlaceholders(
-  publicConfigJson: string | null,
-  config: ProjectDeploymentConfig,
-): string | null {
-  if (publicConfigJson === null) return null;
-  const placeholder = '${AUTH0_SPA_CLIENT_ID}';
-  if (!publicConfigJson.includes(placeholder)) return publicConfigJson;
-  const clientId = config.auth?.auth0?.clientId;
-  if (clientId === undefined || clientId.length === 0) {
-    throw new Error('AUTH0_SPA_CLIENT_ID deploy target auth.auth0.clientId is required');
-  }
-  return publicConfigJson.split(placeholder).join(clientId);
 }
 
 async function bundleVirtualEntrySource(
