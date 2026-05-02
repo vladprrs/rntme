@@ -36,3 +36,5 @@ export type {
   ValidatedServiceMember,
   CatalogManifest,
 } from './types/artifact.js';
+export type { VarsManifest, VarBinding } from './types/vars.js';
+export { isKnownTargetPath, extractPlaceholders } from './types/vars.js';
