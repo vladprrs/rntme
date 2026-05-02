@@ -58,6 +58,8 @@ type DeploymentContext = {
   readonly targetId: string;
   readonly configOverrides: Record<string, unknown>;
   readonly bundleBlobKey: string;
+  readonly projectVersionSeq: number;
+  readonly targetSlug: string;
 };
 
 type LoadedDeployProject = ComposedProjectInput | ComposedBlueprint;
@@ -102,7 +104,14 @@ export async function runDeployment(
 
   try {
     const ctx = await startAndResolveContext(deploymentId, orgId, deps);
-    await appendLog(deps, deploymentId, orgId, 'info', 'init', 'Starting deployment');
+    await appendLog(
+      deps,
+      deploymentId,
+      orgId,
+      'info',
+      'init',
+      `Starting deployment projectVersionSeq=${ctx.projectVersionSeq} projectVersionId=${ctx.projectVersionId} targetSlug=${ctx.targetSlug} targetId=${ctx.targetId}`,
+    );
     await deps.withOrgTx(orgId, (repos) => repos.deployments.touchHeartbeat(deploymentId));
 
     const raw = await deps.blob.getRaw(ctx.bundleBlobKey);
@@ -172,6 +181,7 @@ export async function runDeployment(
     await deps.withOrgTx(orgId, (repos) =>
       repos.deployments.setRenderedDigest(deploymentId, rendered.value.digest),
     );
+    await appendLog(deps, deploymentId, orgId, 'info', 'render', `Rendered Dokploy plan digest ${rendered.value.digest}`);
 
     await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
     const applied = await (deps.applyPlan ?? applyDokployPlan)(
@@ -179,6 +189,7 @@ export async function runDeployment(
       deps.dokployClientFactory(target),
     );
     if (!applied.ok) {
+      await logApplyFailure(deps, deploymentId, orgId, applied.errors);
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: applied.errors[0]?.code ?? 'DEPLOY_APPLY_DOKPLOY_UNKNOWN',
         errorMessage: redact(errorSummary(applied.errors)),
@@ -191,6 +202,16 @@ export async function runDeployment(
         applied.value as unknown as Record<string, unknown>,
       ),
     );
+    for (const resource of applied.value.resources) {
+      await appendLog(
+        deps,
+        deploymentId,
+        orgId,
+        'info',
+        'apply',
+        `${resource.resourceKind} ${resource.workloadSlug ?? resource.infrastructureKind ?? resource.logicalId} ${resource.action} target=${resource.targetResourceName}`,
+      );
+    }
 
     await appendLog(deps, deploymentId, orgId, 'info', 'verify', 'Running smoke verification');
     const verification = await deps.smoker.verify(applied.value as DeploymentApplyResult);
@@ -220,11 +241,15 @@ async function startAndResolveContext(
     if (!isOk(deployment) || !deployment.value) throw new Error('DEPLOYMENT_NOT_FOUND');
     const version = await repos.projectVersions.getById(deployment.value.projectVersionId);
     if (!isOk(version) || !version.value) throw new Error('PROJECT_VERSION_NOT_FOUND');
+    const target = await repos.deployTargets.getWithSecretById(deployment.value.targetId);
+    if (!isOk(target) || !target.value) throw new Error('DEPLOY_TARGET_NOT_FOUND');
     return {
       projectVersionId: deployment.value.projectVersionId,
       targetId: deployment.value.targetId,
       configOverrides: deployment.value.configOverrides,
       bundleBlobKey: version.value.bundleBlobKey,
+      projectVersionSeq: version.value.seq,
+      targetSlug: target.value.slug,
     };
   });
 }
@@ -252,6 +277,32 @@ async function appendLog(
   await deps.withOrgTx(orgId, async (repos) => {
     await repos.deployments.appendLog({ deploymentId, orgId, level, step, message: redact(message) });
   });
+}
+
+async function logApplyFailure(
+  deps: ExecutorDeps,
+  deploymentId: string,
+  orgId: string,
+  errors: readonly { readonly code?: string; readonly message?: string; readonly partialFailure?: unknown }[],
+): Promise<void> {
+  const first = errors[0];
+  const partial = first?.partialFailure as
+    | {
+        readonly failedStep?: {
+          readonly action?: string;
+          readonly resourceKind?: string;
+          readonly workloadSlug?: string;
+          readonly infrastructureKind?: string;
+          readonly resourceName?: string;
+        };
+      }
+    | undefined;
+  const failed = partial?.failedStep;
+  const detail =
+    failed === undefined
+      ? errorSummary(errors)
+      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}`;
+  await appendLog(deps, deploymentId, orgId, 'error', 'apply', detail);
 }
 
 async function finalizeFromVerification(

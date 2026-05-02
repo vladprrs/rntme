@@ -255,6 +255,78 @@ describe('runDeployment', () => {
     });
   });
 
+  it('logs selected version, selected target, rendered digest, and applied resources', async () => {
+    const { deps, deployments } = setup();
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'init',
+        message: expect.stringContaining('projectVersionId=version-1'),
+      }),
+    );
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'init',
+        message: expect.stringContaining('targetId=target-1'),
+      }),
+    );
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'render',
+        message: 'Rendered Dokploy plan digest sha256:rendered',
+      }),
+    );
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'apply',
+        message: expect.stringContaining('application catalog created'),
+      }),
+    );
+  });
+
+  it('logs partial apply failure diagnostics before finalizing failed', async () => {
+    const { deps, deployments } = setup({
+      applyPlan: vi.fn(async () => ({
+        ok: false,
+        errors: [
+          {
+            code: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
+            message: 'failed while applying resource "rntme-acme-shop-edge"',
+            resource: 'rntme-acme-shop-edge',
+            partialFailure: {
+              createdResources: [],
+              updatedResources: [],
+              failedStep: {
+                action: 'inspect',
+                resourceName: 'rntme-acme-shop-edge',
+                resourceKind: 'application',
+                workloadSlug: 'edge',
+              },
+              retrySafe: true,
+            },
+          },
+        ],
+      })) as never,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.appendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+        step: 'apply',
+        message: expect.stringContaining('inspect application edge'),
+      }),
+    );
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
+      status: 'failed',
+      errorCode: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
+      errorMessage: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE: failed while applying resource "rntme-acme-shop-edge"',
+    });
+  });
+
   it('derives a wildcard public app URL from org, project, and environment for legacy targets', async () => {
     const renderPlan = vi.fn(() =>
       ok({
@@ -288,6 +360,7 @@ function setup(
     deploymentConfigOverrides?: Record<string, unknown>;
     planProject?: ExecutorDeps['planProject'];
     renderPlan?: ExecutorDeps['renderPlan'];
+    applyPlan?: ExecutorDeps['applyPlan'];
     targetPublicBaseUrl?: string | null;
     targetAuth?: { auth0?: { clientId: string } };
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
@@ -417,7 +490,7 @@ function setup(
       })),
     planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
     renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
-    applyPlan: vi.fn(async () => ok({ target: { kind: 'dokploy' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
+    applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
     heartbeatMs: 10_000,
   };
   return { deps, deployments };
