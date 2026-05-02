@@ -386,6 +386,24 @@ describe('auth middleware rendering', () => {
     expect(rendered).not.toContain('rntme_auth_');
   });
 
+  it('renders the complete protected API auth contract in one config', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+
+    expect(rendered).toContain('location = /config.json');
+    expect(rendered).toContain('proxy_pass_request_body off;');
+    expect(rendered).toContain('proxy_set_header   Authorization      $http_authorization;');
+    expect(rendered).toContain('proxy_set_header   X-Rntme-Audience   "https://notes-demo.rntme.com/api";');
+    expect(rendered).toContain('auth_request_set      $rntme_user_sub      $upstream_http_x_rntme_user_sub;');
+    expect(rendered).toContain('auth_request_set      $rntme_user_audience $upstream_http_x_rntme_user_audience;');
+    expect(rendered).toContain('proxy_set_header      X-Rntme-User-Sub      $rntme_user_sub;');
+    expect(rendered).toContain('proxy_set_header      X-Rntme-User-Audience $rntme_user_audience;');
+    expect(rendered).toContain('default_type application/json;');
+    expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
+  });
+
   it('rejects audiences containing quote or control characters', () => {
     expect(() =>
       renderNginxConfig(
