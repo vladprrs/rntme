@@ -157,7 +157,15 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
       },
       orgSlugFor: async () => orgSlug,
       dokployClientFactory,
-      smoker: new SmokeVerifier(async () => ({ status: 200, latencyMs: 1, body: 'ok' })),
+      smoker: new SmokeVerifier(async (url) => {
+        if (url.endsWith('/config.json')) {
+          return { status: 200, latencyMs: 1, contentType: 'application/json', body: '{}' };
+        }
+        if (url.endsWith('/')) {
+          return { status: 200, latencyMs: 1, contentType: 'text/html; charset=utf-8', body: '<!doctype html><html></html>' };
+        }
+        return { status: 200, latencyMs: 1, body: 'ok' };
+      }),
       logger: env.deps.logger,
       heartbeatMs: 20,
     });
