@@ -76,21 +76,22 @@ describe('runDeployment', () => {
     });
   });
 
-  it('maps smoke UI-only failures to succeeded_with_warnings', async () => {
+  it('finalizes failed when a critical smoke check fails', async () => {
     const { deps, deployments } = setup({
-      verificationReport: { checks: [{ name: 'ui', url: 'https://ui', status: 500, latencyMs: 1, ok: false }], ok: false, partialOk: true },
+      verificationReport: { checks: [{ name: 'ui', url: 'https://ui', status: 500, latencyMs: 1, ok: false }], ok: false, partialOk: false },
     });
 
     await runDeployment('deployment-1', 'org-1', deps);
 
     expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
-      status: 'succeeded_with_warnings',
+      status: 'failed',
+      errorCode: 'DEPLOY_EXECUTOR_SMOKE_FAILED',
+      errorMessage: 'smoke verification failed',
       verificationReport: {
         checks: [{ name: 'ui', url: 'https://ui', status: 500, latencyMs: 1, ok: false }],
         ok: false,
-        partialOk: true,
+        partialOk: false,
       },
-      warnings: ['smoke verification completed with warnings'],
     });
   });
 
@@ -334,7 +335,7 @@ describe('runDeployment', () => {
         targetProject: { mode: 'existing' as const, projectId: 'project-1' },
         deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         resources: [],
-        urls: { projectUrl: 'https://acme-shop-default.rntme.com', publicRoutes: [] },
+        urls: { projectUrl: 'https://acme-shop-default.rntme.com', publicRoutes: [], protectedRouteChecks: [] },
         digest: 'sha256:rendered',
         warnings: [],
       }),
@@ -489,8 +490,8 @@ function setup(
         },
       })),
     planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
-    renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
-    applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
+    renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
+    applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
     heartbeatMs: 10_000,
   };
   return { deps, deployments };

@@ -34,6 +34,7 @@ const rendered: RenderedDokployPlan = {
   urls: {
     projectUrl: 'https://commerce.example.com',
     publicRoutes: [{ routeId: 'http:/api/catalog', url: 'https://commerce.example.com/api/catalog' }],
+    protectedRouteChecks: [],
   },
   digest: 'sha256:abc',
   warnings: [],

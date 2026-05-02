@@ -31,7 +31,9 @@ export type DeploymentApplyResult = {
   readonly verificationHints: {
     readonly healthUrl: string;
     readonly uiUrl?: string;
+    readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
+    readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
   };
 };
 
@@ -470,7 +472,9 @@ function sortRecord(value: Readonly<Record<string, string>>): Readonly<Record<st
 function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult['verificationHints'] {
   const base = {
     healthUrl: joinUrl(rendered.urls.projectUrl, '/health'),
+    configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
+    protectedRouteChecks: rendered.urls.protectedRouteChecks,
   };
 
   if (rendered.urls.uiUrl === undefined) return base;
