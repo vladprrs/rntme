@@ -27,7 +27,12 @@ export type CommandHandler<T> = (ctx: CommandContext) => Promise<Result<T, CliEr
 
 export async function runCommand<T>(
   flags: CommonFlags,
-  opts: { requireToken?: boolean | undefined; requireTenancy?: boolean | undefined; humanRender?: ((d: T) => string) | undefined },
+  opts: {
+    requireToken?: boolean | undefined;
+    requireTenancy?: boolean | undefined;
+    humanRender?: ((d: T) => string) | undefined;
+    successExitCode?: ((d: T) => number) | undefined;
+  },
   handler: CommandHandler<T>,
 ): Promise<number> {
   const mode: OutputMode = flags.json ? 'json' : 'human';
@@ -79,7 +84,7 @@ export async function runCommand<T>(
 
   if (isOk(result)) {
     if (!flags.quiet) emit(mode, result.value, null, opts.humanRender);
-    return 0;
+    return opts.successExitCode?.(result.value) ?? 0;
   }
   emit(mode, null, result.error);
   const code =
