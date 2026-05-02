@@ -94,6 +94,7 @@ export type RenderedDokployPlan = {
     readonly uiUrl?: string;
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
+    readonly protectedRoutes?: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
   };
   readonly digest: string;
   readonly warnings: readonly string[];
@@ -149,14 +150,16 @@ export function renderDokployPlan(
     url: joinPublicUrl(config.publicBaseUrl, route.path),
   }));
   const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
+  const protectedRoutes = protectedRouteChecks.map((r) => ({ ...r }));
   const urls: RenderedDokployPlan['urls'] =
     uiRoute === undefined
-      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicRoutes.map(stripRoutePath), protectedRouteChecks }
+      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicRoutes.map(stripRoutePath), protectedRouteChecks, protectedRoutes }
       : {
           projectUrl: config.publicBaseUrl,
           uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
           publicRoutes: publicRoutes.map(stripRoutePath),
           protectedRouteChecks,
+          protectedRoutes,
         };
   const renderedWithoutDigest = {
     target: { kind: 'dokploy' as const, endpoint: config.endpoint },
