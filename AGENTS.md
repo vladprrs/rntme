@@ -463,9 +463,10 @@ under `packages/runtime/event-store/test/`.
 ### 6.14 Deploy a project via Dokploy
 
 1. Read `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, and `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`.
-2. From a validated/composed project model, call `planDeployment(...)`; it returns a target-neutral, redacted plan. The deploy target `eventBus` can be external Kafka/Redpanda or explicit provisioned Redpanda where the target adapter supports it.
-3. For Dokploy, render the plan via `renderDokployPlan(...)` and apply it via `applyDokployPlan(...)`.
-4. The CLI command surface lives in `@rntme/cli`; verify current incantations against `apps/cli/README.md`.
+2. Publish the blueprint version with the CLI: `rntme project publish --org <org> --project <project> <folder>`.
+3. Start deployment through the platform control plane: `rntme project deploy --org <org> --project <project> --version <seq> --target <target-slug>`.
+4. Observe it with `rntme project deployment watch --org <org> --project <project> <deployment-id>` or inspect history with `project deployment list/show`.
+5. The platform executor, not the CLI, decrypts target credentials and calls `planDeployment(...)`, `renderDokployPlan(...)`, and `applyDokployPlan(...)`.
 
 ### 6.15 Wire Auth0 into a project blueprint
 

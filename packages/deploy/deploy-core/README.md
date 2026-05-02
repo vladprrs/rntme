@@ -65,6 +65,8 @@ The planned auth middleware carries `moduleIntrospectPort` (sourced from `capabi
 }
 ```
 
+On the platform executor path, composed project module aliases are mapped through the catalog's canonical module manifest name before planning. For example, a project package alias `rntme_identity_auth0` with catalog category `identity -> @rntme/identity-auth0` still provides `modules["identity-auth0"].edgeAuth` to the planner. Blueprint composition rejects mounted auth middleware before deploy if the canonical module manifest lacks `capabilities.edgeAuth`.
+
 ## Where to look first
 
 - `src/plan.ts` — deployment plan and workload construction.

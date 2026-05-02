@@ -56,6 +56,10 @@ Commands:
   project publish [dir]   Upload or dry-run a project blueprint
   project version list    List project versions
   project version show    Show a project version
+  project deploy          Start a remote platform deployment
+  project deployment list List project deployments
+  project deployment show Show deployment details
+  project deployment watch Watch deployment logs until terminal status
 
   token create <name>     Create a machine token
   token list              List tokens in the org
@@ -75,7 +79,14 @@ Global options:
   -v, --version           Print the rntme CLI version and exit
 ```
 
-> **Deploy operations** (planning, rendering, applying) are server-side on the platform control plane. Trigger them via the platform UI or by `POST` to `/v1/orgs/<org>/projects/<project>/deployments` on `https://platform.rntme.com`. The CLI does not bundle deploy commands.
+Deploy operations are server-side on the platform control plane. Start them with:
+
+```bash
+rntme project deploy --org my-org --project my-project --version 4 --target dokploy-preview
+rntme project deployment watch --org my-org --project my-project <deployment-id>
+```
+
+The CLI never calls Dokploy directly and never reads deploy target secrets.
 
 ## Environment Variables
 
