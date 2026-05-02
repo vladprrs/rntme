@@ -156,6 +156,10 @@ export function validateBlueprintComposition(input: {
     input.catalogManifest,
     input.discoveredModules,
   ));
+  errors.push(...checkAuthModuleEdgeAuth(
+    input.project,
+    input.catalogManifest,
+  ));
   errors.push(...checkGraphPreRefs(input.services));
 
   if (errors.length > 0) return err(errors);
@@ -214,6 +218,38 @@ function checkAuthModuleVendors(
     }
   }
   return errors;
+}
+
+function checkAuthModuleEdgeAuth(
+  project: ProjectBlueprint,
+  catalogManifest?: CatalogManifest | null,
+): BlueprintError[] {
+  if (catalogManifest == null) return [];
+
+  const errors: BlueprintError[] = [];
+  for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
+    if (declaration.kind !== 'auth') continue;
+    if (declaration.moduleSlug === undefined) continue;
+    if (!authMiddlewareIsMounted(project, middlewareName)) continue;
+
+    const canonicalModule = catalogManifest.categoryToModule.identity;
+    if (canonicalModule === undefined) continue;
+
+    const edgeAuth = catalogManifest.moduleEdgeAuth[canonicalModule];
+    if (edgeAuth !== null && edgeAuth !== undefined) continue;
+
+    errors.push({
+      layer: 'composition',
+      code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_EDGE_AUTH_MISSING,
+      message: `auth middleware "${middlewareName}" requires identity module "${canonicalModule}" to declare capabilities.edgeAuth`,
+      path: `project.middleware.${middlewareName} -> ${canonicalModule}/module.json#capabilities.edgeAuth`,
+    });
+  }
+  return errors;
+}
+
+function authMiddlewareIsMounted(project: ProjectBlueprint, middlewareName: string): boolean {
+  return (project.mounts ?? []).some((mount) => mount.use.includes(middlewareName));
 }
 
 function authModuleSlugForComposition(declaration: MiddlewareDecl): string | undefined {

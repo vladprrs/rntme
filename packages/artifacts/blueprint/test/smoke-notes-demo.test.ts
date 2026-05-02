@@ -19,5 +19,6 @@ describe('loadComposedBlueprint (notes demo)', () => {
       path: '/introspect',
       port: 50052,
     });
+    expect(r.value.catalogManifest?.categoryToModule.identity).toBe('@rntme/identity-auth0');
   });
 });
