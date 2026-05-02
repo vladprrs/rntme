@@ -30,7 +30,7 @@ export type VerificationReport = z.infer<typeof VerificationReportSchema>;
 
 export const StartDeploymentRequestSchema = z.object({
   projectVersionSeq: z.number().int().positive(),
-  targetSlug: z.string().min(1).optional(),
+  targetSlug: z.string().trim().min(1),
   configOverrides: z
     .object({
       integrationModuleImages: z.record(z.string(), z.string()).optional(),

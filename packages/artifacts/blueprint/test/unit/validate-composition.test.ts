@@ -242,7 +242,15 @@ describe('validateBlueprintComposition', () => {
         modulesWithBoot: ['@rntme/identity-auth0'],
         categoryToModule: { identity: '@rntme/identity-auth0' },
         publicConfig: {},
-        moduleEdgeAuth: {},
+        moduleEdgeAuth: {
+          '@rntme/identity-auth0': {
+            kind: 'introspection-sidecar' as const,
+            transport: 'http' as const,
+            method: 'GET' as const,
+            path: '/introspect',
+            port: 50052,
+          },
+        },
       },
       discoveredModules: {
         '@rntme/identity-auth0': {
@@ -389,6 +397,54 @@ describe('validateBlueprintComposition', () => {
     ]);
     if (!r.ok) {
       expect(r.errors).toHaveLength(5);
+    }
+  });
+
+  it('rejects mounted auth middleware when the identity module lacks edgeAuth', () => {
+    const input = {
+      project: {
+        name: 'notes-demo',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://notes-demo.rntme.com/api',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: ['@rntme/identity-auth0'],
+        categoryToModule: { identity: '@rntme/identity-auth0' },
+        publicConfig: {},
+        moduleEdgeAuth: { '@rntme/identity-auth0': null },
+      },
+      discoveredModules: {
+        '@rntme/identity-auth0': {
+          manifest: moduleManifest('@rntme/identity-auth0', 'auth0'),
+          packageDir: '/tmp/identity-auth0',
+          projectKey: 'identity',
+          publicConfig: {},
+        },
+      },
+    };
+
+    const r = validateBlueprintComposition(input);
+
+    expectErrorCodes(r, ['BLUEPRINT_AUTH_MODULE_EDGE_AUTH_MISSING']);
+    if (!r.ok) {
+      expect(r.errors[0]).toMatchObject({
+        path: 'project.middleware.auth -> @rntme/identity-auth0/module.json#capabilities.edgeAuth',
+      });
     }
   });
 

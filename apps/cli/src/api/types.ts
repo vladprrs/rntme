@@ -96,3 +96,74 @@ export const AuthMeResponseSchema = z.object({
   scopes: z.array(z.string()),
   tokenId: z.string().nullable().optional(),
 });
+
+export const DeploymentStatusSchema = z.enum([
+  'queued',
+  'running',
+  'succeeded',
+  'succeeded_with_warnings',
+  'failed',
+  'failed_orphaned',
+]);
+export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>;
+
+export const VerificationCheckSchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  status: z.union([z.number().int(), z.literal('timeout'), z.literal('error')]),
+  latencyMs: z.number().int().nonnegative(),
+  ok: z.boolean(),
+  note: z.string().optional(),
+});
+export const VerificationReportSchema = z.object({
+  checks: z.array(VerificationCheckSchema),
+  ok: z.boolean(),
+  partialOk: z.boolean(),
+});
+
+export const DeploymentSchema = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  projectId: z.string(),
+  projectVersionId: z.string(),
+  targetId: z.string(),
+  status: DeploymentStatusSchema,
+  configOverrides: z.record(z.string(), z.unknown()),
+  renderedPlanDigest: z.string().nullable(),
+  applyResult: z.record(z.string(), z.unknown()).nullable(),
+  verificationReport: VerificationReportSchema.nullable(),
+  warnings: z.array(z.unknown()),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  startedByAccountId: z.string(),
+  queuedAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  lastHeartbeatAt: z.string().nullable(),
+});
+export type Deployment = z.infer<typeof DeploymentSchema>;
+
+export const DeploymentLogLineSchema = z.object({
+  id: z.number().int().nonnegative(),
+  deploymentId: z.string(),
+  orgId: z.string(),
+  ts: z.string(),
+  level: z.enum(['info', 'warn', 'error']),
+  step: z.string(),
+  message: z.string(),
+});
+export type DeploymentLogLine = z.infer<typeof DeploymentLogLineSchema>;
+
+export const StartDeploymentRequestSchema = z.object({
+  projectVersionSeq: z.number().int().positive(),
+  targetSlug: z.string().min(1),
+  configOverrides: z.record(z.string(), z.unknown()).default({}),
+});
+export type StartDeploymentRequest = z.infer<typeof StartDeploymentRequestSchema>;
+
+export const DeploymentResponseSchema = z.object({ deployment: DeploymentSchema });
+export const DeploymentsListResponseSchema = z.object({ deployments: z.array(DeploymentSchema) });
+export const DeploymentLogsResponseSchema = z.object({
+  lines: z.array(DeploymentLogLineSchema),
+  lastLineId: z.number().int().nonnegative(),
+});

@@ -553,6 +553,17 @@ describe('renderDokployPlan', () => {
     expect(JSON.parse(edge?.files?.['/srv/config.json'] ?? '{}')).toEqual(publicConfig);
   });
 
+  it('emits protected notes API smoke hints when an auth-protected /api route exists', () => {
+    const r = renderDokployPlan(authProtectedPlan(), targetConfig());
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.urls.protectedRouteChecks).toEqual([
+      { name: 'protected-api-get-notes', method: 'GET', url: 'https://commerce.example.com/api/notes' },
+      { name: 'protected-api-post-notes', method: 'POST', url: 'https://commerce.example.com/api/notes' },
+    ]);
+  });
+
   it('rejects target resource name collisions after normalization', () => {
     const r = renderDokployPlan(
       {
@@ -606,3 +617,65 @@ describe('renderDokployPlan', () => {
     }
   });
 });
+
+function targetConfig() {
+  return {
+    endpoint: 'https://dokploy.example.com',
+    projectId: 'project_123',
+    allowCreateProject: false,
+    publicBaseUrl: 'https://commerce.example.com',
+  };
+}
+
+function authProtectedPlan(): ProjectDeploymentPlan {
+  return {
+    project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
+    infrastructure: { eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] } },
+    workloads: [
+      {
+        kind: 'domain-service',
+        slug: 'app',
+        serviceSlug: 'app',
+        resourceName: 'rntme-acme-commerce-app',
+        runtime: { image: 'rntme-runtime' },
+        artifact: { source: 'composed-project', serviceSlug: 'app' },
+        runtimeFiles: { 'manifest.json': '{}' },
+        publicConfigJson: '{}',
+        persistence: { mode: 'ephemeral' },
+      },
+      {
+        kind: 'integration-module',
+        slug: 'identity-auth0',
+        serviceSlug: 'identity-auth0',
+        resourceName: 'rntme-acme-commerce-identity-auth0',
+        image: 'identity-auth0:test',
+        expose: false,
+        env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
+        secretRefs: {},
+      },
+      {
+        kind: 'edge-gateway',
+        slug: 'edge',
+        resourceName: 'rntme-acme-commerce-edge',
+        image: 'nginx:1.27-alpine',
+      },
+    ],
+    edge: {
+      routes: [
+        { id: 'http:/api', kind: 'http', path: '/api', targetService: 'app', targetWorkload: 'app' },
+      ],
+      middleware: [
+        {
+          mountTarget: 'http:/api',
+          name: 'auth',
+          kind: 'auth',
+          provider: 'auth0',
+          audience: 'https://commerce.example.com/api',
+          moduleSlug: 'identity-auth0',
+          moduleIntrospectPort: 50052,
+        },
+      ],
+    },
+    diagnostics: { warnings: [] },
+  };
+}

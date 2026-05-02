@@ -8,10 +8,14 @@ import {
   TokenCreatedResponseSchema,
   TokensListResponseSchema,
   AuthMeResponseSchema,
+  DeploymentResponseSchema,
+  DeploymentsListResponseSchema,
+  DeploymentLogsResponseSchema,
 } from './types.js';
 import type {
   CreateProjectRequest,
   CreateTokenRequest,
+  StartDeploymentRequest,
 } from './types.js';
 
 export type Ctx = { baseUrl: string; token: string | null; requestId?: string };
@@ -94,6 +98,46 @@ export const endpoints = {
         timeoutMs: 120_000,
         ...c,
       }),
+  },
+
+  deployments: {
+    start: (c: Ctx, org: string, project: string, body: StartDeploymentRequest) =>
+      apiCall({
+        method: 'POST',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments`,
+        body,
+        responseSchema: DeploymentResponseSchema,
+        ...c,
+      }),
+    list: (c: Ctx, org: string, project: string, opts?: { limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (opts?.limit) qs.set('limit', String(opts.limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments${suffix}`,
+        responseSchema: DeploymentsListResponseSchema,
+        ...c,
+      });
+    },
+    show: (c: Ctx, org: string, project: string, deploymentId: string) =>
+      apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments/${enc(deploymentId)}`,
+        responseSchema: DeploymentResponseSchema,
+        ...c,
+      }),
+    logs: (c: Ctx, org: string, project: string, deploymentId: string, opts: { sinceLineId: number; limit: number }) => {
+      const qs = new URLSearchParams();
+      qs.set('sinceLineId', String(opts.sinceLineId));
+      qs.set('limit', String(opts.limit));
+      return apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments/${enc(deploymentId)}/logs?${qs.toString()}`,
+        responseSchema: DeploymentLogsResponseSchema,
+        ...c,
+      });
+    },
   },
 
 };

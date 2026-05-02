@@ -3,13 +3,15 @@ import type { VerificationReport } from '@rntme/platform-core';
 
 export type SmokeFetcher = (
   url: string,
-  opts: { method: 'HEAD' | 'GET'; timeoutMs: number },
-) => Promise<{ status: number | 'timeout' | 'error'; latencyMs: number; body?: string }>;
+  opts: { method: 'HEAD' | 'GET' | 'POST'; timeoutMs: number },
+) => Promise<{ status: number | 'timeout' | 'error'; latencyMs: number; body?: string; contentType?: string }>;
 
 export type VerificationHints = {
   readonly healthUrl: string;
   readonly uiUrl?: string;
+  readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
+  readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
 };
 
 export class SmokeVerifier {
@@ -41,7 +43,35 @@ export class SmokeVerifier {
         url: verificationHints.uiUrl,
         status: ui.status,
         latencyMs: ui.latencyMs,
-        ok: is2xx(ui.status) && (ui.body ?? '').length > 0,
+        ok: is2xx(ui.status) && isHtml(ui.contentType) && (ui.body ?? '').length > 0,
+      });
+    }
+
+    if (verificationHints.configUrl) {
+      const config = await this.fetcher(verificationHints.configUrl, {
+        method: 'GET',
+        timeoutMs: 5_000,
+      });
+      checks.push({
+        name: 'config-json',
+        url: verificationHints.configUrl,
+        status: config.status,
+        latencyMs: config.latencyMs,
+        ok: is2xx(config.status) && isJson(config.contentType) && parsesJson(config.body ?? ''),
+      });
+    }
+
+    for (const check of verificationHints.protectedRouteChecks ?? []) {
+      const response = await this.fetcher(check.url, {
+        method: check.method,
+        timeoutMs: 5_000,
+      });
+      checks.push({
+        name: check.name,
+        url: check.url,
+        status: response.status,
+        latencyMs: response.latencyMs,
+        ok: response.status === 401 && isJson(response.contentType),
       });
     }
 
@@ -56,12 +86,13 @@ export class SmokeVerifier {
       });
     }
 
-    const edgeOk = checks[0]?.ok ?? false;
-    const allCheckedOk = checks.every((check) => check.ok || check.note === 'not auto-checked in MVP');
+    const critical = checks.filter((check) => check.note !== 'not auto-checked in MVP');
+    const criticalOk = critical.length > 0 && critical.every((check) => check.ok);
+    const optionalFailed = checks.some((check) => !check.ok && check.note === 'not auto-checked in MVP');
     return {
       checks,
-      ok: edgeOk && allCheckedOk,
-      partialOk: edgeOk && !allCheckedOk,
+      ok: criticalOk && !optionalFailed,
+      partialOk: criticalOk && optionalFailed,
     };
   }
 }
@@ -72,10 +103,12 @@ export const defaultSmokeFetcher: SmokeFetcher = async (url, opts) => {
   const timeout = setTimeout(() => ctrl.abort(), opts.timeoutMs);
   try {
     const response = await globalThis.fetch(url, { method: opts.method, signal: ctrl.signal });
-    const body = opts.method === 'GET' ? await response.text() : undefined;
+    const body = opts.method === 'GET' || opts.method === 'POST' ? await response.text() : undefined;
+    const contentType = response.headers.get('content-type');
     return {
       status: response.status,
       latencyMs: Date.now() - start,
+      ...(contentType === null ? {} : { contentType }),
       ...(body === undefined ? {} : { body }),
     };
   } catch (cause) {
@@ -91,4 +124,21 @@ export const defaultSmokeFetcher: SmokeFetcher = async (url, opts) => {
 
 function is2xx(status: number | 'timeout' | 'error'): boolean {
   return typeof status === 'number' && status >= 200 && status < 300;
+}
+
+function isHtml(contentType: string | undefined): boolean {
+  return contentType?.toLowerCase().includes('text/html') === true;
+}
+
+function isJson(contentType: string | undefined): boolean {
+  return contentType?.toLowerCase().includes('application/json') === true;
+}
+
+function parsesJson(body: string): boolean {
+  try {
+    JSON.parse(body);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -24,8 +24,10 @@ describe('DeploymentStatusSchema', () => {
 });
 
 describe('StartDeploymentRequestSchema', () => {
-  it('accepts minimal body with projectVersionSeq', () => {
-    expect(StartDeploymentRequestSchema.safeParse({ projectVersionSeq: 1 }).success).toBe(true);
+  it('rejects a deployment start body without targetSlug', () => {
+    const parsed = StartDeploymentRequestSchema.safeParse({ projectVersionSeq: 1 });
+
+    expect(parsed.success).toBe(false);
   });
 
   it('accepts overrides', () => {

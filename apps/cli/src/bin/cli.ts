@@ -12,6 +12,10 @@ import { runProjectShow } from '../commands/project/show.js';
 import { runProjectPublish } from '../commands/project/publish.js';
 import { runProjectVersionList } from '../commands/project/version-list.js';
 import { runProjectVersionShow } from '../commands/project/version-show.js';
+import { runProjectDeploy } from '../commands/project/deploy.js';
+import { runProjectDeploymentList } from '../commands/project/deployment-list.js';
+import { runProjectDeploymentShow } from '../commands/project/deployment-show.js';
+import { runProjectDeploymentWatch } from '../commands/project/deployment-watch.js';
 import { runTokenCreate } from '../commands/token/create.js';
 import { runTokenList } from '../commands/token/list.js';
 import { runTokenRevoke } from '../commands/token/revoke.js';
@@ -35,6 +39,10 @@ Commands:
   project publish         Publish a project blueprint version
   project version list    List project versions
   project version show    Show a project version
+  project deploy          Start a platform deployment
+  project deployment list List deployments
+  project deployment show Show a deployment
+  project deployment watch Watch deployment logs until terminal status
 
   token create <name>     Create a machine token
   token list              List tokens in the org
@@ -87,6 +95,10 @@ function setIfDefined<T, K extends keyof T>(obj: T, key: K, value: T[K] | undefi
 // ---------------------------------------------------------------------------
 
 export async function main(argv: string[]): Promise<number> {
+  if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-v')) {
+    process.stdout.write(readVersion() + '\n');
+    return 0;
+  }
   let parsed: ReturnType<typeof parseArgs>;
   try {
     parsed = parseArgs({
@@ -104,7 +116,7 @@ export async function main(argv: string[]): Promise<number> {
         quiet: { type: 'boolean', short: 'q' },
         'no-color': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
-        version: { type: 'boolean', short: 'v' },
+        version: { type: 'string', short: 'v' },
         // command-specific flags
         tag: { type: 'string', multiple: true },
         message: { type: 'string' },
@@ -137,11 +149,6 @@ export async function main(argv: string[]): Promise<number> {
 
   if (asBool(values['help']) === true) {
     process.stdout.write(USAGE);
-    return 0;
-  }
-
-  if (asBool(values['version']) === true) {
-    process.stdout.write(readVersion() + '\n');
     return 0;
   }
 
@@ -270,9 +277,62 @@ export async function main(argv: string[]): Promise<number> {
             }
           }
         }
+        case 'deploy': {
+          const versionRaw = asString(values['version']);
+          const target = asString(values['target']);
+          if (!versionRaw || !target) {
+            process.stderr.write('Usage: rntme project deploy --version <seq> --target <target>\n');
+            return 1;
+          }
+          const version = Number.parseInt(versionRaw, 10);
+          if (Number.isNaN(version) || version <= 0) {
+            process.stderr.write(`Invalid version seq: ${versionRaw}\n`);
+            return 1;
+          }
+          return runProjectDeploy({ version, target }, commonFlags);
+        }
+        case 'deployment': {
+          const deploymentSub = positionals[2];
+          if (!deploymentSub) {
+            process.stderr.write('Usage: rntme project deployment <list|show|watch> ...\n');
+            return 1;
+          }
+          switch (deploymentSub) {
+            case 'list': {
+              const limitRaw = asString(values['limit']);
+              const deploymentListArgs: { limit?: number } = {};
+              if (limitRaw !== undefined) {
+                const n = Number.parseInt(limitRaw, 10);
+                if (!Number.isNaN(n)) deploymentListArgs.limit = n;
+              }
+              return runProjectDeploymentList(deploymentListArgs, commonFlags);
+            }
+            case 'show': {
+              const deploymentId = positionals[3];
+              if (!deploymentId) {
+                process.stderr.write('Usage: rntme project deployment show <deployment-id>\n');
+                return 1;
+              }
+              return runProjectDeploymentShow({ deploymentId }, commonFlags);
+            }
+            case 'watch': {
+              const deploymentId = positionals[3];
+              if (!deploymentId) {
+                process.stderr.write('Usage: rntme project deployment watch <deployment-id>\n');
+                return 1;
+              }
+              return runProjectDeploymentWatch({ deploymentId }, commonFlags);
+            }
+            default: {
+              process.stderr.write(`Unknown project deployment subcommand: ${deploymentSub}\n`);
+              process.stderr.write('Usage: rntme project deployment <list|show|watch> ...\n');
+              return 2;
+            }
+          }
+        }
         default: {
           process.stderr.write(`Unknown project subcommand: ${sub}\n`);
-          process.stderr.write('Usage: rntme project <create|list|show|publish|version> ...\n');
+          process.stderr.write('Usage: rntme project <create|list|show|publish|version|deploy|deployment> ...\n');
           return 2;
         }
       }

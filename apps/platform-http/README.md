@@ -53,12 +53,16 @@ UI mutations (`POST /:orgSlug/tokens`, `DELETE /:orgSlug/tokens/:id`, `POST /:or
 
 ## Deploy runtime
 
+Deployment starts require an explicit `targetSlug` from both JSON API callers and the UI form. The platform records the deployment, schedules the same `runDeployment` executor used by UI-triggered deploys, and logs the selected project version, selected target, render digest, apply actions, and smoke results.
+
 Deploy-target REST routes require `deploy:target:manage`; start deployment
 requires `deploy:execute`; deployment reads require `project:read`. The
 background executor fetches the immutable project-version bundle, revalidates
 it, plans with `@rntme/deploy-core`, applies with
 `@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
+
+Smoke verification is critical for public ingress. The executor checks `/health`, the UI route when present, `/config.json` when public config is rendered, and notes-demo protected API regressions: unauthenticated `GET /api/notes` and `POST /api/notes` must return `401 application/json`.
 
 Deploy targets may point at an external Kafka/Redpanda bus or request a
 provisioned Redpanda bus. Provisioned Redpanda is rendered by

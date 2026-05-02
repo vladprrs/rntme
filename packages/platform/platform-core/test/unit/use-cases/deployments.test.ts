@@ -30,13 +30,13 @@ describe('deployment use-cases', () => {
     );
   });
 
-  it('returns target-not-specified when no targetSlug and no default target exists', async () => {
+  it('does not query the default target because targetSlug is required by the API schema', async () => {
     const { deps } = setup({ defaultTarget: null });
 
-    const result = await startDeployment(deps, input());
+    const result = await startDeployment(deps, input({ targetSlug: 'staging' }));
 
-    expect(result.ok).toBe(false);
-    expect(result.ok ? undefined : result.errors[0]?.code).toBe('DEPLOY_REQUEST_TARGET_NOT_SPECIFIED');
+    expect(result.ok).toBe(true);
+    expect(deps.repos.deployTargets.getDefault).not.toHaveBeenCalled();
   });
 
   it('returns target-not-found when explicit target slug is not in the org', async () => {
@@ -120,7 +120,7 @@ function input(req: { targetSlug?: string } = {}) {
     tokenId: null,
     req: {
       projectVersionSeq: 1,
-      targetSlug: req.targetSlug,
+      targetSlug: req.targetSlug ?? 'staging',
       configOverrides: {},
     },
   };

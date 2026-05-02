@@ -102,6 +102,19 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
     });
     expect(target.status).toBe(201);
 
+    const missingTarget = await env.app.request(`/v1/orgs/${orgSlug}/projects/${projectSlug}/deployments`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${auth.plain}`,
+      },
+      body: JSON.stringify({
+        projectVersionSeq: 1,
+        configOverrides: {},
+      }),
+    });
+    expect(missingTarget.status).toBe(400);
+
     const queued = await env.app.request(`/v1/orgs/${orgSlug}/projects/${projectSlug}/deployments`, {
       method: 'POST',
       headers: {

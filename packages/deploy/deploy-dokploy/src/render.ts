@@ -93,6 +93,7 @@ export type RenderedDokployPlan = {
     readonly projectUrl: string;
     readonly uiUrl?: string;
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
+    readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
   };
   readonly digest: string;
   readonly warnings: readonly string[];
@@ -147,13 +148,15 @@ export function renderDokployPlan(
     path: route.path,
     url: joinPublicUrl(config.publicBaseUrl, route.path),
   }));
+  const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
   const urls: RenderedDokployPlan['urls'] =
     uiRoute === undefined
-      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicRoutes.map(stripRoutePath) }
+      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicRoutes.map(stripRoutePath), protectedRouteChecks }
       : {
           projectUrl: config.publicBaseUrl,
           uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
           publicRoutes: publicRoutes.map(stripRoutePath),
+          protectedRouteChecks,
         };
   const renderedWithoutDigest = {
     target: { kind: 'dokploy' as const, endpoint: config.endpoint },
@@ -489,6 +492,23 @@ function stripRoutePath(route: {
   readonly url: string;
 }): { readonly routeId: string; readonly url: string } {
   return { routeId: route.routeId, url: route.url };
+}
+
+function protectedSmokeChecks(
+  plan: ProjectDeploymentPlan,
+  publicBaseUrl: string,
+): readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[] {
+  const protectedApiRoute = plan.edge.routes.find((route) => {
+    if (route.kind !== 'http') return false;
+    if (route.path !== '/api') return false;
+    return plan.edge.middleware.some((middleware) => middleware.kind === 'auth' && middleware.mountTarget === route.id);
+  });
+  if (protectedApiRoute === undefined) return [];
+  const notesUrl = joinPublicUrl(publicBaseUrl, '/api/notes');
+  return [
+    { name: 'protected-api-get-notes', method: 'GET', url: notesUrl },
+    { name: 'protected-api-post-notes', method: 'POST', url: notesUrl },
+  ];
 }
 
 function assertNever(value: never): never {

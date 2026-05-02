@@ -20,6 +20,12 @@ redacted target configuration and the injected client seam.
   injected client and returns a structured apply result.
 - `DokployClient` — narrow interface for the real HTTP client and tests.
 
+## Apply hardening
+
+Application file mounts are idempotent by `mountPath`: apply lists existing mounts, updates the first matching mount, creates missing mounts, and removes duplicate stale mounts for the same target path. Generated `filePath` values use the platform convention `/etc/dokploy/rntme/<applicationId>/<digest>-<safe-name>` so Dokploy materializes real source files for Swarm bind mounts.
+
+Application lifecycle is `configure -> deploy -> start -> inspect` when the injected client supports inspection. A rejected or failed application task is returned as `DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE`, which causes the platform deployment to finalize as failed.
+
 ## Provisioned Redpanda
 
 When `plan.infrastructure.eventBus.mode === "provisioned"` and

@@ -44,8 +44,7 @@ export function ProjectVersionPage(props: {
           <input type="hidden" name="projectVersionSeq" value={String(version.seq)} />
           <label class="text-sm">
             <span class="mb-1 block font-medium text-gray-900">Target</span>
-            <select name="targetSlug" class="rounded border border-gray-300 px-2 py-1">
-              <option value="">Default target</option>
+            <select name="targetSlug" required class="rounded border border-gray-300 px-2 py-1">
               {(props.deployTargets ?? []).map((target) => (
                 <option value={target.slug}>{target.displayName}</option>
               ))}

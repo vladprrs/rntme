@@ -138,6 +138,12 @@ export function createMockDokployApp() {
     return c.json(mount);
   });
 
+  app.post('/api/mounts.delete', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+    mounts.delete(String(body.mountId ?? ''));
+    return c.json({});
+  });
+
   app.get('/api/domain.byApplicationId', async (c) => {
     const applicationId = c.req.query('applicationId');
     return c.json(Array.from(domains.values()).filter((domain) => domain.applicationId === applicationId));
@@ -176,6 +182,7 @@ export function createMockDokployApp() {
     const app = findApplication(String(body.applicationId ?? ''));
     if (!app) return c.json({ message: 'Not found' }, 404);
     app.lastDeploymentStatus = 'done';
+    app.applicationStatus = 'running';
     return c.json({});
   });
 
@@ -184,7 +191,7 @@ export function createMockDokployApp() {
     const app = findApplication(String(body.applicationId ?? ''));
     if (!app) return c.json({ message: 'Not found' }, 404);
     app.applicationStatus = 'done';
-    return c.json({});
+    return c.json(app);
   });
 
   function findApplication(applicationId: string): MockDokployApplication | undefined {

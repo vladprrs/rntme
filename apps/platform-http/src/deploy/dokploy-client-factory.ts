@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type {
   DokployApplication,
   DokployClient,
@@ -18,6 +19,9 @@ type DokployApiApplication = DokployApiApplicationSummary & {
   appName?: string;
   dockerImage?: string;
   env?: string;
+  applicationStatus?: string;
+  lastDeploymentStatus?: string;
+  statusMessage?: string;
 };
 
 type DokployApiComposeSummary = {
@@ -218,6 +222,14 @@ export function createDokployClientFactory(
       startApplication: async (applicationId: string) => {
         await request('POST', '/api/application.start', { applicationId });
       },
+      inspectApplication: async (applicationId: string) => {
+        const app = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId });
+        const status = normalizeApplicationStatus(app.applicationStatus ?? app.lastDeploymentStatus);
+        return {
+          status,
+          ...(app.statusMessage === undefined ? {} : { message: app.statusMessage }),
+        };
+      },
       findComposeByName: async (environmentId: string, name: string) => {
         return findComposeByName(request, environmentId, name);
       },
@@ -344,13 +356,14 @@ async function configureFileMounts(
   const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
 
   for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
-    const existing = mounts.find((mount) => mount.mountPath === path || mount.filePath === path);
+    const matches = mounts.filter((mount) => mount.mountPath === path);
+    const existing = matches[0];
     const body = {
       type: 'file',
       serviceType: 'application',
       serviceId: applicationId,
       mountPath: path,
-      filePath: path,
+      filePath: dokployFilePath(applicationId, path),
       content,
     };
     if (existing === undefined) {
@@ -361,8 +374,21 @@ async function configureFileMounts(
         mountId: existing.mountId,
         applicationId,
       });
+      for (const duplicate of matches.slice(1)) {
+        await request('POST', '/api/mounts.delete', { mountId: duplicate.mountId });
+      }
     }
   }
+}
+
+function dokployFilePath(applicationId: string, mountPath: string): string {
+  const digest = createHash('sha256').update(`${applicationId}:${mountPath}`).digest('hex').slice(0, 16);
+  const safeName = mountPath
+    .split('/')
+    .filter(Boolean)
+    .join('_')
+    .replace(/[^A-Za-z0-9._-]/g, '_');
+  return `/etc/dokploy/rntme/${applicationId}/${digest}-${safeName || 'file'}`;
 }
 
 function toDokployApplication(details: DokployApiApplication): DokployApplication {
@@ -401,4 +427,10 @@ function parseEnvBlock(input: string | undefined): NonNullable<DokployApplicatio
 export function normalizeDokployBaseUrl(input: string): string {
   const trimmed = input.replace(/\/+$/, '');
   return trimmed.endsWith('/api') ? trimmed.slice(0, -4) : trimmed;
+}
+
+function normalizeApplicationStatus(status: string | undefined): 'running' | 'done' | 'failed' | 'rejected' | 'unknown' {
+  if (status === 'running' || status === 'done' || status === 'failed' || status === 'rejected') return status;
+  if (status === 'error') return 'failed';
+  return 'unknown';
 }

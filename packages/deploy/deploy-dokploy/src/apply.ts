@@ -31,7 +31,9 @@ export type DeploymentApplyResult = {
   readonly verificationHints: {
     readonly healthUrl: string;
     readonly uiUrl?: string;
+    readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
+    readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
   };
 };
 
@@ -212,6 +214,23 @@ async function runApplicationLifecycle(
     await client.deployApplication(target.targetResourceId);
   } catch (cause) {
     return partialFailure(cause, resource, applied, 'deploy');
+  }
+
+  try {
+    await client.startApplication(target.targetResourceId);
+  } catch (cause) {
+    return partialFailure(cause, resource, applied, 'start');
+  }
+
+  if (client.inspectApplication !== undefined) {
+    try {
+      const inspected = await client.inspectApplication(target.targetResourceId);
+      if (inspected.status === 'failed' || inspected.status === 'rejected') {
+        return partialFailure(new Error(inspected.message ?? `Dokploy application status ${inspected.status}`), resource, applied, 'inspect');
+      }
+    } catch (cause) {
+      return partialFailure(cause, resource, applied, 'inspect');
+    }
   }
 
   return ok(undefined);
@@ -453,7 +472,9 @@ function sortRecord(value: Readonly<Record<string, string>>): Readonly<Record<st
 function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult['verificationHints'] {
   const base = {
     healthUrl: joinUrl(rendered.urls.projectUrl, '/health'),
+    configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
+    protectedRouteChecks: rendered.urls.protectedRouteChecks,
   };
 
   if (rendered.urls.uiUrl === undefined) return base;

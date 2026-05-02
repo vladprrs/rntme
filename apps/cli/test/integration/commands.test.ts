@@ -136,3 +136,58 @@ describe('project publish folder resolution', () => {
     expect(r.stderr).toContain('cannot use positional and --folder together');
   });
 });
+
+describe('project deploy commands', () => {
+  it('rejects project deploy without --version', async () => {
+    const r = await runCli(['--org', 'acme', '--project', 'notes-demo', 'project', 'deploy', '--target', 'preview']);
+
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('Usage: rntme project deploy --version <seq> --target <target>');
+  });
+
+  it('rejects project deploy without --target', async () => {
+    const r = await runCli(['--org', 'acme', '--project', 'notes-demo', 'project', 'deploy', '--version', '4']);
+
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('Usage: rntme project deploy --version <seq> --target <target>');
+  });
+
+  it('dispatches project deploy to the platform deployments endpoint', async () => {
+    server.use(
+      http.post(`${BASE}/v1/orgs/acme/projects/notes-demo/deployments`, async ({ request }) => {
+        expect(await request.json()).toEqual({
+          projectVersionSeq: 4,
+          targetSlug: 'preview',
+          configOverrides: {},
+        });
+        return HttpResponse.json({
+          deployment: {
+            id: '11111111-1111-4111-8111-111111111111',
+            orgId: '22222222-2222-4222-8222-222222222222',
+            projectId: '33333333-3333-4333-8333-333333333333',
+            projectVersionId: '44444444-4444-4444-8444-444444444444',
+            targetId: '55555555-5555-4555-8555-555555555555',
+            status: 'queued',
+            configOverrides: {},
+            renderedPlanDigest: null,
+            applyResult: null,
+            verificationReport: null,
+            warnings: [],
+            errorCode: null,
+            errorMessage: null,
+            startedByAccountId: '66666666-6666-4666-8666-666666666666',
+            queuedAt: '2026-05-02T12:00:00.000Z',
+            startedAt: null,
+            finishedAt: null,
+            lastHeartbeatAt: null,
+          },
+        }, { status: 202 });
+      }),
+    );
+
+    const r = await runCli(['--org', 'acme', '--project', 'notes-demo', 'project', 'deploy', '--version', '4', '--target', 'preview']);
+
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('11111111-1111-4111-8111-111111111111');
+  });
+});

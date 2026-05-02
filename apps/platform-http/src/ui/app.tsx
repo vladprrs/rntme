@@ -509,7 +509,19 @@ export function createUiApp(deps: UiDeps): Hono {
     if (!isOk(project) || !project.value) return renderHtml(c, <ErrorPage status={404} title="Project not found" backHref={`/${s.org.slug}`} />, 404);
     const form = await c.req.parseBody();
     const projectVersionSeq = Number(form.projectVersionSeq);
-    const targetSlug = typeof form.targetSlug === 'string' && form.targetSlug.length > 0 ? form.targetSlug : undefined;
+    const targetSlug = typeof form.targetSlug === 'string' && form.targetSlug.trim().length > 0 ? form.targetSlug.trim() : null;
+    if (targetSlug === null) {
+      return renderHtml(
+        c,
+        <ErrorPage
+          status={400}
+          title="Cannot start deployment"
+          detail="Choose a deploy target."
+          backHref={`/${s.org.slug}/projects/${projSlug}/versions/${projectVersionSeq}`}
+        />,
+        400,
+      );
+    }
     const result = await startDeployment({ repos, ids: deps.ids }, {
       orgId: s.org.id,
       projectId: project.value.id,

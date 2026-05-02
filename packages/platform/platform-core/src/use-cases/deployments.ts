@@ -44,19 +44,13 @@ export async function startDeployment(
     ]);
   }
 
-  const target =
-    input.req.targetSlug === undefined
-      ? await deps.repos.deployTargets.getDefault(input.orgId)
-      : await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
+  const target = await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
   if (!isOk(target)) return target;
   if (!target.value) {
     return err([
       {
-        code:
-          input.req.targetSlug === undefined
-            ? 'DEPLOY_REQUEST_TARGET_NOT_SPECIFIED'
-            : 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
-        message: input.req.targetSlug ?? 'no default deploy target configured',
+        code: 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
+        message: input.req.targetSlug,
       },
     ]);
   }
@@ -64,7 +58,7 @@ export async function startDeployment(
     return err([
       {
         code: 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
-        message: input.req.targetSlug ?? target.value.slug,
+        message: input.req.targetSlug,
       },
     ]);
   }
