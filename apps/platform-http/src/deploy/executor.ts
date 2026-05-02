@@ -27,6 +27,7 @@ import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-
 import type { DokployClientFactory } from './dokploy-client-factory.js';
 import { redact } from './log-redactor.js';
 import type { SmokeVerifier } from './smoke-verifier.js';
+import { runStage } from './stage-runner.js';
 
 type ResultLike<T, E = { readonly code: string; readonly message: string }> =
   | { readonly ok: true; readonly value: T }
@@ -126,6 +127,9 @@ export async function runDeployment(
     const bundle = JSON.parse(gunzipSync(raw.value).toString('utf8')) as CanonicalBundle;
     tmpDir = await materializeBundle(bundle);
 
+    const log = async (entry: { step: string; level: 'error'; code: string; message: string }) =>
+      appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
+
     await appendLog(deps, deploymentId, orgId, 'info', 'plan', 'Re-validating blueprint');
     const composed = (deps.loadComposed ?? defaultLoadComposed)(tmpDir);
     if (!composed.ok) {
@@ -141,7 +145,7 @@ export async function runDeployment(
     const redactedTarget = redactTarget(target);
     const config = buildProjectDeploymentConfig(redactedTarget, orgSlug, ctx.configOverrides);
     const deployInput = await toDeployCoreInput(composed.value, tmpDir, config);
-    const plan = (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config);
+    const plan = await runStage('plan', async () => (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config), { log });
     if (!plan.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: plan.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
@@ -162,7 +166,7 @@ export async function runDeployment(
     );
 
     await appendLog(deps, deploymentId, orgId, 'info', 'render', 'Rendering Dokploy plan');
-    const rendered = (deps.renderPlan ?? renderDokployPlan)(
+    const rendered = await runStage('render', async () => (deps.renderPlan ?? renderDokployPlan)(
       plan.value as ProjectDeploymentPlan,
       buildDokployTargetConfig(redactedTarget, ctx.configOverrides, {
         orgSlug,
@@ -170,7 +174,7 @@ export async function runDeployment(
         environment: plan.value.project.environment,
         ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
       }),
-    );
+    ), { log });
     if (!rendered.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: rendered.errors[0]?.code ?? 'DEPLOY_RENDER_DOKPLOY_UNKNOWN',
@@ -184,10 +188,10 @@ export async function runDeployment(
     await appendLog(deps, deploymentId, orgId, 'info', 'render', `Rendered Dokploy plan digest ${rendered.value.digest}`);
 
     await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
-    const applied = await (deps.applyPlan ?? applyDokployPlan)(
+    const applied = await runStage('apply', async () => (deps.applyPlan ?? applyDokployPlan)(
       rendered.value as RenderedDokployPlan,
       deps.dokployClientFactory(target),
-    );
+    ), { log });
     if (!applied.ok) {
       await logApplyFailure(deps, deploymentId, orgId, applied.errors);
       await finalize(deps, deploymentId, orgId, 'failed', {
