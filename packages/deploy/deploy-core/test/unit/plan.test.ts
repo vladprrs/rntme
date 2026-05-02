@@ -127,6 +127,114 @@ describe('buildProjectDeploymentPlan', () => {
     }
   });
 
+  it('normalizes legacy external event bus configs without mode', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        brokers: ['redpanda.internal:9092'],
+      } as ProjectDeploymentConfig['eventBus'],
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.eventBus).toEqual({
+      kind: 'kafka',
+      mode: 'external',
+      brokers: ['redpanda.internal:9092'],
+    });
+  });
+
+  it('plans provisioned Redpanda infrastructure with deterministic names', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        topicPrefix: 'rntme.notes',
+      },
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.eventBus).toEqual({
+      kind: 'kafka',
+      mode: 'provisioned',
+      provider: 'redpanda',
+      resourceName: 'rntme-acme-commerce-event-bus',
+      internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+      topicPrefix: 'rntme.notes',
+      image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+      persistence: {
+        mode: 'persistent',
+        volumeName: 'rntme-acme-commerce-event-bus-data',
+      },
+    });
+  });
+
+  it('allows overriding the provisioned Redpanda image with a pinned image', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        image: 'docker.redpanda.com/redpandadata/redpanda:v25.1.1',
+      },
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.eventBus).toMatchObject({
+      mode: 'provisioned',
+      image: 'docker.redpanda.com/redpandadata/redpanda:v25.1.1',
+    });
+  });
+
+  it('rejects unsupported provisioned event bus providers', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'kafka',
+      } as ProjectDeploymentConfig['eventBus'],
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_EVENT_BUS_PROVIDER_UNSUPPORTED',
+          path: 'eventBus.provider',
+        }),
+      );
+    }
+  });
+
+  it('rejects latest as a provisioned Redpanda image tag', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        image: 'docker.redpanda.com/redpandadata/redpanda:latest',
+      },
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_EVENT_BUS_IMAGE_INVALID',
+          path: 'eventBus.image',
+        }),
+      );
+    }
+  });
+
   it('rejects integration modules without explicit image config', () => {
     const r = buildProjectDeploymentPlan(project, {
       ...previewConfig,

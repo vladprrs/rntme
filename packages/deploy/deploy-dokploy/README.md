@@ -20,6 +20,24 @@ redacted target configuration and the injected client seam.
   injected client and returns a structured apply result.
 - `DokployClient` — narrow interface for the real HTTP client and tests.
 
+## Provisioned Redpanda
+
+When `plan.infrastructure.eventBus.mode === "provisioned"` and
+`provider === "redpanda"`, render adds a Dokploy Compose resource before the
+application resources. The compose file starts a single internal Redpanda
+broker on port `9092`, uses a deterministic persistent named volume, and does
+not expose a public domain or external broker port.
+
+Domain-service workloads receive:
+
+- `RNTME_EVENT_BUS_BROKERS=<provisioned-resource>:9092`
+- `RNTME_EVENT_BUS_PROTOCOL=plaintext`
+- optional `RNTME_EVENT_BUS_TOPIC_PREFIX`
+
+Apply creates or updates compose resources before applications. It does not
+wait for Kafka protocol readiness; runtime bus clients must tolerate broker
+warm-up.
+
 ## Where to look first
 
 - `src/render.ts` — redacted Dokploy resource rendering and digesting.
@@ -70,6 +88,7 @@ Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Ses
 
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
+- `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
 
 ## Security
 

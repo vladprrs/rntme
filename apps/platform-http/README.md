@@ -60,6 +60,12 @@ it, plans with `@rntme/deploy-core`, applies with
 `@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
 
+Deploy targets may point at an external Kafka/Redpanda bus or request a
+provisioned Redpanda bus. Provisioned Redpanda is rendered by
+`@rntme/deploy-dokploy` as an internal Dokploy Compose resource with a
+persistent named volume. It is explicit per deploy target; missing `eventBus`
+config remains invalid.
+
 The deploy executor's `readUiRuntimeCss` looks for the bundled SPA stylesheet
 in `packages/runtime/ui-runtime/build/main.css` first, then falls back to the
 legacy `packages/ui-runtime/build/main.css`. The legacy location predates the

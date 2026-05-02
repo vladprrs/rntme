@@ -36,13 +36,22 @@ export function buildProjectDeploymentConfig(
     modules[slug] = { image };
   }
 
-  const eventBus = {
-    kind: target.eventBus.kind,
-    mode: target.eventBus.mode ?? 'external',
-    brokers: target.eventBus.brokers,
-    ...(target.eventBus.topicPrefix === undefined ? {} : { topicPrefix: target.eventBus.topicPrefix }),
-    ...(target.eventBus.security === undefined ? {} : { security: target.eventBus.security }),
-  };
+  const eventBus =
+    target.eventBus.mode === 'provisioned'
+      ? {
+          kind: target.eventBus.kind,
+          mode: 'provisioned' as const,
+          provider: target.eventBus.provider,
+          ...(target.eventBus.image === undefined ? {} : { image: target.eventBus.image }),
+          ...(target.eventBus.topicPrefix === undefined ? {} : { topicPrefix: target.eventBus.topicPrefix }),
+        }
+      : {
+          kind: target.eventBus.kind,
+          mode: 'external' as const,
+          brokers: target.eventBus.brokers,
+          ...(target.eventBus.topicPrefix === undefined ? {} : { topicPrefix: target.eventBus.topicPrefix }),
+          ...(target.eventBus.security === undefined ? {} : { security: target.eventBus.security }),
+        };
 
   return {
     orgSlug,

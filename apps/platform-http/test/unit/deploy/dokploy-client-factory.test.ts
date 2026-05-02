@@ -247,6 +247,57 @@ describe('createDokployClientFactory', () => {
     expect(String(fetcher.mock.calls[1]?.[0])).toContain('/api/application.one?applicationId=app-1');
   });
 
+  it('creates, configures, and deploys Dokploy compose resources', async () => {
+    const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'dokploy-token-secret'),
+    };
+    const client = createDokployClientFactory(cipher, async (input, init) => {
+      const url = String(input);
+      calls.push({
+        url,
+        method: init?.method ?? 'GET',
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      if (url.endsWith('/api/project.all')) {
+        return jsonResponse([
+          {
+            projectId: 'project-1',
+            name: 'Project',
+            environments: [
+              { environmentId: 'env_default', name: 'default', applications: [], composes: [] },
+            ],
+          },
+        ]);
+      }
+      if (url.endsWith('/api/compose.create')) {
+        return jsonResponse({ composeId: 'compose-1', name: 'rntme-acme-commerce-event-bus' });
+      }
+      if (url.endsWith('/api/compose.update')) return jsonResponse(true);
+      if (url.endsWith('/api/compose.one?composeId=compose-1')) {
+        return jsonResponse({ composeId: 'compose-1', name: 'rntme-acme-commerce-event-bus' });
+      }
+      if (url.endsWith('/api/compose.saveEnvironment')) return jsonResponse({});
+      if (url.endsWith('/api/compose.deploy')) return jsonResponse({});
+      return jsonResponse({});
+    })(target());
+
+    const created = await client.createCompose('env_default', renderedComposeResource());
+    await client.configureCompose(created.id, renderedComposeResource());
+    await client.deployCompose(created.id);
+
+    expect(calls.map((call) => call.url)).toContain('https://dokploy.example.com/api/compose.create');
+    expect(calls.map((call) => call.url)).toContain('https://dokploy.example.com/api/compose.update');
+    expect(calls.map((call) => call.url)).toContain('https://dokploy.example.com/api/compose.deploy');
+    expect(calls.find((call) => call.url.endsWith('/api/compose.create'))?.body).toMatchObject({
+      environmentId: 'env_default',
+      name: 'rntme-acme-commerce-event-bus',
+      composeType: 'docker-compose',
+      composeFile: expect.stringContaining('redpanda'),
+    });
+  });
+
   it('runs the configure/deploy/start lifecycle against the e2e Dokploy mock', async () => {
     const mock = createMockDokployApp();
     const cipher: SecretCipher = {
@@ -309,7 +360,7 @@ function target(): DeployTargetWithSecret {
   };
 }
 
-function renderedEdgeResource(): RenderedDokployResource {
+function renderedEdgeResource(): Extract<RenderedDokployResource, { kind: 'application' }> {
   return {
     logicalId: 'edge',
     kind: 'application',
@@ -330,7 +381,7 @@ function renderedEdgeResource(): RenderedDokployResource {
   };
 }
 
-function renderedDomainResource(): RenderedDokployResource {
+function renderedDomainResource(): Extract<RenderedDokployResource, { kind: 'application' }> {
   return {
     logicalId: 'app',
     kind: 'application',
@@ -347,6 +398,19 @@ function renderedDomainResource(): RenderedDokployResource {
     },
     env: [{ name: 'RNTME_PERSISTENCE_MODE', value: 'ephemeral', secret: false }],
     labels: { 'rntme.workload': 'app' },
+  };
+}
+
+function renderedComposeResource(): Extract<RenderedDokployResource, { kind: 'compose' }> {
+  return {
+    logicalId: 'event-bus',
+    kind: 'compose',
+    infrastructureKind: 'event-bus',
+    name: 'rntme-acme-commerce-event-bus',
+    image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+    composeFile: 'services:\n  redpanda:\n    image: docker.redpanda.com/redpandadata/redpanda:v24.3.6\n',
+    env: [],
+    labels: { 'rntme.infrastructure': 'event-bus' },
   };
 }
 

@@ -13,13 +13,25 @@ export type ExternalEventBusSecurity =
       };
     };
 
+export const DEFAULT_REDPANDA_IMAGE = 'docker.redpanda.com/redpandadata/redpanda:v24.3.6';
+
 export type ExternalEventBusConfig = {
   readonly kind: 'kafka';
-  readonly mode: 'external';
+  readonly mode?: 'external';
   readonly brokers: readonly string[];
   readonly topicPrefix?: string;
   readonly security?: ExternalEventBusSecurity;
 };
+
+export type ProvisionedEventBusConfig = {
+  readonly kind: 'kafka';
+  readonly mode: 'provisioned';
+  readonly provider: 'redpanda';
+  readonly image?: string;
+  readonly topicPrefix?: string;
+};
+
+export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig;
 
 export type IntegrationModuleDeploymentConfig = {
   readonly image: string;
@@ -63,7 +75,7 @@ export type ProjectDeploymentConfig = {
   readonly orgSlug: string;
   readonly environment: DeploymentEnvironment;
   readonly mode: DeploymentMode;
-  readonly eventBus?: ExternalEventBusConfig;
+  readonly eventBus?: EventBusConfig;
   readonly modules?: Readonly<Record<string, IntegrationModuleDeploymentConfig>>;
   readonly policies?: DeploymentPolicyConfig;
   readonly auth?: ProjectAuthConfig;

@@ -17,12 +17,17 @@ to a target adapter.
 
 - `buildProjectDeploymentPlan(project, config)` — creates a preview deployment
   plan or returns `DEPLOY_PLAN_*` errors.
-- `ProjectDeploymentConfig` — org/environment/mode, external event bus,
+- `ProjectDeploymentConfig` — org/environment/mode, event bus,
   integration module image config, backend auth config, and policy values.
 - `ComposedProjectInput` — deploy-relevant structural subset of the composed
   project model.
 
-### Auth and SASL
+## Event bus modes, auth, and SASL
+
+`ProjectDeploymentConfig.eventBus` supports two Kafka-compatible modes:
+
+- `{ kind: "kafka", mode: "external", brokers, security? }` for an already provisioned Kafka/Redpanda endpoint. Omitted `mode` is normalized to `"external"` for backward compatibility.
+- `{ kind: "kafka", mode: "provisioned", provider: "redpanda", image?, topicPrefix? }` for a target-local provisioned bus. The first implementation is Redpanda on Dokploy. The planner derives the internal broker address and persistent volume identity.
 
 `ExternalEventBusConfig.security` is a discriminated union:
 
@@ -30,6 +35,8 @@ to a target adapter.
 - `{ protocol: "sasl_ssl", mechanism, secretRefs }` for managed Redpanda/Kafka.
   `mechanism` must be `scram-sha-256` or `scram-sha-512`; `secretRefs.username`
   and `secretRefs.password` are required and are secret names, not secret values.
+
+Provisioned Redpanda is internal-only plaintext in this design. Cleanup/deprovisioning is a separate future workflow.
 
 ### Edge auth
 
@@ -68,6 +75,7 @@ The planned auth middleware carries `moduleIntrospectPort` (sourced from `capabi
 
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
+- `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
 
 ## MVP limits
 

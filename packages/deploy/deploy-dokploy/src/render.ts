@@ -54,7 +54,7 @@ export type RenderedDokployIngress = {
   }[];
 };
 
-export type RenderedDokployResource = {
+export type RenderedDokployApplicationResource = {
   readonly logicalId: string;
   readonly kind: 'application';
   readonly workloadKind: DeploymentWorkload['kind'];
@@ -68,6 +68,21 @@ export type RenderedDokployResource = {
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
 };
+
+export type RenderedDokployComposeResource = {
+  readonly logicalId: string;
+  readonly kind: 'compose';
+  readonly infrastructureKind: 'event-bus';
+  readonly name: string;
+  readonly image: string;
+  readonly composeFile: string;
+  readonly env: readonly RenderedEnvVar[];
+  readonly labels: Readonly<Record<string, string>>;
+};
+
+export type RenderedDokployResource =
+  | RenderedDokployApplicationResource
+  | RenderedDokployComposeResource;
 
 export type RenderedDokployPlan = {
   readonly target: { readonly kind: 'dokploy'; readonly endpoint: string };
@@ -121,9 +136,11 @@ export function renderDokployPlan(
     ]);
   }
 
-  const resources = plan.workloads.map((workload) =>
-    renderResource(plan, workload, nginxConfig.value),
-  );
+  const infrastructureResources = renderInfrastructureResources(plan);
+  const resources = [
+    ...infrastructureResources,
+    ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
+  ];
   const uiRoute = plan.edge.routes.find((route) => route.kind === 'ui');
   const publicRoutes = plan.edge.routes.map((route) => ({
     routeId: route.id,
@@ -148,7 +165,7 @@ export function renderDokployPlan(
       mode: plan.project.mode,
     },
     resources: resources.map((resource) =>
-      resource.workloadKind === 'edge-gateway'
+      resource.kind === 'application' && resource.workloadKind === 'edge-gateway'
         ? {
             ...resource,
             ports: [{ containerPort: 8080, protocol: 'http' as const }],
@@ -212,11 +229,63 @@ function resolveProject(config: DokployTargetConfig): RenderedDokployProject | n
   return null;
 }
 
+function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
+  const eventBus = plan.infrastructure.eventBus;
+  if (eventBus.mode !== 'provisioned') return [];
+  return [renderRedpandaCompose(plan)];
+}
+
+function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
+  const eventBus = plan.infrastructure.eventBus;
+  if (eventBus.mode !== 'provisioned') {
+    throw new Error('renderRedpandaCompose called for external event bus');
+  }
+
+  const labels = {
+    ...dokployLabels(
+      plan.project.orgSlug,
+      plan.project.projectSlug,
+      plan.project.environment,
+      'event-bus',
+    ),
+    'rntme.infrastructure': 'event-bus',
+    'rntme.provider': eventBus.provider,
+  };
+
+  return {
+    logicalId: 'event-bus',
+    kind: 'compose',
+    infrastructureKind: 'event-bus',
+    name: eventBus.resourceName,
+    image: eventBus.image,
+    composeFile: redpandaComposeFile(eventBus),
+    env: [],
+    labels,
+  };
+}
+
+function redpandaComposeFile(
+  eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
+): string {
+  return [
+    'services:',
+    '  redpanda:',
+    `    image: ${eventBus.image}`,
+    '    command: redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092 --advertise-kafka-addr=internal://redpanda:9092',
+    '    volumes:',
+    `      - ${eventBus.persistence.volumeName}:/var/lib/redpanda/data`,
+    'volumes:',
+    `  ${eventBus.persistence.volumeName}:`,
+    '    name: ' + eventBus.persistence.volumeName,
+    '',
+  ].join('\n');
+}
+
 function renderResource(
   plan: ProjectDeploymentPlan,
   workload: DeploymentWorkload,
   nginxConfig: string,
-): RenderedDokployResource {
+): RenderedDokployApplicationResource {
   const name = dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, workload.slug);
   const labels = dokployLabels(
     plan.project.orgSlug,
@@ -283,12 +352,7 @@ function renderResource(
       name,
       image: workload.runtime.image,
       env: [
-        {
-          name: 'RNTME_EVENT_BUS_BROKERS',
-          value: plan.infrastructure.eventBus.brokers.join(','),
-          secret: false,
-        },
-        ...eventBusSecurityEnv(plan.infrastructure.eventBus),
+        ...eventBusEnv(plan.infrastructure.eventBus),
         {
           name: 'RNTME_PERSISTENCE_MODE',
           value: workload.persistence.mode,
@@ -334,10 +398,30 @@ function firstDomainPublicConfig(workloads: readonly DeploymentWorkload[]): stri
   return workloads.find((workload) => workload.kind === 'domain-service')?.publicConfigJson ?? '{}';
 }
 
-function eventBusSecurityEnv(
+function eventBusEnv(
   eventBus: ProjectDeploymentPlan['infrastructure']['eventBus'],
 ): RenderedEnvVar[] {
-  const env: RenderedEnvVar[] = [];
+  if (eventBus.mode === 'provisioned') {
+    return [
+      {
+        name: 'RNTME_EVENT_BUS_BROKERS',
+        value: eventBus.internalBrokers.join(','),
+        secret: false,
+      },
+      { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
+      ...(eventBus.topicPrefix === undefined || eventBus.topicPrefix === ''
+        ? []
+        : [{ name: 'RNTME_EVENT_BUS_TOPIC_PREFIX', value: eventBus.topicPrefix, secret: false }]),
+    ];
+  }
+
+  const env: RenderedEnvVar[] = [
+    {
+      name: 'RNTME_EVENT_BUS_BROKERS',
+      value: eventBus.brokers.join(','),
+      secret: false,
+    },
+  ];
   if (eventBus.security?.protocol === 'sasl_ssl') {
     env.push(
       { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'sasl_ssl', secret: false },

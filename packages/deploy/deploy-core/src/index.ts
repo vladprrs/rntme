@@ -8,11 +8,14 @@ export {
 } from './composed-project.js';
 export {
   type BodyLimitPolicyConfig,
+  DEFAULT_REDPANDA_IMAGE,
   type DeploymentEnvironment,
   type DeploymentMode,
   type DeploymentPolicyConfig,
+  type EventBusConfig,
   type ExternalEventBusConfig,
   type IntegrationModuleDeploymentConfig,
+  type ProvisionedEventBusConfig,
   type ProjectDeploymentConfig,
   type RateLimitPolicyConfig,
   type RequestContextPolicyConfig,
@@ -26,7 +29,10 @@ export {
   type EdgeGatewayWorkload,
   type EdgePlan,
   type IntegrationModuleWorkload,
+  type PlannedEventBus,
+  type PlannedExternalEventBus,
   type PlannedProject,
+  type PlannedProvisionedEventBus,
   type ProjectDeploymentPlan,
 } from './plan.js';
 export { type EdgeMiddleware, type EdgeRoute } from './edge.js';

@@ -1,9 +1,12 @@
 import type { ComposedProjectInput } from './composed-project.js';
-import type {
-  DeploymentMode,
-  ExternalEventBusConfig,
-  ProjectAuthConfig,
-  ProjectDeploymentConfig,
+import {
+  DEFAULT_REDPANDA_IMAGE,
+  type DeploymentMode,
+  type EventBusConfig,
+  type ExternalEventBusConfig,
+  type ExternalEventBusSecurity,
+  type ProjectAuthConfig,
+  type ProjectDeploymentConfig,
 } from './config.js';
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
@@ -61,10 +64,34 @@ export type DeploymentWarning = {
   readonly message: string;
 };
 
+export type PlannedExternalEventBus = {
+  readonly kind: 'kafka';
+  readonly mode: 'external';
+  readonly brokers: readonly string[];
+  readonly topicPrefix?: string;
+  readonly security?: ExternalEventBusSecurity;
+};
+
+export type PlannedProvisionedEventBus = {
+  readonly kind: 'kafka';
+  readonly mode: 'provisioned';
+  readonly provider: 'redpanda';
+  readonly resourceName: string;
+  readonly internalBrokers: readonly string[];
+  readonly topicPrefix?: string;
+  readonly image: string;
+  readonly persistence: {
+    readonly mode: 'persistent';
+    readonly volumeName: string;
+  };
+};
+
+export type PlannedEventBus = PlannedExternalEventBus | PlannedProvisionedEventBus;
+
 export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
   readonly infrastructure: {
-    readonly eventBus: ExternalEventBusConfig;
+    readonly eventBus: PlannedEventBus;
     readonly auth?: ProjectAuthConfig;
   };
   readonly workloads: readonly DeploymentWorkload[];
@@ -104,21 +131,24 @@ export function buildProjectDeploymentPlan(
     });
   }
 
-  if (config.eventBus === undefined || config.eventBus.brokers.length === 0) {
+  const plannedEventBus =
+    config.eventBus === undefined
+      ? undefined
+      : planEventBus(config.eventBus, config.orgSlug, project.name, errors);
+
+  if (config.eventBus === undefined) {
     errors.push({
       code: 'DEPLOY_PLAN_MISSING_EVENT_BUS',
-      message: 'preview deployments require one project-level external Kafka/Redpanda endpoint',
+      message: 'preview deployments require one project-level Kafka/Redpanda event bus',
       path: 'eventBus',
     });
-  } else {
-    validateEventBusSecurity(config.eventBus, errors);
   }
 
   const workloads = buildWorkloads(project, config, errors);
   const { edge, errors: edgeErrors } = planEdge(project, config, workloads);
   errors.push(...edgeErrors);
 
-  if (errors.length > 0 || config.eventBus === undefined) return err(errors);
+  if (errors.length > 0 || plannedEventBus === undefined) return err(errors);
 
   return ok({
     project: {
@@ -128,7 +158,7 @@ export function buildProjectDeploymentPlan(
       mode: config.mode,
     },
     infrastructure: {
-      eventBus: config.eventBus,
+      eventBus: plannedEventBus,
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
     },
     workloads,
@@ -198,6 +228,78 @@ function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string
   return `rntme-${orgSlug}-${projectSlug}-${workloadSlug}`;
 }
 
+function planEventBus(
+  eventBus: EventBusConfig,
+  orgSlug: string,
+  projectSlug: string,
+  errors: DeploymentPlanError[],
+): PlannedEventBus | undefined {
+  const mode = (eventBus as { readonly mode?: unknown }).mode ?? 'external';
+  if (mode === 'external') {
+    const external = eventBus as ExternalEventBusConfig;
+    if (external.brokers.length === 0) {
+      errors.push({
+        code: 'DEPLOY_PLAN_MISSING_EVENT_BUS',
+        message: 'preview deployments require one project-level external Kafka/Redpanda endpoint',
+        path: 'eventBus',
+      });
+      return undefined;
+    }
+    validateEventBusSecurity(external, errors);
+    return {
+      kind: 'kafka',
+      mode: 'external',
+      brokers: external.brokers,
+      ...(external.topicPrefix === undefined ? {} : { topicPrefix: external.topicPrefix }),
+      ...(external.security === undefined ? {} : { security: external.security }),
+    };
+  }
+
+  if (mode !== 'provisioned') {
+    errors.push({
+      code: 'DEPLOY_PLAN_EVENT_BUS_MODE_UNSUPPORTED',
+      message: `unsupported event bus mode "${String(mode)}"`,
+      path: 'eventBus.mode',
+    });
+    return undefined;
+  }
+
+  const provisioned = eventBus as Extract<EventBusConfig, { mode: 'provisioned' }>;
+  if (provisioned.provider !== 'redpanda') {
+    errors.push({
+      code: 'DEPLOY_PLAN_EVENT_BUS_PROVIDER_UNSUPPORTED',
+      message: `unsupported provisioned event bus provider "${String(provisioned.provider)}"`,
+      path: 'eventBus.provider',
+    });
+    return undefined;
+  }
+
+  const image = provisioned.image ?? DEFAULT_REDPANDA_IMAGE;
+  if (!isPinnedContainerImage(image)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_EVENT_BUS_IMAGE_INVALID',
+      message: 'provisioned Redpanda image must use a non-latest tag',
+      path: 'eventBus.image',
+    });
+    return undefined;
+  }
+
+  const resource = resourceName(orgSlug, projectSlug, 'event-bus');
+  return {
+    kind: 'kafka',
+    mode: 'provisioned',
+    provider: 'redpanda',
+    resourceName: resource,
+    internalBrokers: [`${resource}:9092`],
+    ...(provisioned.topicPrefix === undefined ? {} : { topicPrefix: provisioned.topicPrefix }),
+    image,
+    persistence: {
+      mode: 'persistent',
+      volumeName: `${resource}-data`,
+    },
+  };
+}
+
 function validateEventBusSecurity(
   eventBus: ExternalEventBusConfig,
   errors: DeploymentPlanError[],
@@ -225,4 +327,13 @@ function validateEventBusSecurity(
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
+}
+
+function isPinnedContainerImage(image: string): boolean {
+  const trimmed = image.trim();
+  if (trimmed === '') return false;
+  const lastSlash = trimmed.lastIndexOf('/');
+  const lastColon = trimmed.lastIndexOf(':');
+  if (lastColon <= lastSlash) return false;
+  return trimmed.slice(lastColon + 1) !== 'latest';
 }

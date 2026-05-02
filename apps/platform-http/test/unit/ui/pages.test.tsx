@@ -71,6 +71,40 @@ describe('DeployTargetsPage', () => {
     expect(html).toContain('Auto (*.rntme.com)');
     expect(html).not.toContain('Public URL</th><td>Not configured');
   });
+
+  it('shows provisioned Redpanda event bus mode', () => {
+    const html = String(
+      <DeployTargetsPage
+        subject={subject()}
+        otherOrgs={[]}
+        publicDeployDomain="*.rntme.com"
+        targets={[
+          {
+            id: 'target-1',
+            orgId: 'org-1',
+            slug: 'dokploy-redpanda',
+            displayName: 'Dokploy Redpanda',
+            kind: 'dokploy',
+            dokployUrl: 'https://dokploy.example.test',
+            publicBaseUrl: null,
+            dokployProjectId: 'project-1',
+            dokployProjectName: null,
+            allowCreateProject: false,
+            apiTokenRedacted: '***',
+            eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+            modules: {},
+            auth: {},
+            policyValues: {},
+            isDefault: false,
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            updatedAt: new Date('2026-01-01T00:00:00Z'),
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('Provisioned Redpanda');
+  });
 });
 
 function subject() {
