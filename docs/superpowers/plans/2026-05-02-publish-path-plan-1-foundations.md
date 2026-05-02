@@ -12,6 +12,20 @@
 
 ---
 
+## RNT-415 Challenge Amendments
+
+These amendments override conflicting details later in this plan.
+
+- **Plan role:** this branch challenges and tightens the plan/spec only. Product implementation remains for a [DEV] agent.
+- **Substitution surfaces:** `vars` validation and substitution must cover every currently declared substitutable blueprint value, not only module `publicConfig`. Include `project.modules.*.publicConfig` and `project.middleware.*` values such as `auth.audience`, because Plan 4 migrates `middleware.auth.audience` to `${AUTH0_AUDIENCE}`. If a future `env` surface is added to `ComposedProjectInput`, cover it with the same helper.
+- **Target auth shape:** Plan 4 needs `target.auth.auth0.domain`, `clientId`, `audience`, and `redirectUri`. The current schemas only expose `clientId`, so Plan 1 must extend `packages/platform/platform-core/src/schemas/deploy-target.ts` and `packages/deploy/deploy-core/src/config.ts` before resolver tests assert those paths.
+- **Planner target input:** `buildProjectDeploymentPlan(project, config)` currently receives `ProjectDeploymentConfig`, not a raw platform `DeployTarget`. Add `targetSlug?: string` to `ProjectDeploymentConfig` and have `buildProjectDeploymentConfig(target, ...)` pass `target.slug`. `resolveVars` should read from a target-shaped adapter built from deployment config: `{ slug: config.targetSlug ?? 'unknown-target', auth: config.auth, modules: config.modules, eventBus: config.eventBus }`.
+- **Public config location:** the current executor does ad-hoc substitution in `resolvePublicConfigPlaceholders(value.publicConfigJson, config)` before calling deploy-core. Move this behavior into deploy-core by passing `varsManifest` and placeholder-bearing `publicConfigJson` through `toDeployCoreInput`; then delete the executor helper and its `AUTH0_SPA_CLIENT_ID` throw.
+- **Smoke metadata name:** keep the existing `verificationHints.protectedRouteChecks` / `rendered.urls.protectedRouteChecks` field name. Do not introduce a parallel `protectedRoutes` field in Plan 1. Extend the existing type to support `GET | POST | PUT | DELETE | PATCH`, add headers to `SmokeFetcher`, and make the verifier issue the three auth probes per check.
+- **Public route hints:** `publicRouteUrls` should not include the UI route already checked through `uiUrl`. Update `deploy-dokploy` render/apply tests so public route smoke covers HTTP public routes without duplicating `/` as both `ui` and `public-route`.
+- **Verification report schema:** `VerificationReport` currently lives in `packages/platform/platform-core/src/schemas/deployment.ts`, not `packages/platform/platform-core/src/types.ts`. Plan 1 does not need a new `protectedRoutes` report field unless the implementation stores per-probe metadata outside `checks[]`.
+- **Context7 note:** Context7 was checked for Zod record/default usage. `z.record(z.string().regex(...), valueSchema)` and `z.boolean().default(true)` are valid, so the parse schema approach is acceptable.
+
 ## File Structure
 
 **Create:**
@@ -23,7 +37,7 @@
 - `packages/deploy/deploy-core/src/errors-apply.ts` — `DEPLOY_APPLY_*` codes + types
 - `packages/deploy/deploy-core/src/errors-verify.ts` — `DEPLOY_VERIFY_*` codes + types
 - `apps/platform-http/src/deploy/stage-runner.ts` — `runStage(name, fn, deps)` wrapper that logs on Err / catches throws
-- `apps/platform-http/src/deploy/__tests__/stage-runner.test.ts` — stage-runner unit tests
+- `apps/platform-http/test/unit/deploy/stage-runner.test.ts` — stage-runner unit tests
 - `apps/platform-http/test/unit/deploy/smoke-verifier-real.test.ts` — replaces placeholder behavior with real-probe expectations
 
 **Modify:**
@@ -35,11 +49,13 @@
 - `packages/deploy/deploy-core/src/errors.ts` — add `DEPLOY_PLAN_TARGET_VAR_MISSING`, `DEPLOY_PLAN_VAR_FROM_PATH_INVALID`
 - `packages/deploy/deploy-core/src/index.ts` — export vars + new error families
 - `packages/deploy/deploy-core/src/composed-project.ts` — pass `varsManifest` through
-- `packages/deploy/deploy-core/src/plan.ts` (or wherever planning happens) — call `resolveVars` early; substitute `${PLACEHOLDER}` in module publicConfig/env via `applyVars`
+- `packages/deploy/deploy-core/src/config.ts` — add `targetSlug` and extend `ProjectAuthConfig.auth0` to include optional `domain`, `audience`, and `redirectUri`
+- `packages/deploy/deploy-core/src/plan.ts` — call `resolveVars` early; substitute `${PLACEHOLDER}` in `publicConfigJson`, middleware values, and future module env surfaces via `applyVars`
 - `apps/platform-http/src/deploy/executor.ts` — wrap each stage in `runStage`; remove the `AUTH0_SPA_CLIENT_ID` ad-hoc throw (now caught by vars resolver); replace generic `throw new Error(...)` calls with typed errors
-- `apps/platform-http/src/deploy/smoke-verifier.ts` — remove placeholder branch; classify per route; emit protected-route probes; honor new `verificationHints.protectedRoutes`
-- `apps/platform-http/src/deploy/build-deploy-config.ts` — populate `verificationHints.protectedRoutes` from rendered plan / blueprint
-- `packages/platform/platform-core/src/types.ts` (verification report) — add `protectedRoutes` field if absent
+- `apps/platform-http/src/deploy/smoke-verifier.ts` — remove placeholder branch; classify per route; emit protected-route probes from existing `verificationHints.protectedRouteChecks`
+- `apps/platform-http/src/deploy/build-deploy-config.ts` — pass `target.slug` into `ProjectDeploymentConfig.targetSlug`
+- `packages/platform/platform-core/src/schemas/deploy-target.ts` — extend deploy target `auth.auth0` schema with optional `domain`, `audience`, and `redirectUri`
+- `packages/platform/platform-core/src/schemas/deployment.ts` — only touch if the existing `VerificationReport.checks[]` schema needs extra per-probe metadata; do not add a duplicate protected-route list
 
 **Test:**
 - See "Create" entries above; every modified module gets its assertions extended
@@ -292,7 +308,11 @@ In `packages/artifacts/blueprint/src/validate/structural.ts`, after the existing
   }
 ```
 
-If dynamic `import` is awkward in this file (sync function), instead place a top-level `import { isKnownTargetPath } from '../types/vars.js';` and use it directly. Use the static import form.
+Use a top-level static import in this synchronous validator:
+
+```ts
+import { isKnownTargetPath } from '../types/vars.js';
+```
 
 - [ ] **Step 4: Run test, expect PASS**
 
@@ -371,6 +391,28 @@ describe('consistency vars', () => {
     });
     expect(r.ok).toBe(true);
   });
+
+  it('checks placeholders in middleware values', () => {
+    const r = validateBlueprintComposition({
+      ...composeBase,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: '${AUTH0_AUDIENCE}',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'BLUEPRINT_CONSISTENCY_VAR_UNDECLARED')).toBe(true);
+    }
+  });
 });
 ```
 
@@ -404,6 +446,20 @@ function validateVars(project: ProjectBlueprint): BlueprintError[] {
           code: ERROR_CODES.BLUEPRINT_CONSISTENCY_VAR_UNDECLARED,
           message: `placeholder "${placeholder}" used in modules.${moduleKey}.publicConfig is not declared in project.vars`,
           path: `project.modules.${moduleKey}.publicConfig`,
+        });
+      }
+    }
+  }
+
+  for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
+    for (const placeholder of extractPlaceholders(declaration)) {
+      used.add(placeholder);
+      if (!declared.has(placeholder)) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_CONSISTENCY_VAR_UNDECLARED,
+          message: `placeholder "${placeholder}" used in middleware.${middlewareName} is not declared in project.vars`,
+          path: `project.middleware.${middlewareName}`,
         });
       }
     }
@@ -456,7 +512,7 @@ git commit -m "feat(blueprint): consistency check for ${VAR} ↔ vars block"
 
 Run: `grep -rn "ComposedBlueprint" packages/artifacts/blueprint/src --include='*.ts' -l`
 
-Note the file (likely `compose/load-composed-blueprint.ts` or `index.ts`). Open it.
+The current file is `packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts`. Open it.
 
 - [ ] **Step 2: Add `varsManifest` to the composed result**
 
@@ -476,7 +532,7 @@ varsManifest: Readonly<Record<string, { from: string; required: boolean }>>;
 
 Run: `pnpm -F @rntme/blueprint test`
 
-If a snapshot or shape assertion fails because of the new field, update it to include `varsManifest: {}` for blueprints that don't declare vars.
+Update any snapshot or shape assertion that checks the composed value to include `varsManifest: {}` for blueprints that don't declare vars.
 
 - [ ] **Step 4: Commit**
 
@@ -626,7 +682,7 @@ export type ResolvedVars = Readonly<Record<string, string>>;
 export type TargetForVars = {
   readonly slug: string;
   readonly auth?: Record<string, Record<string, unknown>>;
-  readonly modules?: Record<string, Record<string, unknown>>;
+  readonly modules?: Record<string, { readonly env?: Record<string, unknown>; readonly secretRefs?: Record<string, unknown> } & Record<string, unknown>>;
   readonly eventBus?: Record<string, unknown>;
 };
 
@@ -726,14 +782,25 @@ git commit -m "feat(deploy-core): resolveVars + applyVars implementation"
 ### Task B.3: Wire vars resolution into the planner
 
 **Files:**
-- Modify: `packages/deploy/deploy-core/src/composed-project.ts` and/or `plan.ts`
-- Modify: `packages/deploy/deploy-core/test/unit/` (add a planner test)
+- Modify: `packages/deploy/deploy-core/src/composed-project.ts`
+- Modify: `packages/deploy/deploy-core/src/config.ts`
+- Modify: `packages/deploy/deploy-core/src/plan.ts`
+- Modify: `packages/platform/platform-core/src/schemas/deploy-target.ts`
+- Modify: `apps/platform-http/src/deploy/build-deploy-config.ts`
+- Modify: `apps/platform-http/src/deploy/executor.ts`
+- Create: `packages/deploy/deploy-core/test/unit/plan-vars.test.ts`
 
 - [ ] **Step 1: Locate the planner entry**
 
 Run: `grep -n "buildProjectDeploymentPlan\|export function" packages/deploy/deploy-core/src/plan.ts | head`
 
-Confirm the function signature; planner takes a `ComposedProjectInput` (which contains `varsManifest`) and a target.
+Confirm the current function signature is:
+
+```ts
+buildProjectDeploymentPlan(project: ComposedProjectInput, config: ProjectDeploymentConfig)
+```
+
+The planner does not receive a raw platform `DeployTarget`; use the config adapter described in the RNT-415 amendments.
 
 - [ ] **Step 2: Add `varsManifest` to `ComposedProjectInput`**
 
@@ -743,81 +810,179 @@ In `packages/deploy/deploy-core/src/composed-project.ts`, add to the `ComposedPr
 varsManifest?: import('./vars.js').VarsManifest;
 ```
 
-- [ ] **Step 3: Resolve vars at the start of planning, before any rendering reads `publicConfig`**
+- [ ] **Step 3: Add `targetSlug` to deployment config**
 
-In `packages/deploy/deploy-core/src/plan.ts` (or wherever planning happens), at the top of `buildProjectDeploymentPlan`:
+In `packages/deploy/deploy-core/src/config.ts`, add:
+
+```ts
+readonly targetSlug?: string;
+```
+
+to `ProjectDeploymentConfig`. In the same file, extend `ProjectAuthConfig.auth0`:
+
+```ts
+readonly auth0?: {
+  readonly clientId?: string;
+  readonly domain?: string;
+  readonly audience?: string;
+  readonly redirectUri?: string;
+};
+```
+
+In `packages/platform/platform-core/src/schemas/deploy-target.ts`, extend both `DeployTargetAuthConfigSchema.auth0` and `PatchDeployTargetAuthConfigSchema.auth0` with the same optional string fields. Make `clientId`, `domain`, `audience`, and `redirectUri` optional in stored target config; missing required deployment values are enforced by `resolveVars` at plan time with `DEPLOY_PLAN_TARGET_VAR_MISSING`, not by target CRUD validation.
+
+In `apps/platform-http/src/deploy/build-deploy-config.ts`, include the slug in the returned config:
+
+```ts
+targetSlug: target.slug,
+```
+
+- [ ] **Step 4: Resolve vars at the start of planning, before any rendering reads `publicConfig` or middleware**
+
+In `packages/deploy/deploy-core/src/plan.ts`, at the top of `buildProjectDeploymentPlan`:
 
 ```ts
 import { resolveVars, applyVars } from './vars.js';
 
-// near top of the function body
-const resolved = resolveVars(input.varsManifest ?? {}, target);
+const targetVars = {
+  slug: config.targetSlug ?? 'unknown-target',
+  auth: config.auth,
+  modules: config.modules,
+  eventBus: config.eventBus,
+};
+const resolved = resolveVars(project.varsManifest ?? {}, targetVars);
 if (!resolved.ok) return resolved; // propagate DEPLOY_PLAN_TARGET_VAR_MISSING
 const vars = resolved.value;
 ```
 
-Then for every place the planner reads `module.publicConfig`, `module.env`, route URLs, audiences — wrap the read with `applyVars(value, vars)`. Use grep to find them: `grep -n "publicConfig\|module.env\|audience" packages/deploy/deploy-core/src/*.ts`.
+Then wrap the values that flow into the plan:
 
-- [ ] **Step 4: Add planner integration test**
+```ts
+const substitutedProject: ComposedProjectInput = {
+  ...project,
+  publicConfigJson: applyVars(project.publicConfigJson ?? null, vars),
+  middleware: applyVars(project.middleware ?? {}, vars),
+  services: Object.fromEntries(
+    Object.entries(project.services).map(([slug, service]) => [
+      slug,
+      service.kind === 'integration'
+        ? { ...service }
+        : service,
+    ]),
+  ),
+};
+```
+
+Use `substitutedProject` for `buildWorkloads(...)` and `planEdge(...)`. If the implementation later adds module env placeholders directly to `ComposedProjectInput`, apply the same helper before `buildWorkloads`.
+
+- [ ] **Step 5: Pass vars through from composed blueprint**
+
+In `apps/platform-http/src/deploy/executor.ts`, when `toDeployCoreInput` returns a `ComposedProjectInput`, pass the composed manifest:
+
+```ts
+varsManifest: value.varsManifest ?? {},
+publicConfigJson: value.publicConfigJson ?? null,
+```
+
+Do not call `resolvePublicConfigPlaceholders` in the executor after this change.
+
+- [ ] **Step 6: Add planner integration test**
 
 Create `packages/deploy/deploy-core/test/unit/plan-vars.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
 import { buildProjectDeploymentPlan } from '../../src/plan.js';
+import type { ComposedProjectInput } from '../../src/composed-project.js';
+import type { ProjectDeploymentConfig } from '../../src/config.js';
+
+const project: ComposedProjectInput = {
+  name: 'commerce',
+  varsManifest: {
+    CID: { from: 'target.auth.auth0.clientId', required: true },
+    AUD: { from: 'target.auth.auth0.audience', required: true },
+  },
+  publicConfigJson:
+    '{"@rntme/identity-auth0":{"clientId":"${CID}","audience":"${AUD}"}}',
+  services: {
+    app: { slug: 'app', kind: 'domain', runtimeFiles: { 'manifest.json': '{}' } },
+  },
+  routes: { http: { '/api': 'app' } },
+  middleware: {
+    auth: { kind: 'auth', provider: 'auth0', audience: '${AUD}', moduleSlug: 'identity-auth0' },
+  },
+  mounts: [{ target: 'http:/api', use: ['auth'] }],
+  modules: {
+    'identity-auth0': {
+      edgeAuth: { protocol: 'http-introspect', port: 50052, path: '/introspect' },
+    },
+  },
+};
+
+const config: ProjectDeploymentConfig = {
+  targetSlug: 'dokploy-demos',
+  orgSlug: 'acme',
+  environment: 'default',
+  mode: 'preview',
+  eventBus: { kind: 'kafka', mode: 'external', brokers: ['k:9092'] },
+  modules: {},
+  policies: {},
+  auth: { auth0: { clientId: 'spa-client', audience: 'https://commerce.example.com/api' } },
+};
 
 describe('buildProjectDeploymentPlan vars', () => {
   it('substitutes ${VAR} from target into module publicConfig', () => {
-    const plan = buildProjectDeploymentPlan(
-      {
-        // ... minimum ComposedProjectInput shape; copy a known fixture
-        // adding varsManifest + a module publicConfig with ${CID}
-      } as never,
-      { slug: 't', auth: { auth0: { clientId: 'CCC' } } } as never,
-    );
+    const plan = buildProjectDeploymentPlan(project, config);
     expect(plan.ok).toBe(true);
     if (plan.ok) {
-      // assert that the rendered module config contains "CCC", not "${CID}"
+      const app = plan.value.workloads.find((w) => w.kind === 'domain-service' && w.slug === 'app');
+      expect(app?.publicConfigJson).toContain('spa-client');
+      expect(app?.publicConfigJson).not.toContain('${CID}');
+      expect(plan.value.edge.middleware[0]).toMatchObject({
+        kind: 'auth',
+        audience: 'https://commerce.example.com/api',
+      });
     }
   });
 
   it('fails the plan with DEPLOY_PLAN_TARGET_VAR_MISSING when required var unavailable', () => {
-    const plan = buildProjectDeploymentPlan(
-      {
-        // varsManifest declares CID required from target.auth.auth0.clientId
-      } as never,
-      { slug: 't', auth: {} } as never,
-    );
+    const plan = buildProjectDeploymentPlan(project, { ...config, auth: {} });
     expect(plan.ok).toBe(false);
     if (!plan.ok) {
       expect(plan.errors[0]!.code).toBe('DEPLOY_PLAN_TARGET_VAR_MISSING');
+      expect(plan.errors[0]!.targetSlug).toBe('dokploy-demos');
+      expect(plan.errors[0]!.varName).toBe('CID');
     }
   });
 });
 ```
 
-> Note: the engineer must fill in the minimal `ComposedProjectInput` shape from existing fixtures in this package's `test/fixtures/` (look for `notes-demo` or `composed-` files). The test asserts the contract; fixture details depend on the current shape.
-
-- [ ] **Step 5: Run tests, expect PASS**
+- [ ] **Step 7: Run tests, expect PASS**
 
 Run: `pnpm -F @rntme/deploy-core test`
 Expected: PASS, including new tests and existing.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add packages/deploy/deploy-core/src
+git add packages/deploy/deploy-core/src packages/platform/platform-core/src/schemas/deploy-target.ts apps/platform-http/src/deploy/build-deploy-config.ts apps/platform-http/src/deploy/executor.ts packages/deploy/deploy-core/test/unit/plan-vars.test.ts
 git commit -m "feat(deploy-core): resolve and apply vars during planning"
 ```
 
 ### Task B.4: Remove the executor's ad-hoc `AUTH0_SPA_CLIENT_ID` throw
 
 **Files:**
-- Modify: `apps/platform-http/src/deploy/executor.ts` (around line 470)
+- Modify: `apps/platform-http/src/deploy/executor.ts`
 
-- [ ] **Step 1: Remove the throw**
+- [ ] **Step 1: Remove the helper and throw**
 
-Find the line `throw new Error('AUTH0_SPA_CLIENT_ID deploy target auth.auth0.clientId is required');`. Delete the throw and the surrounding ad-hoc check (the planner now handles it via vars).
+Delete `resolvePublicConfigPlaceholders(...)` and replace the call site in `toDeployCoreInput`:
+
+```ts
+const publicConfigJson = value.publicConfigJson ?? null;
+```
+
+The planner now handles every declared `${VAR}` through `varsManifest`, so the executor must not special-case `AUTH0_SPA_CLIENT_ID`.
 
 - [ ] **Step 2: Build and run executor tests**
 
@@ -1030,7 +1195,7 @@ git commit -m "feat(platform): runStage wrapper for typed-result + uncaught logg
 
 - [ ] **Step 1: Identify stage boundaries**
 
-In `executor.ts`, the existing `appendLog(...)` calls demarcate stages: `init`, `plan`, `render`, `apply`, `verify`, plus the outer `try/catch` block ending around line 219.
+In `executor.ts`, the existing `appendLog(...)` calls demarcate stages: `init`, `plan`, `render`, `apply`, `verify`, plus the outer `try/catch` block in `runDeployment`.
 
 - [ ] **Step 2: Bind a `log` adapter for `runStage`**
 
@@ -1045,12 +1210,20 @@ const log = async (entry: { step: string; level: 'error'; code: string; message:
 
 - [ ] **Step 3: Wrap the planning step**
 
-Find the planning block (the `buildProjectDeploymentPlan` call and the `if (!isOk(planResult))` check). Replace with:
+Find the planning block (currently the `const plan = (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config);` call and following `if (!plan.ok)` failure path). Replace it with the same variables and failure behavior, only wrapped by `runStage`:
 
 ```ts
-const planResult = await runStage('plan', async () => deps.planProject?.(...) ?? buildProjectDeploymentPlan(...), { log });
+const planResult = await runStage(
+  'plan',
+  async () => (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config),
+  { log },
+);
 if (!planResult.ok) {
-  return finalize(planResult.errors[0]?.code, planResult.errors[0]?.message, /*…*/);
+  await finalize(deps, deploymentId, orgId, 'failed', {
+    errorCode: planResult.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
+    errorMessage: redact(errorSummary(planResult.errors)),
+  });
+  return;
 }
 ```
 
@@ -1080,21 +1253,21 @@ git commit -m "refactor(platform): wrap deploy stages in runStage with typed err
 
 **Files:**
 - Modify: `apps/platform-http/src/deploy/smoke-verifier.ts`
-- Modify: `packages/platform/platform-core/src/types.ts` (or wherever `VerificationReport` lives)
+- Modify: `packages/platform/platform-core/src/schemas/deployment.ts` only if `VerificationCheckSchema` needs new fields
 - Create: `apps/platform-http/test/unit/deploy/smoke-verifier-real.test.ts`
 
 - [ ] **Step 1: Locate `VerificationReport` and confirm shape**
 
 Run: `grep -rn "VerificationReport" packages/platform/platform-core/src/ apps/platform-http/src/`
 
-Note the file. Confirm `checks[]` shape is `{ name, url, status, latencyMs, ok, note? }`.
+The current file is `packages/platform/platform-core/src/schemas/deployment.ts`. Confirm `checks[]` shape is `{ name, url, status, latencyMs, ok, note? }`. Do not add a separate protected-routes field to the report; each probe is a normal check row.
 
-- [ ] **Step 2: Extend `VerificationHints` to include `protectedRoutes`**
+- [ ] **Step 2: Extend the existing `protectedRouteChecks` and fetcher types**
 
 In `apps/platform-http/src/deploy/smoke-verifier.ts`:
 
 ```ts
-export type ProtectedRouteSpec = Readonly<{
+export type ProtectedRouteCheck = Readonly<{
   name: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   url: string;
@@ -1105,11 +1278,22 @@ export type VerificationHints = {
   readonly uiUrl?: string;
   readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
-  readonly protectedRoutes?: readonly ProtectedRouteSpec[];
+  readonly protectedRouteChecks?: readonly ProtectedRouteCheck[];
 };
 ```
 
-(Keep the legacy `protectedRouteChecks` field for one PR if tests still reference it; otherwise rename in the same change.)
+Update `SmokeFetcher` at the same time:
+
+```ts
+export type SmokeFetcher = (
+  url: string,
+  opts: {
+    method: 'HEAD' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+    timeoutMs: number;
+    headers?: Record<string, string>;
+  },
+) => Promise<{ status: number | 'timeout' | 'error'; latencyMs: number; body?: string; contentType?: string }>;
+```
 
 - [ ] **Step 3: Write the failing real-probe test**
 
@@ -1120,7 +1304,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { SmokeVerifier, type SmokeFetcher } from '../../../src/deploy/smoke-verifier.js';
 
 const ok401 = { status: 401, latencyMs: 1, body: '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}', contentType: 'application/json' };
-const ok200html = { status: 200, latencyMs: 1, body: '<!doctype html>', contentType: 'text/html' };
 const ok200 = { status: 200, latencyMs: 1, contentType: 'text/plain' };
 
 describe('SmokeVerifier real probes', () => {
@@ -1147,7 +1330,7 @@ describe('SmokeVerifier real probes', () => {
       verificationHints: {
         healthUrl: 'http://x/health',
         publicRouteUrls: [],
-        protectedRoutes: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
+        protectedRouteChecks: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
       },
     });
     expect(calls.filter((c) => c.url === 'http://x/api/notes').length).toBe(3);
@@ -1161,7 +1344,7 @@ describe('SmokeVerifier real probes', () => {
       verificationHints: {
         healthUrl: 'http://x/health',
         publicRouteUrls: [],
-        protectedRoutes: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
+        protectedRouteChecks: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
       },
     });
     expect(report.ok).toBe(false);
@@ -1176,21 +1359,12 @@ Expected: FAIL.
 
 - [ ] **Step 5: Extend `SmokeFetcher` to accept headers and rewrite verifier**
 
-Update the fetcher signature in `smoke-verifier.ts`:
-
-```ts
-export type SmokeFetcher = (
-  url: string,
-  opts: { method: 'HEAD' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; timeoutMs: number; headers?: Record<string, string> },
-) => Promise<{ status: number | 'timeout' | 'error'; latencyMs: number; body?: string; contentType?: string }>;
-```
-
 In `defaultSmokeFetcher`, pass headers through to `globalThis.fetch`.
 
-Replace the `for (const url of verificationHints.publicRouteUrls)` block with real probes (`GET <url>` -> assert 2xx). Add the three-probe block for each protected route:
+Replace the `for (const url of verificationHints.publicRouteUrls)` block with real probes (`GET <url>` -> assert 2xx). Add the three-probe block for each protected route check:
 
 ```ts
-for (const route of verificationHints.protectedRoutes ?? []) {
+for (const route of verificationHints.protectedRouteChecks ?? []) {
   for (const auth of [undefined, 'Bearer invalid.token.here', 'Bearer ']) {
     const headers = auth ? { Authorization: auth } : undefined;
     const r = await this.fetcher(route.url, { method: route.method, timeoutMs: 5_000, headers });
@@ -1212,7 +1386,7 @@ for (const route of verificationHints.protectedRoutes ?? []) {
 }
 ```
 
-Update the report computation: `checks.every((c) => c.ok)`. Drop `partialOk` to `false` (or remove the field if unused; otherwise leave at `false`).
+Update the report computation to `checks.length > 0 && checks.every((c) => c.ok)`. Keep `partialOk: false` because placeholder optional checks are gone.
 
 - [ ] **Step 6: Run tests, expect PASS**
 
@@ -1226,17 +1400,32 @@ git add apps/platform-http/src/deploy/smoke-verifier.ts apps/platform-http/test/
 git commit -m "feat(platform): real public + protected route probes in smoke verifier"
 ```
 
-### Task D.2: Populate `verificationHints.protectedRoutes` from rendered plan
+### Task D.2: Keep protected smoke hints flowing from deploy-dokploy render/apply
 
 **Files:**
-- Modify: `apps/platform-http/src/deploy/build-deploy-config.ts` (or wherever `verificationHints` is constructed)
-- Modify: `packages/deploy/deploy-dokploy/src/` (look for where the rendered plan emits `verificationHints`)
+- Modify: `packages/deploy/deploy-dokploy/src/render.ts`
+- Modify: `packages/deploy/deploy-dokploy/src/apply.ts`
+- Modify: `packages/deploy/deploy-dokploy/test/unit/render.test.ts`
+- Modify: `packages/deploy/deploy-dokploy/test/unit/apply.test.ts`
 
 - [ ] **Step 1: Locate the existing hints construction**
 
 Run: `grep -rn "verificationHints" apps/platform-http/src packages/deploy --include='*.ts'`
 
-- [ ] **Step 2: Compute protected routes from blueprint mounts**
+- [ ] **Step 2: Do not move hint construction into platform-http**
+
+The current source of truth is deploy-dokploy:
+
+- `packages/deploy/deploy-dokploy/src/render.ts` builds `rendered.urls.protectedRouteChecks`.
+- `packages/deploy/deploy-dokploy/src/apply.ts` copies that to `verificationHints.protectedRouteChecks`.
+
+Keep that flow. Platform-http receives hints through the `DeploymentApplyResult`.
+
+- [ ] **Step 3: Ensure public route hints exclude UI routes**
+
+In `render.ts`, keep `uiUrl` for the UI route and set `publicRoutes` to HTTP routes that are not protected. If a protected HTTP route is represented in `protectedRouteChecks`, do not also include it in `publicRouteUrls`.
+
+- [ ] **Step 4: Extend protected check methods if needed**
 
 For each mount where `use` includes a middleware whose `kind === 'auth'`, and whose `target` is `http:/<path>`, add to the hints:
 
@@ -1246,16 +1435,16 @@ For each mount where `use` includes a middleware whose `kind === 'auth'`, and wh
 
 Add an entry per `(method, path)` declared in the bindings of the targeted service (look up via `service.bindings.<id>.http.method/path`).
 
-- [ ] **Step 3: Run integration test for executor / hints**
+- [ ] **Step 5: Run render/apply tests**
 
-Run: `pnpm -F @rntme/platform-http test`
-Expected: PASS. If a snapshot of `verificationHints` is stored, update it to include the `protectedRoutes` array.
+Run: `pnpm -F @rntme/deploy-dokploy vitest run test/unit/render.test.ts test/unit/apply.test.ts`
+Expected: PASS. Assertions should use `protectedRouteChecks`, not `protectedRoutes`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add apps/platform-http/src/deploy
-git commit -m "feat(platform): emit protectedRoutes in verificationHints"
+git add packages/deploy/deploy-dokploy/src packages/deploy/deploy-dokploy/test/unit
+git commit -m "feat(deploy-dokploy): emit real public and protected smoke hints"
 ```
 
 ---

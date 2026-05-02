@@ -146,7 +146,7 @@ Concretely, after this spec lands:
 
 `from` is a JSON-pointer-style path rooted at `target`. Initial supported roots:
 
-- `target.auth.<provider>.<field>` - identity provider config (e.g., `target.auth.auth0.clientId`)
+- `target.auth.<provider>.<field>` - identity provider config (for Auth0 this includes `clientId`, `domain`, `audience`, and `redirectUri`)
 - `target.modules.<slug>.<field>` - per-module config block
 - `target.eventBus.<field>` - event bus config (`brokers`, `topicPrefix`, etc.)
 
@@ -217,7 +217,7 @@ This test must fail against the current production state (forged bearer accepted
 - For HTTP routes that have `POST` / `PUT` / `DELETE` smoke paths declared in the rendered plan, repeat probes (1) and (2) for those methods.
 - Failure of any required probe sets deployment status to `failed`.
 
-The protected-route smoke list is sourced from rendered plan `verificationHints.protectedRoutes` (new field; populated by the planner from blueprint route+middleware metadata).
+The protected-route smoke list is sourced from rendered/apply metadata. In the current codebase this is already named `verificationHints.protectedRouteChecks` and is emitted by `packages/deploy/deploy-dokploy/src/render.ts` then copied by `packages/deploy/deploy-dokploy/src/apply.ts`. Keep that field name for this hardening pass; do not rename it to `protectedRoutes` unless a separate migration updates all render/apply/executor tests in the same PR. The hardening here is that each protected-route check now runs three real probes (no bearer, forged bearer, empty bearer) and validates the canonical `RUNTIME_AUTH_TOKEN_INVALID` JSON body.
 
 ### 6.4 Operational redeploy (F-A3)
 
