@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { UuidNodeSchema } from '../../src/canonical/uuid-node.js';
+import { normalize } from '../../src/canonical/normalize.js';
 
 describe('uuid node', () => {
   it('parses a valid uuid node spec', () => {
@@ -19,7 +21,6 @@ describe('uuid node', () => {
 
 describe('uuid node in canonical form', () => {
   it('normalizes to kind uuid', () => {
-    const { normalize } = await import('../../src/canonical/normalize.js');
     const result = normalize({
       version: '1.0-rc7',
       pdmRef: './pdm.json',
@@ -58,7 +59,6 @@ describe('uuid node in canonical form', () => {
 
 describe('$node reference', () => {
   it('is accepted in emit.aggregateId when node exists', () => {
-    const { normalize } = await import('../../src/canonical/normalize.js');
     const result = normalize({
       version: '1.0-rc7',
       pdmRef: './pdm.json',
@@ -97,7 +97,6 @@ describe('$node reference', () => {
 
 describe('uuid runtime', () => {
   it('generates a v4-like UUID string', () => {
-    const { randomUUID } = await import('node:crypto');
     const uuid = randomUUID();
     expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
