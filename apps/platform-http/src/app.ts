@@ -15,6 +15,7 @@ import { orgRoutes } from './routes/orgs.js';
 import { projectRoutes } from './routes/projects.js';
 import { projectVersionRoutes } from './routes/project-versions.js';
 import { deployTargetRoutes } from './routes/deploy-targets.js';
+import { targetSecretsRoutes } from './routes/target-secrets.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { projectOperationRoutes } from './routes/project-operations.js';
 import { tokenRoutes } from './routes/tokens.js';
@@ -217,6 +218,7 @@ export function createApp(deps: AppDeps): Hono {
   });
   authed.route('/orgs', orgRoutes({ ids: deps.ids }));
   authed.route('/orgs/:orgSlug/deploy-targets', deployTargetRoutes({ ids: deps.ids, cipher }));
+  authed.route('/orgs/:orgSlug/deploy-targets/:targetSlug/secrets', targetSecretsRoutes({ ids: deps.ids, cipher }));
   authed.route('/orgs/:orgSlug/projects', projectRoutes({ ids: deps.ids }));
 
   // Helpful 404 for project-scoped deploy-targets (targets are org-scoped)
