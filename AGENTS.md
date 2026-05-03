@@ -140,6 +140,7 @@ One-line purpose per package (read the per-package README before touching):
   raw blueprint loading. The platform executor consumes project-version
   bundles, revalidates them, and calls this planner. →
   `packages/deploy/deploy-core/README.md`.
+  Provision-phase surface: `runProvisioners`, `ProvisionerContract`, `resolveEnvMappings`, `DEPLOY_PROVISION_ERROR_CODES`.
 - **`@rntme/deploy-dokploy`** — Dokploy target adapter: render/apply
   redacted deployment plans through the Dokploy HTTP API. Deploy target
   credentials are stored encrypted by `platform-storage`, not in rendered
@@ -582,6 +583,16 @@ The pattern is the same as Identity / AI-LLM vendor modules but with the CRM can
 Reference the canonical contract package at `packages/contracts/crm/v1/` and the conformance suite at `modules/crm/conformance/`.
 
 Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU market, 152-FZ data-residency).
+
+
+### How to add a provisioner to a module
+
+1. Implement `provision(input): Promise<Result<ProvisionerOutput, ProvisionerVendorError>>` (and optional `tearDown`) in `<module>/src/provisioner.ts`. Import `ProvisionerContract` from `@rntme/deploy-core`.
+2. Add a `provisioner` block to the module's `module.json`. Declare every output you return in `produces[]` (with `kind` and `secret`); declare every credential blob you read in `requires[]`.
+3. Register the `requires[].schema` ids in `packages/platform/platform-core/src/use-cases/target-secrets/schemas.ts` if not already registered.
+4. Export an `ENV_MAPPINGS` constant from the same file if your outputs need to land as env vars on rendered resources.
+5. Add a unit test that runs `provision()` twice in a row and asserts the second call issues zero mutating upstream calls (idempotence).
+6. The conformance test in `packages/deploy/deploy-core/test/conformance/provisioner-contract.test.ts` will pick up the new module automatically if it is wired in `modules/<category>/<vendor>/`.
 
 
 ## 7. Anti-patterns / do not do

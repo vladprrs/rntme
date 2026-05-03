@@ -38,6 +38,10 @@ Project-first blueprint parser/validator for rntme.
 - `validateBlueprintStructural(...)` — enforce service directory / service kind invariants.
 - `ok`, `err`, `isOk`, `isErr`, `ERROR_CODES` — shared `Result` helpers and error registry.
 
+## Modules
+
+A `provisioner` block on the manifest is surfaced through `DiscoveredModule.manifest.provisioner`. Discovery validates that `entry` is a relative path inside the module package; absolute or parent-traversal entries fail with `BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`.
+
 ## Where to look first
 
 - `src/load/load-blueprint.ts`
