@@ -663,6 +663,72 @@ function targetConfig() {
   };
 }
 
+describe('renderDokployPlan — provisioner outputs', () => {
+  const baseProvisioned = new Map([
+    [
+      'identity-auth0',
+      {
+        projectKey: 'identity-auth0',
+        packageName: '@rntme/identity-auth0',
+        publicOutputs: { spaClient: { id: 'cid_xyz', name: 'app' } },
+        secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'mid', clientSecret: 'sss' }] },
+        provisionedAt: '2026-05-03T00:00:00Z',
+      },
+    ],
+  ]);
+
+  it('bakes a public output into env on the target resource', () => {
+    const rendered = renderDokployPlan(authProtectedPlan(), targetConfig(), baseProvisioned, {
+      'identity-auth0': [
+        { from: 'spaClient.id', envName: 'AUTH0_SPA_CLIENT_ID', secret: false, target: 'app' },
+      ],
+    });
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+    const appResource = rendered.value.resources.find((r) => r.workloadSlug === 'app');
+    expect(appResource?.env).toContainEqual({ name: 'AUTH0_SPA_CLIENT_ID', value: 'cid_xyz', secret: false });
+  });
+
+  it('bakes a secret output as secret env on the target resource', () => {
+    const rendered = renderDokployPlan(authProtectedPlan(), targetConfig(), baseProvisioned, {
+      'identity-auth0': [
+        { from: 'm2mClients.*.clientSecret', envName: 'AUTH0_M2M_${name}_CLIENT_SECRET', secret: true, target: 'identity-auth0' },
+      ],
+    });
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+    const idResource = rendered.value.resources.find((r) => r.workloadSlug === 'identity-auth0');
+    expect(idResource?.env).toContainEqual({ name: 'AUTH0_M2M_INTROSPECT_CLIENT_SECRET', value: 'sss', secret: true });
+  });
+
+  it('digest changes when a provisioned value changes', () => {
+    const a = renderDokployPlan(authProtectedPlan(), targetConfig(), baseProvisioned, {
+      'identity-auth0': [{ from: 'spaClient.id', envName: 'AUTH0_SPA_CLIENT_ID', secret: false, target: 'app' }],
+    });
+    const otherProvisioned = new Map([
+      [
+        'identity-auth0',
+        { ...baseProvisioned.get('identity-auth0')!, publicOutputs: { spaClient: { id: 'changed', name: 'app' } } },
+      ],
+    ]);
+    const b = renderDokployPlan(authProtectedPlan(), targetConfig(), otherProvisioned, {
+      'identity-auth0': [{ from: 'spaClient.id', envName: 'AUTH0_SPA_CLIENT_ID', secret: false, target: 'app' }],
+    });
+    if (!a.ok || !b.ok) throw new Error('renders did not succeed');
+    expect(a.value.digest).not.toBe(b.value.digest);
+  });
+
+  it('skips mapping for modules absent from the provisioned map', () => {
+    const rendered = renderDokployPlan(authProtectedPlan(), targetConfig(), new Map(), {
+      'identity-auth0': [{ from: 'spaClient.id', envName: 'X', secret: false, target: 'app' }],
+    });
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+    const appResource = rendered.value.resources.find((r) => r.workloadSlug === 'app');
+    expect(appResource?.env.find((e) => e.name === 'X')).toBeUndefined();
+  });
+});
+
 function authProtectedPlan(): ProjectDeploymentPlan {
   return {
     project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
