@@ -10,9 +10,7 @@ const bundle = join(pkgRoot, 'build', 'main.js');
 
 describe('ui-runtime production bundle', () => {
   it('does not contain react.development', () => {
-    if (!existsSync(bundle)) {
-      execSync('pnpm run build:client', { cwd: pkgRoot, stdio: 'inherit' });
-    }
+    execSync('pnpm run build:client', { cwd: pkgRoot, stdio: 'inherit' });
     const src = readFileSync(bundle, 'utf8');
     expect(src.includes('react.development')).toBe(false);
     expect(src.includes('process.env.NODE_ENV')).toBe(false);
