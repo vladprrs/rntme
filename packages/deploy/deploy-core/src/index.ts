@@ -69,3 +69,5 @@ export type {
   RunProvisionersValue,
   ProvisionedModule,
 } from './provision.js';
+export { resolveEnvMappings } from './provisioner-env-mapping.js';
+export type { EnvMappingEntry, ProvisionerEnvMapping, ResolvedEnvEntry } from './provisioner-env-mapping.js';
