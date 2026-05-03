@@ -408,6 +408,7 @@ export class FakeStore {
       }
       return ok(undefined);
     },
+    setProvisionResult: async () => undefined,
     finalize: async (id, args) => {
       for (const [projectId, list] of this.deploymentsByProject.entries()) {
         const idx = list.findIndex((d) => d.id === id);

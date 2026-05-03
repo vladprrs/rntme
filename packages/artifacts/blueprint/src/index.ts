@@ -7,6 +7,7 @@ export {
 export { createServiceBindingResolvers } from './compose/binding-resolvers.js';
 export { compileServiceUi } from './compose/compile-service-ui.js';
 export { discoverServiceArtifacts } from './compose/discover-service-artifacts.js';
+export { discoverModules, type DiscoveredModule } from './compose/modules.js';
 export { loadComposedBlueprint } from './compose/load-composed-blueprint.js';
 export { loadServiceMember } from './compose/load-service-member.js';
 export { readServiceGraphSpec } from './compose/service-graphs.js';

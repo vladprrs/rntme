@@ -45,7 +45,7 @@ import type {
   SecretCipher,
 } from '@rntme/platform-core';
 import { resolveDeps } from './resolve-deps.js';
-import { PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
+import { createPgTargetSecretsRepo, PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
 
 export type AppDeps = {
   env: Env;
@@ -106,6 +106,15 @@ export function createApp(deps: AppDeps): Hono {
     smoker: new SmokeVerifier(),
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
+    resolveProvisioner: async (packageName: string, entry: string) => {
+      const pkg = await import(`${packageName}/${entry.replace(/^\.\//, '')}`);
+      return { provision: pkg.provision, tearDown: pkg.tearDown };
+    },
+    targetSecretsRepoFor: async (_orgId: string) =>
+      createPgTargetSecretsRepo({ db: deps.pool, cipher }),
+    secretCipher: cipher,
+    // TODO(provisioner): wire prior outputs from last successful deployment
+    lastSuccessfulProvisionOutputs: async (_deploymentId: string) => ({}),
   };
   const projectDeleteExecutorDeps = {
     withOrgTx,
