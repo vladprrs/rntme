@@ -476,12 +476,21 @@ async function finalize(
   });
 }
 
-async function materializeBundle(bundle: CanonicalBundle): Promise<string> {
+export async function materializeBundle(bundle: CanonicalBundle): Promise<string> {
+  if (typeof bundle.version === 'number' && bundle.version > 2) {
+    throw new Error(`DEPLOY_BUNDLE_VERSION_UNSUPPORTED: bundle version ${bundle.version} not supported`);
+  }
   const dir = await mkdtemp(join(tmpdir(), 'rntme-deploy-'));
   for (const [relPath, value] of Object.entries(bundle.files)) {
     const path = join(dir, relPath);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, JSON.stringify(value));
+  }
+  const assets = (bundle as { assets?: Record<string, string> }).assets ?? {};
+  for (const [relPath, base64] of Object.entries(assets)) {
+    const path = join(dir, relPath);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, Buffer.from(base64, 'base64'));
   }
   return dir;
 }

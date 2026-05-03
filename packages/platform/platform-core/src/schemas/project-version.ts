@@ -12,6 +12,14 @@ const SafeRelPath = z
   .refine((p) => !p.split('/').includes('..'), 'must not contain ..')
   .refine((p) => p.endsWith('.json'), 'must end with .json');
 
+const SafeAssetPath = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[A-Za-z0-9_./-]+$/, 'invalid characters in path')
+  .refine((p) => !p.startsWith('/'), 'must be relative')
+  .refine((p) => !p.split('/').includes('..'), 'must not contain ..');
+
 export const ProjectVersionSummarySchema = z.object({
   projectName: z.string().min(1),
   services: z.array(z.string().min(1)),
@@ -39,10 +47,11 @@ export const ProjectVersionSchema = z.object({
 export type ProjectVersion = z.infer<typeof ProjectVersionSchema>;
 
 export const CanonicalBundleSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   files: z
     .record(SafeRelPath, z.unknown())
     .refine((files) => 'project.json' in files, 'bundle must contain project.json'),
+  assets: z.record(SafeAssetPath, z.string()).optional(),
 });
 export type CanonicalBundle = z.infer<typeof CanonicalBundleSchema>;
 
