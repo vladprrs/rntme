@@ -45,6 +45,18 @@
       "port": 50052
     }
   },
+  "provisioner": {
+    "entry": "./dist/provisioner.js",
+    "produces": [
+      { "name": "spaClient", "kind": "single", "secret": false },
+      { "name": "resourceServer", "kind": "single", "secret": false },
+      { "name": "m2mClients", "kind": "many", "secret": true }
+    ],
+    "requires": [
+      { "name": "auth0Mgmt", "schema": "auth0-mgmt-api-v1" }
+    ],
+    "timeoutMs": 60000
+  },
   "limitations": [
     "Only IntrospectSession is claimed via OIDC JWKS validation. RevokeSession, ListSessions, GetSession remain unclaimed because Auth0 server-side sessions do not map to the canonical Session entity (no listable session resource, no programmatic revoke without Mgmt session-scope).",
     "GetMembership is not claimed because Auth0 organization membership reads are naturally scoped by organization and member rather than a stable standalone membership resource.",
