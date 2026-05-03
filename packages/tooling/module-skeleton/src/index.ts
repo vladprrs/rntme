@@ -6,6 +6,9 @@ export {
   ModuleCapabilitiesSchema,
   ModuleManifestSchema,
   ModuleSecretSchema,
+  ProvisionerBlockSchema,
+  ProvisionerProducesSchema,
+  ProvisionerRequiresSchema,
   parseModuleManifest,
 } from './manifest-shape.js';
 export type {
@@ -19,4 +22,7 @@ export type {
   ModuleSecret,
   OperationDeclaration,
   PropSchema,
+  ProvisionerBlock,
+  ProvisionerProduces,
+  ProvisionerRequires,
 } from './manifest-shape.js';
