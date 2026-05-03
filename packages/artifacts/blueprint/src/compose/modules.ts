@@ -92,6 +92,19 @@ export function discoverModules(input: {
       continue;
     }
 
+    if (parsed.value.provisioner) {
+      const entry = parsed.value.provisioner.entry;
+      if (entry.startsWith('/') || entry.startsWith('..') || entry.includes('/../') || entry.includes('\\..\\')) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY,
+          message: `module "${packageName}" provisioner.entry "${entry}" must be a relative path inside the package`,
+          path: `${packageName}/module.json:provisioner.entry`,
+        });
+        continue;
+      }
+    }
+
     out[parsed.value.name] = {
       manifest: parsed.value,
       packageDir,
