@@ -47,6 +47,64 @@ const reportSpec = {
   },
 };
 
+const rawNotePdm = {
+  entities: {
+    Note: {
+      ownerService: 'notes',
+      kind: 'owned',
+      table: 'notes',
+      fields: {
+        id: { type: 'string', nullable: false, column: 'id' },
+        title: { type: 'string', nullable: false, column: 'title' },
+        status: { type: 'string', nullable: false, column: 'status' },
+      },
+      relations: {},
+      keys: ['id'],
+      stateMachine: {
+        stateField: 'status',
+        initial: null,
+        states: ['created'],
+        transitions: {
+          create: { from: null, to: 'created', affects: ['title'] },
+        },
+      },
+    },
+  },
+};
+
+const rawNoteQsm = { projections: {}, relations: {} };
+
+const createNoteWithUuidSpec = {
+  version: '1.0-rc7',
+  pdmRef: 'p',
+  qsmRef: 'q',
+  shapes: {},
+  graphs: {
+    createNote: {
+      id: 'createNote',
+      signature: {
+        inputs: {
+          title: { type: 'string', mode: 'required' },
+        },
+        output: { type: 'row<CommandResult>', from: 'e' },
+      },
+      nodes: [
+        { id: 'newId', type: 'uuid', config: {} },
+        {
+          id: 'e',
+          type: 'emit',
+          config: {
+            aggregate: 'Note',
+            aggregateId: { $node: 'newId' },
+            transition: 'create',
+            payload: { title: { $param: 'title' } },
+          },
+        },
+      ],
+    },
+  },
+};
+
 describe('executeCommand — creation transition', () => {
   it('appends one event and returns CommandResult with version=1', () => {
     const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
@@ -134,5 +192,34 @@ describe('executeCommand — creation transition', () => {
     } finally {
       store.close();
     }
+  });
+
+  it('generates uuid node output at runtime without a read prelude', () => {
+    const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test-service' });
+    const r = compileCommand(createNoteWithUuidSpec, rawNotePdm, rawNoteQsm);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.readPrelude).toBeNull();
+    expect(r.value.runtimeNodes).toEqual(['newId']);
+
+    const out = executeCommand(
+      r.value,
+      { title: 'generated id' },
+      {
+        eventStore: store,
+        qsmDb: null,
+        now: () => '2026-04-14T10:00:00Z',
+        nextId: () => '018e9d2a-aaaa-7000-8000-000000000003',
+        actor: null,
+        correlation: testCorrelation(),
+      },
+    );
+
+    expect(out.aggregateId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    const events = store.readStream(`Note-${out.aggregateId}`);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.eventType).toBe('NoteCreate');
+    expect(events[0]!.data).toMatchObject({ after: { title: 'generated id', status: 'created' } });
+    store.close();
   });
 });

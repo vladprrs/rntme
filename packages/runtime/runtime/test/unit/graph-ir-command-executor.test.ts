@@ -27,6 +27,7 @@ function mkCompiled(): CompiledCommand {
     paramDefaults: {},
     readPrelude: null,
     readPreludeGuardNodeId: null,
+    runtimeNodes: [],
     emits: [
       {
         nodeId: 'emit-1',
