@@ -12,6 +12,7 @@ describe('SmokeVerifier real probes', () => {
       verificationHints: {
         healthUrl: 'http://x/health',
         publicRouteUrls: ['http://x/'],
+        protectedRouteChecks: [],
       },
     });
     expect(report.checks.every((c) => c.note !== 'not auto-checked in MVP')).toBe(true);
@@ -29,7 +30,7 @@ describe('SmokeVerifier real probes', () => {
       verificationHints: {
         healthUrl: 'http://x/health',
         publicRouteUrls: [],
-        protectedRoutes: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
+        protectedRouteChecks: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
       },
     });
     expect(calls.filter((c) => c.url === 'http://x/api/notes').length).toBe(3);
@@ -43,7 +44,7 @@ describe('SmokeVerifier real probes', () => {
       verificationHints: {
         healthUrl: 'http://x/health',
         publicRouteUrls: [],
-        protectedRoutes: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
+        protectedRouteChecks: [{ name: 'api-notes', method: 'GET', url: 'http://x/api/notes' }],
       },
     });
     expect(report.ok).toBe(false);

@@ -29,7 +29,7 @@ export const targetEndpoints = {
       responseSchema: TargetsResponseSchema,
       ...ctx,
     }),
-  show: async (ctx: TargetApiContext, org: string, slug: string, _opts: { unredacted?: boolean }) =>
+  show: async (ctx: TargetApiContext, org: string, slug: string) =>
     apiCall({
       method: 'GET',
       path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets/${encodeURIComponent(slug)}`,

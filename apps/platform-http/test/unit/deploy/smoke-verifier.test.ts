@@ -106,6 +106,7 @@ describe('SmokeVerifier', () => {
         healthUrl: 'https://edge.example/health',
         configUrl: 'https://edge.example/config.json',
         publicRouteUrls: [],
+        protectedRouteChecks: [],
       },
     });
 
