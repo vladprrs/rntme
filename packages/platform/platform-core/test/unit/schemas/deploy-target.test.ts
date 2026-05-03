@@ -94,6 +94,18 @@ describe('CreateDeployTargetRequestSchema', () => {
     });
   });
 
+  it('rejects non-http Auth0 redirect URI', () => {
+    const r = UpdateDeployTargetRequestSchema.safeParse({
+      auth: {
+        auth0: {
+          clientId: 'public-client-id',
+          redirectUri: 'capacitor://notes-demo/callback',
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
   it('accepts public app base URL patches', () => {
     const r = UpdateDeployTargetRequestSchema.safeParse({
       publicBaseUrl: 'https://notes.example.test',
