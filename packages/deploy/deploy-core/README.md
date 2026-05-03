@@ -94,6 +94,15 @@ The companion helper `resolveEnvMappings(modules, mapping)` projects provisioner
 
 Error codes live in `errors-provision.ts`. Vendor-side failures (e.g. an Auth0 5xx) are wrapped under `DEPLOY_PROVISION_VENDOR_FAILED` while preserving the vendor error message.
 
+## Resolver signature
+
+`resolveProvisioner(packageName: string, entry: string, projectDir: string) => Promise<ProvisionerContract>`
+
+Implementations should ignore `entry` at runtime in favor of a stable
+convention from `manifest.name` rooted at `projectDir`. The platform-http
+implementation uses
+`<projectDir>/assets/provisioners/${safeProvisionerName(packageName)}.entry.js`.
+
 ## MVP limits
 
 - Only `mode: "preview"` is supported.

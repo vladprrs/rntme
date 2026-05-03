@@ -281,6 +281,11 @@ Retry:
 - The retry uses the same deployment apply results, so it can finish after a
   partial previous teardown.
 
+> Delete-flow tearDown re-materializes each (project, deploy_target)'s last
+> successful deployment bundle to a per-call `tmpDir`, then resolves and
+> invokes provisioner tearDown via the same path-from-`tmpDir` resolver as
+> deploy provisioning. See `docs/superpowers/specs/2026-05-03-provisioner-bundle-transport-design.md`.
+
 ## 9. Dokploy Delete Seam
 
 Extend `DokployClient`:

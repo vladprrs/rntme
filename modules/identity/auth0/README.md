@@ -29,6 +29,21 @@ pnpm -F @rntme/identity-auth0 run test:conformance:mock
 
 Live Auth0 Management API use requires a tenant with Management API credentials and the scopes needed for users, organizations, members, roles, and invitations. `IntrospectSession` uses OIDC JWKS validation and does not require Management API credentials.
 
+## Build pipeline
+
+This module ships its provisioner as a self-contained ESM bundle. The build
+chain is:
+
+1. `pnpm run build:deps` — workspace prerequisites.
+2. `tsc -p tsconfig.json` — type-checked output to `dist/`.
+3. `pnpm run build:provisioner` — esbuild produces `dist/provisioner.entry.js`,
+   inlining `./mgmt-client.js` and `./result-shim.js` and externalizing only
+   `node:*` built-ins.
+
+`module.json#provisioner.entry` points at the bundled file, which is what the
+CLI embeds in `assets/provisioners/rntme__identity-auth0.entry.js` of the
+canonical project bundle.
+
 ## Backend API
 
 - `createAuth0Adapter(options)` creates an Auth0 Management SDK-backed adapter.

@@ -87,6 +87,18 @@ config remains invalid.
 
 The deploy executor runs five ordered phases: `plan → provision → render → apply → verify`. The provision phase calls each module's `provisioner` (if declared) to reconcile external state and collect `provisionResult` / `provisionResultCiphertext` before the render phase bakes those outputs into resource env entries. Public provisioner outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist encrypted as `deployment.provisionResultCiphertext`.
 
+## Provision phase
+
+The provision stage resolves each module's provisioner from the materialized
+bundle's `assets/` directory. Resolution path:
+`<tmpDir>/assets/provisioners/<safeProvisionerName(manifest.name)>.entry.js`.
+Modules are not loaded from the platform-http process's own `node_modules`.
+
+Bundle versions higher than 2 are rejected with
+`DEPLOY_BUNDLE_VERSION_UNSUPPORTED`. Bundles with `version: 1` are read with
+`assets = {}` and skip provisioning if the bundled manifest has no provisioner
+block.
+
 Target secrets are per-deploy-target credential blobs validated against a registered schema and stored encrypted. Routes:
 
 - `PUT /v1/orgs/:orgSlug/deploy-targets/:slug/secrets/:name` — upsert a secret; body `{ schema, value }`. `value` is validated against the registered schema; stored encrypted; never returned by GET.

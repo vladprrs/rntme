@@ -162,6 +162,11 @@ The `manifest-shape.ts` file already enforces "manifest must declare a non-empty
 
 ## 6. Deploy pipeline integration
 
+> **Resolver detail superseded by `2026-05-03-provisioner-bundle-transport-design.md`.**
+> The original spec assumed the resolver imports modules from the platform-http
+> process's `node_modules`; the bundle-transport spec replaces that with
+> resolver-from-`tmpDir` and a self-contained bundled entry per module.
+
 ### 6.1 Phase ordering — `apps/platform-http/src/deploy/executor.ts`
 
 Insert a `provision` stage between `plan` and `render`:

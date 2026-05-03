@@ -585,6 +585,17 @@ Reference the canonical contract package at `packages/contracts/crm/v1/` and the
 Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU market, 152-FZ data-residency).
 
 
+### How to ship a module with a provisioner
+
+- **How to ship a module with a provisioner.** Module's `package.json` chains
+  `pnpm run build:provisioner` after `tsc`, with the script
+  `esbuild dist/<name>.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/<name>.entry.js`.
+  The provisioner source must keep `@rntme/deploy-core` as `import type` only;
+  TSC strips type-only imports so esbuild never sees them. Point
+  `module.json#provisioner.entry` at the bundled file. CLI publish embeds the
+  file as a base64 asset; platform-http imports it from the materialized
+  `tmpDir`.
+
 ### How to add a provisioner to a module
 
 1. Implement `provision(input): Promise<Result<ProvisionerOutput, ProvisionerVendorError>>` (and optional `tearDown`) in `<module>/src/provisioner.ts`. Import `ProvisionerContract` from `@rntme/deploy-core`.

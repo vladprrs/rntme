@@ -132,6 +132,22 @@ Resolution order for org/project/service: flag → env → `rntme.json` projectC
 | `9` | Network error |
 | `10` | Server error (5xx from platform) |
 
+## Bundle format v2
+
+Bundles emitted by `rntme project publish` are v2:
+
+```
+{ "version": 2, "files": { ... }, "assets": { ... } }
+```
+
+`assets` is a map from synthetic path to base64-encoded bytes. Today the only
+assets are pre-bundled module provisioner entries, keyed by
+`assets/provisioners/<safeName(manifest.name)>.entry.js` where `<safeName>`
+drops the leading `@` from the package name and replaces `/` with `__`.
+
+Total `assets` size is capped at 10 MiB. CLI publish returns
+`CLI_BUNDLE_ASSETS_TOO_LARGE` if exceeded.
+
 ## Error Codes
 
 Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.ts](src/errors/exit.ts).
@@ -155,6 +171,7 @@ Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.
 - `CLI_PUBLISH_DIGEST_MISMATCH` — published digest does not match local project bundle (exit 1)
 - `CLI_NETWORK_TIMEOUT` — Network request timed out (exit 9)
 - `CLI_USAGE` — Incorrect command usage (exit 2)
+- `CLI_BUNDLE_ASSETS_TOO_LARGE` — bundle `assets` section exceeds the 10 MiB cap (exit 6)
 
 ## See Also
 
