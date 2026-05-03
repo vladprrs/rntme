@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:http';
+import { createServer } from 'node:http';
 
 export type NginxSubstitute = {
   baseUrl: string;
@@ -62,7 +62,7 @@ export async function startNginxOrSubstitute(config: string): Promise<NginxSubst
     }
 
     try {
-      const introspectRes = await fetch(`${introspectUrl}/introspect`, {
+      const introspectRes = await globalThis.fetch(`${introspectUrl}/introspect`, {
         headers: {
           Authorization: authHeader,
           'X-Rntme-Audience': audience,

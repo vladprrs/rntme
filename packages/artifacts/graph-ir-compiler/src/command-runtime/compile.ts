@@ -95,7 +95,7 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
     ]);
   const aggregate = [...aggregates][0]!;
 
-  const readNodes = graph.nodes.filter((n) => n.kind !== 'emit');
+  const readNodes = graph.nodes.filter((n) => n.kind !== 'emit' && n.kind !== 'uuid');
   let readPrelude: ReadPreludeCompileResult | null = null;
   let readPreludeGuardNodeId: string | null = null;
   if (readNodes.length > 0) {

@@ -38,6 +38,7 @@ runCommandExecutorContract('GraphIrCommandExecutor', () => {
     paramOrder: ['id'],
     optionalParams: [],
     paramDefaults: {},
+    runtimeNodes: [],
     emits: [
       {
         nodeId: 'emit-1',
