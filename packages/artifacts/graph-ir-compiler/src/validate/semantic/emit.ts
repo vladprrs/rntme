@@ -19,6 +19,13 @@ export function checkEmit(graph: CanonicalGraph, pdm: ValidatedPdm, _qsm: Valida
     params.set(name, { type: decl.type, nullable });
   }
 
+  const nodeTypes = new Map<string, { type: string; nullable: boolean }>();
+  for (const n of graph.nodes) {
+    if (n.kind === 'uuid') {
+      nodeTypes.set(n.id, { type: 'string', nullable: false });
+    }
+  }
+
   const aggregates = new Set<string>();
   const emptyScope = { aliases: new Map() };
 
@@ -76,7 +83,7 @@ export function checkEmit(graph: CanonicalGraph, pdm: ValidatedPdm, _qsm: Valida
       }
     }
 
-    const idR = inferExprType(emit.aggregateId as unknown, emptyScope, pdm, params);
+    const idR = inferExprType(emit.aggregateId as unknown, emptyScope, pdm, params, nodeTypes);
     if (idR.ok) {
       const primary = entity.keys[0];
       const primaryType = primary ? entity.fields[primary]?.type : undefined;
@@ -93,7 +100,7 @@ export function checkEmit(graph: CanonicalGraph, pdm: ValidatedPdm, _qsm: Valida
     for (const [fname, expr] of Object.entries(emit.payload)) {
       const field = entity.fields[fname];
       if (!field) continue;
-      const tR = inferExprType(expr as unknown, emptyScope, pdm, params);
+      const tR = inferExprType(expr as unknown, emptyScope, pdm, params, nodeTypes);
       if (tR.ok && tR.value.type !== field.type) {
         errs.push({
           layer: 'semantic',

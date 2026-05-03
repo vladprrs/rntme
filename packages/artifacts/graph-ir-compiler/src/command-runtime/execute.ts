@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { EventStore, AppendEventInput, AppendRequest, ActorRef } from '@rntme/event-store';
 import { ConcurrencyConflict } from '@rntme/event-store';
@@ -85,8 +86,13 @@ export function executeCommand(
     throw runtimeError('RUNTIME_INTERNAL_ERROR', 'executeCommand: no emits in compiled command');
   }
 
+  const nodeOutputs: Record<string, unknown> = {};
+  for (const nodeId of compiled.runtimeNodes) {
+    nodeOutputs[nodeId] = randomUUID();
+  }
+
   const head = compiled.emits[0]!;
-  const aggregateId = String(evalExprAtRuntime(head.aggregateIdExpr, paramValues) ?? '');
+  const aggregateId = String(evalExprAtRuntime(head.aggregateIdExpr, paramValues, nodeOutputs) ?? '');
   const subject = `${head.aggregate}-${aggregateId}`;
 
   const history = ctx.eventStore.readStream(subject);
@@ -98,7 +104,7 @@ export function executeCommand(
   for (const plan of compiled.emits) {
     const stateField = stateFieldForPlan(plan);
     checkTransitionLegal(plan, runningState, stateField);
-    const payload = derivePayload(plan, paramValues, runningState);
+    const payload = derivePayload(plan, paramValues, runningState, nodeOutputs);
     events.push({
       id: ctx.nextId(),
       eventType: plan.eventType,

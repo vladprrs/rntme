@@ -56,6 +56,12 @@ export type CanonicalLimit = {
   count: number | { $param: string };
 };
 
+export type CanonicalUuid = {
+  kind: 'uuid';
+  id: string;
+  scope: ScopeId;
+};
+
 export type CanonicalEmit = {
   kind: 'emit';
   id: string;
@@ -74,6 +80,7 @@ export type CanonicalNode =
   | CanonicalReduce
   | CanonicalSort
   | CanonicalLimit
+  | CanonicalUuid
   | CanonicalEmit;
 
 export type CanonicalGraph = {

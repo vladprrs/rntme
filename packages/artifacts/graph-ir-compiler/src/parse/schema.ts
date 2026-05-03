@@ -29,6 +29,7 @@ const expr: z.ZodType<unknown> = z.lazy(() =>
     z.object({ $literal: z.string() }).strict(),
     z.object({ $param: z.string() }).strict(),
     z.object({ $pre: z.string() }).strict(),
+    z.object({ $node: z.string().min(1) }).strict(),
     z.object({ $list: z.array(expr) }).strict(),
     z.object({ between: z.tuple([expr, expr, expr]) }).strict(),
     z
@@ -186,6 +187,14 @@ const lookupOneNode = z
   })
   .strict();
 
+const uuidNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('uuid'),
+    config: z.object({}).strict(),
+  })
+  .strict();
+
 const emitNode = z
   .object({
     id: z.string(),
@@ -211,6 +220,7 @@ const graphNode = z.discriminatedUnion('type', [
   limitNode,
   distinctNode,
   lookupOneNode,
+  uuidNode,
   emitNode,
 ]);
 

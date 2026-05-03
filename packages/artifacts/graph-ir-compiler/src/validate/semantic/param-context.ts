@@ -19,6 +19,10 @@ function* walkExprParams(expr: unknown): Generator<string> {
     return; // $literal carries no Expr sub-trees
   }
 
+  if ('$node' in obj) {
+    return; // $node carries no Expr sub-trees
+  }
+
   // FieldExpr.lookup: entity/path/match/field/optional — no Expr sub-trees
   if ('lookup' in obj) {
     return;

@@ -10,15 +10,11 @@
     "create-section": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "md" },
-      "children": ["create-heading", "field-id", "field-title", "field-body", "submit-btn"]
+      "children": ["create-heading", "field-title", "field-body", "submit-btn"]
     },
     "create-heading": {
       "type": "Heading",
       "props": { "level": 2, "text": "New note" }
-    },
-    "field-id": {
-      "type": "Input",
-      "props": { "label": "ID", "name": "id", "value": { "$bindState": "/form/id" } }
     },
     "field-title": {
       "type": "Input",
