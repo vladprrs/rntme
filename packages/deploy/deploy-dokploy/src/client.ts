@@ -66,4 +66,6 @@ export type DokployClient = {
     resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   ): Promise<void>;
   deployCompose(composeId: string): Promise<void>;
+  deleteApplication(applicationId: string): Promise<void>;
+  deleteCompose(composeId: string): Promise<void>;
 };

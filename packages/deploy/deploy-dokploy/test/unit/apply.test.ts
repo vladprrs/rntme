@@ -899,6 +899,9 @@ class FakeDokployClient implements DokployClient {
   async deployCompose(composeId: string): Promise<void> {
     this.lifecycleCalls.push(`deploy-compose:${composeId}`);
   }
+
+  async deleteApplication(_applicationId: string): Promise<void> {}
+  async deleteCompose(_composeId: string): Promise<void> {}
 }
 
 function resource(overrides: Partial<RenderedDokployResource>): RenderedDokployResource {
