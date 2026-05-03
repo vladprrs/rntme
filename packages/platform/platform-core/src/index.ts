@@ -44,6 +44,7 @@ export * from './repos/workos-event-log-repo.js';
 export * from './repos/project-repo.js';
 export * from './repos/project-version-repo.js';
 export * from './repos/deploy-target-repo.js';
+export * from './repos/target-secrets-repo.js';
 export * from './repos/deployment-repo.js';
 export * from './repos/project-operation-repo.js';
 export * from './repos/token-repo.js';
