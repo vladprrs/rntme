@@ -58,8 +58,8 @@ export class PgDeploymentRepo implements DeploymentRepo {
         const enriched = await db.query(
           `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
            FROM deployment d
-           LEFT JOIN project_version pv ON pv.id = d.project_version_id
-           LEFT JOIN deploy_target dt ON dt.id = d.target_id
+           INNER JOIN project_version pv ON pv.id = d.project_version_id
+           INNER JOIN deploy_target dt ON dt.id = d.target_id
            WHERE d.id=$1 LIMIT 1`,
           [args.row.id],
         );
@@ -75,8 +75,8 @@ export class PgDeploymentRepo implements DeploymentRepo {
       const row = await this.db.query(
         `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
          FROM deployment d
-         LEFT JOIN project_version pv ON pv.id = d.project_version_id
-         LEFT JOIN deploy_target dt ON dt.id = d.target_id
+         INNER JOIN project_version pv ON pv.id = d.project_version_id
+         INNER JOIN deploy_target dt ON dt.id = d.target_id
          WHERE d.id=$1 LIMIT 1`,
         [id],
       );
@@ -106,8 +106,8 @@ export class PgDeploymentRepo implements DeploymentRepo {
       const rows = await this.db.query(
         `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
          FROM deployment d
-         LEFT JOIN project_version pv ON pv.id = d.project_version_id
-         LEFT JOIN deploy_target dt ON dt.id = d.target_id
+         INNER JOIN project_version pv ON pv.id = d.project_version_id
+         INNER JOIN deploy_target dt ON dt.id = d.target_id
          WHERE ${where.join(' AND ')}
          ORDER BY d.queued_at DESC, d.id DESC
          LIMIT $${values.length}`,
@@ -313,9 +313,9 @@ function rowToDeployment(r: DbRow): Deployment {
     projectId: r['project_id'] as string,
     orgId: r['org_id'] as string,
     projectVersionId: r['project_version_id'] as string,
-    projectVersionSeq: (r['project_version_seq'] ?? undefined) as number | undefined,
+    projectVersionSeq: r['project_version_seq'] as number,
     targetId: r['target_id'] as string,
-    targetSlug: (r['target_slug'] ?? undefined) as string | undefined,
+    targetSlug: r['target_slug'] as string,
     status: r['status'] as DeploymentStatus,
     configOverrides: r['config_overrides'] as Record<string, unknown>,
     renderedPlanDigest: (r['rendered_plan_digest'] ?? null) as string | null,
