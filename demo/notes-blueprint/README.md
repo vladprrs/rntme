@@ -60,9 +60,27 @@ Auth0 and Redpanda Cloud values are supplied by deploy target configuration and
 Dokploy secrets, not by this blueprint. Public Auth0 browser config is rendered
 to `/config.json`; secret values stay in Dokploy environment variables.
 
-Required deploy inputs:
+The blueprint declares the Auth0 browser and edge-audience inputs in
+`project.json#vars`:
 
-- `AUTH0_SPA_CLIENT_ID` substitutes `project.json#modules.identity.publicConfig.clientId`.
+```json
+{
+  "AUTH0_SPA_CLIENT_ID": { "from": "target.auth.auth0.clientId", "required": true },
+  "AUTH0_DOMAIN": { "from": "target.auth.auth0.domain", "required": true },
+  "AUTH0_AUDIENCE": { "from": "target.auth.auth0.audience", "required": true },
+  "AUTH0_REDIRECT_URI": { "from": "target.auth.auth0.redirectUri", "required": true }
+}
+```
+
+Required deploy target keys:
+
+- `target.auth.auth0.clientId` substitutes `project.json#modules.identity.publicConfig.clientId`.
+- `target.auth.auth0.domain` substitutes `project.json#modules.identity.publicConfig.domain`.
+- `target.auth.auth0.audience` substitutes both
+  `project.json#modules.identity.publicConfig.audience` and
+  `project.json#middleware.auth.audience`.
+- `target.auth.auth0.redirectUri` substitutes
+  `project.json#modules.identity.publicConfig.redirectUri`.
 - Auth0 backend audience must match `project.json#middleware.auth.audience`,
   every binding `IntrospectSession` audience, and the Auth0 API identifier:
   `https://notes-demo.rntme.com/api`.
@@ -78,6 +96,34 @@ Required deploy inputs:
   `RNTME_EVENT_BUS_MECHANISM=scram-sha-256` or `scram-sha-512`,
   `RNTME_EVENT_BUS_USERNAME`, `RNTME_EVENT_BUS_PASSWORD`, and topic prefix
   configuration as required by the target.
+
+## Production deployment
+
+The production `dokploy-demos` target must include the Auth0 SPA config used by
+`project.json#vars`. Auth0 requires the redirect URI to be allowed by the SPA
+application settings; the same origin should also be listed in Allowed Logout
+URLs and Allowed Web Origins for the login/logout round trip.
+
+Use this canonical config shape with `rntme target set-config`:
+
+```json
+{
+  "auth": {
+    "auth0": {
+      "domain": "demo-rntme.us.auth0.com",
+      "clientId": "<production SPA client id>",
+      "audience": "https://notes-demo.rntme.com/api",
+      "redirectUri": "https://notes-demo.rntme.com/"
+    }
+  }
+}
+```
+
+After publishing a fresh project version, redeploy it with:
+
+```bash
+rntme project deploy --org test-organization --project notes-demo --version <seq> --target dokploy-demos --wait
+```
 
 User test after deploy:
 

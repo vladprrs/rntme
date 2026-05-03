@@ -150,7 +150,11 @@ export function buildProjectDeploymentPlan(
   }
 
   const workloads = buildWorkloads(project, config, errors, vars);
-  const { edge, errors: edgeErrors } = planEdge(project, config, workloads);
+  const edgeProject = {
+    ...project,
+    middleware: applyVars(project.middleware ?? {}, vars),
+  };
+  const { edge, errors: edgeErrors } = planEdge(edgeProject, config, workloads);
   errors.push(...edgeErrors);
 
   if (errors.length > 0 || plannedEventBus === undefined) return err(errors);

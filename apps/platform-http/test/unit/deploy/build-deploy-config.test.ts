@@ -85,7 +85,14 @@ describe('buildProjectDeploymentConfig', () => {
           env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
         },
       },
-      auth: { auth0: { clientId: 'public-client-id' } },
+      auth: {
+        auth0: {
+          clientId: 'public-client-id',
+          domain: 'demo-rntme.us.auth0.com',
+          audience: 'https://notes-demo.rntme.com/api',
+          redirectUri: 'https://notes-demo.rntme.com/',
+        },
+      },
     }, 'acme', {
       integrationModuleImages: { stripe: 'registry/stripe:1' },
       policyOverrides: { timeout: { edge: { upstreamTimeoutMs: 1000 } } },
@@ -100,7 +107,14 @@ describe('buildProjectDeploymentConfig', () => {
       },
       stripe: { image: 'registry/stripe:1' },
     });
-    expect(config.auth).toEqual({ auth0: { clientId: 'public-client-id' } });
+    expect(config.auth).toEqual({
+      auth0: {
+        clientId: 'public-client-id',
+        domain: 'demo-rntme.us.auth0.com',
+        audience: 'https://notes-demo.rntme.com/api',
+        redirectUri: 'https://notes-demo.rntme.com/',
+      },
+    });
     expect(config.policies).toEqual({
       rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } },
       timeout: { edge: { upstreamTimeoutMs: 1000 } },

@@ -64,6 +64,29 @@ describe('consistency vars', () => {
     }
   });
 
+  it('rejects placeholder in middleware audience not declared in vars', () => {
+    const r = validateBlueprintComposition({
+      ...composeBase,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: '${MISSING}',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        vars: {},
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'BLUEPRINT_CONSISTENCY_VAR_UNDECLARED')).toBe(true);
+    }
+  });
+
   it('rejects vars entry never referenced', () => {
     const r = validateBlueprintComposition({
       ...composeBase,
@@ -77,6 +100,34 @@ describe('consistency vars', () => {
     if (!r.ok) {
       expect(r.errors.some((e) => e.code === 'BLUEPRINT_CONSISTENCY_VAR_UNUSED')).toBe(true);
     }
+  });
+
+  it('accepts placeholder declared in vars and used by middleware audience', () => {
+    const r = validateBlueprintComposition({
+      services: {
+        ...composeBase.services,
+        'identity-auth0': {
+          slug: 'identity-auth0',
+          kind: 'integration-module' as const,
+          qsm: null,
+          artifacts: { hasBindings: false, hasUi: false, hasGraphs: false, hasQsm: false, hasSeed: false },
+        },
+      },
+      project: {
+        name: 'demo',
+        services: ['app', 'identity-auth0'],
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: '${AUD}',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        vars: { AUD: { from: 'target.auth.auth0.audience', required: true } },
+      },
+    });
+    expect(r.ok).toBe(true);
   });
 
   it('accepts placeholder declared in vars', () => {

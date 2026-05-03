@@ -79,7 +79,15 @@ function cleanModuleConfig(input: DeployTarget['modules'][string]): IntegrationM
 }
 
 function cleanAuthConfig(input: DeployTarget['auth']): NonNullable<ProjectDeploymentConfig['auth']> {
-  return input.auth0 === undefined ? {} : { auth0: input.auth0 };
+  if (input.auth0 === undefined) return {};
+  return {
+    auth0: {
+      clientId: input.auth0.clientId,
+      ...(input.auth0.domain === undefined ? {} : { domain: input.auth0.domain }),
+      ...(input.auth0.audience === undefined ? {} : { audience: input.auth0.audience }),
+      ...(input.auth0.redirectUri === undefined ? {} : { redirectUri: input.auth0.redirectUri }),
+    },
+  };
 }
 
 export function buildDokployTargetConfig(

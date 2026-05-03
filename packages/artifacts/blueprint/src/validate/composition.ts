@@ -187,6 +187,20 @@ function validateVars(project: ProjectBlueprint): BlueprintError[] {
     }
   }
 
+  for (const [name, middleware] of Object.entries(project.middleware ?? {})) {
+    for (const placeholder of extractPlaceholders(middleware)) {
+      used.add(placeholder);
+      if (!declared.has(placeholder)) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_CONSISTENCY_VAR_UNDECLARED,
+          message: `placeholder "${placeholder}" used in middleware.${name} is not declared in project.vars`,
+          path: `project.middleware.${name}`,
+        });
+      }
+    }
+  }
+
   for (const name of declared) {
     if (!used.has(name)) {
       errors.push({
@@ -332,7 +346,7 @@ function checkMountedAuthAudiences(
           if (step.module !== declaration.moduleSlug || step.rpc !== 'IntrospectSession') continue;
           const input = step.input as Record<string, unknown>;
           const audience = typeof input.audience === 'string' ? input.audience : undefined;
-          if (audience !== declaration.audience) {
+          if (!audiencesMatchBeforeVars(audience, declaration.audience)) {
             errors.push({
               layer: 'composition',
               code: ERROR_CODES.BLUEPRINT_AUTH_AUDIENCE_MISMATCH,
@@ -345,6 +359,12 @@ function checkMountedAuthAudiences(
     }
   }
   return errors;
+}
+
+function audiencesMatchBeforeVars(bindingAudience: string | undefined, middlewareAudience: string): boolean {
+  if (bindingAudience === middlewareAudience) return true;
+  if (bindingAudience === undefined) return false;
+  return extractPlaceholders(bindingAudience).length > 0 || extractPlaceholders(middlewareAudience).length > 0;
 }
 
 function checkGraphPreRefs(services: Record<string, CompositionServiceInput>): BlueprintError[] {

@@ -88,7 +88,14 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
             env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
           },
         },
-        auth: { auth0: { clientId: 'public-client-id' } },
+        auth: {
+          auth0: {
+            clientId: 'public-client-id',
+            domain: 'tenant.us.auth0.com',
+            audience: 'https://notes-demo.rntme.com/api',
+            redirectUri: 'https://preview.example.test/',
+          },
+        },
         policyValues: {
           requestContext: {
             default: {
