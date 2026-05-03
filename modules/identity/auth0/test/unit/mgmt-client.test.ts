@@ -9,7 +9,7 @@ describe('Auth0 mgmt-client', () => {
       }
       return new Response('[]', { status: 200 });
     });
-    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher });
+    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher as typeof fetch });
     await c.findClientByName('foo');
     expect(fetcher.mock.calls.some((c) => String(c[0]).endsWith('/oauth/token'))).toBe(true);
   });
@@ -19,7 +19,7 @@ describe('Auth0 mgmt-client', () => {
       if (url.endsWith('/oauth/token')) return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       return new Response('', { status: 404 });
     });
-    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher });
+    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher as typeof fetch });
     const r = await c.deleteClient('cid');
     expect(r.ok).toBe(true);
   });
@@ -31,7 +31,7 @@ describe('Auth0 mgmt-client', () => {
       calls++;
       return new Response('rate limited', { status: 429 });
     });
-    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher, retryDelayMs: 1 });
+    const c = createMgmtClient({ tenantDomain: 'x.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b', fetch: fetcher as typeof fetch, retryDelayMs: 1 });
     const r = await c.findClientByName('foo');
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]?.code).toBe('AUTH0_RATE_LIMITED');
