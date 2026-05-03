@@ -8,9 +8,31 @@
 
 **Architecture:** Three components landed in order: (1) client-side CLI plumbing (defaults from credentials, per-subcommand `--help`, UUID validation, `--version`, `--wait`, `--runtime-image`, `--config-overrides`); (2) API denormalization (`projectVersionSeq` + `targetSlug` on deployment responses) consumed by the CLI; (3) target management commands + project-scoped 404 helper. Most tasks are TDD slices on isolated files.
 
-**Tech Stack:** TypeScript, Vitest, Node `parseArgs`, Zod for response schemas, esbuild define for build-time constants.
+**Tech Stack:** TypeScript, Vitest, Node `parseArgs`, Zod for response schemas, `tsc` build output.
 
 ---
+
+## PLAN Challenge Update (RNT-416)
+
+This section supersedes conflicting task text below. It was added after reading current `main` (merge `bc54d37`) and checking current docs for Node `util.parseArgs`, Zod v4, and esbuild through Context7.
+
+### Current-code corrections
+
+- The CLI is now in `apps/cli` and already has `project deploy` plus `project deployment <list|show|watch>`. Plan 2 must harden those files, not recreate the initial deployment command surface from the older plan.
+- `apps/cli/package.json` uses plain `tsc`, not esbuild. Do not introduce esbuild or a postbuild mutation script just to fix `--version`. The current `readVersion()` already reads `apps/cli/package.json`; the hardening slice is to set the package version to a non-`0.0.0` value and keep the existing build/spawn tests passing.
+- Node `parseArgs` is a single global parse in `apps/cli/src/bin/cli.ts`. Keep `--version <seq>` for `project deploy`, but keep `-v` as global version only. Do not document or rely on `project deploy -v 4`.
+- Zod v4 is installed. Match the existing code style in `apps/cli/src/api/types.ts` and `packages/platform/platform-core/src/schemas/*`; do not switch one-off files to a different Zod idiom unless the package already uses it.
+- Target management must align with the existing platform API: `GET /v1/orgs/:org/deploy-targets`, `GET /v1/orgs/:org/deploy-targets/:targetSlug`, and `PATCH /v1/orgs/:org/deploy-targets/:targetSlug`. Do not add a new `/config` subroute unless a test proves the existing PATCH route cannot enforce the required contract.
+- Remove `--unredacted` from `target show`. The platform stores Dokploy API tokens encrypted and currently returns only `apiTokenRedacted`. A CLI flag that implies secret recovery is misleading and unsafe. Operators can inspect editable config (`auth`, `modules`, `eventBus`, `policyValues`) without ever printing deploy-target API tokens.
+
+### Acceptance clarifications for [DEV]
+
+- Credential defaults cover both `defaultOrg` and `defaultProject`. Precedence is: explicit CLI flag > `RNTME_ORG` / `RNTME_PROJECT` env > local `rntme.json` > credentials profile default. This preserves local-project ergonomics while allowing operator-only CLI workflows.
+- `login --token ... [--project <slug>]` writes `defaultOrg` from `GET /v1/auth/me` when that call succeeds. It writes `defaultProject` only from explicit `--project`; `whoami` does not currently return a project default. If `auth.me` fails, login still succeeds and stores the token without defaults.
+- Deployment response denormalization belongs in platform-core/storage, not only in `apps/platform-http/src/routes/deployments.ts`. Update `DeploymentSchema`, `DeploymentRepo`, `PgDeploymentRepo`, use-case tests, HTTP e2e fixtures, and CLI schemas together. `PgDeploymentRepo.getById()` and `listByProject()` should join `project_version.seq AS project_version_seq` and `deploy_target.slug AS target_slug`; `create()` should return the same enriched shape either by selecting back through the joined query or by an equivalent join/subquery.
+- `target set-config` accepts only `{ auth?, modules?, eventBus?, policyValues? }`, validates the local JSON before sending, then calls the existing PATCH deploy-target route. Reject forbidden keys such as `apiToken`, `dokployUrl`, `displayName`, `isDefault`, and `publicBaseUrl` client-side with `CLI_VALIDATE_LOCAL_FAILED` or a new specific `CLI_VALIDATE_CONFIG_FORBIDDEN_FIELD` mapped to exit `6`.
+- Helpful 404 for `/v1/orgs/:org/projects/:project/deploy-targets` should be registered inside the authenticated `/v1` router in `apps/platform-http/src/app.ts` before generic project routes, with both exact and nested variants. Response body must use the standard error envelope: `{ "error": { "code": "PLATFORM_HTTP_NOT_FOUND", "message": "deploy targets are org-scoped; use /v1/orgs/<org>/deploy-targets" } }`.
+- Live platform publish/deploy evidence is optional for this plan. If a DEV agent performs it, run `./scripts/agent-env-check.sh platform` first and use `RNTME_TOKEN` without printing it.
 
 ## File Structure
 
@@ -18,11 +40,8 @@
 - `apps/cli/src/commands/target/list.ts` — `rntme target list` command
 - `apps/cli/src/commands/target/show.ts` — `rntme target show <slug>` command
 - `apps/cli/src/commands/target/set-config.ts` — `rntme target set-config <slug> --json <path>` command
-- `apps/cli/src/api/target-endpoints.ts` — typed endpoints for org-scoped targets
 - `apps/cli/src/help/registry.ts` — per-subcommand help registry + lookup
 - `apps/cli/src/util/uuid.ts` — UUID arg validator
-- `apps/cli/src/util/version.ts` — single source for the CLI version constant (esbuild-injected)
-- `apps/cli/scripts/inject-version.cjs` — postbuild helper that rewrites `dist/util/version.js` to the package.json version
 - `apps/cli/test/unit/help-registry.test.ts`
 - `apps/cli/test/unit/uuid.test.ts`
 - `apps/cli/test/unit/target-list.test.ts`
@@ -30,23 +49,26 @@
 - `apps/cli/test/unit/target-set-config.test.ts`
 - `apps/cli/test/unit/deployment-watch-exit.test.ts`
 - `apps/cli/test/unit/deploy-flags.test.ts`
-- `apps/cli/test/unit/version.test.ts`
 - `apps/cli/test/unit/defaults-from-credentials.test.ts`
 
 **Modify:**
 - `apps/cli/src/bin/cli.ts` — register subcommand help, target commands, version path, deploy flags
-- `apps/cli/src/config/credentials.ts` — add `defaultOrg?: string` to schema; `login` writes it
-- `apps/cli/src/config/resolve.ts` — fall back to `credentials.defaultOrg` when `--org` and project config lack it
-- `apps/cli/src/commands/login.ts` — fetch `whoami` after token save, write `defaultOrg`
+- `apps/cli/src/api/endpoints.ts` — add `targets` namespace using the existing `apiCall` helper
+- `apps/cli/src/api/types.ts` — add deploy-target schemas plus deployment `projectVersionSeq` / `targetSlug`
+- `apps/cli/src/config/credentials.ts` — add `defaultOrg?: string`, `defaultProject?: string`
+- `apps/cli/src/config/resolve.ts` — resolve org/project from flags, env, project config, then credential defaults
+- `apps/cli/src/commands/login.ts` — fetch `auth.me` fail-soft, write `defaultOrg`; write `defaultProject` only from `--project`
 - `apps/cli/src/commands/project/deploy.ts` — accept `--runtime-image`, `--config-overrides`, `--wait`, `--timeout`
 - `apps/cli/src/commands/project/deployment-show.ts` — UUID validation; verify summary lines
 - `apps/cli/src/commands/project/deployment-watch.ts` — final summary print (errorCode/errorMessage/verify summary), reuse for `--wait`
 - `apps/cli/src/commands/project/deployment-list.ts` — print `seq` and `targetSlug` when present, drop UUIDs from human output
-- `apps/cli/src/api/types.ts` — add `projectVersionSeq` and `targetSlug` to `DeploymentResponseSchema` and list schema
-- `apps/cli/package.json` — `bin` map unchanged; tsconfig/build picks up version injection
-- `apps/platform-http/src/routes/deployments.ts` (or current file) — populate `projectVersionSeq` and `targetSlug` in response
-- `apps/platform-http/src/routes/deploy-targets.ts` (or new file) — register helpful 404 for project-scoped path
-- `apps/platform-http/src/routes/_register.ts` — wire 404 handler
+- `apps/cli/package.json` — set package version to a real non-zero version; keep existing `tsc` build
+- `packages/platform/platform-core/src/schemas/deployment.ts` — add denormalized response fields
+- `packages/platform/platform-core/src/repos/deployment-repo.ts` — update repo return type contract
+- `packages/platform/platform-core/src/use-cases/deployments.ts` — return enriched deployments
+- `packages/platform/platform-storage/src/repos/pg-deployment-repo.ts` — join project version seq + target slug
+- `apps/platform-http/src/app.ts` — register helpful project-scoped deploy-target 404 before project routes
+- `apps/platform-http/src/routes/deploy-targets.ts` — only if existing PATCH behavior needs a narrower config-only guard
 
 **Test:** see "Create" entries.
 
@@ -54,13 +76,13 @@
 
 ## Component A — Defaults from credentials, per-subcommand help, UUID validation, `--version`
 
-### Task A.1: Default org from credentials
+### Task A.1: Default org/project from credentials
 
 **Files:**
 - Modify: `apps/cli/src/config/credentials.ts`, `apps/cli/src/config/resolve.ts`, `apps/cli/src/commands/login.ts`
 - Create: `apps/cli/test/unit/defaults-from-credentials.test.ts`
 
-- [ ] **Step 1: Add `defaultOrg` to credentials schema**
+- [ ] **Step 1: Add credential defaults to the profile schema**
 
 In `credentials.ts`, replace the `ProfileSchema`:
 
@@ -70,18 +92,34 @@ const ProfileSchema = z.object({
   token: z.string().regex(/^rntme_pat_[a-zA-Z0-9]{22}$/),
   addedAt: z.string().datetime(),
   defaultOrg: z.string().optional(),
+  defaultProject: z.string().optional(),
 });
 ```
 
-- [ ] **Step 2: Read `defaultOrg` in `resolveConfig`**
+- [ ] **Step 2: Add tenancy env vars and read credential defaults in `resolveConfig`**
+
+Extend `ResolveEnv`:
+
+```ts
+export type ResolveEnv = {
+  RNTME_BASE_URL?: string | undefined;
+  RNTME_TOKEN?: string | undefined;
+  RNTME_PROFILE?: string | undefined;
+  RNTME_ORG?: string | undefined;
+  RNTME_PROJECT?: string | undefined;
+  RNTME_SERVICE?: string | undefined;
+};
+```
 
 In `resolve.ts`, change:
 
 ```ts
-const org = input.flags.org ?? input.projectConfig?.org ?? input.credentials?.profiles[profileName]?.defaultOrg ?? null;
+const org = input.flags.org ?? input.env.RNTME_ORG ?? input.projectConfig?.org ?? profile?.defaultOrg ?? null;
+const project = input.flags.project ?? input.env.RNTME_PROJECT ?? input.projectConfig?.project ?? profile?.defaultProject ?? null;
+const service = input.flags.service ?? input.env.RNTME_SERVICE ?? input.projectConfig?.service ?? null;
 ```
 
-(Use `profileName` resolved earlier in the same function.)
+`profile` is already resolved near `profileName`; use it instead of re-indexing `credentials.profiles`.
 
 - [ ] **Step 3: Write the failing test**
 
@@ -91,8 +129,8 @@ const org = input.flags.org ?? input.projectConfig?.org ?? input.credentials?.pr
 import { describe, expect, it } from 'vitest';
 import { resolveConfig } from '../../src/config/resolve.js';
 
-describe('resolveConfig defaultOrg', () => {
-  it('uses credentials.defaultOrg when --org and project config absent', () => {
+describe('resolveConfig credential defaults', () => {
+  it('uses credentials default org/project when flags, env, and project config are absent', () => {
     const r = resolveConfig({
       flags: {},
       env: {},
@@ -106,18 +144,22 @@ describe('resolveConfig defaultOrg', () => {
             token: 'rntme_pat_abcdefghijklmnopqrstuv',
             addedAt: '2026-05-02T00:00:00.000Z',
             defaultOrg: 'my-org',
+            defaultProject: 'notes-demo',
           },
         },
       },
     });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.org).toBe('my-org');
+    if (r.ok) {
+      expect(r.value.org).toBe('my-org');
+      expect(r.value.project).toBe('notes-demo');
+    }
   });
 
-  it('--org wins over credentials default', () => {
+  it('flag and env values win over credentials defaults', () => {
     const r = resolveConfig({
       flags: { org: 'flag-org' },
-      env: {},
+      env: { RNTME_PROJECT: 'env-project' },
       projectConfig: null,
       credentials: {
         version: 1,
@@ -128,11 +170,42 @@ describe('resolveConfig defaultOrg', () => {
             token: 'rntme_pat_abcdefghijklmnopqrstuv',
             addedAt: '2026-05-02T00:00:00.000Z',
             defaultOrg: 'cred-org',
+            defaultProject: 'cred-project',
           },
         },
       },
     });
-    if (r.ok) expect(r.value.org).toBe('flag-org');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.org).toBe('flag-org');
+      expect(r.value.project).toBe('env-project');
+    }
+  });
+
+  it('local project config wins over credential defaults when no flag/env is set', () => {
+    const r = resolveConfig({
+      flags: {},
+      env: {},
+      projectConfig: { org: 'file-org', project: 'file-project', service: 'app' },
+      credentials: {
+        version: 1,
+        defaultProfile: 'default',
+        profiles: {
+          default: {
+            baseUrl: 'https://x',
+            token: 'rntme_pat_abcdefghijklmnopqrstuv',
+            addedAt: '2026-05-02T00:00:00.000Z',
+            defaultOrg: 'cred-org',
+            defaultProject: 'cred-project',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.org).toBe('file-org');
+      expect(r.value.project).toBe('file-project');
+    }
   });
 });
 ```
@@ -142,9 +215,9 @@ describe('resolveConfig defaultOrg', () => {
 Run: `pnpm -F @rntme/cli vitest run test/unit/defaults-from-credentials.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Update `login` to fetch and write `defaultOrg`**
+- [ ] **Step 5: Update `login` to fetch and write credential defaults**
 
-In `login.ts`, after the credentials are written, call `endpoints.whoami` with the new token and update the profile's `defaultOrg` from the response. Keep the change minimal — fail-soft if whoami errors (write the credentials anyway, just without `defaultOrg`).
+In `login.ts`, add optional `project?: string` to `LoginFlags` and wire `--project` through `bin/cli.ts`. Before writing credentials, call `endpoints.auth.me({ baseUrl, token })` with the new token and set `defaultOrg` from `response.org.slug` when it succeeds. Set `defaultProject` only when `--project <slug>` was provided. Keep the call fail-soft: if `auth.me` errors, write the token anyway without `defaultOrg`.
 
 - [ ] **Step 6: Run full CLI tests**
 
@@ -154,8 +227,8 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/cli/src/config apps/cli/src/commands/login.ts apps/cli/test/unit/defaults-from-credentials.test.ts
-git commit -m "feat(cli): default org from credentials profile"
+git add apps/cli/src/config apps/cli/src/bin/cli.ts apps/cli/src/commands/login.ts apps/cli/test/unit/defaults-from-credentials.test.ts
+git commit -m "feat(cli): default org and project from credentials profile"
 ```
 
 ### Task A.2: Per-subcommand `--help`
@@ -227,7 +300,7 @@ registerHelp(['project', 'deployment', 'list'], `Usage: rntme project deployment
 registerHelp(['project', 'deployment', 'show'], `Usage: rntme project deployment show --org <slug> --project <slug> <deployment-id>`);
 registerHelp(['project', 'deployment', 'watch'], `Usage: rntme project deployment watch --org <slug> --project <slug> <deployment-id>`);
 registerHelp(['target', 'list'], `Usage: rntme target list [--org <slug>]`);
-registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>] [--unredacted]`);
+registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>]`);
 registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --json <path> [--org <slug>]`);
 ```
 
@@ -340,84 +413,38 @@ git commit -m "feat(cli): client-side UUID validation for deployment id args"
 ### Task A.4: Real `--version` from package.json
 
 **Files:**
-- Create: `apps/cli/src/util/version.ts`, `apps/cli/scripts/inject-version.cjs`, `apps/cli/test/unit/version.test.ts`
-- Modify: `apps/cli/src/bin/cli.ts`, `apps/cli/package.json`
+- Modify: `apps/cli/package.json`, `apps/cli/test/unit/cli.test.ts`
 
-- [ ] **Step 1: Write the version module**
+- [ ] **Step 1: Keep the current `tsc` version path**
 
-`apps/cli/src/util/version.ts`:
+Do not create `apps/cli/src/util/version.ts` or `apps/cli/scripts/inject-version.cjs`. Current `apps/cli/src/bin/cli.ts` reads `../../package.json` from the built `dist/bin/cli.js` location, and `apps/cli/package.json#files` already includes package metadata in package installs. The observed bug is the package version value, not the read path.
 
-```ts
-// Replaced at build time by scripts/inject-version.cjs.
-export const CLI_VERSION = '__CLI_VERSION__';
-```
-
-- [ ] **Step 2: Use it in cli.ts**
-
-In `bin/cli.ts`, replace `readVersion()` body with:
-
-```ts
-import { CLI_VERSION } from '../util/version.js';
-function readVersion(): string { return CLI_VERSION; }
-```
-
-- [ ] **Step 3: Write the postbuild injector**
-
-`apps/cli/scripts/inject-version.cjs`:
-
-```cjs
-const fs = require('fs');
-const path = require('path');
-const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-const target = path.join(__dirname, '..', 'dist', 'util', 'version.js');
-const src = fs.readFileSync(target, 'utf8');
-fs.writeFileSync(target, src.replace('__CLI_VERSION__', pkg.version));
-```
-
-- [ ] **Step 4: Wire postbuild**
-
-In `apps/cli/package.json`, append to the `postbuild` script:
-
-```
-&& node scripts/inject-version.cjs
-```
-
-(Concatenate with existing postbuild chain.)
-
-- [ ] **Step 5: Bump package version**
+- [ ] **Step 2: Bump package version**
 
 In `apps/cli/package.json`, change `"version": "0.0.0"` to `"version": "0.1.0"` (or whichever number the project uses for first real release; pick a non-zero).
 
-- [ ] **Step 6: Write the test**
+- [ ] **Step 3: Strengthen the existing spawn test**
 
-`apps/cli/test/unit/version.test.ts`:
+In `apps/cli/test/unit/cli.test.ts`, extend the existing `--version` and `-v` assertions:
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { CLI_VERSION } from '../../src/util/version.js';
-import pkg from '../../package.json' assert { type: 'json' };
-
-describe('CLI_VERSION', () => {
-  // Pre-build: source has placeholder; post-build (CI), it equals pkg.version.
-  it('is the placeholder OR matches package.json#version', () => {
-    expect([(pkg as { version: string }).version, '__CLI_VERSION__']).toContain(CLI_VERSION);
-  });
-});
+expect(result.stdout.trim()).toBe(pkgVersion);
+expect(result.stdout.trim()).not.toBe('0.0.0');
 ```
 
-- [ ] **Step 7: Build + run + assert end-to-end**
+- [ ] **Step 4: Build + run + assert end-to-end**
 
 ```bash
 pnpm -F @rntme/cli build
 node apps/cli/dist/bin/cli.js --version
 ```
-Expected: prints the package.json version (e.g. `0.1.0`), not `0.0.0`, not `__CLI_VERSION__`.
+Expected: prints the package.json version (e.g. `0.1.0`), not `0.0.0`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add apps/cli/src/util/version.ts apps/cli/scripts/inject-version.cjs apps/cli/src/bin/cli.ts apps/cli/package.json apps/cli/test/unit/version.test.ts
-git commit -m "feat(cli): inject real version from package.json at build"
+git add apps/cli/package.json apps/cli/test/unit/cli.test.ts
+git commit -m "fix(cli): report nonzero package version"
 ```
 
 ---
@@ -454,10 +481,16 @@ import { resolve } from 'node:path';
 let configOverrides: Record<string, unknown> = {};
 if (args.configOverridesPath) {
   const raw = readFileSync(resolve(process.cwd(), args.configOverridesPath), 'utf8');
-  configOverrides = JSON.parse(raw) as Record<string, unknown>;
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return err(cliError('CLI_VALIDATE_LOCAL_FAILED', '--config-overrides must be a JSON object'));
+  }
+  configOverrides = parsed as Record<string, unknown>;
 }
 if (args.runtimeImage) configOverrides.runtimeImage = args.runtimeImage;
 ```
+
+The server-side `StartDeploymentRequestSchema` currently accepts `runtimeImage`, `integrationModuleImages`, and `policyOverrides`. The CLI should pass through unknown object keys only if the server schema is intentionally widened in the same PR; otherwise add a local validation test that rejects unsupported override keys before the HTTP call.
 
 - [ ] **Step 2: Wire flags in `bin/cli.ts`**
 
@@ -635,37 +668,68 @@ git commit -m "feat(cli): final-state summary for deployment watch"
 ### Task C.1: API exposes `projectVersionSeq` + `targetSlug`
 
 **Files:**
-- Modify: `apps/platform-http/src/routes/deployments.ts` (or current path; `grep -rn "GET.*deployments" apps/platform-http/src`)
-- Modify: `packages/platform/platform-core/src/...` — schema for response if shared
+- Modify: `packages/platform/platform-core/src/schemas/deployment.ts`
+- Modify: `packages/platform/platform-core/src/repos/deployment-repo.ts`
+- Modify: `packages/platform/platform-core/src/use-cases/deployments.ts`
+- Modify: `packages/platform/platform-storage/src/repos/pg-deployment-repo.ts`
+- Modify: `packages/platform/platform-core/test/unit/use-cases/deployments.test.ts`
+- Modify: `packages/platform/platform-storage/test/integration/pg-deployment-repo.test.ts`
+- Modify: `apps/platform-http/test/e2e/deploy-flow.test.ts`
 - Modify: `apps/cli/src/api/types.ts` — add fields to schema
+- Modify: `apps/cli/test/unit/commands/project/deployment.test.ts`
 
 - [ ] **Step 1: Locate the deployment response builder**
 
-Run: `grep -rn "queuedAt" apps/platform-http/src --include='*.ts' | head`
+Run:
 
-- [ ] **Step 2: Add denormalized fields**
-
-In the response shape, after `targetId`:
-
-```ts
-projectVersionSeq: number; // joined from project_versions
-targetSlug: string;        // joined from deploy_targets
+```bash
+grep -RIn "rowToDeployment\|DeploymentSchema\|listByProject\|getById" packages/platform apps/platform-http apps/cli/src --include='*.ts'
 ```
 
-In the SQL/repo query (look for the deployment-by-id and list-by-project queries), add a join to fetch `project_versions.seq` as `projectVersionSeq` and `deploy_targets.slug` as `targetSlug`. Map them into the response.
+- [ ] **Step 2: Add denormalized fields to the core schema**
 
-- [ ] **Step 3: Update the API schema in CLI**
+In `packages/platform/platform-core/src/schemas/deployment.ts`, add required response fields after `targetId`:
+
+```ts
+projectVersionSeq: z.number().int().positive(),
+targetSlug: z.string().min(1),
+```
+
+Update `Deployment` fixtures in platform-core tests accordingly.
+
+- [ ] **Step 3: Join the fields in storage**
+
+In `packages/platform/platform-storage/src/repos/pg-deployment-repo.ts`, update `getById()` and `listByProject()` to select through joins:
+
+```ts
+SELECT d.*, pv.seq AS project_version_seq, dt.slug AS target_slug
+FROM deployment d
+JOIN project_version pv ON pv.id = d.project_version_id
+JOIN deploy_target dt ON dt.id = d.target_id
+...
+```
+
+For `create()`, return the same enriched shape by selecting the inserted row back through the joined query (or by an equivalent `INSERT ... RETURNING` with subqueries). Do not leave queued-deployment responses missing fields.
+
+Map them in `rowToDeployment`:
+
+```ts
+projectVersionSeq: Number(r['project_version_seq']),
+targetSlug: r['target_slug'] as string,
+```
+
+- [ ] **Step 4: Update the API schema in CLI**
 
 In `apps/cli/src/api/types.ts`, add:
 
 ```ts
-projectVersionSeq: z.number().int().nonnegative(),
+projectVersionSeq: z.number().int().positive(),
 targetSlug: z.string().min(1),
 ```
 
 to `DeploymentResponseSchema` and the list-item schema.
 
-- [ ] **Step 4: Update list output**
+- [ ] **Step 5: Update list output**
 
 In `deployment-list.ts`, change the `humanRender` columns to print `seq` and `targetSlug`:
 
@@ -676,26 +740,28 @@ SEQ  TARGET            STATUS     QUEUED                    FINISHED
 
 (ID stays only in `--json`.)
 
-- [ ] **Step 5: Update show output**
+- [ ] **Step 6: Update show output**
 
 In `deployment-show.ts`, print `version: <seq>` and `target: <slug>` instead of UUIDs.
 
-- [ ] **Step 6: Add tests**
+- [ ] **Step 7: Add tests**
 
-Update `apps/cli/test/unit/deployment-list.test.ts` (or create) to assert columns include `SEQ` and `TARGET <slug>`. Update existing fixture mocks to include `projectVersionSeq` and `targetSlug`.
+Update `apps/cli/test/unit/commands/project/deployment.test.ts` fixtures to include `projectVersionSeq` and `targetSlug`, and assert human list/show output includes `SEQ` / `TARGET <slug>` while not showing truncated UUIDs. Update platform storage integration tests to prove `create`, `getById`, and `listByProject` all return enriched fields.
 
-- [ ] **Step 7: Run typecheck + tests across both packages**
+- [ ] **Step 8: Run typecheck + tests across both packages**
 
 ```bash
 pnpm -F @rntme/cli test
+pnpm -F @rntme/platform-core test
+pnpm -F @rntme/platform-storage test
 pnpm -F @rntme/platform-http test
 ```
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add apps/platform-http/src apps/cli/src/api apps/cli/src/commands/project/deployment-{list,show}.ts apps/cli/test
+git add packages/platform/platform-core packages/platform/platform-storage apps/platform-http/test apps/cli/src/api apps/cli/src/commands/project/deployment-{list,show}.ts apps/cli/test
 git commit -m "feat(cli,platform): denormalize projectVersionSeq + targetSlug on deployment responses"
 ```
 
@@ -703,50 +769,64 @@ git commit -m "feat(cli,platform): denormalize projectVersionSeq + targetSlug on
 
 ## Component D — Target management commands + helpful 404
 
-### Task D.1: API endpoints client (`apps/cli/src/api/target-endpoints.ts`)
+### Task D.1: Deploy-target schemas and endpoint client
 
 **Files:**
-- Create: `apps/cli/src/api/target-endpoints.ts`
-- Modify: `apps/cli/src/api/endpoints.ts` — add `targets:` namespace re-export
+- Modify: `apps/cli/src/api/types.ts`
+- Modify: `apps/cli/src/api/endpoints.ts` — add `targets:` namespace
 
-- [ ] **Step 1: Implement endpoints**
+- [ ] **Step 1: Add CLI-side target schemas**
+
+In `apps/cli/src/api/types.ts`:
 
 ```ts
-import { z } from 'zod';
-import type { ApiContext } from './client.js';
-import { request } from './client.js';
-
 export const TargetSchema = z.object({
   id: z.string(),
+  orgId: z.string(),
   slug: z.string(),
-  displayName: z.string().nullable(),
+  displayName: z.string(),
   kind: z.string(),
+  dokployUrl: z.string(),
   publicBaseUrl: z.string().nullable(),
+  dokployProjectId: z.string().nullable(),
+  dokployProjectName: z.string().nullable(),
+  allowCreateProject: z.boolean(),
   isDefault: z.boolean(),
-  apiTokenRedacted: z.string().optional(),
-  auth: z.record(z.string(), z.unknown()).optional(),
-  modules: z.record(z.string(), z.unknown()).optional(),
-  eventBus: z.record(z.string(), z.unknown()).optional(),
+  apiTokenRedacted: z.literal('***'),
+  auth: z.record(z.string(), z.unknown()),
+  modules: z.record(z.string(), z.unknown()),
+  eventBus: z.record(z.string(), z.unknown()),
+  policyValues: z.record(z.string(), z.record(z.string(), z.unknown())),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
-
 export const TargetsResponseSchema = z.object({ targets: z.array(TargetSchema) });
 export const TargetResponseSchema = z.object({ target: TargetSchema });
-
 export type Target = z.infer<typeof TargetSchema>;
-
-export const targetEndpoints = {
-  list: async (ctx: ApiContext, org: string) =>
-    request(TargetsResponseSchema, ctx, 'GET', `/v1/orgs/${encodeURIComponent(org)}/deploy-targets`),
-  show: async (ctx: ApiContext, org: string, slug: string, opts: { unredacted?: boolean }) =>
-    request(TargetResponseSchema, ctx, 'GET', `/v1/orgs/${encodeURIComponent(org)}/deploy-targets/${encodeURIComponent(slug)}${opts.unredacted ? '?unredacted=true' : ''}`),
-  setConfig: async (ctx: ApiContext, org: string, slug: string, body: Record<string, unknown>) =>
-    request(TargetResponseSchema, ctx, 'PATCH', `/v1/orgs/${encodeURIComponent(org)}/deploy-targets/${encodeURIComponent(slug)}/config`, body),
+export type TargetConfigPatch = {
+  auth?: Record<string, unknown>;
+  modules?: Record<string, unknown>;
+  eventBus?: Record<string, unknown>;
+  policyValues?: Record<string, Record<string, unknown>>;
 };
 ```
 
-- [ ] **Step 2: Re-export**
+- [ ] **Step 2: Implement endpoints in the existing client**
 
-In `endpoints.ts`, add `targets: targetEndpoints` to the `endpoints` object.
+In `apps/cli/src/api/endpoints.ts`, import `TargetResponseSchema` / `TargetsResponseSchema` and add:
+
+```ts
+targets: {
+  list: (c: Ctx, org: string) =>
+    apiCall({ method: 'GET', path: `/v1/orgs/${enc(org)}/deploy-targets`, responseSchema: TargetsResponseSchema, ...c }),
+  show: (c: Ctx, org: string, slug: string) =>
+    apiCall({ method: 'GET', path: `/v1/orgs/${enc(org)}/deploy-targets/${enc(slug)}`, responseSchema: TargetResponseSchema, ...c }),
+  setConfig: (c: Ctx, org: string, slug: string, body: TargetConfigPatch) =>
+    apiCall({ method: 'PATCH', path: `/v1/orgs/${enc(org)}/deploy-targets/${enc(slug)}`, body, responseSchema: TargetResponseSchema, ...c }),
+},
+```
+
+Do not use a separate `request` helper or `ApiContext`; those names do not exist in the current CLI client.
 
 - [ ] **Step 3: Commit**
 
@@ -836,11 +916,11 @@ git commit -m "feat(cli): rntme target list"
 - Create: `apps/cli/src/commands/target/show.ts`, `apps/cli/test/unit/target-show.test.ts`
 - Modify: `apps/cli/src/bin/cli.ts`
 
-- [ ] **Step 1: Test (succeeds with redacted display by default)**
+- [ ] **Step 1: Test redacted target display**
 
 ```ts
-// asserts: when --unredacted not passed, output omits secret-like fields
-// when --unredacted passed, full target JSON appears
+// asserts output includes slug, kind, publicBaseUrl, auth/modules/eventBus/policyValues,
+// includes apiTokenRedacted: ***, and never prints an apiToken/plaintext secret.
 ```
 
 - [ ] **Step 2: Implement**
@@ -853,7 +933,7 @@ import { runCommand, type CommonFlags } from '../harness.js';
 import { err } from '../../result.js';
 import { cliError } from '../../errors/codes.js';
 
-export type TargetShowArgs = { readonly slug: string; readonly unredacted?: boolean | undefined };
+export type TargetShowArgs = { readonly slug: string };
 
 export async function runTargetShow(args: TargetShowArgs, flags: CommonFlags): Promise<number> {
   return runCommand(
@@ -866,7 +946,7 @@ export async function runTargetShow(args: TargetShowArgs, flags: CommonFlags): P
     async (ctx) => {
       const org = flags.org ?? ctx.resolved.org;
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
-      return endpoints.targets.show({ baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token }, org, args.slug, { unredacted: args.unredacted ?? false });
+      return endpoints.targets.show({ baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token }, org, args.slug);
     },
   );
 }
@@ -884,13 +964,13 @@ git commit -m "feat(cli): rntme target show"
 **Files:**
 - Create: `apps/cli/src/commands/target/set-config.ts`, `apps/cli/test/unit/target-set-config.test.ts`
 - Modify: `apps/cli/src/bin/cli.ts`
-- Modify: `apps/platform-http/src/routes/deploy-targets.ts` (or wherever) to expose `PATCH /v1/orgs/:org/deploy-targets/:slug/config`
+- Modify: `apps/platform-http/src/routes/deploy-targets.ts` only if the existing `PATCH /v1/orgs/:org/deploy-targets/:slug` route cannot enforce the config-only contract
 
-- [ ] **Step 1: Add the platform endpoint**
+- [ ] **Step 1: Use the existing platform PATCH route**
 
-The handler accepts a JSON body `{ auth?, modules?, eventBus?, policyValues? }` and atomically replaces those blocks on the target row. Reject `apiToken` etc. with `400 PLATFORM_HTTP_FORBIDDEN_FIELD`. Require scope `deploy:target:manage`.
+The CLI sends a JSON body `{ auth?, modules?, eventBus?, policyValues? }` to `PATCH /v1/orgs/:org/deploy-targets/:slug`. The existing route already requires `deploy:target:manage` and `UpdateDeployTargetRequestSchema` is strict. If the schema accepts forbidden fields after this change, tighten it there and add a route unit/e2e test.
 
-Add a unit test in `apps/platform-http/test/unit` against the route handler.
+Do not create `PATCH /config`. The current platform API is already org-scoped and has a general PATCH route.
 
 - [ ] **Step 2: Implement CLI command**
 
@@ -918,9 +998,18 @@ export async function runTargetSetConfig(args: TargetSetConfigArgs, flags: Commo
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
       let body: Record<string, unknown>;
       try {
-        body = JSON.parse(readFileSync(resolve(process.cwd(), args.jsonPath), 'utf8')) as Record<string, unknown>;
+        const parsed = JSON.parse(readFileSync(resolve(process.cwd(), args.jsonPath), 'utf8')) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return err(cliError('CLI_VALIDATE_LOCAL_FAILED', '--json must contain an object'));
+        }
+        body = parsed as Record<string, unknown>;
       } catch (e) {
-        return err(cliError('CLI_VALIDATE_JSON_INVALID', `--json path could not be parsed: ${(e as Error).message}`));
+        return err(cliError('CLI_VALIDATE_LOCAL_FAILED', `--json path could not be parsed: ${(e as Error).message}`));
+      }
+      const allowed = new Set(['auth', 'modules', 'eventBus', 'policyValues']);
+      const forbidden = Object.keys(body).filter((key) => !allowed.has(key));
+      if (forbidden.length > 0) {
+        return err(cliError('CLI_VALIDATE_LOCAL_FAILED', `target config cannot set: ${forbidden.join(', ')}`));
       }
       return endpoints.targets.setConfig({ baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token }, org, args.slug, body);
     },
@@ -936,26 +1025,34 @@ Run: `pnpm -F @rntme/cli test && pnpm -F @rntme/platform-http test`
 Expected: PASS.
 
 ```bash
-git add apps/cli/src/commands/target/set-config.ts apps/platform-http/src/routes apps/cli/src/bin/cli.ts apps/cli/test apps/platform-http/test
-git commit -m "feat(cli,platform): rntme target set-config + PATCH endpoint"
+git add apps/cli/src/commands/target/set-config.ts apps/cli/src/bin/cli.ts apps/cli/test apps/platform-http/src/routes/deploy-targets.ts apps/platform-http/test
+git commit -m "feat(cli): rntme target set-config"
 ```
 
 ### Task D.5: Helpful 404 for project-scoped target requests
 
 **Files:**
-- Modify: `apps/platform-http/src/routes/_register.ts` (or whichever handler-registration file)
-- Add unit test in `apps/platform-http/test/unit`
+- Modify: `apps/platform-http/src/app.ts`
+- Add e2e or unit test in `apps/platform-http/test/e2e/deploy-flow.test.ts` or `apps/platform-http/test/unit/app.test.ts`
 
 - [ ] **Step 1: Register a 404 handler with hint**
 
-For paths matching `^/v1/orgs/[^/]+/projects/[^/]+/deploy-targets`, respond:
+Inside the authenticated `/v1` router in `apps/platform-http/src/app.ts`, before `projectRoutes`, register both the exact and nested project-scoped target paths:
 
 ```ts
-return c.json({
-  code: 'PLATFORM_HTTP_NOT_FOUND',
-  message: 'deploy targets are org-scoped; use /v1/orgs/<org>/deploy-targets',
-}, 404);
+const projectScopedTarget404 = (c: Context) =>
+  c.json({
+    error: {
+      code: 'PLATFORM_HTTP_NOT_FOUND',
+      message: 'deploy targets are org-scoped; use /v1/orgs/<org>/deploy-targets',
+    },
+  }, 404);
+
+authed.all('/orgs/:orgSlug/projects/:projSlug/deploy-targets', projectScopedTarget404);
+authed.all('/orgs/:orgSlug/projects/:projSlug/deploy-targets/*', projectScopedTarget404);
 ```
+
+Import `type Context` from `hono` if needed.
 
 - [ ] **Step 2: Test**
 
@@ -964,8 +1061,8 @@ it('returns helpful body for project-scoped deploy-targets', async () => {
   const r = await app.request('/v1/orgs/o/projects/p/deploy-targets', { method: 'GET', headers: { Authorization: 'Bearer pat' } });
   expect(r.status).toBe(404);
   const body = await r.json();
-  expect(body.code).toBe('PLATFORM_HTTP_NOT_FOUND');
-  expect(body.message).toMatch(/org-scoped/);
+  expect(body.error.code).toBe('PLATFORM_HTTP_NOT_FOUND');
+  expect(body.error.message).toMatch(/org-scoped/);
 });
 ```
 
@@ -1005,4 +1102,4 @@ node apps/cli/dist/bin/cli.js target list          # lists targets
 - [ ] **Confirm no remaining hardcoded `0.0.0`**
 
 Run: `grep -rn "0\.0\.0" apps/cli/src apps/cli/dist`
-Expected: only in source `version.ts` placeholder line and the package.json (the dist/util/version.js should have the real version).
+Expected: no hits. `apps/cli/package.json#version` should also be non-zero.
