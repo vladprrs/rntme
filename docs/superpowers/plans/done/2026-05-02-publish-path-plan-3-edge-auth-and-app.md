@@ -1,5 +1,7 @@
 # Publish-Path Hardening — Plan 3: Edge Auth + App Semantics
 
+> **Status (2026-05-03):** Implemented and merged in PRs #119 and #120. Subsequent issue #131 cleanup hardened the integration test from a Hono/Node-http substitute into a real `nginx:1.27-alpine` Testcontainers fixture (see `docs/superpowers/plans/2026-05-03-issue-131-cleanup.md` Task 2). The "Hono substitute" prose below is preserved as historical record, not as guidance.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Spec:** `docs/superpowers/specs/2026-05-02-publish-path-end-to-end-hardening-design.md` §6, §8
