@@ -6,9 +6,9 @@
 
 **Goal:** Diagnose and lock the live edge-auth bypass, add the integration test that fails on regression, replace `createNote`'s client-required `id` with a server-generated UUID via a new graph IR `uuid` node, ship a production React build for the SPA, and add an explicit nginx 404 for `^/_rntme_auth_*` so internal locations no longer fall through to the SPA catch-all.
 
-**Architecture:** Four independent slices: (1) edge-auth root-cause + integration test in `deploy-dokploy`; (2) graph IR `uuid` node + `$node` reference + `createNote` rewrite in `graph-ir-compiler` and notes-blueprint; (3) SPA production build settings in `@rntme/ui-runtime`; (4) nginx renderer adds explicit `^/_rntme_auth_` 404 location before SPA fallback.
+**Architecture:** Four independent slices: (1) edge-auth root-cause + integration test in `deploy-dokploy`; (2) graph IR `uuid` command node + `$node` reference + `createNote` rewrite in `graph-ir-compiler` and notes-blueprint; (3) SPA production build settings in `@rntme/ui-runtime`; (4) nginx renderer adds explicit `^/_rntme_auth_` 404 location before SPA fallback.
 
-**Tech Stack:** TypeScript, Vitest, esbuild (`define` + `minify`), nginx config rendering, Hono mock for sidecar tests.
+**Tech Stack:** TypeScript, Vitest, esbuild (`define` + `minify`), nginx config rendering, Testcontainers (`nginx:1.27-alpine`) for edge-auth integration.
 
 ---
 
@@ -16,20 +16,26 @@
 
 **Create:**
 - `packages/deploy/deploy-dokploy/test/integration/edge-auth.test.ts` — real introspect-sidecar + rendered nginx integration test
-- `packages/deploy/deploy-dokploy/test/integration/edge-auth-fixtures/nginx-host.ts` — small helper to spawn nginx (or Hono-substitute) with the rendered config
-- `packages/artifacts/graph-ir-compiler/src/canonical/uuid-node.ts` — new node type definition
+- `packages/deploy/deploy-dokploy/test/integration/edge-auth-fixtures/nginx-container.ts` — Testcontainers helper that boots `nginx:1.27-alpine` with the rendered config
 - `packages/artifacts/graph-ir-compiler/test/unit/uuid-node.test.ts`
 - `packages/runtime/ui-runtime/test/unit/build.test.ts` — assertion that the bundle has no `react.development`
 
 **Modify:**
+- `packages/deploy/deploy-dokploy/package.json` — add `testcontainers`, `@rntme/identity-auth0`, and `@rntme/contracts-identity-v1` dev dependencies for the real nginx + real sidecar integration test
 - `packages/deploy/deploy-dokploy/src/nginx.ts` — add explicit `^/_rntme_auth_` 404 block; if root cause requires changes, fix the auth_request emission
 - `packages/deploy/deploy-dokploy/test/unit/nginx.test.ts` — snapshot the new 404 location and its position
-- `packages/artifacts/graph-ir-compiler/src/canonical/normalize.ts` — accept `uuid` node, accept `$node` reference
-- `packages/artifacts/graph-ir-compiler/src/lower/` — emit code for the `uuid` node (uses `crypto.randomUUID()`)
-- `packages/artifacts/graph-ir-compiler/src/validate/` — `$node` references must resolve; `uuid` outputs must match consumer slot shape
+- `packages/artifacts/graph-ir-compiler/src/parse/schema.ts` — accept `{ "$node": string }` expressions and `{ "type": "uuid", "config": {} }` nodes
+- `packages/artifacts/graph-ir-compiler/src/types/authoring.ts` — add `NodeRef` / `UuidNode`
+- `packages/artifacts/graph-ir-compiler/src/types/canonical.ts` — add `CanonicalUuid`
+- `packages/artifacts/graph-ir-compiler/src/types/command.ts` — add compiled command node generator metadata
+- `packages/artifacts/graph-ir-compiler/src/canonical/normalize.ts` — normalize `uuid` to `kind: "uuid"`
+- `packages/artifacts/graph-ir-compiler/src/validate/structural/refs.ts` — allow `uuid` as a no-input command node and validate `$node` references
+- `packages/artifacts/graph-ir-compiler/src/validate/semantic/types.ts` and `src/validate/semantic/emit.ts` — type `$node` refs and require `emit.aggregateId` refs to resolve to uuid/string output
+- `packages/artifacts/graph-ir-compiler/src/emit/plan.ts`, `src/emit/payload.ts`, `src/command-runtime/execute.ts` — carry and evaluate uuid node outputs before emit execution
 - `demo/notes-blueprint/services/app/graphs/createNote.json` — drop `id` input, add `newId` `uuid` node, reference via `$node`
 - `demo/notes-blueprint/services/app/bindings/bindings.json` — drop the `id` body parameter
-- `demo/notes-blueprint/services/app/ui/screens/home.spec.json` (or wherever the create button is) — stop sending `id`
+- `demo/notes-blueprint/services/app/ui/screens/home.spec.json` — remove the create-note ID input
+- `demo/notes-blueprint/services/app/ui/screens/home.screen.json` — stop sending `id` in `createNote.paramsFromState`
 - `packages/runtime/ui-runtime/src/build.ts` — set `process.env.NODE_ENV = "production"`, `minify: true`, `treeShaking: true`
 
 ---
@@ -43,11 +49,12 @@
 
 - [ ] **Step 1: Confirm the bypass with the rendered config**
 
-Render the notes-demo-shaped nginx config locally:
+Build `deploy-dokploy`, then render the notes-demo-shaped nginx config locally with ESM import syntax:
 
 ```bash
-node -e "
-const { renderNginxConfig } = require('./packages/deploy/deploy-dokploy/dist/nginx.js');
+pnpm -F @rntme/deploy-dokploy build
+node --input-type=module -e "
+import { renderNginxConfig } from './packages/deploy/deploy-dokploy/dist/nginx.js';
 const edge = {
   routes: [{ id: 'http:/api', path: '/api', targetWorkload: 'app' }],
   middleware: [{ kind: 'auth', mountTarget: 'http:/api', moduleSlug: 'identity-auth0', audience: 'https://x/', provider: 'auth0', moduleIntrospectPort: 50052 }],
@@ -77,23 +84,66 @@ Add a paragraph to `packages/deploy/deploy-dokploy/README.md` under a new "Edge 
 **Files:**
 - Create: `packages/deploy/deploy-dokploy/test/integration/edge-auth.test.ts`
 
-- [ ] **Step 1: Add nginx test container or Hono-based substitute**
+- [ ] **Step 1: Add real nginx integration dependencies**
 
-The simplest portable approach is to:
-- start the real `@rntme/identity-auth0` introspect sidecar via `createIdentityAuth0HttpServer` against a fake `IntrospectSession` that classifies `Bearer fake.token.here` as inactive
-- mount the rendered nginx config in a Docker container if the integration harness already supports it (look for `dockerode` or `testcontainers` in existing integration tests); otherwise approximate nginx with a Hono server that calls the sidecar via `auth_request`-style sub-request
+`@rntme/deploy-dokploy` currently has no Docker integration harness. Add the minimum dev dependencies needed for a real nginx test:
 
-Look for existing patterns: `grep -rn "testcontainers\|dockerode\|new GenericContainer" packages/deploy --include='*.ts'`
+```json
+{
+  "devDependencies": {
+    "@rntme/contracts-identity-v1": "workspace:*",
+    "@rntme/identity-auth0": "workspace:*",
+    "testcontainers": "^10.13.0"
+  }
+}
+```
 
-Choose: real nginx container if the harness exists, Hono substitute otherwise. The Hono substitute MUST replicate auth_request semantics (sub-request to `/introspect`, on 401 return the named-fallback body verbatim).
+Doc-backed decisions:
+- Testcontainers `GenericContainer` supports exposed ports and wait strategies.
+- `TestContainers.exposeHostPorts(port)` exposes host services to the container at `host.testcontainers.internal:<port>`.
+- Use `withCopyContentToContainer` to write the rendered config to `/etc/nginx/nginx.conf`.
 
-- [ ] **Step 2: Write the test**
+- [ ] **Step 2: Add `nginx-container.ts`**
+
+```ts
+// packages/deploy/deploy-dokploy/test/integration/edge-auth-fixtures/nginx-container.ts
+import { GenericContainer, TestContainers, Wait, type StartedTestContainer } from 'testcontainers';
+
+export type StartedNginx = {
+  readonly baseUrl: string;
+  readonly stop: () => Promise<void>;
+};
+
+export async function startNginxWithConfig(config: string, hostPorts: readonly number[]): Promise<StartedNginx> {
+  for (const port of hostPorts) await TestContainers.exposeHostPorts(port);
+
+  let container: StartedTestContainer | null = await new GenericContainer('nginx:1.27-alpine')
+    .withExposedPorts(8080)
+    .withCopyContentToContainer([{ content: config, target: '/etc/nginx/nginx.conf' }])
+    .withWaitStrategy(Wait.forHttp('/health', 8080).forStatusCode(200))
+    .start();
+
+  const baseUrl = `http://${container.getHost()}:${container.getMappedPort(8080)}`;
+  return {
+    baseUrl,
+    async stop() {
+      if (container !== null) {
+        await container.stop();
+        container = null;
+      }
+    },
+  };
+}
+```
+
+- [ ] **Step 3: Write the test**
 
 ```ts
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { renderNginxConfig } from '../../src/nginx.js';
-import { createIdentityAuth0HttpServer } from '@rntme/identity-auth0/dist/http-server.js';
-import { startNginxOrSubstitute } from './edge-auth-fixtures/nginx-host.js';
+import { SessionStatus } from '@rntme/contracts-identity-v1';
+import { createIdentityAuth0HttpServer } from '@rntme/identity-auth0';
+import { startNginxWithConfig, type StartedNginx } from './edge-auth-fixtures/nginx-container.js';
 
 describe('edge auth integration', () => {
   let baseUrl: string;
@@ -102,7 +152,16 @@ describe('edge auth integration', () => {
   beforeAll(async () => {
     const sidecar = createIdentityAuth0HttpServer({
       port: 0,
-      module: { IntrospectSession: async () => ({ session_id: '', user_id: '', status: 0, token_type: 0, vendor_raw: { deactivation_reason: 'MALFORMED' } as never }) },
+      host: '127.0.0.1',
+      module: {
+        IntrospectSession: async () => ({
+          session_id: '',
+          user_id: '',
+          status: SessionStatus.SESSION_STATUS_EXPIRED,
+          token_type: 0,
+          vendor_raw: { deactivation_reason: 'MALFORMED' } as never,
+        }),
+      },
     });
     const { port } = await sidecar.listen();
     const config = renderNginxConfig(
@@ -110,11 +169,11 @@ describe('edge auth integration', () => {
         routes: [{ id: 'http:/api', path: '/api', targetWorkload: 'app' }],
         middleware: [{ kind: 'auth', mountTarget: 'http:/api', moduleSlug: 'identity-auth0', audience: 'https://x/', provider: 'auth0', moduleIntrospectPort: port }],
       },
-      { app: 'http://127.0.0.1:65535', 'identity-auth0': `http://127.0.0.1:${port}` },
+      { app: 'http://host.testcontainers.internal:65535', 'identity-auth0': `http://host.testcontainers.internal:${port}` },
     );
-    const host = await startNginxOrSubstitute(config);
-    baseUrl = host.baseUrl;
-    stop = async () => { await sidecar.stop(); await host.stop(); };
+    const nginx: StartedNginx = await startNginxWithConfig(config, [port]);
+    baseUrl = nginx.baseUrl;
+    stop = async () => { await nginx.stop(); await sidecar.stop(); };
   });
 
   afterAll(async () => { await stop(); });
@@ -137,32 +196,20 @@ describe('edge auth integration', () => {
   it('GET /_rntme_auth_anything returns 404, not SPA HTML', async () => {
     const r = await fetch(`${baseUrl}/_rntme_auth_xyz`);
     expect(r.status).toBe(404);
+    expect(await r.text()).not.toContain('<!doctype html');
   });
 });
 ```
 
-- [ ] **Step 3: If using a Hono substitute, write `nginx-host.ts`**
-
-```ts
-// packages/deploy/deploy-dokploy/test/integration/edge-auth-fixtures/nginx-host.ts
-// A minimal substitute that mimics the auth_request flow: for any request, do a GET
-// to the configured /introspect endpoint with the original Authorization and X-Rntme-Audience.
-// On 401, respond with the canonical named-fallback JSON body. On 200, proxy to the upstream.
-// Implementation skipped here for brevity; the engineer writes a Hono server that reads the rendered
-// nginx config to discover (a) the protected location prefix, (b) the introspect upstream URL,
-// (c) the audience, and applies auth_request semantics in JS.
-// Alternative: shell out to a real nginx binary and bind-mount the rendered config into a temp dir.
-```
-
 - [ ] **Step 4: Run the integration test**
 
-Run: `pnpm -F @rntme/deploy-dokploy vitest run test/integration/edge-auth.test.ts`
+Run: `pnpm -F @rntme/identity-auth0 build && pnpm -F @rntme/deploy-dokploy vitest run test/integration/edge-auth.test.ts`
 Expected: PASS (or, if the bypass exists in the renderer, FAIL — fix it, re-run).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/deploy/deploy-dokploy/test/integration packages/deploy/deploy-dokploy/README.md
+git add packages/deploy/deploy-dokploy/package.json packages/deploy/deploy-dokploy/test/integration packages/deploy/deploy-dokploy/README.md pnpm-lock.yaml
 git commit -m "test(deploy-dokploy): integration test locks edge-auth fallback for forged bearers"
 ```
 
@@ -201,8 +248,11 @@ git commit -m "fix(edge-auth): <root-cause-summary>"
 ### Task B.1: Add `$node` reference to graph IR
 
 **Files:**
-- Modify: `packages/artifacts/graph-ir-compiler/src/canonical/normalize.ts` (and any sibling parse/schema file)
-- Modify: `packages/artifacts/graph-ir-compiler/src/validate/` (find the consistency check that resolves references)
+- Modify: `packages/artifacts/graph-ir-compiler/src/parse/schema.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/types/authoring.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/validate/structural/refs.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/validate/semantic/types.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/emit/payload.ts`
 
 - [ ] **Step 1: Locate the reference forms**
 
@@ -212,22 +262,40 @@ Open one of the matching files to learn the pattern: how `$param` is parsed, typ
 
 - [ ] **Step 2: Add `$node` to the same union**
 
-Wherever the reference union is defined (likely a Zod schema or a TypeScript discriminated union), add:
+Add the reference to the actual expression definitions:
 
 ```ts
-{ $node: z.string().min(1) }
+// packages/artifacts/graph-ir-compiler/src/parse/schema.ts
+z.object({ $node: z.string().min(1) }).strict()
+
+// packages/artifacts/graph-ir-compiler/src/types/authoring.ts
+export type NodeRef = { $node: string };
+export type Expr =
+  | FieldPath
+  | number
+  | boolean
+  | null
+  | { $literal: string }
+  | { $param: string }
+  | { $pre: string }
+  | NodeRef
+  | { [K in ExprOp]?: Expr[] }
+  | { between: [Expr, Expr, Expr] }
+  | { case: { when: Array<[Expr, Expr]>; else: Expr } }
+  | { exists: { relation: string; where?: Expr } }
+  | { $list: Expr[] };
 ```
 
-Update the validator to: ensure each `$node` value matches the id of a sibling node in the same graph; the consuming slot's expected type matches the producing node's output type.
+Update structural validation to ensure each `$node` reference resolves to a prior node in the same graph. For this slice, `$node` is only valid when the target node is `type: "uuid"`; reject references to query nodes or emit nodes with a new error code such as `STRUCT_INVALID_NODE_REF`.
 
 - [ ] **Step 3: Add tests**
 
 In `packages/artifacts/graph-ir-compiler/test/unit/`, add or extend:
 
-```ts
-it('accepts { $node: "x" } reference when node x exists', () => { /* … */ });
-it('rejects { $node: "missing" } with a reference-not-found error', () => { /* … */ });
-```
+Extend the `uuid-node.test.ts` fixture from Task B.2 with three concrete assertions:
+- compiling `commandSpecWithUuidAggregateId` returns `{ ok: true }`
+- compiling the same fixture with `aggregateId: { "$node": "missing" }` returns `{ ok: false }` and an error with `code === "STRUCT_INVALID_NODE_REF"`
+- compiling the same fixture with a `$node` reference to a `findMany` node returns `{ ok: false }` and an error with `code === "STRUCT_INVALID_NODE_REF"`
 
 - [ ] **Step 4: Run + commit**
 
@@ -240,54 +308,118 @@ git commit -m "feat(graph-ir): add \$node reference form"
 ### Task B.2: Add `uuid` node type
 
 **Files:**
-- Create: `packages/artifacts/graph-ir-compiler/src/canonical/uuid-node.ts`
 - Create: `packages/artifacts/graph-ir-compiler/test/unit/uuid-node.test.ts`
-- Modify: the canonical-node registry (look in `canonical/` and `lower/` directories)
+- Modify: `packages/artifacts/graph-ir-compiler/src/parse/schema.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/types/authoring.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/types/canonical.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/canonical/normalize.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/types/command.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/emit/plan.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/emit/payload.ts`
+- Modify: `packages/artifacts/graph-ir-compiler/src/command-runtime/execute.ts`
 
 - [ ] **Step 1: Define the canonical node**
 
 ```ts
-// packages/artifacts/graph-ir-compiler/src/canonical/uuid-node.ts
-import { z } from 'zod';
+// packages/artifacts/graph-ir-compiler/src/types/authoring.ts
+export type UuidNode = {
+  id: string;
+  type: 'uuid';
+  config: Record<string, never>;
+};
 
-export const UuidNodeSchema = z.object({
-  id: z.string().min(1),
-  type: z.literal('uuid'),
-  config: z.object({}).strict(),
-});
-
-export type UuidNode = z.infer<typeof UuidNodeSchema>;
-
-// Output type: a single string (UUID v4).
-export const UUID_NODE_OUTPUT_TYPE = 'string' as const;
+// packages/artifacts/graph-ir-compiler/src/types/canonical.ts
+export type CanonicalUuid = {
+  kind: 'uuid';
+  id: string;
+  scope: ScopeId;
+};
 ```
 
 - [ ] **Step 2: Register the node in the canonical registry**
 
-Find the existing registry of node types (search: `grep -rn "type: z.literal" packages/artifacts/graph-ir-compiler/src/canonical`). Add `UuidNodeSchema` to the discriminated union of canonical nodes.
+Add this Zod node beside the existing nodes in `parse/schema.ts` and include it in the `graphNode` discriminated union:
 
-- [ ] **Step 3: Lower the node**
+```ts
+const uuidNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('uuid'),
+    config: z.object({}).strict(),
+  })
+  .strict();
+```
 
-In `packages/artifacts/graph-ir-compiler/src/lower/`, find how `emit`/`findMany`/`filter` are lowered. Add a lowering for `uuid` that emits a runtime call equivalent to `crypto.randomUUID()`. (The exact form depends on the existing lowering target — TypeScript code, intermediate AST, or runtime command list.)
+- [ ] **Step 3: Compile and evaluate uuid outputs**
+
+This is command-runtime work, not SQLite lowering work. Do not add `uuid` to `readNodes`; otherwise `compileCommand` will try to lower it through the relational query pipeline. In `compile.ts`, keep:
+
+```ts
+const readNodes = graph.nodes.filter((n) => n.kind !== 'emit' && n.kind !== 'uuid');
+```
+
+In command types and execution:
+
+```ts
+// packages/artifacts/graph-ir-compiler/src/types/command.ts
+export type CommandNodeGenerator = { nodeId: string; kind: 'uuid' };
+export type CompiledCommand = {
+  // existing fields...
+  nodeGenerators: CommandNodeGenerator[];
+};
+
+// packages/artifacts/graph-ir-compiler/src/command-runtime/execute.ts
+const nodeValues: Record<string, unknown> = {};
+for (const generator of compiled.nodeGenerators) {
+  if (generator.kind === 'uuid') nodeValues[generator.nodeId] = ctx.nextId();
+}
+const aggregateId = String(evalExprAtRuntime(head.aggregateIdExpr, paramValues, nodeValues) ?? '');
+```
+
+Update `evalExprAtRuntime` and `derivePayload` to accept the same `nodeValues` map:
+
+```ts
+if ('$node' in expr) {
+  const value = nodeValues[(expr as { $node: string }).$node];
+  if (value === undefined) throw runtimeError('RUNTIME_INTERNAL_ERROR', `unknown $node "${(expr as { $node: string }).$node}"`);
+  return value;
+}
+```
 
 - [ ] **Step 4: Tests**
 
 ```ts
 // packages/artifacts/graph-ir-compiler/test/unit/uuid-node.test.ts
 import { describe, expect, it } from 'vitest';
-import { UuidNodeSchema } from '../../src/canonical/uuid-node.js';
+import { compileCommand, executeCommand } from '../../src/index.js';
 
 describe('uuid node', () => {
-  it('parses a valid uuid node spec', () => {
-    expect(UuidNodeSchema.parse({ id: 'newId', type: 'uuid', config: {} })).toEqual({ id: 'newId', type: 'uuid', config: {} });
+  it('compiles a command whose aggregateId references a prior uuid node', () => {
+    const compiled = compileCommand(commandSpecWithUuidAggregateId, pdm, qsm);
+    expect(compiled.ok).toBe(true);
   });
 
-  it('rejects extra config keys', () => {
-    expect(() => UuidNodeSchema.parse({ id: 'x', type: 'uuid', config: { weird: true } })).toThrow();
+  it('rejects extra config keys on uuid nodes', () => {
+    const compiled = compileCommand(commandSpecWithBadUuidConfig, pdm, qsm);
+    expect(compiled.ok).toBe(false);
   });
 
-  it('lowers to a runtime that emits a UUID v4 string', () => {
-    // exercise the lowering, run the produced runtime, assert output matches /^[0-9a-f-]{36}$/i
+  it('executes the uuid node once and uses it as the aggregate id', () => {
+    const compiled = compileCommand(commandSpecWithUuidAggregateId, pdm, qsm);
+    if (!compiled.ok) throw new Error(compiled.errors[0]?.message ?? 'compile failed');
+    const out = executeCommand(compiled.value, { title: 'A', body: 'B' }, {
+      eventStore,
+      qsmDb: null,
+      now: () => '2026-05-03T00:00:00.000Z',
+      nextId: (() => {
+        const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'];
+        return () => ids.shift()!;
+      })(),
+      actor: null,
+      correlation,
+    });
+    expect(out.aggregateId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(out.eventIds).toEqual(['22222222-2222-4222-8222-222222222222']);
   });
 });
 ```
@@ -306,6 +438,7 @@ git commit -m "feat(graph-ir): add uuid node type"
 - Modify: `demo/notes-blueprint/services/app/graphs/createNote.json`
 - Modify: `demo/notes-blueprint/services/app/bindings/bindings.json`
 - Modify: `demo/notes-blueprint/services/app/ui/screens/home.spec.json` (or wherever the create form lives — `grep -rn "createNote" demo/notes-blueprint/services/app/ui`)
+- Modify: `demo/notes-blueprint/services/app/ui/screens/home.screen.json`
 
 - [ ] **Step 1: New `createNote.json`**
 
@@ -358,7 +491,7 @@ In `bindings.json#createNote.http.parameters`, remove the `id` entry. Final shap
 
 - [ ] **Step 3: Update SPA call site**
 
-In the UI spec referenced above, find the operation that posts `{ id, title, body }` and change it to send `{ title, body }`. (If the UI is generated from bindings — check; in that case no manual change is needed.)
+In `home.spec.json`, remove the create form `field-id` element and remove it from the `create-section.children` array. In `home.screen.json`, remove the `id: "/form/id"` entry from `actions.createNote.paramsFromState`. Leave delete-note `id` unchanged.
 
 - [ ] **Step 4: Regenerate composed blueprint and validate**
 
@@ -426,7 +559,7 @@ describe('ui-runtime production bundle', () => {
     }
     const src = readFileSync(bundle, 'utf8');
     expect(src.includes('react.development')).toBe(false);
-    expect(src.includes('"production"')).toBe(true);
+    expect(src.includes('process.env.NODE_ENV')).toBe(false);
   });
 });
 ```
@@ -543,7 +676,7 @@ Expected: `0`.
 - [ ] **Confirm rendered nginx has the 404 + auth_request both**
 
 ```bash
-node -e "const { renderNginxConfig } = require('./packages/deploy/deploy-dokploy/dist/nginx.js'); console.log(renderNginxConfig({ routes: [{ id: 'http:/api', path: '/api', targetWorkload: 'app' }], middleware: [{ kind: 'auth', mountTarget: 'http:/api', moduleSlug: 'identity-auth0', audience: 'https://x/', provider: 'auth0', moduleIntrospectPort: 50052 }] }, { app: 'http://app:3000', 'identity-auth0': 'http://identity-auth0:50052' }))" | grep -E "auth_request|_rntme_auth"
+node --input-type=module -e "import { renderNginxConfig } from './packages/deploy/deploy-dokploy/dist/nginx.js'; console.log(renderNginxConfig({ routes: [{ id: 'http:/api', path: '/api', targetWorkload: 'app' }], middleware: [{ kind: 'auth', mountTarget: 'http:/api', moduleSlug: 'identity-auth0', audience: 'https://x/', provider: 'auth0', moduleIntrospectPort: 50052 }] }, { app: 'http://app:3000', 'identity-auth0': 'http://identity-auth0:50052' }))" | grep -E "auth_request|_rntme_auth"
 ```
 Expected: shows both `auth_request /_rntme_auth_<key>;` and `location ~ ^/_rntme_auth_`.
 
@@ -553,3 +686,15 @@ Expected: shows both `auth_request /_rntme_auth_<key>;` and `location ~ ^/_rntme
 grep -A 5 '"createNote"' demo/notes-blueprint/services/app/bindings/bindings.json
 ```
 Expected: parameters list does not include `id`.
+
+---
+
+## Plan Challenge Notes
+
+These amendments were added on 2026-05-03 after checking the current repo shape and current external docs:
+
+- **No Hono substitute for edge auth.** The edge-auth regression must exercise nginx itself. Testcontainers supports `GenericContainer`, `withCopyContentToContainer`, HTTP wait strategies, and `TestContainers.exposeHostPorts`; use those with `nginx:1.27-alpine` and the real `@rntme/identity-auth0` sidecar.
+- **Graph IR `uuid` is command-runtime, not SQL lowering.** The current compiler lowers read nodes through the relational SQLite path; `uuid` must be excluded from `readNodes` and carried as command node generator metadata evaluated before emits.
+- **`$node` scope is intentionally narrow.** For this slice, `$node` is valid only for prior `uuid` nodes in command expressions. General node-output references for query rowsets are out of scope.
+- **Production bundle assertion must not require a literal `"production"` string.** esbuild `define` plus minification may constant-fold the branch away. Assert absence of `react.development` and unresolved `process.env.NODE_ENV` instead.
+- **Use ESM import in local render commands.** `@rntme/deploy-dokploy` is `"type": "module"`; `node --input-type=module` avoids a `require()` failure.

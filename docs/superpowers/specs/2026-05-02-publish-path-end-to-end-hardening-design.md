@@ -195,12 +195,14 @@ In either case, the verification (6.2) is required.
 A new test in `packages/deploy/deploy-dokploy/test/integration/edge-auth.test.ts`:
 
 - Renders the nginx config for a notes-demo-shaped blueprint.
-- Boots a real `identity-auth0` introspect sidecar (in-process or Docker, whichever fits the existing integration harness) configured against a JWKS that does not match any known issuer.
-- Sends `GET /api/notes` with `Authorization: Bearer fake.token.here` through the rendered nginx.
+- Boots a real `identity-auth0` introspect sidecar in-process via `createIdentityAuth0HttpServer`.
+- Boots real nginx through Testcontainers (`nginx:1.27-alpine`) with the rendered config copied to `/etc/nginx/nginx.conf`.
+- Exposes the host sidecar port to nginx with `TestContainers.exposeHostPorts(port)` and uses `host.testcontainers.internal:<port>` in the rendered upstream URL.
+- Sends `GET /api/notes` with `Authorization: Bearer fake.token.here` through nginx.
 - Asserts the response is `401 application/json` with body exactly equal to `{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}` (the named-fallback body, no `reason` field).
 - Repeats the assertion for `POST`, `PUT`, `DELETE`, `PATCH`.
 
-This test must fail against the current production state (forged bearer accepted) and pass after the fix.
+This test must fail against a renderer/sidecar regression that lets forged bearers reach upstream, and pass after the fix. Do not replace this with a Hono or Node substitute for nginx; the regression surface is nginx `auth_request`, `error_page`, and location matching.
 
 ### 6.3 Smoke verifier real probes (F-A2)
 
@@ -250,7 +252,15 @@ A new graph IR node type `uuid` is added to `@rntme/graph-ir-compiler`:
 { "id": "newId", "type": "uuid", "config": {} }
 ```
 
-Output: a freshly generated UUID (v4 via `crypto.randomUUID`). No inputs. Existing graphs reference inputs and prior pipeline values via `$param`, `$pre`, `$literal`. Consuming a `uuid` node's output requires a new reference form `{ "$node": "<nodeId>" }`. The compiler validates that every `$node` reference resolves to a declared node id and that the consuming slot accepts the producing node's output type.
+Output: a freshly generated server-side UUID string. No inputs. Existing graphs reference inputs and prior pipeline values via `$param`, `$pre`, `$literal`. Consuming a `uuid` node's output requires a new reference form `{ "$node": "<nodeId>" }`. The compiler validates that every `$node` reference resolves to a declared node id and that the consuming slot accepts the producing node's output type.
+
+For this slice, `$node` is deliberately narrow:
+
+- valid only in command graph expressions
+- valid only for a prior `uuid` node in the same graph
+- invalid for query rowset nodes, emit nodes, future nodes, and missing nodes
+
+`uuid` is a command-runtime node, not a relational/SQLite lowering node. `compileCommand` must exclude `uuid` from the read-prelude `readNodes` set and carry it as command node generator metadata. `executeCommand` evaluates node generators before the first emit, stores outputs in a `nodeValues` map, and resolves `$node` expressions from that map in both `aggregateId` and payload expressions. The default generator may reuse the existing command `ctx.nextId()` UUID source so tests can provide deterministic IDs; the first generated value becomes the note aggregate id and later `ctx.nextId()` calls still produce event ids.
 
 `demo/notes-blueprint/services/app/graphs/createNote.json` is rewritten:
 
@@ -284,7 +294,7 @@ Output: a freshly generated UUID (v4 via `crypto.randomUUID`). No inputs. Existi
 }
 ```
 
-`bindings.json#createNote.http.parameters` drops the `id` entry. The notes-demo SPA loses its client-side UUID generation and sends only `title` + `body`. The compiler validates that `aggregateId` consumes a node output of UUID-shape; an `$node` reference to a non-`uuid` node is rejected with `GRAPH_IR_CONSISTENCY_AGGREGATE_ID_NOT_UUID`.
+`bindings.json#createNote.http.parameters` drops the `id` entry. The notes-demo SPA loses its client-side UUID generation and sends only `title` + `body`. The compiler validates that `aggregateId` consumes a node output of UUID-shape; an `$node` reference to a missing, future, or non-`uuid` node is rejected with `STRUCT_INVALID_NODE_REF`.
 
 ### 8.2 Production React bundle (F-C2)
 
@@ -294,7 +304,7 @@ Output: a freshly generated UUID (v4 via `crypto.randomUUID`). No inputs. Existi
 - `minify: true`
 - `treeShaking: true`
 
-Test in `packages/runtime/ui-runtime/test/unit/build.test.ts` runs the production build and greps `dist/main.js` for the literal `react.development`; the test fails if the string appears.
+Test in `packages/runtime/ui-runtime/test/unit/build.test.ts` runs the production build and reads `packages/runtime/ui-runtime/build/main.js`. The test should assert that `react.development` and unresolved `process.env.NODE_ENV` are absent. It should not require the literal string `"production"` to remain in the bundle because esbuild `define` plus minification can constant-fold the branch away.
 
 ### 8.3 Internal nginx locations (F-C3)
 
