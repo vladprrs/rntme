@@ -1,109 +1,37 @@
-import { createServer } from 'node:http';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 
-export type NginxSubstitute = {
-  baseUrl: string;
+export type StartedNginxHost = {
+  readonly baseUrl: string;
   stop: () => Promise<void>;
 };
 
-const CANONICAL_401_BODY = JSON.stringify({
-  code: 'RUNTIME_AUTH_TOKEN_INVALID',
-  message: 'authentication required',
-});
+export const HOST_GATEWAY_HOSTNAME = 'host.docker.internal';
 
 /**
- * Parse the rendered nginx config to discover auth-related values.
+ * Boot a real `nginx:1.27-alpine` container with the rendered config, exposing
+ * port 8080. The container reaches the test process (introspect sidecar) via
+ * the `host.docker.internal` extra-host bound to `host-gateway`.
+ *
+ * Requires Docker. Tests using this fixture should `describe.skipIf(!hasDocker)`.
  */
-function parseAuthConfig(config: string): {
-  protectedPath: string;
-  introspectUrl: string;
-  audience: string;
-} {
-  // Find the protected location (the one with auth_request)
-  const locationMatch = config.match(/location\s+(\S+)\s*\{[^}]*auth_request/s);
-  const protectedPath = locationMatch?.[1] ?? '/api';
+export async function startNginxHost(opts: { readonly nginxConfig: string }): Promise<StartedNginxHost> {
+  const dir = await mkdtemp(join(tmpdir(), 'rntme-nginx-'));
+  const configPath = join(dir, 'nginx.conf');
+  await writeFile(configPath, opts.nginxConfig);
 
-  // Find the introspect upstream URL from the internal location
-  const upstreamMatch = config.match(/proxy_pass\s+([^;]+)\/introspect;/);
-  const introspectUrl = upstreamMatch?.[1]?.trim() ?? '';
+  const container: StartedTestContainer = await new GenericContainer('nginx:1.27-alpine')
+    .withExposedPorts(8080)
+    .withBindMounts([{ source: configPath, target: '/etc/nginx/nginx.conf', mode: 'ro' }])
+    .withExtraHosts([{ host: HOST_GATEWAY_HOSTNAME, ipAddress: 'host-gateway' }])
+    .start();
 
-  // Find the audience header
-  const audienceMatch = config.match(/X-Rntme-Audience\s+"([^"]+)";/);
-  const audience = audienceMatch?.[1] ?? '';
-
-  return { protectedPath, introspectUrl, audience };
-}
-
-export async function startNginxOrSubstitute(config: string): Promise<NginxSubstitute> {
-  const { protectedPath, introspectUrl, audience } = parseAuthConfig(config);
-
-  const server = createServer(async (req, res) => {
-    const url = req.url ?? '/';
-
-    // Explicit 404 for internal auth paths
-    if (url.startsWith('/_rntme_auth_')) {
-      res.writeHead(404);
-      res.end();
-      return;
-    }
-
-    // Check if this is a protected path
-    if (!url.startsWith(protectedPath)) {
-      res.writeHead(200);
-      res.end('ok');
-      return;
-    }
-
-    // Mimic auth_request: forward Authorization and X-Rntme-Audience to introspect
-    const authHeader = req.headers['authorization'];
-    if (!authHeader || typeof authHeader !== 'string') {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(CANONICAL_401_BODY);
-      return;
-    }
-
-    try {
-      const introspectRes = await globalThis.fetch(`${introspectUrl}/introspect`, {
-        headers: {
-          Authorization: authHeader,
-          'X-Rntme-Audience': audience,
-        },
-      });
-
-      if (introspectRes.status === 401) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(CANONICAL_401_BODY);
-        return;
-      }
-
-      if (!introspectRes.ok) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(CANONICAL_401_BODY);
-        return;
-      }
-
-      // Auth passed - proxy to upstream (we don't have a real upstream, return 200)
-      res.writeHead(200);
-      res.end('ok');
-    } catch {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(CANONICAL_401_BODY);
-    }
-  });
-
-  return new Promise((resolve, reject) => {
-    server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
-      if (addr === null || typeof addr === 'string') {
-        reject(new Error('Failed to get server address'));
-        return;
-      }
-      resolve({
-        baseUrl: `http://127.0.0.1:${addr.port}`,
-        stop: () =>
-          new Promise((res) => {
-            server.close(() => res());
-          }),
-      });
-    });
-  });
+  return {
+    baseUrl: `http://${container.getHost()}:${container.getMappedPort(8080)}`,
+    stop: async () => {
+      await container.stop();
+    },
+  };
 }

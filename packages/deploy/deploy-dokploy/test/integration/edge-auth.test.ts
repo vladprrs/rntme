@@ -1,9 +1,11 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { renderNginxConfig } from '../../src/nginx.js';
 import { createIdentityAuth0HttpServer } from '@rntme/identity-auth0';
-import { startNginxOrSubstitute } from './edge-auth-fixtures/nginx-host.js';
+import { HOST_GATEWAY_HOSTNAME, startNginxHost } from './edge-auth-fixtures/nginx-host.js';
 
-describe('edge auth integration', () => {
+const dockerAvailable = await hasDocker();
+
+describe.skipIf(!dockerAvailable)('edge auth integration', () => {
   let baseUrl: string;
   let stop: () => Promise<void>;
 
@@ -23,7 +25,7 @@ describe('edge auth integration', () => {
     const { port } = await sidecar.listen();
     const config = renderNginxConfig(
       {
-        routes: [{ id: 'http:/api', path: '/api', targetService: 'app', targetWorkload: 'app' }],
+        routes: [{ id: 'http:/api', path: '/api', kind: 'http', targetService: 'app', targetWorkload: 'app' }],
         middleware: [
           {
             kind: 'auth',
@@ -36,18 +38,22 @@ describe('edge auth integration', () => {
           },
         ],
       },
-      { app: 'http://127.0.0.1:65535', 'identity-auth0': `http://127.0.0.1:${port}` },
+      {
+        app: 'http://nonexistent-upstream:65535',
+        // Container reaches the host's introspect sidecar via host-gateway alias.
+        'identity-auth0': `http://${HOST_GATEWAY_HOSTNAME}:${port}`,
+      },
     );
-    const host = await startNginxOrSubstitute(config);
+    const host = await startNginxHost({ nginxConfig: config });
     baseUrl = host.baseUrl;
     stop = async () => {
       await sidecar.stop();
       await host.stop();
     };
-  });
+  }, 60_000);
 
   afterAll(async () => {
-    await stop();
+    if (stop) await stop();
   });
 
   for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const) {
@@ -77,3 +83,16 @@ describe('edge auth integration', () => {
     expect(body).not.toHaveProperty('reason');
   });
 });
+
+async function hasDocker(): Promise<boolean> {
+  try {
+    const { spawn } = await import('node:child_process');
+    return await new Promise<boolean>((resolve) => {
+      const child = spawn('docker', ['version', '--format', '{{.Server.Version}}'], { stdio: 'ignore' });
+      child.once('error', () => resolve(false));
+      child.once('exit', (code) => resolve(code === 0));
+    });
+  } catch {
+    return false;
+  }
+}
