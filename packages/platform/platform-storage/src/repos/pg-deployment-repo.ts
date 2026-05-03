@@ -4,6 +4,7 @@ import {
   err,
   ok,
   type Deployment,
+  type DeploymentAppliedResources,
   type DeploymentLogLine,
   type DeploymentRepo,
   type DeploymentStatus,
@@ -301,6 +302,63 @@ export class PgDeploymentRepo implements DeploymentRepo {
           orgId: row['org_id'] as string,
         })),
       );
+    } catch (cause) {
+      return dbErr(cause);
+    }
+  }
+
+  async hasActiveForProject(projectId: string): Promise<Result<boolean, PlatformError>> {
+    try {
+      const r = await this.db.query(
+        `SELECT 1 FROM deployment WHERE project_id=$1 AND status IN ('queued','running') LIMIT 1`,
+        [projectId],
+      );
+      return ok(Boolean(r.rows[0]));
+    } catch (cause) {
+      return dbErr(cause);
+    }
+  }
+
+  async hasActiveForProjectTarget(projectId: string, targetId: string): Promise<Result<boolean, PlatformError>> {
+    try {
+      const r = await this.db.query(
+        `SELECT 1 FROM deployment WHERE project_id=$1 AND target_id=$2 AND status IN ('queued','running') LIMIT 1`,
+        [projectId, targetId],
+      );
+      return ok(Boolean(r.rows[0]));
+    } catch (cause) {
+      return dbErr(cause);
+    }
+  }
+
+  async listAppliedResourcesByProject(projectId: string): Promise<Result<readonly DeploymentAppliedResources[], PlatformError>> {
+    try {
+      const rows = await this.db.query(
+        `SELECT id, target_id, apply_result
+         FROM deployment
+         WHERE project_id=$1 AND apply_result IS NOT NULL
+         ORDER BY queued_at DESC, id DESC`,
+        [projectId],
+      );
+      return ok(rows.rows.flatMap((row) => {
+        const apply = row['apply_result'] as { resources?: unknown } | null;
+        const resources = Array.isArray(apply?.resources) ? apply.resources : [];
+        const parsed = resources
+          .filter((resource): resource is Record<string, unknown> => resource !== null && typeof resource === 'object')
+          .filter((resource) => resource.resourceKind === 'application' || resource.resourceKind === 'compose')
+          .filter((resource) => typeof resource.targetResourceId === 'string' && typeof resource.targetResourceName === 'string')
+          .map((resource) => ({
+            resourceKind: resource.resourceKind as 'application' | 'compose',
+            targetResourceId: resource.targetResourceId as string,
+            targetResourceName: resource.targetResourceName as string,
+          }));
+        if (parsed.length === 0) return [];
+        return [{
+          deploymentId: row['id'] as string,
+          targetId: row['target_id'] as string,
+          resources: parsed,
+        }];
+      }));
     } catch (cause) {
       return dbErr(cause);
     }

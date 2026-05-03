@@ -11,6 +11,7 @@ export * from './repos/pg-project-repo.js';
 export * from './repos/pg-project-version-repo.js';
 export * from './repos/pg-deploy-target-repo.js';
 export * from './repos/pg-deployment-repo.js';
+export * from './repos/pg-project-operation-repo.js';
 export * from './repos/pg-token-repo.js';
 export * from './repos/pg-audit-repo.js';
 export * from './repos/pg-outbox-repo.js';
