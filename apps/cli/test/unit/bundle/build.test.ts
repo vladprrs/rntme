@@ -63,4 +63,48 @@ describe('buildProjectBundle', () => {
       expect(Object.keys(result.value.bundle.files)).toEqual(['project.json']);
     });
   });
+
+  it('emits version 2 bundles with assets when modules declare provisioner.entry', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
+    try {
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
+      mkdirSync(join(dir, 'node_modules/auth0/dist'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules/auth0/module.json'), JSON.stringify({
+        name: '@rntme/identity-auth0',
+        version: '1.0.0',
+        provisioner: { entry: './dist/provisioner.entry.js' },
+      }));
+      const js = 'export const provision = () => {};\nexport const tearDown = () => {};';
+      writeFileSync(join(dir, 'node_modules/auth0/dist/provisioner.entry.js'), js);
+
+      const r = buildProjectBundle(dir);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.bundle.version).toBe(2);
+      expect(r.value.bundle.assets['assets/provisioners/rntme__identity-auth0.entry.js']).toBe(
+        Buffer.from(js).toString('base64'),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns BLUEPRINT_PROVISIONER_ENTRY_MISSING from buildProjectBundle when entry absent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
+    try {
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
+      mkdirSync(join(dir, 'node_modules/x'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules/x/module.json'), JSON.stringify({
+        name: '@a/x', version: '1.0.0',
+        provisioner: { entry: './dist/missing.js' },
+      }));
+      const r = buildProjectBundle(dir);
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.message).toContain('BLUEPRINT_PROVISIONER_ENTRY_MISSING');
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

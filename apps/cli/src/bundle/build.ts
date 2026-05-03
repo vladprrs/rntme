@@ -4,6 +4,7 @@ import { relative, resolve, sep } from 'node:path';
 import { err, ok, type Result } from '../result.js';
 import { cliError, type CliError } from '../errors/codes.js';
 import { canonicalJson } from '../util/canonical-json.js';
+import { collectProvisionerAssets } from './collect-assets.js';
 
 export type CanonicalBundle = {
   readonly version: 2;
@@ -37,7 +38,16 @@ export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, C
     }
   }
 
-  const bundle: CanonicalBundle = { version: 2, files: bundleFiles, assets: {} };
+  const assetsResult = collectProvisionerAssets(root, bundleFiles);
+  if (!assetsResult.ok) {
+    const e = assetsResult.errors[0];
+    return err(cliError(
+      e.code === 'CLI_BUNDLE_ASSETS_TOO_LARGE' ? 'CLI_BUNDLE_ASSETS_TOO_LARGE' : 'CLI_VALIDATE_LOCAL_FAILED',
+      `${e.code}: ${e.message}`,
+    ));
+  }
+
+  const bundle: CanonicalBundle = { version: 2, files: bundleFiles, assets: assetsResult.value };
   const bytes = canonicalJson(bundle);
   return ok({
     bundle,
