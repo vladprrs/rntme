@@ -14,7 +14,12 @@ export type DiscoveredProvisionerModule = {
 export type RunProvisionersInput = {
   readonly modules: readonly DiscoveredProvisionerModule[];
   readonly resolvedTargetSecrets: Readonly<Record<string, unknown>>;
-  readonly resolveProvisioner: (packageName: string, entry: string) => Promise<ProvisionerContract>;
+  readonly projectDir: string;
+  readonly resolveProvisioner: (
+    packageName: string,
+    entry: string,
+    projectDir: string,
+  ) => Promise<ProvisionerContract>;
   readonly log: ProvisionerLog;
   readonly defaultTimeoutMs?: number;
 };
@@ -53,7 +58,7 @@ export async function runProvisioners(input: RunProvisionersInput): Promise<RunP
 
     let contract: ProvisionerContract;
     try {
-      contract = await input.resolveProvisioner(m.packageName, block.entry);
+      contract = await input.resolveProvisioner(m.packageName, block.entry, input.projectDir);
     } catch (cause) {
       errors.push({
         code: DEPLOY_PROVISION_ERROR_CODES.DEPLOY_PROVISION_ENTRY_LOAD_FAILED,

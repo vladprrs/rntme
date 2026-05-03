@@ -36,7 +36,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [{ ...baseModule(), manifest: { name: 'x', version: '1.0.0' } }],
       resolvedTargetSecrets: {},
-      resolveProvisioner: async () => happyContract,
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir) => happyContract,
       log: () => undefined,
     });
     expect(result.ok).toBe(true);
@@ -47,7 +48,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: { auth0Mgmt: { tenantDomain: 'x', mgmtClientId: 'a', mgmtClientSecret: 'b' } },
-      resolveProvisioner: async () => happyContract,
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir) => happyContract,
       log: () => undefined,
     });
     expect(result.ok).toBe(true);
@@ -64,7 +66,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: {},
-      resolveProvisioner: async () => happyContract,
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir) => happyContract,
       log: () => undefined,
     });
     expect(result.ok).toBe(false);
@@ -77,7 +80,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: { auth0Mgmt: {} },
-      resolveProvisioner: async (): Promise<ProvisionerContract> => ({
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir): Promise<ProvisionerContract> => ({
         async provision() {
           return ok({ publicOutputs: { spaClient: { id: 'a' } }, secretOutputs: {} });
         },
@@ -95,7 +99,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: { auth0Mgmt: {} },
-      resolveProvisioner: async (): Promise<ProvisionerContract> => ({
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir): Promise<ProvisionerContract> => ({
         async provision() {
           return ok({
             publicOutputs: { spaClient: { id: 'a' } },
@@ -115,7 +120,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: { auth0Mgmt: {} },
-      resolveProvisioner: async (): Promise<ProvisionerContract> => ({
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir): Promise<ProvisionerContract> => ({
         async provision() {
           return ok({
             publicOutputs: { spaClient: { id: 'a' }, m2mClients: [{ clientSecret: 'leaked' }] },
@@ -135,7 +141,8 @@ describe('runProvisioners', () => {
     const result = await runProvisioners({
       modules: [baseModule()],
       resolvedTargetSecrets: { auth0Mgmt: {} },
-      resolveProvisioner: async (): Promise<ProvisionerContract> => ({
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir): Promise<ProvisionerContract> => ({
         async provision() {
           return err([{ code: 'AUTH0_THING_FAILED', message: 'upstream said no' }]);
         },
@@ -162,7 +169,8 @@ describe('runProvisioners', () => {
     const promise = runProvisioners({
       modules: [{ ...baseModule(), manifest: { ...baseModule().manifest, provisioner: { ...baseModule().manifest.provisioner!, timeoutMs: 50 } } }],
       resolvedTargetSecrets: { auth0Mgmt: {} },
-      resolveProvisioner: async () => slow,
+      projectDir: '/tmp/test',
+      resolveProvisioner: async (_pkg, _entry, _projectDir) => slow,
       log: () => undefined,
     });
     await vi.advanceTimersByTimeAsync(60);
