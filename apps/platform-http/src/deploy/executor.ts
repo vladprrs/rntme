@@ -162,6 +162,8 @@ export async function runDeployment(
       'plan',
       plan.value.infrastructure.eventBus.mode === 'provisioned'
         ? 'Provisioning Redpanda event bus'
+        : plan.value.infrastructure.eventBus.mode === 'in-memory'
+          ? 'Using in-memory event bus'
         : 'Using external Kafka/Redpanda event bus',
     );
 

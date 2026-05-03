@@ -9,6 +9,7 @@ import type { DeployTarget } from '@rntme/platform-core';
 import { normalizeDokployBaseUrl } from './dokploy-client-factory.js';
 
 type DeployConfigOverrides = {
+  readonly eventBusMode?: 'in-memory';
   readonly integrationModuleImages?: Record<string, string>;
   readonly policyOverrides?: Record<string, unknown>;
   readonly publicBaseUrl?: string;
@@ -37,7 +38,12 @@ export function buildProjectDeploymentConfig(
   }
 
   const eventBus =
-    target.eventBus.mode === 'provisioned'
+    overrides.eventBusMode === 'in-memory'
+      ? {
+          kind: 'memory' as const,
+          mode: 'in-memory' as const,
+        }
+      : target.eventBus.mode === 'provisioned'
       ? {
           kind: target.eventBus.kind,
           mode: 'provisioned' as const,

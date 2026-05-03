@@ -76,6 +76,17 @@ describe('buildProjectDeploymentConfig', () => {
     });
   });
 
+  it('allows deployment config overrides to force the runtime in-memory event bus', () => {
+    const config = buildProjectDeploymentConfig(target(), 'acme', {
+      eventBusMode: 'in-memory',
+    });
+
+    expect(config.eventBus).toEqual({
+      kind: 'memory',
+      mode: 'in-memory',
+    });
+  });
+
   it('maps deploy target modules, override images, auth, and policy overrides', () => {
     const config = buildProjectDeploymentConfig({
       ...target(),

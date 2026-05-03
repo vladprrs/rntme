@@ -173,6 +173,27 @@ describe('buildProjectDeploymentPlan', () => {
     });
   });
 
+  it('allows preview deployments to use a non-durable in-memory event bus', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'memory',
+        mode: 'in-memory',
+      } as ProjectDeploymentConfig['eventBus'],
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.eventBus).toEqual({
+      kind: 'memory',
+      mode: 'in-memory',
+    });
+    expect(r.value.diagnostics.warnings).toContainEqual({
+      code: 'DEPLOY_PLAN_IN_MEMORY_EVENT_BUS',
+      message: 'in-memory event bus is non-durable and intended only for preview/e2e deployments',
+    });
+  });
+
   it('allows overriding the provisioned Redpanda image with a pinned image', () => {
     const r = buildProjectDeploymentPlan(project, {
       ...previewConfig,

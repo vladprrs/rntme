@@ -407,6 +407,8 @@ function firstDomainPublicConfig(workloads: readonly DeploymentWorkload[]): stri
 function eventBusEnv(
   eventBus: ProjectDeploymentPlan['infrastructure']['eventBus'],
 ): RenderedEnvVar[] {
+  if (eventBus.mode === 'in-memory') return [];
+
   if (eventBus.mode === 'provisioned') {
     return [
       {

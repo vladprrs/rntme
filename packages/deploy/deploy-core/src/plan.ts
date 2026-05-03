@@ -87,7 +87,12 @@ export type PlannedProvisionedEventBus = {
   };
 };
 
-export type PlannedEventBus = PlannedExternalEventBus | PlannedProvisionedEventBus;
+export type PlannedInMemoryEventBus = {
+  readonly kind: 'memory';
+  readonly mode: 'in-memory';
+};
+
+export type PlannedEventBus = PlannedExternalEventBus | PlannedProvisionedEventBus | PlannedInMemoryEventBus;
 
 export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
@@ -159,6 +164,16 @@ export function buildProjectDeploymentPlan(
 
   if (errors.length > 0 || plannedEventBus === undefined) return err(errors);
 
+  const warnings: DeploymentWarning[] =
+    plannedEventBus.mode === 'in-memory'
+      ? [
+          {
+            code: 'DEPLOY_PLAN_IN_MEMORY_EVENT_BUS',
+            message: 'in-memory event bus is non-durable and intended only for preview/e2e deployments',
+          },
+        ]
+      : [];
+
   return ok({
     project: {
       orgSlug: config.orgSlug,
@@ -172,7 +187,7 @@ export function buildProjectDeploymentPlan(
     },
     workloads,
     edge,
-    diagnostics: { warnings: [] },
+    diagnostics: { warnings },
   });
 }
 
@@ -272,6 +287,13 @@ function planEventBus(
       brokers: external.brokers,
       ...(external.topicPrefix === undefined ? {} : { topicPrefix: external.topicPrefix }),
       ...(external.security === undefined ? {} : { security: external.security }),
+    };
+  }
+
+  if (mode === 'in-memory') {
+    return {
+      kind: 'memory',
+      mode: 'in-memory',
     };
   }
 
