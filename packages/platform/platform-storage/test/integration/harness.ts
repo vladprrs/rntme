@@ -31,7 +31,22 @@ export async function startPostgres(): Promise<PgHandles> {
 
   await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO platform_app`);
   await pool.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO platform_app`);
-  await pool.query(`GRANT USAGE ON ALL TYPES IN SCHEMA public TO platform_app`);
+  await pool.query(`
+    DO $$
+    DECLARE
+      public_type record;
+    BEGIN
+      FOR public_type IN
+        SELECT n.nspname, t.typname
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname = 'public'
+          AND t.typtype IN ('e', 'd')
+      LOOP
+        EXECUTE format('GRANT USAGE ON TYPE %I.%I TO platform_app', public_type.nspname, public_type.typname);
+      END LOOP;
+    END $$;
+  `);
 
   const parsed = new URL(ownerUrl);
   parsed.username = 'platform_app';
