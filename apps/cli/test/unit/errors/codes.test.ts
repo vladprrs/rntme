@@ -5,6 +5,7 @@ describe('CLI_ERROR_CODES registry', () => {
   const expectedNew = [
     'CLI_INIT_ALREADY_INITIALIZED',
     'CLI_INIT_INVALID_SLUG',
+    'CLI_VALIDATE_JSON_INVALID',
     'CLI_SKILLS_UNKNOWN_AGENT',
     'CLI_SKILLS_TARGET_NOT_WRITABLE',
   ] as const;

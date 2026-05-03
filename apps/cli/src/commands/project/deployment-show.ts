@@ -3,6 +3,7 @@ import type { DeploymentResponseSchema } from '../../api/types.js';
 import { err } from '../../result.js';
 import { cliError } from '../../errors/codes.js';
 import { runCommand, type CommonFlags } from '../harness.js';
+import { validateUuid } from '../../util/uuid.js';
 import type { z } from 'zod';
 
 type DeploymentResponse = z.infer<typeof DeploymentResponseSchema>;
@@ -21,8 +22,8 @@ export async function runProjectDeploymentShow(args: ProjectDeploymentShowArgs, 
         return [
           `id:       ${deployment.id}`,
           `status:   ${deployment.status}`,
-          `version:  ${deployment.projectVersionId}`,
-          `target:   ${deployment.targetId}`,
+          `version:  ${deployment.projectVersionSeq}`,
+          `target:   ${deployment.targetSlug}`,
           `digest:   ${deployment.renderedPlanDigest ?? ''}`,
           `error:    ${deployment.errorCode ?? ''}`,
           `message:  ${deployment.errorMessage ?? ''}`,
@@ -37,6 +38,8 @@ export async function runProjectDeploymentShow(args: ProjectDeploymentShowArgs, 
       },
     },
     async (ctx) => {
+      const id = validateUuid(args.deploymentId, 'deployment-id');
+      if (!id.ok) return id;
       const org = flags.org ?? ctx.resolved.org;
       const project = flags.project ?? ctx.resolved.project;
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
@@ -45,7 +48,7 @@ export async function runProjectDeploymentShow(args: ProjectDeploymentShowArgs, 
         { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
         org,
         project,
-        args.deploymentId,
+        id.value,
       );
     },
   );

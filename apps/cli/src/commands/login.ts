@@ -6,6 +6,7 @@ import { formatSuccess, formatFailure, toFailureOutput } from '../output/format.
 import type { OutputMode } from '../output/format.js';
 import { exitCodeFor } from '../errors/exit.js';
 import { isOk } from '../result.js';
+import { endpoints } from '../api/endpoints.js';
 
 export type LoginFlags = {
   token?: string;
@@ -62,6 +63,17 @@ export async function runLogin(flags: LoginFlags): Promise<number> {
   if (!isOk(wrote)) {
     process.stderr.write(formatFailure(mode, toFailureOutput(wrote.error)) + '\n');
     return exitCodeFor(wrote.error.code);
+  }
+
+  // Fetch default org from whoami (fail-soft)
+  try {
+    const me = await endpoints.auth.me({ baseUrl, token });
+    if (isOk(me)) {
+      file.profiles[profile].defaultOrg = me.value.org.slug;
+      await writeCredentials(path, file);
+    }
+  } catch {
+    // ignore whoami failures; credentials are already saved
   }
 
   const out = formatSuccess(

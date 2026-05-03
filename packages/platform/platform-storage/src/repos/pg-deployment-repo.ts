@@ -26,7 +26,7 @@ export class PgDeploymentRepo implements DeploymentRepo {
   ): Promise<Result<Deployment, PlatformError>> {
     try {
       return await withOptionalTransaction(this.db, async (db) => {
-        const inserted = await db.query(
+        await db.query(
           `INSERT INTO deployment (
              id, project_id, org_id, project_version_id, target_id,
              config_overrides, started_by_account_id
@@ -43,7 +43,6 @@ export class PgDeploymentRepo implements DeploymentRepo {
             args.row.startedByAccountId,
           ],
         );
-        const row = inserted.rows[0] as DbRow;
         await audit(db, {
           orgId: args.row.orgId,
           actorAccountId: args.auditActorAccountId,
@@ -56,7 +55,15 @@ export class PgDeploymentRepo implements DeploymentRepo {
             targetId: args.row.targetId,
           },
         });
-        return ok(rowToDeployment(row));
+        const enriched = await db.query(
+          `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
+           FROM deployment d
+           LEFT JOIN project_version pv ON pv.id = d.project_version_id
+           LEFT JOIN deploy_target dt ON dt.id = d.target_id
+           WHERE d.id=$1 LIMIT 1`,
+          [args.row.id],
+        );
+        return ok(rowToDeployment(enriched.rows[0] as DbRow));
       });
     } catch (cause) {
       return dbErr(cause);
@@ -66,7 +73,11 @@ export class PgDeploymentRepo implements DeploymentRepo {
   async getById(id: string): Promise<Result<Deployment | null, PlatformError>> {
     try {
       const row = await this.db.query(
-        `SELECT * FROM deployment WHERE id=$1 LIMIT 1`,
+        `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
+         FROM deployment d
+         LEFT JOIN project_version pv ON pv.id = d.project_version_id
+         LEFT JOIN deploy_target dt ON dt.id = d.target_id
+         WHERE d.id=$1 LIMIT 1`,
         [id],
       );
       return ok(row.rows[0] ? rowToDeployment(row.rows[0] as DbRow) : null);
@@ -93,9 +104,12 @@ export class PgDeploymentRepo implements DeploymentRepo {
       }
       values.push(opts.limit);
       const rows = await this.db.query(
-        `SELECT * FROM deployment
+        `SELECT d.*, pv.seq as project_version_seq, dt.slug as target_slug
+         FROM deployment d
+         LEFT JOIN project_version pv ON pv.id = d.project_version_id
+         LEFT JOIN deploy_target dt ON dt.id = d.target_id
          WHERE ${where.join(' AND ')}
-         ORDER BY queued_at DESC, id DESC
+         ORDER BY d.queued_at DESC, d.id DESC
          LIMIT $${values.length}`,
         values,
       );
@@ -299,7 +313,9 @@ function rowToDeployment(r: DbRow): Deployment {
     projectId: r['project_id'] as string,
     orgId: r['org_id'] as string,
     projectVersionId: r['project_version_id'] as string,
+    projectVersionSeq: (r['project_version_seq'] ?? undefined) as number | undefined,
     targetId: r['target_id'] as string,
+    targetSlug: (r['target_slug'] ?? undefined) as string | undefined,
     status: r['status'] as DeploymentStatus,
     configOverrides: r['config_overrides'] as Record<string, unknown>,
     renderedPlanDigest: (r['rendered_plan_digest'] ?? null) as string | null,

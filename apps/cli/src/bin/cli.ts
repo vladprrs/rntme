@@ -1,7 +1,6 @@
 import { parseArgs } from 'node:util';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { CLI_VERSION } from '../util/version.js';
 
 import { runLogin } from '../commands/login.js';
 import { runLogout } from '../commands/logout.js';
@@ -21,7 +20,27 @@ import { runTokenList } from '../commands/token/list.js';
 import { runTokenRevoke } from '../commands/token/revoke.js';
 import { runInit } from '../commands/init.js';
 import { runSkillsInstall } from '../commands/skills/install.js';
+import { runTargetList } from '../commands/target/list.js';
+import { runTargetShow } from '../commands/target/show.js';
+import { runTargetSetConfig } from '../commands/target/set-config.js';
 import type { CommonFlags } from '../commands/harness.js';
+import { registerHelp, lookupHelp } from '../help/registry.js';
+
+registerHelp(['project', 'deploy'], `Usage: rntme project deploy --org <slug> --project <slug> --version <seq> --target <target-slug>
+  [--runtime-image <ref>] [--config-overrides <path.json>] [--wait] [--timeout <sec>]
+
+Starts a platform deployment of a previously published version against a deploy target.`);
+
+registerHelp(['project', 'publish'], `Usage: rntme project publish [--org <slug>] [--project <slug>] [--dry-run] [folder]
+
+Validates and uploads the project blueprint as a new version. Folder defaults to current directory.`);
+
+registerHelp(['project', 'deployment', 'list'], `Usage: rntme project deployment list --org <slug> --project <slug> [--limit <n>]`);
+registerHelp(['project', 'deployment', 'show'], `Usage: rntme project deployment show --org <slug> --project <slug> <deployment-id>`);
+registerHelp(['project', 'deployment', 'watch'], `Usage: rntme project deployment watch --org <slug> --project <slug> <deployment-id>`);
+registerHelp(['target', 'list'], `Usage: rntme target list [--org <slug>]`);
+registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>]`);
+registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --json <path> [--org <slug>]`);
 
 const USAGE = `Usage: rntme [options] <command> [subcommand] [args...]
 
@@ -63,11 +82,7 @@ Global options:
 `;
 
 function readVersion(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const pkgPath = join(here, '..', '..', 'package.json');
-  const raw = readFileSync(pkgPath, 'utf8');
-  const pkg = JSON.parse(raw) as { version: string };
-  return pkg.version;
+  return CLI_VERSION;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +149,10 @@ export async function main(argv: string[]): Promise<number> {
         agent: { type: 'string' },
         target: { type: 'string' },
         force: { type: 'boolean' },
+        'runtime-image': { type: 'string' },
+        'config-overrides': { type: 'string' },
+        wait: { type: 'boolean' },
+        timeout: { type: 'string' },
       },
       allowPositionals: true,
       strict: false,
@@ -148,6 +167,12 @@ export async function main(argv: string[]): Promise<number> {
   const { values, positionals } = parsed;
 
   if (asBool(values['help']) === true) {
+    const cmdPath: string[] = positionals;
+    const sub = lookupHelp(cmdPath);
+    if (sub !== null) {
+      process.stdout.write(sub + '\n');
+      return 0;
+    }
     process.stdout.write(USAGE);
     return 0;
   }
@@ -289,7 +314,21 @@ export async function main(argv: string[]): Promise<number> {
             process.stderr.write(`Invalid version seq: ${versionRaw}\n`);
             return 1;
           }
-          return runProjectDeploy({ version, target }, commonFlags);
+          const timeoutRaw = asString(values['timeout']);
+          let timeoutSec: number | undefined;
+          if (timeoutRaw !== undefined) {
+            const n = Number.parseInt(timeoutRaw, 10);
+            if (!Number.isNaN(n)) timeoutSec = n;
+          }
+          const deployArgs: Parameters<typeof runProjectDeploy>[0] = {
+            version,
+            target,
+            runtimeImage: asString(values['runtime-image']),
+            configOverridesPath: asString(values['config-overrides']),
+            wait: asBool(values['wait']),
+            timeoutSec,
+          };
+          return runProjectDeploy(deployArgs, commonFlags);
         }
         case 'deployment': {
           const deploymentSub = positionals[2];
@@ -376,6 +415,48 @@ export async function main(argv: string[]): Promise<number> {
         default: {
           process.stderr.write(`Unknown token subcommand: ${sub}\n`);
           process.stderr.write('Usage: rntme token <create|list|revoke> ...\n');
+          return 2;
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // target
+    // -------------------------------------------------------------------------
+    case 'target': {
+      const sub = positionals[1];
+      if (!sub) {
+        process.stderr.write('Usage: rntme target <list|show|set-config> ...\n');
+        return 1;
+      }
+      switch (sub) {
+        case 'list': {
+          return runTargetList({}, commonFlags);
+        }
+        case 'show': {
+          const slug = positionals[2];
+          if (!slug) {
+            process.stderr.write('Usage: rntme target show <slug> [--org <slug>]\n');
+            return 1;
+          }
+          return runTargetShow({ slug }, commonFlags);
+        }
+        case 'set-config': {
+          const slug = positionals[2];
+          if (!slug) {
+            process.stderr.write('Usage: rntme target set-config <slug> --json <path> [--org <slug>]\n');
+            return 1;
+          }
+          const jsonPath = asString(values['json']);
+          if (!jsonPath) {
+            process.stderr.write('Usage: rntme target set-config <slug> --json <path> [--org <slug>]\n');
+            return 1;
+          }
+          return runTargetSetConfig({ slug, jsonPath }, commonFlags);
+        }
+        default: {
+          process.stderr.write(`Unknown target subcommand: ${sub}\n`);
+          process.stderr.write('Usage: rntme target <list|show|set-config> ...\n');
           return 2;
         }
       }
