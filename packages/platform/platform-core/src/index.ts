@@ -29,6 +29,13 @@ export * from './use-cases/tokens.js';
 export * from './use-cases/workos-sync.js';
 export * from './use-cases/archive-org-cascade.js';
 export * from './use-cases/project-operations.js';
+export {
+  TARGET_SECRET_SCHEMAS,
+  parseTargetSecret,
+  type TargetSecretSchemaId,
+  type TargetSecretParseError,
+  type TargetSecretParseResult,
+} from './use-cases/target-secrets/schemas.js';
 
 export * from './repos/org-repo.js';
 export * from './repos/account-repo.js';
@@ -37,6 +44,7 @@ export * from './repos/workos-event-log-repo.js';
 export * from './repos/project-repo.js';
 export * from './repos/project-version-repo.js';
 export * from './repos/deploy-target-repo.js';
+export * from './repos/target-secrets-repo.js';
 export * from './repos/deployment-repo.js';
 export * from './repos/project-operation-repo.js';
 export * from './repos/token-repo.js';

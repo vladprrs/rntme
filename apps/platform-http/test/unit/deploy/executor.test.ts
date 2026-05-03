@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
-import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
+import { err, ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { readUiRuntimeCss, runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
 describe('runDeployment', () => {
@@ -363,7 +363,19 @@ describe('runDeployment', () => {
     expect(renderPlan).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ publicBaseUrl: 'https://acme-shop-default.rntme.com' }),
+      expect.any(Map),
+      expect.any(Object),
     );
+  });
+
+  it('skips provision phase when no module declares a provisioner block', async () => {
+    const runProv = vi.fn(async () => ok({ modules: [] }));
+    const { deps, deployments } = setup({ runProvisioners: runProv as never });
+    await runDeployment('deployment-1', 'org-1', deps);
+    expect(runProv).not.toHaveBeenCalled();
+    expect(deployments.appendLog).not.toHaveBeenCalledWith(expect.objectContaining({ step: 'provision' }));
+    expect(deployments.setProvisionResult).not.toHaveBeenCalled();
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', expect.objectContaining({ status: 'succeeded' }));
   });
 });
 
@@ -377,6 +389,7 @@ function setup(
     targetPublicBaseUrl?: string | null;
     targetAuth?: { auth0?: { clientId: string } };
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
+    runProvisioners?: ExecutorDeps['runProvisioners'];
   } = {},
 ) {
   const deployments = {
@@ -407,6 +420,7 @@ function setup(
     transition: vi.fn(async () => ok(undefined)),
     setRenderedDigest: vi.fn(async () => ok(undefined)),
     setApplyResult: vi.fn(async () => ok(undefined)),
+    setProvisionResult: vi.fn(async () => undefined),
     finalize: vi.fn(async () => ok(undefined)),
     touchHeartbeat: vi.fn(async () => ok(undefined)),
     appendLog: vi.fn(async () => ok(undefined)),
@@ -509,6 +523,19 @@ function setup(
     renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
     applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
     heartbeatMs: 10_000,
+    ...(overrides.runProvisioners === undefined ? {} : { runProvisioners: overrides.runProvisioners }),
+    resolveProvisioner: vi.fn(async () => ({ provision: vi.fn() } as never)),
+    targetSecretsRepoFor: vi.fn(async () => ({
+      list: vi.fn(async () => []),
+      upsert: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+      getAllDecrypted: vi.fn(async () => ({})),
+    })),
+    secretCipher: {
+      encrypt: vi.fn(() => ({ ciphertext: Buffer.from('ct'), nonce: Buffer.from('n'), keyVersion: 1 })),
+      decrypt: vi.fn(() => '{}'),
+    },
+    lastSuccessfulProvisionOutputs: vi.fn(async () => ({})),
   };
   return { deps, deployments };
 }

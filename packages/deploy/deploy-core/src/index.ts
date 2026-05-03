@@ -52,3 +52,22 @@ export type { DeploymentVerifyErrorCode, DeploymentVerifyError } from './errors-
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
 export { resolveVars, applyVars } from './vars.js';
 export type { VarBinding, VarsManifest, ResolvedVars, TargetForVars } from './vars.js';
+export type {
+  ProvisionerContract,
+  ProvisionerInput,
+  ProvisionerOutput,
+  ProvisionerLog,
+  ProvisionerVendorError,
+} from './provisioner-contract.js';
+export { DEPLOY_PROVISION_ERROR_CODES } from './errors-provision.js';
+export type { DeploymentProvisionErrorCode, DeploymentProvisionError } from './errors-provision.js';
+export { runProvisioners } from './provision.js';
+export type {
+  DiscoveredProvisionerModule,
+  RunProvisionersInput,
+  RunProvisionersResult,
+  RunProvisionersValue,
+  ProvisionedModule,
+} from './provision.js';
+export { resolveEnvMappings } from './provisioner-env-mapping.js';
+export type { EnvMappingEntry, ProvisionerEnvMapping, ResolvedEnvEntry } from './provisioner-env-mapping.js';

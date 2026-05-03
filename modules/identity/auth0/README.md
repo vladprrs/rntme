@@ -128,7 +128,62 @@ Required env:
 - Handler behavior: `createAuth0IdentityModule` in `src/handlers.ts`.
 - Event translation: `translateAuth0LogEvent` in `src/events.ts`.
 
+## Provisioner
+
+`src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. The Auth0 module declares its provisioner block in `module.json`:
+
+- `produces`: `spaClient` (single, public), `resourceServer` (single, public), `m2mClients` (many, secret).
+- `requires`: `auth0Mgmt` (schema `auth0-mgmt-api-v1`).
+- `timeoutMs`: 60 000.
+
+### Required target secret
+
+Operators write the Auth0 Mgmt API credentials onto the deploy target via:
+
+```
+PUT /v1/orgs/<org>/deploy-targets/<slug>/secrets/auth0Mgmt
+Content-Type: application/json
+
+{
+  "schema": "auth0-mgmt-api-v1",
+  "value": {
+    "tenantDomain": "demo.us.auth0.com",
+    "mgmtClientId": "<machine-to-machine client id>",
+    "mgmtClientSecret": "<machine-to-machine client secret>"
+  }
+}
+```
+
+The Mgmt API client must be authorized with `read/create/update/delete:clients`, `read/create/update/delete:resource_servers`, `read/update:connections`, and `read/create/delete:client_grants`.
+
+### What gets reconciled
+
+| Object | Reconcile rules |
+|---|---|
+| SPA client | name = `appName`; `app_type='spa'`; `token_endpoint_auth_method='none'`; grant_types `['authorization_code','refresh_token']`; callbacks/web_origins/allowed_origins/allowed_logout_urls from blueprint; `organization_usage='allow'`. |
+| Resource Server | identifier = blueprint `audience`; `signing_alg='RS256'`; `token_dialect='access_token_authz'`; `enforce_policies=true`. |
+| Connection | `Username-Password-Authentication` enabled_clients += SPA client_id. Other clients are preserved. |
+| M2M clients | per blueprint `m2mClients[]`: `app_type='non_interactive'`, `grant_types=['client_credentials']`, plus a client_grant for the Resource Server with declared scopes. |
+
+### Output env vars
+
+After provision, render bakes:
+
+- `AUTH0_SPA_CLIENT_ID` (on `app` resource).
+- `AUTH0_AUDIENCE` (on `app` resource).
+- `AUTH0_M2M_<NAME>_CLIENT_ID` and `AUTH0_M2M_<NAME>_CLIENT_SECRET` (on `identity-auth0` resource), per declared M2M client.
+
+### Tear-down
+
+Triggered by the project-delete operation before Dokploy resource deletion. Removes M2M clients and grants, the Resource Server, removes the SPA client_id from the connection's enabled_clients, and deletes the SPA client. 404 responses are treated as success.
+
+### Limitations
+
+- M2M `clientSecret` is only obtainable at create time. Reconcile does not rotate it; if the stored ciphertext is lost, recovery is a separate CLI flow.
+- Only the `Username-Password-Authentication` connection is currently enabled. Multi-connection blueprints are a future extension.
+
 ## Specs
 
 - Identity contract package: [`packages/contracts/identity/v1/`](../../../packages/contracts/identity/v1).
 - Identity contract design: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](../../../docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
+- Module provisioner contract design: [`docs/superpowers/specs/2026-05-03-module-provisioner-contract-design.md`](../../../docs/superpowers/specs/2026-05-03-module-provisioner-contract-design.md).

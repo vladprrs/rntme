@@ -13,6 +13,10 @@
       "types": "./dist/client/index.d.ts",
       "import": "./dist/client/index.js"
     },
+    "./provisioner": {
+      "types": "./dist/provisioner.d.ts",
+      "import": "./dist/provisioner.js"
+    },
     "./module.json": "./module.json"
   },
   "main": "./dist/index.js",
@@ -28,7 +32,7 @@
   "scripts": {
     "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json",
     "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build",
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/deploy-core run build",
     "start": "node dist/bin/server.js",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "test": "pnpm run build:deps && vitest run",
@@ -38,6 +42,7 @@
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.1.3",
+    "@rntme/deploy-core": "workspace:*",
     "@grpc/grpc-js": "^1.14.3",
     "@hono/node-server": "^1.13.1",
     "@rntme/conformance-identity": "workspace:*",

@@ -4,7 +4,19 @@ import type {
   DeploymentStatus,
   VerificationReport,
 } from '../schemas/deployment.js';
+import type { EncryptedSecret } from '../secret/secret-cipher.js';
 import type { PlatformError, Result } from '../types/result.js';
+
+export type DeploymentProvisionResultModule = {
+  readonly publicOutputs: Record<string, unknown>;
+  readonly provisionedAt: string;
+};
+
+export type DeploymentProvisionResult = {
+  readonly modules: Record<string, DeploymentProvisionResultModule>;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+};
 
 export type DeploymentInsertRow = {
   readonly id: string;
@@ -57,6 +69,11 @@ export interface DeploymentRepo {
 
   setRenderedDigest(id: string, digest: string): Promise<Result<void, PlatformError>>;
   setApplyResult(id: string, applyResult: Record<string, unknown>): Promise<Result<void, PlatformError>>;
+  setProvisionResult(
+    id: string,
+    result: DeploymentProvisionResult,
+    encrypted: EncryptedSecret | null,
+  ): Promise<void>;
   finalize(id: string, args: DeploymentFinalize): Promise<Result<void, PlatformError>>;
   touchHeartbeat(id: string): Promise<Result<void, PlatformError>>;
 

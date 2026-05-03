@@ -10,6 +10,7 @@ export * from './repos/pg-workos-event-log-repo.js';
 export * from './repos/pg-project-repo.js';
 export * from './repos/pg-project-version-repo.js';
 export * from './repos/pg-deploy-target-repo.js';
+export * from './repos/pg-target-secrets-repo.js';
 export * from './repos/pg-deployment-repo.js';
 export * from './repos/pg-project-operation-repo.js';
 export * from './repos/pg-token-repo.js';

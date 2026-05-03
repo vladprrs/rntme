@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
+import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
 import type { DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
@@ -102,6 +103,8 @@ export type RenderedDokployPlan = {
 export function renderDokployPlan(
   plan: ProjectDeploymentPlan,
   config: DokployTargetConfig,
+  provisionedModules: ReadonlyMap<string, ProvisionedModule> = new Map(),
+  envMappings: ProvisionerEnvMapping = {},
 ): Result<RenderedDokployPlan, DokployDeploymentError> {
   const targetProject = resolveProject(config);
   if (targetProject === null) {
@@ -142,6 +145,17 @@ export function renderDokployPlan(
     ...infrastructureResources,
     ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
   ];
+
+  const envEntries = resolveEnvMappings(provisionedModules, envMappings);
+  const resourcesWithProvisionedEnv = resources.map((resource) => {
+    const slug = resource.kind === 'application' ? resource.workloadSlug : resource.logicalId;
+    const additions = envEntries
+      .filter((e) => e.target === slug)
+      .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
+    if (additions.length === 0) return resource;
+    return { ...resource, env: [...resource.env, ...additions] };
+  });
+
   const uiRoute = plan.edge.routes.find((route) => route.kind === 'ui');
   const ingressRoutes = plan.edge.routes.map((route) => ({
     routeId: route.id,
@@ -171,7 +185,7 @@ export function renderDokployPlan(
       environment: plan.project.environment,
       mode: plan.project.mode,
     },
-    resources: resources.map((resource) =>
+    resources: resourcesWithProvisionedEnv.map((resource) =>
       resource.kind === 'application' && resource.workloadKind === 'edge-gateway'
         ? {
             ...resource,

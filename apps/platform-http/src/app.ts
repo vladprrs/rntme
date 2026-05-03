@@ -15,6 +15,7 @@ import { orgRoutes } from './routes/orgs.js';
 import { projectRoutes } from './routes/projects.js';
 import { projectVersionRoutes } from './routes/project-versions.js';
 import { deployTargetRoutes } from './routes/deploy-targets.js';
+import { targetSecretsRoutes } from './routes/target-secrets.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { projectOperationRoutes } from './routes/project-operations.js';
 import { tokenRoutes } from './routes/tokens.js';
@@ -44,7 +45,7 @@ import type {
   SecretCipher,
 } from '@rntme/platform-core';
 import { resolveDeps } from './resolve-deps.js';
-import { PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
+import { createPgTargetSecretsRepo, PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
 
 export type AppDeps = {
   env: Env;
@@ -105,6 +106,15 @@ export function createApp(deps: AppDeps): Hono {
     smoker: new SmokeVerifier(),
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
+    resolveProvisioner: async (packageName: string, entry: string) => {
+      const pkg = await import(`${packageName}/${entry.replace(/^\.\//, '')}`);
+      return { provision: pkg.provision, tearDown: pkg.tearDown };
+    },
+    targetSecretsRepoFor: async (_orgId: string) =>
+      createPgTargetSecretsRepo({ db: deps.pool, cipher }),
+    secretCipher: cipher,
+    // TODO(provisioner): wire prior outputs from last successful deployment
+    lastSuccessfulProvisionOutputs: async (_deploymentId: string) => ({}),
   };
   const projectDeleteExecutorDeps = {
     withOrgTx,
@@ -217,6 +227,7 @@ export function createApp(deps: AppDeps): Hono {
   });
   authed.route('/orgs', orgRoutes({ ids: deps.ids }));
   authed.route('/orgs/:orgSlug/deploy-targets', deployTargetRoutes({ ids: deps.ids, cipher }));
+  authed.route('/orgs/:orgSlug/deploy-targets/:targetSlug/secrets', targetSecretsRoutes({ ids: deps.ids, cipher }));
   authed.route('/orgs/:orgSlug/projects', projectRoutes({ ids: deps.ids }));
 
   // Helpful 404 for project-scoped deploy-targets (targets are org-scoped)

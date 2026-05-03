@@ -1,9 +1,27 @@
+import type { Buffer } from 'node:buffer';
 import { sql } from 'drizzle-orm';
-import { check, index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, customType, index, jsonb, pgEnum, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { account, organization } from './identity.js';
 import { projectVersion } from './project-version.js';
 import { project } from './projects.js';
 import { deployTarget } from './deploy-target.js';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+export type DeploymentProvisionResultModule = {
+  readonly publicOutputs: Record<string, unknown>;
+  readonly provisionedAt: string;
+};
+
+export type DeploymentProvisionResult = {
+  readonly modules: Record<string, DeploymentProvisionResultModule>;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+};
 
 export const deploymentStatus = pgEnum('deployment_status', [
   'queued',
@@ -41,6 +59,10 @@ export const deployment = pgTable(
     startedByAccountId: uuid('started_by_account_id')
       .notNull()
       .references(() => account.id),
+    provisionResult: jsonb('provision_result').$type<DeploymentProvisionResult>(),
+    provisionResultCiphertext: bytea('provision_result_ciphertext'),
+    provisionResultNonce: bytea('provision_result_nonce'),
+    provisionResultKeyVersion: smallint('provision_result_key_version'),
     queuedAt: timestamp('queued_at', { withTimezone: true }).notNull().defaultNow(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),

@@ -183,6 +183,106 @@ describe('parseModuleManifest — relaxed top-level + client block', () => {
   });
 });
 
+describe('ModuleManifestSchema — provisioner block', () => {
+  const baseManifest = {
+    name: 'identity-auth0',
+    version: '1.0.0',
+    category: 'identity',
+    vendor: 'auth0',
+    contract: 'identity/v1',
+    capabilities: { rpcs: ['GetUser'], events: [] },
+  };
+
+  it('accepts a valid provisioner block', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: {
+        entry: './dist/provisioner.js',
+        produces: [
+          { name: 'spaClient', kind: 'single', secret: false },
+          { name: 'm2mClients', kind: 'many', secret: true },
+        ],
+        requires: [{ name: 'auth0Mgmt', schema: 'auth0-mgmt-api-v1' }],
+        timeoutMs: 30000,
+      },
+    });
+    expect(parsed.ok).toBe(true);
+  });
+
+  it('rejects empty produces array', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: { entry: './dist/provisioner.js', produces: [] },
+    });
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects duplicate produces names', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: {
+        entry: './dist/provisioner.js',
+        produces: [
+          { name: 'spaClient', kind: 'single', secret: false },
+          { name: 'spaClient', kind: 'single', secret: true },
+        ],
+      },
+    });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((e) => e.message.includes('PROVISIONER_DUPLICATE_PRODUCES'))).toBe(true);
+    }
+  });
+
+  it('rejects duplicate requires names', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: {
+        entry: './dist/provisioner.js',
+        produces: [{ name: 'a', kind: 'single', secret: false }],
+        requires: [
+          { name: 'auth0Mgmt', schema: 'auth0-mgmt-api-v1' },
+          { name: 'auth0Mgmt', schema: 'something-else' },
+        ],
+      },
+    });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((e) => e.message.includes('PROVISIONER_DUPLICATE_REQUIRES'))).toBe(true);
+    }
+  });
+
+  it('rejects unknown kind', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: {
+        entry: './dist/provisioner.js',
+        produces: [{ name: 'a', kind: 'list', secret: false }],
+      },
+    });
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects empty entry', () => {
+    const parsed = parseModuleManifest({
+      ...baseManifest,
+      provisioner: {
+        entry: '',
+        produces: [{ name: 'a', kind: 'single', secret: false }],
+      },
+    });
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('treats provisioner block as optional', () => {
+    const parsed = parseModuleManifest(baseManifest);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.provisioner).toBeUndefined();
+    }
+  });
+});
+
 describe('capabilities.edgeAuth', () => {
   it('parses introspection-sidecar with full descriptor', () => {
     const result = parseModuleManifest({

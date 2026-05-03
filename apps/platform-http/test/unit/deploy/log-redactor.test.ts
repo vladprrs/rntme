@@ -32,3 +32,23 @@ describe('redact', () => {
     expect(redact('password=hunter2 next=visible')).toBe('password=*** next=visible');
   });
 });
+
+describe('redact — provisioner extensions', () => {
+  it('redacts mgmt_client_secret in JSON-shaped strings', () => {
+    expect(redact('{"mgmt_client_secret":"abc123"}')).not.toContain('abc123');
+  });
+
+  it('redacts mgmtClientSecret camelCase', () => {
+    expect(redact('{"mgmtClientSecret":"abc123"}')).not.toContain('abc123');
+  });
+
+  it('redacts m2mClients[*].clientSecret embedded values', () => {
+    const out = redact('m2mClients=[{"clientSecret":"shh"}]');
+    expect(out).not.toContain('shh');
+  });
+
+  it('redacts targetSecrets envelope payload values', () => {
+    const out = redact('"targetSecrets":{"auth0Mgmt":{"mgmtClientSecret":"v"}}');
+    expect(out).not.toContain('"v"');
+  });
+});

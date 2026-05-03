@@ -140,6 +140,7 @@ One-line purpose per package (read the per-package README before touching):
   raw blueprint loading. The platform executor consumes project-version
   bundles, revalidates them, and calls this planner. →
   `packages/deploy/deploy-core/README.md`.
+  Provision-phase surface: `runProvisioners`, `ProvisionerContract`, `resolveEnvMappings`, `DEPLOY_PROVISION_ERROR_CODES`.
 - **`@rntme/deploy-dokploy`** — Dokploy target adapter: render/apply
   redacted deployment plans through the Dokploy HTTP API. Deploy target
   credentials are stored encrypted by `platform-storage`, not in rendered
@@ -584,6 +585,22 @@ Reference the canonical contract package at `packages/contracts/crm/v1/` and the
 Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU market, 152-FZ data-residency).
 
 
+### How to add a provisioner to a module
+
+1. Implement `provision(input): Promise<Result<ProvisionerOutput, ProvisionerVendorError>>` (and optional `tearDown`) in `<module>/src/provisioner.ts`. Import `ProvisionerContract` from `@rntme/deploy-core`.
+2. Add a `provisioner` block to the module's `module.json`. Declare every output you return in `produces[]` (with `kind` and `secret`); declare every credential blob you read in `requires[]`.
+3. Register the `requires[].schema` ids in `packages/platform/platform-core/src/use-cases/target-secrets/schemas.ts` if not already registered.
+4. Export an `ENV_MAPPINGS` constant from the same file if your outputs need to land as env vars on rendered resources.
+5. Add a unit test that runs `provision()` twice in a row and asserts the second call issues zero mutating upstream calls (idempotence).
+6. The conformance test in `packages/deploy/deploy-core/test/conformance/provisioner-contract.test.ts` will pick up the new module automatically if it is wired in `modules/<category>/<vendor>/`.
+
+### How to add a target-secret schema
+
+1. Add a zod schema entry to `packages/platform/platform-core/src/use-cases/target-secrets/schemas.ts` with a stable, versioned id (e.g. `stripe-restricted-key-v1`).
+2. Reference the id in any module manifest's `provisioner.requires[].schema`.
+3. Operators write the secret via `PUT /v1/orgs/:org/deploy-targets/:slug/secrets/:name` with `{ schema, value }` body. The platform validates `value` against the registered schema; `value` is never returned by GET.
+
+
 ## 7. Anti-patterns / do not do
 
 - Do not bypass `Validated*` brands by casting (`as ValidatedPdm`).
@@ -759,12 +776,15 @@ Known categorical entries to watch for:
   `{ "$pre": "session.user_id" }`.
 - **Project blueprint** — Folder with `project.json` + project-level PDM + per-service artifacts + modules. Canonical authoring/versioning/deploy unit.
 - **Project PDM** — PDM artifact at the project level, shared across all services in the project.
+- **provisioner** — module-side code that reconciles external state during deploy. Declares `produces[]` (outputs) and `requires[]` (target-secret credentials) in `module.json`.
+- **provisioner outputs** — values returned by `provision()`. Public outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist as encrypted ciphertext on `deployment.provisionResultCiphertext`.
 - **Result<T>** — `{ ok: true; value: T } | { ok: false; errors: E[] }`.
   The workspace-wide fallible-return contract.
 - **CRM helper aggregate AsyncJob** — CRM helper aggregate used for
   long-running `SYNC_FULL` work through `SubmitJob`, `GetJob`,
   `CancelJob`, and `ListJobs`.
 - **Root entity** / **Owned entity** — Project-level PDM ownership classification. Root entities have independent lifecycle and identity; owned entities belong under a root entity boundary.
+- **schema id** — versioned identifier for a target-secret shape, registered in `target-secrets/schemas.ts`.
 - **Vendor extensions proto** — `<vendor>-extensions.proto` inside a
   vendor module's directory. Hosts vendor-specific RPCs that did not
   meet the governance bar (≥2 vendors or archetypal) for canonical.
@@ -783,6 +803,7 @@ Known categorical entries to watch for:
 - **SyncDelta watermark** — Monotonic timestamp returned by CRM
   `SyncDelta`; consumers can pass it as the next `since` value after
   draining the current cursor window.
+- **target secret** — encrypted credential blob on `deploy_target`, keyed by name (e.g. `auth0Mgmt`), validated against a registered schema id (e.g. `auth0-mgmt-api-v1`).
 
 - **Seed** — Declarative event-envelope bootstrap applied once per
   database, before the relay starts. Package: `@rntme/seed`.

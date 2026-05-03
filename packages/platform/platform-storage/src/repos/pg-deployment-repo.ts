@@ -6,8 +6,10 @@ import {
   type Deployment,
   type DeploymentAppliedResources,
   type DeploymentLogLine,
+  type DeploymentProvisionResult,
   type DeploymentRepo,
   type DeploymentStatus,
+  type EncryptedSecret,
   type PlatformError,
   type Result,
   type VerificationReport,
@@ -177,6 +179,28 @@ export class PgDeploymentRepo implements DeploymentRepo {
     } catch (cause) {
       return dbErr(cause);
     }
+  }
+
+  async setProvisionResult(
+    id: string,
+    result: DeploymentProvisionResult,
+    encrypted: EncryptedSecret | null,
+  ): Promise<void> {
+    await this.db.query(
+      `UPDATE deployment
+       SET provision_result=$2::jsonb,
+           provision_result_ciphertext=$3,
+           provision_result_nonce=$4,
+           provision_result_key_version=$5
+       WHERE id=$1`,
+      [
+        id,
+        jsonParam(result),
+        encrypted?.ciphertext ?? null,
+        encrypted?.nonce ?? null,
+        encrypted?.keyVersion ?? null,
+      ],
+    );
   }
 
   async finalize(

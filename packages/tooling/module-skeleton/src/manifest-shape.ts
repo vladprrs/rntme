@@ -73,6 +73,50 @@ export const ClientBlockSchema = z
   })
   .strict();
 
+export const ProvisionerProducesSchema = z
+  .object({
+    name: z.string().min(1),
+    kind: z.enum(['single', 'many']),
+    secret: z.boolean(),
+  })
+  .strict();
+
+export const ProvisionerRequiresSchema = z
+  .object({
+    name: z.string().min(1),
+    schema: z.string().min(1),
+  })
+  .strict();
+
+export const ProvisionerBlockSchema = z
+  .object({
+    entry: z.string().min(1),
+    produces: z.array(ProvisionerProducesSchema).min(1),
+    requires: z.array(ProvisionerRequiresSchema).default([]),
+    timeoutMs: z.number().int().positive().optional(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    const names = v.produces.map((p) => p.name);
+    const dup = names.filter((n, i) => names.indexOf(n) !== i);
+    if (dup.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['produces'],
+        message: `MODULE_MANIFEST_PROVISIONER_DUPLICATE_PRODUCES: duplicate produces names (${[...new Set(dup)].join(', ')})`,
+      });
+    }
+    const reqNames = v.requires.map((r) => r.name);
+    const dupReq = reqNames.filter((n, i) => reqNames.indexOf(n) !== i);
+    if (dupReq.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['requires'],
+        message: `MODULE_MANIFEST_PROVISIONER_DUPLICATE_REQUIRES: duplicate requires names (${[...new Set(dupReq)].join(', ')})`,
+      });
+    }
+  });
+
 export const ModuleManifestSchema = z
   .object({
     name: z.string().min(1),
@@ -87,6 +131,7 @@ export const ModuleManifestSchema = z
     secrets: z.array(ModuleSecretSchema).optional(),
     capabilities: ModuleCapabilitiesSchema.optional(),
     client: ClientBlockSchema.optional(),
+    provisioner: ProvisionerBlockSchema.optional(),
     limitations: z.array(z.string().min(1)).optional(),
   })
   .strict()
@@ -154,6 +199,9 @@ export const ModuleManifestSchema = z
     }
   });
 
+export type ProvisionerProduces = z.infer<typeof ProvisionerProducesSchema>;
+export type ProvisionerRequires = z.infer<typeof ProvisionerRequiresSchema>;
+export type ProvisionerBlock = z.infer<typeof ProvisionerBlockSchema>;
 export type ModuleSecret = z.infer<typeof ModuleSecretSchema>;
 export type EdgeAuthDescriptor = z.infer<typeof EdgeAuthDescriptorSchema>;
 export type ModuleCapabilities = z.infer<typeof ModuleCapabilitiesSchema>;

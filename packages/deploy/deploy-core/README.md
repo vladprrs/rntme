@@ -79,6 +79,21 @@ On the platform executor path, composed project module aliases are mapped throug
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
 - `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
 
+## Provision phase
+
+`runProvisioners(input)` runs each module's provisioner sequentially. It is invoked by the platform deploy executor between `plan` and `render` (five-phase pipeline). The function:
+
+1. Iterates `modules[]` and skips entries without a `provisioner` block.
+2. Asserts every `requires[].name` is present in `resolvedTargetSecrets`. Missing → `DEPLOY_PROVISION_TARGET_SECRET_MISSING`.
+3. Calls `resolveProvisioner(packageName, entry)` (caller-supplied dynamic-import shim) to load the contract.
+4. Awaits `contract.provision({ publicConfig, targetSecrets, priorOutputs?, log, signal })` with a per-module abort signal honoring `provisioner.timeoutMs`.
+5. Validates the returned output against the declared `produces[]`: every name present, kind matches (`single` → object, `many` → array), `secret` flag matches the bucket the value lives in.
+6. Returns aggregated `ProvisionedModule[]`. The platform persists these on `deployment.provisionResult` (public) and `deployment.provisionResultCiphertext` (secret).
+
+The companion helper `resolveEnvMappings(modules, mapping)` projects provisioner outputs into env entries the renderer bakes into runtime resources.
+
+Error codes live in `errors-provision.ts`. Vendor-side failures (e.g. an Auth0 5xx) are wrapped under `DEPLOY_PROVISION_VENDOR_FAILED` while preserving the vendor error message.
+
 ## MVP limits
 
 - Only `mode: "preview"` is supported.

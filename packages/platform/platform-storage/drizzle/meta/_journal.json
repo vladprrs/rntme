@@ -57,6 +57,13 @@
       "when": 1777559400000,
       "tag": "0007_project_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777645800000,
+      "tag": "0008_provisioner_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -5,9 +5,18 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
-import type { ComposedProjectInput, ProjectDeploymentConfig, ProjectDeploymentPlan } from '@rntme/deploy-core';
-import { buildProjectDeploymentPlan } from '@rntme/deploy-core';
+import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
+import type {
+  ComposedProjectInput,
+  DiscoveredProvisionerModule,
+  ProjectDeploymentConfig,
+  ProjectDeploymentPlan,
+  ProvisionedModule,
+  ProvisionerContract,
+  ProvisionerEnvMapping,
+  ProvisionerOutput,
+} from '@rntme/deploy-core';
+import { buildProjectDeploymentPlan, runProvisioners } from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
 import { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
 import { build, type Plugin } from 'esbuild';
@@ -18,9 +27,13 @@ import {
   type DeployTarget,
   type DeployTargetRepo,
   type DeployTargetWithSecret,
+  type DeploymentProvisionResult,
   type DeploymentRepo,
+  type EncryptedSecret,
   type ProjectOperationRepo,
   type ProjectVersionRepo,
+  type SecretCipher,
+  type TargetSecretsRepo,
   type VerificationReport,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
@@ -54,6 +67,20 @@ export type ExecutorDeps = {
   readonly applyPlan?: typeof applyDokployPlan;
   readonly heartbeatMs?: number;
   readonly publicDeployDomain?: string;
+  /** Override hook for tests; in production `runProvisioners` from deploy-core is used. */
+  readonly runProvisioners?: typeof runProvisioners;
+  /** Resolve a provisioner contract from its package name and entry point. */
+  readonly resolveProvisioner: (packageName: string, entry: string) => Promise<ProvisionerContract>;
+  /** Build a TargetSecretsRepo scoped to the given org context. */
+  readonly targetSecretsRepoFor: (orgId: string) => Promise<TargetSecretsRepo>;
+  /** Cipher used to encrypt secret outputs from provisioners. */
+  readonly secretCipher: SecretCipher;
+  /**
+   * Returns the prior provisioner outputs for each module key from the last
+   * successful deployment.
+   * TODO(provisioner): wire prior outputs from last successful deployment
+   */
+  readonly lastSuccessfulProvisionOutputs: (deploymentId: string) => Promise<Record<string, ProvisionerOutput>>;
 };
 
 type DeploymentContext = {
@@ -169,6 +196,87 @@ export async function runDeployment(
         : 'Using external Kafka/Redpanda event bus',
     );
 
+    // Provision phase: run AFTER plan, BEFORE render. Skips cleanly when no
+    // modules declare a provisioner block.
+    const provModules = collectProvisionerModules(composed.value, tmpDir);
+    // provisioned is populated when provModules.length > 0; referenced by Task 15 render integration.
+    let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
+
+    if (provModules.length > 0) {
+      await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
+      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
+      const decrypted = await targetSecretsRepo.getAllDecrypted(target.id);
+
+      const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
+
+      await appendLog(deps, deploymentId, orgId, 'info', 'provision', `Provisioning ${provModules.length} module(s)`);
+      const startedAt = new Date().toISOString();
+      const provisionResult = await runStage(
+        'provision',
+        async () =>
+          (deps.runProvisioners ?? runProvisioners)({
+            modules: provModules.map((m) => {
+              const prior = priorOutputs[m.projectKey];
+              return prior === undefined ? m : { ...m, priorOutputs: prior };
+            }),
+            resolvedTargetSecrets: decrypted,
+            resolveProvisioner: deps.resolveProvisioner,
+            log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
+          }),
+        { log },
+      );
+      if (!provisionResult.ok) {
+        await finalize(deps, deploymentId, orgId, 'failed', {
+          errorCode: provisionResult.errors[0]?.code ?? 'DEPLOY_PROVISION_UNKNOWN',
+          errorMessage: redact(errorSummary(provisionResult.errors)),
+        });
+        return;
+      }
+      const finishedAt = new Date().toISOString();
+
+      const moduleMap = new Map<string, ProvisionedModule>();
+      const persistence: DeploymentProvisionResult = { modules: {}, startedAt, finishedAt };
+      const secretEnvelope: { modules: Record<string, { secretOutputs: Record<string, unknown>; provisionedAt: string }> } = { modules: {} };
+
+      for (const m of provisionResult.value.modules) {
+        moduleMap.set(m.projectKey, m);
+        (persistence.modules as Record<string, { publicOutputs: Record<string, unknown>; provisionedAt: string }>)[m.projectKey] = {
+          publicOutputs: { ...m.publicOutputs },
+          provisionedAt: m.provisionedAt,
+        };
+        if (Object.keys(m.secretOutputs).length > 0) {
+          secretEnvelope.modules[m.projectKey] = {
+            secretOutputs: { ...m.secretOutputs },
+            provisionedAt: m.provisionedAt,
+          };
+        }
+      }
+      provisioned = moduleMap;
+
+      const enc: EncryptedSecret | null =
+        Object.keys(secretEnvelope.modules).length > 0
+          ? deps.secretCipher.encrypt(JSON.stringify(secretEnvelope))
+          : null;
+
+      await deps.withOrgTx(orgId, (repos) =>
+        repos.deployments.setProvisionResult(deploymentId, persistence, enc),
+      );
+    }
+
+    const envMappings: Record<string, ProvisionerEnvMapping[string]> = {};
+    for (const m of provModules) {
+      try {
+        const moduleExports = (await import(m.packageName)) as { ENV_MAPPINGS?: ProvisionerEnvMapping };
+        if (moduleExports.ENV_MAPPINGS && typeof moduleExports.ENV_MAPPINGS === 'object') {
+          for (const [k, v] of Object.entries(moduleExports.ENV_MAPPINGS)) {
+            if (v !== undefined) envMappings[k] = v;
+          }
+        }
+      } catch {
+        // Module without ENV_MAPPINGS export is allowed (no env baking required).
+      }
+    }
+
     await appendLog(deps, deploymentId, orgId, 'info', 'render', 'Rendering Dokploy plan');
     const rendered = await runStage('render', async () => (deps.renderPlan ?? renderDokployPlan)(
       plan.value as ProjectDeploymentPlan,
@@ -178,6 +286,8 @@ export async function runDeployment(
         environment: plan.value.project.environment,
         ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
       }),
+      provisioned,
+      envMappings,
     ), { log });
     if (!rendered.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
@@ -786,4 +896,35 @@ function redactTarget(target: DeployTargetWithSecret): DeployTarget {
 
 function errorSummary(errors: readonly { readonly code?: string; readonly message?: string }[]): string {
   return errors.map((error) => `${error.code ?? 'UNKNOWN'}: ${error.message ?? ''}`).join('; ');
+}
+
+/**
+ * Collect modules that declare a provisioner block from the composed project.
+ * Only `ComposedBlueprint` values can have modules; `ComposedProjectInput` never does.
+ * Returns an empty array when there are no provisioner-bearing modules (clean skip).
+ */
+function collectProvisionerModules(
+  composed: LoadedDeployProject,
+  tmpDir: string,
+): DiscoveredProvisionerModule[] {
+  if (!isComposedBlueprint(composed)) return [];
+  const projectModules = composed.project.modules;
+  if (projectModules === undefined || Object.keys(projectModules).length === 0) return [];
+
+  // Re-use the discovery result from blueprint to get full module manifests
+  // (including provisioner blocks) without re-loading the project from scratch.
+  const discovered = discoverModules({ projectDir: tmpDir });
+  if (!discovered.ok) return [];
+
+  const out: DiscoveredProvisionerModule[] = [];
+  for (const [_manifestName, info] of Object.entries(discovered.value)) {
+    if (!info.manifest.provisioner) continue;
+    out.push({
+      projectKey: info.projectKey,
+      packageName: info.manifest.name,
+      manifest: info.manifest,
+      publicConfig: info.publicConfig,
+    });
+  }
+  return out;
 }

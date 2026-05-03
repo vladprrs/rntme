@@ -118,6 +118,7 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
     transition: vi.fn(),
     setRenderedDigest: vi.fn(),
     setApplyResult: vi.fn(),
+    setProvisionResult: vi.fn(async () => undefined),
     finalize: vi.fn(),
     touchHeartbeat: vi.fn(),
     appendLog: vi.fn(),

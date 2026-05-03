@@ -112,6 +112,43 @@ expect(out.ok).toBe(true);
 
 Integration tests should use an in-memory event-store (`new SqliteEventStore({ filename: ':memory:' })`) and assert on emitted events rather than vendor SDK calls (mock the SDK).
 
+## Provisioner block
+
+Modules can declare a `provisioner` block in their manifest to participate in
+the deploy-time `provision` phase:
+
+```jsonc
+{
+  "provisioner": {
+    "entry": "./dist/provisioner.js",
+    "produces": [
+      { "name": "spaClient",  "kind": "single", "secret": false },
+      { "name": "m2mClients", "kind": "many",   "secret": true  }
+    ],
+    "requires": [
+      { "name": "auth0Mgmt", "schema": "auth0-mgmt-api-v1" }
+    ],
+    "timeoutMs": 60000
+  }
+}
+```
+
+- `entry` — relative path to the compiled provisioner module from the package
+  root. Absolute paths and parent-traversal are rejected at discovery time
+  (`BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`).
+- `produces[]` — declares the outputs the provisioner will return. `kind: 'single'`
+  expects a single object value, `kind: 'many'` expects an array. `secret: true`
+  routes the value into the encrypted output bucket; `secret: false` routes it
+  into the plain-JSONB bucket. Mixed-secret-within-output is rejected.
+- `requires[]` — declares the named credential blobs the provisioner needs. Each
+  name maps 1:1 to a `targetSecrets[name]` entry on the deploy target; the
+  `schema` is a registered identifier validated by the platform when secrets are
+  written.
+- `timeoutMs` — optional, default 60 000.
+
+The runtime contract for the provisioner module itself is in
+`@rntme/deploy-core` (`ProvisionerContract`).
+
 ## References
 
 - Spec: `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §5, §12.

@@ -175,6 +175,15 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
       }),
       logger: env.deps.logger,
       heartbeatMs: 20,
+      resolveProvisioner: async () => ({ provision: async () => ({ ok: true, value: { publicOutputs: {}, secretOutputs: {} } }) } as never),
+      targetSecretsRepoFor: async () => ({
+        list: async () => [],
+        upsert: async () => undefined,
+        remove: async () => undefined,
+        getAllDecrypted: async () => ({}),
+      }),
+      secretCipher: env.deps.cipher!,
+      lastSuccessfulProvisionOutputs: async () => ({}),
     });
 
     const show = await env.app.request(`/v1/orgs/${orgSlug}/projects/${projectSlug}/deployments/${queuedJson.deployment.id}`, {
