@@ -33,6 +33,7 @@ export const StartDeploymentRequestSchema = z.object({
   targetSlug: z.string().trim().min(1),
   configOverrides: z
     .object({
+      eventBusMode: z.literal('in-memory').optional(),
       integrationModuleImages: z.record(z.string(), z.string()).optional(),
       policyOverrides: z.record(z.string(), z.unknown()).optional(),
       runtimeImage: z.string().min(1).optional(),
