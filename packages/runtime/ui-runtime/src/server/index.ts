@@ -49,8 +49,8 @@ export function createApp(opts: CreateAppOptions): Hono {
   });
 
   // Static assets
-  app.get('/assets/:file', (c) => {
-    const file = c.req.param('file');
+  app.get('/assets/*', (c) => {
+    const file = c.req.path.slice('/assets/'.length);
     const resolvedAssetsDir = resolve(assetsDir);
     const fp = resolve(resolvedAssetsDir, file);
     if (fp !== resolvedAssetsDir && !fp.startsWith(resolvedAssetsDir + sep)) {

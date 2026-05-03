@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createApp } from '../../src/server/index.js';
 import { testManifest } from '../fixtures/compiled-manifest.js';
 import { testLayout, testScreen } from '../fixtures/compiled-screen.js';
@@ -73,6 +76,30 @@ describe('createApp', () => {
     const app = makeApp();
     const res = await app.request('/_screens/nonexistent.json');
     expect(res.status).toBe(404);
+  });
+
+  it('serves nested JavaScript assets from the build directory', async () => {
+    const assetsDir = mkdtempSync(join(tmpdir(), 'rntme-ui-assets-'));
+    try {
+      mkdirSync(join(assetsDir, 'chunks'));
+      writeFileSync(join(assetsDir, 'chunks', 'client.js'), 'export const ok = true;');
+      const app = createApp({
+        artifact: {
+          manifest: testManifest,
+          layouts: { main: testLayout },
+          screens: { home: testScreen },
+        },
+        assetsDir,
+      });
+
+      const res = await app.request('/assets/chunks/client.js');
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('application/javascript');
+      expect(await res.text()).toBe('export const ok = true;');
+    } finally {
+      rmSync(assetsDir, { recursive: true, force: true });
+    }
   });
 
   it('SPA fallback returns shell for unknown paths', async () => {
