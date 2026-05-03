@@ -85,6 +85,7 @@ Add a unified **project operation** model for update and delete:
 | D9 | History retention | Keep audit, project versions, deployments, deployment logs, and operation logs. |
 | D10 | Authorization | Add destructive scope `project:delete` for delete operations. |
 | D11 | Confirmation | CLI and UI delete require the exact project slug as confirmation. |
+| D17 | Module-provisioner tear-down | Before Dokploy adapter delete, the project-delete executor invokes each module's `tearDown(input)` for every module with a `provisionResult` on the last successful deployment. 404 responses are treated as success. Tear-down failures transition the operation to `delete_failed` with retry semantics. |
 
 ## 5. Project Lifecycle
 
@@ -249,15 +250,26 @@ Delete executor:
 3. Extract `applyResult.resources` from each deployment.
 4. Group resources by the deployment row's `targetId`.
 5. Dedupe resources by `(resourceKind, targetResourceId)`.
-6. Delete application resources before compose resources, so service workloads
+6. **Module provisioner tear-down** (D17): for each `(project, deploy_target)` pair,
+   load the last successful `deployment.provisionResult` (public) and decrypt
+   `provisionResultCiphertext` (secret). For each module entry, dynamically
+   import the module's `provisioner.entry` and call
+   `tearDown({ publicConfig, targetSecrets, priorOutputs, log, signal })`.
+   Inputs are reconstructed from the immutable blueprint version, decrypted
+   target secrets, and the prior outputs. If `tearDown` returns Err, the
+   operation transitions to `delete_failed` and retries replay the call
+   (idempotent — 404 = success). Adapter-side resource deletion proceeds only
+   after all module tear-downs succeed. If no successful deployment exists,
+   tear-down is skipped and a warning is recorded on the operation.
+7. Delete application resources before compose resources, so service workloads
    are removed before shared infrastructure such as provisioned Redpanda.
-7. For each target, create a Dokploy client with the stored target credentials.
-8. Delete resources through the Dokploy delete seam.
-9. Treat missing external resources as success with a warning log.
-10. If all target groups succeed:
+8. For each target, create a Dokploy client with the stored target credentials.
+9. Delete resources through the Dokploy delete seam.
+10. Treat missing external resources as success with a warning log.
+11. If all target groups succeed:
     - operation `succeeded`;
     - project status `decommissioned`.
-11. If any target group fails:
+12. If any target group fails:
     - operation `failed`;
     - project status `delete_failed`;
     - operation `result` includes failed resources and warnings.
