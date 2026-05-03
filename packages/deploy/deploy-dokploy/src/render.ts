@@ -144,7 +144,7 @@ export function renderDokployPlan(
     ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
   ];
   const uiRoute = plan.edge.routes.find((route) => route.kind === 'ui');
-  const publicRoutes = plan.edge.routes.map((route) => ({
+  const publicRoutes = plan.edge.routes.filter((route) => !isAuthProtectedRoute(plan, route.id)).map((route) => ({
     routeId: route.id,
     path: route.path,
     url: joinPublicUrl(config.publicBaseUrl, route.path),
@@ -518,6 +518,10 @@ function protectedSmokeChecks(
     { name: 'protected-api-get-notes', method: 'GET', url: notesUrl },
     { name: 'protected-api-post-notes', method: 'POST', url: notesUrl },
   ];
+}
+
+function isAuthProtectedRoute(plan: ProjectDeploymentPlan, routeId: string): boolean {
+  return plan.edge.middleware.some((middleware) => middleware.kind === 'auth' && middleware.mountTarget === routeId);
 }
 
 function assertNever(value: never): never {
