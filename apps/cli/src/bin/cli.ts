@@ -1,6 +1,5 @@
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
 import { CLI_VERSION } from '../util/version.js';
 
 import { runLogin } from '../commands/login.js';
@@ -315,15 +314,20 @@ export async function main(argv: string[]): Promise<number> {
             process.stderr.write(`Invalid version seq: ${versionRaw}\n`);
             return 1;
           }
-          const deployArgs: Parameters<typeof runProjectDeploy>[0] = { version, target };
-          setIfDefined(deployArgs, 'runtimeImage', asString(values['runtime-image']));
-          setIfDefined(deployArgs, 'configOverridesPath', asString(values['config-overrides']));
-          setIfDefined(deployArgs, 'wait', asBool(values['wait']));
           const timeoutRaw = asString(values['timeout']);
+          let timeoutSec: number | undefined;
           if (timeoutRaw !== undefined) {
             const n = Number.parseInt(timeoutRaw, 10);
-            if (!Number.isNaN(n)) deployArgs.timeoutSec = n;
+            if (!Number.isNaN(n)) timeoutSec = n;
           }
+          const deployArgs: Parameters<typeof runProjectDeploy>[0] = {
+            version,
+            target,
+            runtimeImage: asString(values['runtime-image']),
+            configOverridesPath: asString(values['config-overrides']),
+            wait: asBool(values['wait']),
+            timeoutSec,
+          };
           return runProjectDeploy(deployArgs, commonFlags);
         }
         case 'deployment': {

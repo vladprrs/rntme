@@ -26,7 +26,7 @@ export class PgDeploymentRepo implements DeploymentRepo {
   ): Promise<Result<Deployment, PlatformError>> {
     try {
       return await withOptionalTransaction(this.db, async (db) => {
-        const inserted = await db.query(
+        await db.query(
           `INSERT INTO deployment (
              id, project_id, org_id, project_version_id, target_id,
              config_overrides, started_by_account_id
@@ -43,7 +43,6 @@ export class PgDeploymentRepo implements DeploymentRepo {
             args.row.startedByAccountId,
           ],
         );
-        const row = inserted.rows[0] as DbRow;
         await audit(db, {
           orgId: args.row.orgId,
           actorAccountId: args.auditActorAccountId,

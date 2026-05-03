@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import pino from 'pino';
+import { RandomIds } from '@rntme/platform-core';
 import { parseEnv } from '../../../src/config/env.js';
 import { createApp } from '../../../src/app.js';
 
@@ -20,15 +22,21 @@ describe('helpful 404 for project-scoped deploy-targets', () => {
         PLATFORM_SECRET_ENCRYPTION_KEY: 'a'.repeat(64),
         PLATFORM_COOKIE_PASSWORD: 'y'.repeat(32),
       }),
-      logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
+      logger: pino({ level: 'silent' }),
       pool: { query: () => Promise.resolve({ rows: [] }) } as never,
       poolRepos: {
+        organizations: {} as never,
         accounts: {} as never,
         memberships: {} as never,
+        workosEventLog: {} as never,
+        projects: {} as never,
+        tokens: {} as never,
       },
       workos: {} as never,
       cookiePassword: 'testtesttesttesttesttesttesttest',
       blob: { presignedGet: async () => ({ ok: true as const, value: 'http://x' }) } as never,
+      ids: new RandomIds(),
+      enableBackgroundLoops: false,
     });
 
     const r = await app.request('/v1/orgs/o/projects/p/deploy-targets', {
