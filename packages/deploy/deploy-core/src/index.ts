@@ -61,3 +61,11 @@ export type {
 } from './provisioner-contract.js';
 export { DEPLOY_PROVISION_ERROR_CODES } from './errors-provision.js';
 export type { DeploymentProvisionErrorCode, DeploymentProvisionError } from './errors-provision.js';
+export { runProvisioners } from './provision.js';
+export type {
+  DiscoveredProvisionerModule,
+  RunProvisionersInput,
+  RunProvisionersResult,
+  RunProvisionersValue,
+  ProvisionedModule,
+} from './provision.js';

@@ -11,9 +11,13 @@ export default [
       parser: tsParser,
       parserOptions: { sourceType: 'module', ecmaVersion: 2022 },
       globals: {
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
         Buffer: 'readonly',
+        clearTimeout: 'readonly',
         console: 'readonly',
         process: 'readonly',
+        setTimeout: 'readonly',
         URL: 'readonly',
       },
     },
