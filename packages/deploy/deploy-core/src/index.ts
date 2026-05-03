@@ -52,3 +52,10 @@ export type { DeploymentVerifyErrorCode, DeploymentVerifyError } from './errors-
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
 export { resolveVars, applyVars } from './vars.js';
 export type { VarBinding, VarsManifest, ResolvedVars, TargetForVars } from './vars.js';
+export type {
+  ProvisionerContract,
+  ProvisionerInput,
+  ProvisionerOutput,
+  ProvisionerLog,
+  ProvisionerVendorError,
+} from './provisioner-contract.js';
