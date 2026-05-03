@@ -31,7 +31,12 @@ export type ProvisionedEventBusConfig = {
   readonly topicPrefix?: string;
 };
 
-export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig;
+export type InMemoryEventBusConfig = {
+  readonly kind: 'memory';
+  readonly mode: 'in-memory';
+};
+
+export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig | InMemoryEventBusConfig;
 
 export type IntegrationModuleDeploymentConfig = {
   readonly image: string;

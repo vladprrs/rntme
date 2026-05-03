@@ -165,6 +165,30 @@ describe('renderDokployPlan', () => {
     });
   });
 
+  it('omits Kafka runtime env when the plan uses an in-memory event bus', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          eventBus: { kind: 'memory', mode: 'in-memory' },
+        },
+      } as ProjectDeploymentPlan,
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources.map((resource) => resource.kind)).toEqual(['application', 'application']);
+    const domain = r.value.resources.find((resource) => resource.workloadKind === 'domain-service');
+    const envNames = domain?.env.map((env) => env.name) ?? [];
+    expect(envNames).not.toContain('RNTME_EVENT_BUS_BROKERS');
+    expect(envNames).not.toContain('RNTME_EVENT_BUS_PROTOCOL');
+  });
+
   it('renders edge gateway port and public ingress metadata', () => {
     const r = renderDokployPlan(plan, {
       endpoint: 'https://dokploy.example.com',
