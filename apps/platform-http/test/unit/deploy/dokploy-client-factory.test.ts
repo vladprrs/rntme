@@ -345,7 +345,7 @@ describe('createDokployClientFactory', () => {
 
     const paths = calls.map((call) => new URL(call.url).pathname);
     expect(paths).toContain('/api/mounts.update');
-    expect(paths).toContain('/api/mounts.delete');
+    expect(paths).toContain('/api/mounts.remove');
     const updateCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.update');
     expect(updateCall?.body).toMatchObject({
       mountId: 'mount-1',
@@ -353,7 +353,7 @@ describe('createDokployClientFactory', () => {
       filePath: '/etc/dokploy/rntme/app-1/1652e2a03ff06855-etc_nginx_nginx.conf',
       content: 'events {}',
     });
-    const deleteCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.delete');
+    const deleteCall = calls.find((call) => new URL(call.url).pathname === '/api/mounts.remove');
     expect(deleteCall?.body).toEqual({ mountId: 'mount-2' });
   });
 

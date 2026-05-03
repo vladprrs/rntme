@@ -126,7 +126,7 @@ export const DeploymentSchema = z.object({
   orgId: z.string(),
   projectId: z.string(),
   projectVersionId: z.string(),
-  projectVersionSeq: z.number().int().nonnegative(),
+  projectVersionSeq: z.coerce.number().int().nonnegative(),
   targetId: z.string(),
   targetSlug: z.string().min(1),
   status: DeploymentStatusSchema,

@@ -138,7 +138,7 @@ export function createMockDokployApp() {
     return c.json(mount);
   });
 
-  app.post('/api/mounts.delete', async (c) => {
+  app.post('/api/mounts.remove', async (c) => {
     const body = await c.req.json<Record<string, unknown>>();
     mounts.delete(String(body.mountId ?? ''));
     return c.json({});
