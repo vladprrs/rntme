@@ -8,6 +8,7 @@ export * from './schemas/requests.js';
 export * from './schemas/project-version.js';
 export * from './schemas/deploy-target.js';
 export * from './schemas/deployment.js';
+export * from './schemas/project-operation.js';
 export * from './secret/secret-cipher.js';
 export * from './auth/scopes.js';
 export * from './auth/provider.js';
