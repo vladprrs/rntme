@@ -259,6 +259,7 @@ export function createApp(deps: AppDeps): Hono {
       pool: deps.pool,
       ids: deps.ids,
       scheduleDeployment,
+      scheduleProjectDelete,
       poolRepos: {
         organizations: deps.poolRepos.organizations,
         accounts: deps.poolRepos.accounts,

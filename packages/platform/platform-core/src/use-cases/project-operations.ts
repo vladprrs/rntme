@@ -57,15 +57,13 @@ export async function startProjectUpdateOperation(
     return err([{ code: 'PROJECT_OPERATION_INVALID_STATE', message: project.value.status }]);
   }
 
-  const target = input.req.targetSlug === undefined
-    ? await deps.repos.deployTargets.getDefault(input.orgId)
-    : await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
+  const target = await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
   if (!isOk(target)) return target;
   if (!target.value) {
     return err([
       {
-        code: input.req.targetSlug === undefined ? 'PROJECT_OPERATION_DEFAULT_TARGET_MISSING' : 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
-        message: input.req.targetSlug ?? 'default',
+        code: 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
+        message: input.req.targetSlug,
       },
     ]);
   }

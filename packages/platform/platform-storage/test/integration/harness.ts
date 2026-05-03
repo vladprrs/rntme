@@ -31,6 +31,7 @@ export async function startPostgres(): Promise<PgHandles> {
 
   await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO platform_app`);
   await pool.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO platform_app`);
+  await pool.query(`GRANT USAGE ON ALL TYPES IN SCHEMA public TO platform_app`);
 
   const parsed = new URL(ownerUrl);
   parsed.username = 'platform_app';

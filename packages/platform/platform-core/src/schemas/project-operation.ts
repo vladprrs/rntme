@@ -48,7 +48,7 @@ export type ProjectOperationBundleSource = z.infer<typeof ProjectOperationBundle
 
 export const StartProjectUpdateOperationRequestSchema = z
   .object({
-    targetSlug: SlugSchema.optional(),
+    targetSlug: SlugSchema,
     projectVersionSeq: z.number().int().positive().optional(),
     bundle: ProjectOperationBundleSourceSchema.optional(),
   })

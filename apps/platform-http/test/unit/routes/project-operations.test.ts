@@ -59,7 +59,7 @@ describe('projectOperationRoutes', () => {
     const app = await operationApp(store, ids, org, account, scheduleDeployment);
     const res = await app.request('/v1/orgs/acme/projects/notes-demo/operations/update', {
       method: 'POST',
-      body: JSON.stringify({ projectVersionSeq: 1 }),
+      body: JSON.stringify({ projectVersionSeq: 1, targetSlug: 'dokploy-preview' }),
       headers: { 'content-type': 'application/json' },
     });
 

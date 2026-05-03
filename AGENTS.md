@@ -853,3 +853,25 @@ explicitly as the doc-touch task body (e.g. *"Doc-touch evaluation:
 no surfaces affected. Reasoning: changes are internal to
 `packages/foo/src/internal/`; no public API, error codes, or
 invariants moved."*).
+
+## 12. Project lifecycle operations
+
+Use the platform lifecycle operation surface for project-level redeploy and
+decommission workflows. Do not hand-edit project status in storage except for
+debugging a failed migration.
+
+```bash
+rntme project update --org <org> --project <project> --version <seq> --target <target> --wait
+rntme project delete --org <org> --project <project> --confirm <project> --wait
+rntme project operation watch --org <org> --project <project> <operation-id>
+```
+
+Rules:
+
+1. Update requires an explicit target; do not rely on default-target fallback.
+2. Delete requires exact project-slug confirmation and is blocked by active
+   deployments.
+3. Only one live operation may exist per project. Wait for it to finish or
+   inspect/retry the failed operation before queuing another one.
+4. `delete_failed` means teardown failed after the project entered delete
+   flow; retry delete after reviewing operation logs.

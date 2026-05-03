@@ -11,6 +11,11 @@ import {
   DeploymentResponseSchema,
   DeploymentsListResponseSchema,
   DeploymentLogsResponseSchema,
+  ProjectDeleteOperationResponseSchema,
+  ProjectOperationLogsResponseSchema,
+  ProjectOperationResponseSchema,
+  ProjectOperationsListResponseSchema,
+  ProjectUpdateOperationResponseSchema,
 } from './types.js';
 import type {
   CreateProjectRequest,
@@ -138,6 +143,54 @@ export const endpoints = {
         method: 'GET',
         path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments/${enc(deploymentId)}/logs?${qs.toString()}`,
         responseSchema: DeploymentLogsResponseSchema,
+        ...c,
+      });
+    },
+  },
+
+  projectOperations: {
+    update: (c: Ctx, org: string, project: string, body: { projectVersionSeq: number; targetSlug: string }) =>
+      apiCall({
+        method: 'POST',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/operations/update`,
+        body,
+        responseSchema: ProjectUpdateOperationResponseSchema,
+        ...c,
+      }),
+    delete: (c: Ctx, org: string, project: string, body: { confirm: string }) =>
+      apiCall({
+        method: 'POST',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/operations/delete`,
+        body,
+        responseSchema: ProjectDeleteOperationResponseSchema,
+        ...c,
+      }),
+    list: (c: Ctx, org: string, project: string, opts?: { limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (opts?.limit) qs.set('limit', String(opts.limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/operations${suffix}`,
+        responseSchema: ProjectOperationsListResponseSchema,
+        ...c,
+      });
+    },
+    show: (c: Ctx, org: string, project: string, operationId: string) =>
+      apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/operations/${enc(operationId)}`,
+        responseSchema: ProjectOperationResponseSchema,
+        ...c,
+      }),
+    logs: (c: Ctx, org: string, project: string, operationId: string, opts: { sinceLineId: number; limit: number }) => {
+      const qs = new URLSearchParams();
+      qs.set('sinceLineId', String(opts.sinceLineId));
+      qs.set('limit', String(opts.limit));
+      return apiCall({
+        method: 'GET',
+        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/operations/${enc(operationId)}/logs?${qs.toString()}`,
+        responseSchema: ProjectOperationLogsResponseSchema,
         ...c,
       });
     },

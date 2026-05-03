@@ -64,9 +64,20 @@ CREATE INDEX "project_operation_project_idx" ON "project_operation" USING btree 
 --> statement-breakpoint
 CREATE INDEX "project_operation_live_idx" ON "project_operation" USING btree ("status","last_heartbeat_at");
 --> statement-breakpoint
+CREATE UNIQUE INDEX "project_operation_one_live_per_project" ON "project_operation" USING btree ("project_id") WHERE "status" IN ('queued', 'running');
+--> statement-breakpoint
 CREATE INDEX "project_operation_deployment_idx" ON "project_operation" USING btree ("deployment_id");
 --> statement-breakpoint
 CREATE INDEX "project_operation_log_line_idx" ON "project_operation_log_line" USING btree ("operation_id","id");
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'platform_app') THEN
+    GRANT USAGE ON TYPE "project_status" TO platform_app;
+    GRANT USAGE ON TYPE "project_operation_kind" TO platform_app;
+    GRANT USAGE ON TYPE "project_operation_status" TO platform_app;
+  END IF;
+END $$;
 --> statement-breakpoint
 ALTER TABLE "project_operation" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint

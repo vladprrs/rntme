@@ -1,4 +1,4 @@
-import { check, index, jsonb, pgEnum, pgTable, text, timestamp, uuid, bigserial } from 'drizzle-orm/pg-core';
+import { bigserial, check, index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { account, organization } from './identity.js';
 import { project } from './projects.js';
@@ -35,6 +35,9 @@ export const projectOperation = pgTable(
   (t) => ({
     projectIdx: index('project_operation_project_idx').on(t.projectId, t.queuedAt),
     liveIdx: index('project_operation_live_idx').on(t.status, t.lastHeartbeatAt),
+    oneLivePerProject: uniqueIndex('project_operation_one_live_per_project')
+      .on(t.projectId)
+      .where(sql`${t.status} IN ('queued', 'running')`),
     deploymentIdx: index('project_operation_deployment_idx').on(t.deploymentId),
     terminalMeansFinished: check(
       'project_operation_terminal_finished',

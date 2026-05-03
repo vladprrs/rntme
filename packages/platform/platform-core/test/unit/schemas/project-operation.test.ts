@@ -18,6 +18,7 @@ describe('project operation schemas', () => {
 
   it('accepts update by uploaded canonical project bundle', () => {
     const r = StartProjectUpdateOperationRequestSchema.safeParse({
+      targetSlug: 'dokploy-preview',
       bundle: {
         contentType: 'application/rntme-project-bundle+json',
         bytesBase64: Buffer.from('{"files":{}}').toString('base64'),
@@ -42,6 +43,14 @@ describe('project operation schemas', () => {
   it('rejects update requests without a source', () => {
     const r = StartProjectUpdateOperationRequestSchema.safeParse({
       targetSlug: 'dokploy-preview',
+    });
+
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects update requests without an explicit target slug', () => {
+    const r = StartProjectUpdateOperationRequestSchema.safeParse({
+      projectVersionSeq: 4,
     });
 
     expect(r.success).toBe(false);

@@ -340,5 +340,9 @@ async function withSystemRlsDisabled<T>(db: PgQueryable, fn: (db: PgQueryable) =
 }
 
 function dbErr(cause: unknown): Result<never, PlatformError> {
-  return err([{ code: 'PLATFORM_STORAGE_DB_UNAVAILABLE', message: String(cause), cause }]);
+  const message = String(cause);
+  if (/project_operation_one_live_per_project/.test(message)) {
+    return err([{ code: 'PROJECT_OPERATION_INVALID_STATE', message: 'project already has a live operation', cause }]);
+  }
+  return err([{ code: 'PLATFORM_STORAGE_DB_UNAVAILABLE', message, cause }]);
 }

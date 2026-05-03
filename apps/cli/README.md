@@ -88,6 +88,19 @@ rntme project deployment watch --org my-org --project my-project <deployment-id>
 
 The CLI never calls Dokploy directly and never reads deploy target secrets.
 
+Project lifecycle operations are queued on the platform and can be watched:
+
+```bash
+rntme project update --org my-org --project my-project --version 4 --target dokploy-preview --wait
+rntme project delete --org my-org --project my-project --confirm my-project --wait
+rntme project operation list --org my-org --project my-project
+rntme project operation show --org my-org --project my-project <operation-id>
+rntme project operation watch --org my-org --project my-project <operation-id>
+```
+
+`project update` always requires an explicit `--target`; it never falls back to
+the default deploy target implicitly.
+
 ## Environment Variables
 
 | Variable | Effect | Example |

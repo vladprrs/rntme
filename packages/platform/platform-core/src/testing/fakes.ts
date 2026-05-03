@@ -441,6 +441,14 @@ export class FakeStore {
 
   readonly projectOperations: ProjectOperationRepo = {
     create: async (args) => {
+      const hasLiveOperation = [...this.projectOperationRows.values()].some(
+        (operation) =>
+          operation.projectId === args.row.projectId &&
+          (operation.status === 'queued' || operation.status === 'running'),
+      );
+      if (hasLiveOperation) {
+        return err([notFound('PROJECT_OPERATION_INVALID_STATE', 'project already has a live operation')]);
+      }
       const operation: ProjectOperation = {
         ...args.row,
         status: 'queued',

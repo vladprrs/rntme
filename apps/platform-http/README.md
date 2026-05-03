@@ -55,6 +55,21 @@ UI mutations (`POST /:orgSlug/tokens`, `DELETE /:orgSlug/tokens/:id`, `POST /:or
 
 Deployment starts require an explicit `targetSlug` from both JSON API callers and the UI form. The platform records the deployment, schedules the same `runDeployment` executor used by UI-triggered deploys, and logs the selected project version, selected target, render digest, apply actions, and smoke results.
 
+## Project lifecycle operations
+
+Project update/delete operations are exposed under
+`/v1/orgs/:orgSlug/projects/:projSlug/operations` and on the project UI page.
+Update queues a deployment for an explicit `targetSlug`; delete moves the
+project through `deleting` to either `decommissioned` or `delete_failed`.
+Operation detail pages poll status and logs, and delete scheduling uses the
+same background executor/orphan detection pattern as deployments.
+
+The JSON routes are:
+
+- `POST /operations/update` with `{ "projectVersionSeq": 4, "targetSlug": "dokploy-preview" }`
+- `POST /operations/delete` with `{ "confirm": "<project-slug>" }`
+- `GET /operations`, `GET /operations/:id`, `GET /operations/:id/logs`
+
 Deploy-target REST routes require `deploy:target:manage`; start deployment
 requires `deploy:execute`; deployment reads require `project:read`. The
 background executor fetches the immutable project-version bundle, revalidates

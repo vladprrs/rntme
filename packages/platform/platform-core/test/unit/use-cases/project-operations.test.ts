@@ -30,6 +30,7 @@ async function setup() {
     'operation-1',
     'deployment-1',
     'operation-2',
+    'deployment-2',
   ]);
   const org = await store.seedOrg({ slug: 'acme', workosOrganizationId: 'org_1', displayName: 'Acme' });
   const account = await store.seedAccount({ workosUserId: 'user_1', displayName: 'Ada', email: 'ada@example.com' });
@@ -76,7 +77,7 @@ async function setup() {
 }
 
 describe('project operations use-cases', () => {
-  it('starts update using the default target and creates a linked deployment', async () => {
+  it('starts update using an explicit target and creates a linked deployment', async () => {
     const { store, ids, org, account, project, version } = await setup();
 
     const r = await startProjectUpdateOperation(
@@ -86,7 +87,7 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
@@ -106,7 +107,7 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
@@ -117,12 +118,42 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_OPERATION_ACTIVE_DEPLOYMENT');
+  });
+
+  it('rejects a second update while a project operation is still live', async () => {
+    const { store, ids, org, account, project, version } = await setup();
+    const first = await startProjectUpdateOperation(
+      { repos: { projects: store.projects, projectVersions: store.projectVersions, deployTargets: store.deployTargets, deployments: store.deployments, projectOperations: store.projectOperations }, ids },
+      {
+        orgId: org.id,
+        projectId: project.id,
+        accountId: account.id,
+        tokenId: null,
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
+      },
+    );
+    if (!isOk(first)) throw new Error('first update failed');
+    await store.deployments.finalize(first.value.deployment.id, { status: 'succeeded' });
+
+    const r = await startProjectUpdateOperation(
+      { repos: { projects: store.projects, projectVersions: store.projectVersions, deployTargets: store.deployTargets, deployments: store.deployments, projectOperations: store.projectOperations }, ids },
+      {
+        orgId: org.id,
+        projectId: project.id,
+        accountId: account.id,
+        tokenId: null,
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
+      },
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_OPERATION_INVALID_STATE');
   });
 
   it('starts delete and moves the project to deleting', async () => {

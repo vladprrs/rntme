@@ -68,6 +68,14 @@ brokers. Targets that need a non-default handshake budget can provide
 
 The username/password values are secret references, not plaintext credentials.
 
+## Delete helper
+
+`deleteDokployResources` accepts sanitized apply-result resources and removes
+Dokploy resources idempotently. Compose resources are deleted before
+applications and use `deleteVolumes: true` for explicit project
+decommissioning. Missing resources are treated as warnings; real API failures
+are returned so callers can leave the project in `delete_failed` and retry.
+
 When `kind: "auth"` middleware is mounted on a domain-service route, render
 adds `RNTME_AUTH_PROVIDER`, `RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`,
 and `RNTME_AUTH_MODULE_ENDPOINT=<module-resource>:50051` to that domain

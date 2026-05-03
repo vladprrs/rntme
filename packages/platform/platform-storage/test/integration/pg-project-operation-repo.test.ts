@@ -109,7 +109,7 @@ d('PgProjectOperationRepo', () => {
       `INSERT INTO deploy_target (
          id, org_id, slug, display_name, kind, dokploy_url, dokploy_project_id,
          allow_create_project, api_token_ciphertext, api_token_nonce, api_token_key_version,
-         event_bus_config, modules, auth, policy_values
+         event_bus_config, module_config, auth_config, policy_values
        ) VALUES ($1,$2,'dokploy','Dokploy','dokploy','https://dokploy.example.com','dokploy-project',false,'x'::bytea,'n'::bytea,1,'{"kind":"kafka","mode":"external","brokers":["redpanda:9092"]}'::jsonb,'{}'::jsonb,'{}'::jsonb,'{}'::jsonb)`,
       [targetId, orgId],
     );
