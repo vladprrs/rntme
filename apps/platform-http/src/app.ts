@@ -202,6 +202,17 @@ export function createApp(deps: AppDeps): Hono {
   authed.route('/orgs', orgRoutes({ ids: deps.ids }));
   authed.route('/orgs/:orgSlug/deploy-targets', deployTargetRoutes({ ids: deps.ids, cipher }));
   authed.route('/orgs/:orgSlug/projects', projectRoutes({ ids: deps.ids }));
+
+  // Helpful 404 for project-scoped deploy-targets (targets are org-scoped)
+  app.all('/v1/orgs/:orgSlug/projects/:projSlug/deploy-targets/*', async (c) => {
+    return c.json({
+      error: {
+        code: 'PLATFORM_HTTP_NOT_FOUND',
+        message: 'deploy targets are org-scoped; use /v1/orgs/<org>/deploy-targets',
+      },
+    }, 404);
+  });
+
   authed.route(
     '/orgs/:orgSlug/projects/:projSlug',
     projectVersionRoutes({ blob: deps.blob, ids: deps.ids }),

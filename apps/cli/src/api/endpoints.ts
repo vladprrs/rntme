@@ -17,6 +17,7 @@ import type {
   CreateTokenRequest,
   StartDeploymentRequest,
 } from './types.js';
+import { targetEndpoints } from './target-endpoints.js';
 
 export type Ctx = { baseUrl: string; token: string | null; requestId?: string };
 
@@ -39,6 +40,8 @@ async function deleteNoBody(
 }
 
 export const endpoints = {
+  targets: targetEndpoints,
+
   auth: {
     me: (c: Ctx) =>
       apiCall({ method: 'GET', path: '/v1/auth/me', responseSchema: AuthMeResponseSchema, ...c }),

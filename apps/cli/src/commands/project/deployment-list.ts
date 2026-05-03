@@ -19,17 +19,16 @@ export async function runProjectDeploymentList(args: ProjectDeploymentListArgs, 
       requireToken: true,
       humanRender: (d) =>
         renderTable(
-          ['ID', 'STATUS', 'VERSION', 'TARGET', 'QUEUED', 'STARTED', 'FINISHED'],
+          ['SEQ', 'TARGET', 'STATUS', 'QUEUED', 'STARTED', 'FINISHED'],
           d.deployments.map((deployment) => [
-            deployment.id,
+            String(deployment.projectVersionSeq),
+            deployment.targetSlug,
             deployment.status,
-            deployment.projectVersionId,
-            deployment.targetId,
             deployment.queuedAt,
             deployment.startedAt ?? '',
             deployment.finishedAt ?? '',
           ]),
-          { maxWidths: [12, 23, 12, 12, 24, 24, 24] },
+          { maxWidths: [6, 20, 23, 24, 24, 24] },
         ),
     },
     async (ctx) => {

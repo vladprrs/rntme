@@ -56,7 +56,7 @@ export function resolveConfig(input: ResolveInput): Result<ResolvedConfig, CliEr
     profile?.token ??
     null;
 
-  const org = input.flags.org ?? input.projectConfig?.org ?? null;
+  const org = input.flags.org ?? input.projectConfig?.org ?? input.credentials?.profiles[profileName]?.defaultOrg ?? null;
   const project = input.flags.project ?? input.projectConfig?.project ?? null;
   const service = input.flags.service ?? input.projectConfig?.service ?? null;
 
