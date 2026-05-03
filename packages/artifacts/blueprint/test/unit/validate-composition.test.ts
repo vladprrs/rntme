@@ -495,6 +495,56 @@ describe('validateBlueprintComposition', () => {
     expectErrorCodes(r, ['BLUEPRINT_AUTH_AUDIENCE_MISMATCH']);
   });
 
+  it('allows auth middleware audience placeholder before target vars are resolved', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'notes',
+        services: ['app', 'identity-auth0'],
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: '${AUTH0_AUDIENCE}',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+        vars: {
+          AUTH0_AUDIENCE: { from: 'target.auth.auth0.audience', required: true },
+        },
+      },
+      services: {
+        app: {
+          ...svc('app', 'domain', { hasBindings: true }),
+          bindings: {
+            resolved: {
+              listNotes: {
+                entry: {
+                  graph: 'listNotes',
+                  target: { engine: 'sqlite', dialect: 'sqlite' },
+                  pre: [
+                    {
+                      kind: 'module-rpc',
+                      module: 'identity-auth0',
+                      rpc: 'IntrospectSession',
+                      input: { audience: 'https://notes.example/api' },
+                      bindAs: 'session',
+                    },
+                  ],
+                  http: { method: 'GET', path: '/notes', parameters: [] },
+                },
+              },
+            },
+          } as never,
+        },
+        'identity-auth0': svc('identity-auth0', 'integration'),
+      },
+    });
+
+    expect(r.ok).toBe(true);
+  });
+
   it('rejects graph $pre references not backed by the binding pre[].bindAs names', () => {
     const r = validateBlueprintComposition({
       project: {

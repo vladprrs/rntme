@@ -91,4 +91,61 @@ describe('buildProjectDeploymentPlan vars', () => {
       expect((workload as { publicConfigJson: string }).publicConfigJson).toContain('${CID}');
     }
   });
+
+  it('substitutes ${VAR} from target into auth middleware audience', () => {
+    const plan = buildProjectDeploymentPlan(
+      {
+        ...baseProject,
+        services: {
+          ...baseProject.services,
+          'identity-auth0': { slug: 'identity-auth0', kind: 'integration' },
+        },
+        modules: {
+          'identity-auth0': {
+            edgeAuth: {
+              kind: 'introspection-sidecar',
+              transport: 'http',
+              method: 'GET',
+              path: '/introspect',
+              port: 50052,
+            },
+          },
+        },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'auth0',
+            audience: '${AUD}',
+            moduleSlug: 'identity-auth0',
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+        varsManifest: { AUD: { from: 'target.auth.auth0.audience', required: true } },
+      },
+      {
+        ...baseConfig,
+        modules: {
+          'identity-auth0': {
+            image: 'ghcr.io/rntme/identity-auth0:test',
+            env: { AUTH0_DOMAIN: 'demo-rntme.us.auth0.com' },
+          },
+        },
+        auth: {
+          auth0: {
+            clientId: 'spa-client',
+            audience: 'https://notes-demo.rntme.com/api',
+          },
+        } as ProjectDeploymentConfig['auth'],
+      },
+    );
+    expect(plan.ok).toBe(true);
+    if (plan.ok) {
+      expect(plan.value.edge.middleware).toContainEqual(
+        expect.objectContaining({
+          kind: 'auth',
+          audience: 'https://notes-demo.rntme.com/api',
+        }),
+      );
+    }
+  });
 });

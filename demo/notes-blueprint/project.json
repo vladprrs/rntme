@@ -2,16 +2,19 @@
   "name": "notes-demo",
   "services": ["app", "identity-auth0"],
   "vars": {
-    "AUTH0_SPA_CLIENT_ID": { "from": "target.auth.auth0.clientId", "required": true }
+    "AUTH0_SPA_CLIENT_ID": { "from": "target.auth.auth0.clientId", "required": true },
+    "AUTH0_DOMAIN": { "from": "target.auth.auth0.domain", "required": true },
+    "AUTH0_AUDIENCE": { "from": "target.auth.auth0.audience", "required": true },
+    "AUTH0_REDIRECT_URI": { "from": "target.auth.auth0.redirectUri", "required": true }
   },
   "modules": {
     "identity": {
       "package": "rntme_identity_auth0",
       "publicConfig": {
-        "domain": "demo-rntme.us.auth0.com",
+        "domain": "${AUTH0_DOMAIN}",
         "clientId": "${AUTH0_SPA_CLIENT_ID}",
-        "audience": "https://notes-demo.rntme.com/api",
-        "redirectUri": "https://notes-demo.rntme.com/"
+        "audience": "${AUTH0_AUDIENCE}",
+        "redirectUri": "${AUTH0_REDIRECT_URI}"
       }
     }
   },
@@ -28,7 +31,7 @@
     "auth": {
       "kind": "auth",
       "provider": "auth0",
-      "audience": "https://notes-demo.rntme.com/api",
+      "audience": "${AUTH0_AUDIENCE}",
       "moduleSlug": "identity-auth0"
     }
   },

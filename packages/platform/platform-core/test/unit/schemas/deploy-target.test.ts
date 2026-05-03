@@ -37,10 +37,61 @@ describe('CreateDeployTargetRequestSchema', () => {
     expect(r.success).toBe(true);
   });
 
+  it('preserves Auth0 target vars on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-staging',
+      displayName: 'Staging',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      publicBaseUrl: 'https://notes.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      auth: {
+        auth0: {
+          clientId: 'public-client-id',
+          domain: 'demo-rntme.us.auth0.com',
+          audience: 'https://notes-demo.rntme.com/api',
+          redirectUri: 'https://notes-demo.rntme.com/',
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.auth.auth0).toEqual({
+        clientId: 'public-client-id',
+        domain: 'demo-rntme.us.auth0.com',
+        audience: 'https://notes-demo.rntme.com/api',
+        redirectUri: 'https://notes-demo.rntme.com/',
+      });
+    }
+  });
+
   it('leaves omitted policyValues undefined on patch', () => {
     const r = UpdateDeployTargetRequestSchema.parse({ displayName: 'Renamed' });
     expect(r).toEqual({ displayName: 'Renamed' });
     expect(r.policyValues).toBeUndefined();
+  });
+
+  it('preserves Auth0 target vars on patch', () => {
+    const r = UpdateDeployTargetRequestSchema.parse({
+      auth: {
+        auth0: {
+          clientId: 'public-client-id',
+          domain: 'demo-rntme.us.auth0.com',
+          audience: 'https://notes-demo.rntme.com/api',
+          redirectUri: 'https://notes-demo.rntme.com/',
+        },
+      },
+    });
+    expect(r.auth?.auth0).toEqual({
+      clientId: 'public-client-id',
+      domain: 'demo-rntme.us.auth0.com',
+      audience: 'https://notes-demo.rntme.com/api',
+      redirectUri: 'https://notes-demo.rntme.com/',
+    });
   });
 
   it('accepts public app base URL patches', () => {

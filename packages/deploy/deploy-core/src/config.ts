@@ -68,6 +68,9 @@ export type DeploymentPolicyConfig = {
 export type ProjectAuthConfig = {
   readonly auth0?: {
     readonly clientId: string;
+    readonly domain?: string;
+    readonly audience?: string;
+    readonly redirectUri?: string;
   };
 };
 

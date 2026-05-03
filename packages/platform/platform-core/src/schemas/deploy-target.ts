@@ -58,22 +58,21 @@ export const DeployTargetModulesSchema = z.record(z.string(), IntegrationModuleD
 export type DeployTargetModules = z.infer<typeof DeployTargetModulesSchema>;
 const PatchDeployTargetModulesSchema = z.record(z.string(), IntegrationModuleDeploymentConfigSchema);
 
+const Auth0TargetConfigSchema = z.object({
+  clientId: z.string().min(1),
+  domain: z.string().min(1).optional(),
+  audience: z.string().min(1).optional(),
+  redirectUri: z.string().url().optional(),
+});
+
 export const DeployTargetAuthConfigSchema = z
   .object({
-    auth0: z
-      .object({
-        clientId: z.string().min(1),
-      })
-      .optional(),
+    auth0: Auth0TargetConfigSchema.optional(),
   })
   .default({});
 export type DeployTargetAuthConfig = z.infer<typeof DeployTargetAuthConfigSchema>;
 const PatchDeployTargetAuthConfigSchema = z.object({
-  auth0: z
-    .object({
-      clientId: z.string().min(1),
-    })
-    .optional(),
+  auth0: Auth0TargetConfigSchema.optional(),
 });
 const HttpUrlSchema = z.string().url().refine(
   (value) => {
