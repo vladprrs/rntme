@@ -46,7 +46,7 @@
     }
   },
   "provisioner": {
-    "entry": "./dist/provisioner.js",
+    "entry": "./dist/provisioner.entry.js",
     "produces": [
       { "name": "spaClient", "kind": "single", "secret": false },
       { "name": "resourceServer", "kind": "single", "secret": false },

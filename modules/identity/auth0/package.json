@@ -17,6 +17,9 @@
       "types": "./dist/provisioner.d.ts",
       "import": "./dist/provisioner.js"
     },
+    "./provisioner.entry": {
+      "import": "./dist/provisioner.entry.js"
+    },
     "./module.json": "./module.json"
   },
   "main": "./dist/index.js",
@@ -30,7 +33,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && pnpm run build:provisioner",
+    "build:provisioner": "esbuild dist/provisioner.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
     "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
     "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/deploy-core run build",
     "start": "node dist/bin/server.js",
@@ -58,6 +62,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
+    "esbuild": "^0.23.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
