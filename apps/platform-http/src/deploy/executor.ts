@@ -198,7 +198,9 @@ export async function runDeployment(
 
     // Provision phase: run AFTER plan, BEFORE render. Skips cleanly when no
     // modules declare a provisioner block.
-    const provModules = collectProvisionerModules(composed.value, tmpDir);
+    if (tmpDir === null) throw new Error('tmpDir not initialized');
+    const materializedDir: string = tmpDir;
+    const provModules = collectProvisionerModules(composed.value, materializedDir);
     // provisioned is populated when provModules.length > 0; referenced by Task 15 render integration.
     let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
 
@@ -220,7 +222,7 @@ export async function runDeployment(
               return prior === undefined ? m : { ...m, priorOutputs: prior };
             }),
             resolvedTargetSecrets: decrypted,
-            projectDir: tmpDir ?? '',
+            projectDir: materializedDir,
             resolveProvisioner: deps.resolveProvisioner,
             log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
           }),
