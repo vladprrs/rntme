@@ -2,6 +2,7 @@ import type { ComposedProjectInput } from './composed-project.js';
 import type { DeploymentPolicyConfig, ProjectDeploymentConfig } from './config.js';
 import type { DeploymentPlanError } from './errors.js';
 import type { DeploymentWorkload } from './plan.js';
+import { applyVars, type ResolvedVars } from './vars.js';
 
 export type EdgeRoute = {
   readonly id: string;
@@ -79,6 +80,7 @@ export function planEdge(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
   workloads: readonly DeploymentWorkload[],
+  vars: ResolvedVars = {},
 ): { edge: PlannedEdge; errors: DeploymentPlanError[] } {
   const errors: DeploymentPlanError[] = [];
   const routes: EdgeRoute[] = [];
@@ -104,6 +106,7 @@ export function planEdge(
     new Set(routes.map((route) => route.id)),
     workloads,
     errors,
+    vars,
   );
 
   return { edge: { routes, middleware }, errors };
@@ -145,6 +148,7 @@ function planMiddleware(
   routeIds: ReadonlySet<string>,
   workloads: readonly DeploymentWorkload[],
   errors: DeploymentPlanError[],
+  vars: ResolvedVars,
 ): EdgeMiddleware[] {
   const planned: EdgeMiddleware[] = [];
   const declarations = project.middleware ?? {};
@@ -239,12 +243,12 @@ function planMiddleware(
           mountTarget: mount.target,
           name: middlewareName,
           kind: decl.kind,
-          provider: decl.provider,
-          audience: decl.audience,
-          moduleSlug: decl.moduleSlug,
+          provider: applyVars(decl.provider, vars),
+          audience: applyVars(decl.audience, vars),
+          moduleSlug: applyVars(decl.moduleSlug, vars),
           moduleIntrospectPort: edgeAuth.port,
-          ...(decl.policy !== undefined ? { policy: decl.policy } : {}),
-          ...(decl.config !== undefined ? { config: decl.config } : {}),
+          ...(decl.policy !== undefined ? { policy: applyVars(decl.policy, vars) } : {}),
+          ...(decl.config !== undefined ? { config: applyVars(decl.config, vars) } : {}),
         });
         continue;
       }
