@@ -12,6 +12,7 @@ export { loadComposedBlueprint } from './compose/load-composed-blueprint.js';
 export { loadServiceMember } from './compose/load-service-member.js';
 export { readServiceGraphSpec } from './compose/service-graphs.js';
 export { eventTypesForService } from './compose/seed-scope.js';
+export { safeProvisionerName } from './compose/safe-provisioner-name.js';
 export { parseProjectBlueprint } from './parse/parse.js';
 export { validateBlueprintComposition } from './validate/composition.js';
 export { validateBlueprintStructural } from './validate/structural.js';
