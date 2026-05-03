@@ -69,7 +69,7 @@ describe('runProjectPublish', () => {
     expect(init.method).toBe('POST');
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/rntme-project-bundle+json');
     expect(JSON.parse(init.body as string)).toMatchObject({
-      version: 1,
+      version: 2,
       files: {
         'project.json': expect.any(Object),
         'pdm/pdm.json': expect.any(Object),

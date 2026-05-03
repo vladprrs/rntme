@@ -6,8 +6,9 @@ import { cliError, type CliError } from '../errors/codes.js';
 import { canonicalJson } from '../util/canonical-json.js';
 
 export type CanonicalBundle = {
-  readonly version: 1;
+  readonly version: 2;
   readonly files: Readonly<Record<string, unknown>>;
+  readonly assets: Readonly<Record<string, string>>;
 };
 
 export type BuiltProjectBundle = {
@@ -36,7 +37,7 @@ export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, C
     }
   }
 
-  const bundle: CanonicalBundle = { version: 1, files: bundleFiles };
+  const bundle: CanonicalBundle = { version: 2, files: bundleFiles, assets: {} };
   const bytes = canonicalJson(bundle);
   return ok({
     bundle,
