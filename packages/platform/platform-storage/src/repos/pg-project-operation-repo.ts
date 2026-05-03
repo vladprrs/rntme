@@ -4,10 +4,8 @@ import {
   err,
   ok,
   type ProjectOperation,
-  type ProjectOperationKind,
   type ProjectOperationLogLine,
   type ProjectOperationRepo,
-  type ProjectOperationStatus,
   type PlatformError,
   type Result,
 } from '@rntme/platform-core';

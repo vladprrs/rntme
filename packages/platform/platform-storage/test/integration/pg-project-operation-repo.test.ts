@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { isOk } from '@rntme/platform-core';
 import { withTransaction } from '../../src/pg/tx.js';
-import { PgProjectOperationRepo, PgProjectRepo, PgDeploymentRepo } from '../../src/index.js';
+import { PgProjectOperationRepo, PgDeploymentRepo } from '../../src/index.js';
 import { integrationContainersAvailable } from './docker-available.js';
 import { startPostgres, stopPostgres, resetSchema, type PgHandles } from './harness.js';
 

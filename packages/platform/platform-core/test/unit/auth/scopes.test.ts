@@ -6,6 +6,7 @@ describe('scopes', () => {
     expect(scopesForRole('admin')).toEqual([
       'project:read',
       'project:write',
+      'project:delete',
       'version:publish',
       'member:read',
       'token:manage',

@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
 import { projectOperationRoutes } from '../../../src/routes/project-operations.js';
 import { Hono } from 'hono';
