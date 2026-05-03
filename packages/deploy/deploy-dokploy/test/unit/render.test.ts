@@ -588,6 +588,18 @@ describe('renderDokployPlan', () => {
     ]);
   });
 
+  it('routes edge auth introspection to the integration module HTTP port', () => {
+    const r = renderDokployPlan(authProtectedPlan(), targetConfig());
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const edge = r.value.resources.find((res) => res.workloadKind === 'edge-gateway');
+    const nginx = edge?.files?.['/etc/nginx/nginx.conf'] ?? '';
+    expect(nginx).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(nginx).toContain('server rntme-acme-commerce-identity-auth0:50052;');
+    expect(nginx).not.toContain('server rntme-acme-commerce-identity-auth0:3000;');
+  });
+
   it('rejects target resource name collisions after normalization', () => {
     const r = renderDokployPlan(
       {

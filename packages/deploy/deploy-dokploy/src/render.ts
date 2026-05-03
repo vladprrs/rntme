@@ -119,7 +119,7 @@ export function renderDokployPlan(
       .filter((w) => w.kind !== 'edge-gateway')
       .map((w) => [
         w.slug,
-        `http://${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, w.slug)}:3000`,
+        `http://${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, w.slug)}:${workloadHttpPort(w)}`,
       ]),
   );
   const nginxConfig = renderEdgeGatewayConfig(plan, upstreams);
@@ -202,6 +202,10 @@ export function renderDokployPlan(
     ...renderedWithoutDigest,
     digest: digest(renderedWithoutDigest),
   });
+}
+
+function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' }>): number {
+  return workload.kind === 'integration-module' ? 50052 : 3000;
 }
 
 function renderEdgeGatewayConfig(
