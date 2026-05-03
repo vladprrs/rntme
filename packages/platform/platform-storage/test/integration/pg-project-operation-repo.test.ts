@@ -35,7 +35,28 @@ d('PgProjectOperationRepo', () => {
 
   it('creates, attaches deployment, logs, and finalizes operation rows under RLS', async () => {
     const operationId = randomUUID();
+    const versionId = randomUUID();
+    const targetId = randomUUID();
     const deploymentId = randomUUID();
+
+    await h.pool.query(
+      `INSERT INTO project_version (id, org_id, project_id, seq, bundle_digest, bundle_blob_key, bundle_size_bytes, summary, uploaded_by_account_id)
+       VALUES ($1,$2,$3,1,'sha256:op','projects/p/versions/op.json.gz',2,'{"projectName":"notes-demo","services":[],"routes":{"ui":{},"http":{}},"middleware":{},"mounts":[]}'::jsonb,$4)`,
+      [versionId, orgId, projectId, accountId],
+    );
+    await h.pool.query(
+      `INSERT INTO deploy_target (
+         id, org_id, slug, display_name, kind, dokploy_url, dokploy_project_id,
+         allow_create_project, api_token_ciphertext, api_token_nonce, api_token_key_version,
+         event_bus_config, module_config, auth_config, policy_values
+       ) VALUES ($1,$2,'dokploy','Dokploy','dokploy','https://dokploy.example.com','dokploy-project',false,'x'::bytea,'n'::bytea,1,'{"kind":"kafka","mode":"external","brokers":["redpanda:9092"]}'::jsonb,'{}'::jsonb,'{}'::jsonb,'{}'::jsonb)`,
+      [targetId, orgId],
+    );
+    await h.pool.query(
+      `INSERT INTO deployment (id, org_id, project_id, project_version_id, target_id, status, config_overrides, started_by_account_id)
+       VALUES ($1,$2,$3,$4,$5,'queued','{}'::jsonb,$6)`,
+      [deploymentId, orgId, projectId, versionId, targetId, accountId],
+    );
 
     const created = await withTransaction(h.appPool, orgId, async (client) => {
       const repo = new PgProjectOperationRepo(client);
@@ -44,11 +65,11 @@ d('PgProjectOperationRepo', () => {
           id: operationId,
           orgId,
           projectId,
-          kind: 'delete',
+          kind: 'update',
           requestedByAccountId: accountId,
           requestedByTokenId: null,
-          targetId: null,
-          projectVersionId: null,
+          targetId,
+          projectVersionId: versionId,
           deploymentId: null,
           input: { confirm: 'notes-demo' },
         },
