@@ -40,7 +40,7 @@ export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, C
 
   const assetsResult = collectProvisionerAssets(root, bundleFiles);
   if (!assetsResult.ok) {
-    const e = assetsResult.errors[0];
+    const e = assetsResult.errors[0] ?? { code: 'CLI_VALIDATE_LOCAL_FAILED' as const, message: 'unknown asset collection error' };
     return err(cliError(
       e.code === 'CLI_BUNDLE_ASSETS_TOO_LARGE' ? 'CLI_BUNDLE_ASSETS_TOO_LARGE' : 'CLI_VALIDATE_LOCAL_FAILED',
       `${e.code}: ${e.message}`,
