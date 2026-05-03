@@ -52,7 +52,7 @@ describe('edge auth integration', () => {
 
   for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const) {
     it(`${method} /api/notes with Bearer fake.token.here is rejected by named fallback`, async () => {
-      const r = await fetch(`${baseUrl}/api/notes`, {
+      const r = await globalThis.fetch(`${baseUrl}/api/notes`, {
         method,
         headers: { Authorization: 'Bearer fake.token.here' },
       });
@@ -65,12 +65,12 @@ describe('edge auth integration', () => {
   }
 
   it('GET /_rntme_auth_anything returns 404, not SPA HTML', async () => {
-    const r = await fetch(`${baseUrl}/_rntme_auth_xyz`);
+    const r = await globalThis.fetch(`${baseUrl}/_rntme_auth_xyz`);
     expect(r.status).toBe(404);
   });
 
   it('GET /api/notes without Authorization is rejected by named fallback', async () => {
-    const r = await fetch(`${baseUrl}/api/notes`);
+    const r = await globalThis.fetch(`${baseUrl}/api/notes`);
     expect(r.status).toBe(401);
     const body = await r.json();
     expect(body).toEqual({ code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required' });
