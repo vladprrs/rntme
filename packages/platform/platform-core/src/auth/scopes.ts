@@ -8,6 +8,7 @@ const ROLE_SCOPES: Record<Role, readonly Scope[]> = {
   admin: [
     'project:read',
     'project:write',
+    'project:delete',
     'version:publish',
     'member:read',
     'token:manage',

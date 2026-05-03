@@ -30,3 +30,13 @@ const cipher = AesGcmSecretCipher.fromKeyRing({
 New secrets are encrypted with `current.version`; decrypt selects the key by the
 stored `keyVersion`. Keep previous keys configured until every stored secret has
 been re-encrypted with the current version.
+
+## Project operation storage
+
+Migration `0007_project_operations.sql` adds `project.status`,
+`project_operation`, and `project_operation_log_line`. Operation rows are
+tenant-isolated with RLS, include queue/run/final timestamps, and are protected
+by a partial unique index so only one live operation can exist for a project.
+
+`platform_app` needs `USAGE` on the enum types created for project lifecycle
+and operation state. The migration and test harness grant this explicitly.

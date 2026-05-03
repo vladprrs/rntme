@@ -15,6 +15,11 @@ import { runProjectDeploy } from '../commands/project/deploy.js';
 import { runProjectDeploymentList } from '../commands/project/deployment-list.js';
 import { runProjectDeploymentShow } from '../commands/project/deployment-show.js';
 import { runProjectDeploymentWatch } from '../commands/project/deployment-watch.js';
+import { runProjectUpdateOperation } from '../commands/project/update-operation.js';
+import { runProjectDeleteOperation } from '../commands/project/delete-operation.js';
+import { runProjectOperationList } from '../commands/project/operation-list.js';
+import { runProjectOperationShow } from '../commands/project/operation-show.js';
+import { runProjectOperationWatch } from '../commands/project/operation-watch.js';
 import { runTokenCreate } from '../commands/token/create.js';
 import { runTokenList } from '../commands/token/list.js';
 import { runTokenRevoke } from '../commands/token/revoke.js';
@@ -38,6 +43,11 @@ Validates and uploads the project blueprint as a new version. Folder defaults to
 registerHelp(['project', 'deployment', 'list'], `Usage: rntme project deployment list --org <slug> --project <slug> [--limit <n>]`);
 registerHelp(['project', 'deployment', 'show'], `Usage: rntme project deployment show --org <slug> --project <slug> <deployment-id>`);
 registerHelp(['project', 'deployment', 'watch'], `Usage: rntme project deployment watch --org <slug> --project <slug> <deployment-id>`);
+registerHelp(['project', 'update'], `Usage: rntme project update --org <slug> --project <slug> --version <seq> --target <target-slug> [--wait] [--timeout <sec>]`);
+registerHelp(['project', 'delete'], `Usage: rntme project delete --org <slug> --project <slug> --confirm <project-slug> [--wait] [--timeout <sec>]`);
+registerHelp(['project', 'operation', 'list'], `Usage: rntme project operation list --org <slug> --project <slug> [--limit <n>]`);
+registerHelp(['project', 'operation', 'show'], `Usage: rntme project operation show --org <slug> --project <slug> <operation-id>`);
+registerHelp(['project', 'operation', 'watch'], `Usage: rntme project operation watch --org <slug> --project <slug> <operation-id>`);
 registerHelp(['target', 'list'], `Usage: rntme target list [--org <slug>]`);
 registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>]`);
 registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --json <path> [--org <slug>]`);
@@ -59,6 +69,11 @@ Commands:
   project version list    List project versions
   project version show    Show a project version
   project deploy          Start a platform deployment
+  project update          Queue a project update operation
+  project delete          Queue a project decommission operation
+  project operation list  List project operations
+  project operation show  Show a project operation
+  project operation watch Watch project operation logs until terminal status
   project deployment list List deployments
   project deployment show Show a deployment
   project deployment watch Watch deployment logs until terminal status
@@ -99,6 +114,12 @@ function asBool(v: unknown): boolean | undefined {
 
 function asStringArray(v: unknown): string[] | undefined {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined;
+}
+
+function parsePositiveInt(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) || parsed <= 0 ? undefined : parsed;
 }
 
 function setIfDefined<T, K extends keyof T>(obj: T, key: K, value: T[K] | undefined): void {
@@ -153,6 +174,7 @@ export async function main(argv: string[]): Promise<number> {
         'config-overrides': { type: 'string' },
         wait: { type: 'boolean' },
         timeout: { type: 'string' },
+        confirm: { type: 'string' },
       },
       allowPositionals: true,
       strict: false,
@@ -332,6 +354,81 @@ export async function main(argv: string[]): Promise<number> {
           };
           return runProjectDeploy(deployArgs, commonFlags);
         }
+        case 'update': {
+          const versionRaw = asString(values['version']);
+          const target = asString(values['target']);
+          if (!versionRaw || !target) {
+            process.stderr.write('Usage: rntme project update --version <seq> --target <target>\n');
+            return 1;
+          }
+          const version = Number.parseInt(versionRaw, 10);
+          if (Number.isNaN(version) || version <= 0) {
+            process.stderr.write(`Invalid version seq: ${versionRaw}\n`);
+            return 1;
+          }
+          return runProjectUpdateOperation(
+            {
+              version,
+              target,
+              wait: asBool(values['wait']),
+              timeoutSec: parsePositiveInt(asString(values['timeout'])),
+            },
+            commonFlags,
+          );
+        }
+        case 'delete': {
+          const confirm = asString(values['confirm']);
+          if (!confirm) {
+            process.stderr.write('Usage: rntme project delete --confirm <project-slug>\n');
+            return 1;
+          }
+          return runProjectDeleteOperation(
+            {
+              confirm,
+              wait: asBool(values['wait']),
+              timeoutSec: parsePositiveInt(asString(values['timeout'])),
+            },
+            commonFlags,
+          );
+        }
+        case 'operation': {
+          const operationSub = positionals[2];
+          if (!operationSub) {
+            process.stderr.write('Usage: rntme project operation <list|show|watch> ...\n');
+            return 1;
+          }
+          switch (operationSub) {
+            case 'list': {
+              const operationListArgs: { limit?: number } = {};
+              setIfDefined(operationListArgs, 'limit', parsePositiveInt(asString(values['limit'])));
+              return runProjectOperationList(operationListArgs, commonFlags);
+            }
+            case 'show': {
+              const operationId = positionals[3];
+              if (!operationId) {
+                process.stderr.write('Usage: rntme project operation show <operation-id>\n');
+                return 1;
+              }
+              return runProjectOperationShow({ operationId }, commonFlags);
+            }
+            case 'watch': {
+              const operationId = positionals[3];
+              if (!operationId) {
+                process.stderr.write('Usage: rntme project operation watch <operation-id>\n');
+                return 1;
+              }
+              return runProjectOperationWatch(
+                { operationId, timeoutSec: parsePositiveInt(asString(values['timeout'])) },
+                commonFlags,
+              );
+            }
+            default: {
+              process.stderr.write(`Unknown project operation subcommand: ${operationSub}\n`);
+              process.stderr.write('Usage: rntme project operation <list|show|watch> ...\n');
+              return 2;
+            }
+          }
+        }
         case 'deployment': {
           const deploymentSub = positionals[2];
           if (!deploymentSub) {
@@ -373,7 +470,7 @@ export async function main(argv: string[]): Promise<number> {
         }
         default: {
           process.stderr.write(`Unknown project subcommand: ${sub}\n`);
-          process.stderr.write('Usage: rntme project <create|list|show|publish|version|deploy|deployment> ...\n');
+          process.stderr.write('Usage: rntme project <create|list|show|publish|version|deploy|update|delete|operation|deployment> ...\n');
           return 2;
         }
       }

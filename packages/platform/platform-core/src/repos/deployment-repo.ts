@@ -16,6 +16,16 @@ export type DeploymentInsertRow = {
   readonly startedByAccountId: string;
 };
 
+export type DeploymentAppliedResources = {
+  readonly deploymentId: string;
+  readonly targetId: string;
+  readonly resources: readonly {
+    readonly resourceKind: 'application' | 'compose';
+    readonly targetResourceId: string;
+    readonly targetResourceName: string;
+  }[];
+};
+
 export type DeploymentFinalize = {
   readonly status: Exclude<DeploymentStatus, 'queued' | 'running'>;
   readonly errorCode?: string;
@@ -67,4 +77,8 @@ export interface DeploymentRepo {
   findStaleRunning(
     staleAfterSeconds: number,
   ): Promise<Result<readonly { id: string; orgId: string }[], PlatformError>>;
+
+  hasActiveForProject(projectId: string): Promise<Result<boolean, PlatformError>>;
+  hasActiveForProjectTarget(projectId: string, targetId: string): Promise<Result<boolean, PlatformError>>;
+  listAppliedResourcesByProject(projectId: string): Promise<Result<readonly DeploymentAppliedResources[], PlatformError>>;
 }

@@ -292,6 +292,12 @@ export function createDokployClientFactory(
       deployCompose: async (composeId: string) => {
         await request('POST', '/api/compose.deploy', { composeId });
       },
+      deleteApplication: async (applicationId: string) => {
+        await request('POST', '/api/application.delete', { applicationId });
+      },
+      deleteCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.delete', { composeId });
+      },
     };
   };
 }

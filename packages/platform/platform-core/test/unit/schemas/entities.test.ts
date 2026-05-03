@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProjectSchema, ApiTokenSchema, ScopeSchema } from '../../../src/schemas/entities.js';
+import { ProjectSchema, ApiTokenSchema, ScopeSchema, ProjectStatusSchema } from '../../../src/schemas/entities.js';
 
 describe('entity schemas', () => {
   it('ProjectSchema parses a valid row', () => {
@@ -33,5 +33,16 @@ describe('entity schemas', () => {
   it('ScopeSchema includes deploy target and deploy execution scopes', () => {
     expect(ScopeSchema.options).toContain('deploy:target:manage');
     expect(ScopeSchema.options).toContain('deploy:execute');
+  });
+
+  it('ProjectStatusSchema parses project lifecycle states', () => {
+    expect(ProjectStatusSchema.options).toEqual([
+      'active',
+      'deleting',
+      'delete_failed',
+      'decommissioned',
+    ]);
+    expect(ProjectStatusSchema.safeParse('active').success).toBe(true);
+    expect(ProjectStatusSchema.safeParse('deleted').success).toBe(false);
   });
 });

@@ -484,6 +484,10 @@ function setup(
         deployments: deployments as unknown as DeploymentRepo,
         projectVersions: projectVersions as unknown as ProjectVersionRepo,
         deployTargets: deployTargets as unknown as DeployTargetRepo,
+        projectOperations: {
+          getByDeploymentId: vi.fn(async () => ok(null)),
+          finalize: vi.fn(async () => ok({} as never)),
+        } as never,
       }),
     orgSlugFor: vi.fn(async () => 'acme'),
     dokployClientFactory: vi.fn(() => ({} as never)),

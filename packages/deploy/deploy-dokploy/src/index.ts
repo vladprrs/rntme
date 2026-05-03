@@ -28,3 +28,8 @@ export {
   type RenderedEnvVar,
 } from './render.js';
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
+export {
+  deleteDokployResources,
+  type DokployDeleteResource,
+  type DokployDeleteResult,
+} from './delete.js';

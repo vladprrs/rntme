@@ -5,6 +5,7 @@ export const ProjectSchema = z.object({
   orgId: z.string(),
   slug: z.string(),
   displayName: z.string(),
+  status: z.enum(['active', 'deleting', 'delete_failed', 'decommissioned']).default('active'),
   createdAt: z.string(),
   updatedAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -169,3 +170,55 @@ export const DeploymentLogsResponseSchema = z.object({
   lines: z.array(DeploymentLogLineSchema),
   lastLineId: z.number().int().nonnegative(),
 });
+
+export const ProjectOperationStatusSchema = z.enum(['queued', 'running', 'succeeded', 'failed']);
+export type ProjectOperationStatus = z.infer<typeof ProjectOperationStatusSchema>;
+
+export const ProjectOperationSchema = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  projectId: z.string(),
+  kind: z.enum(['update', 'delete']),
+  status: ProjectOperationStatusSchema,
+  requestedByAccountId: z.string(),
+  requestedByTokenId: z.string().nullable(),
+  targetId: z.string().nullable(),
+  projectVersionId: z.string().nullable(),
+  deploymentId: z.string().nullable(),
+  input: z.record(z.string(), z.unknown()),
+  result: z.record(z.string(), z.unknown()).nullable(),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  queuedAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  lastHeartbeatAt: z.string().nullable(),
+});
+export type ProjectOperation = z.infer<typeof ProjectOperationSchema>;
+
+export const ProjectOperationLogLineSchema = z.object({
+  id: z.number().int().nonnegative(),
+  operationId: z.string(),
+  orgId: z.string(),
+  ts: z.string(),
+  level: z.enum(['info', 'warn', 'error']),
+  step: z.string(),
+  message: z.string(),
+});
+export type ProjectOperationLogLine = z.infer<typeof ProjectOperationLogLineSchema>;
+
+export const ProjectUpdateOperationResponseSchema = z.object({
+  operation: ProjectOperationSchema,
+  deployment: DeploymentSchema,
+});
+export const ProjectDeleteOperationResponseSchema = z.object({ operation: ProjectOperationSchema });
+export const ProjectOperationResponseSchema = z.object({ operation: ProjectOperationSchema });
+export const ProjectOperationsListResponseSchema = z.object({ operations: z.array(ProjectOperationSchema) });
+export const ProjectOperationLogsResponseSchema = z.object({
+  lines: z.array(ProjectOperationLogLineSchema),
+  lastLineId: z.number().int().nonnegative(),
+});
+
+export type ProjectUpdateOperationResponse = z.infer<typeof ProjectUpdateOperationResponseSchema>;
+export type ProjectDeleteOperationResponse = z.infer<typeof ProjectDeleteOperationResponseSchema>;
+export type ProjectOperationResponse = z.infer<typeof ProjectOperationResponseSchema>;

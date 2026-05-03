@@ -8,6 +8,7 @@ export * from './schemas/requests.js';
 export * from './schemas/project-version.js';
 export * from './schemas/deploy-target.js';
 export * from './schemas/deployment.js';
+export * from './schemas/project-operation.js';
 export * from './secret/secret-cipher.js';
 export * from './auth/scopes.js';
 export * from './auth/provider.js';
@@ -27,6 +28,7 @@ export * from './use-cases/deployments.js';
 export * from './use-cases/tokens.js';
 export * from './use-cases/workos-sync.js';
 export * from './use-cases/archive-org-cascade.js';
+export * from './use-cases/project-operations.js';
 
 export * from './repos/org-repo.js';
 export * from './repos/account-repo.js';
@@ -36,8 +38,10 @@ export * from './repos/project-repo.js';
 export * from './repos/project-version-repo.js';
 export * from './repos/deploy-target-repo.js';
 export * from './repos/deployment-repo.js';
+export * from './repos/project-operation-repo.js';
 export * from './repos/token-repo.js';
 export * from './repos/audit-repo.js';
 export * from './repos/outbox-repo.js';
 
 export * from './blob/store.js';
+export * from './testing/fakes.js';

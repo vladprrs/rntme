@@ -5,6 +5,7 @@ export const RoleSchema = z.enum(['admin', 'member']);
 export const ScopeSchema = z.enum([
   'project:read',
   'project:write',
+  'project:delete',
   'version:publish',
   'member:read',
   'token:manage',
@@ -42,11 +43,15 @@ export const MembershipMirrorSchema = z.object({
 });
 export type MembershipMirror = z.infer<typeof MembershipMirrorSchema>;
 
+export const ProjectStatusSchema = z.enum(['active', 'deleting', 'delete_failed', 'decommissioned']);
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+
 export const ProjectSchema = z.object({
   id: UuidSchema,
   orgId: UuidSchema,
   slug: SlugSchema,
   displayName: z.string().min(1).max(120),
+  status: ProjectStatusSchema.default('active'),
   archivedAt: z.date().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),

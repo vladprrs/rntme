@@ -11,6 +11,7 @@ import {
   PgTokenRepo,
   PgAuditRepo,
   PgOutboxRepo,
+  PgProjectOperationRepo,
 } from '@rntme/platform-storage';
 import type {
   OrganizationRepo,
@@ -24,6 +25,7 @@ import type {
   TokenRepo,
   AuditRepo,
   OutboxRepo,
+  ProjectOperationRepo,
 } from '@rntme/platform-core';
 
 export type RequestRepos = {
@@ -38,6 +40,7 @@ export type RequestRepos = {
   tokens: TokenRepo;
   audit: AuditRepo;
   outbox: OutboxRepo;
+  projectOperations: ProjectOperationRepo;
 };
 
 export function resolveDeps(tx: PoolClient): RequestRepos {
@@ -53,5 +56,6 @@ export function resolveDeps(tx: PoolClient): RequestRepos {
     tokens: new PgTokenRepo(tx),
     audit: new PgAuditRepo(tx),
     outbox: new PgOutboxRepo(tx),
+    projectOperations: new PgProjectOperationRepo(tx),
   };
 }

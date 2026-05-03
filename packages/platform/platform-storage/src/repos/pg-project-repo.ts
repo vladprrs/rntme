@@ -9,6 +9,7 @@ function toP(r: typeof project.$inferSelect): Project {
     orgId: r.orgId,
     slug: r.slug,
     displayName: r.displayName,
+    status: r.status ?? 'active',
     archivedAt: r.archivedAt,
     createdAt: r.createdAt!,
     updatedAt: r.updatedAt!,
@@ -58,13 +59,29 @@ export class PgProjectRepo implements ProjectRepo {
     }
   }
 
-  async list(orgId: string, opts: { includeArchived: boolean }): Promise<Result<readonly Project[], PlatformError>> {
+  async list(orgId: string, opts: { includeArchived: boolean; includeInactive?: boolean }): Promise<Result<readonly Project[], PlatformError>> {
     try {
-      const cond = opts.includeArchived
+      const activeStatus = eq(project.status, 'active');
+      const notArchived = isNull(project.archivedAt);
+      const cond = opts.includeArchived || opts.includeInactive
         ? eq(project.orgId, orgId)
-        : and(eq(project.orgId, orgId), isNull(project.archivedAt));
+        : and(eq(project.orgId, orgId), notArchived, activeStatus);
       const rows = await this.db.select().from(project).where(cond!);
       return ok(rows.map(toP));
+    } catch (cause) {
+      return err([{ code: 'PLATFORM_STORAGE_DB_UNAVAILABLE', message: String(cause), cause }]);
+    }
+  }
+
+  async setStatus(orgId: string, id: string, status: Project['status']): Promise<Result<Project, PlatformError>> {
+    try {
+      const rows = await this.db
+        .update(project)
+        .set({ status, updatedAt: new Date() })
+        .where(and(eq(project.orgId, orgId), eq(project.id, id)))
+        .returning();
+      if (!rows[0]) return err([{ code: 'PLATFORM_TENANCY_PROJECT_NOT_FOUND', message: id }]);
+      return ok(toP(rows[0]));
     } catch (cause) {
       return err([{ code: 'PLATFORM_STORAGE_DB_UNAVAILABLE', message: String(cause), cause }]);
     }

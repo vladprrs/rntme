@@ -50,6 +50,13 @@
       "when": 1777473000000,
       "tag": "0006_deploy_target_auth_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777559400000,
+      "tag": "0007_project_operations",
+      "breakpoints": true
     }
   ]
 }
