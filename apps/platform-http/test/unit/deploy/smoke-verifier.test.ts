@@ -7,7 +7,7 @@ const stubFetcher = (
     { status: number; body?: string; contentType?: string; latencyMs?: number; throws?: 'timeout' | 'error' }
   >,
 ): SmokeFetcher => {
-  return async (url, opts) => {
+  return async (url, _opts) => {
     const response = responses[url];
     if (!response) throw new Error(`no stub for ${url}`);
     if (response.throws === 'timeout') return { status: 'timeout', latencyMs: response.latencyMs ?? 5_000 };

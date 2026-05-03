@@ -1,4 +1,5 @@
 import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
+import type { VarsManifest } from './vars.js';
 
 export type ServiceKind = 'domain' | 'integration';
 
@@ -41,5 +42,5 @@ export type ComposedProjectInput = {
   readonly middleware?: Readonly<Record<string, ProjectMiddlewareDecl>>;
   readonly mounts?: readonly ProjectMountDecl[];
   readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
-  readonly varsManifest?: import('./vars.js').VarsManifest;
+  readonly varsManifest?: VarsManifest;
 };

@@ -157,7 +157,7 @@ describe('runDeployment', () => {
       planProject: vi.fn(() => ({
         ok: false as const,
         errors: [{
-          code: 'DEPLOY_PLAN_TARGET_VAR_MISSING',
+          code: 'DEPLOY_PLAN_TARGET_VAR_MISSING' as const,
           message: 'vars.AUTH0_SPA_CLIENT_ID: target staging does not provide "target.auth.auth0.clientId"',
           varName: 'AUTH0_SPA_CLIENT_ID',
           fromPath: 'target.auth.auth0.clientId',

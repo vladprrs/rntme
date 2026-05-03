@@ -369,7 +369,7 @@ function defaultLoadComposed(dir: string): ResultLike<LoadedDeployProject> {
 async function toDeployCoreInput(
   value: LoadedDeployProject,
   rootDir: string,
-  config: ProjectDeploymentConfig,
+  _config: ProjectDeploymentConfig,
 ): Promise<ComposedProjectInput> {
   if (!isComposedBlueprint(value)) return value;
 

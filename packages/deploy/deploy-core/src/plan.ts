@@ -11,7 +11,7 @@ import {
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
 import { err, ok, type Result } from './result.js';
-import { resolveVars, applyVars } from './vars.js';
+import { resolveVars, applyVars, type ResolvedVars, type TargetForVars } from './vars.js';
 
 export type PlannedProject = {
   readonly orgSlug: string;
@@ -106,7 +106,7 @@ export function buildProjectDeploymentPlan(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
 ): Result<ProjectDeploymentPlan, DeploymentPlanError> {
-  const resolved = resolveVars(project.varsManifest ?? {}, config);
+  const resolved = resolveVars(project.varsManifest ?? {}, targetForVars(config, project.name));
   if (!resolved.ok) return resolved;
   const vars = resolved.value;
 
@@ -172,11 +172,20 @@ export function buildProjectDeploymentPlan(
   });
 }
 
+function targetForVars(config: ProjectDeploymentConfig, fallbackSlug: string): TargetForVars {
+  return {
+    slug: config.targetSlug ?? fallbackSlug,
+    ...(config.auth === undefined ? {} : { auth: config.auth }),
+    ...(config.modules === undefined ? {} : { modules: config.modules }),
+    ...(config.eventBus === undefined ? {} : { eventBus: config.eventBus }),
+  };
+}
+
 function buildWorkloads(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
   errors: DeploymentPlanError[],
-  vars: import('./vars.js').ResolvedVars,
+  vars: ResolvedVars,
 ): DeploymentWorkload[] {
   const workloads: DeploymentWorkload[] = [];
   const runtimeImage = config.runtimeImage ?? 'ghcr.io/vladprrs/rntme-runtime:latest';
