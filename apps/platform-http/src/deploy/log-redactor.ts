@@ -1,5 +1,5 @@
 const SECRET_KEY =
-  String.raw`(?:apiToken|api[-_]?key|x-api-key|clientSecret|client_secret|accessToken|access_token|refreshToken|refresh_token|password|token|secret)`;
+  String.raw`(?:apiToken|api[-_]?key|x-api-key|clientSecret|client_secret|mgmtClientSecret|mgmt_client_secret|m2m_client_secret|m2mClientSecret|accessToken|access_token|refreshToken|refresh_token|password|token|secret)`;
 
 const REDACTION_PATTERNS: readonly {
   readonly pattern: RegExp;
@@ -27,9 +27,18 @@ const REDACTION_PATTERNS: readonly {
   },
 ];
 
+const STRUCTURAL_REDACTION_PATTERNS: readonly { pattern: RegExp; replace: string }[] = [
+  {
+    pattern: /("(?:secretOutputs|targetSecrets|mgmtClientSecret|m2mClients)"\s*:\s*)([^,}\]]+)/g,
+    replace: '$1"***"',
+  },
+];
+
+const ALL_PATTERNS = [...REDACTION_PATTERNS, ...STRUCTURAL_REDACTION_PATTERNS];
+
 export function redact(input: string): string {
   let output = input;
-  for (const { pattern, replace } of REDACTION_PATTERNS) {
+  for (const { pattern, replace } of ALL_PATTERNS) {
     output = output.replace(pattern, replace);
   }
   return output;
