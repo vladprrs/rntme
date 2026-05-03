@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { provision, ENV_MAPPINGS } from '../../src/provisioner.js';
+import { provision, tearDown, ENV_MAPPINGS } from '../../src/provisioner.js';
 
 const baseInput = {
   publicConfig: {
@@ -202,5 +202,69 @@ describe('ENV_MAPPINGS', () => {
         expect.objectContaining({ envName: expect.stringContaining('AUTH0_M2M_') }),
       ]),
     });
+  });
+});
+
+describe('tearDown', () => {
+  it('deletes M2M clients, client-grants, resource server, and SPA client', async () => {
+    const deletes: string[] = [];
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (init?.method === 'DELETE') {
+        deletes.push(u.pathname);
+        return new Response('{}', { status: 200 });
+      }
+      if (u.pathname === '/api/v2/client-grants') return new Response('[{"id":"g","client_id":"m2m_c","audience":"https://x/api"}]', { status: 200 });
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x', 'other_app'] }]), { status: 200 });
+      if (u.pathname.startsWith('/api/v2/connections/')) return new Response('{}', { status: 200 });
+      throw new Error(`unhandled ${u.pathname}`);
+    }) as unknown as typeof fetch;
+    const r = await tearDown({ ...baseInput, priorOutputs: {
+      publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
+      secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'shh' }] },
+    }, fetch: fetcher });
+    expect(r.ok).toBe(true);
+    expect(deletes).toContain('/api/v2/client-grants/g');
+    expect(deletes).toContain('/api/v2/clients/m2m_c');
+    expect(deletes).toContain('/api/v2/resource-servers/rs_1');
+    expect(deletes).toContain('/api/v2/clients/spa_x');
+  });
+
+  it('does not remove other clients from connection.enabled_clients', async () => {
+    let connectionPatch: { enabled_clients?: string[] } | null = null;
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/connections' && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x', 'other_app'] }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1' && init?.method === 'PATCH') {
+        connectionPatch = JSON.parse(String(init.body));
+        return new Response('{}', { status: 200 });
+      }
+      if (init?.method === 'DELETE') return new Response('{}', { status: 200 });
+      if (u.pathname === '/api/v2/client-grants') return new Response('[]', { status: 200 });
+      throw new Error(`unhandled ${u.pathname}`);
+    }) as unknown as typeof fetch;
+    await tearDown({ ...baseInput, priorOutputs: {
+      publicOutputs: { spaClient: { id: 'spa_x' } },
+      secretOutputs: { m2mClients: [] },
+    }, fetch: fetcher });
+    expect((connectionPatch as { enabled_clients?: string[] } | null)?.enabled_clients).toEqual(['other_app']);
+  });
+
+  it('treats 404 on delete as success (idempotent)', async () => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/connections') return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/client-grants') return new Response('[]', { status: 200 });
+      if (init?.method === 'DELETE') return new Response('', { status: 404 });
+      throw new Error(`unhandled ${u.pathname}`);
+    }) as unknown as typeof fetch;
+    const r = await tearDown({ ...baseInput, priorOutputs: {
+      publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
+      secretOutputs: { m2mClients: [{ name: 'a', clientId: 'm', clientSecret: 's' }] },
+    }, fetch: fetcher });
+    expect(r.ok).toBe(true);
   });
 });

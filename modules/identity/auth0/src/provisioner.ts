@@ -150,6 +150,49 @@ async function ensureConnectionEnabled(mgmt: MgmtClient, connectionName: string,
   return mgmt.patchConnection(found.value.id, { enabled_clients: [...enabled, clientId] });
 }
 
+export async function tearDown(input: ProvisionInput) {
+  const secrets = input.targetSecrets.auth0Mgmt as Auth0TargetSecrets['auth0Mgmt'];
+  const mgmt = createMgmtClient({ ...secrets, fetch: input.fetch });
+
+  const prior = input.priorOutputs;
+  if (!prior) return ok(undefined);
+
+  const m2m = (prior.secretOutputs.m2mClients ?? []) as Array<{ clientId: string }>;
+  for (const m of m2m) {
+    const grants = await mgmt.listClientGrants(m.clientId, (prior.publicOutputs.resourceServer as { identifier?: string } | undefined)?.identifier ?? '');
+    if (grants.ok) {
+      for (const g of grants.value) {
+        const r = await mgmt.deleteClientGrant(g.id);
+        if (!r.ok) return err(r.errors);
+      }
+    }
+    const r = await mgmt.deleteClient(m.clientId);
+    if (!r.ok) return err(r.errors);
+  }
+
+  const rs = prior.publicOutputs.resourceServer as { id?: string } | undefined;
+  if (rs?.id) {
+    const r = await mgmt.deleteResourceServer(rs.id);
+    if (!r.ok) return err(r.errors);
+  }
+
+  const spa = prior.publicOutputs.spaClient as { id?: string } | undefined;
+  if (spa?.id) {
+    const conn = await mgmt.findConnectionByName(DEFAULT_CONNECTION);
+    if (conn.ok && conn.value) {
+      const enabled = conn.value.enabled_clients ?? [];
+      if (enabled.includes(spa.id)) {
+        const r = await mgmt.patchConnection(conn.value.id, { enabled_clients: enabled.filter((c) => c !== spa.id) });
+        if (!r.ok) return err(r.errors);
+      }
+    }
+    const r = await mgmt.deleteClient(spa.id);
+    if (!r.ok) return err(r.errors);
+  }
+
+  return ok(undefined);
+}
+
 export const ENV_MAPPINGS: ProvisionerEnvMapping = {
   'identity-auth0': [
     { from: 'spaClient.id', envName: 'AUTH0_SPA_CLIENT_ID', secret: false, target: 'app' },
