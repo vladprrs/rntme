@@ -9,7 +9,7 @@ const deployment = {
   orgId: '22222222-2222-4222-8222-222222222222',
   projectId: '33333333-3333-4333-8333-333333333333',
   projectVersionId: '44444444-4444-4444-8444-444444444444',
-  projectVersionSeq: 4,
+  projectVersionSeq: '4',
   targetId: '55555555-5555-4555-8555-555555555555',
   targetSlug: 'dokploy-demos',
   status: 'queued',

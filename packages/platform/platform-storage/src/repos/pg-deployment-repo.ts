@@ -92,15 +92,15 @@ export class PgDeploymentRepo implements DeploymentRepo {
   ): Promise<Result<readonly Deployment[], PlatformError>> {
     try {
       if (opts.status && opts.status.length === 0) return ok([]);
-      const where = ['project_id=$1'];
+      const where = ['d.project_id=$1'];
       const values: unknown[] = [projectId];
       if (opts.status) {
         values.push(opts.status);
-        where.push(`status = ANY($${values.length}::deployment_status[])`);
+        where.push(`d.status = ANY($${values.length}::deployment_status[])`);
       }
       if (opts.cursor) {
         values.push(opts.cursor);
-        where.push(`queued_at < $${values.length}`);
+        where.push(`d.queued_at < $${values.length}`);
       }
       values.push(opts.limit);
       const rows = await this.db.query(

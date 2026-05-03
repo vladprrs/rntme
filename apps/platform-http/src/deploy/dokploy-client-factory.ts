@@ -375,7 +375,7 @@ async function configureFileMounts(
         applicationId,
       });
       for (const duplicate of matches.slice(1)) {
-        await request('POST', '/api/mounts.delete', { mountId: duplicate.mountId });
+        await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
       }
     }
   }
