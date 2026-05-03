@@ -85,6 +85,14 @@ provisioned Redpanda bus. Provisioned Redpanda is rendered by
 persistent named volume. It is explicit per deploy target; missing `eventBus`
 config remains invalid.
 
+The deploy executor runs five ordered phases: `plan → provision → render → apply → verify`. The provision phase calls each module's `provisioner` (if declared) to reconcile external state and collect `provisionResult` / `provisionResultCiphertext` before the render phase bakes those outputs into resource env entries. Public provisioner outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist encrypted as `deployment.provisionResultCiphertext`.
+
+Target secrets are per-deploy-target credential blobs validated against a registered schema and stored encrypted. Routes:
+
+- `PUT /v1/orgs/:orgSlug/deploy-targets/:slug/secrets/:name` — upsert a secret; body `{ schema, value }`. `value` is validated against the registered schema; stored encrypted; never returned by GET.
+- `DELETE /v1/orgs/:orgSlug/deploy-targets/:slug/secrets/:name` — remove a named secret.
+- `GET /v1/orgs/:orgSlug/deploy-targets/:slug/secrets` — list secret names (no values).
+
 The deploy executor's `readUiRuntimeCss` looks for the bundled SPA stylesheet
 in `packages/runtime/ui-runtime/build/main.css` first, then falls back to the
 legacy `packages/ui-runtime/build/main.css`. The legacy location predates the

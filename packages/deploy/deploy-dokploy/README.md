@@ -44,6 +44,10 @@ Apply creates or updates compose resources before applications. It does not
 wait for Kafka protocol readiness; runtime bus clients must tolerate broker
 warm-up.
 
+## Provisioner outputs in render
+
+`renderDokployPlan` accepts optional `provisionedModules` (a map of module slug to `ProvisionerOutput`) and `envMappings` (an array of `EnvMapping` entries produced by `resolveEnvMappings` in `@rntme/deploy-core`). When present, render bakes provisioner outputs into the env entries of the relevant resource definitions before computing the plan digest. The digest therefore covers provisioned values: re-rendering with different provisioner outputs produces a different digest and forces a re-apply.
+
 ## Where to look first
 
 - `src/render.ts` — redacted Dokploy resource rendering and digesting.
