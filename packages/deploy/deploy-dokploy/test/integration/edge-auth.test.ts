@@ -27,7 +27,7 @@ describe.skipIf(!dockerAvailable)('edge auth integration', () => {
         ],
       },
       {
-        app: 'http://nonexistent-upstream:65535',
+        app: `http://${HOST_GATEWAY_HOSTNAME}:65535`,
         // Container reaches the host's introspect sidecar via host-gateway alias.
         'identity-auth0': `http://${HOST_GATEWAY_HOSTNAME}:${sidecar.port}`,
       },
@@ -85,7 +85,7 @@ async function startRejectingIntrospectionServer(): Promise<{ port: number; stop
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       server.off('error', reject);
       const addr = server.address();
       if (addr === null || typeof addr === 'string') {
