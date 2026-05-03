@@ -1070,6 +1070,9 @@ importers:
       '@eslint/js':
         specifier: ^9.10.0
         version: 9.39.4
+      '@rntme/identity-auth0':
+        specifier: workspace:*
+        version: link:../../../modules/identity/auth0
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39

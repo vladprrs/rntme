@@ -12,7 +12,6 @@
         "method": "POST",
         "path": "/notes",
         "parameters": [
-          { "name": "id", "in": "body", "bindTo": "id", "required": true },
           { "name": "title", "in": "body", "bindTo": "title", "required": true },
           { "name": "body", "in": "body", "bindTo": "body", "required": true }
         ]

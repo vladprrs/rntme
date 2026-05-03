@@ -30,6 +30,7 @@ export function inferExprType(
   scope: Scope,
   pdm: ValidatedPdm,
   params: ParamMap,
+  nodeTypes?: Map<string, ExprType>,
 ): Result<ExprType> {
   if (expr === null) return ok({ type: 'null', nullable: true });
   if (typeof expr === 'boolean') return ok({ type: 'boolean', nullable: false });
@@ -57,6 +58,16 @@ export function inferExprType(
     }
     if ('$pre' in expr) {
       return ok({ type: 'string', nullable: true });
+    }
+    if ('$node' in expr) {
+      const name = (expr as { $node: string }).$node;
+      const nt = nodeTypes?.get(name);
+      if (!nt) {
+        return err([
+          { layer: 'semantic', code: ERROR_CODES.GRAPH_IR_NODE_REF_NOT_FOUND, message: `$node references unknown node "${name}"` },
+        ]);
+      }
+      return ok(nt);
     }
     const opEntry = Object.entries(expr as Record<string, unknown>)[0];
     if (!opEntry) return err([{ layer: 'semantic', code: ERROR_CODES.SEM_TYPE_MISMATCH, message: 'empty expr' }]);

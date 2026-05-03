@@ -48,6 +48,7 @@ export type Expr =
   | { $literal: string }
   | { $param: string }
   | { $pre: string }
+  | { $node: string }
   | { [K in ExprOp]?: Expr[] }
   | { between: [Expr, Expr, Expr] }
   | { case: { when: Array<[Expr, Expr]>; else: Expr } }
@@ -133,6 +134,12 @@ export type LookupOneNode = {
   };
 };
 
+export type UuidNode = {
+  id: string;
+  type: 'uuid';
+  config: Record<string, never>;
+};
+
 export type EmitNode = {
   id: string;
   type: 'emit';
@@ -153,7 +160,7 @@ export type GraphNode =
   | SortNode
   | LimitNode;
 
-export type AnyGraphNode = GraphNode | DistinctNode | LookupOneNode | EmitNode;
+export type AnyGraphNode = GraphNode | DistinctNode | LookupOneNode | UuidNode | EmitNode;
 
 export type GraphDecl = {
   id: string;

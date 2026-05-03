@@ -90,6 +90,10 @@ Nginx itself does not validate JWTs. The module HTTP endpoint does (Auth0: JWKS 
 
 Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Session` shape (defence in depth); edge sets `X-Rntme-User-Sub` / `X-Rntme-User-Audience` headers as advisory hints.
 
+### Edge auth invariants
+
+The named 401 fallback is the only canonical 401 body for protected routes. If a client sees a 401 with a `reason` field on a protected route, the request bypassed nginx and reached the backend pre-step pipeline — investigate.
+
 ## Specs
 
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`

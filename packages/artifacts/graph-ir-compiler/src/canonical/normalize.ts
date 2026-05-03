@@ -91,6 +91,8 @@ export function normalize(
           };
         case 'limit':
           return { kind: 'limit', id: n.id, scope, input: n.config.input, count: n.config.count };
+        case 'uuid':
+          return { kind: 'uuid', id: n.id, scope };
         case 'emit': {
           const out: CanonicalEmit = {
             kind: 'emit',

@@ -42,6 +42,8 @@ export type CompiledCommand = {
   paramOrder: string[];
   optionalParams: string[];
   paramDefaults: Record<string, unknown>;
+  /** Node ids that produce runtime values (e.g. 'uuid' nodes). */
+  runtimeNodes: string[];
 };
 
 export type RuntimeActor = ActorRef | null;

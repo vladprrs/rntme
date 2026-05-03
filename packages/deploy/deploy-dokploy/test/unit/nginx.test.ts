@@ -253,6 +253,9 @@ describe('renderNginxConfig', () => {
       '      default_type application/json;',
       '      alias /srv/config.json;',
       '    }',
+      '    location ~ ^/_rntme_auth_ {',
+      '      return 404;',
+      '    }',
       '    location / {',
       '      proxy_set_header x-request-id $request_id;',
       '      proxy_set_header x-correlation-id $http_x_correlation_id;',
@@ -366,6 +369,43 @@ describe('auth middleware rendering', () => {
     expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
   });
 
+  it('emits an explicit 404 for ^/_rntme_auth_<anything> before SPA fallback', () => {
+    const edge: EdgePlan = {
+      routes: [
+        {
+          id: 'http:/api',
+          kind: 'http',
+          path: '/api',
+          targetService: 'app',
+          targetWorkload: 'app',
+        },
+      ],
+      middleware: [
+        {
+          mountTarget: 'http:/api',
+          name: 'auth',
+          kind: 'auth',
+          provider: 'auth0',
+          audience: 'https://notes-demo.rntme.com/api',
+          moduleSlug: 'identity-auth0',
+          moduleIntrospectPort: 50052,
+        },
+      ],
+    };
+
+    const rendered = renderNginxConfig(edge, {
+      app: 'http://app:3000',
+      'identity-auth0': 'http://identity-auth0:50052',
+    });
+
+    expect(rendered).toContain('location ~ ^/_rntme_auth_');
+    expect(rendered).toContain('return 404;');
+
+    const blockIdx = rendered.indexOf('location ~ ^/_rntme_auth_');
+    const tryFilesIdx = rendered.indexOf('try_files');
+    if (tryFilesIdx !== -1) expect(blockIdx).toBeLessThan(tryFilesIdx);
+  });
+
   it('does NOT render auth_request for routes without auth middleware', () => {
     const rendered = renderNginxConfig(
       {
@@ -383,7 +423,6 @@ describe('auth middleware rendering', () => {
       { app: 'http://rntme-acme-notes-app:3000' },
     );
     expect(rendered).not.toContain('auth_request');
-    expect(rendered).not.toContain('rntme_auth_');
   });
 
   it('renders the complete protected API auth contract in one config', () => {

@@ -149,6 +149,8 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
     if (d.mode === 'defaulted' && d.default !== undefined) paramDefaults[n] = d.default;
   }
 
+  const runtimeNodes = graph.nodes.filter((n) => n.kind === 'uuid').map((n) => n.id);
+
   return ok({
     graphId: graph.id,
     aggregate,
@@ -158,5 +160,6 @@ export function compileCommand(rawSpec: unknown, rawPdm: unknown, rawQsm: unknow
     paramOrder: Object.keys(graph.signature.inputs),
     optionalParams,
     paramDefaults,
+    runtimeNodes,
   });
 }

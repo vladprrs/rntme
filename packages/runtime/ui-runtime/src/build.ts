@@ -12,6 +12,11 @@ const sharedBuildOptions = {
   platform: 'browser' as const,
   target: 'es2022' as const,
   sourcemap: true,
+  minify: true,
+  treeShaking: true,
+  define: {
+    'process.env.NODE_ENV': '"production"',
+  },
   loader: {
     '.css': 'empty' as const,
   },

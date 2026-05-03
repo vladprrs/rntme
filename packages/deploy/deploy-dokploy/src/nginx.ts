@@ -39,6 +39,8 @@ export function renderNginxConfig(
     ),
   );
 
+  const internalAuthFallback = '    location ~ ^/_rntme_auth_ {\n      return 404;\n    }';
+
   return [
     'events {}',
     'http {',
@@ -50,6 +52,7 @@ export function renderNginxConfig(
     ...renderConfigLocation(),
     ...internalLocations,
     ...named401Locations,
+    internalAuthFallback,
     ...locations,
     '  }',
     '}',
