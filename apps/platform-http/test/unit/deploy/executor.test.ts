@@ -363,6 +363,8 @@ describe('runDeployment', () => {
     expect(renderPlan).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ publicBaseUrl: 'https://acme-shop-default.rntme.com' }),
+      expect.any(Map),
+      expect.any(Object),
     );
   });
 

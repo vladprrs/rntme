@@ -13,6 +13,7 @@ import type {
   ProjectDeploymentPlan,
   ProvisionedModule,
   ProvisionerContract,
+  ProvisionerEnvMapping,
   ProvisionerOutput,
 } from '@rntme/deploy-core';
 import { buildProjectDeploymentPlan, runProvisioners } from '@rntme/deploy-core';
@@ -262,7 +263,20 @@ export async function runDeployment(
       );
     }
 
-    // TODO(task-15): pass provisioned to render
+    const envMappings: Record<string, ProvisionerEnvMapping[string]> = {};
+    for (const m of provModules) {
+      try {
+        const moduleExports = (await import(m.packageName)) as { ENV_MAPPINGS?: ProvisionerEnvMapping };
+        if (moduleExports.ENV_MAPPINGS && typeof moduleExports.ENV_MAPPINGS === 'object') {
+          for (const [k, v] of Object.entries(moduleExports.ENV_MAPPINGS)) {
+            if (v !== undefined) envMappings[k] = v;
+          }
+        }
+      } catch {
+        // Module without ENV_MAPPINGS export is allowed (no env baking required).
+      }
+    }
+
     await appendLog(deps, deploymentId, orgId, 'info', 'render', 'Rendering Dokploy plan');
     const rendered = await runStage('render', async () => (deps.renderPlan ?? renderDokployPlan)(
       plan.value as ProjectDeploymentPlan,
@@ -272,6 +286,8 @@ export async function runDeployment(
         environment: plan.value.project.environment,
         ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
       }),
+      provisioned,
+      envMappings,
     ), { log });
     if (!rendered.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
