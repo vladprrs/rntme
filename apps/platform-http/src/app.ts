@@ -16,6 +16,7 @@ import { projectRoutes } from './routes/projects.js';
 import { projectVersionRoutes } from './routes/project-versions.js';
 import { deployTargetRoutes } from './routes/deploy-targets.js';
 import { deploymentRoutes } from './routes/deployments.js';
+import { projectOperationRoutes } from './routes/project-operations.js';
 import { tokenRoutes } from './routes/tokens.js';
 import { auditRoutes } from './routes/audit.js';
 import { opsRoutes } from './routes/ops.js';
@@ -55,6 +56,7 @@ export type AppDeps = {
   cipher?: SecretCipher;
   enableBackgroundLoops?: boolean;
   scheduleDeployment?: (deploymentId: string, orgId: string) => void;
+  scheduleProjectDelete?: (operationId: string, orgId: string) => void;
   /** Pool-scoped repos used by pre-auth routes only (webhook, auth callback, ops). */
   poolRepos: {
     organizations: OrganizationRepo;
@@ -103,6 +105,9 @@ export function createApp(deps: AppDeps): Hono {
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
   };
+  const scheduleProjectDelete = deps.scheduleProjectDelete ?? ((operationId: string, orgId: string) => {
+    deps.logger.warn({ operationId, orgId }, 'project delete executor not wired yet');
+  });
   const scheduleDeployment = deps.scheduleDeployment ?? ((deploymentId: string, orgId: string) => {
     setImmediate(() => {
       void runDeployment(deploymentId, orgId, executorDeps).catch((cause) => {
@@ -122,7 +127,8 @@ export function createApp(deps: AppDeps): Hono {
   app.use('*', async (c, next) => {
     if (c.req.method !== 'POST') return next();
     const url = new URL(c.req.url);
-    const isPublish = /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/versions\/?$/.test(url.pathname);
+    const isPublish = /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/versions\/?$/.test(url.pathname)
+      || /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/operations\/update\/?$/.test(url.pathname);
     const cap = isPublish ? 10 * 1024 * 1024 : 1 * 1024 * 1024;
     return bodyLimit(cap)(c, next);
   });
@@ -213,6 +219,10 @@ export function createApp(deps: AppDeps): Hono {
     }, 404);
   });
 
+  authed.route(
+    '/orgs/:orgSlug/projects/:projSlug/operations',
+    projectOperationRoutes({ blob: deps.blob, ids: deps.ids, scheduleDeployment, scheduleProjectDelete }),
+  );
   authed.route(
     '/orgs/:orgSlug/projects/:projSlug',
     projectVersionRoutes({ blob: deps.blob, ids: deps.ids }),

@@ -5,6 +5,7 @@ export const RoleSchema = z.enum(['admin', 'member']);
 export const ScopeSchema = z.enum([
   'project:read',
   'project:write',
+  'project:delete',
   'version:publish',
   'member:read',
   'token:manage',
