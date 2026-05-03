@@ -69,8 +69,8 @@ export type ExecutorDeps = {
   readonly publicDeployDomain?: string;
   /** Override hook for tests; in production `runProvisioners` from deploy-core is used. */
   readonly runProvisioners?: typeof runProvisioners;
-  /** Resolve a provisioner contract from its package name and entry point. */
-  readonly resolveProvisioner: (packageName: string, entry: string) => Promise<ProvisionerContract>;
+  /** Resolve a provisioner contract from its package name, entry point, and materialized project dir. */
+  readonly resolveProvisioner: (packageName: string, entry: string, projectDir: string) => Promise<ProvisionerContract>;
   /** Build a TargetSecretsRepo scoped to the given org context. */
   readonly targetSecretsRepoFor: (orgId: string) => Promise<TargetSecretsRepo>;
   /** Cipher used to encrypt secret outputs from provisioners. */
@@ -220,6 +220,7 @@ export async function runDeployment(
               return prior === undefined ? m : { ...m, priorOutputs: prior };
             }),
             resolvedTargetSecrets: decrypted,
+            projectDir: tmpDir ?? '',
             resolveProvisioner: deps.resolveProvisioner,
             log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
           }),

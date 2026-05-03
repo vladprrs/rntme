@@ -1,5 +1,9 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { setImmediate } from 'node:timers';
+import { pathToFileURL } from 'node:url';
 import { Hono } from 'hono';
+import { safeProvisionerName } from '@rntme/blueprint';
 import type { Env } from './config/env.js';
 import { requestId } from './middleware/request-id.js';
 import { loggerMiddleware } from './middleware/logger.js';
@@ -46,6 +50,41 @@ import type {
 } from '@rntme/platform-core';
 import { resolveDeps } from './resolve-deps.js';
 import { createPgTargetSecretsRepo, PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
+import type { ProvisionerContract } from '@rntme/deploy-core';
+
+/**
+ * Factory that builds a `resolveProvisioner` function which loads provisioner
+ * entry files from the materialized bundle tmpDir rather than from
+ * platform-http's own node_modules (which do not contain module packages).
+ *
+ * The convention is: `<projectDir>/assets/provisioners/<safe>.entry.js`
+ * where `safe = safeProvisionerName(packageName)`.
+ */
+export function buildResolveProvisioner(): (
+  packageName: string,
+  entry: string,
+  projectDir: string,
+) => Promise<ProvisionerContract> {
+  return async (packageName, _entry, projectDir) => {
+    const safe = safeProvisionerName(packageName);
+    const relPath = `assets/provisioners/${safe}.entry.js`;
+    const absPath = join(projectDir, relPath);
+    if (!existsSync(absPath)) {
+      throw new Error(
+        `DEPLOY_PROVISION_BUNDLE_ASSET_MISSING: module "${packageName}" expected ${relPath} in materialized bundle`,
+      );
+    }
+    let pkg: { provision?: unknown; tearDown?: unknown };
+    try {
+      pkg = (await import(pathToFileURL(absPath).href)) as { provision?: unknown; tearDown?: unknown };
+    } catch (cause) {
+      throw new Error(
+        `DEPLOY_PROVISION_ENTRY_LOAD_FAILED: module "${packageName}" failed to import: ${(cause as Error).message}`,
+      );
+    }
+    return pkg as ProvisionerContract;
+  };
+}
 
 export type AppDeps = {
   env: Env;
@@ -106,10 +145,7 @@ export function createApp(deps: AppDeps): Hono {
     smoker: new SmokeVerifier(),
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
-    resolveProvisioner: async (packageName: string, entry: string) => {
-      const pkg = await import(`${packageName}/${entry.replace(/^\.\//, '')}`);
-      return { provision: pkg.provision, tearDown: pkg.tearDown };
-    },
+    resolveProvisioner: buildResolveProvisioner(),
     targetSecretsRepoFor: async (_orgId: string) =>
       createPgTargetSecretsRepo({ db: deps.pool, cipher }),
     secretCipher: cipher,
