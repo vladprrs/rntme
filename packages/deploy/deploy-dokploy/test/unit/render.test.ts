@@ -582,6 +582,7 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
+    expect(r.value.urls.publicRoutes).toEqual([]);
     expect(r.value.urls.protectedRouteChecks).toEqual([
       { name: 'protected-api-get-notes', method: 'GET', url: 'https://commerce.example.com/api/notes' },
       { name: 'protected-api-post-notes', method: 'POST', url: 'https://commerce.example.com/api/notes' },
