@@ -59,3 +59,5 @@ export type {
   ProvisionerLog,
   ProvisionerVendorError,
 } from './provisioner-contract.js';
+export { DEPLOY_PROVISION_ERROR_CODES } from './errors-provision.js';
+export type { DeploymentProvisionErrorCode, DeploymentProvisionError } from './errors-provision.js';
