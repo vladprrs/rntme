@@ -7,6 +7,13 @@ import type {
 import type { EncryptedSecret } from '../secret/secret-cipher.js';
 import type { PlatformError, Result } from '../types/result.js';
 
+export type DeploymentWithProvision = Deployment & {
+  readonly provisionResult: DeploymentProvisionResult | null;
+  readonly provisionResultCiphertext: Buffer | null;
+  readonly provisionResultNonce: Buffer | null;
+  readonly provisionResultKeyVersion: number | null;
+};
+
 export type DeploymentProvisionResultModule = {
   readonly publicOutputs: Record<string, unknown>;
   readonly provisionedAt: string;
@@ -98,4 +105,8 @@ export interface DeploymentRepo {
   hasActiveForProject(projectId: string): Promise<Result<boolean, PlatformError>>;
   hasActiveForProjectTarget(projectId: string, targetId: string): Promise<Result<boolean, PlatformError>>;
   listAppliedResourcesByProject(projectId: string): Promise<Result<readonly DeploymentAppliedResources[], PlatformError>>;
+  findLastSuccessfulForProjectTarget(
+    projectId: string,
+    targetId: string,
+  ): Promise<Result<DeploymentWithProvision | null, PlatformError>>;
 }

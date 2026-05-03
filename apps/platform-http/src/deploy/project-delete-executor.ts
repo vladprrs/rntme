@@ -1,8 +1,19 @@
 import { clearInterval, setInterval } from 'node:timers';
 import { deleteDokployResources, type DokployDeleteResource } from '@rntme/deploy-dokploy';
-import { isOk, type DeployTargetRepo, type DeploymentRepo, type ProjectOperationRepo, type ProjectRepo } from '@rntme/platform-core';
+import {
+  isOk,
+  type BlobStore,
+  type DeployTargetRepo,
+  type DeploymentRepo,
+  type ProjectOperationRepo,
+  type ProjectRepo,
+  type ProjectVersionRepo,
+  type SecretCipher,
+} from '@rntme/platform-core';
+import type { ProvisionerContract } from '@rntme/deploy-core';
 import type { Logger } from 'pino';
 import type { DokployClientFactory } from './dokploy-client-factory.js';
+import { runTearDownsForDeployment } from './run-teardowns.js';
 
 export type ProjectDeleteExecutorDeps = {
   readonly withOrgTx: <T>(orgId: string, fn: (repos: {
@@ -10,10 +21,18 @@ export type ProjectDeleteExecutorDeps = {
     projects: ProjectRepo;
     deployments: DeploymentRepo;
     deployTargets: DeployTargetRepo;
+    projectVersions: ProjectVersionRepo;
   }) => Promise<T>) => Promise<T>;
   readonly dokployClientFactory: DokployClientFactory;
   readonly logger: Pick<Logger, 'error' | 'warn' | 'info'>;
   readonly heartbeatMs?: number;
+  readonly blob: BlobStore;
+  readonly secretCipher: SecretCipher;
+  readonly resolveProvisioner: (
+    packageName: string,
+    entry: string,
+    projectDir: string,
+  ) => Promise<ProvisionerContract>;
 };
 
 export async function runProjectDeleteOperation(
@@ -49,6 +68,49 @@ export async function runProjectDeleteOperation(
         failures.push({ targetId, message: 'deploy target not found' });
         continue;
       }
+
+      // TearDown phase: run provisioner tearDown for the last successful deployment
+      // of this (project, target) pair before removing Dokploy resources.
+      const lastDeployment = await deps.withOrgTx(orgId, (repos) =>
+        repos.deployments.findLastSuccessfulForProjectTarget(operation.projectId, targetId),
+      );
+      if (!isOk(lastDeployment)) {
+        failures.push({ targetId, message: `failed to read last deployment: ${lastDeployment.errors[0]?.message ?? 'unknown'}` });
+        continue;
+      }
+
+      if (lastDeployment.value !== null && lastDeployment.value.provisionResult !== null) {
+        const deployment = lastDeployment.value;
+
+        // Fetch the project version to get bundleBlobKey.
+        const projectVersion = await deps.withOrgTx(orgId, (repos) =>
+          repos.projectVersions.getById(deployment.projectVersionId),
+        );
+        if (!isOk(projectVersion) || !projectVersion.value) {
+          failures.push({ targetId, message: 'failed to fetch project version for tearDown' });
+          continue;
+        }
+
+        await appendLog(deps, operationId, orgId, 'info', 'teardown', `Running provisioner tearDown for target ${target.value.slug}`);
+
+        const tearResult = await runTearDownsForDeployment({
+          deployment,
+          projectVersion: projectVersion.value,
+          deps: {
+            blob: deps.blob,
+            secretCipher: deps.secretCipher,
+            resolveProvisioner: deps.resolveProvisioner,
+          },
+        });
+
+        if (!tearResult.ok) {
+          const message = tearResult.errors.map((e) => e.message).join('; ');
+          await appendLog(deps, operationId, orgId, 'error', 'teardown', `provisioner tearDown failed for target ${target.value.slug}: ${message}`);
+          failures.push({ targetId, message: `provisioner tearDown failed: ${message}` });
+          continue;
+        }
+      }
+
       await appendLog(deps, operationId, orgId, 'info', 'teardown', `Deleting ${resources.length} resources from target ${target.value.slug}`);
       const result = await deleteDokployResources(resources, deps.dokployClientFactory(target.value));
       if (!isOk(result)) {

@@ -438,6 +438,7 @@ export class FakeStore {
         );
         return parsed.length === 0 ? [] : [{ deploymentId: d.id, targetId: d.targetId, resources: parsed }];
       })),
+    findLastSuccessfulForProjectTarget: async () => ok(null),
   };
 
   readonly projectOperations: ProjectOperationRepo = {

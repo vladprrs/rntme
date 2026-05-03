@@ -127,6 +127,7 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
     hasActiveForProject: vi.fn(),
     hasActiveForProjectTarget: vi.fn(),
     listAppliedResourcesByProject: vi.fn(),
+    findLastSuccessfulForProjectTarget: vi.fn(),
   };
   return {
     deployments,

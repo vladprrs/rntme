@@ -9,6 +9,7 @@ import {
   type DeploymentProvisionResult,
   type DeploymentRepo,
   type DeploymentStatus,
+  type DeploymentWithProvision,
   type EncryptedSecret,
   type PlatformError,
   type Result,
@@ -355,6 +356,36 @@ export class PgDeploymentRepo implements DeploymentRepo {
     }
   }
 
+  async findLastSuccessfulForProjectTarget(
+    projectId: string,
+    targetId: string,
+  ): Promise<Result<DeploymentWithProvision | null, PlatformError>> {
+    try {
+      const rows = await this.db.query(
+        `SELECT d.*,
+                pv.seq as project_version_seq,
+                dt.slug as target_slug,
+                d.provision_result,
+                d.provision_result_ciphertext,
+                d.provision_result_nonce,
+                d.provision_result_key_version
+         FROM deployment d
+         INNER JOIN project_version pv ON pv.id = d.project_version_id
+         INNER JOIN deploy_target dt ON dt.id = d.target_id
+         WHERE d.project_id = $1
+           AND d.target_id = $2
+           AND d.status IN ('succeeded', 'succeeded_with_warnings')
+         ORDER BY d.queued_at DESC
+         LIMIT 1`,
+        [projectId, targetId],
+      );
+      if (!rows.rows[0]) return ok(null);
+      return ok(rowToDeploymentWithProvision(rows.rows[0] as DbRow));
+    } catch (cause) {
+      return dbErr(cause);
+    }
+  }
+
   async listAppliedResourcesByProject(projectId: string): Promise<Result<readonly DeploymentAppliedResources[], PlatformError>> {
     try {
       const rows = await this.db.query(
@@ -412,6 +443,20 @@ function rowToDeployment(r: DbRow): Deployment {
     startedAt: (r['started_at'] ?? null) as Date | null,
     finishedAt: (r['finished_at'] ?? null) as Date | null,
     lastHeartbeatAt: (r['last_heartbeat_at'] ?? null) as Date | null,
+  };
+}
+
+function rowToDeploymentWithProvision(r: DbRow): DeploymentWithProvision {
+  const base = rowToDeployment(r);
+  const ciphertext = r['provision_result_ciphertext'];
+  const nonce = r['provision_result_nonce'];
+  const keyVersion = r['provision_result_key_version'];
+  return {
+    ...base,
+    provisionResult: (r['provision_result'] as DeploymentProvisionResult | null) ?? null,
+    provisionResultCiphertext: ciphertext !== null && ciphertext !== undefined ? Buffer.from(ciphertext as Buffer) : null,
+    provisionResultNonce: nonce !== null && nonce !== undefined ? Buffer.from(nonce as Buffer) : null,
+    provisionResultKeyVersion: (keyVersion as number | null) ?? null,
   };
 }
 

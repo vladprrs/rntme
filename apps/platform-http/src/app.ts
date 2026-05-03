@@ -156,6 +156,9 @@ export function createApp(deps: AppDeps): Hono {
     withOrgTx,
     dokployClientFactory: createDokployClientFactory(cipher),
     logger: deps.logger,
+    blob: deps.blob,
+    secretCipher: cipher,
+    resolveProvisioner: buildResolveProvisioner(),
   };
   const scheduleProjectDelete = deps.scheduleProjectDelete ?? ((operationId: string, orgId: string) => {
     setImmediate(() => {

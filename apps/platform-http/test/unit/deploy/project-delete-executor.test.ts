@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
-import { ok, type DeployTargetWithSecret, type ProjectOperationRepo, type DeploymentRepo, type ProjectRepo } from '@rntme/platform-core';
+import { ok, type DeployTargetWithSecret, type ProjectOperationRepo, type DeploymentRepo, type ProjectRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { runProjectDeleteOperation, type ProjectDeleteExecutorDeps } from '../../../src/deploy/project-delete-executor.js';
 
 describe('runProjectDeleteOperation', () => {
@@ -11,6 +11,7 @@ describe('runProjectDeleteOperation', () => {
   const deployTargets = {
     getWithSecretById: vi.fn(async () => ok(target('target-1'))),
   };
+  const projectVersions = projectVersionRepo();
   const client = {
     deleteApplication: vi.fn(async () => undefined),
     deleteCompose: vi.fn(async () => undefined),
@@ -20,13 +21,28 @@ describe('runProjectDeleteOperation', () => {
     projects: typeof projects;
     deployments: typeof deployments;
     deployTargets: typeof deployTargets;
-  }) => Promise<unknown>) => fn({ projectOperations: operations, projects, deployments, deployTargets });
+    projectVersions: typeof projectVersions;
+  }) => Promise<unknown>) => fn({ projectOperations: operations, projects, deployments, deployTargets, projectVersions });
 
     await runProjectDeleteOperation('operation-1', 'org-1', {
       withOrgTx: withOrgTx as unknown as ProjectDeleteExecutorDeps['withOrgTx'],
       dokployClientFactory: () => client as never,
       logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
       heartbeatMs: 1_000,
+      blob: {
+        getRaw: vi.fn(async () => ok(Buffer.alloc(0))),
+        putIfAbsent: vi.fn(async () => ok(undefined as never)),
+        presignedGet: vi.fn(async () => ok('')),
+        getJson: vi.fn(async () => ok({})),
+      } as unknown as ProjectDeleteExecutorDeps['blob'],
+      secretCipher: {
+        encrypt: vi.fn(() => ({ ciphertext: Buffer.alloc(0), nonce: Buffer.alloc(0), keyVersion: 1 })),
+        decrypt: vi.fn(() => '{"modules":{}}'),
+      } as ProjectDeleteExecutorDeps['secretCipher'],
+      resolveProvisioner: vi.fn(async () => ({
+        provision: vi.fn(),
+        tearDown: vi.fn(),
+      })) as unknown as ProjectDeleteExecutorDeps['resolveProvisioner'],
     });
 
     expect(client.deleteApplication).toHaveBeenCalledWith('app_1');
@@ -94,7 +110,7 @@ function projectRepo(): Pick<ProjectRepo, 'setStatus'> {
   return { setStatus: vi.fn(async () => ok({} as never)) };
 }
 
-function deploymentRepo(): Pick<DeploymentRepo, 'listAppliedResourcesByProject'> {
+function deploymentRepo(): Pick<DeploymentRepo, 'listAppliedResourcesByProject' | 'findLastSuccessfulForProjectTarget'> {
   return {
     listAppliedResourcesByProject: vi.fn(async () => ok([
       {
@@ -106,6 +122,14 @@ function deploymentRepo(): Pick<DeploymentRepo, 'listAppliedResourcesByProject'>
         ],
       },
     ])),
+    // Returns null provisionResult → tearDown phase is skipped.
+    findLastSuccessfulForProjectTarget: vi.fn(async () => ok(null)),
+  };
+}
+
+function projectVersionRepo(): Pick<ProjectVersionRepo, 'getById'> {
+  return {
+    getById: vi.fn(async () => ok(null)),
   };
 }
 
