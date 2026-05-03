@@ -346,7 +346,6 @@ describe('renderDokployPlan', () => {
     expect(r.value.urls.projectUrl).toBe('https://commerce.example.com/');
     expect(r.value.urls.uiUrl).toBe('https://commerce.example.com/');
     expect(r.value.urls.publicRoutes).toEqual([
-      { routeId: 'ui:/', url: 'https://commerce.example.com/' },
       { routeId: 'http:/api/catalog', url: 'https://commerce.example.com/api/catalog' },
     ]);
   });

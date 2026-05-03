@@ -467,6 +467,7 @@ under `packages/runtime/event-store/test/`.
 3. Start deployment through the platform control plane: `rntme project deploy --org <org> --project <project> --version <seq> --target <target-slug>`.
 4. Observe it with `rntme project deployment watch --org <org> --project <project> <deployment-id>` or inspect history with `project deployment list/show`.
 5. The platform executor, not the CLI, decrypts target credentials and calls `planDeployment(...)`, `renderDokployPlan(...)`, and `applyDokployPlan(...)`.
+6. CLI tenancy resolution order is flag → env (`RNTME_ORG`/`RNTME_PROJECT`/`RNTME_SERVICE`) → `rntme.json` → credentials profile defaults (`defaultOrg`/`defaultProject`); persist defaults with `rntme login --token <pat> [--org <slug>] [--project <slug>]`.
 
 ### 6.15 Wire Auth0 into a project blueprint
 

@@ -20,6 +20,9 @@ export type ResolveEnv = {
   RNTME_BASE_URL?: string | undefined;
   RNTME_TOKEN?: string | undefined;
   RNTME_PROFILE?: string | undefined;
+  RNTME_ORG?: string | undefined;
+  RNTME_PROJECT?: string | undefined;
+  RNTME_SERVICE?: string | undefined;
 };
 
 export type ResolveInput = {
@@ -56,9 +59,19 @@ export function resolveConfig(input: ResolveInput): Result<ResolvedConfig, CliEr
     profile?.token ??
     null;
 
-  const org = input.flags.org ?? input.projectConfig?.org ?? input.credentials?.profiles[profileName]?.defaultOrg ?? null;
-  const project = input.flags.project ?? input.projectConfig?.project ?? null;
-  const service = input.flags.service ?? input.projectConfig?.service ?? null;
+  const org =
+    input.flags.org ??
+    input.env.RNTME_ORG ??
+    input.projectConfig?.org ??
+    profile?.defaultOrg ??
+    null;
+  const project =
+    input.flags.project ??
+    input.env.RNTME_PROJECT ??
+    input.projectConfig?.project ??
+    profile?.defaultProject ??
+    null;
+  const service = input.flags.service ?? input.env.RNTME_SERVICE ?? input.projectConfig?.service ?? null;
 
   if (input.requireToken && token === null) {
     return err(

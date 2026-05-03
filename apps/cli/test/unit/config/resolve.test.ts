@@ -60,6 +60,59 @@ describe('resolveConfig', () => {
     if (!r.ok) expect(r.error.code).toBe('CLI_CONFIG_MISSING');
   });
 
+  it('RNTME_ORG / RNTME_PROJECT / RNTME_SERVICE override credentials defaults', () => {
+    const r = resolveConfig({
+      flags: {},
+      env: { RNTME_ORG: 'env-org', RNTME_PROJECT: 'env-proj', RNTME_SERVICE: 'env-svc' },
+      projectConfig: null,
+      credentials: {
+        version: 1,
+        defaultProfile: 'default',
+        profiles: {
+          default: {
+            baseUrl: FIXED_BASE,
+            token: DUMMY_TOKEN,
+            addedAt: '2026-04-19T00:00:00Z',
+            defaultOrg: 'cred-org',
+            defaultProject: 'cred-proj',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.org).toBe('env-org');
+      expect(r.value.project).toBe('env-proj');
+      expect(r.value.service).toBe('env-svc');
+    }
+  });
+
+  it('credentials defaultProject is picked when no flag/env/projectConfig', () => {
+    const r = resolveConfig({
+      flags: {},
+      env: {},
+      projectConfig: null,
+      credentials: {
+        version: 1,
+        defaultProfile: 'default',
+        profiles: {
+          default: {
+            baseUrl: FIXED_BASE,
+            token: DUMMY_TOKEN,
+            addedAt: '2026-04-19T00:00:00Z',
+            defaultOrg: 'cred-org',
+            defaultProject: 'cred-proj',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.org).toBe('cred-org');
+      expect(r.value.project).toBe('cred-proj');
+    }
+  });
+
   it('--profile env picks profile', () => {
     const r = resolveConfig({
       flags: {},

@@ -93,8 +93,7 @@ export type RenderedDokployPlan = {
     readonly projectUrl: string;
     readonly uiUrl?: string;
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
-    readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
-    readonly protectedRoutes?: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
+    readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
   };
   readonly digest: string;
   readonly warnings: readonly string[];
@@ -144,22 +143,24 @@ export function renderDokployPlan(
     ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
   ];
   const uiRoute = plan.edge.routes.find((route) => route.kind === 'ui');
-  const publicRoutes = plan.edge.routes.filter((route) => !isAuthProtectedRoute(plan, route.id)).map((route) => ({
+  const ingressRoutes = plan.edge.routes.map((route) => ({
     routeId: route.id,
     path: route.path,
     url: joinPublicUrl(config.publicBaseUrl, route.path),
   }));
+  const publicSmokeRoutes = ingressRoutes.filter((_, idx) => {
+    const route = plan.edge.routes[idx];
+    return route !== undefined && route.kind !== 'ui' && !isAuthProtectedRoute(plan, route.id);
+  });
   const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
-  const protectedRoutes = protectedRouteChecks.map((r) => ({ ...r }));
   const urls: RenderedDokployPlan['urls'] =
     uiRoute === undefined
-      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicRoutes.map(stripRoutePath), protectedRouteChecks, protectedRoutes }
+      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicSmokeRoutes.map(stripRoutePath), protectedRouteChecks }
       : {
           projectUrl: config.publicBaseUrl,
           uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
-          publicRoutes: publicRoutes.map(stripRoutePath),
+          publicRoutes: publicSmokeRoutes.map(stripRoutePath),
           protectedRouteChecks,
-          protectedRoutes,
         };
   const renderedWithoutDigest = {
     target: { kind: 'dokploy' as const, endpoint: config.endpoint },
@@ -179,7 +180,7 @@ export function renderDokployPlan(
               publicBaseUrl: config.publicBaseUrl,
               containerPort: 8080,
               healthPath: '/health' as const,
-              routes: publicRoutes,
+              routes: ingressRoutes,
             },
           }
         : resource,

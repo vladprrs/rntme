@@ -17,9 +17,7 @@ export type VerificationHints = {
   readonly uiUrl?: string;
   readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
-  readonly protectedRoutes?: readonly ProtectedRouteSpec[];
-  /** @deprecated Use protectedRoutes instead. Kept for one transition PR. */
-  readonly protectedRouteChecks?: readonly { readonly name: string; readonly method: 'GET' | 'POST'; readonly url: string }[];
+  readonly protectedRouteChecks: readonly ProtectedRouteSpec[];
 };
 
 export class SmokeVerifier {
@@ -69,8 +67,7 @@ export class SmokeVerifier {
       });
     }
 
-    const protectedRoutes = verificationHints.protectedRoutes ?? verificationHints.protectedRouteChecks ?? [];
-    for (const route of protectedRoutes) {
+    for (const route of verificationHints.protectedRouteChecks) {
       for (const auth of [undefined, 'Bearer invalid.token.here', 'Bearer '] as const) {
         const r = await this.fetcher(route.url, {
           method: route.method,

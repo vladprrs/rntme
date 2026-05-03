@@ -108,6 +108,13 @@ the default deploy target implicitly.
 | `RNTME_BASE_URL` | API base URL (overrides `--base-url`) | `https://platform.rntme.com` |
 | `RNTME_TOKEN` | Authentication token (overrides credentials file and `--token`) | `pat_...` |
 | `RNTME_PROFILE` | Credentials profile name (overrides `--profile`) | `work` |
+| `RNTME_ORG` | Default org slug (overrides credentials `defaultOrg`; `--org` still wins) | `acme` |
+| `RNTME_PROJECT` | Default project slug (overrides credentials `defaultProject`; `--project` still wins) | `notes-demo` |
+| `RNTME_SERVICE` | Default service slug (when blueprint has multiple services) | `app` |
+
+Resolution order for org/project/service: flag → env → `rntme.json` projectConfig → credentials profile defaults.
+
+`rntme login --token <pat> [--org <slug>] [--project <slug>]` persists the org/project as profile defaults so subsequent commands work without explicit flags or env vars.
 
 ## Exit Codes
 

@@ -228,6 +228,8 @@ export async function main(argv: string[]): Promise<number> {
       setIfDefined(loginFlags, 'token', asString(values['token']));
       setIfDefined(loginFlags, 'baseUrl', asString(values['base-url']));
       setIfDefined(loginFlags, 'profile', asString(values['profile']));
+      setIfDefined(loginFlags, 'org', asString(values['org']));
+      setIfDefined(loginFlags, 'project', asString(values['project']));
       setIfDefined(loginFlags, 'json', asBool(values['json']));
       return runLogin(loginFlags);
     }
