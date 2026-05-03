@@ -1,26 +1,14 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { createServer } from 'node:http';
 import { renderNginxConfig } from '../../src/nginx.js';
-import { createIdentityAuth0HttpServer } from '@rntme/identity-auth0';
 import { startNginxOrSubstitute } from './edge-auth-fixtures/nginx-host.js';
 
 describe('edge auth integration', () => {
   let baseUrl: string;
-  let stop: () => Promise<void>;
+  let stop: () => Promise<void> = async () => undefined;
 
   beforeAll(async () => {
-    const sidecar = createIdentityAuth0HttpServer({
-      port: 0,
-      module: {
-        IntrospectSession: async () => ({
-          session_id: '',
-          user_id: '',
-          status: 0,
-          token_type: 0,
-          vendor_raw: { deactivation_reason: 'MALFORMED' } as never,
-        }),
-      },
-    });
-    const { port } = await sidecar.listen();
+    const sidecar = await startRejectingIntrospectionServer();
     const config = renderNginxConfig(
       {
         routes: [{ id: 'http:/api', path: '/api', targetService: 'app', targetWorkload: 'app' }],
@@ -32,11 +20,11 @@ describe('edge auth integration', () => {
             provider: 'auth0',
             audience: 'https://x/',
             moduleSlug: 'identity-auth0',
-            moduleIntrospectPort: port,
+            moduleIntrospectPort: sidecar.port,
           },
         ],
       },
-      { app: 'http://127.0.0.1:65535', 'identity-auth0': `http://127.0.0.1:${port}` },
+      { app: 'http://127.0.0.1:65535', 'identity-auth0': `http://127.0.0.1:${sidecar.port}` },
     );
     const host = await startNginxOrSubstitute(config);
     baseUrl = host.baseUrl;
@@ -77,3 +65,37 @@ describe('edge auth integration', () => {
     expect(body).not.toHaveProperty('reason');
   });
 });
+
+async function startRejectingIntrospectionServer(): Promise<{ port: number; stop: () => Promise<void> }> {
+  const server = createServer((req, res) => {
+    if (req.url === '/introspect') {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 'IDENTITY_CONSISTENCY_INVALID_TOKEN', message: 'MALFORMED' }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject);
+      const addr = server.address();
+      if (addr === null || typeof addr === 'string') {
+        reject(new Error('failed to bind introspection server'));
+        return;
+      }
+      resolve({
+        port: addr.port,
+        stop: () =>
+          new Promise((res, rej) => {
+            server.close((error) => {
+              if (error) rej(error);
+              else res();
+            });
+          }),
+      });
+    });
+  });
+}
