@@ -32,6 +32,15 @@ export async function publishProjectVersion(
   deps: Deps,
   input: PublishProjectVersionInput,
 ): Promise<Result<ProjectVersion, PlatformError>> {
+  const project = await deps.repos.projects.findById(input.orgId, input.projectId);
+  if (!isOk(project)) return project;
+  if (!project.value) {
+    return { ok: false, errors: [{ code: 'PLATFORM_TENANCY_PROJECT_NOT_FOUND', message: input.projectId }] };
+  }
+  if (project.value.status !== 'active') {
+    return { ok: false, errors: [{ code: 'PROJECT_OPERATION_INVALID_STATE', message: project.value.status }] };
+  }
+
   const existing = await deps.repos.projectVersions.findByDigest(
     input.projectId,
     input.bundleDigest,

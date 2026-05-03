@@ -4,6 +4,7 @@ import type {
   Account,
   MembershipMirror,
   Project,
+  ProjectStatus,
   ApiToken,
   AuditLogEntry,
 } from '../schemas/entities.js';
@@ -12,10 +13,18 @@ import type { AccountRepo } from '../repos/account-repo.js';
 import type { MembershipMirrorRepo } from '../repos/membership-mirror-repo.js';
 import type { WorkosEventLogRepo } from '../repos/workos-event-log-repo.js';
 import type { ProjectRepo } from '../repos/project-repo.js';
+import type { ProjectVersionRepo } from '../repos/project-version-repo.js';
+import type { DeployTargetRepo } from '../repos/deploy-target-repo.js';
+import type { DeploymentRepo } from '../repos/deployment-repo.js';
+import type { ProjectOperationRepo } from '../repos/project-operation-repo.js';
 import type { TokenRepo } from '../repos/token-repo.js';
 import type { AuditRepo } from '../repos/audit-repo.js';
 import type { OutboxRepo } from '../repos/outbox-repo.js';
 import type { BlobStore } from '../blob/store.js';
+import type { ProjectOperation, ProjectOperationLogLine } from '../schemas/project-operation.js';
+import type { Deployment, DeploymentLogLine } from '../schemas/deployment.js';
+import type { DeployTarget, DeployTargetWithSecret } from '../schemas/deploy-target.js';
+import type { ProjectVersion } from '../schemas/project-version.js';
 
 function notFound(code: PlatformError['code'], message: string): PlatformError {
   return { code, message };
@@ -35,6 +44,13 @@ export class FakeStore {
   public get uploads(): Map<string, Buffer> {
     return this.blobs;
   }
+
+  public projectVersionsByProject = new Map<string, ProjectVersion[]>();
+  public deployTargetsByOrg = new Map<string, DeployTargetWithSecret[]>();
+  public deploymentsByProject = new Map<string, Deployment[]>();
+  public deploymentLogsByDeployment = new Map<string, DeploymentLogLine[]>();
+  public projectOperationRows = new Map<string, ProjectOperation>();
+  public projectOperationLogsByOperation = new Map<string, ProjectOperationLogLine[]>();
 
   private autoId = 1;
   private now = () => new Date();
@@ -154,7 +170,7 @@ export class FakeStore {
       if (list.some((p) => p.slug === r.slug && p.archivedAt === null)) {
         return err([notFound('PLATFORM_CONFLICT_SLUG_TAKEN', `project slug ${r.slug} taken`)]);
       }
-      const p: Project = { ...r, archivedAt: null, createdAt: this.now(), updatedAt: this.now() };
+      const p: Project = { ...r, status: 'active', archivedAt: null, createdAt: this.now(), updatedAt: this.now() };
       this.projectsByOrg.set(r.orgId, [...list, p]);
       return ok(p);
     },
@@ -162,7 +178,17 @@ export class FakeStore {
     findById: async (o, id) => ok((this.projectsByOrg.get(o) ?? []).find((p) => p.id === id) ?? null),
     list: async (o, opts) => {
       const all = this.projectsByOrg.get(o) ?? [];
-      return ok(opts.includeArchived ? all : all.filter((p) => !p.archivedAt));
+      if (opts.includeArchived || opts.includeInactive) return ok(all);
+      return ok(all.filter((p) => !p.archivedAt && p.status === 'active'));
+    },
+    setStatus: async (o, id, status: ProjectStatus) => {
+      const list = this.projectsByOrg.get(o) ?? [];
+      const idx = list.findIndex((p) => p.id === id);
+      if (idx < 0) return err([notFound('PLATFORM_TENANCY_PROJECT_NOT_FOUND', id)]);
+      const u = { ...list[idx]!, status, updatedAt: this.now() };
+      list[idx] = u;
+      this.projectsByOrg.set(o, list);
+      return ok(u);
     },
     patch: async (o, id, patch) => {
       const list = this.projectsByOrg.get(o) ?? [];
@@ -265,4 +291,218 @@ export class FakeStore {
       return ok(Buffer.from(b));
     },
   };
+
+  readonly projectVersions: ProjectVersionRepo = {
+    create: async (args) => {
+      const list = this.projectVersionsByProject.get(args.projectId) ?? [];
+      const existing = list.find((v) => v.bundleDigest === args.row.bundleDigest);
+      if (existing) return ok(existing);
+      const v: ProjectVersion = {
+        ...args.row,
+        projectId: args.projectId,
+        seq: list.length + 1,
+        createdAt: this.now(),
+      };
+      this.projectVersionsByProject.set(args.projectId, [...list, v]);
+      return ok(v);
+    },
+    findByDigest: async (projectId, digest) =>
+      ok((this.projectVersionsByProject.get(projectId) ?? []).find((v) => v.bundleDigest === digest) ?? null),
+    getBySeq: async (projectId, seq) =>
+      ok((this.projectVersionsByProject.get(projectId) ?? []).find((v) => v.seq === seq) ?? null),
+    getById: async (id) =>
+      ok([...this.projectVersionsByProject.values()].flat().find((v) => v.id === id) ?? null),
+    listByProject: async (projectId, opts) => {
+      const list = [...(this.projectVersionsByProject.get(projectId) ?? [])].sort((a, b) => b.seq - a.seq);
+      const filtered = opts.cursor === undefined ? list : list.filter((v) => v.seq < opts.cursor!);
+      return ok(filtered.slice(0, opts.limit));
+    },
+  };
+
+  readonly deployTargets: DeployTargetRepo = {
+    create: async (args) => {
+      const list = this.deployTargetsByOrg.get(args.row.orgId) ?? [];
+      if (list.some((target) => target.slug === args.row.slug)) {
+        return err([notFound('DEPLOY_TARGET_SLUG_TAKEN', args.row.slug)]);
+      }
+      const stored: DeployTargetWithSecret = {
+        id: args.row.id,
+        orgId: args.row.orgId,
+        slug: args.row.slug,
+        displayName: args.row.displayName,
+        kind: args.row.kind,
+        dokployUrl: args.row.dokployUrl,
+        publicBaseUrl: args.row.publicBaseUrl,
+        dokployProjectId: args.row.dokployProjectId,
+        dokployProjectName: args.row.dokployProjectName,
+        allowCreateProject: args.row.allowCreateProject,
+        apiTokenCiphertext: args.row.apiTokenCiphertext,
+        apiTokenNonce: args.row.apiTokenNonce,
+        apiTokenKeyVersion: args.row.apiTokenKeyVersion,
+        eventBus: args.row.eventBusConfig,
+        modules: args.row.modules,
+        auth: args.row.auth,
+        policyValues: args.row.policyValues,
+        isDefault: args.row.isDefault,
+        createdAt: this.now(),
+        updatedAt: this.now(),
+      };
+      this.deployTargetsByOrg.set(args.row.orgId, [...list.filter((target) => !stored.isDefault || !target.isDefault), stored]);
+      return ok(publicTarget(stored));
+    },
+    update: async () => err([notFound('DEPLOY_TARGET_NOT_FOUND', 'update not implemented in fake')]),
+    rotateApiToken: async () => err([notFound('DEPLOY_TARGET_NOT_FOUND', 'rotate not implemented in fake')]),
+    setDefault: async (args) => {
+      const list = this.deployTargetsByOrg.get(args.orgId) ?? [];
+      const target = list.find((item) => item.slug === args.slug);
+      if (!target) return err([notFound('DEPLOY_TARGET_NOT_FOUND', args.slug)]);
+      const updated = list.map((item) => ({ ...item, isDefault: item.slug === args.slug }));
+      this.deployTargetsByOrg.set(args.orgId, updated);
+      return ok(publicTarget(updated.find((item) => item.slug === args.slug)!));
+    },
+    delete: async () => ok(undefined),
+    list: async (orgId) => ok((this.deployTargetsByOrg.get(orgId) ?? []).map(publicTarget)),
+    getBySlug: async (orgId, slug) => ok(publicTargetOrNull((this.deployTargetsByOrg.get(orgId) ?? []).find((target) => target.slug === slug) ?? null)),
+    getDefault: async (orgId) => ok(publicTargetOrNull((this.deployTargetsByOrg.get(orgId) ?? []).find((target) => target.isDefault) ?? null)),
+    getWithSecretById: async (id) =>
+      ok([...this.deployTargetsByOrg.values()].flat().find((target) => target.id === id) ?? null),
+  };
+
+  readonly deployments: DeploymentRepo = {
+    create: async (args) => {
+      const list = this.deploymentsByProject.get(args.row.projectId) ?? [];
+      const deployment: Deployment = {
+        id: args.row.id,
+        projectId: args.row.projectId,
+        orgId: args.row.orgId,
+        projectVersionId: args.row.projectVersionId,
+        targetId: args.row.targetId,
+        status: 'queued',
+        configOverrides: args.row.configOverrides,
+        renderedPlanDigest: null,
+        applyResult: null,
+        verificationReport: null,
+        warnings: [],
+        errorCode: null,
+        errorMessage: null,
+        startedByAccountId: args.row.startedByAccountId,
+        queuedAt: this.now(),
+        startedAt: null,
+        finishedAt: null,
+        lastHeartbeatAt: null,
+      };
+      this.deploymentsByProject.set(args.row.projectId, [...list, deployment]);
+      return ok(deployment);
+    },
+    getById: async (id) => ok([...this.deploymentsByProject.values()].flat().find((d) => d.id === id) ?? null),
+    listByProject: async (projectId, opts) => ok((this.deploymentsByProject.get(projectId) ?? []).slice(0, opts.limit)),
+    transition: async () => ok(undefined),
+    setRenderedDigest: async () => ok(undefined),
+    setApplyResult: async (id, applyResult) => {
+      for (const [projectId, list] of this.deploymentsByProject.entries()) {
+        const idx = list.findIndex((d) => d.id === id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx]!, applyResult };
+          this.deploymentsByProject.set(projectId, list);
+        }
+      }
+      return ok(undefined);
+    },
+    finalize: async (id, args) => {
+      for (const [projectId, list] of this.deploymentsByProject.entries()) {
+        const idx = list.findIndex((d) => d.id === id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx]!, status: args.status, finishedAt: this.now(), errorCode: args.errorCode ?? null, errorMessage: args.errorMessage ?? null };
+          this.deploymentsByProject.set(projectId, list);
+        }
+      }
+      return ok(undefined);
+    },
+    touchHeartbeat: async () => ok(undefined),
+    appendLog: async () => ok(undefined),
+    readLogs: async (args) => ok({ lines: this.deploymentLogsByDeployment.get(args.deploymentId) ?? [], lastLineId: args.sinceLineId }),
+    findStaleRunning: async () => ok([]),
+    hasActiveForProject: async (projectId) =>
+      ok((this.deploymentsByProject.get(projectId) ?? []).some((d) => d.status === 'queued' || d.status === 'running')),
+    hasActiveForProjectTarget: async (projectId, targetId) =>
+      ok((this.deploymentsByProject.get(projectId) ?? []).some((d) => d.targetId === targetId && (d.status === 'queued' || d.status === 'running'))),
+    listAppliedResourcesByProject: async (projectId) =>
+      ok((this.deploymentsByProject.get(projectId) ?? []).flatMap((d) => {
+        const resources = Array.isArray(d.applyResult?.resources) ? d.applyResult.resources : [];
+        const parsed = resources.filter((r): r is { resourceKind: 'application' | 'compose'; targetResourceId: string; targetResourceName: string } =>
+          !!r && typeof r === 'object' &&
+          ((r as { resourceKind?: unknown }).resourceKind === 'application' || (r as { resourceKind?: unknown }).resourceKind === 'compose') &&
+          typeof (r as { targetResourceId?: unknown }).targetResourceId === 'string' &&
+          typeof (r as { targetResourceName?: unknown }).targetResourceName === 'string',
+        );
+        return parsed.length === 0 ? [] : [{ deploymentId: d.id, targetId: d.targetId, resources: parsed }];
+      })),
+  };
+
+  readonly projectOperations: ProjectOperationRepo = {
+    create: async (args) => {
+      const operation: ProjectOperation = {
+        ...args.row,
+        status: 'queued',
+        result: null,
+        errorCode: null,
+        errorMessage: null,
+        queuedAt: this.now(),
+        startedAt: null,
+        finishedAt: null,
+        lastHeartbeatAt: null,
+      };
+      this.projectOperationRows.set(operation.id, operation);
+      return ok(operation);
+    },
+    attachDeployment: async (operationId, deploymentId) => {
+      const operation = this.projectOperationRows.get(operationId);
+      if (!operation) return err([notFound('PROJECT_OPERATION_NOT_FOUND', operationId)]);
+      const updated = { ...operation, deploymentId };
+      this.projectOperationRows.set(operationId, updated);
+      return ok(updated);
+    },
+    getById: async (id) => ok(this.projectOperationRows.get(id) ?? null),
+    getByDeploymentId: async (deploymentId) =>
+      ok([...this.projectOperationRows.values()].find((operation) => operation.deploymentId === deploymentId) ?? null),
+    listByProject: async (projectId, opts) =>
+      ok([...this.projectOperationRows.values()].filter((operation) => operation.projectId === projectId).slice(0, opts.limit)),
+    transition: async (id, _status, side) => {
+      const operation = this.projectOperationRows.get(id);
+      if (!operation) return err([notFound('PROJECT_OPERATION_NOT_FOUND', id)]);
+      this.projectOperationRows.set(id, { ...operation, status: 'running', startedAt: side.startedAt, lastHeartbeatAt: side.startedAt });
+      return ok(undefined);
+    },
+    finalize: async (id, args) => {
+      const operation = this.projectOperationRows.get(id);
+      if (!operation) return err([notFound('PROJECT_OPERATION_NOT_FOUND', id)]);
+      const updated = { ...operation, status: args.status, result: args.result ?? null, errorCode: args.errorCode ?? null, errorMessage: args.errorMessage ?? null, finishedAt: this.now() };
+      this.projectOperationRows.set(id, updated);
+      return ok(updated);
+    },
+    touchHeartbeat: async (id) => {
+      const operation = this.projectOperationRows.get(id);
+      if (operation) this.projectOperationRows.set(id, { ...operation, lastHeartbeatAt: this.now() });
+      return ok(undefined);
+    },
+    appendLog: async (args) => {
+      const list = this.projectOperationLogsByOperation.get(args.operationId) ?? [];
+      this.projectOperationLogsByOperation.set(args.operationId, [...list, { id: list.length + 1, operationId: args.operationId, orgId: args.orgId, ts: this.now(), level: args.level, step: args.step, message: args.message }]);
+      return ok(undefined);
+    },
+    readLogs: async (args) => {
+      const lines = (this.projectOperationLogsByOperation.get(args.operationId) ?? []).filter((line) => line.id > args.sinceLineId).slice(0, args.limit);
+      return ok({ lines, lastLineId: lines[lines.length - 1]?.id ?? args.sinceLineId });
+    },
+    findStaleRunning: async () => ok([]),
+  };
+}
+
+function publicTarget(target: DeployTargetWithSecret): DeployTarget {
+  const { apiTokenCiphertext: _ciphertext, apiTokenNonce: _nonce, apiTokenKeyVersion: _keyVersion, ...rest } = target;
+  return { ...rest, apiTokenRedacted: '***' };
+}
+
+function publicTargetOrNull(target: DeployTargetWithSecret | null): DeployTarget | null {
+  return target === null ? null : publicTarget(target);
 }

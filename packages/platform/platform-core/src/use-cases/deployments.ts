@@ -1,6 +1,7 @@
 import type { Ids } from '../ids.js';
 import type { DeployTargetRepo } from '../repos/deploy-target-repo.js';
 import type { DeploymentRepo } from '../repos/deployment-repo.js';
+import type { ProjectRepo } from '../repos/project-repo.js';
 import type { ProjectVersionRepo } from '../repos/project-version-repo.js';
 import type {
   Deployment,
@@ -11,6 +12,7 @@ import { err, isOk, type PlatformError, type Result } from '../types/result.js';
 
 type Deps = {
   repos: {
+    projects: ProjectRepo;
     projectVersions: ProjectVersionRepo;
     deployTargets: DeployTargetRepo;
     deployments: DeploymentRepo;
@@ -30,6 +32,15 @@ export async function startDeployment(
   deps: Deps,
   input: StartDeploymentInput,
 ): Promise<Result<Deployment, PlatformError>> {
+  const project = await deps.repos.projects.findById(input.orgId, input.projectId);
+  if (!isOk(project)) return project;
+  if (!project.value) {
+    return err([{ code: 'PLATFORM_TENANCY_PROJECT_NOT_FOUND', message: input.projectId }]);
+  }
+  if (project.value.status !== 'active') {
+    return err([{ code: 'PROJECT_OPERATION_INVALID_STATE', message: project.value.status }]);
+  }
+
   const version = await deps.repos.projectVersions.getBySeq(
     input.projectId,
     input.req.projectVersionSeq,

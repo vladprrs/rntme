@@ -16,6 +16,7 @@ function makeFakeRepos() {
     orgId: 'org-1',
     slug: 'shop',
     displayName: 'Shop',
+    status: 'active',
     archivedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -45,9 +46,15 @@ function makeFakeRepos() {
       return ok(v);
     }),
   };
-  const projects = {
+  const projects: ProjectRepo = {
+    create: vi.fn(),
     findBySlug: vi.fn(async () => ok(project)),
-  } as unknown as ProjectRepo;
+    findById: vi.fn(async () => ok(project)),
+    list: vi.fn(),
+    patch: vi.fn(),
+    setStatus: vi.fn(),
+    archive: vi.fn(),
+  };
   const blob: BlobStore = {
     putIfAbsent: vi.fn(async () => ok(undefined)),
     presignedGet: vi.fn(async () => ok('https://example.test/x')),

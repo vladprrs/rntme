@@ -6,6 +6,8 @@ import type {
   DeploymentRepo,
   ProjectVersion,
   ProjectVersionRepo,
+  ProjectRepo,
+  Project,
 } from '../../../src/index.js';
 import { SeededIds } from '../../../src/ids.js';
 import { isOk, ok } from '../../../src/types/result.js';
@@ -89,6 +91,25 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
     getDefault: vi.fn(async () => ok(defaultTarget)),
     getWithSecretById: vi.fn(),
   };
+  const project: Project = {
+    id: '33333333-3333-4333-8333-333333333333',
+    orgId: '11111111-1111-4111-8111-111111111111',
+    slug: 'shop',
+    displayName: 'Shop',
+    status: 'active',
+    archivedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+  };
+  const projects: ProjectRepo = {
+    create: vi.fn(),
+    findBySlug: vi.fn(async () => ok(project)),
+    findById: vi.fn(async () => ok(project)),
+    list: vi.fn(),
+    patch: vi.fn(),
+    setStatus: vi.fn(),
+    archive: vi.fn(),
+  };
   const deployment = queuedDeployment();
   const deployments: DeploymentRepo = {
     create: vi.fn(async () => ok(deployment)),
@@ -102,11 +123,14 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
     appendLog: vi.fn(),
     readLogs: vi.fn(),
     findStaleRunning: vi.fn(),
+    hasActiveForProject: vi.fn(),
+    hasActiveForProjectTarget: vi.fn(),
+    listAppliedResourcesByProject: vi.fn(),
   };
   return {
     deployments,
     deps: {
-      repos: { projectVersions, deployTargets, deployments },
+      repos: { projects, projectVersions, deployTargets, deployments },
       ids: new SeededIds(['deployment-1']),
     },
   };
