@@ -42,4 +42,17 @@ describe('StartDeploymentRequestSchema', () => {
     expect(parsed.success).toBe(true);
     expect(parsed.data?.configOverrides.runtimeImage).toBe('ghcr.io/acme/rntme-runtime:rnt-364');
   });
+
+  it('preserves the in-memory event bus override', () => {
+    const parsed = StartDeploymentRequestSchema.safeParse({
+      projectVersionSeq: 1,
+      targetSlug: 'dokploy-staging',
+      configOverrides: {
+        eventBusMode: 'in-memory',
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.configOverrides.eventBusMode).toBe('in-memory');
+  });
 });
