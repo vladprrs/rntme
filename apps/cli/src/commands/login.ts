@@ -12,6 +12,8 @@ export type LoginFlags = {
   token?: string;
   baseUrl?: string;
   profile?: string;
+  org?: string;
+  project?: string;
   json?: boolean;
 };
 
@@ -65,16 +67,22 @@ export async function runLogin(flags: LoginFlags): Promise<number> {
     return exitCodeFor(wrote.error.code);
   }
 
-  // Fetch default org from whoami (fail-soft)
+  // Fetch default org from whoami (fail-soft) — explicit --org wins over whoami.
   try {
     const me = await endpoints.auth.me({ baseUrl, token });
     if (isOk(me)) {
       file.profiles[profile].defaultOrg = me.value.org.slug;
-      await writeCredentials(path, file);
     }
   } catch {
     // ignore whoami failures; credentials are already saved
   }
+  if (flags.org !== undefined && flags.org !== '') {
+    file.profiles[profile].defaultOrg = flags.org;
+  }
+  if (flags.project !== undefined && flags.project !== '') {
+    file.profiles[profile].defaultProject = flags.project;
+  }
+  await writeCredentials(path, file);
 
   const out = formatSuccess(
     mode,

@@ -14,6 +14,7 @@ const ProfileSchema = z.object({
   token: z.string().regex(/^rntme_pat_[a-zA-Z0-9]{22}$/),
   addedAt: z.string().datetime(),
   defaultOrg: z.string().optional(),
+  defaultProject: z.string().optional(),
 });
 
 export const CredentialsFileSchema = z.object({
