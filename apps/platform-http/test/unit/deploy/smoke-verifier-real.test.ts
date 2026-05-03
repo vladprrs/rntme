@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { SmokeVerifier, type SmokeFetcher } from '../../../src/deploy/smoke-verifier.js';
 
 const ok401 = { status: 401, latencyMs: 1, body: '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}', contentType: 'application/json' };
-const ok200html = { status: 200, latencyMs: 1, body: '<!doctype html>', contentType: 'text/html' };
 const ok200 = { status: 200, latencyMs: 1, contentType: 'text/plain' };
 
 describe('SmokeVerifier real probes', () => {
@@ -21,7 +20,7 @@ describe('SmokeVerifier real probes', () => {
   it('runs three probes per protected route (no-bearer, fake-bearer, empty-bearer)', async () => {
     const calls: { url: string; headers?: Record<string, string> }[] = [];
     const fetcher: SmokeFetcher = async (url, opts) => {
-      calls.push({ url, headers: opts.headers });
+      calls.push(opts.headers === undefined ? { url } : { url, headers: opts.headers });
       if (url === 'http://x/health') return { status: 200, latencyMs: 1, contentType: 'text/plain' };
       return ok401;
     };

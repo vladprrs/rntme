@@ -72,8 +72,11 @@ export class SmokeVerifier {
     const protectedRoutes = verificationHints.protectedRoutes ?? verificationHints.protectedRouteChecks ?? [];
     for (const route of protectedRoutes) {
       for (const auth of [undefined, 'Bearer invalid.token.here', 'Bearer '] as const) {
-        const headers = auth ? { Authorization: auth } : undefined;
-        const r = await this.fetcher(route.url, { method: route.method, timeoutMs: 5_000, headers });
+        const r = await this.fetcher(route.url, {
+          method: route.method,
+          timeoutMs: 5_000,
+          ...(auth ? { headers: { Authorization: auth } } : {}),
+        });
         let bodyOk = false;
         try {
           const parsed = r.body ? JSON.parse(r.body) : {};

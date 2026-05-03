@@ -4,7 +4,7 @@ import { validateBlueprintComposition } from '../../src/validate/composition.js'
 
 const baseInput = {
   serviceDirs: ['app'],
-  services: { app: { kind: 'domain' as const } },
+  services: { app: { slug: 'app', kind: 'domain' as const } },
 };
 
 describe('structural vars', () => {
@@ -40,7 +40,9 @@ describe('structural vars', () => {
 const composeBase = {
   services: {
     app: {
+      slug: 'app',
       kind: 'domain' as const,
+      qsm: null,
       artifacts: { hasBindings: true, hasUi: true, hasGraphs: true, hasQsm: true, hasSeed: false },
     },
   },

@@ -72,6 +72,7 @@ export type ProjectAuthConfig = {
 };
 
 export type ProjectDeploymentConfig = {
+  readonly targetSlug?: string;
   readonly orgSlug: string;
   readonly environment: DeploymentEnvironment;
   readonly mode: DeploymentMode;

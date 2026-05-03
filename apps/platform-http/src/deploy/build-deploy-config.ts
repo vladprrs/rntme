@@ -54,6 +54,7 @@ export function buildProjectDeploymentConfig(
         };
 
   return {
+    targetSlug: target.slug,
     orgSlug,
     environment: 'default',
     mode: 'preview',

@@ -14,6 +14,7 @@ const baseProject: ComposedProjectInput = {
 };
 
 const baseConfig: ProjectDeploymentConfig = {
+  targetSlug: 'staging',
   orgSlug: 'acme',
   environment: 'default',
   mode: 'preview',
@@ -65,6 +66,7 @@ describe('buildProjectDeploymentPlan vars', () => {
     if (!plan.ok) {
       expect(plan.errors[0]!.code).toBe('DEPLOY_PLAN_TARGET_VAR_MISSING');
       expect(plan.errors[0]!.varName).toBe('CID');
+      expect(plan.errors[0]!.targetSlug).toBe('staging');
     }
   });
 

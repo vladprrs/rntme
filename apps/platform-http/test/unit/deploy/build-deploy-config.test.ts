@@ -7,6 +7,7 @@ describe('buildProjectDeploymentConfig', () => {
     const config = buildProjectDeploymentConfig(target(), 'acme', {});
 
     expect(config).toMatchObject({
+      targetSlug: 'staging',
       orgSlug: 'acme',
       environment: 'default',
       mode: 'preview',
