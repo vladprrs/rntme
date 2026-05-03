@@ -10,6 +10,16 @@
 
 ---
 
+## Challenge Amendments
+
+These decisions tighten the original plan before implementation:
+
+1. **Project update requires an explicit deploy target.** Recent CLI deploy hardening made `targetSlug` mandatory so deployment records are reproducible and audit-friendly. Project update must follow the same rule. The UI may preselect the org default target, but the request body/form must still submit `targetSlug`.
+2. **Only one live project operation may exist per project.** A project-level update and delete both mutate lifecycle state and deployment history. Core use-cases must reject a queued/running project operation before creating another one, and storage must enforce this with a partial unique index on `project_operation(project_id)` where status is `queued` or `running`.
+3. **Raw uploaded bundles are never persisted in operation input/logs.** The HTTP update route may accept `bundle.bytesBase64`, but it must publish the bundle first, then call core with `{ projectVersionSeq, targetSlug }`. Operation rows, logs, CLI output, and UI JSON must not store or echo bundle bytes.
+4. **Dokploy delete bodies are doc-backed.** Dokploy application delete uses `POST /api/application.delete` with `{ applicationId }`. Dokploy compose delete uses `POST /api/compose.delete` with `{ composeId, deleteVolumes: true }` for this explicit decommission workflow. The platform client must keep tests for these exact request bodies.
+5. **Delete cleanup is resource-id based and retryable, not name-search based.** The executor deletes only resources recorded in redacted deployment apply results. Missing resources stay warning-only; non-missing API failures leave the project in `delete_failed`.
+
 ## File Structure
 
 - `packages/platform/platform-core/src/schemas/entities.ts` - add `ProjectStatusSchema` and `project.status`.
@@ -125,6 +135,7 @@ describe('project operation schemas', () => {
 
   it('accepts update by uploaded canonical project bundle', () => {
     const r = StartProjectUpdateOperationRequestSchema.safeParse({
+      targetSlug: 'dokploy-preview',
       bundle: {
         contentType: 'application/rntme-project-bundle+json',
         bytesBase64: Buffer.from('{"files":{}}').toString('base64'),
@@ -136,6 +147,7 @@ describe('project operation schemas', () => {
 
   it('rejects update requests with both version and bundle', () => {
     const r = StartProjectUpdateOperationRequestSchema.safeParse({
+      targetSlug: 'dokploy-preview',
       projectVersionSeq: 4,
       bundle: {
         contentType: 'application/rntme-project-bundle+json',
@@ -149,6 +161,14 @@ describe('project operation schemas', () => {
   it('rejects update requests without a source', () => {
     const r = StartProjectUpdateOperationRequestSchema.safeParse({
       targetSlug: 'dokploy-preview',
+    });
+
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects update requests without an explicit target', () => {
+    const r = StartProjectUpdateOperationRequestSchema.safeParse({
+      projectVersionSeq: 4,
     });
 
     expect(r.success).toBe(false);
@@ -201,7 +221,7 @@ Append to `packages/platform/platform-core/test/unit/types/result.test.ts`:
 ```ts
   expect(ERROR_CODES.PROJECT_OPERATION_NOT_FOUND).toBe('PROJECT_OPERATION_NOT_FOUND');
   expect(ERROR_CODES.PROJECT_OPERATION_ACTIVE_DEPLOYMENT).toBe('PROJECT_OPERATION_ACTIVE_DEPLOYMENT');
-  expect(ERROR_CODES.PROJECT_OPERATION_DEFAULT_TARGET_MISSING).toBe('PROJECT_OPERATION_DEFAULT_TARGET_MISSING');
+  expect(ERROR_CODES.PROJECT_OPERATION_ALREADY_RUNNING).toBe('PROJECT_OPERATION_ALREADY_RUNNING');
   expect(ERROR_CODES.PROJECT_OPERATION_INVALID_STATE).toBe('PROJECT_OPERATION_INVALID_STATE');
   expect(ERROR_CODES.PROJECT_OPERATION_CONFIRMATION_MISMATCH).toBe('PROJECT_OPERATION_CONFIRMATION_MISMATCH');
   expect(ERROR_CODES.PROJECT_OPERATION_BUNDLE_SOURCE_CONFLICT).toBe('PROJECT_OPERATION_BUNDLE_SOURCE_CONFLICT');
@@ -298,7 +318,7 @@ export type ProjectOperationBundleSource = z.infer<typeof ProjectOperationBundle
 
 export const StartProjectUpdateOperationRequestSchema = z
   .object({
-    targetSlug: SlugSchema.optional(),
+    targetSlug: SlugSchema,
     projectVersionSeq: z.number().int().positive().optional(),
     bundle: ProjectOperationBundleSourceSchema.optional(),
   })
@@ -326,7 +346,7 @@ In `packages/platform/platform-core/src/types/result.ts`, append these codes bef
 ```ts
   PROJECT_OPERATION_NOT_FOUND: 'PROJECT_OPERATION_NOT_FOUND',
   PROJECT_OPERATION_ACTIVE_DEPLOYMENT: 'PROJECT_OPERATION_ACTIVE_DEPLOYMENT',
-  PROJECT_OPERATION_DEFAULT_TARGET_MISSING: 'PROJECT_OPERATION_DEFAULT_TARGET_MISSING',
+  PROJECT_OPERATION_ALREADY_RUNNING: 'PROJECT_OPERATION_ALREADY_RUNNING',
   PROJECT_OPERATION_INVALID_STATE: 'PROJECT_OPERATION_INVALID_STATE',
   PROJECT_OPERATION_CONFIRMATION_MISMATCH: 'PROJECT_OPERATION_CONFIRMATION_MISMATCH',
   PROJECT_OPERATION_BUNDLE_SOURCE_CONFLICT: 'PROJECT_OPERATION_BUNDLE_SOURCE_CONFLICT',
@@ -457,7 +477,7 @@ async function setup() {
 }
 
 describe('project operations use-cases', () => {
-  it('starts update using the default target and creates a linked deployment', async () => {
+  it('starts update using an explicit target and creates a linked deployment', async () => {
     const { store, ids, org, account, project, version } = await setup();
 
     const r = await startProjectUpdateOperation(
@@ -467,7 +487,7 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
@@ -478,7 +498,7 @@ describe('project operations use-cases', () => {
     expect(r.value.deployment?.projectVersionId).toBe(version.id);
   });
 
-  it('rejects update when a deployment is active for the same target', async () => {
+  it('rejects update when another project operation is already queued or running', async () => {
     const { store, ids, org, account, project, version } = await setup();
     await startProjectUpdateOperation(
       { repos: { projects: store.projects, projectVersions: store.projectVersions, deployTargets: store.deployTargets, deployments: store.deployments, projectOperations: store.projectOperations }, ids },
@@ -487,7 +507,7 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
@@ -498,12 +518,12 @@ describe('project operations use-cases', () => {
         projectId: project.id,
         accountId: account.id,
         tokenId: null,
-        req: { projectVersionSeq: version.seq },
+        req: { projectVersionSeq: version.seq, targetSlug: 'dokploy-preview' },
       },
     );
 
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_OPERATION_ACTIVE_DEPLOYMENT');
+    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_OPERATION_ALREADY_RUNNING');
   });
 
   it('starts delete and moves the project to deleting', async () => {
@@ -668,6 +688,7 @@ export interface ProjectOperationRepo {
   }): Promise<Result<ProjectOperation, PlatformError>>;
 
   attachDeployment(operationId: string, deploymentId: string): Promise<Result<ProjectOperation, PlatformError>>;
+  hasLiveForProject(projectId: string): Promise<Result<boolean, PlatformError>>;
   getById(id: string): Promise<Result<ProjectOperation | null, PlatformError>>;
   getByDeploymentId(deploymentId: string): Promise<Result<ProjectOperation | null, PlatformError>>;
 
@@ -767,17 +788,14 @@ export async function startProjectUpdateOperation(
     return err([{ code: 'PROJECT_OPERATION_INVALID_STATE', message: project.value.status }]);
   }
 
-  const target = input.req.targetSlug === undefined
-    ? await deps.repos.deployTargets.getDefault(input.orgId)
-    : await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
+  const liveOperation = await deps.repos.projectOperations.hasLiveForProject(input.projectId);
+  if (!isOk(liveOperation)) return liveOperation;
+  if (liveOperation.value) return err([{ code: 'PROJECT_OPERATION_ALREADY_RUNNING', message: input.projectId }]);
+
+  const target = await deps.repos.deployTargets.getBySlug(input.orgId, input.req.targetSlug);
   if (!isOk(target)) return target;
   if (!target.value) {
-    return err([
-      {
-        code: input.req.targetSlug === undefined ? 'PROJECT_OPERATION_DEFAULT_TARGET_MISSING' : 'DEPLOY_REQUEST_TARGET_NOT_FOUND',
-        message: input.req.targetSlug ?? 'default',
-      },
-    ]);
+    return err([{ code: 'DEPLOY_REQUEST_TARGET_NOT_FOUND', message: input.req.targetSlug }]);
   }
 
   const active = await deps.repos.deployments.hasActiveForProjectTarget(input.projectId, target.value.id);
@@ -846,6 +864,10 @@ export async function startProjectDeleteOperation(
   if (project.value.status !== 'active' && project.value.status !== 'delete_failed') {
     return err([{ code: 'PROJECT_OPERATION_INVALID_STATE', message: project.value.status }]);
   }
+  const liveOperation = await deps.repos.projectOperations.hasLiveForProject(input.projectId);
+  if (!isOk(liveOperation)) return liveOperation;
+  if (liveOperation.value) return err([{ code: 'PROJECT_OPERATION_ALREADY_RUNNING', message: input.projectSlug }]);
+
   const active = await deps.repos.deployments.hasActiveForProject(input.projectId);
   if (!isOk(active)) return active;
   if (active.value) return err([{ code: 'PROJECT_OPERATION_ACTIVE_DEPLOYMENT', message: input.projectSlug }]);
@@ -1172,6 +1194,10 @@ repos with these names, merge the method bodies into the existing properties.
       this.projectOperationRows.set(operationId, updated);
       return ok(updated);
     },
+    hasLiveForProject: async (projectId) =>
+      ok([...this.projectOperationRows.values()].some((operation) =>
+        operation.projectId === projectId && (operation.status === 'queued' || operation.status === 'running')
+      )),
     getById: async (id) => ok(this.projectOperationRows.get(id) ?? null),
     getByDeploymentId: async (deploymentId) =>
       ok([...this.projectOperationRows.values()].find((operation) => operation.deploymentId === deploymentId) ?? null),
@@ -1473,6 +1499,8 @@ CREATE INDEX "project_operation_project_idx" ON "project_operation" USING btree 
 --> statement-breakpoint
 CREATE INDEX "project_operation_live_idx" ON "project_operation" USING btree ("status","last_heartbeat_at");
 --> statement-breakpoint
+CREATE UNIQUE INDEX "project_operation_one_live_per_project_idx" ON "project_operation" USING btree ("project_id") WHERE "status" IN ('queued','running');
+--> statement-breakpoint
 CREATE INDEX "project_operation_deployment_idx" ON "project_operation" USING btree ("deployment_id");
 --> statement-breakpoint
 CREATE INDEX "project_operation_log_line_idx" ON "project_operation_log_line" USING btree ("operation_id","id");
@@ -1552,6 +1580,9 @@ export const projectOperation = pgTable(
   (t) => ({
     projectIdx: index('project_operation_project_idx').on(t.projectId, t.queuedAt),
     liveIdx: index('project_operation_live_idx').on(t.status, t.lastHeartbeatAt),
+    oneLivePerProjectIdx: uniqueIndex('project_operation_one_live_per_project_idx')
+      .on(t.projectId)
+      .where(sql`${t.status} IN ('queued','running')`),
     deploymentIdx: index('project_operation_deployment_idx').on(t.deploymentId),
     terminalMeansFinished: check(
       'project_operation_terminal_finished',
@@ -1577,7 +1608,8 @@ export const projectOperationLogLine = pgTable(
 );
 ```
 
-Remove `uniqueIndex` from the import if TypeScript reports it unused.
+Keep `uniqueIndex`; the partial index is the DB backstop for "one live project operation per project".
+Context7/Drizzle docs verification: PostgreSQL partial indexes use `uniqueIndex(...).on(...).where(sql\`...\`)`, which is why the Drizzle schema mirrors the SQL migration instead of relying only on raw SQL.
 
 In `packages/platform/platform-storage/src/schema/index.ts`, add:
 
@@ -1686,7 +1718,19 @@ In `packages/platform/platform-storage/src/repos/pg-deployment-repo.ts`, add imp
 
 Create `packages/platform/platform-storage/src/repos/pg-project-operation-repo.ts` with the same helper style as `pg-deployment-repo.ts`. The public methods must map snake_case rows to `ProjectOperation`, truncate log messages at 8 KiB, audit `project.operation.queued` in `create`, audit `project.operation.finalized` in `finalize`, and use `SET LOCAL row_security = off` in `findStaleRunning`.
 
+`create` must map a `project_operation_one_live_per_project_idx` unique violation to `PROJECT_OPERATION_ALREADY_RUNNING` so race losers get the same domain error as the preflight guard.
+
 Use these SQL statements exactly for critical transitions:
+
+Use this query for the live-operation guard:
+
+```ts
+const HAS_LIVE_FOR_PROJECT_SQL = `
+  SELECT 1 FROM project_operation
+  WHERE project_id=$1 AND status IN ('queued','running')
+  LIMIT 1
+`;
+```
 
 ```ts
 const TRANSITION_RUNNING_SQL = `
@@ -1796,7 +1840,7 @@ function client(overrides: Partial<DokployClient> = {}): DokployClient {
     configureCompose: async () => undefined,
     deployCompose: async () => undefined,
     deleteApplication: async (id) => { calls.push(`app:${id}`); },
-    deleteCompose: async (id) => { calls.push(`compose:${id}`); },
+    deleteCompose: async (id, opts) => { calls.push(`compose:${id}:${opts?.deleteVolumes}`); },
     ...overrides,
     __calls: calls,
   } as DokployClient & { __calls: string[] };
@@ -1812,7 +1856,7 @@ describe('deleteDokployResources', () => {
     ], c);
 
     expect(r.ok).toBe(true);
-    expect(c.__calls).toEqual(['app:app_1', 'compose:compose_1']);
+    expect(c.__calls).toEqual(['app:app_1', 'compose:compose_1:true']);
     if (r.ok) expect(r.value.deletedResources).toHaveLength(2);
   });
 
@@ -1868,7 +1912,7 @@ In `packages/deploy/deploy-dokploy/src/client.ts`, add to `DokployClient`:
 
 ```ts
   deleteApplication(applicationId: string): Promise<void>;
-  deleteCompose(composeId: string): Promise<void>;
+  deleteCompose(composeId: string, opts: { deleteVolumes: boolean }): Promise<void>;
 ```
 
 - [ ] **Step 4: Implement delete helper**
@@ -1907,7 +1951,7 @@ export async function deleteDokployResources(
       if (resource.resourceKind === 'application') {
         await client.deleteApplication(resource.targetResourceId);
       } else {
-        await client.deleteCompose(resource.targetResourceId);
+        await client.deleteCompose(resource.targetResourceId, { deleteVolumes: true });
       }
       deleted.push(resource);
     } catch (cause) {
@@ -1974,7 +2018,7 @@ In deploy-dokploy tests that construct `DokployClient`, add no-op methods:
 
 ```ts
   async deleteApplication(_applicationId: string): Promise<void> {}
-  async deleteCompose(_composeId: string): Promise<void> {}
+  async deleteCompose(_composeId: string, _opts: { deleteVolumes: boolean }): Promise<void> {}
 ```
 
 - [ ] **Step 7: Run deploy-dokploy tests**
@@ -2068,7 +2112,7 @@ describe('projectOperationRoutes', () => {
     const app = await operationApp(store, ids, org, account, scheduleDeployment);
     const res = await app.request('/v1/orgs/acme/projects/notes-demo/operations/update', {
       method: 'POST',
-      body: JSON.stringify({ projectVersionSeq: 1 }),
+      body: JSON.stringify({ projectVersionSeq: 1, targetSlug: 'dokploy-preview' }),
       headers: { 'content-type': 'application/json' },
     });
 
@@ -2171,7 +2215,7 @@ In `apps/platform-http/src/middleware/error-handler.ts`, add:
 ```ts
   PROJECT_OPERATION_NOT_FOUND: 404,
   PROJECT_OPERATION_ACTIVE_DEPLOYMENT: 409,
-  PROJECT_OPERATION_DEFAULT_TARGET_MISSING: 409,
+  PROJECT_OPERATION_ALREADY_RUNNING: 409,
   PROJECT_OPERATION_INVALID_STATE: 409,
   PROJECT_OPERATION_CONFIRMATION_MISMATCH: 400,
   PROJECT_OPERATION_BUNDLE_SOURCE_CONFLICT: 400,
@@ -2364,6 +2408,8 @@ const isPublish = /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/versions\/?$/.test(url.pa
   || /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/operations\/update\/?$/.test(url.pathname);
 ```
 
+Context7/Hono docs verification: `bodyLimit` is route/middleware scoped and checks `Content-Length` before streaming when present, so this plan keeps the existing narrow 10 MiB route match instead of raising the app-wide body limit.
+
 Mount routes before project version/deployment routes:
 
 ```ts
@@ -2446,7 +2492,7 @@ describe('runProjectDeleteOperation', () => {
     });
 
     expect(client.deleteApplication).toHaveBeenCalledWith('app_1');
-    expect(client.deleteCompose).toHaveBeenCalledWith('compose_1');
+    expect(client.deleteCompose).toHaveBeenCalledWith('compose_1', { deleteVolumes: true });
     expect(projects.setStatus).toHaveBeenCalledWith('org-1', 'project-1', 'decommissioned');
     expect(operations.finalize).toHaveBeenCalledWith('operation-1', expect.objectContaining({ status: 'succeeded' }));
   });
@@ -2480,6 +2526,7 @@ function operationRepo(): ProjectOperationRepo {
       finishedAt: null,
       lastHeartbeatAt: null,
     })),
+    hasLiveForProject: vi.fn(async () => ok(false)),
     getByDeploymentId: vi.fn(),
     listByProject: vi.fn(),
     transition: vi.fn(async () => ok(undefined)),
@@ -2573,12 +2620,12 @@ In `apps/platform-http/src/deploy/dokploy-client-factory.ts`, add to returned cl
       deleteApplication: async (applicationId: string) => {
         await request('POST', '/api/application.delete', { applicationId });
       },
-      deleteCompose: async (composeId: string) => {
-        await request('POST', '/api/compose.delete', { composeId });
+      deleteCompose: async (composeId: string, opts: { deleteVolumes: boolean }) => {
+        await request('POST', '/api/compose.delete', { composeId, deleteVolumes: opts.deleteVolumes });
       },
 ```
 
-Before implementing, verify endpoint names against the deployed Dokploy API. If the deployed API uses a different path, update the two strings in this step and the tests in the same commit.
+Context7/Dokploy docs verification: `POST /api/application.delete` accepts `{ applicationId }`; `POST /api/compose.delete` accepts `{ composeId, deleteVolumes }`. Keep unit tests that assert both exact bodies.
 
 - [ ] **Step 4: Implement delete executor**
 
@@ -2877,6 +2924,16 @@ describe('project operation commands', () => {
     });
   });
 
+  it('refuses update without target before calling the API', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const exit = await runProjectUpdate({ version: 4 }, flags);
+
+    expect(exit).toBe(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('shows an operation by id', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ operation }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -3083,12 +3140,12 @@ export async function runProjectUpdate(args: ProjectUpdateArgs, flags: CommonFla
       const project = flags.project ?? ctx.resolved.project;
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
       if (!project) return err(cliError('CLI_CONFIG_MISSING', 'no project; use --project'));
+      if (args.target === undefined) return err(cliError('CLI_USAGE', 'project update requires --target <target-slug>'));
       if (args.folder !== undefined && args.version !== undefined) {
         return err(cliError('CLI_USAGE', 'cannot use folder and --version together'));
       }
 
-      const body: Record<string, unknown> = {};
-      if (args.target !== undefined) body.targetSlug = args.target;
+      const body: Record<string, unknown> = { targetSlug: args.target };
       if (args.version !== undefined) {
         body.projectVersionSeq = args.version;
       } else {
@@ -3302,7 +3359,7 @@ function sleep(ms: number): Promise<void> {
 In `apps/cli/src/bin/cli.ts`, import new command runners and add help entries:
 
 ```ts
-registerHelp(['project', 'update'], `Usage: rntme project update [--org <slug>] [--project <slug>] [--version <seq>] [--target <target-slug>] [folder]`);
+registerHelp(['project', 'update'], `Usage: rntme project update [--org <slug>] [--project <slug>] --target <target-slug> [--version <seq>] [folder]`);
 registerHelp(['project', 'delete'], `Usage: rntme project delete <slug> --confirm <slug> [--wait] [--timeout <sec>]`);
 registerHelp(['project', 'operation', 'list'], `Usage: rntme project operation list --org <slug> --project <slug> [--limit <n>]`);
 registerHelp(['project', 'operation', 'show'], `Usage: rntme project operation show --org <slug> --project <slug> <operation-id>`);
@@ -3423,6 +3480,7 @@ Add status and action section after the header:
         {project.status === 'active' && versions.length > 0 && props.defaultDeployTarget ? (
           <form method="post" action={`/${subject.org.slug}/projects/${project.slug}/operations/update`} class="mb-3">
             <input type="hidden" name="projectVersionSeq" value={String(versions[0]!.seq)} />
+            <input type="hidden" name="targetSlug" value={props.defaultDeployTarget.slug} />
             <button type="submit" class="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700">
               Update
             </button>
@@ -3501,7 +3559,7 @@ const [versionsRes, targetsRes, operationsRes, otherRes, orgRes] = await Promise
 
 Pass `defaultDeployTarget={targetsRes.value.find((target) => target.isDefault) ?? null}` and `latestOperation={operationsRes.value[0] ?? null}` to `ProjectPage`.
 
-Add POST `/:orgSlug/projects/:projSlug/operations/update` with same-origin guard. It parses `projectVersionSeq` from form, calls `startProjectUpdateOperation`, schedules deployment, and redirects to operation detail.
+Add POST `/:orgSlug/projects/:projSlug/operations/update` with same-origin guard. It parses `projectVersionSeq` and `targetSlug` from form, calls `startProjectUpdateOperation`, schedules deployment, and redirects to operation detail. Reject a missing `targetSlug` with the existing form error UI instead of falling back silently.
 
 Add POST `/:orgSlug/projects/:projSlug/operations/delete` with same-origin guard. It parses `confirm`, calls `startProjectDeleteOperation`, schedules delete, and redirects to operation detail.
 
@@ -3552,7 +3610,7 @@ In `apps/cli/README.md`, add commands to the command list:
 Add examples:
 
 ```bash
-rntme project update --org my-org --project notes-demo --wait demo/notes-blueprint
+rntme project update --org my-org --project notes-demo --target dokploy-preview --wait demo/notes-blueprint
 rntme project update --org my-org --project notes-demo --version 4 --target dokploy-preview --wait
 rntme project delete notes-demo --org my-org --confirm notes-demo --wait
 rntme project operation watch --org my-org --project notes-demo <operation-id>
@@ -3563,7 +3621,7 @@ rntme project operation watch --org my-org --project notes-demo <operation-id>
 In `apps/platform-http/README.md`, add UI routes:
 
 ```text
-| `POST /{orgSlug}/projects/{projSlug}/operations/update` | Deploy latest version to default target |
+| `POST /{orgSlug}/projects/{projSlug}/operations/update` | Deploy selected/latest version to submitted target |
 | `POST /{orgSlug}/projects/{projSlug}/operations/delete` | Start project decommission |
 | `GET /{orgSlug}/projects/{projSlug}/operations/{operationId}` | Project operation detail |
 ```
@@ -3601,8 +3659,8 @@ In `AGENTS.md` §6, add:
 ```md
 ### 6.20 Update or decommission a platform project
 
-1. Publish and deploy in one operation with `rntme project update --org <org> --project <project> [folder] --wait`; omit `--target` to use the org default deploy target.
-2. Redeploy an existing version with `rntme project update --org <org> --project <project> --version <seq> --wait`.
+1. Publish and deploy in one operation with `rntme project update --org <org> --project <project> --target <target> [folder] --wait`.
+2. Redeploy an existing version with `rntme project update --org <org> --project <project> --target <target> --version <seq> --wait`.
 3. Decommission with `rntme project delete <project> --org <org> --confirm <project> --wait`.
 4. Observe long-running operations with `rntme project operation watch --org <org> --project <project> <operation-id>`.
 5. Delete is blocked while deployments are queued/running. A failed teardown leaves the project in `delete_failed`; retry the same delete command after fixing the target issue.
