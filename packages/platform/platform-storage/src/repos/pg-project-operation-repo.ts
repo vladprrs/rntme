@@ -218,11 +218,11 @@ export class PgProjectOperationRepo implements ProjectOperationRepo {
     }
   }
 
-  async findStaleRunning(staleAfterSeconds: number): Promise<Result<readonly { id: string; orgId: string; projectId: string }[], PlatformError>> {
+  async findStaleRunning(staleAfterSeconds: number): Promise<Result<readonly { id: string; orgId: string; projectId: string; kind: string }[], PlatformError>> {
     try {
       const rows = await withSystemRlsDisabled(this.db, async (db) =>
         db.query(
-          `SELECT id, org_id, project_id
+          `SELECT id, org_id, project_id, kind
            FROM project_operation
            WHERE status='running'
              AND (last_heartbeat_at IS NULL OR last_heartbeat_at < now() - ($1 * interval '1 second'))
@@ -235,6 +235,7 @@ export class PgProjectOperationRepo implements ProjectOperationRepo {
           id: row['id'] as string,
           orgId: row['org_id'] as string,
           projectId: row['project_id'] as string,
+          kind: row['kind'] as string,
         })),
       );
     } catch (cause) {

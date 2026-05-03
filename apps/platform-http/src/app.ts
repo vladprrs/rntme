@@ -21,6 +21,7 @@ import { tokenRoutes } from './routes/tokens.js';
 import { auditRoutes } from './routes/audit.js';
 import { opsRoutes } from './routes/ops.js';
 import { runDeployment } from './deploy/executor.js';
+import { runProjectDeleteOperation } from './deploy/project-delete-executor.js';
 import { SmokeVerifier } from './deploy/smoke-verifier.js';
 import { createDokployClientFactory } from './deploy/dokploy-client-factory.js';
 import { startOrphanDetectLoop } from './deploy/orphan-detect.js';
@@ -43,7 +44,7 @@ import type {
   SecretCipher,
 } from '@rntme/platform-core';
 import { resolveDeps } from './resolve-deps.js';
-import { PgDeploymentRepo } from '@rntme/platform-storage';
+import { PgDeploymentRepo, PgProjectOperationRepo } from '@rntme/platform-storage';
 
 export type AppDeps = {
   env: Env;
@@ -105,8 +106,17 @@ export function createApp(deps: AppDeps): Hono {
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
   };
+  const projectDeleteExecutorDeps = {
+    withOrgTx,
+    dokployClientFactory: createDokployClientFactory(cipher),
+    logger: deps.logger,
+  };
   const scheduleProjectDelete = deps.scheduleProjectDelete ?? ((operationId: string, orgId: string) => {
-    deps.logger.warn({ operationId, orgId }, 'project delete executor not wired yet');
+    setImmediate(() => {
+      void runProjectDeleteOperation(operationId, orgId, projectDeleteExecutorDeps).catch((cause) => {
+        deps.logger.error({ operationId, cause }, 'scheduled project delete failed');
+      });
+    });
   });
   const scheduleDeployment = deps.scheduleDeployment ?? ((deploymentId: string, orgId: string) => {
     setImmediate(() => {
@@ -263,6 +273,8 @@ export function createApp(deps: AppDeps): Hono {
       withOrgTx,
       findStaleRunning: (staleAfterSeconds) =>
         new PgDeploymentRepo(deps.pool).findStaleRunning(staleAfterSeconds),
+      findStaleRunningProjectOperations: (staleAfterSeconds) =>
+        new PgProjectOperationRepo(deps.pool).findStaleRunning(staleAfterSeconds),
       logger: deps.logger,
     });
   }

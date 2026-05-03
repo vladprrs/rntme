@@ -19,6 +19,7 @@ import {
   type DeployTargetRepo,
   type DeployTargetWithSecret,
   type DeploymentRepo,
+  type ProjectOperationRepo,
   type ProjectVersionRepo,
   type VerificationReport,
 } from '@rntme/platform-core';
@@ -37,6 +38,7 @@ export type TxRepos = {
   readonly deployments: DeploymentRepo;
   readonly projectVersions: ProjectVersionRepo;
   readonly deployTargets: DeployTargetRepo;
+  readonly projectOperations: ProjectOperationRepo;
 };
 
 export type ExecutorDeps = {
@@ -350,6 +352,17 @@ async function finalize(
   await deps.withOrgTx(orgId, async (repos) => {
     const result = await repos.deployments.finalize(deploymentId, { status, ...args });
     if (!isOk(result)) deps.logger.warn({ deploymentId, errors: result.errors }, 'finalize failed');
+
+    const operation = await repos.projectOperations.getByDeploymentId(deploymentId);
+    if (isOk(operation) && operation.value?.kind === 'update') {
+      const opStatus = status === 'succeeded' || status === 'succeeded_with_warnings' ? 'succeeded' : 'failed';
+      const finalized = await repos.projectOperations.finalize(operation.value.id, {
+        status: opStatus,
+        result: { deploymentId, deploymentStatus: status },
+        ...(opStatus === 'failed' ? { errorCode: args.errorCode ?? status, errorMessage: args.errorMessage ?? status } : {}),
+      });
+      if (!isOk(finalized)) deps.logger.warn({ deploymentId, errors: finalized.errors }, 'project operation finalize failed');
+    }
   });
 }
 
