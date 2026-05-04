@@ -6,11 +6,24 @@ export type Auth0PublicConfig = {
   appName: string;
   redirectUri: string;
   audience: string;
-  allowedOrigins: string[];
-  allowedLogoutUrls: string[];
-  organizationsCapability: 'allow' | 'deny';
-  m2mClients: ReadonlyArray<{ name: string; scopes: string[] }>;
+  // Optional fields below are defaulted from required fields when absent —
+  // a project blueprint that only declares appName/redirectUri/audience
+  // gets a sensible single-origin SPA without needing to enumerate every
+  // Auth0 reconciliation knob in publicConfig.
+  allowedOrigins?: string[];
+  allowedLogoutUrls?: string[];
+  organizationsCapability?: 'allow' | 'deny';
+  m2mClients?: ReadonlyArray<{ name: string; scopes: string[] }>;
 };
+
+// Origin half of redirectUri ("https://example.com/foo" → "https://example.com").
+function originOf(redirectUri: string): string {
+  try {
+    return new URL(redirectUri).origin;
+  } catch {
+    return redirectUri;
+  }
+}
 
 export type Auth0TargetSecrets = {
   auth0Mgmt: { tenantDomain: string; mgmtClientId: string; mgmtClientSecret: string };
@@ -32,6 +45,12 @@ export async function provision(input: ProvisionInput) {
   const secrets = input.targetSecrets.auth0Mgmt as Auth0TargetSecrets['auth0Mgmt'];
   const mgmt = createMgmtClient({ ...secrets, fetch: input.fetch });
 
+  // Optional-field defaults — single-origin SPA derived from redirectUri.
+  const allowedOrigins = cfg.allowedOrigins ?? [originOf(cfg.redirectUri)];
+  const allowedLogoutUrls = cfg.allowedLogoutUrls ?? [cfg.redirectUri];
+  const organizationsCapability = cfg.organizationsCapability ?? 'allow';
+  const m2mClients = cfg.m2mClients ?? [];
+
   // 1. SPA client
   const spaDesired: Partial<Auth0Client> = {
     name: cfg.appName,
@@ -39,10 +58,10 @@ export async function provision(input: ProvisionInput) {
     token_endpoint_auth_method: 'none',
     grant_types: ['authorization_code', 'refresh_token'],
     callbacks: [cfg.redirectUri],
-    web_origins: cfg.allowedOrigins,
-    allowed_origins: cfg.allowedOrigins,
-    allowed_logout_urls: cfg.allowedLogoutUrls,
-    organization_usage: cfg.organizationsCapability,
+    web_origins: allowedOrigins,
+    allowed_origins: allowedOrigins,
+    allowed_logout_urls: allowedLogoutUrls,
+    organization_usage: organizationsCapability,
   };
   const spaResult = await reconcileClient(mgmt, cfg.appName, spaDesired);
   if (!spaResult.ok) return err(spaResult.errors);
@@ -70,7 +89,7 @@ export async function provision(input: ProvisionInput) {
   // 4. M2M clients
   const priorM2M = (input.priorOutputs?.secretOutputs.m2mClients ?? []) as Array<{ name: string; clientId: string; clientSecret: string }>;
   const m2mOut: Array<{ name: string; clientId: string; clientSecret: string }> = [];
-  for (const decl of cfg.m2mClients) {
+  for (const decl of m2mClients) {
     const m2mName = `${cfg.appName}-m2m-${decl.name}`;
     const found = await mgmt.findClientByName(m2mName);
     if (!found.ok) return err(found.errors);

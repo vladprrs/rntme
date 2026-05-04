@@ -103,6 +103,54 @@ describe('provision — reconcile path', () => {
   });
 });
 
+describe('provision — optional field defaults', () => {
+  it('runs end-to-end when publicConfig omits allowedOrigins, allowedLogoutUrls, organizationsCapability, m2mClients', async () => {
+    let spaPostBody: Record<string, unknown> | undefined;
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/clients' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        if (body.app_type === 'spa') spaPostBody = body;
+        return new Response(JSON.stringify({ client_id: `cid_${body.app_type}`, ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/resource-servers' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/resource-servers' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        return new Response(JSON.stringify({ id: 'rs_1', ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname.startsWith('/api/v2/connections/conn_1/clients/') && init?.method === 'POST') return new Response(null, { status: 204 });
+      throw new Error(`unhandled ${u.pathname}`);
+    });
+
+    const minimalConfig = {
+      appName: 'my-app',
+      redirectUri: 'https://example.test/callback',
+      audience: 'https://example.test/api',
+      // allowedOrigins, allowedLogoutUrls, organizationsCapability, m2mClients all omitted
+    };
+    const out = await provision({
+      ...baseInput,
+      publicConfig: minimalConfig as never,
+      fetch: fetcher as typeof fetch,
+    });
+    expect(out.ok).toBe(true);
+    expect(spaPostBody).toBeDefined();
+    // Origin should be derived from redirectUri.
+    expect(spaPostBody!.web_origins).toEqual(['https://example.test']);
+    expect(spaPostBody!.allowed_origins).toEqual(['https://example.test']);
+    expect(spaPostBody!.allowed_logout_urls).toEqual(['https://example.test/callback']);
+    expect(spaPostBody!.organization_usage).toBe('allow');
+    if (out.ok) {
+      // No M2M clients declared → no secret M2M outputs.
+      expect(out.value.secretOutputs.m2mClients).toEqual([]);
+    }
+  });
+});
+
 describe('provision — reconcile resource server', () => {
   it('PATCH /resource-servers/{id} body excludes immutable identifier and id', async () => {
     let rsPatchBody: Record<string, unknown> | undefined;
