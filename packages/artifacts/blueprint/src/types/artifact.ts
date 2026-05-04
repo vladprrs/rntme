@@ -46,7 +46,10 @@ export type CatalogManifest = {
     readonly params: Readonly<Record<string, PropSchema>>;
     readonly category: string | null;
   }>;
-  readonly modulesWithBoot: readonly string[];
+  readonly modulesWithBoot: readonly Readonly<{
+    name: string;
+    contract?: 'identity';
+  }>[];
   readonly categoryToModule: Readonly<Record<string, string>>;
   readonly publicConfig: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly moduleEdgeAuth: Readonly<Record<string, EdgeAuthDescriptor | null>>;
