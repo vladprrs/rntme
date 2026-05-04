@@ -60,6 +60,19 @@ export type MgmtClient = {
 
   findConnectionByName(name: string): Promise<Result<Auth0Connection | null, MgmtError>>;
   patchConnection(id: string, body: Partial<Auth0Connection>): Promise<Result<Auth0Connection, MgmtError>>;
+  /**
+   * Auth0 deprecated `enabled_clients` on `PATCH /connections/{id}`; the
+   * Management API rejects it with `Additional properties not allowed:
+   * enabled_clients`. The dedicated client-membership endpoints below are
+   * the replacement: `POST /connections/{id}/clients/{client_id}` to enable,
+   * `DELETE /connections/{id}/clients/{client_id}` to disable, and
+   * `GET /connections/{id}/clients` to enumerate. All three return 204 or
+   * a paginated list and are safe to call unconditionally — the POST is
+   * idempotent (Auth0 returns 204 for an already-enabled client).
+   */
+  listConnectionClients(id: string): Promise<Result<readonly { readonly client_id: string }[], MgmtError>>;
+  enableConnectionClient(connectionId: string, clientId: string): Promise<Result<void, MgmtError>>;
+  disableConnectionClient(connectionId: string, clientId: string): Promise<Result<void, MgmtError>>;
 
   listClientGrants(clientId: string, audience: string): Promise<Result<Auth0ClientGrant[], MgmtError>>;
   createClientGrant(body: { client_id: string; audience: string; scope: string[] }): Promise<Result<Auth0ClientGrant, MgmtError>>;
@@ -144,6 +157,27 @@ export function createMgmtClient(cfg: MgmtClientConfig): MgmtClient {
       return ok(r.value[0] ?? null);
     },
     patchConnection: (id, body) => call<Auth0Connection>('PATCH', `/connections/${encodeURIComponent(id)}`, body),
+    async listConnectionClients(id) {
+      const r = await call<{ clients?: { client_id: string }[] } | { client_id: string }[]>(
+        'GET',
+        `/connections/${encodeURIComponent(id)}/clients`,
+      );
+      if (!r.ok) return r;
+      // Auth0 returns either a bare array or a paginated envelope depending
+      // on whether `take`/`include_totals` are passed. Normalize to a flat list.
+      const clients = Array.isArray(r.value) ? r.value : r.value.clients ?? [];
+      return ok(clients.map((c) => ({ client_id: c.client_id })));
+    },
+    enableConnectionClient: (connectionId, clientId) =>
+      call<void>(
+        'POST',
+        `/connections/${encodeURIComponent(connectionId)}/clients/${encodeURIComponent(clientId)}`,
+      ),
+    disableConnectionClient: (connectionId, clientId) =>
+      call<void>(
+        'DELETE',
+        `/connections/${encodeURIComponent(connectionId)}/clients/${encodeURIComponent(clientId)}`,
+      ),
     async listClientGrants(clientId, audience) {
       return call<Auth0ClientGrant[]>('GET', `/client-grants?client_id=${encodeURIComponent(clientId)}&audience=${encodeURIComponent(audience)}`);
     },

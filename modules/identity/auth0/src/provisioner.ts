@@ -134,9 +134,14 @@ async function reconcileResourceServer(mgmt: MgmtClient, identifier: string, des
   const found = await mgmt.findResourceServerByIdentifier(identifier);
   if (!found.ok) return found;
   if (!found.value) return mgmt.createResourceServer(desired);
-  for (const k of Object.keys(desired) as (keyof Auth0ResourceServer)[]) {
-    if (k === 'id' || k === 'identifier') continue;
-    if (JSON.stringify(found.value[k]) !== JSON.stringify(desired[k])) return mgmt.patchResourceServer(found.value.id, desired);
+  // Auth0 PATCH /resource-servers/{id} rejects the immutable `identifier`
+  // field with `Additional properties not allowed: identifier`. Strip it
+  // (along with `id`) from the patch body before sending.
+  const { id: _id, identifier: _identifier, ...patchBody } = desired;
+  void _id;
+  void _identifier;
+  for (const k of Object.keys(patchBody) as (keyof typeof patchBody)[]) {
+    if (JSON.stringify(found.value[k]) !== JSON.stringify(patchBody[k])) return mgmt.patchResourceServer(found.value.id, patchBody);
   }
   return ok(found.value);
 }
@@ -145,9 +150,16 @@ async function ensureConnectionEnabled(mgmt: MgmtClient, connectionName: string,
   const found = await mgmt.findConnectionByName(connectionName);
   if (!found.ok) return found;
   if (!found.value) return ok({} as Auth0Connection);
-  const enabled = found.value.enabled_clients ?? [];
-  if (enabled.includes(clientId)) return ok(found.value);
-  return mgmt.patchConnection(found.value.id, { enabled_clients: [...enabled, clientId] });
+  // Auth0 deprecated PATCH /connections.enabled_clients in favor of dedicated
+  // membership endpoints. Read the current membership via the new endpoint
+  // so this code keeps working after Auth0 stops populating
+  // `enabled_clients` on GET /connections/{id} responses.
+  const clients = await mgmt.listConnectionClients(found.value.id);
+  if (!clients.ok) return clients;
+  if (clients.value.some((c) => c.client_id === clientId)) return ok(found.value);
+  const enabled = await mgmt.enableConnectionClient(found.value.id, clientId);
+  if (!enabled.ok) return enabled;
+  return ok(found.value);
 }
 
 export async function tearDown(input: ProvisionInput) {
@@ -180,11 +192,11 @@ export async function tearDown(input: ProvisionInput) {
   if (spa?.id) {
     const conn = await mgmt.findConnectionByName(DEFAULT_CONNECTION);
     if (conn.ok && conn.value) {
-      const enabled = conn.value.enabled_clients ?? [];
-      if (enabled.includes(spa.id)) {
-        const r = await mgmt.patchConnection(conn.value.id, { enabled_clients: enabled.filter((c) => c !== spa.id) });
-        if (!r.ok) return err(r.errors);
-      }
+      // Use the dedicated membership endpoint — DELETE returns 204 whether
+      // or not the client was actually enabled, so we can call it without
+      // a pre-check (removes the now-deprecated enabled_clients GET path).
+      const disabled = await mgmt.disableConnectionClient(conn.value.id, spa.id);
+      if (!disabled.ok) return err(disabled.errors);
     }
     const r = await mgmt.deleteClient(spa.id);
     if (!r.ok) return err(r.errors);
