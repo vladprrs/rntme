@@ -51,7 +51,7 @@ export type { DeploymentApplyErrorCode, DeploymentApplyError } from './errors-ap
 export { DEPLOY_VERIFY_ERROR_CODES } from './errors-verify.js';
 export type { DeploymentVerifyErrorCode, DeploymentVerifyError } from './errors-verify.js';
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
-export { resolveVars, applyVars } from './vars.js';
+export { resolveVars, resolveTargetVarsOnly, applyVars, targetForVars } from './vars.js';
 export type {
   DiscoveredModulesForVars,
   ProvisionResultForVars,

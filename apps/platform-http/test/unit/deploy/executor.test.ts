@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
-import { err, ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
+import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { readUiRuntimeCss, runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
 describe('runDeployment', () => {
@@ -460,6 +460,142 @@ describe('runDeployment', () => {
       expect.objectContaining({ status: 'succeeded' }),
     );
   });
+
+  it('substitutes target.* vars into module publicConfig before runProvisioners', async () => {
+    const fakeManifest = {
+      name: '@rntme/fake-identity',
+      version: '0.0.0',
+      capabilities: { rpcs: ['Introspect'], events: [] },
+      provisioner: {
+        entry: './provisioner.js',
+        produces: [{ name: 'spaClient', kind: 'single', secret: false }],
+        requires: [],
+      },
+    };
+    const bundleFiles: Record<string, unknown> = {
+      'project.json': {
+        name: 'shop',
+        services: [],
+        modules: {
+          identity: {
+            package: '@rntme/fake-identity',
+            publicConfig: {
+              redirectUri: '${AUTH0_REDIRECT_URI}',
+              clientId: '${AUTH0_SPA_CLIENT_ID}',
+            },
+          },
+        },
+      },
+      'node_modules/@rntme/fake-identity/module.json': fakeManifest,
+    };
+
+    const composed: ComposedBlueprint = {
+      ...composedBlueprint(),
+      project: {
+        name: 'shop',
+        services: ['api'],
+        modules: { identity: { package: '@rntme/fake-identity' } },
+        routes: { ui: { '/': 'api' } },
+      },
+      varsManifest: {
+        AUTH0_REDIRECT_URI: { from: 'target.auth.auth0.redirectUri', required: true },
+        AUTH0_SPA_CLIENT_ID: { from: 'provision.identity.spaClient.id', required: true },
+      },
+    };
+
+    const runProv = vi.fn(async () =>
+      ok({
+        modules: [
+          {
+            projectKey: 'identity',
+            packageName: '@rntme/fake-identity',
+            publicOutputs: { spaClient: { id: 'real-spa-id' } },
+            secretOutputs: {},
+            provisionedAt: '2026-05-04T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const { deps } = setup({
+      bundleFiles,
+      loadComposed: () => ({ ok: true, value: composed }),
+      runProvisioners: runProv as never,
+      targetAuth: { auth0: { clientId: 'target-spa-client', redirectUri: 'https://demo.example/' } },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(runProv).toHaveBeenCalledTimes(1);
+    const callArg = (runProv.mock.calls[0] as unknown as [{
+      modules: ReadonlyArray<{ projectKey: string; publicConfig: Record<string, unknown> }>;
+    }])[0];
+    const identityModule = callArg.modules.find((m) => m.projectKey === 'identity');
+    expect(identityModule).toBeDefined();
+    expect(identityModule?.publicConfig.redirectUri).toBe('https://demo.example/');
+    // provision.* placeholder must remain as a literal — provision hasn't run.
+    expect(identityModule?.publicConfig.clientId).toBe('${AUTH0_SPA_CLIENT_ID}');
+  });
+
+  it('fails the deployment when a required target.* var is missing on the target', async () => {
+    const fakeManifest = {
+      name: '@rntme/fake-identity',
+      version: '0.0.0',
+      capabilities: { rpcs: ['Introspect'], events: [] },
+      provisioner: {
+        entry: './provisioner.js',
+        produces: [{ name: 'spaClient', kind: 'single', secret: false }],
+        requires: [],
+      },
+    };
+    const bundleFiles: Record<string, unknown> = {
+      'project.json': {
+        name: 'shop',
+        services: [],
+        modules: {
+          identity: {
+            package: '@rntme/fake-identity',
+            publicConfig: { redirectUri: '${AUTH0_REDIRECT_URI}' },
+          },
+        },
+      },
+      'node_modules/@rntme/fake-identity/module.json': fakeManifest,
+    };
+
+    const composed: ComposedBlueprint = {
+      ...composedBlueprint(),
+      project: {
+        name: 'shop',
+        services: ['api'],
+        modules: { identity: { package: '@rntme/fake-identity' } },
+        routes: { ui: { '/': 'api' } },
+      },
+      varsManifest: {
+        AUTH0_REDIRECT_URI: { from: 'target.auth.auth0.redirectUri', required: true },
+      },
+    };
+
+    const runProv = vi.fn(async () => ok({ modules: [] }));
+
+    const { deps, deployments } = setup({
+      bundleFiles,
+      loadComposed: () => ({ ok: true, value: composed }),
+      runProvisioners: runProv as never,
+      // target lacks redirectUri — forces the pre-provision resolver to fail.
+      targetAuth: { auth0: { clientId: 'target-spa-client' } },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(runProv).not.toHaveBeenCalled();
+    expect(deployments.finalize).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'DEPLOY_PLAN_TARGET_VAR_MISSING',
+      }),
+    );
+  });
 });
 
 function setup(
@@ -470,7 +606,7 @@ function setup(
     renderPlan?: ExecutorDeps['renderPlan'];
     applyPlan?: ExecutorDeps['applyPlan'];
     targetPublicBaseUrl?: string | null;
-    targetAuth?: { auth0?: { clientId: string } };
+    targetAuth?: { auth0?: { clientId: string; redirectUri?: string; domain?: string; audience?: string } };
     targetEventBus?: Record<string, unknown>;
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
     runProvisioners?: ExecutorDeps['runProvisioners'];

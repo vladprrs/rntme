@@ -11,6 +11,7 @@
     "identity": {
       "package": "rntme_identity_auth0",
       "publicConfig": {
+        "appName": "test-organization-notes-demo",
         "domain": "${AUTH0_DOMAIN}",
         "clientId": "${AUTH0_SPA_CLIENT_ID}",
         "audience": "${AUTH0_AUDIENCE}",

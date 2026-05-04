@@ -14,10 +14,10 @@ import { err, ok, type Result } from './result.js';
 import {
   resolveVars,
   applyVars,
+  targetForVars,
   type DiscoveredModulesForVars,
   type ProvisionResultForVars,
   type ResolvedVars,
-  type TargetForVars,
 } from './vars.js';
 
 export type PlannedProject = {
@@ -205,15 +205,6 @@ export function buildProjectDeploymentPlan(
     edge,
     diagnostics: { warnings },
   });
-}
-
-function targetForVars(config: ProjectDeploymentConfig, fallbackSlug: string): TargetForVars {
-  return {
-    slug: config.targetSlug ?? fallbackSlug,
-    ...(config.auth === undefined ? {} : { auth: config.auth }),
-    ...(config.modules === undefined ? {} : { modules: config.modules }),
-    ...(config.eventBus === undefined ? {} : { eventBus: config.eventBus }),
-  };
 }
 
 function buildWorkloads(

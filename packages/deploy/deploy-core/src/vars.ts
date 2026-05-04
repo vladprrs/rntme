@@ -1,5 +1,6 @@
 import { err, ok, type Result } from './result.js';
 import type { DeploymentPlanError } from './errors.js';
+import type { ProjectDeploymentConfig } from './config.js';
 
 export type VarBinding = Readonly<{ from: string; required: boolean }>;
 export type VarsManifest = Readonly<Record<string, VarBinding>>;
@@ -11,6 +12,18 @@ export type TargetForVars = {
   readonly modules?: Record<string, Record<string, unknown>>;
   readonly eventBus?: Record<string, unknown>;
 };
+
+export function targetForVars(
+  config: ProjectDeploymentConfig,
+  fallbackSlug: string,
+): TargetForVars {
+  return {
+    slug: config.targetSlug ?? fallbackSlug,
+    ...(config.auth === undefined ? {} : { auth: config.auth }),
+    ...(config.modules === undefined ? {} : { modules: config.modules }),
+    ...(config.eventBus === undefined ? {} : { eventBus: config.eventBus }),
+  };
+}
 
 export type ProvisionResultForVars = {
   readonly modules: Readonly<Record<string, {
@@ -179,6 +192,31 @@ function readPath(
   }
 
   return { kind: 'value', value: undefined };
+}
+
+/**
+ * Resolve only `target.*` var bindings. `provision.*` bindings are filtered
+ * out — their placeholders remain as `${VAR}` literals in any subsequent
+ * `applyVars` call. Used pre-provision to substitute target-derived values
+ * (e.g. AUTH0_REDIRECT_URI from `target.auth.auth0.redirectUri`) into module
+ * `publicConfig` before passing it to provisioners. provision-derived
+ * placeholders cannot be resolved before provision runs, so leaving them
+ * as literals is the only correct option; provisioner implementations that
+ * read those fields must tolerate it (or not declare them as inputs).
+ *
+ * Errors on missing required `target.*` paths are returned with the same
+ * shape `resolveVars` produces, so callers can fail-fast pre-provision and
+ * surface meaningful errors.
+ */
+export function resolveTargetVarsOnly(
+  manifest: VarsManifest,
+  target: TargetForVars,
+): Result<ResolvedVars> {
+  const targetOnly: Record<string, VarBinding> = {};
+  for (const [name, binding] of Object.entries(manifest)) {
+    if (binding.from.startsWith('target.')) targetOnly[name] = binding;
+  }
+  return resolveVars(targetOnly, target);
 }
 
 export function applyVars<T>(value: T, vars: ResolvedVars): T {

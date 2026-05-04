@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { clearInterval, setInterval } from 'node:timers';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -18,7 +19,13 @@ import type {
   ProvisionerOutput,
   ProvisionResultForVars,
 } from '@rntme/deploy-core';
-import { buildProjectDeploymentPlan, runProvisioners } from '@rntme/deploy-core';
+import {
+  applyVars,
+  buildProjectDeploymentPlan,
+  resolveTargetVarsOnly,
+  runProvisioners,
+  targetForVars,
+} from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
 import { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
 import { build, type Plugin } from 'esbuild';
@@ -213,13 +220,34 @@ export async function runDeployment(
 
       const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
 
+      // Substitute target.* vars into each module's publicConfig before
+      // handing it to the provisioner. provision.* placeholders cannot resolve
+      // pre-provision and remain as ${...} literals — provisioner inputs that
+      // depend on those fields would necessarily see them unresolved.
+      const targetVarsResult = resolveTargetVarsOnly(
+        composed.value.varsManifest ?? {},
+        targetForVars(config, target.slug),
+      );
+      if (!targetVarsResult.ok) {
+        await finalize(deps, deploymentId, orgId, 'failed', {
+          errorCode: targetVarsResult.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
+          errorMessage: redact(errorSummary(targetVarsResult.errors)),
+        });
+        return;
+      }
+      const targetVars = targetVarsResult.value;
+      const provModulesWithSubstitutedConfig: DiscoveredProvisionerModule[] = provModules.map((m) => ({
+        ...m,
+        publicConfig: applyVars(m.publicConfig, targetVars) as Record<string, unknown>,
+      }));
+
       await appendLog(deps, deploymentId, orgId, 'info', 'provision', `Provisioning ${provModules.length} module(s)`);
       const startedAt = new Date().toISOString();
       const provisionResult = await runStage(
         'provision',
         async () =>
           (deps.runProvisioners ?? runProvisioners)({
-            modules: provModules.map((m) => {
+            modules: provModulesWithSubstitutedConfig.map((m) => {
               const prior = priorOutputs[m.projectKey];
               return prior === undefined ? m : { ...m, priorOutputs: prior };
             }),
