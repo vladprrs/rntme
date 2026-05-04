@@ -163,6 +163,35 @@ Routes mounted by `createApp`:
 | `test` | `vitest run` | Runs `test/unit/*.test.ts`. |
 | `test:watch` | `vitest` | Watch mode. |
 
+## Boot lifecycle and resilience
+
+`mountUiRuntime` runs each module's `boot()` in sequence. **A boot failure does not abort the runtime** — the error is recorded and rendering proceeds.
+
+### State slots
+
+- `/runtime/bootErrors`: `Array<{ moduleName: string; cause: unknown }>`. Empty if every boot succeeded.
+- `/auth/status`: `'anon' | 'authed' | undefined`. See identity contract below.
+
+### Identity contract
+
+A module may declare `module.json#client.contract: "identity"`. The blueprint surfaces this as `bootContract: 'identity'` on the runtime `ModuleSpec`. The contract is:
+
+- The module **must** set `/auth/status` itself on success or failure.
+- If the module crashed before setting `/auth/status`, the runtime sets `/auth/status = 'anon'` and `/auth/user = null` on its behalf so the layout renders the anon state instead of staying empty.
+- The runtime **never** overwrites an already-set `/auth/status`. A module that authed successfully and then crashed in `registerOperation` keeps `'authed'` — no surprise logout.
+
+### Failure semantics for non-identity modules
+
+A non-identity module's failure is recorded in `/runtime/bootErrors` and logged via `console.error`. The runtime takes no automatic compensating action.
+
+### Boot timeout
+
+Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeout is treated identically to a thrown error.
+
+### Subscriber note
+
+`/runtime/bootErrors` is written once after the boot loop completes. Subscribers attached via `store.subscribe` after `mountUiRuntime` resolves will see the final array on first read; do not assume the slot exists during boot itself.
+
 ## Invariants & gotchas
 
 - **Screen and layout JSON are consumed verbatim** (spec §4, Rendering). The client passes `currentScreen.spec` and `currentLayout.spec` straight into json-render `<Renderer>`; this package does not re-validate or rewrite them.
