@@ -292,6 +292,14 @@ function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComp
 function redpandaComposeFile(
   eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
 ): string {
+  // The runtime/edge/module containers run as Docker Swarm services attached
+  // to the shared `dokploy-network` overlay. Without explicitly attaching the
+  // compose stack to that network, Redpanda lives only on its private
+  // `<stack>_default` bridge and the broker hostname does not resolve from
+  // sibling apps (`getaddrinfo ENOTFOUND`). Attaching here gives the broker
+  // both a stack-scoped alias (full container name, what apply.ts rewrites
+  // env vars to) and a service-name alias (`redpanda`, used by the Kafka
+  // advertised address) inside dokploy-network.
   return [
     'services:',
     '  redpanda:',
@@ -299,9 +307,15 @@ function redpandaComposeFile(
     '    command: redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092 --advertise-kafka-addr=internal://redpanda:9092',
     '    volumes:',
     `      - ${eventBus.persistence.volumeName}:/var/lib/redpanda/data`,
+    '    networks:',
+    '      - default',
+    '      - dokploy-network',
     'volumes:',
     `  ${eventBus.persistence.volumeName}:`,
     '    name: ' + eventBus.persistence.volumeName,
+    'networks:',
+    '  dokploy-network:',
+    '    external: true',
     '',
   ].join('\n');
 }
