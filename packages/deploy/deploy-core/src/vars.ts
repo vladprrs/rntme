@@ -107,7 +107,7 @@ function readPath(
           varName,
           fromPath: path,
           targetSlug: target.slug,
-        } as DeploymentPlanError,
+        },
       };
     }
     const moduleKey = segments[1]!;
@@ -124,7 +124,7 @@ function readPath(
           varName,
           fromPath: path,
           targetSlug: target.slug,
-        } as DeploymentPlanError,
+        },
       };
     }
 
@@ -140,7 +140,7 @@ function readPath(
           varName,
           fromPath: path,
           targetSlug: target.slug,
-        } as DeploymentPlanError,
+        },
       };
     }
 
@@ -154,7 +154,7 @@ function readPath(
           varName,
           fromPath: path,
           targetSlug: target.slug,
-        } as DeploymentPlanError,
+        },
       };
     }
 
@@ -169,7 +169,7 @@ function readPath(
             varName,
             fromPath: path,
             targetSlug: target.slug,
-          } as DeploymentPlanError,
+          },
         };
       }
       cursor = (cursor as Record<string, unknown>)[seg];
