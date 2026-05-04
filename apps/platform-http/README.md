@@ -85,7 +85,31 @@ provisioned Redpanda bus. Provisioned Redpanda is rendered by
 persistent named volume. It is explicit per deploy target; missing `eventBus`
 config remains invalid.
 
-The deploy executor runs five ordered phases: `plan → provision → render → apply → verify`. The provision phase calls each module's `provisioner` (if declared) to reconcile external state and collect `provisionResult` / `provisionResultCiphertext` before the render phase bakes those outputs into resource env entries. Public provisioner outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist encrypted as `deployment.provisionResultCiphertext`.
+## Deploy executor stage order
+
+Stages run in this sequence:
+
+1. `compose` — resolve composed project from blueprint.
+2. `plan` (bus-mode log only) — log which event-bus mode is in use, derived directly from `config.eventBus.mode`.
+3. `provision` — run module provisioners; persist `provisionResult` and `secretOutputs`.
+4. `plan` — `buildProjectDeploymentPlan(input, config, { provisionResult, discoveredModules })`. Vars resolve here; `provision.*` sources see the freshly-produced outputs.
+5. `render` — `renderDokployPlan(plan, config, provisioned, envMappings)`.
+6. `apply` — `applyDokployPlan(...)`.
+7. `verify` — smoke checks.
+
+Provision runs before plan so blueprint vars can pull from `provisionResult`. Public provisioner outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist encrypted as `deployment.provisionResultCiphertext`.
+
+## Reading deployment logs
+
+The Dokploy MCP `application-readLogs` tool is unreliable for this codebase — it has been observed to return `success: true` with an empty body, and to 500 when given the `search` filter (verified 2026-05-04). Until the MCP is fixed, read logs via SSH:
+
+```bash
+ssh dokploy-host
+docker service ls | grep <project-slug>
+docker service logs <service-id> --tail 500 --since 10m
+```
+
+The service ID can also be retrieved via `mcp__dokploy__docker-getServiceContainersByAppName` (returns `containerId` plus state). Once the SSH-based runbook stabilizes, document a one-line wrapper script.
 
 ## Provision phase
 

@@ -42,6 +42,15 @@ Project-first blueprint parser/validator for rntme.
 
 A `provisioner` block on the manifest is surfaced through `DiscoveredModule.manifest.provisioner`. Discovery validates that `entry` is a relative path inside the module package; absolute or parent-traversal entries fail with `BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`.
 
+## Var sources
+
+Blueprint `project.json#vars[].from` accepts two source roots, validated structurally here and resolved by `@rntme/deploy-core`:
+
+- `target.<root>.<...>` — typed config shape on the deployment target (e.g., `target.auth.auth0.domain`).
+- `provision.<moduleKey>.<output>[.<jsonPointer>...]` — output from a module's provisioner. Requires the executor to run provision before plan; see the deploy-core README for resolution semantics and the five error codes.
+
+The structural validator only enforces syntax. Module-existence and output-declaration checks happen in the deploy-core resolver against the project's discovered module catalog.
+
 ## Where to look first
 
 - `src/load/load-blueprint.ts`
