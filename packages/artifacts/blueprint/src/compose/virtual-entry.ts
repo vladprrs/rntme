@@ -9,7 +9,7 @@ function pkgImportVar(modulePkg: string): string {
 export function renderVirtualEntry(catalog: CatalogManifest): Result<string> {
   const modulePkgs = new Set<string>();
   for (const c of catalog.components) modulePkgs.add(c.module);
-  for (const b of catalog.modulesWithBoot) modulePkgs.add(b);
+  for (const b of catalog.modulesWithBoot) modulePkgs.add(b.name);
 
   const sorted = [...modulePkgs].sort();
 
@@ -55,9 +55,11 @@ export function renderVirtualEntry(catalog: CatalogManifest): Result<string> {
 
   if (catalog.modulesWithBoot.length > 0) {
     lines.push(
-      ...[...catalog.modulesWithBoot].map((name) => {
-        const v = pkgImportVar(name);
-        return `  { name: ${JSON.stringify(name)}, boot: ${v}.boot },`;
+      ...[...catalog.modulesWithBoot].map((entry) => {
+        const v = pkgImportVar(entry.name);
+        const contractField =
+          entry.contract === 'identity' ? `, bootContract: 'identity'` : '';
+        return `  { name: ${JSON.stringify(entry.name)}, boot: ${v}.boot${contractField} },`;
       }),
     );
   }
