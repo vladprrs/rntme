@@ -54,6 +54,9 @@ export type ModuleSpec = {
   name: string;
   boot?: (ctx: ModuleBootContext) => void | Promise<void>;
   bootTimeoutMs?: number;
+  /** When set to "identity", a boot failure that left /auth/status unset
+   *  causes the runtime to set /auth/status = 'anon' on the module's behalf. */
+  bootContract?: 'identity';
 };
 
 export type MountUiRuntimeOptions = {
