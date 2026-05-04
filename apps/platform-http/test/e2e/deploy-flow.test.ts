@@ -180,7 +180,13 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
         list: async () => [],
         upsert: async () => undefined,
         remove: async () => undefined,
-        getAllDecrypted: async () => ({}),
+        getAllDecrypted: async () => ({
+          auth0Mgmt: {
+            tenantDomain: 'tenant.us.auth0.com',
+            mgmtClientId: 'mgmt-client-id',
+            mgmtClientSecret: 'mgmt-secret',
+          },
+        }),
       }),
       secretCipher: env.deps.cipher!,
       lastSuccessfulProvisionOutputs: async () => ({}),
