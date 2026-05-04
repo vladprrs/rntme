@@ -67,7 +67,7 @@ const raw = {
       keys: ['id'],
       grain: ['id'],
       exposed: ['title', 'status', 'priority'],
-      table: 'projection_issue',
+      table: 'issues',
     },
   },
   relations: {
@@ -88,7 +88,7 @@ const validated = validateQsm(parsed.value, pdmResolver);
 if (!validated.ok) throw new Error(JSON.stringify(validated.errors));
 
 const ddls = generateProjectionDdl(validated.value, pdmResolver);
-// ddls[0].createTableSql      → CREATE TABLE "projection_issue" (...)
+// ddls[0].createTableSql      → CREATE TABLE "issues" (...)
 // ddls[0].idempotencyColumns  → last_event_id / last_event_version / applied_at
 
 const eventTypes: readonly EventTypeSpec[] = []; // from pdm.eventTypes
@@ -108,7 +108,7 @@ qsmResolver.resolveRelation('IssueView', 'project');
 | `validateStructural` | `(QsmArtifact) => Result<StructurallyValidQsm>` | PDM-free rules; brands the artifact on success. |
 | `validateCrossRef` | `(StructurallyValidQsm, PdmResolver) => Result<ValidatedQsm>` | PDM-aware rules; brands the artifact on success. |
 | `validateQsm` | `(QsmArtifact, PdmResolver) => Result<ValidatedQsm>` | Convenience: runs structural then cross-ref; short-circuits on the first failing layer. |
-| `defaultTableName` | `(projectionName: string) => string` | Returns ``projection_${name.toLowerCase()}``. Used when `projection.table` is omitted. |
+| `defaultTableName` | `(projectionName: string) => string` | Returns ``projection_${name.toLowerCase()}``. Used by the structural duplicate-table detector as a name-only fallback when the layer has no PDM context — **not** by the derivers, which resolve entity-mirror tables from `entity.table` (see the Output shapes section). |
 | `generateProjectionDdl` | `(ValidatedQsm, PdmResolver) => ProjectionDdlSpec[]` | One spec per projection; columns are mirrored from PDM entity fields, plus three idempotency columns; SQL identifiers are double-quoted; composite keys emit a trailing `PRIMARY KEY (...)` clause. |
 | `deriveProjectionHandler` | `(ValidatedQsm, PdmResolver, readonly EventTypeSpec[]) => ProjectionHandlerSpec[]` | One spec per `entity-mirror` projection; one `EventHandler` per matching `EventTypeSpec` (insert for `isCreation`, update over `affects` otherwise). |
 | `createQsmResolver` | `(ValidatedQsm) => QsmResolver` | Pure in-memory lookup over projections (`listProjections`, `resolveProjection`, `findEntityMirror`) and relations (`listRelations`, `resolveRelation`). |
@@ -136,7 +136,7 @@ qsmResolver.resolveRelation('IssueView', 'project');
 ```ts
 {
   projectionName: 'IssueView',
-  tableName: 'projection_issue',
+  tableName: 'issues',
   columns: [
     { name: 'id',    sqlType: 'INTEGER', nullable: false, primaryKey: true  },
     { name: 'title', sqlType: 'TEXT',    nullable: false, primaryKey: false },
@@ -147,9 +147,9 @@ qsmResolver.resolveRelation('IssueView', 'project');
     { name: 'last_event_version', sqlType: 'INTEGER', nullable: false, primaryKey: false },
     { name: 'applied_at',         sqlType: 'TEXT',    nullable: false, primaryKey: false },
   ],
-  indexes: [{ name: 'idx_projection_issue_status', columns: ['status'] }],
-  createTableSql: 'CREATE TABLE "projection_issue" (\n  "id" INTEGER NOT NULL PRIMARY KEY,\n  ...\n);',
-  createIndexSql: ['CREATE INDEX "idx_projection_issue_status" ON "projection_issue" ("status");'],
+  indexes: [{ name: 'idx_issues_status', columns: ['status'] }],
+  createTableSql: 'CREATE TABLE "issues" (\n  "id" INTEGER NOT NULL PRIMARY KEY,\n  ...\n);',
+  createIndexSql: ['CREATE INDEX "idx_issues_status" ON "issues" ("status");'],
 }
 ```
 
@@ -158,7 +158,7 @@ qsmResolver.resolveRelation('IssueView', 'project');
 ```ts
 {
   projectionName: 'IssueView',
-  tableName: 'projection_issue',
+  tableName: 'issues',
   aggregateType: 'Issue',
   idempotencyGuard: {
     versionColumn: 'last_event_version',
@@ -211,7 +211,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 - `deriveProjectionHandler` requires the caller to pass `EventTypeSpec[]`. Filtering by `aggregateType === entity.name` happens inside; passing an empty array yields a spec with `eventHandlers: []` (a no-op consumer). Source: `derive/handler.ts`.
 - For non-creation events, `EventHandler.op.kind === 'update'` and `setColumns` is derived from `EventTypeSpec.affects`. An `affects` field with no column mapping triggers `invariantViolated` — that means PDM resolution diverged from validation; the validator should have rejected it.
 - For creation events (`EventTypeSpec.isCreation === true`), `op.kind === 'insert'` and `op.columns` includes every entity column (including generated ones like `created_at` / `updated_at`). The handler executor is responsible for sourcing values; `payloadFields` lists the keys present in the event payload. Source: `derive/handler.ts` `buildEventHandler`; test in `test/unit/derive-handler.test.ts`.
-- `defaultTableName` lowercases the projection name and prefixes `projection_`. Two projections with names that collide after lowercasing (e.g. `IssueView` and `issueview`) both resolve to `projection_issueview` and trigger `QSM_STRUCT_DUPLICATE_TABLE`. Use an explicit `table` to disambiguate. Source: `validate/structural.ts`.
+- **Entity-mirror table-name resolution.** `derive/ddl.ts` and `derive/handler.ts` compute the destination table as `proj.table ?? entity.table`. `entity.table` (from PDM) is the source of truth — `graph-ir-compiler/src/validate/semantic/sources.ts` resolves `kind: 'projection'` scans to `entity.table`, so the DDL we emit and the SQL the queries read **must** agree on this name. An older fallback to `defaultTableName(projName)` (e.g. `projection_noteview`) created a table the queries never read and surfaced as `SQLITE_ERROR: no such table` at the first SELECT — root cause of PR4 in [`docs/superpowers/plans/2026-05-04-notes-500-fix-pr4.md`](../../docs/superpowers/plans/2026-05-04-notes-500-fix-pr4.md). Setting `proj.table` to anything other than `entity.table` for an entity-mirror is a recipe for the same desync; the structural duplicate-table check still uses `defaultTableName` as a name-only stand-in (it has no PDM context at that layer) but does not affect what the runtime creates.
 - `parseQsm` accepts both `unknown` (already-parsed JSON) and a JSON string — the string path runs `JSON.parse` first and surfaces SyntaxError as a parse-layer error. Source: `parse/parse.ts`.
 - Both `projections` and `relations` default to `{}` at the schema level, so a QSM artifact with no relations is valid. The compiler will emit `NAV_NOT_ALLOWED` only when a graph attempts dot-nav through an undeclared relation. Source: `parse/schema.ts` `.default({})`; relations spec §3.
 - Column types are mapped from PDM `ScalarPrimitive`: `integer` → `INTEGER`, `decimal` → `REAL`, `boolean` → `INTEGER`, `string` / `date` / `datetime` → `TEXT`. Source: `derive/ddl.ts` `mapSqlType`. SQLite has no native boolean; do not introduce one.
