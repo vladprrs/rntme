@@ -8,6 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
+  DiscoveredModulesForVars,
   DiscoveredProvisionerModule,
   ProjectDeploymentConfig,
   ProjectDeploymentPlan,
@@ -15,6 +16,7 @@ import type {
   ProvisionerContract,
   ProvisionerEnvMapping,
   ProvisionerOutput,
+  ProvisionResultForVars,
 } from '@rntme/deploy-core';
 import { buildProjectDeploymentPlan, runProvisioners } from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
@@ -191,18 +193,19 @@ export async function runDeployment(
     await appendLog(deps, deploymentId, orgId, 'info', 'plan', eventBusLogMessage);
 
     let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
-    let provisionResultForPlan: { modules: Record<string, { publicOutputs: Record<string, unknown> }> } | undefined;
-    let discoveredModulesForPlan: Record<string, { producesNames: string[] }> | undefined;
+    let provisionResultForPlan: ProvisionResultForVars | undefined;
+    let discoveredModulesForPlan: DiscoveredModulesForVars | undefined;
 
     if (provModules.length > 0) {
       // Build discoveredModules input for plan-time var validation.
       // DiscoveredProvisionerModule has `manifest: ModuleManifest` directly
       // (see packages/deploy/deploy-core/src/provision.ts).
-      discoveredModulesForPlan = {};
+      const dm: Record<string, { producesNames: string[] }> = {};
       for (const m of provModules) {
         const names = m.manifest.provisioner?.produces.map((p) => p.name) ?? [];
-        discoveredModulesForPlan[m.projectKey] = { producesNames: names };
+        dm[m.projectKey] = { producesNames: names };
       }
+      discoveredModulesForPlan = dm;
 
       await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
       const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
@@ -296,7 +299,7 @@ export async function runDeployment(
           }
         }
       } catch {
-        // Module without ENV_MAPPINGS export is allowed.
+        // Modules opt out of env baking by not exporting ENV_MAPPINGS.
       }
     }
 
