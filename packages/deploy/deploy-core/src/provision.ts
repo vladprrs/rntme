@@ -37,6 +37,17 @@ export type RunProvisionersResult = Result<RunProvisionersValue, DeploymentProvi
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+function recoverErrorCode(
+  message: string,
+  defaultCode: 'DEPLOY_PROVISION_ENTRY_LOAD_FAILED',
+): keyof typeof DEPLOY_PROVISION_ERROR_CODES {
+  const known = ['DEPLOY_PROVISION_BUNDLE_ASSET_MISSING', 'DEPLOY_PROVISION_ENTRY_LOAD_FAILED'] as const;
+  for (const code of known) {
+    if (message.startsWith(`${code}:`)) return code;
+  }
+  return defaultCode;
+}
+
 export async function runProvisioners(input: RunProvisionersInput): Promise<RunProvisionersResult> {
   const errors: DeploymentProvisionError[] = [];
   const out: ProvisionedModule[] = [];
@@ -60,9 +71,10 @@ export async function runProvisioners(input: RunProvisionersInput): Promise<RunP
     try {
       contract = await input.resolveProvisioner(m.packageName, block.entry, input.projectDir);
     } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
       errors.push({
-        code: DEPLOY_PROVISION_ERROR_CODES.DEPLOY_PROVISION_ENTRY_LOAD_FAILED,
-        message: cause instanceof Error ? cause.message : String(cause),
+        code: DEPLOY_PROVISION_ERROR_CODES[recoverErrorCode(message, 'DEPLOY_PROVISION_ENTRY_LOAD_FAILED')],
+        message,
         module: m.packageName,
       });
       return err(errors);

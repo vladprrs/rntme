@@ -156,6 +156,38 @@ describe('runProvisioners', () => {
     }
   });
 
+  it('recovers DEPLOY_PROVISION_BUNDLE_ASSET_MISSING from resolver throw message prefix', async () => {
+    const result = await runProvisioners({
+      modules: [baseModule()],
+      resolvedTargetSecrets: { auth0Mgmt: {} },
+      projectDir: '/tmp/test',
+      resolveProvisioner: async () => {
+        throw new Error('DEPLOY_PROVISION_BUNDLE_ASSET_MISSING: provisioner.js not found in bundle');
+      },
+      log: () => undefined,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]?.code).toBe('DEPLOY_PROVISION_BUNDLE_ASSET_MISSING');
+    }
+  });
+
+  it('falls back to DEPLOY_PROVISION_ENTRY_LOAD_FAILED for unrecognised resolver throw', async () => {
+    const result = await runProvisioners({
+      modules: [baseModule()],
+      resolvedTargetSecrets: { auth0Mgmt: {} },
+      projectDir: '/tmp/test',
+      resolveProvisioner: async () => {
+        throw new Error('something went completely wrong');
+      },
+      log: () => undefined,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]?.code).toBe('DEPLOY_PROVISION_ENTRY_LOAD_FAILED');
+    }
+  });
+
   it('times out when provision exceeds timeoutMs', async () => {
     vi.useFakeTimers();
     const slow: ProvisionerContract = {

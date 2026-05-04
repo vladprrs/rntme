@@ -70,8 +70,10 @@ export async function runTearDownsForDeployment(input: {
     // Discover modules from the materialized project directory.
     const discovered = discoverModules({ projectDir: tmpDir });
     if (!discovered.ok) {
-      // No provisioner modules found — nothing to tear down.
-      return { ok: true };
+      return {
+        ok: false,
+        errors: [{ message: `tearDown: module discovery failed: ${discovered.errors[0]?.code ?? 'unknown'}: ${discovered.errors[0]?.message ?? ''}` }],
+      };
     }
 
     // Decrypt secret outputs envelope if present.
@@ -88,9 +90,11 @@ export async function runTearDownsForDeployment(input: {
           keyVersion: deployment.provisionResultKeyVersion,
         });
         secretEnvelope = JSON.parse(decrypted) as typeof secretEnvelope;
-      } catch {
-        // Non-fatal: proceed with empty secret outputs.
-        secretEnvelope = { modules: {} };
+      } catch (cause) {
+        return {
+          ok: false,
+          errors: [{ message: `tearDown: secret envelope decryption failed: ${(cause as Error).message}` }],
+        };
       }
     }
 
