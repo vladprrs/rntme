@@ -15,12 +15,36 @@ to a target adapter.
 
 ## Public API
 
-- `buildProjectDeploymentPlan(project, config)` — creates a preview deployment
-  plan or returns `DEPLOY_PLAN_*` errors.
+- `buildProjectDeploymentPlan(project, config, options?)` — creates a preview deployment
+  plan or returns `DEPLOY_PLAN_*` errors. See "Two-pass plan API" below for `options`.
 - `ProjectDeploymentConfig` — org/environment/mode, event bus,
   integration module image config, backend auth config, and policy values.
 - `ComposedProjectInput` — deploy-relevant structural subset of the composed
   project model.
+
+## Var sources
+
+Blueprint `vars` may pull values from three sources, selected by the `from` string prefix:
+
+- `target.<root>.<...>` — read from `ProjectDeploymentConfig`'s typed shape (e.g., `target.auth.auth0.domain`). Resolved at every plan call.
+- `provision.<moduleKey>.<output>.<jsonPointer>` — read from a provisioner's `publicOutputs`. **Requires** `buildProjectDeploymentPlan` to be called with `options.provisionResult` populated. The executor sequences provision before plan to make this possible.
+- `env.<NAME>` — (future) read from process env. Not implemented yet.
+
+`<moduleKey>` is the local key from `project.json#modules`, not the package name. `<output>` must be declared in `module.json#provisioner.produces`. The plan validates these at resolve time and emits one of:
+
+- `BLUEPRINT_VAR_PROVISION_PATH_INVALID` (syntax wrong)
+- `BLUEPRINT_VAR_PROVISION_MODULE_MISSING` (key not in project.json#modules)
+- `BLUEPRINT_VAR_PROVISION_OUTPUT_NOT_DECLARED` (output not in produces)
+- `BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING` (provisioner didn't run for this module)
+- `BLUEPRINT_VAR_PROVISION_PATH_NOT_FOUND` (JSON pointer dead-ends)
+
+## Two-pass plan API
+
+`buildProjectDeploymentPlan(input, config, options?)` accepts:
+- `options.provisionResult: { modules: { [key]: { publicOutputs } } }` — output of the provisioner stage.
+- `options.discoveredModules: { [key]: { producesNames } }` — used to validate `provision.*` paths against declared outputs.
+
+Callers without `provision.*` vars can omit `options`; behavior is identical to a pre-options call.
 
 ## Event bus modes, auth, and SASL
 
@@ -81,7 +105,7 @@ On the platform executor path, composed project module aliases are mapped throug
 
 ## Provision phase
 
-`runProvisioners(input)` runs each module's provisioner sequentially. It is invoked by the platform deploy executor between `plan` and `render` (five-phase pipeline). The function:
+`runProvisioners(input)` runs each module's provisioner sequentially. It is invoked by the platform deploy executor before `plan` (so blueprint vars can resolve `provision.*` outputs at plan time) and before `render`. The function:
 
 1. Iterates `modules[]` and skips entries without a `provisioner` block.
 2. Asserts every `requires[].name` is present in `resolvedTargetSecrets`. Missing → `DEPLOY_PROVISION_TARGET_SECRET_MISSING`.

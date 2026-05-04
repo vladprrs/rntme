@@ -375,3 +375,87 @@ describe('buildProjectDeploymentPlan', () => {
     }
   });
 });
+
+describe('buildProjectDeploymentPlan with provisionResult', () => {
+  const provisionProject: ComposedProjectInput = {
+    name: 'shop',
+    services: {
+      api: { slug: 'api', kind: 'domain', runtimeFiles: { 'manifest.json': '{}' } },
+    },
+    routes: { http: { '/api': 'api' } },
+    middleware: {},
+    mounts: [],
+  };
+
+  const provisionConfig: ProjectDeploymentConfig = {
+    targetSlug: 'staging',
+    orgSlug: 'acme',
+    environment: 'default',
+    mode: 'preview',
+    eventBus: {
+      kind: 'kafka',
+      mode: 'external',
+      brokers: ['redpanda.internal:9092'],
+    },
+    policies: {},
+  };
+
+  it('substitutes a provision.* var into publicConfigJson on the domain workload', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...provisionProject,
+        publicConfigJson: '{"identity":{"clientId":"${AUTH0_SPA_CLIENT_ID}"}}',
+        varsManifest: {
+          AUTH0_SPA_CLIENT_ID: {
+            from: 'provision.identity.spaClient.id',
+            required: true,
+          },
+        },
+      },
+      provisionConfig,
+      {
+        provisionResult: {
+          modules: {
+            identity: { publicOutputs: { spaClient: { id: 'spa_real' } } },
+          },
+        },
+        discoveredModules: { identity: { producesNames: ['spaClient'] } },
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    const workload = r.value.workloads.find(
+      (w) => w.kind === 'domain-service' && w.slug === 'api',
+    );
+    expect(workload).toBeDefined();
+    const publicConfigJson = (workload as { publicConfigJson: string }).publicConfigJson;
+    expect(publicConfigJson).toContain('"clientId":"spa_real"');
+    expect(publicConfigJson).not.toContain('${AUTH0_SPA_CLIENT_ID}');
+  });
+
+  it('fails with BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING when a required provision.* var has no provisionResult entry', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...provisionProject,
+        publicConfigJson: '{"identity":{"clientId":"${AUTH0_SPA_CLIENT_ID}"}}',
+        varsManifest: {
+          AUTH0_SPA_CLIENT_ID: {
+            from: 'provision.identity.spaClient.id',
+            required: true,
+          },
+        },
+      },
+      provisionConfig,
+      {
+        discoveredModules: { identity: { producesNames: ['spaClient'] } },
+      },
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING');
+    }
+  });
+});

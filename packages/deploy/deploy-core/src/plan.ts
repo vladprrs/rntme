@@ -11,7 +11,14 @@ import {
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
 import { err, ok, type Result } from './result.js';
-import { resolveVars, applyVars, type ResolvedVars, type TargetForVars } from './vars.js';
+import {
+  resolveVars,
+  applyVars,
+  type DiscoveredModulesForVars,
+  type ProvisionResultForVars,
+  type ResolvedVars,
+  type TargetForVars,
+} from './vars.js';
 
 export type PlannedProject = {
   readonly orgSlug: string;
@@ -107,11 +114,24 @@ export type ProjectDeploymentPlan = {
   };
 };
 
+export type BuildPlanOptions = {
+  readonly provisionResult?: ProvisionResultForVars;
+  readonly discoveredModules?: DiscoveredModulesForVars;
+};
+
 export function buildProjectDeploymentPlan(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
+  options: BuildPlanOptions = {},
 ): Result<ProjectDeploymentPlan, DeploymentPlanError> {
-  const resolved = resolveVars(project.varsManifest ?? {}, targetForVars(config, project.name));
+  const resolved = resolveVars(
+    project.varsManifest ?? {},
+    targetForVars(config, project.name),
+    {
+      ...(options.provisionResult ? { provisionResult: options.provisionResult } : {}),
+      ...(options.discoveredModules ? { discoveredModules: options.discoveredModules } : {}),
+    },
+  );
   if (!resolved.ok) return resolved;
   const vars = resolved.value;
 

@@ -39,4 +39,4 @@ export type {
   CatalogManifest,
 } from './types/artifact.js';
 export type { VarsManifest, VarBinding } from './types/vars.js';
-export { isKnownTargetPath, extractPlaceholders } from './types/vars.js';
+export { isKnownVarPath, extractPlaceholders } from './types/vars.js';

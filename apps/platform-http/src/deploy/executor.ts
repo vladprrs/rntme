@@ -8,6 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
+  DiscoveredModulesForVars,
   DiscoveredProvisionerModule,
   ProjectDeploymentConfig,
   ProjectDeploymentPlan,
@@ -15,6 +16,7 @@ import type {
   ProvisionerContract,
   ProvisionerEnvMapping,
   ProvisionerOutput,
+  ProvisionResultForVars,
 } from '@rntme/deploy-core';
 import { buildProjectDeploymentPlan, runProvisioners } from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
@@ -174,37 +176,37 @@ export async function runDeployment(
     const redactedTarget = redactTarget(target);
     const config = buildProjectDeploymentConfig(redactedTarget, orgSlug, ctx.configOverrides);
     const deployInput = await toDeployCoreInput(composed.value, tmpDir, config);
-    const plan = await runStage('plan', async () => (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config), { log });
-    if (!plan.ok) {
-      await finalize(deps, deploymentId, orgId, 'failed', {
-        errorCode: plan.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
-        errorMessage: redact(errorSummary(plan.errors)),
-      });
-      return;
-    }
-
-    await appendLog(
-      deps,
-      deploymentId,
-      orgId,
-      'info',
-      'plan',
-      plan.value.infrastructure.eventBus.mode === 'provisioned'
-        ? 'Provisioning Redpanda event bus'
-        : plan.value.infrastructure.eventBus.mode === 'in-memory'
-          ? 'Using in-memory event bus'
-        : 'Using external Kafka/Redpanda event bus',
-    );
-
-    // Provision phase: run AFTER plan, BEFORE render. Skips cleanly when no
-    // modules declare a provisioner block.
     if (tmpDir === null) throw new Error('tmpDir not initialized');
     const materializedDir: string = tmpDir;
     const provModules = collectProvisionerModules(composed.value, materializedDir);
-    // provisioned is populated when provModules.length > 0; referenced by Task 15 render integration.
+
+    // Bus mode log moved out of plan (was post-plan; now pre-provision).
+    const eventBusModeForLog =
+      config.eventBus === undefined ? 'unknown' :
+      config.eventBus.mode === 'provisioned' ? 'provisioned' :
+      config.eventBus.mode === 'in-memory' ? 'in-memory' : 'external';
+    const eventBusLogMessage =
+      eventBusModeForLog === 'provisioned' ? 'Provisioning Redpanda event bus' :
+      eventBusModeForLog === 'in-memory' ? 'Using in-memory event bus' :
+      eventBusModeForLog === 'external' ? 'Using external Kafka/Redpanda event bus' :
+      'Event bus mode unspecified';
+    await appendLog(deps, deploymentId, orgId, 'info', 'plan', eventBusLogMessage);
+
     let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
+    let provisionResultForPlan: ProvisionResultForVars | undefined;
+    let discoveredModulesForPlan: DiscoveredModulesForVars | undefined;
 
     if (provModules.length > 0) {
+      // Build discoveredModules input for plan-time var validation.
+      // DiscoveredProvisionerModule has `manifest: ModuleManifest` directly
+      // (see packages/deploy/deploy-core/src/provision.ts).
+      const dm: Record<string, { producesNames: string[] }> = {};
+      for (const m of provModules) {
+        const names = m.manifest.provisioner?.produces.map((p) => p.name) ?? [];
+        dm[m.projectKey] = { producesNames: names };
+      }
+      discoveredModulesForPlan = dm;
+
       await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
       const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
       const decrypted = await targetSecretsRepo.getAllDecrypted(target.id);
@@ -240,9 +242,11 @@ export async function runDeployment(
       const moduleMap = new Map<string, ProvisionedModule>();
       const persistence: DeploymentProvisionResult = { modules: {}, startedAt, finishedAt };
       const secretEnvelope: { modules: Record<string, { secretOutputs: Record<string, unknown>; provisionedAt: string }> } = { modules: {} };
+      const publicOutputsForPlan: Record<string, { publicOutputs: Record<string, unknown> }> = {};
 
       for (const m of provisionResult.value.modules) {
         moduleMap.set(m.projectKey, m);
+        publicOutputsForPlan[m.projectKey] = { publicOutputs: { ...m.publicOutputs } };
         (persistence.modules as Record<string, { publicOutputs: Record<string, unknown>; provisionedAt: string }>)[m.projectKey] = {
           publicOutputs: { ...m.publicOutputs },
           provisionedAt: m.provisionedAt,
@@ -255,6 +259,7 @@ export async function runDeployment(
         }
       }
       provisioned = moduleMap;
+      provisionResultForPlan = { modules: publicOutputsForPlan };
 
       const enc: EncryptedSecret | null =
         Object.keys(secretEnvelope.modules).length > 0
@@ -264,6 +269,24 @@ export async function runDeployment(
       await deps.withOrgTx(orgId, (repos) =>
         repos.deployments.setProvisionResult(deploymentId, persistence, enc),
       );
+    }
+
+    // Plan now runs AFTER provision so vars can resolve provision.* paths.
+    const plan = await runStage(
+      'plan',
+      async () =>
+        (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config, {
+          ...(provisionResultForPlan ? { provisionResult: provisionResultForPlan } : {}),
+          ...(discoveredModulesForPlan ? { discoveredModules: discoveredModulesForPlan } : {}),
+        }),
+      { log },
+    );
+    if (!plan.ok) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: plan.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
+        errorMessage: redact(errorSummary(plan.errors)),
+      });
+      return;
     }
 
     const envMappings: Record<string, ProvisionerEnvMapping[string]> = {};
@@ -276,7 +299,7 @@ export async function runDeployment(
           }
         }
       } catch {
-        // Module without ENV_MAPPINGS export is allowed (no env baking required).
+        // Modules opt out of env baking by not exporting ENV_MAPPINGS.
       }
     }
 

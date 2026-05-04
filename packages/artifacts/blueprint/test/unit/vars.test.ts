@@ -35,6 +35,83 @@ describe('structural vars', () => {
     });
     expect(r.ok).toBe(true);
   });
+
+  it('accepts vars.from with provision.<moduleKey>.<output>.<jsonPointer>', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: {
+          AUTH0_SPA_CLIENT_ID: {
+            from: 'provision.identity.spaClient.id',
+            required: true,
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts vars.from with provision.<moduleKey>.<output> (minimum 3 segments)', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: {
+          SPA_CLIENT: { from: 'provision.identity.spaClient', required: true },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects vars.from with provision.<moduleKey> only (no output segment)', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { X: { from: 'provision.identity', required: true } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]!.code).toBe('BLUEPRINT_VARS_FROM_UNKNOWN_ROOT');
+      expect(r.errors[0]!.message).toContain('provision.<moduleKey>.<output>');
+    }
+  });
+
+  it('rejects vars.from with bare "provision"', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { X: { from: 'provision', required: true } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]!.code).toBe('BLUEPRINT_VARS_FROM_UNKNOWN_ROOT');
+    }
+  });
+
+  it('rejects vars.from with "provisioning.*" typo (not exact provision prefix)', () => {
+    const r = validateBlueprintStructural({
+      ...baseInput,
+      project: {
+        name: 'demo',
+        services: ['app'],
+        vars: { X: { from: 'provisioning.foo.bar', required: true } },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]!.code).toBe('BLUEPRINT_VARS_FROM_UNKNOWN_ROOT');
+    }
+  });
 });
 
 const composeBase = {

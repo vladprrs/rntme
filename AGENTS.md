@@ -612,6 +612,25 @@ Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU mar
 2. Reference the id in any module manifest's `provisioner.requires[].schema`.
 3. Operators write the secret via `PUT /v1/orgs/:org/deploy-targets/:slug/secrets/:name` with `{ schema, value }` body. The platform validates `value` against the registered schema; `value` is never returned by GET.
 
+### Declare a var that resolves from provisioner output
+
+When a service needs a value the provisioner creates at deploy time (e.g., a freshly-issued OAuth client id):
+
+1. In the module manifest, declare the output: `module.json#provisioner.produces: [{ name: "spaClient", kind: "single", secret: false }]`.
+2. The provisioner's `provision()` function returns it under `publicOutputs.spaClient` (or however the produces shape is structured).
+3. In the blueprint `project.json`, use the new var source:
+
+```json
+"vars": {
+  "AUTH0_SPA_CLIENT_ID": { "from": "provision.identity.spaClient.id", "required": true }
+}
+```
+
+   `identity` is the local module key from `project.json#modules`. `spaClient` matches `produces[].name`. `.id` is a JSON pointer into `publicOutputs.spaClient`.
+4. Use `${AUTH0_SPA_CLIENT_ID}` inside any `publicConfig`/manifest field. The plan substitutes it after the provisioner runs.
+
+The pipeline runs `provision → plan → render`, so by the time render bakes `config.json` the SPA client id is already known.
+
 ### Update a vendored module in a demo blueprint
 
 When `modules/<category>/<vendor>/` changes, the demo blueprint's vendored copy must follow.

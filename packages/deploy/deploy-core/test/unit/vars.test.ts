@@ -42,6 +42,86 @@ describe('resolveVars', () => {
   });
 });
 
+describe('resolveVars provision.* sources', () => {
+  const provisionResult = {
+    modules: {
+      identity: {
+        publicOutputs: {
+          spaClient: { id: 'spa_abc', name: 'Notes Demo' },
+          resourceServer: { id: 'rs_xyz', identifier: 'https://notes-demo.rntme.com/api' },
+        },
+      },
+    },
+  };
+
+  const discoveredModules = {
+    identity: { producesNames: ['spaClient', 'resourceServer'] },
+  };
+
+  it('resolves a provision.<moduleKey>.<output>.<path>', () => {
+    const r = resolveVars(
+      { AUTH0_SPA_CLIENT_ID: { from: 'provision.identity.spaClient.id', required: true } },
+      target,
+      { provisionResult, discoveredModules },
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.AUTH0_SPA_CLIENT_ID).toBe('spa_abc');
+  });
+
+  it('errors with PROVISION_PATH_INVALID for a malformed path', () => {
+    const r = resolveVars(
+      { BAD: { from: 'provision.identity', required: true } },
+      target,
+      { provisionResult, discoveredModules },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_PATH_INVALID');
+  });
+
+  it('errors with PROVISION_MODULE_MISSING when discoveredModules lacks the key', () => {
+    const r = resolveVars(
+      { X: { from: 'provision.unknownModule.foo.bar', required: true } },
+      target,
+      { provisionResult, discoveredModules },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_MODULE_MISSING');
+  });
+
+  it('errors with PROVISION_OUTPUT_NOT_DECLARED when output not in produces', () => {
+    const r = resolveVars(
+      { X: { from: 'provision.identity.unknownOutput.id', required: true } },
+      target,
+      { provisionResult, discoveredModules },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_OUTPUT_NOT_DECLARED');
+  });
+
+  it('errors with PROVISION_OUTPUT_MISSING when provisioner did not run for this module', () => {
+    const r = resolveVars(
+      { X: { from: 'provision.identity.spaClient.id', required: true } },
+      target,
+      {
+        provisionResult: { modules: {} },
+        discoveredModules,
+      },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING');
+  });
+
+  it('errors with PROVISION_PATH_NOT_FOUND when JSON pointer dead-ends', () => {
+    const r = resolveVars(
+      { X: { from: 'provision.identity.spaClient.notAField.deeper', required: true } },
+      target,
+      { provisionResult, discoveredModules },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_PATH_NOT_FOUND');
+  });
+});
+
 describe('applyVars', () => {
   it('substitutes ${VAR} in strings', () => {
     expect(applyVars('hello ${X}', { X: 'world' })).toBe('hello world');
