@@ -50,6 +50,20 @@ describe('ModuleManifestSchema', () => {
     }
   });
 
+  it('every identity vendor declares client.contract = "identity"', () => {
+    for (const moduleDir of ['auth0', 'clerk', 'workos']) {
+      const raw = JSON.parse(
+        readFileSync(
+          join(process.cwd(), '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
+          'utf8',
+        ),
+      ) as { category?: string; client?: { contract?: string } };
+      if (raw.category !== 'identity') continue;
+      if (!raw.client) continue;
+      expect(raw.client?.contract, `modules/identity/${moduleDir}/module.json client.contract`).toBe('identity');
+    }
+  });
+
   it('rejects unknown keys', () => {
     const parsed = ModuleManifestSchema.safeParse({ ...VALID_MANIFEST, unexpected: true });
 
@@ -279,6 +293,44 @@ describe('ModuleManifestSchema — provisioner block', () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
       expect(parsed.value.provisioner).toBeUndefined();
+    }
+  });
+});
+
+describe('ClientBlockSchema — contract field', () => {
+  const baseClient = {
+    name: '@rntme/identity-test',
+    version: '0.0.0',
+    client: {
+      entry: './client/index.ts',
+      boot: true,
+    },
+  };
+
+  it('accepts contract: "identity"', () => {
+    const r = parseModuleManifest({
+      ...baseClient,
+      client: { ...baseClient.client, contract: 'identity' },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.client?.contract).toBe('identity');
+    }
+  });
+
+  it('rejects unknown contract values like "analytics"', () => {
+    const r = parseModuleManifest({
+      ...baseClient,
+      client: { ...baseClient.client, contract: 'analytics' },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('accepts client block without contract (field is optional)', () => {
+    const r = parseModuleManifest(baseClient);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.client?.contract).toBeUndefined();
     }
   });
 });

@@ -54,6 +54,9 @@ export type ModuleSpec = {
   name: string;
   boot?: (ctx: ModuleBootContext) => void | Promise<void>;
   bootTimeoutMs?: number;
+  /** When set to "identity", a boot failure that left /auth/status unset
+   *  causes the runtime to set /auth/status = 'anon' on the module's behalf. */
+  bootContract?: 'identity';
 };
 
 export type MountUiRuntimeOptions = {
@@ -121,6 +124,9 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     }
   }
 
+  type BootError = { moduleName: string; cause: unknown };
+  const bootErrors: BootError[] = [];
+
   for (const m of opts.modules ?? []) {
     if (!m.boot) continue;
     const ctx = createModuleBootContext({
@@ -132,13 +138,24 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
       registry: operationRegistry,
     });
     const ms = m.bootTimeoutMs ?? 10_000;
-    await Promise.race([
-      Promise.resolve(m.boot(ctx)),
-      new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new Error(`boot timeout: ${m.name}`)), ms),
-      ),
-    ]);
+    try {
+      await Promise.race([
+        Promise.resolve(m.boot(ctx)),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error(`boot timeout: ${m.name}`)), ms),
+        ),
+      ]);
+    } catch (cause) {
+      bootErrors.push({ moduleName: m.name, cause });
+      if (m.bootContract === 'identity' && store.get('/auth/status') === undefined) {
+        store.set('/auth/status', 'anon');
+        store.set('/auth/user', null);
+      }
+      console.error(`[rntme] module boot failed: ${m.name}`, cause);
+    }
   }
+
+  store.set('/runtime/bootErrors', bootErrors);
 
   async function fetchEndpoint(statePath: string, endpoint: CompiledDataEndpoint): Promise<void> {
     const url = buildUrl(endpoint.path, endpoint.params, (p) => store.get(p));

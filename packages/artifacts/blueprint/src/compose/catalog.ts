@@ -16,7 +16,7 @@ export function buildCatalog(
     params: Record<string, PropSchema>;
     category: string | null;
   }> = [];
-  const modulesWithBoot: string[] = [];
+  const modulesWithBoot: Array<{ name: string; contract?: 'identity' }> = [];
   const categoryToModule: Record<string, string> = {};
   const publicConfig: Record<string, Record<string, unknown>> = {};
   const moduleEdgeAuth: Record<string, EdgeAuthDescriptor | null> = {};
@@ -39,7 +39,11 @@ export function buildCatalog(
       }
     }
 
-    if (m.client?.boot) modulesWithBoot.push(moduleName);
+    if (m.client?.boot) {
+      const entry: { name: string; contract?: 'identity' } = { name: moduleName };
+      if (m.client.contract === 'identity') entry.contract = 'identity';
+      modulesWithBoot.push(entry);
+    }
     publicConfig[moduleName] = { ...mod.publicConfig };
     moduleEdgeAuth[moduleName] = m.capabilities?.edgeAuth ?? null;
 

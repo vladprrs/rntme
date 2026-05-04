@@ -69,6 +69,7 @@
   ],
   "client": {
     "entry": "./dist/client/index.js",
+    "contract": "identity",
     "boot": true,
     "config": {
       "schema": {
