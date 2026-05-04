@@ -69,7 +69,7 @@ export function validateModuleClientExports(
   const errors: BlueprintError[] = [];
   const needsClient = new Set<string>();
   for (const c of catalog.components) needsClient.add(c.module);
-  for (const m of catalog.modulesWithBoot) needsClient.add(m);
+  for (const m of catalog.modulesWithBoot) needsClient.add(m.name);
 
   for (const moduleName of needsClient) {
     const dm = discovered[moduleName];
