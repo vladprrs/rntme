@@ -43,7 +43,7 @@ export type MgmtClientConfig = {
   tenantDomain: string;
   mgmtClientId: string;
   mgmtClientSecret: string;
-  fetch?: typeof fetch;
+  fetch?: typeof globalThis.fetch;
   retryDelayMs?: number;
 };
 
@@ -80,7 +80,7 @@ export type MgmtClient = {
 };
 
 export function createMgmtClient(cfg: MgmtClientConfig): MgmtClient {
-  const fetcher = cfg.fetch ?? fetch;
+  const fetcher = cfg.fetch ?? globalThis.fetch;
   const retryDelay = cfg.retryDelayMs ?? 250;
   const apiBase = `https://${cfg.tenantDomain}/api/v2`;
   let token: { value: string; expiresAt: number } | null = null;
@@ -117,7 +117,7 @@ export function createMgmtClient(cfg: MgmtClientConfig): MgmtClient {
       });
       if (res.status === 429) {
         if (attempt === 2) return err([{ code: 'AUTH0_RATE_LIMITED', message: `429 after 3 attempts on ${method} ${path}` }]);
-        await new Promise((r) => setTimeout(r, retryDelay * Math.pow(2, attempt)));
+        await new Promise((r) => globalThis.setTimeout(r, retryDelay * Math.pow(2, attempt)));
         continue;
       }
       if (res.status === 404 && method === 'DELETE') return ok(undefined as T);

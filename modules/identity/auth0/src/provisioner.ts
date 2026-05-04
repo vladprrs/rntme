@@ -34,8 +34,8 @@ type ProvisionInput = {
   targetSecrets: Record<string, unknown>;
   priorOutputs?: { publicOutputs: Record<string, unknown>; secretOutputs: Record<string, unknown> };
   log: (entry: { step: string; level: 'info' | 'warn' | 'error'; code?: string; message: string }) => void;
-  signal: AbortSignal;
-  fetch?: typeof fetch;
+  signal: globalThis.AbortSignal;
+  fetch?: typeof globalThis.fetch;
 };
 
 const DEFAULT_CONNECTION = 'Username-Password-Authentication';

@@ -206,15 +206,11 @@ function buildSpec(
   proj: Projection,
   entity: ResolvedEntity,
 ): ProjectionDdlSpec {
-  // Entity-mirror projections share their table with the underlying PDM
-  // entity. graph-ir-compiler resolves the FROM clause to `entity.table`
-  // (see packages/artifacts/graph-ir-compiler/src/validate/semantic/sources.ts
-  // — kind: 'projection' branch), so the DDL we emit must create a table
-  // by the same name. Falling back to `defaultTableName(projName)`
-  // (`projection_<projname>`) would create a table the queries never read,
-  // causing "no such table" errors at first SELECT. `proj.table` is kept
-  // as an explicit override for completeness, but a different value than
-  // `entity.table` would silently desync from the compiled queries.
+  // Entity-mirror projections default to the underlying PDM entity table.
+  // Cross-ref validation normalizes the resolver's projection table to the
+  // same value when `proj.table` is absent, so emitted DDL and compiled reads
+  // stay aligned. Falling back to `defaultTableName(projName)` here would
+  // recreate the PR4 "created one table, queried another" failure.
   const tableName = proj.table ?? entity.table;
   const keySet = new Set(proj.keys);
   const columns: ColumnSpec[] = entity.fields.map((f) => ({

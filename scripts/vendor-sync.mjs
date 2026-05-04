@@ -98,7 +98,8 @@ async function main() {
     }
     for (const dir of TRACKED_DIRS) {
       const sotDir = join(sotPath, dir);
-      if (!existsSync(sotDir)) continue;
+      const sotDirStat = await stat(sotDir).catch(() => null);
+      if (!sotDirStat?.isDirectory()) continue;
       const venDir = join(v.vendoredPath, dir);
       const n = await copyTree(sotDir, venDir);
       dirFileCount += n;

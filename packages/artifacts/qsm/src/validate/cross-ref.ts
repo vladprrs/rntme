@@ -1,5 +1,5 @@
 import type { PdmResolver, ResolvedEntity, ResolvedField } from '@rntme/pdm';
-import type { StructurallyValidQsm, ValidatedQsm } from '../types/artifact.js';
+import type { Projection, StructurallyValidQsm, ValidatedQsm } from '../types/artifact.js';
 import { isEntityMirrorSource } from '../types/artifact.js';
 import {
   err,
@@ -15,6 +15,9 @@ export function validateCrossRef(
 ): Result<ValidatedQsm> {
   const errors: QsmError[] = [];
   const mirrorsByEntity = new Map<string, string>(); // entityName → projection claiming mirror
+  const projections: Record<string, Projection> = Object.fromEntries(
+    Object.entries(artifact.projections).map(([name, proj]) => [name, { ...proj }]),
+  );
 
   for (const [projName, proj] of Object.entries(artifact.projections)) {
     const pPath = `projections.${projName}`;
@@ -100,6 +103,10 @@ export function validateCrossRef(
         });
       } else {
         mirrorsByEntity.set(entity.name, projName);
+      }
+
+      if (proj.table === undefined) {
+        projections[projName] = { ...proj, table: entity.table };
       }
     }
   }
@@ -214,7 +221,7 @@ export function validateCrossRef(
   }
 
   if (errors.length > 0) return err(errors);
-  return ok(artifact as ValidatedQsm);
+  return ok({ ...artifact, projections } as ValidatedQsm);
 }
 
 function indexFields(entity: ResolvedEntity): Map<string, ResolvedField> {

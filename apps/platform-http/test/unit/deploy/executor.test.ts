@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
-import { err, ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
+import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { readUiRuntimeCss, runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
 describe('runDeployment', () => {
@@ -527,9 +527,9 @@ describe('runDeployment', () => {
     await runDeployment('deployment-1', 'org-1', deps);
 
     expect(runProv).toHaveBeenCalledTimes(1);
-    const callArg = runProv.mock.calls[0]![0] as {
+    const callArg = (runProv.mock.calls[0] as unknown as [{
       modules: ReadonlyArray<{ projectKey: string; publicConfig: Record<string, unknown> }>;
-    };
+    }])[0];
     const identityModule = callArg.modules.find((m) => m.projectKey === 'identity');
     expect(identityModule).toBeDefined();
     expect(identityModule?.publicConfig.redirectUri).toBe('https://demo.example/');

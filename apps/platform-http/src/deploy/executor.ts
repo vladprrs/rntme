@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { clearInterval, setInterval } from 'node:timers';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';

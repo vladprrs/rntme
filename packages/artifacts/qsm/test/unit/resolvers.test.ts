@@ -60,7 +60,7 @@ describe('createQsmResolver', () => {
     expect([...r.listProjections()]).toEqual(['IssueView']);
   });
 
-  it('resolveProjection returns ResolvedProjection with defaulted backing and table', () => {
+  it('resolveProjection defaults entity mirrors to the PDM entity table', () => {
     const r = setup({
       projections: {
         X: {
@@ -73,7 +73,7 @@ describe('createQsmResolver', () => {
     });
     const p = r.resolveProjection('X')!;
     expect(p.backing).toBe('entity-mirror');
-    expect(p.table).toBe('projection_x');
+    expect(p.table).toBe('issues');
   });
 
   it('resolveProjection returns explicit table when provided', () => {
@@ -102,6 +102,7 @@ describe('createQsmResolver', () => {
     const mirror = r.findEntityMirror('Issue')!;
     expect(mirror.name).toBe('IssueView');
     expect('entity' in mirror.source ? mirror.source.entity : undefined).toBe('Issue');
+    expect(mirror.table).toBe('issues');
   });
 
   it('findEntityMirror returns null for entity without mirror', () => {

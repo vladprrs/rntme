@@ -49,13 +49,10 @@ describe('generateProjectionDdl', () => {
     expect(ddls[0]!.tableName).toBe('issues');
   });
 
-  it('emits the same table name graph-ir-compiler reads from (regression for "no such table")', () => {
-    // Mirror of graph-ir-compiler/src/validate/semantic/sources.ts:
-    //   map.set(node.id, { kind: 'projection', table: entity.table, ... });
-    // The DDL emitted here MUST equal that table; otherwise the runtime
-    // creates a table the queries never read, producing
-    // SQLITE_ERROR: no such table at first SELECT. The Issue entity
-    // declares table="issues" in the fixture PDM.
+  it('uses entity.table for generated DDL when no projection table is declared', () => {
+    // This covers the DDL half of the entity-mirror table contract: without
+    // an explicit projection table, generated tableName/createTableSql must
+    // use the PDM entity table. Resolver coverage lives in resolvers.test.ts.
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddls = generateProjectionDdl(qsm, resolver);
     const expectedTable = 'issues'; // from issue-tracker.pdm.json Issue.table

@@ -99,7 +99,7 @@ export async function runTearDownsForDeployment(input: {
     }
 
     const errors: Array<{ message: string }> = [];
-    const signal = new AbortController().signal;
+    const signal = new globalThis.AbortController().signal;
 
     for (const [moduleKey, moduleResult] of moduleEntries) {
       // Find the matching discovered module for this project key.

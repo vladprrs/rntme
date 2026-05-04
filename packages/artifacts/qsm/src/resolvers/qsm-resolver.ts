@@ -8,7 +8,6 @@ import type {
   ResolvedProjection,
   ResolvedRelation,
 } from '../types/resolvers.js';
-import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
 
 export function createQsmResolver(artifact: ValidatedQsm): QsmResolver {
@@ -68,10 +67,15 @@ function toResolvedProjection(name: string, p: Projection): ResolvedProjection {
   return {
     name,
     backing: p.backing ?? 'entity-mirror',
-    table: p.table ?? defaultTableName(name),
+    table: resolvedTableName(name, p),
     source,
     keys: p.keys,
     grain: p.grain,
     exposed: p.exposed,
   };
+}
+
+function resolvedTableName(name: string, p: Projection): string {
+  if (p.table !== undefined) return p.table;
+  throw invariantViolated(`projection "${name}" missing table after cross-ref validation`);
 }
