@@ -28,7 +28,7 @@ Functions: `parseModuleManifest`.
 
 ## Invariants & gotchas
 
-- This package owns only the **JSON declarative shape** of a manifest. The runtime contract for provisioners (what code a provisioner implements) lives in `@rntme/contracts-provisioner-v1`. Do not put runtime types here.
+- This package owns only the **JSON declarative shape** of a manifest. The runtime contract for provisioners (what code a provisioner implements) will live in `@rntme/contracts-provisioner-v1` once that extraction PR lands; today the runtime contract still lives in `@rntme/deploy-core`'s `provisioner-contract.ts`. Do not put runtime types here.
 - `parseModuleManifest` returns `Result<ModuleManifest, ModuleManifestError>` — never throws.
 
 ## Out of scope

@@ -4,6 +4,15 @@
   "type": "module",
   "private": true,
   "description": "Module manifest contract — the JSON shape every rntme module exposes via module.json: capabilities, secrets, edge auth, client block, provisioner block.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladprrs/rntme.git",
+    "directory": "packages/contracts/module/v1"
+  },
+  "bugs": {
+    "url": "https://github.com/vladprrs/rntme/issues"
+  },
+  "homepage": "https://github.com/vladprrs/rntme#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
