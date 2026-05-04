@@ -55,7 +55,7 @@ describe('deriveProjectionHandler', () => {
     const { qsm, resolver, events } = setup(QSM_ISSUE_MIRROR);
     const h = deriveProjectionHandler(qsm, resolver, events)[0]!;
     expect(h.keyColumns).toEqual(['id']);
-    expect(h.tableName).toBe('projection_issueview');
+    expect(h.tableName).toBe('issues');
   });
 
   it('emits one eventHandler per Issue event (7 transitions)', () => {
