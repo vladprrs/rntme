@@ -32,7 +32,11 @@ When `plan.infrastructure.eventBus.mode === "provisioned"` and
 `provider === "redpanda"`, render adds a Dokploy Compose resource before the
 application resources. The compose file starts a single internal Redpanda
 broker on port `9092`, uses a deterministic persistent named volume, and does
-not expose a public domain or external broker port.
+not expose a public domain or external broker port. The Redpanda service is
+attached to both `default` (compose-internal) and the external
+`dokploy-network` so swarm-service apps can resolve the broker by its
+network alias (full container name, set via `apply.ts` networkNameMap from
+the Dokploy-assigned compose appName).
 
 Domain-service workloads receive:
 
