@@ -169,6 +169,7 @@ store.set('/runtime/bootErrors', bootErrors);
 ### 6.2 Identity contract
 
 - `module.json#client.contract: "identity"` (optional, whitelisted to `["identity"]` in `@rntme/blueprint`).
+- `@rntme/blueprint` exposes the manifest field on the runtime `ModuleClientDescriptor` as `bootContract`. The code in §6.1 reads `m.bootContract`; the manifest field is `client.contract`. One translation, in blueprint compose.
 - Identity modules **must** set `/auth/status` themselves on success/failure. The runtime fallback (`'anon'`) only fires when the module crashed before reaching either branch.
 - The fallback **does not** overwrite an already-set `/auth/status`. A module that authed successfully and crashed in `registerOperation` keeps `'authed'` — no surprise logout.
 
@@ -182,23 +183,24 @@ A module-conformance test enforces: every module with `category: "identity"` dec
 
 ### 7.1 Failure-mode tree
 
+(Hypothesis labels H1-H4 are local to this section; they don't refer to PR-level letters A/B/C/D used elsewhere.)
+
 ```
 GET /api/notes (Bearer valid)  →  500 INTERNAL_ERROR
-└── A) listNotes query SQL execution failed
-    ├── A1) table 'notes' does not exist                 ← primary hypothesis
-    │   PDM declares Note aggregate, runtime in
-    │   ephemeral mode skips CREATE TABLE on boot.
-    │   Log signature: "no such table: notes" / SQLITE_ERROR
-    │
-    └── A2) DSN/connection error
-        Log signature: "database is locked" / "connection refused"
-
-├── B) IntrospectSession pre-block failure mistranslated
+├── H1) listNotes query SQL execution failed: missing table   ← primary hypothesis
+│   PDM declares Note aggregate, runtime in ephemeral mode
+│   skips CREATE TABLE on boot.
+│   Log signature: "no such table: notes" / SQLITE_ERROR
+│
+├── H2) listNotes DSN / connection error
+│   Log signature: "database is locked" / "connection refused"
+│
+├── H3) IntrospectSession pre-block failure mistranslated
 │   Bindings runtime maps non-zero gRPC status to INTERNAL_ERROR
 │   instead of UNAUTHENTICATED.
 │   Log signature: "module-rpc identity-auth0 IntrospectSession"
 │
-└── C) bindings-http transport bug
+└── H4) bindings-http transport bug
     Crash in gRPC↔HTTP bridge serializing Session.
     Log signature: stack trace in bindings-http
 ```
@@ -211,7 +213,7 @@ GET /api/notes (Bearer valid)  →  500 INTERNAL_ERROR
 4. Identify branch by log signature. Patch at root.
 5. Tear down test user via `DELETE /api/v2/users/{id}`.
 
-### 7.3 If A1 is confirmed
+### 7.3 If H1 is confirmed
 
 - Locate boot orchestrator in `packages/runtime/runtime/`.
 - Add the missing `if (mode === 'ephemeral') { applyPdmSchema(db, pdm) }` branch (or the equivalent given current code shape).
@@ -269,7 +271,7 @@ Module-conformance test: any module with `category: "identity"` has `client.cont
 
 ### 9.4 PR4 (notes 500)
 
-- Unit test at the localized fix point (likely `packages/runtime/runtime/test/unit/persistence/ephemeral-bootstrap.test.ts` if A1 is confirmed).
+- Unit test at the localized fix point (likely `packages/runtime/runtime/test/unit/persistence/ephemeral-bootstrap.test.ts` if H1 is confirmed).
 - E2E gated (`RNTME_NOTES_DEMO_E2E=1`): full publish → deploy → login → `/api/notes` with Bearer returns 200 `[]`. Runs against an ephemeral Dokploy target.
 
 ## 10. Documentation touches
@@ -283,7 +285,7 @@ Module-conformance test: any module with `category: "identity"` has `client.cont
 | PR3 | `apps/platform-http/README.md` | new executor stage order; `application-readLogs` MCP unreliability + SSH fallback runbook |
 | PR3 | `AGENTS.md §6` | how-to: declare a `provision.*` var |
 | PR3 | `docs/superpowers/specs/2026-05-03-provisioner-bundle-transport-design.md` | mark §15 "vars-vs-provisioner" follow-up as resolved by this spec |
-| PR4 | `packages/runtime/runtime/README.md` (if A1) | ephemeral persistence lifecycle |
+| PR4 | `packages/runtime/runtime/README.md` (if H1) | ephemeral persistence lifecycle |
 | PR4 | `demo/notes-blueprint/README.md` | "User test after deploy" updated for fresh-tenant flow |
 
 `README.md` package table / dep graph / `vision.md` / `CLAUDE.md` "Architecture in one paragraph" / `docs/architecture.md` — **not changed** (recorded decision: this spec adjusts pipeline ordering and runtime boot lifecycle; package boundaries, layering, and product positioning are untouched).
@@ -295,7 +297,7 @@ Module-conformance test: any module with `category: "identity"` has `client.cont
 | Phase split in `plan.ts` breaks deploys without `provision.*` vars | medium | critical (deploys halt) | Phase1 + identity-provision-noop + phase2 byte-equivalent to old path; regression test in §9.3 enforces |
 | Identity module forgets `contract: "identity"` | medium | LoginScreen never renders on boot fail | Module-conformance test in PR2 |
 | `application-readLogs` MCP unreliable → can't diagnose A | medium | blocks PR4 | SSH + `docker service logs` fallback documented in PR3 README |
-| Real /api/notes 500 root cause is B or C, not A1 | low | scope expansion in PR4 | Spec keeps B/C branches open; PR4 plan is diagnose-then-fix, not committed-solution |
+| Real /api/notes 500 root cause is H2/H3/H4, not H1 | low | scope expansion in PR4 | Spec keeps all branches open; PR4 plan is diagnose-then-fix, not committed-solution |
 | `ENV_MAPPINGS` and `provision.*` vars look like duplication | low | cosmetic | Recorded distinction: env-mappings inject env into running containers; vars shape deploy-time artifacts (config.json). Different consumers, not duplication. |
 | `vendor:check` flakes on Windows (EOL, file mode) | low | CI noise | Normalize EOL in diff; hash content without mode |
 | Provisioner concurrent runs on parallel deploys race on Auth0 client name | low | duplicate or wrong-named clients | Provisioner already reconciles-by-name idempotently; race window only widens warning log, not state |
