@@ -1,5 +1,5 @@
 import type { InputMode, ValidatedBindings } from '@rntme/bindings';
-import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
+import type { EdgeAuthDescriptor } from '@rntme/contracts-module-v1';
 import type { EventTypeSpec, ValidatedPdm } from '@rntme/pdm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';

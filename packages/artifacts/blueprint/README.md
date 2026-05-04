@@ -39,7 +39,7 @@ Project-first blueprint parser/validator for rntme.
 
 ## Modules
 
-A `provisioner` block on the manifest is surfaced through `DiscoveredModule.manifest.provisioner`. Discovery validates that `entry` is a relative path inside the module package; absolute or parent-traversal entries fail with `BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`.
+Blueprint imports the manifest schema from `@rntme/contracts-module-v1` (`ModuleManifestSchema`, `parseModuleManifest`, all manifest types). A `provisioner` block on the manifest is surfaced through `DiscoveredModule.manifest.provisioner`. Discovery validates that `entry` is a relative path inside the module package; absolute or parent-traversal entries fail with `BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`.
 
 ## Var sources
 

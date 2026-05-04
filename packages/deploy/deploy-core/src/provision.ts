@@ -1,4 +1,4 @@
-import type { ModuleManifest } from '@rntme/module-skeleton';
+import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { DEPLOY_PROVISION_ERROR_CODES, type DeploymentProvisionError } from './errors-provision.js';
 import type { ProvisionerContract, ProvisionerLog, ProvisionerOutput } from './provisioner-contract.js';
 import { err, ok, type Result } from './result.js';

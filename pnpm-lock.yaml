@@ -683,9 +683,9 @@ importers:
       '@rntme/bindings':
         specifier: workspace:*
         version: link:../bindings
-      '@rntme/module-skeleton':
+      '@rntme/contracts-module-v1':
         specifier: workspace:*
-        version: link:../../tooling/module-skeleton
+        version: link:../../contracts/module/v1
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm
@@ -1078,9 +1078,9 @@ importers:
 
   packages/deploy/deploy-core:
     dependencies:
-      '@rntme/module-skeleton':
+      '@rntme/contracts-module-v1':
         specifier: workspace:*
-        version: link:../../tooling/module-skeleton
+        version: link:../../contracts/module/v1
       zod:
         specifier: ^4.0.0
         version: 4.3.6
@@ -1580,9 +1580,6 @@ importers:
       '@rntme/runtime':
         specifier: workspace:*
         version: link:../../runtime/runtime
-      zod:
-        specifier: ^3.24.2
-        version: 3.25.76
     devDependencies:
       '@rntme/event-store':
         specifier: workspace:*

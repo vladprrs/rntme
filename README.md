@@ -116,6 +116,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 | [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
 | **Canonical contracts** |  |
+| [`@rntme/contracts-module-v1`](packages/contracts/module/v1) | JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`. |
 | [`@rntme/contracts-common-v1`](packages/contracts/_common/v1) | Shared cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort, `Metadata`) imported by every category contract. |
 | [`@rntme/contracts-ai-llm-v1`](packages/contracts/ai-llm/v1) | Canonical AI/LLM contract: `service AiLlmModule` (14 RPCs), Completion, AssistantThread, AsyncJob, sixteen CloudEvents payloads, MCP-shape tools, `AI_LLM_<LAYER>_<KIND>` error codes. |
 | [`@rntme/contracts-identity-v1`](packages/contracts/identity/v1) | Canonical Identity contract: `service IdentityModule` (24 RPCs), six entity types, seventeen CloudEvents payloads, `IDENTITY_<LAYER>_<KIND>` error codes. |
@@ -156,8 +157,9 @@ flowchart TB
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
     MS["@rntme/module-skeleton"]:::pkg
+    CMV1["@rntme/contracts-module-v1"]:::pkg
 
-    BP --> PDM & QSM
+    BP --> PDM & QSM & CMV1
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES

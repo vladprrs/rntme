@@ -59,6 +59,9 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
+              @rntme/contracts-module-v1   (leaf — manifest JSON shape)
+                         |
+                         v
                          @rntme/blueprint
                         /       |       \
                        /        |        \
@@ -86,6 +89,7 @@ ASCII dependency diagram. Arrow means "depends on".
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
+              (deploy-core also depends on @rntme/contracts-module-v1)
 ```
 
 One-line purpose per package (read the per-package README before touching):
@@ -135,6 +139,10 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
   module-integration track; depends on `@rntme/runtime`. →
   `packages/tooling/module-skeleton/README.md`.
+- **`@rntme/contracts-module-v1`** — JSON shape of `module.json`
+  (manifest schema, types, `parseModuleManifest`). All loaders/composers
+  depend on this; modules implement it via their `module.json`. →
+  `packages/contracts/module/v1/README.md`.
 - **`@rntme/deploy-core`** — Target-neutral project deployment
   planning from a validated/composed project model. Preview MVP only; no
   raw blueprint loading. The platform executor consumes project-version
@@ -804,6 +812,7 @@ Known categorical entries to watch for:
   "deal/opportunity" naming differences through `Deal.qualification`
   instead of a separate Lead aggregate.
 - **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
+- **`@rntme/contracts-module-v1`** — JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
   Holds `Scenario` files keyed by canonical RPC. Drift-tested against

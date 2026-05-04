@@ -1,4 +1,4 @@
-import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
+import type { EdgeAuthDescriptor } from '@rntme/contracts-module-v1';
 import type { CatalogManifest } from '../types/artifact.js';
 import type { PropSchema } from '../types/result.js';
 import { ERROR_CODES, err, ok, type BlueprintError, type Result } from '../types/result.js';

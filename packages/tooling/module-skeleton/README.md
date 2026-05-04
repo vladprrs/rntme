@@ -7,10 +7,12 @@ A *platform module* is a service that uses `@rntme/runtime` infrastructure (even
 ## What's inside
 
 - `src/handlers.ts` — example `CodeCommandHandlerMap` with a single `echo` command. This is what you replace with your own handlers.
-- `src/manifest-shape.ts` — Zod-backed `ModuleManifestSchema` and
-  `parseModuleManifest(raw)` for the platform module contract.
-- `src/index.ts` — barrel re-exporting the handler map and manifest validator.
+- `src/index.ts` — barrel re-exporting the example handler map.
 - `test/unit/*.test.ts` — example unit tests for a handler + a wiring smoke test using `CodeCommandExecutor`.
+
+The manifest schema (`ModuleManifestSchema`, `parseModuleManifest`, all
+manifest types) lives in **`@rntme/contracts-module-v1`**. Import it from
+there directly when you need to validate or type a `module.json`.
 
 ## Copy to bootstrap your module
 
@@ -19,7 +21,7 @@ A *platform module* is a service that uses `@rntme/runtime` infrastructure (even
 3. Replace the contents of `src/handlers.ts` with your vendor's operations.
 4. Add your vendor SDK to `dependencies` (e.g. `"stripe": "^14.0.0"`).
 5. Fill `module.json` using the contract below and validate it with
-   `parseModuleManifest`.
+   `parseModuleManifest` from `@rntme/contracts-module-v1`.
 6. Run `pnpm install` at the repo root.
 7. Register your handlers with the gRPC surface in your module's
    `start-module.ts` entry.

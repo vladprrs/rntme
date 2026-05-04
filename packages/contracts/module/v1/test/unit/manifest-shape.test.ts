@@ -39,7 +39,7 @@ describe('ModuleManifestSchema', () => {
     for (const moduleDir of ['auth0', 'clerk', 'workos']) {
       const raw = JSON.parse(
         readFileSync(
-          join(process.cwd(), '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
+          join(process.cwd(), '..', '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
           'utf8',
         ),
       ) as unknown;
@@ -54,7 +54,7 @@ describe('ModuleManifestSchema', () => {
     for (const moduleDir of ['auth0', 'clerk', 'workos']) {
       const raw = JSON.parse(
         readFileSync(
-          join(process.cwd(), '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
+          join(process.cwd(), '..', '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
           'utf8',
         ),
       ) as { category?: string; client?: { contract?: string } };
