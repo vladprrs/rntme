@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { validatePdm, parsePdm, createPdmResolver, type ValidatedPdm } from '@rntme/pdm';
 import { validateQsm, parseQsm, type ValidatedQsm } from '@rntme/qsm';
-import { crossValidateDerivedProjections } from '../../../src/projections/cross-validate.js';
+import { parseAuthoringSpec, type AuthoringSpecOutput } from '@rntme/graph-ir-compiler';
+import {
+  crossValidateDerivedProjections,
+  type CrossValidateInput,
+} from '../../../src/projections/cross-validate.js';
 
 const COMMERCE_PDM = {
   entities: {
@@ -138,16 +142,21 @@ function validateArtifacts(rawPdm: unknown, rawQsm: unknown): {
   };
 }
 
+function parseSpec(rawSpec: unknown): AuthoringSpecOutput {
+  const parsed = parseAuthoringSpec(rawSpec);
+  if (!parsed.ok) throw new Error('graph parse: ' + JSON.stringify(parsed.errors));
+  return parsed.value;
+}
+
 describe('crossValidateDerivedProjections', () => {
   it('happy path: compiles a single derived projection graph into a Map', () => {
-    const { spec, qsm } = buildAuthoringSpec();
+    const { spec: rawSpec, qsm } = buildAuthoringSpec();
+    const spec = parseSpec(rawSpec);
     const { validatedPdm, validatedQsm } = validateArtifacts(COMMERCE_PDM, qsm);
     const r = crossValidateDerivedProjections({
       qsm: validatedQsm,
       authoringSpec: spec,
       pdm: validatedPdm,
-      rawPdm: COMMERCE_PDM,
-      rawQsm: qsm,
     });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -159,14 +168,13 @@ describe('crossValidateDerivedProjections', () => {
   });
 
   it('QSM_DERIVED_UNKNOWN_GRAPH: source.graph references unknown id', () => {
-    const { spec, qsm } = buildAuthoringSpec('doesNotExist');
+    const { spec: rawSpec, qsm } = buildAuthoringSpec('doesNotExist');
+    const spec = parseSpec(rawSpec);
     const { validatedPdm, validatedQsm } = validateArtifacts(COMMERCE_PDM, qsm);
     const r = crossValidateDerivedProjections({
       qsm: validatedQsm,
       authoringSpec: spec,
       pdm: validatedPdm,
-      rawPdm: COMMERCE_PDM,
-      rawQsm: qsm,
     });
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -174,14 +182,13 @@ describe('crossValidateDerivedProjections', () => {
   });
 
   it('QSM_DERIVED_GRAPH_NOT_PROJECTION: source.graph points at a command graph', () => {
-    const { spec, qsm } = buildAuthoringSpec('createOrder');
+    const { spec: rawSpec, qsm } = buildAuthoringSpec('createOrder');
+    const spec = parseSpec(rawSpec);
     const { validatedPdm, validatedQsm } = validateArtifacts(COMMERCE_PDM, qsm);
     const r = crossValidateDerivedProjections({
       qsm: validatedQsm,
       authoringSpec: spec,
       pdm: validatedPdm,
-      rawPdm: COMMERCE_PDM,
-      rawQsm: qsm,
     });
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -192,7 +199,8 @@ describe('crossValidateDerivedProjections', () => {
   });
 
   it('QSM_DERIVED_KEYS_MISMATCH: projection.keys do not equal graph group-key names', () => {
-    const { spec, qsm } = buildAuthoringSpec();
+    const { spec: rawSpec, qsm } = buildAuthoringSpec();
+    const spec = parseSpec(rawSpec);
     // mutate qsm so the projection declares wrong keys
     const q = qsm as {
       projections: { resolvedOrderCount: { keys: string[]; grain: string[] } };
@@ -204,8 +212,6 @@ describe('crossValidateDerivedProjections', () => {
       qsm: validatedQsm,
       authoringSpec: spec,
       pdm: validatedPdm,
-      rawPdm: COMMERCE_PDM,
-      rawQsm: qsm,
     });
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -213,7 +219,8 @@ describe('crossValidateDerivedProjections', () => {
   });
 
   it('QSM_DERIVED_EXPOSED_OUT_OF_RANGE: exposed contains an unknown column', () => {
-    const { spec, qsm } = buildAuthoringSpec();
+    const { spec: rawSpec, qsm } = buildAuthoringSpec();
+    const spec = parseSpec(rawSpec);
     const q = qsm as {
       projections: { resolvedOrderCount: { exposed: string[] } };
     };
@@ -223,11 +230,25 @@ describe('crossValidateDerivedProjections', () => {
       qsm: validatedQsm,
       authoringSpec: spec,
       pdm: validatedPdm,
-      rawPdm: COMMERCE_PDM,
-      rawQsm: qsm,
     });
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.errors.some((e) => e.code === 'QSM_DERIVED_EXPOSED_OUT_OF_RANGE')).toBe(true);
+  });
+
+  it('does not accept raw PDM/QSM artifacts in the cross-validation input type', () => {
+    const { spec: rawSpec, qsm } = buildAuthoringSpec();
+    const spec = parseSpec(rawSpec);
+    const { validatedPdm, validatedQsm } = validateArtifacts(COMMERCE_PDM, qsm);
+    const input: CrossValidateInput = {
+      qsm: validatedQsm,
+      authoringSpec: spec,
+      pdm: validatedPdm,
+      // @ts-expect-error raw artifacts must not be accepted after validation.
+      rawPdm: COMMERCE_PDM,
+      rawQsm: qsm,
+    };
+
+    expect(input).toBeDefined();
   });
 });

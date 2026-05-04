@@ -6,9 +6,9 @@ The package does not assume a same-service binding namespace; Track B project co
 
 ## Role in the system
 
-- Depends on: `zod` (declared, currently unused in runtime code); no `@rntme/*` package dependencies.
+- Depends on: `zod` for parse-layer source schemas; no `@rntme/*` package dependencies.
 - Consumed by: `@rntme/ui-runtime` (imports the compiled `CompiledArtifact` shape to render screens at runtime).
-- Position in pipeline: JSON authoring (`manifest.json` + `*.spec.json` + `*.screen.json` + fragments) → `resolve` (read and assemble) → `expand` (inline `$ref`, substitute `$param`) → `validate` (structural → references) → `emit` (resolve bindings to HTTP endpoints) → `CompiledArtifact`.
+- Position in pipeline: JSON authoring (`manifest.json` + `*.spec.json` + `*.screen.json` + fragments) → `resolve` (read and assemble) → `expand` (inline `$ref`, substitute `$param`) → `validate` (structural → references/consistency) → `emit` (resolve bindings to HTTP endpoints) → `CompiledArtifact`.
 
 ## File map
 
@@ -18,12 +18,14 @@ src/
   compile.ts                  (entry) compile() orchestrator — runs resolve → expand → validate → emit fail-fast.
   resolve/
     resolve.ts                (entry) resolve() — reads manifest.json, layouts, screens, and transitively-referenced fragments from disk; detects $ref cycles.
+  parse/
+    schema.ts                 Zod schemas for manifest/spec/screen JSON. Normalizes omitted element props to `{}` and rejects malformed authoring shapes before expand/validate.
   expand/
     expand.ts                 (entry) expand() — inlines every $ref fragment (ID prefixing + nested recursion), deep-walks props/visible/on/watch to substitute { $param: "name" } from the ref's bind map.
   validate/
-    index.ts                  (entry) validate() — runs structural on all layouts+screens, then references; merges manifest route patterns into the route resolver.
+    index.ts                  (entry) validate() — runs structural on all layouts+screens, then references/consistency; merges manifest route patterns into the route resolver.
     structural.ts             validateStructural — root exists, no orphan elements, child references resolve, Slot elements rejected outside layouts.
-    references.ts             validateReferences — data+command bindings resolve, navigation targets match routes, $state paths covered by data/form/route/action prefixes.
+    references.ts             validateReferences — data+command bindings resolve with optional kind checks, navigation targets match routes, $state paths and command/data inputs are covered, component props match catalog schemas.
   emit/
     emit.ts                   (entry) emit() — maps manifest routes to { layout, screen }; projects each layout+screen through resolveScreenHttp into CompiledScreen form.
     http-map.ts               resolveScreenHttp + HttpEntry — translates DataBinding and CommandAction binding IDs into { method, path } via the caller-supplied httpMap; passes navigation/refetch actions through.
@@ -117,7 +119,7 @@ The individual phases (`resolve`, `expand`, `validate`, `emit`) are exported as 
 | `ExpandedSource` | `expand/expand.ts` | Output of `expand` (specs are already `CompiledSpec` shape; no `$ref`/`$param`). |
 | `CompiledArtifact`, `CompiledManifest`, `CompiledScreen`, `CompiledSpec`, `CompiledElement`, `CompiledDataEndpoint`, `CompiledAction` | `types/compiled.ts` | Output shapes consumed by `@rntme/ui-runtime`. |
 | `CompileOptions` | `compile.ts` | `{ sourceDir, httpMap, resolvers }`. |
-| `ValidateResolvers` | `validate/index.ts` | `{ resolveBinding, resolveComponent, resolveRoute }`. |
+| `ValidateResolvers` | `validate/index.ts` | `{ resolveBinding, resolveComponent, resolveRoute, resolveOperation, resolveCategoryToModule }`. `resolveBinding` may return optional `{ kind }` or `{ entry: { kind } }` metadata. |
 | `HttpEntry` | `emit/http-map.ts` | `{ method: 'GET' \| 'POST'; path: string }`. |
 
 ### Error codes (`UiErrorCode`)
@@ -126,7 +128,7 @@ Frozen union in `types/result.ts`. Grouped by phase.
 
 | Phase | Codes |
 |---|---|
-| Resolve | `MANIFEST_INVALID`, `FILE_NOT_FOUND`, `CIRCULAR_REF` |
+| Resolve | `MANIFEST_INVALID`, `FILE_NOT_FOUND`, `CIRCULAR_REF`, `DUPLICATE_SCREEN_KEY` |
 | Expand | `UNBOUND_PARAM`, `UNKNOWN_PARAM` |
 | Validate (parse) | `SPEC_INVALID`, `SCREEN_SCHEMA_INVALID` |
 | Validate (structural) | `MISSING_ROOT`, `ORPHAN_ELEMENT`, `BAD_CHILD_REF`, `SLOT_NOT_IN_LAYOUT` |
@@ -165,15 +167,15 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 | `kind` | Input shape (`ActionDef`) | Validated by | Compiled shape (`CompiledAction`) | `emit` behavior |
 |---|---|---|---|---|
 | `navigation` | `{ kind, navigateTo, paramsFromState? }` | `resolveRoute(navigateTo)` in references layer (`UNKNOWN_ROUTE`). | Same shape, `kind: 'navigation'`. | Passed through verbatim. |
-| `command` | `{ kind, binding, paramsFromState, onSuccess?, onError? }` | `resolveBinding(binding)` (`UNRESOLVED_BINDING`). | `{ kind: 'command', method: 'POST', path, paramsFromState, onSuccess?, onError? }`. | `binding` replaced with `{ method, path }` from `httpMap`. |
+| `command` | `{ kind, binding, paramsFromState, onSuccess?, onError? }` | `resolveBinding(binding)` (`UNRESOLVED_BINDING`), optional binding kind (`BINDING_KIND_MISMATCH`), and covered `paramsFromState` paths (`UNCOVERED_INPUT`). | `{ kind: 'command', method: 'POST', path, paramsFromState, onSuccess?, onError? }`. | `binding` replaced with `{ method, path }` from `httpMap`. |
 | `refetch` | `{ kind, targets }` | No reference check. | Same shape, `kind: 'refetch'`. | Passed through verbatim. |
 
 ### Data bindings
 
 `ScreenDescriptor.data[statePath] = { binding, params?, refetchOn? }`. For each entry:
 
-- `binding` is resolved via `resolvers.resolveBinding` (validate) and mapped to `{ method, path }` via `httpMap` (emit).
-- `params` values may be literals (string / number / boolean) or `{ $state: "<path>" }` references; they pass through `emit` untouched.
+- `binding` is resolved via `resolvers.resolveBinding` (validate) and mapped to `{ method, path }` via `httpMap` (emit). If the resolver exposes kind metadata, data bindings require `query`.
+- `params` values may be literals (string / number / boolean) or `{ $state: "<path>" }` references; `$state` input paths must be covered, and all params pass through `emit` untouched.
 - `refetchOn` is `Array<'mount' | 'params'>`; it passes through `emit` untouched.
 - `statePath` becomes a covered `$state` prefix automatically (see reference-validation rules).
 
@@ -181,7 +183,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 
 - **Manifest version literal is `"2.0"`.** Both `SourceManifest.version` and `CompiledManifest.version` are the string literal `"2.0"`. Anything else must be rejected at parse time.
 - **File pair convention: `<base>.spec.json` + `<base>.screen.json`.** `resolve.readPair` joins `baseDir` with these suffixes. Screens and layouts each require both files; fragments require only `.spec.json`.
-- **Screen key is the last path segment of `route.screen`.** `resolve` and `emit` derive the compiled screen key via `route.screen.split('/').pop()!`. Two routes pointing at different paths with the same trailing segment collide.
+- **Screen key is the last path segment of `route.screen`.** `resolve` and `emit` derive the compiled screen key via `route.screen.split('/').pop()!`. Two different screen base paths with the same trailing segment fail with `DUPLICATE_SCREEN_KEY`.
 - **Fragments are collected transitively with cycle detection.** `resolve.collectFragments` recurses through nested `$ref` elements and records `CIRCULAR_REF` if a path re-enters the `visiting` set. See `test/fixtures/cycle-app` (`fragments/a` ↔ `fragments/b`).
 - **`$ref` elements are erased at compile time.** After `expand`, the compiled spec contains no `$ref` and no `$param` markers. `test/integration/compile.test.ts` asserts this by `JSON.stringify(spec)` not containing either token.
 - **Inlined fragment element IDs are prefixed `<refKey>__<elKey>`.** Nested `$ref` inside a fragment yields `<outerRefKey>__<innerRefKey>__<fragmentRoot>`. Parent `children` arrays are rewired to point at the inlined root. See `fragment-app` test producing key `greeting__wrap`.
@@ -189,9 +191,9 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 - **Slots are layout-only.** `validateStructural` rejects `type === 'Slot'` outside layouts with `SLOT_NOT_IN_LAYOUT`.
 - **Structural errors short-circuit reference validation.** `validate` returns after the structural pass if any errors accumulated; reference rules do not run against a broken tree.
 - **Route resolution merges manifest routes with caller-supplied `resolveRoute`.** Manifest patterns support `:param` segments (colon-prefixed part matches any value at the same index). The merged resolver `OR`s caller and manifest resolution.
-- **Binding IDs are opaque to `@rntme/ui`.** Reference validation only checks that `resolveBinding(id)` succeeds; emit then uses `httpMap[id]` to attach HTTP details. Project-aware callers may therefore use qualified refs like `pricing.listPrices`, while bare ids such as `listIssues` remain valid as caller-defined local shorthands.
-- **`$state` path coverage rules.** `validateReferences` accepts a state path as covered if it exactly matches a key in `screen.data`, or if it is prefixed by `/form/`, `/route/params/`, `/actions/`, `/data/__status/`, or `/data/__error/`. Any other path yields `UNCOVERED_STATE_PATH`.
-- **`emit` silently drops bindings missing from `httpMap`.** `http-map.resolveScreenHttp` skips data bindings and command actions whose `binding` ID is not in `httpMap`. Catching missing bindings is the caller's responsibility via `resolvers.resolveBinding` in the validate phase.
+- **Binding IDs are opaque to `@rntme/ui`, except optional kind metadata.** Reference validation requires `resolveBinding(id)` to succeed and, when the resolver returns `{ kind }` or `{ entry: { kind } }`, checks data bindings are `query` and command actions are `command`. Emit then uses `httpMap[id]` to attach HTTP details. Project-aware callers may therefore use qualified refs like `pricing.listPrices`, while bare ids such as `listIssues` remain valid as caller-defined local shorthands.
+- **`$state` path coverage rules.** `validateReferences` accepts a state path as covered if it exactly matches a key in `screen.data`, or if it is prefixed by `/form/`, `/route/params/`, `/actions/`, `/data/__status/`, `/data/__error/`, `/auth/`, or equals `/currentUser`. Visual/runtime state references outside those rules yield `UNCOVERED_STATE_PATH`; data params and command/navigation `paramsFromState` outside those rules yield `UNCOVERED_INPUT`.
+- **`emit` requires `httpMap` coverage.** Data bindings and command actions whose `binding` ID is absent from `httpMap` fail with `EMIT_FAILED`; callers must keep `resolvers.resolveBinding` and `httpMap` aligned.
 - **`refetch` and `navigation` actions pass through `emit` verbatim.** Only `command` actions are rewritten to include `{ method, path }` (and have `binding` dropped). See `test/fixtures/refetch-app` for the `refetch` action shape.
 - **`Result<T>` everywhere; no exceptions across API boundaries.** Every exported pipeline function returns a `Result`. JSON-parse failures become `MANIFEST_INVALID`; missing files become `FILE_NOT_FOUND`.
 - **Layouts and screens share the `CompiledScreen` shape in output.** In `CompiledArtifact`, both `manifest.layouts` and `manifest.screens` are `Record<string, CompiledScreen>`. The difference is purely positional (a layout wraps a screen at runtime).
@@ -201,20 +203,18 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 - **Fragment element IDs are globally unique after expansion.** Because every inlined element key is prefixed by its ref site (recursively), two sites referencing the same fragment produce disjoint IDs — element-ID collisions between fragment instances are structurally impossible.
 - **`expand` preserves element `repeat` metadata verbatim.** `repeat: { statePath, key? }` is copied through without `$param` substitution on `statePath` (by design: statePath is a target, not a value).
 - **Circular-ref detection tracks paths, not file handles.** `collectFragments.visiting` is a `Set<string>` of base paths; two different files normalized to the same base path are treated as the same node.
-- **`resolveComponent` is declared but unused by validators.** `ValidateResolvers.resolveComponent` is part of the resolvers surface; no current validation layer consults it. Tests supply `() => ({ childrenModel: 'list' })` as a placeholder.
-- **`resolveBinding`'s return type is `unknown | undefined`.** Only presence matters in the current reference layer; the returned value is not inspected. A future `BINDING_KIND_MISMATCH` check would consume the value.
+- **`resolveComponent` is load-bearing.** The references layer validates element component types, required props, and literal prop types through `ValidateResolvers.resolveComponent`; project composition supplies core runtime components plus module catalog components.
+- **`resolveBinding` return values may be opaque.** Missing values still emit `UNRESOLVED_BINDING`. If the returned value has no `kind` metadata, binding-kind validation is skipped for compatibility; if it has metadata, mismatches emit `BINDING_KIND_MISMATCH`.
 - **Validation is pure on `ExpandedSource`.** Post-expand, specs are free of `$ref`/`$param`; structural and reference validators operate on `CompiledSpec` directly, which is why they can also be reused for runtime-side sanity checks.
 
 ## Out of scope / known limits
 
 - **No rendering.** This package produces a `CompiledArtifact`. `@rntme/ui-runtime` renders it.
 - **No HTTP.** `emit` requires a caller-supplied `httpMap: Record<string, HttpEntry>`. The UI compiler does not import `@rntme/bindings`, does not parse an OpenAPI document, and does not know which engine serves a given path.
-- **No binding-kind checking.** `UNRESOLVED_BINDING` is raised when `resolveBinding` returns `undefined`. `BINDING_KIND_MISMATCH` is listed in `UiErrorCode` as a reserved slot but not emitted by any current layer.
-- **No parse-layer schema validator.** `SPEC_INVALID` and `SCREEN_SCHEMA_INVALID` are reserved codes; `resolve` only catches `JSON.parse` failure (as `MANIFEST_INVALID`). Authoring files are trusted to match `SpecJson` / `ScreenDescriptor` once JSON-parsed.
-- **No consistency phase.** `TYPE_MISMATCH` and `UNCOVERED_INPUT` are reserved codes; no current code path emits them. Cross-checking between `params` shapes and binding input shapes is not performed.
+- **No binding input-shape validation.** The validator checks binding presence, optional binding kind, and input state coverage, but it does not validate command/data params against a binding-specific parameter schema.
 - **No watch-mode or incremental build.** `compile` re-reads the whole tree each call.
 - **No artifact serialization.** The compiled output is an in-memory object. Splitting into `_manifest.json`, `_layouts/*.json`, `_screens/*.json` (as described in the spec) is not implemented by this package.
-- **No caller-facing Zod surface.** `zod` is declared as a dependency but runtime code does not import it. The spec anticipates a Zod parse layer; not yet wired.
+- **No caller-facing Zod surface.** Zod schemas are internal parse-layer implementation details; public callers still use `resolve` / `compile` and receive `Result<T>`.
 - **No multi-artifact reference resolution.** `SourceManifest.pdmRef`, `qsmRef`, `graphSpecRef`, `bindingsRef` are carried as opaque strings through the pipeline. Cross-artifact validation (e.g., `binding` IDs against a `@rntme/bindings` artifact) is delegated to `resolvers.resolveBinding`.
 - **No partial-compile API.** The only entry that yields a `CompiledArtifact` is `compile`. Individual phases expose intermediate `ResolvedSource` and `ExpandedSource` types but do not produce a serializable artifact.
 - **No diagnostics beyond `UiError[]`.** Errors do not include source line/column locations; `path` is a logical path (e.g., `screen:home/actions/submit`), not a file/offset pair.
@@ -229,7 +229,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 - Add a `$ref`/`$param` golden test → mirror `test/fixtures/fragment-app` (exercises inlining with bind value).
 - Add a refetch/command-action test → mirror `test/fixtures/refetch-app` (refetch action + `$state` params).
 - Wire new HTTP entries → pass through `compile({ httpMap })`; no source change needed inside this package.
-- Debug a failing compile → start at `test/integration/compile.test.ts`, then per-phase unit tests under `test/unit/`: `resolve.test.ts`, `expand.test.ts`, `validate.test.ts`, `emit.test.ts`, `types.test.ts`.
+- Debug a failing compile → start at `test/integration/compile.test.ts`, then per-phase unit tests under `test/unit/`: `resolve.test.ts`, `expand.test.ts`, `validate.test.ts`, `emit.test.ts`, `types.test.ts`. Parse-schema failures are covered by `resolve.test.ts`.
 - Reference the authoring-format shape for a new feature → `test/fixtures/minimal-app` (smallest valid app) and `test/fixtures/fragment-app` (one layout + one screen + one fragment).
 - Run tests → `pnpm -F @rntme/ui test` (vitest).
 - Inspect a compiled artifact → `compile({...})`; `result.value` is a plain JSON-serializable `CompiledArtifact` (see `src/types/compiled.ts` for keys).

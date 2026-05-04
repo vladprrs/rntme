@@ -43,7 +43,11 @@ export type {
   DerivedSqlType,
 } from './types/projection.js';
 
-export { compileProjectionGraph, type CompileProjectionOpts } from './projection-compile.js';
+export {
+  compileProjectionGraph,
+  compileProjectionGraphFromValidated,
+  type CompileProjectionOpts,
+} from './projection-compile.js';
 
 export const VERSION = '0.0.0';
 
@@ -142,6 +146,7 @@ export function execute(
 }
 
 export { AuthoringSpecSchema } from './parse/schema.js';
+export type { AuthoringSpecInput, AuthoringSpecOutput } from './parse/schema.js';
 
 export function run(
   rawSpec: unknown,

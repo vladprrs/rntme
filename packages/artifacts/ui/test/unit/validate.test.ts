@@ -415,4 +415,73 @@ describe('references — module-action lookups', () => {
     if (result.ok) return;
     expect(result.errors.some((e) => e.code === 'PROP_REQUIRED_MISSING')).toBe(true);
   });
+
+  it('BINDING_KIND_MISMATCH when a data binding resolves to a command binding', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.data = {
+      '/issues': { binding: 'createIssue', params: {} },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.some((e) => e.code === 'BINDING_KIND_MISMATCH')).toBe(true);
+  });
+
+  it('BINDING_KIND_MISMATCH when a command action resolves to a query binding', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: { kind: 'command', binding: 'listIssues', paramsFromState: {} },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'query' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.some((e) => e.code === 'BINDING_KIND_MISMATCH')).toBe(true);
+  });
+
+  it('TYPE_MISMATCH when a literal component prop does not match the declared type', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.spec.elements['counter'] = {
+      type: 'Counter',
+      props: { count: 'five' },
+    };
+    expanded.screens['home']!.spec.elements['page']!.children = ['counter'];
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveComponent: (type) =>
+        type === 'Counter'
+          ? { childrenModel: 'none', props: { count: { type: 'number', required: true } } }
+          : noopResolvers.resolveComponent(type),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.some((e) => e.code === 'TYPE_MISMATCH')).toBe(true);
+  });
+
+  it('UNCOVERED_INPUT when a command input reads state without a covering source', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: { title: '/missing/title' },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.some((e) => e.code === 'UNCOVERED_INPUT')).toBe(true);
+  });
 });

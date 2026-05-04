@@ -2,7 +2,8 @@ import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import { isDerivedSource } from '@rntme/qsm';
 import {
-  compileProjectionGraph,
+  compileProjectionGraphFromValidated,
+  type AuthoringSpecOutput,
   type DerivedCompileResult,
   type GraphIrError,
 } from '@rntme/graph-ir-compiler';
@@ -45,10 +46,8 @@ export type CrossValidateResult =
 
 export type CrossValidateInput = {
   qsm: ValidatedQsm;
-  authoringSpec: unknown;
+  authoringSpec: AuthoringSpecOutput;
   pdm: ValidatedPdm;
-  rawPdm: unknown;
-  rawQsm: unknown;
 };
 
 /**
@@ -72,7 +71,7 @@ export function crossValidateDerivedProjections(
   const errors: CrossValidateError[] = [];
   const out = new Map<string, DerivedCompileResult>();
 
-  const specGraphs = extractSpecGraphs(input.authoringSpec);
+  const specGraphs = input.authoringSpec.graphs;
 
   for (const [projName, proj] of Object.entries(input.qsm.projections)) {
     const backing = proj.backing ?? 'entity-mirror';
@@ -114,10 +113,10 @@ export function crossValidateDerivedProjections(
       continue;
     }
 
-    const compiled = compileProjectionGraph(
+    const compiled = compileProjectionGraphFromValidated(
       input.authoringSpec,
-      input.rawPdm,
-      input.rawQsm,
+      input.pdm,
+      input.qsm,
       { graphId, projectionTable: tableName },
     );
 
@@ -185,16 +184,6 @@ export function crossValidateDerivedProjections(
 
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: out };
-}
-
-function extractSpecGraphs(authoringSpec: unknown): Record<string, unknown> {
-  if (authoringSpec !== null && typeof authoringSpec === 'object' && 'graphs' in authoringSpec) {
-    const g = (authoringSpec as { graphs?: unknown }).graphs;
-    if (g !== null && typeof g === 'object') {
-      return g as Record<string, unknown>;
-    }
-  }
-  return {};
 }
 
 function formatOriginalGraphIrError(e: GraphIrError): string {

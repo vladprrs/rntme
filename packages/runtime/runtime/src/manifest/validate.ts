@@ -4,8 +4,11 @@ import type {
   ParsedManifest,
   ValidatedManifest,
 } from './types.js';
+import type { ActorRef } from '@rntme/event-store';
 
 export type SemverTriple = { major: number; minor: number; patch: number };
+
+const ACTOR_KINDS = ['user', 'system', 'service'] as const satisfies readonly ActorRef['kind'][];
 
 function parseSemver(s: string): SemverTriple | null {
   const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(s.trim());
@@ -87,6 +90,15 @@ export function validateManifest(
     }
   }
 
+  const actorKind = parsed.auth?.actorKind ?? 'user';
+  if (!isActorKind(actorKind)) {
+    errors.push({
+      code: 'MANIFEST_INVALID_ACTOR_KIND',
+      path: 'auth.actorKind',
+      message: `auth.actorKind must be one of ${ACTOR_KINDS.join(', ')}`,
+    });
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
   const v: ValidatedManifest = {
@@ -119,7 +131,7 @@ export function validateManifest(
     auth: {
       mode: parsed.auth?.mode ?? 'header',
       headerName: parsed.auth?.headerName ?? 'x-actor-id',
-      actorKind: parsed.auth?.actorKind ?? 'user',
+      actorKind: actorKind as ActorRef['kind'],
     },
     observability: {
       health: { path: parsed.observability?.health?.path ?? '/health' },
@@ -210,4 +222,8 @@ export function applyEnvOverrides(
       auth,
     },
   };
+}
+
+function isActorKind(value: string): value is ActorRef['kind'] {
+  return (ACTOR_KINDS as readonly string[]).includes(value);
 }

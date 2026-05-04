@@ -12,6 +12,9 @@ import type { Expr } from './types/authoring.js';
 import type { DerivedCompileResult } from './types/projection.js';
 import { err, ok, ERROR_CODES, type GraphIrError, type Result } from './types/result.js';
 import { toGraphIrError } from './types/errors.js';
+import type { AuthoringSpecOutput } from './parse/schema.js';
+import type { ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 
 export type CompileProjectionOpts = Readonly<{
   graphId: string;
@@ -39,7 +42,16 @@ export function compileProjectionGraph(
   if (!pq.ok) return pq;
   const { pdm, qsm } = pq.value;
 
-  const sv = validateStructural(specR.value, pdm, qsm);
+  return compileProjectionGraphFromValidated(specR.value, pdm, qsm, opts);
+}
+
+export function compileProjectionGraphFromValidated(
+  spec: AuthoringSpecOutput,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
+  opts: CompileProjectionOpts,
+): Result<DerivedCompileResult> {
+  const sv = validateStructural(spec, pdm, qsm);
   if (!sv.ok) return sv;
 
   let canonical;

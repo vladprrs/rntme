@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import * as api from '../../src/index.js';
+import type {
+  BindingsRouterOptions,
+  RuntimeGraphSpec,
+  ValidatedPdm,
+  ValidatedQsm,
+} from '../../src/index.js';
 
 describe('public API surface', () => {
   it('exports createBindingsRouter', () => {
@@ -7,6 +13,12 @@ describe('public API surface', () => {
   });
   it('exports BindingsRuntimeError', () => {
     expect(typeof api.BindingsRuntimeError).toBe('function');
+  });
+  it('exports startup error helpers', () => {
+    expect(api.BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY).toBe(
+      'BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY',
+    );
+    expect(typeof api.missingRuntimeDependencyError).toBe('function');
   });
   it('exports commandErrorBody', () => {
     expect(typeof api.commandErrorBody).toBe('function');
@@ -25,5 +37,10 @@ describe('public API surface', () => {
   });
   it('exports VERSION', () => {
     expect(typeof api.VERSION).toBe('string');
+  });
+  it('types router graph inputs as owner-validated artifacts', () => {
+    expectTypeOf<BindingsRouterOptions['graphSpec']>().toEqualTypeOf<RuntimeGraphSpec>();
+    expectTypeOf<BindingsRouterOptions['pdm']>().toEqualTypeOf<ValidatedPdm>();
+    expectTypeOf<BindingsRouterOptions['qsm']>().toEqualTypeOf<ValidatedQsm>();
   });
 });

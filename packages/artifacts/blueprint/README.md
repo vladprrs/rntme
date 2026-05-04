@@ -25,13 +25,12 @@ Project-first blueprint parser/validator for rntme.
 - `loadBlueprint(dir)` — load `project.json`, the project `PDM`, and service registry metadata.
 - `loadComposedBlueprint(dir)` — load the Track A blueprint, validate project composition rules, load validated service members, build the project binding registry, and compile project-routed service UI.
   When `project.json` declares `modules`, compose also resolves each UI module (`module.json`), builds `catalogManifest`, validates `publicConfig`, checks `./client` exports, and fills `virtualEntrySource` + `publicConfigJson` on the composed result.
-  When  declares , compose also resolves each UI module (), builds , validates , checks  exports, and fills  +  on the composed result.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
 - `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts.
 - `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
-- `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry.
+- `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
 - `readServiceGraphSpec(...)` — load service graph shapes and graph JSON files.
 - `eventTypesForService(...)` — scope project `PDM` event types for service seed validation.
 - `parseProjectBlueprint(raw)` — parse the `project.json` document shape.

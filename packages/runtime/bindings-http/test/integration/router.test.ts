@@ -11,13 +11,20 @@ import {
 import type { BindingResolvers } from '@rntme/bindings';
 import { createBindingsRouter } from '../../src/router.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
+import {
+  loadJson,
+  parseGraphRuntimeInputs,
+  parseRuntimeGraphSpec,
+} from '../helpers/runtime-artifacts.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
-const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
-const spec = loadJson(join(compilerRoot, 'test', 'golden', 'category-sales', 'graph.json'));
-const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.pdm.json'));
-const qsm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.qsm.json'));
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: loadJson(join(compilerRoot, 'test', 'golden', 'category-sales', 'graph.json')),
+  pdm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.pdm.json')),
+  qsm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.qsm.json')),
+});
+const { graphSpec: spec, pdm, qsm } = runtimeInputs;
 const seedSql = readFileSync(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.sql'), 'utf8');
 
 const resolvers: BindingResolvers = {
@@ -143,7 +150,13 @@ describe('createBindingsRouter — end to end', () => {
   });
 
   it('throws BindingsRuntimeError when compile fails at startup', () => {
-    const brokenSpec = { version: '1.0-rc7', pdmRef: 'x', qsmRef: 'y', shapes: {}, graphs: {} };
+    const brokenSpec = parseRuntimeGraphSpec({
+      version: '1.0-rc7',
+      pdmRef: 'x',
+      qsmRef: 'y',
+      shapes: {},
+      graphs: {},
+    });
     expect(() =>
       createBindingsRouter({
         validated: validated(),

@@ -5,18 +5,13 @@ import type { CompiledArtifact } from '@rntme/ui';
 import type { ApplyPlan } from '@rntme/projection-consumer';
 import type { SeedError, ValidatedSeed } from '@rntme/seed';
 import type { ValidatedManifest, ManifestError } from './manifest/types.js';
+import type { AuthoringSpecOutput } from '@rntme/graph-ir-compiler';
 
 export type RuntimeOk<T> = { ok: true; value: T };
 export type RuntimeErr<E> = { ok: false; errors: E };
 export type RuntimeResult<T, E> = RuntimeOk<T> | RuntimeErr<E>;
 
-export type GraphSpec = {
-  version: '1.0-rc7';
-  pdmRef: string;
-  qsmRef: string;
-  shapes: Record<string, { fields: Record<string, { type: string; nullable: boolean }> }>;
-  graphs: Record<string, unknown>;
-};
+export type GraphSpec = AuthoringSpecOutput;
 
 export type ValidatedService = {
   manifest: ValidatedManifest;
@@ -37,6 +32,7 @@ export type ServiceError =
   | { code: 'MANIFEST_INVALID'; details: ManifestError[] }
   | { code: 'PDM_INVALID'; details: unknown[] }
   | { code: 'QSM_INVALID'; details: unknown[] }
+  | { code: 'GRAPH_INVALID'; details: unknown[] }
   | { code: 'BINDINGS_INVALID'; details: unknown[] }
   | { code: 'UI_INVALID'; details: unknown[] }
   | { code: 'OPENAPI_INVALID'; details: unknown[] }

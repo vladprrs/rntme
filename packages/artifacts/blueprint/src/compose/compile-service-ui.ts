@@ -13,11 +13,13 @@ import {
   resolveProjectBindingRef,
 } from './binding-registry.js';
 import { catalogValidationResolvers } from './catalog-resolvers.js';
+import { resolveCoreComponent } from './ui-core-components.js';
 
 export function compileServiceUi(input: {
   rootDir: string;
   serviceSlug: string;
   bindingRegistry: Record<string, RoutedBindingEntry>;
+  uiRoutePatterns: readonly string[];
   catalogManifest?: CatalogManifest | null;
 }): Result<CompiledArtifact | null> {
   const relPath = `services/${input.serviceSlug}/ui`;
@@ -39,8 +41,9 @@ export function compileServiceUi(input: {
             input.serviceSlug,
             id,
           ),
-        resolveComponent: (ty) => catRes.resolveComponent(ty) ?? { childrenModel: 'list' as const, props: {} },
-        resolveRoute: () => true,
+        resolveComponent: (ty) => catRes.resolveComponent(ty) ?? resolveCoreComponent(ty),
+        resolveRoute: (path) =>
+          input.uiRoutePatterns.some((pattern) => routePatternMatches(pattern, path)),
         resolveOperation: catRes.resolveOperation,
         resolveCategoryToModule: catRes.resolveCategoryToModule,
       },
@@ -63,6 +66,14 @@ export function compileServiceUi(input: {
       error instanceof Error ? error.message : String(error),
     );
   }
+}
+
+function routePatternMatches(pattern: string, path: string): boolean {
+  if (pattern === path) return true;
+  const patternParts = pattern.split('/');
+  const pathParts = path.split('/');
+  if (patternParts.length !== pathParts.length) return false;
+  return patternParts.every((part, index) => part.startsWith(':') || part === pathParts[index]);
 }
 
 function uiErr<T>(
