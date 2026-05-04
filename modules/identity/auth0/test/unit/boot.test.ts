@@ -63,6 +63,8 @@ describe('boot', () => {
     expect(Auth0ClientMock).toHaveBeenCalledWith({
       domain: cfg.domain,
       clientId: cfg.clientId,
+      cacheLocation: 'localstorage',
+      useRefreshTokens: true,
       authorizationParams: {
         audience: cfg.audience,
         redirect_uri: cfg.redirectUri,
@@ -116,6 +118,19 @@ describe('boot', () => {
     response = new Response('{}', { status: 401 });
     await chain.fetch(new Request('https://api.example.test/notes'));
 
+    expect(store.get('/auth/status')).toBe('anon');
+    expect(store.get('/auth/user')).toBe(null);
+  });
+
+  it('falls back to anon when refresh-token redemption fails on a cached session', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    auth0Mock.getTokenSilently.mockRejectedValue(Object.assign(new Error('login_required'), { error: 'login_required' }));
+    const { ctx, store } = makeCtx();
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.logout).toHaveBeenCalledWith({ openUrl: false });
     expect(store.get('/auth/status')).toBe('anon');
     expect(store.get('/auth/user')).toBe(null);
   });
