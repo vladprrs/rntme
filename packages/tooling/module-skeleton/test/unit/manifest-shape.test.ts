@@ -50,6 +50,20 @@ describe('ModuleManifestSchema', () => {
     }
   });
 
+  it('every identity vendor declares client.contract = "identity"', () => {
+    for (const moduleDir of ['auth0', 'clerk', 'workos']) {
+      const raw = JSON.parse(
+        readFileSync(
+          join(process.cwd(), '..', '..', '..', 'modules', 'identity', moduleDir, 'module.json'),
+          'utf8',
+        ),
+      ) as { category?: string; client?: { contract?: string } };
+      if (raw.category !== 'identity') continue;
+      if (!raw.client) continue;
+      expect(raw.client?.contract, `modules/identity/${moduleDir}/module.json client.contract`).toBe('identity');
+    }
+  });
+
   it('rejects unknown keys', () => {
     const parsed = ModuleManifestSchema.safeParse({ ...VALID_MANIFEST, unexpected: true });
 
