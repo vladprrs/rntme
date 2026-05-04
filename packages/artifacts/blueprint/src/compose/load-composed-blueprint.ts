@@ -145,22 +145,41 @@ function collectServiceBindings(
   services: Record<string, ValidatedServiceMember>,
 ): Record<
   string,
-  ReadonlyArray<{ bindingId: string; method: 'GET' | 'POST'; path: string }>
+  ReadonlyArray<{
+    bindingId: string;
+    method: 'GET' | 'POST';
+    path: string;
+    kind?: 'query' | 'command';
+  }>
 > {
   const bindingsByService: Record<
     string,
-    Array<{ bindingId: string; method: 'GET' | 'POST'; path: string }>
+    Array<{
+      bindingId: string;
+      method: 'GET' | 'POST';
+      path: string;
+      kind?: 'query' | 'command';
+    }>
   > = {};
 
   for (const [slug, service] of Object.entries(services)) {
     if (service.bindings === null) continue;
 
     bindingsByService[slug] = Object.entries(service.bindings.resolved).map(
-      ([bindingId, binding]) => ({
-        bindingId,
-        method: binding.entry.http.method,
-        path: binding.entry.http.path,
-      }),
+      ([bindingId, binding]) => {
+        const entry: {
+          bindingId: string;
+          method: 'GET' | 'POST';
+          path: string;
+          kind?: 'query' | 'command';
+        } = {
+          bindingId,
+          method: binding.entry.http.method,
+          path: binding.entry.http.path,
+        };
+        if (binding.entry.kind !== undefined) entry.kind = binding.entry.kind;
+        return entry;
+      },
     );
   }
 

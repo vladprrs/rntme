@@ -136,6 +136,7 @@ export type RoutedBindingEntry = {
   qualifiedId: string;
   method: 'GET' | 'POST';
   path: string;
+  kind?: 'query' | 'command';
 };
 
 export type ComposedBlueprint = {
