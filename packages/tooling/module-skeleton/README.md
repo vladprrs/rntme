@@ -88,7 +88,8 @@ A module may contribute UI in three orthogonal ways. All three are declared insi
 - `client.operations[]` — named operations addressable from screen actions via `kind: "module-action"`. With `appliesTo` they are component-bound (registered by the component on mount via `useOperationRegistry`); without it they are module-level (registered in `boot(ctx)` via `ctx.registerOperation`).
 - `client.boot` — when `true`, `client.entry` exports `boot(ctx: ModuleBootContext)`. Runs once at SPA start before mount.
 - `client.config.schema` — public config the module needs (served via `/config.json`). Public means the value lands in the SPA bundle's runtime fetch; never put secrets here.
-- `client.bootTimeoutMs` — per-boot timeout (default 10000). Boot rejection or timeout fails SPA bootstrap.
+- `client.bootTimeoutMs` — per-boot timeout (default 10000). A timeout is treated identically to a thrown error.
+- `client.contract` — opt-in contract enum (currently only `"identity"`). Identity vendors that ship a client SDK MUST declare this; the runtime then sets `/auth/status = 'anon'` on their behalf if `boot()` crashes before they set it themselves. Without `contract`, a boot failure is recorded into `/runtime/bootErrors` and logged but the runtime takes no compensating action. See `packages/runtime/ui-runtime/README.md#boot-lifecycle-and-resilience`.
 
 See `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` for the full model and `modules/presentation/md-mermaid/`, `modules/presentation/tiptap/`, `modules/analytics/google-analytics/` for reference implementations.
 

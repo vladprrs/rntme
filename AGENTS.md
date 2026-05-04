@@ -484,10 +484,11 @@ under `packages/runtime/event-store/test/`.
 1. Read `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md` and mirror `modules/identity/auth0/`.
 2. Scaffold `modules/identity/<vendor>/` with the standard module package layout plus a `client/` subtree.
 3. Declare every required public browser config key in `module.json#client.config.schema`.
-4. Implement `client/index.ts#boot(ctx)` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
-5. Export `client/components/LoginScreen.tsx` and `client/components/UserBadge.tsx` by name from `client/index.ts`, then register them in `module.json#client.components`.
-6. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
-7. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
+4. Declare `"contract": "identity"` inside the `client` block. The runtime uses this to engage the identity-aware boot fallback (`/auth/status = 'anon'` if `boot()` crashes before setting it). The conformance test in `@rntme/module-skeleton` enforces this on every identity vendor that ships a client block.
+5. Implement `client/index.ts#boot(ctx)` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
+6. Export `client/components/LoginScreen.tsx` and `client/components/UserBadge.tsx` by name from `client/index.ts`, then register them in `module.json#client.components`.
+7. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
+8. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
 
 **Two transports.** Identity modules consumed by `kind: "auth"` middleware MUST expose `IntrospectSession` via two transports: gRPC (for runtime pre-step calls) and HTTP `GET /introspect` (for edge `auth_request`). Both wrap the same in-process handler. The module declares its HTTP port via `module.json#capabilities.edgeAuth.port` (default `50052`); deploy planning fails with `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` if a module targeted by an auth middleware does not declare this. See `packages/contracts/identity/v1/README.md#http-introspection-transport`.
 
