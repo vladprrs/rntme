@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { isOk } from '@rntme/platform-core';
+import { err, isOk, type PlatformError, type Result } from '@rntme/platform-core';
 import { withTransaction } from '../../src/pg/tx.js';
 import { PgDeployTargetRepo } from '../../src/repos/pg-deploy-target-repo.js';
 import { integrationContainersAvailable } from './docker-available.js';
@@ -245,6 +245,28 @@ d('PgDeployTargetRepo', () => {
     expect(isOk(found)).toBe(true);
     expect(isOk(found) ? found.value : undefined).toBeNull();
     await expectAuditActions(['deploy_target.created', 'deploy_target.deleted']);
+  });
+
+  it('rolls back repo writes when the outer transaction returns Result.err', async () => {
+    const targetId = randomUUID();
+
+    const result = await withTransaction(h.appPool, orgId, async (client): Promise<Result<void, PlatformError>> => {
+      const repo = new PgDeployTargetRepo(client);
+      const created = await repo.create({
+        row: targetRow({ id: targetId, slug: 'prod' }),
+        auditActorAccountId: accountId,
+        auditActorTokenId: null,
+      });
+      if (!isOk(created)) return created;
+      return err([{ code: 'DEPLOY_TARGET_IN_USE', message: 'synthetic failure' }]);
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.errors[0]?.code).toBe('DEPLOY_TARGET_IN_USE');
+
+    const targetRows = await h.pool.query(`SELECT id FROM deploy_target WHERE id=$1`, [targetId]);
+    expect(targetRows.rows).toHaveLength(0);
+    await expectAuditActions([]);
   });
 
   it.each(['queued', 'running'] as const)(

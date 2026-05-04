@@ -89,6 +89,17 @@ export function loadBlueprint(dir: string): Result<LoadedBlueprint> {
       const parsedDescriptor = ServiceDescriptorSchema.safeParse(
         readJsonFile(servicePath, 'service.json'),
       );
+      if (!parsedDescriptor.success) {
+        return err([
+          {
+            layer: 'load',
+            code: ERROR_CODES.BLUEPRINT_SERVICE_JSON_MALFORMED,
+            message: `service "${slug}" service.json failed validation`,
+            path: `services/${slug}/service.json`,
+            cause: parsedDescriptor.error.issues,
+          },
+        ]);
+      }
       if (parsedDescriptor.success) {
         const qsmDir = join(servicePath, 'qsm');
         let qsm: QsmArtifact | null = null;

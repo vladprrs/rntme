@@ -5,37 +5,65 @@ import type { BindingResolvers } from '@rntme/bindings';
 import type { EventStore } from '@rntme/event-store';
 import { createBindingsRouter } from '../../src/router.js';
 import type { CommandExecutor } from '../../src/executor-contract.js';
+import { parseGraphRuntimeInputs } from '../helpers/runtime-artifacts.js';
 
-const graphSpec = {
-  version: '1.0-rc7',
-  pdmRef: 'p',
-  qsmRef: 'q',
-  shapes: {},
-  graphs: {
-    oauthCallback: {
-      id: 'oauthCallback',
-      signature: {
-        inputs: {
-          state: { type: 'string', mode: 'required' },
-          code: { type: 'string', mode: 'required' },
-        },
-        output: { type: 'row<CommandResult>', from: 'e' },
-      },
-      nodes: [
-        {
-          id: 'e',
-          type: 'emit',
-          config: {
-            aggregate: 'Issue',
-            aggregateId: { $param: 'state' },
-            transition: 'report',
-            payload: { title: { $param: 'code' } },
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: {
+    version: '1.0-rc7',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    shapes: {},
+    graphs: {
+      oauthCallback: {
+        id: 'oauthCallback',
+        signature: {
+          inputs: {
+            state: { type: 'string', mode: 'required' },
+            code: { type: 'string', mode: 'required' },
           },
+          output: { type: 'row<CommandResult>', from: 'e' },
         },
-      ],
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $param: 'state' },
+              transition: 'report',
+              payload: { title: { $param: 'code' } },
+            },
+          },
+        ],
+      },
     },
   },
-};
+  pdm: {
+    entities: {
+      Issue: {
+        ownerService: 'test-service',
+        kind: 'owned',
+        table: 'issues',
+        fields: {
+          id: { type: 'string', nullable: false, column: 'id' },
+          status: { type: 'string', nullable: false, column: 'status' },
+          title: { type: 'string', nullable: false, column: 'title' },
+        },
+        keys: ['id'],
+        stateMachine: {
+          stateField: 'status',
+          initial: null,
+          states: ['draft'],
+          transitions: {
+            report: { from: null, to: 'draft', affects: ['title'] },
+          },
+        },
+      },
+    },
+  },
+  qsm: { projections: {}, relations: {} },
+});
+const { graphSpec, pdm, qsm } = runtimeInputs;
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) =>
@@ -63,32 +91,6 @@ const resolvers: BindingResolvers = {
         }
       : null,
 };
-
-const pdm = {
-  entities: {
-    Issue: {
-      ownerService: 'test-service',
-      kind: 'owned',
-      table: 'issues',
-      fields: {
-        id: { type: 'string', nullable: false, column: 'id' },
-        status: { type: 'string', nullable: false, column: 'status' },
-        title: { type: 'string', nullable: false, column: 'title' },
-      },
-      keys: ['id'],
-      stateMachine: {
-        stateField: 'status',
-        initial: null,
-        states: ['draft'],
-        transitions: {
-          report: { from: null, to: 'draft', affects: ['title'] },
-        },
-      },
-    },
-  },
-};
-
-const qsm = { projections: {}, relations: {} };
 
 const artifact = {
   version: '1.0',

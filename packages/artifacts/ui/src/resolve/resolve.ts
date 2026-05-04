@@ -1,6 +1,12 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ok, err, type Result, type UiError } from '../types/result.js';
+import { z } from 'zod';
+import { ok, err, type Result, type UiError, type UiErrorCode } from '../types/result.js';
+import {
+  SourceManifestSchema,
+  ScreenDescriptorSchema,
+  SpecJsonSchema,
+} from '../parse/schema.js';
 import {
   isRefElement,
   type SourceManifest,
@@ -9,25 +15,47 @@ import {
   type ResolvedSource,
 } from '../types/source.js';
 
-function readJson<T>(filePath: string): Result<T> {
+function readJson<T>(
+  filePath: string,
+  schema: z.ZodTypeAny,
+  invalidCode: UiErrorCode,
+  sourceLabel: string,
+): Result<T> {
   if (!existsSync(filePath)) {
     return err({ code: 'FILE_NOT_FOUND', message: `File not found: ${filePath}`, path: filePath });
   }
+  let raw: unknown;
   try {
-    return ok(JSON.parse(readFileSync(filePath, 'utf-8')) as T);
+    raw = JSON.parse(readFileSync(filePath, 'utf-8'));
   } catch (e) {
-    return err({ code: 'MANIFEST_INVALID', message: `Invalid JSON: ${filePath}: ${e}`, path: filePath });
+    return err({ code: invalidCode, message: `Invalid JSON: ${filePath}: ${e}`, path: filePath });
   }
+
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return err({
+      code: invalidCode,
+      message: `${sourceLabel} failed schema validation: ${formatZodIssues(parsed.error.issues)}`,
+      path: filePath,
+    });
+  }
+
+  return ok(parsed.data as T);
 }
 
 function readPair(baseDir: string, basePath: string): Result<{ spec: SpecJson; screen: ScreenDescriptor }> {
   const specPath = join(baseDir, `${basePath}.spec.json`);
   const screenPath = join(baseDir, `${basePath}.screen.json`);
 
-  const specResult = readJson<SpecJson>(specPath);
+  const specResult = readJson<SpecJson>(specPath, SpecJsonSchema, 'SPEC_INVALID', 'spec file');
   if (!specResult.ok) return specResult;
 
-  const screenResult = readJson<ScreenDescriptor>(screenPath);
+  const screenResult = readJson<ScreenDescriptor>(
+    screenPath,
+    ScreenDescriptorSchema,
+    'SCREEN_SCHEMA_INVALID',
+    'screen descriptor',
+  );
   if (!screenResult.ok) return screenResult;
 
   return ok({ spec: specResult.value, screen: screenResult.value });
@@ -61,7 +89,7 @@ function collectFragments(
       if (fragments.has(refPath)) continue;
 
       const filePath = join(baseDir, `${refPath}.spec.json`);
-      const fragResult = readJson<SpecJson>(filePath);
+      const fragResult = readJson<SpecJson>(filePath, SpecJsonSchema, 'SPEC_INVALID', 'spec file');
       if (!fragResult.ok) {
         errors.push(...fragResult.errors);
         continue;
@@ -77,7 +105,12 @@ function collectFragments(
 
 export function resolve(baseDir: string): Result<ResolvedSource> {
   // 1. Read manifest
-  const manifestResult = readJson<SourceManifest>(join(baseDir, 'manifest.json'));
+  const manifestResult = readJson<SourceManifest>(
+    join(baseDir, 'manifest.json'),
+    SourceManifestSchema,
+    'MANIFEST_INVALID',
+    'manifest.json',
+  );
   if (!manifestResult.ok) return manifestResult;
   const manifest = manifestResult.value;
 
@@ -91,9 +124,19 @@ export function resolve(baseDir: string): Result<ResolvedSource> {
 
   // 3. Read screens
   const screens: Record<string, { spec: SpecJson; screen: ScreenDescriptor }> = {};
+  const screenPathByKey = new Map<string, string>();
   for (const route of Object.values(manifest.routes)) {
     // Derive screen key from base path (last segment)
     const key = route.screen.split('/').pop()!;
+    const previousPath = screenPathByKey.get(key);
+    if (previousPath !== undefined && previousPath !== route.screen) {
+      return err({
+        code: 'DUPLICATE_SCREEN_KEY',
+        message: `Duplicate derived screen key "${key}" for "${previousPath}" and "${route.screen}"`,
+        path: route.screen,
+      });
+    }
+    screenPathByKey.set(key, route.screen);
     const pair = readPair(baseDir, route.screen);
     if (!pair.ok) return pair;
     screens[key] = pair.value;
@@ -110,4 +153,13 @@ export function resolve(baseDir: string): Result<ResolvedSource> {
   if (errors.length > 0) return err(...errors);
 
   return ok({ manifest, baseDir, layouts, screens, fragments });
+}
+
+function formatZodIssues(issues: z.core.$ZodIssue[]): string {
+  return issues
+    .map((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join('.') : '<root>';
+      return `${path}: ${issue.message}`;
+    })
+    .join('; ');
 }

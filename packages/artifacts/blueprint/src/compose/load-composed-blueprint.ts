@@ -117,6 +117,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
       rootDir: dir,
       serviceSlug: slug,
       bindingRegistry,
+      uiRoutePatterns: composedValidation.value.uiPathsByService[slug] ?? [],
       catalogManifest,
     });
     if (!compiledUi.ok) return compiledUi;

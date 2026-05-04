@@ -26,6 +26,22 @@ Application file mounts are idempotent by `mountPath`: apply lists existing moun
 
 Application lifecycle is `configure -> deploy -> start -> inspect` when the injected client supports inspection. A rejected or failed application task is returned as `DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE`, which causes the platform deployment to finalize as failed.
 
+Existing-resource comparison is typed by resource kind instead of raw object
+serialization. Apply compares common fields (`image`, env entries, labels),
+then compose `composeFile` or application build/ports/ingress/files. Env vars,
+labels, files, ports, and ingress routes are treated as unordered where order is
+not semantically meaningful; undeclared Dokploy API fields are ignored. Real
+value drift still triggers an update.
+
+Partial failures now perform best-effort cleanup for resources created earlier
+in the same apply attempt. Cleanup uses the idempotent delete helper, deletes
+applications before compose resources, treats already-missing resources as
+warnings, and records the result under `partialFailure.cleanup`. Resources that
+already existed and were updated are recorded in `updatedResources` but are not
+rolled back because the adapter does not have a prior-state snapshot. `retrySafe`
+is `true` only when created-resource cleanup has no errors; cleanup errors are
+sanitized the same way as apply errors.
+
 ## Provisioned Redpanda
 
 When `plan.infrastructure.eventBus.mode === "provisioned"` and

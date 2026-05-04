@@ -3,6 +3,7 @@ export type UiErrorCode =
   | 'MANIFEST_INVALID'
   | 'FILE_NOT_FOUND'
   | 'CIRCULAR_REF'
+  | 'DUPLICATE_SCREEN_KEY'
   // Expand phase
   | 'UNBOUND_PARAM'
   | 'UNKNOWN_PARAM'

@@ -40,3 +40,13 @@ by a partial unique index so only one live operation can exist for a project.
 
 `platform_app` needs `USAGE` on the enum types created for project lifecycle
 and operation state. The migration and test harness grant this explicitly.
+
+## Transaction helper contract
+
+`withTransaction(pool, orgId, fn)` opens one Postgres transaction, applies the
+RLS `app.org_id` setting when `orgId` is present, and releases the client after
+commit or rollback. It commits non-`Result` callback values and `Result.ok`
+values. If the callback returns the platform `Result.err` shape
+(`{ ok: false, errors: [...] }`), the helper rolls back and returns that error
+result unchanged. Thrown exceptions also roll back before the exception is
+re-thrown to the caller.

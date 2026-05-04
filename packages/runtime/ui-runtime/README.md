@@ -218,7 +218,7 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - **No custom shadcn components beyond the `@json-render/shadcn` catalog** (spec §6). Extending the catalog requires a fork of `registry.ts`.
 - **No dev server.** `build.ts` is a one-shot bundler; HMR and watch mode are not wired.
 - **No Spec re-validation at runtime.** The compiler owns parse/structural/reference/consistency validation (spec §2.3); mutating compiled screens between compile and serve produces undefined behavior.
-- **Tests only cover server, router, screen loader, and driver.** `registry.ts`, `layout-manager.tsx`, `entry.tsx`, and `build.ts` have no direct unit coverage; the demo exercises them end-to-end.
+- **Client runtime seams have focused unit coverage.** Tests cover server routes, router matching, screen loading, driver fetch/action behavior, registry dispatch, layout-manager module bridges, entry boot resilience, transport middleware, and the production bundle check.
 - **No persistent client-side storage.** State lives in the json-render `StateStore` for the lifetime of the page; nothing is written to `localStorage` or `sessionStorage`.
 - **No web worker offloading.** All fetch, routing, and render work runs on the main thread.
 

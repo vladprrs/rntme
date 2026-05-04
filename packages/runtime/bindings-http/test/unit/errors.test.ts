@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import {
+  BINDINGS_HTTP_STARTUP_ERROR_CODES,
   BindingsRuntimeError,
+  missingRuntimeDependencyError,
   validationErrorBody,
   invalidBodyErrorBody,
   internalErrorBody,
@@ -17,6 +19,24 @@ describe('BindingsRuntimeError', () => {
     expect(err.errors).toHaveLength(2);
     expect(err.errors[0]!.graphId).toBe('g1');
     expect(err.message).toMatch(/2 binding/);
+  });
+
+  it('creates structured missing dependency startup errors', () => {
+    const err = missingRuntimeDependencyError(
+      { bindingId: 'createIssueHttp', graphId: 'createIssue' },
+      'eventStore',
+    );
+
+    expect(err).toBeInstanceOf(BindingsRuntimeError);
+    expect(err.message).toContain('eventStore');
+    expect(err.errors[0]).toMatchObject({
+      bindingId: 'createIssueHttp',
+      graphId: 'createIssue',
+      cause: {
+        code: BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY,
+        dependency: 'eventStore',
+      },
+    });
   });
 });
 

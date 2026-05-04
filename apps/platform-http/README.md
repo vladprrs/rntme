@@ -55,6 +55,13 @@ UI mutations (`POST /:orgSlug/tokens`, `DELETE /:orgSlug/tokens/:id`, `POST /:or
 
 Deployment starts require an explicit `targetSlug` from both JSON API callers and the UI form. The platform records the deployment, schedules the same `runDeployment` executor used by UI-triggered deploys, and logs the selected project version, selected target, render digest, apply actions, and smoke results.
 
+## Error logging
+
+The global Hono `onError` handler logs unhandled exceptions before returning a
+sanitized `PLATFORM_INTERNAL` response. Log fields include `err`, `requestId`,
+HTTP method, concrete path, matched route, and `status: 500`; response bodies
+do not include exception messages or stack traces.
+
 ## Project lifecycle operations
 
 Project update/delete operations are exposed under

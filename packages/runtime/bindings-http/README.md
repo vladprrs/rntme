@@ -1,6 +1,6 @@
 # @rntme/bindings-http
 
-Hono sub-router that turns a `ValidatedBindings` artifact plus a Graph IR spec into a mountable HTTP surface for queries and commands.
+Hono sub-router that turns a `ValidatedBindings` artifact plus parsed/branded graph runtime inputs into a mountable HTTP surface for queries and commands.
 
 ## Role in the system
 
@@ -17,6 +17,7 @@ src/
   errors.ts                        (entry) BindingsRuntimeError + body builders (validationErrorBody, invalidBodyErrorBody, internalErrorBody, commandErrorBody) and commandErrorStatus mapper.
   startup/
     compile-plan.ts                (internal) buildPlan — collects unique graph ids per kind, calls compile / compileCommand once each, builds BindingPlan = QueryBindingPlan | CommandBindingPlan.
+    runtime-inputs.ts              (entry types) RuntimeGraphSpec + BindingsGraphRuntimeInputs, wired to graph-ir AuthoringSpecOutput and branded ValidatedPdm / ValidatedQsm.
     hono-path.ts                   (internal) honoPath — rewrites OpenAPI {name} placeholders to Hono :name placeholders.
     zod-schema.ts                  (internal) buildSchemas — composes one strict Zod object per location (query, path, body) from HttpParameter[] + GraphSignature.
     primitive-schema.ts            (internal) primitiveSchema — maps PDM scalar primitives and list<T> to Zod schemas with coercion / preprocessing.
@@ -36,16 +37,22 @@ import Database from 'better-sqlite3';
 import { parseBindingArtifact, validateBindings, generateOpenApi } from '@rntme/bindings';
 import { createBindingsRouter, BindingsRuntimeError } from '@rntme/bindings-http';
 import { SqliteEventStore, type ActorRef } from '@rntme/event-store';
+import { parseAuthoringSpec } from '@rntme/graph-ir-compiler';
+import { parsePdm, validatePdm, createPdmResolver } from '@rntme/pdm';
+import { parseQsm, validateQsm } from '@rntme/qsm';
 
 const parsed = parseBindingArtifact(bindingsArtifact);
 const validated = validateBindings(parsed.value!, resolvers);
 const openApi = generateOpenApi(validated.value!, resolvers);
+const graphSpec = parseAuthoringSpec(graphIrJson).value!;
+const pdm = validatePdm(parsePdm(pdmJson).value!).value!;
+const qsm = validateQsm(parseQsm(qsmJson).value!, createPdmResolver(pdm)).value!;
 
 const router = createBindingsRouter({
   validated: validated.value!,
-  graphSpec,                       // raw Graph IR JSON; one compile per unique graph id
-  pdm,                             // raw PDM JSON
-  qsm,                             // raw QSM JSON
+  graphSpec,                       // RuntimeGraphSpec / AuthoringSpecOutput
+  pdm,                             // branded ValidatedPdm
+  qsm,                             // branded ValidatedQsm
   db: new Database('./read.db'),   // better-sqlite3 — query side
   eventStore: new SqliteEventStore({ filename: './events.db' }),
   openApiDoc: openApi.value,
@@ -60,7 +67,7 @@ app.route('/', router);
 export default app;
 ```
 
-`createBindingsRouter` throws `BindingsRuntimeError` synchronously when one or more bindings fail to compile; `errors` carries one `RuntimeErrorEntry` per cause.
+`createBindingsRouter` throws `BindingsRuntimeError` synchronously when one or more bindings fail to compile or when required runtime dependencies are missing. `errors` carries one `RuntimeErrorEntry` per cause; missing dependency causes use `BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY`.
 
 ## API
 
@@ -70,8 +77,11 @@ export default app;
 | `BindingsRuntimeError` | `class extends Error { errors: readonly RuntimeErrorEntry[] }` | Aggregate startup failure thrown by `createBindingsRouter`. |
 | `commandErrorStatus` | `(err: CommandExecutionError) => 409 \| 422` | `COMMAND_CONCURRENCY_CONFLICT → 409`; everything else → 422. |
 | `commandErrorBody` | `(err: CommandExecutionError) => ErrorResponseBody` | `{ code, message, details? }`; `details` set only when `err.detail` is defined. |
-| `BindingsRouterOptions` | type | `validated`, `graphSpec`, `pdm`, `qsm`, `db`, optional `openApiDoc`, `onError`, `eventStore`, `actorFromRequest`, `now`, `nextId`. |
+| `BindingsRouterOptions` | type | `validated`, `graphSpec: RuntimeGraphSpec`, `pdm: ValidatedPdm`, `qsm: ValidatedQsm`, `db`, optional `openApiDoc`, `onError`, `eventStore`, `actorFromRequest`, `now`, `nextId`. |
+| `BindingsGraphRuntimeInputs` | type | `{ graphSpec: RuntimeGraphSpec; pdm: ValidatedPdm; qsm: ValidatedQsm }`. |
+| `BINDINGS_HTTP_STARTUP_ERROR_CODES` | const | Stable startup error-code registry; currently `MISSING_RUNTIME_DEPENDENCY`. |
 | `RuntimeErrorEntry` | type | `{ bindingId?: string; graphId: string; cause: unknown }`. |
+| `MissingRuntimeDependencyCause` | type | Structured cause for missing `eventStore`, `commandExecutor`, or `externalAdapterClient`. |
 | `ErrorResponseBody` | type | `{ code: string; message: string; details?: unknown }`. |
 | `ValidationDetail` | type | `{ path: string; message: string; code: string }`. |
 | `CommandErrorStatus` | type | `409 \| 422`. |
@@ -100,7 +110,8 @@ For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slic
 
 - **`BindingPlan` is a discriminated union of `query | command`.** `compile-plan.ts` keeps two compile caches and produces `QueryBindingPlan` (`compiled: CompileResult`) or `CommandBindingPlan` (`compiled: CompiledCommand`). `kind` is read in `router.ts` to pick `makeHandler` vs `makeCommandHandler`. Source: commit `e55b25e refactor(bindings-http): BindingPlan becomes query|command discriminated union`.
 - **Command error → HTTP status mapping is fixed: 409 only for `COMMAND_CONCURRENCY_CONFLICT`, 422 for everything else** (`COMMAND_ILLEGAL_TRANSITION`, `COMMAND_GUARD_REJECTED`). Source: commit `b43409c feat(bindings-http): map CommandExecutionError codes to 409/422 + ErrorResponseBody`; `test/unit/command-errors.test.ts`.
-- **`eventStore` is required when any binding has `kind: 'command'`.** `createBindingsRouter` throws synchronously with the message `createBindingsRouter: eventStore is required when any binding has kind "command"` before any route is mounted. Source: `router.ts`; `test/unit/public-api.test.ts`.
+- **Graph runtime inputs are typed at the package boundary.** `createBindingsRouter`, `buildPlan`, `compileForGraph`, and `compileCommandForGraph` consume `RuntimeGraphSpec`, `ValidatedPdm`, and `ValidatedQsm`, so callers must run the owner parse/validation pipelines before mounting HTTP routes. Source: `startup/runtime-inputs.ts`; `test/unit/public-api.test.ts`.
+- **Runtime dependencies fail with structured startup errors.** `eventStore` and `commandExecutor` are required when any binding has `kind: 'command'`; `externalAdapterClient` is required when any binding has `pre[]`. Missing dependencies throw `BindingsRuntimeError` with `cause.code === 'BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY'`. Source: `router.ts`; `test/integration/command-routing.test.ts`.
 - **Compile errors aggregate, then throw.** `buildPlan` runs every graph compile and collects every `cause` from `Result.errors` into one `BindingsRuntimeError`. Partial routers are never returned. Source: `startup/compile-plan.ts`; `test/unit/build-plan.test.ts`.
 - **Single-graph compile workaround.** `compile` and `compileCommand` accept a spec containing exactly one graph; `sliceSpec(rawSpec, graphId)` shallow-clones the spec and keeps only the target graph. PDM and QSM are re-parsed per graph. Source: spec §6.1; `startup/compile-plan.ts`.
 - **`bindToMap` is the only HTTP→graph name translator.** `remapToGraphInputs` only forwards keys that exist in the bag (`Object.prototype.hasOwnProperty.call`); missing keys stay missing so `paramDefaults` in the compiler can apply. Mutating the bag keys directly bypasses the map and breaks predicate-optional semantics. Source: `runtime/remap.ts`; spec §5.3.

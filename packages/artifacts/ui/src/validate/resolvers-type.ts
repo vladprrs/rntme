@@ -17,8 +17,19 @@ export type ComponentInfo = {
   props: Record<string, PropSchema>;
 };
 
+export type BindingKind = 'query' | 'command';
+
+/**
+ * Binding resolvers may return the direct binding entry or a wrapper produced by
+ * project composition. Only the optional kind metadata is inspected here.
+ */
+export type BindingDescriptor = {
+  kind?: BindingKind;
+  entry?: { kind?: BindingKind };
+};
+
 export type ValidateResolvers = {
-  resolveBinding: (id: string) => unknown | undefined;
+  resolveBinding: (id: string) => BindingDescriptor | undefined;
   resolveComponent: (type: string) => ComponentInfo | undefined;
   resolveRoute: (path: string) => boolean;
   resolveOperation: (

@@ -14,12 +14,11 @@ import { makeHandler } from './runtime/handler.js';
 import { makeCommandHandler } from './runtime/command-handler.js';
 import { idempotencyMiddleware } from './idempotency/middleware.js';
 import { IdempotencyCache } from './idempotency/cache.js';
+import type { BindingsGraphRuntimeInputs } from './startup/runtime-inputs.js';
+import { missingRuntimeDependencyError } from './errors.js';
 
-export type BindingsRouterOptions = {
+export type BindingsRouterOptions = BindingsGraphRuntimeInputs & {
   validated: ValidatedBindings;
-  graphSpec: unknown;
-  pdm: unknown;
-  qsm: unknown;
   db: BetterSqlite3.Database;
   openApiDoc?: OpenApiDoc;
   onError?: (err: unknown, ctx: Context) => void;
@@ -43,25 +42,29 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   const plan = buildPlan(opts.validated, opts.graphSpec, opts.pdm, opts.qsm);
   const app = new Hono();
 
-  const hasCommand = Object.values(plan.plans).some((p) => p.kind === 'command');
-  if (hasCommand && !opts.eventStore) {
-    throw new Error(
-      'createBindingsRouter: eventStore is required when any binding has kind "command"',
+  const planEntries = Object.values(plan.plans);
+  const firstCommand = planEntries.find((p) => p.kind === 'command');
+  if (firstCommand !== undefined && !opts.eventStore) {
+    throw missingRuntimeDependencyError(
+      { bindingId: firstCommand.bindingId, graphId: firstCommand.entry.graph },
+      'eventStore',
     );
   }
-  if (hasCommand && opts.commandExecutor === undefined) {
-    throw new Error(
-      'createBindingsRouter: commandExecutor is required when any binding has kind "command"',
+  if (firstCommand !== undefined && opts.commandExecutor === undefined) {
+    throw missingRuntimeDependencyError(
+      { bindingId: firstCommand.bindingId, graphId: firstCommand.entry.graph },
+      'commandExecutor',
     );
   }
-  const anyPre = Object.values(plan.plans).some((p) => {
+  const firstPre = planEntries.find((p) => {
     if (p.kind === 'command') return p.pre.length > 0;
     if (p.kind === 'query') return p.pre.length > 0;
     return false;
   });
-  if (anyPre && opts.externalAdapterClient === undefined) {
-    throw new Error(
-      'createBindingsRouter: externalAdapterClient is required when any binding has pre[]',
+  if (firstPre !== undefined && opts.externalAdapterClient === undefined) {
+    throw missingRuntimeDependencyError(
+      { bindingId: firstPre.bindingId, graphId: firstPre.entry.graph },
+      'externalAdapterClient',
     );
   }
   const commandExecutor = opts.commandExecutor!;

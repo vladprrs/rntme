@@ -1,9 +1,16 @@
 import type { ScreenDescriptor } from '../types/source.js';
+import type { UiError } from '../types/result.js';
 
 export type HttpEntry = { method: 'GET' | 'POST'; path: string };
 
 export type EmitModuleContext = {
   resolveCategoryToModule: (cat: string) => string | undefined;
+};
+
+export type ResolvedScreenHttp = {
+  data: Record<string, { method: 'GET' | 'POST'; path: string; params?: Record<string, unknown>; refetchOn?: string[] }>;
+  actions: Record<string, unknown>;
+  errors: UiError[];
 };
 
 /**
@@ -14,19 +21,25 @@ export function resolveScreenHttp(
   screen: ScreenDescriptor,
   httpMap: Record<string, HttpEntry>,
   ctx: EmitModuleContext,
-): {
-  data: Record<string, { method: 'GET' | 'POST'; path: string; params?: Record<string, unknown>; refetchOn?: string[] }>;
-  actions: Record<string, unknown>;
-} {
+  context: string,
+): ResolvedScreenHttp {
   const data: Record<
     string,
     { method: 'GET' | 'POST'; path: string; params?: Record<string, unknown>; refetchOn?: string[] }
   > = {};
+  const errors: UiError[] = [];
 
   if (screen.data) {
     for (const [statePath, db] of Object.entries(screen.data)) {
       const http = httpMap[db.binding];
-      if (!http) continue;
+      if (!http) {
+        errors.push({
+          code: 'EMIT_FAILED',
+          message: `Data binding "${db.binding}" for "${statePath}" is missing from httpMap`,
+          path: `${context}/data/${statePath}`,
+        });
+        continue;
+      }
       data[statePath] = {
         method: http.method,
         path: http.path,
@@ -58,14 +71,26 @@ export function resolveScreenHttp(
         } else if (action.category) {
           const resolved = ctx.resolveCategoryToModule(action.category);
           if (!resolved) {
-            throw new Error(`emit: category "${action.category}" not mapped`);
+            errors.push({
+              code: 'EMIT_FAILED',
+              message: `Module action category "${action.category}" is not mapped`,
+              path: `${context}/actions/${actionId}`,
+            });
+            continue;
           }
           compiled.module = resolved;
         }
         actions[actionId] = compiled;
       } else {
         const http = httpMap[action.binding];
-        if (!http) continue;
+        if (!http) {
+          errors.push({
+            code: 'EMIT_FAILED',
+            message: `Command binding "${action.binding}" for action "${actionId}" is missing from httpMap`,
+            path: `${context}/actions/${actionId}`,
+          });
+          continue;
+        }
         const { binding: _, ...rest } = action;
         actions[actionId] = {
           ...rest,
@@ -76,5 +101,5 @@ export function resolveScreenHttp(
     }
   }
 
-  return { data, actions };
+  return { data, actions, errors };
 }

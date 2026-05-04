@@ -86,6 +86,7 @@ describe('mountUiRuntime boot resilience', () => {
   it('sets /auth/status to anon when an identity module fails before setting it', async () => {
     const { mountUiRuntime } = await import('../../src/client/entry.js');
     let observedStatus: unknown;
+    let observedUser: unknown;
 
     await mountUiRuntime({
       manifestUrl: '/_manifest.json',
@@ -103,12 +104,48 @@ describe('mountUiRuntime boot resilience', () => {
           name: 'probe',
           boot: async (ctx) => {
             observedStatus = ctx.state.get('/auth/status');
+            observedUser = ctx.state.get('/auth/user');
           }
         }
       ]
     });
 
     expect(observedStatus).toBe('anon');
+    expect(observedUser).toBeNull();
+  });
+
+  it('records module boot errors in runtime state after mount', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport: makeTransport(),
+      modules: [
+        {
+          name: 'failing',
+          boot: async () => {
+            throw new Error('boot exploded');
+          }
+        }
+      ]
+    });
+
+    const app = render.mock.calls.at(-1)?.[0] as {
+      props: {
+        store: {
+          get: (path: string) => unknown;
+        };
+      };
+    };
+    const bootErrors = app.props.store.get('/runtime/bootErrors') as Array<{
+      moduleName: string;
+      cause: unknown;
+    }>;
+
+    expect(bootErrors).toHaveLength(1);
+    expect(bootErrors[0]?.moduleName).toBe('failing');
+    expect(bootErrors[0]?.cause).toBeInstanceOf(Error);
   });
 
   it('does not overwrite /auth/status when identity module set it before throwing', async () => {

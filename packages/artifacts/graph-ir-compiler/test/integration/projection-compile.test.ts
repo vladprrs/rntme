@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { compileProjectionGraph } from '../../src/index.js';
+import {
+  compileProjectionGraph,
+  compileProjectionGraphFromValidated,
+  parseAuthoringSpec,
+  type AuthoringSpecOutput,
+} from '../../src/index.js';
 import pdm from '../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
+import { loadValidatedPdmAndQsm } from '../load-validated.js';
 
 const happyPathSpec = {
   version: '1.0-rc7',
@@ -75,6 +81,15 @@ const unsupportedAggSpec = {
   },
 };
 
+function parseSpec(raw: unknown): AuthoringSpecOutput {
+  const parsed = parseAuthoringSpec(raw);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) {
+    throw new Error(JSON.stringify(parsed.errors));
+  }
+  return parsed.value;
+}
+
 describe('compileProjectionGraph', () => {
   it('happy path: OrderCreate count-per-aggregate produces a DerivedCompileResult', () => {
     const r = compileProjectionGraph(happyPathSpec, pdm, qsm, {
@@ -102,5 +117,20 @@ describe('compileProjectionGraph', () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.errors.some((e) => e.code === 'PROJ_SEMANTIC_UNSUPPORTED_AGG')).toBe(true);
+  });
+
+  it('compiles from an already parsed spec plus validated PDM/QSM artifacts', () => {
+    const spec = parseSpec(happyPathSpec);
+    const validated = loadValidatedPdmAndQsm(pdm, qsm);
+    const r = compileProjectionGraphFromValidated(spec, validated.pdm, validated.qsm, {
+      graphId: 'resolvedOrderCount',
+      projectionTable: 'projection_resolved_order',
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.eventType).toBe('OrderCreate');
+    expect(r.value.tableSchema.tableName).toBe('projection_resolved_order');
+    expect(r.value.bootstrapSql).toContain(`"event_type" = 'OrderCreate'`);
   });
 });

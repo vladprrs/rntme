@@ -1,11 +1,16 @@
 import type { DokployApplication, DokployClient, DokployCompose } from './client.js';
 import type {
   DokployDeploymentError,
+  DokployPartialFailureCleanup,
   DokployPartialFailure,
   DokployPartialFailureStep,
 } from './errors.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from './render.js';
 import { err, ok, type Result } from './result.js';
+import { deleteDokployResources } from './delete.js';
+
+type RenderedApplicationResource = Extract<RenderedDokployResource, { kind: 'application' }>;
+type RenderedComposeResource = Extract<RenderedDokployResource, { kind: 'compose' }>;
 
 export type DeploymentApplyResource = {
   readonly logicalId: string;
@@ -42,6 +47,7 @@ export async function applyDokployPlan(
   client: DokployClient,
 ): Promise<Result<DeploymentApplyResult, DokployDeploymentError>> {
   const applied: DeploymentApplyResource[] = [];
+  const createdForCleanup: DeploymentApplyResource[] = [];
   const orderedResources = [...rendered.resources].sort((a, b) => {
     if (a.kind === b.kind) return 0;
     return a.kind === 'compose' ? -1 : 1;
@@ -61,19 +67,20 @@ export async function applyDokployPlan(
 
     for (const resource of orderedResources) {
       if (resource.kind === 'compose') {
-        const existingResult = await findExistingCompose(client, environmentId, resource, applied);
+        const existingResult = await findExistingCompose(client, environmentId, resource, applied, createdForCleanup);
         if (!existingResult.ok) return existingResult;
 
         const existing = existingResult.value;
         if (existing === null) {
-          const createResult = await createComposeTarget(client, environmentId, resource, applied);
+          const createResult = await createComposeTarget(client, environmentId, resource, applied, createdForCleanup);
           if (!createResult.ok) return createResult;
           networkTargets.push({ resource, target: createResult.value });
           const created = appliedResource(resource, createResult.value, 'created');
+          createdForCleanup.push(created);
           const lifecycleResult = await runComposeLifecycle(client, created, resource, [
             ...applied,
             created,
-          ]);
+          ], createdForCleanup);
           if (!lifecycleResult.ok) return lifecycleResult;
           applied.push(created);
           continue;
@@ -85,25 +92,26 @@ export async function applyDokployPlan(
           continue;
         }
 
-        const updateResult = await updateComposeTarget(client, existing.id, resource, applied);
+        const updateResult = await updateComposeTarget(client, existing.id, resource, applied, createdForCleanup);
         if (!updateResult.ok) return updateResult;
         const updated = appliedResource(resource, updateResult.value, 'updated');
         const lifecycleResult = await runComposeLifecycle(client, updated, resource, [
           ...applied,
           updated,
-        ]);
+        ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
         applied.push(updated);
         continue;
       }
 
-      const existingResult = await findExistingApplication(client, environmentId, resource, applied);
+      const existingResult = await findExistingApplication(client, environmentId, resource, applied, createdForCleanup);
       if (!existingResult.ok) return existingResult;
 
       const existing = existingResult.value;
       if (existing === null) {
-        const createResult = await createApplicationTarget(client, environmentId, resource, applied);
+        const createResult = await createApplicationTarget(client, environmentId, resource, applied, createdForCleanup);
         if (!createResult.ok) return createResult;
+        createdForCleanup.push(appliedResource(resource, createResult.value, 'created'));
         prepared.push({ resource, target: createResult.value, created: true });
         networkTargets.push({ resource, target: createResult.value });
       } else {
@@ -121,19 +129,19 @@ export async function applyDokployPlan(
         const lifecycleResult = await runApplicationLifecycle(client, created, resource, [
           ...applied,
           created,
-        ]);
+        ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
         applied.push(created);
       } else if (resourceMatches(item.target, resource)) {
         applied.push(appliedResource(resource, item.target, 'unchanged'));
       } else {
-        const updateResult = await updateApplicationTarget(client, item.target.id, resource, applied);
+        const updateResult = await updateApplicationTarget(client, item.target.id, resource, applied, createdForCleanup);
         if (!updateResult.ok) return updateResult;
         const updated = appliedResource(resource, updateResult.value, 'updated');
         const lifecycleResult = await runApplicationLifecycle(client, updated, resource, [
           ...applied,
           updated,
-        ]);
+        ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
         applied.push(updated);
       }
@@ -164,11 +172,12 @@ async function findExistingApplication(
   environmentId: string,
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication | null, DokployDeploymentError>> {
   try {
     return ok(await client.findApplicationByName(environmentId, resource.name));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'find');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'find');
   }
 }
 
@@ -177,11 +186,12 @@ async function createApplicationTarget(
   environmentId: string,
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication, DokployDeploymentError>> {
   try {
     return ok(await client.createApplication(environmentId, resource));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'create');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'create');
   }
 }
 
@@ -190,11 +200,12 @@ async function updateApplicationTarget(
   applicationId: string,
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployApplication, DokployDeploymentError>> {
   try {
     return ok(await client.updateApplication(applicationId, resource));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'update');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'update');
   }
 }
 
@@ -203,33 +214,41 @@ async function runApplicationLifecycle(
   target: DeploymentApplyResource,
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<void, DokployDeploymentError>> {
   try {
     await client.configureApplication(target.targetResourceId, resource);
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'configure');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
   }
 
   try {
     await client.deployApplication(target.targetResourceId);
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'deploy');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
   try {
     await client.startApplication(target.targetResourceId);
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'start');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'start');
   }
 
   if (client.inspectApplication !== undefined) {
     try {
       const inspected = await client.inspectApplication(target.targetResourceId);
       if (inspected.status === 'failed' || inspected.status === 'rejected') {
-        return partialFailure(new Error(inspected.message ?? `Dokploy application status ${inspected.status}`), resource, applied, 'inspect');
+        return partialFailure(
+          client,
+          new Error(inspected.message ?? `Dokploy application status ${inspected.status}`),
+          resource,
+          applied,
+          createdForCleanup,
+          'inspect',
+        );
       }
     } catch (cause) {
-      return partialFailure(cause, resource, applied, 'inspect');
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
     }
   }
 
@@ -241,11 +260,12 @@ async function findExistingCompose(
   environmentId: string,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployCompose | null, DokployDeploymentError>> {
   try {
     return ok(await client.findComposeByName(environmentId, resource.name));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'find');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'find');
   }
 }
 
@@ -254,11 +274,12 @@ async function createComposeTarget(
   environmentId: string,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployCompose, DokployDeploymentError>> {
   try {
     return ok(await client.createCompose(environmentId, resource));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'create');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'create');
   }
 }
 
@@ -267,11 +288,12 @@ async function updateComposeTarget(
   composeId: string,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<DokployCompose, DokployDeploymentError>> {
   try {
     return ok(await client.updateCompose(composeId, resource));
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'update');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'update');
   }
 }
 
@@ -280,17 +302,18 @@ async function runComposeLifecycle(
   target: DeploymentApplyResource,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
 ): Promise<Result<void, DokployDeploymentError>> {
   try {
     await client.configureCompose(target.targetResourceId, resource);
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'configure');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
   }
 
   try {
     await client.deployCompose(target.targetResourceId);
   } catch (cause) {
-    return partialFailure(cause, resource, applied, 'deploy');
+    return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
   return ok(undefined);
@@ -380,23 +403,30 @@ function replaceNetworkNames(
   return output;
 }
 
-function partialFailure(
+async function partialFailure(
+  client: DokployClient,
   cause: unknown,
   resource: RenderedDokployResource,
   applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
   action: DokployPartialFailureStep['action'],
-): Result<never, DokployDeploymentError> {
+): Promise<Result<never, DokployDeploymentError>> {
+  const cleanup = await cleanupCreatedResources(client, createdForCleanup);
   return err([
     {
       code: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
       message: `failed while applying resource "${resource.name}"`,
       resource: resource.name,
       cause: sanitizeCause(cause),
-      partialFailure: buildPartialFailure(applied, {
-        action,
-        resourceName: resource.name,
-        ...resourceIdentifier(resource),
-      }),
+      partialFailure: buildPartialFailure(
+        mergeCreatedResources(applied, createdForCleanup),
+        {
+          action,
+          resourceName: resource.name,
+          ...resourceIdentifier(resource),
+        },
+        cleanup,
+      ),
     },
   ]);
 }
@@ -414,59 +444,279 @@ function resourceIdentifier(resource: RenderedDokployResource): {
 function buildPartialFailure(
   applied: readonly DeploymentApplyResource[],
   failedStep: DokployPartialFailureStep,
+  cleanup: DokployPartialFailureCleanup,
 ): DokployPartialFailure {
   return {
     createdResources: applied.filter((resource) => resource.action === 'created'),
     updatedResources: applied.filter((resource) => resource.action === 'updated'),
     failedStep,
-    retrySafe: true,
+    cleanup,
+    retrySafe: cleanup.errors.length === 0,
   };
+}
+
+function mergeCreatedResources(
+  applied: readonly DeploymentApplyResource[],
+  createdForCleanup: readonly DeploymentApplyResource[],
+): readonly DeploymentApplyResource[] {
+  const byKey = new Map<string, DeploymentApplyResource>();
+  for (const resource of applied) byKey.set(`${resource.resourceKind}:${resource.targetResourceId}`, resource);
+  for (const resource of createdForCleanup) byKey.set(`${resource.resourceKind}:${resource.targetResourceId}`, resource);
+  return [...byKey.values()];
+}
+
+async function cleanupCreatedResources(
+  client: DokployClient,
+  createdResources: readonly DeploymentApplyResource[],
+): Promise<DokployPartialFailureCleanup> {
+  const cleanupTargets = createdResources.map((resource) => ({
+    resourceKind: resource.resourceKind,
+    targetResourceId: resource.targetResourceId,
+    targetResourceName: resource.targetResourceName,
+  }));
+  if (cleanupTargets.length === 0) {
+    return { attempted: true, deletedResources: [], warnings: [], errors: [] };
+  }
+
+  const cleanup = await deleteDokployResources(cleanupTargets, client);
+  if (cleanup.ok) {
+    return {
+      attempted: true,
+      deletedResources: cleanup.value.deletedResources.map((resource) => {
+        const applied = createdResources.find(
+          (created) => created.targetResourceId === resource.targetResourceId,
+        );
+        return applied ?? {
+          logicalId: resource.targetResourceName,
+          resourceKind: resource.resourceKind,
+          targetResourceId: resource.targetResourceId,
+          targetResourceName: resource.targetResourceName,
+          action: 'created',
+        };
+      }),
+      warnings: cleanup.value.warnings,
+      errors: [],
+    };
+  }
+
+  return {
+    attempted: true,
+    deletedResources: [],
+    warnings: [],
+    errors: cleanup.errors.map(({ code, message, resource, cause }) => ({
+      code,
+      message,
+      ...(resource === undefined ? {} : { resource }),
+      ...(cause === undefined ? {} : { cause: sanitizeNestedCause(cause) }),
+    })),
+  };
+}
+
+function sanitizeNestedCause(cause: unknown): unknown {
+  if (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'message' in cause &&
+    typeof cause.message === 'string'
+  ) {
+    return { ...cause, message: redactSensitiveCauseMessage(cause.message) };
+  }
+  if (typeof cause === 'string') return redactSensitiveCauseMessage(cause);
+  return cause;
 }
 
 function resourceMatches(
   existing: {
     readonly image?: string;
     readonly composeFile?: string;
-    readonly build?: Extract<RenderedDokployResource, { kind: 'application' }>['build'];
-    readonly ports?: Extract<RenderedDokployResource, { kind: 'application' }>['ports'];
-    readonly ingress?: Extract<RenderedDokployResource, { kind: 'application' }>['ingress'];
+    readonly build?: RenderedApplicationResource['build'];
+    readonly ports?: RenderedApplicationResource['ports'];
+    readonly ingress?: RenderedApplicationResource['ingress'];
     readonly env?: RenderedDokployResource['env'];
     readonly labels?: RenderedDokployResource['labels'];
-    readonly files?: Extract<RenderedDokployResource, { kind: 'application' }>['files'];
+    readonly files?: RenderedApplicationResource['files'];
   },
   resource: RenderedDokployResource,
 ): boolean {
   if (existing.image === undefined || existing.image !== resource.image) return false;
-  if (existing.env === undefined || !jsonEqual(existing.env, resource.env)) return false;
-  if (existing.labels === undefined || !jsonEqual(sortRecord(existing.labels), sortRecord(resource.labels))) {
+  if (existing.env === undefined || !envVarsMatch(existing.env, resource.env)) return false;
+  if (existing.labels === undefined || !stringRecordMatches(existing.labels, resource.labels)) {
     return false;
   }
 
   if (resource.kind === 'compose') {
-    return existing.composeFile === resource.composeFile;
+    return composeResourceMatches(existing, resource);
   }
 
-  if (!optionalComparableMatches(existing.build, resource.build)) return false;
-  if (!optionalComparableMatches(existing.ports, resource.ports)) return false;
-  if (!optionalComparableMatches(existing.ingress, resource.ingress)) return false;
-
-  if (resource.files === undefined) return existing.files === undefined;
-  if (existing.files === undefined) return false;
-  return jsonEqual(sortRecord(existing.files), sortRecord(resource.files));
+  return applicationResourceMatches(existing, resource);
 }
 
-function jsonEqual(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+function composeResourceMatches(
+  existing: { readonly composeFile?: string },
+  resource: RenderedComposeResource,
+): boolean {
+  return existing.composeFile === resource.composeFile;
 }
 
-function optionalComparableMatches(existing: unknown, rendered: unknown): boolean {
+function applicationResourceMatches(
+  existing: {
+    readonly build?: RenderedApplicationResource['build'];
+    readonly ports?: RenderedApplicationResource['ports'];
+    readonly ingress?: RenderedApplicationResource['ingress'];
+    readonly files?: RenderedApplicationResource['files'];
+  },
+  resource: RenderedApplicationResource,
+): boolean {
+  if (!optionalBuildMatches(existing.build, resource.build)) return false;
+  if (!optionalPortsMatch(existing.ports, resource.ports)) return false;
+  if (!optionalIngressMatches(existing.ingress, resource.ingress)) return false;
+  return optionalStringRecordMatches(existing.files, resource.files);
+}
+
+function optionalBuildMatches(
+  existing: RenderedApplicationResource['build'] | undefined,
+  rendered: RenderedApplicationResource['build'] | undefined,
+): boolean {
   if (rendered === undefined) return existing === undefined;
   if (existing === undefined) return false;
-  return jsonEqual(existing, rendered);
+  return (
+    existing.kind === rendered.kind &&
+    existing.baseImage === rendered.baseImage &&
+    existing.image === rendered.image &&
+    existing.artifact.source === rendered.artifact.source &&
+    existing.artifact.serviceSlug === rendered.artifact.serviceSlug &&
+    existing.context.kind === rendered.context.kind &&
+    existing.context.serviceSlug === rendered.context.serviceSlug &&
+    stringSetMatches(existing.context.files, rendered.context.files)
+  );
 }
 
-function sortRecord(value: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
-  return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)));
+function optionalPortsMatch(
+  existing: RenderedApplicationResource['ports'] | undefined,
+  rendered: RenderedApplicationResource['ports'] | undefined,
+): boolean {
+  if (rendered === undefined) return existing === undefined || existing.length === 0;
+  if (existing === undefined) return false;
+  return portListsMatch(existing, rendered);
+}
+
+function optionalIngressMatches(
+  existing: RenderedApplicationResource['ingress'] | undefined,
+  rendered: RenderedApplicationResource['ingress'] | undefined,
+): boolean {
+  if (rendered === undefined) return existing === undefined;
+  if (existing === undefined) return false;
+  return ingressMatches(existing, rendered);
+}
+
+function optionalStringRecordMatches(
+  existing: Readonly<Record<string, string>> | undefined,
+  rendered: Readonly<Record<string, string>> | undefined,
+): boolean {
+  if (rendered === undefined) {
+    return existing === undefined || Object.keys(existing).length === 0;
+  }
+  if (existing === undefined) return false;
+  return stringRecordMatches(existing, rendered);
+}
+
+function envVarsMatch(existing: RenderedDokployResource['env'], rendered: RenderedDokployResource['env']): boolean {
+  if (existing.length !== rendered.length) return false;
+  const sortEnv = (items: RenderedDokployResource['env']): RenderedDokployResource['env'] =>
+    [...items].sort((a, b) =>
+      a.name.localeCompare(b.name) ||
+      a.value.localeCompare(b.value) ||
+      Number(a.secret) - Number(b.secret),
+    );
+  const sortedExisting = sortEnv(existing);
+  const sortedRendered = sortEnv(rendered);
+  return sortedRendered.every((item, index) => {
+    const current = sortedExisting[index];
+    return (
+      current !== undefined &&
+      current.name === item.name &&
+      current.value === item.value &&
+      current.secret === item.secret
+    );
+  });
+}
+
+function stringRecordMatches(
+  existing: Readonly<Record<string, string>>,
+  rendered: Readonly<Record<string, string>>,
+): boolean {
+  const existingKeys = Object.keys(existing).sort((a, b) => a.localeCompare(b));
+  const renderedKeys = Object.keys(rendered).sort((a, b) => a.localeCompare(b));
+  if (!stringSetMatches(existingKeys, renderedKeys)) return false;
+  return renderedKeys.every((key) => existing[key] === rendered[key]);
+}
+
+function portListsMatch(
+  existing: readonly NonNullable<RenderedApplicationResource['ports']>[number][],
+  rendered: readonly NonNullable<RenderedApplicationResource['ports']>[number][],
+): boolean {
+  if (existing.length !== rendered.length) return false;
+  const sortPorts = (
+    ports: readonly NonNullable<RenderedApplicationResource['ports']>[number][],
+  ): readonly NonNullable<RenderedApplicationResource['ports']>[number][] =>
+    [...ports].sort(
+      (a, b) => a.containerPort - b.containerPort || a.protocol.localeCompare(b.protocol),
+    );
+  const sortedExisting = sortPorts(existing);
+  const sortedRendered = sortPorts(rendered);
+  return sortedRendered.every((port, index) => {
+    const current = sortedExisting[index];
+    return (
+      current !== undefined &&
+      current.containerPort === port.containerPort &&
+      current.protocol === port.protocol
+    );
+  });
+}
+
+function ingressMatches(
+  existing: NonNullable<RenderedApplicationResource['ingress']>,
+  rendered: NonNullable<RenderedApplicationResource['ingress']>,
+): boolean {
+  return (
+    existing.publicBaseUrl === rendered.publicBaseUrl &&
+    existing.containerPort === rendered.containerPort &&
+    existing.healthPath === rendered.healthPath &&
+    ingressRoutesMatch(existing.routes, rendered.routes)
+  );
+}
+
+function ingressRoutesMatch(
+  existing: NonNullable<RenderedApplicationResource['ingress']>['routes'],
+  rendered: NonNullable<RenderedApplicationResource['ingress']>['routes'],
+): boolean {
+  if (existing.length !== rendered.length) return false;
+  const sortRoutes = (
+    routes: NonNullable<RenderedApplicationResource['ingress']>['routes'],
+  ): NonNullable<RenderedApplicationResource['ingress']>['routes'] =>
+    [...routes].sort((a, b) =>
+      a.routeId.localeCompare(b.routeId) ||
+      a.path.localeCompare(b.path) ||
+      a.url.localeCompare(b.url),
+    );
+  const sortedExisting = sortRoutes(existing);
+  const sortedRendered = sortRoutes(rendered);
+  return sortedRendered.every((route, index) => {
+    const current = sortedExisting[index];
+    return (
+      current !== undefined &&
+      current.routeId === route.routeId &&
+      current.path === route.path &&
+      current.url === route.url
+    );
+  });
+}
+
+function stringSetMatches(existing: readonly string[], rendered: readonly string[]): boolean {
+  if (existing.length !== rendered.length) return false;
+  const sortedExisting = [...existing].sort((a, b) => a.localeCompare(b));
+  const sortedRendered = [...rendered].sort((a, b) => a.localeCompare(b));
+  return sortedRendered.every((value, index) => sortedExisting[index] === value);
 }
 
 function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult['verificationHints'] {

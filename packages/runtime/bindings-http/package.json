@@ -37,6 +37,8 @@
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
+    "@rntme/pdm": "workspace:*",
+    "@rntme/qsm": "workspace:*",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",

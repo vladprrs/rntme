@@ -177,7 +177,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.use('*', requestId());
   app.use('*', loggerMiddleware(deps.logger));
-  app.use('*', errorHandler());
+  app.onError(errorHandler(deps.logger));
   app.use('*', corsMiddleware(deps.env.PLATFORM_CORS_ORIGINS));
 
   // Pre-auth body-size guard (Errata §3.8): 10 MiB for publish-version POSTs,

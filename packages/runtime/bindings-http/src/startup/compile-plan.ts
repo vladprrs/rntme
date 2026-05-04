@@ -21,12 +21,12 @@ import {
 import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
 import { buildBindToMap, type BindToMap } from '../runtime/remap.js';
+import type { RuntimeGraphSpec, ValidatedPdm, ValidatedQsm } from './runtime-inputs.js';
 
-type SingleGraphSpec = { graphs?: Record<string, unknown>; [k: string]: unknown };
+type SingleGraphSpec = RuntimeGraphSpec;
 
-function sliceSpec(rawSpec: unknown, graphId: string): unknown {
-  const spec = rawSpec as SingleGraphSpec;
-  const graphs = spec?.graphs ?? {};
+function sliceSpec(spec: SingleGraphSpec, graphId: string): RuntimeGraphSpec {
+  const graphs = spec.graphs;
   const target = graphs[graphId];
   return {
     ...spec,
@@ -35,19 +35,19 @@ function sliceSpec(rawSpec: unknown, graphId: string): unknown {
 }
 
 export function compileForGraph(
-  rawSpec: unknown,
+  rawSpec: RuntimeGraphSpec,
   graphId: string,
-  pdm: unknown,
-  qsm: unknown,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): Result<QueryCompileResult> {
   return compile(sliceSpec(rawSpec, graphId), pdm, qsm);
 }
 
 export function compileCommandForGraph(
-  rawSpec: unknown,
+  rawSpec: RuntimeGraphSpec,
   graphId: string,
-  pdm: unknown,
-  qsm: unknown,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): Result<CompiledCommand> {
   return compileCommand(sliceSpec(rawSpec, graphId), pdm, qsm);
 }
@@ -100,9 +100,9 @@ export type CompilePlanResult<T> =
 
 export function buildDefaultGraphIrCommandMap(
   validated: ValidatedBindings,
-  graphSpec: unknown,
-  pdm: unknown,
-  qsm: unknown,
+  graphSpec: RuntimeGraphSpec,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): CompilePlanResult<GraphIrCommandMap> {
   try {
     return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledCommands };
@@ -114,9 +114,9 @@ export function buildDefaultGraphIrCommandMap(
 
 export function buildDefaultGraphIrQueryMap(
   validated: ValidatedBindings,
-  graphSpec: unknown,
-  pdm: unknown,
-  qsm: unknown,
+  graphSpec: RuntimeGraphSpec,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): CompilePlanResult<GraphIrQueryMapPublic> {
   try {
     return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledQueries };
@@ -128,9 +128,9 @@ export function buildDefaultGraphIrQueryMap(
 
 export function buildPlan(
   validated: ValidatedBindings,
-  graphSpec: unknown,
-  pdm: unknown,
-  qsm: unknown,
+  graphSpec: RuntimeGraphSpec,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
 ): BuildPlanResult {
   const queryGraphIds = new Set<string>();
   const commandGraphIds = new Set<string>();

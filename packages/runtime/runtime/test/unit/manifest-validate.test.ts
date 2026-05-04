@@ -116,4 +116,23 @@ describe('validateManifest', () => {
       );
     }
   });
+
+  it('rejects auth.actorKind outside the event-store actor union', () => {
+    const r = validateManifest(
+      { ...MIN, auth: { mode: 'header', actorKind: 'owner' } },
+      RUNTIME_VERSION,
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'MANIFEST_INVALID_ACTOR_KIND',
+            path: 'auth.actorKind',
+          }),
+        ]),
+      );
+    }
+  });
 });
