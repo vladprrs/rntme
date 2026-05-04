@@ -21,12 +21,27 @@ to a target adapter.
   integration module image config, backend auth config, and policy values.
 - `ComposedProjectInput` — deploy-relevant structural subset of the composed
   project model.
+- `resolveVars(manifest, target, options?)` — resolve every `target.*` and (when
+  `options.provisionResult` is given) `provision.*` binding to a `ResolvedVars`
+  string map. Used inside `buildProjectDeploymentPlan`.
+- `resolveTargetVarsOnly(manifest, target)` — partial resolver used pre-provision
+  to substitute target-derived placeholders (e.g. `${AUTH0_REDIRECT_URI}` from
+  `target.auth.auth0.redirectUri`) into module `publicConfig` before passing it
+  to provisioners. `provision.*` bindings are filtered out and any matching
+  placeholders remain as `${VAR}` literals.
+- `applyVars(value, vars)` — recursive `${VAR}` substitution into strings,
+  objects, and arrays. Missing placeholders are left intact.
+- `targetForVars(config, fallbackSlug)` — projects a `ProjectDeploymentConfig`
+  into the `TargetForVars` shape consumed by the resolvers.
 
 ## Var sources
 
 Blueprint `vars` may pull values from three sources, selected by the `from` string prefix:
 
-- `target.<root>.<...>` — read from `ProjectDeploymentConfig`'s typed shape (e.g., `target.auth.auth0.domain`). Resolved at every plan call.
+- `target.<root>.<...>` — read from `ProjectDeploymentConfig`'s typed shape (e.g., `target.auth.auth0.domain`). Resolved at every plan call. Also resolvable
+  pre-provision via `resolveTargetVarsOnly`, so module `publicConfig` can carry
+  `${VAR}` placeholders for target-derived fields the provisioner needs (such
+  as the SPA `redirectUri` Auth0 reconciles against).
 - `provision.<moduleKey>.<output>.<jsonPointer>` — read from a provisioner's `publicOutputs`. **Requires** `buildProjectDeploymentPlan` to be called with `options.provisionResult` populated. The executor sequences provision before plan to make this possible.
 - `env.<NAME>` — (future) read from process env. Not implemented yet.
 

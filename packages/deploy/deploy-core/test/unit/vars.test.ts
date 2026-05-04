@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveVars, applyVars } from '../../src/vars.js';
+import { resolveVars, resolveTargetVarsOnly, applyVars } from '../../src/vars.js';
 
 const target = {
   slug: 'demo',
@@ -119,6 +119,64 @@ describe('resolveVars provision.* sources', () => {
     );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_PATH_NOT_FOUND');
+  });
+});
+
+describe('resolveTargetVarsOnly', () => {
+  const targetWithRedirect = {
+    slug: 'demo',
+    auth: {
+      auth0: {
+        clientId: 'abc',
+        audience: 'https://api/',
+        redirectUri: 'https://demo.example/',
+      },
+    },
+  };
+
+  it('resolves target.* bindings and skips provision.* bindings', () => {
+    const r = resolveTargetVarsOnly(
+      {
+        REDIRECT: { from: 'target.auth.auth0.redirectUri', required: true },
+        SPA_ID: { from: 'provision.identity.spaClient.id', required: true },
+      },
+      targetWithRedirect,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toEqual({ REDIRECT: 'https://demo.example/' });
+  });
+
+  it('errors when a required target.* binding is missing on the target', () => {
+    const r = resolveTargetVarsOnly(
+      { DOMAIN: { from: 'target.auth.auth0.domain', required: true } },
+      targetWithRedirect,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('DEPLOY_PLAN_TARGET_VAR_MISSING');
+  });
+
+  it('returns empty object when manifest contains only provision.* bindings', () => {
+    const r = resolveTargetVarsOnly(
+      { SPA_ID: { from: 'provision.identity.spaClient.id', required: true } },
+      targetWithRedirect,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toEqual({});
+  });
+
+  it('substituted value flows through applyVars into nested publicConfig', () => {
+    const r = resolveTargetVarsOnly(
+      { REDIRECT: { from: 'target.auth.auth0.redirectUri', required: true } },
+      targetWithRedirect,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const publicConfig = { redirectUri: '${REDIRECT}', clientId: '${SPA_ID}' };
+      expect(applyVars(publicConfig, r.value)).toEqual({
+        redirectUri: 'https://demo.example/',
+        clientId: '${SPA_ID}',
+      });
+    }
   });
 });
 
