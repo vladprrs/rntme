@@ -298,7 +298,7 @@ describe('validateBlueprintComposition', () => {
       catalogManifest: {
         components: [],
         operations: [],
-        modulesWithBoot: ['@rntme/identity-auth0'],
+        modulesWithBoot: [{ name: '@rntme/identity-auth0' }],
         categoryToModule: { identity: '@rntme/identity-auth0' },
         publicConfig: {},
         moduleEdgeAuth: {
@@ -385,7 +385,7 @@ describe('validateBlueprintComposition', () => {
       catalogManifest: {
         components: [],
         operations: [],
-        modulesWithBoot: ['@rntme/identity-auth0'],
+        modulesWithBoot: [{ name: '@rntme/identity-auth0' }],
         categoryToModule: { identity: '@rntme/identity-auth0' },
         publicConfig: {},
         moduleEdgeAuth: {},
@@ -482,7 +482,7 @@ describe('validateBlueprintComposition', () => {
       catalogManifest: {
         components: [],
         operations: [],
-        modulesWithBoot: ['@rntme/identity-auth0'],
+        modulesWithBoot: [{ name: '@rntme/identity-auth0' }],
         categoryToModule: { identity: '@rntme/identity-auth0' },
         publicConfig: {},
         moduleEdgeAuth: { '@rntme/identity-auth0': null },
