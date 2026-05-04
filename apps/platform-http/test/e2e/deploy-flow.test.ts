@@ -181,7 +181,7 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
           value: {
             publicOutputs: {
               spaClient: {
-                clientId: 'public-client-id',
+                id: 'public-client-id',
                 domain: 'tenant.us.auth0.com',
                 audience: 'https://notes-demo.rntme.com/api',
                 redirectUri: 'https://preview.example.test/',
