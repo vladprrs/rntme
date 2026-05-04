@@ -611,6 +611,19 @@ Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU mar
 2. Reference the id in any module manifest's `provisioner.requires[].schema`.
 3. Operators write the secret via `PUT /v1/orgs/:org/deploy-targets/:slug/secrets/:name` with `{ schema, value }` body. The platform validates `value` against the registered schema; `value` is never returned by GET.
 
+### Update a vendored module in a demo blueprint
+
+When `modules/<category>/<vendor>/` changes, the demo blueprint's vendored copy must follow.
+
+1. Edit `modules/<category>/<vendor>/`.
+2. Build the module: `pnpm -F <pkg-name> build` (produces `dist/`, including `dist/provisioner.entry.js` if the module declares a `provisioner` block).
+3. Run `pnpm vendor:sync` from the workspace root. This copies `module.json` and `package.json` from the source-of-truth to every `demo/<bp>/node_modules/<vendored-dir>/` whose `package.json#name` matches.
+4. Commit both the source change and the vendored copy in the same PR.
+
+CI runs `pnpm vendor:check`. PRs that edit `modules/` without re-vendoring fail the check with a clear error message pointing at the drifted file.
+
+`dist/` is gitignored on both source and vendored sides — only `module.json` and `package.json` are tracked. Local builds (or fresh `pnpm install` followed by `pnpm -r build`) materialize `dist/` for both copies.
+
 
 ## 7. Anti-patterns / do not do
 
