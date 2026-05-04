@@ -67,6 +67,7 @@ export const ClientBlockSchema = z
     entry: z.string().min(1),
     boot: z.boolean().optional(),
     bootTimeoutMs: z.number().int().positive().optional(),
+    contract: z.enum(['identity']).optional(),
     config: ClientConfigSchema.optional(),
     components: z.array(ComponentDeclarationSchema).optional(),
     operations: z.array(OperationDeclarationSchema).optional(),

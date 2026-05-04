@@ -283,6 +283,44 @@ describe('ModuleManifestSchema — provisioner block', () => {
   });
 });
 
+describe('ClientBlockSchema — contract field', () => {
+  const baseClient = {
+    name: '@rntme/identity-test',
+    version: '0.0.0',
+    client: {
+      entry: './client/index.ts',
+      boot: true,
+    },
+  };
+
+  it('accepts contract: "identity"', () => {
+    const r = parseModuleManifest({
+      ...baseClient,
+      client: { ...baseClient.client, contract: 'identity' },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.client?.contract).toBe('identity');
+    }
+  });
+
+  it('rejects unknown contract values like "analytics"', () => {
+    const r = parseModuleManifest({
+      ...baseClient,
+      client: { ...baseClient.client, contract: 'analytics' },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('accepts client block without contract (field is optional)', () => {
+    const r = parseModuleManifest(baseClient);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.client?.contract).toBeUndefined();
+    }
+  });
+});
+
 describe('capabilities.edgeAuth', () => {
   it('parses introspection-sidecar with full descriptor', () => {
     const result = parseModuleManifest({
