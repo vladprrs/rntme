@@ -1,3 +1,9 @@
+export { parseWorkflowArtifact } from './parse/parse.js';
+export {
+  validateWorkflowCrossRef,
+  validateWorkflowStructural,
+  validateWorkflows,
+} from './validate/index.js';
 export type {
   StructurallyValidWorkflows,
   ValidatedWorkflows,
