@@ -37,5 +37,17 @@ mirrors, BPMN file reference, workflow event reference, and workflow command
 binding references. It does not execute the business flow.
 
 Deployment smoke for this demo needs a deploy target configured with
-provisioned Redpanda and provisioned Operaton so the BPMN worker can subscribe
-to order events and complete service tasks.
+provisioned Redpanda and provisioned Operaton plus a BPMN worker image:
+
+```json
+{
+  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" },
+  "workflows": {
+    "engine": { "kind": "operaton", "mode": "provisioned", "image": "operaton:test" },
+    "worker": { "image": "ghcr.io/vladprrs/rntme-bpmn-worker:latest" }
+  }
+}
+```
+
+With that target shape, the worker can subscribe to order events and complete
+service tasks through the project-routed command bindings.

@@ -323,7 +323,7 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **No JOIN-based FK enrichment for list/search endpoints in the demo.** `demo/issue-tracker-api`'s list / search endpoints currently return raw FK IDs; a JOIN compilation strategy is brainstormed in the `demo_join_enrichment_todo` memory entry. The compiler supports dot-nav joins for individual field paths today; bulk enrichment is not modeled.
 - **Tier 1 nodes only.** `distinct`, `lookupOne`, `lookup` expression, named predicate graphs, and `exists` / `in` / `$list` parse but are validator-rejected by `tier1-nodes.ts` / `tier1-expr.ts`.
 - **Single-graph-per-call.** Multi-graph specs are rejected with `STRUCT_DUPLICATE_GRAPH_ID`; multi-graph compilation belongs in the runtime layer.
-- **One aggregate per command.** Multi-aggregate sagas are rejected with `CMD_MULTI_AGGREGATE_NOT_ALLOWED`; per the platform vision, cross-service sagas are owned by Zeebe, not the compiler.
+- **One aggregate per command.** Multi-aggregate sagas are rejected with `CMD_MULTI_AGGREGATE_NOT_ALLOWED`; per the current platform direction, cross-service BPMN orchestration is owned by Operaton, not the compiler.
 - **Composite aggregate keys are not supported.** `aggregateId` is a single Expr coerced to string in `executeCommand`.
 - **Dot-navigation cardinality must be `one`.** Many-cardinality NAV is rejected with `NAV_FAN_OUT_NOT_ALLOWED`; explicit JOIN nodes are not yet a feature.
 - **No planner / optimizer.** Lowering is a direct fold; no predicate pushdown, no JOIN reordering, no projection pruning beyond what `Project` / `Aggregate` already declare.

@@ -64,6 +64,26 @@ Apply creates or updates compose resources before applications. It does not
 wait for Kafka protocol readiness; runtime bus clients must tolerate broker
 warm-up.
 
+## Provisioned Operaton and BPMN worker
+
+When `plan.infrastructure.workflowEngine.kind === "operaton"`, render adds a
+Dokploy Compose resource before application resources. The compose file starts
+the configured Operaton image on the internal `dokploy-network`; it is not
+publicly exposed by this adapter.
+
+When the plan contains a `bpmn-worker` workload, render creates an application
+resource after domain services/modules and before the edge gateway. The worker
+receives:
+
+- `RNTME_OPERATON_BASE_URL=<workflow-engine-internal-url>`
+- `RNTME_WORKFLOWS_MANIFEST_PATH=/srv/workflows/workflows.json`
+- event-bus env entries matching the planned Kafka/Redpanda mode
+- file mounts under `/srv/workflows/` for `workflows.json` and every referenced BPMN file
+
+Worker file paths are validated as relative paths below `/srv/workflows`; empty
+segments, parent traversal, absolute paths, backslashes, and URL-scheme paths
+are rejected during render.
+
 ## Provisioner outputs in render
 
 `renderDokployPlan` accepts optional `provisionedModules` (a map of module slug to `ProvisionerOutput`) and `envMappings` (an array of `EnvMapping` entries produced by `resolveEnvMappings` in `@rntme/deploy-core`). When present, render bakes provisioner outputs into the env entries of the relevant resource definitions before computing the plan digest. The digest therefore covers provisioned values: re-rendering with different provisioner outputs produces a different digest and forces a re-apply.
@@ -131,6 +151,7 @@ The named 401 fallback is the only canonical 401 body for protected routes. If a
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
 - `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
+- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ## Security
 

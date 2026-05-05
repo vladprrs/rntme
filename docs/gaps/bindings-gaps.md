@@ -72,7 +72,7 @@ returns the original outcome on HTTP and the documented behavior on gRPC.
 
 ### [P1] Error catalog with stable codes in OpenAPI and protobuf
 
-**Why it matters.** Agents, UI flows, and future Zeebe workers need to branch on
+**Why it matters.** Agents, UI flows, and BPMN workers need to branch on
 machine-readable error codes. Runtime code already returns stable strings such
 as validation, guard, concurrency, pre-step, and adapter errors; generated
 contracts still mostly describe error `code` as a string.

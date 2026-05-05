@@ -22,7 +22,7 @@ The durable unit is the project blueprint. Teams edit the blueprint; the runtime
 
 ## Under the hood
 
-The project blueprint is the market-facing surface. Internally it compiles from a project-level layer (`project.json` plus project-level PDM) and per-service artifacts — **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings / UI), **bindings** (HTTP surface), **UI**, **seed**, **manifest** — through a four-layer validator onto an event-sourced SQLite runtime.
+The project blueprint is the market-facing surface. Internally it compiles from a project-level layer (`project.json`, project-level PDM, and optional project-level **workflows**) and per-service artifacts — **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings / UI), **bindings** (HTTP surface), **UI**, **seed**, **manifest** — through a four-layer validator onto an event-sourced SQLite runtime.
 
 The modules layer, executor seam (`CommandExecutor` / `QueryExecutor`), and gRPC surface add integration points without service-specific glue. CQRS, event-sourcing, SQLite / Turso, branded `Validated*` types, and plugin seams (`DbDriver`, `EventBus`, `Surface`) are **consequences** of the repeatability goal, not the identity of the product — they deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out.
 
@@ -34,6 +34,7 @@ From the project layer and service-level artifacts, the toolchain produces:
 - An idempotent projection consumer that keeps the read-side eventually consistent.
 - An OpenAPI 3.1 document and a Hono HTTP surface.
 - A declarative React SPA compiled from the `ui` artifact.
+- Optional BPMN workflow deployment metadata for provisioned Operaton plus a BPMN worker.
 
 Organised as a pnpm monorepo. Each package has a single, testable responsibility and depends only on the packages strictly below it.
 
@@ -59,6 +60,7 @@ flowchart LR
             M["Manifest"]:::artifact
         end
         MOD["modules x N<br/>(gRPC adapters)"]:::module
+        WF["workflows<br/>(BPMN mappings)"]:::artifact
     end
     V["4-layer validator<br/>(parse → structural → reference → consistency)"]:::validator
     REG["project-routed bindings<br/>+ composed project model"]:::runtime
@@ -104,6 +106,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/blueprint`](packages/artifacts/blueprint) | Project-first blueprint folder parser/validator: loads `project.json`, project-level PDM, service artifacts, route/middleware composition, project-routed binding registry, and optional `project.json#modules` UI catalog + virtual entry. |
 | [`@rntme/pdm`](packages/artifacts/pdm) | Platform Domain Model: project-shared entities, ownership classification, fields, relations, and optional stateMachine per entity; derives event-type specs from transitions. |
 | [`@rntme/qsm`](packages/artifacts/qsm) | Query-Side Materialized projections: declares per-service read-side tables, projection-per-file directories, relation metadata for JOINs, DDL, and event-handler specs. |
+| [`@rntme/workflows`](packages/artifacts/workflows) | Project-level BPMN/Operaton workflow artifact parser and validator: maps event-envelope message starts and BPMN service tasks to project services and command bindings. |
 | [`@rntme/event-store`](packages/runtime/event-store) | SQLite-backed event log with optimistic concurrency + at-least-once Kafka relay. |
 | [`@rntme/seed`](packages/artifacts/seed) | Declarative `seed.json`: parse and validate envelopes against the PDM, append to the event store (used by `@rntme/runtime` for reference data). |
 | [`@rntme/projection-consumer`](packages/runtime/projection-consumer) | Kafka → SQLite projection updater with three-layer idempotency and batch transactions. |
@@ -114,6 +117,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
 | [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA host bootstrap that serves compiled `@rntme/ui` artifacts, bundles the React shell, and executes screens against service HTTP bindings. |
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
+| [`@rntme/bpmn-worker`](packages/runtime/bpmn-worker) | BPMN worker bridge for provisioned Operaton projects: subscribes to Kafka topics, starts process instances, and executes BPMN service tasks through rntme gRPC command bindings. |
 | [`@rntme/module-scaffold`](packages/tooling/module-scaffold) | Examples and scaffolding for rntme module authors. Holds `exampleHandlers`; no contract surface — copy as a starting point rather than depending on it. |
 | **Canonical contracts** |  |
 | [`@rntme/contracts-module-v1`](packages/contracts/module/v1) | JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`. |
@@ -138,6 +142,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 ### Demo
 
 [`demo/notes-blueprint`](demo/notes-blueprint) is the canonical project-shape example: a project blueprint folder with `project.json`, project-level PDM, and one or more services under `services/`.
+[`demo/order-fulfillment-blueprint`](demo/order-fulfillment-blueprint) is the BPMN workflow example: two services plus `workflows/workflows.json` and BPMN files.
 
 ### Dependency graph
 
@@ -152,6 +157,7 @@ flowchart TB
     ES["@rntme/event-store"]:::pkg
     GIR["@rntme/graph-ir-compiler"]:::pkg
     B["@rntme/bindings"]:::pkg
+    WF["@rntme/workflows"]:::pkg
     BH["@rntme/bindings-http"]:::pkg
     BG["@rntme/bindings-grpc"]:::pkg
     UI["@rntme/ui"]:::pkg
@@ -159,14 +165,16 @@ flowchart TB
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
+    BW["@rntme/bpmn-worker"]:::pkg
     MS["@rntme/module-scaffold"]:::pkg
     CMV1["@rntme/contracts-module-v1"]:::pkg
     CPV1["@rntme/contracts-provisioner-v1"]:::pkg
     CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg
     CHV1["@rntme/contracts-handlers-v1"]:::pkg
     DC["@rntme/deploy-core"]:::pkg
+    DD["@rntme/deploy-dokploy"]:::pkg
 
-    BP --> PDM & QSM & CMV1
+    BP --> PDM & QSM & CMV1 & WF
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
@@ -175,11 +183,13 @@ flowchart TB
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
     RT --> BH & BG & UIR & PC & SD & GIR & ES & CHV1
+    BW --> WF
     MS --> CHV1
-    DC --> CMV1 & CPV1
+    DC --> CMV1 & CPV1 & WF
+    DD --> DC
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, and `ui` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md).
+Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `workflows` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation and by `@rntme/workflows` validation context for BPMN service tasks. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md).
 
 ## Quick start
 
@@ -229,6 +239,7 @@ CI runs `build → typecheck → test → lint → depcruise → vendor:check` o
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
 - `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — platform contract layer: module manifest, provisioner, client-runtime, and handler contracts extracted out of implementation packages so modules depend on contracts only.
+- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md` — project-level BPMN workflow artifact, provisioned Operaton, and BPMN worker deployment.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — platform modules, gRPC adapters, executor seams, pre-fetch middleware, idempotency cache, and callback bindings.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
@@ -255,6 +266,7 @@ What ships today:
 - CloudEvents 1.0 envelope end-to-end; topics follow `rntme.{svc}.{agg}` (no `.v1` suffix — breaking event changes use a new `eventType`, not a topic version).
 - Project blueprint composition: `project.json` + project-level PDM + N services + modules; project routes/middleware validated; project-routed binding registry compiled. Runtime intake at the project level is not yet wired.
 - Platform modules integration: `manifest.modules[]` declares external services; pre-fetch middleware (`pre[]`) supports `system` (idempotency-key) + `module-rpc` steps; HTTP idempotency cache (24h TTL); callback bindings (GET + 302). Module communication is gRPC-based (`@rntme/bindings-grpc`).
+- Project workflow artifact (`@rntme/workflows`): `workflows/workflows.json` validates BPMN file refs, event-envelope message starts, and BPMN service tasks against project services and command bindings. Deploy planning supports provisioned Operaton plus a separate `bpmn-worker` workload when the deploy target provides workflow config.
 
 Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, auth/authz, multi-tenancy, schema registry / breaking schema evolution.
 
@@ -268,6 +280,8 @@ Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters,
 | **Canonical Graph IR** | Normalised internal form without syntactic sugar. |
 | **Semantic plan** | Typed, scope-resolved plan produced by the semantic layer of the compiler. |
 | **Bindings** | Artifact mapping graphs to HTTP operations; input to OpenAPI generation. |
+| **Workflow artifact** | Project-level `workflows/workflows.json` mapping BPMN definitions to event-envelope message starts and project-routed command binding service tasks. |
+| **BPMN worker** | Runtime workload that subscribes to Kafka topics, starts Operaton process instances, and executes BPMN service tasks through rntme gRPC command bindings. |
 | **Event envelope** | Immutable event record (eventId, stream, version, actor, payload, schemaVersion, …). |
 | **Aggregate** | Domain entity identified by `<aggregateType>-<aggregateId>`; stream of events. |
 | **Relay** | Background loop that tails the event log and publishes to Kafka with a persistent cursor. |

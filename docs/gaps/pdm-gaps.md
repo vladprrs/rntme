@@ -129,7 +129,7 @@ included.
 - **Project-first belongs in `@rntme/blueprint`.** PDM should model semantics;
   project folder structure, service registry, and routing stay in blueprint.
 - **Cross-service orchestration belongs outside PDM.** PDM may annotate handles;
-  Zeebe/worker specs decide process flow.
+  workflow/worker specs decide process flow.
 - **Analytics belongs outside PDM.** Do not add PDM primitives whose only purpose
   is ksqlDB/search/BI optimization.
 - **SQLite/libsql is the SQL target.** Any schema/migration design must stay

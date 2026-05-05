@@ -151,6 +151,20 @@ omitted from Dokploy file mounts. The Dokploy adapter lists existing
 application mounts through `mounts.listByServiceId` before create/update so
 re-deploys update the current files instead of recreating duplicate mounts.
 
+## Workflow deploy support
+
+Project-version bundles may include workflow BPMN assets. During deployment,
+the executor materializes those assets under `<tmpDir>/workflows/`, composes the
+blueprint so `@rntme/workflows` can validate event and binding refs, reads the
+referenced BPMN files into `ComposedProjectInput.workflowFiles`, and passes the
+deploy target's `workflows` config through `ProjectDeploymentConfig`.
+
+The executor records smoke evidence after apply. For workflow deployments the
+evidence is still infrastructure-level in the MVP: the rendered/apply result
+must include the Operaton compose resource and the `bpmn-worker` application,
+while public ingress smoke remains `/health`, UI, `/config.json`, and protected
+API checks when applicable.
+
 ## Security headers (UI only)
 
 Applied by `securityHeaders()` middleware on UI responses:
