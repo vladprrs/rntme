@@ -97,6 +97,12 @@ ASCII dependency diagram. Arrow means "depends on".
                               v      v      v
                          @rntme/seed  @rntme/projection-consumer
                                       @rntme/module-skeleton
+                                                   |
+                                                   v
+                                  @rntme/contracts-handlers-v1
+                                  (leaf — code command handler shape;
+                                   runtime also depends on it and pins
+                                   drift via runtime-compat type-test)
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
@@ -153,7 +159,9 @@ One-line purpose per package (read the per-package README before touching):
   seams, modules, projections, seed, bindings + UI. →
   `packages/runtime/runtime/README.md`.
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
-  module-integration track; depends on `@rntme/runtime`. →
+  module-integration track; depends only on `@rntme/contracts-handlers-v1`
+  for handler types (no `@rntme/runtime` dep — runtime types come through
+  the contract). →
   `packages/tooling/module-skeleton/README.md`.
 - **`@rntme/contracts-module-v1`** — JSON shape of `module.json`
   (manifest schema, types, `parseModuleManifest`). All loaders/composers
@@ -170,6 +178,13 @@ One-line purpose per package (read the per-package README before touching):
   visibility evaluator, and router helpers. UI-bearing modules import this
   package; `@rntme/ui-runtime` hosts concrete instances and SPA bootstrap. →
   `packages/contracts/client-runtime/v1/README.md`.
+- **`@rntme/contracts-handlers-v1`** — Code-command-handler runtime contract:
+  `CodeCommandHandler`, `CodeCommandHandlerMap`, structurally-minimal
+  `CommandExecutionContext` / `CommandExecutorOutput`. Leaf, types-only.
+  Modules code their handlers against it; `@rntme/runtime` re-exports the
+  same names and a drift gate in `runtime-compat.test.ts` pins the runtime's
+  richer ctx assignable to the contract. →
+  `packages/contracts/handlers/v1/README.md`.
 - **`@rntme/deploy-core`** — Target-neutral project deployment
   planning from a validated/composed project model. Preview MVP only; no
   raw blueprint loading. The platform executor consumes project-version
@@ -845,6 +860,7 @@ Known categorical entries to watch for:
 - **`@rntme/contracts-module-v1`** — JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`.
 - **`@rntme/contracts-provisioner-v1`** — Provisioner runtime contract: ProvisionerContract, ProvisionerInput/Output, ProvisionerLog, ProvisionerVendorError, env-mapping types. deploy-core implements; modules with provisioner blocks code against it.
 - **`@rntme/contracts-client-runtime-v1`** — Browser-side platform contract for module client blocks: ModuleBootContext, hooks/providers, operation registry, transport chain, visibility evaluator, and router helpers. UI modules import this instead of `@rntme/ui-runtime` internals.
+- **`@rntme/contracts-handlers-v1`** — Code command handler runtime contract: CodeCommandHandler, CodeCommandHandlerMap, structurally-minimal CommandExecutionContext (`now`, `nextId`, `correlation`), CommandExecutorOutput. Modules code their handlers against this leaf contract; `@rntme/runtime` re-exports the same names and ships a `runtime-compat.test.ts` drift gate so the runtime's richer ctx (with `eventStore`, `qsmDb`, `actor`) remains structurally assignable to the contract.
 - **Platform contract** — Leaf package under `packages/contracts/*/v1` that defines a cross-cutting boundary consumed by modules and implemented by platform/runtime packages.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).

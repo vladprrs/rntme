@@ -1,4 +1,4 @@
-import type { CodeCommandHandlerMap } from '@rntme/runtime';
+import type { CodeCommandHandlerMap } from '@rntme/contracts-handlers-v1';
 
 export const exampleHandlers: CodeCommandHandlerMap = {
   echo: async (ctx, _input) => ({

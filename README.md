@@ -114,11 +114,12 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
 | [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA host bootstrap that serves compiled `@rntme/ui` artifacts, bundles the React shell, and executes screens against service HTTP bindings. |
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
-| [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
+| [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends only on `@rntme/contracts-handlers-v1` for handler types. |
 | **Canonical contracts** |  |
 | [`@rntme/contracts-module-v1`](packages/contracts/module/v1) | JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`. |
 | [`@rntme/contracts-provisioner-v1`](packages/contracts/provisioner/v1) | Provisioner runtime contract: `ProvisionerContract`, `ProvisionerInput`/`Output`, `ProvisionerLog`, `ProvisionerVendorError`, env-mapping types. `@rntme/deploy-core` implements; vendor modules with a provisioner block code against it. |
 | [`@rntme/contracts-client-runtime-v1`](packages/contracts/client-runtime/v1) | Browser-side module contract: `ModuleBootContext`, hooks/providers, operation registry, transport chain, visibility evaluator, and router helpers used by UI-bearing modules and `@rntme/ui-runtime`. |
+| [`@rntme/contracts-handlers-v1`](packages/contracts/handlers/v1) | Code-command-handler runtime contract: `CodeCommandHandler`, `CodeCommandHandlerMap`, structurally-minimal `CommandExecutionContext`/`CommandExecutorOutput`. Modules code their handlers against this contract; `@rntme/runtime` re-exports the same names and ships a drift gate to keep the runtime's richer ctx assignable to the contract. |
 | [`@rntme/contracts-common-v1`](packages/contracts/_common/v1) | Shared cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort, `Metadata`) imported by every category contract. |
 | [`@rntme/contracts-ai-llm-v1`](packages/contracts/ai-llm/v1) | Canonical AI/LLM contract: `service AiLlmModule` (14 RPCs), Completion, AssistantThread, AsyncJob, sixteen CloudEvents payloads, MCP-shape tools, `AI_LLM_<LAYER>_<KIND>` error codes. |
 | [`@rntme/contracts-identity-v1`](packages/contracts/identity/v1) | Canonical Identity contract: `service IdentityModule` (24 RPCs), six entity types, seventeen CloudEvents payloads, `IDENTITY_<LAYER>_<KIND>` error codes. |
@@ -162,6 +163,7 @@ flowchart TB
     CMV1["@rntme/contracts-module-v1"]:::pkg
     CPV1["@rntme/contracts-provisioner-v1"]:::pkg
     CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg
+    CHV1["@rntme/contracts-handlers-v1"]:::pkg
     DC["@rntme/deploy-core"]:::pkg
 
     BP --> PDM & QSM & CMV1
@@ -172,8 +174,8 @@ flowchart TB
     UIR --> UI & CCRV1
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
-    RT --> BH & BG & UIR & PC & SD & GIR & ES
-    MS --> RT
+    RT --> BH & BG & UIR & PC & SD & GIR & ES & CHV1
+    MS --> CHV1
     DC --> CMV1 & CPV1
 ```
 

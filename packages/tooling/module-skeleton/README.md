@@ -4,6 +4,12 @@ Starter template for **rntme platform modules** (spec: `docs/superpowers/specs/d
 
 A *platform module* is a service that uses `@rntme/runtime` infrastructure (event-store, projections, relay) but replaces graph-IR execution with hand-written TypeScript handlers via `CodeCommandExecutor`. This is the right shape for integration services that wrap a vendor SDK (Stripe, Resend, Algolia, OpenAI, etc.) — the SDK's semantics are too complex to express in Graph IR, and nothing is lost by writing code.
 
+The handler types (`CodeCommandHandler`, `CodeCommandHandlerMap`, the
+structurally-minimal `CommandExecutionContext` / `CommandExecutorOutput`)
+live in **`@rntme/contracts-handlers-v1`**. Author your handlers against
+that contract — modules do not need a runtime dependency to declare
+their handler shape.
+
 ## What's inside
 
 - `src/handlers.ts` — example `CodeCommandHandlerMap` with a single `echo` command. This is what you replace with your own handlers.

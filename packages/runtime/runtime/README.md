@@ -117,6 +117,8 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 
 `DbDriver`, `EventBus`, and `Surface` are the replaceable backings. `CommandExecutor` and `QueryExecutor` are the executor seams shared by HTTP/gRPC surfaces and modules. Default implementations ship in this package; future packages (`@rntme/db-turso`, `@rntme/bus-kafka`) implement the same interfaces and are injected via `RuntimeConfig`.
 
+The module-facing handler contract — `CodeCommandHandler`, `CodeCommandHandlerMap`, and the structurally-minimal `CommandExecutionContext` / `CommandExecutorOutput` shape modules code against — lives in `@rntme/contracts-handlers-v1`. The runtime's richer ctx (with `eventStore`, `qsmDb`, `actor`) stays internal to `@rntme/bindings-http/executor-contract`; subtyping makes a runtime-rich ctx assignable to the contract-narrow ctx, and a drift gate in the contract package's `runtime-compat.test.ts` pins this relationship.
+
 | Interface | Default impl | Key methods |
 |---|---|---|
 | `DbDriver` | `BetterSqliteDriver` | `open(opts: { purpose: 'event-store' \| 'qsm'; path: string \| ':memory:' }): DbHandle` |

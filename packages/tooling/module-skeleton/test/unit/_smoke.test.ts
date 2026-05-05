@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VERSION, exampleHandlers } from '../../src/index.js';
-import type { CommandExecutionContext } from '@rntme/runtime';
+import type { CommandExecutionContext } from '@rntme/contracts-handlers-v1';
 
 describe('@rntme/module-skeleton smoke', () => {
   it('exports the package version marker', () => {
