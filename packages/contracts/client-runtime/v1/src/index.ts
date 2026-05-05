@@ -4,6 +4,7 @@ export {
   createOperationRegistry,
   type OperationRegistry,
   type OperationHandler,
+  type Unregister,
 } from './operation-registry.js';
 export {
   createLifecycleBus,
