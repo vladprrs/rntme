@@ -70,6 +70,7 @@ export function buildProjectDeploymentConfig(
       ...(target.policyValues as DeploymentPolicyConfig),
       ...((overrides.policyOverrides ?? {}) as DeploymentPolicyConfig),
     },
+    ...(target.workflows === null ? {} : { workflows: target.workflows }),
     auth: cleanAuthConfig(target.auth),
     ...(overrides.runtimeImage ? { runtimeImage: overrides.runtimeImage } : {}),
   };

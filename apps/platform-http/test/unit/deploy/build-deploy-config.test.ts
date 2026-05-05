@@ -76,6 +76,26 @@ describe('buildProjectDeploymentConfig', () => {
     });
   });
 
+  it('passes workflow deployment config through to deploy-core', () => {
+    const config = buildProjectDeploymentConfig(
+      {
+        ...target(),
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        },
+      },
+      'acme',
+      {},
+    );
+
+    expect(config.workflows).toEqual({
+      engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+      worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+    });
+  });
+
   it('allows deployment config overrides to force the runtime in-memory event bus', () => {
     const config = buildProjectDeploymentConfig(target(), 'acme', {
       eventBusMode: 'in-memory',
@@ -189,6 +209,7 @@ function target(): DeployTarget {
     apiTokenRedacted: '***',
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
     modules: {},
+    workflows: null,
     auth: {},
     policyValues: { rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } } },
     isDefault: true,

@@ -81,6 +81,7 @@ export function planWorkflowEngine(input: {
   }
 
   const workerResource = resourceName(input.config.orgSlug, input.project.name, 'bpmn-worker');
+  const workflowFiles = buildWorkflowFiles(workflows, input.project.workflowFiles, input.errors);
   return {
     engine: {
       kind: 'operaton',
@@ -95,11 +96,36 @@ export function planWorkflowEngine(input: {
       resourceName: workerResource,
       image: workerImage,
       workflowManifestPath: '/srv/workflows/workflows.json',
-      workflowFiles: {},
+      workflowFiles,
       subscriptions: buildSubscriptions(workflows, input.eventBus),
       serviceTasks: buildServiceTasks(workflows),
     },
   };
+}
+
+function buildWorkflowFiles(
+  workflows: ValidatedWorkflows,
+  providedFiles: Readonly<Record<string, string>> | undefined,
+  errors: DeploymentPlanError[],
+): Readonly<Record<string, string>> {
+  const files: Record<string, string> = {
+    'workflows.json': `${JSON.stringify(workflows, null, 2)}\n`,
+  };
+
+  for (const [idx, definition] of workflows.definitions.entries()) {
+    const content = providedFiles?.[definition.bpmnFile];
+    if (content === undefined) {
+      errors.push({
+        code: 'DEPLOY_PLAN_WORKFLOW_FILE_MISSING',
+        message: `workflow definition "${definition.id}" references missing BPMN file "${definition.bpmnFile}"`,
+        path: `workflows.definitions.${idx}.bpmnFile`,
+      });
+      continue;
+    }
+    files[definition.bpmnFile] = content;
+  }
+
+  return files;
 }
 
 function buildSubscriptions(

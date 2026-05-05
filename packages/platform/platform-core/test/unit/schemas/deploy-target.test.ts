@@ -69,6 +69,47 @@ describe('CreateDeployTargetRequestSchema', () => {
     }
   });
 
+  it('preserves workflow target config on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data as { workflows?: unknown }).workflows).toEqual({
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      });
+    }
+  });
+
+  it('defaults omitted workflow target config to null on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-staging',
+      displayName: 'Staging',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect((r.data as { workflows?: unknown }).workflows).toBeNull();
+  });
+
   it('leaves omitted policyValues undefined on patch', () => {
     const r = UpdateDeployTargetRequestSchema.parse({ displayName: 'Renamed' });
     expect(r).toEqual({ displayName: 'Renamed' });
@@ -92,6 +133,41 @@ describe('CreateDeployTargetRequestSchema', () => {
       audience: 'https://notes-demo.rntme.com/api',
       redirectUri: 'https://notes-demo.rntme.com/',
     });
+  });
+
+  it('preserves workflow target config on patch and allows clearing it', () => {
+    const enabled = UpdateDeployTargetRequestSchema.parse({
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+    expect((enabled as { workflows?: unknown }).workflows).toEqual({
+      engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+      worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+    });
+
+    const cleared = UpdateDeployTargetRequestSchema.parse({ workflows: null });
+    expect((cleared as { workflows?: unknown }).workflows).toBeNull();
+  });
+
+  it('rejects invalid workflow target config', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'zeebe', mode: 'provisioned', image: 'zeebe:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(false);
   });
 
   it('rejects non-http Auth0 redirect URI', () => {

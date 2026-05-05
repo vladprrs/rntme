@@ -44,5 +44,6 @@ export type ComposedProjectInput = {
   readonly mounts?: readonly ProjectMountDecl[];
   readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
   readonly workflows?: ValidatedWorkflows | null;
+  readonly workflowFiles?: Readonly<Record<string, string>>;
   readonly varsManifest?: VarsManifest;
 };

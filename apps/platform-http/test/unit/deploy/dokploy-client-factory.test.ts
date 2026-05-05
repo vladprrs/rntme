@@ -410,6 +410,7 @@ function target(): DeployTargetWithSecret {
     allowCreateProject: false,
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
     modules: {},
+    workflows: null,
     auth: {},
     policyValues: {},
     isDefault: true,

@@ -140,6 +140,123 @@ describe('runDeployment', () => {
     expect(uiBuildFiles.every(([, content]) => content.length < 950_000)).toBe(true);
   });
 
+  it('passes workflow artifacts into planning and records workflow resources', async () => {
+    const planProject = vi.fn(() =>
+      ok({
+        project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka' as const,
+            mode: 'provisioned' as const,
+            provider: 'redpanda' as const,
+            resourceName: 'bus',
+            internalBrokers: ['bus:9092'],
+            image: 'redpanda:test',
+            persistence: { mode: 'persistent' as const, volumeName: 'bus-data' },
+          },
+          workflowEngine: {
+            kind: 'operaton' as const,
+            mode: 'provisioned' as const,
+            resourceName: 'operaton',
+            internalBaseUrl: 'http://operaton:8080',
+            image: 'operaton/operaton:test',
+          },
+        },
+        workloads: [],
+        edge: { routes: [], middleware: [] },
+        diagnostics: { warnings: [] },
+      }),
+    );
+    const applyPlan = vi.fn(async () =>
+      ok({
+        target: { kind: 'dokploy' as const, environmentId: 'env_default' },
+        deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        resources: [
+          {
+            logicalId: 'workflow-engine',
+            resourceKind: 'compose' as const,
+            infrastructureKind: 'workflow-engine' as const,
+            targetResourceId: 'compose_1',
+            targetResourceName: 'operaton',
+            action: 'created' as const,
+          },
+          {
+            logicalId: 'bpmn-worker',
+            resourceKind: 'application' as const,
+            workloadSlug: 'bpmn-worker',
+            kind: 'bpmn-worker' as const,
+            targetResourceId: 'app_1',
+            targetResourceName: 'bpmn-worker',
+            action: 'created' as const,
+          },
+        ],
+        urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] },
+        renderedPlanDigest: 'sha256:rendered',
+        warnings: [],
+        verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] },
+      }),
+    );
+    const composed = {
+      ...composedBlueprint(),
+      workflows: {
+        workflowVersion: 1,
+        definitions: [
+          {
+            id: 'orderFulfillment',
+            bpmnFile: 'order-fulfillment.bpmn',
+            processId: 'orderFulfillment',
+          },
+        ],
+        messageStarts: [],
+        serviceTasks: [],
+      } as never,
+    };
+    const { deps, deployments } = setup({
+      bundleFiles: {
+        'project.json': { name: 'shop', services: ['api'] },
+        'workflows/workflows.json': composed.workflows,
+      },
+      bundleAssets: {
+        'workflows/order-fulfillment.bpmn': '<definitions id="orderFulfillment" />',
+      },
+      loadComposed: () => ({ ok: true, value: composed }),
+      planProject: planProject as never,
+      applyPlan: applyPlan as never,
+      targetEventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      targetWorkflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(planProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflows: composed.workflows,
+        workflowFiles: {
+          'order-fulfillment.bpmn': '<definitions id="orderFulfillment" />',
+        },
+      }),
+      expect.objectContaining({
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        },
+      }),
+      expect.any(Object),
+    );
+    expect(deployments.setApplyResult).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({ infrastructureKind: 'workflow-engine' }),
+          expect.objectContaining({ kind: 'bpmn-worker' }),
+        ]),
+      }),
+    );
+  });
+
   it('fails deployment when planner reports a target var missing', async () => {
     const { deps, deployments } = setup({
       loadComposed: () => ({ ok: true, value: composedBlueprint() }),
@@ -601,6 +718,7 @@ describe('runDeployment', () => {
 function setup(
   overrides: Partial<Pick<ExecutorDeps, 'loadComposed'>> & {
     bundleFiles?: Record<string, unknown>;
+    bundleAssets?: Record<string, string>;
     deploymentConfigOverrides?: Record<string, unknown>;
     planProject?: ExecutorDeps['planProject'];
     renderPlan?: ExecutorDeps['renderPlan'];
@@ -608,6 +726,7 @@ function setup(
     targetPublicBaseUrl?: string | null;
     targetAuth?: { auth0?: { clientId: string; redirectUri?: string; domain?: string; audience?: string } };
     targetEventBus?: Record<string, unknown>;
+    targetWorkflows?: unknown;
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
     runProvisioners?: ExecutorDeps['runProvisioners'];
   } = {},
@@ -693,6 +812,7 @@ function setup(
         allowCreateProject: false,
         eventBus: (overrides.targetEventBus ?? { kind: 'kafka' as const, brokers: ['redpanda:9092'] }) as never,
         modules: {},
+        workflows: overrides.targetWorkflows ?? null,
         auth: overrides.targetAuth ?? { auth0: { clientId: 'target-spa-client' } },
         policyValues: {},
         isDefault: true,
@@ -710,7 +830,26 @@ function setup(
       presignedGet: vi.fn(),
       getJson: vi.fn(),
       getRaw: vi.fn(async () =>
-        ok(gzipSync(Buffer.from(JSON.stringify({ version: 1, files: overrides.bundleFiles ?? { 'project.json': { name: 'shop', services: [] } } })))),
+        ok(
+          gzipSync(
+            Buffer.from(
+              JSON.stringify({
+                version: overrides.bundleAssets === undefined ? 1 : 2,
+                files: overrides.bundleFiles ?? { 'project.json': { name: 'shop', services: [] } },
+                ...(overrides.bundleAssets === undefined
+                  ? {}
+                  : {
+                      assets: Object.fromEntries(
+                        Object.entries(overrides.bundleAssets).map(([path, content]) => [
+                          path,
+                          Buffer.from(content).toString('base64'),
+                        ]),
+                      ),
+                    }),
+              }),
+            ),
+          ),
+        ),
       ),
     },
     withOrgTx: async (_orgId, fn) =>

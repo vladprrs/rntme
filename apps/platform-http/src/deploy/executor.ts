@@ -583,6 +583,11 @@ async function toDeployCoreInput(
     }
   }
 
+  const workflowFiles =
+    value.workflows === null || value.workflows === undefined
+      ? undefined
+      : await readWorkflowDefinitionFiles(value.workflows, rootDir);
+
   return {
     name: value.project.name,
     publicConfigJson: value.publicConfigJson ?? null,
@@ -605,7 +610,50 @@ async function toDeployCoreInput(
     ...(value.project.middleware === undefined ? {} : { middleware: value.project.middleware }),
     ...(value.project.mounts === undefined ? {} : { mounts: value.project.mounts }),
     ...(Object.keys(modules).length > 0 ? { modules } : {}),
+    ...(value.workflows === undefined ? {} : { workflows: value.workflows }),
+    ...(workflowFiles === undefined ? {} : { workflowFiles }),
   };
+}
+
+async function readWorkflowDefinitionFiles(
+  workflows: NonNullable<ComposedBlueprint['workflows']>,
+  rootDir: string,
+): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const definition of workflows.definitions) {
+    if (Object.hasOwn(files, definition.bpmnFile)) continue;
+    const path = workflowDefinitionPath(rootDir, definition.bpmnFile);
+    try {
+      files[definition.bpmnFile] = await readFile(path, 'utf8');
+    } catch (cause) {
+      if (errorCode(cause) === 'ENOENT') {
+        throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_NOT_FOUND: workflows/${definition.bpmnFile}`);
+      }
+      throw cause;
+    }
+  }
+  return files;
+}
+
+function workflowDefinitionPath(rootDir: string, relativePath: string): string {
+  if (!isSafeWorkflowFilePath(relativePath)) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  const workflowRoot = join(rootDir, 'workflows');
+  const filePath = join(workflowRoot, relativePath);
+  const backToRoot = relative(workflowRoot, filePath).split('\\').join('/');
+  if (backToRoot === '..' || backToRoot.startsWith('../')) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  return filePath;
+}
+
+function isSafeWorkflowFilePath(path: string): boolean {
+  if (path === '') return false;
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
+  return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 async function buildRuntimeArtifactFiles(

@@ -64,26 +64,38 @@ const project: ComposedProjectInput = {
     },
   },
   workflows,
+  workflowFiles: {
+    'order-fulfillment.bpmn': '<definitions />',
+  },
 };
 
 describe('workflow planning', () => {
   it('plans provisioned Operaton and a BPMN worker when workflows are present', () => {
-    const result = buildProjectDeploymentPlan(project, {
-      orgSlug: 'acme',
-      environment: 'default',
-      mode: 'preview',
-      runtimeImage: 'ghcr.io/acme/runtime:v1',
-      eventBus: {
-        kind: 'kafka',
-        mode: 'provisioned',
-        provider: 'redpanda',
-        topicPrefix: 'rntme.orders',
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowFiles: {
+          'workflows.json': '{"workflowVersion":1}',
+          'order-fulfillment.bpmn': '<definitions />',
+        },
       },
-      workflows: {
-        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
-        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: {
+          kind: 'kafka',
+          mode: 'provisioned',
+          provider: 'redpanda',
+          topicPrefix: 'rntme.orders',
+        },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
       },
-    });
+    );
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -107,7 +119,10 @@ describe('workflow planning', () => {
       resourceName: 'rntme-acme-order-fulfillment-bpmn-worker',
       image: 'ghcr.io/acme/bpmn-worker:v1',
       workflowManifestPath: '/srv/workflows/workflows.json',
-      workflowFiles: {},
+      workflowFiles: {
+        'workflows.json': expect.stringContaining('"workflowVersion": 1'),
+        'order-fulfillment.bpmn': '<definitions />',
+      },
       subscriptions: [
         {
           messageStartId: 'orderPlaced',
@@ -135,6 +150,64 @@ describe('workflow planning', () => {
         },
       ],
     });
+  });
+
+  it('serializes the validated workflow manifest and BPMN files into worker mounts', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowFiles: {
+          'order-fulfillment.bpmn': '<definitions id="orderFulfillment" />',
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const worker = result.value.workloads.find((workload) => workload.kind === 'bpmn-worker');
+    expect(worker?.workflowFiles['workflows.json']).toContain('"workflowVersion": 1');
+    expect(worker?.workflowFiles['order-fulfillment.bpmn']).toBe('<definitions id="orderFulfillment" />');
+  });
+
+  it('rejects workflow projects when a referenced BPMN file was not provided', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowFiles: { 'workflows.json': '{"workflowVersion":1}' },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOW_FILE_MISSING',
+          path: 'workflows.definitions.0.bpmnFile',
+        }),
+      );
+    }
   });
 
   it('rejects workflows without a provisioned Kafka bus', () => {
