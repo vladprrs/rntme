@@ -98,7 +98,7 @@ export function planWorkflowEngine(input: {
       workflowManifestPath: '/srv/workflows/workflows.json',
       workflowFiles,
       subscriptions: buildSubscriptions(workflows, input.eventBus),
-      serviceTasks: buildServiceTasks(workflows),
+      serviceTasks: buildServiceTasks(workflows, input.project, input.config, input.errors),
     },
   };
 }
@@ -146,13 +146,32 @@ function buildSubscriptions(
   }));
 }
 
-function buildServiceTasks(workflows: ValidatedWorkflows): PlannedWorkflowServiceTask[] {
-  return workflows.serviceTasks.map((task) => ({
-    definition: task.definition,
-    taskId: task.taskId,
-    bindingRef: task.bindingRef,
-    targetService: task.bindingRef.split('.')[0] ?? '',
-  }));
+function buildServiceTasks(
+  workflows: ValidatedWorkflows,
+  project: ComposedProjectInput,
+  config: ProjectDeploymentConfig,
+  errors: DeploymentPlanError[],
+): PlannedWorkflowServiceTask[] {
+  return workflows.serviceTasks.map((task, idx) => {
+    const targetService = task.bindingRef.split('.')[0] ?? '';
+    const service = project.services[targetService];
+    const grpcEndpoint = `${resourceName(config.orgSlug, project.name, targetService)}:50051`;
+    if (service === undefined || service.kind !== 'domain') {
+      errors.push({
+        code: 'DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_UNAVAILABLE',
+        message: `workflow service task "${task.taskId}" targets service "${targetService}" without a domain gRPC endpoint`,
+        path: `workflows.serviceTasks.${idx}.bindingRef`,
+        service: targetService,
+      });
+    }
+    return {
+      definition: task.definition,
+      taskId: task.taskId,
+      bindingRef: task.bindingRef,
+      targetService,
+      grpcEndpoint,
+    };
+  });
 }
 
 function workflowTopic(

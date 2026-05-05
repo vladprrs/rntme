@@ -53,7 +53,22 @@ const plan: ProjectDeploymentPlan = {
         'order-fulfillment.bpmn': '<definitions />',
       },
       subscriptions: [],
-      serviceTasks: [],
+      serviceTasks: [
+        {
+          definition: 'orderFulfillment',
+          taskId: 'reserveStock',
+          bindingRef: 'inventory.reserveStock',
+          targetService: 'inventory',
+          grpcEndpoint: 'rntme-acme-order-fulfillment-inventory:50051',
+        },
+        {
+          definition: 'orderFulfillment',
+          taskId: 'confirmOrder',
+          bindingRef: 'orders.confirmOrder',
+          targetService: 'orders',
+          grpcEndpoint: 'rntme-acme-order-fulfillment-orders:50051',
+        },
+      ],
     },
     {
       kind: 'edge-gateway',
@@ -107,6 +122,14 @@ describe('workflow rendering', () => {
     expect(worker.env).toContainEqual({
       name: 'RNTME_OPERATON_BASE_URL',
       value: 'http://rntme-acme-order-fulfillment-operaton:8080',
+      secret: false,
+    });
+    expect(worker.env).toContainEqual({
+      name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
+      value: JSON.stringify({
+        'inventory.reserveStock': 'rntme-acme-order-fulfillment-inventory:50051',
+        'orders.confirmOrder': 'rntme-acme-order-fulfillment-orders:50051',
+      }),
       secret: false,
     });
     expect(worker.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');

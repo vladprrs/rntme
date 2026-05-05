@@ -141,16 +141,69 @@ describe('workflow planning', () => {
           taskId: 'reserveStock',
           bindingRef: 'inventory.reserveStock',
           targetService: 'inventory',
+          grpcEndpoint: 'rntme-acme-order-fulfillment-inventory:50051',
         },
         {
           definition: 'orderFulfillment',
           taskId: 'confirmOrder',
           bindingRef: 'orders.confirmOrder',
           targetService: 'orders',
+          grpcEndpoint: 'rntme-acme-order-fulfillment-orders:50051',
         },
       ],
     });
   });
+
+  it.each([
+    {
+      name: 'missing service',
+      services: {
+        orders: project.services.orders,
+      },
+      service: 'inventory',
+    },
+    {
+      name: 'non-domain service',
+      services: {
+        ...project.services,
+        inventory: { slug: 'inventory', kind: 'integration' },
+      },
+      service: 'inventory',
+    },
+  ] satisfies Array<{
+    name: string;
+    services: ComposedProjectInput['services'];
+    service: string;
+  }>)(
+    'rejects workflow service task bindings when the target service has no gRPC endpoint: $name',
+    ({ services, service }) => {
+      const result = buildProjectDeploymentPlan(
+        { ...project, services },
+        {
+          orgSlug: 'acme',
+          environment: 'default',
+          mode: 'preview',
+          runtimeImage: 'ghcr.io/acme/runtime:v1',
+          eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+          workflows: {
+            engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+            worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+          },
+        },
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            code: 'DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_UNAVAILABLE',
+            path: 'workflows.serviceTasks.0.bindingRef',
+            service,
+          }),
+        );
+      }
+    },
+  );
 
   it('serializes the validated workflow manifest and BPMN files into worker mounts', () => {
     const result = buildProjectDeploymentPlan(

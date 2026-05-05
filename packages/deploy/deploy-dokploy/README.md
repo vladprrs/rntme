@@ -77,8 +77,13 @@ receives:
 
 - `RNTME_OPERATON_BASE_URL=<workflow-engine-internal-url>`
 - `RNTME_WORKFLOWS_MANIFEST_PATH=/srv/workflows/workflows.json`
+- `RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON=<binding-ref-to-grpc-endpoint JSON>`
 - event-bus env entries matching the planned Kafka/Redpanda mode
 - file mounts under `/srv/workflows/` for `workflows.json` and every referenced BPMN file
+
+`RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON` is non-secret and generated from the
+deploy-core plan, for example
+`{"inventory.reserveStock":"rntme-acme-order-fulfillment-inventory:50051"}`.
 
 Worker file paths are validated as relative paths below `/srv/workflows`; empty
 segments, parent traversal, absolute paths, backslashes, and URL-scheme paths

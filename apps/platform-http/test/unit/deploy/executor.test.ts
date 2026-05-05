@@ -117,12 +117,22 @@ describe('runDeployment', () => {
     }, unknown]>;
     const input = calls[0]![0];
     const runtimeFiles = input.services.api.runtimeFiles;
+    const manifest = JSON.parse(runtimeFiles['manifest.json']!) as {
+      surface?: {
+        http?: { enabled: boolean; port: number };
+        grpc?: { enabled: boolean; port: number };
+      };
+    };
     // Vars substitution now happens inside the planner, so the input still carries the raw placeholder.
     expect(input.publicConfigJson).toContain('${AUTH0_SPA_CLIENT_ID}');
     expect(input.varsManifest).toEqual({ AUTH0_SPA_CLIENT_ID: { from: 'target.auth.auth0.clientId', required: true } });
     expect(runtimeFiles['bindings.json']).toContain('"bindings"');
     expect(runtimeFiles['graphs/listNotes.json']).toContain('"listNotes"');
     expect(runtimeFiles['manifest.json']).toContain('"service"');
+    expect(manifest.surface).toEqual({
+      http: { enabled: true, port: 3000 },
+      grpc: { enabled: true, port: 50051 },
+    });
     expect(runtimeFiles['pdm.json']).toContain('"entities"');
     expect(runtimeFiles['qsm.json']).toContain('"projections"');
     expect(runtimeFiles['seed.json']).toContain('"seed-1"');

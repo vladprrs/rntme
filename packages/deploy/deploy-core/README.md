@@ -109,7 +109,14 @@ MVP so message starts can subscribe to `rntme.{svc}.{agg}` topics.
 The planner also adds one `bpmn-worker` workload. It receives the worker image,
 `/srv/workflows/workflows.json`, the BPMN files, event subscriptions derived
 from `messageStarts[]`, and command binding targets derived from
-`serviceTasks[]`.
+`serviceTasks[]`. Each service task target includes the deterministic internal
+domain-service gRPC endpoint, for example
+`rntme-acme-order-fulfillment-inventory:50051`.
+
+Workflow service tasks can target only domain services with a generated gRPC
+runtime surface. If a task's binding ref points at a missing service or a
+non-domain service, planning fails with
+`DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_UNAVAILABLE`.
 
 ### Edge auth
 

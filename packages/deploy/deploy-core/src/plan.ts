@@ -84,6 +84,7 @@ export type PlannedWorkflowServiceTask = {
   readonly taskId: string;
   readonly bindingRef: string;
   readonly targetService: string;
+  readonly grpcEndpoint: string;
 };
 
 export type BpmnWorkerWorkload = {

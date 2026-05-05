@@ -146,6 +146,10 @@ legacy `packages/ui-runtime/build/main.css`. The legacy location predates the
 2026-04-30 merge-back relocation; remove the fallback once no working tree
 relies on it.
 
+Generated runtime `manifest.json` files for domain services enable both HTTP
+port `3000` and gRPC port `50051`. The BPMN worker uses those deterministic
+gRPC surfaces when calling workflow service-task command bindings.
+
 UI module client bundles are emitted as minified ESM chunks with source maps
 omitted from Dokploy file mounts. The Dokploy adapter lists existing
 application mounts through `mounts.listByServiceId` before create/update so

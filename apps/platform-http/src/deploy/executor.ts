@@ -682,7 +682,7 @@ async function buildRuntimeArtifactFiles(
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
-    surface: { http: { enabled: true, port: 3000 } },
+    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
     modules,
   });

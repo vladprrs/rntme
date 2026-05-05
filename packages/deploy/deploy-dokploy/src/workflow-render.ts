@@ -74,6 +74,11 @@ export function renderBpmnWorker(
         value: workload.workflowManifestPath,
         secret: false,
       },
+      {
+        name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
+        value: workflowServiceEndpointsJson(workload),
+        secret: false,
+      },
     ],
     labels: dokployLabels(
       plan.project.orgSlug,
@@ -83,6 +88,19 @@ export function renderBpmnWorker(
     ),
     files: files.value,
   });
+}
+
+function workflowServiceEndpointsJson(workload: BpmnWorkerWorkload): string {
+  const endpoints = Object.fromEntries(
+    [...workload.serviceTasks]
+      .sort((a, b) => a.bindingRef.localeCompare(b.bindingRef))
+      .map((task) => [task.bindingRef, grpcEndpoint(task)]),
+  );
+  return JSON.stringify(endpoints);
+}
+
+function grpcEndpoint(task: BpmnWorkerWorkload['serviceTasks'][number]): string {
+  return 'grpcEndpoint' in task && typeof task.grpcEndpoint === 'string' ? task.grpcEndpoint : '';
 }
 
 function workflowEngine(plan: ProjectDeploymentPlan): WorkflowEngine {
