@@ -55,4 +55,14 @@ describe('evaluateMappingValue', () => {
     expect(evaluateMappingValue('$event.__proto__.inheritedValue', { event, process: {} })).toBeUndefined();
     expect(evaluateMappingValue('$event.constructor', { event, process: {} })).toBeUndefined();
   });
+
+  it('rejects own dangerous path segments', () => {
+    const event = JSON.parse(
+      '{"__proto__":{"polluted":true},"constructor":{"x":"ctor"},"prototype":{"x":"proto"}}',
+    ) as unknown;
+
+    expect(evaluateMappingValue('$event.__proto__.polluted', { event, process: {} })).toBeUndefined();
+    expect(evaluateMappingValue('$event.constructor.x', { event, process: {} })).toBeUndefined();
+    expect(evaluateMappingValue('$event.prototype.x', { event, process: {} })).toBeUndefined();
+  });
 });

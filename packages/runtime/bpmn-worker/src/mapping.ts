@@ -24,8 +24,13 @@ function readPath(source: unknown, path: string): unknown {
   let current = source;
   for (const segment of path.split('.')) {
     if (current === null || typeof current !== 'object') return undefined;
+    if (isBlockedPathSegment(segment)) return undefined;
     if (!Object.hasOwn(current, segment)) return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
   return current;
+}
+
+function isBlockedPathSegment(segment: string): boolean {
+  return segment === '__proto__' || segment === 'constructor' || segment === 'prototype';
 }
