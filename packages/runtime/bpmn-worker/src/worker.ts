@@ -42,7 +42,9 @@ export async function runWorkflowEventOnce(input: RunWorkflowEventOnceInput): Pr
 
   const tasks = await input.operaton.fetchAndLock();
   for (const task of tasks.filter((candidate) => candidate.processInstanceId === process.processInstanceId)) {
-    const mapping = input.manifest.serviceTasks.find((candidate) => candidate.taskId === task.taskId);
+    const mapping = input.manifest.serviceTasks.find(
+      (candidate) => candidate.definition === start.definition && candidate.taskId === task.taskId,
+    );
     if (mapping === undefined) continue;
 
     try {
