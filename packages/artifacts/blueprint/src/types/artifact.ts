@@ -4,6 +4,7 @@ import type { EventTypeSpec, ValidatedPdm } from '@rntme/pdm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';
 import type { ValidatedSeed } from '@rntme/seed';
 import type { CompiledArtifact } from '@rntme/ui';
+import type { ValidatedWorkflows } from '@rntme/workflows';
 import type { PropSchema } from './result.js';
 
 export type ServiceKind = 'domain' | 'integration' | 'integration-module';
@@ -145,6 +146,7 @@ export type ComposedBlueprint = {
   services: Record<string, ValidatedServiceMember>;
   routing: ProjectRoutingContext;
   bindingRegistry: Record<string, RoutedBindingEntry>;
+  workflows?: ValidatedWorkflows | null;
   catalogManifest?: CatalogManifest | null;
   /** Serialized JSON object: module package name → public config slice (spec §10.4). */
   publicConfigJson?: string | null;

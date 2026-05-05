@@ -704,6 +704,9 @@ importers:
       '@rntme/ui':
         specifier: workspace:*
         version: link:../ui
+      '@rntme/workflows':
+        specifier: workspace:*
+        version: link:../workflows
       zod:
         specifier: ^4.0.0
         version: 4.3.6

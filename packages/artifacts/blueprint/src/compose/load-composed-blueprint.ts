@@ -20,6 +20,7 @@ import {
 } from './validate-modules.js';
 import { discoverServiceArtifacts } from './discover-service-artifacts.js';
 import { loadServiceMember } from './load-service-member.js';
+import { loadProjectWorkflows } from './project-workflows.js';
 
 export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   const loaded = loadBlueprint(dir);
@@ -112,6 +113,13 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     bindingsByService: collectServiceBindings(validatedServices),
   });
 
+  const workflows = loadProjectWorkflows({
+    rootDir: dir,
+    services: validatedServices,
+    bindingRegistry,
+  });
+  if (!workflows.ok) return workflows;
+
   for (const [slug, service] of Object.entries(validatedServices)) {
     const compiledUi = compileServiceUi({
       rootDir: dir,
@@ -133,6 +141,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     pdm: loaded.value.pdm,
     routing: composedValidation.value,
     bindingRegistry,
+    workflows: workflows.value,
     services: validatedServices,
     catalogManifest,
     publicConfigJson,
