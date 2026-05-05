@@ -41,6 +41,17 @@ export function renderBpmnWorker(
   workload: BpmnWorkerWorkload,
 ): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
   const engine = workflowEngine(plan);
+  if (engine.kind !== 'operaton') {
+    return err([
+      {
+        code: 'DEPLOY_RENDER_DOKPLOY_BPMN_WORKER_REQUIRES_OPERATON',
+        message: `BPMN worker "${workload.slug}" requires a provisioned Operaton workflow engine`,
+        resource: workload.resourceName,
+        path: `workloads.${workload.slug}`,
+      },
+    ]);
+  }
+
   const files = workflowFileMounts(workload);
   if (!files.ok) return files;
 
@@ -55,7 +66,7 @@ export function renderBpmnWorker(
       ...workerEventBusEnv(plan.infrastructure.eventBus),
       {
         name: 'RNTME_OPERATON_BASE_URL',
-        value: engine.kind === 'operaton' ? engine.internalBaseUrl : '',
+        value: engine.internalBaseUrl,
         secret: false,
       },
       {
@@ -99,7 +110,7 @@ function workflowFileMounts(
   workload: BpmnWorkerWorkload,
 ): Result<Readonly<Record<string, string>>, DokployDeploymentError> {
   const mounts: Record<string, string> = {};
-  for (const [path, content] of Object.entries(workload.workflowFiles)) {
+  for (const [path, content] of Object.entries(workload.workflowFiles).sort(([a], [b]) => a.localeCompare(b))) {
     if (!isSafeWorkflowFilePath(path)) {
       return err([
         {
@@ -111,6 +122,16 @@ function workflowFileMounts(
       ]);
     }
     mounts[`/srv/workflows/${path}`] = content;
+  }
+  if (!Object.hasOwn(mounts, workload.workflowManifestPath)) {
+    return err([
+      {
+        code: 'DEPLOY_RENDER_DOKPLOY_WORKFLOW_MANIFEST_FILE_MISSING',
+        message: `workflow files must include manifest mount "${workload.workflowManifestPath}"`,
+        resource: workload.resourceName,
+        path: `workloads.${workload.slug}.workflowFiles`,
+      },
+    ]);
   }
   return ok(mounts);
 }

@@ -112,6 +112,102 @@ describe('workflow rendering', () => {
     expect(worker.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
   });
 
+  it('renders workflow file mounts in stable path order', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'bpmn-worker'
+            ? {
+                ...workload,
+                workflowFiles: {
+                  'z-last.bpmn': '<z />',
+                  'workflows.json': '{"workflowVersion":1}',
+                  'a-first.bpmn': '<a />',
+                },
+              }
+            : workload,
+        ),
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const worker = result.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
+    );
+    expect(Object.keys(worker?.files ?? {})).toEqual([
+      '/srv/workflows/a-first.bpmn',
+      '/srv/workflows/workflows.json',
+      '/srv/workflows/z-last.bpmn',
+    ]);
+  });
+
+  it('rejects BPMN workers when workflowEngine is none', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          workflowEngine: { kind: 'none' },
+        },
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'DEPLOY_RENDER_DOKPLOY_BPMN_WORKER_REQUIRES_OPERATON',
+        resource: 'rntme-acme-order-fulfillment-bpmn-worker',
+      }),
+    );
+  });
+
+  it('rejects BPMN workers when workflowEngine is omitted', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          eventBus: plan.infrastructure.eventBus,
+        },
+      } as unknown as ProjectDeploymentPlan,
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'DEPLOY_RENDER_DOKPLOY_BPMN_WORKER_REQUIRES_OPERATON',
+        resource: 'rntme-acme-order-fulfillment-bpmn-worker',
+      }),
+    );
+  });
+
+  it('rejects BPMN workers when workflow files omit the manifest mount', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'bpmn-worker' ? { ...workload, workflowFiles: {} } : workload,
+        ),
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'DEPLOY_RENDER_DOKPLOY_WORKFLOW_MANIFEST_FILE_MISSING',
+        resource: 'rntme-acme-order-fulfillment-bpmn-worker',
+      }),
+    );
+  });
+
   it.each([
     '../x.bpmn',
     'nested/../../x',
