@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "reserveStock": {
+      "kind": "command",
+      "graph": "reserveStock",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/reservations",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "body",
+            "bindTo": "orderId",
+            "required": true
+          },
+          { "name": "sku", "in": "body", "bindTo": "sku", "required": true },
+          {
+            "name": "quantity",
+            "in": "body",
+            "bindTo": "quantity",
+            "required": true
+          }
+        ]
+      }
+    },
+    "getReservation": {
+      "kind": "query",
+      "graph": "getReservation",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/reservations/{orderId}",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "bindTo": "orderId",
+            "required": true
+          }
+        ]
+      }
+    }
+  }
+}

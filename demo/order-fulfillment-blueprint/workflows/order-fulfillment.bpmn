@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:operaton="http://operaton.org/schema/1.0/bpmn"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="orderFulfillmentDefinitions"
+  targetNamespace="https://rntme.com/demo/order-fulfillment">
+  <bpmn:message id="Message_OrderPlaced" name="OrderPlaced" />
+  <bpmn:process id="orderFulfillment" name="Order Fulfillment" isExecutable="true">
+    <bpmn:startEvent id="orderPlaced" name="Order placed">
+      <bpmn:outgoing>Flow_Start_Reserve</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_OrderPlaced" />
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="reserveStock" name="Reserve stock" operaton:type="external" operaton:topic="reserveStock">
+      <bpmn:incoming>Flow_Start_Reserve</bpmn:incoming>
+      <bpmn:outgoing>Flow_Reserve_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="stockReserved" name="Stock reserved?">
+      <bpmn:incoming>Flow_Reserve_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Reserved_Confirm</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Rejected_Cancel</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="confirmOrder" name="Confirm order" operaton:type="external" operaton:topic="confirmOrder">
+      <bpmn:incoming>Flow_Reserved_Confirm</bpmn:incoming>
+      <bpmn:outgoing>Flow_Confirm_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="cancelOrder" name="Cancel order" operaton:type="external" operaton:topic="cancelOrder">
+      <bpmn:incoming>Flow_Rejected_Cancel</bpmn:incoming>
+      <bpmn:outgoing>Flow_Cancel_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="orderConfirmed" name="Order confirmed">
+      <bpmn:incoming>Flow_Confirm_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="orderCancelled" name="Order cancelled">
+      <bpmn:incoming>Flow_Cancel_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Reserve" sourceRef="orderPlaced" targetRef="reserveStock" />
+    <bpmn:sequenceFlow id="Flow_Reserve_Gateway" sourceRef="reserveStock" targetRef="stockReserved" />
+    <bpmn:sequenceFlow id="Flow_Reserved_Confirm" sourceRef="stockReserved" targetRef="confirmOrder">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.status == "reserved"}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Rejected_Cancel" sourceRef="stockReserved" targetRef="cancelOrder">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.status != "reserved"}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Confirm_End" sourceRef="confirmOrder" targetRef="orderConfirmed" />
+    <bpmn:sequenceFlow id="Flow_Cancel_End" sourceRef="cancelOrder" targetRef="orderCancelled" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_OrderFulfillment">
+    <bpmndi:BPMNPlane id="Plane_OrderFulfillment" bpmnElement="orderFulfillment">
+      <bpmndi:BPMNShape id="Shape_orderPlaced" bpmnElement="orderPlaced">
+        <dc:Bounds x="160" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reserveStock" bpmnElement="reserveStock">
+        <dc:Bounds x="250" y="78" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_stockReserved" bpmnElement="stockReserved" isMarkerVisible="true">
+        <dc:Bounds x="430" y="93" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_confirmOrder" bpmnElement="confirmOrder">
+        <dc:Bounds x="540" y="40" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_cancelOrder" bpmnElement="cancelOrder">
+        <dc:Bounds x="540" y="160" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_orderConfirmed" bpmnElement="orderConfirmed">
+        <dc:Bounds x="720" y="62" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_orderCancelled" bpmnElement="orderCancelled">
+        <dc:Bounds x="720" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_Start_Reserve" bpmnElement="Flow_Start_Reserve">
+        <di:waypoint x="196" y="118" />
+        <di:waypoint x="250" y="118" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Reserve_Gateway" bpmnElement="Flow_Reserve_Gateway">
+        <di:waypoint x="370" y="118" />
+        <di:waypoint x="430" y="118" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Reserved_Confirm" bpmnElement="Flow_Reserved_Confirm">
+        <di:waypoint x="480" y="118" />
+        <di:waypoint x="510" y="118" />
+        <di:waypoint x="510" y="80" />
+        <di:waypoint x="540" y="80" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Rejected_Cancel" bpmnElement="Flow_Rejected_Cancel">
+        <di:waypoint x="455" y="143" />
+        <di:waypoint x="455" y="200" />
+        <di:waypoint x="540" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Confirm_End" bpmnElement="Flow_Confirm_End">
+        <di:waypoint x="660" y="80" />
+        <di:waypoint x="720" y="80" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Cancel_End" bpmnElement="Flow_Cancel_End">
+        <di:waypoint x="660" y="200" />
+        <di:waypoint x="720" y="200" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

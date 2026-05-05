@@ -1,0 +1,27 @@
+{
+  "ownerService": "inventory",
+  "kind": "owned",
+  "table": "inventory_items",
+  "fields": {
+    "sku": { "type": "string", "nullable": false, "column": "sku" },
+    "available": {
+      "type": "integer",
+      "nullable": false,
+      "column": "available"
+    },
+    "status": { "type": "string", "nullable": false, "column": "status" }
+  },
+  "keys": ["sku"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active"],
+    "transitions": {
+      "create": {
+        "from": null,
+        "to": "active",
+        "affects": ["available"]
+      }
+    }
+  }
+}

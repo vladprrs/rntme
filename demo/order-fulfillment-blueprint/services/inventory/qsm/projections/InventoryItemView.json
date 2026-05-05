@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "InventoryItem" },
+  "keys": ["sku"],
+  "grain": ["sku"],
+  "exposed": ["available", "status"]
+}

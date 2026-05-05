@@ -1,0 +1,31 @@
+{
+  "ownerService": "inventory",
+  "kind": "owned",
+  "table": "stock_reservations",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "orderId": { "type": "string", "nullable": false, "column": "order_id" },
+    "sku": { "type": "string", "nullable": false, "column": "sku" },
+    "quantity": { "type": "integer", "nullable": false, "column": "quantity" },
+    "reason": { "type": "string", "nullable": true, "column": "reason" },
+    "status": { "type": "string", "nullable": false, "column": "status" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["reserved", "rejected"],
+    "transitions": {
+      "reserve": {
+        "from": null,
+        "to": "reserved",
+        "affects": ["orderId", "sku", "quantity"]
+      },
+      "reject": {
+        "from": null,
+        "to": "rejected",
+        "affects": ["orderId", "sku", "quantity", "reason"]
+      }
+    }
+  }
+}

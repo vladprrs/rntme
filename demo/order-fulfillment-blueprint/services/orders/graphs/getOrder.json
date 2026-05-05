@@ -1,0 +1,29 @@
+{
+  "id": "getOrder",
+  "signature": {
+    "inputs": {
+      "id": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "rowset<OrderView>", "from": "one" }
+  },
+  "nodes": [
+    {
+      "id": "orders",
+      "type": "findMany",
+      "config": { "source": { "projection": "OrderView" } }
+    },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "orders",
+        "expr": { "eq": ["orderView.id", { "$param": "id" }] }
+      }
+    },
+    {
+      "id": "one",
+      "type": "limit",
+      "config": { "input": "filtered", "count": 1 }
+    }
+  ]
+}

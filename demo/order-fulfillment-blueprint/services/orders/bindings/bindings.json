@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "placeOrder": {
+      "kind": "command",
+      "graph": "placeOrder",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/orders",
+        "parameters": [
+          { "name": "sku", "in": "body", "bindTo": "sku", "required": true },
+          {
+            "name": "quantity",
+            "in": "body",
+            "bindTo": "quantity",
+            "required": true
+          }
+        ]
+      }
+    },
+    "confirmOrder": {
+      "kind": "command",
+      "graph": "confirmOrder",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/orders/{orderId}/confirm",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "bindTo": "orderId",
+            "required": true
+          },
+          {
+            "name": "reservationId",
+            "in": "body",
+            "bindTo": "reservationId",
+            "required": true
+          }
+        ]
+      }
+    },
+    "cancelOrder": {
+      "kind": "command",
+      "graph": "cancelOrder",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/orders/{orderId}/cancel",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "bindTo": "orderId",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "in": "body",
+            "bindTo": "reason",
+            "required": true
+          }
+        ]
+      }
+    },
+    "getOrder": {
+      "kind": "query",
+      "graph": "getOrder",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/orders/{id}",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+        ]
+      }
+    }
+  }
+}
