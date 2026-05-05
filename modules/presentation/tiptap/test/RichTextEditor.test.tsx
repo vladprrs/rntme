@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as React from 'react';
-import { createOperationRegistry, RegistryProvider } from '@rntme/ui-runtime/client';
+import { createOperationRegistry, RegistryProvider } from '@rntme/contracts-client-runtime-v1';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RichTextEditor } from '../src/RichTextEditor.js';
 

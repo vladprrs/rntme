@@ -19,6 +19,7 @@
     "@json-render/core": "^0.17.0",
     "@json-render/react": "^0.17.0",
     "@json-render/shadcn": "^0.17.0",
+    "@rntme/contracts-client-runtime-v1": "workspace:*",
     "@rntme/ui": "workspace:*",
     "hono": "^4.6.0",
     "react": "^19.2.5",

@@ -68,6 +68,12 @@ canonical project bundle.
 - `UserBadge` - authenticated branch component that reads `/auth/user` and
   dispatches `logout`.
 
+The browser client imports `ModuleBootContext`, `useModuleAction`, and
+`useStateStore` from
+[`@rntme/contracts-client-runtime-v1`](../../../packages/contracts/client-runtime/v1/README.md).
+It must not import from `@rntme/ui-runtime`; the runtime package hosts the SPA
+bootstrap, while this contract package is the stable module-facing API.
+
 Required `project.json#modules.identity.publicConfig` keys are `domain`,
 `clientId`, `audience`, and `redirectUri`; optional `scope` defaults to
 `openid profile email`. The access token stays in the module-private `boot`

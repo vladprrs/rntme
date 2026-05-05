@@ -146,7 +146,7 @@ platform/* (control plane)
 - **Exports:** the public surface currently shipped via `@rntme/ui-runtime/client` minus host-bootstrap names (`AppShell`, `Driver`, `RuntimeBridge`, `createRuntimeStateStore`, `createScreenLoader`, `mountUiRuntime`, `hydrateApp`, `ModuleSpec`).
 - **Runtime deps:** `react` (peer), `@json-render/core` (peer — provides `StateStore`).
 - **Consumers:** vendor module client blocks (`identity-auth0/client`, future UI-bearing modules); `ui-runtime` itself for mounting.
-- **Side-effect:** `ui-runtime`'s `./client` subpath export is removed. Modules import from `@rntme/contracts-client-runtime-v1` directly.
+- **Side-effect:** `ui-runtime`'s `./client` subpath export is **retained** as a Node-free SPA host-bootstrap entry (not removed). It now exposes ONLY host-bootstrap symbols — `createDriver`, `createScreenLoader`, `createRegistry`, `createRuntimeStateStore`, `AppShell`, `hydrateApp`, `mountUiRuntime`, `ModuleSpec`, etc. — with zero contract surface. Reason: the root `@rntme/ui-runtime` entry re-exports `./server/index.js`, which imports `node:fs`/`node:path`/`node:url`; if the SPA's virtual entry imported the root, esbuild would walk into the Node-only graph and break the browser build. Modules continue to depend ONLY on `@rntme/contracts-client-runtime-v1`; `./client` is the SPA bundler's contract with the host, not a module-facing surface.
 
 ### `@rntme/contracts-handlers-v1`
 
@@ -198,7 +198,7 @@ Merge order: **PR 1 → 2 → 3 → 4 → 5 → 6**. After PR 1 the skeleton has
 1. Create `packages/contracts/client-runtime/v1/`.
 2. `git mv` the file set listed in §4. Final list confirmed via grep at plan time (open question O1).
 3. Update internal `ui-runtime` files (`entry.tsx`, `driver.ts`, `registry.ts`, `state.ts`, `layout-manager.tsx`, `screen-loader.ts`) to import from the new contract.
-4. `ui-runtime/package.json`: add the contract to `dependencies`. Remove `./client` from `exports` map.
+4. `ui-runtime/package.json`: add the contract to `dependencies`. **Keep** `./client` in the `exports` map but reduce it to a Node-free host-bootstrap entry — only `createDriver`, `createScreenLoader`, `createRegistry`, `createRuntimeStateStore`, `AppShell`, `hydrateApp`, `mountUiRuntime`, `ModuleSpec`, etc. (zero contract surface). The `./client` subpath cannot be deleted because the root `@rntme/ui-runtime` entry re-exports `./server/index.js`, which imports `node:fs`/`node:path`/`node:url`; the SPA's virtual entry must keep importing the Node-free `./client` subpath so esbuild does not walk into the Node-only graph.
 5. `identity-auth0/package.json`: drop peerDep + devDep on `@rntme/ui-runtime`; add `@rntme/contracts-client-runtime-v1` to `dependencies`. Keep `react` peer.
 6. Update auth0 client imports: `'@rntme/ui-runtime/client'` → `'@rntme/contracts-client-runtime-v1'`.
 7. New README; AGENTS.md §3 + §10; CLAUDE.md "Architecture in one paragraph"; if any client-block authoring guide exists, update its import path.

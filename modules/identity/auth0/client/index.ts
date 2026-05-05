@@ -1,5 +1,5 @@
 import { Auth0Client } from '@auth0/auth0-spa-js';
-import type { ModuleBootContext } from '@rntme/ui-runtime/client';
+import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
 
 export { LoginScreen } from './components/LoginScreen.js';
 export { UserBadge } from './components/UserBadge.js';

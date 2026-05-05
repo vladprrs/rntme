@@ -6,6 +6,9 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
 
 - Depends on:
   - `@rntme/ui` — input type `CompiledArtifact` (manifest + layouts + screens).
+  - `@rntme/contracts-client-runtime-v1` — browser contract for module boot
+    contexts, hooks/providers, operation registry, transport chain, visibility
+    evaluation, and route helpers.
   - `hono` — HTTP sub-router mounted under the consumer's app.
   - `react`, `react-dom` — SPA rendering.
   - `@json-render/core`, `@json-render/react`, `@json-render/shadcn` — canonical Spec rendering, state store, shadcn component catalog (60+ components).
@@ -29,13 +32,12 @@ packages/runtime/ui-runtime/src/
     index.ts                 (entry `./server`)     `createApp({ artifact, assetsDir? })` -> Hono app.
     static-shell.ts          (internal)             `buildHtmlShell()` emits the SPA bootstrap HTML (`#root`, `/assets/main.{js,css}`).
   client/
-    index.ts                 (entry `./client`)     Re-exports `matchRoute`, `expandTemplate`, `createScreenLoader`, `createRegistry`, `createDriver`, `AppShell` plus their types.
+    index.ts                 (entry `./client`)     SPA bundle entry — re-exports host bootstrap (`hydrateApp`, `mountUiRuntime`, `AppShell`, driver, registry, screen loader, state store) for browser bundlers; module-facing APIs live in `@rntme/contracts-client-runtime-v1`.
     entry.tsx                (runtime bootstrap)    `mountUiRuntime({ manifestUrl, target, transport?, initialState? })`; `hydrateApp({ rootSelector })` is the no-auth convenience wrapper.
     no-auth-entry.ts         (bundle entry)         Calls `hydrateApp({ rootSelector: '#root' })` for the standard shell bundle.
     driver.ts                (internal)             `createDriver({ fetchFn, onStateChange, onNavigate, defaultHeaders? })` — screen data fetching (sets `/data/__status*`, `/data/__error*`) and action dispatch (navigation and command).
     layout-manager.tsx       (internal)             `<AppShell>` composes json-render `StateProvider`/`ActionProvider`/`VisibilityProvider`/`ValidationProvider` and renders layout + screen `<Renderer>` trees.
     registry.ts              (internal)             `createRegistry(bridge)` — binds the shadcn catalog plus `navigate` and `dispatch` actions (zod-validated) to the `RuntimeBridge`.
-    router.ts                (internal)             `matchRoute(patterns, path)` exact-then-`:param`; `expandTemplate(template, params)`.
     screen-loader.ts         (internal)             `createScreenLoader(fetchFn?)` — in-memory cache for `/_screens/:name.json` and `/_layouts/:name.json`.
     styles.css               (bundled asset)        Tailwind v4 entry (`@import "tailwindcss"`, `@source "../../build/main.js"`) with shadcn theme tokens in `@theme inline`.
 ```
@@ -85,31 +87,23 @@ createApp({ artifact, assetsDir: '/abs/path/to/build' });
 
 ### Client — compose pieces manually
 
-Use `./client` exports to embed the pieces without the default `hydrateApp` entrypoint:
+Use the root package export for host bootstrap and
+`@rntme/contracts-client-runtime-v1` for contract-level module APIs. The
+`./client` subpath remains as the SPA bundle entry point (it re-exports only
+host bootstrap symbols — driver, registry, screen loader, layout manager,
+state store, and `hydrateApp`/`mountUiRuntime`) so browser bundlers can pick
+a Node-free entry; browser module code must import the contract package,
+not the runtime internals.
 
 ```ts
-import { createRoot } from 'react-dom/client';
-import { createStateStore } from '@json-render/core';
 import {
-  AppShell,
-  createDriver,
-  createRegistry,
-  createScreenLoader,
-  matchRoute,
-} from '@rntme/ui-runtime/client';
+  mountUiRuntime,
+} from '@rntme/ui-runtime';
 
-const store = createStateStore();
-const loader = createScreenLoader();
-const { registry, handlers } = createRegistry({
-  onNavigate: (path) => history.pushState({}, '', path),
-  getScreen: () => currentScreen,
-  store,
-  fetchEndpoint: async (statePath, endpoint) => { /* ... */ },
-});
-const driver = createDriver({
-  fetchFn: fetch,
-  onStateChange: (path, value) => store.set(path, value),
-  onNavigate: (path) => history.pushState({}, '', path),
+void mountUiRuntime({
+  manifestUrl: '/_manifest.json',
+  target: document.getElementById('root')!,
+  initialState: {},
 });
 ```
 
@@ -135,18 +129,17 @@ Routes mounted by `createApp`:
 | GET | `/assets/:file` | Reads `resolve(assetsDir, file)`; rejects paths escaping `assetsDir`. Sets `content-type` by extension (`.js`, `.css`, otherwise `application/octet-stream`). |
 | GET | `/*` | Falls back to the HTML shell. |
 
-### Client (`@rntme/ui-runtime/client`)
+### Client host bootstrap (`@rntme/ui-runtime`)
 
 | Export | Signature | Purpose |
 |---|---|---|
-| `matchRoute` | `(patterns: string[], path: string) => RouteMatch \| null` | Exact match first; otherwise parameterized match where each `:name` segment becomes `params[name]`. |
-| `expandTemplate` | `(template: string, params: Record<string,string>) => string` | Substitutes `:name` tokens; missing keys remain as `:name`. |
-| `createScreenLoader` | `(fetchFn?: typeof fetch) => ScreenLoader` | `.loadScreen(name)` hits `/_screens/:name.json`, `.loadLayout(name)` hits `/_layouts/:name.json`, both cached per-instance. |
-| `createRegistry` | `(bridge: RuntimeBridge) => { catalog, registry, handlers }` | Wires the `@json-render/shadcn` catalog plus `navigate` and `dispatch` actions; `dispatch` routes compiled screen actions (`navigation`/`command`/`refetch`) through the bridge. |
-| `createDriver` | `(opts: DriverOptions) => Driver` | `enterScreen(screen)` fetches every `data` endpoint in parallel and writes status/error into `/data/__status*` and `/data/__error*`; `dispatchAction(action, stateGetter?)` resolves `paramsFromState`, issues the HTTP call, and forwards `onSuccess.navigateTo` / `onError.showAlert`. |
 | `mountUiRuntime` | `({ manifestUrl, target, transport?, initialState? }) => Promise<{ unmount }>` | Browser bootstrap used by the standard SPA bundle and generated module entries. All manifest/screen/data/action fetches use `transport ?? fetch`; module boot hooks load public runtime config from `/config.json`. |
-| `AppShell` | `(props: AppShellProps) => ReactElement` | Renders optional layout spec, then screen spec, wrapped in json-render `StateProvider`/`ActionProvider`/`VisibilityProvider`/`ValidationProvider`. |
-| `RouteMatch`, `ScreenLoader`, `RuntimeBridge`, `Driver`, `DriverOptions`, `AppShellProps` | types | Public shapes used by consumers. |
+| `hydrateApp` | `({ rootSelector, ... }) => Promise<{ unmount }>` | Convenience wrapper used by the static shell and blueprint-generated virtual entry. |
+| `ModuleSpec`, `MountUiRuntimeOptions`, `MountUiRuntimeResult` | types | Host bootstrap types used by generated entries and tests. |
+
+Contract-level module APIs (`ModuleBootContext`, hooks/providers, operation
+registry, transport chain, visibility, router helpers) are exported by
+`@rntme/contracts-client-runtime-v1`.
 
 ### CLI
 
@@ -197,7 +190,9 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - **Screen and layout JSON are consumed verbatim** (spec §4, Rendering). The client passes `currentScreen.spec` and `currentLayout.spec` straight into json-render `<Renderer>`; this package does not re-validate or rewrite them.
 - **Routing is history-based, not hash-based** (`client/entry.tsx`). `hydrateApp` calls `window.history.pushState`/`replaceState` and listens to `popstate`. For this to function, the server must serve the HTML shell on every unknown path — the SPA fallback route in `createApp` does.
 - **HTML shell responses carry security headers** (`server/index.ts`). `/` and SPA fallback responses send a restrictive `Content-Security-Policy` with no inline script/style, same-origin `script-src`/`style-src`, and HTTPS `connect-src`/`frame-src`/`img-src` allowances for browser auth SDKs, plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
-- **Path-param precedence is exact-first** (`router.ts` and `test/unit/router.test.ts`). `/issues/browse` matches the literal pattern before `/issues/:id`. Do not rely on insertion order.
+- **Path-param precedence is exact-first** (`@rntme/contracts-client-runtime-v1`
+  `router.ts` and its unit test). `/issues/browse` matches the literal pattern
+  before `/issues/:id`. Do not rely on insertion order.
 - **`/assets/:file` is sandboxed** (`server/index.ts`). Resolved paths outside `resolve(assetsDir)` return 404; this prevents path traversal via `../`.
 - **`:name.json` suffix is optional on layouts and screens** (`server/index.ts`). The handler strips a trailing `.json` before lookup, so both `/_screens/home` and `/_screens/home.json` work. The client always requests the `.json` form (`screen-loader.ts`).
 - **The screen loader caches per loader instance** (`screen-loader.ts`, `test/unit/screen-loader.test.ts`). A second `loadScreen(name)` reuses the first response; to force a refetch, construct a new loader.
@@ -207,7 +202,10 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - **`registry.ts` pulls the shadcn catalog from `@json-render/shadcn`** and binds `navigate` and `dispatch` actions validated by zod (`z.object({ to: z.string() }).passthrough()` and `z.object({ name: z.string() })`). Additional custom actions belong in a fork of `createRegistry`.
 - **Tailwind v4 scans `build/main.js`** (`client/styles.css` `@source` directive, `build.ts` ordering). CSS must be built after JS or shadcn class names will be pruned — `build.ts` enforces this order.
 - **`AppShell` returns a loading div until `screenSpec` is non-null** (`layout-manager.tsx`). No layout mounts before a screen is resolved, so layout-persistent state begins only after the first successful `enterRoute`.
-- **The root `.` export only exposes the server** (`package.json` `exports`, `src/index.ts`). Browser consumers must import from `@rntme/ui-runtime/client`; mixing client imports into the server module would break Node bundling.
+- **Module-facing APIs live in the client-runtime contract.** Browser modules
+  import from `@rntme/contracts-client-runtime-v1`. `@rntme/ui-runtime` owns the
+  host bootstrap (`hydrateApp` / `mountUiRuntime`), server routes, SPA bundle,
+  driver, registry, screen loader, and layout manager.
 
 ## Out of scope / known limits
 
@@ -229,7 +227,9 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - "Add a new custom action (beyond `navigate`/`dispatch`)" -> `src/client/registry.ts` `defineCatalog` and `defineRegistry` blocks; register its zod schema and a handler closure over `RuntimeBridge`.
 - "Change data fetching semantics (headers, retries, status keys)" -> `src/client/driver.ts` `fetchEndpoint`; mirror the keys in a `driver.test.ts` case.
 - "Add layout-level data fetching" -> `src/client/entry.tsx` `enterRoute` (only screen `data` is fetched today); extend with layout data matching spec §4.
-- "Change route-matching precedence or add wildcard support" -> `src/client/router.ts` `matchRoute`; extend `test/unit/router.test.ts`.
+- "Change route-matching precedence or add wildcard support" ->
+  `packages/contracts/client-runtime/v1/src/router.ts` `matchRoute`; extend
+  the contract package's `test/unit/router.test.ts`.
 - "Tune the esbuild or Tailwind build" -> `src/build.ts`; preserve the JS-before-CSS order.
 - "Debug a failing SPA deep link" -> confirm the server falls through to the shell (`app.get('/*', ...)`), then verify the path matches a pattern in the manifest.
 - "Debug a blank screen after navigation" -> `layout-manager.tsx` renders `Loading...` until `screenSpec` is non-null; check the `_screens/:name.json` response and the store subscribe callback in `entry.tsx`.

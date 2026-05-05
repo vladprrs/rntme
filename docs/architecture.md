@@ -177,20 +177,23 @@ flowchart TB
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
     MS["@rntme/module-skeleton"]:::pkg
+    CMV1["@rntme/contracts-module-v1"]:::pkg
+    CPV1["@rntme/contracts-provisioner-v1"]:::pkg
+    CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg
     DC["@rntme/deploy-core"]:::pkg
     DD["@rntme/deploy-dokploy"]:::pkg
 
-    BP --> PDM & QSM
+    BP --> PDM & QSM & CMV1
     QSM --> PDM
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
     BG --> B & GIR & ES
-    UIR --> UI
+    UIR --> UI & CCRV1
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
     RT --> BH & BG & UIR & PC & SD & GIR & ES
     MS --> RT
-    DC --> BP
+    DC --> BP & CMV1 & CPV1
     DD --> DC
 ```
 
@@ -829,6 +832,7 @@ flowchart LR
     CA --> BLD["ui-runtime: build.ts<br/>(esbuild + Tailwind v4)"]:::run
     BLD --> SPA["SPA bundle<br/>(main.js + main.css)"]:::run
     SRV --> CLI["client/entry.tsx<br/>(hydrate)"]:::run
+    CLI --> CCR["contracts-client-runtime-v1<br/>(module-facing browser contract)"]:::run
 ```
 
 **Caption.** The compiler's six stages (parse → resolve → expand → validate → compile orchestrator → emit) produce a single JSON artifact. The runtime splits that artifact into per-screen / per-layout / manifest endpoints so the SPA loads only what each route needs.
@@ -851,8 +855,8 @@ flowchart LR
   - `GET /assets/:file` → static file from `assetsDir` (path-traversal sandboxed).
   - `GET /*` → HTML shell (SPA deep-link fallback).
 - **`server/static-shell.ts`** — Emits a minimal HTML document loading `/assets/main.js` and `/assets/main.css`.
-- **`client/entry.tsx`** — `hydrateApp({ rootSelector })`: fetches `/_manifest.json`, wires store / loader / registry / driver, renders `<AppShell>` and listens to `popstate`.
-- **`client/router.ts`** — `matchRoute` (exact-then-`:param` precedence) + `expandTemplate`.
+- **`client/entry.tsx`** — `hydrateApp({ rootSelector })`: fetches `/_manifest.json`, wires store / loader / registry / driver, creates module boot contexts from `@rntme/contracts-client-runtime-v1`, renders `<AppShell>`, and listens to `popstate`.
+- **`@rntme/contracts-client-runtime-v1`** — Module-facing browser contract: `ModuleBootContext`, hooks/providers, operation registry, transport chain, visibility evaluator, and route helpers. UI-bearing modules import this contract instead of `@rntme/ui-runtime` internals.
 - **`client/screen-loader.ts`** — Per-instance in-memory cache for `/_screens/:name.json` and `/_layouts/:name.json`.
 - **`client/registry.ts` + `driver.ts` + `layout-manager.tsx`** — Wires the shadcn catalog, `navigate` / `dispatch` actions with zod validation, parallel data-endpoint fetches with `/data/__status` / `/data/__error` sentinels, and the `<AppShell>` that composes json-render state / action / visibility / validation providers.
 - **`build.ts`** — esbuild bundles `client/entry.tsx` → `build/main.js` (ESM, es2022); Tailwind v4 CLI scans that bundle (via `@source` in `client/styles.css`) → `build/main.css`. Both are served under `/assets/`.
@@ -867,7 +871,7 @@ flowchart LR
 - **History-based routing, not hash-based.** SPA deep-link fallback is served by the Hono `GET /*` route.
 - **Path precedence is exact-then-param.** `/issues/browse` matches literal before `/issues/:id`.
 - **Build order matters.** Tailwind scans the JS bundle; running Tailwind first prunes shadcn classes.
-- **Only `server` is exported from the package root.** Browser-only code must import `@rntme/ui-runtime/client`.
+- **Module-facing browser APIs live in the contract package.** UI modules import `@rntme/contracts-client-runtime-v1`; `@rntme/ui-runtime` owns host bootstrap (`hydrateApp` / `mountUiRuntime`), server routes, bundle building, screen loading, registry wiring, and rendering.
 
 #### Sequence #7 — UI compile
 

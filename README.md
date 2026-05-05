@@ -112,12 +112,13 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/bindings-http`](packages/runtime/bindings-http) | Hono sub-router that executes validated query/command bindings with pre-fetch orchestration, callback redirects, and idempotency cache support. |
 | [`@rntme/bindings-grpc`](packages/runtime/bindings-grpc) | gRPC adapter surface for module and service integration through `CommandExecutor` / `QueryExecutor`. |
 | [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
-| [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA bundle that executes `@rntme/ui` artifacts against the service's HTTP bindings. |
+| [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA host bootstrap that serves compiled `@rntme/ui` artifacts, bundles the React shell, and executes screens against service HTTP bindings. |
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
 | [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends on `@rntme/runtime`. |
 | **Canonical contracts** |  |
 | [`@rntme/contracts-module-v1`](packages/contracts/module/v1) | JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`. |
 | [`@rntme/contracts-provisioner-v1`](packages/contracts/provisioner/v1) | Provisioner runtime contract: `ProvisionerContract`, `ProvisionerInput`/`Output`, `ProvisionerLog`, `ProvisionerVendorError`, env-mapping types. `@rntme/deploy-core` implements; vendor modules with a provisioner block code against it. |
+| [`@rntme/contracts-client-runtime-v1`](packages/contracts/client-runtime/v1) | Browser-side module contract: `ModuleBootContext`, hooks/providers, operation registry, transport chain, visibility evaluator, and router helpers used by UI-bearing modules and `@rntme/ui-runtime`. |
 | [`@rntme/contracts-common-v1`](packages/contracts/_common/v1) | Shared cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/Filter/Sort, `Metadata`) imported by every category contract. |
 | [`@rntme/contracts-ai-llm-v1`](packages/contracts/ai-llm/v1) | Canonical AI/LLM contract: `service AiLlmModule` (14 RPCs), Completion, AssistantThread, AsyncJob, sixteen CloudEvents payloads, MCP-shape tools, `AI_LLM_<LAYER>_<KIND>` error codes. |
 | [`@rntme/contracts-identity-v1`](packages/contracts/identity/v1) | Canonical Identity contract: `service IdentityModule` (24 RPCs), six entity types, seventeen CloudEvents payloads, `IDENTITY_<LAYER>_<KIND>` error codes. |
@@ -160,6 +161,7 @@ flowchart TB
     MS["@rntme/module-skeleton"]:::pkg
     CMV1["@rntme/contracts-module-v1"]:::pkg
     CPV1["@rntme/contracts-provisioner-v1"]:::pkg
+    CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg
     DC["@rntme/deploy-core"]:::pkg
 
     BP --> PDM & QSM & CMV1
@@ -167,7 +169,7 @@ flowchart TB
     GIR --> PDM & QSM & ES
     BH --> B & GIR & ES
     BG --> B & GIR & ES
-    UIR --> UI
+    UIR --> UI & CCRV1
     PC --> ES & GIR & PDM & QSM
     SD --> ES & PDM
     RT --> BH & BG & UIR & PC & SD & GIR & ES
@@ -223,6 +225,7 @@ CI runs `build → typecheck → test → lint` on every push and PR to `main` (
 
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
+- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — platform contract layer: module manifest, provisioner, client-runtime, and handler contracts extracted out of implementation packages so modules depend on contracts only.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — platform modules, gRPC adapters, executor seams, pre-fetch middleware, idempotency cache, and callback bindings.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
@@ -245,7 +248,7 @@ What ships today:
 - One graph compiled per `compile()` call.
 - Query nodes: `findMany`, `filter`, `map`, `reduce`, `sort`, `limit`. Command path adds `emit`.
 - JSON authoring; no YAML.
-- UI artifact (`@rntme/ui` + `@rntme/ui-runtime`): shadcn-catalog-based React SPA with route-local `data` (query bindings) and `actions` (command or navigation bindings), four-layer validation, `NextAppSpec`-compatible format. No SSR.
+- UI artifact (`@rntme/ui` + `@rntme/ui-runtime` + `@rntme/contracts-client-runtime-v1`): shadcn-catalog-based React SPA with route-local `data` (query bindings), `actions` (command or navigation bindings), module boot hooks, operation registry, transport middleware, four-layer validation, `NextAppSpec`-compatible format. No SSR.
 - CloudEvents 1.0 envelope end-to-end; topics follow `rntme.{svc}.{agg}` (no `.v1` suffix — breaking event changes use a new `eventType`, not a topic version).
 - Project blueprint composition: `project.json` + project-level PDM + N services + modules; project routes/middleware validated; project-routed binding registry compiled. Runtime intake at the project level is not yet wired.
 - Platform modules integration: `manifest.modules[]` declares external services; pre-fetch middleware (`pre[]`) supports `system` (idempotency-key) + `module-rpc` steps; HTTP idempotency cache (24h TTL); callback bindings (GET + 302). Module communication is gRPC-based (`@rntme/bindings-grpc`).
@@ -269,3 +272,5 @@ Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters,
 | **Entity-mirror** | Projection backing that mirrors an entity's exposed fields plus generated columns and idempotency columns. |
 | **Emit node** | Graph IR node describing an event to append for a mutation. |
 | **Result\<T\>** | `{ ok: true; value: T } \| { ok: false; errors: E[] }` — no exceptions in the validation pipeline. |
+| **Platform contract** | Leaf package under `packages/contracts/*/v1` that exposes a cross-cutting module/platform boundary (`module.json`, provisioner, client runtime) without depending on implementation packages. |
+| **Client runtime contract** | Browser-side platform contract consumed by UI modules and `@rntme/ui-runtime`: `ModuleBootContext`, hooks/providers, operation registry, transport chain, visibility, and router helpers. |

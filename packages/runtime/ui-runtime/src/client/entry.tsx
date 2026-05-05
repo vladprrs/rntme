@@ -6,16 +6,20 @@ import type {
   CompiledDataEndpoint,
   PropSchema,
 } from '@rntme/ui';
-import { matchRoute } from './router.js';
+import {
+  createLifecycleBus,
+  createModuleBootContext,
+  createOperationRegistry,
+  createTransportChain,
+  evaluateVisible,
+  matchRoute,
+  type ModuleBootContext,
+  type Visible,
+} from '@rntme/contracts-client-runtime-v1';
 import { createScreenLoader } from './screen-loader.js';
 import { createRegistry, type ModuleSurfaceForRegistry } from './registry.js';
 import { AppShell } from './layout-manager.js';
 import { createRuntimeStateStore } from './state.js';
-import { createOperationRegistry } from './operation-registry.js';
-import { createLifecycleBus } from './lifecycle-bus.js';
-import { createTransportChain } from './transport-chain.js';
-import { createModuleBootContext, type ModuleBootContext } from './module-context.js';
-import { evaluateVisible, type Visible } from './visibility.js';
 
 function resolveParamValue(v: unknown, stateGetter?: (path: string) => unknown): unknown {
   if (v && typeof v === 'object' && '$state' in (v as Record<string, unknown>)) {
