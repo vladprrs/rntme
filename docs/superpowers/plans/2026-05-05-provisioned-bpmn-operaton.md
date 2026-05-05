@@ -3491,3 +3491,196 @@ Known execution choices:
 - The first implementation should keep Operaton API calls behind `OperatonClient`; only fake-seam tests are required before real API verification.
 - The demo models insufficient stock as a successful command result with `reserved: false`, not as a command failure.
 - Use an explicit pinned Operaton image for real deploy targets; `operaton/operaton:test` appears only in unit fixtures.
+
+---
+
+## Addendum: close demo reservation branch gap
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this addendum task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make the order-fulfillment demo's insufficient-stock branch truthful by carrying a successful business payload through command results and by wiring a service-local code command handler for `inventory.reserveStock`.
+
+**Architecture:** Keep Graph IR command execution unchanged for ordinary commands. Add an optional `result` payload to `CommandResult`, allow the runtime to load service-local command handlers from mounted runtime artifacts, and compose those handlers ahead of the existing Graph IR executor so only named overrides use code. The demo handler appends either `StockReserved` or `StockReservationRejected` and returns `{ reserved: true, reservationId }` or `{ reserved: false, reason }` for the BPMN gateway.
+
+**Tech Stack:** TypeScript strict ESM, Vitest, Hono runtime, `@grpc/grpc-js`/`protobufjs`, SQLite event store.
+
+### Addendum Task A: Optional command result payload
+
+**Files:**
+- Modify: `packages/runtime/bindings-http/src/executor-contract.ts`
+- Modify: `packages/contracts/handlers/v1/src/handlers.ts`
+- Modify: `packages/tooling/module-scaffold/src/handlers.ts`
+- Modify: `packages/runtime/bindings-grpc/src/emit/emit-proto.ts`
+- Modify: `packages/runtime/bindings-grpc/src/server/handler.ts`
+- Modify: `packages/runtime/bindings-grpc/test/unit/emit-proto.test.ts`
+- Modify: `packages/runtime/bindings-grpc/test/integration/create-server.test.ts`
+- Modify: `packages/runtime/bindings-grpc/test/fixtures/golden/minimal.proto`
+
+- [ ] **Step A1: Write failing gRPC payload tests**
+
+Add assertions that generated `CommandResult` includes a JSON payload field and that a command executor returning `value.result` is visible to a gRPC client.
+
+Run:
+
+```bash
+pnpm -F @rntme/bindings-grpc test -- test/unit/emit-proto.test.ts test/integration/create-server.test.ts
+```
+
+Expected before implementation: FAIL because `CommandResult` has no payload/result field and the server drops executor payloads.
+
+- [ ] **Step A2: Implement optional payload transport**
+
+Add `result?: unknown` to command execution result types. Emit `google.protobuf.Struct result = 6;` in the generated proto, import `google/protobuf/struct.proto`, and copy `out.value.result` into the gRPC response only when present.
+
+- [ ] **Step A3: Verify**
+
+Run:
+
+```bash
+pnpm -F @rntme/bindings-grpc test -- test/unit/emit-proto.test.ts test/integration/create-server.test.ts
+pnpm -F @rntme/bindings-grpc typecheck
+pnpm -F @rntme/contracts-handlers-v1 test
+```
+
+Expected: all commands exit 0.
+
+### Addendum Task B: Runtime service-local code command handlers
+
+**Files:**
+- Modify: `packages/runtime/runtime/src/manifest/schema.ts`
+- Modify: `packages/runtime/runtime/src/manifest/types.ts`
+- Modify: `packages/runtime/runtime/src/manifest/validate.ts`
+- Modify: `packages/runtime/runtime/src/types.ts`
+- Modify: `packages/runtime/runtime/src/load/load-service.ts`
+- Modify: `packages/runtime/runtime/src/start/start-service.ts`
+- Create: `packages/runtime/runtime/src/plugins/executors/composite-command-executor.ts`
+- Test: `packages/runtime/runtime/test/integration/startup.test.ts`
+
+- [ ] **Step B1: Write failing runtime handler test**
+
+Add an integration test that creates a temporary copy of the issue-tracker fixture, writes `commands/handlers.mjs`, sets `manifest.commands.handlersModule = "commands/handlers.mjs"`, boots with gRPC enabled, and asserts the named handler result is returned through gRPC while other graph commands still use the Graph IR fallback.
+
+Run:
+
+```bash
+pnpm -F @rntme/runtime test -- test/integration/startup.test.ts
+```
+
+Expected before implementation: FAIL because `commands` is rejected as an unknown manifest key or the handler is never loaded.
+
+- [ ] **Step B2: Implement manifest and executor wiring**
+
+Add `commands?: { handlersModule?: string }` to manifest parse/validate output. Store the artifact directory on `ValidatedService`. In `startService`, load the ESM handler module from the service artifact directory when configured, accept either `handlers` or `default` as a handler map, and use a composite executor that tries loaded handlers first and falls back to `GraphIrCommandExecutor` on `COMMAND_NOT_FOUND`.
+
+- [ ] **Step B3: Verify**
+
+Run:
+
+```bash
+pnpm -F @rntme/runtime test -- test/integration/startup.test.ts test/unit/code-command-executor.test.ts test/integration/plugin-contracts.test.ts
+pnpm -F @rntme/runtime typecheck
+```
+
+Expected: all commands exit 0.
+
+### Addendum Task C: Platform runtime artifact handler files
+
+**Files:**
+- Modify: `apps/platform-http/src/deploy/executor.ts`
+- Modify: `apps/platform-http/test/unit/deploy/executor.test.ts`
+- Modify: `apps/platform-http/README.md`
+
+- [ ] **Step C1: Write failing platform artifact test**
+
+Add a bundled blueprint file `services/api/commands/handlers.mjs` to the deploy executor unit test and assert generated runtime files contain `commands/handlers.mjs` plus `manifest.commands.handlersModule`.
+
+Run:
+
+```bash
+pnpm -F @rntme/platform-http test -- test/unit/deploy/executor.test.ts
+```
+
+Expected before implementation: FAIL because command handler files are not copied and the runtime manifest has no `commands` block.
+
+- [ ] **Step C2: Implement optional command file copying**
+
+When `services/<slug>/commands/handlers.mjs` exists in a published blueprint, copy the service `commands/` directory into runtime artifacts and add `{ "commands": { "handlersModule": "commands/handlers.mjs" } }` to that service runtime manifest.
+
+- [ ] **Step C3: Verify**
+
+Run:
+
+```bash
+pnpm -F @rntme/platform-http test -- test/unit/deploy/executor.test.ts
+pnpm -F @rntme/platform-http typecheck
+```
+
+Expected: all commands exit 0.
+
+### Addendum Task D: Order-fulfillment failure branch demo
+
+**Files:**
+- Create: `demo/order-fulfillment-blueprint/services/inventory/commands/handlers.mjs`
+- Modify: `demo/order-fulfillment-blueprint/workflows/workflows.json`
+- Modify: `demo/order-fulfillment-blueprint/workflows/order-fulfillment.bpmn`
+- Modify: `demo/order-fulfillment-blueprint/README.md`
+- Modify: `packages/artifacts/blueprint/test/smoke-order-fulfillment-demo.test.ts`
+- Modify: `packages/runtime/bpmn-worker/test/integration/worker.test.ts`
+
+- [ ] **Step D1: Write failing demo and worker tests**
+
+Update smoke assertions to expect `reservation.reserved`, `$process.reservation.reservationId`, and `$process.reservation.reason`. Add a worker integration test where fake command execution returns `{ reserved: false, reason: "insufficient stock" }` and the completed task variables preserve that successful business result.
+
+Run:
+
+```bash
+pnpm -F @rntme/blueprint test -- test/smoke-order-fulfillment-demo.test.ts
+pnpm -F @rntme/bpmn-worker test -- test/integration/worker.test.ts
+```
+
+Expected before implementation: FAIL because the demo still branches on `aggregateId` and the README says cancellation is future work.
+
+- [ ] **Step D2: Implement demo handler and workflow paths**
+
+Add a service-local `reserveStock` handler. It should use SKU `missing-stock` as the deterministic insufficient-stock fixture, append `StockReservationRejected`, and return `{ result: { reserved: false, reason: "insufficient stock" } }`; all other SKUs append `StockReserved` and return `{ result: { reserved: true, reservationId } }`. Update BPMN gateway conditions and workflow command inputs to use the typed result.
+
+- [ ] **Step D3: Verify**
+
+Run:
+
+```bash
+pnpm -F @rntme/blueprint test -- test/smoke-order-fulfillment-demo.test.ts
+pnpm -F @rntme/bpmn-worker test -- test/integration/worker.test.ts
+```
+
+Expected: both commands exit 0.
+
+### Addendum Task E: Documentation touch and review
+
+**Files:**
+- Modify: `packages/runtime/runtime/README.md`
+- Modify: `packages/contracts/handlers/v1/README.md`
+- Modify: `packages/runtime/bindings-grpc/README.md`
+- Modify: `demo/order-fulfillment-blueprint/README.md`
+- Modify: `apps/platform-http/README.md`
+
+- [ ] **Step E1: Update docs**
+
+Document optional command result payloads, service-local handler module loading, platform handler artifact copying, and the demo's deterministic `missing-stock` failure branch.
+
+- [ ] **Step E2: Focused verification**
+
+Run:
+
+```bash
+pnpm -F @rntme/bindings-grpc test -- test/unit/emit-proto.test.ts test/integration/create-server.test.ts
+pnpm -F @rntme/runtime test -- test/integration/startup.test.ts
+pnpm -F @rntme/platform-http test -- test/unit/deploy/executor.test.ts
+pnpm -F @rntme/blueprint test -- test/smoke-order-fulfillment-demo.test.ts
+pnpm -F @rntme/bpmn-worker test -- test/integration/worker.test.ts
+pnpm -F @rntme/bindings-grpc typecheck
+pnpm -F @rntme/runtime typecheck
+pnpm -F @rntme/platform-http typecheck
+```
+
+Expected: all commands exit 0.
