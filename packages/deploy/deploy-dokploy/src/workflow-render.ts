@@ -1,6 +1,6 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import type { DokployDeploymentError } from './errors.js';
-import { dokployLabels } from './names.js';
+import { dokployLabels, dokployResourceName } from './names.js';
 import { err, ok, type Result } from './result.js';
 import type {
   RenderedDokployApplicationResource,
@@ -54,6 +54,8 @@ export function renderBpmnWorker(
 
   const files = workflowFileMounts(workload);
   if (!files.ok) return files;
+  const serviceEndpoints = workflowServiceEndpointsJson(plan, workload);
+  if (!serviceEndpoints.ok) return serviceEndpoints;
 
   return ok({
     logicalId: workload.slug,
@@ -76,7 +78,7 @@ export function renderBpmnWorker(
       },
       {
         name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
-        value: workflowServiceEndpointsJson(workload),
+        value: serviceEndpoints.value,
         secret: false,
       },
     ],
@@ -90,17 +92,38 @@ export function renderBpmnWorker(
   });
 }
 
-function workflowServiceEndpointsJson(workload: BpmnWorkerWorkload): string {
-  const endpoints = Object.fromEntries(
-    [...workload.serviceTasks]
-      .sort((a, b) => a.bindingRef.localeCompare(b.bindingRef))
-      .map((task) => [task.bindingRef, grpcEndpoint(task)]),
+function workflowServiceEndpointsJson(
+  plan: ProjectDeploymentPlan,
+  workload: BpmnWorkerWorkload,
+): Result<string, DokployDeploymentError> {
+  const domainServiceEndpoints = new Map(
+    plan.workloads
+      .filter((candidate) => candidate.kind === 'domain-service')
+      .map((candidate) => [
+        candidate.slug,
+        `${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, candidate.slug)}:50051`,
+      ]),
   );
-  return JSON.stringify(endpoints);
-}
 
-function grpcEndpoint(task: BpmnWorkerWorkload['serviceTasks'][number]): string {
-  return 'grpcEndpoint' in task && typeof task.grpcEndpoint === 'string' ? task.grpcEndpoint : '';
+  const endpoints: Record<string, string> = {};
+  for (const [idx, task] of [...workload.serviceTasks].entries()) {
+    const targetService = typeof task.targetService === 'string' ? task.targetService.trim() : '';
+    const endpoint = targetService === '' ? undefined : domainServiceEndpoints.get(targetService);
+    if (endpoint === undefined) {
+      return err([
+        {
+          code: 'DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE',
+          message: `BPMN service task "${task.taskId}" targets service "${targetService}" without a rendered domain-service gRPC endpoint`,
+          resource: workload.resourceName,
+          path: `workloads.${workload.slug}.serviceTasks.${idx}.targetService`,
+          service: targetService,
+        },
+      ]);
+    }
+    endpoints[task.bindingRef] = endpoint;
+  }
+
+  return ok(JSON.stringify(Object.fromEntries(Object.entries(endpoints).sort(([a], [b]) => a.localeCompare(b)))));
 }
 
 function workflowEngine(plan: ProjectDeploymentPlan): WorkflowEngine {

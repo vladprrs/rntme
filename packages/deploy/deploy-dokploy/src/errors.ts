@@ -11,6 +11,8 @@ export const DEPLOY_DOKPLOY_ERROR_CODES = {
     'DEPLOY_RENDER_DOKPLOY_BPMN_WORKER_REQUIRES_OPERATON',
   DEPLOY_RENDER_DOKPLOY_WORKFLOW_MANIFEST_FILE_MISSING:
     'DEPLOY_RENDER_DOKPLOY_WORKFLOW_MANIFEST_FILE_MISSING',
+  DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE:
+    'DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE',
 } as const;
 
 export type DokployDeploymentErrorCode = keyof typeof DEPLOY_DOKPLOY_ERROR_CODES;
@@ -58,6 +60,8 @@ export type DokployDeploymentError = {
   readonly code: DokployDeploymentErrorCode;
   readonly message: string;
   readonly resource?: string;
+  readonly path?: string;
+  readonly service?: string;
   readonly cause?: unknown;
   readonly partialFailure?: DokployPartialFailure;
 };

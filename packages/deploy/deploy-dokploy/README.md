@@ -82,8 +82,10 @@ receives:
 - file mounts under `/srv/workflows/` for `workflows.json` and every referenced BPMN file
 
 `RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON` is non-secret and generated from the
-deploy-core plan, for example
+rendered Dokploy domain-service names, for example
 `{"inventory.reserveStock":"rntme-acme-order-fulfillment-inventory:50051"}`.
+If a BPMN task targets a missing or non-domain service, render fails with
+`DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE`.
 
 Worker file paths are validated as relative paths below `/srv/workflows`; empty
 segments, parent traversal, absolute paths, backslashes, and URL-scheme paths

@@ -43,6 +43,17 @@ const plan: ProjectDeploymentPlan = {
       persistence: { mode: 'ephemeral' },
     },
     {
+      kind: 'domain-service',
+      slug: 'inventory',
+      serviceSlug: 'inventory',
+      resourceName: 'rntme-acme-order-fulfillment-inventory',
+      runtime: { image: 'ghcr.io/acme/runtime:v1' },
+      artifact: { source: 'composed-project', serviceSlug: 'inventory' },
+      runtimeFiles: { 'manifest.json': '{}' },
+      publicConfigJson: '{}',
+      persistence: { mode: 'ephemeral' },
+    },
+    {
       kind: 'bpmn-worker',
       slug: 'bpmn-worker',
       resourceName: 'rntme-acme-order-fulfillment-bpmn-worker',
@@ -133,6 +144,98 @@ describe('workflow rendering', () => {
       secret: false,
     });
     expect(worker.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
+  });
+
+  it('renders workflow service endpoints from normalized Dokploy domain-service names', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        project: {
+          ...plan.project,
+          orgSlug: 'Acme_Inc',
+          projectSlug: 'Order_Fulfillment',
+        },
+        workloads: [
+          {
+            kind: 'domain-service',
+            slug: 'Inventory_Service',
+            serviceSlug: 'Inventory_Service',
+            resourceName: 'rntme-Acme_Inc-Order_Fulfillment-Inventory_Service',
+            runtime: { image: 'ghcr.io/acme/runtime:v1' },
+            artifact: { source: 'composed-project', serviceSlug: 'Inventory_Service' },
+            runtimeFiles: { 'manifest.json': '{}' },
+            publicConfigJson: '{}',
+            persistence: { mode: 'ephemeral' },
+          },
+          ...plan.workloads.filter((workload) => workload.kind !== 'domain-service').map((workload) =>
+            workload.kind === 'bpmn-worker'
+              ? {
+                  ...workload,
+                  serviceTasks: [
+                    {
+                      definition: 'orderFulfillment',
+                      taskId: 'reserveStock',
+                      bindingRef: 'Inventory_Service.reserveStock',
+                      targetService: 'Inventory_Service',
+                      grpcEndpoint: 'rntme-Acme_Inc-Order_Fulfillment-Inventory_Service:50051',
+                    },
+                  ],
+                }
+              : workload,
+          ),
+        ],
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const worker = result.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.logicalId === 'bpmn-worker',
+    );
+    expect(worker?.kind).toBe('application');
+    if (worker?.kind !== 'application') return;
+    expect(worker.env).toContainEqual({
+      name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
+      value: JSON.stringify({
+        'Inventory_Service.reserveStock': 'rntme-acme-inc-order-fulfillment-inventory-service:50051',
+      }),
+      secret: false,
+    });
+  });
+
+  it('rejects BPMN service tasks that cannot resolve to a domain-service gRPC endpoint', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'bpmn-worker'
+            ? {
+                ...workload,
+                serviceTasks: [
+                  {
+                    definition: 'orderFulfillment',
+                    taskId: 'reserveStock',
+                    bindingRef: 'payments.reserveStock',
+                    targetService: 'payments',
+                  },
+                ],
+              }
+            : workload,
+        ),
+      } as ProjectDeploymentPlan,
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE',
+        resource: 'rntme-acme-order-fulfillment-bpmn-worker',
+        path: 'workloads.bpmn-worker.serviceTasks.0.targetService',
+      }),
+    );
   });
 
   it('renders workflow file mounts in stable path order', () => {
