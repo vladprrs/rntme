@@ -21,7 +21,7 @@
         "to": "reserved",
         "affects": ["orderId", "sku", "quantity"]
       },
-      "reject": {
+      "rejected": {
         "from": null,
         "to": "rejected",
         "affects": ["orderId", "sku", "quantity", "reason"]

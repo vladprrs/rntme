@@ -204,6 +204,40 @@ describe('runWorkflowEventOnce', () => {
       'fail:task_1:complete rejected',
     ]);
   });
+
+  it('completes insufficient-stock business results without failing the task', async () => {
+    let completedVariables: unknown;
+    const calls: string[] = [];
+
+    await runWorkflowEventOnce({
+      manifest: createManifest(),
+      event: createEvent(),
+      eventRef: { service: 'orders', aggregateType: 'Order', eventType: 'OrderPlaced' },
+      operaton: createOperaton(calls, {
+        async completeTask(id, variables) {
+          completedVariables = variables;
+          calls.push(
+            `complete:${id}:${String((variables as { reservation?: { reserved?: boolean } }).reservation?.reserved)}`,
+          );
+        },
+      }),
+      commands: createCommands(calls, {
+        async execute(bindingRef, input, metadata) {
+          calls.push(`command:${bindingRef}:${String((input as { orderId?: string }).orderId)}:${metadata.commandId}`);
+          return { reserved: false, reason: 'insufficient stock' };
+        },
+      }),
+    });
+
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'command:inventory.reserveStock:ord_1:bpmn:proc_1:reserveStock:act_1',
+      'complete:task_1:false',
+    ]);
+    expect(completedVariables).toEqual({
+      reservation: { reserved: false, reason: 'insufficient stock' },
+    });
+  });
 });
 
 function createManifest(overrides: Partial<WorkflowArtifact> = {}): WorkflowArtifact {

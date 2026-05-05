@@ -159,9 +159,13 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(
       workflows.serviceTasks.find((task) => task.taskId === 'confirmOrder')
         ?.input,
-    ).toMatchObject({ reservationId: '$process.reservation.aggregateId' });
+    ).toMatchObject({ reservationId: '$process.reservation.reservationId' });
     const bpmn = readFileSync(
       join(demoDir, 'workflows/order-fulfillment.bpmn'),
+      'utf8',
+    );
+    const inventoryHandlers = readFileSync(
+      join(demoDir, 'services/inventory/commands/handlers.mjs'),
       'utf8',
     );
     const bpmnIds = readBpmnIds(bpmn);
@@ -177,14 +181,18 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(
       workflows.serviceTasks.find((task) => task.taskId === 'cancelOrder')
         ?.input,
-    ).toMatchObject({ reason: 'stock reservation unavailable' });
+    ).toMatchObject({ reason: '$process.reservation.reason' });
 
     expect(bpmn).toContain('process id="orderFulfillment"');
     expect(bpmn).toContain('id="reserveStock"');
     expect(bpmn).toContain('id="confirmOrder"');
     expect(bpmn).toContain('id="cancelOrder"');
     expect(bpmn).toContain('name="OrderPlaced"');
-    expect(bpmn).toContain('reservation.aggregateId != null');
+    expect(bpmn).toContain('reservation.reserved == true');
+    expect(bpmn).toContain('reservation.reserved == false');
+    expect(bpmn).not.toContain('reservation.aggregateId');
     expect(bpmn).not.toContain('reservation.status');
+    expect(inventoryHandlers).toContain('missing-stock');
+    expect(inventoryHandlers).toContain('StockReservationRejected');
   });
 });

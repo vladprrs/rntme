@@ -21,14 +21,16 @@ entities.
 `workflows/workflows.json` defines `orderFulfillment` and maps the
 `orders.OrderPlace` event to the BPMN message start named `OrderPlaced`.
 The process runs `reserveStock`, then an exclusive gateway routes to
-`confirmOrder` when the reservation command returns an aggregate id. The
-`cancelOrder` branch remains wired for a future reservation failure path.
+`confirmOrder` when the reservation command returns `{ reserved: true,
+reservationId }`. It routes to `cancelOrder` when the command returns
+`{ reserved: false, reason }`.
 
-The current `reserveStock` graph is intentionally a simple command graph that
-always emits a reserved stock reservation, so the current demo exercises the
-happy path. The insufficient-stock path through `cancelOrder` is intended for a
-follow-up code handler or graph capability that can return a missing
-reservation result.
+`inventory` includes a service-local code command handler at
+`services/inventory/commands/handlers.mjs`. The handler keeps `reserveStock`
+as a successful business command in both branches: SKU `missing-stock` appends
+`StockReservationRejected` and returns `{ reserved: false, reason:
+"insufficient stock" }`; all other SKUs append a reserved stock reservation and
+return `{ reserved: true, reservationId }`.
 
 ## Smoke Expectations
 

@@ -40,10 +40,10 @@
     <bpmn:sequenceFlow id="Flow_Start_Reserve" sourceRef="orderPlaced" targetRef="reserveStock" />
     <bpmn:sequenceFlow id="Flow_Reserve_Gateway" sourceRef="reserveStock" targetRef="stockReserved" />
     <bpmn:sequenceFlow id="Flow_Reserved_Confirm" sourceRef="stockReserved" targetRef="confirmOrder">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.aggregateId != null}</bpmn:conditionExpression>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.reserved == true}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_Rejected_Cancel" sourceRef="stockReserved" targetRef="cancelOrder">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.aggregateId == null}</bpmn:conditionExpression>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reservation.reserved == false}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_Confirm_End" sourceRef="confirmOrder" targetRef="orderConfirmed" />
     <bpmn:sequenceFlow id="Flow_Cancel_End" sourceRef="cancelOrder" targetRef="orderCancelled" />

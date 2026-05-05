@@ -43,7 +43,7 @@
       "bindingRef": "orders.confirmOrder",
       "input": {
         "orderId": "$process.orderId",
-        "reservationId": "$process.reservation.aggregateId"
+        "reservationId": "$process.reservation.reservationId"
       }
     },
     {
@@ -52,7 +52,7 @@
       "bindingRef": "orders.cancelOrder",
       "input": {
         "orderId": "$process.orderId",
-        "reason": "stock reservation unavailable"
+        "reason": "$process.reservation.reason"
       }
     }
   ]
