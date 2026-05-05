@@ -70,13 +70,24 @@ const plan: ProjectDeploymentPlan = {
 };
 
 describe('workflow rendering', () => {
+  it('renders non-workflow plans that omit workflowEngine', () => {
+    const nonWorkflowPlan = {
+      ...plan,
+      infrastructure: {
+        eventBus: plan.infrastructure.eventBus,
+      },
+      workloads: plan.workloads.filter((workload) => workload.kind !== 'bpmn-worker'),
+    } as unknown as ProjectDeploymentPlan;
+
+    const result = renderDokployPlan(nonWorkflowPlan, targetConfig());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.resources.some((resource) => resource.logicalId === 'workflow-engine')).toBe(false);
+  });
+
   it('renders Operaton and BPMN worker resources', () => {
-    const result = renderDokployPlan(plan, {
-      endpoint: 'https://dokploy.example',
-      projectName: 'demo',
-      allowCreateProject: true,
-      publicBaseUrl: 'https://orders.example',
-    });
+    const result = renderDokployPlan(plan, targetConfig());
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -100,4 +111,94 @@ describe('workflow rendering', () => {
     });
     expect(worker.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
   });
+
+  it.each([
+    '../x.bpmn',
+    'nested/../../x',
+    './x.bpmn',
+    'a//b.bpmn',
+    'nested\\x.bpmn',
+    'file://x.bpmn',
+    '',
+    '.',
+    '..',
+    '/absolute.bpmn',
+  ])('rejects unsafe workflow file path %j', (path) => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'bpmn-worker'
+            ? { ...workload, workflowFiles: { [path]: '<definitions />' } }
+            : workload,
+        ),
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'DEPLOY_RENDER_DOKPLOY_INVALID_WORKFLOW_FILE_PATH',
+        resource: 'rntme-acme-order-fulfillment-bpmn-worker',
+      }),
+    );
+  });
+
+  it('renders external SASL Kafka worker env with secret credentials', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          eventBus: {
+            kind: 'kafka',
+            mode: 'external',
+            brokers: ['kafka.example.com:9093'],
+            topicPrefix: 'orders',
+            security: {
+              protocol: 'sasl_ssl',
+              mechanism: 'scram-sha-512',
+              secretRefs: {
+                username: 'secret://kafka/username',
+                password: 'secret://kafka/password',
+              },
+            },
+          },
+        },
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const worker = result.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
+    );
+    expect(worker?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_USERNAME',
+      value: 'secret://kafka/username',
+      secret: true,
+    });
+    expect(worker?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_PASSWORD',
+      value: 'secret://kafka/password',
+      secret: true,
+    });
+    expect(worker?.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_MECHANISM',
+      value: 'scram-sha-512',
+      secret: false,
+    });
+  });
 });
+
+function targetConfig() {
+  return {
+    endpoint: 'https://dokploy.example',
+    projectName: 'demo',
+    allowCreateProject: true,
+    publicBaseUrl: 'https://orders.example',
+  };
+}

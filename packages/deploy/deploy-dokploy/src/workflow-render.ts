@@ -1,5 +1,7 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
+import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels } from './names.js';
+import { err, ok, type Result } from './result.js';
 import type {
   RenderedDokployApplicationResource,
   RenderedDokployComposeResource,
@@ -7,9 +9,10 @@ import type {
 } from './render.js';
 
 type BpmnWorkerWorkload = Extract<ProjectDeploymentPlan['workloads'][number], { kind: 'bpmn-worker' }>;
+type WorkflowEngine = NonNullable<ProjectDeploymentPlan['infrastructure']['workflowEngine']>;
 
 export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource | null {
-  const engine = plan.infrastructure.workflowEngine;
+  const engine = workflowEngine(plan);
   if (engine.kind === 'none') return null;
 
   return {
@@ -36,10 +39,12 @@ export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokp
 export function renderBpmnWorker(
   plan: ProjectDeploymentPlan,
   workload: BpmnWorkerWorkload,
-): RenderedDokployApplicationResource {
-  const engine = plan.infrastructure.workflowEngine;
+): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
+  const engine = workflowEngine(plan);
+  const files = workflowFileMounts(workload);
+  if (!files.ok) return files;
 
-  return {
+  return ok({
     logicalId: workload.slug,
     kind: 'application',
     workloadKind: workload.kind,
@@ -65,8 +70,12 @@ export function renderBpmnWorker(
       plan.project.environment,
       workload.slug,
     ),
-    files: workflowFileMounts(workload.workflowFiles),
-  };
+    files: files.value,
+  });
+}
+
+function workflowEngine(plan: ProjectDeploymentPlan): WorkflowEngine {
+  return plan.infrastructure.workflowEngine ?? { kind: 'none' };
 }
 
 function operatonComposeFile(
@@ -86,10 +95,32 @@ function operatonComposeFile(
   ].join('\n');
 }
 
-function workflowFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
-  return Object.fromEntries(
-    Object.entries(files).map(([path, content]) => [`/srv/workflows/${path.replace(/^\/+/, '')}`, content]),
-  );
+function workflowFileMounts(
+  workload: BpmnWorkerWorkload,
+): Result<Readonly<Record<string, string>>, DokployDeploymentError> {
+  const mounts: Record<string, string> = {};
+  for (const [path, content] of Object.entries(workload.workflowFiles)) {
+    if (!isSafeWorkflowFilePath(path)) {
+      return err([
+        {
+          code: 'DEPLOY_RENDER_DOKPLOY_INVALID_WORKFLOW_FILE_PATH',
+          message: `workflow file path "${path}" must be a relative path below /srv/workflows without empty, dot, parent, absolute, backslash, or URL-scheme segments`,
+          resource: workload.resourceName,
+          path: `workloads.${workload.slug}.workflowFiles.${path}`,
+        },
+      ]);
+    }
+    mounts[`/srv/workflows/${path}`] = content;
+  }
+  return ok(mounts);
+}
+
+function isSafeWorkflowFilePath(path: string): boolean {
+  if (path === '') return false;
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
+  return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['eventBus']): RenderedEnvVar[] {

@@ -208,6 +208,63 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
+  it('rewrites BPMN worker event bus and Operaton env references to Dokploy network names', async () => {
+    const client = new FakeDokployClient();
+    const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const workflowEngine: Extract<RenderedDokployResource, { kind: 'compose' }> = {
+      logicalId: 'workflow-engine',
+      kind: 'compose',
+      infrastructureKind: 'workflow-engine',
+      name: 'rntme-acme-commerce-operaton',
+      image: 'operaton/operaton:test',
+      composeFile: 'services:\n  operaton:\n    image: operaton/operaton:test\n',
+      env: [],
+      labels: { 'rntme.infrastructure': 'workflow-engine' },
+    };
+    const worker = resource({
+      logicalId: 'bpmn-worker',
+      workloadKind: 'bpmn-worker',
+      workloadSlug: 'bpmn-worker',
+      name: 'rntme-acme-commerce-bpmn-worker',
+      image: 'ghcr.io/acme/bpmn-worker:v1',
+      env: [
+        {
+          name: 'RNTME_EVENT_BUS_BROKERS',
+          value: 'rntme-acme-commerce-event-bus:9092',
+          secret: false,
+        },
+        {
+          name: 'RNTME_OPERATON_BASE_URL',
+          value: 'http://rntme-acme-commerce-operaton:8080',
+          secret: false,
+        },
+      ],
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [worker, workflowEngine, eventBus],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    const configure = client.configureCalls.find(
+      (call) => call.resource.name === 'rntme-acme-commerce-bpmn-worker',
+    );
+    expect(configure?.resource.env).toContainEqual({
+      name: 'RNTME_EVENT_BUS_BROKERS',
+      value: 'rntme-acme-commerce-event-bus-dns:9092',
+      secret: false,
+    });
+    expect(configure?.resource.env).toContainEqual({
+      name: 'RNTME_OPERATON_BASE_URL',
+      value: 'http://rntme-acme-commerce-operaton-dns:8080',
+      secret: false,
+    });
+  });
+
   it('leaves matching compose resources unchanged', async () => {
     const client = new FakeDokployClient([], [
       {
@@ -1131,6 +1188,7 @@ class FakeDokployClient implements DokployClient {
     const created = {
       id: `compose_${this.composeResources.size + 1}`,
       name: resource.name,
+      appName: `${resource.name}-dns`,
       image: resource.image,
       composeFile: resource.composeFile,
       env: resource.env,

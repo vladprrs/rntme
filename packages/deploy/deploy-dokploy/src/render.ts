@@ -142,10 +142,9 @@ export function renderDokployPlan(
   }
 
   const infrastructureResources = renderInfrastructureResources(plan);
-  const resources = [
-    ...infrastructureResources,
-    ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
-  ];
+  const workloadResources = renderWorkloadResources(plan, nginxConfig.value);
+  if (!workloadResources.ok) return workloadResources;
+  const resources = [...infrastructureResources, ...workloadResources.value];
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv = resources.map((resource) => {
@@ -264,6 +263,19 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   return resources;
 }
 
+function renderWorkloadResources(
+  plan: ProjectDeploymentPlan,
+  nginxConfig: string,
+): Result<RenderedDokployApplicationResource[], DokployDeploymentError> {
+  const resources: RenderedDokployApplicationResource[] = [];
+  for (const workload of plan.workloads) {
+    const resource = renderResource(plan, workload, nginxConfig);
+    if (!resource.ok) return resource;
+    resources.push(resource.value);
+  }
+  return ok(resources);
+}
+
 function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
   const eventBus = plan.infrastructure.eventBus;
   if (eventBus.mode !== 'provisioned') {
@@ -328,7 +340,7 @@ function renderResource(
   plan: ProjectDeploymentPlan,
   workload: DeploymentWorkload,
   nginxConfig: string,
-): RenderedDokployApplicationResource {
+): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
   if (workload.kind === 'bpmn-worker') {
     return renderBpmnWorker(plan, workload);
   }
@@ -343,7 +355,7 @@ function renderResource(
 
   if (workload.kind === 'edge-gateway') {
     const publicConfigJson = firstDomainPublicConfig(plan.workloads);
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -353,11 +365,11 @@ function renderResource(
       env: [],
       labels,
       files: { '/etc/nginx/nginx.conf': nginxConfig, '/srv/config.json': publicConfigJson },
-    };
+    });
   }
 
   if (workload.kind === 'integration-module') {
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -381,7 +393,7 @@ function renderResource(
         { containerPort: 50051, protocol: 'http' as const },
         { containerPort: 50052, protocol: 'http' as const },
       ],
-    };
+    });
   }
 
   if (workload.kind === 'domain-service') {
@@ -391,7 +403,7 @@ function renderResource(
       '/srv/config.json': workload.publicConfigJson,
     };
 
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -429,7 +441,7 @@ function renderResource(
       ],
       labels,
       files,
-    };
+    });
   }
 
   return assertNever(workload);
