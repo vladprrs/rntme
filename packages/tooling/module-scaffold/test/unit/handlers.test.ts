@@ -11,7 +11,7 @@ function mkCtx(): CommandExecutionContext {
 }
 
 describe('exampleHandlers.echo', () => {
-  it('returns the input payload verbatim wrapped in CommandExecutionResult', async () => {
+  it('propagates correlation ids into the CommandExecutorOutput envelope', async () => {
     const handler = exampleHandlers.echo;
     if (!handler) throw new Error('echo handler missing');
     const out = await handler(mkCtx(), { message: 'hello' });

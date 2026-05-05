@@ -947,7 +947,7 @@ Runtime intake is intentionally still deferred: `@rntme/runtime` boots one servi
 
 ### 4.11 `@rntme/module-scaffold`
 
-`@rntme/module-scaffold` provides examples and scaffolding for external integration services. Modules are declared in `manifest.modules[]`, reached over gRPC, and invoked from command-binding `pre[]` steps. This keeps vendor SDK code outside the domain service while letting command graphs consume pre-fetch results deterministically. The package holds `exampleHandlers`; module authors copy and modify it rather than depending on it. Handler types come from `@rntme/contracts-handlers-v1` and the `module.json` shape from `@rntme/contracts-module-v1`.
+`@rntme/module-scaffold` is a tooling package that provides examples and scaffolding for module authors. It holds `exampleHandlers` — a `CodeCommandHandlerMap` example for `CodeCommandHandler`-shaped commands — that authors **copy and modify** rather than take as a runtime dependency. The handler runtime types live in `@rntme/contracts-handlers-v1`; the `module.json` manifest schema lives in `@rntme/contracts-module-v1`; the browser-side module SDK lives in `@rntme/contracts-client-runtime-v1`. The gRPC modules runtime pattern (declaring modules in `manifest.modules[]`, reaching them over gRPC, invoking them from command-binding `pre[]` steps) is the responsibility of `@rntme/bindings-grpc` and the bindings runtime — see §4.10 and the "Module pre-fetch and idempotency cache" entry in §6.5.
 
 ### 4.12 CLI-side deployment packages
 
@@ -1314,7 +1314,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Module pre-fetch and idempotency cache
 
-- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`, `@rntme/module-scaffold`.
+- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`, `@rntme/contracts-module-v1`.
 - **Purpose:** Let command bindings call external modules before graph execution while keeping retries deterministic.
 - **Contract:** `manifest.modules[]` declares gRPC modules; command bindings may define up to two `pre[]` entries (`system` or `module-rpc`). HTTP retries use a SQLite-backed `(idempotency-key, command-run-id) → response` cache with 24h TTL.
 - **Constructed by:** bindings validator, HTTP pre-fetch runtime, and module gRPC clients.

@@ -37,8 +37,11 @@ cp -r packages/tooling/module-scaffold modules/<category>/<vendor>
 # Then in the new copy:
 #   1. Update package.json#name (e.g. @rntme/<category>-<vendor>) and bump version.
 #   2. Replace src/handlers.ts with your vendor-specific CodeCommandHandlerMap.
-#   3. Drop @rntme/contracts-handlers-v1 in dependencies (already wired here).
+#   3. Keep @rntme/contracts-handlers-v1 in dependencies (already wired).
 #   4. Add your vendor SDK to dependencies.
+#   4b. Add @rntme/contracts-module-v1 (manifest schema) and
+#       @rntme/contracts-client-runtime-v1 (only if shipping a `client` block)
+#       to your dependencies.
 #   5. Author module.json validated by parseModuleManifest from @rntme/contracts-module-v1.
 #   6. Run `pnpm install` at the repo root.
 #   7. Wire your handlers into a CodeCommandExecutor in your module's bootstrap.

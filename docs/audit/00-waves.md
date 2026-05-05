@@ -172,14 +172,25 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ### Wave W16 — Platform contracts extraction (layering refactor)
 
+**Status:** In progress. PRs 1–5 merged; final closure pending PR 6 (dependency-cruiser CI guard).
+
 Spec: [`docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`](../superpowers/specs/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/superpowers/plans/2026-05-04-platform-contracts-extraction.md`](../superpowers/plans/2026-05-04-platform-contracts-extraction.md).
 
-**Closed:** Closed: platform contracts extraction wave — extracted `@rntme/contracts-{module,provisioner,client-runtime,handlers}-v1` as leaf packages, removed cross-package layering violations, and renamed `@rntme/module-skeleton` → `@rntme/module-scaffold` (the package no longer hosts contracts; it is examples-and-scaffolding).
+Platform contracts extraction wave — extracts `@rntme/contracts-{module,provisioner,client-runtime,handlers}-v1` as leaf packages, removes cross-package layering violations, and renames `@rntme/module-skeleton` → `@rntme/module-scaffold` (the package no longer hosts contracts; it is examples-and-scaffolding).
+
+**Audit findings touched (parked, not closed by this wave):**
+- U-002 — `@rntme/runtime` god package (12 workspace deps) — `monorepo` — remains parked; wave reduces structural pressure but does not close.
+- U-003 — `bindings-grpc` cross-depends on `bindings-http` for executor contract — `monorepo` — remains parked; wave creates the seam (`@rntme/contracts-handlers-v1`) that a follow-up shoot can use.
 
 **Exit criteria:**
-- Module manifest, provisioner runtime contract, browser module contract, and code-command-handler contract live in `packages/contracts/`.
-- `@rntme/module-scaffold` has zero `@rntme/event-store` / `@rntme/runtime` deps.
-- Dependency-cruiser CI guard pins the layering (PR 6).
+- [x] Module manifest contract extracted to `@rntme/contracts-module-v1` (PR 1, merged).
+- [x] Provisioner runtime contract + env-mapping types extracted to `@rntme/contracts-provisioner-v1` (PR 2, merge `43fb582`).
+- [x] Browser module contract extracted to `@rntme/contracts-client-runtime-v1` (PR 3, merge `ba881b3`).
+- [x] Code-command-handler contract extracted to `@rntme/contracts-handlers-v1` (PR 4, merge `8e746ec`).
+- [x] `@rntme/module-skeleton` renamed to `@rntme/module-scaffold` with zero `@rntme/event-store` / `@rntme/runtime` deps (PR 5, merge `e96f161`).
+- [ ] Dependency-cruiser CI guard pins the layering (PR 6, pending).
+
+Wave is closed once PR 6 merges.
 
 ---
 
