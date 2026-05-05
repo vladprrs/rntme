@@ -17,20 +17,67 @@ const demoDir = join(
 
 type BpmnIds = {
   readonly processId: string;
-  readonly messageNames: readonly string[];
+  readonly messagesById: Readonly<Record<string, string>>;
+  readonly startEventMessageRefs: Readonly<Record<string, string>>;
   readonly serviceTaskIds: readonly string[];
 };
+
+function readXmlAttribute(
+  source: string,
+  attributeName: string,
+  label: string,
+): string {
+  const match = new RegExp(`\\b${attributeName}="([^"]+)"`).exec(source);
+  expect(match, `missing ${label} ${attributeName}`).not.toBeNull();
+  return match?.[1] ?? '';
+}
 
 function readBpmnAttribute(
   xml: string,
   elementName: string,
   attributeName: string,
 ): string {
-  const match = new RegExp(
-    `<bpmn:${elementName}\\b[^>]*\\s${attributeName}="([^"]+)"`,
-  ).exec(xml);
-  expect(match, `missing bpmn:${elementName} ${attributeName}`).not.toBeNull();
-  return match?.[1] ?? '';
+  const match = new RegExp(`<bpmn:${elementName}\\b([^>]*)>`).exec(xml);
+  expect(match, `missing bpmn:${elementName}`).not.toBeNull();
+  return readXmlAttribute(
+    match?.[1] ?? '',
+    attributeName,
+    `bpmn:${elementName}`,
+  );
+}
+
+function readBpmnMessages(xml: string): Readonly<Record<string, string>> {
+  const messages: Record<string, string> = {};
+  for (const match of xml.matchAll(/<bpmn:message\b([^>]*)>/g)) {
+    const attributes = match[1] ?? '';
+    const id = readXmlAttribute(attributes, 'id', 'bpmn:message');
+    messages[id] = readXmlAttribute(attributes, 'name', `bpmn:message ${id}`);
+  }
+  return messages;
+}
+
+function readBpmnStartEventMessageRefs(
+  xml: string,
+): Readonly<Record<string, string>> {
+  const refs: Record<string, string> = {};
+  for (const match of xml.matchAll(
+    /<bpmn:startEvent\b([^>]*)>([\s\S]*?)<\/bpmn:startEvent>/g,
+  )) {
+    const id = readXmlAttribute(match[1] ?? '', 'id', 'bpmn:startEvent');
+    const messageRefMatch = /<bpmn:messageEventDefinition\b([^>]*)\/?>/.exec(
+      match[2] ?? '',
+    );
+    expect(
+      messageRefMatch,
+      `missing bpmn:messageEventDefinition for start event ${id}`,
+    ).not.toBeNull();
+    refs[id] = readXmlAttribute(
+      messageRefMatch?.[1] ?? '',
+      'messageRef',
+      `bpmn:startEvent ${id} messageEventDefinition`,
+    );
+  }
+  return refs;
 }
 
 function readBpmnAttributes(
@@ -39,20 +86,36 @@ function readBpmnAttributes(
   attributeName: string,
 ): readonly string[] {
   return Array.from(
-    xml.matchAll(
-      new RegExp(
-        `<bpmn:${elementName}\\b[^>]*\\s${attributeName}="([^"]+)"`,
-        'g',
+    xml.matchAll(new RegExp(`<bpmn:${elementName}\\b([^>]*)>`, 'g')),
+    (match) =>
+      readXmlAttribute(
+        match[1] ?? '',
+        attributeName,
+        `bpmn:${elementName}`,
       ),
-    ),
-    (match) => match[1] ?? '',
   );
+}
+
+function readResolvedStartMessageName(
+  bpmn: BpmnIds,
+  startEventId: string,
+): string {
+  const messageRef = bpmn.startEventMessageRefs[startEventId];
+  expect(messageRef, `missing BPMN start event ${startEventId}`).toBeDefined();
+  if (messageRef === undefined) return '';
+
+  const messageName = bpmn.messagesById[messageRef];
+  expect(messageName, `missing BPMN message ${messageRef}`).toBeDefined();
+  if (messageName === undefined) return '';
+
+  return messageName;
 }
 
 function readBpmnIds(xml: string): BpmnIds {
   return {
     processId: readBpmnAttribute(xml, 'process', 'id'),
-    messageNames: readBpmnAttributes(xml, 'message', 'name'),
+    messagesById: readBpmnMessages(xml),
+    startEventMessageRefs: readBpmnStartEventMessageRefs(xml),
     serviceTaskIds: readBpmnAttributes(xml, 'serviceTask', 'id'),
   };
 }
@@ -104,7 +167,9 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     const bpmnIds = readBpmnIds(bpmn);
 
     expect(definition.processId).toBe(bpmnIds.processId);
-    expect(bpmnIds.messageNames).toContain(messageStart.messageName);
+    expect(readResolvedStartMessageName(bpmnIds, messageStart.id)).toBe(
+      messageStart.messageName,
+    );
     for (const task of workflows.serviceTasks) {
       expect(bpmnIds.serviceTaskIds).toContain(task.taskId);
     }
