@@ -1,0 +1,37 @@
+export type Layer = 'parse' | 'structural' | 'cross-ref' | 'internal';
+
+export type WorkflowError = {
+  readonly layer: Layer;
+  readonly code: WorkflowErrorCode;
+  readonly message: string;
+  readonly path?: string;
+  readonly hint?: string;
+};
+
+export type Ok<T> = { readonly ok: true; readonly value: T };
+export type Err = { readonly ok: false; readonly errors: readonly WorkflowError[] };
+export type Result<T> = Ok<T> | Err;
+
+export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
+export const err = (errors: readonly WorkflowError[]): Err => ({ ok: false, errors });
+export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
+export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+
+export const ERROR_CODES = {
+  WORKFLOWS_PARSE_SCHEMA_VIOLATION: 'WORKFLOWS_PARSE_SCHEMA_VIOLATION',
+  WORKFLOWS_STRUCT_DEFINITION_ID_DUPLICATE: 'WORKFLOWS_STRUCT_DEFINITION_ID_DUPLICATE',
+  WORKFLOWS_STRUCT_BPMN_FILE_DUPLICATE: 'WORKFLOWS_STRUCT_BPMN_FILE_DUPLICATE',
+  WORKFLOWS_STRUCT_MESSAGE_START_ID_DUPLICATE: 'WORKFLOWS_STRUCT_MESSAGE_START_ID_DUPLICATE',
+  WORKFLOWS_STRUCT_SERVICE_TASK_ID_DUPLICATE: 'WORKFLOWS_STRUCT_SERVICE_TASK_ID_DUPLICATE',
+  WORKFLOWS_STRUCT_UNKNOWN_DEFINITION: 'WORKFLOWS_STRUCT_UNKNOWN_DEFINITION',
+  WORKFLOWS_STRUCT_MAPPING_PATH_INVALID: 'WORKFLOWS_STRUCT_MAPPING_PATH_INVALID',
+  WORKFLOWS_XREF_EVENT_UNKNOWN_SERVICE: 'WORKFLOWS_XREF_EVENT_UNKNOWN_SERVICE',
+  WORKFLOWS_XREF_EVENT_UNKNOWN_AGGREGATE: 'WORKFLOWS_XREF_EVENT_UNKNOWN_AGGREGATE',
+  WORKFLOWS_XREF_EVENT_UNKNOWN_TYPE: 'WORKFLOWS_XREF_EVENT_UNKNOWN_TYPE',
+  WORKFLOWS_XREF_BINDING_REF_UNKNOWN: 'WORKFLOWS_XREF_BINDING_REF_UNKNOWN',
+  WORKFLOWS_XREF_BINDING_NOT_COMMAND: 'WORKFLOWS_XREF_BINDING_NOT_COMMAND',
+  WORKFLOWS_XREF_BINDING_SERVICE_MISMATCH: 'WORKFLOWS_XREF_BINDING_SERVICE_MISMATCH',
+  WORKFLOWS_XREF_BPMN_FILE_MISSING: 'WORKFLOWS_XREF_BPMN_FILE_MISSING',
+} as const;
+
+export type WorkflowErrorCode = keyof typeof ERROR_CODES;
