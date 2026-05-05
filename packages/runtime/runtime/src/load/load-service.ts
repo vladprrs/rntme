@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   parsePdm,
   validatePdm,
@@ -355,6 +355,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   return {
     ok: true,
     value: {
+      artifactDir: resolve(dir),
       manifest,
       pdm: validatedPdm,
       qsm: validatedQsm,
