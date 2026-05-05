@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventTypeSpec } from '@rntme/pdm';
 import {
@@ -71,7 +71,7 @@ function buildWorkflowContext(
   return {
     services: Object.keys(services),
     fileExists: (relativePath) =>
-      existsSync(join(rootDir, 'workflows', relativePath)),
+      isRegularWorkflowFile(rootDir, relativePath),
     resolveEvent: (ref: WorkflowEventRef) =>
       events.has(eventKey(ref.service, ref.aggregateType, ref.eventType))
         ? {
@@ -95,6 +95,14 @@ function buildWorkflowContext(
         : { ...resolved, kind: entry.kind };
     },
   };
+}
+
+function isRegularWorkflowFile(rootDir: string, relativePath: string): boolean {
+  try {
+    return statSync(join(rootDir, 'workflows', relativePath)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function eventKey(

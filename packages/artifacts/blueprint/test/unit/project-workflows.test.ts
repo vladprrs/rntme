@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -163,6 +163,29 @@ describe('project workflows', () => {
       expect(result.value.workflows?.definitions[0]?.id).toBe(
         'orderFulfillment',
       );
+    }
+  });
+
+  it('rejects workflow definitions whose BPMN path is a directory', () => {
+    const dir = scaffoldProject();
+    const bpmnPath = join(dir, 'workflows/order-fulfillment.bpmn');
+    rmSync(bpmnPath);
+    mkdirSync(bpmnPath);
+
+    const result = loadComposedBlueprint(dir);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: 'BLUEPRINT_WORKFLOWS_INVALID',
+          cause: expect.arrayContaining([
+            expect.objectContaining({
+              code: 'WORKFLOWS_XREF_BPMN_FILE_MISSING',
+            }),
+          ]),
+        }),
+      ]);
     }
   });
 });
