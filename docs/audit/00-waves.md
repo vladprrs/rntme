@@ -170,6 +170,17 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
 
+### Wave W16 — Platform contracts extraction (layering refactor)
+
+Spec: [`docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`](../superpowers/specs/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/superpowers/plans/2026-05-04-platform-contracts-extraction.md`](../superpowers/plans/2026-05-04-platform-contracts-extraction.md).
+
+**Closed:** Closed: platform contracts extraction wave — extracted `@rntme/contracts-{module,provisioner,client-runtime,handlers}-v1` as leaf packages, removed cross-package layering violations, and renamed `@rntme/module-skeleton` → `@rntme/module-scaffold` (the package no longer hosts contracts; it is examples-and-scaffolding).
+
+**Exit criteria:**
+- Module manifest, provisioner runtime contract, browser module contract, and code-command-handler contract live in `packages/contracts/`.
+- `@rntme/module-scaffold` has zero `@rntme/event-store` / `@rntme/runtime` deps.
+- Dependency-cruiser CI guard pins the layering (PR 6).
+
 ---
 
 ## Lens B — Findings ledger (data view)

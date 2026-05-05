@@ -1,9 +1,9 @@
 {
-  "name": "@rntme/module-skeleton",
+  "name": "@rntme/module-scaffold",
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "Skeleton module package for rntme services.",
+  "description": "Examples and scaffolding for rntme module authors. Holds exampleHandlers; no contract surface. Use this as a starting point — copy and modify.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -27,8 +27,6 @@
     "@rntme/contracts-handlers-v1": "workspace:*"
   },
   "devDependencies": {
-    "@rntme/event-store": "workspace:*",
-    "@rntme/runtime": "workspace:*",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",

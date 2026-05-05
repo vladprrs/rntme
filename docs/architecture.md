@@ -176,7 +176,7 @@ flowchart TB
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
-    MS["@rntme/module-skeleton"]:::pkg
+    MS["@rntme/module-scaffold"]:::pkg
     CMV1["@rntme/contracts-module-v1"]:::pkg
     CPV1["@rntme/contracts-provisioner-v1"]:::pkg
     CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg
@@ -945,9 +945,9 @@ Runtime intake is intentionally still deferred: `@rntme/runtime` boots one servi
 
 `@rntme/bindings-grpc` exposes validated query and command surfaces over gRPC. It uses the same `CommandExecutor` / `QueryExecutor` seam as `@rntme/bindings-http`, emits dynamic proto descriptors, and keeps module/service communication out of the domain runtime.
 
-### 4.11 `@rntme/module-skeleton`
+### 4.11 `@rntme/module-scaffold`
 
-`@rntme/module-skeleton` is the minimal scaffold for external integration services. Modules are declared in `manifest.modules[]`, reached over gRPC, and invoked from command-binding `pre[]` steps. This keeps vendor SDK code outside the domain service while letting command graphs consume pre-fetch results deterministically.
+`@rntme/module-scaffold` provides examples and scaffolding for external integration services. Modules are declared in `manifest.modules[]`, reached over gRPC, and invoked from command-binding `pre[]` steps. This keeps vendor SDK code outside the domain service while letting command graphs consume pre-fetch results deterministically. The package holds `exampleHandlers`; module authors copy and modify it rather than depending on it. Handler types come from `@rntme/contracts-handlers-v1` and the `module.json` shape from `@rntme/contracts-module-v1`.
 
 ### 4.12 CLI-side deployment packages
 
@@ -1314,7 +1314,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 
 #### Module pre-fetch and idempotency cache
 
-- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`, `@rntme/module-skeleton`.
+- **Package / module:** `@rntme/bindings`, `@rntme/bindings-http`, `@rntme/module-scaffold`.
 - **Purpose:** Let command bindings call external modules before graph execution while keeping retries deterministic.
 - **Contract:** `manifest.modules[]` declares gRPC modules; command bindings may define up to two `pre[]` entries (`system` or `module-rpc`). HTTP retries use a SQLite-backed `(idempotency-key, command-run-id) → response` cache with 24h TTL.
 - **Constructed by:** bindings validator, HTTP pre-fetch runtime, and module gRPC clients.

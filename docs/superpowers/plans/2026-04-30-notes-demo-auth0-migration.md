@@ -237,7 +237,7 @@ Expected: lockfile updates with new deps; install succeeds.
 
 - [ ] **Step 8: Verify manifest still parses and module typechecks the unchanged backend tree**
 
-Run: `pnpm -F @rntme/module-skeleton test`
+Run: `pnpm -F @rntme/contracts-module-v1 test`
 Expected: PASS — `parseModuleManifest` handles the new mixed manifest.
 
 Run: `pnpm -F @rntme/identity-auth0 typecheck`
