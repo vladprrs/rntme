@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createLifecycleBus } from '../../src/client/lifecycle-bus.js';
+import { createLifecycleBus } from '../../src/lifecycle-bus.js';
 
 describe('LifecycleBus', () => {
   it('emits navigate to subscribers', () => {

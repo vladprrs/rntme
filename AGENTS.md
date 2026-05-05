@@ -9,6 +9,13 @@
 
 - Research → Plan → Implement. Use the brainstorming and writing-plans
   skills; do not start editing code without a plan for non-trivial work.
+- Optimize agent context for correctness, completeness, size, and trajectory.
+  Preserve research, specs, plans, and reports as compacted artifacts instead
+  of relying on chat history or tool logs. This follows the ACE/FCA discipline:
+  the high-leverage review points are research and plans, not only final code.
+- For brownfield work, produce or update the smallest durable artifact that
+  keeps the next agent aligned: spec for intent, plan for exact edits and
+  verification, report for code-vs-spec drift, README/AGENTS for navigation.
 - Specs in `docs/superpowers/specs/` are the source of truth. Code that
   disagrees with a spec is a bug — fix the code, not the spec.
 - Read the per-package `README.md` before opening any source file in that
@@ -76,16 +83,20 @@ ASCII dependency diagram. Arrow means "depends on".
                     /          \
        @rntme/bindings-http   @rntme/bindings-grpc
                     \          /
-                     \        /       @rntme/ui ─── @rntme/ui-runtime
-                      \      /                 \           |
-                       \    /                   \          |
-                        +--+---------------------+---------+
-                                                    |
-                                             @rntme/seed
-                                                    |
-                                             @rntme/projection-consumer
-                                                    |
-                                             @rntme/runtime ─── @rntme/module-skeleton
+                     \        /       @rntme/ui
+                      \      /            |
+                       \    /             v
+                        +--+------ @rntme/ui-runtime
+                                      |
+                                      v
+                       @rntme/contracts-client-runtime-v1
+                                      |
+                                      v
+                              @rntme/runtime
+                               /     |     \
+                              v      v      v
+                         @rntme/seed  @rntme/projection-consumer
+                                      @rntme/module-skeleton
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
@@ -133,8 +144,10 @@ One-line purpose per package (read the per-package README before touching):
   validate → resolve → expand → compile → emit. No rendering. →
   `packages/artifacts/ui/README.md`.
 - **`@rntme/ui-runtime`** — Serves the compiled UI artifact. Hono
-  sub-router on the server side, React + json-render SPA on the client
-  side. → `packages/runtime/ui-runtime/README.md`.
+  sub-router on the server side plus the SPA host bootstrap. React
+  module-facing hooks/context/transport contracts live in
+  `@rntme/contracts-client-runtime-v1`. →
+  `packages/runtime/ui-runtime/README.md`.
 - **`@rntme/runtime`** — Top-level service orchestrator. Loads a service
   manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
   seams, modules, projections, seed, bindings + UI. →
@@ -152,6 +165,11 @@ One-line purpose per package (read the per-package README before touching):
   `@rntme/deploy-core` implements; vendor modules with a provisioner block
   code against it. →
   `packages/contracts/provisioner/v1/README.md`.
+- **`@rntme/contracts-client-runtime-v1`** — Browser-side platform contract:
+  `ModuleBootContext`, hooks/providers, operation registry, transport chain,
+  visibility evaluator, and router helpers. UI-bearing modules import this
+  package; `@rntme/ui-runtime` hosts concrete instances and SPA bootstrap. →
+  `packages/contracts/client-runtime/v1/README.md`.
 - **`@rntme/deploy-core`** — Target-neutral project deployment
   planning from a validated/composed project model. Preview MVP only; no
   raw blueprint loading. The platform executor consumes project-version
@@ -280,7 +298,7 @@ deeper, per-task pointers.
 
 ### 6.0 Add a UI module (client-only extension)
 
-1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11 and `packages/tooling/module-skeleton/README.md` for the `client` block.
+1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11, `packages/contracts/client-runtime/v1/README.md` for browser hooks/boot APIs, and `packages/tooling/module-skeleton/README.md` for the module package shape.
 2. Create `modules/<category>/<vendor>/` with `package.json`, `module.json`, and `src/client.ts` (or `src/client.tsx`) exporting `./client` from `package.json` `exports` (include `"./module.json": "./module.json"` for compose resolution).
 3. Add the package to the root `pnpm-workspace.yaml` glob if a new path is needed (`modules/*/*` already covers nested vendors).
 4. Wire the module in the consumer `project.json` under `modules` (object form). If the manifest declares `category`, the project key **must** match that category string.
@@ -502,7 +520,7 @@ under `packages/runtime/event-store/test/`.
 2. Scaffold `modules/identity/<vendor>/` with the standard module package layout plus a `client/` subtree.
 3. Declare every required public browser config key in `module.json#client.config.schema`.
 4. Declare `"contract": "identity"` inside the `client` block. The runtime uses this to engage the identity-aware boot fallback (`/auth/status = 'anon'` if `boot()` crashes before setting it). The conformance test in `@rntme/module-skeleton` enforces this on every identity vendor that ships a client block.
-5. Implement `client/index.ts#boot(ctx)` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
+5. Implement `client/index.ts#boot(ctx)` with `ModuleBootContext` from `@rntme/contracts-client-runtime-v1` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
 6. Export `client/components/LoginScreen.tsx` and `client/components/UserBadge.tsx` by name from `client/index.ts`, then register them in `module.json#client.components`.
 7. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
 8. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
@@ -729,6 +747,9 @@ Map of "if you're tempted to do X, the decision-doc is Y":
 - "Why protobufjs + dynamic proto load vs. static codegen inside the runtime?" →
   `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2 +
   `packages/runtime/bindings-grpc/README.md`.
+- "Why do modules import client/provisioner/manifest contracts instead of
+  `ui-runtime`, `deploy-core`, or `module-skeleton`?" →
+  `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`.
 
 ## 9. Memory and prior decisions
 
@@ -823,6 +844,8 @@ Known categorical entries to watch for:
 - **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
 - **`@rntme/contracts-module-v1`** — JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`.
 - **`@rntme/contracts-provisioner-v1`** — Provisioner runtime contract: ProvisionerContract, ProvisionerInput/Output, ProvisionerLog, ProvisionerVendorError, env-mapping types. deploy-core implements; modules with provisioner blocks code against it.
+- **`@rntme/contracts-client-runtime-v1`** — Browser-side platform contract for module client blocks: ModuleBootContext, hooks/providers, operation registry, transport chain, visibility evaluator, and router helpers. UI modules import this instead of `@rntme/ui-runtime` internals.
+- **Platform contract** — Leaf package under `packages/contracts/*/v1` that defines a cross-cutting boundary consumed by modules and implemented by platform/runtime packages.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
   Holds `Scenario` files keyed by canonical RPC. Drift-tested against

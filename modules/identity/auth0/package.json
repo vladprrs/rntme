@@ -36,7 +36,7 @@
     "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && pnpm run build:provisioner",
     "build:provisioner": "esbuild dist/provisioner.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
     "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/contracts-provisioner-v1 run build",
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/contracts-provisioner-v1 run build && pnpm -F @rntme/contracts-client-runtime-v1 run build",
     "start": "node dist/bin/server.js",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "test": "pnpm run build:deps && vitest run",
@@ -49,6 +49,7 @@
     "@grpc/grpc-js": "^1.14.3",
     "@hono/node-server": "^1.13.1",
     "@rntme/conformance-identity": "workspace:*",
+    "@rntme/contracts-client-runtime-v1": "workspace:*",
     "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/contracts-identity-v1": "workspace:*",
     "@rntme/contracts-provisioner-v1": "workspace:*",
@@ -57,12 +58,11 @@
     "jose": "^5"
   },
   "peerDependencies": {
-    "@rntme/ui-runtime": "workspace:*",
     "react": "^19.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
-    "@rntme/ui-runtime": "workspace:*",
+    "@json-render/core": "^0.17.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^20.14.0",

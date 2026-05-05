@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
-import { useOperationRegistry } from '@rntme/ui-runtime/client';
+import { useOperationRegistry } from '@rntme/contracts-client-runtime-v1';
 
 export type RichTextEditorProps = {
   placeholder?: string | undefined;

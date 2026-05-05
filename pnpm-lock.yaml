@@ -237,13 +237,13 @@ importers:
       '@rntme/contracts-analytics-v1':
         specifier: workspace:*
         version: link:../../../packages/contracts/analytics/v1
+      '@rntme/contracts-client-runtime-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/client-runtime/v1
     devDependencies:
       '@eslint/js':
         specifier: ^9.10.0
         version: 9.39.4
-      '@rntme/ui-runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime/ui-runtime
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39
@@ -379,6 +379,9 @@ importers:
       '@rntme/conformance-identity':
         specifier: workspace:*
         version: link:../conformance
+      '@rntme/contracts-client-runtime-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/client-runtime/v1
       '@rntme/contracts-common-v1':
         specifier: workspace:*
         version: link:../../../packages/contracts/_common/v1
@@ -401,9 +404,9 @@ importers:
       '@eslint/js':
         specifier: ^9.10.0
         version: 9.39.4
-      '@rntme/ui-runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime/ui-runtime
+      '@json-render/core':
+        specifier: ^0.17.0
+        version: 0.17.0(zod@4.3.6)
       '@testing-library/jest-dom':
         specifier: ^6.5.0
         version: 6.9.1
@@ -600,6 +603,9 @@ importers:
 
   modules/presentation/tiptap:
     dependencies:
+      '@rntme/contracts-client-runtime-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/client-runtime/v1
       '@tiptap/extension-image':
         specifier: ^2.10.0
         version: 2.27.2(@tiptap/core@2.27.2(@tiptap/pm@2.27.2))
@@ -616,9 +622,6 @@ importers:
       '@eslint/js':
         specifier: ^9.10.0
         version: 9.39.4
-      '@rntme/ui-runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime/ui-runtime
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39
@@ -992,6 +995,9 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.6.0
         version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
@@ -1001,9 +1007,15 @@ importers:
       eslint:
         specifier: ^9.10.0
         version: 9.39.4(jiti@2.6.1)
+      happy-dom:
+        specifier: ^15.11.7
+        version: 15.11.7
       react:
         specifier: ^19.2.5
         version: 19.2.5
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1592,6 +1604,9 @@ importers:
       '@json-render/shadcn':
         specifier: ^0.17.0
         version: 0.17.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)(zod@4.3.6)
+      '@rntme/contracts-client-runtime-v1':
+        specifier: workspace:*
+        version: link:../../contracts/client-runtime/v1
       '@rntme/ui':
         specifier: workspace:*
         version: link:../../artifacts/ui
@@ -14288,7 +14303,6 @@ snapshots:
       entities: 4.5.0
       webidl-conversions: 7.0.0
       whatwg-mimetype: 3.0.0
-    optional: true
 
   has-flag@4.0.0: {}
 
@@ -17110,8 +17124,7 @@ snapshots:
     dependencies:
       iconv-lite: 0.6.3
 
-  whatwg-mimetype@3.0.0:
-    optional: true
+  whatwg-mimetype@3.0.0: {}
 
   whatwg-mimetype@4.0.0: {}
 

@@ -14,6 +14,13 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        globalThis: 'readonly',
+        HTMLElement: 'readonly',
       },
     },
     plugins: {

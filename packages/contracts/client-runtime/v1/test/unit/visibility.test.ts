@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateVisible } from '../../src/client/visibility.js';
+import { evaluateVisible } from '../../src/visibility.js';
 
 const stateGet = (state: Record<string, unknown>) => (p: string) => state[p];
 

@@ -25,19 +25,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "pnpm run build:deps && pnpm build && vitest run",
-    "build:deps": "pnpm -F @rntme/contracts-analytics-v1 run build",
+    "build:deps": "pnpm -F @rntme/contracts-analytics-v1 run build && pnpm -F @rntme/contracts-client-runtime-v1 run build",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
-    "@rntme/contracts-analytics-v1": "workspace:*"
-  },
-  "peerDependencies": {
-    "@rntme/ui-runtime": "workspace:*"
+    "@rntme/contracts-analytics-v1": "workspace:*",
+    "@rntme/contracts-client-runtime-v1": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
-    "@rntme/ui-runtime": "workspace:*",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",

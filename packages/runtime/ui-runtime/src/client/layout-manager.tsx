@@ -4,8 +4,11 @@ import { Renderer, StateProvider, ActionProvider, VisibilityProvider, Validation
 import type { Spec } from '@json-render/react';
 import type { StateStore } from '@json-render/core';
 import type { ComponentRegistry } from '@json-render/react';
-import type { OperationRegistry } from './operation-registry.js';
-import { RegistryProvider, StoreProvider } from './hooks.js';
+import {
+  type OperationRegistry,
+  RegistryProvider,
+  StoreProvider,
+} from '@rntme/contracts-client-runtime-v1';
 
 export type AppShellProps = {
   layoutSpec: CompiledSpec | null;

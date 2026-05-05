@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTransportChain } from '../../src/client/transport-chain.js';
+import { createTransportChain } from '../../src/transport-chain.js';
 
 describe('TransportChain', () => {
   it('returns base fetch when no middleware registered', async () => {

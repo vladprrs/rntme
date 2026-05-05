@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createStateStore } from '@json-render/core';
 import {
   createLifecycleBus,
   createModuleBootContext,
   createOperationRegistry,
-  createRuntimeStateStore,
   createTransportChain,
-} from '@rntme/ui-runtime/client';
+} from '@rntme/contracts-client-runtime-v1';
 
 const auth0Mock = vi.hoisted(() => ({
   isAuthenticated: vi.fn(async () => false),
@@ -30,7 +30,7 @@ const cfg = {
 };
 
 function makeCtx(baseFetch = vi.fn(async () => new Response('{}', { status: 200 }))) {
-  const store = createRuntimeStateStore({});
+  const store = createStateStore({});
   const bus = createLifecycleBus();
   const chain = createTransportChain(baseFetch);
   const registry = createOperationRegistry();

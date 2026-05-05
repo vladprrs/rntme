@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RegistryProvider, createOperationRegistry } from '@rntme/ui-runtime/client';
+import { RegistryProvider, createOperationRegistry } from '@rntme/contracts-client-runtime-v1';
 import { LoginScreen } from '../../../client/components/LoginScreen.js';
 
 describe('LoginScreen', () => {

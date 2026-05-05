@@ -1,5 +1,5 @@
 import type { CompiledScreen, CompiledAction, CompiledDataEndpoint } from '@rntme/ui';
-import type { OperationRegistry } from './operation-registry.js';
+import type { OperationRegistry } from '@rntme/contracts-client-runtime-v1';
 
 export type DriverOptions = {
   fetchFn: typeof fetch;

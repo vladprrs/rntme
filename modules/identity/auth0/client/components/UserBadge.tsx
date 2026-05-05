@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSyncExternalStore } from 'react';
-import { useModuleAction, useStateStore } from '@rntme/ui-runtime/client';
+import { useModuleAction, useStateStore } from '@rntme/contracts-client-runtime-v1';
 
 const MODULE_NAME = '@rntme/identity-auth0';
 
