@@ -20,6 +20,10 @@ export function commandResultShape(): ResolvedShape {
         type: { kind: 'array', element: 'string' },
         nullable: false,
       },
+      result: {
+        type: { kind: 'json' },
+        nullable: true,
+      },
     },
   };
 }
@@ -32,6 +36,7 @@ export function commandResultJsonSchema(): JsonSchema {
       aggregateId: { type: 'string' },
       version: { type: 'integer' },
       eventIds: { type: 'array', items: { type: 'string' } },
+      result: {},
     },
   };
 }

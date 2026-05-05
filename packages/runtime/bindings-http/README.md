@@ -92,7 +92,7 @@ For every binding with `kind: 'query'` (or absent — defaults to query), `build
 
 ### Command routing
 
-For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slicedSpec, pdm, qsm)` and stores the `CompiledCommand`. The handler always uses `POST`, runs the same extract/parse/remap pipeline, then `executeCommand(compiled, graphInputs, { eventStore, qsmDb, now, nextId, actor })` and returns `c.json(result, 200)`. `actor` is computed per request from `actorFromRequest(c)`.
+For every binding with `kind: 'command'`, `buildPlan` calls `compileCommand(slicedSpec, pdm, qsm)` and stores the `CompiledCommand`. The handler always uses `POST`, runs the same extract/parse/remap pipeline, then `executeCommand(compiled, graphInputs, { eventStore, qsmDb, now, nextId, actor })` and returns `c.json(result, 200)`. `actor` is computed per request from `actorFromRequest(c)`. Code command executors may add optional `result` JSON to the canonical `CommandResult`; Graph IR commands leave it absent.
 
 ### Error mapping
 

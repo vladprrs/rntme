@@ -24,6 +24,7 @@ const echo: CodeCommandHandler = async (ctx, _input) => ({
     eventIds: [],
     commandId: ctx.correlation.commandId,
     correlationId: ctx.correlation.correlationId,
+    result: { echoed: true },
   },
 });
 
@@ -33,6 +34,10 @@ export const handlers: CodeCommandHandlerMap = { echo };
 ## API
 
 Types: `CodeCommandHandler`, `CodeCommandHandlerMap`, `CommandExecutionContext`, `CommandExecutionResult`, `CommandExecutorError`, `CommandExecutorErrorCode`, `CommandExecutorOutput`, `CorrelationCtx`.
+
+`CommandExecutionResult.result` is optional arbitrary JSON for successful
+business payloads. Leave it absent for commands whose only response is the
+canonical aggregate/version/event metadata.
 
 ## Invariants & gotchas
 

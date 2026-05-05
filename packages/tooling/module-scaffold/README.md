@@ -73,7 +73,7 @@ const ctx: CommandExecutionContext = {
 };
 
 const out = await exampleHandlers.echo(ctx, { message: 'hello' });
-// out → { ok: true, value: { aggregateId: 'echo', version: 0, eventIds: [], commandId, correlationId } }
+// out → { ok: true, value: { aggregateId: 'echo', version: 0, eventIds: [], commandId, correlationId, result: { echo: true } } }
 ```
 
 The example exists to give copy-paste authors a working baseline that

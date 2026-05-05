@@ -11,7 +11,7 @@ describe('CommandResult built-in', () => {
     expect(commandResultShape().name).toBe('CommandResult');
   });
 
-  it('declares aggregateId / version / eventIds with correct nullability', () => {
+  it('declares aggregateId / version / eventIds / result with correct nullability', () => {
     const shape = commandResultShape();
     expect(shape.fields.aggregateId).toEqual({
       type: { kind: 'scalar', primitive: 'string' },
@@ -25,6 +25,10 @@ describe('CommandResult built-in', () => {
       type: { kind: 'array', element: 'string' },
       nullable: false,
     });
+    expect(shape.fields.result).toEqual({
+      type: { kind: 'json' },
+      nullable: true,
+    });
   });
 
   it('emits a stable JSON schema', () => {
@@ -35,6 +39,7 @@ describe('CommandResult built-in', () => {
         aggregateId: { type: 'string' },
         version: { type: 'integer' },
         eventIds: { type: 'array', items: { type: 'string' } },
+        result: {},
       },
     });
   });

@@ -45,8 +45,12 @@ await handle.stop();
 | `array.<scalar>`                 | `repeated <scalar>`|
 | `rowset.<shape>`                 | `repeated <Shape>` |
 | `row.<shape>`                    | `<Shape>`          |
-| command output                   | canonical `CommandResult` |
+| command output                   | canonical `CommandResult` with optional `google.protobuf.Struct result` |
 | nullable field                   | `optional`         |
+
+Command RPCs return the canonical aggregate/version/event metadata. When the
+executor returns a successful business payload under `value.result`, the server
+serializes it into `CommandResult.result`; absent payloads leave the field unset.
 
 ## Error mapping
 
