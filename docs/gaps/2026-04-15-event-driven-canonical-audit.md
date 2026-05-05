@@ -254,6 +254,9 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 Original gap statement preserved below for historical context.
 
+Current BPMN work targets Operaton; the preserved statement below still names
+Zeebe because that was the workflow-engine placeholder on 2026-04-15.
+
 ---
 
 ### Original gap statement (2026-04-15)
@@ -289,7 +292,7 @@ No `source`, no `specversion`, no `correlationid`, no `causationid`, no `datacon
 - **Kafka wire format.** Consumer side must understand CloudEvents binary content mode.
 - **Correlation propagation.** New plumbing HTTP → command → event. New middleware in bindings-http. New parameter in `executeCommand`.
 - **Causation chain.** `executeCommand` must look up the id of the prior event (from `readStream`) and stamp `causationid` on the new one.
-- **BPMN readiness.** Cross-service orchestration needs `correlationid` to correlate BPMN instances with rntme commands. Current envelope cannot participate.
+- **Zeebe readiness.** Cross-service sagas NEED `correlationid` to correlate BPMN instances with rntme commands. Current envelope cannot participate.
 
 **Remediation sketch (phased).**
 
@@ -298,7 +301,7 @@ No `source`, no `specversion`, no `correlationid`, no `causationid`, no `datacon
 - **Phase C — causation.** On non-root events, stamp `causationid = previous_event_in_stream.id`.
 - **Phase D — Kafka binary content mode.** Relay emits CE headers (`ce_specversion`, `ce_id`, `ce_type`, `ce_source`, …) and puts `data` as body. Consumer adapts.
 
-**Priority.** P0 — largest single delta from canon. Prerequisite for Operaton integration. Must land before the platform vision's cross-service step starts.
+**Priority.** P0 — largest single delta from canon. Prerequisite for Zeebe integration. Must land before the platform vision's cross-service step starts.
 
 ---
 

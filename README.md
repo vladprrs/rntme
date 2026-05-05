@@ -189,7 +189,7 @@ flowchart TB
     DD --> DC
 ```
 
-Arrows mean "depends on". `pdm`, `event-store`, `bindings`, `ui`, and `workflows` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation and by `@rntme/workflows` validation context for BPMN service tasks. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md).
+This is a simplified dependency view, not a complete `package.json` edge list. Arrows show the important package directions used for navigation and layering. `pdm`, `event-store`, `bindings`, `ui`, and `workflows` have no internal dependencies. `@rntme/blueprint` validates project composition and produces a project-routed binding registry consumed by `@rntme/bindings` / `@rntme/ui` for compilation and by `@rntme/workflows` validation context for BPMN service tasks. Project-level runtime intake — boot from a project blueprint folder rather than a single service folder — is **not yet wired** in `@rntme/runtime`; the runtime still boots one service at a time. See [`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md).
 
 ## Quick start
 
