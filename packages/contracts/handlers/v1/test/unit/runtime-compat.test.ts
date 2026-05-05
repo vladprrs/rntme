@@ -3,7 +3,7 @@ import type {
   CodeCommandHandler as ContractHandler,
   CommandExecutionContext as ContractCtx,
   CommandExecutorOutput as ContractOut,
-} from '@rntme/contracts-handlers-v1';
+} from '../../src/index.js';
 import type {
   CommandExecutionContext as RuntimeCtx,
   CommandExecutorOutput as RuntimeOut,
@@ -16,6 +16,10 @@ test('runtime context is assignable to contract context (subtype)', () => {
 });
 
 test('runtime output matches contract output exactly', () => {
+  // Output uses toEqualTypeOf (not toMatchTypeOf) because the contract is the
+  // bus value: handlers construct it and runtime consumes it round-trip, so
+  // any runtime widening here would let modules emit shapes the contract
+  // can't represent. Exact equality keeps the wire pinned in both directions.
   expectTypeOf<RuntimeOut>().toEqualTypeOf<ContractOut>();
 });
 

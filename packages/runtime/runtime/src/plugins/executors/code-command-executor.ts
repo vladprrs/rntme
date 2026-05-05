@@ -3,12 +3,7 @@ import type {
   CommandExecutorInput,
   CommandExecutorOutput,
 } from './types.js';
-import type {
-  CodeCommandHandler,
-  CodeCommandHandlerMap,
-} from '@rntme/contracts-handlers-v1';
-
-export type { CodeCommandHandler, CodeCommandHandlerMap };
+import type { CodeCommandHandlerMap } from '@rntme/contracts-handlers-v1';
 
 export class CodeCommandExecutor implements CommandExecutor {
   private readonly handlers: CodeCommandHandlerMap;
