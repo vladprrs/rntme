@@ -14,6 +14,7 @@ const COMMAND_RESULT_BLOCK = [
   '  repeated string event_ids = 3;',
   '  string command_id = 4;',
   '  string correlation_id = 5;',
+  '  google.protobuf.Struct result = 6;',
   '}',
 ].join('\n');
 
@@ -35,6 +36,10 @@ export function emitProto(
   parts.push('');
   parts.push(`package ${options.packageName};`);
   parts.push('');
+  if (usesCommandResult) {
+    parts.push('import "google/protobuf/struct.proto";');
+    parts.push('');
+  }
 
   for (const block of shapeBlocks) {
     parts.push(block);

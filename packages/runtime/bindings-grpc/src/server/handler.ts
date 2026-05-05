@@ -72,13 +72,18 @@ export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, de
           });
           return;
         }
-        callback(null, {
+        const response: Record<string, unknown> = {
           aggregate_id: out.value.aggregateId,
           version: out.value.version,
           event_ids: [...out.value.eventIds],
           command_id: out.value.commandId,
           correlation_id: out.value.correlationId,
-        });
+        };
+        const valueWithResult = out.value as typeof out.value & { result?: unknown };
+        if (valueWithResult.result !== undefined) {
+          response.result = jsonToStruct(valueWithResult.result);
+        }
+        callback(null, response);
         return;
       }
 
@@ -111,4 +116,33 @@ export function makeAllHandlers(validated: ValidatedBindings, deps: HandlerDeps)
     out[rpcName] = makeGrpcHandler(bindingId, resolved, deps);
   }
   return out;
+}
+
+function jsonToStruct(value: unknown): { fields: Record<string, unknown> } {
+  if (isRecord(value)) {
+    return { fields: fieldsToStructValues(value) };
+  }
+  return { fields: { value: jsonToValue(value) } };
+}
+
+function fieldsToStructValues(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[key] = jsonToValue(value);
+  }
+  return out;
+}
+
+function jsonToValue(value: unknown): Record<string, unknown> {
+  if (value === null || value === undefined) return { nullValue: 0 };
+  if (typeof value === 'number') return { numberValue: value };
+  if (typeof value === 'string') return { stringValue: value };
+  if (typeof value === 'boolean') return { boolValue: value };
+  if (Array.isArray(value)) return { listValue: { values: value.map(jsonToValue) } };
+  if (isRecord(value)) return { structValue: { fields: fieldsToStructValues(value) } };
+  return { stringValue: String(value) };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

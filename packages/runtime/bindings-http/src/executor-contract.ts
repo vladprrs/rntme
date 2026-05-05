@@ -22,6 +22,7 @@ export type CommandExecutionResult = Readonly<{
   eventIds: readonly string[];
   commandId: string;
   correlationId: string;
+  result?: unknown;
 }>;
 
 export type CommandExecutorErrorCode =

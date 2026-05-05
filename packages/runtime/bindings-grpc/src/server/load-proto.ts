@@ -9,6 +9,7 @@ export type LoadedProto = {
 export function loadProtoFromString(protoSrc: string, fullyQualifiedServiceName: string): LoadedProto {
   const parsed = protobuf.parse(protoSrc, { keepCase: true });
   const root = parsed.root;
+  root.addJSON(protobuf.common.get('google/protobuf/struct.proto')?.nested ?? {});
   const service = root.lookupService(fullyQualifiedServiceName);
 
   const pkgName = fullyQualifiedServiceName.split('.').slice(0, -1).join('.');

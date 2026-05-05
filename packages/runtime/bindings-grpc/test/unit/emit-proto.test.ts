@@ -27,14 +27,16 @@ describe('emitProto', () => {
     expect(out).not.toContain('packages/runtime/bindings-grpc/test/fixtures/golden/minimal.proto');
   });
 
-  it('always emits CommandResult with command_id and correlation_id', () => {
+  it('always emits CommandResult with command_id, correlation_id, and optional result payload', () => {
     const out = emitProto(minimalValidated, minimalShapeRegistry, {
       packageName: 'x.y',
       serviceName: 'Svc',
     });
+    expect(out).toContain('import "google/protobuf/struct.proto";');
     expect(out).toContain('message CommandResult {');
     expect(out).toContain('string command_id = 4;');
     expect(out).toContain('string correlation_id = 5;');
+    expect(out).toContain('google.protobuf.Struct result = 6;');
   });
 
   it('does not duplicate CommandResult when shapes already include it', () => {

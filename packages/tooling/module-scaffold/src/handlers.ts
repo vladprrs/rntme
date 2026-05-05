@@ -9,6 +9,7 @@ export const exampleHandlers: CodeCommandHandlerMap = {
       eventIds: [],
       commandId: ctx.correlation.commandId,
       correlationId: ctx.correlation.correlationId,
+      result: { echo: true },
     },
   }),
 };
