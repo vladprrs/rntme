@@ -36,7 +36,7 @@
     "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && pnpm run build:provisioner",
     "build:provisioner": "esbuild dist/provisioner.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
     "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/deploy-core run build",
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/contracts-provisioner-v1 run build",
     "start": "node dist/bin/server.js",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
     "test": "pnpm run build:deps && vitest run",
@@ -51,7 +51,7 @@
     "@rntme/conformance-identity": "workspace:*",
     "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/contracts-identity-v1": "workspace:*",
-    "@rntme/deploy-core": "workspace:*",
+    "@rntme/contracts-provisioner-v1": "workspace:*",
     "auth0": "4.28.0",
     "hono": "^4.6.3",
     "jose": "^5"

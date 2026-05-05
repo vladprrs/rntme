@@ -14,6 +14,7 @@ export default [
         console: 'readonly',
         process: 'readonly',
         structuredClone: 'readonly',
+        AbortSignal: 'readonly',
       },
     },
     plugins: {

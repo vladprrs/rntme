@@ -385,9 +385,9 @@ importers:
       '@rntme/contracts-identity-v1':
         specifier: workspace:*
         version: link:../../../packages/contracts/identity/v1
-      '@rntme/deploy-core':
+      '@rntme/contracts-provisioner-v1':
         specifier: workspace:*
-        version: link:../../../packages/deploy/deploy-core
+        version: link:../../../packages/contracts/provisioner/v1
       auth0:
         specifier: 4.28.0
         version: 4.28.0
@@ -1105,6 +1105,9 @@ importers:
       '@rntme/contracts-module-v1':
         specifier: workspace:*
         version: link:../../contracts/module/v1
+      '@rntme/contracts-provisioner-v1':
+        specifier: workspace:*
+        version: link:../../contracts/provisioner/v1
       zod:
         specifier: ^4.0.0
         version: 4.3.6

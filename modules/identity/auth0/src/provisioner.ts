@@ -1,6 +1,6 @@
 import { createMgmtClient, type Auth0Client, type Auth0Connection, type Auth0ResourceServer, type MgmtClient } from './mgmt-client.js';
 import { err, ok } from './result-shim.js';
-import type { ProvisionerEnvMapping } from '@rntme/deploy-core';
+import type { ProvisionerEnvMapping } from '@rntme/contracts-provisioner-v1';
 
 export type Auth0PublicConfig = {
   appName: string;
