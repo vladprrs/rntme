@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runProvisioners, type DiscoveredProvisionerModule } from '../../src/provision.js';
-import type { ProvisionerContract } from '../../src/provisioner-contract.js';
+import type { ProvisionerContract } from '@rntme/contracts-provisioner-v1';
 import { ok, err } from '../../src/result.js';
 
 const baseModule = (overrides: Partial<DiscoveredProvisionerModule> = {}): DiscoveredProvisionerModule => ({
