@@ -21,13 +21,14 @@ entities.
 `workflows/workflows.json` defines `orderFulfillment` and maps the
 `orders.OrderPlace` event to the BPMN message start named `OrderPlaced`.
 The process runs `reserveStock`, then an exclusive gateway routes to
-`confirmOrder` when reservation succeeds or `cancelOrder` when reservation
-fails.
+`confirmOrder` when the reservation command returns an aggregate id. The
+`cancelOrder` branch remains wired for a future reservation failure path.
 
 The current `reserveStock` graph is intentionally a simple command graph that
-always emits a reserved stock reservation. The insufficient-stock path through
-`cancelOrder` is the intended deployed smoke branch once a code handler or
-follow-up graph capability can return the rejected reservation result.
+always emits a reserved stock reservation, so the current demo exercises the
+happy path. The insufficient-stock path through `cancelOrder` is intended for a
+follow-up code handler or graph capability that can return a missing
+reservation result.
 
 ## Smoke Expectations
 

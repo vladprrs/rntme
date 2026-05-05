@@ -17,11 +17,11 @@
         "aggregateType": "Order",
         "eventType": "OrderPlace"
       },
-      "businessKey": "$event.data.id",
+      "businessKey": "$event.rntAggregateId",
       "variables": {
-        "orderId": "$event.data.id",
-        "sku": "$event.data.sku",
-        "quantity": "$event.data.quantity"
+        "orderId": "$event.rntAggregateId",
+        "sku": "$event.data.after.sku",
+        "quantity": "$event.data.after.quantity"
       }
     }
   ],
@@ -52,7 +52,7 @@
       "bindingRef": "orders.cancelOrder",
       "input": {
         "orderId": "$process.orderId",
-        "reason": "$process.reservation.reason"
+        "reason": "stock reservation unavailable"
       }
     }
   ]
