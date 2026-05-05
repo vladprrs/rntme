@@ -114,7 +114,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/ui`](packages/artifacts/ui) | UI artifact + four-layer validator; declarative per-service UI description with route-local `data` + `actions` bindings resolved through project-routed refs. |
 | [`@rntme/ui-runtime`](packages/runtime/ui-runtime) | Hono sub-router + SPA host bootstrap that serves compiled `@rntme/ui` artifacts, bundles the React shell, and executes screens against service HTTP bindings. |
 | [`@rntme/runtime`](packages/runtime/runtime) | Service runtime: reads a folder of artifacts + `manifest.json`, wires executor seams, module pre-fetch/idempotency support, and serves the full HTTP surface. Published as both an npm package and the `ghcr.io/vladprrs/rntme-runtime` image. |
-| [`@rntme/module-skeleton`](packages/tooling/module-skeleton) | Minimal scaffold package for the module-integration track; depends only on `@rntme/contracts-handlers-v1` for handler types. |
+| [`@rntme/module-scaffold`](packages/tooling/module-scaffold) | Examples and scaffolding for rntme module authors. Holds `exampleHandlers`; no contract surface — copy as a starting point rather than depending on it. |
 | **Canonical contracts** |  |
 | [`@rntme/contracts-module-v1`](packages/contracts/module/v1) | JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`. |
 | [`@rntme/contracts-provisioner-v1`](packages/contracts/provisioner/v1) | Provisioner runtime contract: `ProvisionerContract`, `ProvisionerInput`/`Output`, `ProvisionerLog`, `ProvisionerVendorError`, env-mapping types. `@rntme/deploy-core` implements; vendor modules with a provisioner block code against it. |
@@ -159,7 +159,7 @@ flowchart TB
     PC["@rntme/projection-consumer"]:::pkg
     SD["@rntme/seed"]:::pkg
     RT["@rntme/runtime"]:::pkg
-    MS["@rntme/module-skeleton"]:::pkg
+    MS["@rntme/module-scaffold"]:::pkg
     CMV1["@rntme/contracts-module-v1"]:::pkg
     CPV1["@rntme/contracts-provisioner-v1"]:::pkg
     CCRV1["@rntme/contracts-client-runtime-v1"]:::pkg

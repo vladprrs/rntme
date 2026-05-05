@@ -14,7 +14,7 @@ These documents are **not** a substitute for the live issue thread (attachments,
 | `RNT-202` | `@rntme/blueprint` | needs cleanup | [@rntme/blueprint/README.md](./@rntme/blueprint/README.md) |
 | `RNT-204` | `@rntme/event-store` | needs cleanup | [@rntme/event-store/README.md](./@rntme/event-store/README.md) |
 | `RNT-205` | `@rntme/graph-ir-compiler` | needs cleanup — multiple medium-to-high architectural risks and debt it… | [@rntme/graph-ir-compiler/README.md](./@rntme/graph-ir-compiler/README.md) |
-| `RNT-206` | `@rntme/module-skeleton` | needs cleanup — architectural risk: low, but several gaps block it from… | [@rntme/module-skeleton/README.md](./@rntme/module-skeleton/README.md) |
+| `RNT-206` | `@rntme/module-skeleton` (renamed → `@rntme/module-scaffold` in Wave W16) | needs cleanup — architectural risk: low, but several gaps block it from… | [@rntme/module-skeleton/README.md](./@rntme/module-skeleton/README.md) |
 | `RNT-207` | `@rntme/pdm` | needs cleanup | [@rntme/pdm/README.md](./@rntme/pdm/README.md) |
 | `RNT-208` | `@rntme/projection-consumer` | needs cleanup | [@rntme/projection-consumer/README.md](./@rntme/projection-consumer/README.md) |
 | `RNT-209` | `@rntme/qsm` | needs cleanup | [@rntme/qsm/README.md](./@rntme/qsm/README.md) |

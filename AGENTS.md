@@ -96,7 +96,7 @@ ASCII dependency diagram. Arrow means "depends on".
                                /     |     \
                               v      v      v
                          @rntme/seed  @rntme/projection-consumer
-                                      @rntme/module-skeleton
+                                      @rntme/module-scaffold
                                                    |
                                                    v
                                   @rntme/contracts-handlers-v1
@@ -158,11 +158,12 @@ One-line purpose per package (read the per-package README before touching):
   manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
   seams, modules, projections, seed, bindings + UI. →
   `packages/runtime/runtime/README.md`.
-- **`@rntme/module-skeleton`** — Minimal scaffold package for the
-  module-integration track; depends only on `@rntme/contracts-handlers-v1`
-  for handler types (no `@rntme/runtime` dep — runtime types come through
-  the contract). →
-  `packages/tooling/module-skeleton/README.md`.
+- **`@rntme/module-scaffold`** — Examples and scaffolding for rntme module
+  authors. Holds `exampleHandlers` (an example `CodeCommandHandlerMap`); no
+  contract surface — types come from `@rntme/contracts-handlers-v1` and the
+  `module.json` shape from `@rntme/contracts-module-v1`. Authors copy this
+  package as a starting point rather than depending on it. →
+  `packages/tooling/module-scaffold/README.md`.
 - **`@rntme/contracts-module-v1`** — JSON shape of `module.json`
   (manifest schema, types, `parseModuleManifest`). All loaders/composers
   depend on this; modules implement it via their `module.json`. →
@@ -313,7 +314,7 @@ deeper, per-task pointers.
 
 ### 6.0 Add a UI module (client-only extension)
 
-1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11, `packages/contracts/client-runtime/v1/README.md` for browser hooks/boot APIs, and `packages/tooling/module-skeleton/README.md` for the module package shape.
+1. Read `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md` §10–11, `packages/contracts/client-runtime/v1/README.md` for browser hooks/boot APIs, and `packages/tooling/module-scaffold/README.md` for the module package shape.
 2. Create `modules/<category>/<vendor>/` with `package.json`, `module.json`, and `src/client.ts` (or `src/client.tsx`) exporting `./client` from `package.json` `exports` (include `"./module.json": "./module.json"` for compose resolution).
 3. Add the package to the root `pnpm-workspace.yaml` glob if a new path is needed (`modules/*/*` already covers nested vendors).
 4. Wire the module in the consumer `project.json` under `modules` (object form). If the manifest declares `category`, the project key **must** match that category string.
@@ -425,10 +426,10 @@ under `packages/runtime/event-store/test/`.
 ### 6.9 Add a platform module (code-executor-based integration service)
 
 1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
-2. Copy `packages/tooling/module-skeleton/` to `packages/<module-name>/` and update `package.json#name`.
+2. Copy `packages/tooling/module-scaffold/` to `packages/<module-name>/` and update `package.json#name`.
 3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
 4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
-5. Follow the health-check convention in `packages/tooling/module-skeleton/README.md`.
+5. Follow the health-check convention in `packages/tooling/module-scaffold/README.md`.
 
 ### 6.10 Expose a service over gRPC
 
@@ -534,7 +535,7 @@ under `packages/runtime/event-store/test/`.
 1. Read `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md` and mirror `modules/identity/auth0/`.
 2. Scaffold `modules/identity/<vendor>/` with the standard module package layout plus a `client/` subtree.
 3. Declare every required public browser config key in `module.json#client.config.schema`.
-4. Declare `"contract": "identity"` inside the `client` block. The runtime uses this to engage the identity-aware boot fallback (`/auth/status = 'anon'` if `boot()` crashes before setting it). The conformance test in `@rntme/module-skeleton` enforces this on every identity vendor that ships a client block.
+4. Declare `"contract": "identity"` inside the `client` block. The runtime uses this to engage the identity-aware boot fallback (`/auth/status = 'anon'` if `boot()` crashes before setting it). The conformance test in `@rntme/module-scaffold` enforces this on every identity vendor that ships a client block.
 5. Implement `client/index.ts#boot(ctx)` with `ModuleBootContext` from `@rntme/contracts-client-runtime-v1` so it registers a Bearer transport middleware via `ctx.transport.use`, writes `/auth/status` and `/auth/user` to `ctx.state`, and registers module operations through `ctx.registerOperation`.
 6. Export `client/components/LoginScreen.tsx` and `client/components/UserBadge.tsx` by name from `client/index.ts`, then register them in `module.json#client.components`.
 7. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
@@ -573,7 +574,7 @@ Spec reference: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contr
 The first vendor module is shipped by a separate brainstorm + plan
 (spec: TBD). When that lands, the steps will be:
 
-1. Copy `packages/tooling/module-skeleton/` to `modules/identity/<vendor>/`.
+1. Copy `packages/tooling/module-scaffold/` to `modules/identity/<vendor>/`.
 2. Implement `service IdentityModule` from
    `@rntme/contracts-identity-v1` against the vendor's SDK.
 3. Declare supported RPCs and events in `module.json#capabilities[]`.
@@ -593,7 +594,7 @@ the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
 The first AI/LLM vendor module is shipped by a separate brainstorm + plan.
 When that lands, the steps will mirror Identity:
 
-1. Copy `packages/tooling/module-skeleton/` to `modules/ai-llm/<vendor>/`.
+1. Copy `packages/tooling/module-scaffold/` to `modules/ai-llm/<vendor>/`.
 2. Implement `service AiLlmModule` from `@rntme/contracts-ai-llm-v1`
    against the vendor's SDK (or gateway routing).
 3. Provide an idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
@@ -763,7 +764,7 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` §6.2 +
   `packages/runtime/bindings-grpc/README.md`.
 - "Why do modules import client/provisioner/manifest contracts instead of
-  `ui-runtime`, `deploy-core`, or `module-skeleton`?" →
+  `ui-runtime`, `deploy-core`, or `module-scaffold`?" →
   `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`.
 
 ## 9. Memory and prior decisions
