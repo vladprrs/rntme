@@ -26,6 +26,19 @@ const workflows = {
   ],
 } as unknown as ValidatedWorkflows;
 
+const mixedCaseWorkflows = {
+  ...workflows,
+  messageStarts: [
+    {
+      id: 'orderPlaced',
+      definition: 'orderFulfillment',
+      messageName: 'OrderPlaced',
+      event: { service: 'Orders', aggregateType: 'PurchaseOrder', eventType: 'OrderPlaced' },
+      businessKey: '$event.data.orderId',
+    },
+  ],
+} as unknown as ValidatedWorkflows;
+
 const project: ComposedProjectInput = {
   name: 'order-fulfillment',
   services: {
@@ -178,6 +191,152 @@ describe('workflow planning', () => {
         worker: { image: '   ' },
       },
     });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_WORKER_IMAGE_MISSING',
+          path: 'workflows.worker.image',
+        }),
+      );
+    }
+  });
+
+  it('treats empty workflow topic prefixes as absent', () => {
+    for (const topicPrefix of ['', '   ', '...']) {
+      const result = buildProjectDeploymentPlan(
+        { ...project, workflows: mixedCaseWorkflows },
+        {
+          orgSlug: 'acme',
+          environment: 'default',
+          mode: 'preview',
+          runtimeImage: 'ghcr.io/acme/runtime:v1',
+          eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda', topicPrefix },
+          workflows: {
+            engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+            worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+          },
+        },
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const worker = result.value.workloads.find((workload) => workload.kind === 'bpmn-worker');
+      expect(worker?.subscriptions[0]?.topic).toBe('rntme.orders.purchaseorder');
+    }
+  });
+
+  it('trims dotted workflow topic prefixes and lowercases service and aggregate segments', () => {
+    const result = buildProjectDeploymentPlan(
+      { ...project, workflows: mixedCaseWorkflows },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: {
+          kind: 'kafka',
+          mode: 'provisioned',
+          provider: 'redpanda',
+          topicPrefix: '  .RNTME.Custom.  ',
+        },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const worker = result.value.workloads.find((workload) => workload.kind === 'bpmn-worker');
+    expect(worker?.subscriptions[0]?.topic).toBe('RNTME.Custom.orders.purchaseorder');
+  });
+
+  it('rejects blank Operaton engine images', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: '  ' },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
+          path: 'workflows.engine.image',
+        }),
+      );
+    }
+  });
+
+  it('rejects unsupported workflow engine modes from malformed runtime config', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'external', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+      },
+    } as unknown as Parameters<typeof buildProjectDeploymentPlan>[1]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_UNSUPPORTED_ENGINE',
+          path: 'workflows.engine',
+        }),
+      );
+    }
+  });
+
+  it('rejects missing workflow worker config from malformed runtime config', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+      },
+    } as unknown as Parameters<typeof buildProjectDeploymentPlan>[1]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_WORKER_IMAGE_MISSING',
+          path: 'workflows.worker.image',
+        }),
+      );
+    }
+  });
+
+  it('rejects malformed workflow worker images from runtime config', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 42 },
+      },
+    } as unknown as Parameters<typeof buildProjectDeploymentPlan>[1]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

@@ -29,8 +29,9 @@ export function planWorkflowEngine(input: {
     });
   }
 
-  const workflowConfig = input.config.workflows;
-  if (workflowConfig === undefined || workflowConfig.engine.kind !== 'operaton') {
+  const workflowConfig = asRecord(input.config.workflows);
+  const engineConfig = asRecord(workflowConfig?.engine);
+  if (workflowConfig === null || engineConfig === null) {
     input.errors.push({
       code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
       message: 'workflow projects require provisioned Operaton config',
@@ -39,15 +40,46 @@ export function planWorkflowEngine(input: {
     return { engine: { kind: 'none' }, worker: null };
   }
 
-  if (workflowConfig.worker.image.trim() === '') {
+  if (engineConfig.kind !== 'operaton' || engineConfig.mode !== 'provisioned') {
+    input.errors.push({
+      code: 'DEPLOY_PLAN_WORKFLOWS_UNSUPPORTED_ENGINE',
+      message: 'workflow projects support only provisioned Operaton engine config',
+      path: 'workflows.engine',
+    });
+    return { engine: { kind: 'none' }, worker: null };
+  }
+
+  const engineImage = nonEmptyString(engineConfig.image);
+  if (engineImage === null) {
+    input.errors.push({
+      code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
+      message: 'workflow projects require a non-empty Operaton image',
+      path: 'workflows.engine.image',
+    });
+    return { engine: { kind: 'none' }, worker: null };
+  }
+
+  const engineResource = resourceName(input.config.orgSlug, input.project.name, 'operaton');
+  const workerConfig = asRecord(workflowConfig.worker);
+  const workerImage = nonEmptyString(workerConfig?.image);
+  if (workerImage === null) {
     input.errors.push({
       code: 'DEPLOY_PLAN_WORKFLOWS_WORKER_IMAGE_MISSING',
       message: 'workflow worker image must be a non-empty string',
       path: 'workflows.worker.image',
     });
+    return {
+      engine: {
+        kind: 'operaton',
+        mode: 'provisioned',
+        resourceName: engineResource,
+        internalBaseUrl: `http://${engineResource}:8080`,
+        image: engineImage,
+      },
+      worker: null,
+    };
   }
 
-  const engineResource = resourceName(input.config.orgSlug, input.project.name, 'operaton');
   const workerResource = resourceName(input.config.orgSlug, input.project.name, 'bpmn-worker');
   return {
     engine: {
@@ -55,13 +87,13 @@ export function planWorkflowEngine(input: {
       mode: 'provisioned',
       resourceName: engineResource,
       internalBaseUrl: `http://${engineResource}:8080`,
-      image: workflowConfig.engine.image,
+      image: engineImage,
     },
     worker: {
       kind: 'bpmn-worker',
       slug: 'bpmn-worker',
       resourceName: workerResource,
-      image: workflowConfig.worker.image,
+      image: workerImage,
       workflowManifestPath: '/srv/workflows/workflows.json',
       workflowFiles: {},
       subscriptions: buildSubscriptions(workflows, input.eventBus),
@@ -102,13 +134,29 @@ function workflowTopic(
   aggregateType: string,
   eventBus: PlannedEventBus | undefined,
 ): string {
-  const suffix = `${service}.${aggregateType.toLowerCase()}`;
-  if (eventBus?.kind === 'kafka' && eventBus.topicPrefix !== undefined) {
-    return `${eventBus.topicPrefix}.${suffix}`;
-  }
-  return `rntme.${suffix}`;
+  const suffix = `${service.toLowerCase()}.${aggregateType.toLowerCase()}`;
+  const prefix =
+    eventBus?.kind === 'kafka' ? normalizeTopicPrefix(eventBus.topicPrefix) : null;
+  return prefix === null ? `rntme.${suffix}` : `${prefix}.${suffix}`;
+}
+
+function normalizeTopicPrefix(topicPrefix: string | null | undefined): string | null {
+  if (topicPrefix === null || topicPrefix === undefined) return null;
+  const trimmed = topicPrefix.trim().replace(/^\.+|\.+$/g, '');
+  return trimmed === '' ? null : trimmed;
 }
 
 function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string): string {
   return `rntme-${orgSlug}-${projectSlug}-${workloadSlug}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function nonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
 }
