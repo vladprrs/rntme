@@ -5,6 +5,7 @@ type BindingInput = {
   bindingId: string;
   method: 'GET' | 'POST';
   path: string;
+  kind?: 'query' | 'command';
 };
 
 export function buildBindingRegistry(input: {
@@ -16,13 +17,15 @@ export function buildBindingRegistry(input: {
   for (const [service, basePath] of Object.entries(input.httpBaseByService)) {
     for (const binding of input.bindingsByService[service] ?? []) {
       const qualifiedId = `${service}.${binding.bindingId}`;
-      registry[qualifiedId] = {
+      const entry: RoutedBindingEntry = {
         service,
         bindingId: binding.bindingId,
         qualifiedId,
         method: binding.method,
         path: joinHttpPath(basePath, binding.path),
       };
+      if (binding.kind !== undefined) entry.kind = binding.kind;
+      registry[qualifiedId] = entry;
     }
   }
 

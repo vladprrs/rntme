@@ -149,7 +149,11 @@ Required env:
 
 ## Provisioner
 
-`src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. The Auth0 module declares its provisioner block in `module.json`:
+`src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. It codes
+against the runtime contract types in
+[`@rntme/contracts-provisioner-v1`](../../../packages/contracts/provisioner/v1/README.md)
+(`ProvisionerEnvMapping` for the `ENV_MAPPINGS` export). The Auth0 module
+declares its provisioner block in `module.json`:
 
 - `produces`: `spaClient` (single, public), `resourceServer` (single, public), `m2mClients` (many, secret).
 - `requires`: `auth0Mgmt` (schema `auth0-mgmt-api-v1`).

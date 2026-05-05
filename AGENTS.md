@@ -59,6 +59,9 @@
 ASCII dependency diagram. Arrow means "depends on".
 
 ```
+              @rntme/contracts-module-v1   (leaf — manifest JSON shape)
+                         |
+                         v
                          @rntme/blueprint
                         /       |       \
                        /        |        \
@@ -86,6 +89,10 @@ ASCII dependency diagram. Arrow means "depends on".
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
+              (deploy-core also depends on @rntme/contracts-module-v1
+               and @rntme/contracts-provisioner-v1; vendor modules with a
+               provisioner block depend on @rntme/contracts-provisioner-v1
+               directly, never on deploy-core)
 ```
 
 One-line purpose per package (read the per-package README before touching):
@@ -135,6 +142,16 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/module-skeleton`** — Minimal scaffold package for the
   module-integration track; depends on `@rntme/runtime`. →
   `packages/tooling/module-skeleton/README.md`.
+- **`@rntme/contracts-module-v1`** — JSON shape of `module.json`
+  (manifest schema, types, `parseModuleManifest`). All loaders/composers
+  depend on this; modules implement it via their `module.json`. →
+  `packages/contracts/module/v1/README.md`.
+- **`@rntme/contracts-provisioner-v1`** — Provisioner runtime contract:
+  `ProvisionerContract`, `ProvisionerInput`/`Output`, `ProvisionerLog`,
+  `ProvisionerVendorError`, env-mapping types. Leaf, types-only.
+  `@rntme/deploy-core` implements; vendor modules with a provisioner block
+  code against it. →
+  `packages/contracts/provisioner/v1/README.md`.
 - **`@rntme/deploy-core`** — Target-neutral project deployment
   planning from a validated/composed project model. Preview MVP only; no
   raw blueprint loading. The platform executor consumes project-version
@@ -591,15 +608,15 @@ Recommended first vendor: `module-crm-bitrix24` (RU P0 priority — 57.5% RU mar
 - **How to ship a module with a provisioner.** Module's `package.json` chains
   `pnpm run build:provisioner` after `tsc`, with the script
   `esbuild dist/<name>.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/<name>.entry.js`.
-  The provisioner source must keep `@rntme/deploy-core` as `import type` only;
-  TSC strips type-only imports so esbuild never sees them. Point
-  `module.json#provisioner.entry` at the bundled file. CLI publish embeds the
-  file as a base64 asset; platform-http imports it from the materialized
+  The provisioner source must keep `@rntme/contracts-provisioner-v1` as
+  `import type` only; TSC strips type-only imports so esbuild never sees them.
+  Point `module.json#provisioner.entry` at the bundled file. CLI publish embeds
+  the file as a base64 asset; platform-http imports it from the materialized
   `tmpDir`.
 
 ### How to add a provisioner to a module
 
-1. Implement `provision(input): Promise<Result<ProvisionerOutput, ProvisionerVendorError>>` (and optional `tearDown`) in `<module>/src/provisioner.ts`. Import `ProvisionerContract` from `@rntme/deploy-core`.
+1. Implement `provision(input): Promise<Result<ProvisionerOutput, ProvisionerVendorError>>` (and optional `tearDown`) in `<module>/src/provisioner.ts`. Import `ProvisionerContract` from `@rntme/contracts-provisioner-v1` (types only — the leaf contract package). `resolveEnvMappings` and the runtime helpers stay on `@rntme/deploy-core`.
 2. Add a `provisioner` block to the module's `module.json`. Declare every output you return in `produces[]` (with `kind` and `secret`); declare every credential blob you read in `requires[]`.
 3. Register the `requires[].schema` ids in `packages/platform/platform-core/src/use-cases/target-secrets/schemas.ts` if not already registered.
 4. Export an `ENV_MAPPINGS` constant from the same file if your outputs need to land as env vars on rendered resources.
@@ -804,6 +821,8 @@ Known categorical entries to watch for:
   "deal/opportunity" naming differences through `Deal.qualification`
   instead of a separate Lead aggregate.
 - **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
+- **`@rntme/contracts-module-v1`** — JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`.
+- **`@rntme/contracts-provisioner-v1`** — Provisioner runtime contract: ProvisionerContract, ProvisionerInput/Output, ProvisionerLog, ProvisionerVendorError, env-mapping types. deploy-core implements; modules with provisioner blocks code against it.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
   Holds `Scenario` files keyed by canonical RPC. Drift-tested against

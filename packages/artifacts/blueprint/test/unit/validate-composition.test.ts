@@ -5,7 +5,7 @@ import {
   type BindingResolvers,
   type ValidatedBindings,
 } from '@rntme/bindings';
-import type { ModuleManifest } from '@rntme/module-skeleton';
+import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 
 const expectErrorCodes = (

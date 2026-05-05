@@ -1,4 +1,4 @@
-import type { ModuleManifest } from '@rntme/module-skeleton';
+import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { describe, expect, it } from 'vitest';
 import { buildCatalog } from '../../src/compose/catalog.js';
 import type { DiscoveredModule } from '../../src/compose/modules.js';

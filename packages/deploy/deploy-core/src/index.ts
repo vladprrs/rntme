@@ -66,7 +66,10 @@ export type {
   ProvisionerOutput,
   ProvisionerLog,
   ProvisionerVendorError,
-} from './provisioner-contract.js';
+  EnvMappingEntry,
+  ProvisionerEnvMapping,
+  ResolvedEnvEntry,
+} from '@rntme/contracts-provisioner-v1';
 export { DEPLOY_PROVISION_ERROR_CODES } from './errors-provision.js';
 export type { DeploymentProvisionErrorCode, DeploymentProvisionError } from './errors-provision.js';
 export { runProvisioners } from './provision.js';
@@ -78,4 +81,3 @@ export type {
   ProvisionedModule,
 } from './provision.js';
 export { resolveEnvMappings } from './provisioner-env-mapping.js';
-export type { EnvMappingEntry, ProvisionerEnvMapping, ResolvedEnvEntry } from './provisioner-env-mapping.js';

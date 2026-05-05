@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseModuleManifest } from '@rntme/module-skeleton';
+import { parseModuleManifest } from '@rntme/contracts-module-v1';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const MODULES_ROOT = join(HERE, '..', '..', '..', '..', '..', 'modules');

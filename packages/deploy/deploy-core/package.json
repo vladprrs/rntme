@@ -19,7 +19,8 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@rntme/module-skeleton": "workspace:*",
+    "@rntme/contracts-module-v1": "workspace:*",
+    "@rntme/contracts-provisioner-v1": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {

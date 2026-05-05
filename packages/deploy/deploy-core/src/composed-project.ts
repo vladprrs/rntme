@@ -1,4 +1,4 @@
-import type { EdgeAuthDescriptor } from '@rntme/module-skeleton';
+import type { EdgeAuthDescriptor } from '@rntme/contracts-module-v1';
 import type { VarsManifest } from './vars.js';
 
 export type ServiceKind = 'domain' | 'integration';

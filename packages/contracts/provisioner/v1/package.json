@@ -1,9 +1,18 @@
 {
-  "name": "@rntme/module-skeleton",
-  "version": "0.0.0",
+  "name": "@rntme/contracts-provisioner-v1",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
-  "description": "Skeleton module package for rntme services.",
+  "description": "Provisioner runtime contract — what a vendor module's provisioner code receives, returns, and can fail with. Used by deploy orchestrators that run provisioners.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladprrs/rntme.git",
+    "directory": "packages/contracts/provisioner/v1"
+  },
+  "bugs": {
+    "url": "https://github.com/vladprrs/rntme/issues"
+  },
+  "homepage": "https://github.com/vladprrs/rntme#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,10 +21,7 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -23,11 +29,9 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
-  "dependencies": {
-    "@rntme/runtime": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@rntme/event-store": "workspace:*",
+    "@eslint/js": "^9.10.0",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",

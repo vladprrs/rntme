@@ -13,6 +13,14 @@ immutable project-version bundle, converts the saved deploy target into
 `ProjectDeploymentConfig`, and then calls this package before handing the plan
 to a target adapter.
 
+deploy-core consumes manifest types from `@rntme/contracts-module-v1`
+(`ModuleManifest`, `ProvisionerBlock`, etc.) and the provisioner runtime
+contract from `@rntme/contracts-provisioner-v1` (`ProvisionerContract`,
+`ProvisionerInput`/`Output`, `ProvisionerLog`, `ProvisionerVendorError`,
+`ProvisionerEnvMapping`, `ResolvedEnvEntry`). deploy-core re-exports those
+contract types for convenience. The runtime helpers `runProvisioners` and
+`resolveEnvMappings` live here.
+
 ## Public API
 
 - `buildProjectDeploymentPlan(project, config, options?)` — creates a preview deployment

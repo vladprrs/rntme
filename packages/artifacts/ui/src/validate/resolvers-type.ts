@@ -1,4 +1,4 @@
-/** Mirrors `PropSchema` in `@rntme/module-skeleton` without a workspace dependency (avoids cycles). */
+/** Mirrors `PropSchema` in `@rntme/contracts-module-v1` without a workspace dependency (avoids cycles). */
 export type PropSchema = {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   required?: boolean;

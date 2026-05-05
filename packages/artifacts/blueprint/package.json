@@ -31,7 +31,7 @@
     "@rntme/seed": "workspace:*",
     "@rntme/ui": "workspace:*",
     "zod": "^4.0.0",
-    "@rntme/module-skeleton": "workspace:*"
+    "@rntme/contracts-module-v1": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -75,7 +75,7 @@ export const ERROR_CODES = {
 
 export type BlueprintErrorCode = keyof typeof ERROR_CODES;
 
-/** Mirrors @rntme/module-skeleton PropSchema for catalog typing without importing package in artifact. */
+/** Mirrors @rntme/contracts-module-v1 PropSchema for catalog typing without importing package in artifact. */
 export type PropSchema = {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   required?: boolean;
