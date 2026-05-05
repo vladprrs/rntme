@@ -13,8 +13,8 @@ export type DokployPartialFailureResource = {
   readonly logicalId: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway';
-  readonly infrastructureKind?: 'event-bus';
+  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway' | 'bpmn-worker';
+  readonly infrastructureKind?: 'event-bus' | 'workflow-engine';
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -25,7 +25,7 @@ export type DokployPartialFailureStep = {
   readonly resourceName: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly infrastructureKind?: 'event-bus';
+  readonly infrastructureKind?: 'event-bus' | 'workflow-engine';
 };
 
 export type DokployPartialFailureCleanup = {

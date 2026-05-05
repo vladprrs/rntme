@@ -135,6 +135,79 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
+  it('applies workflow engine before apps and BPMN worker before edge', async () => {
+    const client = new FakeDokployClient();
+    const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const workflowEngine: Extract<RenderedDokployResource, { kind: 'compose' }> = {
+      logicalId: 'workflow-engine',
+      kind: 'compose',
+      infrastructureKind: 'workflow-engine',
+      name: 'rntme-acme-commerce-operaton',
+      image: 'operaton/operaton:test',
+      composeFile: 'services:\n  operaton:\n    image: operaton/operaton:test\n',
+      env: [],
+      labels: { 'rntme.infrastructure': 'workflow-engine' },
+    };
+    const worker = resource({
+      logicalId: 'bpmn-worker',
+      workloadKind: 'bpmn-worker',
+      workloadSlug: 'bpmn-worker',
+      name: 'rntme-acme-commerce-bpmn-worker',
+      image: 'ghcr.io/acme/bpmn-worker:v1',
+      env: [],
+    });
+    const edge = resource({
+      logicalId: 'edge',
+      workloadKind: 'edge-gateway',
+      workloadSlug: 'edge',
+      name: 'rntme-acme-commerce-edge',
+      image: 'nginx:1.27-alpine',
+      env: [],
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [edge, worker, workflowEngine, rendered.resources[0], eventBus],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-event-bus',
+      'configure-compose:compose_1:rntme-acme-commerce-event-bus',
+      'deploy-compose:compose_1',
+      'create-compose:rntme-acme-commerce-operaton',
+      'configure-compose:compose_2:rntme-acme-commerce-operaton',
+      'deploy-compose:compose_2',
+      'create:rntme-acme-commerce-catalog',
+      'create:rntme-acme-commerce-bpmn-worker',
+      'create:rntme-acme-commerce-edge',
+      'configure:app_1:rntme-acme-commerce-catalog',
+      'deploy:app_1',
+      'start:app_1',
+      'inspect:app_1',
+      'configure:app_2:rntme-acme-commerce-bpmn-worker',
+      'deploy:app_2',
+      'start:app_2',
+      'inspect:app_2',
+      'configure:app_3:rntme-acme-commerce-edge',
+      'deploy:app_3',
+      'start:app_3',
+      'inspect:app_3',
+    ]);
+    expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
+      'event-bus',
+      'workflow-engine',
+      'catalog',
+      'bpmn-worker',
+      'edge',
+    ]);
+  });
+
   it('leaves matching compose resources unchanged', async () => {
     const client = new FakeDokployClient([], [
       {

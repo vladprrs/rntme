@@ -6,6 +6,7 @@ import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
+import { renderBpmnWorker, renderOperatonCompose } from './workflow-render.js';
 
 export type RenderedDokployProject =
   | { readonly mode: 'existing'; readonly projectId: string }
@@ -73,7 +74,7 @@ export type RenderedDokployApplicationResource = {
 export type RenderedDokployComposeResource = {
   readonly logicalId: string;
   readonly kind: 'compose';
-  readonly infrastructureKind: 'event-bus';
+  readonly infrastructureKind: 'event-bus' | 'workflow-engine';
   readonly name: string;
   readonly image: string;
   readonly composeFile: string;
@@ -118,7 +119,7 @@ export function renderDokployPlan(
 
   const upstreams = Object.fromEntries(
     plan.workloads
-      .filter((w) => w.kind !== 'edge-gateway')
+      .filter((w) => w.kind !== 'edge-gateway' && w.kind !== 'bpmn-worker')
       .map((w) => [
         w.slug,
         `http://${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, w.slug)}:${workloadHttpPort(w)}`,
@@ -219,7 +220,7 @@ export function renderDokployPlan(
   });
 }
 
-function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' }>): number {
+function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' | 'bpmn-worker' }>): number {
   return workload.kind === 'integration-module' ? 50052 : 3000;
 }
 
@@ -255,9 +256,12 @@ function resolveProject(config: DokployTargetConfig): RenderedDokployProject | n
 }
 
 function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
+  const resources: RenderedDokployResource[] = [];
   const eventBus = plan.infrastructure.eventBus;
-  if (eventBus.mode !== 'provisioned') return [];
-  return [renderRedpandaCompose(plan)];
+  if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
+  const workflowEngine = renderOperatonCompose(plan);
+  if (workflowEngine !== null) resources.push(workflowEngine);
+  return resources;
 }
 
 function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
@@ -325,6 +329,10 @@ function renderResource(
   workload: DeploymentWorkload,
   nginxConfig: string,
 ): RenderedDokployApplicationResource {
+  if (workload.kind === 'bpmn-worker') {
+    return renderBpmnWorker(plan, workload);
+  }
+
   const name = dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, workload.slug);
   const labels = dokployLabels(
     plan.project.orgSlug,
