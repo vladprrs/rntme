@@ -188,7 +188,7 @@ Platform contracts extraction wave — extracts `@rntme/contracts-{module,provis
 - [x] Browser module contract extracted to `@rntme/contracts-client-runtime-v1` (PR 3, merge `ba881b3`).
 - [x] Code-command-handler contract extracted to `@rntme/contracts-handlers-v1` (PR 4, merge `8e746ec`).
 - [x] `@rntme/module-skeleton` renamed to `@rntme/module-scaffold` with zero `@rntme/event-store` / `@rntme/runtime` deps (PR 5, merge `e96f161`).
-- [x] Dependency-cruiser CI guard pins the layering (PR 6, merge `<MERGE_SHA>`).
+- [x] Dependency-cruiser CI guard pins the layering (PR 6, merge `425a6db`).
 
 Wave closed by PR 6.
 
