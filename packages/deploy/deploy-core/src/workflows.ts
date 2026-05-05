@@ -60,7 +60,6 @@ export function planWorkflowEngine(input: {
     worker: {
       kind: 'bpmn-worker',
       slug: 'bpmn-worker',
-      serviceSlug: 'bpmn-worker',
       resourceName: workerResource,
       image: workflowConfig.worker.image,
       workflowManifestPath: '/srv/workflows/workflows.json',

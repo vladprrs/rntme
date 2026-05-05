@@ -89,7 +89,6 @@ export type PlannedWorkflowServiceTask = {
 export type BpmnWorkerWorkload = {
   readonly kind: 'bpmn-worker';
   readonly slug: 'bpmn-worker';
-  readonly serviceSlug: 'bpmn-worker';
   readonly resourceName: string;
   readonly image: string;
   readonly workflowManifestPath: '/srv/workflows/workflows.json';

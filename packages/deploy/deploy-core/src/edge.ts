@@ -1,7 +1,7 @@
 import type { ComposedProjectInput } from './composed-project.js';
 import type { DeploymentPolicyConfig, ProjectDeploymentConfig } from './config.js';
 import type { DeploymentPlanError } from './errors.js';
-import type { DeploymentWorkload } from './plan.js';
+import type { DeploymentWorkload, DomainServiceWorkload, IntegrationModuleWorkload } from './plan.js';
 import { applyVars, type ResolvedVars } from './vars.js';
 
 export type EdgeRoute = {
@@ -59,6 +59,7 @@ export type PlannedEdge = {
 };
 
 type SupportedMiddlewareKind = EdgeMiddleware['kind'];
+type RoutableWorkload = DomainServiceWorkload | IntegrationModuleWorkload;
 
 type MiddlewarePolicyByKind = {
   readonly 'request-context': NonNullable<DeploymentPolicyConfig['requestContext']>[string];
@@ -84,10 +85,10 @@ export function planEdge(
 ): { edge: PlannedEdge; errors: DeploymentPlanError[] } {
   const errors: DeploymentPlanError[] = [];
   const routes: EdgeRoute[] = [];
-  const workloadByService = new Map<string, DeploymentWorkload>();
+  const workloadByService = new Map<string, RoutableWorkload>();
 
   for (const workload of workloads) {
-    if (workload.kind !== 'edge-gateway') {
+    if (isRoutableWorkload(workload)) {
       workloadByService.set(workload.serviceSlug, workload);
     }
   }
@@ -140,6 +141,10 @@ export function planEdge(
       targetWorkload: workload.slug,
     });
   }
+}
+
+function isRoutableWorkload(workload: DeploymentWorkload): workload is RoutableWorkload {
+  return workload.kind === 'domain-service' || workload.kind === 'integration-module';
 }
 
 function planMiddleware(

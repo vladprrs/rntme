@@ -91,7 +91,6 @@ describe('workflow planning', () => {
     expect(result.value.workloads.find((workload) => workload.kind === 'bpmn-worker')).toEqual({
       kind: 'bpmn-worker',
       slug: 'bpmn-worker',
-      serviceSlug: 'bpmn-worker',
       resourceName: 'rntme-acme-order-fulfillment-bpmn-worker',
       image: 'ghcr.io/acme/bpmn-worker:v1',
       workflowManifestPath: '/srv/workflows/workflows.json',
@@ -186,6 +185,39 @@ describe('workflow planning', () => {
         expect.objectContaining({
           code: 'DEPLOY_PLAN_WORKFLOWS_WORKER_IMAGE_MISSING',
           path: 'workflows.worker.image',
+        }),
+      );
+    }
+  });
+
+  it('does not make the BPMN worker route-addressable', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        routes: {
+          http: { '/worker': 'bpmn-worker' },
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_ROUTE_TARGET_MISSING_WORKLOAD',
+          service: 'bpmn-worker',
+          route: '/worker',
         }),
       );
     }
