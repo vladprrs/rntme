@@ -679,12 +679,14 @@ async function buildRuntimeArtifactFiles(
 
   const files: Record<string, string> = {};
   const modules = runtimeModulesForService(project, serviceSlug);
+  const handlersModule = await optionalCommandHandlersModule(rootDir, serviceSlug);
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
     surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
     modules,
+    ...(handlersModule === null ? {} : { commands: { handlersModule } }),
   });
   for (const module of modules) {
     files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
@@ -699,12 +701,25 @@ async function buildRuntimeArtifactFiles(
   }
 
   await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  if (handlersModule !== null) {
+    await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/commands`, 'commands');
+  }
   Object.assign(files, uiBuildFiles);
   if (service.seed !== null) {
     await addOptionalTextFile(files, rootDir, `services/${serviceSlug}/seed/seed.json`, 'seed.json');
   }
 
   return files;
+}
+
+async function optionalCommandHandlersModule(rootDir: string, serviceSlug: string): Promise<string | null> {
+  try {
+    await readFile(join(rootDir, `services/${serviceSlug}/commands/handlers.mjs`), 'utf8');
+    return 'commands/handlers.mjs';
+  } catch (cause) {
+    if (errorCode(cause) === 'ENOENT') return null;
+    throw cause;
+  }
 }
 
 async function bundleVirtualEntrySource(

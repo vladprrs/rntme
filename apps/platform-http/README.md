@@ -150,6 +150,12 @@ Generated runtime `manifest.json` files for domain services enable both HTTP
 port `3000` and gRPC port `50051`. The BPMN worker uses those deterministic
 gRPC surfaces when calling workflow service-task command bindings.
 
+When a domain service blueprint includes `services/<slug>/commands/handlers.mjs`,
+the deploy executor copies that service's `commands/` directory into the
+runtime artifact files and emits
+`manifest.commands.handlersModule = "commands/handlers.mjs"`. Services without
+that entry keep the ordinary Graph IR command executor path.
+
 UI module client bundles are emitted as minified ESM chunks with source maps
 omitted from Dokploy file mounts. The Dokploy adapter lists existing
 application mounts through `mounts.listByServiceId` before create/update so

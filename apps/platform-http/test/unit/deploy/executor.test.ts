@@ -103,6 +103,13 @@ describe('runDeployment', () => {
         'services/api/ui/manifest.json': { version: '2.0', routes: {} },
         'services/api/seed/seed.json': [{ id: 'seed-1' }],
       },
+      bundleAssets: {
+        'services/api/commands/handlers.mjs': [
+          'export const handlers = {',
+          '  reserveInventory: async () => ({ events: [], result: { reserved: true } }),',
+          '};',
+        ].join('\n'),
+      },
       loadComposed: () => ({ ok: true, value: composedBlueprint() }),
       planProject: planProject as never,
     });
@@ -118,6 +125,7 @@ describe('runDeployment', () => {
     const input = calls[0]![0];
     const runtimeFiles = input.services.api.runtimeFiles;
     const manifest = JSON.parse(runtimeFiles['manifest.json']!) as {
+      commands?: { handlersModule?: string };
       surface?: {
         http?: { enabled: boolean; port: number };
         grpc?: { enabled: boolean; port: number };
@@ -133,9 +141,11 @@ describe('runDeployment', () => {
       http: { enabled: true, port: 3000 },
       grpc: { enabled: true, port: 50051 },
     });
+    expect(manifest.commands?.handlersModule).toBe('commands/handlers.mjs');
     expect(runtimeFiles['pdm.json']).toContain('"entities"');
     expect(runtimeFiles['qsm.json']).toContain('"projections"');
     expect(runtimeFiles['seed.json']).toContain('"seed-1"');
+    expect(runtimeFiles['commands/handlers.mjs']).toContain('reserveInventory');
     expect(runtimeFiles['shapes.json']).toContain('"NoteView"');
     expect(runtimeFiles['ui/manifest.json']).toContain('"2.0"');
     const uiBuildFiles = Object.entries(runtimeFiles).filter(([path]) => path.startsWith('ui-build/'));
