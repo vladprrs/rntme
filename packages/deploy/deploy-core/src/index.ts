@@ -24,6 +24,7 @@ export {
 } from './config.js';
 export {
   buildProjectDeploymentPlan,
+  type BuildPlanOptions,
   type DeploymentWarning,
   type DeploymentWorkload,
   type DomainServiceWorkload,
@@ -50,15 +51,25 @@ export type { DeploymentApplyErrorCode, DeploymentApplyError } from './errors-ap
 export { DEPLOY_VERIFY_ERROR_CODES } from './errors-verify.js';
 export type { DeploymentVerifyErrorCode, DeploymentVerifyError } from './errors-verify.js';
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
-export { resolveVars, applyVars } from './vars.js';
-export type { VarBinding, VarsManifest, ResolvedVars, TargetForVars } from './vars.js';
+export { resolveVars, resolveTargetVarsOnly, applyVars, targetForVars } from './vars.js';
+export type {
+  DiscoveredModulesForVars,
+  ProvisionResultForVars,
+  ResolvedVars,
+  TargetForVars,
+  VarBinding,
+  VarsManifest,
+} from './vars.js';
 export type {
   ProvisionerContract,
   ProvisionerInput,
   ProvisionerOutput,
   ProvisionerLog,
   ProvisionerVendorError,
-} from './provisioner-contract.js';
+  EnvMappingEntry,
+  ProvisionerEnvMapping,
+  ResolvedEnvEntry,
+} from '@rntme/contracts-provisioner-v1';
 export { DEPLOY_PROVISION_ERROR_CODES } from './errors-provision.js';
 export type { DeploymentProvisionErrorCode, DeploymentProvisionError } from './errors-provision.js';
 export { runProvisioners } from './provision.js';
@@ -70,4 +81,3 @@ export type {
   ProvisionedModule,
 } from './provision.js';
 export { resolveEnvMappings } from './provisioner-env-mapping.js';
-export type { EnvMappingEntry, ProvisionerEnvMapping, ResolvedEnvEntry } from './provisioner-env-mapping.js';

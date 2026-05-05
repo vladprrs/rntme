@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { provision, tearDown, ENV_MAPPINGS } from '../../src/provisioner.js';
 
+type FetchFn = typeof globalThis.fetch;
+type RequestInitLike = globalThis.RequestInit;
+
 const baseInput = {
   publicConfig: {
     appName: 'test-organization-notes-demo-default',
@@ -15,13 +18,13 @@ const baseInput = {
     auth0Mgmt: { tenantDomain: 'demo.us.auth0.com', mgmtClientId: 'a', mgmtClientSecret: 'b' },
   },
   log: () => undefined,
-  signal: new AbortController().signal,
+  signal: new globalThis.AbortController().signal,
 };
 
 describe('provision — create path', () => {
   it('creates SPA client + Resource Server + M2M when none exist', async () => {
     const calls: { method: string; path: string; body?: unknown }[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       calls.push({ method: init?.method ?? 'GET', path: u.pathname + u.search, body: init?.body });
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
@@ -42,7 +45,7 @@ describe('provision — create path', () => {
       throw new Error(`unhandled ${u.pathname}`);
     });
 
-    const out = await provision({ ...baseInput, fetch: fetcher as typeof fetch });
+    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.value.publicOutputs).toMatchObject({
@@ -64,7 +67,7 @@ describe('provision — create path', () => {
 describe('provision — reconcile path', () => {
   it('PATCHes a SPA client whose token_endpoint_auth_method differs from desired', async () => {
     let patchCalled = false;
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/clients' && u.searchParams.get('name')?.includes('m2m')) return new Response('[]', { status: 200 });
@@ -91,21 +94,123 @@ describe('provision — reconcile path', () => {
       if (u.pathname === '/api/v2/clients' && init?.method === 'POST') return new Response(JSON.stringify({ client_id: 'm2m_c', name: 'm2m', client_secret: 's' }), { status: 201 });
       if (u.pathname === '/api/v2/resource-servers' && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify([{ id: 'rs_1', identifier: baseInput.publicConfig.audience, name: `${baseInput.publicConfig.appName} API`, signing_alg: 'RS256', token_dialect: 'access_token_authz', enforce_policies: true }]), { status: 200 });
       if (u.pathname.startsWith('/api/v2/resource-servers/') && init?.method === 'PATCH') return new Response(JSON.stringify({ id: 'rs_1', identifier: baseInput.publicConfig.audience }), { status: 200 });
-      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_existing'] }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients') return new Response(JSON.stringify([{ client_id: 'spa_existing' }]), { status: 200 });
       if (u.pathname === '/api/v2/client-grants' && (!init?.method || init.method === 'GET')) return new Response('[{"id":"g","client_id":"m2m_c","audience":"https://notes-demo.rntme.com/api","scope":["read:resource_servers"]}]', { status: 200 });
       throw new Error(`unhandled ${u.pathname}`);
     });
 
-    const out = await provision({ ...baseInput, fetch: fetcher as typeof fetch });
+    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
     expect(out.ok).toBe(true);
     expect(patchCalled).toBe(true);
+  });
+});
+
+describe('provision — optional field defaults', () => {
+  it('runs end-to-end when publicConfig omits allowedOrigins, allowedLogoutUrls, organizationsCapability, m2mClients', async () => {
+    let spaPostBody: Record<string, unknown> | undefined;
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/clients' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        if (body.app_type === 'spa') spaPostBody = body;
+        return new Response(JSON.stringify({ client_id: `cid_${body.app_type}`, ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/resource-servers' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/resource-servers' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        return new Response(JSON.stringify({ id: 'rs_1', ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname.startsWith('/api/v2/connections/conn_1/clients/') && init?.method === 'POST') return new Response(null, { status: 204 });
+      throw new Error(`unhandled ${u.pathname}`);
+    });
+
+    const minimalConfig = {
+      appName: 'my-app',
+      redirectUri: 'https://example.test/callback',
+      audience: 'https://example.test/api',
+      // allowedOrigins, allowedLogoutUrls, organizationsCapability, m2mClients all omitted
+    };
+    const out = await provision({
+      ...baseInput,
+      publicConfig: minimalConfig as never,
+      fetch: fetcher as FetchFn,
+    });
+    expect(out.ok).toBe(true);
+    expect(spaPostBody).toBeDefined();
+    // Origin should be derived from redirectUri.
+    expect(spaPostBody!.web_origins).toEqual(['https://example.test']);
+    expect(spaPostBody!.allowed_origins).toEqual(['https://example.test']);
+    expect(spaPostBody!.allowed_logout_urls).toEqual(['https://example.test/callback']);
+    expect(spaPostBody!.organization_usage).toBe('allow');
+    if (out.ok) {
+      // No M2M clients declared → no secret M2M outputs.
+      expect(out.value.secretOutputs.m2mClients).toEqual([]);
+    }
+  });
+});
+
+describe('provision — reconcile resource server', () => {
+  it('PATCH /resource-servers/{id} body excludes immutable identifier and id', async () => {
+    let rsPatchBody: Record<string, unknown> | undefined;
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/clients' && u.searchParams.get('name')?.includes('m2m')) {
+        return new Response(JSON.stringify([{ client_id: 'm2m_c', name: 'test-organization-notes-demo-default-m2m-introspect', app_type: 'non_interactive', grant_types: ['client_credentials'], token_endpoint_auth_method: 'client_secret_post' }]), { status: 200 });
+      }
+      if (u.pathname === '/api/v2/clients' && (!init?.method || init.method === 'GET')) {
+        return new Response(JSON.stringify([{
+          client_id: 'spa_x', name: baseInput.publicConfig.appName,
+          app_type: 'spa', token_endpoint_auth_method: 'none',
+          grant_types: ['authorization_code', 'refresh_token'],
+          callbacks: [baseInput.publicConfig.redirectUri],
+          web_origins: baseInput.publicConfig.allowedOrigins,
+          allowed_origins: baseInput.publicConfig.allowedOrigins,
+          allowed_logout_urls: baseInput.publicConfig.allowedLogoutUrls,
+          organization_usage: 'allow',
+        }]), { status: 200 });
+      }
+      // Existing resource server has stale `name`, forcing reconcileResourceServer to PATCH.
+      if (u.pathname === '/api/v2/resource-servers' && (!init?.method || init.method === 'GET')) {
+        return new Response(JSON.stringify([{
+          id: 'rs_1',
+          identifier: baseInput.publicConfig.audience,
+          name: 'old-stale-name',
+          signing_alg: 'RS256',
+          token_dialect: 'access_token_authz',
+          enforce_policies: true,
+        }]), { status: 200 });
+      }
+      if (u.pathname.startsWith('/api/v2/resource-servers/') && init?.method === 'PATCH') {
+        rsPatchBody = JSON.parse(String(init.body));
+        return new Response(JSON.stringify({ id: 'rs_1', identifier: baseInput.publicConfig.audience, name: `${baseInput.publicConfig.appName} API` }), { status: 200 });
+      }
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients') return new Response(JSON.stringify([{ client_id: 'spa_x' }]), { status: 200 });
+      if (u.pathname === '/api/v2/client-grants') return new Response(JSON.stringify([{ id: 'g', client_id: 'm2m_c', audience: baseInput.publicConfig.audience, scope: ['read:resource_servers'] }]), { status: 200 });
+      throw new Error(`unhandled ${u.pathname}`);
+    });
+
+    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
+    expect(out.ok).toBe(true);
+    expect(rsPatchBody).toBeDefined();
+    // Auth0 PATCH /resource-servers/{id} rejects identifier (and id) as
+    // "Additional properties not allowed". Both must be absent from the body.
+    expect(rsPatchBody!).not.toHaveProperty('identifier');
+    expect(rsPatchBody!).not.toHaveProperty('id');
+    expect(rsPatchBody!.name).toBe(`${baseInput.publicConfig.appName} API`);
   });
 });
 
 describe('provision — no-op path', () => {
   it('issues zero PATCH/POST when state is already converged', async () => {
     const mutations: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       const method = init?.method ?? 'GET';
       if ((method === 'POST' || method === 'PATCH') && u.pathname.startsWith('/api/v2/')) mutations.push(`${method} ${u.pathname}`);
@@ -127,7 +232,8 @@ describe('provision — no-op path', () => {
         }]), { status: 200 });
       }
       if (u.pathname === '/api/v2/resource-servers') return new Response(JSON.stringify([{ id: 'rs_1', identifier: baseInput.publicConfig.audience, name: `${baseInput.publicConfig.appName} API`, signing_alg: 'RS256', token_dialect: 'access_token_authz', enforce_policies: true }]), { status: 200 });
-      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x'] }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients') return new Response(JSON.stringify([{ client_id: 'spa_x' }]), { status: 200 });
       if (u.pathname === '/api/v2/client-grants') return new Response(JSON.stringify([{ id: 'g', client_id: 'm2m_c', audience: baseInput.publicConfig.audience, scope: ['read:resource_servers'] }]), { status: 200 });
       throw new Error(`unhandled ${u.pathname}`);
     });
@@ -138,7 +244,7 @@ describe('provision — no-op path', () => {
         publicOutputs: { spaClient: { id: 'spa_x', name: baseInput.publicConfig.appName }, resourceServer: { id: 'rs_1', identifier: baseInput.publicConfig.audience } },
         secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'kept' }] },
       },
-      fetch: fetcher as typeof fetch,
+      fetch: fetcher as FetchFn,
     });
 
     expect(out.ok).toBe(true);
@@ -149,7 +255,7 @@ describe('provision — no-op path', () => {
 describe('provision — idempotence', () => {
   it('twice in a row produces identical outputs and zero extra mutations', async () => {
     const mutations: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       const method = init?.method ?? 'GET';
       if ((method === 'POST' || method === 'PATCH') && u.pathname.startsWith('/api/v2/')) mutations.push(`${method} ${u.pathname}`);
@@ -171,7 +277,8 @@ describe('provision — idempotence', () => {
         }]), { status: 200 });
       }
       if (u.pathname === '/api/v2/resource-servers') return new Response(JSON.stringify([{ id: 'rs_1', identifier: baseInput.publicConfig.audience, name: `${baseInput.publicConfig.appName} API`, signing_alg: 'RS256', token_dialect: 'access_token_authz', enforce_policies: true }]), { status: 200 });
-      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x'] }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients') return new Response(JSON.stringify([{ client_id: 'spa_x' }]), { status: 200 });
       if (u.pathname === '/api/v2/client-grants') return new Response(JSON.stringify([{ id: 'g', client_id: 'm2m_c', audience: baseInput.publicConfig.audience, scope: ['read:resource_servers'] }]), { status: 200 });
       throw new Error(`unhandled ${u.pathname}`);
     });
@@ -181,9 +288,9 @@ describe('provision — idempotence', () => {
       secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'kept' }] },
     };
 
-    const a = await provision({ ...baseInput, priorOutputs, fetch: fetcher as typeof fetch });
+    const a = await provision({ ...baseInput, priorOutputs, fetch: fetcher as FetchFn });
     const mutationsAfterFirst = [...mutations];
-    const b = await provision({ ...baseInput, priorOutputs, fetch: fetcher as typeof fetch });
+    const b = await provision({ ...baseInput, priorOutputs, fetch: fetcher as FetchFn });
 
     expect(a.ok && b.ok).toBe(true);
     if (a.ok && b.ok) {
@@ -208,7 +315,7 @@ describe('ENV_MAPPINGS', () => {
 describe('tearDown', () => {
   it('deletes M2M clients, client-grants, resource server, and SPA client', async () => {
     const deletes: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (init?.method === 'DELETE') {
@@ -219,7 +326,7 @@ describe('tearDown', () => {
       if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x', 'other_app'] }]), { status: 200 });
       if (u.pathname.startsWith('/api/v2/connections/')) return new Response('{}', { status: 200 });
       throw new Error(`unhandled ${u.pathname}`);
-    }) as unknown as typeof fetch;
+    }) as unknown as FetchFn;
     const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
       secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'shh' }] },
@@ -231,36 +338,44 @@ describe('tearDown', () => {
     expect(deletes).toContain('/api/v2/clients/spa_x');
   });
 
-  it('does not remove other clients from connection.enabled_clients', async () => {
-    let connectionPatch: { enabled_clients?: string[] } | null = null;
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+  it('disables only the SPA client from the connection, leaving others untouched', async () => {
+    // Auth0 deprecated PATCH /connections.enabled_clients in favor of
+    // dedicated DELETE /connections/{id}/clients/{clientId}. tearDown must
+    // call the dedicated endpoint targeting only the SPA being removed —
+    // there is no "list-and-rewrite" path that could accidentally drop
+    // sibling clients (`other_app`).
+    const deletes: string[] = [];
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
-      if (u.pathname === '/api/v2/connections' && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication', enabled_clients: ['spa_x', 'other_app'] }]), { status: 200 });
-      if (u.pathname === '/api/v2/connections/conn_1' && init?.method === 'PATCH') {
-        connectionPatch = JSON.parse(String(init.body));
-        return new Response('{}', { status: 200 });
+      if (u.pathname === '/api/v2/connections' && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (init?.method === 'DELETE') {
+        deletes.push(u.pathname);
+        return new Response(null, { status: 204 });
       }
-      if (init?.method === 'DELETE') return new Response('{}', { status: 200 });
       if (u.pathname === '/api/v2/client-grants') return new Response('[]', { status: 200 });
       throw new Error(`unhandled ${u.pathname}`);
-    }) as unknown as typeof fetch;
-    await tearDown({ ...baseInput, priorOutputs: {
+    }) as unknown as FetchFn;
+    const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' } },
       secretOutputs: { m2mClients: [] },
     }, fetch: fetcher });
-    expect((connectionPatch as { enabled_clients?: string[] } | null)?.enabled_clients).toEqual(['other_app']);
+    expect(r.ok).toBe(true);
+    expect(deletes).toContain('/api/v2/connections/conn_1/clients/spa_x');
+    // No DELETE targeting `other_app` — the old code path that rewrote the
+    // full enabled_clients list would have been the only way to disturb it.
+    expect(deletes.some((p) => p.endsWith('/clients/other_app'))).toBe(false);
   });
 
   it('treats 404 on delete as success (idempotent)', async () => {
-    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/connections') return new Response('[]', { status: 200 });
       if (u.pathname === '/api/v2/client-grants') return new Response('[]', { status: 200 });
       if (init?.method === 'DELETE') return new Response('', { status: 404 });
       throw new Error(`unhandled ${u.pathname}`);
-    }) as unknown as typeof fetch;
+    }) as unknown as FetchFn;
     const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
       secretOutputs: { m2mClients: [{ name: 'a', clientId: 'm', clientSecret: 's' }] },

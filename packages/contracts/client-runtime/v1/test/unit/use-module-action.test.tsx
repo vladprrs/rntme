@@ -3,8 +3,8 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { RegistryProvider, useModuleAction } from '../../src/client/hooks.js';
-import { createOperationRegistry } from '../../src/client/operation-registry.js';
+import { RegistryProvider, useModuleAction } from '../../src/hooks.js';
+import { createOperationRegistry } from '../../src/operation-registry.js';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;

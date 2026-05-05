@@ -1,4 +1,4 @@
-import type { ModuleBootContext } from '@rntme/ui-runtime/client';
+import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
 
 declare global {
   var gtag: ((...args: unknown[]) => void) | undefined;

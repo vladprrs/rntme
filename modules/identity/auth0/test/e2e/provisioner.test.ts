@@ -23,7 +23,7 @@ describe.skipIf(!ENABLED)('provisioner — Auth0 E2E', () => {
       },
       targetSecrets: { auth0Mgmt: { tenantDomain: TENANT, mgmtClientId: CLIENT_ID, mgmtClientSecret: CLIENT_SECRET } },
       log: () => undefined,
-      signal: new AbortController().signal,
+      signal: new globalThis.AbortController().signal,
     };
 
     const first = await provision(input);

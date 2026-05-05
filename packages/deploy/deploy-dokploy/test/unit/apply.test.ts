@@ -161,6 +161,33 @@ describe('applyDokployPlan', () => {
     expect(client.updateComposeCalls).toEqual([]);
   });
 
+  it('leaves matching compose resources unchanged when env order differs', async () => {
+    const baseCompose = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const compose = {
+      ...baseCompose,
+      env: [
+        { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
+        { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda:9092', secret: false },
+      ],
+    };
+    const client = new FakeDokployClient([], [
+      {
+        id: 'compose_existing',
+        name: compose.name,
+        image: compose.image,
+        composeFile: compose.composeFile,
+        env: [...compose.env].reverse(),
+        labels: compose.labels,
+      },
+    ]);
+    const r = await applyDokployPlan({ ...renderedWithCompose, resources: [compose] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]?.action).toBe('unchanged');
+    expect(client.updateComposeCalls).toEqual([]);
+  });
+
   it('configures and deploys created applications before returning success', async () => {
     const client = new FakeDokployClient();
     const resourceWithRuntimeConfig = resource({
@@ -325,6 +352,57 @@ describe('applyDokployPlan', () => {
       action: 'unchanged',
     });
     expect(client.updateCalls).toEqual([]);
+  });
+
+  it('leaves existing applications unchanged when env order differs', async () => {
+    const resourceWithEnv = resource({
+      env: [
+        { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
+        { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda.internal:9092', secret: false },
+      ],
+    });
+    const client = new FakeDokployClient([
+      {
+        id: 'app_existing',
+        name: resourceWithEnv.name,
+        image: resourceWithEnv.image,
+        env: [...resourceWithEnv.env].reverse(),
+        labels: resourceWithEnv.labels,
+      },
+    ]);
+    const r = await applyDokployPlan({ ...rendered, resources: [resourceWithEnv] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]?.action).toBe('unchanged');
+    expect(client.updateCalls).toEqual([]);
+  });
+
+  it('updates existing applications when env values drift', async () => {
+    const resourceWithEnv = resource({
+      env: [
+        { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
+        { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda.internal:9092', secret: false },
+      ],
+    });
+    const client = new FakeDokployClient([
+      {
+        id: 'app_existing',
+        name: resourceWithEnv.name,
+        image: resourceWithEnv.image,
+        env: [
+          { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
+          { name: 'RNTME_EVENT_BUS_BROKERS', value: 'old-redpanda.internal:9092', secret: false },
+        ],
+        labels: resourceWithEnv.labels,
+      },
+    ]);
+    const r = await applyDokployPlan({ ...rendered, resources: [resourceWithEnv] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]?.action).toBe('updated');
+    expect(client.updateCalls).toHaveLength(1);
   });
 
   it('updates existing resources when comparable current state differs', async () => {
@@ -500,6 +578,53 @@ describe('applyDokployPlan', () => {
     expect(client.updateCalls).toEqual([]);
   });
 
+  it('leaves existing resources unchanged when rendered ports and ingress routes match in a different order', async () => {
+    const resourceWithMetadata = resource({
+      image: 'rntme-acme-commerce-catalog:artifact',
+      ports: [
+        { containerPort: 8080, protocol: 'http' },
+        { containerPort: 9090, protocol: 'http' },
+      ],
+      ingress: {
+        publicBaseUrl: 'https://commerce.example.com',
+        containerPort: 8080,
+        healthPath: '/health',
+        routes: [
+          {
+            routeId: 'http:/api/catalog',
+            path: '/api/catalog',
+            url: 'https://commerce.example.com/api/catalog',
+          },
+          {
+            routeId: 'http:/api/catalog/search',
+            path: '/api/catalog/search',
+            url: 'https://commerce.example.com/api/catalog/search',
+          },
+        ],
+      },
+    });
+    const client = new FakeDokployClient([
+      {
+        id: 'app_existing',
+        name: resourceWithMetadata.name,
+        image: resourceWithMetadata.image,
+        env: resourceWithMetadata.env,
+        labels: resourceWithMetadata.labels,
+        ports: [...resourceWithMetadata.ports!].reverse(),
+        ingress: {
+          ...resourceWithMetadata.ingress!,
+          routes: [...resourceWithMetadata.ingress!.routes].reverse(),
+        },
+      },
+    ]);
+    const r = await applyDokployPlan({ ...rendered, resources: [resourceWithMetadata] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]?.action).toBe('unchanged');
+    expect(client.updateCalls).toEqual([]);
+  });
+
   it('returns partial failure metadata with applied resources and retry safety', async () => {
     const client = new FakeDokployClient(
       [{ id: 'app_existing', name: 'rntme-acme-commerce-billing' }],
@@ -525,8 +650,8 @@ describe('applyDokployPlan', () => {
           code: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
           message: 'failed while applying resource "rntme-acme-commerce-search"',
           resource: 'rntme-acme-commerce-search',
-          partialFailure: {
-            createdResources: [],
+          partialFailure: expect.objectContaining({
+            createdResources: [expect.objectContaining({ targetResourceId: 'app_1' })],
             updatedResources: [],
             failedStep: {
               action: 'find',
@@ -534,11 +659,79 @@ describe('applyDokployPlan', () => {
               resourceKind: 'application',
               workloadSlug: 'search',
             },
+            cleanup: expect.objectContaining({
+              deletedResources: [expect.objectContaining({ targetResourceId: 'app_1' })],
+              errors: [],
+            }),
             retrySafe: true,
-          },
+          }),
         }),
       );
       expect(JSON.stringify(r.errors)).not.toContain('dokploy-token-secret');
+    }
+  });
+
+  it('cleans up resources created earlier in the same apply when a later create fails', async () => {
+    const client = new FakeDokployClient([], [], {
+      failCreateFor: 'rntme-acme-commerce-search',
+    });
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [
+          resource({ logicalId: 'catalog', workloadSlug: 'catalog', name: 'rntme-acme-commerce-catalog' }),
+          resource({ logicalId: 'search', workloadSlug: 'search', name: 'rntme-acme-commerce-search' }),
+        ],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      const error = r.errors[0]!;
+      expect(client.deletedApplications).toEqual(['app_1']);
+      expect(error.partialFailure?.cleanup).toMatchObject({
+        attempted: true,
+        deletedResources: [expect.objectContaining({ targetResourceId: 'app_1' })],
+        warnings: [],
+        errors: [],
+      });
+      expect(error.partialFailure?.retrySafe).toBe(true);
+    }
+  });
+
+  it('records cleanup errors and marks retry safety false when rollback deletion fails', async () => {
+    const client = new FakeDokployClient([], [], {
+      failCreateFor: 'rntme-acme-commerce-search',
+      failDeleteApplicationFor: 'app_1',
+    });
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [
+          resource({ logicalId: 'catalog', workloadSlug: 'catalog', name: 'rntme-acme-commerce-catalog' }),
+          resource({ logicalId: 'search', workloadSlug: 'search', name: 'rntme-acme-commerce-search' }),
+        ],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      const error = r.errors[0]!;
+      expect(client.deletedApplications).toEqual(['app_1']);
+      expect(error.partialFailure?.cleanup).toMatchObject({
+        attempted: true,
+        deletedResources: [],
+        errors: [
+          expect.objectContaining({
+            code: 'DEPLOY_APPLY_DOKPLOY_API_ERROR',
+            resource: 'rntme-acme-commerce-catalog',
+          }),
+        ],
+      });
+      expect(error.partialFailure?.retrySafe).toBe(false);
+      expect(JSON.stringify(error.partialFailure?.cleanup)).not.toContain('dokploy-token-secret');
     }
   });
 
@@ -753,6 +946,8 @@ class FakeDokployClient implements DokployClient {
   readonly deployCalls: Array<{ readonly applicationId: string }> = [];
   readonly startCalls: Array<{ readonly applicationId: string }> = [];
   readonly lifecycleCalls: string[] = [];
+  readonly deletedApplications: string[] = [];
+  readonly deletedComposes: string[] = [];
 
   private next = 1;
 
@@ -767,6 +962,8 @@ class FakeDokployClient implements DokployClient {
       readonly failConfigureFor?: string;
       readonly failDeployFor?: string;
       readonly failStartFor?: string;
+      readonly failDeleteApplicationFor?: string;
+      readonly failDeleteComposeFor?: string;
       readonly inspectStatus?: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
       readonly failMessage?: string;
       readonly includeSecretFixture?: boolean;
@@ -900,8 +1097,15 @@ class FakeDokployClient implements DokployClient {
     this.lifecycleCalls.push(`deploy-compose:${composeId}`);
   }
 
-  async deleteApplication(_applicationId: string): Promise<void> {}
-  async deleteCompose(_composeId: string): Promise<void> {}
+  async deleteApplication(applicationId: string): Promise<void> {
+    this.deletedApplications.push(applicationId);
+    if (this.failures.failDeleteApplicationFor === applicationId) throw secretError('delete app failed');
+  }
+
+  async deleteCompose(composeId: string): Promise<void> {
+    this.deletedComposes.push(composeId);
+    if (this.failures.failDeleteComposeFor === composeId) throw secretError('delete compose failed');
+  }
 }
 
 function resource(overrides: Partial<RenderedDokployResource>): RenderedDokployResource {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchRoute, expandTemplate, type RouteMatch } from '../../src/client/router.js';
+import { matchRoute, expandTemplate } from '../../src/router.js';
 
 describe('matchRoute', () => {
   const patterns = ['/', '/issues', '/issues/browse', '/issues/:id'];

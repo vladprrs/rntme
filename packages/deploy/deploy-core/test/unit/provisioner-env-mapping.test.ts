@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEnvMappings, type ProvisionerEnvMapping } from '../../src/provisioner-env-mapping.js';
+import { resolveEnvMappings } from '../../src/provisioner-env-mapping.js';
+import type { ProvisionerEnvMapping } from '@rntme/contracts-provisioner-v1';
 import type { ProvisionedModule } from '../../src/provision.js';
 
 const mod: ProvisionedModule = {

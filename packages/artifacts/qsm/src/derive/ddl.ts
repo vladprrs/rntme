@@ -1,7 +1,6 @@
 import type { PdmResolver, ResolvedEntity, ScalarPrimitive } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
 import { isDerivedSource, isEntityMirrorSource } from '../types/artifact.js';
-import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
 
 /**
@@ -207,7 +206,12 @@ function buildSpec(
   proj: Projection,
   entity: ResolvedEntity,
 ): ProjectionDdlSpec {
-  const tableName = proj.table ?? defaultTableName(projName);
+  // Entity-mirror projections default to the underlying PDM entity table.
+  // Cross-ref validation normalizes the resolver's projection table to the
+  // same value when `proj.table` is absent, so emitted DDL and compiled reads
+  // stay aligned. Falling back to `defaultTableName(projName)` here would
+  // recreate the PR4 "created one table, queried another" failure.
+  const tableName = proj.table ?? entity.table;
   const keySet = new Set(proj.keys);
   const columns: ColumnSpec[] = entity.fields.map((f) => ({
     name: f.column,

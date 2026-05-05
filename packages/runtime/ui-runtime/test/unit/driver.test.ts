@@ -175,7 +175,7 @@ describe('createDriver', () => {
 
 describe('driver — module-action dispatch', () => {
   it('dispatches component-bound op via target', async () => {
-    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const reg = createOperationRegistry();
     const handler = vi.fn();
     reg.registerComponent('editor', { toggleBold: handler });
@@ -193,7 +193,7 @@ describe('driver — module-action dispatch', () => {
   });
 
   it('dispatches module-level op via module', async () => {
-    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const reg = createOperationRegistry();
     const handler = vi.fn();
     reg.registerModule('@rntme/x', 'track', handler);
@@ -214,7 +214,7 @@ describe('driver — module-action dispatch', () => {
 describe('registry — module-action dispatch', () => {
   it('dispatches module actions through json-render dispatch handlers', async () => {
     const { createRegistry } = await import('../../src/client/registry.js');
-    const { createOperationRegistry } = await import('../../src/client/operation-registry.js');
+    const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const operationRegistry = createOperationRegistry();
     const handler = vi.fn();
     operationRegistry.registerModule('@rntme/analytics-google-analytics', 'track', handler);

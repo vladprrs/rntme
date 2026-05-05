@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
@@ -14,53 +13,55 @@ import type { CommandExecutor } from '../../src/executor-contract.js';
 import { makeCommandHandler } from '../../src/runtime/command-handler.js';
 import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
 import { honoPath } from '../../src/startup/hono-path.js';
+import { loadJson, parseGraphRuntimeInputs } from '../helpers/runtime-artifacts.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
-const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
-const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json'));
-const qsm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json'));
-
-const reportSpec = {
-  version: '1.0-rc7',
-  pdmRef: 'p',
-  qsmRef: 'q',
-  shapes: {},
-  graphs: {
-    reportIssue: {
-      id: 'reportIssue',
-      signature: {
-        inputs: {
-          issueId: { type: 'integer', mode: 'required' },
-          projectId: { type: 'integer', mode: 'required' },
-          reporterId: { type: 'integer', mode: 'required' },
-          title: { type: 'string', mode: 'required' },
-          priority: { type: 'string', mode: 'required' },
-          storyPoints: { type: 'integer', mode: 'required' },
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: {
+    version: '1.0-rc7',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    shapes: {},
+    graphs: {
+      reportIssue: {
+        id: 'reportIssue',
+        signature: {
+          inputs: {
+            issueId: { type: 'integer', mode: 'required' },
+            projectId: { type: 'integer', mode: 'required' },
+            reporterId: { type: 'integer', mode: 'required' },
+            title: { type: 'string', mode: 'required' },
+            priority: { type: 'string', mode: 'required' },
+            storyPoints: { type: 'integer', mode: 'required' },
+          },
+          output: { type: 'row<CommandResult>', from: 'e' },
         },
-        output: { type: 'row<CommandResult>', from: 'e' },
-      },
-      nodes: [
-        {
-          id: 'e',
-          type: 'emit',
-          config: {
-            aggregate: 'Issue',
-            aggregateId: { $param: 'issueId' },
-            transition: 'report',
-            payload: {
-              title: { $param: 'title' },
-              projectId: { $param: 'projectId' },
-              reporterId: { $param: 'reporterId' },
-              priority: { $param: 'priority' },
-              storyPoints: { $param: 'storyPoints' },
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $param: 'issueId' },
+              transition: 'report',
+              payload: {
+                title: { $param: 'title' },
+                projectId: { $param: 'projectId' },
+                reporterId: { $param: 'reporterId' },
+                priority: { $param: 'priority' },
+                storyPoints: { $param: 'storyPoints' },
+              },
             },
           },
-        },
-      ],
+        ],
+      },
     },
   },
-};
+  pdm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json')),
+  qsm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json')),
+});
+const { graphSpec: reportSpec, pdm, qsm } = runtimeInputs;
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) =>

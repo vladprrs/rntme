@@ -190,6 +190,23 @@ describe('startService', () => {
     ).rejects.toMatchObject({ code: 'RUNTIME_BOOT_AUTH_ENDPOINT_MISSING' });
   });
 
+  it('rejects invalid RuntimeConfig before booting resources', async () => {
+    const loaded = loadService(fixtureDir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+
+    await expect(
+      startService(loaded.value, { bus: {} as EventBus }),
+    ).rejects.toMatchObject({
+      code: 'RUNTIME_CONFIG_INVALID',
+      errors: [
+        expect.objectContaining({
+          code: 'RUNTIME_CONFIG_EVENT_BUS_INVALID',
+          path: 'bus',
+        }),
+      ],
+    });
+  });
+
   it('boots a GrpcSurface alongside HttpSurface when manifest.surface.grpc.enabled', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));

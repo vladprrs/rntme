@@ -6,14 +6,56 @@ export type RuntimeErrorEntry = {
   cause: unknown;
 };
 
+export const BINDINGS_HTTP_STARTUP_ERROR_CODES = {
+  MISSING_RUNTIME_DEPENDENCY: 'BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY',
+} as const;
+
+export type StartupDependencyName =
+  | 'eventStore'
+  | 'commandExecutor'
+  | 'externalAdapterClient';
+
+export type MissingRuntimeDependencyCause = Readonly<{
+  code: typeof BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY;
+  dependency: StartupDependencyName;
+  message: string;
+}>;
+
 export class BindingsRuntimeError extends Error {
   readonly errors: readonly RuntimeErrorEntry[];
 
   constructor(errors: readonly RuntimeErrorEntry[]) {
-    super(`Failed to initialize bindings runtime: ${errors.length} binding(s) could not be compiled`);
+    const firstCause = errors[0]?.cause;
+    const causeMessage =
+      errors.length === 1 &&
+      typeof firstCause === 'object' &&
+      firstCause !== null &&
+      'code' in firstCause &&
+      firstCause.code === BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY &&
+      'message' in firstCause &&
+      typeof firstCause.message === 'string'
+        ? firstCause.message
+        : null;
+    super(
+      causeMessage === null
+        ? `Failed to initialize bindings runtime: ${errors.length} binding(s) could not be compiled`
+        : `Failed to initialize bindings runtime: ${causeMessage}`,
+    );
     this.name = 'BindingsRuntimeError';
     this.errors = errors;
   }
+}
+
+export function missingRuntimeDependencyError(
+  entry: Pick<RuntimeErrorEntry, 'bindingId' | 'graphId'>,
+  dependency: StartupDependencyName,
+): BindingsRuntimeError {
+  const cause: MissingRuntimeDependencyCause = {
+    code: BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY,
+    dependency,
+    message: `${dependency} is required for this bindings runtime configuration`,
+  };
+  return new BindingsRuntimeError([{ ...entry, cause }]);
 }
 
 export type ErrorResponseBody = {

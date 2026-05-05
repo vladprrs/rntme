@@ -1,0 +1,44 @@
+{
+  "name": "@rntme/contracts-module-v1",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Module manifest contract — the JSON shape every rntme module exposes via module.json: capabilities, secrets, edge auth, client block, provisioner block.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladprrs/rntme.git",
+    "directory": "packages/contracts/module/v1"
+  },
+  "bugs": {
+    "url": "https://github.com/vladprrs/rntme/issues"
+  },
+  "homepage": "https://github.com/vladprrs/rntme#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

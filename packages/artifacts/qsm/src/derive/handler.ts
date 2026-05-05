@@ -1,7 +1,6 @@
 import type { PdmResolver, ResolvedEntity, EventTypeSpec } from '@rntme/pdm';
 import type { ValidatedQsm, Projection } from '../types/artifact.js';
 import { isDerivedSource, isEntityMirrorSource } from '../types/artifact.js';
-import { defaultTableName } from '../validate/structural.js';
 import { invariantViolated } from '../common/invariant.js';
 
 /**
@@ -88,7 +87,12 @@ function buildSpec(
   entity: ResolvedEntity,
   eventTypes: readonly EventTypeSpec[],
 ): ProjectionHandlerSpec {
-  const tableName = proj.table ?? defaultTableName(projName);
+  // Same rule as ddl.ts: an entity-mirror projection's table is the
+  // entity's table. The apply-plan handler INSERTs/UPDATEs go to this
+  // name, and the graph compiler reads from the same name — they must
+  // agree, so neither `defaultTableName(projName)` nor any other derived
+  // name is correct.
+  const tableName = proj.table ?? entity.table;
   const columnOfField = new Map(entity.fields.map((f) => [f.name, f.column]));
   const allMirrorColumns = entity.fields.map((f) => f.column);
 

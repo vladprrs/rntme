@@ -1,19 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateBindings, parseBindingArtifact } from '@rntme/bindings';
 import type { BindingResolvers, ValidatedBindings } from '@rntme/bindings';
 import { buildPlan, type CommandBindingPlan } from '../../src/startup/compile-plan.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
+import {
+  loadJson,
+  parseGraphRuntimeInputs,
+  parseRuntimeGraphSpec,
+} from '../helpers/runtime-artifacts.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
-const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
-
-const spec = loadJson(join(compilerRoot, 'test', 'golden', 'category-sales', 'graph.json'));
-const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.pdm.json'));
-const qsm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.qsm.json'));
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: loadJson(join(compilerRoot, 'test', 'golden', 'category-sales', 'graph.json')),
+  pdm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.pdm.json')),
+  qsm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'commerce.qsm.json')),
+});
+const { graphSpec: spec, pdm, qsm } = runtimeInputs;
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) =>
@@ -94,19 +99,20 @@ describe('buildPlan', () => {
 
   it('throws BindingsRuntimeError when compile fails', () => {
     const validated = makeValidated();
-    const brokenSpec = { version: '1.0-rc7', pdmRef: 'x', qsmRef: 'y', shapes: {}, graphs: {} };
+    const brokenSpec = parseRuntimeGraphSpec({
+      version: '1.0-rc7',
+      pdmRef: 'x',
+      qsmRef: 'y',
+      shapes: {},
+      graphs: {},
+    });
     expect(() => buildPlan(validated, brokenSpec, pdm, qsm)).toThrow(BindingsRuntimeError);
   });
 });
 
 describe('buildPlan — command bindings', () => {
-  const pdmIt = loadJson(
-    join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json'),
-  );
-  const qsmIt = loadJson(
-    join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json'),
-  );
-  const commandSpec = {
+  const commandInputs = parseGraphRuntimeInputs({
+    graphSpec: {
     version: '1.0-rc7',
     pdmRef: 'p',
     qsmRef: 'q',
@@ -145,7 +151,10 @@ describe('buildPlan — command bindings', () => {
         ],
       },
     },
-  };
+    },
+    pdm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json')),
+    qsm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json')),
+  });
   const cmdResolvers: BindingResolvers = {
     resolveGraphSignature: (id) =>
       id === 'reportIssue'
@@ -207,7 +216,12 @@ describe('buildPlan — command bindings', () => {
     if (!parsed.ok) throw new Error('parse fail');
     const v = validateBindings(parsed.value, cmdResolvers);
     if (!v.ok) throw new Error('validate fail');
-    const plan = buildPlan(v.value, commandSpec, pdmIt, qsmIt);
+    const plan = buildPlan(
+      v.value,
+      commandInputs.graphSpec,
+      commandInputs.pdm,
+      commandInputs.qsm,
+    );
     const bp = plan.plans.reportIssueHttp;
     expect(bp).toBeDefined();
     expect(bp!.kind).toBe('command');

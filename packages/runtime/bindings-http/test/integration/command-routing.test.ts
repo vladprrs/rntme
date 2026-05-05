@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
@@ -10,10 +9,16 @@ import { SqliteEventStore } from '@rntme/event-store';
 import type { ActorRef } from '@rntme/event-store';
 import { Hono } from 'hono';
 import { createBindingsRouter } from '../../src/router.js';
+import { BindingsRuntimeError } from '../../src/errors.js';
 import type { CommandExecutor } from '../../src/executor-contract.js';
 import type { BuildPlanResult } from '../../src/startup/compile-plan.js';
 import { buildPlan } from '../../src/startup/compile-plan.js';
 import { correlationMiddleware } from '../../src/runtime/correlation-middleware.js';
+import {
+  loadJson,
+  parseGraphRuntimeInputs,
+  parseRuntimeGraphSpec,
+} from '../helpers/runtime-artifacts.js';
 
 function wrapWithMiddleware(router: ReturnType<typeof createBindingsRouter>): Hono {
   const app = new Hono();
@@ -24,69 +29,70 @@ function wrapWithMiddleware(router: ReturnType<typeof createBindingsRouter>): Ho
 
 const here = dirname(fileURLToPath(import.meta.url));
 const compilerRoot = join(here, '..', '..', '..', '..', 'artifacts', 'graph-ir-compiler');
-const loadJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
-const pdm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json'));
-const qsm = loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json'));
-
-const spec = {
-  version: '1.0-rc7',
-  pdmRef: 'p',
-  qsmRef: 'q',
-  shapes: {},
-  graphs: {
-    reportIssue: {
-      id: 'reportIssue',
-      signature: {
-        inputs: {
-          issueId: { type: 'integer', mode: 'required' },
-          projectId: { type: 'integer', mode: 'required' },
-          reporterId: { type: 'integer', mode: 'required' },
-          title: { type: 'string', mode: 'required' },
-          priority: { type: 'string', mode: 'required' },
-          storyPoints: { type: 'integer', mode: 'required' },
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: {
+    version: '1.0-rc7',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    shapes: {},
+    graphs: {
+      reportIssue: {
+        id: 'reportIssue',
+        signature: {
+          inputs: {
+            issueId: { type: 'integer', mode: 'required' },
+            projectId: { type: 'integer', mode: 'required' },
+            reporterId: { type: 'integer', mode: 'required' },
+            title: { type: 'string', mode: 'required' },
+            priority: { type: 'string', mode: 'required' },
+            storyPoints: { type: 'integer', mode: 'required' },
+          },
+          output: { type: 'row<CommandResult>', from: 'e' },
         },
-        output: { type: 'row<CommandResult>', from: 'e' },
-      },
-      nodes: [
-        {
-          id: 'e',
-          type: 'emit',
-          config: {
-            aggregate: 'Issue',
-            aggregateId: { $param: 'issueId' },
-            transition: 'report',
-            payload: {
-              title: { $param: 'title' },
-              projectId: { $param: 'projectId' },
-              reporterId: { $param: 'reporterId' },
-              priority: { $param: 'priority' },
-              storyPoints: { $param: 'storyPoints' },
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $param: 'issueId' },
+              transition: 'report',
+              payload: {
+                title: { $param: 'title' },
+                projectId: { $param: 'projectId' },
+                reporterId: { $param: 'reporterId' },
+                priority: { $param: 'priority' },
+                storyPoints: { $param: 'storyPoints' },
+              },
             },
           },
-        },
-      ],
-    },
-    submitIssue: {
-      id: 'submitIssue',
-      signature: {
-        inputs: { issueId: { type: 'integer', mode: 'required' } },
-        output: { type: 'row<CommandResult>', from: 'e' },
+        ],
       },
-      nodes: [
-        {
-          id: 'e',
-          type: 'emit',
-          config: {
-            aggregate: 'Issue',
-            aggregateId: { $param: 'issueId' },
-            transition: 'submit',
-            payload: {},
-          },
+      submitIssue: {
+        id: 'submitIssue',
+        signature: {
+          inputs: { issueId: { type: 'integer', mode: 'required' } },
+          output: { type: 'row<CommandResult>', from: 'e' },
         },
-      ],
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $param: 'issueId' },
+              transition: 'submit',
+              payload: {},
+            },
+          },
+        ],
+      },
     },
   },
-};
+  pdm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.pdm.json')),
+  qsm: loadJson(join(compilerRoot, 'test', 'e2e', 'fixtures', 'issue-tracker.qsm.json')),
+});
+const { graphSpec: spec, pdm, qsm } = runtimeInputs;
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) => {
@@ -318,22 +324,36 @@ describe('createBindingsRouter — command routing', () => {
 
   it('throws at startup when a command binding is present but eventStore missing', () => {
     const qsmDb = new Database(':memory:');
-    expect(() =>
+    let error: unknown;
+    try {
       createBindingsRouter({
         validated: validated(),
         graphSpec: spec,
         pdm,
         qsm,
         db: qsmDb,
-      }),
-    ).toThrow(/eventStore is required/);
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(BindingsRuntimeError);
+    if (!(error instanceof BindingsRuntimeError)) throw error;
+    expect(error.errors[0]).toMatchObject({
+      bindingId: 'reportIssueHttp',
+      graphId: 'reportIssue',
+      cause: {
+        code: 'BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY',
+        dependency: 'eventStore',
+      },
+    });
     qsmDb.close();
   });
 
   it('throws at startup when a command binding is present but commandExecutor missing', () => {
     const qsmDb = new Database(':memory:');
     const store = new SqliteEventStore({ filename: ':memory:', serviceName: 'test' });
-    expect(() =>
+    let error: unknown;
+    try {
       createBindingsRouter({
         validated: validated(),
         graphSpec: spec,
@@ -341,8 +361,20 @@ describe('createBindingsRouter — command routing', () => {
         qsm,
         db: qsmDb,
         eventStore: store,
-      }),
-    ).toThrow(/commandExecutor is required/);
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(BindingsRuntimeError);
+    if (!(error instanceof BindingsRuntimeError)) throw error;
+    expect(error.errors[0]).toMatchObject({
+      bindingId: 'reportIssueHttp',
+      graphId: 'reportIssue',
+      cause: {
+        code: 'BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY',
+        dependency: 'commandExecutor',
+      },
+    });
     store.close();
     qsmDb.close();
   });
@@ -398,7 +430,7 @@ describe('createBindingsRouter — command routing', () => {
 });
 
 describe('createBindingsRouter — command guards', () => {
-  const guardedSpec = {
+  const guardedSpec = parseRuntimeGraphSpec({
     version: '1.0-rc7',
     pdmRef: 'p',
     qsmRef: 'q',
@@ -431,7 +463,7 @@ describe('createBindingsRouter — command guards', () => {
         ],
       },
     },
-  };
+  });
 
   const guardedResolvers: BindingResolvers = {
     resolveGraphSignature: (id) =>

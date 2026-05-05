@@ -46,7 +46,21 @@ describe('generateProjectionDdl', () => {
     const ddls = generateProjectionDdl(qsm, resolver);
     expect(ddls).toHaveLength(1);
     expect(ddls[0]!.projectionName).toBe('IssueView');
-    expect(ddls[0]!.tableName).toBe('projection_issueview');
+    expect(ddls[0]!.tableName).toBe('issues');
+  });
+
+  it('uses entity.table for generated DDL when no projection table is declared', () => {
+    // This covers the DDL half of the entity-mirror table contract: without
+    // an explicit projection table, generated tableName/createTableSql must
+    // use the PDM entity table. Resolver coverage lives in resolvers.test.ts.
+    const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
+    const ddls = generateProjectionDdl(qsm, resolver);
+    const expectedTable = 'issues'; // from issue-tracker.pdm.json Issue.table
+    expect(ddls[0]!.tableName).toBe(expectedTable);
+    expect(ddls[0]!.createTableSql).toContain(`CREATE TABLE "${expectedTable}"`);
+    // Sanity: the *projection-name* fallback used to be "projection_issueview"
+    // and that is the wrong shape — it must not show up anywhere.
+    expect(ddls[0]!.createTableSql).not.toContain('projection_issueview');
   });
 
   it('uses explicit table name when provided', () => {
@@ -101,14 +115,14 @@ describe('generateProjectionDdl', () => {
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
     expect(ddl.indexes).toHaveLength(1);
-    expect(ddl.indexes[0]!.name).toBe('idx_projection_issueview_status');
+    expect(ddl.indexes[0]!.name).toBe('idx_issues_status');
     expect(ddl.indexes[0]!.columns).toEqual(['status']);
   });
 
   it('rendered createTableSql contains all mirror + idempotency columns', () => {
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
-    expect(ddl.createTableSql).toContain('CREATE TABLE "projection_issueview"');
+    expect(ddl.createTableSql).toContain('CREATE TABLE "issues"');
     expect(ddl.createTableSql).toContain('"id" INTEGER NOT NULL PRIMARY KEY');
     expect(ddl.createTableSql).toContain('"status" TEXT NOT NULL');
     expect(ddl.createTableSql).toContain('"last_event_id" TEXT NOT NULL');
@@ -121,19 +135,19 @@ describe('generateProjectionDdl', () => {
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
     expect(ddl.createIndexSql).toHaveLength(1);
     expect(ddl.createIndexSql[0]).toBe(
-      'CREATE INDEX "idx_projection_issueview_status" ON "projection_issueview" ("status");',
+      'CREATE INDEX "idx_issues_status" ON "issues" ("status");',
     );
   });
 
   it('quotes SQL identifiers with double quotes to tolerate reserved words', () => {
     const { qsm, resolver } = setup(QSM_ISSUE_MIRROR);
     const ddl = generateProjectionDdl(qsm, resolver)[0]!;
-    expect(ddl.createTableSql).toContain('CREATE TABLE "projection_issueview"');
+    expect(ddl.createTableSql).toContain('CREATE TABLE "issues"');
     expect(ddl.createTableSql).toContain('"id" INTEGER NOT NULL PRIMARY KEY');
     expect(ddl.createTableSql).toContain('"status" TEXT NOT NULL');
     expect(ddl.createTableSql).toContain('"last_event_id" TEXT NOT NULL');
     expect(ddl.createIndexSql[0]).toBe(
-      'CREATE INDEX "idx_projection_issueview_status" ON "projection_issueview" ("status");',
+      'CREATE INDEX "idx_issues_status" ON "issues" ("status");',
     );
   });
 

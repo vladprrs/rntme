@@ -5,7 +5,7 @@ import {
   type BlueprintError,
   type Result,
 } from '../types/result.js';
-import { isKnownTargetPath } from '../types/vars.js';
+import { isKnownVarPath } from '../types/vars.js';
 import type {
   ProjectBlueprint,
   ServiceDescriptor,
@@ -76,11 +76,11 @@ export function validateBlueprintStructural(input: {
 
   if (input.project.vars) {
     for (const [name, binding] of Object.entries(input.project.vars)) {
-      if (!isKnownTargetPath(binding.from)) {
+      if (!isKnownVarPath(binding.from)) {
         errors.push({
           layer: 'structural',
           code: ERROR_CODES.BLUEPRINT_VARS_FROM_UNKNOWN_ROOT,
-          message: `vars.${name}.from "${binding.from}" does not match a known target.* root`,
+          message: `vars.${name}.from "${binding.from}" does not match a known root (target.*, provision.<moduleKey>.<output>...)`,
           path: `project.vars.${name}.from`,
         });
       }

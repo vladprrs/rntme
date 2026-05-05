@@ -204,6 +204,8 @@ Graph expressions may reference pre-step results with `{ "$pre": "session.user_i
 | `execute` | `(compiled, params, db) → unknown[]` | Bind `paramOrder` positionally (defaults / nullable / predicate_optional → null) and run `db.prepare(sql).all(...)`. |
 | `run` | `(rawSpec, rawPdm, rawQsm, params, db, opts?) → unknown[]` | `compile` then `execute`. Throws on compile failure (Error with `.errors`). |
 | `compileCommand` | `(rawSpec, rawPdm, rawQsm) → Result<CompiledCommand>` | Command-graph compile: full validation, role-check, emit plans, optional read-prelude (lowered as a SELECT). MVP: exactly one aggregate per command. |
+| `compileProjectionGraph` | `(rawSpec, rawPdm, rawQsm, opts) → Result<DerivedCompileResult>` | Derived-projection compile from raw authoring inputs. Parses and validates PDM/QSM before delegating to the validated path. |
+| `compileProjectionGraphFromValidated` | `(spec, pdm, qsm, opts) → Result<DerivedCompileResult>` | Derived-projection compile for callers that already hold `AuthoringSpecOutput`, `ValidatedPdm`, and `ValidatedQsm`; used by runtime to avoid reintroducing raw artifact inputs after `loadService` validation. |
 | `executeCommand` | `(compiled, params, ctx) → CommandResult` | Read-prelude → replay → transition check → derive payloads → append. Throws `CommandExecutionError`. |
 | `runCommand` | `(rawSpec, rawPdm, rawQsm, params, ctx) → CommandResult` | `compileCommand` then `executeCommand`. |
 | `explain` | `(rawSpec, rawPdm, rawQsm) → ExplainOutput` | Returns every intermediate artifact (parsed, canonical, semanticPlan, relational, sql, paramOrder) on success, or `{ ok: false, artifacts, errors }` partial on failure. |
@@ -216,6 +218,8 @@ Graph expressions may reference pre-step results with `{ "$pre": "session.user_i
 
 ```ts
 import type {
+  AuthoringSpecInput,  // raw TypeScript input shape accepted by AuthoringSpecSchema
+  AuthoringSpecOutput, // parsed Graph IR authoring spec consumed by downstream runtimes
   CompileResult,        // { sql, paramOrder, shape, optionalParams, paramDefaults }
   CompileOptions,       // { target?: 'sqlite' }
   CompiledCommand,      // { graphId, aggregate, emits, readPrelude, readPreludeGuardNodeId, paramOrder, optionalParams, paramDefaults }
@@ -235,17 +239,18 @@ import type {
 
 1. **`parseAuthoringSpec(rawSpec)`** — accepts an object or a JSON string; on string input, runs `JSON.parse` first and reports `PARSE_INVALID_JSON` on failure. On schema mismatch, every Zod issue becomes one `PARSE_SCHEMA_VIOLATION` with `location.path`.
 2. **`parseGraphIrArtifacts(rawPdm, rawQsm)`** — wraps `@rntme/pdm` and `@rntme/qsm` parse + validate so all errors fold into a single `PARSE_SCHEMA_VIOLATION` from the graph-ir error space.
-3. **`validateStructural(spec, pdm, qsm)`** — runs every rule in `validate/structural/index.ts` and accumulates errors. Order inside the file matches table-of-contents order in §File map.
-4. **Single-graph guard** — `compile` and `compileCommand` enforce `Object.keys(spec.graphs).length === 1` and emit `STRUCT_DUPLICATE_GRAPH_ID` otherwise. Multi-graph orchestration belongs in callers (`@rntme/runtime`).
-5. **`normalize(spec)`** — produces `CanonicalGraph`. Allocates monotonic scope IDs (`s1`, `s2`, ...), defaults sort `dir = 'asc'` and `nulls = 'last'`, sets `findMany.alias = camelCase(source)`.
-6. **`inferRole(graph)` (command path only)** — `compileCommand` rejects non-command graphs with `GRAPH_MIXED_ROLE`.
-7. **`validateSemantic(graph, pdm, qsm, shapes)`** — resolves sources, infers expression types, runs NAV checks (relations + projection-required), shape-conformance, param-context, emit checks.
-8. **`buildSemanticPlan(graph, pdm, qsm)` (query path)** — emits a `PlanStep` per non-emit node, materialising entity field metadata into `ScanStep.fields`.
-9. **`buildEmitPlans(graph, pdm)` (command path)** — per emit node, joins canonical config with `deriveEventTypes(pdm)` to produce `EmitPlan`.
-10. **`buildRelational(plan)` (query path)** — folds `PlanStep[]` into the `RelOp` tree.
-11. **`lowerToSqlite(rel, ctx)` + `emitSql(ast)` (query path)** — produces `{ sql, paramOrder }`. `ctx` carries `predicateOptionalParams`, `pdm`, `qsm` so dot-nav joins resolve.
-12. **`executeCompiled(compiled, params, db)` (query runtime)** — binds positional params, prepares, runs `.all()`. `defaulted` and `nullable`/`predicate_optional` params fall back to default / `null`; missing required throws `RUNTIME_MISSING_REQUIRED_PARAM`.
-13. **`executeCommand(compiled, params, ctx)` (command runtime)** — runs read-prelude (if present), replays the stream, validates each transition, derives payloads, appends with `expectedVersion`.
+3. **Validated projection entry point.** `compileProjectionGraphFromValidated` starts here with an already parsed spec plus branded `ValidatedPdm` / `ValidatedQsm`; it does not reparse raw PDM/QSM artifacts.
+4. **`validateStructural(spec, pdm, qsm)`** — runs every rule in `validate/structural/index.ts` and accumulates errors. Order inside the file matches table-of-contents order in §File map.
+5. **Single-graph guard** — `compile` and `compileCommand` enforce `Object.keys(spec.graphs).length === 1` and emit `STRUCT_DUPLICATE_GRAPH_ID` otherwise. Multi-graph orchestration belongs in callers (`@rntme/runtime`).
+6. **`normalize(spec)`** — produces `CanonicalGraph`. Allocates monotonic scope IDs (`s1`, `s2`, ...), defaults sort `dir = 'asc'` and `nulls = 'last'`, sets `findMany.alias = camelCase(source)`.
+7. **`inferRole(graph)` (command path only)** — `compileCommand` rejects non-command graphs with `GRAPH_MIXED_ROLE`.
+8. **`validateSemantic(graph, pdm, qsm, shapes)`** — resolves sources, infers expression types, runs NAV checks (relations + projection-required), shape-conformance, param-context, emit checks.
+9. **`buildSemanticPlan(graph, pdm, qsm)` (query path)** — emits a `PlanStep` per non-emit node, materialising entity field metadata into `ScanStep.fields`.
+10. **`buildEmitPlans(graph, pdm)` (command path)** — per emit node, joins canonical config with `deriveEventTypes(pdm)` to produce `EmitPlan`.
+11. **`buildRelational(plan)` (query path)** — folds `PlanStep[]` into the `RelOp` tree.
+12. **`lowerToSqlite(rel, ctx)` + `emitSql(ast)` (query path)** — produces `{ sql, paramOrder }`. `ctx` carries `predicateOptionalParams`, `pdm`, `qsm` so dot-nav joins resolve.
+13. **`executeCompiled(compiled, params, db)` (query runtime)** — binds positional params, prepares, runs `.all()`. `defaulted` and `nullable`/`predicate_optional` params fall back to default / `null`; missing required throws `RUNTIME_MISSING_REQUIRED_PARAM`.
+14. **`executeCommand(compiled, params, ctx)` (command runtime)** — runs read-prelude (if present), replays the stream, validates each transition, derives payloads, appends with `expectedVersion`.
 
 ### Compilation layers
 

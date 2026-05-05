@@ -1,4 +1,5 @@
 import type { SecretCipher, TargetSecretRecord, TargetSecretSummary, TargetSecretsRepo } from '@rntme/platform-core';
+import type { Buffer } from 'node:buffer';
 import type { PgQueryable } from '../pg/pool.js';
 
 type StoredEntry = {

@@ -15,7 +15,7 @@ export type ProvisionerInput<I = unknown> = {
     readonly secretOutputs: Readonly<Record<string, unknown>>;
   };
   readonly log: ProvisionerLog;
-  readonly signal: AbortSignal;
+  readonly signal: globalThis.AbortSignal;
 };
 
 export type ProvisionerOutput = {

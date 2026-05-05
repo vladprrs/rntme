@@ -9,9 +9,14 @@ const KNOWN_ROOTS = [
   /^target\.auth\.[a-z][a-z0-9-]*\.[a-zA-Z][a-zA-Z0-9_]*$/,
   /^target\.modules\.[a-z][a-z0-9-]*\.[a-zA-Z][a-zA-Z0-9_]*$/,
   /^target\.eventBus\.[a-zA-Z][a-zA-Z0-9_]*$/,
+  // provision.<moduleKey>.<output>[.<jsonPointer>...] — resolved by
+  // @rntme/deploy-core's resolveVars after provisioner output is available.
+  // Module-existence and output-name checks are deferred to the resolver
+  // (which has the discoveredModules whitelist and provisionResult shape).
+  /^provision\.[a-zA-Z_][a-zA-Z0-9_-]*\.[a-zA-Z_][a-zA-Z0-9_-]*(\.[a-zA-Z_][a-zA-Z0-9_-]*)*$/,
 ] as const;
 
-export function isKnownTargetPath(path: string): boolean {
+export function isKnownVarPath(path: string): boolean {
   return KNOWN_ROOTS.some((re) => re.test(path));
 }
 

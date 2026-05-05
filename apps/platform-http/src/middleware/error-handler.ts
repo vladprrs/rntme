@@ -1,5 +1,6 @@
-import type { MiddlewareHandler } from 'hono';
+import type { ErrorHandler } from 'hono';
 import type { PlatformError, ErrorCode } from '@rntme/platform-core';
+import type pino from 'pino';
 
 const STATUS: Partial<Record<ErrorCode, number>> = {
   PLATFORM_AUTH_MISSING: 401,
@@ -57,13 +58,20 @@ export function errorEnvelope(
   return errors.length > 1 ? { error: first, errors } : { error: first };
 }
 
-export function errorHandler(): MiddlewareHandler {
-  return async (c, next) => {
-    try {
-      await next();
-    } catch (cause) {
-      const body = errorEnvelope([{ code: 'PLATFORM_INTERNAL', message: String(cause) }]);
-      return c.json(body, 500);
-    }
+export function errorHandler(logger?: Pick<pino.Logger, 'error'>): ErrorHandler {
+  return (cause, c) => {
+    logger?.error(
+      {
+        err: cause,
+        requestId: c.get('requestId'),
+        method: c.req.method,
+        path: c.req.path,
+        route: c.req.routePath,
+        status: 500,
+      },
+      'unhandled error',
+    );
+    const body = errorEnvelope([{ code: 'PLATFORM_INTERNAL', message: 'Internal server error' }]);
+    return c.json(body, 500);
   };
 }

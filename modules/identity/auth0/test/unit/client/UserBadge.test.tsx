@@ -2,19 +2,19 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createStateStore } from '@json-render/core';
 import {
   RegistryProvider,
   StoreProvider,
   createOperationRegistry,
-  createRuntimeStateStore,
-} from '@rntme/ui-runtime/client';
+} from '@rntme/contracts-client-runtime-v1';
 import { UserBadge } from '../../../client/components/UserBadge.js';
 
 function renderUserBadge(user: Record<string, unknown> | null, display?: 'email' | 'name') {
   const registry = createOperationRegistry();
   const logout = vi.fn();
   registry.registerModule('@rntme/identity-auth0', 'logout', logout);
-  const store = createRuntimeStateStore({ initialState: { auth: { user } } });
+  const store = createStateStore({ auth: { user } });
 
   const view = render(
     <StoreProvider value={store}>

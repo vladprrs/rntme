@@ -29,26 +29,26 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
   },
   "dependencies": {
+    "@rntme/contracts-client-runtime-v1": "workspace:*",
     "@tiptap/extension-image": "^2.10.0",
     "@tiptap/pm": "^2.10.0",
     "@tiptap/react": "^2.10.0",
     "@tiptap/starter-kit": "^2.10.0"
   },
   "peerDependencies": {
-    "@rntme/ui-runtime": "workspace:*",
     "react": "^19.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
-    "@rntme/ui-runtime": "workspace:*",
     "@types/node": "^20.14.0",
-    "@types/react": "^18.3.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
     "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "typescript": "^5.5.4",
-    "vitest": "^2.1.1",
-    "react-dom": "^19.2.5"
+    "vitest": "^2.1.1"
   }
 }

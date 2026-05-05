@@ -1,4 +1,5 @@
 import type { Ok } from '@rntme/pdm';
+import type { ActorRef } from '@rntme/event-store';
 
 export type HttpBodyLimitConfig = { enabled?: boolean; maxBytes?: number };
 export type HttpRateLimitConfig = { enabled?: boolean; windowMs?: number; max?: number };
@@ -58,7 +59,7 @@ export type ValidatedManifest = {
     | { mode: 'ephemeral' }
     | { mode: 'persistent'; eventStorePath: string; qsmPath: string };
   bus: { mode: 'in-memory' };
-  auth: { mode: 'header'; headerName: string; actorKind: string };
+  auth: { mode: 'header'; headerName: string; actorKind: ActorRef['kind'] };
   observability: {
     health: { path: string };
     metrics: { path: string };
@@ -78,6 +79,7 @@ export type ManifestErrorCode =
   | 'MANIFEST_VERSION_MAJOR_MISMATCH'
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
   | 'MANIFEST_MISSING_QSM_PATH'
+  | 'MANIFEST_INVALID_ACTOR_KIND'
   | 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME';
 
 export type ManifestError = {

@@ -55,7 +55,11 @@ canonical project bundle.
 
 `module.json#client` points to `./dist/client/index.js` and declares:
 
-- `boot(ctx)` - constructs `Auth0Client`, handles redirect callbacks, writes
+- `boot(ctx)` - constructs `Auth0Client` with `cacheLocation: 'localstorage'`
+  and `useRefreshTokens: true` so the session survives page reloads (the
+  in-memory default would force a fresh login on every reload because silent
+  auth via third-party cookies is blocked in modern browsers; the SPA client
+  already grants `refresh_token`). Handles redirect callbacks, writes
   `/auth/status` as `anon` or `authed`, writes `/auth/user` with `{ sub, email,
   name }`, registers a Bearer transport middleware through `ctx.transport.use`,
   and registers `login` / `logout` operations.
@@ -63,6 +67,12 @@ canonical project bundle.
   `login` operation.
 - `UserBadge` - authenticated branch component that reads `/auth/user` and
   dispatches `logout`.
+
+The browser client imports `ModuleBootContext`, `useModuleAction`, and
+`useStateStore` from
+[`@rntme/contracts-client-runtime-v1`](../../../packages/contracts/client-runtime/v1/README.md).
+It must not import from `@rntme/ui-runtime`; the runtime package hosts the SPA
+bootstrap, while this contract package is the stable module-facing API.
 
 Required `project.json#modules.identity.publicConfig` keys are `domain`,
 `clientId`, `audience`, and `redirectUri`; optional `scope` defaults to
@@ -145,7 +155,11 @@ Required env:
 
 ## Provisioner
 
-`src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. The Auth0 module declares its provisioner block in `module.json`:
+`src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. It codes
+against the runtime contract types in
+[`@rntme/contracts-provisioner-v1`](../../../packages/contracts/provisioner/v1/README.md)
+(`ProvisionerEnvMapping` for the `ENV_MAPPINGS` export). The Auth0 module
+declares its provisioner block in `module.json`:
 
 - `produces`: `spaClient` (single, public), `resourceServer` (single, public), `m2mClients` (many, secret).
 - `requires`: `auth0Mgmt` (schema `auth0-mgmt-api-v1`).

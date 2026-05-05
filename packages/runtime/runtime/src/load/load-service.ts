@@ -37,9 +37,10 @@ import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';
 import { readJsonFile, readTextFile, readGraphsDir } from './read-dir.js';
 import { crossValidateDerivedProjections } from '../projections/cross-validate.js';
-import type {
-  DerivedCompileResult,
-  DerivedTableSchema,
+import {
+  parseAuthoringSpec,
+  type DerivedCompileResult,
+  type DerivedTableSchema,
 } from '@rntme/graph-ir-compiler';
 import type { DerivedHandler } from '@rntme/projection-consumer';
 
@@ -216,13 +217,17 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
 
   const serviceName = manifest.service.name;
   const serviceVersion = manifest.service.version;
-  const graphSpec: GraphSpec = {
+  const graphSpecResult = parseAuthoringSpec({
     version: '1.0-rc7',
     pdmRef: `${serviceName}.domain.${serviceVersion}`,
     qsmRef: `${serviceName}.read.${serviceVersion}`,
     shapes,
-    graphs: graphsById as Record<string, unknown>,
-  };
+    graphs: graphsById,
+  });
+  if (!graphSpecResult.ok) {
+    return { ok: false, errors: [{ code: 'GRAPH_INVALID', details: graphSpecResult.errors }] };
+  }
+  const graphSpec: GraphSpec = graphSpecResult.value;
 
   // 5. Binding resolvers (mirrors demo/issue-tracker-api/src/artifacts.ts)
   const bindingResolvers: BindingResolvers = {
@@ -326,8 +331,6 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
     qsm: validatedQsm,
     authoringSpec: graphSpec,
     pdm: validatedPdm,
-    rawPdm,
-    rawQsm,
   });
   if (!xr.ok) {
     return {

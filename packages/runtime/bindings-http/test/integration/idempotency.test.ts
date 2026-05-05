@@ -5,6 +5,7 @@ import { createBindingsRouter } from '../../src/index.js';
 import { parseBindingArtifact, validateBindings } from '@rntme/bindings';
 import type { BindingResolvers } from '@rntme/bindings';
 import type { CommandExecutor, CommandExecutorInput, CommandExecutorOutput } from '../../src/executor-contract.js';
+import { parseGraphRuntimeInputs } from '../helpers/runtime-artifacts.js';
 
 const resolvers: BindingResolvers = {
   resolveGraphSignature: (id) =>
@@ -32,58 +33,59 @@ const resolvers: BindingResolvers = {
       : null,
 };
 
-const graphSpec = {
-  version: '1.0-rc7',
-  pdmRef: 'p',
-  qsmRef: 'q',
-  shapes: {},
-  graphs: {
-    noop: {
-      id: 'noop',
-      signature: {
-        inputs: {},
-        output: { type: 'row<CommandResult>', from: 'e' },
+const runtimeInputs = parseGraphRuntimeInputs({
+  graphSpec: {
+    version: '1.0-rc7',
+    pdmRef: 'p',
+    qsmRef: 'q',
+    shapes: {},
+    graphs: {
+      noop: {
+        id: 'noop',
+        signature: {
+          inputs: {},
+          output: { type: 'row<CommandResult>', from: 'e' },
+        },
+        nodes: [
+          {
+            id: 'e',
+            type: 'emit',
+            config: {
+              aggregate: 'Issue',
+              aggregateId: { $literal: 'a-1' },
+              transition: 'report',
+              payload: {},
+            },
+          },
+        ],
       },
-      nodes: [
-        {
-          id: 'e',
-          type: 'emit',
-          config: {
-            aggregate: 'Issue',
-            aggregateId: { $literal: 'a-1' },
-            transition: 'report',
-            payload: {},
+    },
+  },
+  pdm: {
+    entities: {
+      Issue: {
+        ownerService: 'test-service',
+        kind: 'owned',
+        table: 'issues',
+        fields: {
+          id: { type: 'string', nullable: false, column: 'id' },
+          status: { type: 'string', nullable: false, column: 'status' },
+        },
+        keys: ['id'],
+        stateMachine: {
+          stateField: 'status',
+          initial: null,
+          states: ['draft'],
+          transitions: {
+            report: { from: null, to: 'draft', affects: [] },
           },
         },
-      ],
-    },
-  },
-};
-
-const pdm = {
-  entities: {
-    Issue: {
-      ownerService: 'test-service',
-      kind: 'owned',
-      table: 'issues',
-      fields: {
-        id: { type: 'string', nullable: false, column: 'id' },
-        status: { type: 'string', nullable: false, column: 'status' },
-      },
-      keys: ['id'],
-      stateMachine: {
-        stateField: 'status',
-        initial: null,
-        states: ['draft'],
-        transitions: {
-          report: { from: null, to: 'draft', affects: [] },
-        },
       },
     },
   },
-};
-
-const qsm = { projections: {}, relations: {} };
+  qsm: { projections: {}, relations: {} },
+});
+const { graphSpec, pdm, qsm } = runtimeInputs;
 
 const artifact = {
   version: '1.0' as const,

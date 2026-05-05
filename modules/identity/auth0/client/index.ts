@@ -1,5 +1,5 @@
 import { Auth0Client } from '@auth0/auth0-spa-js';
-import type { ModuleBootContext } from '@rntme/ui-runtime/client';
+import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
 
 export { LoginScreen } from './components/LoginScreen.js';
 export { UserBadge } from './components/UserBadge.js';
@@ -25,6 +25,8 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   const client = new Auth0Client({
     domain: cfg.domain,
     clientId: cfg.clientId,
+    cacheLocation: 'localstorage',
+    useRefreshTokens: true,
     authorizationParams: {
       audience: cfg.audience,
       redirect_uri: cfg.redirectUri,
@@ -52,11 +54,20 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
     window.history.replaceState({}, '', url.pathname);
   }
 
+  let authed = false;
   if (await client.isAuthenticated()) {
-    token = await client.getTokenSilently();
-    ctx.state.set('/auth/user', authUserFromClaims(await client.getIdTokenClaims()));
-    ctx.state.set('/auth/status', 'authed');
-  } else {
+    try {
+      token = await client.getTokenSilently();
+      ctx.state.set('/auth/user', authUserFromClaims(await client.getIdTokenClaims()));
+      ctx.state.set('/auth/status', 'authed');
+      authed = true;
+    } catch {
+      // Cached session present but refresh failed (revoked / expired refresh
+      // token). Fall through to anon — user will re-authenticate via login.
+      await client.logout({ openUrl: false });
+    }
+  }
+  if (!authed) {
     ctx.state.set('/auth/status', 'anon');
     ctx.state.set('/auth/user', null);
   }

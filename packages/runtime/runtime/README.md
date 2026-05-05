@@ -102,6 +102,8 @@ rntme-runtime start ./artifacts
 | `parseManifest` | `(raw: string) => ManifestResult<ParsedManifest>` | Zod-strict JSON parse of the manifest. |
 | `validateManifest` | `(parsed, runtimeVersion) => ManifestResult<ValidatedManifest>` | Semver + persistence-mode validation, fills defaults. |
 | `applyEnvOverrides` | `(v, env) => ManifestResult<ValidatedManifest>` | Merges `RNTME_HTTP_PORT`, `RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PATH`, `RNTME_AUTH_HEADER_NAME`. |
+| `validateRuntimeConfig` | `(config: unknown) => RuntimeConfigValidationResult` | Validates programmatic `RuntimeConfig` overrides before `startService` boots resources. |
+| `RuntimeConfigError` | `Error & { code: 'RUNTIME_CONFIG_INVALID'; errors: RuntimeConfigValidationError[] }` | Thrown by `startService` when runtime config shape or field combinations are invalid. |
 | `parseRuntimeAuthEnv` | `(env) => RuntimeAuthEnv \| null` | Parses `RNTME_AUTH_*` runtime module wiring and fails fast on incomplete Auth0 config. |
 | `buildKafkaJsClientConfigFromEnv` | `(env, clientId) => KafkaJsClientConfig \| null` | Builds KafkaJS client config from `RNTME_EVENT_BUS_*`, including `ssl: true`, SCRAM SASL for `sasl_ssl`, and KafkaJS connection timeout defaults. |
 | `parseRuntimeEventBusTopicPrefixFromEnv` | `(env) => string \| null` | Reads optional `RNTME_EVENT_BUS_TOPIC_PREFIX`; when present, relay publish topics and projection subscriptions are scoped under that prefix. |
@@ -144,6 +146,26 @@ Contract suites for all three interfaces live in `src/plugins/contract-tests.ts`
 | `externalAdapterClient` | `manifest.modules[]` + `artifactDir` | Overrides module client wiring for tests/embedding. |
 | `artifactDir` | `undefined` | Base directory for `manifest.modules[].protoPath` and TLS paths. Required for module wiring. |
 | `runtimeEnv` | `process.env` | Test/embed override for deploy env vars such as `RNTME_AUTH_*` and `RNTME_EVENT_BUS_*`. |
+| `shutdownTimeoutMs` | `5000` | Graceful HTTP shutdown budget before active connections are force-closed when Node exposes `closeAllConnections()`. |
+
+`startService` validates config before it starts buses, opens databases, applies
+seed, or mounts surfaces. Custom plugin objects must expose the required method
+shape (`db.open`, `bus.producer` + `bus.consumer`, `surface.mount`,
+executor `execute`, adapter `call`), optional lifecycle hooks must be functions,
+`seedMode` must be `strict` or `upsertByEventId`, `shutdownTimeoutMs` must be a
+positive integer, and `seedMode` cannot be paired with `skipSeed: true` because
+the mode would never be used. Invalid config fails with `RuntimeConfigError` and
+`code: "RUNTIME_CONFIG_INVALID"`.
+
+### Actor Header Validation
+
+`validateManifest` restricts `auth.actorKind` to the event-store actor union:
+`user`, `system`, or `service`. `buildActorFromRequest` trims the configured
+actor header value, returns `null` for missing or invalid values, and only emits
+an `ActorRef` for IDs up to 256 characters matching
+`[A-Za-z0-9._:@|/+=$,-]+`. This keeps malformed header values out of event
+envelopes while preserving the existing anonymous-request behavior when no
+actor is present.
 
 ### Deploy runtime env
 
@@ -231,6 +253,7 @@ back to insecure credentials and logs a production warning under
 | `MANIFEST_INVALID` | `parseManifest`, `validateManifest`, `applyEnvOverrides` | `ManifestError[]` |
 | `PDM_INVALID` | `@rntme/pdm` `parsePdm` / `validatePdm` | pdm error array |
 | `QSM_INVALID` | `@rntme/qsm` `parseQsm` / `validateQsm` | qsm error array |
+| `GRAPH_INVALID` | `@rntme/graph-ir-compiler` `parseAuthoringSpec` for assembled graph/shapes spec | graph-ir error array |
 | `BINDINGS_INVALID` | `@rntme/bindings` `parseBindingArtifact` / `validateBindings` | bindings error array |
 | `UI_INVALID` | `@rntme/ui` `compile` (and missing `ui/` directory) | ui compiler error array |
 | `OPENAPI_INVALID` | `@rntme/bindings` `generateOpenApi` | openapi error array |
@@ -239,7 +262,7 @@ back to insecure credentials and logs a production warning under
 
 ### Manifest error codes
 
-`MANIFEST_NOT_JSON`, `MANIFEST_NOT_OBJECT`, `MANIFEST_UNKNOWN_KEY`, `MANIFEST_MISSING_FIELD`, `MANIFEST_INVALID_TYPE`, `MANIFEST_INVALID_PORT`, `MANIFEST_INVALID_VERSION`, `MANIFEST_VERSION_MAJOR_MISMATCH`, `MANIFEST_MISSING_EVENT_STORE_PATH`, `MANIFEST_MISSING_QSM_PATH`.
+`MANIFEST_NOT_JSON`, `MANIFEST_NOT_OBJECT`, `MANIFEST_UNKNOWN_KEY`, `MANIFEST_MISSING_FIELD`, `MANIFEST_INVALID_TYPE`, `MANIFEST_INVALID_PORT`, `MANIFEST_INVALID_VERSION`, `MANIFEST_VERSION_MAJOR_MISMATCH`, `MANIFEST_MISSING_EVENT_STORE_PATH`, `MANIFEST_MISSING_QSM_PATH`, `MANIFEST_INVALID_ACTOR_KIND`.
 
 ### Boot order (authoritative)
 
@@ -273,10 +296,18 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **`seedMode: 'strict'` swallows `SEED_STORE_NOT_EMPTY` only.** On persistent restarts the event-log is non-empty; `applySeed` rejects with that code and `startService` proceeds. Any other seed error tears down the pipeline and re-throws (`start-service.ts` lines 54–63). Spec §5.1, §8.3.
 - **Bus pass-through in env overrides.** `applyEnvOverrides` must preserve `v.bus` verbatim — dropping it silently disabled the in-memory bus. Fix: `efc3df6 fix(runtime,docs): bus passthrough in env override + post-migration READMEs`.
 - **`pdm-shape` field iteration.** `loadService` iterates `pdmResolver.resolveEntity(name).fields` (array), not `Object.entries`. A mismatched iteration shape returns an empty shape and downstream bindings fail `BINDINGS_INVALID`. Fix: `8410408 fix(runtime): loadService pdm-shape field iteration + drop dead GRAPH_INVALID`.
+- **Derived projection validation uses branded artifacts only.** `loadService`
+  parses and validates PDM, QSM, and Graph IR once, then
+  `crossValidateDerivedProjections` calls
+  `compileProjectionGraphFromValidated` with `AuthoringSpecOutput`,
+  `ValidatedPdm`, and `ValidatedQsm`. Its input type has no `rawPdm` or
+  `rawQsm` slots, so stale raw JSON cannot bypass the branded validation
+  boundary after load.
 - **Runtime manifest schema version is hand-maintained.** `RUNTIME_VERSION = { major: 1, minor: 0, patch: 0 }` in `load-service.ts` is bumped manually on breaking manifest changes and is not tied to the npm package semver. A `manifest.rntmeVersion` with a different major returns `MANIFEST_VERSION_MAJOR_MISMATCH`.
 - **`persistence.mode: 'persistent'` requires both paths.** `eventStorePath` and `qsmPath` are both required when mode is `persistent`; missing either yields `MANIFEST_MISSING_EVENT_STORE_PATH` / `MANIFEST_MISSING_QSM_PATH`. Ephemeral mode uses `:memory:` for both.
 - **Port 0 is honored.** The manifest schema allows `port: 0` (tests bind an ephemeral port); `startService` reads the actual bound port from `server.address()` and returns it in `RunningService.httpPort`.
 - **Health probe flips on `stop()`.** `probe` returns `{ ok: true }` while running and `{ ok: false, reason: 'pipeline stopped' }` after `stop()`; Hono returns 503 in the latter case. `test/integration/shutdown.test.ts` asserts `fetch(/health)` rejects once the listener closes.
+- **HTTP shutdown is bounded.** `RunningService.stop()` starts with graceful `server.close()`, closes idle HTTP connections when Node exposes `closeIdleConnections()`, and after `shutdownTimeoutMs` force-closes active HTTP connections with `closeAllConnections()` when available before continuing gRPC, projection, and bus teardown. `test/integration/shutdown.test.ts` covers a request handler that never resolves.
 - **`contract-tests.ts` is not re-exported from `index.ts`.** It imports vitest. Load it from test code only: `import { runDbDriverContract } from '@rntme/runtime/src/plugins/contract-tests.js'`.
 
 ## Operability

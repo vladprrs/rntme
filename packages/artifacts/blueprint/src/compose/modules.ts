@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 
-import { parseModuleManifest, type ModuleManifest } from '@rntme/module-skeleton';
+import { parseModuleManifest, type ModuleManifest } from '@rntme/contracts-module-v1';
 
 import { ERROR_CODES, err, ok, type BlueprintError, type Result } from '../types/result.js';
 

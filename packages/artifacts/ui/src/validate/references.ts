@@ -2,7 +2,12 @@ import type { UiError } from '../types/result.js';
 import type { ModuleActionDef, ScreenDescriptor } from '../types/source.js';
 import type { CompiledSpec } from '../types/compiled.js';
 import type { ExpandedSource } from '../expand/expand.js';
-import type { PropSchema, ValidateResolvers } from './resolvers-type.js';
+import type {
+  BindingDescriptor,
+  BindingKind,
+  PropSchema,
+  ValidateResolvers,
+} from './resolvers-type.js';
 
 /** Collect all $state paths used in a spec by deep-walking props */
 function collectStatePaths(spec: CompiledSpec): Set<string> {
@@ -54,7 +59,12 @@ function collectStatePathsFromScreen(screen: ScreenDescriptor): Set<string> {
 }
 
 function isStateRef(v: unknown): v is { $state: string } {
-  return !!v && typeof v === 'object' && '$state' in (v as object);
+  return (
+    !!v &&
+    typeof v === 'object' &&
+    '$state' in (v as object) &&
+    typeof (v as { $state?: unknown })['$state'] === 'string'
+  );
 }
 
 function literalMatchesSchema(value: unknown, schema: PropSchema): boolean {
@@ -79,6 +89,83 @@ function propIsBound(value: unknown): boolean {
   if (value === undefined || value === null) return false;
   if (typeof value === 'object' && '$state' in (value as object)) return true;
   return true;
+}
+
+function bindingKindOf(resolved: BindingDescriptor): BindingKind | undefined {
+  if (resolved.kind === 'query' || resolved.kind === 'command') return resolved.kind;
+  const entry = resolved.entry;
+  if (entry?.kind === 'query' || entry?.kind === 'command') return entry.kind;
+  return undefined;
+}
+
+function pushBindingKindMismatch(
+  resolved: BindingDescriptor,
+  expected: BindingKind,
+  bindingId: string,
+  usage: string,
+  path: string,
+  errors: UiError[],
+): void {
+  const actual = bindingKindOf(resolved);
+  if (actual === undefined || actual === expected) return;
+  errors.push({
+    code: 'BINDING_KIND_MISMATCH',
+    message: `${usage} binding "${bindingId}" expected kind "${expected}" but resolved to "${actual}"`,
+    path,
+  });
+}
+
+function isStatePathCovered(path: string, coveredPrefixes: Set<string>): boolean {
+  return (
+    coveredPrefixes.has(path) ||
+    path.startsWith('/form/') ||
+    path.startsWith('/route/params/') ||
+    path.startsWith('/actions/') ||
+    path.startsWith('/data/__status/') ||
+    path.startsWith('/data/__error/') ||
+    path.startsWith('/auth/') ||
+    path === '/currentUser'
+  );
+}
+
+type InputStatePathUsage = {
+  statePath: string;
+  path: string;
+};
+
+function collectInputStatePathUsages(
+  screen: ScreenDescriptor,
+  context: string,
+): InputStatePathUsage[] {
+  const usages: InputStatePathUsage[] = [];
+
+  if (screen.data) {
+    for (const [statePath, db] of Object.entries(screen.data)) {
+      if (!db.params) continue;
+      for (const [paramName, param] of Object.entries(db.params)) {
+        if (!isStateRef(param)) continue;
+        usages.push({
+          statePath: param.$state,
+          path: `${context}/data/${statePath}/params/${paramName}`,
+        });
+      }
+    }
+  }
+
+  if (screen.actions) {
+    for (const [actionId, action] of Object.entries(screen.actions)) {
+      if (action.kind !== 'command' && action.kind !== 'navigation') continue;
+      if (!action.paramsFromState) continue;
+      for (const [paramName, statePath] of Object.entries(action.paramsFromState)) {
+        usages.push({
+          statePath,
+          path: `${context}/actions/${actionId}/paramsFromState/${paramName}`,
+        });
+      }
+    }
+  }
+
+  return usages;
 }
 
 function validateOneModuleAction(
@@ -236,13 +323,20 @@ export function validateComponentTypesAndProps(
       }
       const propsSchema = componentInfo.props ?? {};
       for (const [propName, schema] of Object.entries(propsSchema)) {
-        if (!schema.required) continue;
         const val = el.props[propName];
-        if (!propIsBound(val)) {
+        if (schema.required && !propIsBound(val)) {
           errors.push({
             code: 'PROP_REQUIRED_MISSING',
             message: `required prop "${propName}" not bound for component "${el.type}"`,
             path: `layout:${name}/elements/${elKey}`,
+          });
+          continue;
+        }
+        if (val !== undefined && !isStateRef(val) && !literalMatchesSchema(val, schema)) {
+          errors.push({
+            code: 'TYPE_MISMATCH',
+            message: `prop "${propName}" for component "${el.type}" expected ${schema.type}; got ${typeof val}`,
+            path: `layout:${name}/elements/${elKey}/props/${propName}`,
           });
         }
       }
@@ -261,13 +355,20 @@ export function validateComponentTypesAndProps(
       }
       const propsSchema = componentInfo.props ?? {};
       for (const [propName, schema] of Object.entries(propsSchema)) {
-        if (!schema.required) continue;
         const val = el.props[propName];
-        if (!propIsBound(val)) {
+        if (schema.required && !propIsBound(val)) {
           errors.push({
             code: 'PROP_REQUIRED_MISSING',
             message: `required prop "${propName}" not bound for component "${el.type}"`,
             path: `screen:${name}/elements/${elKey}`,
+          });
+          continue;
+        }
+        if (val !== undefined && !isStateRef(val) && !literalMatchesSchema(val, schema)) {
+          errors.push({
+            code: 'TYPE_MISMATCH',
+            message: `prop "${propName}" for component "${el.type}" expected ${schema.type}; got ${typeof val}`,
+            path: `screen:${name}/elements/${elKey}/props/${propName}`,
           });
         }
       }
@@ -293,6 +394,15 @@ export function validateReferences(
           message: `Data binding "${db.binding}" for "${statePath}" not found in ${context}`,
           path: `${context}/data/${statePath}`,
         });
+      } else {
+        pushBindingKindMismatch(
+          resolved,
+          'query',
+          db.binding,
+          'Data',
+          `${context}/data/${statePath}`,
+          errors,
+        );
       }
     }
   }
@@ -307,6 +417,15 @@ export function validateReferences(
             message: `Command binding "${action.binding}" for action "${actionId}" not found in ${context}`,
             path: `${context}/actions/${actionId}`,
           });
+        } else {
+          pushBindingKindMismatch(
+            resolved,
+            'command',
+            action.binding,
+            'Command action',
+            `${context}/actions/${actionId}`,
+            errors,
+          );
         }
       }
       if (action.kind === 'navigation' && action.navigateTo) {
@@ -332,22 +451,22 @@ export function validateReferences(
   }
 
   for (const path of statePaths) {
-    const isCovered =
-      coveredPrefixes.has(path) ||
-      path.startsWith('/form/') ||
-      path.startsWith('/route/params/') ||
-      path.startsWith('/actions/') ||
-      path.startsWith('/data/__status/') ||
-      path.startsWith('/data/__error/') ||
-      path.startsWith('/auth/') ||
-      path === '/currentUser';
-    if (!isCovered) {
+    if (!isStatePathCovered(path, coveredPrefixes)) {
       errors.push({
         code: 'UNCOVERED_STATE_PATH',
         message: `State path "${path}" in ${context} is not covered by any data binding, form, route param, or action status`,
         path: `${context}`,
       });
     }
+  }
+
+  for (const usage of collectInputStatePathUsages(screen, context)) {
+    if (isStatePathCovered(usage.statePath, coveredPrefixes)) continue;
+    errors.push({
+      code: 'UNCOVERED_INPUT',
+      message: `Input state path "${usage.statePath}" in ${context} is not covered by any data binding, form, route param, or action status`,
+      path: usage.path,
+    });
   }
 
   return errors;

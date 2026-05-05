@@ -28,11 +28,24 @@ export type DokployPartialFailureStep = {
   readonly infrastructureKind?: 'event-bus';
 };
 
+export type DokployPartialFailureCleanup = {
+  readonly attempted: true;
+  readonly deletedResources: readonly DokployPartialFailureResource[];
+  readonly warnings: readonly string[];
+  readonly errors: readonly {
+    readonly code: DokployDeploymentErrorCode;
+    readonly message: string;
+    readonly resource?: string;
+    readonly cause?: unknown;
+  }[];
+};
+
 export type DokployPartialFailure = {
   readonly createdResources: readonly DokployPartialFailureResource[];
   readonly updatedResources: readonly DokployPartialFailureResource[];
   readonly failedStep: DokployPartialFailureStep;
-  readonly retrySafe: true;
+  readonly cleanup: DokployPartialFailureCleanup;
+  readonly retrySafe: boolean;
 };
 
 export type DokployDeploymentError = {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { boot } from '../../src/client.js';
-import type { ModuleBootContext } from '@rntme/ui-runtime/client';
+import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
 
 function mockCtx(config: Record<string, unknown>): ModuleBootContext {
   const subs = new Map<string, Array<(v: unknown) => void>>();

@@ -1,7 +1,5 @@
 import { serve, type ServerType } from '@hono/node-server';
 import { Hono } from 'hono';
-import type { Context } from 'hono';
-import type { ActorRef } from '@rntme/event-store';
 import { BetterSqliteDriver } from '../plugins/better-sqlite-driver.js';
 import { InMemoryBus } from '../plugins/in-memory-bus.js';
 import { HttpSurface } from '../plugins/http-surface.js';
@@ -12,14 +10,12 @@ import {
 import type {
   DbDriver,
   EventBus,
-  Surface,
 } from '../plugins/interfaces.js';
-import type { CommandExecutor, QueryExecutor } from '../plugins/executors/types.js';
 import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
 import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
 import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
-import { applySeed, type ApplyMode } from '@rntme/seed';
+import { applySeed } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
@@ -33,41 +29,35 @@ import {
   RuntimeBootError,
 } from './runtime-env.js';
 import { KafkaJsEventBus } from '../plugins/kafka-js-bus.js';
+import {
+  assertValidRuntimeConfig,
+  type RuntimeConfig,
+} from './runtime-config.js';
 
-export type RuntimeConfig = {
-  db?: DbDriver;
-  bus?: EventBus;
-  surfaces?: Surface[];
-  actorFromRequest?: (c: Context) => ActorRef | null;
-  onReady?: (info: { port: number }) => void;
-  seedMode?: ApplyMode;
-  skipSeed?: boolean;
-  commandExecutor?: CommandExecutor;
-  queryExecutor?: QueryExecutor;
-  externalAdapterClient?: ExternalAdapterClient;
-  artifactDir?: string;
-  runtimeEnv?: Record<string, string | undefined>;
-};
+export type { RuntimeConfig } from './runtime-config.js';
+
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5000;
 
 export async function startService(
   service: ValidatedService,
   config: Partial<RuntimeConfig> = {},
 ): Promise<RunningService> {
-  const runtimeEnv = config.runtimeEnv ?? process.env;
+  const runtimeConfig = assertValidRuntimeConfig(config);
+  const runtimeEnv = runtimeConfig.runtimeEnv ?? process.env;
   const authEnv = parseRuntimeAuthEnv(runtimeEnv);
   const eventBusTopicPrefix = parseRuntimeEventBusTopicPrefixFromEnv(runtimeEnv);
   const adapter =
-    config.externalAdapterClient
-    ?? buildRuntimeAdapterClient(service.manifest, config.artifactDir, authEnv);
-  const db: DbDriver = config.db ?? new BetterSqliteDriver();
+    runtimeConfig.externalAdapterClient
+    ?? buildRuntimeAdapterClient(service.manifest, runtimeConfig.artifactDir, authEnv);
+  const db: DbDriver = runtimeConfig.db ?? new BetterSqliteDriver();
   const kafkaClientConfig = buildKafkaJsClientConfigFromEnv(
     runtimeEnv,
     service.manifest.service.name,
   );
   const bus: EventBus =
-    config.bus ?? (kafkaClientConfig === null ? new InMemoryBus() : new KafkaJsEventBus(kafkaClientConfig));
+    runtimeConfig.bus ?? (kafkaClientConfig === null ? new InMemoryBus() : new KafkaJsEventBus(kafkaClientConfig));
   const actorFromRequest =
-    config.actorFromRequest ?? buildActorFromRequest(service.manifest);
+    runtimeConfig.actorFromRequest ?? buildActorFromRequest(service.manifest);
 
   if (bus.start) await bus.start();
 
@@ -75,10 +65,10 @@ export async function startService(
     topicPrefix: eventBusTopicPrefix,
   });
 
-  if (service.seed !== null && !config.skipSeed) {
+  if (service.seed !== null && !runtimeConfig.skipSeed) {
     try {
       await applySeed(service.seed, pipeline.eventStore, {
-        mode: config.seedMode ?? 'strict',
+        mode: runtimeConfig.seedMode ?? 'strict',
         serviceName: service.manifest.service.name,
       });
     } catch (err) {
@@ -126,9 +116,9 @@ export async function startService(
     );
   }
   const commandExecutor =
-    config.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
+    runtimeConfig.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
   const queryExecutor =
-    config.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
+    runtimeConfig.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
 
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
@@ -141,7 +131,7 @@ export async function startService(
     healthy ? { ok: true } : { ok: false, reason: 'pipeline stopped' };
 
   const surfaces =
-    config.surfaces ??
+    runtimeConfig.surfaces ??
     [
       new HttpSurface({
         healthPath: service.manifest.observability.health.path,
@@ -184,7 +174,7 @@ export async function startService(
     grpcPort = gPort;
   }
 
-  config.onReady?.({ port });
+  runtimeConfig.onReady?.({ port });
 
   return {
     httpPort: port,
@@ -192,14 +182,50 @@ export async function startService(
     async stop(): Promise<void> {
       healthy = false;
       stopSeenEventsRetention();
-      await new Promise<void>((resolve, reject) =>
-        server.close((err?: Error) => (err !== undefined && err !== null ? reject(err) : resolve())),
-      );
+      await closeHttpServer(server, runtimeConfig.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS);
       if (grpcStopper !== null) await grpcStopper();
       await pipeline.stop();
       if (bus.stop) await bus.stop();
     },
   };
+}
+
+type ForceClosableServer = ServerType & {
+  closeIdleConnections?: () => void;
+  closeAllConnections?: () => void;
+};
+
+function closeHttpServer(server: ServerType, timeoutMs: number): Promise<void> {
+  const forceClosable = server as ForceClosableServer;
+  let settled = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  return new Promise<void>((resolve, reject) => {
+    const settle = (err?: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) globalThis.clearTimeout(timer);
+      if (err !== undefined) reject(err);
+      else resolve();
+    };
+
+    timer = globalThis.setTimeout(() => {
+      try {
+        forceClosable.closeAllConnections?.();
+        settle();
+      } catch (err) {
+        settle(err instanceof Error ? err : new Error(String(err)));
+      }
+    }, timeoutMs);
+    timer.unref?.();
+
+    try {
+      server.close((err?: Error) => settle(err ?? undefined));
+      forceClosable.closeIdleConnections?.();
+    } catch (err) {
+      settle(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
 }
 
 function buildRuntimeAdapterClient(

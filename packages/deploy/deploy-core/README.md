@@ -13,14 +13,61 @@ immutable project-version bundle, converts the saved deploy target into
 `ProjectDeploymentConfig`, and then calls this package before handing the plan
 to a target adapter.
 
+deploy-core consumes manifest types from `@rntme/contracts-module-v1`
+(`ModuleManifest`, `ProvisionerBlock`, etc.) and the provisioner runtime
+contract from `@rntme/contracts-provisioner-v1` (`ProvisionerContract`,
+`ProvisionerInput`/`Output`, `ProvisionerLog`, `ProvisionerVendorError`,
+`ProvisionerEnvMapping`, `ResolvedEnvEntry`). deploy-core re-exports those
+contract types for convenience. The runtime helpers `runProvisioners` and
+`resolveEnvMappings` live here.
+
 ## Public API
 
-- `buildProjectDeploymentPlan(project, config)` — creates a preview deployment
-  plan or returns `DEPLOY_PLAN_*` errors.
+- `buildProjectDeploymentPlan(project, config, options?)` — creates a preview deployment
+  plan or returns `DEPLOY_PLAN_*` errors. See "Two-pass plan API" below for `options`.
 - `ProjectDeploymentConfig` — org/environment/mode, event bus,
   integration module image config, backend auth config, and policy values.
 - `ComposedProjectInput` — deploy-relevant structural subset of the composed
   project model.
+- `resolveVars(manifest, target, options?)` — resolve every `target.*` and (when
+  `options.provisionResult` is given) `provision.*` binding to a `ResolvedVars`
+  string map. Used inside `buildProjectDeploymentPlan`.
+- `resolveTargetVarsOnly(manifest, target)` — partial resolver used pre-provision
+  to substitute target-derived placeholders (e.g. `${AUTH0_REDIRECT_URI}` from
+  `target.auth.auth0.redirectUri`) into module `publicConfig` before passing it
+  to provisioners. `provision.*` bindings are filtered out and any matching
+  placeholders remain as `${VAR}` literals.
+- `applyVars(value, vars)` — recursive `${VAR}` substitution into strings,
+  objects, and arrays. Missing placeholders are left intact.
+- `targetForVars(config, fallbackSlug)` — projects a `ProjectDeploymentConfig`
+  into the `TargetForVars` shape consumed by the resolvers.
+
+## Var sources
+
+Blueprint `vars` may pull values from three sources, selected by the `from` string prefix:
+
+- `target.<root>.<...>` — read from `ProjectDeploymentConfig`'s typed shape (e.g., `target.auth.auth0.domain`). Resolved at every plan call. Also resolvable
+  pre-provision via `resolveTargetVarsOnly`, so module `publicConfig` can carry
+  `${VAR}` placeholders for target-derived fields the provisioner needs (such
+  as the SPA `redirectUri` Auth0 reconciles against).
+- `provision.<moduleKey>.<output>.<jsonPointer>` — read from a provisioner's `publicOutputs`. **Requires** `buildProjectDeploymentPlan` to be called with `options.provisionResult` populated. The executor sequences provision before plan to make this possible.
+- `env.<NAME>` — (future) read from process env. Not implemented yet.
+
+`<moduleKey>` is the local key from `project.json#modules`, not the package name. `<output>` must be declared in `module.json#provisioner.produces`. The plan validates these at resolve time and emits one of:
+
+- `BLUEPRINT_VAR_PROVISION_PATH_INVALID` (syntax wrong)
+- `BLUEPRINT_VAR_PROVISION_MODULE_MISSING` (key not in project.json#modules)
+- `BLUEPRINT_VAR_PROVISION_OUTPUT_NOT_DECLARED` (output not in produces)
+- `BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING` (provisioner didn't run for this module)
+- `BLUEPRINT_VAR_PROVISION_PATH_NOT_FOUND` (JSON pointer dead-ends)
+
+## Two-pass plan API
+
+`buildProjectDeploymentPlan(input, config, options?)` accepts:
+- `options.provisionResult: { modules: { [key]: { publicOutputs } } }` — output of the provisioner stage.
+- `options.discoveredModules: { [key]: { producesNames } }` — used to validate `provision.*` paths against declared outputs.
+
+Callers without `provision.*` vars can omit `options`; behavior is identical to a pre-options call.
 
 ## Event bus modes, auth, and SASL
 
@@ -81,7 +128,7 @@ On the platform executor path, composed project module aliases are mapped throug
 
 ## Provision phase
 
-`runProvisioners(input)` runs each module's provisioner sequentially. It is invoked by the platform deploy executor between `plan` and `render` (five-phase pipeline). The function:
+`runProvisioners(input)` runs each module's provisioner sequentially. It is invoked by the platform deploy executor before `plan` (so blueprint vars can resolve `provision.*` outputs at plan time) and before `render`. The function:
 
 1. Iterates `modules[]` and skips entries without a `provisioner` block.
 2. Asserts every `requires[].name` is present in `resolvedTargetSecrets`. Missing → `DEPLOY_PROVISION_TARGET_SECRET_MISSING`.

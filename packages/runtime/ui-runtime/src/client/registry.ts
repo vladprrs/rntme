@@ -6,7 +6,7 @@ import * as React from 'react';
 import { z } from 'zod';
 import type { CompiledScreen, CompiledAction, CompiledDataEndpoint, PropSchema } from '@rntme/ui';
 import type { StateStore } from '@json-render/core';
-import type { OperationRegistry } from './operation-registry.js';
+import type { OperationRegistry } from '@rntme/contracts-client-runtime-v1';
 
 export type RuntimeBridge = {
   onNavigate: (path: string) => void;

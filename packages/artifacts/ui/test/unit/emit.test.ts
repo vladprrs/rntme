@@ -82,6 +82,52 @@ describe('emit', () => {
     expect(doSearch.kind).toBe('refetch');
     expect(doSearch.targets).toEqual(['/data/results']);
   });
+
+  it('fails when a data binding is missing from httpMap', () => {
+    const r = resolve(join(fixtures, 'minimal-app'));
+    if (!r.ok) throw new Error('resolve failed');
+    const e = expand(r.value);
+    if (!e.ok) throw new Error('expand failed');
+    e.value.screens['home']!.screen.data = {
+      '/data/items': { binding: 'missingQuery' },
+    };
+
+    const result = emit(e.value, {});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'EMIT_FAILED',
+          path: 'screen:home/data//data/items',
+        }),
+      ]),
+    );
+  });
+
+  it('fails when a command action binding is missing from httpMap', () => {
+    const r = resolve(join(fixtures, 'minimal-app'));
+    if (!r.ok) throw new Error('resolve failed');
+    const e = expand(r.value);
+    if (!e.ok) throw new Error('expand failed');
+    e.value.screens['home']!.screen.actions = {
+      save: { kind: 'command', binding: 'missingCommand', paramsFromState: {} },
+    };
+
+    const result = emit(e.value, {});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'EMIT_FAILED',
+          path: 'screen:home/actions/save',
+        }),
+      ]),
+    );
+  });
 });
 
 describe('emit — module-action canonicalization', () => {

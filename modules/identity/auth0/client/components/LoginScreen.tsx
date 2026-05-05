@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useModuleAction } from '@rntme/ui-runtime/client';
+import { useModuleAction } from '@rntme/contracts-client-runtime-v1';
 
 const MODULE_NAME = '@rntme/identity-auth0';
 

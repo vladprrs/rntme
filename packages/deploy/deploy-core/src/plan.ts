@@ -11,7 +11,14 @@ import {
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
 import { err, ok, type Result } from './result.js';
-import { resolveVars, applyVars, type ResolvedVars, type TargetForVars } from './vars.js';
+import {
+  resolveVars,
+  applyVars,
+  targetForVars,
+  type DiscoveredModulesForVars,
+  type ProvisionResultForVars,
+  type ResolvedVars,
+} from './vars.js';
 
 export type PlannedProject = {
   readonly orgSlug: string;
@@ -107,11 +114,24 @@ export type ProjectDeploymentPlan = {
   };
 };
 
+export type BuildPlanOptions = {
+  readonly provisionResult?: ProvisionResultForVars;
+  readonly discoveredModules?: DiscoveredModulesForVars;
+};
+
 export function buildProjectDeploymentPlan(
   project: ComposedProjectInput,
   config: ProjectDeploymentConfig,
+  options: BuildPlanOptions = {},
 ): Result<ProjectDeploymentPlan, DeploymentPlanError> {
-  const resolved = resolveVars(project.varsManifest ?? {}, targetForVars(config, project.name));
+  const resolved = resolveVars(
+    project.varsManifest ?? {},
+    targetForVars(config, project.name),
+    {
+      ...(options.provisionResult ? { provisionResult: options.provisionResult } : {}),
+      ...(options.discoveredModules ? { discoveredModules: options.discoveredModules } : {}),
+    },
+  );
   if (!resolved.ok) return resolved;
   const vars = resolved.value;
 
@@ -185,15 +205,6 @@ export function buildProjectDeploymentPlan(
     edge,
     diagnostics: { warnings },
   });
-}
-
-function targetForVars(config: ProjectDeploymentConfig, fallbackSlug: string): TargetForVars {
-  return {
-    slug: config.targetSlug ?? fallbackSlug,
-    ...(config.auth === undefined ? {} : { auth: config.auth }),
-    ...(config.modules === undefined ? {} : { modules: config.modules }),
-    ...(config.eventBus === undefined ? {} : { eventBus: config.eventBus }),
-  };
 }
 
 function buildWorkloads(

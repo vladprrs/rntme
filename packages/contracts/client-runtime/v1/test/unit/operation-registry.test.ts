@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOperationRegistry } from '../../src/client/operation-registry.js';
+import { createOperationRegistry } from '../../src/operation-registry.js';
 
 describe('OperationRegistry', () => {
   it('registers and looks up component-bound operations by elementId', () => {

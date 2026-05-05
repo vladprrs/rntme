@@ -11,6 +11,12 @@ export {
   type KafkaJsSaslMechanism,
   type RuntimeAuthEnv,
 } from './start/runtime-env.js';
+export {
+  validateRuntimeConfig,
+  RuntimeConfigError,
+  type RuntimeConfigValidationError,
+  type RuntimeConfigValidationResult,
+} from './start/runtime-config.js';
 
 export type {
   ValidatedService,

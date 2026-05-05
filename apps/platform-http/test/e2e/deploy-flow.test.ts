@@ -175,12 +175,38 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
       }),
       logger: env.deps.logger,
       heartbeatMs: 20,
-      resolveProvisioner: async () => ({ provision: async () => ({ ok: true, value: { publicOutputs: {}, secretOutputs: {} } }) } as never),
+      resolveProvisioner: async () => ({
+        provision: async () => ({
+          ok: true,
+          value: {
+            publicOutputs: {
+              spaClient: {
+                id: 'public-client-id',
+                domain: 'tenant.us.auth0.com',
+                audience: 'https://notes-demo.rntme.com/api',
+                redirectUri: 'https://preview.example.test/',
+              },
+              resourceServer: {
+                identifier: 'https://notes-demo.rntme.com/api',
+              },
+            },
+            secretOutputs: {
+              m2mClients: [],
+            },
+          },
+        }),
+      } as never),
       targetSecretsRepoFor: async () => ({
         list: async () => [],
         upsert: async () => undefined,
         remove: async () => undefined,
-        getAllDecrypted: async () => ({}),
+        getAllDecrypted: async () => ({
+          auth0Mgmt: {
+            tenantDomain: 'tenant.us.auth0.com',
+            mgmtClientId: 'mgmt-client-id',
+            mgmtClientSecret: 'mgmt-secret',
+          },
+        }),
       }),
       secretCipher: env.deps.cipher!,
       lastSuccessfulProvisionOutputs: async () => ({}),

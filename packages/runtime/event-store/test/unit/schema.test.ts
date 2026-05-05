@@ -118,6 +118,39 @@ describe('applyEventStoreSchema', () => {
     expect(byName['command_id']?.notnull).toBe(0);
     expect(byName['traceparent']?.notnull).toBe(0);
   });
+
+  it('rejects invalid actor_kind values at write time', () => {
+    const db = new Database(':memory:');
+    applyEventStoreSchema(db);
+
+    expect(() =>
+      insertEventLogRow(db, { eventId: 'bad-actor-kind', actorKind: 'owner' }),
+    ).toThrow(/CHECK/);
+  });
+
+  it('adds actor_kind CHECK to a valid legacy D9 event_log table', () => {
+    const db = new Database(':memory:');
+    createLegacyD9EventLogWithoutActorCheck(db);
+    insertEventLogRow(db, { eventId: 'valid-legacy', actorKind: 'user' });
+
+    applyEventStoreSchema(db);
+
+    const row = db.prepare(`SELECT actor_kind FROM event_log WHERE event_id='valid-legacy'`).get() as {
+      actor_kind: string;
+    };
+    expect(row.actor_kind).toBe('user');
+    expect(() =>
+      insertEventLogRow(db, { eventId: 'bad-after-migration', actorKind: 'owner' }),
+    ).toThrow(/CHECK/);
+  });
+
+  it('rejects legacy D9 event_log rows with invalid actor_kind during schema apply', () => {
+    const db = new Database(':memory:');
+    createLegacyD9EventLogWithoutActorCheck(db);
+    insertEventLogRow(db, { eventId: 'corrupt-legacy', actorKind: 'owner' });
+
+    expect(() => applyEventStoreSchema(db)).toThrow(/EVENT_STORE_SCHEMA_INCOMPATIBLE/);
+  });
 });
 
 describe('assertSchemaD9Compatible', () => {
@@ -146,3 +179,57 @@ describe('assertSchemaD9Compatible', () => {
     expect(() => assertSchemaD9Compatible(db)).toThrow(/EVENT_STORE_SCHEMA_INCOMPATIBLE/);
   });
 });
+
+function createLegacyD9EventLogWithoutActorCheck(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE event_log (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject         TEXT    NOT NULL,
+      aggregate_type  TEXT    NOT NULL,
+      aggregate_id    TEXT    NOT NULL,
+      version         INTEGER NOT NULL,
+      event_type      TEXT    NOT NULL,
+      event_id        TEXT    NOT NULL UNIQUE,
+      actor_kind      TEXT,
+      actor_id        TEXT,
+      occurred_at     TEXT    NOT NULL,
+      payload_json    TEXT    NOT NULL,
+      schema_version  INTEGER NOT NULL DEFAULT 1,
+      correlation_id  TEXT    NOT NULL,
+      causation_id    TEXT,
+      command_id      TEXT,
+      traceparent     TEXT,
+      UNIQUE (subject, version)
+    );
+  `);
+}
+
+function insertEventLogRow(
+  db: Database.Database,
+  overrides: { eventId: string; actorKind: string | null },
+): void {
+  db.prepare(
+    `INSERT INTO event_log (subject, aggregate_type, aggregate_id, version, event_type,
+                            event_id, actor_kind, actor_id, occurred_at, payload_json, schema_version,
+                            correlation_id, causation_id, command_id, traceparent)
+     VALUES (@subject,@aggregate_type,@aggregate_id,@version,@event_type,
+             @event_id,@actor_kind,@actor_id,@occurred_at,@payload_json,@schema_version,
+             @correlation_id,@causation_id,@command_id,@traceparent)`,
+  ).run({
+    subject: `Issue-${overrides.eventId}`,
+    aggregate_type: 'Issue',
+    aggregate_id: overrides.eventId,
+    version: 1,
+    event_type: 'IssueUpdated',
+    event_id: overrides.eventId,
+    actor_kind: overrides.actorKind,
+    actor_id: overrides.actorKind === null ? null : 'actor-1',
+    occurred_at: '2026-01-01T00:00:00Z',
+    payload_json: '{}',
+    schema_version: 1,
+    correlation_id: `corr-${overrides.eventId}`,
+    causation_id: null,
+    command_id: null,
+    traceparent: null,
+  });
+}

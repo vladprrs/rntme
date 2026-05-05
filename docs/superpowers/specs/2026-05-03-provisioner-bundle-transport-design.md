@@ -306,6 +306,6 @@ The implementation plan must update, in the same PR:
 
 - Sourcemap inclusion for provisioner entries.
 - Sandboxing / capability model for provisioner code execution.
-- `vars`-vs-provisioner architectural mismatch (blueprint vars resolved before provisioner runs; see `rntme_blueprint_vars_vs_provisioner.md` finding).
+- ~~`vars`-vs-provisioner architectural mismatch~~ — resolved by `2026-05-04-notes-demo-fresh-tenant-deployable-design.md`.
 - `findStaleRunning` extension to sweep stale `queued` deployments (see `rntme_orphan_detect_queued_gap.md` finding).
 - Updating `modules/identity/workos/` and `modules/identity/clerk/` to ship provisioner entries when their provisioner blocks land.

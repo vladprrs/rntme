@@ -27,6 +27,7 @@ export const ERROR_CODES = {
     'BLUEPRINT_STRUCT_UNDECLARED_SERVICE_DIR',
   BLUEPRINT_STRUCT_SERVICE_JSON_MISSING:
     'BLUEPRINT_STRUCT_SERVICE_JSON_MISSING',
+  BLUEPRINT_SERVICE_JSON_MALFORMED: 'BLUEPRINT_SERVICE_JSON_MALFORMED',
   BLUEPRINT_STRUCT_MOD_KIND_MISMATCH: 'BLUEPRINT_STRUCT_MOD_KIND_MISMATCH',
   BLUEPRINT_COMPOSE_ROUTE_UNKNOWN_SERVICE:
     'BLUEPRINT_COMPOSE_ROUTE_UNKNOWN_SERVICE',
@@ -74,7 +75,7 @@ export const ERROR_CODES = {
 
 export type BlueprintErrorCode = keyof typeof ERROR_CODES;
 
-/** Mirrors @rntme/module-skeleton PropSchema for catalog typing without importing package in artifact. */
+/** Mirrors @rntme/contracts-module-v1 PropSchema for catalog typing without importing package in artifact. */
 export type PropSchema = {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   required?: boolean;

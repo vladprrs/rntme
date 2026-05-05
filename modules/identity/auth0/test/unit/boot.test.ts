@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createStateStore } from '@json-render/core';
 import {
   createLifecycleBus,
   createModuleBootContext,
   createOperationRegistry,
-  createRuntimeStateStore,
   createTransportChain,
-} from '@rntme/ui-runtime/client';
+} from '@rntme/contracts-client-runtime-v1';
 
 const auth0Mock = vi.hoisted(() => ({
   isAuthenticated: vi.fn(async () => false),
@@ -30,7 +30,7 @@ const cfg = {
 };
 
 function makeCtx(baseFetch = vi.fn(async () => new Response('{}', { status: 200 }))) {
-  const store = createRuntimeStateStore({});
+  const store = createStateStore({});
   const bus = createLifecycleBus();
   const chain = createTransportChain(baseFetch);
   const registry = createOperationRegistry();
@@ -63,6 +63,8 @@ describe('boot', () => {
     expect(Auth0ClientMock).toHaveBeenCalledWith({
       domain: cfg.domain,
       clientId: cfg.clientId,
+      cacheLocation: 'localstorage',
+      useRefreshTokens: true,
       authorizationParams: {
         audience: cfg.audience,
         redirect_uri: cfg.redirectUri,
@@ -116,6 +118,19 @@ describe('boot', () => {
     response = new Response('{}', { status: 401 });
     await chain.fetch(new Request('https://api.example.test/notes'));
 
+    expect(store.get('/auth/status')).toBe('anon');
+    expect(store.get('/auth/user')).toBe(null);
+  });
+
+  it('falls back to anon when refresh-token redemption fails on a cached session', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    auth0Mock.getTokenSilently.mockRejectedValue(Object.assign(new Error('login_required'), { error: 'login_required' }));
+    const { ctx, store } = makeCtx();
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.logout).toHaveBeenCalledWith({ openUrl: false });
     expect(store.get('/auth/status')).toBe('anon');
     expect(store.get('/auth/user')).toBe(null);
   });
