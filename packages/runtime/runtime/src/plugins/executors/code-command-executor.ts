@@ -2,15 +2,8 @@ import type {
   CommandExecutor,
   CommandExecutorInput,
   CommandExecutorOutput,
-  CommandExecutionContext,
 } from './types.js';
-
-export type CodeCommandHandler = (
-  ctx: CommandExecutionContext,
-  input: Record<string, unknown>,
-) => Promise<CommandExecutorOutput>;
-
-export type CodeCommandHandlerMap = Record<string, CodeCommandHandler>;
+import type { CodeCommandHandlerMap } from '@rntme/contracts-handlers-v1';
 
 export class CodeCommandExecutor implements CommandExecutor {
   private readonly handlers: CodeCommandHandlerMap;

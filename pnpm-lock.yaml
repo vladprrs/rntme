@@ -1057,6 +1057,33 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
+  packages/contracts/handlers/v1:
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.10.0
+        version: 9.39.4
+      '@rntme/bindings-http':
+        specifier: workspace:*
+        version: link:../../../runtime/bindings-http
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
   packages/contracts/identity/v1:
     dependencies:
       '@rntme/contracts-common-v1':
@@ -1522,6 +1549,9 @@ importers:
       '@rntme/bindings-http':
         specifier: workspace:*
         version: link:../bindings-http
+      '@rntme/contracts-handlers-v1':
+        specifier: workspace:*
+        version: link:../../contracts/handlers/v1
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../event-store
@@ -1653,13 +1683,16 @@ importers:
 
   packages/tooling/module-skeleton:
     dependencies:
-      '@rntme/runtime':
+      '@rntme/contracts-handlers-v1':
         specifier: workspace:*
-        version: link:../../runtime/runtime
+        version: link:../../contracts/handlers/v1
     devDependencies:
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../../runtime/event-store
+      '@rntme/runtime':
+        specifier: workspace:*
+        version: link:../../runtime/runtime
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39
