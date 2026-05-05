@@ -1215,6 +1215,9 @@ importers:
       '@rntme/contracts-provisioner-v1':
         specifier: workspace:*
         version: link:../../contracts/provisioner/v1
+      '@rntme/workflows':
+        specifier: workspace:*
+        version: link:../../artifacts/workflows
       zod:
         specifier: ^4.0.0
         version: 4.3.6

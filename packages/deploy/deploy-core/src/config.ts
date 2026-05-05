@@ -38,6 +38,18 @@ export type InMemoryEventBusConfig = {
 
 export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig | InMemoryEventBusConfig;
 
+export type WorkflowEngineConfig =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'operaton';
+      readonly mode: 'provisioned';
+      readonly image: string;
+    };
+
+export type BpmnWorkerConfig = {
+  readonly image: string;
+};
+
 export type IntegrationModuleDeploymentConfig = {
   readonly image: string;
   readonly expose?: boolean;
@@ -89,4 +101,8 @@ export type ProjectDeploymentConfig = {
   readonly policies?: DeploymentPolicyConfig;
   readonly auth?: ProjectAuthConfig;
   readonly runtimeImage?: string;
+  readonly workflows?: {
+    readonly engine: WorkflowEngineConfig;
+    readonly worker: BpmnWorkerConfig;
+  };
 };
