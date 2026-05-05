@@ -36,9 +36,17 @@ export type CommandExecutorError = Readonly<{
   detail?: unknown;
 }>;
 
-export type CommandExecutorOutput =
-  | Readonly<{ ok: true; value: CommandExecutionResult }>
-  | Readonly<{ ok: false; error: CommandExecutorError }>;
+export type CommandExecutorOk = Readonly<{
+  ok: true;
+  value: CommandExecutionResult;
+}>;
+
+export type CommandExecutorErr = Readonly<{
+  ok: false;
+  error: CommandExecutorError;
+}>;
+
+export type CommandExecutorOutput = CommandExecutorOk | CommandExecutorErr;
 
 export type CodeCommandHandler = (
   ctx: CommandExecutionContext,

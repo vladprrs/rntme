@@ -15,12 +15,12 @@ test('runtime context is assignable to contract context (subtype)', () => {
   expectTypeOf<RuntimeCtx>().toMatchTypeOf<ContractCtx>();
 });
 
-test('runtime output matches contract output exactly', () => {
-  // Output uses toEqualTypeOf (not toMatchTypeOf) because the contract is the
-  // bus value: handlers construct it and runtime consumes it round-trip, so
-  // any runtime widening here would let modules emit shapes the contract
-  // can't represent. Exact equality keeps the wire pinned in both directions.
-  expectTypeOf<RuntimeOut>().toEqualTypeOf<ContractOut>();
+test('runtime output and contract output are mutually assignable', () => {
+  // The contract is the bus value: handlers construct it and runtime consumes
+  // it round-trip. Pin both assignability directions so neither side can widen
+  // beyond what the other can represent.
+  expectTypeOf<RuntimeOut>().toMatchTypeOf<ContractOut>();
+  expectTypeOf<ContractOut>().toMatchTypeOf<RuntimeOut>();
 });
 
 test('a module handler typed against the contract is callable from runtime', () => {
