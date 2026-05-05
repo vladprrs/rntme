@@ -317,6 +317,27 @@ up, encode it as a named `pathNot` carve-out on the rule with a
 comment that links to the spec or PR explaining the carve-out;
 unjustified exceptions get rejected in review.
 
+The cruise scope `^(packages|modules)/` intentionally excludes
+`apps/` (cli, platform-http, landing). Apps are leaves of the
+dependency graph — nothing imports them, so the layering invariants
+here are about what they *consume*. That's enforced indirectly: an
+app's direct dependencies on contracts/runtime packages are themselves
+cruised against the rules above, so a layering breach in any package
+an app depends on is caught at the package level. If `apps/` ever
+needed its own layering rules (e.g., "apps must not import vendor
+modules directly"), add it to `includeOnly` and write the rule.
+
+dependency-cruiser walks resolved import graphs. A bare specifier
+with no corresponding `package.json` dependency (e.g., `import
+'@rntme/runtime'` from a package that doesn't declare it) cannot be
+resolved and silently passes the layer check. In CI this gap is
+closed by the steps that run *before* `pnpm depcruise`: `pnpm install
+--frozen-lockfile` rejects unsynced lockfiles, and `pnpm -r run
+build` / `pnpm -r run typecheck` fail on unresolved imports. The
+combined gate catches both halves of a layering breach (the import
+statement *and* the dep declaration) before the architectural check
+runs.
+
 The rules are manually negative-tested as part of the dep-cruiser
 introduction PR (see
 `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`,
