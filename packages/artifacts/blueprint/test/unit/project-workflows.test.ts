@@ -1,8 +1,10 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { loadComposedBlueprint } from '../../src/index.js';
+
+const tempDirs: string[] = [];
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value, null, 2));
@@ -10,6 +12,7 @@ function writeJson(path: string, value: unknown): void {
 
 function scaffoldProject(): string {
   const dir = mkdtempSync(join(tmpdir(), 'rntme-workflows-blueprint-'));
+  tempDirs.push(dir);
   mkdirSync(join(dir, 'pdm/entities'), { recursive: true });
   mkdirSync(join(dir, 'services/orders/graphs'), { recursive: true });
   mkdirSync(join(dir, 'services/orders/bindings'), { recursive: true });
@@ -156,6 +159,12 @@ function scaffoldProject(): string {
 }
 
 describe('project workflows', () => {
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('loads validated workflows into composed blueprint', () => {
     const result = loadComposedBlueprint(scaffoldProject());
     expect(result.ok).toBe(true);
