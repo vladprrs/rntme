@@ -33,4 +33,26 @@ describe('evaluateMappingValue', () => {
       note: null,
     });
   });
+
+  it('returns undefined for missing leaves, missing intermediates, and primitive intermediates', () => {
+    const ctx = {
+      event: { data: { orderId: 'ord_1' }, quantity: 2 },
+      process: {},
+    };
+
+    expect(evaluateMappingValue('$event.data.missing', ctx)).toBeUndefined();
+    expect(evaluateMappingValue('$event.missing.leaf', ctx)).toBeUndefined();
+    expect(evaluateMappingValue('$event.quantity.amount', ctx)).toBeUndefined();
+  });
+
+  it('does not traverse inherited or prototype-shaped properties', () => {
+    const inherited = { inheritedValue: 'from-prototype' };
+    const event = Object.create(inherited) as { ownValue?: string };
+    event.ownValue = 'own';
+
+    expect(evaluateMappingValue('$event.ownValue', { event, process: {} })).toBe('own');
+    expect(evaluateMappingValue('$event.inheritedValue', { event, process: {} })).toBeUndefined();
+    expect(evaluateMappingValue('$event.__proto__.inheritedValue', { event, process: {} })).toBeUndefined();
+    expect(evaluateMappingValue('$event.constructor', { event, process: {} })).toBeUndefined();
+  });
 });
