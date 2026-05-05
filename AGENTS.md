@@ -293,6 +293,57 @@ Modules tree (vendor implementations):
 - **Compile target.** ESM, TypeScript `strict`, Node 20. `tsc` per
   package — no bundler except `ui-runtime`'s esbuild SPA build.
 
+## 4.1 Layering enforcement
+
+The §3 package layering is not a convention — it is mechanically
+enforced by [`dependency-cruiser`](https://github.com/sverweij/dependency-cruiser).
+The config lives at the repo root in `.dependency-cruiser.cjs` and is
+invoked via `pnpm depcruise` (locally and in CI; see §5). CI fails the
+build if any rule reports an `error`. The rules:
+
+| Rule | From | To (forbidden) | Why |
+| --- | --- | --- | --- |
+| `modules-only-import-contracts` | `modules/**` | `packages/**` except `packages/contracts/**` | Vendor modules are plug-ins by contract; a module reaching into runtime/artifacts/deploy/platform/tooling is a layering bug. |
+| `contracts-must-stay-leaves` | `packages/contracts/**` | any other workspace package or any `modules/**` | Contracts are the sealed surface every consumer depends on. A contract that depends back on an implementation creates a cycle by construction. |
+| `tooling-only-imports-contracts` | `packages/tooling/**` | `packages/{runtime,artifacts,deploy,platform}/**` | Scaffolding ships examples for module authors; it must not pull production code into their graph. |
+| `artifacts-must-not-import-runtime` | `packages/artifacts/**` | `packages/runtime/**` | Artifacts describe *what* the runtime executes. The arrow runs the other way. |
+| `deploy-must-not-import-runtime` | `packages/deploy/**` | `packages/runtime/**` | Deploy plans/applies deployments. Anything it needs from runtime must be lifted into a contract. |
+| `no-circular` | any | any (circular) | Cycles defeat tree-shaking, confuse build order, and almost always indicate a missing seam. |
+
+Every rule has `severity: 'error'`. **Never** introduce `severity:
+'warn'` — pre-stable (see CLAUDE.md "Non-obvious conventions") an
+unenforced rule is just noise. If a genuinely justified exception comes
+up, encode it as a named `pathNot` carve-out on the rule with a
+comment that links to the spec or PR explaining the carve-out;
+unjustified exceptions get rejected in review.
+
+The cruise scope `^(packages|modules)/` intentionally excludes
+`apps/` (cli, platform-http, landing). Apps are leaves of the
+dependency graph — nothing imports them, so the layering invariants
+here are about what they *consume*. That's enforced indirectly: an
+app's direct dependencies on contracts/runtime packages are themselves
+cruised against the rules above, so a layering breach in any package
+an app depends on is caught at the package level. If `apps/` ever
+needed its own layering rules (e.g., "apps must not import vendor
+modules directly"), add it to `includeOnly` and write the rule.
+
+dependency-cruiser walks resolved import graphs. A bare specifier
+with no corresponding `package.json` dependency (e.g., `import
+'@rntme/runtime'` from a package that doesn't declare it) cannot be
+resolved and silently passes the layer check. In CI this gap is
+closed by the steps that run *before* `pnpm depcruise`: `pnpm install
+--frozen-lockfile` rejects unsynced lockfiles, and `pnpm -r run
+build` / `pnpm -r run typecheck` fail on unresolved imports. The
+combined gate catches both halves of a layering breach (the import
+statement *and* the dep declaration) before the architectural check
+runs.
+
+The rules are manually negative-tested as part of the dep-cruiser
+introduction PR (see
+`docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`,
+PR 6) — adding or modifying a rule requires the same proof-of-fire
+discipline.
+
 ## 5. Build / test / lint
 
 | Command | Effect |
@@ -302,9 +353,11 @@ Modules tree (vendor implementations):
 | `pnpm -r run typecheck` | Typecheck-only pass |
 | `pnpm -r run test` | Vitest in every package |
 | `pnpm -r run lint` | ESLint across `src/` and `test/` |
+| `pnpm depcruise` | `dependency-cruiser` layering check (rules in `.dependency-cruiser.cjs`; see §4.1) |
 | `pnpm -F @rntme/<pkg> test:watch` | Watch mode for one package |
 
-CI runs `build → typecheck → test → lint` on push and PRs to `main`.
+CI runs `build → typecheck → test → lint → depcruise → vendor:check`
+on push and PRs to `main`.
 
 ## 6. How to do common tasks
 

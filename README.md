@@ -219,9 +219,10 @@ Each library package exposes the same scripts. Run them across all packages from
 | `pnpm -r run typecheck` | Typecheck-only pass with `tsconfig.check.json`. |
 | `pnpm -r run test` | `vitest run` in every package (unit + integration + e2e + golden). |
 | `pnpm -r run lint` | ESLint on `src/**` and `test/**`. |
+| `pnpm depcruise` | Layering check (`dependency-cruiser` rules in `.dependency-cruiser.cjs`). |
 | `pnpm -F <name> test:watch` | Vitest watch mode for one package. |
 
-CI runs `build → typecheck → test → lint` on every push and PR to `main` (see `.github/workflows/ci.yml`).
+CI runs `build → typecheck → test → lint → depcruise → vendor:check` on every push and PR to `main` (see `.github/workflows/ci.yml`).
 
 ## Design docs and specs
 

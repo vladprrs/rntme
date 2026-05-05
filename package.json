@@ -13,9 +13,11 @@
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
     "vendor:check": "node scripts/vendor-check.mjs",
-    "vendor:sync": "node scripts/vendor-sync.mjs"
+    "vendor:sync": "node scripts/vendor-sync.mjs",
+    "depcruise": "depcruise --config .dependency-cruiser.cjs packages modules"
   },
   "devDependencies": {
-    "@rntme/seed": "workspace:*"
+    "@rntme/seed": "workspace:*",
+    "dependency-cruiser": "^17.4.0"
   }
 }
