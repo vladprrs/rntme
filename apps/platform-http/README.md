@@ -169,11 +169,11 @@ blueprint so `@rntme/workflows` can validate event and binding refs, reads the
 referenced BPMN files into `ComposedProjectInput.workflowFiles`, and passes the
 deploy target's `workflows` config through `ProjectDeploymentConfig`.
 
-The executor records smoke evidence after apply. For workflow deployments the
-evidence is still infrastructure-level in the MVP: the rendered/apply result
-must include the Operaton compose resource and the `bpmn-worker` application,
-while public ingress smoke remains `/health`, UI, `/config.json`, and protected
-API checks when applicable.
+The executor records smoke evidence after apply. For workflow deployments, the
+apply result must include the Operaton compose resource and the `bpmn-worker`
+application, and the package-level workflow tests cover both order-fulfillment
+branches through the worker/service-task path. Public ingress smoke remains
+`/health`, UI, `/config.json`, and protected API checks when applicable.
 
 ## Security headers (UI only)
 

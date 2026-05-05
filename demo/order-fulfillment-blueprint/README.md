@@ -19,7 +19,7 @@ entities.
 ## BPMN Flow
 
 `workflows/workflows.json` defines `orderFulfillment` and maps the
-`orders.OrderPlace` event to the BPMN message start named `OrderPlaced`.
+`orders.OrderPlaced` event to the BPMN message start named `OrderPlaced`.
 The process runs `reserveStock`, then an exclusive gateway routes to
 `confirmOrder` when the reservation command returns `{ reserved: true,
 reservationId }`. It routes to `cancelOrder` when the command returns
@@ -29,8 +29,8 @@ reservationId }`. It routes to `cancelOrder` when the command returns
 `services/inventory/commands/handlers.mjs`. The handler keeps `reserveStock`
 as a successful business command in both branches: SKU `missing-stock` appends
 `StockReservationRejected` and returns `{ reserved: false, reason:
-"insufficient stock" }`; all other SKUs append a reserved stock reservation and
-return `{ reserved: true, reservationId }`.
+"insufficient stock" }`; all other SKUs append `StockReserved` and return
+`{ reserved: true, reservationId }`.
 
 ## Smoke Expectations
 

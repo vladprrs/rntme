@@ -238,6 +238,84 @@ describe('runWorkflowEventOnce', () => {
       reservation: { reserved: false, reason: 'insufficient stock' },
     });
   });
+
+  it('continues polling and executes the cancellation task after insufficient stock', async () => {
+    const calls: string[] = [];
+    let fetchCount = 0;
+
+    await runWorkflowEventOnce({
+      manifest: createManifest({
+        serviceTasks: [
+          {
+            definition: 'orderFulfillment',
+            taskId: 'reserveStock',
+            bindingRef: 'inventory.reserveStock',
+            input: { orderId: '$process.orderId' },
+            resultVariable: 'reservation',
+          },
+          {
+            definition: 'orderFulfillment',
+            taskId: 'cancelOrder',
+            bindingRef: 'orders.cancelOrder',
+            input: {
+              orderId: '$process.orderId',
+              reason: '$process.reservation.reason',
+            },
+          },
+        ],
+      }),
+      event: createEvent(),
+      eventRef: { service: 'orders', aggregateType: 'Order', eventType: 'OrderPlaced' },
+      operaton: createOperaton(calls, {
+        async fetchAndLock() {
+          fetchCount += 1;
+          if (fetchCount === 1) {
+            return [
+              {
+                id: 'task_reserve',
+                taskId: 'reserveStock',
+                processInstanceId: 'proc_1',
+                activityInstanceId: 'act_reserve',
+                variables: { orderId: 'ord_1' },
+              },
+            ];
+          }
+          if (fetchCount === 2) {
+            return [
+              {
+                id: 'task_cancel',
+                taskId: 'cancelOrder',
+                processInstanceId: 'proc_1',
+                activityInstanceId: 'act_cancel',
+                variables: {
+                  orderId: 'ord_1',
+                  reservation: { reserved: false, reason: 'insufficient stock' },
+                },
+              },
+            ];
+          }
+          return [];
+        },
+      }),
+      commands: createCommands(calls, {
+        async execute(bindingRef, input, metadata) {
+          calls.push(`command:${bindingRef}:${String((input as { orderId?: string }).orderId)}:${metadata.commandId}`);
+          if (bindingRef === 'inventory.reserveStock') {
+            return { reserved: false, reason: 'insufficient stock' };
+          }
+          return { aggregateId: 'ord_1', version: 2, eventIds: ['evt_cancel'] };
+        },
+      }),
+    });
+
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'command:inventory.reserveStock:ord_1:bpmn:proc_1:reserveStock:act_reserve',
+      'complete:task_reserve:false',
+      'command:orders.cancelOrder:ord_1:bpmn:proc_1:cancelOrder:act_cancel',
+      'complete:task_cancel:undefined',
+    ]);
+  });
 });
 
 function createManifest(overrides: Partial<WorkflowArtifact> = {}): WorkflowArtifact {

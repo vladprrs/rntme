@@ -151,6 +151,11 @@ describe('order-fulfillment BPMN demo blueprint', () => {
           sku: '$event.data.after.sku',
           quantity: '$event.data.after.quantity',
         },
+        event: {
+          service: 'orders',
+          aggregateType: 'Order',
+          eventType: 'OrderPlaced',
+        },
       }),
     );
     expect(workflows.serviceTasks.map((task) => task.bindingRef).sort()).toEqual(
@@ -193,6 +198,7 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(bpmn).not.toContain('reservation.aggregateId');
     expect(bpmn).not.toContain('reservation.status');
     expect(inventoryHandlers).toContain('missing-stock');
+    expect(inventoryHandlers).toContain('StockReserved');
     expect(inventoryHandlers).toContain('StockReservationRejected');
   });
 });

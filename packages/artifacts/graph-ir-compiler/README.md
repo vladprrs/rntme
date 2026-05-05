@@ -77,7 +77,7 @@ src/
 
   emit/
     plan.ts                                 (internal) buildEmitPlans(graph, pdm) — for each emit node, joins canonical config with PDM's derived event-type table to produce EmitPlan[].
-    event-type.ts                           (entry — deriveEventTypeName) deriveEventTypeName(aggregate, transition) = PascalCase(aggregate)+PascalCase(transition); lookupEventTypeSpec(pdm, agg, t).
+    event-type.ts                           (entry — deriveEventTypeName) deriveEventTypeName(aggregate, transition) = default PascalCase(aggregate)+PascalCase(transition); lookupEventTypeSpec(pdm, agg, t) honors PDM eventType overrides.
     payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly: stateField ← plan.toState; field paths are rejected at runtime (params/literals/$pre only).
 
   command-runtime/
@@ -210,7 +210,7 @@ Graph expressions may reference pre-step results with `{ "$pre": "session.user_i
 | `runCommand` | `(rawSpec, rawPdm, rawQsm, params, ctx) → CommandResult` | `compileCommand` then `executeCommand`. |
 | `explain` | `(rawSpec, rawPdm, rawQsm) → ExplainOutput` | Returns every intermediate artifact (parsed, canonical, semanticPlan, relational, sql, paramOrder) on success, or `{ ok: false, artifacts, errors }` partial on failure. |
 | `inferRole` | `(graph) → Result<GraphRole>` | `'query' \| 'command' \| 'predicate' \| 'mapper' \| 'reducer'`; `GRAPH_MIXED_ROLE` on rowset+emit combinations. |
-| `deriveEventTypeName` | `(aggregate, transition) → string` | `Issue` + `report` → `IssueReport` (PascalCase concat). |
+| `deriveEventTypeName` | `(aggregate, transition) → string` | Default name helper: `Issue` + `report` → `IssueReport` (PascalCase concat). Use `lookupEventTypeSpec`/`deriveEventTypes` for transition overrides. |
 | `CommandExecutionError` | `class extends Error` | `.code ∈ { COMMAND_ILLEGAL_TRANSITION, COMMAND_GUARD_REJECTED, COMMAND_CONCURRENCY_CONFLICT }`; optional `.detail`. |
 | `ok / err / isOk / isErr / ERROR_CODES` | Result helpers | `Result<T> = Ok<T> \| Err`; `ERROR_CODES` is the full string registry. |
 
@@ -398,7 +398,7 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Guard node.** The last non-emit node of a command graph (when present). Lowered as an independent SELECT by `command-runtime/compile.ts` and stored on `compiled.readPrelude`; its node id lives at `compiled.readPreludeGuardNodeId`.
 - **Scope.** `{ aliases: Map<alias, {entity}>, shapeFields?: Map<field, {type, nullable}> }`. Built per-node by `validate/semantic/index.ts`; before `reduce` it is alias-based, after `reduce` it is shape-based.
 - **Explain artifacts.** Intermediate products accumulated by `explain()`: `parsed` (after Zod), `canonical` (after `normalize`), `semanticPlan` (after `buildSemanticPlan`), `relational` (after `buildRelational`), and the final `sql` + `paramOrder`. On failure, `explain()` returns the partial set reached before the failing stage.
-- **Derived event type.** PascalCase(aggregate) + PascalCase(transition), e.g. `Issue` + `report` → `IssueReport`. Canonical source: `@rntme/pdm → deriveEventTypes(pdm)`; single-pair lookup via `emit/event-type.ts → lookupEventTypeSpec`.
+- **Derived event type.** Defaults to PascalCase(aggregate) + PascalCase(transition), e.g. `Issue` + `report` → `IssueReport`; transition `eventType` overrides in PDM win. Canonical source: `@rntme/pdm → deriveEventTypes(pdm)`; single-pair lookup via `emit/event-type.ts → lookupEventTypeSpec`.
 - **Before/after payload.** Each emitted event's payload is `{ before: state-before-or-null, after: state-after }`. `before` is `null` on creation transitions; otherwise it is the projection of `currentState` onto `plan.affects`. `after` is `{ stateField: plan.toState, ...explicit-payload-exprs-evaluated }`.
 - **Expected version.** The version number `executeCommand` passes to `appendEvents`. Equal to the `version` returned by `replayAggregateState` (the last seen event's `version`, or `0` for an empty stream). A mismatch triggers `ConcurrencyConflict` in the event-store and `COMMAND_CONCURRENCY_CONFLICT` from this package.
 - **`GraphIrError`.** The error record shape: `{ layer, code, message, location?: { graphId?, nodeId?, path? }, hint? }`. Every error-producing path in this package constructs one.

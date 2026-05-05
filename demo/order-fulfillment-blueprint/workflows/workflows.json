@@ -15,7 +15,7 @@
       "event": {
         "service": "orders",
         "aggregateType": "Order",
-        "eventType": "OrderPlace"
+        "eventType": "OrderPlaced"
       },
       "businessKey": "$event.rntAggregateId",
       "variables": {

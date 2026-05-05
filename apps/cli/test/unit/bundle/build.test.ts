@@ -97,6 +97,24 @@ describe('buildProjectBundle', () => {
     });
   });
 
+  it('emits service-local command handler modules as assets', () => {
+    withTmp((dir) => {
+      mkdirSync(join(dir, 'services', 'inventory', 'commands'), { recursive: true });
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: ['inventory'], name: 'demo' }));
+      const handlers = 'export const handlers = { reserveStock: async () => ({ ok: true }) };';
+      writeFileSync(join(dir, 'services', 'inventory', 'commands', 'handlers.mjs'), handlers);
+
+      const result = buildProjectBundle(dir);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(Object.keys(result.value.bundle.files)).toEqual(['project.json']);
+      expect(result.value.bundle.assets['services/inventory/commands/handlers.mjs']).toBe(
+        Buffer.from(handlers).toString('base64'),
+      );
+    });
+  });
+
   it('emits version 2 bundles with assets when modules declare provisioner.entry', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
     try {

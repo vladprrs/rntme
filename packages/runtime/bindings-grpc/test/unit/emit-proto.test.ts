@@ -57,4 +57,24 @@ describe('emitProto', () => {
 
     expect(out.match(/message CommandResult \{/g)).toHaveLength(1);
   });
+
+  it('emits arbitrary JSON shape fields as protobuf Value', () => {
+    const jsonShape: ResolvedShape = {
+      name: 'AuditPayload',
+      origin: 'custom',
+      fields: {
+        metadata: { type: { kind: 'json' }, nullable: true },
+      },
+    };
+
+    const out = emitProto(
+      minimalValidated,
+      { ...minimalShapeRegistry, AuditPayload: jsonShape },
+      { packageName: 'x.y', serviceName: 'Svc' },
+    );
+
+    expect(out).toContain('import "google/protobuf/struct.proto";');
+    expect(out).toContain('message AuditPayload {');
+    expect(out).toContain('google.protobuf.Value metadata = 1;');
+  });
 });

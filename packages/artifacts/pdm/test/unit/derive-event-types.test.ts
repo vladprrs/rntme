@@ -75,6 +75,22 @@ describe('deriveEventTypes', () => {
     ]);
   });
 
+  it('uses transition eventType override when present', () => {
+    const artifact = fullIssue();
+    const transitions = artifact.entities.Issue!.stateMachine!.transitions;
+    artifact.entities.Issue!.stateMachine = {
+      ...artifact.entities.Issue!.stateMachine!,
+      transitions: {
+        ...transitions,
+        assign: { ...transitions.assign!, eventType: 'IssueAssigned' },
+      },
+    };
+
+    const events = deriveEventTypes(validated(artifact));
+
+    expect(events.find((e) => e.transition === 'assign')?.eventType).toBe('IssueAssigned');
+  });
+
   it('isCreation flag is true only for from=null transitions', () => {
     const events = deriveEventTypes(validated(fullIssue()));
     expect(events.find((e) => e.transition === 'report')?.isCreation).toBe(true);

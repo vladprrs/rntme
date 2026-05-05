@@ -65,7 +65,7 @@ function buildSpec(
   }
 
   return {
-    eventType: pascalCase(entityName) + pascalCase(transitionName),
+    eventType: t.eventType ?? defaultEventType(entityName, transitionName),
     aggregateType: entityName,
     transition: transitionName,
     from,
@@ -75,6 +75,10 @@ function buildSpec(
     affects: affectsWithState,
     payloadFields,
   };
+}
+
+export function defaultEventType(entityName: string, transitionName: string): string {
+  return pascalCase(entityName) + pascalCase(transitionName);
 }
 
 function resolveAffects(

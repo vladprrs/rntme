@@ -19,7 +19,8 @@
       "reserve": {
         "from": null,
         "to": "reserved",
-        "affects": ["orderId", "sku", "quantity"]
+        "affects": ["orderId", "sku", "quantity"],
+        "eventType": "StockReserved"
       },
       "rejected": {
         "from": null,

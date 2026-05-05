@@ -1,6 +1,9 @@
 const MISSING_STOCK_SKU = 'missing-stock';
 const INSUFFICIENT_STOCK_REASON = 'insufficient stock';
 
+/** @typedef {import('@rntme/runtime').ServiceLocalCodeCommandHandlerMap} ServiceLocalCodeCommandHandlerMap */
+
+/** @type {ServiceLocalCodeCommandHandlerMap} */
 export const handlers = {
   reserveStock: async (ctx, input) => {
     const eventStore = ctx.eventStore;
@@ -43,7 +46,7 @@ export const handlers = {
           status: 'reserved',
         };
 
-    const eventType = rejected ? 'StockReservationRejected' : 'StockReservationReserve';
+    const eventType = rejected ? 'StockReservationRejected' : 'StockReserved';
     const append = eventStore.appendEvents([
       {
         subject,

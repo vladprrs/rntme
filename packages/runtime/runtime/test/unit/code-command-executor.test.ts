@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SqliteEventStore } from '@rntme/event-store';
 import { CodeCommandExecutor } from '../../src/plugins/executors/code-command-executor.js';
 import type { CommandExecutionContext } from '../../src/plugins/executors/types.js';
+import type { ServiceLocalCodeCommandHandler } from '../../src/plugins/executors/index.js';
 
 function mkCtx(): CommandExecutionContext {
   return {
@@ -64,5 +65,29 @@ describe('CodeCommandExecutor', () => {
       expect(out.error.code).toBe('COMMAND_HANDLER_ERROR');
       expect(out.error.message).toBe('invalid price');
     }
+  });
+
+  it('types service-local handlers against the runtime-rich context', async () => {
+    const handler: ServiceLocalCodeCommandHandler = async (ctx, input) => {
+      expect(ctx.eventStore).toBeDefined();
+      expect(ctx.actor).toBeNull();
+      return {
+        ok: true,
+        value: {
+          aggregateId: String(input.id),
+          version: 0,
+          eventIds: [],
+          commandId: ctx.correlation.commandId,
+          correlationId: ctx.correlation.correlationId,
+          result: { hasEventStore: ctx.eventStore !== undefined },
+        },
+      };
+    };
+    const executor = new CodeCommandExecutor({ rich: handler });
+
+    const out = await executor.execute({ commandName: 'rich', inputs: { id: 'X-1' }, ctx: mkCtx() });
+
+    expect(out.ok).toBe(true);
+    if (out.ok) expect(out.value.result).toEqual({ hasEventStore: true });
   });
 });

@@ -40,6 +40,7 @@ export type Transition = {
   from: string | readonly string[] | null;
   to: string;
   affects?: readonly string[];
+  eventType?: string;
 };
 
 export type StateMachine = {

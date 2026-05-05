@@ -2,13 +2,13 @@ import type {
   CommandExecutor,
   CommandExecutorInput,
   CommandExecutorOutput,
+  ServiceLocalCodeCommandHandlerMap,
 } from './types.js';
-import type { CodeCommandHandlerMap } from '@rntme/contracts-handlers-v1';
 
 export class CodeCommandExecutor implements CommandExecutor {
-  private readonly handlers: CodeCommandHandlerMap;
+  private readonly handlers: ServiceLocalCodeCommandHandlerMap;
 
-  constructor(handlers: CodeCommandHandlerMap) {
+  constructor(handlers: ServiceLocalCodeCommandHandlerMap) {
     this.handlers = handlers;
   }
 

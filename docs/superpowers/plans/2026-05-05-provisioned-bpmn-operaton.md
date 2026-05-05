@@ -72,7 +72,7 @@ Modify:
 - Create: `packages/artifacts/workflows/README.md`
 - Test: `packages/artifacts/workflows/test/unit/result.test.ts`
 
-- [ ] **Step 1: Add package metadata**
+- [x] **Step 1: Add package metadata**
 
 Create `packages/artifacts/workflows/package.json`:
 
@@ -115,7 +115,7 @@ Create `packages/artifacts/workflows/package.json`:
 }
 ```
 
-- [ ] **Step 2: Add TypeScript configs**
+- [x] **Step 2: Add TypeScript configs**
 
 Create `packages/artifacts/workflows/tsconfig.json`:
 
@@ -149,7 +149,7 @@ Create `packages/artifacts/workflows/tsconfig.check.json`:
 }
 ```
 
-- [ ] **Step 3: Define artifact and context types**
+- [x] **Step 3: Define artifact and context types**
 
 Create `packages/artifacts/workflows/src/types/artifact.ts`:
 
@@ -240,7 +240,7 @@ export type WorkflowCrossRefContext = {
 };
 ```
 
-- [ ] **Step 4: Define result helpers and error codes**
+- [x] **Step 4: Define result helpers and error codes**
 
 Create `packages/artifacts/workflows/src/types/result.ts`:
 
@@ -284,7 +284,7 @@ export const ERROR_CODES = {
 export type WorkflowErrorCode = keyof typeof ERROR_CODES;
 ```
 
-- [ ] **Step 5: Add public exports**
+- [x] **Step 5: Add public exports**
 
 Create `packages/artifacts/workflows/src/index.ts`:
 
@@ -316,7 +316,7 @@ export {
 } from './types/result.js';
 ```
 
-- [ ] **Step 6: Add README skeleton**
+- [x] **Step 6: Add README skeleton**
 
 Create `packages/artifacts/workflows/README.md`:
 
@@ -351,7 +351,7 @@ Project-level workflow artifact parser and validator for BPMN/Operaton mappings.
 - `../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
 ```
 
-- [ ] **Step 7: Add and run result helper test**
+- [x] **Step 7: Add and run result helper test**
 
 Create `packages/artifacts/workflows/test/unit/result.test.ts`:
 
@@ -382,7 +382,7 @@ Run: `pnpm -F @rntme/workflows test -- test/unit/result.test.ts`
 
 Expected before parse/validate implementation: PASS for result test.
 
-- [ ] **Step 8: Build and commit scaffold**
+- [x] **Step 8: Build and commit scaffold**
 
 Run:
 
@@ -413,7 +413,7 @@ git commit -m "feat(workflows): scaffold workflow artifact package"
 - Test: `packages/artifacts/workflows/test/unit/parse.test.ts`
 - Test: `packages/artifacts/workflows/test/unit/validate-structural.test.ts`
 
-- [ ] **Step 1: Write parse tests**
+- [x] **Step 1: Write parse tests**
 
 Create `packages/artifacts/workflows/test/unit/parse.test.ts`:
 
@@ -477,7 +477,7 @@ Run: `pnpm -F @rntme/workflows test -- test/unit/parse.test.ts`
 
 Expected: FAIL with missing `parseWorkflowArtifact` export.
 
-- [ ] **Step 2: Implement schema and parser**
+- [x] **Step 2: Implement schema and parser**
 
 Create `packages/artifacts/workflows/src/parse/schema.ts`:
 
@@ -616,13 +616,13 @@ export {
 } from './types/result.js';
 ```
 
-- [ ] **Step 3: Verify parse tests pass**
+- [x] **Step 3: Verify parse tests pass**
 
 Run: `pnpm -F @rntme/workflows test -- test/unit/parse.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Write structural validation tests**
+- [x] **Step 4: Write structural validation tests**
 
 Create `packages/artifacts/workflows/test/unit/validate-structural.test.ts`:
 
@@ -722,7 +722,7 @@ Run: `pnpm -F @rntme/workflows test -- test/unit/validate-structural.test.ts`
 
 Expected: FAIL with missing `validateWorkflowStructural`.
 
-- [ ] **Step 5: Implement structural validator**
+- [x] **Step 5: Implement structural validator**
 
 Create `packages/artifacts/workflows/src/validate/structural.ts`:
 
@@ -926,7 +926,7 @@ export {
 } from './types/result.js';
 ```
 
-- [ ] **Step 6: Verify structural tests pass**
+- [x] **Step 6: Verify structural tests pass**
 
 Run:
 
@@ -937,7 +937,7 @@ pnpm -F @rntme/workflows typecheck
 
 Expected: both commands exit 0.
 
-- [ ] **Step 7: Commit parse/structural validation**
+- [x] **Step 7: Commit parse/structural validation**
 
 ```bash
 git add packages/artifacts/workflows
@@ -952,7 +952,7 @@ git commit -m "feat(workflows): parse and structurally validate workflow artifac
 - Modify: `packages/artifacts/workflows/src/validate/cross-ref.ts`
 - Test: `packages/artifacts/workflows/test/unit/validate-cross-ref.test.ts`
 
-- [ ] **Step 1: Write cross-ref tests**
+- [x] **Step 1: Write cross-ref tests**
 
 Create `packages/artifacts/workflows/test/unit/validate-cross-ref.test.ts`:
 
@@ -1059,7 +1059,7 @@ Run: `pnpm -F @rntme/workflows test -- test/unit/validate-cross-ref.test.ts`
 
 Expected: FAIL because the temporary cross-ref accepts invalid refs.
 
-- [ ] **Step 2: Implement cross-ref validation**
+- [x] **Step 2: Implement cross-ref validation**
 
 Replace `packages/artifacts/workflows/src/validate/cross-ref.ts`:
 
@@ -1141,7 +1141,7 @@ export function validateWorkflowCrossRef(
 }
 ```
 
-- [ ] **Step 3: Verify workflow package**
+- [x] **Step 3: Verify workflow package**
 
 Run:
 
@@ -1153,7 +1153,7 @@ pnpm -F @rntme/workflows lint
 
 Expected: all exit 0.
 
-- [ ] **Step 4: Commit cross-ref validation**
+- [x] **Step 4: Commit cross-ref validation**
 
 ```bash
 git add packages/artifacts/workflows
@@ -1173,7 +1173,7 @@ git commit -m "feat(workflows): validate workflow cross references"
 - Test: `packages/artifacts/blueprint/test/unit/project-workflows.test.ts`
 - Test: `packages/artifacts/blueprint/test/unit/load-composed-blueprint.test.ts`
 
-- [ ] **Step 1: Add dependency**
+- [x] **Step 1: Add dependency**
 
 In `packages/artifacts/blueprint/package.json`, add:
 
@@ -1183,7 +1183,7 @@ In `packages/artifacts/blueprint/package.json`, add:
 
 inside `dependencies`.
 
-- [ ] **Step 2: Write blueprint workflow integration test**
+- [x] **Step 2: Write blueprint workflow integration test**
 
 Create `packages/artifacts/blueprint/test/unit/project-workflows.test.ts`:
 
@@ -1332,7 +1332,7 @@ Run: `pnpm -F @rntme/blueprint test -- test/unit/project-workflows.test.ts`
 
 Expected: FAIL because `ComposedBlueprint.workflows` is not implemented.
 
-- [ ] **Step 3: Add composed type and error code**
+- [x] **Step 3: Add composed type and error code**
 
 In `packages/artifacts/blueprint/src/types/artifact.ts`, add import:
 
@@ -1354,7 +1354,7 @@ In `packages/artifacts/blueprint/src/types/result.ts`, add:
 
 to `ERROR_CODES`.
 
-- [ ] **Step 4: Implement project workflow loader**
+- [x] **Step 4: Implement project workflow loader**
 
 Create `packages/artifacts/blueprint/src/compose/project-workflows.ts`:
 
@@ -1458,7 +1458,7 @@ function workflowErr<T>(path: string, cause: readonly unknown[]): Result<T> {
 }
 ```
 
-- [ ] **Step 5: Wire loader into composed blueprint**
+- [x] **Step 5: Wire loader into composed blueprint**
 
 In `packages/artifacts/blueprint/src/compose/load-composed-blueprint.ts`, add import:
 
@@ -1483,7 +1483,7 @@ Add to returned object:
     workflows: workflows.value,
 ```
 
-- [ ] **Step 6: Verify blueprint integration**
+- [x] **Step 6: Verify blueprint integration**
 
 Run:
 
@@ -1495,7 +1495,7 @@ pnpm -F @rntme/blueprint typecheck
 
 Expected: all exit 0. If the test fixture's graph/bindings are too minimal for current validators, adjust the fixture to match existing `load-service-member` expectations rather than weakening validators.
 
-- [ ] **Step 7: Commit blueprint integration**
+- [x] **Step 7: Commit blueprint integration**
 
 ```bash
 git add packages/artifacts/blueprint packages/artifacts/workflows
@@ -1516,7 +1516,7 @@ git commit -m "feat(blueprint): compose project workflow artifacts"
 - Modify: `packages/deploy/deploy-core/src/index.ts`
 - Test: `packages/deploy/deploy-core/test/unit/plan-workflows.test.ts`
 
-- [ ] **Step 1: Add deploy-core dependency**
+- [x] **Step 1: Add deploy-core dependency**
 
 In `packages/deploy/deploy-core/package.json`, add:
 
@@ -1526,7 +1526,7 @@ In `packages/deploy/deploy-core/package.json`, add:
 
 inside `dependencies`.
 
-- [ ] **Step 2: Write workflow planning tests**
+- [x] **Step 2: Write workflow planning tests**
 
 Create `packages/deploy/deploy-core/test/unit/plan-workflows.test.ts`:
 
@@ -1606,7 +1606,7 @@ Run: `pnpm -F @rntme/deploy-core test -- test/unit/plan-workflows.test.ts`
 
 Expected: FAIL with unknown `workflows` config/project fields.
 
-- [ ] **Step 3: Add deploy input and config types**
+- [x] **Step 3: Add deploy input and config types**
 
 In `packages/deploy/deploy-core/src/composed-project.ts`, import workflow types:
 
@@ -1647,7 +1647,7 @@ Add to `ProjectDeploymentConfig`:
 
 Use an explicit image in every deploy target. The implementation task must verify the production tag against Operaton's published image metadata before adding a real target config.
 
-- [ ] **Step 4: Add deploy-core plan types**
+- [x] **Step 4: Add deploy-core plan types**
 
 In `packages/deploy/deploy-core/src/plan.ts`, add workload and infrastructure types:
 
@@ -1704,7 +1704,7 @@ Extend `ProjectDeploymentPlan.infrastructure`:
     readonly workflowEngine: PlannedWorkflowEngine;
 ```
 
-- [ ] **Step 5: Add error codes**
+- [x] **Step 5: Add error codes**
 
 In `packages/deploy/deploy-core/src/errors.ts`, add:
 
@@ -1716,7 +1716,7 @@ In `packages/deploy/deploy-core/src/errors.ts`, add:
   DEPLOY_PLAN_WORKFLOWS_UNSUPPORTED_ENGINE: 'DEPLOY_PLAN_WORKFLOWS_UNSUPPORTED_ENGINE',
 ```
 
-- [ ] **Step 6: Implement planner helper**
+- [x] **Step 6: Implement planner helper**
 
 Create `packages/deploy/deploy-core/src/workflows.ts`:
 
@@ -1827,7 +1827,7 @@ function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string
 }
 ```
 
-- [ ] **Step 7: Wire planner into `buildProjectDeploymentPlan`**
+- [x] **Step 7: Wire planner into `buildProjectDeploymentPlan`**
 
 In `packages/deploy/deploy-core/src/plan.ts`, import:
 
@@ -1871,7 +1871,7 @@ Returned workloads:
     workloads: allWorkloads,
 ```
 
-- [ ] **Step 8: Export workflow types**
+- [x] **Step 8: Export workflow types**
 
 In `packages/deploy/deploy-core/src/index.ts`, export new helper/types if existing exports are explicit:
 
@@ -1884,7 +1884,7 @@ export type {
 } from './plan.js';
 ```
 
-- [ ] **Step 9: Verify deploy-core**
+- [x] **Step 9: Verify deploy-core**
 
 Run:
 
@@ -1896,7 +1896,7 @@ pnpm -F @rntme/deploy-core typecheck
 
 Expected: all exit 0. If `planEdge` rejects `bpmn-worker`, keep worker out of edge target matching by ensuring no routes point to it.
 
-- [ ] **Step 10: Commit deploy-core workflow planning**
+- [x] **Step 10: Commit deploy-core workflow planning**
 
 ```bash
 git add packages/deploy/deploy-core
@@ -1914,7 +1914,7 @@ git commit -m "feat(deploy-core): plan operaton workflow workloads"
 - Test: `packages/deploy/deploy-dokploy/test/unit/render-workflows.test.ts`
 - Test: `packages/deploy/deploy-dokploy/test/unit/apply.test.ts`
 
-- [ ] **Step 1: Write render test**
+- [x] **Step 1: Write render test**
 
 Create `packages/deploy/deploy-dokploy/test/unit/render-workflows.test.ts`:
 
@@ -1996,7 +1996,7 @@ Run: `pnpm -F @rntme/deploy-dokploy test -- test/unit/render-workflows.test.ts`
 
 Expected: FAIL because workflow resources are not rendered.
 
-- [ ] **Step 2: Extend rendered resource types**
+- [x] **Step 2: Extend rendered resource types**
 
 In `packages/deploy/deploy-dokploy/src/render.ts`, change `RenderedDokployComposeResource.infrastructureKind`:
 
@@ -2006,7 +2006,7 @@ In `packages/deploy/deploy-dokploy/src/render.ts`, change `RenderedDokployCompos
 
 Change `RenderedDokployApplicationResource.workloadKind` to continue using `DeploymentWorkload['kind']`; after Task 5 that union includes `bpmn-worker`.
 
-- [ ] **Step 3: Add workflow render helper**
+- [x] **Step 3: Add workflow render helper**
 
 Create `packages/deploy/deploy-dokploy/src/workflow-render.ts`:
 
@@ -2095,7 +2095,7 @@ function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['ev
 }
 ```
 
-- [ ] **Step 4: Wire helper into render**
+- [x] **Step 4: Wire helper into render**
 
 In `packages/deploy/deploy-dokploy/src/render.ts`, import:
 
@@ -2138,7 +2138,7 @@ And filter `bpmn-worker` out of upstreams:
 .filter((w) => w.kind !== 'edge-gateway' && w.kind !== 'bpmn-worker')
 ```
 
-- [ ] **Step 5: Make apply ordering explicit**
+- [x] **Step 5: Make apply ordering explicit**
 
 In `packages/deploy/deploy-dokploy/src/apply.ts`, replace the simple compose-first sort with:
 
@@ -2170,7 +2170,7 @@ Update `DeploymentApplyResource.infrastructureKind`:
   readonly infrastructureKind?: 'event-bus' | 'workflow-engine';
 ```
 
-- [ ] **Step 6: Verify deploy-dokploy**
+- [x] **Step 6: Verify deploy-dokploy**
 
 Run:
 
@@ -2182,7 +2182,7 @@ pnpm -F @rntme/deploy-dokploy typecheck
 
 Expected: all exit 0.
 
-- [ ] **Step 7: Commit Dokploy workflow rendering**
+- [x] **Step 7: Commit Dokploy workflow rendering**
 
 ```bash
 git add packages/deploy/deploy-dokploy
@@ -2206,7 +2206,7 @@ git commit -m "feat(deploy-dokploy): render operaton workflow resources"
 - Test: `packages/runtime/bpmn-worker/test/unit/mapping.test.ts`
 - Test: `packages/runtime/bpmn-worker/test/unit/metadata.test.ts`
 
-- [ ] **Step 1: Add worker package metadata**
+- [x] **Step 1: Add worker package metadata**
 
 Create `packages/runtime/bpmn-worker/package.json`:
 
@@ -2248,7 +2248,7 @@ Create `packages/runtime/bpmn-worker/package.json`:
 
 Create tsconfig files using the same content as Task 1, with `extends: "../../../tsconfig.base.json"`.
 
-- [ ] **Step 2: Define worker types**
+- [x] **Step 2: Define worker types**
 
 Create `packages/runtime/bpmn-worker/src/types.ts`:
 
@@ -2294,7 +2294,7 @@ export { evaluateMappingValue } from './mapping.js';
 export { buildCommandMetadata } from './metadata.js';
 ```
 
-- [ ] **Step 3: Write mapping and metadata tests**
+- [x] **Step 3: Write mapping and metadata tests**
 
 Create `packages/runtime/bpmn-worker/test/unit/mapping.test.ts`:
 
@@ -2351,7 +2351,7 @@ Run: `pnpm -F @rntme/bpmn-worker test`
 
 Expected: FAIL with missing exports.
 
-- [ ] **Step 4: Implement mapping and metadata helpers**
+- [x] **Step 4: Implement mapping and metadata helpers**
 
 Create `packages/runtime/bpmn-worker/src/mapping.ts`:
 
@@ -2412,7 +2412,7 @@ export function buildCommandMetadata(input: CommandMetadataInput): CommandMetada
 }
 ```
 
-- [ ] **Step 5: Verify worker core**
+- [x] **Step 5: Verify worker core**
 
 Run:
 
@@ -2424,7 +2424,7 @@ pnpm -F @rntme/bpmn-worker lint
 
 Expected: all exit 0.
 
-- [ ] **Step 6: Add README and commit**
+- [x] **Step 6: Add README and commit**
 
 Create `packages/runtime/bpmn-worker/README.md`:
 
@@ -2466,7 +2466,7 @@ git commit -m "feat(bpmn-worker): add workflow mapping core"
 - Modify: `packages/runtime/bpmn-worker/src/index.ts`
 - Test: `packages/runtime/bpmn-worker/test/integration/worker.test.ts`
 
-- [ ] **Step 1: Write fake-seam integration test**
+- [x] **Step 1: Write fake-seam integration test**
 
 Create `packages/runtime/bpmn-worker/test/integration/worker.test.ts`:
 
@@ -2546,7 +2546,7 @@ Run: `pnpm -F @rntme/bpmn-worker test -- test/integration/worker.test.ts`
 
 Expected: FAIL with missing worker API.
 
-- [ ] **Step 2: Define seam interfaces**
+- [x] **Step 2: Define seam interfaces**
 
 Create `packages/runtime/bpmn-worker/src/operaton.ts`:
 
@@ -2584,7 +2584,7 @@ export type RntmeCommandClient = {
 };
 ```
 
-- [ ] **Step 3: Implement single-event worker core**
+- [x] **Step 3: Implement single-event worker core**
 
 Create `packages/runtime/bpmn-worker/src/worker.ts`:
 
@@ -2676,7 +2676,7 @@ export { buildCommandMetadata } from './metadata.js';
 export { runWorkflowEventOnce, type RunWorkflowEventOnceInput } from './worker.js';
 ```
 
-- [ ] **Step 4: Verify worker integration seam**
+- [x] **Step 4: Verify worker integration seam**
 
 Run:
 
@@ -2687,7 +2687,7 @@ pnpm -F @rntme/bpmn-worker typecheck
 
 Expected: both exit 0.
 
-- [ ] **Step 5: Commit worker seam**
+- [x] **Step 5: Commit worker seam**
 
 ```bash
 git add packages/runtime/bpmn-worker
@@ -2711,7 +2711,7 @@ git commit -m "feat(bpmn-worker): add operaton command bridge seams"
 - Create: `demo/order-fulfillment-blueprint/README.md`
 - Test: `packages/artifacts/blueprint/test/smoke-order-fulfillment-demo.test.ts`
 
-- [ ] **Step 1: Write demo smoke test**
+- [x] **Step 1: Write demo smoke test**
 
 Create `packages/artifacts/blueprint/test/smoke-order-fulfillment-demo.test.ts`:
 
@@ -2734,7 +2734,7 @@ Run: `pnpm -F @rntme/blueprint test -- test/smoke-order-fulfillment-demo.test.ts
 
 Expected: FAIL because the demo does not exist.
 
-- [ ] **Step 2: Create blueprint skeleton**
+- [x] **Step 2: Create blueprint skeleton**
 
 Create directories:
 
@@ -2778,7 +2778,7 @@ at both:
 - `demo/order-fulfillment-blueprint/services/orders/service.json`
 - `demo/order-fulfillment-blueprint/services/inventory/service.json`
 
-- [ ] **Step 3: Add PDM entities**
+- [x] **Step 3: Add PDM entities**
 
 Create `demo/order-fulfillment-blueprint/pdm/pdm.json`:
 
@@ -2869,7 +2869,7 @@ Create `demo/order-fulfillment-blueprint/pdm/entities/StockReservation.json`:
 }
 ```
 
-- [ ] **Step 4: Add QSM mirrors**
+- [x] **Step 4: Add QSM mirrors**
 
 Create `demo/order-fulfillment-blueprint/services/orders/qsm/qsm.json`:
 
@@ -2912,7 +2912,7 @@ Create `demo/order-fulfillment-blueprint/services/inventory/qsm/qsm.json`:
 }
 ```
 
-- [ ] **Step 5: Add workflow manifest and BPMN source**
+- [x] **Step 5: Add workflow manifest and BPMN source**
 
 Create `demo/order-fulfillment-blueprint/workflows/workflows.json`:
 
@@ -2980,7 +2980,7 @@ Create `demo/order-fulfillment-blueprint/workflows/workflows.json`:
 
 Create `demo/order-fulfillment-blueprint/workflows/order-fulfillment.bpmn` as a minimal BPMN XML file with `process id="orderFulfillment"`, a message start, service tasks with ids `reserveStock`, `confirmOrder`, `cancelOrder`, and an exclusive gateway. The XML can be minimal but must be accepted by the chosen Operaton deployment API during Task 11 smoke; if Operaton rejects it, fix the XML there without changing `workflows.json`.
 
-- [ ] **Step 6: Add graph and binding artifacts**
+- [x] **Step 6: Add graph and binding artifacts**
 
 Add command/query graphs and bindings for:
 
@@ -3010,7 +3010,7 @@ For `inventory/reserveStock.json`, use inputs `orderId: string`, `sku: string`, 
 
 For `inventory/getReservation.json`, use input `orderId: string`, `findMany` from `StockReservationView`, filter `stockReservationView.orderId == $param.orderId`, limit 1, output `row<StockReservationView>`.
 
-- [ ] **Step 7: Verify demo compose**
+- [x] **Step 7: Verify demo compose**
 
 Run:
 
@@ -3021,7 +3021,7 @@ pnpm -F @rntme/blueprint test -- test/smoke-order-fulfillment-demo.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 8: Add demo README**
+- [x] **Step 8: Add demo README**
 
 Create `demo/order-fulfillment-blueprint/README.md` explaining:
 
@@ -3030,7 +3030,7 @@ Create `demo/order-fulfillment-blueprint/README.md` explaining:
 - success/failure smoke expectations;
 - deploy target requires provisioned Redpanda and provisioned Operaton.
 
-- [ ] **Step 9: Commit demo**
+- [x] **Step 9: Commit demo**
 
 ```bash
 git add demo/order-fulfillment-blueprint packages/artifacts/blueprint/test/smoke-order-fulfillment-demo.test.ts
@@ -3050,7 +3050,7 @@ git commit -m "feat(demo): add order fulfillment bpmn blueprint"
 - Modify: `apps/platform-http/test/unit/deploy/build-deploy-config.test.ts`
 - Modify: `apps/platform-http/test/unit/deploy/executor.test.ts`
 
-- [ ] **Step 1: Confirm executor files**
+- [x] **Step 1: Confirm executor files**
 
 Run:
 
@@ -3060,7 +3060,7 @@ rg -n "buildProjectDeploymentConfig|renderDokployPlan|applyDokployPlan|verify|sm
 
 Expected hits include `apps/platform-http/src/deploy/build-deploy-config.ts`, `apps/platform-http/src/deploy/executor.ts`, `apps/platform-http/test/unit/deploy/build-deploy-config.test.ts`, and `apps/platform-http/test/unit/deploy/executor.test.ts`. Do not edit unrelated UI pages.
 
-- [ ] **Step 2: Add failing deploy-config test**
+- [x] **Step 2: Add failing deploy-config test**
 
 In `apps/platform-http/test/unit/deploy/build-deploy-config.test.ts`, add:
 
@@ -3100,7 +3100,7 @@ pnpm -F @rntme/platform-http test -- test/unit/deploy/build-deploy-config.test.t
 
 Expected: FAIL because workflow config is not wired through.
 
-- [ ] **Step 3: Add platform target schema support**
+- [x] **Step 3: Add platform target schema support**
 
 In `packages/platform/platform-core/src/schemas/deploy-target.ts`, add:
 
@@ -3135,7 +3135,7 @@ In `packages/platform/platform-core/src/repos/deploy-target-repo.ts`, add `workf
 
 In `packages/platform/platform-storage/src/repos/pg-deploy-target-repo.ts`, map `workflows` through the existing JSON config persistence. If the storage table has no dedicated column, store it inside the existing deploy-target config object only after adding a migration plan; do not silently drop it.
 
-- [ ] **Step 4: Pass workflow config through deployment config builder**
+- [x] **Step 4: Pass workflow config through deployment config builder**
 
 In `apps/platform-http/src/deploy/build-deploy-config.ts`, preserve existing event-bus/auth behavior and add to the returned object:
 
@@ -3143,7 +3143,7 @@ In `apps/platform-http/src/deploy/build-deploy-config.ts`, preserve existing eve
     ...(target.workflows === null ? {} : { workflows: target.workflows }),
 ```
 
-- [ ] **Step 5: Add failing executor test**
+- [x] **Step 5: Add failing executor test**
 
 In `apps/platform-http/test/unit/deploy/executor.test.ts`, add:
 
@@ -3235,7 +3235,7 @@ pnpm -F @rntme/platform-http test -- test/unit/deploy/executor.test.ts
 
 Expected: FAIL until executor adaptation passes `workflows` into deploy-core input/config.
 
-- [ ] **Step 6: Add smoke hook assertions**
+- [x] **Step 6: Add smoke hook assertions**
 
 Extend verification so workflow deployments add two checks:
 
@@ -3244,7 +3244,7 @@ Extend verification so workflow deployments add two checks:
 
 If platform smoke cannot reach internal worker health, assert resource presence and leave worker runtime health to Dokploy inspect. Do not add an unreachable HTTP request.
 
-- [ ] **Step 7: Verify platform tests**
+- [x] **Step 7: Verify platform tests**
 
 Run:
 
@@ -3255,7 +3255,7 @@ pnpm -F @rntme/platform-http typecheck
 
 Expected: both exit 0.
 
-- [ ] **Step 8: Commit platform plumbing**
+- [x] **Step 8: Commit platform plumbing**
 
 ```bash
 git add apps/platform-http packages/platform/platform-core packages/platform/platform-storage
@@ -3270,7 +3270,7 @@ git commit -m "feat(platform-http): pass workflow deployment config"
 - Modify files in the package that owns a failing integration/smoke test.
 - Test: package-level commands below.
 
-- [ ] **Step 1: Run focused package test suite**
+- [x] **Step 1: Run focused package test suite**
 
 Run:
 
@@ -3284,7 +3284,7 @@ pnpm -F @rntme/bpmn-worker test
 
 Expected: all exit 0.
 
-- [ ] **Step 2: Run focused typechecks**
+- [x] **Step 2: Run focused typechecks**
 
 Run:
 
@@ -3299,7 +3299,7 @@ pnpm -F @rntme/platform-http typecheck
 
 Expected: all exit 0.
 
-- [ ] **Step 3: Run layering check**
+- [x] **Step 3: Run layering check**
 
 Run:
 
@@ -3309,7 +3309,7 @@ pnpm depcruise
 
 Expected: exit 0. If `@rntme/workflows` imports deploy/runtime/app packages, fix the import direction rather than adding a dependency-cruiser carve-out.
 
-- [ ] **Step 4: Run order-fulfillment local compose smoke**
+- [x] **Step 4: Run order-fulfillment local compose smoke**
 
 Run:
 
@@ -3323,7 +3323,7 @@ Expected output contains:
 OK: orders,inventory 1
 ```
 
-- [ ] **Step 5: Commit hardening fixes**
+- [x] **Step 5: Commit hardening fixes**
 
 If Steps 1-4 required code changes:
 
@@ -3349,7 +3349,7 @@ If no changes were required, do not create an empty commit.
 - Modify: `AGENTS.md`
 - Modify: stale Zeebe references only where they describe current guidance, not historical docs.
 
-- [ ] **Step 1: Update package READMEs**
+- [x] **Step 1: Update package READMEs**
 
 Add concise workflow sections:
 
@@ -3358,7 +3358,7 @@ Add concise workflow sections:
 - `packages/deploy/deploy-dokploy/README.md`: document rendered Operaton resource and worker env/files.
 - `apps/platform-http/README.md`: document deploy executor support for workflow config and smoke evidence.
 
-- [ ] **Step 2: Update root README**
+- [x] **Step 2: Update root README**
 
 In `README.md`:
 
@@ -3367,7 +3367,7 @@ In `README.md`:
 - update dependency graph if it is stale after adding the package;
 - add glossary entry for `Workflow artifact` and `BPMN worker`.
 
-- [ ] **Step 3: Update AGENTS.md**
+- [x] **Step 3: Update AGENTS.md**
 
 In `AGENTS.md`:
 
@@ -3377,7 +3377,7 @@ In `AGENTS.md`:
 - add decision map entry pointing to `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`;
 - update memory/prior decisions language from "Zeebe owns cross-service sagas" to "Operaton owns current BPMN orchestration; older Zeebe docs are historical" where it is active guidance.
 
-- [ ] **Step 4: Search for stale current-guidance Zeebe language**
+- [x] **Step 4: Search for stale current-guidance Zeebe language**
 
 Run:
 
@@ -3391,7 +3391,7 @@ For every hit, choose one:
 - update to Operaton if the text is current navigation/guidance;
 - add a short note "historical Zeebe target" if the context would otherwise mislead.
 
-- [ ] **Step 5: Verify docs changed only where intended**
+- [x] **Step 5: Verify docs changed only where intended**
 
 Run:
 
@@ -3401,7 +3401,7 @@ git diff -- README.md AGENTS.md CLAUDE.md docs packages apps demo | less
 
 Check that market-facing wording does not leak internal IR vocabulary beyond existing README technical sections.
 
-- [ ] **Step 6: Commit docs**
+- [x] **Step 6: Commit docs**
 
 ```bash
 git add README.md AGENTS.md CLAUDE.md docs packages apps demo
@@ -3415,7 +3415,7 @@ git commit -m "docs: document provisioned bpmn workflows"
 **Files:**
 - No planned edits unless verification finds a real issue.
 
-- [ ] **Step 1: Run full focused verification**
+- [x] **Step 1: Run full focused verification**
 
 Run:
 
@@ -3432,7 +3432,7 @@ pnpm depcruise
 
 Expected: all commands exit 0.
 
-- [ ] **Step 2: Run broad typecheck if time allows**
+- [x] **Step 2: Run broad typecheck if time allows**
 
 Run:
 
@@ -3442,7 +3442,7 @@ pnpm -r run typecheck
 
 Expected: exit 0. If unrelated packages fail, capture exact package/error and decide whether the failure is introduced by this branch before fixing it.
 
-- [ ] **Step 3: Review git diff**
+- [x] **Step 3: Review git diff**
 
 Run:
 
@@ -3458,7 +3458,7 @@ Expected:
 - `git diff --check` exits 0;
 - no generated `dist/`, `coverage/`, or local env files are staged.
 
-- [ ] **Step 4: Final commit if verification fixes were needed**
+- [x] **Step 4: Final commit if verification fixes were needed**
 
 If verification required fixes:
 
@@ -3516,7 +3516,7 @@ Known execution choices:
 - Modify: `packages/runtime/bindings-grpc/test/integration/create-server.test.ts`
 - Modify: `packages/runtime/bindings-grpc/test/fixtures/golden/minimal.proto`
 
-- [ ] **Step A1: Write failing gRPC payload tests**
+- [x] **Step A1: Write failing gRPC payload tests**
 
 Add assertions that generated `CommandResult` includes a JSON payload field and that a command executor returning `value.result` is visible to a gRPC client.
 
@@ -3528,11 +3528,11 @@ pnpm -F @rntme/bindings-grpc test -- test/unit/emit-proto.test.ts test/integrati
 
 Expected before implementation: FAIL because `CommandResult` has no payload/result field and the server drops executor payloads.
 
-- [ ] **Step A2: Implement optional payload transport**
+- [x] **Step A2: Implement optional payload transport**
 
 Add `result?: unknown` to command execution result types. Emit `google.protobuf.Struct result = 6;` in the generated proto, import `google/protobuf/struct.proto`, and copy `out.value.result` into the gRPC response only when present.
 
-- [ ] **Step A3: Verify**
+- [x] **Step A3: Verify**
 
 Run:
 
@@ -3556,7 +3556,7 @@ Expected: all commands exit 0.
 - Create: `packages/runtime/runtime/src/plugins/executors/composite-command-executor.ts`
 - Test: `packages/runtime/runtime/test/integration/startup.test.ts`
 
-- [ ] **Step B1: Write failing runtime handler test**
+- [x] **Step B1: Write failing runtime handler test**
 
 Add an integration test that creates a temporary copy of the issue-tracker fixture, writes `commands/handlers.mjs`, sets `manifest.commands.handlersModule = "commands/handlers.mjs"`, boots with gRPC enabled, and asserts the named handler result is returned through gRPC while other graph commands still use the Graph IR fallback.
 
@@ -3568,11 +3568,11 @@ pnpm -F @rntme/runtime test -- test/integration/startup.test.ts
 
 Expected before implementation: FAIL because `commands` is rejected as an unknown manifest key or the handler is never loaded.
 
-- [ ] **Step B2: Implement manifest and executor wiring**
+- [x] **Step B2: Implement manifest and executor wiring**
 
 Add `commands?: { handlersModule?: string }` to manifest parse/validate output. Store the artifact directory on `ValidatedService`. In `startService`, load the ESM handler module from the service artifact directory when configured, accept either `handlers` or `default` as a handler map, and use a composite executor that tries loaded handlers first and falls back to `GraphIrCommandExecutor` on `COMMAND_NOT_FOUND`.
 
-- [ ] **Step B3: Verify**
+- [x] **Step B3: Verify**
 
 Run:
 
@@ -3590,7 +3590,7 @@ Expected: all commands exit 0.
 - Modify: `apps/platform-http/test/unit/deploy/executor.test.ts`
 - Modify: `apps/platform-http/README.md`
 
-- [ ] **Step C1: Write failing platform artifact test**
+- [x] **Step C1: Write failing platform artifact test**
 
 Add a bundled blueprint file `services/api/commands/handlers.mjs` to the deploy executor unit test and assert generated runtime files contain `commands/handlers.mjs` plus `manifest.commands.handlersModule`.
 
@@ -3602,11 +3602,11 @@ pnpm -F @rntme/platform-http test -- test/unit/deploy/executor.test.ts
 
 Expected before implementation: FAIL because command handler files are not copied and the runtime manifest has no `commands` block.
 
-- [ ] **Step C2: Implement optional command file copying**
+- [x] **Step C2: Implement optional command file copying**
 
 When `services/<slug>/commands/handlers.mjs` exists in a published blueprint, copy the service `commands/` directory into runtime artifacts and add `{ "commands": { "handlersModule": "commands/handlers.mjs" } }` to that service runtime manifest.
 
-- [ ] **Step C3: Verify**
+- [x] **Step C3: Verify**
 
 Run:
 
@@ -3627,7 +3627,7 @@ Expected: all commands exit 0.
 - Modify: `packages/artifacts/blueprint/test/smoke-order-fulfillment-demo.test.ts`
 - Modify: `packages/runtime/bpmn-worker/test/integration/worker.test.ts`
 
-- [ ] **Step D1: Write failing demo and worker tests**
+- [x] **Step D1: Write failing demo and worker tests**
 
 Update smoke assertions to expect `reservation.reserved`, `$process.reservation.reservationId`, and `$process.reservation.reason`. Add a worker integration test where fake command execution returns `{ reserved: false, reason: "insufficient stock" }` and the completed task variables preserve that successful business result.
 
@@ -3640,11 +3640,11 @@ pnpm -F @rntme/bpmn-worker test -- test/integration/worker.test.ts
 
 Expected before implementation: FAIL because the demo still branches on `aggregateId` and the README says cancellation is future work.
 
-- [ ] **Step D2: Implement demo handler and workflow paths**
+- [x] **Step D2: Implement demo handler and workflow paths**
 
 Add a service-local `reserveStock` handler. It should use SKU `missing-stock` as the deterministic insufficient-stock fixture, append `StockReservationRejected`, and return `{ result: { reserved: false, reason: "insufficient stock" } }`; all other SKUs append `StockReserved` and return `{ result: { reserved: true, reservationId } }`. Update BPMN gateway conditions and workflow command inputs to use the typed result.
 
-- [ ] **Step D3: Verify**
+- [x] **Step D3: Verify**
 
 Run:
 
@@ -3664,11 +3664,11 @@ Expected: both commands exit 0.
 - Modify: `demo/order-fulfillment-blueprint/README.md`
 - Modify: `apps/platform-http/README.md`
 
-- [ ] **Step E1: Update docs**
+- [x] **Step E1: Update docs**
 
 Document optional command result payloads, service-local handler module loading, platform handler artifact copying, and the demo's deterministic `missing-stock` failure branch.
 
-- [ ] **Step E2: Focused verification**
+- [x] **Step E2: Focused verification**
 
 Run:
 

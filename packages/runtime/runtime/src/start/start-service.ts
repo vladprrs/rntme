@@ -19,8 +19,7 @@ import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-ex
 import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
 import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
-import type { CodeCommandHandlerMap } from '@rntme/contracts-handlers-v1';
-import type { CommandExecutor } from '../plugins/executors/types.js';
+import type { CommandExecutor, ServiceLocalCodeCommandHandlerMap } from '../plugins/executors/types.js';
 import { applySeed } from '@rntme/seed';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
@@ -283,7 +282,7 @@ async function buildConfiguredCommandExecutor(
 async function importCommandHandlers(
   artifactDir: string,
   modulePath: string,
-): Promise<CodeCommandHandlerMap> {
+): Promise<ServiceLocalCodeCommandHandlerMap> {
   const root = resolve(artifactDir);
   const absoluteModulePath = resolve(root, modulePath);
   if (absoluteModulePath !== root && !absoluteModulePath.startsWith(`${root}${sep}`)) {
@@ -301,7 +300,7 @@ async function importCommandHandlers(
   return handlers;
 }
 
-function isCodeCommandHandlerMap(value: unknown): value is CodeCommandHandlerMap {
+function isCodeCommandHandlerMap(value: unknown): value is ServiceLocalCodeCommandHandlerMap {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   return Object.values(value as Record<string, unknown>).every((handler) => typeof handler === 'function');
 }

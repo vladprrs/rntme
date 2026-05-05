@@ -15,7 +15,7 @@
       "config": {
         "aggregate": "Order",
         "aggregateId": { "$node": "newId" },
-        "transition": "place",
+        "transition": "placed",
         "payload": {
           "sku": { "$param": "sku" },
           "quantity": { "$param": "quantity" }

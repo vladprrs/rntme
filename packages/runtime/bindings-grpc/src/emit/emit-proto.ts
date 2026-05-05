@@ -24,6 +24,9 @@ export function emitProto(
   options: EmitProtoOptions,
 ): string {
   const { serviceBlock, messageBlocks, usesCommandResult } = buildServiceBlock(validated, options.serviceName);
+  const usesJsonShape = Object.values(shapes).some((shape) =>
+    Object.values(shape.fields).some((field) => field.type.kind === 'json'),
+  );
 
   const shapeBlocks = Object.entries(shapes)
     .filter(([name]) => !(usesCommandResult && name === 'CommandResult'))
@@ -36,7 +39,7 @@ export function emitProto(
   parts.push('');
   parts.push(`package ${options.packageName};`);
   parts.push('');
-  if (usesCommandResult) {
+  if (usesCommandResult || usesJsonShape) {
     parts.push('import "google/protobuf/struct.proto";');
     parts.push('');
   }

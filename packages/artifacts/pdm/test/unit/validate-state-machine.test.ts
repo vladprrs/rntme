@@ -210,6 +210,19 @@ describe('validateStateMachine', () => {
     }
   });
 
+  it('rejects duplicate derived event types after overrides', () => {
+    const a = svp();
+    a.entities.Issue!.stateMachine!.transitions.report!.eventType = 'IssueClosed';
+    a.entities.Issue!.stateMachine!.transitions.close!.eventType = 'IssueClosed';
+
+    const r = validateStateMachine(a);
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === ERROR_CODES.PDM_SM_EVENT_TYPE_DUPLICATE)).toBe(true);
+    }
+  });
+
   it('accepts state-only transition (from≠to, non-null) without explicit affects', () => {
     const r = validateStateMachine(svp()); // close: from=open → to=closed, no affects
     expect(r.ok).toBe(true);

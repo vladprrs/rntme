@@ -36,6 +36,10 @@ const transitionSchema = z
     from: z.union([z.null(), nonEmptyString, z.array(nonEmptyString).min(1)]),
     to: nonEmptyString,
     affects: z.array(nonEmptyString).optional(),
+    eventType: nonEmptyString.regex(
+      /^[A-Z][A-Za-z0-9]*$/,
+      'eventType must match /^[A-Z][A-Za-z0-9]*$/',
+    ).optional(),
   })
   .strict();
 

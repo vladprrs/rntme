@@ -31,6 +31,9 @@ export function collectBundleAssets(
   const workflows = collectWorkflowAssetsInto(root, projectFiles, out, budget);
   if (!workflows.ok) return workflows;
 
+  const commandHandlers = collectCommandHandlerAssetsInto(root, projectFiles, out, budget);
+  if (!commandHandlers.ok) return commandHandlers;
+
   return { ok: true, value: out };
 }
 
@@ -128,6 +131,37 @@ function collectWorkflowAssetsInto(
   }
 
   return { ok: true, value: out };
+}
+
+function collectCommandHandlerAssetsInto(
+  root: string,
+  projectFiles: readonly string[],
+  out: Record<string, string>,
+  budget: { totalBytes: number },
+): CollectAssetsResult {
+  for (const relPath of [...projectFiles].sort()) {
+    if (!isServiceCommandModulePath(relPath)) continue;
+
+    let bytes: Buffer;
+    const absPath = resolve(root, relPath);
+    try {
+      const st = statSync(absPath);
+      if (!st.isFile()) continue;
+      bytes = readFileSync(absPath);
+    } catch {
+      continue;
+    }
+
+    const added = addAsset(out, relPath, bytes, budget);
+    if (!added.ok) return added;
+  }
+
+  return { ok: true, value: out };
+}
+
+function isServiceCommandModulePath(relPath: string): boolean {
+  const parts = relPath.split('/');
+  return parts.length >= 4 && parts[0] === 'services' && parts[2] === 'commands' && relPath.endsWith('.mjs');
 }
 
 function addAsset(

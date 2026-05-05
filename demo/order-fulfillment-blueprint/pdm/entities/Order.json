@@ -24,7 +24,7 @@
     "initial": null,
     "states": ["placed", "confirmed", "cancelled"],
     "transitions": {
-      "place": {
+      "placed": {
         "from": null,
         "to": "placed",
         "affects": ["sku", "quantity"]

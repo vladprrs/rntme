@@ -1494,9 +1494,15 @@ importers:
 
   packages/runtime/bpmn-worker:
     dependencies:
+      '@grpc/grpc-js':
+        specifier: ^1.10.0
+        version: 1.14.3
       '@rntme/workflows':
         specifier: workspace:*
         version: link:../../artifacts/workflows
+      protobufjs:
+        specifier: ^7.2.0
+        version: 7.5.5
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
