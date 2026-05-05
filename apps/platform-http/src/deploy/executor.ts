@@ -1,8 +1,7 @@
-import { Buffer } from 'node:buffer';
+import type { Buffer } from 'node:buffer';
 import { clearInterval, setInterval } from 'node:timers';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
@@ -32,7 +31,6 @@ import { build, type Plugin } from 'esbuild';
 import {
   isOk,
   type BlobStore,
-  type CanonicalBundle,
   type DeployTarget,
   type DeployTargetRepo,
   type DeployTargetWithSecret,
@@ -44,6 +42,7 @@ import {
   type SecretCipher,
   type TargetSecretsRepo,
   type VerificationReport,
+  parseCanonicalBundle,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
 import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-deploy-config.js';
@@ -51,6 +50,8 @@ import type { DokployClientFactory } from './dokploy-client-factory.js';
 import { redact } from './log-redactor.js';
 import type { SmokeVerifier } from './smoke-verifier.js';
 import { runStage } from './stage-runner.js';
+import { materializeBundle } from '../bundle/materialize.js';
+export { materializeBundle };
 
 type ResultLike<T, E = { readonly code: string; readonly message: string }> =
   | { readonly ok: true; readonly value: T }
@@ -162,8 +163,35 @@ export async function runDeployment(
       return;
     }
 
-    const bundle = JSON.parse(gunzipSync(raw.value).toString('utf8')) as CanonicalBundle;
-    tmpDir = await materializeBundle(bundle);
+    let bundleBytes: Buffer;
+    try {
+      bundleBytes = gunzipSync(raw.value);
+    } catch (cause) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_EXECUTOR_BUNDLE_DECOMPRESS_FAILED',
+        errorMessage: redact(cause instanceof Error ? cause.message : String(cause)),
+      });
+      return;
+    }
+
+    const parsedBundle = parseCanonicalBundle(bundleBytes);
+    if (!isOk(parsedBundle)) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: parsedBundle.errors[0]?.code ?? 'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
+        errorMessage: redact(errorSummary(parsedBundle.errors)),
+      });
+      return;
+    }
+
+    try {
+      tmpDir = await materializeBundle(parsedBundle.value.bundle);
+    } catch (cause) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_EXECUTOR_BUNDLE_MATERIALIZE_FAILED',
+        errorMessage: redact(cause instanceof Error ? cause.message : String(cause)),
+      });
+      return;
+    }
 
     const log = async (entry: { step: string; level: 'error'; code: string; message: string }) =>
       appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
@@ -528,25 +556,6 @@ async function finalize(
       if (!isOk(finalized)) deps.logger.warn({ deploymentId, errors: finalized.errors }, 'project operation finalize failed');
     }
   });
-}
-
-export async function materializeBundle(bundle: CanonicalBundle): Promise<string> {
-  if (typeof bundle.version === 'number' && bundle.version > 2) {
-    throw new Error(`DEPLOY_BUNDLE_VERSION_UNSUPPORTED: bundle version ${bundle.version} not supported`);
-  }
-  const dir = await mkdtemp(join(tmpdir(), 'rntme-deploy-'));
-  for (const [relPath, value] of Object.entries(bundle.files)) {
-    const path = join(dir, relPath);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, JSON.stringify(value));
-  }
-  const assets = (bundle as { assets?: Record<string, string> }).assets ?? {};
-  for (const [relPath, base64] of Object.entries(assets)) {
-    const path = join(dir, relPath);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, Buffer.from(base64, 'base64'));
-  }
-  return dir;
 }
 
 function defaultLoadComposed(dir: string): ResultLike<LoadedDeployProject> {

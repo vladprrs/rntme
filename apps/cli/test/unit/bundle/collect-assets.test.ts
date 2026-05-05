@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { collectProvisionerAssets } from '../../../src/bundle/collect-assets.js';
+import { collectBundleAssets, collectProvisionerAssets } from '../../../src/bundle/collect-assets.js';
 
 describe('collectProvisionerAssets', () => {
   let root: string;
@@ -16,6 +16,11 @@ describe('collectProvisionerAssets', () => {
     writeFileSync(abs, JSON.stringify(manifest));
   }
   function writeJs(rel: string, contents: string): void {
+    const abs = join(root, rel);
+    mkdirSync(abs.replace(/\/[^/]+$/, ''), { recursive: true });
+    writeFileSync(abs, contents);
+  }
+  function writeBpmn(rel: string, contents: string): void {
     const abs = join(root, rel);
     mkdirSync(abs.replace(/\/[^/]+$/, ''), { recursive: true });
     writeFileSync(abs, contents);
@@ -52,6 +57,37 @@ describe('collectProvisionerAssets', () => {
         Buffer.from(js).toString('base64'),
       );
       expect(Object.keys(r.value)).toHaveLength(1);
+    }
+  });
+
+  it('collects workflow BPMN files under their project-relative asset paths', () => {
+    const bpmn = '<bpmn:definitions><bpmn:process id="orderFulfillment" /></bpmn:definitions>';
+    writeBpmn('workflows/order-fulfillment.bpmn', bpmn);
+    writeBpmn('workflows/nested/retry.bpmn', '<bpmn:definitions />');
+    writeBpmn('services/api/local.bpmn', '<bpmn:definitions />');
+
+    const r = collectBundleAssets(root, bundleFiles({
+      'project.json': { name: 'demo', services: [] },
+      'workflows/workflows.json': {
+        workflowVersion: 1,
+        definitions: [
+          { id: 'orderFulfillment', bpmnFile: 'order-fulfillment.bpmn', processId: 'orderFulfillment' },
+        ],
+      },
+    }), [
+      'project.json',
+      'services/api/local.bpmn',
+      'workflows/nested/retry.bpmn',
+      'workflows/order-fulfillment.bpmn',
+      'workflows/workflows.json',
+    ]);
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value).toEqual({
+        'workflows/nested/retry.bpmn': Buffer.from('<bpmn:definitions />').toString('base64'),
+        'workflows/order-fulfillment.bpmn': Buffer.from(bpmn).toString('base64'),
+      });
     }
   });
 

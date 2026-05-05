@@ -7,7 +7,7 @@ const SafeRelPath = z
   .string()
   .min(1)
   .max(512)
-  .regex(/^[A-Za-z0-9_./-]+$/, 'invalid characters in path')
+  .regex(/^[A-Za-z0-9_./@-]+$/, 'invalid characters in path')
   .refine((p) => !p.startsWith('/'), 'must be relative')
   .refine((p) => !p.split('/').includes('..'), 'must not contain ..')
   .refine((p) => p.endsWith('.json'), 'must end with .json');
@@ -16,9 +16,10 @@ const SafeAssetPath = z
   .string()
   .min(1)
   .max(512)
-  .regex(/^[A-Za-z0-9_./-]+$/, 'invalid characters in path')
+  .regex(/^[A-Za-z0-9_./@-]+$/, 'invalid characters in path')
   .refine((p) => !p.startsWith('/'), 'must be relative')
-  .refine((p) => !p.split('/').includes('..'), 'must not contain ..');
+  .refine((p) => !p.split('/').includes('..'), 'must not contain ..')
+  .refine((p) => !p.endsWith('.json'), 'assets must not use .json paths');
 
 export const ProjectVersionSummarySchema = z.object({
   projectName: z.string().min(1),

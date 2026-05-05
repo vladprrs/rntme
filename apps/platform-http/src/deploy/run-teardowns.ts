@@ -1,14 +1,14 @@
+import type { Buffer } from 'node:buffer';
 import { rm } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { discoverModules } from '@rntme/blueprint';
 import type {
   BlobStore,
-  CanonicalBundle,
   DeploymentWithProvision,
   ProjectVersion,
   SecretCipher,
 } from '@rntme/platform-core';
-import { isOk } from '@rntme/platform-core';
+import { isOk, parseCanonicalBundle } from '@rntme/platform-core';
 import type { ProvisionerContract } from '@rntme/deploy-core';
 import { materializeBundle } from './executor.js';
 
@@ -53,19 +53,36 @@ export async function runTearDownsForDeployment(input: {
     };
   }
 
-  let bundle: CanonicalBundle;
+  let bundleBytes: Buffer;
   try {
-    bundle = JSON.parse(gunzipSync(rawResult.value).toString('utf8')) as CanonicalBundle;
+    bundleBytes = gunzipSync(rawResult.value);
   } catch (cause) {
     return {
       ok: false,
-      errors: [{ message: `tearDown: failed to parse bundle: ${(cause as Error).message}` }],
+      errors: [{ message: `tearDown: failed to decompress bundle: ${(cause as Error).message}` }],
+    };
+  }
+
+  const parsedBundle = parseCanonicalBundle(bundleBytes);
+  if (!isOk(parsedBundle)) {
+    return {
+      ok: false,
+      errors: [{
+        message: `tearDown: invalid bundle: ${parsedBundle.errors.map((e) => `${e.code}: ${e.message}`).join('; ')}`,
+      }],
     };
   }
 
   let tmpDir: string | null = null;
   try {
-    tmpDir = await materializeBundle(bundle);
+    try {
+      tmpDir = await materializeBundle(parsedBundle.value.bundle);
+    } catch (cause) {
+      return {
+        ok: false,
+        errors: [{ message: `tearDown: failed to materialize bundle: ${(cause as Error).message}` }],
+      };
+    }
 
     // Discover modules from the materialized project directory.
     const discovered = discoverModules({ projectDir: tmpDir });

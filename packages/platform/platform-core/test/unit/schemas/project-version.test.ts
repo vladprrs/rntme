@@ -62,6 +62,34 @@ describe('CanonicalBundleSchema', () => {
     expect(r.success).toBe(true);
   });
 
+  it('accepts scoped node_modules package paths', () => {
+    const r = CanonicalBundleSchema.safeParse({
+      version: 2,
+      files: {
+        'project.json': { name: 'x', services: [] },
+        'node_modules/@rntme/fake-identity/module.json': { name: '@rntme/fake-identity' },
+      },
+      assets: {
+        'node_modules/@rntme/fake-identity/dist/provisioner.entry.js': 'ZXhwb3J0IHt9Ow==',
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects JSON asset paths', () => {
+    const r = CanonicalBundleSchema.safeParse({
+      version: 2,
+      files: {
+        'project.json': { name: 'x', services: [] },
+        'workflows/workflows.json': { workflowVersion: 1 },
+      },
+      assets: {
+        'workflows/workflows.json': 'e30=',
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
   it('rejects path traversal', () => {
     const r = CanonicalBundleSchema.safeParse({
       version: 1,

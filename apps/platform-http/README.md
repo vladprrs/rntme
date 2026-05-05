@@ -80,7 +80,8 @@ The JSON routes are:
 Deploy-target REST routes require `deploy:target:manage`; start deployment
 requires `deploy:execute`; deployment reads require `project:read`. The
 background executor fetches the immutable project-version bundle, revalidates
-it, plans with `@rntme/deploy-core`, applies with
+it, materializes validated JSON files plus base64 `assets` such as provisioner
+entries and workflow BPMN files, plans with `@rntme/deploy-core`, applies with
 `@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
 
@@ -124,6 +125,9 @@ The provision stage resolves each module's provisioner from the materialized
 bundle's `assets/` directory. Resolution path:
 `<tmpDir>/assets/provisioners/<safeProvisionerName(manifest.name)>.entry.js`.
 Modules are not loaded from the platform-http process's own `node_modules`.
+Workflow BPMN assets are materialized at their project-relative paths under
+`<tmpDir>/workflows/` before blueprint composition so workflow validation and
+deploy planning see the same files that were published.
 
 Bundle versions higher than 2 are rejected with
 `DEPLOY_BUNDLE_VERSION_UNSUPPORTED`. Bundles with `version: 1` are read with
