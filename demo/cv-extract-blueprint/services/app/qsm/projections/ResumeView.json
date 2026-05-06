@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "Resume" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["filename", "mediaType", "extractedJson", "status", "createdAt"]
+}
