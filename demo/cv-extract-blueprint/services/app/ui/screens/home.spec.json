@@ -1,0 +1,48 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["upload-section", "result-section"]
+    },
+    "upload-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "children": ["upload-heading", "field-file", "submit-btn"]
+    },
+    "upload-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Upload resume PDF" }
+    },
+    "field-file": {
+      "type": "FileInput",
+      "props": {
+        "label": "Resume PDF",
+        "accept": "application/pdf",
+        "filenameBindState": "/form/filename",
+        "mediaTypeBindState": "/form/mediaType",
+        "base64BindState": "/form/fileBase64"
+      }
+    },
+    "submit-btn": {
+      "type": "Button",
+      "props": { "label": "Extract", "variant": "primary" },
+      "on": { "press": { "action": "dispatch", "params": { "name": "extractResume" } } }
+    },
+    "result-section": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "md" },
+      "visible": { "$state": "/data/resume" },
+      "children": ["result-heading", "extracted-json"]
+    },
+    "result-heading": {
+      "type": "Heading",
+      "props": { "level": 2, "text": "Extracted JSON" }
+    },
+    "extracted-json": {
+      "type": "Text",
+      "props": { "text": { "$state": "/data/resume/extractedJson" } }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "metadata": { "title": "Home" },
+  "data": {
+    "/data/resume": {
+      "binding": "getResume",
+      "params": { "id": { "$state": "/result/resumeId" } },
+      "refetchOn": ["state-change:/result/resumeId"]
+    }
+  },
+  "actions": {
+    "extractResume": {
+      "kind": "command",
+      "binding": "extractResume",
+      "paramsFromState": {
+        "filename": "/form/filename",
+        "mediaType": "/form/mediaType",
+        "fileBase64": "/form/fileBase64"
+      },
+      "onSuccess": { "setState": { "/result/resumeId": "{{response.resumeId}}" } },
+      "onError": { "showAlert": true }
+    }
+  }
+}
