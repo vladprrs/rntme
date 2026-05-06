@@ -36,6 +36,14 @@ export const targetEndpoints = {
       responseSchema: TargetResponseSchema,
       ...ctx,
     }),
+  create: async (ctx: TargetApiContext, org: string, body: Record<string, unknown>) =>
+    apiCall({
+      method: 'POST',
+      path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets`,
+      body,
+      responseSchema: TargetResponseSchema,
+      ...ctx,
+    }),
   setConfig: async (ctx: TargetApiContext, org: string, slug: string, body: Record<string, unknown>) =>
     apiCall({
       method: 'PATCH',

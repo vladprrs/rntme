@@ -72,6 +72,16 @@ export async function runLogin(flags: LoginFlags): Promise<number> {
     const me = await endpoints.auth.me({ baseUrl, token });
     if (isOk(me)) {
       file.profiles[profile].defaultOrg = me.value.org.slug;
+      if (!me.value.scopes.includes('deploy:execute') && !me.value.scopes.includes('deploy:target:manage') && !flags.json) {
+        process.stderr.write(
+          [
+            'warning: this token cannot run deployments or manage targets.',
+            '  To deploy: mint a token with `rntme token create deploy-bot --preset deploy`.',
+            '  To manage targets: include `deploy:target:manage` in scopes.',
+            '',
+          ].join('\n'),
+        );
+      }
     }
   } catch {
     // ignore whoami failures; credentials are already saved

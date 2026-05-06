@@ -12,6 +12,14 @@ export type TokenCreateArgs = {
   name: string;
   scopes: string[];
   expiresAt?: string;
+  preset?: string;
+};
+
+const TOKEN_PRESETS: Record<string, readonly string[]> = {
+  deploy: ['project:read', 'version:publish', 'deploy:execute'],
+  admin: ['project:read', 'project:write', 'version:publish', 'deploy:execute', 'deploy:target:manage', 'token:manage'],
+  publish: ['project:read', 'version:publish'],
+  read: ['project:read'],
 };
 
 export async function runTokenCreate(args: TokenCreateArgs, flags: CommonFlags): Promise<number> {
@@ -35,10 +43,18 @@ export async function runTokenCreate(args: TokenCreateArgs, flags: CommonFlags):
     async (ctx) => {
       const org = flags.org ?? ctx.resolved.org;
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'need --org'));
+      const presetScopes = args.preset === undefined ? undefined : TOKEN_PRESETS[args.preset];
+      if (args.preset !== undefined && presetScopes === undefined) {
+        return err(cliError('CLI_USAGE', '--preset must be one of deploy, admin, publish, read'));
+      }
+      const scopes = args.scopes.length > 0 ? args.scopes : [...(presetScopes ?? [])];
+      const body = args.expiresAt === undefined
+        ? { name: args.name, scopes }
+        : { name: args.name, scopes, expiresAt: args.expiresAt };
       return endpoints.tokens.create(
         { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
         org,
-        { name: args.name, scopes: args.scopes, expiresAt: args.expiresAt ?? null },
+        body,
       );
     },
   );
