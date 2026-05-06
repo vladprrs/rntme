@@ -7,13 +7,11 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
-RUN pnpm -F @rntme/bpmn-worker build
+RUN pnpm --filter @rntme/bpmn-worker... build
 
 FROM node:20-alpine AS runtime
-WORKDIR /app
+WORKDIR /repo
 ENV NODE_ENV=production
-RUN corepack enable
-COPY --from=deps /repo/node_modules /app/node_modules
-COPY --from=build /repo/packages/runtime/bpmn-worker/dist /app/dist
-COPY --from=build /repo/packages/runtime/bpmn-worker/package.json /app/package.json
-CMD ["node", "/app/dist/bin/worker.js"]
+COPY --from=deps /repo/node_modules ./node_modules
+COPY --from=build /repo/packages ./packages
+CMD ["node", "packages/runtime/bpmn-worker/dist/bin/worker.js"]
