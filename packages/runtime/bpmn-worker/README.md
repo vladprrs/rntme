@@ -5,6 +5,9 @@ Bridge worker for provisioned BPMN/Operaton projects.
 It subscribes to planned Kafka topics, starts Operaton process instances from
 message starts, executes BPMN service tasks by calling rntme gRPC command
 bindings, and writes deterministic command metadata for retries.
+Subscriptions are deployment-scoped and start from the beginning of their
+Kafka topics, so an `OrderPlaced`-style message-start event produced while the
+worker is still deploying is replayed instead of dropped.
 
 ## Role in the system
 

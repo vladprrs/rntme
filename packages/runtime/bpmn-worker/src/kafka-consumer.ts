@@ -39,7 +39,7 @@ export async function createKafkaWorkflowConsumer(input: {
 
   await consumer.connect();
   for (const topic of [...byTopic.keys()].sort()) {
-    await consumer.subscribe({ topic, fromBeginning: false });
+    await consumer.subscribe({ topic, fromBeginning: true });
   }
   await consumer.run({
     eachMessage: async ({ topic, message }) => {

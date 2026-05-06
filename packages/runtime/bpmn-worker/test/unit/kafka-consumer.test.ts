@@ -1,7 +1,27 @@
 import { Buffer } from 'node:buffer';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toCloudEventWire, type EventEnvelope } from '@rntme/event-store';
-import { decodeKafkaJsMessage } from '../../src/kafka-consumer.js';
+import { createKafkaWorkflowConsumer, decodeKafkaJsMessage } from '../../src/kafka-consumer.js';
+
+const kafkaMock = vi.hoisted(() => ({
+  subscribeCalls: [] as Array<{ topic: string; fromBeginning?: boolean }>,
+  disconnect: vi.fn(async () => undefined),
+}));
+
+vi.mock('kafkajs', () => ({
+  Kafka: class {
+    consumer() {
+      return {
+        connect: vi.fn(async () => undefined),
+        subscribe: vi.fn(async (input: { topic: string; fromBeginning?: boolean }) => {
+          kafkaMock.subscribeCalls.push(input);
+        }),
+        run: vi.fn(async () => undefined),
+        disconnect: kafkaMock.disconnect,
+      };
+    }
+  },
+}));
 
 describe('decodeKafkaJsMessage', () => {
   it('decodes KafkaJS buffers through the event-store CloudEvents codec', () => {
@@ -36,5 +56,39 @@ describe('decodeKafkaJsMessage', () => {
 
     expect(decoded.id).toBe('evt_1');
     expect(decoded.data).toEqual({ orderId: 'ord_1' });
+  });
+});
+
+describe('createKafkaWorkflowConsumer', () => {
+  beforeEach(() => {
+    kafkaMock.subscribeCalls.length = 0;
+    kafkaMock.disconnect.mockClear();
+  });
+
+  it('subscribes from the beginning so message-start events are not dropped during worker startup', async () => {
+    const consumer = await createKafkaWorkflowConsumer({
+      brokers: ['redpanda:9092'],
+      clientId: 'worker',
+      groupId: 'worker-deployment',
+      subscriptions: [
+        {
+          messageStartId: 'orderPlaced',
+          topic: 'rntme.preview.orders.order',
+          service: 'orders',
+          aggregateType: 'Order',
+          eventType: 'OrderPlaced',
+          processId: 'orderFulfillment',
+          messageName: 'OrderPlaced',
+          businessKey: '$event.rntAggregateId',
+        },
+      ],
+    });
+
+    expect(kafkaMock.subscribeCalls).toEqual([
+      { topic: 'rntme.preview.orders.order', fromBeginning: true },
+    ]);
+
+    await consumer.stop();
+    expect(kafkaMock.disconnect).toHaveBeenCalledOnce();
   });
 });
