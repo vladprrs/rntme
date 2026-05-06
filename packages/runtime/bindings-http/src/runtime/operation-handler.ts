@@ -95,53 +95,60 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
     let formValues: Record<string, unknown> = {};
     let queryData: Record<string, unknown> = {};
     let headerValues: Record<string, unknown> = {};
+    const searchParams = new URL(c.req.url).searchParams;
+
+    const pathParsed = plan.schemas.pathSchema.safeParse(extractPath(c, plan.pathParamNames));
+    if (!pathParsed.success) return c.json(validationErrorBody(pathParsed.error), 400);
+
+    const queryParsed = plan.schemas.querySchema.safeParse(extractQuery(c, declaredQueryParams, plan.listParamNames));
+    if (!queryParsed.success) return c.json(validationErrorBody(queryParsed.error), 400);
+    queryData = queryParsed.data as Record<string, unknown>;
+
+    let parsedJsonBody: Record<string, unknown> | null = null;
+    if (hasBody) {
+      let rawBody: unknown;
+      try {
+        rawBody = await c.req.json();
+      } catch {
+        return c.json(invalidBodyErrorBody('Request body is not valid JSON'), 400);
+      }
+      if (rawBody === null || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+        return c.json(invalidBodyErrorBody('Request body must be a JSON object'), 400);
+      }
+      const bodyParsed = plan.schemas.bodySchema!.safeParse(rawBody);
+      if (!bodyParsed.success) return c.json(validationErrorBody(bodyParsed.error), 400);
+      parsedJsonBody = bodyParsed.data as Record<string, unknown>;
+      bodyValues = parsedJsonBody;
+    } else if (hasInputFrom && plan.entry.http.method === 'POST' && !hasFormContentType(c)) {
+      parsedJsonBody = await safeParseJsonBody(c);
+      bodyValues = parsedJsonBody ?? {};
+    }
+
+    if (hasInputFrom && plan.entry.http.method === 'POST' && hasFormContentType(c)) {
+      formValues = await safeParseFormBody(c);
+    }
+
+    const combined = {
+      ...(queryParsed.data as Record<string, unknown>),
+      ...(pathParsed.data as Record<string, unknown>),
+      ...bodyValues,
+    };
+    graphInputs = remapToGraphInputs(combined, plan.bindToMap);
+    headerValues = Object.fromEntries(c.req.raw.headers.entries());
 
     if (hasInputFrom) {
       const request = {
-        query: new URL(c.req.url).searchParams,
+        query: searchParams,
         header: (name: string) => c.req.header(name) ?? null,
-        body: plan.entry.http.method === 'POST' && !hasFormContentType(c) ? await safeParseJsonBody(c) : null,
-        form: plan.entry.http.method === 'POST' && hasFormContentType(c) ? await safeParseFormBody(c) : null,
+        body: parsedJsonBody,
+        form: Object.keys(formValues).length > 0 ? formValues as Record<string, string> : null,
       };
       const extracted = extractInputs(plan.inputFrom!, request);
       if (!extracted.ok) {
         return c.json({ code: extracted.error.code, message: extracted.error.message }, 400);
       }
-      graphInputs = extracted.values;
-      bodyValues = request.body ?? {};
-      formValues = request.form ?? {};
-      queryData = Object.fromEntries(request.query.entries());
-      headerValues = Object.fromEntries(c.req.raw.headers.entries());
-    } else {
-      const pathParsed = plan.schemas.pathSchema.safeParse(extractPath(c, plan.pathParamNames));
-      if (!pathParsed.success) return c.json(validationErrorBody(pathParsed.error), 400);
-
-      const queryParsed = plan.schemas.querySchema.safeParse(extractQuery(c, declaredQueryParams, plan.listParamNames));
-      if (!queryParsed.success) return c.json(validationErrorBody(queryParsed.error), 400);
-      queryData = queryParsed.data as Record<string, unknown>;
-
-      if (hasBody) {
-        let rawBody: unknown;
-        try {
-          rawBody = await c.req.json();
-        } catch {
-          return c.json(invalidBodyErrorBody('Request body is not valid JSON'), 400);
-        }
-        if (rawBody === null || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
-          return c.json(invalidBodyErrorBody('Request body must be a JSON object'), 400);
-        }
-        const bodyParsed = plan.schemas.bodySchema!.safeParse(rawBody);
-        if (!bodyParsed.success) return c.json(validationErrorBody(bodyParsed.error), 400);
-        bodyValues = bodyParsed.data as Record<string, unknown>;
-      }
-
-      const combined = {
-        ...(queryParsed.data as Record<string, unknown>),
-        ...(pathParsed.data as Record<string, unknown>),
-        ...bodyValues,
-      };
-      graphInputs = remapToGraphInputs(combined, plan.bindToMap);
-      headerValues = Object.fromEntries(c.req.raw.headers.entries());
+      graphInputs = { ...graphInputs, ...extracted.values };
+      queryData = { ...Object.fromEntries(searchParams.entries()), ...queryData };
     }
 
     let out;
