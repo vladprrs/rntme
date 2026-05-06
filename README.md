@@ -134,6 +134,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 | [`@rntme/conformance-identity`](modules/identity/conformance) | Per-RPC conformance scenarios for `@rntme/contracts-identity-v1`. Drift-tested against the canonical `service IdentityModule`. Imported by every Identity vendor module. |
 | **AI/LLM vendor track** |  |
 | [`@rntme/conformance-ai-llm`](modules/ai-llm/conformance) | AI/LLM conformance scenarios + fixtures (14 RPCs, binary media). Drift-tested against `service AiLlmModule`. Imported by every AI/LLM vendor module. |
+| [`@rntme/ai-llm-openrouter`](modules/ai-llm/openrouter) | First AI/LLM vendor module — OpenRouter multi-provider gateway. Implements `Complete` and `GetCompletion`; remaining 12 RPCs return `UNIMPLEMENTED`. SQLite idempotency store (≥24h TTL). Single-vendor manifest with `gateway_upstreams[]`. |
 
 | **Deployment (CLI-side)** |  |
 | [`@rntme/deploy-core`](packages/deploy/deploy-core) | Target-neutral deployment plan model for validated/composed projects. |
@@ -143,6 +144,7 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 
 [`demo/notes-blueprint`](demo/notes-blueprint) is the canonical project-shape example: a project blueprint folder with `project.json`, project-level PDM, and one or more services under `services/`.
 [`demo/order-fulfillment-blueprint`](demo/order-fulfillment-blueprint) is the BPMN workflow example: two services plus `workflows/workflows.json` and BPMN files.
+[`demo/cv-extract-blueprint`](demo/cv-extract-blueprint) is the first AI-LLM-bearing demo: resume PDF → JSON-schema-pinned structured extraction via `@rntme/ai-llm-openrouter`.
 
 ### Dependency graph
 
