@@ -211,3 +211,118 @@ export function buildOpenRouterRequest(proto: ProtoCompletionRequest): OrChatCom
 
   return result;
 }
+
+export interface ParseRequestContext {
+  model: string;
+  idempotencyKey: string;
+  requestStartedAt: Date;
+}
+
+interface OrChoice {
+  message?: {
+    role?: string;
+    content?: string | null;
+    reasoning?: string | null;
+    reasoning_details?: unknown;
+    tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[];
+  };
+  finish_reason?: string;
+}
+
+interface OrUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  reasoning_tokens?: number;
+  cached_tokens?: number;
+  cost?: number;
+}
+
+interface OrResponse {
+  id?: string;
+  model?: string;
+  choices?: OrChoice[];
+  usage?: OrUsage;
+}
+
+const FinishReasonMap: Record<string, number> = {
+  stop: 1,
+  length: 2,
+  tool_calls: 3,
+  content_filter: 4,
+  error: 5,
+};
+
+export interface MappedCompletion {
+  ref: { canonicalId: string };
+  model: string;
+  content: { type: number; text?: { text: string }; toolUse?: unknown; thinking?: unknown }[];
+  finishReason: number;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number; reasoningTokens: number; cachedTokens: number };
+  reasoning?: { summary?: string };
+  toolCalls?: { id: string; name: string; arguments: unknown }[];
+  startedAt: Date;
+  finishedAt: Date;
+  vendorRaw: Record<string, unknown>;
+}
+
+export function parseOpenRouterResponse(or: OrResponse, ctx: ParseRequestContext): MappedCompletion {
+  const choice = or.choices?.[0];
+  if (!choice) {
+    throw new AiLlmOpenRouterError('OR returned no choices', GrpcStatus.INTERNAL, 'AI_LLM_VENDOR_UNAVAILABLE');
+  }
+
+  const content: MappedCompletion['content'] = [];
+  if (typeof choice.message?.content === 'string' && choice.message.content.length > 0) {
+    content.push({ type: 1, text: { text: choice.message.content } });
+  }
+  if (choice.message?.reasoning) {
+    content.push({ type: 7, thinking: { text: choice.message.reasoning, redacted: false } });
+  }
+
+  const toolCalls =
+    choice.message?.tool_calls?.map((tc) => ({
+      id: tc.id ?? '',
+      name: tc.function?.name ?? '',
+      arguments: tc.function?.arguments ? safeJson(tc.function.arguments) : {},
+    })) ?? [];
+
+  for (const tc of toolCalls) {
+    content.push({ type: 5, toolUse: tc });
+  }
+
+  const u = or.usage ?? {};
+  const usage = {
+    inputTokens: u.prompt_tokens ?? 0,
+    outputTokens: u.completion_tokens ?? 0,
+    totalTokens: u.total_tokens ?? 0,
+    reasoningTokens: u.reasoning_tokens ?? 0,
+    cachedTokens: u.cached_tokens ?? 0,
+  };
+
+  const vendorRaw: Record<string, unknown> = {};
+  if (u.cost !== undefined) vendorRaw.cost_usd = u.cost;
+  if (or.id) vendorRaw.openrouter_id = or.id;
+  if (or.model) vendorRaw.openrouter_model = or.model;
+
+  const completion: MappedCompletion = {
+    ref: { canonicalId: ctx.idempotencyKey },
+    model: ctx.model,
+    content,
+    finishReason: FinishReasonMap[choice.finish_reason ?? ''] ?? 0,
+    usage,
+    startedAt: ctx.requestStartedAt,
+    finishedAt: new Date(),
+    vendorRaw,
+  };
+  if (toolCalls.length > 0) completion.toolCalls = toolCalls;
+  return completion;
+}
+
+function safeJson(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return s;
+  }
+}
