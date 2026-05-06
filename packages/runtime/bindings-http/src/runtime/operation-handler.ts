@@ -75,7 +75,22 @@ function operationErrorBody(err: OperationExecutorError): ErrorResponseBody {
   return body;
 }
 
+function defaultSuccessBody(plan: BindingPlan, out: Awaited<ReturnType<OperationExecutor['execute']>> & { ok: true }): unknown {
+  const value = out.value.value;
+  if (plan.exposure !== 'action' || value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+  return {
+    ...(value as Record<string, unknown>),
+    eventIds: out.value.metadata.eventIds,
+    commandId: out.value.metadata.commandId,
+    correlationId: out.value.metadata.correlationId,
+  };
+}
+
 function fallbackCorrelation(c: Context): { commandId: string; correlationId: string; traceparent: string | null } {
+  const fromMiddleware = (c.var as { correlation?: { commandId: string; correlationId: string; traceparent: string | null } }).correlation;
+  if (fromMiddleware !== undefined) return fromMiddleware;
   const traceparent = c.req.header('traceparent') ?? null;
   return {
     commandId: randomUUID(),
@@ -229,14 +244,15 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
 
     const clientKey = c.req.header('Idempotency-Key') ?? null;
     if (deps.idempotencyCache !== undefined && clientKey !== null) {
+      const body = defaultSuccessBody(plan, out);
       deps.idempotencyCache.set(
         plan.operationName,
         clientKey,
-        { status: 200, body: JSON.stringify(out.value.value) },
+        { status: 200, body: JSON.stringify(body) },
         Date.now(),
       );
     }
 
-    return c.json(out.value.value as object, 200);
+    return c.json(defaultSuccessBody(plan, out) as object, 200);
   };
 }

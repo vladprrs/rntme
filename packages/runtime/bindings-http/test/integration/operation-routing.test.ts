@@ -66,7 +66,10 @@ describe('operation routing', () => {
 
     const res = await app.request('/api/reservations', { method: 'POST' });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ reserved: false, reason: 'insufficient stock' });
+    const body = await res.json() as Record<string, unknown>;
+    expect(body).toMatchObject({ reserved: false, reason: 'insufficient stock', eventIds: ['evt-1'] });
+    expect(typeof body.commandId).toBe('string');
+    expect(typeof body.correlationId).toBe('string');
   });
 
   it('merges inputFrom values with path and body parameters', async () => {
@@ -153,6 +156,9 @@ describe('operation routing', () => {
       headers: { authorization: 'Bearer token' },
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ noteId: 'note-1' });
+    const body = await res.json() as Record<string, unknown>;
+    expect(body).toMatchObject({ noteId: 'note-1', eventIds: ['evt-1'] });
+    expect(typeof body.commandId).toBe('string');
+    expect(typeof body.correlationId).toBe('string');
   });
 });
