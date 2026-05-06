@@ -26,9 +26,10 @@ const expr: z.ZodType<unknown> = z.lazy(() =>
     z.number(),
     z.boolean(),
     z.null(),
-    z.object({ $literal: z.string() }).strict(),
+    z.object({ $literal: z.unknown() }).strict(),
     z.object({ $param: z.string() }).strict(),
     z.object({ $pre: z.string() }).strict(),
+    z.object({ $ref: z.string().min(1) }).strict(),
     z.object({ $node: z.string().min(1) }).strict(),
     z.object({ $list: z.array(expr) }).strict(),
     z.object({ between: z.tuple([expr, expr, expr]) }).strict(),
@@ -81,6 +82,24 @@ const findManyNode = z
           z.object({ eventType: sourceName }).strict(),
           preRef,
         ]),
+      })
+      .strict(),
+  })
+  .strict();
+
+const findOneNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('findOne'),
+    config: z
+      .object({
+        source: z.union([
+          z.object({ entity: sourceName }).strict(),
+          z.object({ projection: sourceName }).strict(),
+          z.object({ eventType: sourceName }).strict(),
+          preRef,
+        ]),
+        where: expr,
       })
       .strict(),
   })
@@ -211,8 +230,64 @@ const emitNode = z
   })
   .strict();
 
+const callNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('call'),
+    target: z.union([
+      z.object({ module: z.string().min(1), operation: z.string().min(1) }).strict(),
+      z.object({ service: z.string().min(1), operation: z.string().min(1) }).strict(),
+    ]),
+    input: z.record(z.string(), expr),
+    policy: z
+      .object({
+        timeoutMs: z.number().int().min(1).max(30_000),
+        retry: z
+          .object({
+            attempts: z.number().int().min(1).max(10).optional(),
+            retryOn: z.enum(['never', 'transient', 'all']).optional(),
+          })
+          .strict()
+          .optional(),
+        idempotency: z
+          .object({
+            mode: z.enum(['inherit', 'none', 'derive']),
+            key: expr.optional(),
+          })
+          .strict()
+          .optional(),
+        onError: z.literal('fail'),
+      })
+      .strict(),
+  })
+  .strict();
+
+const branchNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('branch'),
+    cases: z
+      .array(
+        z.union([
+          z.object({ when: expr, then: z.string().min(1) }).strict(),
+          z.object({ default: z.literal(true), then: z.string().min(1) }).strict(),
+        ]),
+      )
+      .min(1),
+  })
+  .strict();
+
+const resultNode = z
+  .object({
+    id: z.string(),
+    type: z.literal('result'),
+    value: z.union([expr, z.record(z.string(), expr)]),
+  })
+  .strict();
+
 const graphNode = z.discriminatedUnion('type', [
   findManyNode,
+  findOneNode,
   filterNode,
   mapNode,
   reduceNode,
@@ -222,6 +297,9 @@ const graphNode = z.discriminatedUnion('type', [
   lookupOneNode,
   uuidNode,
   emitNode,
+  callNode,
+  branchNode,
+  resultNode,
 ]);
 
 const graphDecl = z

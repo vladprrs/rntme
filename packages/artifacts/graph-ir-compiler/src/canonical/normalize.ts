@@ -5,8 +5,9 @@ import type {
   CanonicalFindMany,
   CanonicalMeasure,
   CanonicalEmit,
+  CanonicalFindOne,
 } from '../types/canonical.js';
-import type { Expr, FieldExpr } from '../types/authoring.js';
+import type { CallPolicy, Expr, FieldExpr } from '../types/authoring.js';
 import { internalError } from '../types/errors.js';
 
 function camelCase(name: string): string {
@@ -42,6 +43,17 @@ export function normalize(
             scope,
             source: n.config.source as { entity: string } | { projection: string } | { eventType: string },
             alias: sourceAlias(n.config.source),
+          };
+          return node;
+        }
+        case 'findOne': {
+          const node: CanonicalFindOne = {
+            kind: 'findOne',
+            id: n.id,
+            scope,
+            source: n.config.source as { entity: string } | { projection: string } | { eventType: string },
+            alias: sourceAlias(n.config.source),
+            where: n.config.where as Expr,
           };
           return node;
         }
@@ -106,6 +118,29 @@ export function normalize(
           if (n.config.actor !== undefined) out.actor = n.config.actor as Expr;
           return out;
         }
+        case 'call':
+          return {
+            kind: 'call',
+            id: n.id,
+            scope,
+            target: n.target,
+            input: n.input as Record<string, Expr>,
+            policy: n.policy as CallPolicy,
+          };
+        case 'branch':
+          return {
+            kind: 'branch',
+            id: n.id,
+            scope,
+            cases: n.cases as Array<{ when: Expr; then: string } | { default: true; then: string }>,
+          };
+        case 'result':
+          return {
+            kind: 'result',
+            id: n.id,
+            scope,
+            value: n.value as Record<string, Expr> | Expr,
+          };
         default:
           throw internalError('canonical', `unsupported node type in canonical normalize: ${(n as { type: string }).type}`);
       }
