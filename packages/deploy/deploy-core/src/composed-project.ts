@@ -16,6 +16,12 @@ export type ComposedProjectService = {
   readonly runtimeFiles?: Readonly<Record<string, string>>;
 };
 
+export type WorkflowGrpcServiceConfig = {
+  readonly packageName: string;
+  readonly serviceName: string;
+  readonly protoSource: string;
+};
+
 export type ProjectRouteMap = {
   readonly ui?: Readonly<Record<string, string>>;
   readonly http?: Readonly<Record<string, string>>;
@@ -45,5 +51,6 @@ export type ComposedProjectInput = {
   readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
   readonly workflows?: ValidatedWorkflows | null;
   readonly workflowFiles?: Readonly<Record<string, string>>;
+  readonly workflowGrpcServices?: Readonly<Record<string, WorkflowGrpcServiceConfig>>;
   readonly varsManifest?: VarsManifest;
 };

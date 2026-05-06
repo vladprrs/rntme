@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { emitProto } from '@rntme/bindings-grpc';
 import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
@@ -596,6 +597,7 @@ async function toDeployCoreInput(
     value.workflows === null || value.workflows === undefined
       ? undefined
       : await readWorkflowDefinitionFiles(value.workflows, rootDir);
+  const workflowGrpcServices = workflowGrpcServicesForProject(value);
 
   return {
     name: value.project.name,
@@ -621,7 +623,78 @@ async function toDeployCoreInput(
     ...(Object.keys(modules).length > 0 ? { modules } : {}),
     ...(value.workflows === undefined ? {} : { workflows: value.workflows }),
     ...(workflowFiles === undefined ? {} : { workflowFiles }),
+    ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
   };
+}
+
+type WorkflowGrpcServiceRegistry = NonNullable<ComposedProjectInput['workflowGrpcServices']>;
+type GrpcShapeRegistry = Parameters<typeof emitProto>[1];
+type GrpcResolvedShape = GrpcShapeRegistry[string];
+
+function workflowGrpcServicesForProject(project: ComposedBlueprint): WorkflowGrpcServiceRegistry {
+  if (project.workflows === null || project.workflows === undefined) return {};
+  const serviceSlugs = new Set(
+    project.workflows.serviceTasks
+      .map((task) => task.bindingRef.split('.')[0] ?? '')
+      .filter((slug) => slug.length > 0),
+  );
+  const out: Record<string, WorkflowGrpcServiceRegistry[string]> = {};
+  for (const serviceSlug of [...serviceSlugs].sort()) {
+    const service = project.services[serviceSlug];
+    if (service?.bindings === null || service?.bindings === undefined || service.graphSpec === null) continue;
+    const packageName = grpcPackageNameForService(serviceSlug);
+    const serviceName = grpcServiceNameForService(serviceSlug);
+    out[serviceSlug] = {
+      packageName,
+      serviceName,
+      protoSource: emitProto(service.bindings, collectGrpcShapesFromService(service), { packageName, serviceName }),
+    };
+  }
+  return out;
+}
+
+function grpcPackageNameForService(serviceSlug: string): string {
+  return `rntme.${serviceSlug.trim().toLowerCase().replace(/-/g, '_')}.v1`;
+}
+
+function grpcServiceNameForService(serviceSlug: string): string {
+  return `${serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join('')}Service`;
+}
+
+function collectGrpcShapesFromService(service: ComposedBlueprint['services'][string]): GrpcShapeRegistry {
+  const acc: Record<string, GrpcResolvedShape> = {};
+  const addCustomShape = (shapeName: string): void => {
+    if (acc[shapeName] !== undefined) return;
+    const custom = service.graphSpec?.shapes[shapeName];
+    if (custom === undefined) return;
+    acc[shapeName] = {
+      name: shapeName,
+      origin: 'custom',
+      fields: Object.fromEntries(
+        Object.entries(custom.fields).map(([fieldName, field]) => [
+          fieldName,
+          {
+            type: { kind: 'scalar', primitive: field.type },
+            nullable: field.nullable,
+          },
+        ]),
+      ),
+    } as GrpcResolvedShape;
+  };
+
+  for (const resolved of Object.values(service.bindings?.resolved ?? {})) {
+    acc[resolved.outputShape.name] = resolved.outputShape as GrpcResolvedShape;
+    for (const input of Object.values(resolved.signature.inputs)) {
+      if (input.type.kind === 'row' || input.type.kind === 'rowset') {
+        addCustomShape(input.type.shape);
+      }
+    }
+  }
+  return acc;
 }
 
 async function readWorkflowDefinitionFiles(

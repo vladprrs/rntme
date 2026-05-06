@@ -332,6 +332,65 @@ describe('runDeployment', () => {
     );
   });
 
+  it('generates workflow gRPC proto registry for service task services', async () => {
+    const demoBundle = orderFulfillmentDemoBundle();
+    const planProject = vi.fn(() =>
+      ok({
+        project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka' as const,
+            mode: 'provisioned' as const,
+            provider: 'redpanda' as const,
+            resourceName: 'bus',
+            internalBrokers: ['bus:9092'],
+            image: 'redpanda:test',
+            persistence: { mode: 'persistent' as const, volumeName: 'bus-data' },
+          },
+        },
+        workloads: [],
+        edge: { routes: [], middleware: [] },
+        diagnostics: { warnings: [] },
+      }),
+    );
+    const { deps } = setup({
+      bundleFiles: demoBundle.files,
+      bundleAssets: demoBundle.assets,
+      useDefaultLoadComposed: true,
+      planProject: planProject as never,
+      targetEventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      targetWorkflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(planProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowGrpcServices: {
+          orders: expect.objectContaining({
+            packageName: 'rntme.orders.v1',
+            serviceName: 'OrdersService',
+            protoSource: expect.stringContaining('service OrdersService'),
+          }),
+          inventory: expect.objectContaining({
+            packageName: 'rntme.inventory.v1',
+            serviceName: 'InventoryService',
+            protoSource: expect.stringContaining('rpc ReserveStock'),
+          }),
+        },
+      }),
+      expect.any(Object),
+      expect.any(Object),
+    );
+  });
+
   it('fails invalid stored bundles before materializing unsafe paths', async () => {
     const { deps, deployments } = setup({
       bundleFiles: { 'project.json': { name: 'shop', services: [] } },
