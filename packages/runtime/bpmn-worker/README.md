@@ -42,6 +42,9 @@ payload into the BPMN process variable; otherwise it returns the canonical
 aggregate/version/event envelope.
 `int64` fields in command responses are decoded as JavaScript numbers before
 the worker maps them back into process variables.
+Operaton `Json` variables fetched from later external tasks are decoded back
+into plain JavaScript objects so workflow mappings such as
+`$process.reservation.reservationId` can read fields returned by earlier tasks.
 
 `runWorkflowEventOnce(...)` starts the matching process instance, then polls
 and completes same-instance mapped service tasks for a bounded number of

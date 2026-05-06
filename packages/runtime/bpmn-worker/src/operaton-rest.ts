@@ -83,9 +83,9 @@ export function createOperatonRestClient(options: {
     },
   };
 
-  async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
+  async function fetchWithTimeout(url: string, init: Parameters<typeof globalThis.fetch>[1]): Promise<globalThis.Response> {
+    const controller = new globalThis.AbortController();
+    const timer = globalThis.setTimeout(() => {
       controller.abort(new Error(`OPERATON_HTTP_TIMEOUT: ${url}`));
     }, requestTimeout);
     try {
@@ -96,7 +96,7 @@ export function createOperatonRestClient(options: {
       }
       throw cause;
     } finally {
-      clearTimeout(timer);
+      globalThis.clearTimeout(timer);
     }
   }
 }
@@ -107,7 +107,7 @@ type OperatonExternalTask = {
   readonly taskId?: string;
   readonly processInstanceId: string;
   readonly activityInstanceId: string;
-  readonly variables?: Readonly<Record<string, { readonly value?: unknown }>>;
+  readonly variables?: Readonly<Record<string, { readonly value?: unknown; readonly type?: string }>>;
 };
 
 function toTask(task: OperatonExternalTask): OperatonTask {
@@ -116,7 +116,7 @@ function toTask(task: OperatonExternalTask): OperatonTask {
     taskId: task.activityId ?? task.taskId ?? '',
     processInstanceId: task.processInstanceId,
     activityInstanceId: task.activityInstanceId,
-    variables: Object.fromEntries(Object.entries(task.variables ?? {}).map(([key, value]) => [key, value.value])),
+    variables: Object.fromEntries(Object.entries(task.variables ?? {}).map(([key, value]) => [key, fromVariable(value)])),
   };
 }
 
@@ -134,4 +134,15 @@ function toVariable(value: unknown): { value: unknown; type: string } {
   if (value === null) return { value: null, type: 'Null' };
   if (typeof value === 'object') return { value: JSON.stringify(value), type: 'Json' };
   return { value: String(value), type: 'String' };
+}
+
+function fromVariable(variable: { readonly value?: unknown; readonly type?: string }): unknown {
+  if (variable.type === 'Json' && typeof variable.value === 'string') {
+    try {
+      return JSON.parse(variable.value);
+    } catch {
+      return variable.value;
+    }
+  }
+  return variable.value;
 }

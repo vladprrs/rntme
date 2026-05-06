@@ -26,7 +26,7 @@ describe('createOperatonRestClient', () => {
       topics: ['reserveStock'],
       requestTimeoutMs: 1,
       fetch: async (_url, init) => {
-        expect(init?.signal).toBeInstanceOf(AbortSignal);
+        expect(init?.signal).toBeInstanceOf(globalThis.AbortSignal);
         return new Promise((_, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(init.signal?.reason);
@@ -110,6 +110,40 @@ describe('createOperatonRestClient', () => {
       'http://operaton:8080/engine-rest/external-task/fetchAndLock',
       'http://operaton:8080/engine-rest/external-task/task_1/complete',
       'http://operaton:8080/engine-rest/external-task/task_1/failure',
+    ]);
+  });
+
+  it('decodes fetched Json variables into plain objects for process mappings', async () => {
+    const client = createOperatonRestClient({
+      baseUrl: 'http://operaton:8080/engine-rest',
+      workerId: 'worker-1',
+      topics: ['confirmOrder'],
+      fetch: async () => new globalThis.Response(JSON.stringify([
+        {
+          id: 'task_2',
+          activityId: 'confirmOrder',
+          processInstanceId: 'proc_1',
+          activityInstanceId: 'act_2',
+          variables: {
+            reservation: {
+              type: 'Json',
+              value: '{"reserved":true,"reservationId":"res_1"}',
+            },
+          },
+        },
+      ]), { status: 200 }),
+    });
+
+    await expect(client.fetchAndLock()).resolves.toEqual([
+      {
+        id: 'task_2',
+        taskId: 'confirmOrder',
+        processInstanceId: 'proc_1',
+        activityInstanceId: 'act_2',
+        variables: {
+          reservation: { reserved: true, reservationId: 'res_1' },
+        },
+      },
     ]);
   });
 });

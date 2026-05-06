@@ -24,6 +24,9 @@ The process runs `reserveStock`, then an exclusive gateway routes to
 `confirmOrder` when the reservation command returns `{ reserved: true,
 reservationId }`. It routes to `cancelOrder` when the command returns
 `{ reserved: false, reason }`.
+The BPMN gateway uses Operaton/Camunda Spin JSON accessors
+(`reservation.prop("reserved").boolValue()`) because the worker stores object
+command results as Operaton `Json` process variables.
 
 `inventory` includes a service-local code command handler at
 `services/inventory/commands/handlers.mjs`. The handler keeps `reserveStock`
