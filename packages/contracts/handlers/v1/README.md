@@ -53,5 +53,5 @@ Types: `CodeCommandHandler`, `CodeCommandHandlerMap`, `CommandExecutionContext`,
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
+- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — executor seam, `CodeCommandExecutor` origin.

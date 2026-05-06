@@ -340,7 +340,7 @@ runs.
 
 The rules are manually negative-tested as part of the dep-cruiser
 introduction PR (see
-`docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`,
+`docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`,
 PR 6) — adding or modifying a rule requires the same proof-of-fire
 discipline.
 
@@ -818,7 +818,7 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `packages/runtime/bindings-grpc/README.md`.
 - "Why do modules import client/provisioner/manifest contracts instead of
   `ui-runtime`, `deploy-core`, or `module-scaffold`?" →
-  `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`.
+  `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`.
 
 ## 9. Memory and prior decisions
 

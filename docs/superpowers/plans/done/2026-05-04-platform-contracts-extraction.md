@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extract four cross-cutting platform contracts (`module/v1`, `provisioner/v1`, `client-runtime/v1`, `handlers/v1`) into `packages/contracts/`, rename `module-skeleton` → `module-scaffold`, and add a `dependency-cruiser` CI guard. Remove every layering violation listed in `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` §1.
+**Goal:** Extract four cross-cutting platform contracts (`module/v1`, `provisioner/v1`, `client-runtime/v1`, `handlers/v1`) into `packages/contracts/`, rename `module-skeleton` → `module-scaffold`, and add a `dependency-cruiser` CI guard. Remove every layering violation listed in `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` §1.
 
 **Architecture:** Six self-contained PRs in fixed merge order (1→2→3→4→5→6). Each PR creates its package, moves files via `git mv` (preserving history), updates every consumer's imports + `package.json`, ships docs in the same commit, and is gated on `pnpm install --frozen-lockfile && pnpm -r run typecheck && pnpm -r run test && pnpm -r run build && pnpm -r run lint` (= **the 5 gates**). Pre-stable per `project_pre_stable_stage.md` — no backward-compat shims; consumers swap deps directly.
 
@@ -38,7 +38,7 @@ Expected: any uncommitted modifications are unrelated to this work, or they're a
 - [ ] **Step 2: Confirm the spec is committed and accessible**
 
 ```bash
-test -f docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md && echo "spec OK"
+test -f docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md && echo "spec OK"
 ```
 
 Expected: `spec OK`.
@@ -249,7 +249,7 @@ Functions: `parseModuleManifest`.
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
+- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — manifest shape origin.
 ```
 
@@ -544,7 +544,7 @@ git commit -m "refactor(contracts): extract @rntme/contracts-module-v1 from modu
 Migrates the module manifest contract (zod schemas + types + parseModuleManifest)
 out of the tooling package and into a dedicated platform contract. Updates
 blueprint, deploy-core, and artifacts/ui consumers. Spec:
-docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md."
+docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md."
 git push -u origin extract-contracts-module-v1
 ```
 
@@ -555,7 +555,7 @@ gh pr create --title "refactor(contracts): extract contracts-module-v1" --body "
 ## Summary
 - Adds `@rntme/contracts-module-v1` (manifest schema + types + `parseModuleManifest`).
 - Migrates `blueprint`, `deploy-core`, `artifacts/ui` consumers.
-- Spec: `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`.
+- Spec: `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`.
 
 ## Test plan
 - [x] `pnpm -r run typecheck` green
@@ -854,7 +854,7 @@ gh pr create --title "refactor(contracts): extract contracts-provisioner-v1" --b
 - Adds `@rntme/contracts-provisioner-v1` (ProvisionerContract, ProvisionerInput/Output, ProvisionerLog, ProvisionerVendorError, env-mapping types).
 - Migrates `identity-auth0` off its `@rntme/deploy-core` dependency.
 - `resolveEnvMappings` stays in `deploy-core`; only types move.
-- Spec: docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md
+- Spec: docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md
 
 ## Test plan
 - [x] 5 gates green (typecheck, test, build, lint, install)
@@ -1213,7 +1213,7 @@ gh pr create --title "refactor(contracts): extract contracts-client-runtime-v1" 
 - Removes the `./client` subpath export from `@rntme/ui-runtime`.
 - Migrates auth0, presentation-tiptap, analytics-google-analytics, blueprint virtual-entry, platform-http test.
 - ui-runtime keeps host-bootstrap (entry, driver, registry, state, layout-manager, screen-loader).
-- Spec: docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md
+- Spec: docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md
 
 ## Test plan
 - [x] 5 gates green
@@ -1502,7 +1502,7 @@ gh pr create --title "refactor(contracts): extract contracts-handlers-v1" --body
 - Adds @rntme/contracts-handlers-v1 with structurally-minimal CommandExecutionContext + CommandExecutorOutput + CodeCommandHandler/Map.
 - Runtime types remain richer; type-test in the contract pins assignability.
 - module-skeleton imports the contract (drops @rntme/runtime runtime dep).
-- Spec: docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md
+- Spec: docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md
 
 ## Test plan
 - [x] 5 gates green
@@ -1645,7 +1645,7 @@ gh pr create --title "refactor(tooling): rename module-skeleton → module-scaff
 - After PRs 1 & 4 the package no longer hosts contracts; this rename matches its actual role (examples + scaffolding).
 - Drops `@rntme/event-store` devDep; deletes the integration test that depended on it.
 - Closes the layering refactor wave in `docs/audit/00-waves.md`.
-- Spec: docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md
+- Spec: docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md
 
 ## Test plan
 - [x] 5 gates green
@@ -1858,7 +1858,7 @@ Locks the platform-contracts layering: modules import only contracts,
 contracts are leaves, tooling cannot pull implementations, artifacts and
 deploy cannot import runtime, no cycles. Rules manually proven to fire
 on injected violations. Spec:
-docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md."
+docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md."
 git push -u origin add-dependency-cruiser-guard
 gh pr create --title "ci: add dependency-cruiser layering guard" --body "$(cat <<'EOF'
 ## Summary
@@ -1866,7 +1866,7 @@ gh pr create --title "ci: add dependency-cruiser layering guard" --body "$(cat <
 - Rules: modules→contracts only, contracts are leaves, tooling cannot pull implementations, artifacts/deploy never import runtime, no cycles.
 - CI runs `pnpm depcruise` alongside typecheck/test/lint.
 - Manually proven to fire on injected violations in both directions (modules→runtime and contracts→runtime).
-- Spec: docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md §6
+- Spec: docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md §6
 
 ## Test plan
 - [x] `pnpm depcruise` returns 0 violations on main

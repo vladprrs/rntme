@@ -174,7 +174,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Status:** Closed. PRs 1–6 merged; layering pinned by `dependency-cruiser` in CI.
 
-Spec: [`docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`](../superpowers/specs/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/superpowers/plans/2026-05-04-platform-contracts-extraction.md`](../superpowers/plans/2026-05-04-platform-contracts-extraction.md).
+Spec: [`docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`](../superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/superpowers/plans/done/2026-05-04-platform-contracts-extraction.md`](../superpowers/plans/done/2026-05-04-platform-contracts-extraction.md).
 
 Platform contracts extraction wave — extracts `@rntme/contracts-{module,provisioner,client-runtime,handlers}-v1` as leaf packages, removes cross-package layering violations, and renames `@rntme/module-skeleton` → `@rntme/module-scaffold` (the package no longer hosts contracts; it is examples-and-scaffolding).
 

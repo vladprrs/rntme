@@ -228,7 +228,7 @@ CI runs `build → typecheck → test → lint → depcruise → vendor:check` o
 
 - [`docs/architecture.md`](docs/architecture.md) — **top-down architecture overview** (C4 L1–L4, 18 mermaid diagrams, cross-cutting abstractions catalogue, diagnostic observations). Start here if you want depth.
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
-- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — platform contract layer: module manifest, provisioner, client-runtime, and handler contracts extracted out of implementation packages so modules depend on contracts only.
+- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — platform contract layer: module manifest, provisioner, client-runtime, and handler contracts extracted out of implementation packages so modules depend on contracts only.
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — platform modules, gRPC adapters, executor seams, pre-fetch middleware, idempotency cache, and callback bindings.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
