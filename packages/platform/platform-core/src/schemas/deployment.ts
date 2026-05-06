@@ -61,7 +61,7 @@ export const DeploymentSchema = z.object({
   warnings: z.array(z.unknown()),
   errorCode: z.string().nullable(),
   errorMessage: z.string().nullable(),
-  errorTree: z.object({ code: z.string(), message: z.string() }).passthrough().nullable().optional(),
+  errorTree: z.object({ code: z.string(), message: z.string() }).passthrough().nullable(),
   startedByAccountId: UuidSchema,
   queuedAt: z.date(),
   startedAt: z.date().nullable(),
