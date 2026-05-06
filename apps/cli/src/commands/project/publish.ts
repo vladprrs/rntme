@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { loadComposedBlueprint } from '@rntme/blueprint';
+import { materializeAndCompose } from '@rntme/blueprint';
 import { buildProjectBundle } from '../../bundle/build.js';
 import { endpoints } from '../../api/endpoints.js';
 import { runCommand, type CommonFlags } from '../harness.js';
@@ -45,18 +45,20 @@ export async function runProjectPublish(args: ProjectPublishArgs, flags: CommonF
       if (!project) return err(cliError('CLI_CONFIG_MISSING', 'no project; use --project'));
 
       const folder = resolve(process.cwd(), args.folder ?? '.');
-      const composed = loadComposedBlueprint(folder);
+      const built = buildProjectBundle(folder);
+      if (!isOk(built)) return built;
+
+      const composed = await materializeAndCompose(built.value.bundle);
       if (!composed.ok) {
         return err(
           cliError(
             'CLI_VALIDATE_LOCAL_FAILED',
             composed.errors.map((e) => `${e.code}: ${e.message}`).join('; '),
+            undefined,
+            composed.errors,
           ),
         );
       }
-
-      const built = buildProjectBundle(folder);
-      if (!isOk(built)) return built;
 
       if (args.dryRun === true) {
         return {
@@ -70,18 +72,16 @@ export async function runProjectPublish(args: ProjectPublishArgs, flags: CommonF
               bundleDigest: built.value.digest,
               bundleBlobKey: '',
               bundleSizeBytes: built.value.size,
-              summary: composed.value.project
-                ? {
-                    projectName: composed.value.project.name,
-                    services: [...composed.value.project.services],
-                    routes: {
-                      ui: { ...(composed.value.project.routes?.ui ?? {}) },
-                      http: { ...(composed.value.project.routes?.http ?? {}) },
-                    },
-                    middleware: { ...(composed.value.project.middleware ?? {}) },
-                    mounts: [...(composed.value.project.mounts ?? [])],
-                  }
-                : { projectName: project, services: [], routes: { ui: {}, http: {} }, middleware: {}, mounts: [] },
+              summary: {
+                projectName: composed.value.summary.projectName,
+                services: [...composed.value.summary.services],
+                routes: {
+                  ui: { ...composed.value.summary.routes.ui },
+                  http: { ...composed.value.summary.routes.http },
+                },
+                middleware: { ...composed.value.summary.middleware },
+                mounts: [...composed.value.summary.mounts],
+              },
               uploadedByAccountId: '',
               createdAt: '',
             },

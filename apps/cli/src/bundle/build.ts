@@ -5,15 +5,15 @@ import { err, ok, type Result } from '../result.js';
 import { cliError, type CliError } from '../errors/codes.js';
 import { canonicalJson } from '../util/canonical-json.js';
 import { collectBundleAssets } from './collect-assets.js';
+import type { CanonicalBundle } from '@rntme/blueprint';
 
-export type CanonicalBundle = {
+export type CliCanonicalBundle = CanonicalBundle & {
   readonly version: 2;
-  readonly files: Readonly<Record<string, unknown>>;
-  readonly assets: Readonly<Record<string, string>>;
+  readonly assets: Record<string, string>;
 };
 
 export type BuiltProjectBundle = {
-  readonly bundle: CanonicalBundle;
+  readonly bundle: CliCanonicalBundle;
   readonly bytes: string;
   readonly digest: string;
   readonly size: number;
@@ -47,7 +47,7 @@ export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, C
     ));
   }
 
-  const bundle: CanonicalBundle = { version: 2, files: bundleFiles, assets: assetsResult.value };
+  const bundle: CliCanonicalBundle = { version: 2, files: bundleFiles, assets: assetsResult.value };
   const bytes = canonicalJson(bundle);
   return ok({
     bundle,

@@ -9,6 +9,7 @@ export type NestedError = {
   path?: string | undefined;
   pkg?: string | undefined;
   stage?: string | undefined;
+  cause?: NestedError[] | undefined;
 };
 
 export type ApiError = {
@@ -127,20 +128,26 @@ function parseErrorEnvelope(body: unknown):
   const pkg = typeof e.pkg === 'string' ? e.pkg : undefined;
   const path = typeof e.path === 'string' ? e.path : undefined;
 
-  const nestedRaw =
-    (e.cause && typeof e.cause === 'object' && (e.cause as { errors?: unknown }).errors) || undefined;
+  const nestedRaw = Array.isArray(e.errors)
+    ? e.errors
+    : (e.cause && typeof e.cause === 'object' && (e.cause as { errors?: unknown }).errors) || undefined;
   let nested: NestedError[] | undefined;
   if (Array.isArray(nestedRaw)) {
-    nested = nestedRaw
-      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-      .map((x) => ({
-        code: typeof x.code === 'string' ? x.code : 'UNKNOWN',
-        message: typeof x.message === 'string' ? x.message : '',
-        path: typeof x.path === 'string' ? x.path : undefined,
-        pkg: typeof x.pkg === 'string' ? x.pkg : undefined,
-        stage: typeof x.stage === 'string' ? x.stage : undefined,
-      }));
+    nested = nestedRaw.map(parseNestedError);
   }
 
   return { code, message, stage, pkg, path, nested };
+}
+
+function parseNestedError(value: unknown): NestedError {
+  if (!value || typeof value !== 'object') return { code: 'UNKNOWN', message: String(value) };
+  const x = value as Record<string, unknown>;
+  return {
+    code: typeof x.code === 'string' ? x.code : 'UNKNOWN',
+    message: typeof x.message === 'string' ? x.message : '',
+    path: typeof x.path === 'string' ? x.path : undefined,
+    pkg: typeof x.pkg === 'string' ? x.pkg : undefined,
+    stage: typeof x.stage === 'string' ? x.stage : undefined,
+    cause: Array.isArray(x.cause) ? x.cause.map(parseNestedError) : undefined,
+  };
 }

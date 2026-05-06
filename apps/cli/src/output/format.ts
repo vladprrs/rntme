@@ -12,7 +12,7 @@ export type FailureOutput = {
     message: string;
     requestId?: string | undefined;
     hint?: string | undefined;
-    nested?: Array<{ code: string; message: string; path?: string | undefined; pkg?: string | undefined; stage?: string | undefined }> | undefined;
+    nested?: Array<{ code: string; message: string; path?: string | undefined; pkg?: string | undefined; stage?: string | undefined; cause?: unknown }> | undefined;
   };
 };
 
@@ -51,12 +51,14 @@ export function toFailureOutput(e: CliError | ClientError): FailureOutput['error
     return { code: 'CLI_NETWORK_TIMEOUT', message: e.message };
   }
   if ('kind' in e && e.kind === 'http') {
+    const missingScope = e.status === 403 ? e.message.match(/missing scope "?([^".\s]+)"?/)?.[1] : undefined;
     return {
       code: e.code,
       status: e.status,
       message: e.message,
       requestId: e.requestId,
       nested: e.nested,
+      hint: missingScope === undefined ? undefined : `your token is missing scope "${missingScope}". Try: rntme token create deploy-bot --preset deploy`,
     };
   }
   return { code: 'PLATFORM_INTERNAL', message: 'unknown error' };
