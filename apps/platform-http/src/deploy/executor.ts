@@ -43,6 +43,9 @@ import {
   type DeploymentProvisionResult,
   type DeploymentRepo,
   type EncryptedSecret,
+  type PlatformError,
+  type PlatformErrorNode,
+  type ErrorCode,
   type ProjectOperationRepo,
   type ProjectVersionRepo,
   type SecretCipher,
@@ -264,6 +267,7 @@ export async function runDeployment(
         await finalize(deps, deploymentId, orgId, 'failed', {
           errorCode: targetVarsResult.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
           errorMessage: redact(errorSummary(targetVarsResult.errors)),
+          errorTree: deployErrorsToPlatformError(targetVarsResult.errors, 'plan'),
         });
         return;
       }
@@ -294,6 +298,7 @@ export async function runDeployment(
         await finalize(deps, deploymentId, orgId, 'failed', {
           errorCode: provisionResult.errors[0]?.code ?? 'DEPLOY_PROVISION_UNKNOWN',
           errorMessage: redact(errorSummary(provisionResult.errors)),
+          errorTree: deployErrorsToPlatformError(provisionResult.errors, 'provision'),
         });
         return;
       }
@@ -345,6 +350,7 @@ export async function runDeployment(
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: plan.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
         errorMessage: redact(errorSummary(plan.errors)),
+        errorTree: deployErrorsToPlatformError(plan.errors, 'plan'),
       });
       return;
     }
@@ -379,6 +385,7 @@ export async function runDeployment(
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: rendered.errors[0]?.code ?? 'DEPLOY_RENDER_DOKPLOY_UNKNOWN',
         errorMessage: redact(errorSummary(rendered.errors)),
+        errorTree: deployErrorsToPlatformError(rendered.errors, 'render'),
       });
       return;
     }
@@ -397,6 +404,7 @@ export async function runDeployment(
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: applied.errors[0]?.code ?? 'DEPLOY_APPLY_DOKPLOY_UNKNOWN',
         errorMessage: redact(errorSummary(applied.errors)),
+        errorTree: deployErrorsToPlatformError(applied.errors, 'apply'),
       });
       return;
     }
@@ -483,6 +491,45 @@ async function appendLog(
   });
 }
 
+type StageErrorInput = {
+  readonly code?: string;
+  readonly message?: string;
+  readonly path?: string;
+  readonly cause?: unknown;
+};
+
+export function deployErrorsToPlatformError(
+  errors: readonly StageErrorInput[],
+  stage: 'plan' | 'render' | 'apply' | 'verify' | 'provision',
+): PlatformError {
+  const nodes = errors.map(stageErrorToNode);
+  const flatMessage = errors
+    .map((e) => `${e.code ?? 'UNKNOWN'}: ${e.message ?? ''}`)
+    .join('; ');
+  const code: ErrorCode = 'PLATFORM_INTERNAL';
+  return {
+    code,
+    message: flatMessage || `deployment ${stage} failed`,
+    stage,
+    errors: nodes,
+  };
+}
+
+function stageErrorToNode(e: StageErrorInput): PlatformErrorNode {
+  const node: { -readonly [K in keyof PlatformErrorNode]: PlatformErrorNode[K] } = {
+    code: typeof e.code === 'string' ? e.code : 'UNKNOWN',
+    message: typeof e.message === 'string' ? e.message : JSON.stringify(e),
+  };
+  if (typeof e.path === 'string' && e.path.length > 0) node.path = e.path;
+  if (Array.isArray(e.cause)) {
+    const children = e.cause
+      .filter((c): c is StageErrorInput => typeof c === 'object' && c !== null)
+      .map(stageErrorToNode);
+    if (children.length > 0) node.cause = children;
+  }
+  return node;
+}
+
 async function logApplyFailure(
   deps: ExecutorDeps,
   deploymentId: string,
@@ -552,6 +599,7 @@ async function finalize(
   args: {
     readonly errorCode?: string;
     readonly errorMessage?: string;
+    readonly errorTree?: PlatformError;
     readonly verificationReport?: VerificationReport;
     readonly warnings?: unknown[];
   },

@@ -49,6 +49,7 @@ export type DeploymentFinalize = {
   readonly status: Exclude<DeploymentStatus, 'queued' | 'running'>;
   readonly errorCode?: string;
   readonly errorMessage?: string;
+  readonly errorTree?: PlatformError;
   readonly applyResult?: Record<string, unknown>;
   readonly verificationReport?: VerificationReport;
   readonly warnings?: unknown[];

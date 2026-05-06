@@ -440,6 +440,13 @@ describe('runDeployment', () => {
       status: 'failed',
       errorCode: 'DEPLOY_PLAN_TARGET_VAR_MISSING',
       errorMessage: expect.stringContaining('AUTH0_SPA_CLIENT_ID'),
+      errorTree: expect.objectContaining({
+        code: 'PLATFORM_INTERNAL',
+        stage: 'plan',
+        errors: expect.arrayContaining([
+          expect.objectContaining({ code: 'DEPLOY_PLAN_TARGET_VAR_MISSING' }),
+        ]),
+      }),
     });
   });
 
@@ -605,6 +612,13 @@ describe('runDeployment', () => {
       status: 'failed',
       errorCode: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE',
       errorMessage: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE: failed while applying resource "rntme-acme-shop-edge"',
+      errorTree: expect.objectContaining({
+        code: 'PLATFORM_INTERNAL',
+        stage: 'apply',
+        errors: expect.arrayContaining([
+          expect.objectContaining({ code: 'DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE' }),
+        ]),
+      }),
     });
   });
 

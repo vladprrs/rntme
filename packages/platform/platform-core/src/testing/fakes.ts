@@ -414,7 +414,7 @@ export class FakeStore {
       for (const [projectId, list] of this.deploymentsByProject.entries()) {
         const idx = list.findIndex((d) => d.id === id);
         if (idx >= 0) {
-          list[idx] = { ...list[idx]!, status: args.status, finishedAt: this.now(), errorCode: args.errorCode ?? null, errorMessage: args.errorMessage ?? null };
+          list[idx] = { ...list[idx]!, status: args.status, finishedAt: this.now(), errorCode: args.errorCode ?? null, errorMessage: args.errorMessage ?? null, errorTree: args.errorTree ?? null };
           this.deploymentsByProject.set(projectId, list);
         }
       }
