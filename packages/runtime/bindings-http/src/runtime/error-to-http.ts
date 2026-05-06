@@ -9,6 +9,8 @@ const TABLE: Record<string, ErrorHttpMapping> = {
   COMMAND_NOT_FOUND: { status: 500, exposeCode: true },
   COMMAND_HANDLER_ERROR: { status: 400, exposeCode: true },
   COMMAND_HANDLER_THREW: { status: 500, exposeCode: true },
+  OPERATION_NOT_FOUND: { status: 500, exposeCode: true },
+  OPERATION_EXECUTION_FAILED: { status: 500, exposeCode: true },
 };
 
 export function errorToHttp(code: string): ErrorHttpMapping {

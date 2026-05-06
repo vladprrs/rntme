@@ -67,11 +67,6 @@ export type OperationBindingPlan = BindingPlanCommon & {
 
 export type BindingPlan = OperationBindingPlan;
 
-// Temporary aliases keep downstream imports compiling until Task 8 removes
-// the old query/command handler split.
-export type QueryBindingPlan = OperationBindingPlan;
-export type CommandBindingPlan = OperationBindingPlan;
-
 export type GraphIrOperationMap = Record<string, CompiledOperation>;
 
 export type BuildPlanResult = {
