@@ -16,7 +16,24 @@ const PlatformErrorSchema = {
   properties: {
     code: { type: 'string' },
     message: { type: 'string' },
-    stage: { type: 'string' },
+    stage: {
+      type: 'string',
+      enum: [
+        'auth',
+        'parse',
+        'tenancy',
+        'validation',
+        'storage',
+        'concurrency',
+        'internal',
+        'plan',
+        'render',
+        'apply',
+        'verify',
+        'provision',
+      ],
+    },
+    pkg: { type: 'string' },
     path: { type: 'string' },
     errors: { type: 'array', items: { $ref: '#/components/schemas/PlatformErrorNode' } },
   },
@@ -27,7 +44,7 @@ const ErrorResponseSchema = {
   type: 'object',
   properties: {
     error: { $ref: '#/components/schemas/PlatformError' },
-    errors: { type: 'array', items: { $ref: '#/components/schemas/PlatformError' } },
+    errors: { type: 'array', minItems: 2, items: { $ref: '#/components/schemas/PlatformError' } },
   },
   required: ['error'],
 };
