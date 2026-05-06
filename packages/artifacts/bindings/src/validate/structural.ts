@@ -1,4 +1,4 @@
-import { bindAsName, type BindingArtifact, type BindingEntry, type HttpParameter, type StructurallyValid } from '../types/artifact.js';
+import type { BindingArtifact, BindingEntry, HttpParameter, StructurallyValid } from '../types/artifact.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
 
 const PLACEHOLDER_RE = /\{([^{}]+)\}/g;
@@ -62,8 +62,8 @@ function checkBinding(
   const basePath = `bindings.${id}.http`;
   const paramPath = (i: number) => `${basePath}.parameters[${i}]`;
   const { method, path, parameters } = entry.http;
-  const isCommand = entry.kind === 'command';
-  if (isCommand && method !== 'POST') {
+  const isAction = entry.exposure === 'action';
+  if (isAction && method !== 'POST') {
     const hasRedirect =
       entry.response !== undefined
       && ('redirect' in entry.response.onOk || 'redirect' in entry.response.onErr);
@@ -73,7 +73,7 @@ function checkBinding(
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT,
-        message: `binding "${id}": GET is only allowed on command bindings when response.onOk or response.onErr is a redirect`,
+          message: `binding "${id}": GET is only allowed on action bindings when response.onOk or response.onErr is a redirect`,
         path: `${basePath}.method`,
         hint: 'Vendor-callback bindings (OAuth, magic link) use GET + redirect. Normal commands are POST + json.',
       });
@@ -81,7 +81,7 @@ function checkBinding(
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.BINDINGS_COMMAND_METHOD_NOT_POST,
-        message: `Command binding "${id}" must use method=POST (got ${method})`,
+          message: `Action binding "${id}" must use method=POST (got ${method})`,
         path: `${basePath}.method`,
       });
     }
@@ -130,11 +130,11 @@ function checkBinding(
       });
     }
 
-    if (isCommand && p.in === 'query') {
+    if (isAction && p.in === 'query') {
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN,
-        message: `Command binding "${id}" cannot have query parameters (parameter "${p.name}")`,
+        message: `Action binding "${id}" cannot have query parameters (parameter "${p.name}")`,
         path: paramPath(i),
       });
     }
@@ -156,34 +156,8 @@ function checkBinding(
     });
   }
 
-  if (entry.pre !== undefined && entry.pre.length > 0) {
-    if (entry.pre.length > 2) {
-      errors.push({
-        layer: 'structural',
-        code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_TOO_MANY,
-        message: `binding "${id}": pre[] has ${entry.pre.length} steps; max is 2 (model longer flows in BPMN)`,
-        path: `bindings.${id}.pre`,
-        hint: 'See spec §7 S4: chains longer than 2 pre-steps should be modeled as BPMN processes.',
-      });
-    }
-    const seen = new Set<string>();
-    entry.pre.forEach((step, idx) => {
-      const bindName = bindAsName(step.bindAs);
-      if (seen.has(bindName)) {
-        errors.push({
-          layer: 'structural',
-          code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_DUPLICATE_BIND_AS,
-          message: `binding "${id}": pre[${idx}].bindAs "${bindName}" duplicates an earlier step`,
-          path: `bindings.${id}.pre[${idx}].bindAs`,
-        });
-      } else {
-        seen.add(bindName);
-      }
-    });
-  }
-
   // `body`-sourced inputFrom on a GET request is impossible.
-  if (isCommand && method === 'GET' && entry.inputFrom !== undefined) {
+  if (isAction && method === 'GET' && entry.inputFrom !== undefined) {
     for (const [graphInput, src] of Object.entries(entry.inputFrom)) {
       if (src.from === 'body' || src.from === 'form') {
         errors.push({

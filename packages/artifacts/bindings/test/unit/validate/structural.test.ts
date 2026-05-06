@@ -10,6 +10,7 @@ const base: BindingArtifact = {
   qsmRef: 'z',
   bindings: {
     primary: {
+      exposure: 'read',
       graph: 'g',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {
@@ -61,6 +62,7 @@ describe('validateStructural', () => {
   it('detects duplicate method + path', () => {
     const bad = clone(base);
     bad.bindings.other = {
+      exposure: 'read',
       graph: 'other',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {
@@ -176,9 +178,9 @@ describe('validateStructural', () => {
     }
   });
 
-  it('rejects command bindings with method !== POST', () => {
+  it('rejects action bindings with method !== POST', () => {
     const bad = clone(base);
-    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.exposure = 'action';
     bad.bindings.primary!.http.method = 'PATCH' as HttpMethod;
     bad.bindings.primary!.http.path = '/v1/things/{id}';
     bad.bindings.primary!.http.parameters = [
@@ -189,9 +191,9 @@ describe('validateStructural', () => {
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_METHOD_NOT_POST')).toBe(true);
   });
 
-  it('rejects GET command bindings without redirect response', () => {
+  it('rejects GET action bindings without redirect response', () => {
     const bad = clone(base);
-    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.exposure = 'action';
     bad.bindings.primary!.http.path = '/v1/things/{id}';
     bad.bindings.primary!.http.parameters = [
       { name: 'id', in: 'path', bindTo: 'id', required: true },
@@ -201,9 +203,9 @@ describe('validateStructural', () => {
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_STRUCTURAL_GET_COMMAND_WITHOUT_REDIRECT')).toBe(true);
   });
 
-  it('rejects command bindings with any in=query parameter', () => {
+  it('rejects action bindings with any in=query parameter', () => {
     const bad = clone(base);
-    bad.bindings.primary!.kind = 'command';
+    bad.bindings.primary!.exposure = 'action';
     bad.bindings.primary!.http.method = 'POST';
     bad.bindings.primary!.http.parameters = [
       { name: 'limit', in: 'query', bindTo: 'limit', required: false },
@@ -213,9 +215,9 @@ describe('validateStructural', () => {
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN')).toBe(true);
   });
 
-  it('accepts command bindings with POST + path + body only', () => {
+  it('accepts action bindings with POST + path + body only', () => {
     const good = clone(base);
-    good.bindings.primary!.kind = 'command';
+    good.bindings.primary!.exposure = 'action';
     good.bindings.primary!.http.method = 'POST';
     good.bindings.primary!.http.path = '/v1/things/{id}/actions/do';
     good.bindings.primary!.http.parameters = [

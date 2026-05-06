@@ -9,7 +9,7 @@
   },
   "bindings": {
     "assignIssue": {
-      "kind": "command",
+      "exposure": "action",
       "graph": "assignIssueSafe",
       "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {

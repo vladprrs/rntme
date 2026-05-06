@@ -8,6 +8,7 @@ const minimal = {
   qsmRef: 'z',
   bindings: {
     primary: {
+      exposure: 'read',
       graph: 'g',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {

@@ -27,6 +27,7 @@ describe('artifact types', () => {
       parameters: [param],
     };
     const entry: BindingEntry = {
+      exposure: 'read',
       graph: 'g',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http,
@@ -44,6 +45,7 @@ describe('artifact types', () => {
 
     const sig: GraphSignature = {
       id: 'g',
+      effects: { localReads: true, localEmits: [], calls: [], waits: false },
       inputs: { limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 } },
       output: { type: { kind: 'rowset', shape: 'R' }, from: 't' },
     };

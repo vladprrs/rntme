@@ -14,9 +14,9 @@ function makeArtifact(bindingId: string, entry: Record<string, unknown>) {
 }
 
 describe('P2 callback structural validation', () => {
-  it('accepts GET command binding when response.onOk is a redirect', () => {
+  it('accepts GET action binding when response.onOk is a redirect', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -29,9 +29,9 @@ describe('P2 callback structural validation', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('rejects GET command binding without response.redirect', () => {
+  it('rejects GET action binding without response.redirect', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -45,7 +45,7 @@ describe('P2 callback structural validation', () => {
 
   it('rejects duplicate graph-input mappings across inputFrom and parameters[]', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: {
@@ -70,7 +70,7 @@ describe('P2 callback structural validation', () => {
 
   it('rejects body inputFrom on GET', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -91,7 +91,7 @@ describe('P2 callback structural validation', () => {
 
   it('rejects form inputFrom on GET', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -112,7 +112,7 @@ describe('P2 callback structural validation', () => {
 
   it('rejects absolute redirect template without allowedRedirectHosts', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -130,7 +130,7 @@ describe('P2 callback structural validation', () => {
 
   it('accepts absolute redirect when origin is allowed', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },
@@ -146,7 +146,7 @@ describe('P2 callback structural validation', () => {
 
   it('rejects string redirect containing bare reference outside template braces', () => {
     const artifact = makeArtifact('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/callback', parameters: [] },

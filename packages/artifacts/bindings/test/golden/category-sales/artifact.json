@@ -9,6 +9,7 @@
   },
   "bindings": {
     "getCategorySalesHttp": {
+      "exposure": "read",
       "graph": "getCategorySales",
       "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {

@@ -661,6 +661,9 @@ importers:
 
   packages/artifacts/bindings:
     dependencies:
+      '@rntme/graph-ir-compiler':
+        specifier: workspace:*
+        version: link:../graph-ir-compiler
       zod:
         specifier: ^4.0.0
         version: 4.3.6

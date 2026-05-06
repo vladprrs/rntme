@@ -11,7 +11,7 @@ function makeResolved(bindingId: string, entry: Record<string, unknown>, signatu
       [bindingId]: {
         entry: entry as BindingEntry,
         signature: signature as GraphSignature,
-        outputShape: { kind: 'row', shape: 'CommandResult' } as unknown as ResolvedShape,
+        outputShape: { name: 'CallbackResult', origin: 'custom', fields: {} } as ResolvedShape,
       },
     },
   } as unknown as ResolvedBindings;
@@ -20,7 +20,7 @@ function makeResolved(bindingId: string, entry: Record<string, unknown>, signatu
 describe('inputFrom consistency validation', () => {
   it('accepts inputFrom keys that match graph inputs', () => {
     const resolved = makeResolved('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'POST', path: '/oauth/callback', parameters: [] },
@@ -29,11 +29,11 @@ describe('inputFrom consistency validation', () => {
       },
     }, {
       id: 'completeOAuth',
-      role: 'command',
       inputs: {
-        state: { mode: 'required', type: { kind: 'scalar', name: 'string' } },
+        state: { mode: 'required', type: { kind: 'scalar', primitive: 'string' } },
       },
-      output: { type: { kind: 'row', shape: 'CommandResult' } },
+      output: { type: { kind: 'row', shape: 'CallbackResult' }, from: 'result' },
+      effects: { localReads: false, localEmits: [], calls: [], waits: false },
     });
     const result = validateConsistency(resolved);
     expect(result.ok).toBe(true);
@@ -41,7 +41,7 @@ describe('inputFrom consistency validation', () => {
 
   it('rejects inputFrom keys that do not match graph inputs', () => {
     const resolved = makeResolved('cb', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'completeOAuth',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'POST', path: '/oauth/callback', parameters: [] },
@@ -50,11 +50,11 @@ describe('inputFrom consistency validation', () => {
       },
     }, {
       id: 'completeOAuth',
-      role: 'command',
       inputs: {
-        state: { mode: 'required', type: { kind: 'scalar', name: 'string' } },
+        state: { mode: 'required', type: { kind: 'scalar', primitive: 'string' } },
       },
-      output: { type: { kind: 'row', shape: 'CommandResult' } },
+      output: { type: { kind: 'row', shape: 'CallbackResult' }, from: 'result' },
+      effects: { localReads: false, localEmits: [], calls: [], waits: false },
     });
     const result = validateConsistency(resolved);
     expect(result.ok).toBe(false);

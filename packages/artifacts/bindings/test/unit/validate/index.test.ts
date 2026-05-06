@@ -10,6 +10,7 @@ const artifact: BindingArtifact = {
   qsmRef: 'z',
   bindings: {
     primary: {
+      exposure: 'read',
       graph: 'g',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {
@@ -23,6 +24,7 @@ const artifact: BindingArtifact = {
 
 const goodSig: GraphSignature = {
   id: 'g',
+  effects: { localReads: true, localEmits: [], calls: [], waits: false },
   inputs: {
     limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 },
   },
