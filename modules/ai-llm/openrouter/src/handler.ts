@@ -26,13 +26,14 @@ export interface CreateOpenRouterModuleOptions {
 type Handler = (req: object) => Promise<object>;
 
 export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Partial<Record<string, Handler>> {
-  const client = new OpenRouterClient({
+  const clientOpts: { apiKey: string; baseUrl: string; fetch?: typeof globalThis.fetch; httpReferer?: string; xTitle?: string } = {
     apiKey: opts.apiKey,
     baseUrl: opts.baseUrl,
-    fetch: opts.fetch,
-    httpReferer: opts.httpReferer,
-    xTitle: opts.xTitle,
-  });
+  };
+  if (opts.fetch) clientOpts.fetch = opts.fetch;
+  if (opts.httpReferer) clientOpts.httpReferer = opts.httpReferer;
+  if (opts.xTitle) clientOpts.xTitle = opts.xTitle;
+  const client = new OpenRouterClient(clientOpts);
 
   async function Complete(req: object): Promise<object> {
     const r = req as { context?: { idempotencyKey?: string; correlationId?: string }; model?: string };
@@ -112,7 +113,7 @@ export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Par
 
     await opts.bus.emit('CompletionFinished', {
       canonicalId: idempotencyKey,
-      finishReason: completion.finishReason,
+      finishReason: completion.finish_reason,
     });
     return completion as unknown as object;
   }

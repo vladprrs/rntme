@@ -6,14 +6,14 @@ export type GrpcStatusCode = (typeof grpcStatus)[keyof typeof grpcStatus];
 export class AiLlmOpenRouterError extends Error {
   readonly code: GrpcStatusCode;
   readonly aiLlmCode: string;
-  readonly cause?: unknown;
+  override readonly cause?: unknown;
 
   constructor(message: string, code: GrpcStatusCode, aiLlmCode: string, cause?: unknown) {
     super(message);
     this.name = 'AiLlmOpenRouterError';
     this.code = code;
     this.aiLlmCode = aiLlmCode;
-    this.cause = cause;
+    if (cause !== undefined) this.cause = cause;
   }
 }
 

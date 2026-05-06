@@ -46,7 +46,9 @@ export class OpenRouterClient {
       } catch {
         // ignore parse failure
       }
-      throw { httpStatus: res.status, orError } satisfies OrErrorEnvelope;
+      const envelope: OrErrorEnvelope = { httpStatus: res.status };
+      if (orError) envelope.orError = orError;
+      throw envelope;
     }
 
     return await res.json();
