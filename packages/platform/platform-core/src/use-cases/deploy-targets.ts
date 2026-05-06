@@ -150,7 +150,7 @@ function encryptSecret(cipher: SecretCipher, plaintext: string) {
       {
         code: 'PLATFORM_INTERNAL',
         message: 'failed to encrypt deploy target secret',
-        cause,
+        errors: [{ code: 'PLATFORM_INTERNAL_CAUSE', message: cause instanceof Error ? cause.message : String(cause) }],
       },
     ]);
   }

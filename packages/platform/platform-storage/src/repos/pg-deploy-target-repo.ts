@@ -415,5 +415,11 @@ function notFound(slug: string): Result<never, PlatformError> {
 }
 
 function dbErr(cause: unknown): Result<never, PlatformError> {
-  return err([{ code: 'PLATFORM_STORAGE_DB_UNAVAILABLE', message: String(cause), cause }]);
+  return err([
+    {
+      code: 'PLATFORM_STORAGE_DB_UNAVAILABLE',
+      message: String(cause),
+      errors: [{ code: 'PLATFORM_STORAGE_DB_CAUSE', message: cause instanceof Error ? cause.message : String(cause) }],
+    },
+  ]);
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UuidSchema } from './primitives.js';
+import { HttpUrlSchema } from './url.js';
 
 export const DeploymentStatusSchema = z.enum([
   'queued',
@@ -37,7 +38,9 @@ export const StartDeploymentRequestSchema = z.object({
       integrationModuleImages: z.record(z.string(), z.string()).optional(),
       policyOverrides: z.record(z.string(), z.unknown()).optional(),
       runtimeImage: z.string().min(1).optional(),
+      publicBaseUrl: HttpUrlSchema.optional(),
     })
+    .strict()
     .default({}),
 });
 export type StartDeploymentRequest = z.infer<typeof StartDeploymentRequestSchema>;

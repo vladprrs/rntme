@@ -1,4 +1,6 @@
 export { loadBlueprint } from './load/load-blueprint.js';
+export { materializeBundle } from './load/materialize.js';
+export { materializeAndCompose } from './load/materialize-and-compose.js';
 export {
   buildBindingRegistry,
   buildUiHttpMap,
@@ -22,6 +24,8 @@ export type {
   BlueprintErrorCode,
   Result,
 } from './types/result.js';
+export type { CanonicalBundle } from '@rntme/platform-core';
+export type { MaterializeResult } from './load/materialize-and-compose.js';
 export type {
   ComposedBlueprint,
   CompositionService,

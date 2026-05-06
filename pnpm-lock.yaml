@@ -698,6 +698,9 @@ importers:
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm
+      '@rntme/platform-core':
+        specifier: workspace:*
+        version: link:../../platform/platform-core
       '@rntme/qsm':
         specifier: workspace:*
         version: link:../qsm

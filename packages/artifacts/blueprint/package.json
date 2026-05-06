@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@rntme/bindings": "workspace:*",
+    "@rntme/platform-core": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "@rntme/qsm": "workspace:*",
     "@rntme/seed": "workspace:*",
