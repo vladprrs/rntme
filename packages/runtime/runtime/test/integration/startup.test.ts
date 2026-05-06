@@ -364,6 +364,7 @@ class CapturingEventBus implements EventBus {
 
 function loadProto(src: string, serviceName: string): { root: protobuf.Root; service: protobuf.Service } {
   const { root } = protobuf.parse(src, { keepCase: true });
+  root.addJSON(protobuf.common.get('google/protobuf/struct.proto')?.nested ?? {});
   return { root, service: root.lookupService(serviceName) };
 }
 
