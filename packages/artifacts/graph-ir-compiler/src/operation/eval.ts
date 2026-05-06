@@ -25,7 +25,7 @@ export function evalOperationExpr(
   }
   if ('and' in expr) return (expr.and ?? []).every((e) => Boolean(evalOperationExpr(e, params, outputs)));
   if ('or' in expr) return (expr.or ?? []).some((e) => Boolean(evalOperationExpr(e, params, outputs)));
-  if ('not' in expr) return !Boolean(evalOperationExpr((expr.not ?? [])[0]!, params, outputs));
+  if ('not' in expr) return !evalOperationExpr((expr.not ?? [])[0]!, params, outputs);
   throw runtimeError('RUNTIME_INTERNAL_ERROR', `unsupported operation expression: ${JSON.stringify(expr)}`);
 }
 

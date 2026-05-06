@@ -72,6 +72,7 @@ function deploymentWithProvision(): DeploymentWithProvision {
     warnings: [],
     errorCode: null,
     errorMessage: null,
+    errorTree: null,
     startedByAccountId: 'account-1',
     queuedAt: new Date(),
     startedAt: new Date(),

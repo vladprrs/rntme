@@ -225,7 +225,7 @@ function evalReadExpr(expr: Expr, row: Row, meta: RowsetMeta, ctx: ReadEvalConte
   }
   if ('and' in expr) return (expr.and as Expr[]).every((part) => Boolean(evalReadExpr(part, row, meta, ctx)));
   if ('or' in expr) return (expr.or as Expr[]).some((part) => Boolean(evalReadExpr(part, row, meta, ctx)));
-  if ('not' in expr) return !Boolean(evalReadExpr((expr.not as Expr[])[0]!, row, meta, ctx));
+  if ('not' in expr) return !evalReadExpr((expr.not as Expr[])[0]!, row, meta, ctx);
   return null;
 }
 

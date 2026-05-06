@@ -134,7 +134,7 @@ describe('startService', () => {
     expect(second.status).toBe(429);
   });
 
-  it('wires a compiled query map through the default GraphIrQueryExecutor for gRPC', async () => {
+  it('wires the default operation executor through gRPC', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
     loaded.value.manifest.surface = {

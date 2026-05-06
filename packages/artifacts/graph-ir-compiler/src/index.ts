@@ -10,15 +10,10 @@ import { emitSql } from './lower/sqlite/emit.js';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, ERROR_CODES, type Result } from './types/result.js';
 import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from './explain/explain.js';
-import { compileCommand } from './command-runtime/compile.js';
-import { executeCommand, type ExecuteCommandContext, type CorrelationCtx } from './command-runtime/execute.js';
-import type { CommandResult } from './types/command.js';
 import { compileFailed, toGraphIrError } from './types/errors.js';
 
-export { compileCommand };
-export { executeCommand, type ExecuteCommandContext, type CorrelationCtx };
 export { CommandExecutionError } from './command-runtime/errors.js';
-export type { CommandResult, CompiledCommand, EmitPlan } from './types/command.js';
+export type { EmitPlan } from './types/command.js';
 export { inferRole, type GraphRole } from './role/infer.js';
 export { deriveEventTypeName } from './emit/event-type.js';
 
@@ -43,6 +38,7 @@ export type {
   OperationRegistryEntry,
   OperationResult,
   OperationTarget,
+  CorrelationCtx,
 } from './types/operation.js';
 export type { ValidatedPdm } from '@rntme/pdm';
 export type { ValidatedQsm } from '@rntme/qsm';
@@ -186,18 +182,6 @@ export function run(
     throw compileFailed(r.errors);
   }
   return execute(r.value, paramValues, db);
-}
-
-export function runCommand(
-  rawSpec: unknown,
-  rawPdm: unknown,
-  rawQsm: unknown,
-  paramValues: Record<string, unknown>,
-  ctx: ExecuteCommandContext,
-): CommandResult {
-  const r = compileCommand(rawSpec, rawPdm, rawQsm);
-  if (!r.ok) throw compileFailed(r.errors);
-  return executeCommand(r.value, paramValues, ctx);
 }
 
 export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): ExplainOutput {

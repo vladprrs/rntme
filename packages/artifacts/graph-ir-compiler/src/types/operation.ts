@@ -12,6 +12,12 @@ export type OperationTarget =
 export type OperationEffect = 'read' | 'action';
 export type OperationIdempotency = 'none' | 'optional' | 'required';
 
+export type CorrelationCtx = Readonly<{
+  commandId: string;
+  correlationId: string;
+  traceparent: string | null;
+}>;
+
 export type OperationRegistryEntry = Readonly<{
   id: string;
   target: OperationTarget;
@@ -54,11 +60,7 @@ export type OperationExecutionContext = Readonly<{
   now: () => string;
   nextId: () => string;
   actor: ActorRef | null;
-  correlation: {
-    commandId: string;
-    correlationId: string;
-    traceparent: string | null;
-  };
+  correlation: CorrelationCtx;
   idempotencyKey: string | null;
 }>;
 

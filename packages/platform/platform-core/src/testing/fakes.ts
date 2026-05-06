@@ -386,6 +386,7 @@ export class FakeStore {
         warnings: [],
         errorCode: null,
         errorMessage: null,
+        errorTree: null,
         startedByAccountId: args.row.startedByAccountId,
         queuedAt: this.now(),
         startedAt: null,

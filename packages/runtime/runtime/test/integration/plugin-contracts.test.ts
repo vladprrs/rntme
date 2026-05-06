@@ -5,54 +5,6 @@ import { InMemoryBus } from '../../src/plugins/in-memory-bus.js';
 runDbDriverContract(new BetterSqliteDriver());
 runEventBusContract(() => new InMemoryBus());
 
-import {
-  runCommandExecutorContract,
-  runQueryExecutorContract,
-} from '../../src/plugins/contract-tests.js';
-import { GraphIrCommandExecutor } from '../../src/plugins/executors/graph-ir-command-executor.js';
-import { GraphIrQueryExecutor } from '../../src/plugins/executors/graph-ir-query-executor.js';
-import type { CompiledCommand, CompileResult } from '@rntme/graph-ir-compiler';
-
-runCommandExecutorContract('GraphIrCommandExecutor', () => {
-  const compiled = {
-    graphId: 'contractEcho',
-    aggregate: 'A',
-    readPrelude: null,
-    readPreludeGuardNodeId: null,
-    paramOrder: ['id'],
-    optionalParams: [],
-    paramDefaults: {},
-    runtimeNodes: [],
-    emits: [
-      {
-        nodeId: 'emit-1',
-        aggregate: 'A',
-        aggregateIdExpr: { $param: 'id' },
-        transition: 'echo',
-        eventType: 'ContractEchoed',
-        affects: ['status'],
-        payloadExprs: { status: { $literal: 'done' } },
-        isCreation: true,
-        isSelfLoop: false,
-        fromStates: [null],
-        toState: 'done',
-      },
-    ],
-  } as unknown as CompiledCommand;
-  return new GraphIrCommandExecutor({ contractEcho: compiled });
-});
-
-runQueryExecutorContract('GraphIrQueryExecutor', () => {
-  const compiled = {
-    sql: 'SELECT 1 AS a',
-    paramOrder: [],
-    shape: { name: 'ContractNoop' },
-    optionalParams: [],
-    paramDefaults: {},
-  } satisfies CompileResult;
-  return new GraphIrQueryExecutor({ contractNoop: compiled });
-});
-
 import { runGrpcSurfaceContract } from '../../src/plugins/contract-tests.js';
 import { GrpcSurface } from '../../src/plugins/grpc-surface.js';
 
