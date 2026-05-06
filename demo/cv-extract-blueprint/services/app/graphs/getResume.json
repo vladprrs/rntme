@@ -1,0 +1,25 @@
+{
+  "id": "getResume",
+  "signature": {
+    "inputs": {
+      "id": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ResumeView>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "all",
+      "type": "findMany",
+      "config": { "source": { "projection": "ResumeView" } }
+    },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "all",
+        "expr": { "eq": ["resumeView.id", { "$param": "id" }] }
+      }
+    },
+    { "id": "out", "type": "result", "value": { "$ref": "filtered" } }
+  ]
+}
