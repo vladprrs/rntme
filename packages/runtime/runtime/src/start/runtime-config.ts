@@ -1,8 +1,8 @@
 import type { Context } from 'hono';
 import type { ActorRef } from '@rntme/event-store';
 import type { ApplyMode } from '@rntme/seed';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { DbDriver, EventBus, Surface } from '../plugins/interfaces.js';
-import type { CommandExecutor, QueryExecutor } from '../plugins/executors/types.js';
 import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 
 export type RuntimeConfig = {
@@ -13,8 +13,7 @@ export type RuntimeConfig = {
   onReady?: (info: { port: number }) => void;
   seedMode?: ApplyMode;
   skipSeed?: boolean;
-  commandExecutor?: CommandExecutor;
-  queryExecutor?: QueryExecutor;
+  operationExecutor?: OperationExecutor;
   externalAdapterClient?: ExternalAdapterClient;
   artifactDir?: string;
   runtimeEnv?: Record<string, string | undefined>;
@@ -31,8 +30,7 @@ export type RuntimeConfigValidationErrorCode =
   | 'RUNTIME_CONFIG_SEED_MODE_INVALID'
   | 'RUNTIME_CONFIG_SKIP_SEED_INVALID'
   | 'RUNTIME_CONFIG_SEED_MODE_WITH_SKIP_SEED'
-  | 'RUNTIME_CONFIG_COMMAND_EXECUTOR_INVALID'
-  | 'RUNTIME_CONFIG_QUERY_EXECUTOR_INVALID'
+  | 'RUNTIME_CONFIG_OPERATION_EXECUTOR_INVALID'
   | 'RUNTIME_CONFIG_EXTERNAL_ADAPTER_CLIENT_INVALID'
   | 'RUNTIME_CONFIG_ARTIFACT_DIR_INVALID'
   | 'RUNTIME_CONFIG_RUNTIME_ENV_INVALID'
@@ -78,8 +76,7 @@ export function validateRuntimeConfig(config: unknown): RuntimeConfigValidationR
   validateFunction(config, 'actorFromRequest', 'RUNTIME_CONFIG_ACTOR_RESOLVER_INVALID', errors);
   validateFunction(config, 'onReady', 'RUNTIME_CONFIG_ON_READY_INVALID', errors);
   validateSeedOptions(config, errors);
-  validateExecutor(config, 'commandExecutor', 'RUNTIME_CONFIG_COMMAND_EXECUTOR_INVALID', errors);
-  validateExecutor(config, 'queryExecutor', 'RUNTIME_CONFIG_QUERY_EXECUTOR_INVALID', errors);
+  validateExecutor(config, 'operationExecutor', 'RUNTIME_CONFIG_OPERATION_EXECUTOR_INVALID', errors);
   validateExternalAdapterClient(config, errors);
   validateArtifactDir(config, errors);
   validateRuntimeEnv(config, errors);
@@ -178,7 +175,7 @@ function validateSeedOptions(config: Record<string, unknown>, errors: RuntimeCon
 
 function validateExecutor(
   config: Record<string, unknown>,
-  field: 'commandExecutor' | 'queryExecutor',
+  field: 'operationExecutor',
   code: RuntimeConfigValidationErrorCode,
   errors: RuntimeConfigValidationError[],
 ): void {

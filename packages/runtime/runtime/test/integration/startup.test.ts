@@ -39,6 +39,15 @@ describe('startService', () => {
     expect(body.ok).toBe(true);
   });
 
+  it('starts with the graph operation executor and no service-local handlers', async () => {
+    const service = loadService(fixtureDir);
+    expect(service.ok).toBe(true);
+    if (!service.ok) return;
+
+    running = await startService(service.value, { onReady: () => undefined });
+    expect(running.httpPort).toBeGreaterThan(0);
+  });
+
   it('serves the UI shell at / and exposes OpenAPI + service identity', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));

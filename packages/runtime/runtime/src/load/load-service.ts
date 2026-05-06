@@ -99,19 +99,26 @@ function toGraphSignature(g: GraphJson): GraphSignature {
     const base = { type: parseInputType(decl.type), mode: decl.mode };
     inputs[name] = decl.default !== undefined ? { ...base, default: decl.default } : base;
   }
-  const hasEmit =
-    Array.isArray(g.nodes) &&
-    g.nodes.some(
-      (n) =>
-        typeof n === 'object' &&
-        n !== null &&
-        (n as { type?: string }).type === 'emit',
-    );
+  const emitNodes = Array.isArray(g.nodes)
+    ? g.nodes.filter((n) => typeof n === 'object' && n !== null && (n as { type?: string }).type === 'emit')
+    : [];
   return {
     id: g.id,
-    ...(hasEmit ? { role: 'command' as const } : {}),
     inputs,
     output: { type: parseOutputType(g.signature.output.type), from: g.signature.output.from },
+    effects: {
+      localReads: true,
+      localEmits: emitNodes.map((node) => {
+        const config = (node as { config?: { aggregate?: unknown; transition?: unknown } }).config;
+        return {
+          aggregate: typeof config?.aggregate === 'string' ? config.aggregate : '',
+          transition: typeof config?.transition === 'string' ? config.transition : '',
+          eventType: '',
+        };
+      }),
+      calls: [],
+      waits: false,
+    },
   };
 }
 
@@ -302,7 +309,11 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       sourceDir: uiSourceDir,
       httpMap,
       resolvers: {
-        resolveBinding: (id) => validatedBindings.resolved[id] ?? undefined,
+        resolveBinding: (id) => {
+          const resolved = validatedBindings.resolved[id];
+          if (resolved === undefined) return undefined;
+          return { kind: resolved.entry.exposure === 'action' ? 'command' : 'query' };
+        },
         resolveComponent: () => ({ childrenModel: 'list' as const, props: {} }),
         resolveRoute: () => true,
         resolveOperation: () => undefined,

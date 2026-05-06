@@ -5,7 +5,6 @@ import type {
   ValidatedManifest,
 } from './types.js';
 import type { ActorRef } from '@rntme/event-store';
-import { isAbsolute } from 'node:path';
 
 export type SemverTriple = { major: number; minor: number; patch: number };
 
@@ -100,8 +99,6 @@ export function validateManifest(
     });
   }
 
-  const commands = validateCommandsConfig(parsed.commands, errors);
-
   if (errors.length > 0) return { ok: false, errors };
 
   const v: ValidatedManifest = {
@@ -144,7 +141,6 @@ export function validateManifest(
       enabled: parsed.seed?.enabled !== false,
       path: parsed.seed?.path ?? 'seed.json',
     },
-    ...(commands !== undefined ? { commands } : {}),
     modules,
   };
   return { ok: true, value: v };
@@ -230,31 +226,4 @@ export function applyEnvOverrides(
 
 function isActorKind(value: string): value is ActorRef['kind'] {
   return (ACTOR_KINDS as readonly string[]).includes(value);
-}
-
-function validateCommandsConfig(
-  commands: ParsedManifest['commands'],
-  errors: ManifestError[],
-): ValidatedManifest['commands'] | undefined {
-  const handlersModule = commands?.handlersModule;
-  if (handlersModule === undefined) return undefined;
-
-  if (!isSafeRelativeArtifactPath(handlersModule)) {
-    errors.push({
-      code: 'MANIFEST_INVALID_TYPE',
-      path: 'commands.handlersModule',
-      message: 'commands.handlersModule must be a relative artifact path without URL schemes, backslashes, dot segments, or parent segments',
-    });
-    return undefined;
-  }
-
-  return { handlersModule };
-}
-
-function isSafeRelativeArtifactPath(value: string): boolean {
-  if (value.length === 0) return false;
-  if (value.includes('\\')) return false;
-  if (isAbsolute(value)) return false;
-  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) return false;
-  return value.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
 }

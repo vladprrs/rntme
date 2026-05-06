@@ -15,7 +15,6 @@ export type ManifestModule = {
   grpc: { address: string; tls?: ModuleGrpcTlsConfig };
   protoPath: string;
 };
-export type ManifestCommandsConfig = { handlersModule?: string };
 
 export type ParsedManifest = {
   rntmeVersion: string;
@@ -41,7 +40,6 @@ export type ParsedManifest = {
     metrics?: { path?: string };
   };
   seed?: { enabled?: boolean; path?: string };
-  commands?: ManifestCommandsConfig;
   modules?: ManifestModule[];
 };
 
@@ -67,7 +65,6 @@ export type ValidatedManifest = {
     metrics: { path: string };
   };
   seed: { enabled: boolean; path: string };
-  commands?: { handlersModule: string };
   modules: ManifestModule[];
 };
 
