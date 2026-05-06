@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SlugSchema, UuidSchema } from './primitives.js';
+import { HttpUrlSchema } from './url.js';
 
 const KafkaSecuritySchema = z
   .discriminatedUnion('protocol', [
@@ -78,14 +79,6 @@ const DeployTargetWorkflowsConfigSchema = z
 export const DeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nullable().default(null);
 export type DeployTargetWorkflows = z.infer<typeof DeployTargetWorkflowsSchema>;
 const PatchDeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nullable().optional();
-
-const HttpUrlSchema = z.string().url().refine(
-  (value) => {
-    const protocol = new URL(value).protocol;
-    return protocol === 'http:' || protocol === 'https:';
-  },
-  { message: 'expected an http(s) URL' },
-);
 
 const Auth0TargetConfigSchema = z.object({
   clientId: z.string().min(1),

@@ -65,6 +65,11 @@ Commands:
   token list              List tokens in the org
   token revoke <id>       Revoke a token
 
+  target list             List deploy targets in the org
+  target show <slug>      Show a deploy target
+  target create <slug>    Create a new deploy target
+  target set-config <slug> Update a deploy target from a JSON patch file
+
 Global options:
   --json                  Output JSON instead of human-readable text
   --base-url <url>        API base URL (default: https://platform.rntme.com)
@@ -87,6 +92,38 @@ rntme project deployment watch --org my-org --project my-project <deployment-id>
 ```
 
 The CLI never calls Dokploy directly and never reads deploy target secrets.
+
+### Deploying a workflow-enabled blueprint
+
+Workflow demos need a deploy target with provisioned Redpanda, Operaton, and a
+BPMN worker image:
+
+```bash
+rntme target create dokploy-workflows \
+  --org my-org \
+  --kind dokploy \
+  --display-name "Dokploy workflows" \
+  --dokploy-url https://dokploy.example.com \
+  --api-token "$DOKPLOY_API_TOKEN" \
+  --dokploy-project-id "$DOKPLOY_PROJECT_ID" \
+  --event-bus-mode provisioned \
+  --workflow-engine-image operaton/operaton:2.1.0 \
+  --workflow-worker-image ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1
+```
+
+Patch existing targets with `rntme target set-config <slug> --from patch.json`.
+`--json` is reserved for CLI output mode. Deployment overrides may include
+`publicBaseUrl`; the DNS record for that URL must already point at the same
+Dokploy host.
+
+```bash
+rntme token create deploy-bot --preset deploy --org my-org
+rntme project publish --org my-org --project order-fulfillment demo/order-fulfillment-blueprint
+rntme project deploy --org my-org --project order-fulfillment --version 1 \
+  --target dokploy-workflows \
+  --config-overrides ./overrides.json \
+  --wait
+```
 
 Project lifecycle operations are queued on the platform and can be watched:
 
@@ -115,6 +152,8 @@ the default deploy target implicitly.
 Resolution order for org/project/service: flag → env → `rntme.json` projectConfig → credentials profile defaults.
 
 `rntme login --token <pat> [--org <slug>] [--project <slug>]` persists the org/project as profile defaults so subsequent commands work without explicit flags or env vars.
+When the token lacks deploy scopes, login prints a warning with the `token create
+--preset deploy` command.
 
 ## Exit Codes
 

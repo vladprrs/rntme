@@ -45,12 +45,17 @@ RNTME_DOKPLOY_URL=... \
 RNTME_DOKPLOY_API_TOKEN=... \
 RNTME_DOKPLOY_PROJECT_ID=... \
 RNTME_DOKPLOY_PUBLIC_DEPLOY_DOMAIN=preview.example.com \
-RNTME_E2E_RUNTIME_IMAGE=ghcr.io/<owner>/rntme-runtime:<tag> \
-RNTME_E2E_BPMN_WORKER_IMAGE=ghcr.io/<owner>/rntme-bpmn-worker:<tag> \
-RNTME_E2E_OPERATON_IMAGE=operaton/operaton:<pinned-tag> \
+RNTME_E2E_RUNTIME_IMAGE=ghcr.io/vladprrs/rntme-runtime:e2e-bpmn-4e3f55d-json-1 \
+RNTME_E2E_BPMN_WORKER_IMAGE=ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1 \
+RNTME_E2E_OPERATON_IMAGE=operaton/operaton:2.1.0 \
 pnpm -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts
 ```
 
 The test deploys provisioned Redpanda, provisioned Operaton, the two demo
 services, the BPMN worker, and the edge gateway. It then creates one order
 that reaches `confirmed` and one order that reaches `cancelled`.
+
+The same target shape is created through the CLI with
+`rntme target create ... --event-bus-mode provisioned --workflow-engine-image
+operaton/operaton:2.1.0 --workflow-worker-image
+ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1`.

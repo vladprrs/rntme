@@ -6,7 +6,12 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { emitProto } from '@rntme/bindings-grpc';
-import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
+import {
+  discoverModules,
+  loadComposedBlueprint,
+  materializeBundle,
+  type ComposedBlueprint,
+} from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
   DiscoveredModulesForVars,
@@ -51,8 +56,6 @@ import type { DokployClientFactory } from './dokploy-client-factory.js';
 import { redact } from './log-redactor.js';
 import type { SmokeVerifier } from './smoke-verifier.js';
 import { runStage } from './stage-runner.js';
-import { materializeBundle } from '../bundle/materialize.js';
-export { materializeBundle };
 
 type ResultLike<T, E = { readonly code: string; readonly message: string }> =
   | { readonly ok: true; readonly value: T }

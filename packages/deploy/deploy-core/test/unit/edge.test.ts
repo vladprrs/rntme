@@ -307,6 +307,12 @@ describe('edge planning', () => {
           code: 'DEPLOY_PLAN_MISSING_POLICY_VALUE',
           policy: 'missing',
           middleware: 'rateLimit',
+          cause: [
+            expect.objectContaining({
+              code: 'DEPLOY_PLAN_MISSING_POLICY_VALUE_HINT',
+              message: expect.stringContaining('policyOverrides'),
+            }),
+          ],
         }),
       );
     }

@@ -20,6 +20,27 @@ describe('materializeAndCompose', () => {
       }),
     ]);
   });
+
+  it('serializes blueprint errors into PlatformError.errors[]', async () => {
+    const result = await materializeAndCompose({
+      version: 2,
+      files: { 'project.json': { name: 'demo', services: ['missing'] } },
+      assets: {},
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors[0]).toMatchObject({
+      code: 'PROJECT_VERSION_BLUEPRINT_INVALID',
+      stage: 'validation',
+      errors: [
+        expect.objectContaining({
+          code: 'BLUEPRINT_IO_ERROR',
+          path: 'pdm',
+        }),
+      ],
+    });
+  });
 });
 
 function orderFulfillmentBundle(): CanonicalBundle {

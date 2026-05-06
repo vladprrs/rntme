@@ -55,6 +55,13 @@ export const ERROR_CODES = {
 
 export type ErrorCode = keyof typeof ERROR_CODES;
 
+export type PlatformErrorNode = {
+  readonly code: string;
+  readonly message: string;
+  readonly path?: string;
+  readonly cause?: readonly PlatformErrorNode[];
+};
+
 export type PlatformError = {
   readonly code: ErrorCode;
   readonly message: string;
@@ -65,8 +72,13 @@ export type PlatformError = {
     | 'validation'
     | 'storage'
     | 'concurrency'
-    | 'internal';
+    | 'internal'
+    | 'plan'
+    | 'render'
+    | 'apply'
+    | 'verify'
+    | 'provision';
   readonly pkg?: string;
   readonly path?: string;
-  readonly cause?: unknown;
+  readonly errors?: readonly PlatformErrorNode[];
 };

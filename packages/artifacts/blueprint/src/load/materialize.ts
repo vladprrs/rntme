@@ -19,7 +19,7 @@ export async function materializeBundle(bundle: CanonicalBundle): Promise<string
       await writeFile(path, JSON.stringify(value));
     }
 
-    const assets = (bundle as { assets?: Record<string, string> }).assets ?? {};
+    const assets = bundle.assets ?? {};
     for (const [relPath, base64] of Object.entries(assets)) {
       const path = safeBundlePath(dir, relPath, 'asset');
       if (materializedFilePaths.has(path)) {
@@ -50,7 +50,7 @@ function safeBundlePath(root: string, relPath: string, kind: 'json' | 'asset'): 
   if (
     relativePath === '' ||
     relativePath === '..' ||
-    relativePath.startsWith(`..${sep()}`) ||
+    relativePath.startsWith(`..${pathSeparator()}`) ||
     isAbsolute(relativePath)
   ) {
     throw new Error(`DEPLOY_BUNDLE_PATH_UNSAFE: bundle path "${relPath}" escapes materialization root`);
@@ -67,6 +67,6 @@ function isSafeBundleRelPath(path: string): boolean {
   return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
-function sep(): string {
+function pathSeparator(): string {
   return process.platform === 'win32' ? '\\' : '/';
 }

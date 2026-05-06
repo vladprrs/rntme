@@ -1,7 +1,7 @@
 import type { Buffer } from 'node:buffer';
 import { rm } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
-import { discoverModules } from '@rntme/blueprint';
+import { discoverModules, materializeBundle } from '@rntme/blueprint';
 import type {
   BlobStore,
   DeploymentWithProvision,
@@ -10,7 +10,6 @@ import type {
 } from '@rntme/platform-core';
 import { isOk, parseCanonicalBundle } from '@rntme/platform-core';
 import type { ProvisionerContract } from '@rntme/deploy-core';
-import { materializeBundle } from './executor.js';
 
 export type TearDownDeps = {
   readonly blob: BlobStore;

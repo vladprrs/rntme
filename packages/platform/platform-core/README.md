@@ -13,6 +13,14 @@ the platform API:
 - `SecretCipher`, the encryption seam used before storage adapters persist
   Dokploy API tokens.
 
+`PlatformError` supports a structured `errors?: PlatformErrorNode[]` cause
+tree. HTTP adapters preserve that tree on validation/deploy failures so CLI and
+API callers can show actionable nested causes instead of a flattened message.
+
+`StartDeploymentRequestSchema.configOverrides` is strict. Supported override
+keys are `eventBusMode`, `integrationModuleImages`, `policyOverrides`,
+`runtimeImage`, and `publicBaseUrl`; `publicBaseUrl` must be an HTTP(S) URL.
+
 See `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` in the public repo.
 Deployment design: `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
 

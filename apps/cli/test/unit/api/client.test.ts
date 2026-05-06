@@ -75,7 +75,7 @@ describe('apiCall', () => {
       error: {
         code: 'PLATFORM_VALIDATION_BUNDLE_FAILED',
         message: 'bundle validation failed',
-        cause: { errors: [{ code: 'QSM_STRUCT_DUP', message: 'dup', path: 'x' }] },
+        errors: [{ code: 'QSM_STRUCT_DUP', message: 'dup', path: 'x' }],
       },
     }), { status: 422, headers: { 'content-type': 'application/json' } })));
     const r = await apiCall({ method: 'POST', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema, body: {} });

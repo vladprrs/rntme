@@ -28,6 +28,7 @@ import { runSkillsInstall } from '../commands/skills/install.js';
 import { runTargetList } from '../commands/target/list.js';
 import { runTargetShow } from '../commands/target/show.js';
 import { runTargetSetConfig } from '../commands/target/set-config.js';
+import { runTargetCreate } from '../commands/target/create.js';
 import type { CommonFlags } from '../commands/harness.js';
 import { registerHelp, lookupHelp } from '../help/registry.js';
 
@@ -50,7 +51,8 @@ registerHelp(['project', 'operation', 'show'], `Usage: rntme project operation s
 registerHelp(['project', 'operation', 'watch'], `Usage: rntme project operation watch --org <slug> --project <slug> <operation-id>`);
 registerHelp(['target', 'list'], `Usage: rntme target list [--org <slug>]`);
 registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>]`);
-registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --json <path> [--org <slug>]`);
+registerHelp(['target', 'create'], `Usage: rntme target create <slug> --kind dokploy --display-name <name> --dokploy-url <url> --api-token <token> (--dokploy-project-id <id> | --dokploy-project-name <name> --allow-create-project) [--event-bus-mode provisioned] [--workflow-engine-image <ref>] [--workflow-worker-image <ref>] [--org <slug>]`);
+registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --from <path> [--org <slug>]`);
 
 const USAGE = `Usage: rntme [options] <command> [subcommand] [args...]
 
@@ -81,6 +83,11 @@ Commands:
   token create <name>     Create a machine token
   token list              List tokens in the org
   token revoke <id>       Revoke a token
+
+  target list             List deploy targets in the org
+  target show <slug>      Show a deploy target
+  target create <slug>    Create a new deploy target
+  target set-config <slug> Update a deploy target from a JSON patch file
 
 Global options:
   --json                  Output JSON instead of human-readable text
@@ -162,7 +169,20 @@ export async function main(argv: string[]): Promise<number> {
         cursor: { type: 'string' },
         'display-name': { type: 'string' },
         scopes: { type: 'string', multiple: true },
+        preset: { type: 'string' },
         expires: { type: 'string' },
+        from: { type: 'string' },
+        kind: { type: 'string' },
+        'dokploy-url': { type: 'string' },
+        'dokploy-project-id': { type: 'string' },
+        'dokploy-project-name': { type: 'string' },
+        'allow-create-project': { type: 'boolean' },
+        'api-token': { type: 'string' },
+        'public-base-url': { type: 'string' },
+        'event-bus-mode': { type: 'string' },
+        'event-bus-image': { type: 'string' },
+        'workflow-engine-image': { type: 'string' },
+        'workflow-worker-image': { type: 'string' },
         'artifacts-dir': { type: 'string' },
         folder: { type: 'string' },
         'create-project': { type: 'boolean' },
@@ -498,6 +518,7 @@ export async function main(argv: string[]): Promise<number> {
             scopes,
           };
           setIfDefined(tokenCreateArgs, 'expiresAt', asString(values['expires']));
+          setIfDefined(tokenCreateArgs, 'preset', asString(values['preset']));
           return runTokenCreate(tokenCreateArgs, commonFlags);
         }
         case 'list': {
@@ -525,7 +546,7 @@ export async function main(argv: string[]): Promise<number> {
     case 'target': {
       const sub = positionals[1];
       if (!sub) {
-        process.stderr.write('Usage: rntme target <list|show|set-config> ...\n');
+        process.stderr.write('Usage: rntme target <list|show|create|set-config> ...\n');
         return 1;
       }
       switch (sub) {
@@ -540,22 +561,47 @@ export async function main(argv: string[]): Promise<number> {
           }
           return runTargetShow({ slug }, commonFlags);
         }
+        case 'create': {
+          const slug = positionals[2];
+          if (!slug) {
+            process.stderr.write('Usage: rntme target create <slug> --kind dokploy --display-name <name> --dokploy-url <url> --api-token <token> ...\n');
+            return 1;
+          }
+          return runTargetCreate({
+            slug,
+            kind: asString(values['kind']),
+            displayName: asString(values['display-name']),
+            dokployUrl: asString(values['dokploy-url']),
+            dokployProjectId: asString(values['dokploy-project-id']),
+            dokployProjectName: asString(values['dokploy-project-name']),
+            allowCreateProject: asBool(values['allow-create-project']),
+            apiToken: asString(values['api-token']),
+            publicBaseUrl: asString(values['public-base-url']),
+            eventBusMode: asString(values['event-bus-mode']),
+            eventBusImage: asString(values['event-bus-image']),
+            workflowEngineImage: asString(values['workflow-engine-image']),
+            workflowWorkerImage: asString(values['workflow-worker-image']),
+          }, commonFlags);
+        }
         case 'set-config': {
           const slug = positionals[2];
           if (!slug) {
-            process.stderr.write('Usage: rntme target set-config <slug> --json <path> [--org <slug>]\n');
+            process.stderr.write('Usage: rntme target set-config <slug> --from <path> [--org <slug>]\n');
             return 1;
           }
-          const jsonPath = asString(values['json']);
-          if (!jsonPath) {
-            process.stderr.write('Usage: rntme target set-config <slug> --json <path> [--org <slug>]\n');
+          const fromPath = asString(values['from']);
+          if (!fromPath) {
+            if (asBool(values['json']) === true) {
+              process.stderr.write('`rntme target set-config --json <path>` was replaced by `--from <path>` because `--json` is the global output flag.\n');
+            }
+            process.stderr.write('Usage: rntme target set-config <slug> --from <path> [--org <slug>]\n');
             return 1;
           }
-          return runTargetSetConfig({ slug, jsonPath }, commonFlags);
+          return runTargetSetConfig({ slug, fromPath }, commonFlags);
         }
         default: {
           process.stderr.write(`Unknown target subcommand: ${sub}\n`);
-          process.stderr.write('Usage: rntme target <list|show|set-config> ...\n');
+          process.stderr.write('Usage: rntme target <list|show|create|set-config> ...\n');
           return 2;
         }
       }

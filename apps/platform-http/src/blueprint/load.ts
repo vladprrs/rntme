@@ -1,51 +1,71 @@
-import { rm } from 'node:fs/promises';
-import { loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
+import {
+  materializeAndCompose as materializeAndComposeBlueprint,
+  type BlueprintError,
+  type ComposedBlueprint,
+} from '@rntme/blueprint';
 import {
   err,
   ok,
   type CanonicalBundle,
+  type PlatformErrorNode,
   type PlatformError,
   type ProjectVersionSummary,
   type Result,
 } from '@rntme/platform-core';
-import { materializeBundle } from '../bundle/materialize.js';
 
 export type MaterializeResult = {
   readonly composed: ComposedBlueprint;
   readonly summary: ProjectVersionSummary;
-  readonly tmpDir: string;
 };
 
 export async function materializeAndCompose(
   bundle: CanonicalBundle,
 ): Promise<Result<MaterializeResult, PlatformError>> {
-  const dir = await materializeBundle(bundle);
-  try {
-    const composed = loadComposedBlueprint(dir);
-    if (!composed.ok) {
-      return err([
-        {
-          code: 'PROJECT_VERSION_BLUEPRINT_INVALID',
-          message: composed.errors.map((e) => `${e.code}: ${e.message}`).join('; '),
-          stage: 'validation',
-        },
-      ]);
-    }
-
-    const project = composed.value.project;
-    const summary: ProjectVersionSummary = {
-      projectName: project.name,
-      services: [...project.services],
-      routes: {
-        ui: { ...(project.routes?.ui ?? {}) },
-        http: { ...(project.routes?.http ?? {}) },
+  const composed = await materializeAndComposeBlueprint(bundle);
+  if (!composed.ok) {
+    return err([
+      {
+        code: 'PROJECT_VERSION_BLUEPRINT_INVALID',
+        message: composed.errors.map((e) => `${e.code}: ${e.message}`).join('; '),
+        stage: 'validation',
+        errors: composed.errors.map(blueprintErrorToNode),
       },
-      middleware: { ...(project.middleware ?? {}) },
-      mounts: [...(project.mounts ?? [])],
-    };
-
-    return ok({ composed: composed.value, summary, tmpDir: dir });
-  } finally {
-    await rm(dir, { recursive: true, force: true });
+    ]);
   }
+
+  return ok({
+    composed: composed.value.composed,
+    summary: {
+      projectName: composed.value.summary.projectName,
+      services: [...composed.value.summary.services],
+      routes: {
+        ui: { ...composed.value.summary.routes.ui },
+        http: { ...composed.value.summary.routes.http },
+      },
+      middleware: { ...composed.value.summary.middleware },
+      mounts: [...composed.value.summary.mounts],
+    },
+  });
+}
+
+function blueprintErrorToNode(error: BlueprintError): PlatformErrorNode {
+  return {
+    code: error.code,
+    message: error.message,
+    ...(error.path === undefined ? {} : { path: error.path }),
+    ...(error.cause === undefined ? {} : { cause: error.cause.map(causeToNode) }),
+  };
+}
+
+function causeToNode(cause: unknown): PlatformErrorNode {
+  if (cause && typeof cause === 'object') {
+    const record = cause as Record<string, unknown>;
+    return {
+      code: typeof record.code === 'string' ? record.code : 'UNKNOWN',
+      message: typeof record.message === 'string' ? record.message : JSON.stringify(record),
+      ...(typeof record.path === 'string' ? { path: record.path } : {}),
+      ...(Array.isArray(record.cause) ? { cause: record.cause.map(causeToNode) } : {}),
+    };
+  }
+  return { code: 'UNKNOWN', message: String(cause) };
 }

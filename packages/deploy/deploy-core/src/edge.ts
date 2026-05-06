@@ -335,6 +335,13 @@ function resolvePolicy<K extends SupportedMiddlewareKind>(
       message: `middleware "${middlewareName}" references missing policy "${policy}"`,
       middleware: middlewareName,
       policy,
+      cause: [
+        {
+          code: 'DEPLOY_PLAN_MISSING_POLICY_VALUE_HINT',
+          message:
+            `add policyOverrides for middleware "${middlewareName}" and policy "${policy}" to the deployment request, or configure the deploy target policyValues for this target.`,
+        },
+      ],
     });
     return null;
   }

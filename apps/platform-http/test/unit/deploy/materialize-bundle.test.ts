@@ -3,7 +3,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { materializeBundle } from '../../../src/deploy/executor.js';
+import { materializeBundle } from '@rntme/blueprint';
 
 const sample = (overrides: Record<string, unknown> = {}): unknown => ({
   version: 2,
