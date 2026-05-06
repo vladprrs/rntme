@@ -484,7 +484,7 @@ async function logApplyFailure(
   deps: ExecutorDeps,
   deploymentId: string,
   orgId: string,
-  errors: readonly { readonly code?: string; readonly message?: string; readonly partialFailure?: unknown }[],
+  errors: readonly { readonly code?: string; readonly message?: string; readonly cause?: unknown; readonly partialFailure?: unknown }[],
 ): Promise<void> {
   const first = errors[0];
   const partial = first?.partialFailure as
@@ -499,11 +499,22 @@ async function logApplyFailure(
       }
     | undefined;
   const failed = partial?.failedStep;
+  const cause = applyFailureCause(first?.cause);
   const detail =
     failed === undefined
-      ? errorSummary(errors)
-      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}`;
+      ? `${errorSummary(errors)}${cause === undefined ? '' : `: ${cause}`}`
+      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}${cause === undefined ? '' : `: ${cause}`}`;
   await appendLog(deps, deploymentId, orgId, 'error', 'apply', detail);
+}
+
+function applyFailureCause(cause: unknown): string | undefined {
+  if (cause === undefined || cause === null) return undefined;
+  if (cause instanceof Error) return redact(cause.message);
+  if (typeof cause === 'string') return redact(cause);
+  if (typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string') {
+    return redact(cause.message);
+  }
+  return redact(JSON.stringify(cause));
 }
 
 async function finalizeFromVerification(
@@ -773,7 +784,8 @@ async function buildRuntimeArtifactFiles(
     addJsonFile(files, `graphs/${graphId}.json`, graph);
   }
 
-  await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   if (handlersModule !== null) {
     await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/commands`, 'commands');
   }
@@ -1023,17 +1035,69 @@ function serviceForMountTarget(project: ComposedBlueprint['project'], target: st
   return undefined;
 }
 
+function addDefaultUiFiles(files: Record<string, string>, serviceSlug: string): void {
+  const title = serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join(' ') || 'Service';
+  addJsonFile(files, 'ui/manifest.json', {
+    version: '2.0',
+    pdmRef: `${serviceSlug}.domain.v1`,
+    qsmRef: `${serviceSlug}.read.v1`,
+    graphSpecRef: `${serviceSlug}.graphs.v1`,
+    bindingsRef: `${serviceSlug}.bindings.v1`,
+    metadata: { title },
+    layouts: { main: 'layouts/main' },
+    routes: {
+      '/': {
+        layout: 'main',
+        screen: 'screens/home',
+      },
+    },
+  });
+  addJsonFile(files, 'ui/layouts/main.screen.json', {});
+  addJsonFile(files, 'ui/layouts/main.spec.json', {
+    root: 'shell',
+    elements: {
+      shell: {
+        type: 'Stack',
+        props: { direction: 'vertical' },
+        children: ['header'],
+      },
+      header: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+      },
+    },
+  });
+  addJsonFile(files, 'ui/screens/home.screen.json', {
+    metadata: { title },
+  });
+  addJsonFile(files, 'ui/screens/home.spec.json', {
+    root: 'page',
+    elements: {
+      page: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+        children: [],
+      },
+    },
+  });
+}
+
 async function addOptionalDirectoryFiles(
   files: Record<string, string>,
   rootDir: string,
   sourceRel: string,
   targetRel: string,
-): Promise<void> {
+): Promise<boolean> {
   const sourceRoot = join(rootDir, sourceRel);
   try {
     await addDirectoryFilesFrom(files, sourceRoot, sourceRoot, targetRel);
+    return true;
   } catch (cause) {
-    if (errorCode(cause) === 'ENOENT') return;
+    if (errorCode(cause) === 'ENOENT') return false;
     throw cause;
   }
 }

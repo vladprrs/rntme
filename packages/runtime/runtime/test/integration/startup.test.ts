@@ -327,12 +327,22 @@ describe('startService', () => {
       'rntme.rnt364.smoke.issue-tracker-api.issue',
     ]);
     expect(bus.consumerTopics).toEqual(['rntme.rnt364.smoke.issue-tracker-api.*']);
+    expect(bus.ensuredTopics).toEqual([
+      'rntme.rnt364.smoke.issue-tracker-api.issue',
+      'rntme.rnt364.smoke.issue-tracker-api.project',
+      'rntme.rnt364.smoke.issue-tracker-api.user',
+    ]);
   });
 });
 
 class CapturingEventBus implements EventBus {
   readonly sent: KafkaMessage[] = [];
   readonly consumerTopics: string[] = [];
+  readonly ensuredTopics: string[] = [];
+
+  async ensureTopics(topics: readonly string[]): Promise<void> {
+    this.ensuredTopics.push(...topics);
+  }
 
   producer(): KafkaProducer {
     return {

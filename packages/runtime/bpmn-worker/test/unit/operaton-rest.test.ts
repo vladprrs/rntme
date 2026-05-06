@@ -19,6 +19,27 @@ describe('createOperatonRestClient', () => {
     expect(calls).toEqual([{ url: 'http://operaton:8080/engine-rest/deployment/create', method: 'POST' }]);
   });
 
+  it('times out deployment requests instead of hanging worker startup', async () => {
+    const client = createOperatonRestClient({
+      baseUrl: 'http://operaton:8080/engine-rest',
+      workerId: 'worker-1',
+      topics: ['reserveStock'],
+      requestTimeoutMs: 1,
+      fetch: async (_url, init) => {
+        expect(init?.signal).toBeInstanceOf(AbortSignal);
+        return new Promise((_, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(init.signal?.reason);
+          });
+        });
+      },
+    });
+
+    await expect(client.deployDefinitions({ 'order-fulfillment.bpmn': '<definitions />' }))
+      .rejects
+      .toThrow(/OPERATON_HTTP_TIMEOUT/);
+  });
+
   it('correlates message starts and returns the process instance id', async () => {
     const bodies: unknown[] = [];
     const client = createOperatonRestClient({

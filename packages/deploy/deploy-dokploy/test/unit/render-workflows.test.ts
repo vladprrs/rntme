@@ -63,7 +63,18 @@ const plan: ProjectDeploymentPlan = {
         'workflows.json': '{"workflowVersion":1}',
         'order-fulfillment.bpmn': '<definitions />',
       },
-      subscriptions: [],
+      subscriptions: [
+        {
+          messageStartId: 'orderPlaced',
+          topic: 'rntme.acme.orders.order',
+          service: 'orders',
+          aggregateType: 'Order',
+          eventType: 'OrderPlaced',
+          processId: 'orderFulfillment',
+          messageName: 'OrderPlaced',
+          businessKey: '$event.rntAggregateId',
+        },
+      ],
       grpcServices: {
         orders: {
           packageName: 'rntme.orders.v1',
@@ -135,6 +146,17 @@ describe('workflow rendering', () => {
         (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
       ),
     ).toBe(true);
+    const redpanda = result.value.resources.find(
+      (resource) => resource.kind === 'compose' && resource.logicalId === 'event-bus',
+    );
+    expect(redpanda?.kind).toBe('compose');
+    if (redpanda?.kind !== 'compose') return;
+    expect(redpanda.composeFile).toContain(
+      'rpk topic create --brokers rntme-acme-order-fulfillment-event-bus:9092 rntme.acme.orders.order',
+    );
+    expect(redpanda.composeFile).toContain('& pid=$$!');
+    expect(redpanda.composeFile).toContain('wait "$$pid"');
+    expect(redpanda.composeFile).not.toContain('&;');
 
     const worker = result.value.resources.find(
       (resource) => resource.kind === 'application' && resource.logicalId === 'bpmn-worker',
@@ -147,6 +169,14 @@ describe('workflow rendering', () => {
       value: 'http://rntme-acme-order-fulfillment-operaton:8080',
       secret: false,
     });
+    const operaton = result.value.resources.find(
+      (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
+    );
+    expect(operaton?.kind).toBe('compose');
+    if (operaton?.kind !== 'compose') return;
+    expect(operaton.composeFile).toMatch(
+      /services:[\s\S]*operaton:[\s\S]*networks:\s*\n\s*default:\s*\n\s*dokploy-network:\s*\n\s*aliases:\s*\n\s*- rntme-acme-order-fulfillment-operaton/,
+    );
     expect(worker.env).toContainEqual({
       name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
       value: JSON.stringify({

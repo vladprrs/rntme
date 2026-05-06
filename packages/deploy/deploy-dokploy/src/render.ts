@@ -299,7 +299,7 @@ function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComp
     infrastructureKind: 'event-bus',
     name: eventBus.resourceName,
     image: eventBus.image,
-    composeFile: redpandaComposeFile(eventBus),
+    composeFile: redpandaComposeFile(eventBus, workflowMessageStartTopics(plan)),
     env: [],
     labels,
   };
@@ -307,25 +307,46 @@ function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComp
 
 function redpandaComposeFile(
   eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
+  seedTopics: readonly string[] = [],
 ): string {
   // The runtime/edge/module containers run as Docker Swarm services attached
   // to the shared `dokploy-network` overlay. Without explicitly attaching the
   // compose stack to that network, Redpanda lives only on its private
   // `<stack>_default` bridge and the broker hostname does not resolve from
   // sibling apps (`getaddrinfo ENOTFOUND`). Attaching here gives the broker
-  // both a stack-scoped alias (full container name, what apply.ts rewrites
-  // env vars to) and a service-name alias (`redpanda`, used by the Kafka
-  // advertised address) inside dokploy-network.
+  // a stable resource-name alias inside dokploy-network. Redpanda must
+  // advertise the same alias because Kafka clients follow broker metadata
+  // after the initial bootstrap connection.
+  const startArgs = [
+    'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
+    `--advertise-kafka-addr=internal://${eventBus.resourceName}:9092`,
+  ].join(' ');
+  const startCommand = seedTopics.length === 0 ? startArgs : `rpk ${startArgs}`;
+  const command =
+    seedTopics.length === 0
+      ? startArgs
+      : shellSingleQuote(
+          [
+            `${startCommand} & pid=$$!`,
+            `until rpk cluster info --brokers ${eventBus.resourceName}:9092 >/dev/null 2>&1; do sleep 1; done`,
+            `rpk topic create --brokers ${eventBus.resourceName}:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
+            'wait "$$pid"',
+          ].join('; '),
+        );
+
   return [
     'services:',
     '  redpanda:',
     `    image: ${eventBus.image}`,
-    '    command: redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092 --advertise-kafka-addr=internal://redpanda:9092',
+    ...(seedTopics.length === 0 ? [] : ['    entrypoint: ["/bin/sh", "-ec"]']),
+    ...(seedTopics.length === 0 ? [`    command: ${command}`] : ['    command:', `      - ${command}`]),
     '    volumes:',
     `      - ${eventBus.persistence.volumeName}:/var/lib/redpanda/data`,
     '    networks:',
-    '      - default',
-    '      - dokploy-network',
+    '      default:',
+    '      dokploy-network:',
+    '        aliases:',
+    `          - ${eventBus.resourceName}`,
     'volumes:',
     `  ${eventBus.persistence.volumeName}:`,
     '    name: ' + eventBus.persistence.volumeName,
@@ -334,6 +355,23 @@ function redpandaComposeFile(
     '    external: true',
     '',
   ].join('\n');
+}
+
+function workflowMessageStartTopics(plan: ProjectDeploymentPlan): readonly string[] {
+  const topics = new Set<string>();
+  for (const workload of plan.workloads) {
+    if (workload.kind !== 'bpmn-worker') continue;
+    for (const subscription of workload.subscriptions) topics.add(subscription.topic);
+  }
+  return [...topics].sort();
+}
+
+function shellWord(value: string): string {
+  return /^[A-Za-z0-9._:-]+$/.test(value) ? value : shellSingleQuote(value);
+}
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 function renderResource(

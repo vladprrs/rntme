@@ -21,6 +21,7 @@ import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rnt
 import type { RunningService, ValidatedService } from '../types.js';
 import type { CommandExecutor, ServiceLocalCodeCommandHandlerMap } from '../plugins/executors/types.js';
 import { applySeed } from '@rntme/seed';
+import { defaultTopicOf } from '@rntme/event-store';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
@@ -65,6 +66,9 @@ export async function startService(
     runtimeConfig.actorFromRequest ?? buildActorFromRequest(service.manifest);
 
   if (bus.start) await bus.start();
+  if (bus.ensureTopics) {
+    await bus.ensureTopics(eventTopicsForService(service, eventBusTopicPrefix));
+  }
 
   const pipeline = wireEventPipeline(service, db, bus, {
     topicPrefix: eventBusTopicPrefix,
@@ -202,6 +206,19 @@ export async function startService(
       if (bus.stop) await bus.stop();
     },
   };
+}
+
+function eventTopicsForService(
+  service: ValidatedService,
+  topicPrefix: string | null,
+): readonly string[] {
+  return [
+    ...new Set(
+      service.eventTypes.map((eventType) =>
+        defaultTopicOf(service.manifest.service.name, eventType.aggregateType, topicPrefix),
+      ),
+    ),
+  ].sort();
 }
 
 type ForceClosableServer = ServerType & {

@@ -12,15 +12,17 @@ export function createOperatonRestClient(options: {
   readonly lockDurationMs?: number;
   readonly maxTasks?: number;
   readonly asyncResponseTimeoutMs?: number;
+  readonly requestTimeoutMs?: number;
 }): OperatonRestClient {
   const httpFetch = options.fetch ?? globalThis.fetch;
   const baseUrl = options.baseUrl.replace(/\/+$/, '');
   const lockDuration = options.lockDurationMs ?? 30_000;
   const maxTasks = options.maxTasks ?? 8;
   const asyncResponseTimeout = options.asyncResponseTimeoutMs ?? 10_000;
+  const requestTimeout = options.requestTimeoutMs ?? Math.max(15_000, asyncResponseTimeout + 5_000);
 
   async function json<T>(path: string, body: unknown): Promise<T> {
-    const response = await httpFetch(`${baseUrl}${path}`, {
+    const response = await fetchWithTimeout(`${baseUrl}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -38,7 +40,7 @@ export function createOperatonRestClient(options: {
       for (const [name, content] of Object.entries(files).filter(([path]) => path.endsWith('.bpmn'))) {
         form.set(name, new globalThis.Blob([content], { type: 'application/xml' }), name);
       }
-      const response = await httpFetch(`${baseUrl}/deployment/create`, { method: 'POST', body: form });
+      const response = await fetchWithTimeout(`${baseUrl}/deployment/create`, { method: 'POST', body: form });
       if (!response.ok) throw new Error(`OPERATON_HTTP_${response.status}: ${await response.text()}`);
     },
     async startProcess(input: OperatonStartProcessInput) {
@@ -80,6 +82,23 @@ export function createOperatonRestClient(options: {
       });
     },
   };
+
+  async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort(new Error(`OPERATON_HTTP_TIMEOUT: ${url}`));
+    }, requestTimeout);
+    try {
+      return await httpFetch(url, { ...init, signal: controller.signal });
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        throw new Error(`OPERATON_HTTP_TIMEOUT: ${url}`, { cause });
+      }
+      throw cause;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
 
 type OperatonExternalTask = {

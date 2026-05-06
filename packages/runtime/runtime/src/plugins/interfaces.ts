@@ -19,6 +19,7 @@ export interface DbDriver {
 export interface EventBus {
   producer(): KafkaProducer;
   consumer(opts: { groupId: string; topic: string }): KafkaConsumer;
+  ensureTopics?(topics: readonly string[]): Promise<void>;
   start?(): Promise<void>;
   stop?(): Promise<void>;
 }

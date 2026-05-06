@@ -193,6 +193,7 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(bpmn).toContain('id="confirmOrder"');
     expect(bpmn).toContain('id="cancelOrder"');
     expect(bpmn).toContain('name="OrderPlaced"');
+    expect(bpmn).toContain('operaton:historyTimeToLive="30"');
     expect(bpmn).toContain('reservation.reserved == true');
     expect(bpmn).toContain('reservation.reserved == false');
     expect(bpmn).not.toContain('reservation.aggregateId');
@@ -201,4 +202,5 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(inventoryHandlers).toContain('StockReserved');
     expect(inventoryHandlers).toContain('StockReservationRejected');
   });
+
 });

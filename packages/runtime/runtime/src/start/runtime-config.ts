@@ -118,6 +118,7 @@ function validateBus(config: Record<string, unknown>, errors: RuntimeConfigValid
     });
     return;
   }
+  validateOptionalFunction(bus, 'ensureTopics', 'bus.ensureTopics', 'RUNTIME_CONFIG_EVENT_BUS_INVALID', errors);
   validateOptionalFunction(bus, 'start', 'bus.start', 'RUNTIME_CONFIG_EVENT_BUS_INVALID', errors);
   validateOptionalFunction(bus, 'stop', 'bus.stop', 'RUNTIME_CONFIG_EVENT_BUS_INVALID', errors);
 }

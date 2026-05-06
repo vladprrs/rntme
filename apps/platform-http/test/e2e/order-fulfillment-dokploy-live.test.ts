@@ -6,7 +6,7 @@ import { deleteDokployResources, type DokployDeleteResource } from '@rntme/deplo
 import { isOk } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';
 import { runDeployment } from '../../src/deploy/executor.js';
-import { SmokeVerifier } from '../../src/deploy/smoke-verifier.js';
+import { defaultSmokeFetcher, SmokeVerifier, type SmokeFetcher } from '../../src/deploy/smoke-verifier.js';
 import { resolveDeps } from '../../src/resolve-deps.js';
 import { bootE2e, type E2eEnv } from './harness.js';
 import { readLiveDokployEnv } from './live-dokploy-env.js';
@@ -104,7 +104,15 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
       const show = await expectStatus(env.app.request(`/v1/orgs/${orgSlug}/projects/${projectSlug}/deployments/${deploymentId}`, {
         headers: { authorization: `Bearer ${auth.plain}` },
       }), 200);
-      const showJson = await show.json() as { deployment: { status: string; applyResult: { resources?: unknown[] } | null } };
+      const showJson = await show.json() as {
+        deployment: {
+          status: string;
+          applyResult: {
+            resources?: unknown[];
+            urls?: { projectUrl?: string };
+          } | null;
+        };
+      };
       expect(showJson.deployment.status, JSON.stringify(showJson.deployment)).toBe('succeeded');
       expect(showJson.deployment.applyResult?.resources).toEqual(expect.arrayContaining([
         expect.objectContaining({ infrastructureKind: 'event-bus' }),
@@ -115,7 +123,10 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
         expect.objectContaining({ workloadSlug: 'edge' }),
       ]));
 
-      const baseUrl = `https://${orgSlug}-${projectSlug}-default.${live.publicDeployDomain}`;
+      const baseUrl = showJson.deployment.applyResult?.urls?.projectUrl;
+      if (typeof baseUrl !== 'string' || baseUrl.length === 0) {
+        throw new Error(`PROJECT_URL_MISSING: ${JSON.stringify(showJson.deployment.applyResult)}`);
+      }
       const confirmed = await placeOrder(baseUrl, { sku: 'sku-ok', quantity: 1 });
       await waitForOrder(baseUrl, confirmed.aggregateId, (order) =>
         order.status === 'confirmed' && typeof order.reservationId === 'string',
@@ -126,7 +137,9 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
         order.status === 'cancelled' && order.cancelReason === 'insufficient stock',
       );
     } finally {
-      if (deploymentId !== null) await cleanupDeploymentResources(env, auth.orgId, deploymentId);
+      if (deploymentId !== null && process.env['RNTME_DOKPLOY_E2E_KEEP_RESOURCES'] !== '1') {
+        await cleanupDeploymentResources(env, auth.orgId, deploymentId);
+      }
     }
   }, live.enabled ? live.httpTimeoutMs + 300_000 : 10_000);
 });
@@ -146,6 +159,7 @@ function deploymentDeps(
   orgSlug: string,
   publicDeployDomain: string,
 ): Parameters<typeof runDeployment>[2] {
+  const smokeDeadlineMs = Date.now() + (live.enabled ? live.httpTimeoutMs : 180_000);
   return {
     blob: env.deps.blob,
     withOrgTx: async <T>(orgId: string, fn: (repos: ReturnType<typeof resolveDeps>) => Promise<T>) => {
@@ -165,7 +179,7 @@ function deploymentDeps(
     },
     orgSlugFor: async () => orgSlug,
     dokployClientFactory: createDokployClientFactory(env.deps.cipher!),
-    smoker: new SmokeVerifier(fetchSmoke),
+    smoker: new SmokeVerifier((url, opts) => fetchSmoke(url, opts, smokeDeadlineMs)),
     logger: env.deps.logger,
     publicDeployDomain,
     resolveProvisioner: async () => {
@@ -182,19 +196,22 @@ function deploymentDeps(
   };
 }
 
-async function fetchSmoke(url: string): Promise<{ status: number | 'error'; latencyMs: number; contentType?: string; body?: string }> {
-  const started = Date.now();
-  try {
-    const response = await globalThis.fetch(url);
-    return {
-      status: response.status,
-      latencyMs: Date.now() - started,
-      ...(response.headers.get('content-type') === null ? {} : { contentType: response.headers.get('content-type')! }),
-      body: await response.text(),
-    };
-  } catch (cause) {
-    return { status: 'error', latencyMs: Date.now() - started, body: String(cause) };
-  }
+async function fetchSmoke(
+  url: string,
+  opts: Parameters<SmokeFetcher>[1],
+  deadlineMs: number,
+): ReturnType<SmokeFetcher> {
+  let last: Awaited<ReturnType<SmokeFetcher>> | undefined;
+  do {
+    last = await defaultSmokeFetcher(url, opts);
+    if (!isTransientSmokeStatus(last.status)) return last;
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  } while (Date.now() < deadlineMs);
+  return last;
+}
+
+function isTransientSmokeStatus(status: Awaited<ReturnType<SmokeFetcher>>['status']): boolean {
+  return status === 'error' || status === 'timeout' || status === 404 || status === 502 || status === 503 || status === 504;
 }
 
 type CommandResult = { readonly aggregateId: string };
@@ -208,7 +225,7 @@ type OrderView = {
 };
 
 async function placeOrder(baseUrl: string, input: { sku: string; quantity: number }): Promise<CommandResult> {
-  const response = await globalThis.fetch(`${baseUrl}/api/orders/orders`, {
+  const response = await globalThis.fetch(`${baseUrl}/api/orders`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
@@ -229,7 +246,7 @@ async function waitForOrder(
   const deadline = Date.now() + 180_000;
   let last: unknown;
   while (Date.now() < deadline) {
-    const response = await globalThis.fetch(`${baseUrl}/api/orders/orders/${encodeURIComponent(orderId)}`);
+    const response = await globalThis.fetch(`${baseUrl}/api/orders/${encodeURIComponent(orderId)}`);
     if (response.status === 200) {
       last = await response.json();
       const order = Array.isArray(last) ? last[0] : last;

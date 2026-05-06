@@ -198,7 +198,10 @@ handshake budget. Optional `RNTME_EVENT_BUS_TOPIC_PREFIX` scopes both relay
 publish topics and projection subscriptions. With service `app` and prefix
 `rntme.rnt364.smoke`, runtime publishes `Note` events to
 `rntme.rnt364.smoke.app.note` and subscribes projections to
-`rntme.rnt364.smoke.app.*`.
+`rntme.rnt364.smoke.app.*`. Event bus plugins may expose `ensureTopics`; when
+present, `startService` creates all PDM-derived service event topics before the
+relay and projection consumer start. The KafkaJS bus implements this with the
+admin client and `waitForLeaders: true`.
 
 ### HTTP ingress limits
 

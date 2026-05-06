@@ -62,7 +62,11 @@ Domain-service workloads receive:
 
 Apply creates or updates compose resources before applications. It does not
 wait for Kafka protocol readiness; runtime bus clients must tolerate broker
-warm-up.
+warm-up. For provisioned Redpanda, the rendered compose attaches the broker to
+`dokploy-network` with the planned resource name as an alias and pre-creates
+workflow message-start topics before waiting on the Redpanda process. This
+covers BPMN workers and older runtime images that subscribe or publish before
+the first automatic topic creation would otherwise happen.
 
 ## Provisioned Operaton and BPMN worker
 

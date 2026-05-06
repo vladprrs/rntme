@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
 import type {
   DokployApplication,
   DokployClient,
@@ -9,6 +10,7 @@ import type {
 import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 
 export type DokployClientFactory = (target: DeployTargetWithSecret) => DokployClient;
+type Sleep = (ms: number) => Promise<void>;
 
 type DokployApiApplicationSummary = {
   applicationId: string;
@@ -62,6 +64,7 @@ type DokployApiProject = {
 export function createDokployClientFactory(
   cipher: SecretCipher,
   httpFetch: typeof globalThis.fetch = globalThis.fetch,
+  sleepFn: Sleep = sleep,
 ): DokployClientFactory {
   return (target) => {
     let token: string;
@@ -220,7 +223,7 @@ export function createDokployClientFactory(
         await request('POST', '/api/application.deploy', { applicationId });
       },
       startApplication: async (applicationId: string) => {
-        await request('POST', '/api/application.start', { applicationId });
+        await startApplicationWithRetry(request, applicationId, sleepFn);
       },
       inspectApplication: async (applicationId: string) => {
         const app = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId });
@@ -300,6 +303,35 @@ export function createDokployClientFactory(
       },
     };
   };
+}
+
+const START_APPLICATION_RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 16_000, 30_000, 30_000] as const;
+
+async function startApplicationWithRetry(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  applicationId: string,
+  sleepFn: Sleep,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await request('POST', '/api/application.start', { applicationId });
+      return;
+    } catch (cause) {
+      const delay = START_APPLICATION_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isTransientDokployStartRace(cause)) throw cause;
+      await sleepFn(delay);
+    }
+  }
+}
+
+function isTransientDokployStartRace(cause: unknown): boolean {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string'
+        ? cause.message
+        : String(cause);
+  return /application\.start/.test(message) && /service .* not found/i.test(message);
 }
 
 function envBlock(resource: RenderedDokployResource): string {

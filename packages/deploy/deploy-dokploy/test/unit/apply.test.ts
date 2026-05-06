@@ -111,7 +111,6 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-catalog',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
-      'start:app_1',
       'inspect:app_1',
     ]);
     expect(r.value.resources).toEqual([
@@ -188,15 +187,12 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-edge',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
-      'start:app_1',
       'inspect:app_1',
       'configure:app_2:rntme-acme-commerce-bpmn-worker',
       'deploy:app_2',
-      'start:app_2',
       'inspect:app_2',
       'configure:app_3:rntme-acme-commerce-edge',
       'deploy:app_3',
-      'start:app_3',
       'inspect:app_3',
     ]);
     expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
@@ -208,7 +204,7 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
-  it('rewrites BPMN worker event bus and Operaton env references to Dokploy network names', async () => {
+  it('keeps BPMN worker compose references on deterministic compose network aliases', async () => {
     const client = new FakeDokployClient();
     const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
     const workflowEngine: Extract<RenderedDokployResource, { kind: 'compose' }> = {
@@ -255,12 +251,12 @@ describe('applyDokployPlan', () => {
     );
     expect(configure?.resource.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
-      value: 'rntme-acme-commerce-event-bus-dns:9092',
+      value: 'rntme-acme-commerce-event-bus:9092',
       secret: false,
     });
     expect(configure?.resource.env).toContainEqual({
       name: 'RNTME_OPERATON_BASE_URL',
-      value: 'http://rntme-acme-commerce-operaton-dns:8080',
+      value: 'http://rntme-acme-commerce-operaton:8080',
       secret: false,
     });
   });
@@ -356,7 +352,6 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-catalog',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
-      'start:app_1',
       'inspect:app_1',
     ]);
     expect(client.configureCalls).toEqual([
@@ -372,7 +367,7 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
-  it('starts and inspects applications after deploy before returning success', async () => {
+  it('inspects applications after deploy before returning success', async () => {
     const client = new FakeDokployClient();
 
     const r = await applyDokployPlan(rendered, client);
@@ -382,7 +377,6 @@ describe('applyDokployPlan', () => {
       'create:rntme-acme-commerce-catalog',
       'configure:app_1:rntme-acme-commerce-catalog',
       'deploy:app_1',
-      'start:app_1',
       'inspect:app_1',
     ]);
   });

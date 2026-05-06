@@ -9,7 +9,7 @@
   id="orderFulfillmentDefinitions"
   targetNamespace="https://rntme.com/demo/order-fulfillment">
   <bpmn:message id="Message_OrderPlaced" name="OrderPlaced" />
-  <bpmn:process id="orderFulfillment" name="Order Fulfillment" isExecutable="true">
+  <bpmn:process id="orderFulfillment" name="Order Fulfillment" isExecutable="true" operaton:historyTimeToLive="30">
     <bpmn:startEvent id="orderPlaced" name="Order placed">
       <bpmn:outgoing>Flow_Start_Reserve</bpmn:outgoing>
       <bpmn:messageEventDefinition messageRef="Message_OrderPlaced" />

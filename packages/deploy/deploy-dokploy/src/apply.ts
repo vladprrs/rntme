@@ -225,12 +225,6 @@ async function runApplicationLifecycle(
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
-  try {
-    await client.startApplication(target.targetResourceId);
-  } catch (cause) {
-    return partialFailure(client, cause, resource, applied, createdForCleanup, 'start');
-  }
-
   if (client.inspectApplication !== undefined) {
     try {
       const inspected = await client.inspectApplication(target.targetResourceId);
@@ -364,8 +358,13 @@ function networkNameMap(
   }[],
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
-    prepared.map(({ resource, target }) => [resource.name, target.appName ?? target.name]),
+    prepared.map(({ resource, target }) => [resource.name, networkNameFor(resource, target)]),
   );
+}
+
+function networkNameFor(resource: RenderedDokployResource, target: DokployApplication | DokployCompose): string {
+  if (resource.kind === 'compose') return resource.name;
+  return target.appName ?? target.name;
 }
 
 function resolveNetworkReferences<T extends RenderedDokployResource>(

@@ -43,9 +43,19 @@ type KafkaJsConsumer = {
   commitOffsets(offsets: readonly { topic: string; partition: number; offset: string }[]): Promise<void>;
 };
 
+type KafkaJsAdmin = {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  createTopics(input: {
+    topics: readonly { topic: string }[];
+    waitForLeaders?: boolean;
+  }): Promise<boolean>;
+};
+
 type KafkaJsClient = {
   producer(): KafkaJsProducer;
   consumer(input: { groupId: string }): KafkaJsConsumer;
+  admin(): KafkaJsAdmin;
 };
 
 type KafkaJsModule = {
@@ -100,6 +110,27 @@ export class KafkaJsEventBus implements EventBus {
         });
       },
     };
+  }
+
+  async ensureTopics(topics: readonly string[]): Promise<void> {
+    if (topics.length === 0) return;
+    const client = this.client;
+    if (client === null) {
+      throw new RuntimeBootError(
+        'RUNTIME_BOOT_KAFKAJS_UNAVAILABLE',
+        'KafkaJS event bus has not been started',
+      );
+    }
+    const admin = client.admin();
+    await admin.connect();
+    try {
+      await admin.createTopics({
+        topics: [...new Set(topics)].sort().map((topic) => ({ topic })),
+        waitForLeaders: true,
+      });
+    } finally {
+      await admin.disconnect();
+    }
   }
 
   consumer(opts: { groupId: string; topic: string }): KafkaConsumer {

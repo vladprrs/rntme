@@ -313,12 +313,22 @@ describe('runDeployment', () => {
     const worker = rendered.resources.find(
       (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
     );
+    const orders = rendered.resources.find(
+      (resource) =>
+        resource.kind === 'application' &&
+        resource.workloadKind === 'domain-service' &&
+        resource.workloadSlug === 'orders',
+    );
     expect(rendered.resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'compose', infrastructureKind: 'workflow-engine' }),
       expect.objectContaining({ kind: 'application', workloadKind: 'bpmn-worker' }),
     ]));
     expect(worker?.kind).toBe('application');
     if (worker?.kind !== 'application') throw new Error('missing rendered BPMN worker');
+    expect(orders?.kind).toBe('application');
+    if (orders?.kind !== 'application') throw new Error('missing rendered orders service');
+    expect(orders.files?.['/srv/artifacts/ui/manifest.json']).toContain('"version": "2.0"');
+    expect(orders.files?.['/srv/artifacts/ui/screens/home.spec.json']).toContain('"Heading"');
     expect(worker.files?.['/srv/workflows/workflows.json']).toContain('"orderFulfillment"');
     expect(worker.files?.['/srv/workflows/order-fulfillment.bpmn']).toContain('orderFulfillment');
     expect(deployments.setApplyResult).toHaveBeenCalledWith(

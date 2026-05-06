@@ -43,6 +43,12 @@ and completes same-instance mapped service tasks for a bounded number of
 passes. This lets a single source event drive immediate BPMN branches such as
 `reserveStock` followed by `cancelOrder`.
 
+Operaton REST calls are bounded. The client defaults to a request timeout of
+at least 15 seconds (or external-task long-poll timeout + 5 seconds) and raises
+`OPERATON_HTTP_TIMEOUT` when the engine hangs during startup or task polling,
+so the deploy platform can restart the worker instead of leaving it alive but
+unsubscribed from Kafka.
+
 ## Deployable worker image
 
 `@rntme/bpmn-worker` ships a `rntme-bpmn-worker` bin and Dockerfile. The image
