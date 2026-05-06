@@ -14,12 +14,11 @@ function camelCase(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
-function sourceAlias(source: { entity?: unknown; projection?: unknown; eventType?: unknown; $pre?: unknown }): string {
-  if ('$pre' in source) return 'pre';
+function sourceAlias(source: { entity?: unknown; projection?: unknown; eventType?: unknown }): string {
   if ('entity' in source && typeof source.entity === 'string') return camelCase(source.entity);
   if ('projection' in source && typeof source.projection === 'string') return camelCase(source.projection);
   if ('eventType' in source && typeof source.eventType === 'string') return camelCase(source.eventType);
-  return 'pre';
+  throw internalError('canonical', `unsupported source in canonical normalize: ${JSON.stringify(source)}`);
 }
 
 export function normalize(

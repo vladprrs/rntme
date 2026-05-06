@@ -44,12 +44,5 @@ function resolveParamValue(name: string, paramValues: ParamValues): { found: boo
   if (Object.prototype.hasOwnProperty.call(paramValues, name)) {
     return { found: true, value: paramValues[name] };
   }
-  if (!name.startsWith('pre.')) return { found: false, value: undefined };
-  let cur: unknown = paramValues.pre;
-  for (const segment of name.slice('pre.'.length).split('.').filter((s) => s.length > 0)) {
-    if (cur === null || cur === undefined) return { found: true, value: null };
-    if (typeof cur !== 'object' || Array.isArray(cur)) return { found: true, value: null };
-    cur = (cur as Record<string, unknown>)[segment];
-  }
-  return { found: true, value: cur ?? null };
+  return { found: false, value: undefined };
 }

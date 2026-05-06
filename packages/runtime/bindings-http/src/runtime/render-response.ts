@@ -1,5 +1,5 @@
 import type { ResponseShape, ResponseBranch } from '@rntme/bindings';
-import { evaluateExpression, type ExpressionScope } from '../pre/expression.js';
+import { evaluateExpression, type ExpressionScope } from './expression.js';
 import { errorToHttp } from './error-to-http.js';
 
 export type RenderedResponse =

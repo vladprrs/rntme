@@ -1,6 +1,7 @@
 # Provisioned BPMN / Operaton - design
 
 **Status:** brainstorming approved, awaiting user review of this spec
+**Status update (2026-05-06):** Superseded in part by `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`: short intra-request integration calls are now Graph IR `call` nodes rather than binding `pre[]`, and workflow service tasks target action-exposed operations rather than command-kind bindings. The BPMN boundary and Operaton deployment model remain authoritative.
 **Author:** brainstorm 2026-05-05
 **Related:**
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` - project-first blueprint model. This spec adds a project-level workflow artifact.
@@ -69,8 +70,8 @@ Add **Provisioned BPMN / Operaton** support:
 - No production-grade Operaton storage design. The first target is preview
   deployment and demo validation.
 - No support for raw network/proto targets in workflow artifacts.
-- No replacement of existing module `pre[]` orchestration for short
-  intra-request integration calls. BPMN is for cross-service async workflows.
+- No replacement of Graph IR `call` nodes for short intra-request integration
+  calls. BPMN is for cross-service async workflows.
 
 ## 4. Decisions
 
@@ -83,7 +84,7 @@ Add **Provisioned BPMN / Operaton** support:
 | D5 | BPMN XML role | Deployable source for Operaton, not the rntme cross-ref source |
 | D6 | Process trigger | Kafka message start from PDM-derived service events |
 | D7 | Service task target | Project binding refs such as `orders.confirmOrder` |
-| D8 | Allowed service task binding kind | Command bindings only |
+| D8 | Allowed service task binding exposure | Action-exposed operations only |
 | D9 | Network addresses in blueprint | Forbidden |
 | D10 | Runtime boundary | `@rntme/runtime` remains service-local; no saga logic |
 | D11 | Worker placement | Separate `bpmn-worker` workload in deploy plan |

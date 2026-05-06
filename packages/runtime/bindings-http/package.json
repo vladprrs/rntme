@@ -9,10 +9,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./executor-contract": {
-      "types": "./dist/executor-contract.d.ts",
-      "import": "./dist/executor-contract.js"
-    },
     "./operation-contract": {
       "types": "./dist/operation-contract.d.ts",
       "import": "./dist/operation-contract.js"

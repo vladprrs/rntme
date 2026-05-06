@@ -56,9 +56,6 @@ export function inferExprType(
       }
       return ok({ type: p.type, nullable: p.nullable });
     }
-    if ('$pre' in expr) {
-      return ok({ type: 'string', nullable: true });
-    }
     if ('$node' in expr) {
       const name = (expr as { $node: string }).$node;
       const nt = nodeTypes?.get(name);

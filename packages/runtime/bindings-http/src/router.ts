@@ -64,7 +64,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
   app.use('*', idempotencyMiddleware({
     cache,
     now: () => Date.now(),
-    commandNameFromPath: (p) => {
+    operationNameFromPath: (p) => {
       const stripped = p.replace(/^\/api/, '') || '/';
       return pathToActionOperation.get(stripped) ?? pathToActionOperation.get(p) ?? null;
     },

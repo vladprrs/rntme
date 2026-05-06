@@ -4,13 +4,13 @@ const TTL_MS = 24 * 3600 * 1000;
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS idempotency_cache (
-  command_name TEXT NOT NULL,
+  operation_name TEXT NOT NULL,
   key TEXT NOT NULL,
   status INTEGER NOT NULL,
   body TEXT NOT NULL,
   headers_json TEXT,
   stored_at INTEGER NOT NULL,
-  PRIMARY KEY (command_name, key)
+  PRIMARY KEY (operation_name, key)
 );
 `;
 
@@ -32,12 +32,12 @@ export class IdempotencyCache {
     }
   }
 
-  set(commandName: string, key: string, response: CachedResponse, now: number): void {
+  set(operationName: string, key: string, response: CachedResponse, now: number): void {
     this.pruneExpired(now);
     this.db.prepare(
-      `INSERT OR REPLACE INTO idempotency_cache (command_name, key, status, body, headers_json, stored_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO idempotency_cache (operation_name, key, status, body, headers_json, stored_at) VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
-      commandName,
+      operationName,
       key,
       response.status,
       response.body,
@@ -46,11 +46,11 @@ export class IdempotencyCache {
     );
   }
 
-  get(commandName: string, key: string, now: number): CachedResponse | null {
+  get(operationName: string, key: string, now: number): CachedResponse | null {
     this.pruneExpired(now);
     const row = this.db.prepare(
-      `SELECT status, body, headers_json, stored_at FROM idempotency_cache WHERE command_name = ? AND key = ?`,
-    ).get(commandName, key) as
+      `SELECT status, body, headers_json, stored_at FROM idempotency_cache WHERE operation_name = ? AND key = ?`,
+    ).get(operationName, key) as
       | { status: number; body: string; headers_json: string | null; stored_at: number }
       | undefined;
     if (row === undefined) return null;

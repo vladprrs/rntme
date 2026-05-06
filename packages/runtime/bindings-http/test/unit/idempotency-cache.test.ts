@@ -27,7 +27,7 @@ describe('IdempotencyCache', () => {
     expect(hit?.headers).toBeUndefined();
   });
 
-  it('stores and retrieves a response by (commandName, key)', () => {
+  it('stores and retrieves a response by (operationName, key)', () => {
     const db = new BetterSqlite3(':memory:');
     const cache = new IdempotencyCache(db);
     cache.set('createOrder', 'abc', { status: 200, body: '{"ok":true}' }, Date.now());
@@ -52,7 +52,7 @@ describe('IdempotencyCache', () => {
     expect(cache.get('createOrder', 'abc', now)).toBeNull();
 
     const row = db.prepare(
-      `SELECT COUNT(*) AS count FROM idempotency_cache WHERE command_name = ? AND key = ?`,
+      `SELECT COUNT(*) AS count FROM idempotency_cache WHERE operation_name = ? AND key = ?`,
     ).get('createOrder', 'abc') as { count: number };
     expect(row.count).toBe(0);
   });

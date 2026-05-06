@@ -1,6 +1,7 @@
 # UI Module Contributions — design
 
 **Status:** challenged after PR #89 foundation merge; RNT-388 follow-up scope is blueprint/modules/docs/smoke only
+**Status update (2026-05-06):** Backend-module references to `pre[]` in related specs are historical; operation calls now live in Graph IR `call` nodes. The UI contribution model in this spec is unchanged.
 **Author:** brainstorm 2026-04-29
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — backend module pattern (gRPC RPCs, `ExternalAdapterClient`, `pre[]`). This spec adds a parallel UI-contribution surface to the same module unit, without changing backend semantics.

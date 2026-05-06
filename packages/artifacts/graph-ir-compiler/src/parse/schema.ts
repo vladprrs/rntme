@@ -28,7 +28,6 @@ const expr: z.ZodType<unknown> = z.lazy(() =>
     z.null(),
     z.object({ $literal: z.unknown() }).strict(),
     z.object({ $param: z.string() }).strict(),
-    z.object({ $pre: z.string() }).strict(),
     z.object({ $ref: z.string().min(1) }).strict(),
     z.object({ $node: z.string().min(1) }).strict(),
     z.object({ $list: z.array(expr) }).strict(),
@@ -67,9 +66,6 @@ const fieldExpr = z.union([
     .strict(),
 ]);
 
-const preRef = z.object({ $pre: z.string() }).strict();
-const sourceName = z.union([z.string().min(1), preRef]);
-
 const findManyNode = z
   .object({
     id: z.string(),
@@ -77,10 +73,9 @@ const findManyNode = z
     config: z
       .object({
         source: z.union([
-          z.object({ entity: sourceName }).strict(),
-          z.object({ projection: sourceName }).strict(),
-          z.object({ eventType: sourceName }).strict(),
-          preRef,
+          z.object({ entity: z.string().min(1) }).strict(),
+          z.object({ projection: z.string().min(1) }).strict(),
+          z.object({ eventType: z.string().min(1) }).strict(),
         ]),
       })
       .strict(),
@@ -94,10 +89,9 @@ const findOneNode = z
     config: z
       .object({
         source: z.union([
-          z.object({ entity: sourceName }).strict(),
-          z.object({ projection: sourceName }).strict(),
-          z.object({ eventType: sourceName }).strict(),
-          preRef,
+          z.object({ entity: z.string().min(1) }).strict(),
+          z.object({ projection: z.string().min(1) }).strict(),
+          z.object({ eventType: z.string().min(1) }).strict(),
         ]),
         where: expr,
       })
@@ -222,7 +216,7 @@ const emitNode = z
       .object({
         aggregate: z.string(),
         aggregateId: expr,
-        transition: z.union([z.string(), preRef]),
+        transition: z.string(),
         payload: z.record(z.string(), expr),
         actor: expr.optional(),
       })

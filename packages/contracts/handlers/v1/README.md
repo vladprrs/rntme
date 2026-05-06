@@ -6,7 +6,7 @@ Legacy code-command-handler contract for rntme. Defines the handler-shaped types
 
 - `src/handlers.ts` — `CodeCommandHandler`, `CodeCommandHandlerMap`, `CommandExecutionContext`, `CommandExecutionResult`, `CommandExecutorError`, `CommandExecutorErrorCode`, `CommandExecutorOutput`, `CorrelationCtx`.
 - `src/index.ts` — public re-exports.
-- `test/unit/runtime-compat.test.ts` — `expectTypeOf` drift gate for the operation/runtime output shapes that still need to remain assignable to this contract.
+- `test/unit/contract-shape.test.ts` — `expectTypeOf` gate for the legacy contract shape.
 
 ## Quick start
 
@@ -44,7 +44,7 @@ canonical aggregate/version/event metadata.
 - This package is **types only** — no zod, no runtime dependencies. Modules that import it pick up zero workspace transitive deps.
 - The contract `CommandExecutionContext` is **structurally minimal** (`now`, `nextId`, `correlation`).
 - Service-local executable handler files are not part of the current runtime path; use Graph IR operation graphs with `emit`/`call`/`result` nodes instead.
-- Drift between the contract and the runtime is pinned by `test/unit/runtime-compat.test.ts`. If the runtime types diverge from the contract intent, that test fails — investigate before silencing.
+- No current runtime imports this contract directly; it is retained for older module examples and stays self-contained.
 - Handlers MUST return a `CommandExecutorOutput` (`{ ok: true, value }` or `{ ok: false, error }`) rather than throwing. Contract-side examples should fail explicitly.
 
 ## Out of scope

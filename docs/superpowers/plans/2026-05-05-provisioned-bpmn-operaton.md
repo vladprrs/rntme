@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Supersession note (2026-05-06):** Tasks and snippets below that add
+> `commands.handlersModule`, `services/*/commands/handlers.mjs`,
+> `CodeCommandExecutor`, `GraphIrCommandExecutor`, or command-kind binding
+> assumptions are superseded by
+> `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
+> Workflow service tasks now target action-exposed Graph IR operations, and
+> domain-service behavior stays in operation graphs.
+
 **Goal:** Add a first-class project-level BPMN workflow artifact, validate it through a new `@rntme/workflows` package, deploy it with provisioned Operaton plus a BPMN worker, and prove it with a new order-fulfillment demo.
 
 **Architecture:** `@rntme/workflows` owns parse/structural/cross-ref validation and branded types. `@rntme/blueprint` discovers `workflows/` and supplies PDM event + project binding context. Deploy planning renders provisioned Redpanda, Operaton, and a separate `bpmn-worker` workload; runtime services stay service-local and communicate through Kafka events plus gRPC command bindings.

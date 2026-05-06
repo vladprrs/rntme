@@ -12,7 +12,6 @@ export function evalOperationExpr(
   if (typeof expr === 'string') return readPath(outputs, expr);
   if ('$literal' in expr) return expr.$literal;
   if ('$param' in expr) return params[expr.$param] ?? null;
-  if ('$pre' in expr) return readPath({ pre: params.pre }, `pre.${expr.$pre}`);
   if ('$ref' in expr) return readPath(outputs, expr.$ref);
   if ('$node' in expr) return outputs[expr.$node] ?? null;
   if ('gte' in expr) {

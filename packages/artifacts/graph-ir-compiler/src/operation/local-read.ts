@@ -201,7 +201,7 @@ function evalReadExpr(expr: Expr, row: Row, meta: RowsetMeta, ctx: ReadEvalConte
   if ('$literal' in expr) return expr.$literal;
   if ('$param' in expr) return ctx.params[expr.$param] ?? null;
   if ('$ref' in expr) return readFieldPath(expr.$ref, row, meta, ctx);
-  if ('$node' in expr || '$pre' in expr) return null;
+  if ('$node' in expr) return null;
 
   if (hasSkippedPredicateOptional(expr, ctx)) return true;
 

@@ -8,6 +8,10 @@ Supersedes the command/query role split from:
 
 - `docs/superpowers/specs/done/2026-04-14-mutations-design.md`
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
+- `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` (binding-level `pre[]` / Graph IR `$pre` portions)
+- `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md` (references to the old Auth0 backend `pre[]` path)
+- `docs/superpowers/specs/2026-05-01-edge-auth-introspection-design.md` (references to runtime pre-step introspection as the target model)
+- `docs/superpowers/specs/2026-05-02-publish-path-end-to-end-hardening-design.md` (Graph IR `$pre` / pre-step hardening portions)
 - `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 Related implementation artifact that motivated this spec:

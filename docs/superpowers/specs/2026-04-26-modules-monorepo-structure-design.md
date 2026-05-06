@@ -1,6 +1,7 @@
 # modules monorepo structure & categorical contracts — design
 
 **Status:** design
+**Status update (2026-05-06):** References to domain blueprints calling modules through binding-level `pre[]` are historical. The categorical contract goals remain, but domain operation calls are authored as Graph IR `call` nodes per `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
 **Author:** brainstorm 2026-04-26
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (three-tier integration model, per-module proto, module skeleton, gRPC surface, pre-fetch, P2 callbacks; this spec sits *on top of* it and adds a categorical contract layer + repo-structure decisions)

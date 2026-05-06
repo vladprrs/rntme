@@ -26,12 +26,6 @@ export function lowerExpr(e: Expr, ctx: ExprLowerCtx): SqlExpr {
       ctx.paramOrder.push(name);
       return { kind: 'param', ordinal };
     }
-    if ('$pre' in e) {
-      const name = `pre.${(e as { $pre: string }).$pre}`;
-      const ordinal = ctx.paramOrder.length;
-      ctx.paramOrder.push(name);
-      return { kind: 'param', ordinal };
-    }
     if ('between' in e) {
       const [x, lo, hi] = (e as { between: [Expr, Expr, Expr] }).between;
       return { kind: 'between', expr: lowerExpr(x, ctx), low: lowerExpr(lo, ctx), high: lowerExpr(hi, ctx) };

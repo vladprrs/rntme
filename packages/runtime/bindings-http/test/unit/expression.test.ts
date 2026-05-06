@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateExpression } from '../../src/pre/expression.js';
+import { evaluateExpression } from '../../src/runtime/expression.js';
 
 const scope = {
   body: { amount: 42, note: 'hi' },
@@ -7,15 +7,15 @@ const scope = {
   auth: { userId: 'u-1' },
   config: { selfUrl: 'https://app.test' },
   system: { randomBytes: 'abc123' },
-  pre: { customer: { id: 'cust-1' }, nonce: 'zzz' },
+  result: { customer: { id: 'cust-1' }, nonce: 'zzz' },
 };
 
 describe('evaluateExpression', () => {
   it('resolves a top-level $body reference to a primitive', () => {
     expect(evaluateExpression('$body.amount', scope)).toBe(42);
   });
-  it('resolves nested $pre.<bindAs>.field', () => {
-    expect(evaluateExpression('$pre.customer.id', scope)).toBe('cust-1');
+  it('resolves nested $result fields', () => {
+    expect(evaluateExpression('$result.customer.id', scope)).toBe('cust-1');
   });
   it('returns non-string literals unchanged', () => {
     expect(evaluateExpression(100, scope)).toBe(100);
@@ -24,7 +24,7 @@ describe('evaluateExpression', () => {
   });
   it('walks objects, resolving each $-prefixed leaf', () => {
     const out = evaluateExpression(
-      { customerId: '$pre.customer.id', amount: '$body.amount', note: '$body.note' },
+      { customerId: '$result.customer.id', amount: '$body.amount', note: '$body.note' },
       scope,
     );
     expect(out).toEqual({ customerId: 'cust-1', amount: 42, note: 'hi' });
