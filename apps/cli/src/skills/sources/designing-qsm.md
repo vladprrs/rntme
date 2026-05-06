@@ -1,6 +1,6 @@
 ---
 name: designing-qsm
-description: Use after designing-bindings. Paired with designing-graph-ir. Authors artifacts/qsm.json — projections (read tables) + relations (JOIN metadata) derived from queries declared in bindings.
+description: Use after designing-bindings. Paired with designing-graph-ir. Authors artifacts/qsm.json — projections (read tables) + relations (JOIN metadata) derived from read operations declared in bindings.
 ---
 
 ## What you're building
@@ -9,7 +9,7 @@ description: Use after designing-bindings. Paired with designing-graph-ir. Autho
 
 ## Checklist
 
-1. From the bindings artifact, enumerate every query binding. Each query graph must have at least one projection it can read from. List the projection names you need.
+1. From the bindings artifact, enumerate every `exposure: "read"` binding. Each read graph must have at least one projection it can read from. List the projection names you need.
 2. For each projection, identify the source PDM entity. Set `backing: "entity-mirror"`, `source.entity` to the entity name, `keys` and `grain` to the entity's key field(s) (must be set-equal to each other and to the entity's own `keys`).
 3. Declare `exposed`: the subset of entity fields that consumers may read. Do not include `generated` fields (`id`, `createdAt`, `updatedAt`, `actor`) — the validator rejects them in `exposed` (`QSM_XREF_EXPOSED_INCLUDES_GENERATED`). Include only the fields your queries actually need.
 4. Set `table` to a stable SQL identifier (e.g. `"projection_issue"`, `"projects"`, `"users"`). If omitted, it defaults to `projection_<lowercased projection name>`. Collisions between two projections that resolve to the same table name are rejected (`QSM_STRUCT_DUPLICATE_TABLE`).
@@ -22,7 +22,7 @@ description: Use after designing-bindings. Paired with designing-graph-ir. Autho
 
 | Symptom | Problem |
 |---|---|
-| Projection declared but no query binding references its table | YAGNI — the projection will be maintained by the event consumer but never read. Remove it or add a query that uses it. |
+| Projection declared but no read binding references its table | YAGNI — the projection will be maintained by the event consumer but never read. Remove it or add a read operation that uses it. |
 | Projection has no matching event in PDM (no creation transition) | The projection table will be created but will always be empty. Every `entity-mirror` projection is populated by PDM events; if there is no creation event, there is no data. |
 | Relation key `"<A>.<R>"` where `A` is not declared in `projections` | Produces `QSM_XREF_RELATION_UNKNOWN_SOURCE_PROJECTION`; the source projection must exist. |
 | Relation `to` points to a projection that does not exist | Produces `QSM_XREF_RELATION_UNKNOWN_TARGET_PROJECTION`; the target projection must also be declared in this QSM. |

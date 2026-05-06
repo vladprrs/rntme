@@ -1,6 +1,6 @@
 # @rntme/bindings-grpc
 
-gRPC transport surface for `@rntme/bindings`. Emits a `.proto` file from a `ValidatedBindings` artifact and serves commands/queries via `@grpc/grpc-js` + `protobufjs`, wiring each RPC through the `CommandExecutor` / `QueryExecutor` seam (defined in plan 1).
+gRPC transport surface for `@rntme/bindings`. It emits a `.proto` service from `ValidatedBindings` and serves every RPC through the unified `OperationExecutor` contract.
 
 ## Public API
 
@@ -18,60 +18,47 @@ const handle = createGrpcServer({
   shapes: shapeRegistry,
   packageName: 'rntme.payments.v1',
   serviceName: 'PaymentsService',
-  commandExecutor,
-  queryExecutor,
+  operationExecutor,
   eventStore,
   qsmDb,
-  // Optional. Defaults to grpc.ServerCredentials.createInsecure().
-  serverCredentials: grpc.ServerCredentials.createSsl(rootCerts, [
-    { private_key: serverKey, cert_chain: serverCert },
-  ]),
+  serverCredentials: grpc.ServerCredentials.createInsecure(),
 });
 
 const port = await handle.listen(50051);
-// ...
 await handle.stop();
 ```
 
-## Type mapping
+## Type Mapping
 
-| Binding artifact type            | Proto type         |
-|----------------------------------|--------------------|
-| `scalar.integer`                 | `int64`            |
-| `scalar.decimal`                 | `string` (decimal encoded) |
-| `scalar.string`                  | `string`           |
-| `scalar.boolean`                 | `bool`             |
-| `scalar.date` / `scalar.datetime`| `string` (ISO)     |
-| `array.<scalar>`                 | `repeated <scalar>`|
-| `rowset.<shape>`                 | `repeated <Shape>` |
-| `row.<shape>`                    | `<Shape>`          |
-| command output                   | canonical `CommandResult` with optional `google.protobuf.Struct result` |
-| nullable field                   | `optional`         |
+| Binding artifact type | Proto type |
+| --- | --- |
+| `scalar.integer` | `int64` |
+| `scalar.decimal` | `string` decimal encoding |
+| `scalar.string` | `string` |
+| `scalar.boolean` | `bool` |
+| `scalar.date` / `scalar.datetime` | `string` |
+| `array.<scalar>` | `repeated <scalar>` |
+| operation output | `google.protobuf.Struct result = 1` |
+| nullable field | `optional` when emitted as a request field |
 
-Inbound `int64` request fields are converted to JavaScript `number` values
-before the `CommandExecutor` / `QueryExecutor` receives inputs.
+Inbound `int64` request fields are converted to JavaScript numbers before the executor receives inputs. All operation responses use a Struct wrapper so read and action operations share one gRPC response shape.
 
-Command RPCs return the canonical aggregate/version/event metadata. When the
-executor returns a successful business payload under `value.result`, the server
-serializes it into `CommandResult.result`; absent payloads leave the field unset.
+## Error Mapping
 
-## Error mapping
+| Operation error code | gRPC status |
+| --- | --- |
+| `OPERATION_NOT_FOUND` | `UNIMPLEMENTED` |
+| `COMMAND_GUARD_REJECTED` / `COMMAND_ILLEGAL_TRANSITION` | `FAILED_PRECONDITION` |
+| `COMMAND_CONCURRENCY_CONFLICT` | `ABORTED` |
+| `OPERATION_EXECUTION_FAILED` | `INTERNAL` |
+| unknown operation errors | `INTERNAL` |
 
-| Executor error code              | gRPC status              |
-|----------------------------------|--------------------------|
-| `COMMAND_NOT_FOUND`, `QUERY_NOT_FOUND` | `UNIMPLEMENTED`    |
-| `COMMAND_GUARD_REJECTED`         | `FAILED_PRECONDITION`    |
-| `COMMAND_CONCURRENCY_CONFLICT`   | `ABORTED`                |
-| `COMMAND_HANDLER_THREW`, `QUERY_HANDLER_THREW` | `INTERNAL` |
-| `COMMAND_HANDLER_ERROR`          | `INVALID_ARGUMENT`       |
+## Limitations
 
-## Not yet supported
+- No streaming RPCs.
+- No `grpc.health.v1.Health` surface yet.
+- Shape collection at boot currently reads binding output shapes; richer operation input shape registries remain future work.
 
-- `pre[]` middleware (plan 3).
-- Extended `command` binding with `method` / `inputFrom` / `response` (plan 4).
-- `grpc.health.v1.Health` proto surface.
-- Streaming RPCs.
+## Specs
 
-## Limitations (MVP)
-
-- Shape collection at boot currently reads output shapes only; multi-shape input requires a centralised shape registry. Tracked as inline TODO in `packages/runtime/runtime/src/start/build-grpc-surface.ts`; revisit when plan 5 ships a module that needs it.
+- [`../../../docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`](../../../docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md) — operation-based gRPC surface.

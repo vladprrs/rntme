@@ -1,6 +1,6 @@
 # @rntme/graph-ir-compiler
 
-Graph IR (rc7) authoring JSON compiler — query graphs lower to SQLite SELECT, command graphs lower to event-sourced emit plans.
+Graph IR (rc7) authoring JSON compiler. The current runtime path compiles a graph as one effect-aware operation; legacy query and command compile APIs remain for projection/query tooling and compatibility tests.
 
 ## Role in the system
 
@@ -11,16 +11,16 @@ Graph IR (rc7) authoring JSON compiler — query graphs lower to SQLite SELECT, 
   - `better-sqlite3` (peer) — the `Database` handle passed to `execute(...)`.
   - `zod` — authoring-spec schema in `parse/schema.ts`.
 - Consumed by:
-  - [`@rntme/bindings-http`](../bindings-http) — HTTP surface compiles each binding's graph and runs it per-request.
-  - [`@rntme/runtime`](../runtime) — composes compiler with bindings/projections and exposes it through the `CommandExecutor` / `QueryExecutor` seam used by HTTP, gRPC, and modules.
+  - [`@rntme/bindings-http`](../bindings-http) — HTTP surface compiles each binding's graph as an operation and runs it per-request.
+  - [`@rntme/runtime`](../runtime) — composes compiler with bindings/projections and exposes it through `GraphOperationExecutor`.
   - [`demo/issue-tracker-api`](../../demo/issue-tracker-api) — end-to-end wiring of every package.
-- Position in pipeline: `parse → canonical → semantic-plan → role/relational → lower → emit → execute` (queries) / `command-runtime` (commands). `explain(...)` returns every intermediate artifact.
+- Position in pipeline: operation path is `parse -> structural/semantic validation -> canonical -> effect validation -> executeOperation`. Legacy read SQL path is `parse -> canonical -> semantic-plan -> relational -> lower -> emit -> execute`. `explain(...)` returns intermediate artifacts for the SQL path.
 
 ## File map
 
 ```
 src/
-  index.ts                                  (entry) Public API: compile, execute, run, compileCommand, executeCommand, runCommand, explain, deriveEventTypeName, inferRole; re-exports Result helpers and types.
+  index.ts                                  (entry) Public API: compileOperation, executeOperation, compile, execute, run, compileCommand, executeCommand, runCommand, explain, deriveEventTypeName, inferRole; re-exports Result helpers and types.
 
   parse/
     parse.ts                                (internal) parseAuthoringSpec(input) — accepts string or object, returns Result<AuthoringSpecOutput>; emits PARSE_INVALID_JSON / PARSE_SCHEMA_VIOLATION.
@@ -41,9 +41,10 @@ src/
       map-reduce.ts                         (internal) checkMapReduceCoverage — STRUCT_MAP_SHAPE_COVERAGE / STRUCT_REDUCE_SHAPE_COVERAGE; every shape field is produced exactly once.
       tier1-nodes.ts                        (internal) checkTier1Nodes — TIER1_UNSUPPORTED_NODE for distinct, lookupOne, etc.
       tier1-expr.ts                         (internal) checkTier1Expr — TIER1_UNSUPPORTED_EXPR for $list, exists, lookup-expr, named predicate refs.
-      pre-ref-positions.ts                  (internal) checkPreRefPositions — rejects `$pre` in aggregateId, transition, and source positions.
-      command-shape.ts                      (internal) checkCommandShape — CMD_OUTPUT_SHAPE_INVALID for emit-bearing graphs whose output type is not 'CommandResult'.
+      pre-ref-positions.ts                  (internal, legacy) checkPreRefPositions — rejects legacy pre references in aggregateId, transition, and source positions.
+      command-shape.ts                      (internal, legacy command API) checkCommandShape — CMD_OUTPUT_SHAPE_INVALID for emit-bearing graphs whose output type is not 'CommandResult'.
       role.ts                               (internal) checkGraphRole — structural pre-check for GRAPH_MIXED_ROLE (rowset output + emit node combination).
+    effects.ts                              (entry) inferEffectSummary / validateOperationEffects — local reads, local emits, call effects, read exposure checks, result-node requirement.
     semantic/
       index.ts                              (internal) validateSemantic(graph, pdm, qsm, shapes) — orchestrates source-resolution, type/scope inference, NAV checks, shape conformance, param-context, emit checks.
       sources.ts                            (internal) resolveSources / checkNavProjectionRequired / checkNavRelations — collectDotNavPaths walks expressions; emits NAV_PROJECTION_REQUIRED / NAV_NOT_ALLOWED / NAV_FAN_OUT_NOT_ALLOWED.
@@ -68,7 +69,7 @@ src/
     sqlite/
       lower.ts                              (internal) lowerToSqlite(rel, ctx) — folds RelOp to SqlSelect AST and accumulates paramOrder; owns wrapPredicateOptional, makeColumnOf (dot-nav join synthesis), measureToAggSql.
       ast.ts                                (internal) SqlExpr / SqlSelect / SqlJoin / SqlOrderKey types — typed SQLite AST.
-      expr.ts                               (internal) lowerExpr(e, ctx) — Expr → SqlExpr; appends to ctx.paramOrder on each $param or $pre visit (positional binding).
+      expr.ts                               (internal) lowerExpr(e, ctx) — Expr → SqlExpr; appends to ctx.paramOrder on each $param or legacy pre-reference visit (positional binding).
       joins.ts                              (internal) expandChain / chainToSqlJoins — walks QSM.relations, returns JoinChain with path-qualified aliases (parts.slice(1, i+1).join('_')).
       emit.ts                               (internal) emitSql(ast) — string serialiser; uses double-quoted identifiers, '?' placeholders, NULLS FIRST/LAST, LIKE.
 
@@ -78,7 +79,7 @@ src/
   emit/
     plan.ts                                 (internal) buildEmitPlans(graph, pdm) — for each emit node, joins canonical config with PDM's derived event-type table to produce EmitPlan[].
     event-type.ts                           (entry — deriveEventTypeName) deriveEventTypeName(aggregate, transition) = default PascalCase(aggregate)+PascalCase(transition); lookupEventTypeSpec(pdm, agg, t) honors PDM eventType overrides.
-    payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly: stateField ← plan.toState; field paths are rejected at runtime (params/literals/$pre only).
+    payload.ts                              (internal, legacy command API) derivePayload / evalExprAtRuntime — runtime payload assembly: stateField ← plan.toState; field paths are rejected at runtime.
 
   command-runtime/
     compile.ts                              (entry — compileCommand) compileCommand(spec, pdm, qsm) — full structural+semantic compile, role check, optional read-prelude (lowered as a query), CMD_MULTI_AGGREGATE_NOT_ALLOWED.
@@ -87,19 +88,55 @@ src/
     transition.ts                           (internal) checkTransitionLegal(plan, state, stateField) — COMMAND_ILLEGAL_TRANSITION; creation requires state===null, else current state must be in plan.fromStates.
     errors.ts                               (entry — CommandExecutionError) class CommandExecutionError extends Error; .code ∈ { COMMAND_ILLEGAL_TRANSITION, COMMAND_GUARD_REJECTED, COMMAND_CONCURRENCY_CONFLICT }; optional .detail.
 
+  operation/
+    compile.ts                              (entry — compileOperation) one-graph operation compile with registry-backed call target resolution and exposure validation.
+    execute.ts                              (entry — executeOperation) executes find/read nodes, call, branch, emit, and result nodes.
+    eval.ts                                 (internal) runtime expression evaluator for params, node refs, branches, calls, emits, and result values.
+    local-read.ts                           (internal) operation read-node executor for findMany/findOne/filter/sort/limit/map/reduce over QSM tables.
+
   explain/
     explain.ts                              (internal) parseGraphIrArtifacts(rawPdm, rawQsm) — wraps @rntme/pdm + @rntme/qsm parse/validate behind a graph-ir Result<{pdm,qsm}>; ExplainArtifacts / ExplainOutput types.
 
   types/
-    authoring.ts                            (internal) Expr / FieldExpr / Signature / InputMode / PrimitiveType / ListType / RowType / RowsetType / SortKey / AggregateFn — rc7 authoring AST types.
-    canonical.ts                            (internal) CanonicalNode union (findMany/filter/map/reduce/sort/limit/emit) + CanonicalGraph — output of normalize().
+    authoring.ts                            (internal) Expr / FieldExpr / Signature / InputMode / PrimitiveType / ListType / RowType / RowsetType / SortKey / AggregateFn — rc7 authoring AST types, including operation nodes and `$ref`.
+    canonical.ts                            (internal) CanonicalNode union (findMany/findOne/filter/map/reduce/sort/limit/call/branch/uuid/emit/result) + CanonicalGraph — output of normalize().
     semantic-plan.ts                        (internal) PlanStep union + SemanticPlan — output of buildSemanticPlan().
     relational.ts                           (internal) RelOp union (Scan/Filter/Project/Aggregate/Sort/Limit/Join) — target-independent algebra.
     command.ts                              (entry — re-exports CommandResult, CompiledCommand, EmitPlan) ReadPreludeCompileResult (mirrors CompileResult to avoid import cycle); RuntimeActor.
+    effects.ts                              EffectSummary and exposure helpers.
+    operation.ts                            CompiledOperation, OperationRegistry, OperationCallClient, OperationExecutionContext, OperationResult.
     result.ts                               (entry — Result, GraphIrError, ErrorCode, Layer, Ok, Err, ok, err, isOk, isErr, ERROR_CODES) Layer union covers parse / structural / canonical / semantic / semantic-plan / relational / lowering / runtime.
 ```
 
 ## Quick start
+
+### Operation path
+
+```ts
+import Database from 'better-sqlite3';
+import { compileOperation, executeOperation } from '@rntme/graph-ir-compiler';
+
+const compiled = compileOperation(specWithOneGraph, pdm, qsm, {
+  registry,
+  serviceName: 'orders',
+  ownedAggregates: new Set(['Order']),
+  exposure: 'action',
+});
+if (!compiled.ok) throw new Error(JSON.stringify(compiled.errors));
+
+const result = await executeOperation(compiled.value, { orderId: 'o-1' }, {
+  qsmDb: new Database(':memory:'),
+  eventStore,
+  callClient,
+  now: () => new Date().toISOString(),
+  nextId: () => crypto.randomUUID(),
+  actor: { kind: 'user', id: 'alice' },
+  correlation: { commandId: crypto.randomUUID(), correlationId: 'corr-1', traceparent: null },
+  idempotencyKey: null,
+});
+```
+
+Operation graphs must contain a `result` node. Effects are inferred from local reads, local emits, and `call` nodes; `exposure: "read"` rejects action effects.
 
 ### Query path
 
@@ -134,7 +171,7 @@ const db = new Database('app.db');
 const rows = execute(r.value, { limit: 5 }, db);
 ```
 
-### Command path
+### Legacy command path
 
 ```ts
 import { compileCommand, executeCommand } from '@rntme/graph-ir-compiler';
@@ -154,7 +191,7 @@ const commandSpec = {
           title:    { type: 'string',  mode: 'required' },
           priority: { type: 'string',  mode: 'required' },
         },
-        output: { type: 'CommandResult', from: 'reported' },
+        output: { type: 'row<CommandResult>', from: 'reported' },
       },
       nodes: [
         {
@@ -190,9 +227,9 @@ const result = executeCommand(compiled.value, { issueId: 1, title: 'bug', priori
 
 `runCommand(spec, pdm, qsm, params, ctx)` and `run(spec, pdm, qsm, params, db)` collapse compile+execute into a single call (and throw on compile failure).
 
-### `$pre` directive
+### Legacy Pre References
 
-Graph expressions may reference pre-step results with `{ "$pre": "session.user_id" }`. Query filters lower these as positional SQL parameters named `pre.session.user_id`; `execute(...)` resolves them from `params.pre.session.user_id`. Command emit payloads resolve the same directive at runtime from the command input's `pre` object. `$pre` is allowed in filter expressions and emit payload fields, and is rejected in `emit.aggregateId`, `emit.transition`, and `findMany.config.source` with `GRAPH_IR_PRE_REF_NOT_ALLOWED_IN_*` errors.
+The current operation path uses `call` nodes plus `$ref` expressions, for example `{ "$ref": "session.result.user_id" }`. The legacy SQL/command APIs still parse the older pre-reference expression for callers that pass `params.pre`; do not model new binding-driven module calls that way.
 
 ## API
 
@@ -200,6 +237,8 @@ Graph expressions may reference pre-step results with `{ "$pre": "session.user_i
 
 | Export | Signature | Purpose |
 | --- | --- | --- |
+| `compileOperation` | `(rawSpec, rawPdm, rawQsm, opts) → Result<CompiledOperation>` | Current runtime entry point: parse, validate, infer effects, resolve call targets, and compile one graph as an operation. |
+| `executeOperation` | `(compiled, params, ctx) → Promise<OperationResult>` | Executes local reads, calls, branches, emits, and result nodes through one operation context. |
 | `compile` | `(rawSpec, rawPdm, rawQsm, opts?) → Result<CompileResult>` | Parse → validate (structural + semantic) → normalise → semantic-plan → relational → lower → emit. Returns `{ sql, paramOrder, shape, optionalParams, paramDefaults }`. One graph per call. |
 | `execute` | `(compiled, params, db) → unknown[]` | Bind `paramOrder` positionally (defaults / nullable / predicate_optional → null) and run `db.prepare(sql).all(...)`. |
 | `run` | `(rawSpec, rawPdm, rawQsm, params, db, opts?) → unknown[]` | `compile` then `execute`. Throws on compile failure (Error with `.errors`). |
@@ -222,7 +261,13 @@ import type {
   AuthoringSpecOutput, // parsed Graph IR authoring spec consumed by downstream runtimes
   CompileResult,        // { sql, paramOrder, shape, optionalParams, paramDefaults }
   CompileOptions,       // { target?: 'sqlite' }
-  CompiledCommand,      // { graphId, aggregate, emits, readPrelude, readPreludeGuardNodeId, paramOrder, optionalParams, paramDefaults }
+  CompiledOperation,    // { graphId, graph, effects, exposure, outputShape, ... }
+  OperationResult,      // operation result envelope plus action metadata
+  OperationRegistry,
+  OperationCallClient,
+  OperationExecutionContext,
+  EffectSummary,
+  CompiledCommand,      // legacy { graphId, aggregate, emits, readPrelude, readPreludeGuardNodeId, paramOrder, optionalParams, paramDefaults }
   CommandResult,        // { aggregateId, version, eventIds }
   EmitPlan,             // per-emit node: aggregateIdExpr, transition, eventType, affects, payloadExprs, actorExpr?, isCreation, isSelfLoop, fromStates, toState
   ExecuteCommandContext,// { eventStore, qsmDb, now, nextId, actor }
@@ -235,20 +280,22 @@ import type {
 
 ### Pipeline walkthrough
 
-`compile(spec, pdm, qsm)` runs these stages in this exact order. Diverging from the order produces incorrect errors (e.g., type-checking before source resolution names entities the validator has not yet rejected).
+`compileOperation(spec, pdm, qsm, opts)` is the current runtime path: parse artifacts, validate structure and semantics, normalize to canonical form, infer and validate effects, resolve registry-backed `call` targets, and return one executable operation plan. `executeOperation(...)` then evaluates nodes in DAG order, running local read nodes against QSM, invoking call nodes through `OperationCallClient`, appending local emits, and returning the selected `result` node payload.
+
+`compile(spec, pdm, qsm)` is the legacy SQL path and runs these stages in this exact order. Diverging from the order produces incorrect errors (e.g., type-checking before source resolution names entities the validator has not yet rejected).
 
 1. **`parseAuthoringSpec(rawSpec)`** — accepts an object or a JSON string; on string input, runs `JSON.parse` first and reports `PARSE_INVALID_JSON` on failure. On schema mismatch, every Zod issue becomes one `PARSE_SCHEMA_VIOLATION` with `location.path`.
 2. **`parseGraphIrArtifacts(rawPdm, rawQsm)`** — wraps `@rntme/pdm` and `@rntme/qsm` parse + validate so all errors fold into a single `PARSE_SCHEMA_VIOLATION` from the graph-ir error space.
 3. **Validated projection entry point.** `compileProjectionGraphFromValidated` starts here with an already parsed spec plus branded `ValidatedPdm` / `ValidatedQsm`; it does not reparse raw PDM/QSM artifacts.
 4. **`validateStructural(spec, pdm, qsm)`** — runs every rule in `validate/structural/index.ts` and accumulates errors. Order inside the file matches table-of-contents order in §File map.
-5. **Single-graph guard** — `compile` and `compileCommand` enforce `Object.keys(spec.graphs).length === 1` and emit `STRUCT_DUPLICATE_GRAPH_ID` otherwise. Multi-graph orchestration belongs in callers (`@rntme/runtime`).
+5. **Single-graph guard** — `compile`, `compileCommand`, and `compileOperation` enforce `Object.keys(spec.graphs).length === 1` and emit `STRUCT_DUPLICATE_GRAPH_ID` otherwise. Multi-graph orchestration belongs in callers (`@rntme/runtime`).
 6. **`normalize(spec)`** — produces `CanonicalGraph`. Allocates monotonic scope IDs (`s1`, `s2`, ...), defaults sort `dir = 'asc'` and `nulls = 'last'`, sets `findMany.alias = camelCase(source)`.
-7. **`inferRole(graph)` (command path only)** — `compileCommand` rejects non-command graphs with `GRAPH_MIXED_ROLE`.
+7. **`inferRole(graph)` (legacy command path only)** — `compileCommand` rejects non-command graphs with `GRAPH_MIXED_ROLE`.
 8. **`validateSemantic(graph, pdm, qsm, shapes)`** — resolves sources, infers expression types, runs NAV checks (relations + projection-required), shape-conformance, param-context, emit checks.
-9. **`buildSemanticPlan(graph, pdm, qsm)` (query path)** — emits a `PlanStep` per non-emit node, materialising entity field metadata into `ScanStep.fields`.
-10. **`buildEmitPlans(graph, pdm)` (command path)** — per emit node, joins canonical config with `deriveEventTypes(pdm)` to produce `EmitPlan`.
-11. **`buildRelational(plan)` (query path)** — folds `PlanStep[]` into the `RelOp` tree.
-12. **`lowerToSqlite(rel, ctx)` + `emitSql(ast)` (query path)** — produces `{ sql, paramOrder }`. `ctx` carries `predicateOptionalParams`, `pdm`, `qsm` so dot-nav joins resolve.
+9. **`buildSemanticPlan(graph, pdm, qsm)` (legacy SQL path)** — emits a `PlanStep` per non-emit node, materialising entity field metadata into `ScanStep.fields`.
+10. **`buildEmitPlans(graph, pdm)` (legacy command path)** — per emit node, joins canonical config with `deriveEventTypes(pdm)` to produce `EmitPlan`.
+11. **`buildRelational(plan)` (legacy SQL path)** — folds `PlanStep[]` into the `RelOp` tree.
+12. **`lowerToSqlite(rel, ctx)` + `emitSql(ast)` (legacy SQL path)** — produces `{ sql, paramOrder }`. `ctx` carries `predicateOptionalParams`, `pdm`, `qsm` so dot-nav joins resolve.
 13. **`executeCompiled(compiled, params, db)` (query runtime)** — binds positional params, prepares, runs `.all()`. `defaulted` and `nullable`/`predicate_optional` params fall back to default / `null`; missing required throws `RUNTIME_MISSING_REQUIRED_PARAM`.
 14. **`executeCommand(compiled, params, ctx)` (command runtime)** — runs read-prelude (if present), replays the stream, validates each transition, derives payloads, appends with `expectedVersion`.
 
@@ -263,13 +310,13 @@ import type {
 | `semantic-plan`   | Plan steps with materialised field metadata           | `semantic-plan/build.ts` |
 | `relational`      | Algebra tree (Scan/Filter/Project/Aggregate/Sort/Limit/Join) | `relational/build.ts` |
 | `lowering`        | SQLite AST + `paramOrder` accumulation                | `lower/sqlite/*.ts` |
-| `runtime`         | Param binding, prepare/all, command runtime           | `execute/execute.ts`, `command-runtime/*.ts` |
+| `runtime`         | Operation execution, param binding, prepare/all, legacy command runtime | `operation/*.ts`, `execute/execute.ts`, `command-runtime/*.ts` |
 
 ### Supported features (Tier 1)
 
 | Area | Supported | Files |
 | --- | --- | --- |
-| Nodes               | `findMany`, `filter`, `map`, `reduce`, `sort`, `limit`, `emit` | `validate/structural/tier1-nodes.ts` |
+| Nodes               | `findMany`, `findOne`, `filter`, `map`, `reduce`, `sort`, `limit`, `call`, `branch`, `uuid`, `emit`, `result` | `parse/schema.ts`, `operation/*.ts`, `validate/structural/tier1-nodes.ts` |
 | Input modes         | `root`, `required`, `nullable`, `defaulted`, `predicate_optional` | `parse/schema.ts → inputMode`, `validate/semantic/param-context.ts` |
 | Expression operators| comparison (`eq/neq/gt/gte/lt/lte`), arithmetic (`add/sub/mul/div`), logical (`and/or/not`), `is_null`, `like`, `concat`, `coalesce`, `between`, `case` | `lower/sqlite/expr.ts`, `lower/sqlite/emit.ts → operator()` |
 | Aggregates          | `count`, `count_distinct`, `sum`, `avg`, `min`, `max`, `group_array` (json_group_array) | `lower/sqlite/lower.ts → measureToAggSql` |
@@ -296,10 +343,10 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Path-qualified join aliases are `parts.slice(1, i+1).join('_')`.** Two graphs joining `customer.organization.name` and `customer.organization.country` share the alias `customer_organization` — that shared alias is used as the join-table dedup key in `makeColumnOf` (`lower/sqlite/lower.ts`) so both columns reuse one JOIN. (Fix commit `2af0de0`.)
 - **`makeColumnOf` requires an entity-mirror projection on the scan's entity for dot-nav.** Without one, lowering throws `NAV_PROJECTION_REQUIRED`; the same condition is checked earlier and reported via `checkNavProjectionRequired` so authors see a typed semantic error before lowering runs.
 - **Param order is bind order.** `lowerExpr` appends to `ctx.paramOrder` on each `$param` visit; `wrapPredicateOptional` appends after; `Limit` count appends last per its own visit. `execute` / `executeCommand` map `paramOrder` → positional values in that exact order — never reorder.
-- **Tier 1 MVP compiles exactly one graph per call.** `compile` and `compileCommand` reject specs whose `graphs` map size ≠ 1 with `STRUCT_DUPLICATE_GRAPH_ID` (per `index.ts` and `command-runtime/compile.ts`).
+- **Tier 1 MVP compiles exactly one graph per call.** `compile`, `compileCommand`, and `compileOperation` reject specs whose `graphs` map size ≠ 1 with `STRUCT_DUPLICATE_GRAPH_ID`.
 - **`predicate_optional` is only legal in `filter` predicates.** `checkParamContext` (`validate/semantic/param-context.ts`) emits `SEM_PARAM_CONTEXT` if a `predicate_optional` param appears in `map`, `reduce`, `sort`, `limit`, or `emit`.
 - **Role inference promotes `query` → `command` when any `emit` exists.** `inferRole` (`role/infer.ts`) returns `'command'` only if there is no root input and ≥1 emit and the output is non-rowset; rowset+emit yields `GRAPH_MIXED_ROLE`. The structural pre-check `validate/structural/role.ts` blocks the impossible combinations early.
-- **Emit payload runtime allows `$param`, `$literal`, and `$pre` only.** `evalExprAtRuntime` (`emit/payload.ts`) throws on field-path strings and on any other expression; payload field expressions must be assembled before reaching runtime.
+- **Legacy command emit payload runtime is intentionally narrow.** `evalExprAtRuntime` (`emit/payload.ts`) throws on field-path strings and unsupported expressions; operation graphs should assemble values with `$param`, `$ref`, literals, call outputs, branches, and result nodes.
 - **Creation transitions append at `version=0` (expected version of an empty stream).** `replayAggregateState` returns `{ state: null, version: 0 }` for an empty stream; `executeCommand` passes `expectedVersion: 0` so the first append succeeds with `lastVersion = 1`. `checkTransitionLegal` rejects creation against an existing aggregate with `COMMAND_ILLEGAL_TRANSITION`.
 - **State field for the after-payload is the first `affects` field outside the explicit payload.** `stateFieldFromPlan` in `emit/payload.ts` (and `stateFieldForPlan` in `command-runtime/execute.ts`) — typically `status`. Authors who include `status` in `payload` change which field carries `plan.toState`.
 - **`COMMAND_CONCURRENCY_CONFLICT` is the only event-store error mapped.** `executeCommand` catches `ConcurrencyConflict` from `appendEvents` and wraps it as `CommandExecutionError`; other store errors propagate unchanged.
@@ -323,8 +370,8 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **No JOIN-based FK enrichment for list/search endpoints in the demo.** `demo/issue-tracker-api`'s list / search endpoints currently return raw FK IDs; a JOIN compilation strategy is brainstormed in the `demo_join_enrichment_todo` memory entry. The compiler supports dot-nav joins for individual field paths today; bulk enrichment is not modeled.
 - **Tier 1 nodes only.** `distinct`, `lookupOne`, `lookup` expression, named predicate graphs, and `exists` / `in` / `$list` parse but are validator-rejected by `tier1-nodes.ts` / `tier1-expr.ts`.
 - **Single-graph-per-call.** Multi-graph specs are rejected with `STRUCT_DUPLICATE_GRAPH_ID`; multi-graph compilation belongs in the runtime layer.
-- **One aggregate per command.** Multi-aggregate sagas are rejected with `CMD_MULTI_AGGREGATE_NOT_ALLOWED`; per the current platform direction, cross-service BPMN orchestration is owned by Operaton, not the compiler.
-- **Composite aggregate keys are not supported.** `aggregateId` is a single Expr coerced to string in `executeCommand`.
+- **One aggregate per legacy command compile.** `compileCommand` rejects multi-aggregate legacy command graphs with `CMD_MULTI_AGGREGATE_NOT_ALLOWED`; per the current platform direction, cross-service BPMN orchestration is owned by Operaton, not the compiler.
+- **Composite aggregate keys are not supported.** `aggregateId` is a single Expr coerced to string by the command/operation emit runtime.
 - **Dot-navigation cardinality must be `one`.** Many-cardinality NAV is rejected with `NAV_FAN_OUT_NOT_ALLOWED`; explicit JOIN nodes are not yet a feature.
 - **No planner / optimizer.** Lowering is a direct fold; no predicate pushdown, no JOIN reordering, no projection pruning beyond what `Project` / `Aggregate` already declare.
 - **No HTTP / binding surface here.** Bindings live in [`@rntme/bindings`](../bindings) and [`@rntme/bindings-http`](../bindings-http).
@@ -333,14 +380,15 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Multi-graph `explain` is single-graph too.** The `explain` API matches `compile`'s single-graph contract.
 - **No streaming / pagination cursor.** `execute` runs `stmt.all(...)` and returns the full row set. Callers wanting cursor / chunked iteration must compose `LIMIT` / sort externally.
 - **No projection materialisation.** The compiler reads from QSM-declared tables (entity-mirror or derived); building those tables is `@rntme/projection-consumer`'s job.
-- **No actor / authorisation policy.** `executeCommand` accepts an `actor` and stores it on each event envelope; it does not check whether the actor is allowed to run the transition. Authorisation belongs in the binding layer.
-- **No idempotency dedup.** A repeat `executeCommand` call against the same stream with the same payload appends a new event (subject only to optimistic concurrency on `expectedVersion`). Idempotency keys are not consumed.
-- **No transactional read-prelude across stores.** `qsmDb` and `eventStore` may be different SQLite files; the read-prelude is queried from `qsmDb` and the append goes to `eventStore`. The two are not joined in a single transaction.
+- **No actor / authorisation policy inside the compiler.** Operation execution stores the actor on emitted events, but authorisation belongs in bindings/runtime middleware and operation graphs.
+- **Legacy command APIs have no idempotency dedup.** HTTP action idempotency lives in `@rntme/bindings-http`; direct `executeCommand` calls do not consume idempotency keys.
+- **No transactional read-prelude across stores.** `qsmDb` and `eventStore` may be different SQLite files; local reads are queried from `qsmDb` and appends go to `eventStore`. The two are not joined in a single transaction.
 
 ## Where to look first
 
 | Task | Start at |
 | --- | --- |
+| Trace an operation through the current runtime path | `src/operation/compile.ts → compileOperation()` then `src/operation/execute.ts → executeOperation()` (local reads → calls → branches → emits → result). |
 | Trace a query through the pipeline | `src/index.ts → compile()` (top-down: `parseAuthoringSpec` → `validateStructural` → `normalize` → `validateSemantic` → `buildSemanticPlan` → `buildRelational` → `lowerToSqlite` → `emitSql`). |
 | Trace a command through the pipeline | `src/command-runtime/compile.ts → compileCommand()` then `src/command-runtime/execute.ts → executeCommand()` (replay → `checkTransitionLegal` → `derivePayload` → `appendEvents`). |
 | Read every intermediate artifact for a failing spec | `src/explain/explain.ts → explain()`; failure returns partial `artifacts`. |
@@ -362,8 +410,9 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 | Inspect compiled SQL for a graph | `import { explain } from '@rntme/graph-ir-compiler'; const r = explain(spec, pdm, qsm); r.value.sql; r.value.paramOrder;` — also returns `parsed`, `canonical`, `semanticPlan`, `relational`. |
 | Map an event-store envelope back to a transition | `src/emit/event-type.ts → deriveEventTypeName(aggregate, transition)` produces the envelope's `eventType`. To go the other way: walk PDM's derived event-type table (`@rntme/pdm → deriveEventTypes`) and match on `eventType`. |
 | Add a new aggregate function | (1) Add the function name to the `measureSpec` enum in `src/parse/schema.ts`. (2) Handle it in `src/lower/sqlite/lower.ts → measureToAggSql`. (3) Add a semantic-validator case in `src/validate/semantic/aggregate-phase.ts`. (4) Document in MVP spec. |
-| Wire the compiler into a new runtime | Use `compile / execute` for queries and `compileCommand / executeCommand` for commands. Re-validate PDM and QSM before passing them in (compileCommand re-validates internally; compile assumes pre-validated). Hold one `better-sqlite3.Database` per QSM target; one `EventStore` for command-side. |
-| Find an example end-to-end command | `test/e2e/command-assign.e2e.test.ts` exercises `compileCommand → executeCommand` against the issue-tracker fixture, including replay and concurrency. |
+| Wire the compiler into a new runtime | Use `compileOperation / executeOperation` and provide an `OperationRegistry`, `OperationCallClient`, one `better-sqlite3.Database` per QSM target, and one `EventStore` for local emits. |
+| Find an example end-to-end operation | `test/integration/operation-*.test.ts` and runtime issue-tracker fixtures exercise reads, emits, branches, and calls through `compileOperation → executeOperation`. |
+| Find an example legacy command | `test/e2e/command-assign.e2e.test.ts` exercises `compileCommand → executeCommand` against the issue-tracker fixture, including replay and concurrency. |
 | Find an example end-to-end query with JOINs | `test/e2e/join.e2e.test.ts` and `test/e2e/category-sales.e2e.test.ts` (latter is also the golden-test source for the SQL-emission pipeline). |
 | Diagnose a "missing required param" at runtime | `src/execute/execute.ts → executeCompiled`; the throw decorates the Error with `code: 'RUNTIME_MISSING_REQUIRED_PARAM'`. Check that the input mode for the param is `required` and that the caller is supplying the key in `paramValues`. |
 | Diagnose a SQLite error wrapped at runtime | `src/execute/execute.ts → executeCompiled` catches and rethrows as `RUNTIME_SQLITE_ERROR`. The original SQLite message is preserved in `.message`; the SQL is in `compiled.sql`. |
@@ -373,6 +422,7 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 ## Specs
 
 - [`../../graph_ir_rc_7.md`](../../graph_ir_rc_7.md) — Graph IR rc7 language: operators, expression grammar, named shapes, input modes, role inference, signature/output shapes.
+- [`../../docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`](../../docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md) — Current operation model: effects, call/branch/result nodes, binding exposure, and service-local handler removal.
 - [`../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`](../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md) — Authoritative MVP design: layer order, Tier 1 scope, error code conventions, what is intentionally out of scope.
 - [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — Command path: emit nodes, read prelude, replay-and-validate, optimistic concurrency. §4 = command-runtime.
 - [`../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`](../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md) — Root-cause analysis and fix for the `wrapPredicateOptional` SQL `?` misalignment.

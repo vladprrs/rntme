@@ -5,7 +5,7 @@ description: Use when authoring or revising artifacts/pdm.json (aggregates, even
 
 ## What you're building
 
-`artifacts/pdm.json` is the domain model: the named aggregates, their fields, foreign-key relations, and the finite-state machine that drives every mutation. Every other artifact — QSM projections, bindings endpoints, graph-IR queries, UI forms — references names declared here. The PDM is the single canonical source of truth for what exists in the domain and what can happen to it. It co-evolves with the UI artifact: UI forms express commands, and those commands must map to PDM transitions; if you add or remove a form in `designing-ui`, come back and align the PDM accordingly before advancing.
+`artifacts/pdm.json` is the domain model: the named aggregates, their fields, foreign-key relations, and the finite-state machine that drives every mutation. Every other artifact — QSM projections, bindings endpoints, Graph IR operations, UI forms — references names declared here. The PDM is the single canonical source of truth for what exists in the domain and what can happen to it. It co-evolves with the UI artifact: UI forms express actions, and state-changing actions must map to PDM transitions; if you add or remove a form in `designing-ui`, come back and align the PDM accordingly before advancing.
 
 ## Checklist
 

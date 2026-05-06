@@ -108,7 +108,7 @@ MVP so message starts can subscribe to `rntme.{svc}.{agg}` topics.
 
 The planner also adds one `bpmn-worker` workload. It receives the worker image,
 `/srv/workflows/workflows.json`, the BPMN files, event subscriptions derived
-from `messageStarts[]`, and command binding targets derived from
+from `messageStarts[]`, and action binding targets derived from
 `serviceTasks[]`. Each service task target includes the deterministic internal
 domain-service gRPC endpoint, for example
 `rntme-acme-order-fulfillment-inventory:50051`.

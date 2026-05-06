@@ -155,7 +155,7 @@ Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Ses
 
 ### Edge auth invariants
 
-The named 401 fallback is the only canonical 401 body for protected routes. If a client sees a 401 with a `reason` field on a protected route, the request bypassed nginx and reached the backend pre-step pipeline — investigate.
+The named 401 fallback is the only canonical 401 body for protected routes. If a client sees a 401 with a `reason` field on a protected route, the request bypassed nginx and reached backend operation execution directly — investigate.
 
 ## Specs
 

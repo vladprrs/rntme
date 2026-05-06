@@ -141,15 +141,17 @@ One-line purpose per package (read the per-package README before touching):
   concurrency, monotonic cursor, and Kafka-style relay. →
   `packages/runtime/event-store/README.md`.
 - **`@rntme/graph-ir-compiler`** — Parses the rc7 Graph IR, validates it
-  (structural + semantic), lowers to SQL, emits, and executes queries
-  and commands. → `packages/artifacts/graph-ir-compiler/README.md`.
+  (structural + semantic + effects), and compiles effect-aware operations
+  with local reads, local emits, call/branch/result nodes, plus legacy SQL
+  helpers. → `packages/artifacts/graph-ir-compiler/README.md`.
 - **`@rntme/bindings`** — HTTP bindings artifact: four-layer validator
-  (parse → structural → references → consistency), `pre[]`,
-  `inputFrom`, callback response shapes, and OpenAPI 3.1 emitter. →
+  (parse → structural → references → consistency), `exposure`,
+  `inputFrom`, callback response shapes, effect checks, and OpenAPI 3.1 emitter. →
   `packages/artifacts/bindings/README.md`.
 - **`@rntme/bindings-http`** — Hono runtime for the bindings artifact;
-  routes queries and commands, runs pre-fetch orchestration, applies the
-  idempotency cache, callback redirects, maps errors to 400/409/422. →
+  routes read/action exposures to one operation executor, applies the
+  idempotency cache, handles callback redirects, and maps errors to
+  400/409/422. →
   `packages/runtime/bindings-http/README.md`.
 - **`@rntme/projection-consumer`** — Reads envelope events off the bus,
   applies them to projection tables idempotently, rolls back on fail. →
@@ -171,7 +173,7 @@ One-line purpose per package (read the per-package README before touching):
   `packages/runtime/runtime/README.md`.
 - **`@rntme/bpmn-worker`** — Provisioned BPMN worker bridge. Subscribes
   to Kafka event topics, starts Operaton process instances, executes
-  BPMN service tasks through rntme gRPC command bindings, and uses
+  BPMN service tasks through rntme gRPC action bindings, and uses
   `@rntme/workflows` mappings. → `packages/runtime/bpmn-worker/README.md`.
 - **`@rntme/module-scaffold`** — Examples and scaffolding for rntme module
   authors. Holds `exampleHandlers` (an example `CodeCommandHandlerMap`); no
@@ -493,13 +495,13 @@ under `packages/runtime/event-store/test/`.
    the per-package README "Where to look first" names the test
    families.
 
-### 6.9 Add a platform module (code-executor-based integration service)
+### 6.9 Add a platform module (canonical-contract integration service)
 
 1. Read `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` (§5 module pattern, §12 contract).
-2. Copy `packages/tooling/module-scaffold/` to `packages/<module-name>/` and update `package.json#name`.
-3. Replace `src/handlers.ts` with your vendor-specific handlers; add vendor SDK to dependencies.
-4. Use `CodeCommandExecutor` from `@rntme/runtime` to wire handlers in your module's bootstrap.
-5. Follow the health-check convention in `packages/tooling/module-scaffold/README.md`.
+2. Scaffold `modules/<category>/<vendor>/` with `package.json`, `module.json`, and a server entry that implements the relevant canonical contract service.
+3. Add the vendor SDK to dependencies and declare capabilities/provisioner/client blocks in `module.json` as needed.
+4. Expose operations over the module's canonical gRPC contract. Domain services call those operations from Graph IR `call` nodes.
+5. Follow the package and health-check conventions in the category README and `packages/tooling/module-scaffold/README.md`.
 
 ### 6.10 Expose a service over gRPC
 
@@ -515,11 +517,11 @@ under `packages/runtime/event-store/test/`.
 
 3. Boot the service. The runtime uses `manifest.service.name` to derive `packageName` (`rntme.<name>.v1`) and `serviceName` (`<Name>Service`).
 4. To obtain the `.proto` file for client codegen: instantiate `emitProto(validated, shapes, { packageName, serviceName })` in a one-off script, or (later) via `rntme-runtime emit-proto <serviceDir>` (follow-up).
-5. `CommandExecutor` / `QueryExecutor` are the same seam as HTTP; domain services don't change anything to add gRPC.
+5. The runtime uses the same operation executor as HTTP; domain services do not need separate query/command executor wiring to add gRPC.
 
-### 6.11 Call a module via pre-fetch from a command binding
+### 6.11 Call a module from an operation graph
 
-1. Read spec §7 and `packages/runtime/bindings-http/src/pre/` source.
+1. Read `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md` and `packages/runtime/runtime/README.md`'s module call notes.
 2. Declare the module in `artifacts/manifest.json`:
 
 ```json
@@ -529,33 +531,39 @@ under `packages/runtime/event-store/test/`.
 ```
 
 3. Copy the module's `.proto` into `artifacts/protos/`.
-4. In `artifacts/bindings.json`, add `pre[]` to a command binding:
+4. In the Graph IR operation, add a `call` node and reference its result from later nodes:
 
 ```json
 {
-  "kind": "command",
-  "graph": "createOrder",
-  "http": { "method": "POST", "path": "/commands/createOrder", "parameters": [...] },
-  "pre": [
-    { "kind": "module-rpc", "module": "payments", "rpc": "CreateCheckoutSession",
-      "input": { "customerId": "$body.customerId", "amount": "$body.amount" },
-      "bindAs": "session" }
-  ]
+  "id": "session",
+  "type": "call",
+  "target": { "module": "payments", "operation": "CreateCheckoutSession" },
+  "input": {
+    "customerId": { "$param": "customerId" },
+    "amount": { "$param": "amount" }
+  },
+  "policy": {
+    "timeoutMs": 1000,
+    "retry": { "attempts": 2, "retryOn": "transient" },
+    "idempotency": { "mode": "inherit" },
+    "onError": "fail"
+  }
 }
 ```
 
-5. Reference `$pre.session.url` in the graph's emit payload to bake the vendor result into the event.
-6. HTTP retries are safe: pass `Idempotency-Key` header from the client; the cache survives process restarts in `persistent` mode.
-7. Invariants enforced by validator: `pre.length ≤ 2`, unique `bindAs`, `module` declared in manifest, `kind: command` only.
+5. Reference the call output with `$ref` expressions such as `{ "$ref": "session.result.url" }`.
+6. Expose the graph with `exposure: "action"` in `artifacts/bindings.json`.
+7. HTTP retries are safe for idempotent actions: pass `Idempotency-Key` from the client; the cache survives process restarts in `persistent` mode.
+8. Invariants enforced by validator: call target must resolve in the operation registry, read exposures cannot contain action calls, and action call idempotency must match the registry.
 
 ### 6.12 Define a vendor-callback endpoint (OAuth redirect, magic link, hosted checkout return)
 
 1. Read spec §8.
-2. In `artifacts/bindings.json`, add a command binding with:
+2. In `artifacts/bindings.json`, add an action binding with:
 
 ```json
 {
-  "kind": "command",
+  "exposure": "action",
   "graph": "completeFlow",
   "http": { "method": "GET", "path": "/oauth/<vendor>/callback", "parameters": [] },
   "inputFrom": {
@@ -569,7 +577,7 @@ under `packages/runtime/event-store/test/`.
 }
 ```
 
-3. Make the `completeFlow` command graph read your `pending_flow` projection as a read-prelude (state→flow lookup), do a `pre[]` RPC to exchange the vendor code, and emit `FlowCompleted`.
+3. Make the `completeFlow` operation graph read your `pending_flow` projection, use a `call` node to exchange the vendor code, and emit `FlowCompleted`.
 4. Validator invariants: GET is allowed only when `response.onOk` or `response.onErr` is a redirect. `inputFrom.<name>` must equal a graph input. `inputFrom.body` / `form` are not allowed on GET.
 5. Redirect templates support `{$result.field}` / `{$error.field}` substitutions. Omit `status` to default to 302.
 6. Callback endpoint **lives on the domain service**, not the module — see spec §8.5.
@@ -594,9 +602,9 @@ under `packages/runtime/event-store/test/`.
 ### 6.14a Add a BPMN workflow
 
 1. Read `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`, `packages/artifacts/workflows/README.md`, and `demo/order-fulfillment-blueprint/README.md`.
-2. Add `workflows/workflows.json` at the project root. Define `definitions[]` with safe relative `.bpmn` files under `workflows/`, `messageStarts[]` for PDM event-envelope subscriptions, and `serviceTasks[]` for BPMN task ids that call project-routed command bindings.
+2. Add `workflows/workflows.json` at the project root. Define `definitions[]` with safe relative `.bpmn` files under `workflows/`, `messageStarts[]` for PDM event-envelope subscriptions, and `serviceTasks[]` for BPMN task ids that call project-routed action bindings.
 3. Add the referenced BPMN files under `workflows/`. Keep BPMN `processId`, message names, and service task ids aligned with the workflow artifact.
-4. Validate with `loadComposedBlueprint(...)` or `rntme project publish --dry-run`. Blueprint discovers `workflows/workflows.json`, calls `@rntme/workflows`, checks BPMN files, resolves event refs through project PDM context, and resolves command binding refs through the project binding registry.
+4. Validate with `loadComposedBlueprint(...)` or `rntme project publish --dry-run`. Blueprint discovers `workflows/workflows.json`, calls `@rntme/workflows`, checks BPMN files, resolves event refs through project PDM context, and resolves action binding refs through the project binding registry.
 5. For deployment, configure the target with provisioned Redpanda and `workflows.engine: { kind: "operaton", mode: "provisioned", image }` plus `workflows.worker.image`. Deploy-core renders `infrastructure.workflowEngine` and a `bpmn-worker` workload; deploy-dokploy renders Operaton and mounts `/srv/workflows`.
 
 ### 6.14b Run the live Dokploy BPMN e2e
@@ -611,8 +619,8 @@ under `packages/runtime/event-store/test/`.
 1. Read `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §5-§9 and use `demo/notes-blueprint/` as the worked example.
 2. Add an Identity integration module service, for example `services/identity-auth0/service.json` with `kind: "integration-module"`, and include it in `project.json#services`.
 3. Add `project.json#middleware.auth` with `kind: "auth"`, `provider: "auth0"`, `audience`, and `moduleSlug`, then mount it only on protected HTTP routes.
-4. Add `pre[]` to protected bindings: call `identity-auth0.IntrospectSession`, pass the Authorization header token and the same audience, and bind the canonical `Session` as `session`.
-5. Reference `$pre.session.user_id` in Graph IR for owner writes or guards. Do not use vendor-specific `subject_id`; Auth0 `sub` is carried through canonical `Session.user_id`.
+4. In protected operation graphs, add a `call` node to `identity-auth0.IntrospectSession`, pass the Authorization header token through `inputFrom`, and bind the canonical `Session` as a node such as `session`.
+5. Reference `{ "$ref": "session.result.user_id" }` in Graph IR for owner writes or guards. Do not use vendor-specific `subject_id`; Auth0 `sub` is carried through canonical `Session.user_id`.
 6. Keep secrets out of blueprints. Auth0 domain/client/audience public browser config is deploy-rendered; Auth0 and Redpanda secret values live in deploy target/Dokploy secret refs.
 
 ### 6.15a Add a new identity provider
@@ -626,7 +634,7 @@ under `packages/runtime/event-store/test/`.
 7. In the consuming project, declare the provider under `project.json#modules.identity` with a package name whose manifest vendor matches `project.json#middleware.auth.provider`.
 8. Gate anonymous and authenticated layout branches with `visible: { "$state": "/auth/status", "eq": ... }`; do not fetch authenticated screen data while the screen root is invisible.
 
-**Two transports.** Identity modules consumed by `kind: "auth"` middleware MUST expose `IntrospectSession` via two transports: gRPC (for runtime pre-step calls) and HTTP `GET /introspect` (for edge `auth_request`). Both wrap the same in-process handler. The module declares its HTTP port via `module.json#capabilities.edgeAuth.port` (default `50052`); deploy planning fails with `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` if a module targeted by an auth middleware does not declare this. See `packages/contracts/identity/v1/README.md#http-introspection-transport`.
+**Two transports.** Identity modules consumed by `kind: "auth"` middleware MUST expose `IntrospectSession` via two transports: gRPC (for Graph IR operation calls) and HTTP `GET /introspect` (for edge `auth_request`). Both wrap the same in-process handler. The module declares its HTTP port via `module.json#capabilities.edgeAuth.port` (default `50052`); deploy planning fails with `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` if a module targeted by an auth middleware does not declare this. See `packages/contracts/identity/v1/README.md#http-introspection-transport`.
 
 ### 6.16 Add a category contract package
 
@@ -884,18 +892,18 @@ Known categorical entries to watch for:
   module does not implement an Agent surface.
 - **Audience** — OIDC/API identifier that the access token was issued for.
   Auth blueprints keep `project.json#middleware.auth.audience` equal to
-  every `IntrospectSession` pre-step input audience.
+  every `IntrospectSession` operation-call input audience.
 - **Auth middleware** — Project middleware marker with `kind: "auth"`.
-  The edge does not verify JWTs; runtime bindings call the configured
-  Identity module through `pre[]` and reject inactive sessions.
+  The edge does not verify JWTs; protected operation graphs call the
+  configured Identity module and reject inactive sessions.
 - **boundary-event-only streaming** — AI/LLM v1 emits CloudEvents only at
   state transitions (`started`, `finished`, `failed`, `requires_action`),
   never per chunk. Future token streaming belongs in a server-streaming
   gRPC RPC; the event log stays for state.
 - **BPMN worker** — Runtime workload for provisioned Operaton projects.
   Subscribes to Kafka event topics, starts process instances, and
-  executes BPMN service tasks through rntme gRPC command bindings.
-- **Callback binding** — A command binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
+  executes BPMN service tasks through rntme gRPC action bindings.
+- **Callback binding** — An action binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
 - **Canonical AI/LLM contract** — `@rntme/contracts-ai-llm-v1`: service
   `AiLlmModule`, three aggregates (`Completion`, `AssistantThread`,
   `AsyncJob`), and sixteen events. The wrapper protocol every AI/LLM
@@ -927,10 +935,10 @@ Known categorical entries to watch for:
   declare `capabilities.thread: false` and return `UNIMPLEMENTED` for
   thread RPCs; no module-local emulation.
 - **Deployment plan** — Target-neutral redacted descriptor produced by `@rntme/deploy-core` from a composed project; rendered by an adapter (`@rntme/deploy-dokploy`) to a target-specific shape.
-- **Executor seam** — `CommandExecutor` / `QueryExecutor` interfaces decoupling bindings-http/grpc from graph-ir execution.
+- **Executor seam** — `OperationExecutor` interface decoupling bindings-http/grpc from Graph IR operation execution.
 - **QSM** — Query-Side Model. Derived read-side projections on top of
   PDM. Owns relation metadata for JOINs (post 2026-04-16 migration).
-- **Graph IR** — Intermediate representation for queries and commands.
+- **Graph IR** — Intermediate representation for service operations.
   Canonical specs live under `docs/superpowers/specs/` (e.g.
   `2026-04-13-graph-ir-sql-compiler-mvp-design.md`,
   `2026-04-14-mutations-design.md`). `graph_ir_rc_7.md` is the
@@ -949,11 +957,11 @@ Known categorical entries to watch for:
 - **Lead/Deal Schism resolution** — CRM v1 models vendor "lead" versus
   "deal/opportunity" naming differences through `Deal.qualification`
   instead of a separate Lead aggregate.
-- **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from a binding's `pre[]`.
+- **Module** — External integration service declared in `manifest.modules[]`; reached via gRPC; called from Graph IR `call` nodes.
 - **`@rntme/contracts-module-v1`** — JSON shape of `module.json` (manifest schema, types, `parseModuleManifest`). All loaders/composers depend on this; modules implement it via their `module.json`.
 - **`@rntme/contracts-provisioner-v1`** — Provisioner runtime contract: ProvisionerContract, ProvisionerInput/Output, ProvisionerLog, ProvisionerVendorError, env-mapping types. deploy-core implements; modules with provisioner blocks code against it.
 - **`@rntme/contracts-client-runtime-v1`** — Browser-side platform contract for module client blocks: ModuleBootContext, hooks/providers, operation registry, transport chain, visibility evaluator, and router helpers. UI modules import this instead of `@rntme/ui-runtime` internals.
-- **`@rntme/contracts-handlers-v1`** — Code command handler runtime contract: CodeCommandHandler, CodeCommandHandlerMap, structurally-minimal CommandExecutionContext (`now`, `nextId`, `correlation`), CommandExecutorOutput. Modules code their handlers against this leaf contract; `@rntme/runtime` re-exports the same names and ships a `runtime-compat.test.ts` drift gate so the runtime's richer ctx (with `eventStore`, `qsmDb`, `actor`) remains structurally assignable to the contract.
+- **`@rntme/contracts-handlers-v1`** — Legacy code command handler contract retained for handler-shaped module examples: CodeCommandHandler, CodeCommandHandlerMap, structurally-minimal CommandExecutionContext (`now`, `nextId`, `correlation`), CommandExecutorOutput. New domain-service operations should use Graph IR operation graphs instead of service-local handler files.
 - **Platform contract** — Leaf package under `packages/contracts/*/v1` that defines a cross-cutting boundary consumed by modules and implemented by platform/runtime packages.
 - **Module conformance suite** — Per-category package
   `modules/<category>/conformance/` (e.g. `@rntme/conformance-identity`).
@@ -965,10 +973,8 @@ Known categorical entries to watch for:
   shape. Adapter modules convert it into vendor-native tool formats.
 - **PDM** — Project Domain Model. The project-level entity/field/relation/
   state-machine artifact shared across services.
-- **Pre-step** — A `pre[]` entry on a command binding; either `system` (idempotency-key) or `module-rpc`. Cap of 2 per binding.
-- **`$pre` directive** — Graph IR expression directive for reading values
-  produced by binding `pre[]` steps, for example
-  `{ "$pre": "session.user_id" }`.
+- **Operation call** — A Graph IR `call` node that invokes a module or service operation and exposes its output to later graph nodes via `$ref`.
+- **`$ref` directive** — Graph IR expression directive for reading prior node outputs, for example `{ "$ref": "session.result.user_id" }`.
 - **Project blueprint** — Folder with `project.json` + project-level PDM + per-service artifacts + modules. Canonical authoring/versioning/deploy unit.
 - **Project PDM** — PDM artifact at the project level, shared across all services in the project.
 - **provisioner** — module-side code that reconciles external state during deploy. Declares `produces[]` (outputs) and `requires[]` (target-secret credentials) in `module.json`.
@@ -1008,7 +1014,7 @@ Known categorical entries to watch for:
   entry point. Default implementation: `HttpSurface` (Hono).
 - **Workflow artifact** — Project-level `workflows/workflows.json`
   artifact validated by `@rntme/workflows`; maps BPMN definitions to
-  event-envelope message starts and project-routed command binding
+  event-envelope message starts and project-routed action binding
   service tasks.
 - **DbDriver** / **EventBus** — Runtime plugin seams for storage and
   messaging. Default implementations: `BetterSqliteDriver`,

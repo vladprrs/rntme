@@ -36,7 +36,7 @@ elsewhere in the workspace.
 cp -r packages/tooling/module-scaffold modules/<category>/<vendor>
 # Then in the new copy:
 #   1. Update package.json#name (e.g. @rntme/<category>-<vendor>) and bump version.
-#   2. Replace src/handlers.ts with your vendor-specific CodeCommandHandlerMap.
+#   2. Replace src/handlers.ts only if you are building a legacy handler-shaped example.
 #   3. Keep @rntme/contracts-handlers-v1 in dependencies (already wired).
 #   4. Add your vendor SDK to dependencies.
 #   4b. Add @rntme/contracts-module-v1 (manifest schema) and
@@ -44,7 +44,7 @@ cp -r packages/tooling/module-scaffold modules/<category>/<vendor>
 #       to your dependencies.
 #   5. Author module.json validated by parseModuleManifest from @rntme/contracts-module-v1.
 #   6. Run `pnpm install` at the repo root.
-#   7. Wire your handlers into a CodeCommandExecutor in your module's bootstrap.
+#   7. Expose real vendor capabilities through the category's canonical contract service.
 ```
 
 ## API
@@ -89,8 +89,8 @@ this package.
 - **No runtime dependency.** The package depends only on
   `@rntme/contracts-handlers-v1` (handler types). It does **not**
   depend on `@rntme/event-store`, `@rntme/runtime`, or any other
-  runtime piece. If you need a `CodeCommandExecutor`, instantiate it
-  in your own module — `import { CodeCommandExecutor } from '@rntme/runtime'`.
+  runtime piece. New modules should expose canonical contract services;
+  domain-service command handlers are no longer mounted by the runtime.
 - **Authors copy, they do not depend.** Adding `@rntme/module-scaffold`
   to a real module's `dependencies` is a smell. Copy the source, then
   delete this package from your dep list.
@@ -114,17 +114,17 @@ this package.
   HTTP surface → `@rntme/runtime` and friends.
 - Conformance suites for category contracts → `modules/<category>/conformance`
   (e.g. `modules/identity/conformance`).
-- Webhook receiver, idempotency cache, pre-fetch (`pre[]`) — modules use
+- Webhook receiver, idempotency cache, and operation execution — modules use
   the runtime/bindings packages directly.
 
 ## Where to look first
 
 - **What does a real module look like?** → `modules/identity/auth0/`
-  (mixed module: backend handlers + UI client).
+  (mixed module: canonical backend contract + UI client).
 - **How is `module.json` validated?** → `parseModuleManifest` in
   `@rntme/contracts-module-v1`.
-- **How is a handler map mounted at boot?** → `CodeCommandExecutor` in
-  `packages/runtime/runtime/src/plugins/executors/`.
+- **How does a service call a module?** → Graph IR `call` nodes plus the
+  operation registry in `packages/runtime/runtime`.
 - **What's the contract drift gate?** →
   `packages/contracts/handlers/v1/test/unit/runtime-compat.test.ts`.
 

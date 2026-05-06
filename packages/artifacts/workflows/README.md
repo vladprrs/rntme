@@ -14,7 +14,7 @@ Project-level workflow artifact parser and validator for BPMN/Operaton mappings.
 
 - `definitions[]` — BPMN files under `workflows/`, each with an rntme id and BPMN `processId`.
 - `messageStarts[]` — event-envelope subscriptions that start BPMN process instances.
-- `serviceTasks[]` — BPMN service task ids mapped to project-routed command bindings.
+- `serviceTasks[]` — BPMN service task ids mapped to project-routed action bindings.
 
 The artifact contains only mapping metadata. The BPMN XML remains in separate
 `.bpmn` files so deploy planning can mount the exact process definitions into

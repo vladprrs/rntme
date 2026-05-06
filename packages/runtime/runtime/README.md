@@ -8,7 +8,7 @@ Top-level orchestrator for an rntme service: loads a validated artifact director
   - `@rntme/pdm` — parses/validates `pdm.json`, derives `EventTypeSpec[]`, exposes `PdmResolver` to downstream validators.
   - `@rntme/qsm` — parses/validates `qsm.json`, generates projection DDL via `generateProjectionDdl`.
   - `@rntme/event-store` — instantiates `SqliteEventStore` and `createRelay`; produces `EventEnvelope` values consumed by seed and relay.
-  - `@rntme/graph-ir-compiler` — reached transitively through bindings; compiles Graph IR nodes when HTTP routes execute.
+  - `@rntme/graph-ir-compiler` — compiles and executes unified Graph IR operations for HTTP/gRPC surfaces.
   - `@rntme/bindings` — parses/validates `bindings.json`, generates the OpenAPI document mounted at `/api/openapi.json`.
   - `@rntme/bindings-http` — `createBindingsRouter` produces the `/api` Hono sub-app mounted by `HttpSurface`.
   - `@rntme/projection-consumer` — `compileApplyPlan`, `bootstrapProjections`, `createProjectionConsumer`, and the `InMemoryKafkaConsumer` factory used by `InMemoryBus`.
@@ -49,8 +49,8 @@ src/
     http-surface.ts                     (entry) `HttpSurface` — default Surface mounting bindings at /api and UI at /.
     observability.ts                    (entry) createMetrics, mountObservability, Metrics, HealthProbe.
     contract-tests.ts                   (test-only) Vitest contract suites for DbDriver, EventBus, Surface. Not re-exported from index.ts.
-    executors/composite-command-executor.ts
-                                        Service-local code-command fallback chain.
+    executors/graph-operation-executor.ts
+                                        Default OperationExecutor backed by compiled Graph IR operations.
 ```
 
 ## Quick start
@@ -117,11 +117,9 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 
 ### Plugin seams
 
-`DbDriver`, `EventBus`, and `Surface` are the replaceable backings. `CommandExecutor` and `QueryExecutor` are the executor seams shared by HTTP/gRPC surfaces and modules. Default implementations ship in this package; future packages (`@rntme/db-turso`, `@rntme/bus-kafka`) implement the same interfaces and are injected via `RuntimeConfig`.
+`DbDriver`, `EventBus`, `Surface`, and `OperationExecutor` are the replaceable backings. The default operation executor is `GraphOperationExecutor`, which runs the operation map compiled from `bindings.json` + Graph IR at startup. Future packages (`@rntme/db-turso`, `@rntme/bus-kafka`) implement the same plugin-style interfaces and are injected via `RuntimeConfig`.
 
-The module-facing handler contract — `CodeCommandHandler`, `CodeCommandHandlerMap`, and the structurally-minimal `CommandExecutionContext` / `CommandExecutorOutput` shape modules code against — lives in `@rntme/contracts-handlers-v1`. The runtime's richer ctx (with `eventStore`, `qsmDb`, `actor`) stays internal to `@rntme/bindings-http/executor-contract`; subtyping makes a runtime-rich ctx assignable to the contract-narrow ctx, and a drift gate in the contract package's `runtime-compat.test.ts` pins this relationship.
-
-Service-local command handlers can be bundled under the artifact directory and enabled with `manifest.commands.handlersModule`, for example `"commands/handlers.mjs"`. These handlers are runtime artifacts, not module contracts: TypeScript authors should type them as `ServiceLocalCodeCommandHandlerMap` from `@rntme/runtime` when they need the richer `ServiceLocalCommandExecutionContext` (`eventStore`, `qsmDb`, `actor`, `now`, `nextId`, `correlation`). A module-facing `CodeCommandHandlerMap` from `@rntme/contracts-handlers-v1` remains assignable when a handler only needs the minimal context. The module must export a handler map as either `handlers` or `default`. `startService` imports that ESM module from the loaded artifact directory, tries those handlers first, and falls back to the Graph IR command executor only when the code executor returns `COMMAND_NOT_FOUND`. The manifest path must stay relative to the artifact directory; absolute paths, URL schemes, backslashes, `.` segments, and `..` segments are rejected during manifest validation.
+Domain-service executable command-handler files are no longer a runtime extension point. A project blueprint with `services/<domain>/commands/handlers.mjs` is rejected by `@rntme/blueprint`; runtime artifacts execute domain behavior through Graph IR `emit`, `call`, `branch`, and `result` nodes.
 
 | Interface | Default impl | Key methods |
 |---|---|---|
@@ -149,6 +147,7 @@ Contract suites for all three interfaces live in `src/plugins/contract-tests.ts`
 | `onReady` | `undefined` | Callback invoked once the HTTP listener is bound. |
 | `seedMode` | `'strict'` | Passed to `applySeed`. `'strict'` rejects on a non-empty event-store with `SEED_STORE_NOT_EMPTY`. |
 | `skipSeed` | `false` | Test-only escape hatch that bypasses `applySeed` entirely. |
+| `operationExecutor` | compiled Graph IR operation map | Overrides the default operation executor for tests/embedding. |
 | `externalAdapterClient` | `manifest.modules[]` + `artifactDir` | Overrides module client wiring for tests/embedding. |
 | `artifactDir` | `undefined` | Base directory for `manifest.modules[].protoPath` and TLS paths. Required for module wiring. |
 | `runtimeEnv` | `process.env` | Test/embed override for deploy env vars such as `RNTME_AUTH_*` and `RNTME_EVENT_BUS_*`. |
@@ -175,12 +174,12 @@ actor is present.
 
 ### Deploy runtime env
 
-Auth0 pre-step wiring is controlled by `RNTME_AUTH_PROVIDER=auth0`,
+Auth0 module wiring is controlled by `RNTME_AUTH_PROVIDER=auth0`,
 `RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`, and
 `RNTME_AUTH_MODULE_ENDPOINT`. If provider is set but endpoint is missing,
 startup fails with `RUNTIME_BOOT_AUTH_ENDPOINT_MISSING`. When auth env is
 present, `startService` overrides that module's manifest gRPC address with the
-endpoint, builds a `GrpcAdapterClient`, and passes it to `bindings-http`. The
+endpoint, builds a `GrpcAdapterClient`, and passes it to the operation executor for Graph IR `call` nodes. The
 CLI passes `artifactDir` to `startService` so module proto paths resolve in
 deployed containers.
 
@@ -227,7 +226,7 @@ safety gate, not as a distributed quota system.
 
 ### Module gRPC TLS
 
-`manifest.modules[]` declares external platform modules used by `pre[]`:
+`manifest.modules[]` declares external platform modules that Graph IR `call` nodes can invoke:
 
 ```json
 {
@@ -297,7 +296,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 - **UI v2 routes mount at `/api` with a prefixed `httpMap`.** `loadService` builds `httpMap[id] = { method, path: '/api' + rb.entry.http.path }` before calling `ui.compile`. The compiled artifact embeds those absolute paths; `HttpSurface` then mounts `createBindingsRouter` at `/api` and the UI app at `/`. Fix: `d83e926 fix(runtime): prepend /api prefix to httpMap paths for v2 compiled screens`.
 - **Seed lifecycle — applied after DDL bootstrap, before relay.** Exact order in `startService`: `bus.start` → `wireEventPipeline` (which calls `bootstrapProjections(qsmDb, projectionDdls)`) → `applySeed` (if `service.seed !== null` and `!skipSeed`) → `pipeline.start()` (relay + consumer) → `HttpSurface.mount` → `serve`. `wireEventPipeline` does **not** auto-start; the split exists so seed runs before the consumer polls the bus. Fixes: `b266f85 fix(runtime): align seed manifest + loadService with runtime-seed plan`, spec §8.3.
-- **Modules are service-adjacent, not project intake.** Runtime wires `manifest.modules[]`, pre-fetch middleware, the idempotency cache, and gRPC surfaces for a service. It does not yet boot an entire project blueprint folder; `@rntme/blueprint` owns project composition until that runtime spec lands.
+- **Modules are service-adjacent, not project intake.** Runtime wires `manifest.modules[]`, Graph IR call execution, the idempotency cache, and gRPC surfaces for a service. It does not yet boot an entire project blueprint folder; `@rntme/blueprint` owns project composition until that runtime spec lands.
 - **Graph signature parsing covers API-shaped inputs.** Runtime graph loading
   accepts scalar inputs plus `list<T>`, `row<T>`, and `rowset<T>` signatures.
   gRPC proto emission now collects row/rowset input and output shapes from

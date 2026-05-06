@@ -9,9 +9,10 @@ The project has one domain service (`app`) and one integration module service
 (`createNote`, `deleteNote`), two queries (`listNotes`, `getNote`), one UI screen
 at `/`, HTTP bindings mounted under `/api`, and one system seed note.
 
-The `/api` route mounts `request-context` and `auth` middleware. Every binding
-runs `pre[] -> identity-auth0.IntrospectSession`, and the graph receives the
-canonical `Session` result as `$pre.session`.
+The `/api` route mounts `request-context` and `auth` middleware. Protected
+operation graphs call `identity-auth0.IntrospectSession`, with the
+Authorization header bound through `inputFrom`, and read the canonical
+`Session` result through the `session` call node.
 
 The UI uses the module client path from `@rntme/identity-auth0`. The main
 layout has an anonymous branch that renders `LoginScreen` when
@@ -32,11 +33,11 @@ planning can render nginx `auth_request` enforcement for `/api`.
 ## Auth and ownership
 
 - `createNote` ignores any client-supplied owner and writes `ownerSub` from
-  `$pre.session.user_id`.
+  `{ "$ref": "session.result.user_id" }`.
 - `listNotes` and `getNote` require a valid Auth0 access token but intentionally
   read all active notes.
-- `deleteNote` first filters `NoteView` by both `id` and
-  `$pre.session.user_id`; missing notes and notes owned by another user both
+- `deleteNote` first filters `NoteView` by both `id` and the session call
+  result's `user_id`; missing notes and notes owned by another user both
   return 404.
 - The seed note uses `ownerSub: "system"`, so it is visible to signed-in users
   but cannot be deleted by a real Auth0 subject.
@@ -132,7 +133,7 @@ User test after deploy:
 3. Confirm the login screen hides, the topbar shows `UserBadge`, and the notes
    list loads.
 4. Create a note; it returns 201 and appears in the list with ownership injected
-   from `$pre.session.user_id`.
+   from the `IntrospectSession` call result.
 5. Trigger a 401 or click logout; `/auth/status` returns to `anon` and the
    login screen is shown without exposing the access token in state.
 6. Without an `Authorization` header, `GET /api/notes` and `POST /api/notes` return `401 application/json` with `RUNTIME_AUTH_TOKEN_INVALID`; `500 BINDINGS_RUNTIME_EXPRESSION_ERROR` is a failed deployment smoke check.
