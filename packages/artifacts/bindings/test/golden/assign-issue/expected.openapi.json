@@ -120,7 +120,8 @@
             "items": {
               "type": "string"
             }
-          }
+          },
+          "result": {}
         }
       },
       "ErrorResponse": {
