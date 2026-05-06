@@ -45,7 +45,7 @@ describe('buildOpenRouterRequest — image and file content blocks', () => {
         },
       ],
     });
-    expect(req.messages[0].content).toEqual([{
+    expect(req.messages[0]!.content).toEqual([{
       type: 'image_url',
       image_url: { url: 'data:image/png;base64,aGVsbG8=' },
     }]);
@@ -63,7 +63,7 @@ describe('buildOpenRouterRequest — image and file content blocks', () => {
         },
       ],
     });
-    expect(req.messages[0].content).toEqual([{
+    expect(req.messages[0]!.content).toEqual([{
       type: 'image_url',
       image_url: { url: 'https://example.com/x.png' },
     }]);
@@ -88,7 +88,7 @@ describe('buildOpenRouterRequest — image and file content blocks', () => {
         },
       ],
     });
-    expect(req.messages[0].content).toEqual([{
+    expect(req.messages[0]!.content).toEqual([{
       type: 'file',
       file: { filename: 'r.pdf', file_data: 'data:application/pdf;base64,JVBERi0=' },
     }]);

@@ -43,10 +43,10 @@ describe('parseOpenRouterResponse', () => {
     expect(completion.finish_reason).toBe(3); // TOOL_CALLS
     expect(completion.tool_calls).toBeDefined();
     expect(completion.tool_calls!.length).toBe(1);
-    expect(completion.tool_calls![0].id).toBe('call_1');
-    expect(completion.tool_calls![0].name).toBe('extract');
+    expect(completion.tool_calls?.[0]?.id).toBe('call_1');
+    expect(completion.tool_calls?.[0]?.name).toBe('extract');
     // arguments is a proto Struct: { fields: { x: { number_value: 1 } } }
-    expect(completion.tool_calls![0].arguments).toEqual({ fields: { x: { number_value: 1 } } });
+    expect(completion.tool_calls?.[0]?.arguments).toEqual({ fields: { x: { number_value: 1 } } });
     expect(completion.content?.some((b: { type: number }) => b.type === 5)).toBe(true);
   });
 

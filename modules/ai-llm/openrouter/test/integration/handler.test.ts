@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Buffer } from 'node:buffer';
+import type { Buffer } from 'node:buffer';
 import { createOpenRouterModule } from '../../src/handler.js';
 
 function makeBus(): { events: { type: string; data: unknown }[]; emit: (type: string, data: unknown) => Promise<void> } {
@@ -106,7 +106,8 @@ describe('Unimplemented RPCs', () => {
       'SubmitJob', 'GetJob', 'CancelJob', 'ListJobs',
     ];
     for (const rpc of unimplementedRpcs) {
-      await expect((mod as Record<string, (req: unknown) => Promise<unknown>>)[rpc]({})).rejects.toMatchObject({ code: 12 /* UNIMPLEMENTED */ });
+      const handler = (mod as Record<string, (req: unknown) => Promise<unknown>>)[rpc]!;
+      await expect(handler({})).rejects.toMatchObject({ code: 12 /* UNIMPLEMENTED */ });
     }
   });
 });

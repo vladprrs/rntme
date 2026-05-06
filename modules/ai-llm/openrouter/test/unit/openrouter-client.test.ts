@@ -21,7 +21,7 @@ describe('OpenRouterClient', () => {
     const res = await client.chatCompletions({ model: 'openai/gpt-4o', messages: [] });
     expect(res).toEqual({ id: 'gen-1' });
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe('https://or/api/v1/chat/completions');
     expect((init as RequestInit).method).toBe('POST');
     const headers = (init as RequestInit).headers as Record<string, string>;

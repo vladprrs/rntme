@@ -15,6 +15,12 @@ export default [
         process: 'readonly',
         structuredClone: 'readonly',
         URL: 'readonly',
+        Buffer: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        Response: 'readonly',
+        RequestInit: 'readonly',
+        fetch: 'readonly',
       },
     },
     plugins: {

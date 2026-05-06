@@ -22,7 +22,9 @@ const cases: { name: string; status: number; orError?: { code?: string; message?
 describe('mapOpenRouterError', () => {
   for (const c of cases) {
     it(c.name, () => {
-      const e = mapOpenRouterError({ httpStatus: c.status, orError: c.orError });
+      const input: { httpStatus: number; orError?: { code?: string; message?: string } } = { httpStatus: c.status };
+      if (c.orError) input.orError = c.orError;
+      const e = mapOpenRouterError(input);
       expect(e.aiLlmCode).toBe(c.expectedCode);
       expect(e.code).toBe(c.expectedGrpc);
     });
