@@ -32,24 +32,22 @@ as a successful business command in both branches: SKU `missing-stock` appends
 "insufficient stock" }`; all other SKUs append `StockReserved` and return
 `{ reserved: true, reservationId }`.
 
-## Smoke Expectations
+## Live Dokploy E2E
 
-Local composition should validate the project, service graphs, bindings, QSM
-mirrors, BPMN file reference, workflow event reference, and workflow command
-binding references. It does not execute the business flow.
+The real deploy acceptance test is:
 
-Deployment smoke for this demo needs a deploy target configured with
-provisioned Redpanda and provisioned Operaton plus a BPMN worker image:
-
-```json
-{
-  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" },
-  "workflows": {
-    "engine": { "kind": "operaton", "mode": "provisioned", "image": "operaton:test" },
-    "worker": { "image": "ghcr.io/vladprrs/rntme-bpmn-worker:latest" }
-  }
-}
+```bash
+RNTME_DOKPLOY_E2E=1 \
+RNTME_DOKPLOY_URL=... \
+RNTME_DOKPLOY_API_TOKEN=... \
+RNTME_DOKPLOY_PROJECT_ID=... \
+RNTME_DOKPLOY_PUBLIC_DEPLOY_DOMAIN=preview.example.com \
+RNTME_E2E_RUNTIME_IMAGE=ghcr.io/<owner>/rntme-runtime:<tag> \
+RNTME_E2E_BPMN_WORKER_IMAGE=ghcr.io/<owner>/rntme-bpmn-worker:<tag> \
+RNTME_E2E_OPERATON_IMAGE=operaton/operaton:<pinned-tag> \
+pnpm -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts
 ```
 
-With that target shape, the worker can subscribe to order events and complete
-service tasks through the project-routed command bindings.
+The test deploys provisioned Redpanda, provisioned Operaton, the two demo
+services, the BPMN worker, and the edge gateway. It then creates one order
+that reaches `confirmed` and one order that reaches `cancelled`.

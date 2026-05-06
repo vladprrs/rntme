@@ -43,6 +43,25 @@ and completes same-instance mapped service tasks for a bounded number of
 passes. This lets a single source event drive immediate BPMN branches such as
 `reserveStock` followed by `cancelOrder`.
 
+## Deployable worker image
+
+`@rntme/bpmn-worker` ships a `rntme-bpmn-worker` bin and Dockerfile. The image
+expects the Dokploy-rendered env:
+
+- `RNTME_EVENT_BUS_BROKERS`
+- `RNTME_EVENT_BUS_PROTOCOL`
+- `RNTME_OPERATON_BASE_URL`
+- `RNTME_WORKFLOWS_MANIFEST_PATH`
+- `RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON`
+- `RNTME_WORKFLOW_GRPC_SERVICES_JSON`
+- `RNTME_WORKFLOW_SUBSCRIPTIONS_JSON`
+
+Build:
+
+```bash
+docker build -f packages/runtime/bpmn-worker/Dockerfile -t ghcr.io/<owner>/rntme-bpmn-worker:<tag> .
+```
+
 ## Specs
 
 - `../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`

@@ -625,3 +625,20 @@ learn Dokploy, Operaton HTTP details, or runtime boot behavior.
   `platform-http`.
 - Worker conformance tests against a real Operaton container.
 - BPMN visualization in the platform UI.
+
+## 17. Live Dokploy Acceptance
+
+The BPMN/Operaton slice is not accepted by mock Dokploy tests alone. The
+acceptance gate includes a gated live e2e test, skipped unless
+`RNTME_DOKPLOY_E2E=1`, that deploys `demo/order-fulfillment-blueprint/` to a
+real Dokploy target with provisioned Redpanda, provisioned Operaton, a
+deployable BPMN worker image, the demo domain services, and the edge gateway.
+
+The test must prove:
+
+- deployment resources include event bus, workflow engine, BPMN worker,
+  orders, inventory, and edge;
+- a normal order reaches `confirmed` through `reserveStock -> confirmOrder`;
+- a `missing-stock` order reaches `cancelled` through
+  `reserveStock -> cancelOrder`;
+- resources created by the test are deleted from Dokploy in `finally`.

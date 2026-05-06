@@ -599,6 +599,13 @@ under `packages/runtime/event-store/test/`.
 4. Validate with `loadComposedBlueprint(...)` or `rntme project publish --dry-run`. Blueprint discovers `workflows/workflows.json`, calls `@rntme/workflows`, checks BPMN files, resolves event refs through project PDM context, and resolves command binding refs through the project binding registry.
 5. For deployment, configure the target with provisioned Redpanda and `workflows.engine: { kind: "operaton", mode: "provisioned", image }` plus `workflows.worker.image`. Deploy-core renders `infrastructure.workflowEngine` and a `bpmn-worker` workload; deploy-dokploy renders Operaton and mounts `/srv/workflows`.
 
+### 6.14b Run the live Dokploy BPMN e2e
+
+1. Build and push runtime and BPMN worker images.
+2. Set the `RNTME_DOKPLOY_E2E=1` env block documented in `demo/order-fulfillment-blueprint/README.md`.
+3. Run `pnpm -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts`.
+4. Confirm the test reports both `confirmed` and `cancelled` order branches and that cleanup removed Dokploy resources.
+
 ### 6.15 Wire Auth0 into a project blueprint
 
 1. Read `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §5-§9 and use `demo/notes-blueprint/` as the worked example.

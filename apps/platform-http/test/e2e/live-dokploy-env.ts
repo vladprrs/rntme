@@ -13,7 +13,7 @@ export type LiveDokployEnv =
     readonly httpTimeoutMs: number;
   };
 
-export function readLiveDokployEnv(env: NodeJS.ProcessEnv = process.env): LiveDokployEnv {
+export function readLiveDokployEnv(env: Record<string, string | undefined> = process.env): LiveDokployEnv {
   if (env['RNTME_DOKPLOY_E2E'] !== '1') {
     return { enabled: false, reason: 'RNTME_DOKPLOY_E2E is not 1' };
   }
