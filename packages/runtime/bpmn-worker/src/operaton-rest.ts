@@ -32,11 +32,11 @@ export function createOperatonRestClient(options: {
 
   return {
     async deployDefinitions(files) {
-      const form = new FormData();
+      const form = new globalThis.FormData();
       form.set('deployment-name', 'rntme-workflows');
       form.set('enable-duplicate-filtering', 'true');
       for (const [name, content] of Object.entries(files).filter(([path]) => path.endsWith('.bpmn'))) {
-        form.set(name, new Blob([content], { type: 'application/xml' }), name);
+        form.set(name, new globalThis.Blob([content], { type: 'application/xml' }), name);
       }
       const response = await httpFetch(`${baseUrl}/deployment/create`, { method: 'POST', body: form });
       if (!response.ok) throw new Error(`OPERATON_HTTP_${response.status}: ${await response.text()}`);

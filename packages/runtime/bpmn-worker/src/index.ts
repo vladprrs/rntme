@@ -4,12 +4,14 @@ export type { OperatonClient, OperatonStartProcessInput, OperatonTask } from './
 export { createOperatonRestClient } from './operaton-rest.js';
 export type { OperatonRestClient } from './operaton-rest.js';
 export { loadWorkerConfigFromEnv } from './env.js';
-export { runBpmnWorkerFromEnv } from './run.js';
+export { runBpmnWorker, runBpmnWorkerFromEnv } from './run.js';
+export { decodeKafkaJsMessage, createKafkaWorkflowConsumer } from './kafka-consumer.js';
 export type {
   CommandMetadata,
   EventEnvelopeLike,
   LoadedWorkerManifest,
   PlannedWorkflowSubscriptionInput,
+  WorkflowEventConsumer,
   WorkflowGrpcServiceConfig,
   WorkflowGrpcServiceRegistry,
   WorkflowServiceEndpointMap,

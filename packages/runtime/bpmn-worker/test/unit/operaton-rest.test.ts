@@ -10,7 +10,7 @@ describe('createOperatonRestClient', () => {
       topics: ['reserveStock'],
       fetch: async (url, init) => {
         calls.push({ url: String(url), method: init?.method });
-        return new Response('{}', { status: 200 });
+        return new globalThis.Response('{}', { status: 200 });
       },
     });
 
@@ -27,7 +27,7 @@ describe('createOperatonRestClient', () => {
       topics: ['reserveStock'],
       fetch: async (_url, init) => {
         bodies.push(JSON.parse(String(init?.body)));
-        return new Response(JSON.stringify([{ processInstance: { id: 'proc_1' } }]), { status: 200 });
+        return new globalThis.Response(JSON.stringify([{ processInstance: { id: 'proc_1' } }]), { status: 200 });
       },
     });
 
@@ -59,7 +59,7 @@ describe('createOperatonRestClient', () => {
       fetch: async (url, init) => {
         calls.push({ url: String(url), body: init?.body === undefined ? null : JSON.parse(String(init.body)) });
         if (String(url).endsWith('/external-task/fetchAndLock')) {
-          return new Response(JSON.stringify([
+          return new globalThis.Response(JSON.stringify([
             {
               id: 'task_1',
               activityId: 'reserveStock',
@@ -69,7 +69,7 @@ describe('createOperatonRestClient', () => {
             },
           ]), { status: 200 });
         }
-        return new Response('{}', { status: 200 });
+        return new globalThis.Response('{}', { status: 200 });
       },
     });
 

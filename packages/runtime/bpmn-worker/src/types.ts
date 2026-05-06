@@ -1,4 +1,4 @@
-import type { WorkflowArtifact } from '@rntme/workflows';
+import type { WorkflowArtifact, WorkflowEventRef } from '@rntme/workflows';
 
 export type WorkflowServiceEndpointMap = Readonly<Record<string, string>>;
 
@@ -41,6 +41,15 @@ export type PlannedWorkflowSubscriptionInput = {
   readonly processId: string;
   readonly messageName: string;
   readonly businessKey: string;
+};
+
+export type WorkflowEventConsumer = {
+  readonly events: () => AsyncIterable<{
+    readonly envelope: EventEnvelopeLike;
+    readonly eventRef: WorkflowEventRef;
+    readonly commit: () => Promise<void>;
+  }>;
+  readonly stop: () => Promise<void>;
 };
 
 export type CommandMetadata = {

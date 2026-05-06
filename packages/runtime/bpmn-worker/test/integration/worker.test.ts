@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkflowArtifact } from '@rntme/workflows';
 
-import { runWorkflowEventOnce, type OperatonClient, type RntmeCommandClient } from '../../src/index.js';
+import { runBpmnWorker, runWorkflowEventOnce, type OperatonClient, type RntmeCommandClient } from '../../src/index.js';
 
 describe('runWorkflowEventOnce', () => {
   it('starts process and completes a service task through command client', async () => {
@@ -314,6 +314,46 @@ describe('runWorkflowEventOnce', () => {
       'complete:task_reserve:false',
       'command:orders.cancelOrder:ord_1:bpmn:proc_1:cancelOrder:act_cancel',
       'complete:task_cancel:undefined',
+    ]);
+  });
+
+  it('consumes matching workflow events and commits after processing', async () => {
+    const calls: string[] = [];
+    const consumer = {
+      async *events() {
+        yield {
+          envelope: createEvent(),
+          eventRef: { service: 'orders', aggregateType: 'Order', eventType: 'OrderPlaced' },
+          commit: async () => { calls.push('commit'); },
+        };
+      },
+      stop: async () => { calls.push('stop'); },
+    };
+
+    await runBpmnWorker({
+      manifest: createManifest(),
+      subscriptions: [{
+        messageStartId: 'orderPlaced',
+        topic: 'rntme.orders.order',
+        service: 'orders',
+        aggregateType: 'Order',
+        eventType: 'OrderPlaced',
+        processId: 'orderFulfillment',
+        messageName: 'OrderPlaced',
+        businessKey: '$event.data.orderId',
+      }],
+      operaton: createOperaton(calls),
+      commands: createCommands(calls),
+      consumer,
+      stopAfterEvents: 1,
+    });
+
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'command:inventory.reserveStock:ord_1:bpmn:proc_1:reserveStock:act_1',
+      'complete:task_1:true',
+      'commit',
+      'stop',
     ]);
   });
 });
