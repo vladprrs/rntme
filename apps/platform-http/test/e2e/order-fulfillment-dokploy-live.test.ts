@@ -19,7 +19,7 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
   let env: E2eEnv | undefined;
 
   beforeAll(async () => {
-    env = await bootE2e();
+    env = await bootE2e({ scheduleDeployment: () => undefined });
   }, 300_000);
 
   afterAll(async () => {
