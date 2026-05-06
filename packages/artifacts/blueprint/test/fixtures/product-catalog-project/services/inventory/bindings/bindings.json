@@ -5,14 +5,17 @@
   "qsmRef": "../qsm",
   "bindings": {
     "listInventory": {
-      "kind": "query",
       "graph": "listInventory",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "GET",
         "path": "/inventory",
         "parameters": []
-      }
+      },
+      "exposure": "read"
     }
   }
 }

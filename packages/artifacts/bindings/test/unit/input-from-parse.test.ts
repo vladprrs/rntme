@@ -6,7 +6,7 @@ const base = {
 };
 
 const baseCallback = {
-  kind: 'command',
+  exposure: 'action',
   graph: 'completeOAuth',
   target: { engine: 'graph-ir', dialect: 'sqlite' },
   http: { method: 'GET', path: '/oauth/stripe/callback', parameters: [] },
@@ -38,7 +38,7 @@ describe('inputFrom + response parsing', () => {
       ...base,
       bindings: {
         samlAcs: {
-          kind: 'command',
+          exposure: 'action',
           graph: 'handleSaml',
           target: { engine: 'graph-ir', dialect: 'sqlite' },
           http: { method: 'POST', path: '/saml/acs', parameters: [] },

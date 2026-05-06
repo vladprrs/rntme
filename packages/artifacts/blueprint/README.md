@@ -33,7 +33,7 @@ Project-first blueprint parser/validator for rntme.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
 - `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
-- `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task command binding refs through the project binding registry.
+- `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task action binding refs through the project binding registry.
 - `materializeBundle(bundle)` — write a canonical project-version bundle
   (`files` plus base64 `assets`) to a temporary project directory with path
   traversal and collision checks.
@@ -68,7 +68,7 @@ The structural validator only enforces syntax. Module-existence and output-decla
 - `src/compose/project-workflows.ts`
 - `test/fixtures/product-catalog-project/`
 
-## Auth and graph pre-step validation
+## Auth and Operation Validation
 
 `project.json` supports typed auth middleware:
 
@@ -85,7 +85,7 @@ The structural validator only enforces syntax. Module-existence and output-decla
 }
 ```
 
-When auth middleware is mounted on a service route, every `IntrospectSession` binding pre-step for that service must use the same `input.audience`; mismatches return `BLUEPRINT_AUTH_AUDIENCE_MISMATCH`. Blueprint composition also checks graph `$pre` references against each binding's `pre[].bindAs` names and returns `BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING` for undefined refs.
+When auth middleware is mounted on a service route, protected graphs are expected to call the configured Identity module from Graph IR and bind request credentials through `inputFrom`. Blueprint composition rejects executable domain-service handler files (`services/<slug>/commands/handlers.mjs`) so service behavior stays in Graph IR operation artifacts instead of service-local code.
 
 ## Specs
 

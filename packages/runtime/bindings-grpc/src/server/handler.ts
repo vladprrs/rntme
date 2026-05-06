@@ -1,19 +1,13 @@
 import * as grpc from '@grpc/grpc-js';
 import type { ResolvedBinding, ValidatedBindings } from '@rntme/bindings';
-import type {
-  CommandExecutor,
-  QueryExecutor,
-  CommandExecutionContext,
-  QueryExecutionContext,
-} from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { EventStore } from '@rntme/event-store';
 import type BetterSqlite3 from 'better-sqlite3';
 import { mapExecutorErrorToGrpcStatus } from './errors.js';
 import { bindingIdToRpcName, toSnakeCase } from '../emit/ids.js';
 
 export type HandlerDeps = {
-  commandExecutor: CommandExecutor;
-  queryExecutor: QueryExecutor;
+  operationExecutor: OperationExecutor;
   eventStore: EventStore;
   qsmDb: BetterSqlite3.Database;
   now: () => string;
@@ -50,59 +44,33 @@ export function makeGrpcHandler(bindingId: string, resolved: ResolvedBinding, de
         correlationId: typeof metadata['rntme-correlation-id'] === 'string' ? metadata['rntme-correlation-id'] : deps.nextId(),
         traceparent: typeof metadata['traceparent'] === 'string' ? metadata['traceparent'] : null,
       };
+      const idempotencyKey =
+        typeof metadata['rntme-idempotency-key'] === 'string'
+          ? metadata['rntme-idempotency-key']
+          : null;
 
-      if (resolved.entry.kind === 'command') {
-        const ctx: CommandExecutionContext = {
-          eventStore: deps.eventStore,
+      const out = await deps.operationExecutor.execute({
+        operationName: resolved.entry.graph,
+        inputs: input,
+        ctx: {
           qsmDb: deps.qsmDb,
+          eventStore: deps.eventStore,
+          callClient: null,
           now: deps.now,
           nextId: deps.nextId,
           actor: null,
           correlation,
-        };
-        const out = await deps.commandExecutor.execute({
-          commandName: resolved.entry.graph,
-          inputs: input,
-          ctx,
-        });
-        if (!out.ok) {
-          callback({
-            code: mapExecutorErrorToGrpcStatus(out.error),
-            message: `${out.error.code}: ${out.error.message}`,
-          });
-          return;
-        }
-        const response: Record<string, unknown> = {
-          aggregate_id: out.value.aggregateId,
-          version: out.value.version,
-          event_ids: [...out.value.eventIds],
-          command_id: out.value.commandId,
-          correlation_id: out.value.correlationId,
-        };
-        const valueWithResult = out.value as typeof out.value & { result?: unknown };
-        if (valueWithResult.result !== undefined) {
-          response.result = jsonToStruct(valueWithResult.result);
-        }
-        callback(null, response);
-        return;
-      }
-
-      const qctx: QueryExecutionContext = { qsmDb: deps.qsmDb };
-      const qout = await deps.queryExecutor.execute({
-        queryName: resolved.entry.graph,
-        inputs: input,
-        ctx: qctx,
+          idempotencyKey,
+        },
       });
-      if (!qout.ok) {
+      if (!out.ok) {
         callback({
-          code: mapExecutorErrorToGrpcStatus(qout.error),
-          message: `${qout.error.code}: ${qout.error.message}`,
+          code: mapExecutorErrorToGrpcStatus(out.error),
+          message: `${out.error.code}: ${out.error.message}`,
         });
         return;
       }
-      const fromField = resolved.signature.output.from;
-      const responsePayload: Record<string, unknown> = { [toSnakeCase(fromField)]: qout.value };
-      callback(null, responsePayload);
+      callback(null, { result: jsonToStruct(out.value.value) });
     })().catch((err) => {
       callback({ code: grpc.status.INTERNAL, message: err instanceof Error ? err.message : String(err) });
     });

@@ -32,39 +32,6 @@ const httpSchema = z
   })
   .strict();
 
-const RetryPolicySchema = z.object({
-  attempts: z.number().int().min(1).max(10).optional(),
-  backoffMs: z.union([z.literal('exp'), z.number().int().min(0)]).optional(),
-  retryOn: z.enum(['never', 'transient', 'all']).optional(),
-}).strict();
-
-const PreStepBindAsSchema = z.union([
-  nonEmptyString,
-  z.object({
-    name: nonEmptyString,
-    pick: nonEmptyString.optional(),
-  }).strict(),
-]);
-
-const PreStepSystemSchema = z.object({
-  kind: z.literal('system'),
-  op: z.literal('randomBytes'),
-  bytes: z.number().int().min(1).max(1024),
-  bindAs: PreStepBindAsSchema,
-}).strict();
-
-const PreStepModuleRpcSchema = z.object({
-  kind: z.literal('module-rpc'),
-  module: nonEmptyString,
-  rpc: nonEmptyString,
-  input: z.unknown(),
-  bindAs: PreStepBindAsSchema,
-  timeoutMs: z.number().int().min(1).max(30_000).optional(),
-  retry: RetryPolicySchema.optional(),
-}).strict();
-
-const PreStepSchema = z.discriminatedUnion('kind', [PreStepSystemSchema, PreStepModuleRpcSchema]);
-
 const InputSourceSchema = z.discriminatedUnion('from', [
   z.object({ from: z.literal('body'), path: z.string().min(1).optional() }).strict(),
   z.object({ from: z.literal('query'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
@@ -94,7 +61,7 @@ const ResponseShapeSchema = z.object({
 
 const bindingEntrySchema = z
   .object({
-    kind: z.enum(['query', 'command']).default('query'),
+    exposure: z.enum(['read', 'action']),
     graph: nonEmptyString,
     target: z
       .object({
@@ -103,7 +70,6 @@ const bindingEntrySchema = z
       })
       .strict(),
     http: httpSchema,
-    pre: z.array(PreStepSchema).optional(),
     inputFrom: InputFromMapSchema.optional(),
     response: ResponseShapeSchema.optional(),
     allowedRedirectHosts: z.array(nonEmptyString).optional(),

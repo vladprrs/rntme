@@ -2,14 +2,35 @@
   "id": "reportIssue",
   "signature": {
     "inputs": {
-      "issueId":     { "type": "integer", "mode": "required" },
-      "title":       { "type": "string",  "mode": "required" },
-      "projectId":   { "type": "integer", "mode": "required" },
-      "reporterId":  { "type": "integer", "mode": "required" },
-      "priority":    { "type": "string",  "mode": "required" },
-      "storyPoints": { "type": "integer", "mode": "required" }
+      "issueId": {
+        "type": "integer",
+        "mode": "required"
+      },
+      "title": {
+        "type": "string",
+        "mode": "required"
+      },
+      "projectId": {
+        "type": "integer",
+        "mode": "required"
+      },
+      "reporterId": {
+        "type": "integer",
+        "mode": "required"
+      },
+      "priority": {
+        "type": "string",
+        "mode": "required"
+      },
+      "storyPoints": {
+        "type": "integer",
+        "mode": "required"
+      }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": {
+      "type": "row<IssueMutationResult>",
+      "from": "out"
+    }
   },
   "nodes": [
     {
@@ -17,14 +38,38 @@
       "type": "emit",
       "config": {
         "aggregate": "Issue",
-        "aggregateId": { "$param": "issueId" },
+        "aggregateId": {
+          "$param": "issueId"
+        },
         "transition": "report",
         "payload": {
-          "title":       { "$param": "title" },
-          "projectId":   { "$param": "projectId" },
-          "reporterId":  { "$param": "reporterId" },
-          "priority":    { "$param": "priority" },
-          "storyPoints": { "$param": "storyPoints" }
+          "title": {
+            "$param": "title"
+          },
+          "projectId": {
+            "$param": "projectId"
+          },
+          "reporterId": {
+            "$param": "reporterId"
+          },
+          "priority": {
+            "$param": "priority"
+          },
+          "storyPoints": {
+            "$param": "storyPoints"
+          }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "version": {
+          "$ref": "emit.version"
+        },
+        "aggregateId": {
+          "$ref": "emit.aggregateId"
         }
       }
     }

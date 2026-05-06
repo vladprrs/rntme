@@ -21,6 +21,7 @@ describe('discoverServiceArtifacts', () => {
       hasUi: false,
       hasSeed: false,
       hasQsm: false,
+      hasCommandHandlers: false,
     });
   });
 
@@ -43,6 +44,7 @@ describe('discoverServiceArtifacts', () => {
       hasUi: true,
       hasSeed: true,
       hasQsm: true,
+      hasCommandHandlers: false,
     });
   });
 
@@ -70,6 +72,7 @@ describe('discoverServiceArtifacts', () => {
       hasUi: false,
       hasSeed: false,
       hasQsm: false,
+      hasCommandHandlers: false,
     });
   });
 });

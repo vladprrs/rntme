@@ -1,5 +1,5 @@
 import type { ValidatedManifest } from '../manifest/types.js';
-import type { CommandExecutor, QueryExecutor } from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { ResolvedShape, ScalarPrimitive } from '@rntme/bindings';
 import { createPdmResolver } from '@rntme/pdm';
 import { GrpcSurface } from '../plugins/grpc-surface.js';
@@ -8,8 +8,7 @@ import type { ValidatedService } from '../types.js';
 export function buildGrpcSurface(
   manifest: ValidatedManifest,
   opts: {
-    commandExecutor: CommandExecutor;
-    queryExecutor: QueryExecutor;
+    operationExecutor: OperationExecutor;
     shapes: Record<string, ResolvedShape>;
   },
 ): GrpcSurface | null {
@@ -22,8 +21,7 @@ export function buildGrpcSurface(
     port,
     packageName,
     serviceName,
-    commandExecutor: opts.commandExecutor,
-    queryExecutor: opts.queryExecutor,
+    operationExecutor: opts.operationExecutor,
     shapes: opts.shapes,
   });
 }

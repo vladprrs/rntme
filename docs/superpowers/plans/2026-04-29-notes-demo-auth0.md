@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Supersession note (2026-05-06):** Binding `pre[]`,
+> `runPreSteps`, and Graph IR `$pre` instructions below are historical.
+> New graph-affecting Auth0/session calls must be authored as Graph IR
+> `call` nodes and exposed through binding `exposure`, per
+> `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
+
 **Goal:** Bring `demo/notes-blueprint/` to production-shape: real Auth0 OIDC login, ownership-enforcement on Note edits, external Redpanda Cloud event bus over SASL_SSL/SCRAM, end-to-end deploy through `platform.rntme.com` to Dokploy.
 
 **Architecture:** Auth lives in the canonical Identity module pattern. `@rntme/identity-auth0` claims `IntrospectSession` (OIDC JWKS verify, no Mgmt API call). All four notes-blueprint bindings carry `pre: [IntrospectSession]`. Ownership is enforced inside graph IR via a new `$pre` directive: `createNote` injects `payload.ownerSub` from `$pre.session.user_id`; `deleteNote` filters `NoteView` by `id ∧ ownerSub` so its `emit` only fires when the actor owns the note. Edge does no auth (Nginx noop). UI runs through a new `@rntme/ui-auth-shell` package wrapping ui-runtime with `@auth0/auth0-spa-js` PKCE + Bearer-injecting transport.

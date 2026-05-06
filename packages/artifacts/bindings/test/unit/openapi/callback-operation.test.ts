@@ -8,7 +8,14 @@ const dummyResolvers: BindingResolvers = {
   resolveShape: () => null,
 };
 
-function makeValidated(bindingId: string, entry: Record<string, unknown>, outputShapeName = 'CommandResult') {
+const emptyEffects = {
+  localReads: false,
+  localEmits: [],
+  calls: [],
+  waits: false,
+} as const;
+
+function makeValidated(bindingId: string, entry: Record<string, unknown>, outputShapeName = 'CallbackResult') {
   const outputShape: ResolvedShape = {
     name: outputShapeName,
     origin: 'custom',
@@ -25,9 +32,9 @@ function makeValidated(bindingId: string, entry: Record<string, unknown>, output
         entry: entry as BindingEntry,
         signature: {
           id: entry.graph as string,
-          role: entry.kind ?? 'query',
           inputs: {},
-          output: { type: { kind: 'row', shape: outputShapeName } },
+          output: { type: { kind: 'row', shape: outputShapeName }, from: 'result' },
+          effects: emptyEffects,
         } as GraphSignature,
         outputShape,
       },
@@ -38,7 +45,7 @@ function makeValidated(bindingId: string, entry: Record<string, unknown>, output
 describe('OpenAPI emission for P2 callback', () => {
   it('emits a GET operation with 302 response for redirect callback', () => {
     const doc = generateOpenApi(makeValidated('stripeCallback', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'callbackAck',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/oauth/stripe/callback', parameters: [] },
@@ -65,7 +72,7 @@ describe('OpenAPI emission for P2 callback', () => {
 
   it('emits 303 response when status is 303', () => {
     const doc = generateOpenApi(makeValidated('callback', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'callbackAck',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/callback', parameters: [] },
@@ -83,7 +90,7 @@ describe('OpenAPI emission for P2 callback', () => {
 
   it('defaults redirect status to 302 when omitted', () => {
     const doc = generateOpenApi(makeValidated('callback', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'callbackAck',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'GET', path: '/callback', parameters: [] },
@@ -101,7 +108,7 @@ describe('OpenAPI emission for P2 callback', () => {
 
   it('keeps existing 200 JSON behavior for bindings without explicit response', () => {
     const doc = generateOpenApi(makeValidated('createOrder', {
-      kind: 'command',
+      exposure: 'action',
       graph: 'createOrder',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'POST', path: '/commands/createOrder', parameters: [] },

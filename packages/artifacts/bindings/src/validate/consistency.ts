@@ -1,14 +1,6 @@
-import {
-  bindAsName,
-  bindAsPick,
-  type BindingEntry,
-  type HttpParameter,
-  type ResolvedBindings,
-  type ValidatedBindings,
-} from '../types/artifact.js';
+import type { BindingEntry, BindingExposure, HttpParameter, ResolvedBindings, ValidatedBindings } from '../types/artifact.js';
 import type { GraphInput, GraphSignature, InputMode, InputType } from '../types/resolvers.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
-import { COMMAND_RESULT_SHAPE_NAME } from '../openapi/command-result.js';
 
 const REQUIRED_BY_MODE: Record<InputMode, readonly boolean[]> = {
   required: [true],
@@ -20,7 +12,7 @@ const REQUIRED_BY_MODE: Record<InputMode, readonly boolean[]> = {
 
 function checkGraphShape(
   id: string,
-  kind: 'query' | 'command',
+  exposure: BindingExposure,
   signature: GraphSignature,
   errors: BindingsError[],
 ): boolean {
@@ -39,49 +31,27 @@ function checkGraphShape(
     }
   }
 
-  const role = signature.role ?? 'query';
-
-  if (kind === 'command' && role !== 'command') {
+  if (
+    exposure === 'read'
+    && (signature.effects.localEmits.length > 0 || signature.effects.calls.some((call) => call.effect === 'action'))
+  ) {
     errors.push({
       layer: 'consistency',
-      code: ERROR_CODES.BINDINGS_COMMAND_ON_NON_COMMAND_GRAPH,
-      message: `Binding "${id}" has kind="command" but graph "${signature.id}" has role="${role}"`,
-      path: basePath,
-    });
-    fatal = true;
-  }
-  if (kind === 'query' && role === 'command') {
-    errors.push({
-      layer: 'consistency',
-      code: ERROR_CODES.BINDINGS_QUERY_ON_COMMAND_GRAPH,
-      message: `Binding "${id}" has kind="query" (default) but graph "${signature.id}" has role="command"`,
+      code: ERROR_CODES.BINDINGS_EXPOSURE_EFFECT_FORBIDDEN,
+      message: `Binding "${id}" has exposure="read" but graph "${signature.id}" has action effects`,
       path: basePath,
     });
     fatal = true;
   }
 
-  if (kind === 'command') {
-    const out = signature.output.type;
-    const isCommandResultRow = out.kind === 'row' && out.shape === COMMAND_RESULT_SHAPE_NAME;
-    if (!isCommandResultRow) {
-      errors.push({
-        layer: 'consistency',
-        code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
-        message: `Command graph "${signature.id}" must output row<${COMMAND_RESULT_SHAPE_NAME}>, got ${out.kind === 'scalar' ? 'scalar' : `${out.kind}<${out.shape}>`}`,
-        path: basePath,
-      });
-      fatal = true;
-    }
-  } else {
-    if (signature.output.type.kind !== 'rowset') {
-      errors.push({
-        layer: 'consistency',
-        code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
-        message: `Graph "${signature.id}" output kind "${signature.output.type.kind}" is not bindable — must be rowset`,
-        path: basePath,
-      });
-      fatal = true;
-    }
+  if (signature.output.type.kind !== 'row' && signature.output.type.kind !== 'rowset') {
+    errors.push({
+      layer: 'consistency',
+      code: ERROR_CODES.BINDINGS_UNSUPPORTED_OUTPUT_TYPE,
+      message: `Graph "${signature.id}" output kind "${signature.output.type.kind}" is not bindable`,
+      path: basePath,
+    });
+    fatal = true;
   }
 
   return !fatal;
@@ -169,47 +139,14 @@ export function validateConsistency(
   opts: ConsistencyOptions = {},
 ): Result<ValidatedBindings> {
   const errors: BindingsError[] = [];
-  const declaredModules = opts.declaredModules ?? new Set<string>();
+  void opts;
 
   for (const [id, binding] of Object.entries(resolved.resolved)) {
-    const kind = binding.entry.kind ?? 'query';
-    const shapeOk = checkGraphShape(id, kind, binding.signature, errors);
+    const shapeOk = checkGraphShape(id, binding.entry.exposure, binding.signature, errors);
     if (!shapeOk) continue; // don't run parameter checks against unbindable graph
 
     checkParameters(id, binding.entry, binding.signature, errors);
     checkUnbound(id, binding.entry, binding.signature, errors);
-
-    const pre = binding.entry.pre ?? [];
-    for (let idx = 0; idx < pre.length; idx++) {
-      const step = pre[idx]!;
-      if (step.kind === 'module-rpc' && !declaredModules.has(step.module)) {
-        errors.push({
-          layer: 'consistency',
-          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_MODULE_NOT_DECLARED,
-          message: `binding "${id}" pre[${idx}] references module "${step.module}" which is not declared in manifest.modules`,
-          path: `bindings.${id}.pre[${idx}].module`,
-          hint: 'Add the module to manifest.modules[] with grpc.address and protoPath.',
-        });
-      }
-
-      const name = bindAsName(step.bindAs);
-      const pick = bindAsPick(step.bindAs);
-      const target = binding.signature.inputs[name];
-      if (
-        step.kind === 'module-rpc'
-        && target !== undefined
-        && target.type.kind === 'scalar'
-        && pick === null
-      ) {
-        errors.push({
-          layer: 'consistency',
-          code: ERROR_CODES.BINDINGS_CONSISTENCY_PRE_SCALAR_REQUIRES_PICK,
-          message: `binding "${id}": pre-step binds to scalar "${name}" without pick`,
-          path: `bindings.${id}.pre[${idx}].bindAs`,
-          hint: `Use bindAs: { name: "${name}", pick: "<field>" } to select a scalar value.`,
-        });
-      }
-    }
 
     if (binding.entry.inputFrom !== undefined) {
       const graphInputNames = new Set(Object.keys(binding.signature.inputs));

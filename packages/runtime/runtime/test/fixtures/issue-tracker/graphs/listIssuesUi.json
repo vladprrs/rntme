@@ -2,24 +2,57 @@
   "id": "listIssuesUi",
   "signature": {
     "inputs": {
-      "limit": { "type": "integer", "mode": "defaulted", "default": 50 }
+      "limit": {
+        "type": "integer",
+        "mode": "defaulted",
+        "default": 50
+      }
     },
-    "output": { "type": "rowset<Issue>", "from": "paged" }
+    "output": {
+      "type": "rowset<Issue>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "entity": "Issue"
+        }
+      }
+    },
     {
       "id": "sorted",
       "type": "sort",
       "config": {
         "input": "items",
-        "by": [{ "field": "issue.createdAt", "dir": "desc", "nulls": "last" }]
+        "by": [
+          {
+            "field": "issue.createdAt",
+            "dir": "desc",
+            "nulls": "last"
+          }
+        ]
       }
     },
     {
       "id": "paged",
       "type": "limit",
-      "config": { "input": "sorted", "count": { "$param": "limit" } }
+      "config": {
+        "input": "sorted",
+        "count": {
+          "$param": "limit"
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "paged"
+      }
     }
   ]
 }

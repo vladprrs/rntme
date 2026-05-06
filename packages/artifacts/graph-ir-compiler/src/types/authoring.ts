@@ -45,9 +45,9 @@ export type Expr =
   | number
   | boolean
   | null
-  | { $literal: string }
+  | { $literal: unknown }
   | { $param: string }
-  | { $pre: string }
+  | { $ref: string }
   | { $node: string }
   | { [K in ExprOp]?: Expr[] }
   | { between: [Expr, Expr, Expr] }
@@ -68,19 +68,25 @@ export type FieldExpr =
       };
     };
 
-export type PreRef = { $pre: string };
-
 export type FindManySource =
-  | { entity: string | PreRef }
-  | { projection: string | PreRef }
-  | { eventType: string | PreRef }
-  | PreRef;
+  | { entity: string }
+  | { projection: string }
+  | { eventType: string };
 
 export type FindManyNode = {
   id: string;
   type: 'findMany';
   config: {
     source: FindManySource;
+  };
+};
+
+export type FindOneNode = {
+  id: string;
+  type: 'findOne';
+  config: {
+    source: FindManySource;
+    where: Expr;
   };
 };
 
@@ -146,21 +152,59 @@ export type EmitNode = {
   config: {
     aggregate: string;
     aggregateId: Expr;
-    transition: string | PreRef;
+    transition: string;
     payload: Record<string, Expr>;
     actor?: Expr;
   };
 };
 
+export type CallPolicy = {
+  timeoutMs: number;
+  retry?: { attempts?: number; retryOn?: 'never' | 'transient' | 'all' };
+  idempotency?: { mode: 'inherit' | 'none' | 'derive'; key?: Expr };
+  onError: 'fail';
+};
+
+export type CallNode = {
+  id: string;
+  type: 'call';
+  target: { module: string; operation: string } | { service: string; operation: string };
+  input: Record<string, Expr>;
+  policy: CallPolicy;
+};
+
+export type BranchCase = { when: Expr; then: string } | { default: true; then: string };
+
+export type BranchNode = {
+  id: string;
+  type: 'branch';
+  cases: BranchCase[];
+};
+
+export type ResultNode = {
+  id: string;
+  type: 'result';
+  value: Record<string, Expr> | Expr;
+};
+
 export type GraphNode =
   | FindManyNode
+  | FindOneNode
   | FilterNode
   | MapNode
   | ReduceNode
   | SortNode
   | LimitNode;
 
-export type AnyGraphNode = GraphNode | DistinctNode | LookupOneNode | UuidNode | EmitNode;
+export type AnyGraphNode =
+  | GraphNode
+  | DistinctNode
+  | LookupOneNode
+  | UuidNode
+  | EmitNode
+  | CallNode
+  | BranchNode
+  | ResultNode;
 
 export type GraphDecl = {
   id: string;

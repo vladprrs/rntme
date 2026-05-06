@@ -3,10 +3,7 @@ import {
   createGrpcServer,
   type GrpcServerHandle,
 } from '@rntme/bindings-grpc';
-import type {
-  CommandExecutor,
-  QueryExecutor,
-} from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import type { ResolvedShape } from '@rntme/bindings';
 
@@ -14,8 +11,7 @@ export type GrpcSurfaceOptions = {
   port: number;
   packageName: string;
   serviceName: string;
-  commandExecutor: CommandExecutor;
-  queryExecutor: QueryExecutor;
+  operationExecutor: OperationExecutor;
   shapes: Record<string, ResolvedShape>;
 };
 
@@ -35,8 +31,7 @@ export class GrpcSurface implements Surface {
       shapes: this.opts.shapes,
       packageName: this.opts.packageName,
       serviceName: this.opts.serviceName,
-      commandExecutor: this.opts.commandExecutor,
-      queryExecutor: this.opts.queryExecutor,
+      operationExecutor: this.opts.operationExecutor,
       eventStore: ctx.eventStore,
       qsmDb: ctx.qsmDb,
     });

@@ -4,8 +4,18 @@ import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
 type Node = AuthoringSpecOutput['graphs'][string]['nodes'][number];
 
 function inputRef(n: Node): string | undefined {
-  if (n.type === 'findMany') return undefined;
-  return (n.config as { input?: string }).input;
+  switch (n.type) {
+    case 'filter':
+    case 'map':
+    case 'reduce':
+    case 'sort':
+    case 'limit':
+    case 'distinct':
+    case 'lookupOne':
+      return (n.config as { input?: string }).input;
+    default:
+      return undefined;
+  }
 }
 
 export function checkOutputFrom(spec: AuthoringSpecOutput): GraphIrError[] {

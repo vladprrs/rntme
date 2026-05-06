@@ -33,7 +33,7 @@ export type {
 export type {
   BindingArtifact,
   BindingEntry,
-  BindingKind,
+  BindingExposure,
   HttpBinding,
   HttpParameter,
   HttpMethod,
@@ -45,19 +45,11 @@ export type {
   ValidatedBindings,
   OperationPassthrough,
   ParameterPassthrough,
-  PreStepBindAs,
-  PreStep,
-} from './types/artifact.js';
-
-export {
-  bindAsName,
-  bindAsPick,
 } from './types/artifact.js';
 
 export type {
   BindingResolvers,
   GraphSignature,
-  GraphRole,
   GraphInput,
   InputMode,
   InputType,

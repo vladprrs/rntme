@@ -1,22 +1,17 @@
 import {
-  compile,
-  compileCommand,
-  type CompileResult as QueryCompileResult,
-  type CompiledCommand,
+  compileOperation,
+  type CompiledOperation,
+  type Result,
 } from '@rntme/graph-ir-compiler';
-import type { Result } from '@rntme/graph-ir-compiler';
-import {
-  bindAsName,
-  bindAsPick,
-  type ValidatedBindings,
-  type BindingEntry,
-  type GraphSignature,
-  type ResolvedShape,
-  type InputType,
-  type HttpParameter,
-  type PreStep,
-  type InputFromMap,
-  type ResponseShape,
+import type {
+  ValidatedBindings,
+  BindingEntry,
+  GraphSignature,
+  ResolvedShape,
+  InputType,
+  HttpParameter,
+  InputFromMap,
+  ResponseShape,
 } from '@rntme/bindings';
 import { BindingsRuntimeError, type RuntimeErrorEntry } from '../errors.js';
 import { buildSchemas, type BuiltSchemas } from './zod-schema.js';
@@ -34,22 +29,21 @@ function sliceSpec(spec: SingleGraphSpec, graphId: string): RuntimeGraphSpec {
   };
 }
 
-export function compileForGraph(
-  rawSpec: RuntimeGraphSpec,
-  graphId: string,
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
-): Result<QueryCompileResult> {
-  return compile(sliceSpec(rawSpec, graphId), pdm, qsm);
-}
+const emptyOperationRegistry = { resolve: () => null };
 
-export function compileCommandForGraph(
+export function compileOperationForGraph(
   rawSpec: RuntimeGraphSpec,
   graphId: string,
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
-): Result<CompiledCommand> {
-  return compileCommand(sliceSpec(rawSpec, graphId), pdm, qsm);
+  exposure: 'read' | 'action',
+): Result<CompiledOperation> {
+  return compileOperation(sliceSpec(rawSpec, graphId), pdm, qsm, {
+    registry: emptyOperationRegistry,
+    serviceName: '',
+    ownedAggregates: ownedAggregatesFromPdm(pdm),
+    exposure,
+  });
 }
 
 type BindingPlanCommon = {
@@ -64,62 +58,34 @@ type BindingPlanCommon = {
   bodyParamNames: string[];
 };
 
-export type CompiledPreStep = PreStep & {
-  bindName: string;
-  bindPick: string | null;
-};
-
-export type QueryBindingPlan = BindingPlanCommon & {
-  kind: 'query';
-  compiled: QueryCompileResult;
-  pre: CompiledPreStep[];
-};
-
-export type CommandBindingPlan = BindingPlanCommon & {
-  kind: 'command';
-  commandName: string;
-  pre: CompiledPreStep[];
+export type OperationBindingPlan = BindingPlanCommon & {
+  exposure: 'read' | 'action';
+  operationName: string;
   inputFrom: InputFromMap | null;
   response: ResponseShape | null;
 };
 
-export type BindingPlan = QueryBindingPlan | CommandBindingPlan;
+export type BindingPlan = OperationBindingPlan;
 
-export type GraphIrCommandMap = Record<string, CompiledCommand>;
-export type GraphIrQueryMapPublic = Record<string, QueryCompileResult>;
+export type GraphIrOperationMap = Record<string, CompiledOperation>;
 
 export type BuildPlanResult = {
   plans: Record<string, BindingPlan>;
-  compiledCommands: GraphIrCommandMap;
-  compiledQueries: GraphIrQueryMapPublic;
+  compiledOperations: GraphIrOperationMap;
 };
 
 export type CompilePlanResult<T> =
   | { ok: true; value: T }
   | { ok: false; errors: RuntimeErrorEntry[] };
 
-export function buildDefaultGraphIrCommandMap(
+export function buildDefaultGraphIrOperationMap(
   validated: ValidatedBindings,
   graphSpec: RuntimeGraphSpec,
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
-): CompilePlanResult<GraphIrCommandMap> {
+): CompilePlanResult<GraphIrOperationMap> {
   try {
-    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledCommands };
-  } catch (e) {
-    if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
-    throw e;
-  }
-}
-
-export function buildDefaultGraphIrQueryMap(
-  validated: ValidatedBindings,
-  graphSpec: RuntimeGraphSpec,
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
-): CompilePlanResult<GraphIrQueryMapPublic> {
-  try {
-    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledQueries };
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledOperations };
   } catch (e) {
     if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
     throw e;
@@ -132,26 +98,14 @@ export function buildPlan(
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
 ): BuildPlanResult {
-  const queryGraphIds = new Set<string>();
-  const commandGraphIds = new Set<string>();
-  for (const r of Object.values(validated.resolved)) {
-    const kind = r.entry.kind ?? 'query';
-    if (kind === 'command') commandGraphIds.add(r.entry.graph);
-    else queryGraphIds.add(r.entry.graph);
-  }
-
-  const queryCache = new Map<string, QueryCompileResult>();
-  const commandCache = new Map<string, CompiledCommand>();
+  const graphIds = new Set(Object.values(validated.resolved).map((r) => r.entry.graph));
+  const operationCache = new Map<string, CompiledOperation>();
   const errors: RuntimeErrorEntry[] = [];
 
-  for (const graphId of queryGraphIds) {
-    const r = compileForGraph(graphSpec, graphId, pdm, qsm);
-    if (r.ok) queryCache.set(graphId, r.value);
-    else for (const cause of r.errors) errors.push({ graphId, cause });
-  }
-  for (const graphId of commandGraphIds) {
-    const r = compileCommandForGraph(graphSpec, graphId, pdm, qsm);
-    if (r.ok) commandCache.set(graphId, r.value);
+  for (const graphId of graphIds) {
+    const exposure = resolvedExposureForGraph(validated, graphId);
+    const r = compileOperationForGraph(graphSpec, graphId, pdm, qsm, exposure);
+    if (r.ok) operationCache.set(graphId, r.value);
     else for (const cause of r.errors) errors.push({ graphId, cause });
   }
 
@@ -160,7 +114,6 @@ export function buildPlan(
   const plans: Record<string, BindingPlan> = {};
   for (const [bindingId, resolved] of Object.entries(validated.resolved)) {
     const { entry, signature, outputShape } = resolved;
-    const kind = entry.kind ?? 'query';
     const schemas = buildSchemas(entry.http.parameters, signature);
     const common: BindingPlanCommon = {
       bindingId,
@@ -173,28 +126,35 @@ export function buildPlan(
       pathParamNames: entry.http.parameters.filter((p) => p.in === 'path').map((p) => p.name),
       bodyParamNames: entry.http.parameters.filter((p) => p.in === 'body').map((p) => p.name),
     };
-    plans[bindingId] =
-      kind === 'command'
-        ? {
-            ...common,
-            kind: 'command',
-            commandName: entry.graph,
-            pre: compilePre(entry.pre ?? []),
-            inputFrom: entry.inputFrom ?? null,
-            response: entry.response ?? null,
-          }
-        : {
-            ...common,
-            kind: 'query',
-            compiled: queryCache.get(entry.graph)!,
-            pre: compilePre(entry.pre ?? []),
-          };
+    plans[bindingId] = {
+      ...common,
+      exposure: entry.exposure,
+      operationName: entry.graph,
+      inputFrom: entry.inputFrom ?? null,
+      response: entry.response ?? null,
+    };
   }
+
   return {
     plans,
-    compiledCommands: Object.fromEntries(commandCache),
-    compiledQueries: Object.fromEntries(queryCache),
+    compiledOperations: Object.fromEntries(operationCache),
   };
+}
+
+function resolvedExposureForGraph(validated: ValidatedBindings, graphId: string): 'read' | 'action' {
+  return Object.values(validated.resolved).some((r) => r.entry.graph === graphId && r.entry.exposure === 'action')
+    ? 'action'
+    : 'read';
+}
+
+function ownedAggregatesFromPdm(pdm: ValidatedPdm): Set<string> {
+  const out = new Set<string>();
+  const raw = pdm as { entities?: unknown };
+  const entities = Array.isArray(raw.entities)
+    ? (raw.entities as Array<{ name: string; ownerService?: string }>)
+    : Object.entries((raw.entities as Record<string, unknown> | undefined) ?? {}).map(([name]) => ({ name }));
+  for (const entity of entities) out.add(entity.name);
+  return out;
 }
 
 function collectListParams(parameters: HttpParameter[], signature: GraphSignature): Set<string> {
@@ -205,12 +165,4 @@ function collectListParams(parameters: HttpParameter[], signature: GraphSignatur
     if (t && t.kind === 'list') listSet.add(p.name);
   }
   return listSet;
-}
-
-function compilePre(pre: PreStep[]): CompiledPreStep[] {
-  return pre.map((step) => ({
-    ...step,
-    bindName: bindAsName(step.bindAs),
-    bindPick: bindAsPick(step.bindAs),
-  }));
 }

@@ -3,7 +3,7 @@
 Bridge worker for provisioned BPMN/Operaton projects.
 
 It subscribes to planned Kafka topics, starts Operaton process instances from
-message starts, executes BPMN service tasks by calling rntme gRPC command
+message starts, executes BPMN service tasks by calling rntme gRPC action
 bindings, and writes deterministic command metadata for retries.
 Subscriptions are deployment-scoped and start from the beginning of their
 Kafka topics, so an `OrderPlaced`-style message-start event produced while the
@@ -14,7 +14,7 @@ worker is still deploying is replayed instead of dropped.
 - Depends on: `@rntme/workflows`.
 - Consumed by: deployment plans as the provisioned BPMN worker workload.
 - Position in pipeline: workflow artifact + event envelopes + process state ->
-  mapping evaluation -> command binding input and metadata.
+  mapping evaluation -> action binding input and command metadata.
 
 ## Where to look first
 
@@ -24,7 +24,7 @@ worker is still deploying is replayed instead of dropped.
 - `test/unit/`
 - `test/integration/worker.test.ts`
 
-## gRPC command bindings
+## gRPC Action Bindings
 
 `createGrpcCommandClient(...)` builds the concrete `RntmeCommandClient` used by
 workflow service tasks. Configure it with:
@@ -36,11 +36,11 @@ workflow service tasks. Configure it with:
   binding id and encode/decode requests with `protobufjs`.
 
 The client sends `rntme-command-id`, `rntme-correlation-id`, and
-`rntme-causation-id` as gRPC metadata. If the command returns the canonical
-`CommandResult.result` protobuf `Struct`, the worker unwraps that business
-payload into the BPMN process variable; otherwise it returns the canonical
-aggregate/version/event envelope.
-`int64` fields in command responses are decoded as JavaScript numbers before
+`rntme-causation-id` as gRPC metadata. If the action response includes a
+business result protobuf `Struct`, the worker unwraps that payload into the
+BPMN process variable; otherwise it returns the canonical aggregate/version/event
+envelope.
+`int64` fields in action responses are decoded as JavaScript numbers before
 the worker maps them back into process variables.
 Operaton `Json` variables fetched from later external tasks are decoded back
 into plain JavaScript objects so workflow mappings such as

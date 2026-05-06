@@ -2,15 +2,25 @@
   "id": "getReservation",
   "signature": {
     "inputs": {
-      "orderId": { "type": "string", "mode": "required" }
+      "orderId": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "rowset<StockReservationView>", "from": "one" }
+    "output": {
+      "type": "rowset<StockReservationView>",
+      "from": "out"
+    }
   },
   "nodes": [
     {
       "id": "reservations",
       "type": "findMany",
-      "config": { "source": { "projection": "StockReservationView" } }
+      "config": {
+        "source": {
+          "projection": "StockReservationView"
+        }
+      }
     },
     {
       "id": "filtered",
@@ -18,14 +28,29 @@
       "config": {
         "input": "reservations",
         "expr": {
-          "eq": ["stockReservationView.orderId", { "$param": "orderId" }]
+          "eq": [
+            "stockReservationView.orderId",
+            {
+              "$param": "orderId"
+            }
+          ]
         }
       }
     },
     {
       "id": "one",
       "type": "limit",
-      "config": { "input": "filtered", "count": 1 }
+      "config": {
+        "input": "filtered",
+        "count": 1
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "one"
+      }
     }
   ]
 }

@@ -207,6 +207,7 @@ function queuedDeployment(): Deployment {
     warnings: [],
     errorCode: null,
     errorMessage: null,
+    errorTree: null,
     startedByAccountId: '22222222-2222-4222-8222-222222222222',
     queuedAt: new Date('2026-01-01T00:00:00Z'),
     startedAt: null,

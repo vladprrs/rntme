@@ -120,6 +120,7 @@ describe('loadServiceMember', () => {
           hasUi: false,
           hasSeed: false,
           hasQsm: true,
+          hasCommandHandlers: false,
         },
       },
       pdm,
@@ -168,6 +169,7 @@ describe('loadServiceMember', () => {
       qsmRef: '../qsm',
       bindings: {
         listProducts: {
+          exposure: 'read',
           graph: 'listProducts',
           target: { engine: 'sqlite', dialect: 'sqlite' },
           http: {
@@ -191,6 +193,7 @@ describe('loadServiceMember', () => {
           hasUi: false,
           hasSeed: false,
           hasQsm: false,
+          hasCommandHandlers: false,
         },
       },
       pdm,
@@ -240,6 +243,7 @@ describe('loadServiceMember', () => {
           hasUi: false,
           hasSeed: true,
           hasQsm: false,
+          hasCommandHandlers: false,
         },
       },
       pdm,

@@ -4,9 +4,20 @@ import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
 type Node = AuthoringSpecOutput['graphs'][string]['nodes'][number];
 
 function incoming(n: Node): string[] {
-  if (n.type === 'findMany') return [];
-  const input = (n.config as { input?: string }).input;
-  return input && input !== '$root' ? [input] : [];
+  switch (n.type) {
+    case 'filter':
+    case 'map':
+    case 'reduce':
+    case 'sort':
+    case 'limit':
+    case 'distinct':
+    case 'lookupOne': {
+      const input = (n.config as { input?: string }).input;
+      return input && input !== '$root' ? [input] : [];
+    }
+    default:
+      return [];
+  }
 }
 
 export function checkDag(spec: AuthoringSpecOutput): GraphIrError[] {

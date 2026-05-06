@@ -1,6 +1,7 @@
 # Publish-Path End-to-End Hardening - design
 
 **Status:** brainstorming approved, awaiting user review of this spec
+**Status update (2026-05-06):** Findings that mention binding `pre[]`, `runPreSteps`, or Graph IR `$pre` are historical evidence from the old deployed path. The target graph/binding authoring model is now Graph IR effect operations with `call` nodes and binding `exposure`.
 **Author:** brainstorm 2026-05-02 (live walkthrough on `notes-demo.rntme.com`)
 **Related:**
 - `docs/superpowers/specs/2026-05-02-cli-remote-deploy-hardening-design.md` - prior CLI remote deploy hardening (PR #112). This spec is the successor; it captures problems still observable after #112 landed and the broken production state of `notes-demo` on 2026-05-02.

@@ -8,13 +8,13 @@ describe('idempotencyMiddleware', () => {
   it('replays a cached redirect with Location header', async () => {
     const db = new Database(':memory:');
     const cache = new IdempotencyCache(db);
-    cache.set('cmd.cb', 'k1', { status: 302, body: '', headers: { Location: '/next' } }, Date.now());
+    cache.set('operation.cb', 'k1', { status: 302, body: '', headers: { Location: '/next' } }, Date.now());
 
     const app = new Hono();
     app.use('/cb', idempotencyMiddleware({
       cache,
       now: Date.now,
-      commandNameFromPath: () => 'cmd.cb',
+      operationNameFromPath: () => 'operation.cb',
     }));
     app.post('/cb', (c) => c.json({ never: 'reached' }));
 

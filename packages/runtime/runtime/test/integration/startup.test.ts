@@ -3,8 +3,6 @@ import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { ReadableStream } from 'node:stream/web';
 import { TextEncoder } from 'node:util';
 import type { KafkaMessage, KafkaProducer } from '@rntme/event-store';
@@ -12,7 +10,7 @@ import type { KafkaBatch, KafkaConsumer } from '@rntme/projection-consumer';
 import { loadService } from '../../src/load/load-service.js';
 import { startService } from '../../src/start/start-service.js';
 import type { EventBus } from '../../src/plugins/interfaces.js';
-import type { RunningService, ValidatedService } from '../../src/types.js';
+import type { RunningService } from '../../src/types.js';
 import { emitProto } from '@rntme/bindings-grpc';
 import { collectShapesFromService } from '../../src/start/build-grpc-surface.js';
 
@@ -37,6 +35,15 @@ describe('startService', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
+  });
+
+  it('starts with the graph operation executor and no service-local handlers', async () => {
+    const service = loadService(fixtureDir);
+    expect(service.ok).toBe(true);
+    if (!service.ok) return;
+
+    running = await startService(service.value, { onReady: () => undefined });
+    expect(running.httpPort).toBeGreaterThan(0);
   });
 
   it('serves the UI shell at / and exposes OpenAPI + service identity', async () => {
@@ -127,7 +134,7 @@ describe('startService', () => {
     expect(second.status).toBe(429);
   });
 
-  it('wires a compiled query map through the default GraphIrQueryExecutor for gRPC', async () => {
+  it('wires the default operation executor through gRPC', async () => {
     const loaded = loadService(fixtureDir);
     if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
     loaded.value.manifest.surface = {
@@ -164,76 +171,6 @@ describe('startService', () => {
     expect(response).not.toMatchObject({ code: 'QUERY_NOT_FOUND' });
     expect(typeof response).toBe('object');
     expect(response).not.toBeNull();
-  });
-
-  it('loads service-local code command handlers before falling back to Graph IR for gRPC commands', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'rntme-runtime-handlers-'));
-    cpSync(fixtureDir, dir, { recursive: true });
-    try {
-      mkdirSync(join(dir, 'commands'), { recursive: true });
-      writeFileSync(
-        join(dir, 'commands', 'handlers.mjs'),
-        [
-          'export const handlers = {',
-          '  assignIssue: async (_ctx, input) => ({',
-          '    ok: true,',
-          '    value: {',
-          '      aggregateId: `code-handler-${input.issueId}`,',
-          '      version: 42,',
-          '      eventIds: ["code-event-id"],',
-          '      commandId: "code-command-id",',
-          '      correlationId: "code-correlation-id"',
-          '    }',
-          '  })',
-          '};',
-          '',
-        ].join('\n'),
-      );
-
-      const manifestPath = join(dir, 'manifest.json');
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
-      manifest.surface = {
-        ...((manifest.surface as Record<string, unknown> | undefined) ?? {}),
-        grpc: { enabled: true, port: 0 },
-      };
-      manifest.commands = { handlersModule: 'commands/handlers.mjs' };
-      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-
-      const loaded = loadService(dir);
-      if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
-      running = await startService(loaded.value, { bus: new CapturingEventBus() });
-
-      if (!running.grpcPort) throw new Error('grpc port missing');
-      const client = createIssueTrackerGrpcClient(loaded.value, running.grpcPort) as unknown as {
-        AssignIssue: (arg: object, cb: (err: grpc.ServiceError | null, res: object) => void) => void;
-        ReportIssue: (arg: object, cb: (err: grpc.ServiceError | null, res: object) => void) => void;
-      };
-
-      const handled = await callGrpc<Record<string, unknown>>(client.AssignIssue.bind(client), {
-        issue_id: 7001,
-        assignee_id: 11,
-      });
-      expect(handled).toMatchObject({
-        aggregate_id: 'code-handler-7001',
-        event_ids: ['code-event-id'],
-        command_id: 'code-command-id',
-        correlation_id: 'code-correlation-id',
-      });
-      expect(String(handled.version)).toBe('42');
-
-      const fallback = await callGrpc<Record<string, unknown>>(client.ReportIssue.bind(client), {
-        issue_id: 7002,
-        title: 'graph fallback still works',
-        project_id: 1,
-        reporter_id: 1,
-        priority: 'high',
-        story_points: 3,
-      });
-      expect(fallback.aggregate_id).toBe('7002');
-      expect(fallback.command_id).not.toBe('code-command-id');
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 
   it('wires GrpcAdapterClient when manifest.modules[] is non-empty', async () => {
@@ -366,34 +303,6 @@ function loadProto(src: string, serviceName: string): { root: protobuf.Root; ser
   const { root } = protobuf.parse(src, { keepCase: true });
   root.addJSON(protobuf.common.get('google/protobuf/struct.proto')?.nested ?? {});
   return { root, service: root.lookupService(serviceName) };
-}
-
-function createIssueTrackerGrpcClient(service: ValidatedService, port: number): grpc.Client {
-  const packageName = 'rntme.issue_tracker_api.v1';
-  const serviceName = 'IssueTrackerApiService';
-  const protoSource = emitProto(service.bindings, collectShapesFromService(service), {
-    packageName,
-    serviceName,
-  });
-  const { root, service: grpcService } = loadProto(protoSource, `${packageName}.${serviceName}`);
-  const ClientCtor = grpc.makeGenericClientConstructor(
-    toServiceDef(root, grpcService),
-    serviceName,
-    {},
-  );
-  return new ClientCtor(`127.0.0.1:${port}`, grpc.credentials.createInsecure());
-}
-
-function callGrpc<T>(
-  fn: (arg: object, cb: (err: grpc.ServiceError | null, res: object) => void) => void,
-  arg: object,
-): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    fn(arg, (err, res) => {
-      if (err !== null) reject(err);
-      else resolve(res as T);
-    });
-  });
 }
 
 function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.ServiceDefinition {

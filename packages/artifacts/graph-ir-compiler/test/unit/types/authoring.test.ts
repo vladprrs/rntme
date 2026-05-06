@@ -4,6 +4,7 @@ import type {
   InputMode,
   GraphNode,
   FindManyNode,
+  FindOneNode,
   FilterNode,
   MapNode,
   ReduceNode,
@@ -21,7 +22,7 @@ describe('AuthoringSpec types', () => {
 
   it('supports MVP node union', () => {
     expectTypeOf<GraphNode>().toEqualTypeOf<
-      FindManyNode | FilterNode | MapNode | ReduceNode | SortNode | LimitNode
+      FindManyNode | FindOneNode | FilterNode | MapNode | ReduceNode | SortNode | LimitNode
     >();
   });
 

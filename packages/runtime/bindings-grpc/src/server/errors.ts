@@ -1,29 +1,21 @@
 import * as grpc from '@grpc/grpc-js';
-import type {
-  CommandExecutorError,
-  QueryExecutorError,
-} from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutorError } from '@rntme/bindings-http/operation-contract';
 
 export function mapExecutorErrorToGrpcStatus(
-  err: CommandExecutorError | QueryExecutorError,
+  err: OperationExecutorError,
 ): grpc.status {
   switch (err.code) {
-    case 'COMMAND_NOT_FOUND':
-    case 'QUERY_NOT_FOUND':
+    case 'OPERATION_NOT_FOUND':
       return grpc.status.UNIMPLEMENTED;
-    case 'COMMAND_GUARD_REJECTED':
+    case 'OPERATION_GUARD_REJECTED':
       return grpc.status.FAILED_PRECONDITION;
-    case 'COMMAND_CONCURRENCY_CONFLICT':
+    case 'OPERATION_CONCURRENCY_CONFLICT':
       return grpc.status.ABORTED;
-    case 'COMMAND_HANDLER_THREW':
-    case 'QUERY_HANDLER_THREW':
+    case 'OPERATION_EXECUTION_FAILED':
       return grpc.status.INTERNAL;
-    case 'COMMAND_HANDLER_ERROR':
+    case 'OPERATION_HANDLER_ERROR':
       return grpc.status.INVALID_ARGUMENT;
-    default: {
-      const _exhaustive: never = err;
-      void _exhaustive;
+    default:
       return grpc.status.UNKNOWN;
-    }
   }
 }

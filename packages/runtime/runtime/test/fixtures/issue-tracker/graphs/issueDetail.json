@@ -2,18 +2,39 @@
   "id": "issueDetail",
   "signature": {
     "inputs": {
-      "id": { "type": "integer", "mode": "required" }
+      "id": {
+        "type": "integer",
+        "mode": "required"
+      }
     },
-    "output": { "type": "rowset<IssueDetail>", "from": "proj" }
+    "output": {
+      "type": "rowset<IssueDetail>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "entity": "Issue"
+        }
+      }
+    },
     {
       "id": "filtered",
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["issue.id", { "$param": "id" }] }
+        "expr": {
+          "eq": [
+            "issue.id",
+            {
+              "$param": "id"
+            }
+          ]
+        }
       }
     },
     {
@@ -35,6 +56,13 @@
           "reporterUsername": "issue.reporter.username",
           "assigneeUsername": "issue.assignee.username"
         }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "proj"
       }
     }
   ]

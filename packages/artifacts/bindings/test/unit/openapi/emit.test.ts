@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { generateOpenApi } from '../../../src/openapi/emit.js';
 import type { ValidatedBindings } from '../../../src/types/artifact.js';
 import type { BindingResolvers, GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
-import {
-  COMMAND_RESULT_SHAPE_NAME,
-  commandResultJsonSchema,
-  commandResultShape,
-} from '../../../src/openapi/command-result.js';
+
+const emptyEffects = {
+  localReads: false,
+  localEmits: [],
+  calls: [],
+  waits: false,
+} as const;
 
 const row: ResolvedShape = {
   name: 'Row',
@@ -23,6 +25,7 @@ const signature: GraphSignature = {
     limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 },
   },
   output: { type: { kind: 'rowset', shape: 'Row' }, from: 't' },
+  effects: emptyEffects,
 };
 
 const validated: ValidatedBindings = {
@@ -34,6 +37,7 @@ const validated: ValidatedBindings = {
     openapi: { info: { title: 'API', version: '1.0.0' } },
     bindings: {
       primary: {
+        exposure: 'read',
         graph: 'g',
         target: { engine: 'sqlite', dialect: 'sqlite' },
         http: {
@@ -49,6 +53,7 @@ const validated: ValidatedBindings = {
   resolved: {
     primary: {
       entry: {
+        exposure: 'read',
         graph: 'g',
         target: { engine: 'sqlite', dialect: 'sqlite' },
         http: {
@@ -179,20 +184,34 @@ describe('generateOpenApi', () => {
     expect(Object.keys(r.value.components.schemas).sort()).toEqual(['ErrorResponse', 'Row']);
   });
 
-  it('emits a command binding with single-object response + 409 + CommandResult schema', () => {
+  it('emits an action binding with single-object response + 409 + result schema', () => {
+    const assignIssueResult: ResolvedShape = {
+      name: 'AssignIssueResult',
+      origin: 'custom',
+      fields: {
+        issueId: { type: { kind: 'scalar', primitive: 'integer' }, nullable: false },
+        assigned: { type: { kind: 'scalar', primitive: 'boolean' }, nullable: false },
+      },
+    };
+
     const cmdSig: GraphSignature = {
       id: 'assignIssue',
-      role: 'command',
       inputs: {
         issueId: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
         assigneeId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
         actor: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
       },
-      output: { type: { kind: 'row', shape: COMMAND_RESULT_SHAPE_NAME }, from: 'emitAssign' },
+      output: { type: { kind: 'row', shape: 'AssignIssueResult' }, from: 'result' },
+      effects: {
+        localReads: true,
+        localEmits: [{ aggregate: 'Issue', transition: 'assign', eventType: 'IssueAssigned' }],
+        calls: [],
+        waits: false,
+      },
     };
 
     const cmdEntry = {
-      kind: 'command' as const,
+      exposure: 'action' as const,
       graph: 'assignIssue',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {
@@ -217,13 +236,13 @@ describe('generateOpenApi', () => {
         bindings: { assignIssue: cmdEntry },
       } as unknown as ValidatedBindings['artifact'],
       resolved: {
-        assignIssue: { entry: cmdEntry, signature: cmdSig, outputShape: commandResultShape() },
+        assignIssue: { entry: cmdEntry, signature: cmdSig, outputShape: assignIssueResult },
       },
     } as unknown as ValidatedBindings;
 
     const cmdResolvers: BindingResolvers = {
       resolveGraphSignature: (id) => (id === 'assignIssue' ? cmdSig : null),
-      resolveShape: () => null,
+      resolveShape: (name) => (name === 'AssignIssueResult' ? assignIssueResult : null),
     };
 
     const r = generateOpenApi(v, cmdResolvers);
@@ -232,9 +251,16 @@ describe('generateOpenApi', () => {
     const op = r.value.paths['/v1/issues/{issueId}/actions/assign']?.post;
     expect(op?.operationId).toBe('assignIssue');
     expect(op?.responses['200']?.content?.['application/json']?.schema).toEqual({
-      $ref: `#/components/schemas/${COMMAND_RESULT_SHAPE_NAME}`,
+      $ref: '#/components/schemas/AssignIssueResult',
     });
     expect(Object.keys(op?.responses ?? {}).sort()).toEqual(['200', '400', '409', '422', '500']);
-    expect(r.value.components.schemas.CommandResult).toEqual(commandResultJsonSchema());
+    expect(r.value.components.schemas.AssignIssueResult).toEqual({
+      type: 'object',
+      required: ['issueId', 'assigned'],
+      properties: {
+        issueId: { type: 'integer' },
+        assigned: { type: 'boolean' },
+      },
+    });
   });
 });

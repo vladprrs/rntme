@@ -1,7 +1,5 @@
 import { serve, type ServerType } from '@hono/node-server';
 import { Hono } from 'hono';
-import { resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { BetterSqliteDriver } from '../plugins/better-sqlite-driver.js';
 import { InMemoryBus } from '../plugins/in-memory-bus.js';
 import { HttpSurface } from '../plugins/http-surface.js';
@@ -13,20 +11,15 @@ import type {
   DbDriver,
   EventBus,
 } from '../plugins/interfaces.js';
-import { CodeCommandExecutor } from '../plugins/executors/code-command-executor.js';
-import { CompositeCommandExecutor } from '../plugins/executors/composite-command-executor.js';
-import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
-import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
-import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
+import { GraphOperationExecutor } from '../plugins/executors/graph-operation-executor.js';
+import { buildDefaultGraphIrOperationMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
-import type { CommandExecutor, ServiceLocalCodeCommandHandlerMap } from '../plugins/executors/types.js';
 import { applySeed } from '@rntme/seed';
 import { defaultTopicOf } from '@rntme/event-store';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
 import { buildAdapterClient } from './build-adapter-client.js';
-import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
 import { buildGrpcSurface, collectShapesFromService } from './build-grpc-surface.js';
 import {
   buildKafkaJsClientConfigFromEnv,
@@ -52,9 +45,7 @@ export async function startService(
   const runtimeEnv = runtimeConfig.runtimeEnv ?? process.env;
   const authEnv = parseRuntimeAuthEnv(runtimeEnv);
   const eventBusTopicPrefix = parseRuntimeEventBusTopicPrefixFromEnv(runtimeEnv);
-  const adapter =
-    runtimeConfig.externalAdapterClient
-    ?? buildRuntimeAdapterClient(service.manifest, runtimeConfig.artifactDir, authEnv);
+  validateRuntimeAdapterConfig(service.manifest, runtimeConfig.artifactDir, authEnv);
   const db: DbDriver = runtimeConfig.db ?? new BetterSqliteDriver();
   const kafkaClientConfig = buildKafkaJsClientConfigFromEnv(
     runtimeEnv,
@@ -98,45 +89,21 @@ export async function startService(
 
   pipeline.start();
 
-  const defaultCommandMapResult = buildDefaultGraphIrCommandMap(
+  const defaultOperationMapResult = buildDefaultGraphIrOperationMap(
     service.bindings,
     service.graphSpec,
     service.pdm,
     service.qsm,
   );
-  if (!defaultCommandMapResult.ok) {
+  if (!defaultOperationMapResult.ok) {
     await pipeline.stop();
     if (bus.stop) await bus.stop();
     throw new Error(
-      `Failed to compile command bindings: ${JSON.stringify(defaultCommandMapResult.errors)}`,
+      `Failed to compile operation bindings: ${JSON.stringify(defaultOperationMapResult.errors)}`,
     );
   }
-  const defaultQueryMapResult = buildDefaultGraphIrQueryMap(
-    service.bindings,
-    service.graphSpec,
-    service.pdm,
-    service.qsm,
-  );
-  if (!defaultQueryMapResult.ok) {
-    await pipeline.stop();
-    if (bus.stop) await bus.stop();
-    throw new Error(
-      `Failed to compile query bindings: ${JSON.stringify(defaultQueryMapResult.errors)}`,
-    );
-  }
-  const graphCommandExecutor = new GraphIrCommandExecutor(defaultCommandMapResult.value);
-  let commandExecutor: CommandExecutor;
-  try {
-    commandExecutor =
-      runtimeConfig.commandExecutor ??
-      await buildConfiguredCommandExecutor(service, graphCommandExecutor);
-  } catch (err) {
-    await pipeline.stop();
-    if (bus.stop) await bus.stop();
-    throw err;
-  }
-  const queryExecutor =
-    runtimeConfig.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
+  const operationExecutor =
+    runtimeConfig.operationExecutor ?? new GraphOperationExecutor(defaultOperationMapResult.value);
 
   // Periodic sweep of the derived-projection idempotency side-table. Started
   // AFTER `wireEventPipeline` has created the `seen_events` table via
@@ -156,9 +123,7 @@ export async function startService(
         metricsPath: service.manifest.observability.metrics.path,
         metrics,
         healthProbe: probe,
-        commandExecutor,
-        queryExecutor,
-        externalAdapterClient: adapter ?? undefined,
+        operationExecutor,
       }),
     ];
 
@@ -179,8 +144,7 @@ export async function startService(
   const port = typeof address === 'object' && address !== null ? address.port : listenPort;
 
   const grpcSurface = buildGrpcSurface(service.manifest, {
-    commandExecutor,
-    queryExecutor,
+    operationExecutor,
     shapes: collectShapesFromService(service),
   });
 
@@ -259,13 +223,14 @@ function closeHttpServer(server: ServerType, timeoutMs: number): Promise<void> {
   });
 }
 
-function buildRuntimeAdapterClient(
+function validateRuntimeAdapterConfig(
   manifest: ValidatedService['manifest'],
   artifactDir: string | undefined,
   authEnv: ReturnType<typeof parseRuntimeAuthEnv>,
-): ExternalAdapterClient | null {
+): void {
   if (authEnv === null) {
-    return artifactDir !== undefined ? buildAdapterClient(manifest, artifactDir) : null;
+    if (artifactDir !== undefined) buildAdapterClient(manifest, artifactDir);
+    return;
   }
 
   if (artifactDir === undefined) {
@@ -280,44 +245,7 @@ function buildRuntimeAdapterClient(
       `auth module "${authEnv.moduleSlug}" is not declared in manifest.modules`,
     );
   }
-  return buildAdapterClient(manifest, artifactDir, {
+  buildAdapterClient(manifest, artifactDir, {
     [authEnv.moduleSlug]: authEnv.moduleEndpoint,
   });
-}
-
-async function buildConfiguredCommandExecutor(
-  service: ValidatedService,
-  graphExecutor: CommandExecutor,
-): Promise<CommandExecutor> {
-  const handlersModule = service.manifest.commands?.handlersModule;
-  if (handlersModule === undefined) return graphExecutor;
-
-  const handlers = await importCommandHandlers(service.artifactDir, handlersModule);
-  return new CompositeCommandExecutor(new CodeCommandExecutor(handlers), graphExecutor);
-}
-
-async function importCommandHandlers(
-  artifactDir: string,
-  modulePath: string,
-): Promise<ServiceLocalCodeCommandHandlerMap> {
-  const root = resolve(artifactDir);
-  const absoluteModulePath = resolve(root, modulePath);
-  if (absoluteModulePath !== root && !absoluteModulePath.startsWith(`${root}${sep}`)) {
-    throw new Error(`commands.handlersModule escapes artifact directory: ${modulePath}`);
-  }
-
-  const mod = await import(pathToFileURL(absoluteModulePath).href) as {
-    handlers?: unknown;
-    default?: unknown;
-  };
-  const handlers = mod.handlers ?? mod.default;
-  if (!isCodeCommandHandlerMap(handlers)) {
-    throw new Error('commands.handlersModule must export a handler map as "handlers" or default');
-  }
-  return handlers;
-}
-
-function isCodeCommandHandlerMap(value: unknown): value is ServiceLocalCodeCommandHandlerMap {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.values(value as Record<string, unknown>).every((handler) => typeof handler === 'function');
 }

@@ -31,6 +31,26 @@ describe('parseManifest', () => {
     if (!r.ok) expect(r.errors.some((e) => e.code === 'MANIFEST_UNKNOWN_KEY')).toBe(true);
   });
 
+  it('rejects commands.handlersModule in clean-break runtime manifests', () => {
+    const parsed = parseManifest(JSON.stringify({
+      rntmeVersion: '1.0',
+      service: { name: 'api', version: '1.0.0' },
+      commands: { handlersModule: 'commands/handlers.mjs' },
+    }));
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'MANIFEST_UNKNOWN_KEY',
+            path: '<root>.commands',
+          }),
+        ]),
+      );
+    }
+  });
+
   it('reports missing service.name', () => {
     const r = parseManifest(JSON.stringify({ rntmeVersion: '1.0', service: { version: '1.0.0' } }));
     expect(r.ok).toBe(false);

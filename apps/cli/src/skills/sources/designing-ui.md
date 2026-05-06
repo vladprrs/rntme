@@ -1,11 +1,11 @@
 ---
 name: designing-ui
-description: Use when authoring artifacts/ui.json (pages, components, forms, lists). Paired with designing-pdm; every UI action must map to a PDM command.
+description: Use when authoring artifacts/ui.json (pages, components, forms, lists). Paired with designing-bindings; every UI command action must map to an action exposure.
 ---
 
 ## What you're building
 
-`artifacts/ui.json` is a `ResolvedSource` bundle — a `SourceManifest` plus inlined layouts, screens, and fragments assembled by `@rntme/ui`'s `resolve()` pipeline. The runtime (`@rntme/ui-runtime`) binds screen actions to PDM commands via compiled `binding` IDs resolved through `@rntme/bindings`, and populates screen data by issuing HTTP queries declared in `ScreenDescriptor.data`. Every route in the manifest corresponds to one layout + one screen pair; forms collect input into `/form/*` state paths and dispatch named actions that the runtime executes as HTTP POST calls against the bindings layer.
+`artifacts/ui.json` is a `ResolvedSource` bundle — a `SourceManifest` plus inlined layouts, screens, and fragments assembled by `@rntme/ui`'s `resolve()` pipeline. The runtime (`@rntme/ui-runtime`) binds screen actions to action exposures via compiled `binding` IDs resolved through `@rntme/bindings`, and populates screen data by issuing HTTP reads declared in `ScreenDescriptor.data`. Every route in the manifest corresponds to one layout + one screen pair; forms collect input into `/form/*` state paths and dispatch named actions that the runtime executes against the bindings layer.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ description: Use when authoring artifacts/ui.json (pages, components, forms, lis
 2. For each use-case, identify the page it lives on and the primary component type: list (repeating card/row), detail (single record view), or form (mutation entry).
 3. For each list or detail page, declare a `DataBinding` in `screen.data` mapping a `/data/<name>` state path to a bindings query ID (e.g. `"binding": "listIssues"`).
 4. For each form page, map every input field to the corresponding PDM aggregate field; bind inputs to `/form/<fieldName>` state paths; declare a `command` action whose `paramsFromState` collects those paths.
-5. Cross-check with `designing-pdm`: every `kind: "command"` action `binding` must correspond to a PDM aggregate transition, and every form field listed in `paramsFromState` must exist on the PDM aggregate.
+5. Cross-check with `designing-bindings`: every `kind: "command"` action `binding` must resolve to an action exposure, and every form field listed in `paramsFromState` must be supplied to the matching Graph IR operation.
 6. Declare `manifest.routes` — every page needs a route pattern (e.g. `"/issues"`, `"/issues/:id"`). The `layout` key must match a key in `manifest.layouts`; the `screen` key must be a base path under `screens/`.
 7. Write `artifacts/ui.json` in `ResolvedSource` form (see type reference and worked example below).
 8. Run `rntme project publish --dry-run`. Fix any `UI_*` codes before advancing.
@@ -23,7 +23,7 @@ description: Use when authoring artifacts/ui.json (pages, components, forms, lis
 
 | Symptom | Problem |
 |---|---|
-| A `kind: "command"` action whose `binding` has no corresponding PDM transition | UI mutates state that the domain doesn't know about — the POST will 404 or fail validation |
+| A `kind: "command"` action whose `binding` does not resolve to an action exposure | UI mutates state through a route that the bindings layer does not expose as an action. |
 | Form fields in `paramsFromState` that don't exist in the PDM aggregate `fields` map | Orphan params the event-store will reject; creates silent data loss |
 | Hard-coded record IDs in `on.press` navigate params instead of `{ "$state": "/route/params/id" }` | Navigation breaks for any record other than the hard-coded one |
 | A route pattern in `manifest.routes` whose `layout` key is not in `manifest.layouts` | `UI_REFERENCES_UNKNOWN_LAYOUT` at compile time; screen will never render |
@@ -1409,7 +1409,7 @@ Walkthrough: `manifest.routes` maps six URL patterns to the single `"main"` layo
 ## Anti-patterns
 
 - **Embedding business logic in UI** — visibility conditions that replicate state-machine rules, or action guards that shadow PDM transition guards. Logic belongs in the domain layer; the UI should only reflect state already in `/data/*`.
-- **Client-side state as events** — writing to `/form/*` paths does not produce PDM events. Only `kind: "command"` actions do. Do not model ephemeral form state as something the event store needs to persist.
+- **Client-side state as events** — writing to `/form/*` paths does not produce PDM events. Only `kind: "command"` actions routed to action exposures can run state-changing operations. Do not model ephemeral form state as something the event store needs to persist.
 - **Duplicating PDM structure inline** — defining the same field twice (once in the form, once hard-coded in a badge prop). Derive display values from `/data/*` state populated by the data binding; don't embed them as literal props.
 - **Ad-hoc queries bypassing bindings** — using a raw URL path in `DataBinding.binding` instead of a named binding ID. The `binding` field is a logical ID resolved via `artifacts/bindings.json`; it must not be an HTTP path string.
 - **Layout strings without a corresponding layout key** — a `RouteEntry.layout` value that doesn't appear in `manifest.layouts` compiles but fails at runtime because the server has no `/_layouts/<name>.json` to serve.

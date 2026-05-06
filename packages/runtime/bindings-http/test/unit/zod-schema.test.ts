@@ -12,6 +12,7 @@ const sig: GraphSignature = {
     ids: { type: { kind: 'list', element: 'integer' }, mode: 'predicate_optional' },
   },
   output: { type: { kind: 'rowset', shape: 'X' }, from: 'z' },
+  effects: { localReads: true, localEmits: [], calls: [], waits: false },
 };
 
 const p = (name: string, loc: 'query' | 'path' | 'body', bindTo: string, required: boolean): HttpParameter =>
@@ -72,6 +73,7 @@ describe('buildSchemas — query+path', () => {
       id: 'g2',
       inputs: { orderId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' } },
       output: { type: { kind: 'rowset', shape: 'X' }, from: 'z' },
+      effects: { localReads: true, localEmits: [], calls: [], waits: false },
     };
     const s = buildSchemas([{ name: 'orderId', in: 'path', bindTo: 'orderId', required: true }], sig2);
     expect(s.pathSchema.safeParse({ orderId: 'abc' }).success).toBe(true);

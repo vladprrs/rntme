@@ -120,7 +120,14 @@ const composeBase = {
       slug: 'app',
       kind: 'domain' as const,
       qsm: null,
-      artifacts: { hasBindings: true, hasUi: true, hasGraphs: true, hasQsm: true, hasSeed: false },
+      artifacts: {
+        hasBindings: true,
+        hasUi: true,
+        hasGraphs: true,
+        hasQsm: true,
+        hasSeed: false,
+        hasCommandHandlers: false,
+      },
     },
   },
 };
@@ -187,7 +194,14 @@ describe('consistency vars', () => {
           slug: 'identity-auth0',
           kind: 'integration-module' as const,
           qsm: null,
-          artifacts: { hasBindings: false, hasUi: false, hasGraphs: false, hasQsm: false, hasSeed: false },
+          artifacts: {
+            hasBindings: false,
+            hasUi: false,
+            hasGraphs: false,
+            hasQsm: false,
+            hasSeed: false,
+            hasCommandHandlers: false,
+          },
         },
       },
       project: {

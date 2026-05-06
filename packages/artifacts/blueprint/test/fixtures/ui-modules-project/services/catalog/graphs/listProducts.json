@@ -2,7 +2,18 @@
   "id": "listProducts",
   "signature": {
     "inputs": {},
-    "output": { "type": "rowset<ProductRow>", "from": "catalog" }
+    "output": {
+      "type": "rowset<ProductRow>",
+      "from": "out"
+    }
   },
-  "nodes": []
+  "nodes": [
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "catalog"
+      }
+    }
+  ]
 }

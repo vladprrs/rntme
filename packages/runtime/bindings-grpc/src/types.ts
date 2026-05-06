@@ -1,8 +1,5 @@
 import type { Server, ServerCredentials } from '@grpc/grpc-js';
-import type {
-  CommandExecutor,
-  QueryExecutor,
-} from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { ValidatedBindings, ResolvedShape } from '@rntme/bindings';
 import type { EventStore } from '@rntme/event-store';
 import type BetterSqlite3 from 'better-sqlite3';
@@ -12,8 +9,7 @@ export type GrpcServerOptions = {
   shapes: Record<string, ResolvedShape>;
   packageName: string;
   serviceName: string;
-  commandExecutor: CommandExecutor;
-  queryExecutor: QueryExecutor;
+  operationExecutor: OperationExecutor;
   eventStore: EventStore;
   qsmDb: BetterSqlite3.Database;
   serverCredentials?: ServerCredentials;

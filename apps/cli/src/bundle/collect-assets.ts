@@ -6,7 +6,10 @@ import { safeProvisionerName } from '@rntme/blueprint';
 const MAX_ASSETS_BYTES = 10 * 1024 * 1024;
 
 export type CollectAssetsError = Readonly<{
-  code: 'BLUEPRINT_PROVISIONER_ENTRY_MISSING' | 'CLI_BUNDLE_ASSETS_TOO_LARGE';
+  code:
+    | 'BLUEPRINT_DOMAIN_COMMAND_HANDLER_FORBIDDEN'
+    | 'BLUEPRINT_PROVISIONER_ENTRY_MISSING'
+    | 'CLI_BUNDLE_ASSETS_TOO_LARGE';
   message: string;
 }>;
 
@@ -31,7 +34,7 @@ export function collectBundleAssets(
   const workflows = collectWorkflowAssetsInto(root, projectFiles, out, budget);
   if (!workflows.ok) return workflows;
 
-  const commandHandlers = collectCommandHandlerAssetsInto(root, projectFiles, out, budget);
+  const commandHandlers = rejectCommandHandlerAssets(projectFiles);
   if (!commandHandlers.ok) return commandHandlers;
 
   return { ok: true, value: out };
@@ -133,30 +136,21 @@ function collectWorkflowAssetsInto(
   return { ok: true, value: out };
 }
 
-function collectCommandHandlerAssetsInto(
-  root: string,
+function rejectCommandHandlerAssets(
   projectFiles: readonly string[],
-  out: Record<string, string>,
-  budget: { totalBytes: number },
 ): CollectAssetsResult {
   for (const relPath of [...projectFiles].sort()) {
     if (!isServiceCommandModulePath(relPath)) continue;
-
-    let bytes: Buffer;
-    const absPath = resolve(root, relPath);
-    try {
-      const st = statSync(absPath);
-      if (!st.isFile()) continue;
-      bytes = readFileSync(absPath);
-    } catch {
-      continue;
-    }
-
-    const added = addAsset(out, relPath, bytes, budget);
-    if (!added.ok) return added;
+    return {
+      ok: false,
+      errors: [{
+        code: 'BLUEPRINT_DOMAIN_COMMAND_HANDLER_FORBIDDEN',
+        message: `domain service command handler file "${relPath}" is not bundleable`,
+      }],
+    };
   }
 
-  return { ok: true, value: out };
+  return { ok: true, value: {} };
 }
 
 function isServiceCommandModulePath(relPath: string): boolean {

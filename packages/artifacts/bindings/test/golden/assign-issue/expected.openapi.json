@@ -14,7 +14,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CommandResult"
+                  "$ref": "#/components/schemas/AssignIssueResult"
                 }
               }
             }
@@ -101,27 +101,19 @@
   },
   "components": {
     "schemas": {
-      "CommandResult": {
+      "AssignIssueResult": {
         "type": "object",
         "required": [
-          "aggregateId",
-          "version",
-          "eventIds"
+          "issueId",
+          "assigned"
         ],
         "properties": {
-          "aggregateId": {
-            "type": "string"
-          },
-          "version": {
+          "issueId": {
             "type": "integer"
           },
-          "eventIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "result": {}
+          "assigned": {
+            "type": "boolean"
+          }
         }
       },
       "ErrorResponse": {

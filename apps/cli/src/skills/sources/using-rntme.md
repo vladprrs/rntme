@@ -21,7 +21,7 @@ You have an existing service bundle and want to change ONE artifact. Skip brains
     - add an aggregate/event/command → designing-pdm
     - expose a new command/query → designing-bindings
     - add a projection / JOIN → designing-qsm
-    - change query compilation → designing-graph-ir
+    - change operation graphs → designing-graph-ir
     - bump metadata or wire services → composing-blueprint
     - just publish → publishing-via-rntme-cli
 

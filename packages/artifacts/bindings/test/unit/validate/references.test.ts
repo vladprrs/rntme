@@ -10,6 +10,7 @@ const artifact = {
   qsmRef: 'z',
   bindings: {
     primary: {
+      exposure: 'read',
       graph: 'g',
       target: { engine: 'sqlite', dialect: 'sqlite' },
       http: {
@@ -23,6 +24,7 @@ const artifact = {
 
 const defaultSig: GraphSignature = {
   id: 'g',
+  effects: { localReads: true, localEmits: [], calls: [], waits: false },
   inputs: {
     limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 },
   },
@@ -114,7 +116,7 @@ describe('validateReferences', () => {
       qsmRef: 'z',
       bindings: {
         cmd: {
-          kind: 'command' as const,
+          exposure: 'action' as const,
           graph: 'g',
           target: { engine: 'sqlite', dialect: 'sqlite' },
           http: {
@@ -128,7 +130,12 @@ describe('validateReferences', () => {
 
     const cmdSig: GraphSignature = {
       id: 'g',
-      role: 'command',
+      effects: {
+        localReads: false,
+        localEmits: [{ aggregate: 'Issue', transition: 'assign', eventType: 'IssueAssigned' }],
+        calls: [],
+        waits: false,
+      },
       inputs: { actor: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' } },
       output: { type: { kind: 'row', shape: 'CommandResult' }, from: 'emitX' },
     };

@@ -2,7 +2,18 @@
   "id": "listPrices",
   "signature": {
     "inputs": {},
-    "output": { "type": "rowset<PriceRow>", "from": "pricing" }
+    "output": {
+      "type": "rowset<PriceRow>",
+      "from": "out"
+    }
   },
-  "nodes": []
+  "nodes": [
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "pricing"
+      }
+    }
+  ]
 }

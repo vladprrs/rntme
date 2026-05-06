@@ -186,7 +186,7 @@ function collectServiceBindings(
           method: binding.entry.http.method,
           path: binding.entry.http.path,
         };
-        if (binding.entry.kind !== undefined) entry.kind = binding.entry.kind;
+        entry.kind = binding.entry.exposure === 'action' ? 'command' : 'query';
         return entry;
       },
     );

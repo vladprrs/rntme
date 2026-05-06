@@ -5,10 +5,16 @@ type Node = AuthoringSpecOutput['graphs'][string]['nodes'][number];
 
 function nodeInput(n: Node): string | undefined {
   switch (n.type) {
-    case 'findMany':
-      return undefined;
-    default:
+    case 'filter':
+    case 'map':
+    case 'reduce':
+    case 'sort':
+    case 'limit':
+    case 'distinct':
+    case 'lookupOne':
       return (n.config as { input?: string }).input;
+    default:
+      return undefined;
   }
 }
 

@@ -138,20 +138,29 @@ function toGraphSignature(
 
   if (errors.length > 0) return err(errors);
 
-  const hasEmit = graph.nodes.some(
-    (node) =>
-      typeof node === 'object' &&
-      node !== null &&
-      (node as { type?: string }).type === 'emit',
+  const emitNodes = graph.nodes.filter(
+    (node) => typeof node === 'object' && node !== null && (node as { type?: string }).type === 'emit',
   );
 
   return ok({
     id: graph.id,
-    ...(hasEmit ? { role: 'command' as const } : {}),
     inputs,
     output: {
       type: outputType!,
       from: graph.signature.output.from,
+    },
+    effects: {
+      localReads: true,
+      localEmits: emitNodes.map((node) => {
+        const config = (node as { config?: { aggregate?: unknown; transition?: unknown } }).config;
+        return {
+          aggregate: typeof config?.aggregate === 'string' ? config.aggregate : '',
+          transition: typeof config?.transition === 'string' ? config.transition : '',
+          eventType: '',
+        };
+      }),
+      calls: [],
+      waits: false,
     },
   });
 }

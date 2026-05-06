@@ -9,6 +9,12 @@ const categorySalesSig: GraphSignature = {
     limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 },
   },
   output: { type: { kind: 'rowset', shape: 'CategorySalesRow' }, from: 'paged' },
+  effects: {
+    localReads: true,
+    localEmits: [],
+    calls: [],
+    waits: false,
+  },
 };
 
 const categorySalesRow: ResolvedShape = {

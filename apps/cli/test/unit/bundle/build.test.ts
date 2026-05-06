@@ -97,7 +97,7 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('emits service-local command handler modules as assets', () => {
+  it('does not bundle service-local command handler modules', () => {
     withTmp((dir) => {
       mkdirSync(join(dir, 'services', 'inventory', 'commands'), { recursive: true });
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: ['inventory'], name: 'demo' }));
@@ -106,12 +106,11 @@ describe('buildProjectBundle', () => {
 
       const result = buildProjectBundle(dir);
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(Object.keys(result.value.bundle.files)).toEqual(['project.json']);
-      expect(result.value.bundle.assets['services/inventory/commands/handlers.mjs']).toBe(
-        Buffer.from(handlers).toString('base64'),
-      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('CLI_VALIDATE_LOCAL_FAILED');
+        expect(result.error.message).toContain('BLUEPRINT_DOMAIN_COMMAND_HANDLER_FORBIDDEN');
+      }
     });
   });
 

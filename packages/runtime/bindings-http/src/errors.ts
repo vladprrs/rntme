@@ -12,8 +12,7 @@ export const BINDINGS_HTTP_STARTUP_ERROR_CODES = {
 
 export type StartupDependencyName =
   | 'eventStore'
-  | 'commandExecutor'
-  | 'externalAdapterClient';
+  | 'operationExecutor';
 
 export type MissingRuntimeDependencyCause = Readonly<{
   code: typeof BINDINGS_HTTP_STARTUP_ERROR_CODES.MISSING_RUNTIME_DEPENDENCY;

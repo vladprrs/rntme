@@ -15,6 +15,7 @@ describe('resolver types', () => {
     };
     const sig: GraphSignature = {
       id: 'g',
+      effects: { localReads: true, localEmits: [], calls: [], waits: false },
       inputs: {
         limit: {
           type: { kind: 'scalar', primitive: 'integer' },

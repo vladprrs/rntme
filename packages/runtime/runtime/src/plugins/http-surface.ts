@@ -4,11 +4,10 @@ import {
   correlationMiddleware,
   type CorrelationVariables,
 } from '@rntme/bindings-http';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import { createApp as createUiApp } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
-import type { CommandExecutor, QueryExecutor } from './executors/types.js';
-import type { ExternalAdapterClient } from './adapter-client/index.js';
 import type {
   ValidatedHttpBodyLimitConfig,
   ValidatedHttpRateLimitConfig,
@@ -19,9 +18,7 @@ export type HttpSurfaceOptions = {
   metricsPath: string;
   metrics: Metrics;
   healthProbe: HealthProbe;
-  commandExecutor?: CommandExecutor;
-  queryExecutor?: QueryExecutor;
-  externalAdapterClient?: ExternalAdapterClient | undefined;
+  operationExecutor: OperationExecutor;
 };
 
 export type { CorrelationVariables };
@@ -39,16 +36,8 @@ export class HttpSurface implements Surface {
       eventStore: ctx.eventStore,
       actorFromRequest: ctx.actorFromRequest,
       openApiDoc: ctx.service.openApiDoc,
+      operationExecutor: this.opts.operationExecutor,
     };
-    if (this.opts.commandExecutor !== undefined) {
-      routerOpts.commandExecutor = this.opts.commandExecutor;
-    }
-    if (this.opts.externalAdapterClient !== undefined) {
-      routerOpts.externalAdapterClient = this.opts.externalAdapterClient;
-    }
-    if (this.opts.metrics !== undefined) {
-      routerOpts.metrics = this.opts.metrics;
-    }
     const router = createBindingsRouter(routerOpts);
     const rateLimiter = createInMemoryRateLimiter(ctx.service.manifest.surface.http.rateLimit);
 

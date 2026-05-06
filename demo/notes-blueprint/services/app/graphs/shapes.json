@@ -8,5 +8,11 @@
       "status": { "type": "string", "nullable": false },
       "createdAt": { "type": "datetime", "nullable": false }
     }
+  },
+  "NoteActionResult": {
+    "fields": {
+      "noteId": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
   }
 }

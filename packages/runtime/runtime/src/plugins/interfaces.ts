@@ -37,21 +37,6 @@ export interface Surface {
 }
 
 export type {
-  CommandExecutor,
-  CommandExecutorInput,
-  CommandExecutorOutput,
-  CommandExecutorError,
-  CommandExecutionContext,
-  CommandExecutionResult,
-  QueryExecutor,
-  QueryExecutorInput,
-  QueryExecutorOutput,
-  QueryExecutorError,
-  QueryExecutionContext,
-  CorrelationCtx,
-} from './executors/types.js';
-
-export type {
   ExternalAdapterClient,
   AdapterCallOptions,
   AdapterResult,

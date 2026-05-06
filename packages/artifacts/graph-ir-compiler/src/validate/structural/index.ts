@@ -13,16 +13,12 @@ import { checkTier1Nodes } from './tier1-nodes.js';
 import { checkTier1Expr } from './tier1-expr.js';
 import { checkCommandShape } from './command-shape.js';
 import { checkGraphRole } from './role.js';
-import { checkPreRefPositions } from './pre-ref-positions.js';
 
 export function validateStructural(
   spec: AuthoringSpecOutput,
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
 ): Result<AuthoringSpecOutput> {
-  const preRefPositionErrors = checkPreRefPositions(spec);
-  if (preRefPositionErrors.length > 0) return err(preRefPositionErrors);
-
   const errors = [
     ...checkIds(spec),
     ...checkRefs(spec),

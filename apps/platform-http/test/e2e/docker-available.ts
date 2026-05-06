@@ -2,13 +2,18 @@ import { spawnSync } from 'node:child_process';
 
 let cached: boolean | undefined;
 
-/** True when Docker is reachable (same idea as integration tests that need testcontainers). */
+/** True when a container runtime can actually start containers for testcontainers. */
 export function e2eContainersAvailable(): boolean {
   if (process.env['PLATFORM_TEST_DATABASE_URL'] && hasExternalS3()) return true;
   if (process.env['SKIP_TESTCONTAINERS'] === '1') return false;
   if (cached !== undefined) return cached;
-  const r = spawnSync('docker', ['info'], { stdio: 'ignore' });
-  cached = r.status === 0;
+  const info = spawnSync('docker', ['info'], { stdio: 'ignore' });
+  if (info.status !== 0) {
+    cached = false;
+    return cached;
+  }
+  const run = spawnSync('docker', ['run', '--rm', 'hello-world'], { stdio: 'ignore' });
+  cached = run.status === 0;
   return cached;
 }
 

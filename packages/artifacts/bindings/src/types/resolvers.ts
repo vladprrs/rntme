@@ -1,3 +1,5 @@
+import type { EffectSummary } from '@rntme/graph-ir-compiler';
+
 export type ScalarPrimitive = 'integer' | 'decimal' | 'string' | 'boolean' | 'date' | 'datetime';
 
 export type FieldType =
@@ -34,11 +36,9 @@ export type OutputType =
   | { kind: 'row'; shape: string }
   | { kind: 'scalar'; primitive: ScalarPrimitive };
 
-export type GraphRole = 'query' | 'command';
-
 export type GraphSignature = {
   id: string;
-  role?: GraphRole;
+  effects: EffectSummary;
   inputs: Record<string, GraphInput>;
   output: { type: OutputType; from: string };
 };

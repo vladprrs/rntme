@@ -19,7 +19,7 @@ describe('errorEnvelope with structured errors[] tree', () => {
     };
     const env = errorEnvelope([e]);
     expect(env.error.errors).toBeDefined();
-    expect(env.error.errors![0].cause).toBeDefined();
-    expect(env.error.errors![0].cause![0].code).toBe('WORKFLOWS_FILE_MISSING');
+    expect(env.error.errors?.[0]?.cause).toBeDefined();
+    expect(env.error.errors?.[0]?.cause?.[0]?.code).toBe('WORKFLOWS_FILE_MISSING');
   });
 });

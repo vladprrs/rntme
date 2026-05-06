@@ -5,6 +5,7 @@ import type {
   RuntimeGraphSpec,
   ValidatedPdm,
   ValidatedQsm,
+  OperationExecutor,
 } from '../../src/index.js';
 
 describe('public API surface', () => {
@@ -26,11 +27,11 @@ describe('public API surface', () => {
   it('exports commandErrorStatus', () => {
     expect(typeof api.commandErrorStatus).toBe('function');
   });
-  it('exports buildDefaultGraphIrCommandMap', () => {
-    expect(typeof api.buildDefaultGraphIrCommandMap).toBe('function');
+  it('exports buildDefaultGraphIrOperationMap', () => {
+    expect(typeof api.buildDefaultGraphIrOperationMap).toBe('function');
   });
-  it('exports buildDefaultGraphIrQueryMap', () => {
-    expect(typeof api.buildDefaultGraphIrQueryMap).toBe('function');
+  it('exports operation executor contract types', () => {
+    expectTypeOf<OperationExecutor>().toBeObject();
   });
   it('exports correlationMiddleware', () => {
     expect(typeof api.correlationMiddleware).toBe('function');

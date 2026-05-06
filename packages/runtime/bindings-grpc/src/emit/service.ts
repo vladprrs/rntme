@@ -1,11 +1,11 @@
-import type { ValidatedBindings, OutputType, GraphInput } from '@rntme/bindings';
+import type { ValidatedBindings, GraphInput } from '@rntme/bindings';
 import { scalarToProto } from './scalars.js';
 import { bindingIdToRpcName, shapeNameToMessageName, toSnakeCase } from './ids.js';
 
 export type ServiceEmitResult = {
   serviceBlock: string;
   messageBlocks: string[];
-  usesCommandResult: boolean;
+  usesStructResponse: boolean;
 };
 
 export function buildServiceBlock(
@@ -14,17 +14,14 @@ export function buildServiceBlock(
 ): ServiceEmitResult {
   const rpcs: string[] = [];
   const messageBlocks: string[] = [];
-  let usesCommandResult = false;
 
   for (const [bindingId, resolved] of Object.entries(validated.resolved)) {
     const rpcName = bindingIdToRpcName(bindingId);
     const reqName = `${rpcName}Request`;
-    const resName = resolveResponseMessageName(rpcName, resolved.entry.kind, resolved.signature.output.type);
-    if (resolved.entry.kind === 'command') usesCommandResult = true;
+    const resName = `${rpcName}Response`;
 
     messageBlocks.push(buildRequestMessage(reqName, resolved.signature.inputs));
-    const resMessage = buildResponseMessage(resName, resolved.entry.kind, resolved.signature.output);
-    if (resMessage !== null) messageBlocks.push(resMessage);
+    messageBlocks.push(buildResponseMessage(resName));
 
     rpcs.push(`  rpc ${rpcName} (${reqName}) returns (${resName});`);
   }
@@ -32,18 +29,8 @@ export function buildServiceBlock(
   return {
     serviceBlock: `service ${serviceName} {\n${rpcs.join('\n')}\n}`,
     messageBlocks,
-    usesCommandResult,
+    usesStructResponse: Object.keys(validated.resolved).length > 0,
   };
-}
-
-function resolveResponseMessageName(
-  rpcName: string,
-  kind: 'query' | 'command' | undefined,
-  output: OutputType,
-): string {
-  if (kind === 'command') return 'CommandResult';
-  if (output.kind === 'rowset' || output.kind === 'row') return `${rpcName}Response`;
-  return `${rpcName}Response`;
 }
 
 function buildRequestMessage(name: string, inputs: Record<string, GraphInput>): string {
@@ -59,33 +46,12 @@ function buildRequestMessage(name: string, inputs: Record<string, GraphInput>): 
   return lines.join('\n');
 }
 
-function buildResponseMessage(
-  name: string,
-  kind: 'query' | 'command' | undefined,
-  output: { type: OutputType; from: string },
-): string | null {
-  if (kind === 'command') return null;
-  const fieldName = toSnakeCase(output.from);
-  switch (output.type.kind) {
-    case 'rowset':
-      return [
-        `message ${name} {`,
-        `  repeated ${shapeNameToMessageName(output.type.shape)} ${fieldName} = 1;`,
-        `}`,
-      ].join('\n');
-    case 'row':
-      return [
-        `message ${name} {`,
-        `  ${shapeNameToMessageName(output.type.shape)} ${fieldName} = 1;`,
-        `}`,
-      ].join('\n');
-    case 'scalar':
-      return [
-        `message ${name} {`,
-        `  ${scalarToProto(output.type.primitive)} ${fieldName} = 1;`,
-        `}`,
-      ].join('\n');
-  }
+function buildResponseMessage(name: string): string {
+  return [
+    `message ${name} {`,
+    '  google.protobuf.Struct result = 1;',
+    '}',
+  ].join('\n');
 }
 
 function inputToProto(input: GraphInput): { type: string; prefix: string } {

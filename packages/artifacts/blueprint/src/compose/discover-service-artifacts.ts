@@ -22,5 +22,6 @@ export function discoverServiceArtifacts(
     hasUi: isFile(join(serviceDir, 'ui', 'manifest.json')),
     hasSeed: isFile(join(serviceDir, 'seed', 'seed.json')),
     hasQsm: isFile(join(serviceDir, 'qsm', 'qsm.json')),
+    hasCommandHandlers: isFile(join(serviceDir, 'commands', 'handlers.mjs')),
   };
 }
