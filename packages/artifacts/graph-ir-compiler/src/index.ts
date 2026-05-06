@@ -25,6 +25,25 @@ export { deriveEventTypeName } from './emit/event-type.js';
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
 export type { Result, GraphIrError, ErrorCode, Layer, Ok, Err } from './types/result.js';
 export { GraphIrCompileError, GraphIrInternalError, GraphIrRuntimeError } from './types/errors.js';
+export {
+  effectSummaryHasAction,
+  effectSummaryHasLocalEmit,
+} from './types/effects.js';
+export type {
+  CallEffect,
+  EffectSummary,
+  Exposure,
+  LocalEmitEffect,
+} from './types/effects.js';
+export type {
+  CompiledOperation,
+  OperationCallClient,
+  OperationExecutionContext,
+  OperationRegistry,
+  OperationRegistryEntry,
+  OperationResult,
+  OperationTarget,
+} from './types/operation.js';
 export type { ValidatedPdm } from '@rntme/pdm';
 export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
