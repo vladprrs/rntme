@@ -51,6 +51,10 @@ export type { ExplainOutput } from './explain/explain.js';
 export { parseAuthoringSpec } from './parse/parse.js';
 export { validateStructural } from './validate/structural/index.js';
 export { validateSemantic } from './validate/semantic/index.js';
+export {
+  inferEffectSummary,
+  validateOperationEffects,
+} from './validate/effects.js';
 export { normalize } from './canonical/normalize.js';
 
 export type {
