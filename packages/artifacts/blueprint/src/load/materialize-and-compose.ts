@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 import type { CanonicalBundle } from '@rntme/platform-core';
 import { loadComposedBlueprint } from '../compose/load-composed-blueprint.js';
 import type { ComposedBlueprint } from '../types/artifact.js';
-import { err, ok, type Result, type BlueprintError } from '../types/result.js';
+import { err, ok, type Result } from '../types/result.js';
 import { materializeBundle } from './materialize.js';
 
 export type MaterializeResult = {
