@@ -16,18 +16,19 @@ import { seedOrgWithToken } from './seed-auth-helper.js';
 const live = readLiveDokployEnv();
 
 describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '' : ` (${live.reason})`}`, () => {
-  let env: E2eEnv;
+  let env: E2eEnv | undefined;
 
   beforeAll(async () => {
     env = await bootE2e();
   }, 300_000);
 
   afterAll(async () => {
-    await env.teardown();
+    await env?.teardown();
   });
 
   it('deploys Operaton and demo services, then proves confirmed and cancelled branches', async () => {
     if (!live.enabled) throw new Error(live.reason);
+    if (env === undefined) throw new Error('E2E_ENV_NOT_BOOTED');
     const suffix = randomUUID().replace(/-/g, '').slice(0, 8);
     const orgSlug = `bpmn-e2e-${suffix}`;
     const projectSlug = `order-${suffix}`;
