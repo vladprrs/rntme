@@ -103,9 +103,11 @@ function toServiceDefinition(root: protobuf.Root, service: protobuf.Service): gr
       requestStream: false,
       responseStream: false,
       requestSerialize: (value: object): Buffer => Buffer.from(requestType.encode(requestType.fromObject(value)).finish()),
-      requestDeserialize: (buffer: Buffer): object => requestType.toObject(requestType.decode(buffer)),
+      requestDeserialize: (buffer: Buffer): object =>
+        requestType.toObject(requestType.decode(buffer), { longs: Number }),
       responseSerialize: (value: object): Buffer => Buffer.from(responseType.encode(responseType.fromObject(value)).finish()),
-      responseDeserialize: (buffer: Buffer): object => responseType.toObject(responseType.decode(buffer)),
+      responseDeserialize: (buffer: Buffer): object =>
+        responseType.toObject(responseType.decode(buffer), { longs: Number }),
     };
   }
   return def as grpc.ServiceDefinition;

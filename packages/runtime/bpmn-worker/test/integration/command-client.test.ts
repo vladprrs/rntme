@@ -76,6 +76,41 @@ describe('createGrpcCommandClient', () => {
     expect(receivedMetadata['rntme-causation-id']).toBe('evt_1');
     expect(result).toEqual({ reserved: false, reason: 'insufficient stock' });
   });
+
+  it('decodes int64 command metadata responses as numbers when no business result is present', async () => {
+    const port = await startInventoryServer((_call, callback) => {
+      callback(null, {
+        aggregate_id: 'reservation-1',
+        version: 7,
+        event_ids: ['evt-1'],
+        command_id: 'cmd-1',
+        correlation_id: 'corr-1',
+      });
+    });
+
+    const client = createGrpcCommandClient({
+      endpoints: { 'inventory.reserveStock': `127.0.0.1:${port}` },
+      services: {
+        inventory: {
+          packageName: 'rntme.inventory.v1',
+          serviceName: 'InventoryService',
+          protoSource,
+        },
+      },
+    });
+
+    const result = await client.execute(
+      'inventory.reserveStock',
+      { orderId: 'ord_1', sku: 'sku-ok', quantity: 1 },
+      {
+        commandId: 'bpmn:proc_1:reserveStock:act_1',
+        correlationId: 'corr_1',
+        causationId: 'evt_1',
+      },
+    );
+
+    expect(result).toMatchObject({ aggregateId: 'reservation-1', version: 7 });
+  });
 });
 
 async function startInventoryServer(

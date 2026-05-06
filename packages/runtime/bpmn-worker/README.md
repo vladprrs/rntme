@@ -40,6 +40,8 @@ The client sends `rntme-command-id`, `rntme-correlation-id`, and
 `CommandResult.result` protobuf `Struct`, the worker unwraps that business
 payload into the BPMN process variable; otherwise it returns the canonical
 aggregate/version/event envelope.
+`int64` fields in command responses are decoded as JavaScript numbers before
+the worker maps them back into process variables.
 
 `runWorkflowEventOnce(...)` starts the matching process instance, then polls
 and completes same-instance mapped service tasks for a bounded number of

@@ -26,12 +26,14 @@ describe('createGrpcServer (integration)', () => {
   it('accepts a CreateOrder RPC and routes to CodeCommandExecutor', async () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
     const qsmDb = new BetterSqlite3(':memory:');
+    const receivedInputs: Record<string, unknown>[] = [];
 
     const commandExecutor: CommandExecutor = {
       async execute(req: CommandExecutorInput): Promise<CommandExecutorOutput> {
         if (req.commandName !== 'createOrder') {
           return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: req.commandName } };
         }
+        receivedInputs.push(req.inputs as Record<string, unknown>);
         return {
           ok: true,
           value: {
@@ -87,6 +89,10 @@ describe('createGrpcServer (integration)', () => {
     expect(response.aggregate_id).toBe('order-42');
     expect(Number(response.version)).toBe(1);
     expect(structToJson(response.result)).toEqual({ reserved: true, reservationId: 'res-1' });
+    const inputs = receivedInputs[0];
+    if (inputs === undefined) throw new Error('command executor was not called');
+    expect(inputs).toMatchObject({ amount: 42, note: 'hello' });
+    expect(typeof inputs.amount).toBe('number');
   });
 
   it('passes supplied server credentials to bindAsync', async () => {
