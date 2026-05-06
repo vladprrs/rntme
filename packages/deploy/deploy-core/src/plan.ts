@@ -87,6 +87,12 @@ export type PlannedWorkflowServiceTask = {
   readonly grpcEndpoint: string;
 };
 
+export type PlannedWorkflowGrpcService = {
+  readonly packageName: string;
+  readonly serviceName: string;
+  readonly protoSource: string;
+};
+
 export type BpmnWorkerWorkload = {
   readonly kind: 'bpmn-worker';
   readonly slug: 'bpmn-worker';
@@ -96,6 +102,7 @@ export type BpmnWorkerWorkload = {
   readonly workflowFiles: Readonly<Record<string, string>>;
   readonly subscriptions: readonly PlannedWorkflowSubscription[];
   readonly serviceTasks: readonly PlannedWorkflowServiceTask[];
+  readonly grpcServices: Readonly<Record<string, PlannedWorkflowGrpcService>>;
 };
 
 export type DeploymentWorkload =

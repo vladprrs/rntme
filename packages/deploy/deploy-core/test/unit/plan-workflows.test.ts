@@ -67,6 +67,18 @@ const project: ComposedProjectInput = {
   workflowFiles: {
     'order-fulfillment.bpmn': '<definitions />',
   },
+  workflowGrpcServices: {
+    orders: {
+      packageName: 'rntme.orders.v1',
+      serviceName: 'OrdersService',
+      protoSource: 'syntax = "proto3"; package rntme.orders.v1; service OrdersService {}',
+    },
+    inventory: {
+      packageName: 'rntme.inventory.v1',
+      serviceName: 'InventoryService',
+      protoSource: 'syntax = "proto3"; package rntme.inventory.v1; service InventoryService {}',
+    },
+  },
 };
 
 describe('workflow planning', () => {
@@ -151,7 +163,50 @@ describe('workflow planning', () => {
           grpcEndpoint: 'rntme-acme-order-fulfillment-orders:50051',
         },
       ],
+      grpcServices: {
+        orders: expect.objectContaining({
+          packageName: 'rntme.orders.v1',
+          serviceName: 'OrdersService',
+        }),
+        inventory: expect.objectContaining({
+          packageName: 'rntme.inventory.v1',
+          serviceName: 'InventoryService',
+        }),
+      },
     });
+  });
+
+  it('rejects workflow service tasks when proto config is missing for the target service', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowGrpcServices: {
+          orders: project.workflowGrpcServices!.orders!,
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_PROTO_UNAVAILABLE',
+          path: 'workflows.serviceTasks.0.bindingRef',
+          service: 'inventory',
+        }),
+      );
+    }
   });
 
   it.each([

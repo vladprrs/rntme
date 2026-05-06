@@ -81,6 +81,16 @@ export function renderBpmnWorker(
         value: serviceEndpoints.value,
         secret: false,
       },
+      {
+        name: 'RNTME_WORKFLOW_SUBSCRIPTIONS_JSON',
+        value: JSON.stringify([...workload.subscriptions].sort((a, b) => a.messageStartId.localeCompare(b.messageStartId))),
+        secret: false,
+      },
+      {
+        name: 'RNTME_WORKFLOW_GRPC_SERVICES_JSON',
+        value: JSON.stringify(Object.fromEntries(Object.entries(workload.grpcServices).sort(([a], [b]) => a.localeCompare(b)))),
+        secret: false,
+      },
     ],
     labels: dokployLabels(
       plan.project.orgSlug,

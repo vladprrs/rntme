@@ -64,6 +64,18 @@ const plan: ProjectDeploymentPlan = {
         'order-fulfillment.bpmn': '<definitions />',
       },
       subscriptions: [],
+      grpcServices: {
+        orders: {
+          packageName: 'rntme.orders.v1',
+          serviceName: 'OrdersService',
+          protoSource: 'syntax = "proto3"; package rntme.orders.v1; service OrdersService {}',
+        },
+        inventory: {
+          packageName: 'rntme.inventory.v1',
+          serviceName: 'InventoryService',
+          protoSource: 'syntax = "proto3"; package rntme.inventory.v1; service InventoryService {}',
+        },
+      },
       serviceTasks: [
         {
           definition: 'orderFulfillment',
@@ -140,6 +152,27 @@ describe('workflow rendering', () => {
       value: JSON.stringify({
         'inventory.reserveStock': 'rntme-acme-order-fulfillment-inventory:50051',
         'orders.confirmOrder': 'rntme-acme-order-fulfillment-orders:50051',
+      }),
+      secret: false,
+    });
+    expect(worker.env).toContainEqual({
+      name: 'RNTME_WORKFLOW_SUBSCRIPTIONS_JSON',
+      value: JSON.stringify(plan.workloads.find((workload) => workload.kind === 'bpmn-worker')!.subscriptions),
+      secret: false,
+    });
+    expect(worker.env).toContainEqual({
+      name: 'RNTME_WORKFLOW_GRPC_SERVICES_JSON',
+      value: JSON.stringify({
+        inventory: {
+          packageName: 'rntme.inventory.v1',
+          serviceName: 'InventoryService',
+          protoSource: 'syntax = "proto3"; package rntme.inventory.v1; service InventoryService {}',
+        },
+        orders: {
+          packageName: 'rntme.orders.v1',
+          serviceName: 'OrdersService',
+          protoSource: 'syntax = "proto3"; package rntme.orders.v1; service OrdersService {}',
+        },
       }),
       secret: false,
     });

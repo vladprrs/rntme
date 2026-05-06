@@ -5,6 +5,7 @@ import type { DeploymentPlanError } from './errors.js';
 import type {
   BpmnWorkerWorkload,
   PlannedEventBus,
+  PlannedWorkflowGrpcService,
   PlannedWorkflowEngine,
   PlannedWorkflowServiceTask,
   PlannedWorkflowSubscription,
@@ -99,8 +100,40 @@ export function planWorkflowEngine(input: {
       workflowFiles,
       subscriptions: buildSubscriptions(workflows, input.eventBus),
       serviceTasks: buildServiceTasks(workflows, input.project, input.config, input.errors),
+      grpcServices: buildGrpcServices(workflows, input.project, input.errors),
     },
   };
+}
+
+function buildGrpcServices(
+  workflows: ValidatedWorkflows,
+  project: ComposedProjectInput,
+  errors: DeploymentPlanError[],
+): Readonly<Record<string, PlannedWorkflowGrpcService>> {
+  const serviceSlugs = new Set(
+    workflows.serviceTasks
+      .map((task) => task.bindingRef.split('.')[0] ?? '')
+      .filter((service) => service.length > 0),
+  );
+  const out: Record<string, PlannedWorkflowGrpcService> = {};
+  for (const service of [...serviceSlugs].sort()) {
+    const config = project.workflowGrpcServices?.[service];
+    if (config === undefined) {
+      errors.push({
+        code: 'DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_PROTO_UNAVAILABLE',
+        message: `workflow service tasks target service "${service}" without generated gRPC proto config`,
+        path: `workflows.serviceTasks.${workflows.serviceTasks.findIndex((task) => task.bindingRef.startsWith(`${service}.`))}.bindingRef`,
+        service,
+      });
+      continue;
+    }
+    out[service] = {
+      packageName: config.packageName,
+      serviceName: config.serviceName,
+      protoSource: config.protoSource,
+    };
+  }
+  return out;
 }
 
 function buildWorkflowFiles(
