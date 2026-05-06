@@ -254,6 +254,9 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 Original gap statement preserved below for historical context.
 
+Current BPMN work targets Operaton; the preserved statement below still names
+Zeebe because that was the workflow-engine placeholder on 2026-04-15.
+
 ---
 
 ### Original gap statement (2026-04-15)
@@ -357,7 +360,7 @@ Unbounded retry. No attempt counter. Default `onErr` is `console.error`. If a si
 
 ## D11 · Event-shape registry — ❌ gap (but 90 % done in-package)
 
-**Best design (ADR D11).** A per-service registry of JSON Schema files, generated at build time from **PDM alone** (not graphs — graphs are the runtime binding for how to populate a payload, not the schema). Committed to the repo. Source for D8's compat-checker and for external consumers (Zeebe, dashboards, other services, ksqlDB DDL generators).
+**Best design (ADR D11).** A per-service registry of JSON Schema files, generated at build time from **PDM alone** (not graphs — graphs are the runtime binding for how to populate a payload, not the schema). Committed to the repo. Source for D8's compat-checker and for external consumers (Operaton BPMN workers, dashboards, other services, ksqlDB DDL generators).
 
 **Current state.** The derivation function **already exists**: `packages/pdm/src/derive/event-types.ts:25` — `deriveEventTypes(pdm: ValidatedPdm) → EventTypeSpec[]`, producing per-transition specs with `eventType`, `aggregateType`, `transition`, `from/to`, `affects`, and `payloadFields: { [field]: { type, nullable } }`. The derivation is clean, PDM-only, no graph input.
 
@@ -371,7 +374,7 @@ What is missing:
 **Delta.**
 
 - No consolidated event shape documentation readable without running code.
-- External consumer integration (Zeebe, ksqlDB `CREATE STREAM … WITH (VALUE_SCHEMA_ID=…)`) requires reading rntme source instead of a standard JSON Schema URL.
+- External consumer integration (Operaton BPMN workers, ksqlDB `CREATE STREAM … WITH (VALUE_SCHEMA_ID=…)`) requires reading rntme source instead of a standard JSON Schema URL.
 - Schema compat-checker (D8) has no input file.
 - LLM-agent cannot read "what does this event look like today" from one place — must re-derive via compiler.
 
@@ -438,7 +441,7 @@ Still open:
 4. Define gRPC retry semantics, likely via metadata for platform callers.
 5. Keep cache-retention cleanup documented and tested.
 
-**Priority.** P1 — HTTP behavior is usable, but generated clients and gRPC/Zeebe
+**Priority.** P1 — HTTP behavior is usable, but generated clients and gRPC/BPMN
 callers still need a machine-readable contract.
 
 ---
@@ -493,4 +496,4 @@ The `schemaVersion` field is set to `1` on every event everywhere in the codebas
 
 D2, D4 conform today — no work required.
 
-Original ordering assumed Zeebe cross-service work as the next platform milestone, which is why D9 landed first. With HTTP idempotency partially shipped, priority now rotates to D8+D11 schema governance plus the D12 contract remainder before the second production service is introduced.
+Original ordering assumed the older workflow-engine placeholder for cross-service work as the next platform milestone, which is why D9 landed first. With HTTP idempotency partially shipped, priority now rotates to D8+D11 schema governance plus the D12 contract remainder before the second production service is introduced.

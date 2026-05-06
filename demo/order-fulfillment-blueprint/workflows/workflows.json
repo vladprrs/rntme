@@ -1,0 +1,59 @@
+{
+  "workflowVersion": 1,
+  "definitions": [
+    {
+      "id": "orderFulfillment",
+      "bpmnFile": "order-fulfillment.bpmn",
+      "processId": "orderFulfillment"
+    }
+  ],
+  "messageStarts": [
+    {
+      "id": "orderPlaced",
+      "definition": "orderFulfillment",
+      "messageName": "OrderPlaced",
+      "event": {
+        "service": "orders",
+        "aggregateType": "Order",
+        "eventType": "OrderPlaced"
+      },
+      "businessKey": "$event.rntAggregateId",
+      "variables": {
+        "orderId": "$event.rntAggregateId",
+        "sku": "$event.data.after.sku",
+        "quantity": "$event.data.after.quantity"
+      }
+    }
+  ],
+  "serviceTasks": [
+    {
+      "definition": "orderFulfillment",
+      "taskId": "reserveStock",
+      "bindingRef": "inventory.reserveStock",
+      "input": {
+        "orderId": "$process.orderId",
+        "sku": "$process.sku",
+        "quantity": "$process.quantity"
+      },
+      "resultVariable": "reservation"
+    },
+    {
+      "definition": "orderFulfillment",
+      "taskId": "confirmOrder",
+      "bindingRef": "orders.confirmOrder",
+      "input": {
+        "orderId": "$process.orderId",
+        "reservationId": "$process.reservation.reservationId"
+      }
+    },
+    {
+      "definition": "orderFulfillment",
+      "taskId": "cancelOrder",
+      "bindingRef": "orders.cancelOrder",
+      "input": {
+        "orderId": "$process.orderId",
+        "reason": "$process.reservation.reason"
+      }
+    }
+  ]
+}

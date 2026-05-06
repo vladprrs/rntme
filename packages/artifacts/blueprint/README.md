@@ -4,12 +4,12 @@ Project-first blueprint parser/validator for rntme.
 
 ## Role in the system
 
-- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `zod`
+- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `@rntme/workflows`, `zod`
 - Consumed by: future runtime/tooling tracks
 - Position in pipeline:
   `project directory`
   -> `loadBlueprint` (Track A: structure + project `PDM` + raw service descriptors)
-  -> `loadComposedBlueprint` (Track B: project routing/middleware semantics + validated service members + project-routed UI compilation)
+  -> `loadComposedBlueprint` (Track B: project routing/middleware semantics + validated service members + project-routed UI compilation + project workflow validation)
 
 ## Directory conventions
 
@@ -19,18 +19,21 @@ Project-first blueprint parser/validator for rntme.
 - `services/<svc>/bindings/bindings.json`
 - `services/<svc>/seed/seed.json`
 - `services/<svc>/ui/...`
+- `workflows/workflows.json` + `workflows/**/*.bpmn`
 
 ## Public API
 
 - `loadBlueprint(dir)` — load `project.json`, the project `PDM`, and service registry metadata.
 - `loadComposedBlueprint(dir)` — load the Track A blueprint, validate project composition rules, load validated service members, build the project binding registry, and compile project-routed service UI.
   When `project.json` declares `modules`, compose also resolves each UI module (`module.json`), builds `catalogManifest`, validates `publicConfig`, checks `./client` exports, and fills `virtualEntrySource` + `publicConfigJson` on the composed result.
+  When `workflows/workflows.json` exists, compose parses and validates it with `@rntme/workflows` after the project binding registry is available, then attaches `workflows` to the composed result.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
 - `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts.
 - `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
 - `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
+- `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task command binding refs through the project binding registry.
 - `readServiceGraphSpec(...)` — load service graph shapes and graph JSON files.
 - `eventTypesForService(...)` — scope project `PDM` event types for service seed validation.
 - `parseProjectBlueprint(raw)` — parse the `project.json` document shape.
@@ -56,6 +59,7 @@ The structural validator only enforces syntax. Module-existence and output-decla
 - `src/validate/composition.ts`
 - `src/compose/load-service-member.ts`
 - `src/compose/load-composed-blueprint.ts`
+- `src/compose/project-workflows.ts`
 - `test/fixtures/product-catalog-project/`
 
 ## Auth and graph pre-step validation
@@ -79,4 +83,5 @@ When auth middleware is mounted on a service route, every `IntrospectSession` bi
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
+- [`../../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
+- [`../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`](../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md) — project-level BPMN workflow artifact, Operaton provisioning, and BPMN worker deployment.

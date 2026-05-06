@@ -93,6 +93,12 @@ export const ManifestSchema = z
       })
       .strict()
       .optional(),
+    commands: z
+      .object({
+        handlersModule: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
     modules: z
       .array(
         z

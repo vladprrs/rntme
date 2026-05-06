@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import {
@@ -13,7 +14,7 @@ import {
   S3BlobStore,
   AesGcmSecretCipher,
 } from '@rntme/platform-storage';
-import { RandomIds } from '@rntme/platform-core';
+import { err, ok, RandomIds, type BlobStore, type PlatformError } from '@rntme/platform-core';
 import { createApp, type AppDeps } from '../../src/app.js';
 import { createLogger } from '../../src/logger.js';
 import { parseEnv } from '../../src/config/env.js';
@@ -37,15 +38,20 @@ export async function bootE2e(options: BootE2eOptions = {}): Promise<E2eEnv> {
   process.env.PLATFORM_CREATE_ROLES = '1';
   const externalDb = process.env['PLATFORM_TEST_DATABASE_URL'];
   const externalS3 = readExternalS3();
+  const memoryBlob = process.env['PLATFORM_TEST_BLOB_STORE'] === 'memory';
+  if (process.env['PLATFORM_TEST_BLOB_STORE'] && !memoryBlob) {
+    throw new Error('PLATFORM_TEST_BLOB_STORE must be "memory" when set.');
+  }
   const pg = externalDb ? null : await new PostgreSqlContainer('postgres:16-alpine').start();
-  const minio = externalS3
+  const minio = externalS3 || memoryBlob
     ? null
     : await new GenericContainer('minio/minio:latest')
       .withCommand(['server', '/data'])
       .withEnvironment({ MINIO_ROOT_USER: 'minio', MINIO_ROOT_PASSWORD: 'minio12345' })
       .withExposedPorts(9000)
       .start();
-  const endpoint = externalS3?.endpoint ?? `http://${minio!.getHost()}:${minio!.getMappedPort(9000)}`;
+  const endpoint = externalS3?.endpoint
+    ?? (memoryBlob ? 'http://memory-blob.local' : `http://${minio!.getHost()}:${minio!.getMappedPort(9000)}`);
   const databaseUrl = externalDb ?? pg!.getConnectionUri();
   const env = parseEnv({
     DATABASE_URL: databaseUrl,
@@ -76,13 +82,15 @@ export async function bootE2e(options: BootE2eOptions = {}): Promise<E2eEnv> {
   parsed.password = 'platform_app';
   const pool = createPool(parsed.toString());
 
-  const blob = new S3BlobStore({
-    endpoint,
-    bucket: env.RUSTFS_BUCKET,
-    accessKeyId: env.RUSTFS_ACCESS_KEY_ID,
-    secretAccessKey: env.RUSTFS_SECRET_ACCESS_KEY,
-  });
-  await blob.ensureBucket();
+  const blob = memoryBlob
+    ? createMemoryBlobStore()
+    : new S3BlobStore({
+      endpoint,
+      bucket: env.RUSTFS_BUCKET,
+      accessKeyId: env.RUSTFS_ACCESS_KEY_ID,
+      secretAccessKey: env.RUSTFS_SECRET_ACCESS_KEY,
+    });
+  if (!memoryBlob) await (blob as S3BlobStore).ensureBucket();
   const workos = makeWorkosStub();
   const logger = createLogger(env);
   const cipher = AesGcmSecretCipher.fromEnv(env);
@@ -129,6 +137,32 @@ export async function bootE2e(options: BootE2eOptions = {}): Promise<E2eEnv> {
       await ownerPool.end();
       await minio?.stop();
       await pg?.stop();
+    },
+  };
+}
+
+function createMemoryBlobStore(): BlobStore {
+  const blobs = new Map<string, Buffer>();
+  const missing = (key: string): PlatformError => ({
+    code: 'PLATFORM_INTERNAL',
+    message: `blob ${key} missing`,
+    stage: 'internal',
+  });
+  return {
+    putIfAbsent: async (key, body) => {
+      if (!blobs.has(key)) blobs.set(key, Buffer.from(body));
+      return ok(undefined);
+    },
+    presignedGet: async (key) => ok(`memory://${encodeURIComponent(key)}`),
+    getJson: async <T = unknown>(key: string) => {
+      const body = blobs.get(key);
+      if (body === undefined) return err([missing(key)]);
+      return ok(JSON.parse(body.toString('utf8')) as T);
+    },
+    getRaw: async (key) => {
+      const body = blobs.get(key);
+      if (body === undefined) return err([missing(key)]);
+      return ok(Buffer.from(body));
     },
   };
 }

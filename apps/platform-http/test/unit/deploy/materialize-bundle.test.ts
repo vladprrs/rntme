@@ -40,4 +40,33 @@ describe('materializeBundle', () => {
     await expect(materializeBundle({ version: 3, files: {}, assets: {} } as never))
       .rejects.toThrow(/DEPLOY_BUNDLE_VERSION_UNSUPPORTED/);
   });
+
+  it('rejects parent-segment file paths before writing the bundle', async () => {
+    await expect(materializeBundle(sample({
+      files: {
+        'project.json': { name: 'demo' },
+        'workflows/../escape.json': { nope: true },
+      },
+    }) as never)).rejects.toThrow(/DEPLOY_BUNDLE_PATH_UNSAFE/);
+  });
+
+  it('rejects parent-segment asset paths before writing the bundle', async () => {
+    await expect(materializeBundle(sample({
+      assets: {
+        'workflows/../escape.bpmn': Buffer.from('<definitions />').toString('base64'),
+      },
+    }) as never)).rejects.toThrow(/DEPLOY_BUNDLE_PATH_UNSAFE/);
+  });
+
+  it('rejects asset paths that collide with JSON file paths', async () => {
+    await expect(materializeBundle(sample({
+      files: {
+        'project.json': { name: 'demo' },
+        'workflows/workflows.json': { workflowVersion: 1 },
+      },
+      assets: {
+        'workflows/workflows.json': Buffer.from('not json').toString('base64'),
+      },
+    }) as never)).rejects.toThrow(/DEPLOY_BUNDLE_PATH_COLLISION/);
+  });
 });

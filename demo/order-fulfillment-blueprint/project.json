@@ -1,0 +1,17 @@
+{
+  "name": "order-fulfillment",
+  "services": ["orders", "inventory"],
+  "routes": {
+    "http": {
+      "/api/orders": "orders",
+      "/api/inventory": "inventory"
+    }
+  },
+  "middleware": {
+    "requestContext": { "kind": "request-context" }
+  },
+  "mounts": [
+    { "target": "http:/api/orders", "use": ["requestContext"] },
+    { "target": "http:/api/inventory", "use": ["requestContext"] }
+  ]
+}

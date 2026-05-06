@@ -1,0 +1,19 @@
+{
+  "InventoryItemView": {
+    "fields": {
+      "sku": { "type": "string", "nullable": false },
+      "available": { "type": "integer", "nullable": false },
+      "status": { "type": "string", "nullable": false }
+    }
+  },
+  "StockReservationView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "orderId": { "type": "string", "nullable": false },
+      "sku": { "type": "string", "nullable": false },
+      "quantity": { "type": "integer", "nullable": false },
+      "reason": { "type": "string", "nullable": true },
+      "status": { "type": "string", "nullable": false }
+    }
+  }
+}

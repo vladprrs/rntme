@@ -1,0 +1,26 @@
+{
+  "id": "placeOrder",
+  "signature": {
+    "inputs": {
+      "sku": { "type": "string", "mode": "required" },
+      "quantity": { "type": "integer", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Order",
+        "aggregateId": { "$node": "newId" },
+        "transition": "placed",
+        "payload": {
+          "sku": { "$param": "sku" },
+          "quantity": { "$param": "quantity" }
+        }
+      }
+    }
+  ]
+}

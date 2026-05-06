@@ -2,6 +2,7 @@ import type {
   DeployTarget,
   DeployTargetAuthConfig,
   DeployTargetModules,
+  DeployTargetWorkflows,
   DeployTargetWithSecret,
   EventBusConfig,
   PolicyValues,
@@ -24,6 +25,7 @@ export type DeployTargetInsertRow = {
   readonly apiTokenKeyVersion: number;
   readonly eventBusConfig: EventBusConfig;
   readonly modules: DeployTargetModules;
+  readonly workflows: DeployTargetWorkflows;
   readonly auth: DeployTargetAuthConfig;
   readonly policyValues: PolicyValues;
   readonly isDefault: boolean;
@@ -38,6 +40,7 @@ export type DeployTargetUpdateRow = {
   readonly allowCreateProject?: boolean;
   readonly eventBusConfig?: EventBusConfig;
   readonly modules?: DeployTargetModules;
+  readonly workflows?: DeployTargetWorkflows;
   readonly auth?: DeployTargetAuthConfig;
   readonly policyValues?: PolicyValues;
   readonly isDefault?: boolean;

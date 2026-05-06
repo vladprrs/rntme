@@ -1,4 +1,5 @@
 import type { EdgeAuthDescriptor } from '@rntme/contracts-module-v1';
+import type { ValidatedWorkflows } from '@rntme/workflows';
 import type { VarsManifest } from './vars.js';
 
 export type ServiceKind = 'domain' | 'integration';
@@ -13,6 +14,12 @@ export type ComposedProjectService = {
   readonly slug: string;
   readonly kind: ServiceKind;
   readonly runtimeFiles?: Readonly<Record<string, string>>;
+};
+
+export type WorkflowGrpcServiceConfig = {
+  readonly packageName: string;
+  readonly serviceName: string;
+  readonly protoSource: string;
 };
 
 export type ProjectRouteMap = {
@@ -42,5 +49,8 @@ export type ComposedProjectInput = {
   readonly middleware?: Readonly<Record<string, ProjectMiddlewareDecl>>;
   readonly mounts?: readonly ProjectMountDecl[];
   readonly modules?: Readonly<Record<string, ComposedProjectModuleInfo>>;
+  readonly workflows?: ValidatedWorkflows | null;
+  readonly workflowFiles?: Readonly<Record<string, string>>;
+  readonly workflowGrpcServices?: Readonly<Record<string, WorkflowGrpcServiceConfig>>;
   readonly varsManifest?: VarsManifest;
 };

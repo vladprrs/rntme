@@ -1,0 +1,44 @@
+{
+  "ownerService": "orders",
+  "kind": "owned",
+  "table": "orders",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "sku": { "type": "string", "nullable": false, "column": "sku" },
+    "quantity": { "type": "integer", "nullable": false, "column": "quantity" },
+    "reservationId": {
+      "type": "string",
+      "nullable": true,
+      "column": "reservation_id"
+    },
+    "cancelReason": {
+      "type": "string",
+      "nullable": true,
+      "column": "cancel_reason"
+    },
+    "status": { "type": "string", "nullable": false, "column": "status" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["placed", "confirmed", "cancelled"],
+    "transitions": {
+      "placed": {
+        "from": null,
+        "to": "placed",
+        "affects": ["sku", "quantity"]
+      },
+      "confirm": {
+        "from": "placed",
+        "to": "confirmed",
+        "affects": ["reservationId"]
+      },
+      "cancel": {
+        "from": "placed",
+        "to": "cancelled",
+        "affects": ["cancelReason"]
+      }
+    }
+  }
+}

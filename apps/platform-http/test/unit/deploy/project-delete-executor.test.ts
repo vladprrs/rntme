@@ -150,6 +150,7 @@ function target(id: string): DeployTargetWithSecret {
     apiTokenKeyVersion: 1,
     eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
     modules: {},
+    workflows: null,
     auth: {},
     policyValues: {},
     isDefault: true,

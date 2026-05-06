@@ -19,6 +19,7 @@ import {
   type ProvisionResultForVars,
   type ResolvedVars,
 } from './vars.js';
+import { planWorkflowEngine } from './workflows.js';
 
 export type PlannedProject = {
   readonly orgSlug: string;
@@ -57,10 +58,58 @@ export type EdgeGatewayWorkload = {
   readonly image: 'nginx:1.27-alpine';
 };
 
+export type PlannedWorkflowEngine =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'operaton';
+      readonly mode: 'provisioned';
+      readonly resourceName: string;
+      readonly internalBaseUrl: string;
+      readonly image: string;
+    };
+
+export type PlannedWorkflowSubscription = {
+  readonly messageStartId: string;
+  readonly topic: string;
+  readonly service: string;
+  readonly aggregateType: string;
+  readonly eventType: string;
+  readonly processId: string;
+  readonly messageName: string;
+  readonly businessKey: string;
+};
+
+export type PlannedWorkflowServiceTask = {
+  readonly definition: string;
+  readonly taskId: string;
+  readonly bindingRef: string;
+  readonly targetService: string;
+  readonly grpcEndpoint: string;
+};
+
+export type PlannedWorkflowGrpcService = {
+  readonly packageName: string;
+  readonly serviceName: string;
+  readonly protoSource: string;
+};
+
+export type BpmnWorkerWorkload = {
+  readonly kind: 'bpmn-worker';
+  readonly slug: 'bpmn-worker';
+  readonly resourceName: string;
+  readonly image: string;
+  readonly workflowManifestPath: '/srv/workflows/workflows.json';
+  readonly workflowFiles: Readonly<Record<string, string>>;
+  readonly subscriptions: readonly PlannedWorkflowSubscription[];
+  readonly serviceTasks: readonly PlannedWorkflowServiceTask[];
+  readonly grpcServices: Readonly<Record<string, PlannedWorkflowGrpcService>>;
+};
+
 export type DeploymentWorkload =
   | DomainServiceWorkload
   | IntegrationModuleWorkload
-  | EdgeGatewayWorkload;
+  | EdgeGatewayWorkload
+  | BpmnWorkerWorkload;
 
 export type EdgePlan = {
   readonly routes: readonly EdgeRoute[];
@@ -105,6 +154,7 @@ export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
   readonly infrastructure: {
     readonly eventBus: PlannedEventBus;
+    readonly workflowEngine: PlannedWorkflowEngine;
     readonly auth?: ProjectAuthConfig;
   };
   readonly workloads: readonly DeploymentWorkload[];
@@ -165,6 +215,12 @@ export function buildProjectDeploymentPlan(
     config.eventBus === undefined
       ? undefined
       : planEventBus(config.eventBus, config.orgSlug, project.name, errors);
+  const workflowPlan = planWorkflowEngine({
+    project,
+    config,
+    eventBus: plannedEventBus,
+    errors,
+  });
 
   if (config.eventBus === undefined) {
     errors.push({
@@ -175,7 +231,9 @@ export function buildProjectDeploymentPlan(
   }
 
   const workloads = buildWorkloads(project, config, errors, vars);
-  const { edge, errors: edgeErrors } = planEdge(project, config, workloads, vars);
+  const allWorkloads =
+    workflowPlan.worker === null ? workloads : [...workloads, workflowPlan.worker];
+  const { edge, errors: edgeErrors } = planEdge(project, config, allWorkloads, vars);
   errors.push(...edgeErrors);
 
   if (errors.length > 0 || plannedEventBus === undefined) return err(errors);
@@ -199,9 +257,10 @@ export function buildProjectDeploymentPlan(
     },
     infrastructure: {
       eventBus: plannedEventBus,
+      workflowEngine: workflowPlan.engine,
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
     },
-    workloads,
+    workloads: allWorkloads,
     edge,
     diagnostics: { warnings },
   });

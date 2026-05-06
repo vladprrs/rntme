@@ -77,6 +77,7 @@ d('PgTargetSecretsRepo', () => {
           apiTokenKeyVersion: 1,
           eventBusConfig: EVENT_BUS,
           modules: {},
+          workflows: null,
           auth: {},
           policyValues: POLICY_VALUES,
           isDefault: false,

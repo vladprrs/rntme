@@ -16,6 +16,7 @@ export function validateStateMachine(
   artifact: StructurallyValidPdm,
 ): Result<ValidatedPdm> {
   const errors: PdmError[] = [];
+  const eventTypePaths = new Map<string, string>();
 
   for (const [entityName, entity] of Object.entries(artifact.entities)) {
     if (entity.kind === 'root' && entity.stateMachine) {
@@ -78,6 +79,19 @@ export function validateStateMachine(
     // transitions
     for (const [transitionName, t] of Object.entries(sm.transitions)) {
       const tPath = `${entityPath}.transitions.${transitionName}`;
+      const eventType = t.eventType ?? defaultEventType(entityName, transitionName);
+      const existingEventTypePath = eventTypePaths.get(eventType);
+      if (existingEventTypePath !== undefined) {
+        errors.push({
+          layer: 'state-machine',
+          code: ERROR_CODES.PDM_SM_EVENT_TYPE_DUPLICATE,
+          message: `duplicate derived eventType "${eventType}" on transition "${transitionName}" of "${entityName}"`,
+          path: `${tPath}.eventType`,
+          hint: `first declared at ${existingEventTypePath}`,
+        });
+      } else {
+        eventTypePaths.set(eventType, `${tPath}.eventType`);
+      }
 
       // from → states
       const fromStates = normalizeFrom(t.from);
@@ -177,6 +191,15 @@ export function validateStateMachine(
 
   if (errors.length > 0) return err(errors);
   return ok(artifact as ValidatedPdm);
+}
+
+function defaultEventType(entityName: string, transitionName: string): string {
+  return pascalCase(entityName) + pascalCase(transitionName);
+}
+
+function pascalCase(s: string): string {
+  if (s.length === 0) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function normalizeFrom(from: Transition['from']): (string | null)[] {

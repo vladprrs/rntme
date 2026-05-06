@@ -140,8 +140,13 @@ Bundles emitted by `rntme project publish` are v2:
 { "version": 2, "files": { ... }, "assets": { ... } }
 ```
 
-`assets` is a map from synthetic path to base64-encoded bytes. Today the only
-assets are pre-bundled module provisioner entries, keyed by
+`assets` is a map from project-relative or synthetic path to base64-encoded
+bytes. It includes workflow BPMN files under `workflows/**/*.bpmn` so
+`workflows/workflows.json` can reference deployable process definitions,
+service-local command handler modules under
+`services/*/commands/**/*.mjs` so deployed runtime artifacts can import
+`manifest.commands.handlersModule`, and
+pre-bundled module provisioner entries keyed by
 `assets/provisioners/<safeName(manifest.name)>.entry.js` where `<safeName>`
 drops the leading `@` from the package name and replaces `/` with `__`.
 

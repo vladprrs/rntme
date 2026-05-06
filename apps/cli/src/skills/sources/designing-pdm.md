@@ -12,7 +12,7 @@ description: Use when authoring or revising artifacts/pdm.json (aggregates, even
 1. Read `brief.md` (produced by `brainstorming-rntme-service`) to know which aggregates exist and what use-cases they support.
 2. For each aggregate in the brief, enumerate: the minimal set of fields needed to represent it (no derived fields), any foreign-key relations to other aggregates, the state-machine lifecycle (states → transitions → affected fields).
 3. Cross-check with `designing-ui`: every UI form action (Create, Update, etc.) must map to exactly one PDM transition. No orphan actions.
-4. Cross-check events: every transition produces an event (named `<Aggregate><TransitionPascal>`, e.g. `IssueReport`). Events are past-tense by convention; transitions are camelCase imperative (`report`, `submit`, `close`).
+4. Cross-check events: every transition produces an event. By default it is named `<Aggregate><TransitionPascal>` (e.g. `IssueReport`); use transition `eventType` only when the domain term needs an explicit past-tense name. Events are past-tense by convention; transitions are camelCase imperative (`report`, `submit`, `close`).
 5. Write `artifacts/pdm.json`. Use the worked example below as the shape reference.
 6. Run `rntme project publish --dry-run`. Fix any `PDM_*` codes before advancing. Do not edit `@rntme/pdm` to make validation pass — edit `pdm.json`.
 7. If `designing-ui` has changed since you last read it, re-read the brief and the UI file; iterate PDM with those in mind.
@@ -70,6 +70,10 @@ const transitionSchema = z
     from: z.union([z.null(), nonEmptyString, z.array(nonEmptyString).min(1)]),
     to: nonEmptyString,
     affects: z.array(nonEmptyString).optional(),
+    eventType: nonEmptyString.regex(
+      /^[A-Z][A-Za-z0-9]*$/,
+      'eventType must match /^[A-Z][A-Za-z0-9]*$/',
+    ).optional(),
   })
   .strict();
 
@@ -116,6 +120,7 @@ Key constraints to keep in mind while authoring:
 - **`stateMachine.initial` must be the JSON literal `null`** — it is not a state name; it represents "no row yet". Creation transitions have `from: null`.
 - **`states` must be non-empty** — at least one state required.
 - **Transition names match `/^[a-z][a-zA-Z0-9]*$/`** — camelCase starting with a lowercase letter. Snake-case (`my_transition`) is rejected.
+- **Optional transition `eventType` matches `/^[A-Z][A-Za-z0-9]*$/`** — use it sparingly to override the default derived event name when the domain term is clearer, and keep it unique across the PDM (`PDM_SM_EVENT_TYPE_DUPLICATE`).
 - **`affects` on a creation transition (`from: null`) is mandatory** — even if empty array (`[]`). The validator emits `PDM_SM_CREATION_MISSING_AFFECTS` if you omit it. The rationale: creation events have no prior row, so the payload manifest must be explicit.
 - **Self-loop transitions (`from === to`) must declare a non-empty `affects`** — a self-loop with no field changes is a no-op (`PDM_SM_EMPTY_SELF_LOOP`).
 - **`affects` cannot list keys or `generated` fields** — `PDM_SM_AFFECTS_KEY` / `PDM_SM_AFFECTS_GENERATED`. The resolver auto-prepends `stateField` to the resolved `affects`, so you do not list `stateField` in `affects` either — it is implicit.
@@ -299,7 +304,7 @@ Walkthrough: `Issue` carries only the fields that are domain facts — `title`, 
 
 - **Storing derived/computed fields** (e.g. `openIssueCount` on `Team`, `lastActivityAt` on `Project`). Those belong in a QSM projection. The PDM aggregate holds only data that cannot be computed from other PDM facts.
 - **Events that reference another aggregate by value instead of by FK id.** Store `assigneeId: integer` (FK to `User.id`), not `assigneeName: string`. The read side resolves names via JOIN in QSM.
-- **A command (transition) with no corresponding event.** Every transition produces exactly one event: `<AggregateType><TransitionPascal>` (e.g. `IssueReassign`). If a transition produces no domain fact, it should not exist.
+- **A command (transition) with no corresponding event.** Every transition produces exactly one event: default `<AggregateType><TransitionPascal>` (e.g. `IssueReassign`) unless `eventType` explicitly overrides it. If a transition produces no domain fact, it should not exist.
 - **A field declared on the event payload that is not on the aggregate and not explicitly listed in `affects`.** The event payload is derived from `affects` — only fields listed there (plus the auto-prepended `stateField`) appear in the event. If you want a field in the event, it must be on the aggregate and in `affects`.
 - **Re-using a transition name across aggregates.** Transition names must be unique within an entity's `stateMachine`. Across entities, same-named transitions are allowed but produce distinct event types (`IssueClose` vs `ProjectClose`).
 - **Creation transition without `affects`.** Even if the creation event carries no custom fields (just the initial state), `affects` must be present as an explicit empty array `[]`. Omitting it entirely is a validation error (`PDM_SM_CREATION_MISSING_AFFECTS`).
@@ -321,6 +326,7 @@ Walkthrough: `Issue` carries only the fields that are domain facts — `title`, 
   - `PDM_SM_AFFECTS_KEY` — `affects` lists a key field (forbidden; keys are implicit).
   - `PDM_SM_AFFECTS_GENERATED` — `affects` lists a generated field (`createdAt`, `id`, etc.).
   - `PDM_SM_CREATION_MISSING_AFFECTS` — creation transition (`from: null`) is missing the `affects` array.
+  - `PDM_SM_EVENT_TYPE_DUPLICATE` — two transitions resolve to the same event type after overrides/default naming.
   - `PDM_SM_UNREACHABLE_STATE` — a state in `states` is never the `to` of any transition reachable from a creation transition.
 
 ## Next step

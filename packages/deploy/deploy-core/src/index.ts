@@ -8,6 +8,7 @@ export {
 } from './composed-project.js';
 export {
   type BodyLimitPolicyConfig,
+  type BpmnWorkerConfig,
   DEFAULT_REDPANDA_IMAGE,
   type DeploymentEnvironment,
   type DeploymentMode,
@@ -21,9 +22,11 @@ export {
   type RateLimitPolicyConfig,
   type RequestContextPolicyConfig,
   type TimeoutPolicyConfig,
+  type WorkflowEngineConfig,
 } from './config.js';
 export {
   buildProjectDeploymentPlan,
+  type BpmnWorkerWorkload,
   type BuildPlanOptions,
   type DeploymentWarning,
   type DeploymentWorkload,
@@ -36,6 +39,9 @@ export {
   type PlannedInMemoryEventBus,
   type PlannedProject,
   type PlannedProvisionedEventBus,
+  type PlannedWorkflowEngine,
+  type PlannedWorkflowServiceTask,
+  type PlannedWorkflowSubscription,
   type ProjectDeploymentPlan,
 } from './plan.js';
 export { type EdgeMiddleware, type EdgeRoute } from './edge.js';

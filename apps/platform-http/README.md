@@ -80,7 +80,8 @@ The JSON routes are:
 Deploy-target REST routes require `deploy:target:manage`; start deployment
 requires `deploy:execute`; deployment reads require `project:read`. The
 background executor fetches the immutable project-version bundle, revalidates
-it, plans with `@rntme/deploy-core`, applies with
+it, materializes validated JSON files plus base64 `assets` such as provisioner
+entries and workflow BPMN files, plans with `@rntme/deploy-core`, applies with
 `@rntme/deploy-dokploy`, writes sanitized logs, records apply/smoke
 evidence, and finalizes stale running jobs through the orphan detector.
 
@@ -124,6 +125,9 @@ The provision stage resolves each module's provisioner from the materialized
 bundle's `assets/` directory. Resolution path:
 `<tmpDir>/assets/provisioners/<safeProvisionerName(manifest.name)>.entry.js`.
 Modules are not loaded from the platform-http process's own `node_modules`.
+Workflow BPMN assets are materialized at their project-relative paths under
+`<tmpDir>/workflows/` before blueprint composition so workflow validation and
+deploy planning see the same files that were published.
 
 Bundle versions higher than 2 are rejected with
 `DEPLOY_BUNDLE_VERSION_UNSUPPORTED`. Bundles with `version: 1` are read with
@@ -142,10 +146,34 @@ legacy `packages/ui-runtime/build/main.css`. The legacy location predates the
 2026-04-30 merge-back relocation; remove the fallback once no working tree
 relies on it.
 
+Generated runtime `manifest.json` files for domain services enable both HTTP
+port `3000` and gRPC port `50051`. The BPMN worker uses those deterministic
+gRPC surfaces when calling workflow service-task command bindings.
+
+When a domain service blueprint includes `services/<slug>/commands/handlers.mjs`,
+the deploy executor copies that service's `commands/` directory into the
+runtime artifact files and emits
+`manifest.commands.handlersModule = "commands/handlers.mjs"`. Services without
+that entry keep the ordinary Graph IR command executor path.
+
 UI module client bundles are emitted as minified ESM chunks with source maps
 omitted from Dokploy file mounts. The Dokploy adapter lists existing
 application mounts through `mounts.listByServiceId` before create/update so
 re-deploys update the current files instead of recreating duplicate mounts.
+
+## Workflow deploy support
+
+Project-version bundles may include workflow BPMN assets. During deployment,
+the executor materializes those assets under `<tmpDir>/workflows/`, composes the
+blueprint so `@rntme/workflows` can validate event and binding refs, reads the
+referenced BPMN files into `ComposedProjectInput.workflowFiles`, and passes the
+deploy target's `workflows` config through `ProjectDeploymentConfig`.
+
+The executor records smoke evidence after apply. For workflow deployments, the
+apply result must include the Operaton compose resource and the `bpmn-worker`
+application, and the package-level workflow tests cover both order-fulfillment
+branches through the worker/service-task path. Public ingress smoke remains
+`/health`, UI, `/config.json`, and protected API checks when applicable.
 
 ## Security headers (UI only)
 

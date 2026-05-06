@@ -62,7 +62,38 @@ Domain-service workloads receive:
 
 Apply creates or updates compose resources before applications. It does not
 wait for Kafka protocol readiness; runtime bus clients must tolerate broker
-warm-up.
+warm-up. For provisioned Redpanda, the rendered compose attaches the broker to
+`dokploy-network` with the planned resource name as an alias and pre-creates
+workflow message-start topics before waiting on the Redpanda process. This
+covers BPMN workers and older runtime images that subscribe or publish before
+the first automatic topic creation would otherwise happen.
+
+## Provisioned Operaton and BPMN worker
+
+When `plan.infrastructure.workflowEngine.kind === "operaton"`, render adds a
+Dokploy Compose resource before application resources. The compose file starts
+the configured Operaton image on the internal `dokploy-network`; it is not
+publicly exposed by this adapter.
+
+When the plan contains a `bpmn-worker` workload, render creates an application
+resource after domain services/modules and before the edge gateway. The worker
+receives:
+
+- `RNTME_OPERATON_BASE_URL=<workflow-engine-internal-url>`
+- `RNTME_WORKFLOWS_MANIFEST_PATH=/srv/workflows/workflows.json`
+- `RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON=<binding-ref-to-grpc-endpoint JSON>`
+- event-bus env entries matching the planned Kafka/Redpanda mode
+- file mounts under `/srv/workflows/` for `workflows.json` and every referenced BPMN file
+
+`RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON` is non-secret and generated from the
+rendered Dokploy domain-service names, for example
+`{"inventory.reserveStock":"rntme-acme-order-fulfillment-inventory:50051"}`.
+If a BPMN task targets a missing or non-domain service, render fails with
+`DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE`.
+
+Worker file paths are validated as relative paths below `/srv/workflows`; empty
+segments, parent traversal, absolute paths, backslashes, and URL-scheme paths
+are rejected during render.
 
 ## Provisioner outputs in render
 
@@ -131,6 +162,7 @@ The named 401 fallback is the only canonical 401 body for protected routes. If a
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
 - `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
+- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ## Security
 

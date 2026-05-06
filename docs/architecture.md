@@ -98,7 +98,7 @@ flowchart LR
 | Project as deployable unit | Whole-project deploys, project-level routing, and project-shared PDM follow the project-first spec (`docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`). |
 | Modules over gRPC | External integrations stay decoupled from the runtime through dynamic-proto-load gRPC adapters (`docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`). |
 | SQLite (+ Turso) | One service = one file; running many services does not require orchestrating a database cluster. |
-| Kafka-style topic convention `rntme.{svc}.{agg}` | Services can be composed into a larger platform (Zeebe sagas, gRPC) without invasive per-service wiring. |
+| Kafka-style topic convention `rntme.{svc}.{agg}` | Services can be composed into a larger platform (Operaton BPMN orchestration, gRPC) without invasive per-service wiring. |
 | Plugin seams (`DbDriver`, `EventBus`, `Surface`) | Runtime can be swapped in (e.g. different storage or transport) without changing service-level artifacts. |
 | Kept-small public surface per package | Agents and humans reason about fewer concepts per artifact; each artifact has a single canonical validator. |
 
@@ -1285,7 +1285,7 @@ Sub-sections §6.0 – §6.5 group entries by layer. Follow-up observations abou
 #### Kafka topic convention `rntme.{svc}.{agg}`
 
 - **Package / module:** `packages/runtime/event-store/src/relay/topic.ts`.
-- **Purpose:** Fix a single, predictable topic name per `(service, aggregate)` pair so any downstream consumer (Zeebe sagas, other rntme services, or external analytics) can subscribe without per-service configuration.
+- **Purpose:** Fix a single, predictable topic name per `(service, aggregate)` pair so any downstream consumer (Operaton BPMN orchestration, other rntme services, or external analytics) can subscribe without per-service configuration.
 - **Contract:** `defaultTopicOf(service, aggregate)` returns `rntme.{service}.{aggregate}`, both lowercased. DLQ topic is `{primaryTopic}.dlq`.
 - **Constructed by:** The relay when publishing; the consumer when subscribing.
 - **Invariant:** No version suffix (`.v1` etc.). Event versioning lives inside the envelope (`rntSchemaVersion` for additive changes; a new `eventType` for breaking changes).
@@ -1607,8 +1607,8 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 
 > **[info]** Per-subject ordering in Kafka is preserved (key = subject) but cross-subject ordering is not.
 > - **Why it is a smell:** A saga that reasons across subjects (for example "issue created" then "user updated") must tolerate out-of-order delivery.
-> - **Possible direction:** Delegate cross-subject ordering to Zeebe; ensure the topic convention (`rntme.{svc}.{agg}`) feeds Zeebe cleanly.
-> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; memory `project_platform_vision`.
+> - **Possible direction:** Delegate cross-subject ordering to Operaton BPMN orchestration; ensure the topic convention (`rntme.{svc}.{agg}`) feeds workflow message starts cleanly.
+> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`.
 
 ## 8. Glossary
 

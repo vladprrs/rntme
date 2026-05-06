@@ -125,6 +125,40 @@ describe('createDokployClientFactory', () => {
     expect(JSON.stringify(calls)).not.toContain('updateTraefikConfig');
   });
 
+  it('retries the Dokploy start race while the docker service appears', async () => {
+    type FetchInit = Parameters<typeof globalThis.fetch>[1];
+    const sleeps: number[] = [];
+    let startAttempts = 0;
+    const fetcher = vi.fn(async (url: string | URL | Request, _init?: FetchInit) => {
+      if (!String(url).includes('/api/application.start')) return jsonResponse({});
+      startAttempts += 1;
+      if (startAttempts < 3) {
+        return errorResponse(500, {
+          message:
+            'Command execution failed: docker service scale rntme-orders=1: Error response from daemon: service rntme-orders not found',
+          data: { path: 'application.start' },
+        });
+      }
+      return jsonResponse({});
+    });
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+
+    const client = createDokployClientFactory(
+      cipher,
+      fetcher as typeof globalThis.fetch,
+      async (ms) => {
+        sleeps.push(ms);
+      },
+    )(target());
+    await expect(client.startApplication('app-1')).resolves.toBeUndefined();
+
+    expect(startAttempts).toBe(3);
+    expect(sleeps).toEqual([2_000, 4_000]);
+  });
+
   it('updates existing application file mounts listed by service id', async () => {
     type FetchInit = Parameters<typeof globalThis.fetch>[1];
     const calls: { url: string; body: unknown }[] = [];
@@ -410,6 +444,7 @@ function target(): DeployTargetWithSecret {
     allowCreateProject: false,
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
     modules: {},
+    workflows: null,
     auth: {},
     policyValues: {},
     isDefault: true,
@@ -482,6 +517,13 @@ function emptyResponse(): Response {
 function jsonResponse(body: unknown): Response {
   return new globalThis.Response(JSON.stringify(body), {
     status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function errorResponse(status: number, body: unknown): Response {
+  return new globalThis.Response(JSON.stringify(body), {
+    status,
     headers: { 'content-type': 'application/json' },
   });
 }

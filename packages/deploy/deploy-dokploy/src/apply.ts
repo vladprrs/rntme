@@ -16,8 +16,8 @@ export type DeploymentApplyResource = {
   readonly logicalId: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway';
-  readonly infrastructureKind?: 'event-bus';
+  readonly kind?: RenderedApplicationResource['workloadKind'];
+  readonly infrastructureKind?: RenderedComposeResource['infrastructureKind'];
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -48,10 +48,7 @@ export async function applyDokployPlan(
 ): Promise<Result<DeploymentApplyResult, DokployDeploymentError>> {
   const applied: DeploymentApplyResource[] = [];
   const createdForCleanup: DeploymentApplyResource[] = [];
-  const orderedResources = [...rendered.resources].sort((a, b) => {
-    if (a.kind === b.kind) return 0;
-    return a.kind === 'compose' ? -1 : 1;
-  });
+  const orderedResources = [...rendered.resources].sort(resourceOrder);
   const prepared: Array<{
     readonly resource: Extract<RenderedDokployResource, { kind: 'application' }>;
     readonly target: DokployApplication;
@@ -228,12 +225,6 @@ async function runApplicationLifecycle(
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
-  try {
-    await client.startApplication(target.targetResourceId);
-  } catch (cause) {
-    return partialFailure(client, cause, resource, applied, createdForCleanup, 'start');
-  }
-
   if (client.inspectApplication !== undefined) {
     try {
       const inspected = await client.inspectApplication(target.targetResourceId);
@@ -346,6 +337,20 @@ function appliedResource(
   };
 }
 
+function resourceOrder(a: RenderedDokployResource, b: RenderedDokployResource): number {
+  return resourceRank(a) - resourceRank(b);
+}
+
+function resourceRank(resource: RenderedDokployResource): number {
+  if (resource.kind === 'compose' && resource.infrastructureKind === 'event-bus') return 0;
+  if (resource.kind === 'compose' && resource.infrastructureKind === 'workflow-engine') return 1;
+  if (resource.kind === 'application' && resource.workloadKind === 'domain-service') return 2;
+  if (resource.kind === 'application' && resource.workloadKind === 'integration-module') return 2;
+  if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 3;
+  if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 4;
+  return 5;
+}
+
 function networkNameMap(
   prepared: readonly {
     readonly resource: RenderedDokployResource;
@@ -353,8 +358,13 @@ function networkNameMap(
   }[],
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
-    prepared.map(({ resource, target }) => [resource.name, target.appName ?? target.name]),
+    prepared.map(({ resource, target }) => [resource.name, networkNameFor(resource, target)]),
   );
+}
+
+function networkNameFor(resource: RenderedDokployResource, target: DokployApplication | DokployCompose): string {
+  if (resource.kind === 'compose') return resource.name;
+  return target.appName ?? target.name;
 }
 
 function resolveNetworkReferences<T extends RenderedDokployResource>(
@@ -434,7 +444,7 @@ async function partialFailure(
 function resourceIdentifier(resource: RenderedDokployResource): {
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly infrastructureKind?: 'event-bus';
+  readonly infrastructureKind?: RenderedComposeResource['infrastructureKind'];
 } {
   return resource.kind === 'compose'
     ? { resourceKind: 'compose', infrastructureKind: resource.infrastructureKind }

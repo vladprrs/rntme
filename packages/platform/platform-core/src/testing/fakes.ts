@@ -341,6 +341,7 @@ export class FakeStore {
         apiTokenKeyVersion: args.row.apiTokenKeyVersion,
         eventBus: args.row.eventBusConfig,
         modules: args.row.modules,
+        workflows: args.row.workflows,
         auth: args.row.auth,
         policyValues: args.row.policyValues,
         isDefault: args.row.isDefault,

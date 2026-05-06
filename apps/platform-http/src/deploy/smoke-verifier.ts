@@ -98,7 +98,7 @@ export class SmokeVerifier {
         url,
         status: r.status,
         latencyMs: r.latencyMs,
-        ok: is2xx(r.status),
+        ok: isReachableEdgeRouteStatus(r.status),
       });
     }
 
@@ -144,6 +144,10 @@ export const defaultSmokeFetcher: SmokeFetcher = async (url, opts) => {
 
 function is2xx(status: number | 'timeout' | 'error'): boolean {
   return typeof status === 'number' && status >= 200 && status < 300;
+}
+
+function isReachableEdgeRouteStatus(status: number | 'timeout' | 'error'): boolean {
+  return typeof status === 'number' && status >= 200 && status < 500;
 }
 
 function isHtml(contentType: string | undefined): boolean {

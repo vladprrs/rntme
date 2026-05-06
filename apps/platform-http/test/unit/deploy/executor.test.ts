@@ -1,10 +1,12 @@
 import { Buffer } from 'node:buffer';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { ComposedBlueprint } from '@rntme/blueprint';
+import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
 import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { readUiRuntimeCss, runDeployment, type ExecutorDeps } from '../../../src/deploy/executor.js';
 
@@ -101,6 +103,13 @@ describe('runDeployment', () => {
         'services/api/ui/manifest.json': { version: '2.0', routes: {} },
         'services/api/seed/seed.json': [{ id: 'seed-1' }],
       },
+      bundleAssets: {
+        'services/api/commands/handlers.mjs': [
+          'export const handlers = {',
+          '  reserveInventory: async () => ({ events: [], result: { reserved: true } }),',
+          '};',
+        ].join('\n'),
+      },
       loadComposed: () => ({ ok: true, value: composedBlueprint() }),
       planProject: planProject as never,
     });
@@ -115,15 +124,28 @@ describe('runDeployment', () => {
     }, unknown]>;
     const input = calls[0]![0];
     const runtimeFiles = input.services.api.runtimeFiles;
+    const manifest = JSON.parse(runtimeFiles['manifest.json']!) as {
+      commands?: { handlersModule?: string };
+      surface?: {
+        http?: { enabled: boolean; port: number };
+        grpc?: { enabled: boolean; port: number };
+      };
+    };
     // Vars substitution now happens inside the planner, so the input still carries the raw placeholder.
     expect(input.publicConfigJson).toContain('${AUTH0_SPA_CLIENT_ID}');
     expect(input.varsManifest).toEqual({ AUTH0_SPA_CLIENT_ID: { from: 'target.auth.auth0.clientId', required: true } });
     expect(runtimeFiles['bindings.json']).toContain('"bindings"');
     expect(runtimeFiles['graphs/listNotes.json']).toContain('"listNotes"');
     expect(runtimeFiles['manifest.json']).toContain('"service"');
+    expect(manifest.surface).toEqual({
+      http: { enabled: true, port: 3000 },
+      grpc: { enabled: true, port: 50051 },
+    });
+    expect(manifest.commands?.handlersModule).toBe('commands/handlers.mjs');
     expect(runtimeFiles['pdm.json']).toContain('"entities"');
     expect(runtimeFiles['qsm.json']).toContain('"projections"');
     expect(runtimeFiles['seed.json']).toContain('"seed-1"');
+    expect(runtimeFiles['commands/handlers.mjs']).toContain('reserveInventory');
     expect(runtimeFiles['shapes.json']).toContain('"NoteView"');
     expect(runtimeFiles['ui/manifest.json']).toContain('"2.0"');
     const uiBuildFiles = Object.entries(runtimeFiles).filter(([path]) => path.startsWith('ui-build/'));
@@ -138,6 +160,262 @@ describe('runDeployment', () => {
     expect(runtimeFiles['ui-build/main.js.map']).toBeUndefined();
     expect(uiBuildFiles).not.toHaveLength(0);
     expect(uiBuildFiles.every(([, content]) => content.length < 950_000)).toBe(true);
+  });
+
+  it('passes workflow artifacts into planning and records workflow resources', async () => {
+    const planProject = vi.fn(() =>
+      ok({
+        project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka' as const,
+            mode: 'provisioned' as const,
+            provider: 'redpanda' as const,
+            resourceName: 'bus',
+            internalBrokers: ['bus:9092'],
+            image: 'redpanda:test',
+            persistence: { mode: 'persistent' as const, volumeName: 'bus-data' },
+          },
+          workflowEngine: {
+            kind: 'operaton' as const,
+            mode: 'provisioned' as const,
+            resourceName: 'operaton',
+            internalBaseUrl: 'http://operaton:8080',
+            image: 'operaton/operaton:test',
+          },
+        },
+        workloads: [],
+        edge: { routes: [], middleware: [] },
+        diagnostics: { warnings: [] },
+      }),
+    );
+    const applyPlan = vi.fn(async () =>
+      ok({
+        target: { kind: 'dokploy' as const, environmentId: 'env_default' },
+        deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        resources: [
+          {
+            logicalId: 'workflow-engine',
+            resourceKind: 'compose' as const,
+            infrastructureKind: 'workflow-engine' as const,
+            targetResourceId: 'compose_1',
+            targetResourceName: 'operaton',
+            action: 'created' as const,
+          },
+          {
+            logicalId: 'bpmn-worker',
+            resourceKind: 'application' as const,
+            workloadSlug: 'bpmn-worker',
+            kind: 'bpmn-worker' as const,
+            targetResourceId: 'app_1',
+            targetResourceName: 'bpmn-worker',
+            action: 'created' as const,
+          },
+        ],
+        urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] },
+        renderedPlanDigest: 'sha256:rendered',
+        warnings: [],
+        verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] },
+      }),
+    );
+    const composed = {
+      ...composedBlueprint(),
+      workflows: {
+        workflowVersion: 1,
+        definitions: [
+          {
+            id: 'orderFulfillment',
+            bpmnFile: 'order-fulfillment.bpmn',
+            processId: 'orderFulfillment',
+          },
+        ],
+        messageStarts: [],
+        serviceTasks: [],
+      } as never,
+    };
+    const { deps, deployments } = setup({
+      bundleFiles: {
+        'project.json': { name: 'shop', services: ['api'] },
+        'workflows/workflows.json': composed.workflows,
+      },
+      bundleAssets: {
+        'workflows/order-fulfillment.bpmn': '<definitions id="orderFulfillment" />',
+      },
+      loadComposed: () => ({ ok: true, value: composed }),
+      planProject: planProject as never,
+      applyPlan: applyPlan as never,
+      targetEventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      targetWorkflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(planProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflows: composed.workflows,
+        workflowFiles: {
+          'order-fulfillment.bpmn': '<definitions id="orderFulfillment" />',
+        },
+      }),
+      expect.objectContaining({
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        },
+      }),
+      expect.any(Object),
+    );
+    expect(deployments.setApplyResult).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({ infrastructureKind: 'workflow-engine' }),
+          expect.objectContaining({ kind: 'bpmn-worker' }),
+        ]),
+      }),
+    );
+  });
+
+  it('materializes a stored workflow bundle through compose, plan, render, and apply', async () => {
+    const demoBundle = orderFulfillmentDemoBundle();
+    const applyPlan = vi.fn(async (rendered: RenderedDokployPlan) =>
+      ok(applyResultFromRendered(rendered)),
+    );
+    const { deps, deployments } = setup({
+      bundleFiles: demoBundle.files,
+      bundleAssets: demoBundle.assets,
+      useDefaultLoadComposed: true,
+      useDefaultPlanProject: true,
+      useDefaultRenderPlan: true,
+      applyPlan: applyPlan as never,
+      deploymentConfigOverrides: {
+        publicBaseUrl: 'https://app.example.test',
+        policyOverrides: { requestContext: { default: {} } },
+      },
+      targetEventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      targetWorkflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(applyPlan).toHaveBeenCalledTimes(1);
+    const rendered = applyPlan.mock.calls[0]![0];
+    const worker = rendered.resources.find(
+      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
+    );
+    const orders = rendered.resources.find(
+      (resource) =>
+        resource.kind === 'application' &&
+        resource.workloadKind === 'domain-service' &&
+        resource.workloadSlug === 'orders',
+    );
+    expect(rendered.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'compose', infrastructureKind: 'workflow-engine' }),
+      expect.objectContaining({ kind: 'application', workloadKind: 'bpmn-worker' }),
+    ]));
+    expect(worker?.kind).toBe('application');
+    if (worker?.kind !== 'application') throw new Error('missing rendered BPMN worker');
+    expect(orders?.kind).toBe('application');
+    if (orders?.kind !== 'application') throw new Error('missing rendered orders service');
+    expect(orders.files?.['/srv/artifacts/ui/manifest.json']).toContain('"version": "2.0"');
+    expect(orders.files?.['/srv/artifacts/ui/screens/home.spec.json']).toContain('"Heading"');
+    expect(worker.files?.['/srv/workflows/workflows.json']).toContain('"orderFulfillment"');
+    expect(worker.files?.['/srv/workflows/order-fulfillment.bpmn']).toContain('orderFulfillment');
+    expect(deployments.setApplyResult).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({ infrastructureKind: 'workflow-engine' }),
+          expect.objectContaining({ kind: 'bpmn-worker' }),
+        ]),
+      }),
+    );
+  });
+
+  it('generates workflow gRPC proto registry for service task services', async () => {
+    const demoBundle = orderFulfillmentDemoBundle();
+    const planProject = vi.fn(() =>
+      ok({
+        project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka' as const,
+            mode: 'provisioned' as const,
+            provider: 'redpanda' as const,
+            resourceName: 'bus',
+            internalBrokers: ['bus:9092'],
+            image: 'redpanda:test',
+            persistence: { mode: 'persistent' as const, volumeName: 'bus-data' },
+          },
+        },
+        workloads: [],
+        edge: { routes: [], middleware: [] },
+        diagnostics: { warnings: [] },
+      }),
+    );
+    const { deps } = setup({
+      bundleFiles: demoBundle.files,
+      bundleAssets: demoBundle.assets,
+      useDefaultLoadComposed: true,
+      planProject: planProject as never,
+      targetEventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      targetWorkflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(planProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowGrpcServices: {
+          orders: expect.objectContaining({
+            packageName: 'rntme.orders.v1',
+            serviceName: 'OrdersService',
+            protoSource: expect.stringContaining('service OrdersService'),
+          }),
+          inventory: expect.objectContaining({
+            packageName: 'rntme.inventory.v1',
+            serviceName: 'InventoryService',
+            protoSource: expect.stringContaining('rpc ReserveStock'),
+          }),
+        },
+      }),
+      expect.any(Object),
+      expect.any(Object),
+    );
+  });
+
+  it('fails invalid stored bundles before materializing unsafe paths', async () => {
+    const { deps, deployments } = setup({
+      bundleFiles: { 'project.json': { name: 'shop', services: [] } },
+      bundleAssets: { 'workflows/../escape.bpmn': '<definitions />' },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
+      }),
+    );
   });
 
   it('fails deployment when planner reports a target var missing', async () => {
@@ -601,13 +879,18 @@ describe('runDeployment', () => {
 function setup(
   overrides: Partial<Pick<ExecutorDeps, 'loadComposed'>> & {
     bundleFiles?: Record<string, unknown>;
+    bundleAssets?: Record<string, string>;
     deploymentConfigOverrides?: Record<string, unknown>;
     planProject?: ExecutorDeps['planProject'];
     renderPlan?: ExecutorDeps['renderPlan'];
     applyPlan?: ExecutorDeps['applyPlan'];
+    useDefaultLoadComposed?: boolean;
+    useDefaultPlanProject?: boolean;
+    useDefaultRenderPlan?: boolean;
     targetPublicBaseUrl?: string | null;
     targetAuth?: { auth0?: { clientId: string; redirectUri?: string; domain?: string; audience?: string } };
     targetEventBus?: Record<string, unknown>;
+    targetWorkflows?: unknown;
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
     runProvisioners?: ExecutorDeps['runProvisioners'];
   } = {},
@@ -693,6 +976,7 @@ function setup(
         allowCreateProject: false,
         eventBus: (overrides.targetEventBus ?? { kind: 'kafka' as const, brokers: ['redpanda:9092'] }) as never,
         modules: {},
+        workflows: overrides.targetWorkflows ?? null,
         auth: overrides.targetAuth ?? { auth0: { clientId: 'target-spa-client' } },
         policyValues: {},
         isDefault: true,
@@ -710,7 +994,26 @@ function setup(
       presignedGet: vi.fn(),
       getJson: vi.fn(),
       getRaw: vi.fn(async () =>
-        ok(gzipSync(Buffer.from(JSON.stringify({ version: 1, files: overrides.bundleFiles ?? { 'project.json': { name: 'shop', services: [] } } })))),
+        ok(
+          gzipSync(
+            Buffer.from(
+              JSON.stringify({
+                version: overrides.bundleAssets === undefined ? 1 : 2,
+                files: overrides.bundleFiles ?? { 'project.json': { name: 'shop', services: [] } },
+                ...(overrides.bundleAssets === undefined
+                  ? {}
+                  : {
+                      assets: Object.fromEntries(
+                        Object.entries(overrides.bundleAssets).map(([path, content]) => [
+                          path,
+                          Buffer.from(content).toString('base64'),
+                        ]),
+                      ),
+                    }),
+              }),
+            ),
+          ),
+        ),
       ),
     },
     withOrgTx: async (_orgId, fn) =>
@@ -727,20 +1030,32 @@ function setup(
     dokployClientFactory: vi.fn(() => ({} as never)),
     smoker: { verify: vi.fn(async () => overrides.verificationReport ?? { checks: [], ok: true, partialOk: false }) } as never,
     logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
-    loadComposed:
-      overrides.loadComposed ??
-      (() => ({
-        ok: true,
-        value: {
-          name: 'shop',
-          services: { api: { slug: 'api', kind: 'domain' } },
-          routes: { http: { '/api': 'api' } },
-          middleware: {},
-          mounts: [],
-        },
-      })),
-    planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
-    renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
+    ...(overrides.useDefaultLoadComposed
+      ? {}
+      : {
+          loadComposed:
+            overrides.loadComposed ??
+            (() => ({
+              ok: true,
+              value: {
+                name: 'shop',
+                services: { api: { slug: 'api', kind: 'domain' } },
+                routes: { http: { '/api': 'api' } },
+                middleware: {},
+                mounts: [],
+              },
+            })),
+        }),
+    ...(overrides.useDefaultPlanProject
+      ? {}
+      : {
+          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
+        }),
+    ...(overrides.useDefaultRenderPlan
+      ? {}
+      : {
+          renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
+        }),
     applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
     heartbeatMs: 10_000,
     ...(overrides.runProvisioners === undefined ? {} : { runProvisioners: overrides.runProvisioners }),
@@ -758,6 +1073,84 @@ function setup(
     lastSuccessfulProvisionOutputs: vi.fn(async () => ({})),
   };
   return { deps, deployments };
+}
+
+function orderFulfillmentDemoBundle(): {
+  readonly files: Record<string, unknown>;
+  readonly assets: Record<string, string>;
+} {
+  const root = join(repoRoot(), 'demo', 'order-fulfillment-blueprint');
+  const files: Record<string, unknown> = {};
+  const assets: Record<string, string> = {};
+
+  for (const relPath of walk(root)) {
+    const absPath = join(root, relPath);
+    if (relPath.endsWith('.json')) {
+      files[relPath] = JSON.parse(readFileSync(absPath, 'utf8'));
+    }
+    if (relPath.endsWith('.bpmn')) {
+      assets[relPath] = readFileSync(absPath, 'utf8');
+    }
+  }
+
+  return { files, assets };
+}
+
+function applyResultFromRendered(rendered: RenderedDokployPlan): DeploymentApplyResult {
+  return {
+    target: { kind: 'dokploy', environmentId: 'env_default' },
+    deployment: rendered.deployment,
+    resources: rendered.resources.map((resource, idx) =>
+      resource.kind === 'compose'
+        ? {
+            logicalId: resource.logicalId,
+            resourceKind: 'compose' as const,
+            infrastructureKind: resource.infrastructureKind,
+            targetResourceId: `compose_${idx + 1}`,
+            targetResourceName: resource.name,
+            action: 'created' as const,
+          }
+        : {
+            logicalId: resource.logicalId,
+            resourceKind: 'application' as const,
+            workloadSlug: resource.workloadSlug,
+            kind: resource.workloadKind,
+            targetResourceId: `app_${idx + 1}`,
+            targetResourceName: resource.name,
+            action: 'created' as const,
+          },
+    ),
+    urls: rendered.urls,
+    renderedPlanDigest: rendered.digest,
+    warnings: rendered.warnings,
+    verificationHints: {
+      healthUrl: `${rendered.urls.projectUrl}/health`,
+      ...(rendered.urls.uiUrl === undefined ? {} : { uiUrl: rendered.urls.uiUrl }),
+      publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
+      protectedRouteChecks: rendered.urls.protectedRouteChecks,
+    },
+  };
+}
+
+function walk(root: string): string[] {
+  const out: string[] = [];
+  function visit(dir: string): void {
+    for (const name of readdirSync(dir).sort()) {
+      const absPath = join(dir, name);
+      const st = statSync(absPath);
+      if (st.isDirectory()) {
+        visit(absPath);
+        continue;
+      }
+      if (st.isFile()) out.push(relative(root, absPath).split(sep).join('/'));
+    }
+  }
+  visit(root);
+  return out.sort();
+}
+
+function repoRoot(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 }
 
 function composedBlueprint(): ComposedBlueprint {

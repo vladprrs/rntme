@@ -48,6 +48,8 @@
 - `apps/landing/`           — `@rntme/landing`, the public landing site.
 - `packages/platform/`      — platform domain/storage packages.
 - `packages/deploy/`        — deploy planner and Dokploy adapter packages.
+- `packages/artifacts/workflows/` — `@rntme/workflows`, project-level BPMN
+  workflow artifact parser/validator.
 - `docs/superpowers/specs/` — authoritative design specs (local-only)
 - `docs/superpowers/specs/done/` — landed specs kept for cross-reference
 - `docs/superpowers/plans/` — per-spec implementation plans (local-only)
@@ -60,6 +62,8 @@
   useful for operator-level syntax/semantics; not canon.
 - `README.md` (root)         — human-facing overview + CI badge + pointer
   back to this file
+- `demo/order-fulfillment-blueprint/` — BPMN workflow example
+  (`workflows/workflows.json` + two services).
 
 ## 3. Package layering
 
@@ -70,9 +74,9 @@ ASCII dependency diagram. Arrow means "depends on".
                          |
                          v
                          @rntme/blueprint
-                        /       |       \
-                       /        |        \
-              @rntme/pdm   @rntme/qsm   project-routed registry
+                    /       |       |       \
+                   /        |       |        \
+          @rntme/pdm   @rntme/qsm  @rntme/workflows  project-routed registry
                     \          /   \
                      \        /     \
               @rntme/graph-ir-compiler   @rntme/event-store
@@ -106,10 +110,13 @@ ASCII dependency diagram. Arrow means "depends on".
 
               Deployment (CLI-side; consumes validated/composed projects)
               @rntme/deploy-core ─── @rntme/deploy-dokploy
-              (deploy-core also depends on @rntme/contracts-module-v1
-               and @rntme/contracts-provisioner-v1; vendor modules with a
-               provisioner block depend on @rntme/contracts-provisioner-v1
-               directly, never on deploy-core)
+              (deploy-core also depends on @rntme/contracts-module-v1,
+               @rntme/contracts-provisioner-v1, and @rntme/workflows;
+               vendor modules with a provisioner block depend on
+               @rntme/contracts-provisioner-v1 directly, never on deploy-core)
+
+              Workflow execution (provisioned deployments)
+              @rntme/bpmn-worker ─── @rntme/workflows
 ```
 
 One-line purpose per package (read the per-package README before touching):
@@ -126,6 +133,10 @@ One-line purpose per package (read the per-package README before touching):
 - **`@rntme/qsm`** — Query-side model on top of PDM: projections,
   derived DDL, resolver, relation metadata for JOINs. →
   `packages/artifacts/qsm/README.md`.
+- **`@rntme/workflows`** — Project-level BPMN/Operaton workflow
+  artifact parser/validator. Owns `workflows/workflows.json`, BPMN file
+  refs, event-message-start mappings, and BPMN service-task command
+  binding refs. → `packages/artifacts/workflows/README.md`.
 - **`@rntme/event-store`** — SQLite-backed event log with optimistic
   concurrency, monotonic cursor, and Kafka-style relay. →
   `packages/runtime/event-store/README.md`.
@@ -158,6 +169,10 @@ One-line purpose per package (read the per-package README before touching):
   manifest, boots event-store/bus/HTTP/gRPC surfaces, wires executor
   seams, modules, projections, seed, bindings + UI. →
   `packages/runtime/runtime/README.md`.
+- **`@rntme/bpmn-worker`** — Provisioned BPMN worker bridge. Subscribes
+  to Kafka event topics, starts Operaton process instances, executes
+  BPMN service tasks through rntme gRPC command bindings, and uses
+  `@rntme/workflows` mappings. → `packages/runtime/bpmn-worker/README.md`.
 - **`@rntme/module-scaffold`** — Examples and scaffolding for rntme module
   authors. Holds `exampleHandlers` (an example `CodeCommandHandlerMap`); no
   contract surface — types come from `@rntme/contracts-handlers-v1` and the
@@ -258,6 +273,8 @@ Modules tree (vendor implementations):
   relationship as `@rntme/conformance-identity` ↔ `modules/identity/conformance/`).
 - **`demo/notes-blueprint`** — Canonical project-shape example
   (`project.json` + project-level PDM + services).
+- **`demo/order-fulfillment-blueprint`** — BPMN workflow example with
+  `workflows/workflows.json`, BPMN files, and order/inventory services.
 
 ## 4. Project-wide conventions
 
@@ -574,6 +591,21 @@ under `packages/runtime/event-store/test/`.
 5. The platform executor, not the CLI, decrypts target credentials and calls `planDeployment(...)`, `renderDokployPlan(...)`, and `applyDokployPlan(...)`.
 6. CLI tenancy resolution order is flag → env (`RNTME_ORG`/`RNTME_PROJECT`/`RNTME_SERVICE`) → `rntme.json` → credentials profile defaults (`defaultOrg`/`defaultProject`); persist defaults with `rntme login --token <pat> [--org <slug>] [--project <slug>]`.
 
+### 6.14a Add a BPMN workflow
+
+1. Read `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`, `packages/artifacts/workflows/README.md`, and `demo/order-fulfillment-blueprint/README.md`.
+2. Add `workflows/workflows.json` at the project root. Define `definitions[]` with safe relative `.bpmn` files under `workflows/`, `messageStarts[]` for PDM event-envelope subscriptions, and `serviceTasks[]` for BPMN task ids that call project-routed command bindings.
+3. Add the referenced BPMN files under `workflows/`. Keep BPMN `processId`, message names, and service task ids aligned with the workflow artifact.
+4. Validate with `loadComposedBlueprint(...)` or `rntme project publish --dry-run`. Blueprint discovers `workflows/workflows.json`, calls `@rntme/workflows`, checks BPMN files, resolves event refs through project PDM context, and resolves command binding refs through the project binding registry.
+5. For deployment, configure the target with provisioned Redpanda and `workflows.engine: { kind: "operaton", mode: "provisioned", image }` plus `workflows.worker.image`. Deploy-core renders `infrastructure.workflowEngine` and a `bpmn-worker` workload; deploy-dokploy renders Operaton and mounts `/srv/workflows`.
+
+### 6.14b Run the live Dokploy BPMN e2e
+
+1. Build and push runtime and BPMN worker images.
+2. Set the `RNTME_DOKPLOY_E2E=1` env block documented in `demo/order-fulfillment-blueprint/README.md`.
+3. Run `pnpm -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts`.
+4. Confirm the test reports both `confirmed` and `cancelled` order branches and that cleanup removed Dokploy resources.
+
 ### 6.15 Wire Auth0 into a project blueprint
 
 1. Read `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md` §5-§9 and use `demo/notes-blueprint/` as the worked example.
@@ -806,6 +838,8 @@ Map of "if you're tempted to do X, the decision-doc is Y":
   `docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`.
 - "Event-driven architecture — what events, what consumers?" →
   `docs/adr/2026-04-15-event-driven-architecture.md`.
+- "Why Operaton for current BPMN orchestration instead of the older Zeebe placeholder?" →
+  `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`.
 - "Why did blueprint become project-first, and where do project vs service
   responsibilities now live?" →
   `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.
@@ -838,7 +872,9 @@ Known categorical entries to watch for:
   and `.../test/e2e/predicate-optional.e2e.test.ts`.
 - `rntme_turso_target` — future scale-out is Turso, not Postgres.
 - `project_platform_vision` — rntme as one per-service runtime inside a
-  larger DDD platform; Zeebe owns cross-service sagas.
+  larger DDD platform; Operaton owns current BPMN orchestration. Older
+  Zeebe references are historical placeholders unless a current spec says
+  otherwise.
 
 ## 10. Glossary
 
@@ -856,6 +892,9 @@ Known categorical entries to watch for:
   state transitions (`started`, `finished`, `failed`, `requires_action`),
   never per chunk. Future token streaming belongs in a server-streaming
   gRPC RPC; the event log stays for state.
+- **BPMN worker** — Runtime workload for provisioned Operaton projects.
+  Subscribes to Kafka event topics, starts process instances, and
+  executes BPMN service tasks through rntme gRPC command bindings.
 - **Callback binding** — A command binding whose HTTP method is GET and whose `response.onOk` / `response.onErr` is a redirect; used for vendor returns (OAuth, magic links, hosted checkout).
 - **Canonical AI/LLM contract** — `@rntme/contracts-ai-llm-v1`: service
   `AiLlmModule`, three aggregates (`Completion`, `AssistantThread`,
@@ -967,6 +1006,10 @@ Known categorical entries to watch for:
   publishes them to the Kafka-like bus. At-least-once, cursor-guarded.
 - **Surface** — Runtime plugin seam for the HTTP (or equivalent)
   entry point. Default implementation: `HttpSurface` (Hono).
+- **Workflow artifact** — Project-level `workflows/workflows.json`
+  artifact validated by `@rntme/workflows`; maps BPMN definitions to
+  event-envelope message starts and project-routed command binding
+  service tasks.
 - **DbDriver** / **EventBus** — Runtime plugin seams for storage and
   messaging. Default implementations: `BetterSqliteDriver`,
   `InMemoryBus`.

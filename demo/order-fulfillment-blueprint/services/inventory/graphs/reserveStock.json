@@ -1,0 +1,28 @@
+{
+  "id": "reserveStock",
+  "signature": {
+    "inputs": {
+      "orderId": { "type": "string", "mode": "required" },
+      "sku": { "type": "string", "mode": "required" },
+      "quantity": { "type": "integer", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "StockReservation",
+        "aggregateId": { "$node": "newId" },
+        "transition": "reserve",
+        "payload": {
+          "orderId": { "$param": "orderId" },
+          "sku": { "$param": "sku" },
+          "quantity": { "$param": "quantity" }
+        }
+      }
+    }
+  ]
+}

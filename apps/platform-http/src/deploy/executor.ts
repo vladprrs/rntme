@@ -1,11 +1,11 @@
-import { Buffer } from 'node:buffer';
+import type { Buffer } from 'node:buffer';
 import { clearInterval, setInterval } from 'node:timers';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { emitProto } from '@rntme/bindings-grpc';
 import { discoverModules, loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
@@ -32,7 +32,6 @@ import { build, type Plugin } from 'esbuild';
 import {
   isOk,
   type BlobStore,
-  type CanonicalBundle,
   type DeployTarget,
   type DeployTargetRepo,
   type DeployTargetWithSecret,
@@ -44,6 +43,7 @@ import {
   type SecretCipher,
   type TargetSecretsRepo,
   type VerificationReport,
+  parseCanonicalBundle,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
 import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-deploy-config.js';
@@ -51,6 +51,8 @@ import type { DokployClientFactory } from './dokploy-client-factory.js';
 import { redact } from './log-redactor.js';
 import type { SmokeVerifier } from './smoke-verifier.js';
 import { runStage } from './stage-runner.js';
+import { materializeBundle } from '../bundle/materialize.js';
+export { materializeBundle };
 
 type ResultLike<T, E = { readonly code: string; readonly message: string }> =
   | { readonly ok: true; readonly value: T }
@@ -162,8 +164,35 @@ export async function runDeployment(
       return;
     }
 
-    const bundle = JSON.parse(gunzipSync(raw.value).toString('utf8')) as CanonicalBundle;
-    tmpDir = await materializeBundle(bundle);
+    let bundleBytes: Buffer;
+    try {
+      bundleBytes = gunzipSync(raw.value);
+    } catch (cause) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_EXECUTOR_BUNDLE_DECOMPRESS_FAILED',
+        errorMessage: redact(cause instanceof Error ? cause.message : String(cause)),
+      });
+      return;
+    }
+
+    const parsedBundle = parseCanonicalBundle(bundleBytes);
+    if (!isOk(parsedBundle)) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: parsedBundle.errors[0]?.code ?? 'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
+        errorMessage: redact(errorSummary(parsedBundle.errors)),
+      });
+      return;
+    }
+
+    try {
+      tmpDir = await materializeBundle(parsedBundle.value.bundle);
+    } catch (cause) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_EXECUTOR_BUNDLE_MATERIALIZE_FAILED',
+        errorMessage: redact(cause instanceof Error ? cause.message : String(cause)),
+      });
+      return;
+    }
 
     const log = async (entry: { step: string; level: 'error'; code: string; message: string }) =>
       appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
@@ -455,7 +484,7 @@ async function logApplyFailure(
   deps: ExecutorDeps,
   deploymentId: string,
   orgId: string,
-  errors: readonly { readonly code?: string; readonly message?: string; readonly partialFailure?: unknown }[],
+  errors: readonly { readonly code?: string; readonly message?: string; readonly cause?: unknown; readonly partialFailure?: unknown }[],
 ): Promise<void> {
   const first = errors[0];
   const partial = first?.partialFailure as
@@ -470,11 +499,22 @@ async function logApplyFailure(
       }
     | undefined;
   const failed = partial?.failedStep;
+  const cause = applyFailureCause(first?.cause);
   const detail =
     failed === undefined
-      ? errorSummary(errors)
-      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}`;
+      ? `${errorSummary(errors)}${cause === undefined ? '' : `: ${cause}`}`
+      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}${cause === undefined ? '' : `: ${cause}`}`;
   await appendLog(deps, deploymentId, orgId, 'error', 'apply', detail);
+}
+
+function applyFailureCause(cause: unknown): string | undefined {
+  if (cause === undefined || cause === null) return undefined;
+  if (cause instanceof Error) return redact(cause.message);
+  if (typeof cause === 'string') return redact(cause);
+  if (typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string') {
+    return redact(cause.message);
+  }
+  return redact(JSON.stringify(cause));
 }
 
 async function finalizeFromVerification(
@@ -530,25 +570,6 @@ async function finalize(
   });
 }
 
-export async function materializeBundle(bundle: CanonicalBundle): Promise<string> {
-  if (typeof bundle.version === 'number' && bundle.version > 2) {
-    throw new Error(`DEPLOY_BUNDLE_VERSION_UNSUPPORTED: bundle version ${bundle.version} not supported`);
-  }
-  const dir = await mkdtemp(join(tmpdir(), 'rntme-deploy-'));
-  for (const [relPath, value] of Object.entries(bundle.files)) {
-    const path = join(dir, relPath);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, JSON.stringify(value));
-  }
-  const assets = (bundle as { assets?: Record<string, string> }).assets ?? {};
-  for (const [relPath, base64] of Object.entries(assets)) {
-    const path = join(dir, relPath);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, Buffer.from(base64, 'base64'));
-  }
-  return dir;
-}
-
 function defaultLoadComposed(dir: string): ResultLike<LoadedDeployProject> {
   const result = loadComposedBlueprint(dir);
   return result as ResultLike<LoadedDeployProject>;
@@ -583,6 +604,12 @@ async function toDeployCoreInput(
     }
   }
 
+  const workflowFiles =
+    value.workflows === null || value.workflows === undefined
+      ? undefined
+      : await readWorkflowDefinitionFiles(value.workflows, rootDir);
+  const workflowGrpcServices = workflowGrpcServicesForProject(value);
+
   return {
     name: value.project.name,
     publicConfigJson: value.publicConfigJson ?? null,
@@ -605,7 +632,121 @@ async function toDeployCoreInput(
     ...(value.project.middleware === undefined ? {} : { middleware: value.project.middleware }),
     ...(value.project.mounts === undefined ? {} : { mounts: value.project.mounts }),
     ...(Object.keys(modules).length > 0 ? { modules } : {}),
+    ...(value.workflows === undefined ? {} : { workflows: value.workflows }),
+    ...(workflowFiles === undefined ? {} : { workflowFiles }),
+    ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
   };
+}
+
+type WorkflowGrpcServiceRegistry = NonNullable<ComposedProjectInput['workflowGrpcServices']>;
+type GrpcShapeRegistry = Parameters<typeof emitProto>[1];
+type GrpcResolvedShape = GrpcShapeRegistry[string];
+
+function workflowGrpcServicesForProject(project: ComposedBlueprint): WorkflowGrpcServiceRegistry {
+  if (project.workflows === null || project.workflows === undefined) return {};
+  const serviceSlugs = new Set(
+    project.workflows.serviceTasks
+      .map((task) => task.bindingRef.split('.')[0] ?? '')
+      .filter((slug) => slug.length > 0),
+  );
+  const out: Record<string, WorkflowGrpcServiceRegistry[string]> = {};
+  for (const serviceSlug of [...serviceSlugs].sort()) {
+    const service = project.services[serviceSlug];
+    if (service?.bindings === null || service?.bindings === undefined || service.graphSpec === null) continue;
+    const packageName = grpcPackageNameForService(serviceSlug);
+    const serviceName = grpcServiceNameForService(serviceSlug);
+    out[serviceSlug] = {
+      packageName,
+      serviceName,
+      protoSource: emitProto(service.bindings, collectGrpcShapesFromService(service), { packageName, serviceName }),
+    };
+  }
+  return out;
+}
+
+function grpcPackageNameForService(serviceSlug: string): string {
+  return `rntme.${serviceSlug.trim().toLowerCase().replace(/-/g, '_')}.v1`;
+}
+
+function grpcServiceNameForService(serviceSlug: string): string {
+  return `${serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join('')}Service`;
+}
+
+function collectGrpcShapesFromService(service: ComposedBlueprint['services'][string]): GrpcShapeRegistry {
+  const acc: Record<string, GrpcResolvedShape> = {};
+  const addCustomShape = (shapeName: string): void => {
+    if (acc[shapeName] !== undefined) return;
+    const custom = service.graphSpec?.shapes[shapeName];
+    if (custom === undefined) return;
+    acc[shapeName] = {
+      name: shapeName,
+      origin: 'custom',
+      fields: Object.fromEntries(
+        Object.entries(custom.fields).map(([fieldName, field]) => [
+          fieldName,
+          {
+            type: { kind: 'scalar', primitive: field.type },
+            nullable: field.nullable,
+          },
+        ]),
+      ),
+    } as GrpcResolvedShape;
+  };
+
+  for (const resolved of Object.values(service.bindings?.resolved ?? {})) {
+    acc[resolved.outputShape.name] = resolved.outputShape as GrpcResolvedShape;
+    for (const input of Object.values(resolved.signature.inputs)) {
+      if (input.type.kind === 'row' || input.type.kind === 'rowset') {
+        addCustomShape(input.type.shape);
+      }
+    }
+  }
+  return acc;
+}
+
+async function readWorkflowDefinitionFiles(
+  workflows: NonNullable<ComposedBlueprint['workflows']>,
+  rootDir: string,
+): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const definition of workflows.definitions) {
+    if (Object.hasOwn(files, definition.bpmnFile)) continue;
+    const path = workflowDefinitionPath(rootDir, definition.bpmnFile);
+    try {
+      files[definition.bpmnFile] = await readFile(path, 'utf8');
+    } catch (cause) {
+      if (errorCode(cause) === 'ENOENT') {
+        throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_NOT_FOUND: workflows/${definition.bpmnFile}`);
+      }
+      throw cause;
+    }
+  }
+  return files;
+}
+
+function workflowDefinitionPath(rootDir: string, relativePath: string): string {
+  if (!isSafeWorkflowFilePath(relativePath)) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  const workflowRoot = join(rootDir, 'workflows');
+  const filePath = join(workflowRoot, relativePath);
+  const backToRoot = relative(workflowRoot, filePath).split('\\').join('/');
+  if (backToRoot === '..' || backToRoot.startsWith('../')) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  return filePath;
+}
+
+function isSafeWorkflowFilePath(path: string): boolean {
+  if (path === '') return false;
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
+  return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 async function buildRuntimeArtifactFiles(
@@ -622,12 +763,14 @@ async function buildRuntimeArtifactFiles(
 
   const files: Record<string, string> = {};
   const modules = runtimeModulesForService(project, serviceSlug);
+  const handlersModule = await optionalCommandHandlersModule(rootDir, serviceSlug);
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
-    surface: { http: { enabled: true, port: 3000 } },
+    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
     modules,
+    ...(handlersModule === null ? {} : { commands: { handlersModule } }),
   });
   for (const module of modules) {
     files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
@@ -641,13 +784,27 @@ async function buildRuntimeArtifactFiles(
     addJsonFile(files, `graphs/${graphId}.json`, graph);
   }
 
-  await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
+  if (handlersModule !== null) {
+    await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/commands`, 'commands');
+  }
   Object.assign(files, uiBuildFiles);
   if (service.seed !== null) {
     await addOptionalTextFile(files, rootDir, `services/${serviceSlug}/seed/seed.json`, 'seed.json');
   }
 
   return files;
+}
+
+async function optionalCommandHandlersModule(rootDir: string, serviceSlug: string): Promise<string | null> {
+  try {
+    await readFile(join(rootDir, `services/${serviceSlug}/commands/handlers.mjs`), 'utf8');
+    return 'commands/handlers.mjs';
+  } catch (cause) {
+    if (errorCode(cause) === 'ENOENT') return null;
+    throw cause;
+  }
 }
 
 async function bundleVirtualEntrySource(
@@ -878,17 +1035,69 @@ function serviceForMountTarget(project: ComposedBlueprint['project'], target: st
   return undefined;
 }
 
+function addDefaultUiFiles(files: Record<string, string>, serviceSlug: string): void {
+  const title = serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join(' ') || 'Service';
+  addJsonFile(files, 'ui/manifest.json', {
+    version: '2.0',
+    pdmRef: `${serviceSlug}.domain.v1`,
+    qsmRef: `${serviceSlug}.read.v1`,
+    graphSpecRef: `${serviceSlug}.graphs.v1`,
+    bindingsRef: `${serviceSlug}.bindings.v1`,
+    metadata: { title },
+    layouts: { main: 'layouts/main' },
+    routes: {
+      '/': {
+        layout: 'main',
+        screen: 'screens/home',
+      },
+    },
+  });
+  addJsonFile(files, 'ui/layouts/main.screen.json', {});
+  addJsonFile(files, 'ui/layouts/main.spec.json', {
+    root: 'shell',
+    elements: {
+      shell: {
+        type: 'Stack',
+        props: { direction: 'vertical' },
+        children: ['header'],
+      },
+      header: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+      },
+    },
+  });
+  addJsonFile(files, 'ui/screens/home.screen.json', {
+    metadata: { title },
+  });
+  addJsonFile(files, 'ui/screens/home.spec.json', {
+    root: 'page',
+    elements: {
+      page: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+        children: [],
+      },
+    },
+  });
+}
+
 async function addOptionalDirectoryFiles(
   files: Record<string, string>,
   rootDir: string,
   sourceRel: string,
   targetRel: string,
-): Promise<void> {
+): Promise<boolean> {
   const sourceRoot = join(rootDir, sourceRel);
   try {
     await addDirectoryFilesFrom(files, sourceRoot, sourceRoot, targetRel);
+    return true;
   } catch (cause) {
-    if (errorCode(cause) === 'ENOENT') return;
+    if (errorCode(cause) === 'ENOENT') return false;
     throw cause;
   }
 }

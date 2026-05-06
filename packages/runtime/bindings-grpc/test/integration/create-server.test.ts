@@ -26,12 +26,14 @@ describe('createGrpcServer (integration)', () => {
   it('accepts a CreateOrder RPC and routes to CodeCommandExecutor', async () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
     const qsmDb = new BetterSqlite3(':memory:');
+    const receivedInputs: Record<string, unknown>[] = [];
 
     const commandExecutor: CommandExecutor = {
       async execute(req: CommandExecutorInput): Promise<CommandExecutorOutput> {
         if (req.commandName !== 'createOrder') {
           return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: req.commandName } };
         }
+        receivedInputs.push(req.inputs as Record<string, unknown>);
         return {
           ok: true,
           value: {
@@ -40,8 +42,9 @@ describe('createGrpcServer (integration)', () => {
             eventIds: ['evt-1'],
             commandId: 'cmd-1',
             correlationId: 'corr-1',
+            result: { reserved: true, reservationId: 'res-1' },
           },
-        };
+        } as CommandExecutorOutput;
       },
     };
     const queryExecutor: QueryExecutor = {
@@ -85,6 +88,11 @@ describe('createGrpcServer (integration)', () => {
 
     expect(response.aggregate_id).toBe('order-42');
     expect(Number(response.version)).toBe(1);
+    expect(structToJson(response.result)).toEqual({ reserved: true, reservationId: 'res-1' });
+    const inputs = receivedInputs[0];
+    if (inputs === undefined) throw new Error('command executor was not called');
+    expect(inputs).toMatchObject({ amount: 42, note: 'hello' });
+    expect(typeof inputs.amount).toBe('number');
   });
 
   it('passes supplied server credentials to bindAsync', async () => {
@@ -124,7 +132,40 @@ describe('createGrpcServer (integration)', () => {
 
 function loadProto(src: string, serviceName: string): { root: protobuf.Root; service: protobuf.Service } {
   const { root } = protobuf.parse(src, { keepCase: true });
+  root.addJSON(protobuf.common.get('google/protobuf/struct.proto')?.nested ?? {});
   return { root, service: root.lookupService(serviceName) };
+}
+
+function structToJson(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  const struct = value as { fields?: Record<string, unknown> };
+  return fieldsToJson(struct.fields ?? {});
+}
+
+function fieldsToJson(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[key] = valueToJson(value);
+  }
+  return out;
+}
+
+function valueToJson(value: unknown): unknown {
+  const typed = value as {
+    nullValue?: unknown;
+    numberValue?: number;
+    stringValue?: string;
+    boolValue?: boolean;
+    structValue?: { fields?: Record<string, unknown> };
+    listValue?: { values?: unknown[] };
+  };
+  if (typed.nullValue !== undefined) return null;
+  if (typed.numberValue !== undefined) return typed.numberValue;
+  if (typed.stringValue !== undefined) return typed.stringValue;
+  if (typed.boolValue !== undefined) return typed.boolValue;
+  if (typed.structValue !== undefined) return fieldsToJson(typed.structValue.fields ?? {});
+  if (typed.listValue !== undefined) return (typed.listValue.values ?? []).map(valueToJson);
+  return undefined;
 }
 
 function toServiceDef(root: protobuf.Root, service: protobuf.Service): grpc.ServiceDefinition {

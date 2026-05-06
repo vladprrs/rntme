@@ -1,6 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import { loadComposedBlueprint, type ComposedBlueprint } from '@rntme/blueprint';
 import {
   err,
@@ -10,6 +8,7 @@ import {
   type ProjectVersionSummary,
   type Result,
 } from '@rntme/platform-core';
+import { materializeBundle } from '../bundle/materialize.js';
 
 export type MaterializeResult = {
   readonly composed: ComposedBlueprint;
@@ -20,14 +19,8 @@ export type MaterializeResult = {
 export async function materializeAndCompose(
   bundle: CanonicalBundle,
 ): Promise<Result<MaterializeResult, PlatformError>> {
-  const dir = await mkdtemp(join(tmpdir(), 'rntme-bundle-'));
+  const dir = await materializeBundle(bundle);
   try {
-    for (const [relPath, value] of Object.entries(bundle.files)) {
-      const abs = join(dir, relPath);
-      await mkdir(dirname(abs), { recursive: true });
-      await writeFile(abs, JSON.stringify(value));
-    }
-
     const composed = loadComposedBlueprint(dir);
     if (!composed.ok) {
       return err([

@@ -64,6 +64,57 @@ describe('buildProjectBundle', () => {
     });
   });
 
+  it('emits workflow BPMN files as assets while keeping workflows.json in files', () => {
+    withTmp((dir) => {
+      mkdirSync(join(dir, 'workflows'), { recursive: true });
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: [], name: 'demo' }));
+      writeFileSync(join(dir, 'workflows', 'workflows.json'), JSON.stringify({
+        workflowVersion: 1,
+        definitions: [
+          {
+            id: 'orderFulfillment',
+            bpmnFile: 'order-fulfillment.bpmn',
+            processId: 'orderFulfillment',
+          },
+        ],
+        messageStarts: [],
+        serviceTasks: [],
+      }));
+      const bpmn = '<bpmn:definitions><bpmn:process id="orderFulfillment" /></bpmn:definitions>';
+      writeFileSync(join(dir, 'workflows', 'order-fulfillment.bpmn'), bpmn);
+
+      const result = buildProjectBundle(dir);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(Object.keys(result.value.bundle.files).sort()).toEqual([
+        'project.json',
+        'workflows/workflows.json',
+      ]);
+      expect(result.value.bundle.assets['workflows/order-fulfillment.bpmn']).toBe(
+        Buffer.from(bpmn).toString('base64'),
+      );
+    });
+  });
+
+  it('emits service-local command handler modules as assets', () => {
+    withTmp((dir) => {
+      mkdirSync(join(dir, 'services', 'inventory', 'commands'), { recursive: true });
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: ['inventory'], name: 'demo' }));
+      const handlers = 'export const handlers = { reserveStock: async () => ({ ok: true }) };';
+      writeFileSync(join(dir, 'services', 'inventory', 'commands', 'handlers.mjs'), handlers);
+
+      const result = buildProjectBundle(dir);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(Object.keys(result.value.bundle.files)).toEqual(['project.json']);
+      expect(result.value.bundle.assets['services/inventory/commands/handlers.mjs']).toBe(
+        Buffer.from(handlers).toString('base64'),
+      );
+    });
+  });
+
   it('emits version 2 bundles with assets when modules declare provisioner.entry', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
     try {

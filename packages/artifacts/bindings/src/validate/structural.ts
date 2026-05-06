@@ -161,9 +161,9 @@ function checkBinding(
       errors.push({
         layer: 'structural',
         code: ERROR_CODES.BINDINGS_STRUCTURAL_PRE_TOO_MANY,
-        message: `binding "${id}": pre[] has ${entry.pre.length} steps; max is 2 (upgrade to Zeebe)`,
+        message: `binding "${id}": pre[] has ${entry.pre.length} steps; max is 2 (model longer flows in BPMN)`,
         path: `bindings.${id}.pre`,
-        hint: 'See spec §7 S4: chains longer than 2 pre-steps should be modeled as Zeebe processes.',
+        hint: 'See spec §7 S4: chains longer than 2 pre-steps should be modeled as BPMN processes.',
       });
     }
     const seen = new Set<string>();

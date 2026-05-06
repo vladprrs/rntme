@@ -1,5 +1,7 @@
 import { serve, type ServerType } from '@hono/node-server';
 import { Hono } from 'hono';
+import { resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { BetterSqliteDriver } from '../plugins/better-sqlite-driver.js';
 import { InMemoryBus } from '../plugins/in-memory-bus.js';
 import { HttpSurface } from '../plugins/http-surface.js';
@@ -11,11 +13,15 @@ import type {
   DbDriver,
   EventBus,
 } from '../plugins/interfaces.js';
+import { CodeCommandExecutor } from '../plugins/executors/code-command-executor.js';
+import { CompositeCommandExecutor } from '../plugins/executors/composite-command-executor.js';
 import { GraphIrCommandExecutor } from '../plugins/executors/graph-ir-command-executor.js';
 import { GraphIrQueryExecutor } from '../plugins/executors/graph-ir-query-executor.js';
 import { buildDefaultGraphIrCommandMap, buildDefaultGraphIrQueryMap } from '@rntme/bindings-http';
 import type { RunningService, ValidatedService } from '../types.js';
+import type { CommandExecutor, ServiceLocalCodeCommandHandlerMap } from '../plugins/executors/types.js';
 import { applySeed } from '@rntme/seed';
+import { defaultTopicOf } from '@rntme/event-store';
 import { wireEventPipeline } from './wire-event-pipeline.js';
 import { buildActorFromRequest } from './build-actor-from-request.js';
 import { startSeenEventsRetention } from '../projections/seen-events-retention.js';
@@ -60,6 +66,9 @@ export async function startService(
     runtimeConfig.actorFromRequest ?? buildActorFromRequest(service.manifest);
 
   if (bus.start) await bus.start();
+  if (bus.ensureTopics) {
+    await bus.ensureTopics(eventTopicsForService(service, eventBusTopicPrefix));
+  }
 
   const pipeline = wireEventPipeline(service, db, bus, {
     topicPrefix: eventBusTopicPrefix,
@@ -115,8 +124,17 @@ export async function startService(
       `Failed to compile query bindings: ${JSON.stringify(defaultQueryMapResult.errors)}`,
     );
   }
-  const commandExecutor =
-    runtimeConfig.commandExecutor ?? new GraphIrCommandExecutor(defaultCommandMapResult.value);
+  const graphCommandExecutor = new GraphIrCommandExecutor(defaultCommandMapResult.value);
+  let commandExecutor: CommandExecutor;
+  try {
+    commandExecutor =
+      runtimeConfig.commandExecutor ??
+      await buildConfiguredCommandExecutor(service, graphCommandExecutor);
+  } catch (err) {
+    await pipeline.stop();
+    if (bus.stop) await bus.stop();
+    throw err;
+  }
   const queryExecutor =
     runtimeConfig.queryExecutor ?? new GraphIrQueryExecutor(defaultQueryMapResult.value);
 
@@ -190,6 +208,19 @@ export async function startService(
   };
 }
 
+function eventTopicsForService(
+  service: ValidatedService,
+  topicPrefix: string | null,
+): readonly string[] {
+  return [
+    ...new Set(
+      service.eventTypes.map((eventType) =>
+        defaultTopicOf(service.manifest.service.name, eventType.aggregateType, topicPrefix),
+      ),
+    ),
+  ].sort();
+}
+
 type ForceClosableServer = ServerType & {
   closeIdleConnections?: () => void;
   closeAllConnections?: () => void;
@@ -252,4 +283,41 @@ function buildRuntimeAdapterClient(
   return buildAdapterClient(manifest, artifactDir, {
     [authEnv.moduleSlug]: authEnv.moduleEndpoint,
   });
+}
+
+async function buildConfiguredCommandExecutor(
+  service: ValidatedService,
+  graphExecutor: CommandExecutor,
+): Promise<CommandExecutor> {
+  const handlersModule = service.manifest.commands?.handlersModule;
+  if (handlersModule === undefined) return graphExecutor;
+
+  const handlers = await importCommandHandlers(service.artifactDir, handlersModule);
+  return new CompositeCommandExecutor(new CodeCommandExecutor(handlers), graphExecutor);
+}
+
+async function importCommandHandlers(
+  artifactDir: string,
+  modulePath: string,
+): Promise<ServiceLocalCodeCommandHandlerMap> {
+  const root = resolve(artifactDir);
+  const absoluteModulePath = resolve(root, modulePath);
+  if (absoluteModulePath !== root && !absoluteModulePath.startsWith(`${root}${sep}`)) {
+    throw new Error(`commands.handlersModule escapes artifact directory: ${modulePath}`);
+  }
+
+  const mod = await import(pathToFileURL(absoluteModulePath).href) as {
+    handlers?: unknown;
+    default?: unknown;
+  };
+  const handlers = mod.handlers ?? mod.default;
+  if (!isCodeCommandHandlerMap(handlers)) {
+    throw new Error('commands.handlersModule must export a handler map as "handlers" or default');
+  }
+  return handlers;
+}
+
+function isCodeCommandHandlerMap(value: unknown): value is ServiceLocalCodeCommandHandlerMap {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).every((handler) => typeof handler === 'function');
 }

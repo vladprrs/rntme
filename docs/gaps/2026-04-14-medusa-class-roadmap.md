@@ -102,7 +102,7 @@ parity." The target case is:
 | [PDM structured type-system v2](./pdm-gaps.md#p0-pdm-structured-type-system-v2) | PDM | P0 | Agents need enums, json/structs, and money-like composites without conventions. |
 | [Production bus/storage deploy contract](./infra-and-operability-gaps.md#p0-production-busstorage-deploy-contract) | Infra | P0 | Deploy pipeline can plan previews; production remains blocked by explicit runtime prerequisites. |
 | [Idempotency contract in artifacts/OpenAPI/gRPC](./bindings-gaps.md#p1-idempotency-contract-in-artifacts-openapi-and-grpc) | Bindings | P1 | HTTP cache exists, but contract exposure and non-HTTP semantics remain incomplete. |
-| [Error catalog with stable OpenAPI/protobuf codes](./bindings-gaps.md#p1-error-catalog-with-stable-codes-in-openapi-and-protobuf) | Bindings | P1 | Generated clients and Zeebe workers need machine-readable failure branches. |
+| [Error catalog with stable OpenAPI/protobuf codes](./bindings-gaps.md#p1-error-catalog-with-stable-codes-in-openapi-and-protobuf) | Bindings | P1 | Generated clients and BPMN workers need machine-readable failure branches. |
 | [PDM foreign-service refs and project ownership semantics](./pdm-gaps.md#p1-foreign-service-refs-and-project-ownership-semantics) | PDM | P1 | Project-level PDM needs explicit service-boundary handles without fake local FKs. |
 | [Observability and ops HTTP surfaces](./infra-and-operability-gaps.md#p1-observability-and-ops-http-surfaces) | Infra | P1 | Health/metrics exist; relay/projection DLQ and lag inspection need first-class surfaces. |
 | [Cursor pagination](./queries-and-projections-gaps.md#p1-cursor-pagination) | Queries | P1 | Workflow admin lists need stable pagination under writes. |

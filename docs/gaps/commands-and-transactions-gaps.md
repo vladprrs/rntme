@@ -25,7 +25,7 @@ Graph IR.
   topics, `delivery_tracking`, bounded retry, and DLQ emission.
 - `packages/projection-consumer` has mirror and derived idempotency paths.
 - There is no scheduled command primitive in rntme runtime; the current product
-  leaning is to let Zeebe/timer workflows invoke services through gRPC.
+  leaning is to let Operaton/timer workflows invoke services through gRPC.
 
 ## Closed or reframed since the original gap doc
 
@@ -37,7 +37,7 @@ Graph IR.
 - **Exactly-once projection concern:** reframed. `seen_events` covers derived
   projection replay; full Kafka transactional exactly-once remains out of scope.
 - **Scheduled jobs:** still P2/out-of-scope unless a service-local scheduling
-  need appears that should not be a Zeebe timer.
+  need appears that should not be a BPMN timer.
 
 ## Gaps
 
@@ -71,7 +71,7 @@ transaction; if either expected version fails, no stream is appended.
 ### [P1] Command idempotency beyond HTTP replay cache
 
 **Why it matters.** HTTP retries are protected, but non-HTTP callers are coming:
-gRPC surfaces, Zeebe workers, modules, CLI/test harnesses. If idempotency remains
+gRPC surfaces, BPMN workers, modules, CLI/test harnesses. If idempotency remains
 purely Hono middleware, those callers need parallel conventions.
 
 **Current evidence.**
@@ -116,25 +116,26 @@ data sufficient to debug a poisoned event without raw SQL.
 
 **Why it matters.** Reminders, expiry, renewals, and sweeps are common business
 flows. Duplicating a scheduler inside each runtime may be the wrong abstraction
-if the platform standard is Zeebe timers calling gRPC commands.
+if the platform standard is Operaton timers calling gRPC commands.
 
 **Current evidence.**
 
 - Runtime starts HTTP/gRPC surfaces and the event pipeline; no scheduler is in
   `packages/runtime/src/start/start-service.ts`.
-- The modules integration spec explicitly keeps Zeebe worker adapters and BPMN
-  conventions out of the current runtime slice.
+- The modules integration spec kept workflow worker adapters and BPMN
+  conventions out of the original runtime slice; current BPMN worker work is
+  tracked in `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`.
 
 **Target.** Defer until the project runtime/deploy story proves whether timers
 are platform workflow artifacts or service-local runtime artifacts.
 
-**Acceptance gate.** Either Zeebe timer invocation is documented and tested, or
+**Acceptance gate.** Either BPMN timer invocation is documented and tested, or
 a service-local scheduled command primitive is specified with idempotency,
 visibility, and deploy semantics.
 
 ## Boundaries
 
-- **Cross-service sagas belong to Zeebe.** rntme commands should not grow a
+- **Cross-service BPMN orchestration belongs to Operaton.** rntme commands should not grow a
   workflow/compensation engine.
 - **External side effects happen before command emit through pre-steps/modules.**
   Graph IR stays pure read/guard/emit.
@@ -150,6 +151,6 @@ visibility, and deploy semantics.
    default: allow multiple same-service aggregate types, but keep cross-service
    blocked.
 2. Should command idempotency move into `CommandExecutor` context? Recommended
-   default: yes, as optional metadata, so HTTP/gRPC/Zeebe share one path.
+   default: yes, as optional metadata, so HTTP/gRPC/BPMN workers share one path.
 3. Do we need selective event publishing? Recommended default: no until a real
    event type should be persisted but not published.

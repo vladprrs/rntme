@@ -14,6 +14,7 @@ export type RuntimeResult<T, E> = RuntimeOk<T> | RuntimeErr<E>;
 export type GraphSpec = AuthoringSpecOutput;
 
 export type ValidatedService = {
+  artifactDir: string;
   manifest: ValidatedManifest;
   pdm: ValidatedPdm;
   qsm: ValidatedQsm;

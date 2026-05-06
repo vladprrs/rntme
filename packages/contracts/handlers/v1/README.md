@@ -24,6 +24,7 @@ const echo: CodeCommandHandler = async (ctx, _input) => ({
     eventIds: [],
     commandId: ctx.correlation.commandId,
     correlationId: ctx.correlation.correlationId,
+    result: { echoed: true },
   },
 });
 
@@ -34,10 +35,15 @@ export const handlers: CodeCommandHandlerMap = { echo };
 
 Types: `CodeCommandHandler`, `CodeCommandHandlerMap`, `CommandExecutionContext`, `CommandExecutionResult`, `CommandExecutorError`, `CommandExecutorErrorCode`, `CommandExecutorOutput`, `CorrelationCtx`.
 
+`CommandExecutionResult.result` is optional arbitrary JSON for successful
+business payloads. Leave it absent for commands whose only response is the
+canonical aggregate/version/event metadata.
+
 ## Invariants & gotchas
 
 - This package is **types only** — no zod, no runtime dependencies. Modules that import it pick up zero workspace transitive deps.
 - The contract `CommandExecutionContext` is **structurally minimal** (`now`, `nextId`, `correlation`). The runtime in `@rntme/bindings-http/executor-contract` declares a richer ctx (with `eventStore`, `qsmDb`, `actor`); a runtime-rich ctx is assignable to the contract via subtyping, so a handler typed against the contract slots into the runtime executor unchanged.
+- Service-local runtime artifacts that intentionally use `eventStore`, `qsmDb`, or `actor` should use `ServiceLocalCodeCommandHandlerMap` / `ServiceLocalCommandExecutionContext` from `@rntme/runtime` instead of widening this module-facing contract.
 - Drift between the contract and the runtime is pinned by `test/unit/runtime-compat.test.ts`. If the runtime types diverge from the contract intent, that test fails — investigate before silencing.
 - Handlers MUST return a `CommandExecutorOutput` (`{ ok: true, value }` or `{ ok: false, error }`) rather than throwing. The `CodeCommandExecutor` in `@rntme/runtime` catches throws and converts them into `COMMAND_HANDLER_THREW`, but contract-side handlers should fail explicitly.
 

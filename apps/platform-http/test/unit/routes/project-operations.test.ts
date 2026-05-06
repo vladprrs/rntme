@@ -97,6 +97,7 @@ async function operationApp(
       apiTokenKeyVersion: 1,
       eventBusConfig: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
       modules: {},
+      workflows: null,
       auth: {},
       policyValues: {},
       isDefault: true,

@@ -17,10 +17,12 @@ function buildServiceDefinition(loaded: ReturnType<typeof loadProtoFromString>):
       responseStream: false,
       requestSerialize: (value: object): globalThis.Buffer =>
         globalThis.Buffer.from(requestType.encode(requestType.fromObject(value)).finish()),
-      requestDeserialize: (bytes: globalThis.Buffer): object => requestType.toObject(requestType.decode(bytes)),
+      requestDeserialize: (bytes: globalThis.Buffer): object =>
+        requestType.toObject(requestType.decode(bytes), { longs: Number }),
       responseSerialize: (value: object): globalThis.Buffer =>
         globalThis.Buffer.from(responseType.encode(responseType.fromObject(value)).finish()),
-      responseDeserialize: (bytes: globalThis.Buffer): object => responseType.toObject(responseType.decode(bytes)),
+      responseDeserialize: (bytes: globalThis.Buffer): object =>
+        responseType.toObject(responseType.decode(bytes), { longs: Number }),
     };
   }
   return def;

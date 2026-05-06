@@ -49,6 +49,8 @@ src/
     http-surface.ts                     (entry) `HttpSurface` — default Surface mounting bindings at /api and UI at /.
     observability.ts                    (entry) createMetrics, mountObservability, Metrics, HealthProbe.
     contract-tests.ts                   (test-only) Vitest contract suites for DbDriver, EventBus, Surface. Not re-exported from index.ts.
+    executors/composite-command-executor.ts
+                                        Service-local code-command fallback chain.
 ```
 
 ## Quick start
@@ -118,6 +120,8 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 `DbDriver`, `EventBus`, and `Surface` are the replaceable backings. `CommandExecutor` and `QueryExecutor` are the executor seams shared by HTTP/gRPC surfaces and modules. Default implementations ship in this package; future packages (`@rntme/db-turso`, `@rntme/bus-kafka`) implement the same interfaces and are injected via `RuntimeConfig`.
 
 The module-facing handler contract — `CodeCommandHandler`, `CodeCommandHandlerMap`, and the structurally-minimal `CommandExecutionContext` / `CommandExecutorOutput` shape modules code against — lives in `@rntme/contracts-handlers-v1`. The runtime's richer ctx (with `eventStore`, `qsmDb`, `actor`) stays internal to `@rntme/bindings-http/executor-contract`; subtyping makes a runtime-rich ctx assignable to the contract-narrow ctx, and a drift gate in the contract package's `runtime-compat.test.ts` pins this relationship.
+
+Service-local command handlers can be bundled under the artifact directory and enabled with `manifest.commands.handlersModule`, for example `"commands/handlers.mjs"`. These handlers are runtime artifacts, not module contracts: TypeScript authors should type them as `ServiceLocalCodeCommandHandlerMap` from `@rntme/runtime` when they need the richer `ServiceLocalCommandExecutionContext` (`eventStore`, `qsmDb`, `actor`, `now`, `nextId`, `correlation`). A module-facing `CodeCommandHandlerMap` from `@rntme/contracts-handlers-v1` remains assignable when a handler only needs the minimal context. The module must export a handler map as either `handlers` or `default`. `startService` imports that ESM module from the loaded artifact directory, tries those handlers first, and falls back to the Graph IR command executor only when the code executor returns `COMMAND_NOT_FOUND`. The manifest path must stay relative to the artifact directory; absolute paths, URL schemes, backslashes, `.` segments, and `..` segments are rejected during manifest validation.
 
 | Interface | Default impl | Key methods |
 |---|---|---|
@@ -194,7 +198,10 @@ handshake budget. Optional `RNTME_EVENT_BUS_TOPIC_PREFIX` scopes both relay
 publish topics and projection subscriptions. With service `app` and prefix
 `rntme.rnt364.smoke`, runtime publishes `Note` events to
 `rntme.rnt364.smoke.app.note` and subscribes projections to
-`rntme.rnt364.smoke.app.*`.
+`rntme.rnt364.smoke.app.*`. Event bus plugins may expose `ensureTopics`; when
+present, `startService` creates all PDM-derived service event topics before the
+relay and projection consumer start. The KafkaJS bus implements this with the
+admin client and `waitForLeaders: true`.
 
 ### HTTP ingress limits
 

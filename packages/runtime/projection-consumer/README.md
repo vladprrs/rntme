@@ -203,7 +203,7 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 - **No replay tooling.** Resetting the consumer offset and replaying from offset 0 works because of idempotency, but no helper exists to truncate-and-reseed a projection.
 - **No composite-key projections.** Rejected at compile (`PC_COMPOSITE_KEY_NOT_SUPPORTED`).
 - **No `backing: "derived"` projections.** Only `entity-mirror` is wired through `deriveProjectionHandler`; derived projections are deferred (spec §6.9).
-- **No cross-aggregate consistency / process-manager.** A consumer instance applies one aggregate at a time; cross-aggregate sagas are a Zeebe / external-orchestrator concern, not this package's.
+- **No cross-aggregate consistency / process-manager.** A consumer instance applies one aggregate at a time; cross-aggregate BPMN orchestration is an Operaton / external-orchestrator concern, not this package's.
 - **No partition / consumer-group affinity logic.** Partition-key = `envelope.stream` is set by the relay; this package consumes whatever batches the adapter yields.
 
 ## Where to look first

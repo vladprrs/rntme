@@ -6,6 +6,7 @@ import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
+import { renderBpmnWorker, renderOperatonCompose } from './workflow-render.js';
 
 export type RenderedDokployProject =
   | { readonly mode: 'existing'; readonly projectId: string }
@@ -73,7 +74,7 @@ export type RenderedDokployApplicationResource = {
 export type RenderedDokployComposeResource = {
   readonly logicalId: string;
   readonly kind: 'compose';
-  readonly infrastructureKind: 'event-bus';
+  readonly infrastructureKind: 'event-bus' | 'workflow-engine';
   readonly name: string;
   readonly image: string;
   readonly composeFile: string;
@@ -118,7 +119,7 @@ export function renderDokployPlan(
 
   const upstreams = Object.fromEntries(
     plan.workloads
-      .filter((w) => w.kind !== 'edge-gateway')
+      .filter((w) => w.kind !== 'edge-gateway' && w.kind !== 'bpmn-worker')
       .map((w) => [
         w.slug,
         `http://${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, w.slug)}:${workloadHttpPort(w)}`,
@@ -141,10 +142,9 @@ export function renderDokployPlan(
   }
 
   const infrastructureResources = renderInfrastructureResources(plan);
-  const resources = [
-    ...infrastructureResources,
-    ...plan.workloads.map((workload) => renderResource(plan, workload, nginxConfig.value)),
-  ];
+  const workloadResources = renderWorkloadResources(plan, nginxConfig.value);
+  if (!workloadResources.ok) return workloadResources;
+  const resources = [...infrastructureResources, ...workloadResources.value];
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv = resources.map((resource) => {
@@ -219,7 +219,7 @@ export function renderDokployPlan(
   });
 }
 
-function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' }>): number {
+function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' | 'bpmn-worker' }>): number {
   return workload.kind === 'integration-module' ? 50052 : 3000;
 }
 
@@ -255,9 +255,25 @@ function resolveProject(config: DokployTargetConfig): RenderedDokployProject | n
 }
 
 function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
+  const resources: RenderedDokployResource[] = [];
   const eventBus = plan.infrastructure.eventBus;
-  if (eventBus.mode !== 'provisioned') return [];
-  return [renderRedpandaCompose(plan)];
+  if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
+  const workflowEngine = renderOperatonCompose(plan);
+  if (workflowEngine !== null) resources.push(workflowEngine);
+  return resources;
+}
+
+function renderWorkloadResources(
+  plan: ProjectDeploymentPlan,
+  nginxConfig: string,
+): Result<RenderedDokployApplicationResource[], DokployDeploymentError> {
+  const resources: RenderedDokployApplicationResource[] = [];
+  for (const workload of plan.workloads) {
+    const resource = renderResource(plan, workload, nginxConfig);
+    if (!resource.ok) return resource;
+    resources.push(resource.value);
+  }
+  return ok(resources);
 }
 
 function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
@@ -283,7 +299,7 @@ function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComp
     infrastructureKind: 'event-bus',
     name: eventBus.resourceName,
     image: eventBus.image,
-    composeFile: redpandaComposeFile(eventBus),
+    composeFile: redpandaComposeFile(eventBus, workflowMessageStartTopics(plan)),
     env: [],
     labels,
   };
@@ -291,25 +307,46 @@ function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComp
 
 function redpandaComposeFile(
   eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
+  seedTopics: readonly string[] = [],
 ): string {
   // The runtime/edge/module containers run as Docker Swarm services attached
   // to the shared `dokploy-network` overlay. Without explicitly attaching the
   // compose stack to that network, Redpanda lives only on its private
   // `<stack>_default` bridge and the broker hostname does not resolve from
   // sibling apps (`getaddrinfo ENOTFOUND`). Attaching here gives the broker
-  // both a stack-scoped alias (full container name, what apply.ts rewrites
-  // env vars to) and a service-name alias (`redpanda`, used by the Kafka
-  // advertised address) inside dokploy-network.
+  // a stable resource-name alias inside dokploy-network. Redpanda must
+  // advertise the same alias because Kafka clients follow broker metadata
+  // after the initial bootstrap connection.
+  const startArgs = [
+    'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
+    `--advertise-kafka-addr=internal://${eventBus.resourceName}:9092`,
+  ].join(' ');
+  const startCommand = seedTopics.length === 0 ? startArgs : `rpk ${startArgs}`;
+  const command =
+    seedTopics.length === 0
+      ? startArgs
+      : shellSingleQuote(
+          [
+            `${startCommand} & pid=$$!`,
+            `until rpk cluster info --brokers ${eventBus.resourceName}:9092 >/dev/null 2>&1; do sleep 1; done`,
+            `rpk topic create --brokers ${eventBus.resourceName}:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
+            'wait "$$pid"',
+          ].join('; '),
+        );
+
   return [
     'services:',
     '  redpanda:',
     `    image: ${eventBus.image}`,
-    '    command: redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092 --advertise-kafka-addr=internal://redpanda:9092',
+    ...(seedTopics.length === 0 ? [] : ['    entrypoint: ["/bin/sh", "-ec"]']),
+    ...(seedTopics.length === 0 ? [`    command: ${command}`] : ['    command:', `      - ${command}`]),
     '    volumes:',
     `      - ${eventBus.persistence.volumeName}:/var/lib/redpanda/data`,
     '    networks:',
-    '      - default',
-    '      - dokploy-network',
+    '      default:',
+    '      dokploy-network:',
+    '        aliases:',
+    `          - ${eventBus.resourceName}`,
     'volumes:',
     `  ${eventBus.persistence.volumeName}:`,
     '    name: ' + eventBus.persistence.volumeName,
@@ -320,11 +357,32 @@ function redpandaComposeFile(
   ].join('\n');
 }
 
+function workflowMessageStartTopics(plan: ProjectDeploymentPlan): readonly string[] {
+  const topics = new Set<string>();
+  for (const workload of plan.workloads) {
+    if (workload.kind !== 'bpmn-worker') continue;
+    for (const subscription of workload.subscriptions) topics.add(subscription.topic);
+  }
+  return [...topics].sort();
+}
+
+function shellWord(value: string): string {
+  return /^[A-Za-z0-9._:-]+$/.test(value) ? value : shellSingleQuote(value);
+}
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 function renderResource(
   plan: ProjectDeploymentPlan,
   workload: DeploymentWorkload,
   nginxConfig: string,
-): RenderedDokployApplicationResource {
+): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
+  if (workload.kind === 'bpmn-worker') {
+    return renderBpmnWorker(plan, workload);
+  }
+
   const name = dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, workload.slug);
   const labels = dokployLabels(
     plan.project.orgSlug,
@@ -335,7 +393,7 @@ function renderResource(
 
   if (workload.kind === 'edge-gateway') {
     const publicConfigJson = firstDomainPublicConfig(plan.workloads);
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -345,11 +403,11 @@ function renderResource(
       env: [],
       labels,
       files: { '/etc/nginx/nginx.conf': nginxConfig, '/srv/config.json': publicConfigJson },
-    };
+    });
   }
 
   if (workload.kind === 'integration-module') {
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -373,7 +431,7 @@ function renderResource(
         { containerPort: 50051, protocol: 'http' as const },
         { containerPort: 50052, protocol: 'http' as const },
       ],
-    };
+    });
   }
 
   if (workload.kind === 'domain-service') {
@@ -383,7 +441,7 @@ function renderResource(
       '/srv/config.json': workload.publicConfigJson,
     };
 
-    return {
+    return ok({
       logicalId: workload.slug,
       kind: 'application',
       workloadKind: workload.kind,
@@ -421,7 +479,7 @@ function renderResource(
       ],
       labels,
       files,
-    };
+    });
   }
 
   return assertNever(workload);

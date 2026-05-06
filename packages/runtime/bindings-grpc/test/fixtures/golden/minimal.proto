@@ -3,6 +3,8 @@ syntax = "proto3";
 
 package rntme.minimal.v1;
 
+import "google/protobuf/struct.proto";
+
 message Order {
   string id = 1;
   int64 amount = 2;
@@ -28,6 +30,7 @@ message CommandResult {
   repeated string event_ids = 3;
   string command_id = 4;
   string correlation_id = 5;
+  google.protobuf.Struct result = 6;
 }
 
 service MinimalService {

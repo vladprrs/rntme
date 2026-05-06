@@ -144,12 +144,18 @@ describe('renderDokployPlan', () => {
     if (redpanda.kind !== 'compose') return;
     expect(redpanda.composeFile).toContain('redpanda start');
     expect(redpanda.composeFile).toContain('rntme-acme-commerce-event-bus-data');
-    // Compose must attach Redpanda to dokploy-network so swarm-service apps
-    // can resolve the broker hostname; without this, fresh provisioned
-    // deploys fail at boot with `getaddrinfo ENOTFOUND` on the broker host.
+    // Compose must attach Redpanda to dokploy-network with a deterministic
+    // alias so swarm-service apps can resolve the broker hostname; without
+    // this, fresh provisioned deploys fail at boot with `getaddrinfo
+    // ENOTFOUND` on the broker host.
     expect(redpanda.composeFile).toContain('dokploy-network');
+    expect(redpanda.composeFile).toContain(
+      '--advertise-kafka-addr=internal://rntme-acme-commerce-event-bus:9092',
+    );
     expect(redpanda.composeFile).toMatch(/networks:\s*\n\s*dokploy-network:\s*\n\s*external: true/);
-    expect(redpanda.composeFile).toMatch(/services:[\s\S]*redpanda:[\s\S]*networks:\s*\n\s*- default\s*\n\s*- dokploy-network/);
+    expect(redpanda.composeFile).toMatch(
+      /services:[\s\S]*redpanda:[\s\S]*networks:\s*\n\s*default:\s*\n\s*dokploy-network:\s*\n\s*aliases:\s*\n\s*- rntme-acme-commerce-event-bus/,
+    );
 
     const domain = r.value.resources.find(
       (resource) => resource.kind === 'application' && resource.workloadKind === 'domain-service',

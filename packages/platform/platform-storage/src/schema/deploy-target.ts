@@ -43,6 +43,7 @@ export const deployTarget = pgTable(
     targetSecretsKeyVersion: smallint('target_secrets_key_version'),
     eventBusConfig: jsonb('event_bus_config').$type<Record<string, unknown>>().notNull(),
     moduleConfig: jsonb('module_config').$type<Record<string, unknown>>().notNull().default({}),
+    workflowConfig: jsonb('workflow_config').$type<Record<string, unknown> | null>().default(null),
     authConfig: jsonb('auth_config').$type<Record<string, unknown>>().notNull().default({}),
     policyValues: jsonb('policy_values').$type<Record<string, unknown>>().notNull(),
     isDefault: boolean('is_default').notNull().default(false),

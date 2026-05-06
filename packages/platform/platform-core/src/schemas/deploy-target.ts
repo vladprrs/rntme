@@ -58,6 +58,27 @@ export const DeployTargetModulesSchema = z.record(z.string(), IntegrationModuleD
 export type DeployTargetModules = z.infer<typeof DeployTargetModulesSchema>;
 const PatchDeployTargetModulesSchema = z.record(z.string(), IntegrationModuleDeploymentConfigSchema);
 
+const DeployTargetWorkflowsConfigSchema = z
+  .object({
+    engine: z
+      .object({
+        kind: z.literal('operaton'),
+        mode: z.literal('provisioned'),
+        image: z.string().min(1),
+      })
+      .strict(),
+    worker: z
+      .object({
+        image: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const DeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nullable().default(null);
+export type DeployTargetWorkflows = z.infer<typeof DeployTargetWorkflowsSchema>;
+const PatchDeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nullable().optional();
+
 const HttpUrlSchema = z.string().url().refine(
   (value) => {
     const protocol = new URL(value).protocol;
@@ -99,6 +120,7 @@ export const CreateDeployTargetRequestSchema = z
     apiToken: z.string().min(1),
     eventBus: EventBusConfigSchema,
     modules: DeployTargetModulesSchema,
+    workflows: DeployTargetWorkflowsSchema,
     auth: DeployTargetAuthConfigSchema,
     policyValues: PolicyValuesSchema,
     isDefault: z.boolean().default(false),
@@ -123,6 +145,7 @@ export const UpdateDeployTargetRequestSchema = z
     allowCreateProject: z.boolean().optional(),
     eventBus: EventBusConfigSchema.optional(),
     modules: PatchDeployTargetModulesSchema.optional(),
+    workflows: PatchDeployTargetWorkflowsSchema,
     auth: PatchDeployTargetAuthConfigSchema.optional(),
     policyValues: PatchPolicyValuesSchema.optional(),
     isDefault: z.boolean().optional(),
@@ -147,6 +170,7 @@ export const DeployTargetSchema = z.object({
   apiTokenRedacted: z.literal('***'),
   eventBus: EventBusConfigSchema,
   modules: DeployTargetModulesSchema,
+  workflows: DeployTargetWorkflowsSchema,
   auth: DeployTargetAuthConfigSchema,
   policyValues: PolicyValuesSchema,
   isDefault: z.boolean(),

@@ -47,6 +47,10 @@ describe('deploy target use-cases', () => {
             },
           },
           auth: { auth0: { clientId: 'public-client-id' } },
+          workflows: {
+            engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+            worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+          },
         }),
       }),
     );
@@ -204,6 +208,39 @@ describe('deploy target use-cases', () => {
       }),
     );
   });
+
+  it('passes workflow target config through create and explicit update patches', async () => {
+    const { deps, repo } = setup();
+    const workflows = {
+      engine: { kind: 'operaton' as const, mode: 'provisioned' as const, image: 'operaton/operaton:test' },
+      worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+    };
+
+    await createDeployTarget(deps, {
+      orgId: '11111111-1111-4111-8111-111111111111',
+      accountId: '22222222-2222-4222-8222-222222222222',
+      tokenId: null,
+      req: { ...createRequest(), workflows },
+    });
+    await updateDeployTarget(deps, {
+      orgId: '11111111-1111-4111-8111-111111111111',
+      slug: 'dokploy-staging',
+      accountId: '22222222-2222-4222-8222-222222222222',
+      tokenId: null,
+      patch: { workflows: null } as never,
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        row: expect.objectContaining({ workflows }),
+      }),
+    );
+    expect(repo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: { workflows: null },
+      }),
+    );
+  });
 });
 
 function setup(overrides: { cipher?: SecretCipher; createResult?: ReturnType<typeof ok<DeployTarget>> | ReturnType<typeof err<PlatformError>> } = {}) {
@@ -256,6 +293,10 @@ function createRequest() {
         env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
       },
     },
+    workflows: {
+      engine: { kind: 'operaton' as const, mode: 'provisioned' as const, image: 'operaton/operaton:test' },
+      worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+    },
     auth: { auth0: { clientId: 'public-client-id' } },
     policyValues: {},
     isDefault: false,
@@ -282,6 +323,7 @@ function deployTarget(): DeployTarget {
         env: { AUTH0_DOMAIN: 'tenant.us.auth0.com' },
       },
     },
+    workflows: null,
     auth: { auth0: { clientId: 'public-client-id' } },
     policyValues: {},
     isDefault: false,

@@ -2,7 +2,8 @@ export type ScalarPrimitive = 'integer' | 'decimal' | 'string' | 'boolean' | 'da
 
 export type FieldType =
   | { kind: 'scalar'; primitive: ScalarPrimitive }
-  | { kind: 'array'; element: ScalarPrimitive };
+  | { kind: 'array'; element: ScalarPrimitive }
+  | { kind: 'json' };
 
 export type ShapeField = { type: FieldType; nullable: boolean };
 

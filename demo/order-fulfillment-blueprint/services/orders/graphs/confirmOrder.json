@@ -1,0 +1,24 @@
+{
+  "id": "confirmOrder",
+  "signature": {
+    "inputs": {
+      "orderId": { "type": "string", "mode": "required" },
+      "reservationId": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<CommandResult>", "from": "emit" }
+  },
+  "nodes": [
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Order",
+        "aggregateId": { "$param": "orderId" },
+        "transition": "confirm",
+        "payload": {
+          "reservationId": { "$param": "reservationId" }
+        }
+      }
+    }
+  ]
+}

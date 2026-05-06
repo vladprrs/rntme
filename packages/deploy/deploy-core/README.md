@@ -26,7 +26,7 @@ contract types for convenience. The runtime helpers `runProvisioners` and
 - `buildProjectDeploymentPlan(project, config, options?)` — creates a preview deployment
   plan or returns `DEPLOY_PLAN_*` errors. See "Two-pass plan API" below for `options`.
 - `ProjectDeploymentConfig` — org/environment/mode, event bus,
-  integration module image config, backend auth config, and policy values.
+  workflow engine/worker config, integration module image config, backend auth config, and policy values.
 - `ComposedProjectInput` — deploy-relevant structural subset of the composed
   project model.
 - `resolveVars(manifest, target, options?)` — resolve every `target.*` and (when
@@ -85,6 +85,39 @@ Callers without `provision.*` vars can omit `options`; behavior is identical to 
 
 Provisioned Redpanda is internal-only plaintext in this design. Cleanup/deprovisioning is a separate future workflow.
 
+## BPMN workflow planning
+
+`ComposedProjectInput.workflows` carries the validated project-level
+`@rntme/workflows` artifact, and `ComposedProjectInput.workflowFiles` carries
+the referenced BPMN XML contents keyed by project-relative path under
+`workflows/`.
+
+When a project has workflows, `ProjectDeploymentConfig.workflows` is required:
+
+```ts
+{
+  engine: { kind: 'operaton', mode: 'provisioned', image: '...' },
+  worker: { image: '...' }
+}
+```
+
+The planner writes `plan.infrastructure.workflowEngine` as either
+`{ kind: "none" }` or a provisioned Operaton resource with an internal base
+URL. Workflow projects require a provisioned Kafka-compatible event bus in the
+MVP so message starts can subscribe to `rntme.{svc}.{agg}` topics.
+
+The planner also adds one `bpmn-worker` workload. It receives the worker image,
+`/srv/workflows/workflows.json`, the BPMN files, event subscriptions derived
+from `messageStarts[]`, and command binding targets derived from
+`serviceTasks[]`. Each service task target includes the deterministic internal
+domain-service gRPC endpoint, for example
+`rntme-acme-order-fulfillment-inventory:50051`.
+
+Workflow service tasks can target only domain services with a generated gRPC
+runtime surface. If a task's binding ref points at a missing service or a
+non-domain service, planning fails with
+`DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_UNAVAILABLE`.
+
 ### Edge auth
 
 `mounts: [...].use: ["auth"]` declares an `auth` middleware. Planning enforces:
@@ -125,6 +158,7 @@ On the platform executor path, composed project module aliases are mapped throug
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
 - `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
+- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ## Provision phase
 

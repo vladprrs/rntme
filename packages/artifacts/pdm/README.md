@@ -8,7 +8,7 @@ Parser, validator, resolver, and event-type deriver for the Platform Domain Mode
 - Consumed by:
   - `@rntme/qsm` — cross-validates projections against `PdmResolver`; entity-mirror projections require the source entity to declare a `stateMachine`.
   - `@rntme/projection-consumer` — uses the resolver to bind generated columns and primary keys when compiling apply plans.
-  - `@rntme/graph-ir-compiler` — uses the resolver in query and command paths; the command runtime additionally consumes `stateMachine` to validate transitions and pick creation vs. update semantics. Re-exports a `deriveEventTypeName` helper that mirrors `deriveEventTypes`' `<AggregateType><TransitionPascal>` naming.
+  - `@rntme/graph-ir-compiler` — uses the resolver in query and command paths; the command runtime additionally consumes `stateMachine` to validate transitions and pick creation vs. update semantics. Re-exports a `deriveEventTypeName` helper for the default `<AggregateType><TransitionPascal>` naming, while `deriveEventTypes` honors explicit transition `eventType` overrides.
   - `@rntme/runtime`, `@rntme/seed` — accept a `ValidatedPdm` to bootstrap a service.
 - Position in pipeline: authoring artifact (PDM JSON) → `parsePdm` → `validatePdm` (structural, then state-machine) → `createPdmResolver` / `deriveEventTypes`. Output feeds every downstream package.
 
@@ -108,9 +108,9 @@ Type-only exports: `PdmArtifact`, `Entity`, `Field`, `Relation`, `RelationCardin
 
 | Layer | Enforced rules |
 | ----- | -------------- |
-| `parse` | Zod shape; `.strict()` rejects unknown keys; `ScalarPrimitive` and `GeneratedKind` enums; transition-name regex `/^[a-z][a-zA-Z0-9]*$/`; `keys` non-empty; `stateMachine.initial === null` literal; `stateMachine.states` non-empty. |
+| `parse` | Zod shape; `.strict()` rejects unknown keys; `ScalarPrimitive` and `GeneratedKind` enums; transition-name regex `/^[a-z][a-zA-Z0-9]*$/`; optional transition `eventType` regex `/^[A-Z][A-Za-z0-9]*$/`; `keys` non-empty; `stateMachine.initial === null` literal; `stateMachine.states` non-empty. |
 | `structural` | Keys reference declared fields (`PDM_STRUCT_KEY_UNKNOWN_FIELD`, `PDM_STRUCT_KEY_EMPTY`); relation endpoints resolve (`PDM_STRUCT_RELATION_UNKNOWN_ENTITY`, `PDM_STRUCT_RELATION_UNKNOWN_LOCAL_KEY`, `PDM_STRUCT_RELATION_UNKNOWN_FOREIGN_KEY`). |
-| `state-machine` | `stateField` exists (`PDM_SM_STATE_FIELD_MISSING`) and is a non-nullable `string` (`PDM_SM_STATE_FIELD_TYPE_INVALID`); `states` non-empty (`PDM_SM_STATES_EMPTY`) and unique (`PDM_SM_STATES_DUPLICATE`); transition `from` / `to` reference declared states (`PDM_SM_UNKNOWN_STATE`); `affects` references declared fields (`PDM_SM_UNKNOWN_AFFECTED_FIELD`), excludes keys (`PDM_SM_AFFECTS_KEY`) and generated fields (`PDM_SM_AFFECTS_GENERATED`); creation transitions (`from: null`) declare `affects` explicitly (`PDM_SM_CREATION_MISSING_AFFECTS`); self-loops declare a non-empty `affects` (`PDM_SM_EMPTY_SELF_LOOP`); every state is reachable by BFS from a creation transition (`PDM_SM_UNREACHABLE_STATE`). |
+| `state-machine` | `stateField` exists (`PDM_SM_STATE_FIELD_MISSING`) and is a non-nullable `string` (`PDM_SM_STATE_FIELD_TYPE_INVALID`); `states` non-empty (`PDM_SM_STATES_EMPTY`) and unique (`PDM_SM_STATES_DUPLICATE`); transition `from` / `to` reference declared states (`PDM_SM_UNKNOWN_STATE`); `affects` references declared fields (`PDM_SM_UNKNOWN_AFFECTED_FIELD`), excludes keys (`PDM_SM_AFFECTS_KEY`) and generated fields (`PDM_SM_AFFECTS_GENERATED`); explicit or derived event types are unique (`PDM_SM_EVENT_TYPE_DUPLICATE`); creation transitions (`from: null`) declare `affects` explicitly (`PDM_SM_CREATION_MISSING_AFFECTS`); self-loops declare a non-empty `affects` (`PDM_SM_EMPTY_SELF_LOOP`); every state is reachable by BFS from a creation transition (`PDM_SM_UNREACHABLE_STATE`). |
 
 ### Error codes
 
@@ -118,7 +118,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 
 - Parse: `PDM_PARSE_SCHEMA_VIOLATION`.
 - Structural: `PDM_STRUCT_KEY_EMPTY`, `PDM_STRUCT_KEY_UNKNOWN_FIELD`, `PDM_STRUCT_RELATION_UNKNOWN_ENTITY`, `PDM_STRUCT_RELATION_UNKNOWN_LOCAL_KEY`, `PDM_STRUCT_RELATION_UNKNOWN_FOREIGN_KEY`.
-- State-machine: `PDM_SM_STATE_FIELD_MISSING`, `PDM_SM_STATE_FIELD_TYPE_INVALID`, `PDM_SM_STATES_EMPTY`, `PDM_SM_STATES_DUPLICATE`, `PDM_SM_UNKNOWN_STATE`, `PDM_SM_UNKNOWN_AFFECTED_FIELD`, `PDM_SM_AFFECTS_KEY`, `PDM_SM_AFFECTS_GENERATED`, `PDM_SM_EMPTY_SELF_LOOP`, `PDM_SM_CREATION_MISSING_AFFECTS`, `PDM_SM_UNREACHABLE_STATE`.
+- State-machine: `PDM_SM_STATE_FIELD_MISSING`, `PDM_SM_STATE_FIELD_TYPE_INVALID`, `PDM_SM_STATES_EMPTY`, `PDM_SM_STATES_DUPLICATE`, `PDM_SM_UNKNOWN_STATE`, `PDM_SM_UNKNOWN_AFFECTED_FIELD`, `PDM_SM_AFFECTS_KEY`, `PDM_SM_AFFECTS_GENERATED`, `PDM_SM_EMPTY_SELF_LOOP`, `PDM_SM_CREATION_MISSING_AFFECTS`, `PDM_SM_UNREACHABLE_STATE`, `PDM_SM_EVENT_TYPE_DUPLICATE`.
 - Internal: `PDM_INTERNAL`.
 - Reserved (registered, not currently emitted): `PDM_STRUCT_DUPLICATE_ENTITY`, `PDM_STRUCT_DUPLICATE_FIELD`, `PDM_STRUCT_DUPLICATE_RELATION`, `PDM_STRUCT_UNKNOWN_FIELD_TYPE`, `PDM_STRUCT_UNKNOWN_GENERATED_KIND`, `PDM_SM_TRAPPED_STATE`, `PDM_SM_DUPLICATE_TRANSITION_NAME`. Their corresponding violations are caught at the parse layer (Zod) or made impossible by the `Record<string, …>` shape; the codes remain reserved so downstream switches stay enum-exhaustive if the structural layer takes them over.
 
@@ -132,6 +132,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 - Creation transitions (`from: null`) MUST declare `affects` explicitly, even if empty (`PDM_SM_CREATION_MISSING_AFFECTS`). Test: `test/unit/validate-state-machine.test.ts` — "rejects creation transition without affects". Reasoning per spec: creation events have no prior row to diff against, so the field manifest must be explicit.
 - Self-loop transitions (`from === to`, non-null) MUST declare a non-empty `affects` (`PDM_SM_EMPTY_SELF_LOOP`). Test: "rejects self-loop without affects" / "rejects self-loop with empty affects". A self-loop with no field changes is a no-op event the system refuses to emit.
 - For creation transitions, `EventTypeSpec.payloadFields` includes only the declared `affects`, NOT the auto-prepended `stateField`. The new state value comes from the transition's `to`, written by the projection-consumer INSERT binding (see comment in `derive/event-types.ts:buildSpec`).
+- A transition may declare `eventType` to override the default derived name when the domain language needs it, e.g. `StockReservation.reserve` can emit `StockReserved`. Overrides must be PascalCase-style strings and remain unique across the PDM after default names are considered.
 - Reachability is BFS-from-creation. A state with no incoming creation/forward transition is rejected (`PDM_SM_UNREACHABLE_STATE`, `test/unit/validate-state-machine.test.ts` — "detects unreachable state"). Terminal sinks with no outgoing transitions are accepted; the reserved `PDM_SM_TRAPPED_STATE` code is not emitted today.
 - `Field` requires `column` and `nullable`. Both are mandatory in the Zod schema (`src/parse/schema.ts:fieldSchema` — `.strict()`).
 - `relation.to` must be a local entity. Cross-service references are rejected (`PDM_STRUCT_RELATION_UNKNOWN_ENTITY`) and listed as an explicit gap in `docs/gaps/pdm-gaps.md`.
@@ -154,7 +155,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 - "How is an artifact validated?" → `validatePdm` in `src/validate/index.ts`. It calls `validateStructural` then `validateStateMachine`. Layering is verified by `test/unit/validate.test.ts`.
 - "What rules does the state-machine layer enforce?" → `validateStateMachine` in `src/validate/state-machine.ts`. Per-rule cases live in `test/unit/validate-state-machine.test.ts`. Reachability is computed by the local `computeReachable` (BFS from creation transitions) in the same file.
 - "How are reachable states computed?" → `computeReachable` inside `src/validate/state-machine.ts`; queue-driven BFS seeded from every transition with `from: null`.
-- "What event types come out of a PDM?" → `deriveEventTypes` in `src/derive/event-types.ts`. Naming is local `pascalCase(entity) + pascalCase(transition)` — one event per transition per entity that has a `stateMachine`.
+- "What event types come out of a PDM?" → `deriveEventTypes` in `src/derive/event-types.ts`. By default naming is local `pascalCase(entity) + pascalCase(transition)`, but transition `eventType` overrides win. There is one event per transition per entity that has a `stateMachine`.
 - "Why is `payloadFields` smaller than `affects`?" → `buildSpec` in `src/derive/event-types.ts`; for creation transitions the payload skips the auto-prepended `stateField` because the new value comes from `to`.
 - "What does the resolver expose?" → `createPdmResolver` in `src/resolvers/pdm-resolver.ts`. The `Resolved*` shapes live in `src/types/resolvers.ts`.
 - "Where are the error codes defined?" → `ERROR_CODES` const in `src/types/result.ts`. The `Layer` and `PdmError` types are in the same file.

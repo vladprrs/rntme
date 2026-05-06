@@ -1,0 +1,12 @@
+{
+  "OrderView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "sku": { "type": "string", "nullable": false },
+      "quantity": { "type": "integer", "nullable": false },
+      "reservationId": { "type": "string", "nullable": true },
+      "cancelReason": { "type": "string", "nullable": true },
+      "status": { "type": "string", "nullable": false }
+    }
+  }
+}

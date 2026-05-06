@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "StockReservation" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["orderId", "sku", "quantity", "reason", "status"]
+}

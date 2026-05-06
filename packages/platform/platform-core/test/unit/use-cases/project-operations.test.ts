@@ -54,6 +54,7 @@ async function setup() {
       apiToken: 'secret',
       eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
       modules: {},
+      workflows: null,
       auth: {},
       policyValues: {},
       isDefault: true,

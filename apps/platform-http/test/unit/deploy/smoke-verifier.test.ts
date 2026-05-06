@@ -113,4 +113,34 @@ describe('SmokeVerifier', () => {
     expect(report.ok).toBe(false);
     expect(report.partialOk).toBe(false);
   });
+
+  it('accepts public route prefix 404 but rejects upstream failures', async () => {
+    const verifier = new SmokeVerifier(
+      stubFetcher({
+        'https://edge.example/health': { status: 200 },
+        'https://edge.example/api/orders': { status: 404 },
+        'https://edge.example/api/inventory': { status: 502 },
+      }),
+    );
+
+    const report = await verifier.verify({
+      verificationHints: {
+        healthUrl: 'https://edge.example/health',
+        publicRouteUrls: ['https://edge.example/api/orders', 'https://edge.example/api/inventory'],
+        protectedRouteChecks: [],
+      },
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'public-route https://edge.example/api/orders',
+      status: 404,
+      ok: true,
+    }));
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'public-route https://edge.example/api/inventory',
+      status: 502,
+      ok: false,
+    }));
+  });
 });

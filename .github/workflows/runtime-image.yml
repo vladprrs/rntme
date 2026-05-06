@@ -1,4 +1,4 @@
-name: runtime image
+name: runtime images
 
 on:
   workflow_dispatch:
@@ -35,7 +35,8 @@ jobs:
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/build-push-action@v6
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: packages/runtime/runtime/Dockerfile
@@ -43,3 +44,13 @@ jobs:
           tags: |
             ghcr.io/vladprrs/rntme-runtime:${{ steps.image.outputs.tag }}
             ghcr.io/vladprrs/rntme-runtime:${{ github.sha }}
+
+      - name: Build BPMN worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/runtime/bpmn-worker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/vladprrs/rntme-bpmn-worker:${{ steps.image.outputs.tag }}
+            ghcr.io/vladprrs/rntme-bpmn-worker:${{ github.sha }}

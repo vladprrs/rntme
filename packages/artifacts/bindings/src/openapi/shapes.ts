@@ -52,6 +52,8 @@ function fieldTypeToJsonSchema(
       const items = primitiveToJsonSchema(type.element, options);
       return withNullable({ type: 'array', items }, nullable);
     }
+    case 'json':
+      return {};
   }
 }
 

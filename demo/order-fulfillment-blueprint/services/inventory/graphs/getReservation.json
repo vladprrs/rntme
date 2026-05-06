@@ -1,0 +1,31 @@
+{
+  "id": "getReservation",
+  "signature": {
+    "inputs": {
+      "orderId": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "rowset<StockReservationView>", "from": "one" }
+  },
+  "nodes": [
+    {
+      "id": "reservations",
+      "type": "findMany",
+      "config": { "source": { "projection": "StockReservationView" } }
+    },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "reservations",
+        "expr": {
+          "eq": ["stockReservationView.orderId", { "$param": "orderId" }]
+        }
+      }
+    },
+    {
+      "id": "one",
+      "type": "limit",
+      "config": { "input": "filtered", "count": 1 }
+    }
+  ]
+}
