@@ -1,0 +1,107 @@
+{
+  "id": "extractResume",
+  "signature": {
+    "inputs": {
+      "filename":   { "type": "string", "mode": "required" },
+      "mediaType":  { "type": "string", "mode": "required" },
+      "fileBase64": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<{ resumeId: string }>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "completion",
+      "type": "call",
+      "target": { "module": "openrouter", "operation": "Complete" },
+      "input": {
+        "context": {
+          "$literal": { "idempotencyKey": "" }
+        },
+        "model": { "$literal": "openrouter/openai/gpt-4o" },
+        "messages": {
+          "$literal": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": 4,
+                  "file": {
+                    "filename": { "$param": "filename" },
+                    "mediaType": { "$param": "mediaType" },
+                    "base64Data": { "$param": "fileBase64" }
+                  }
+                },
+                {
+                  "type": 1,
+                  "text": { "text": "Extract the candidate's information from the attached resume PDF as a JSON object matching the provided schema. Output ONLY the JSON; no preamble." }
+                }
+              ]
+            }
+          ]
+        },
+        "sampling": {
+          "$literal": {
+            "responseFormat": "json_schema",
+            "responseSchema": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "full_name": { "type": "string" },
+                "experience": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "company":    { "type": "string" },
+                      "title":      { "type": "string" },
+                      "start_date": { "type": "string" },
+                      "end_date":   { "type": "string" }
+                    },
+                    "required": ["company", "title"]
+                  }
+                },
+                "education": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "institution": { "type": "string" },
+                      "degree":      { "type": "string" },
+                      "year":        { "type": "string" }
+                    }
+                  }
+                },
+                "skills": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["full_name", "experience"]
+            }
+          }
+        }
+      },
+      "policy": {
+        "timeoutMs": 90000,
+        "retry":   { "attempts": 1, "retryOn": "transient" },
+        "idempotency": { "mode": "auto" },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Resume",
+        "aggregateId": { "$node": "newId" },
+        "transition": "complete",
+        "payload": {
+          "filename":      { "$param": "filename" },
+          "mediaType":     { "$param": "mediaType" },
+          "extractedJson": { "$ref": "completion.result.content[0].text.text" }
+        }
+      }
+    },
+    { "id": "out", "type": "result", "value": { "resumeId": { "$ref": "emit.aggregateId" } } }
+  ]
+}

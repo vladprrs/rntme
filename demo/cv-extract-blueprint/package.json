@@ -1,0 +1,16 @@
+{
+  "name": "@rntme/demo-cv-extract-blueprint",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "pnpm -F @rntme/ai-llm-openrouter run build:deps && vitest run"
+  },
+  "devDependencies": {
+    "@rntme/ai-llm-openrouter": "workspace:*",
+    "@rntme/contracts-ai-llm-v1": "workspace:*",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

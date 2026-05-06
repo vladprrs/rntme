@@ -1,0 +1,13 @@
+{
+  "name": "cv-extract",
+  "modules": {
+    "openrouter": {
+      "package": "@rntme/ai-llm-openrouter",
+      "publicConfig": {
+        "defaultModel": "openrouter/openai/gpt-4o",
+        "timeoutMs": 60000
+      }
+    }
+  },
+  "services": ["app"]
+}

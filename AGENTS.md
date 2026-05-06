@@ -684,28 +684,44 @@ the vendor selection (Clerk vs WorkOS vs …) is recorded in a spec.
 
 ### 6.18 Add an AI/LLM vendor module
 
-The first AI/LLM vendor module is shipped by a separate brainstorm + plan.
-When that lands, the steps will mirror Identity:
+The first AI/LLM vendor module — `@rntme/ai-llm-openrouter` — landed under
+`modules/ai-llm/openrouter/`. Use it (and `modules/identity/auth0/`) as the
+reference layout when adding a new vendor.
 
-1. Copy `packages/tooling/module-scaffold/` to `modules/ai-llm/<vendor>/`.
-2. Implement `service AiLlmModule` from `@rntme/contracts-ai-llm-v1`
-   against the vendor's SDK (or gateway routing).
-3. Provide an idempotency dedup-store (in-memory, Redis sidecar, or Postgres) with
-   ≥24h TTL — major LLM vendors do not provide native idempotency.
-4. Implement a webhook receiver for AsyncJob status callbacks (e.g. OpenAI Standard
-   Webhooks for Batch API; Bedrock EventBridge for batch), verifying
-   signatures and deduping before emitting canonical CloudEvents.
-5. Declare supported RPCs, events, and the eight capability dimensions in
-   `module.json#capabilities[]` (see `modules/ai-llm/README.md` for the
-   decision tree).
-6. Wire conformance: `import { aiLlmConformanceSuite } from
-   '@rntme/conformance-ai-llm'` and run it through the shared framework runner
-   (`@rntme/conformance-framework`, when it lands).
-7. Pass mock-conformance on every PR; pass live-conformance on release tag
+1. Scaffold under `modules/ai-llm/<vendor>/` mirroring `modules/identity/auth0/`
+   for layout (`package.json`, `tsconfig*.json`, `eslint.config.mjs`,
+   `vitest.config.ts`, `Dockerfile`, `src/{handler,server,bin/server}.ts`) and
+   `modules/ai-llm/openrouter/` for the AI/LLM-specific structure
+   (`completion-mapper.ts`, `error-mapper.ts`, `idempotency-store.ts`).
+2. Implement `Complete` and `GetCompletion` against `@rntme/contracts-ai-llm-v1`
+   proto. The other 12 RPCs return `UNIMPLEMENTED` unless your vendor has
+   native threads (`thread:true`) or batch
+   (`async_job_types: ["BATCH_COMPLETION"]`).
+3. Declare capabilities in `module.json`: `vendors[]` is the **routing prefix**
+   (single-element). Single-vendor module: vendor's own name (`["openai"]`).
+   Gateway module: gateway's own name (`["openrouter"]`), not the upstream
+   list — and optionally declare `gateway_upstreams[]` for catalog/UX.
+4. Map vendor errors to `AI_LLM_VENDOR_*` codes from
+   `packages/contracts/ai-llm/v1/error-codes.json`. Avoid adding new codes
+   unless none of the existing eight fits — reuse first.
+5. Idempotency: SQLite (recommended; aligns with project storage target) or
+   in-memory (dev only). 24h TTL minimum. The contract requires
+   `Complete` ⇔ `GetCompletion`: any module that lists `Complete` in
+   `capabilities.rpcs[]` MUST also list `GetCompletion` and serve it for
+   the TTL window.
+6. Implement a webhook receiver for AsyncJob status callbacks (e.g. OpenAI
+   Standard Webhooks for Batch API; Bedrock EventBridge for batch),
+   verifying signatures and deduping before emitting canonical CloudEvents —
+   only when your vendor exposes async batch.
+7. Wire conformance: `import { aiLlmConformanceSuite } from
+   '@rntme/conformance-ai-llm'` and run it through the shared framework
+   runner (`@rntme/conformance-framework`, when it lands).
+8. Pass mock-conformance on every PR; pass live-conformance on release tag
    (live mode requires API keys in a secret store).
 
-Reference the canonical contract at `packages/contracts/ai-llm/v1/` and the
-conformance suite at `modules/ai-llm/conformance/`.
+Reference the canonical contract at `packages/contracts/ai-llm/v1/`, the
+conformance suite at `modules/ai-llm/conformance/`, and the live
+implementation at `modules/ai-llm/openrouter/`.
 
 
 ### 6.19 Add a CRM vendor module
@@ -995,6 +1011,12 @@ Known categorical entries to watch for:
   `<vendor>/<model>`, for example `openai/gpt-4o` or
   `anthropic/claude-sonnet-4-5`. SaaS modules validate the prefix
   against their declared vendor; gateways use it to route upstream.
+- **Gateway module** — an AI/LLM (or other category) module that fronts
+  multiple upstream providers behind a single API key. Declares
+  `vendors: ["<gateway-name>"]` (e.g. `["openrouter"]`) and optionally
+  `gateway_upstreams: ["openai", "anthropic", ...]` for catalog/UX.
+  Model addressing is `<gateway>/<rest>` where `<rest>` may itself
+  contain slashes; the module strips its own prefix before forwarding.
 - **Validated\*** — Phantom-branded type produced by a validator;
   downstream APIs require the brand.
 - **Shared common package** — `packages/contracts/_common/v1/`

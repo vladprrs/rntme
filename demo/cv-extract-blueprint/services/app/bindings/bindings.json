@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "extractResume": {
+      "graph": "extractResume",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/resumes",
+        "parameters": [
+          { "name": "filename",   "in": "body", "bindTo": "filename",   "required": true },
+          { "name": "mediaType",  "in": "body", "bindTo": "mediaType",  "required": true },
+          { "name": "fileBase64", "in": "body", "bindTo": "fileBase64", "required": true }
+        ]
+      },
+      "exposure": "action"
+    },
+    "getResume": {
+      "graph": "getResume",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/resumes/{id}",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+        ]
+      },
+      "exposure": "read"
+    }
+  }
+}

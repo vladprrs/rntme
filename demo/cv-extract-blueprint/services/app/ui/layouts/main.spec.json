@@ -1,0 +1,14 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Stack",
+      "props": { "direction": "vertical", "gap": "lg" },
+      "children": ["title"]
+    },
+    "title": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "CV Extract" }
+    }
+  }
+}

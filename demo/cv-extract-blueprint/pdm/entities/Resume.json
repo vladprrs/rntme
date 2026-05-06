@@ -1,0 +1,26 @@
+{
+  "ownerService": "app",
+  "kind": "owned",
+  "table": "resumes",
+  "fields": {
+    "id":            { "type": "string",   "nullable": false, "column": "id" },
+    "filename":      { "type": "string",   "nullable": false, "column": "filename" },
+    "mediaType":     { "type": "string",   "nullable": false, "column": "media_type" },
+    "extractedJson": { "type": "string",   "nullable": false, "column": "extracted_json" },
+    "status":        { "type": "string",   "nullable": false, "column": "status" },
+    "createdAt":     { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["complete"],
+    "transitions": {
+      "complete": {
+        "from": null,
+        "to": "complete",
+        "affects": ["filename", "mediaType", "extractedJson"]
+      }
+    }
+  }
+}

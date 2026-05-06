@@ -121,4 +121,16 @@ describe('service AiLlmModule shape', () => {
       expect(ns[name], `${name} missing`).toBeDefined();
     }
   });
+
+  it('Complete and GetCompletion are both canonical RPCs (pair-rule)', () => {
+    expect(EXPECTED_RPCS).toContain('Complete');
+    expect(EXPECTED_RPCS).toContain('GetCompletion');
+    // GetCompletion does not emit events (read-only); Complete emits 3.
+    expect(EXPECTED_RPC_EVENT_FIXTURE_NAMES.GetCompletion).toEqual([]);
+    expect(EXPECTED_RPC_EVENT_FIXTURE_NAMES.Complete).toEqual([
+      'CompletionStarted',
+      'CompletionFinished',
+      'CompletionFailed',
+    ]);
+  });
 });
