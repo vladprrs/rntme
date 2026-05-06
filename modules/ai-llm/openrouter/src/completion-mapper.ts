@@ -253,17 +253,56 @@ const FinishReasonMap: Record<string, number> = {
   error: 5,
 };
 
+interface ProtoStruct { fields: Record<string, ProtoValue> }
+interface ProtoValue {
+  null_value?: number;
+  number_value?: number;
+  string_value?: string;
+  bool_value?: boolean;
+  struct_value?: ProtoStruct;
+  list_value?: { values: ProtoValue[] };
+}
+
+function toProtoValue(v: unknown): ProtoValue {
+  if (v === null || v === undefined) return { null_value: 0 };
+  if (typeof v === 'string') return { string_value: v };
+  if (typeof v === 'number') return Number.isFinite(v) ? { number_value: v } : { string_value: String(v) };
+  if (typeof v === 'boolean') return { bool_value: v };
+  if (Array.isArray(v)) return { list_value: { values: v.map(toProtoValue) } };
+  if (typeof v === 'object') return { struct_value: toProtoStruct(v as Record<string, unknown>) };
+  return { string_value: String(v) };
+}
+
+function toProtoStruct(obj: Record<string, unknown>): ProtoStruct {
+  return {
+    fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, toProtoValue(v)])),
+  };
+}
+
+function toProtoTimestamp(d: Date): { seconds: number; nanos: number } {
+  const ms = d.getTime();
+  return { seconds: Math.floor(ms / 1000), nanos: (ms % 1000) * 1_000_000 };
+}
+
+interface ProtoToolCall { id: string; name: string; arguments?: ProtoStruct }
+
+interface ProtoContentBlockOut {
+  type: number;
+  text?: { text: string };
+  tool_use?: ProtoToolCall;
+  thinking?: { text: string; redacted: boolean };
+}
+
 export interface MappedCompletion {
-  ref: { canonicalId: string };
+  ref: { canonical_id: string };
   model: string;
-  content: { type: number; text?: { text: string }; toolUse?: unknown; thinking?: unknown }[];
-  finishReason: number;
-  usage: { inputTokens: number; outputTokens: number; totalTokens: number; reasoningTokens: number; cachedTokens: number };
-  reasoning?: { summary?: string };
-  toolCalls?: { id: string; name: string; arguments: unknown }[];
-  startedAt: Date;
-  finishedAt: Date;
-  vendorRaw: Record<string, unknown>;
+  content: ProtoContentBlockOut[];
+  finish_reason: number;
+  usage: { input_tokens: number; output_tokens: number; total_tokens: number; reasoning_tokens: number; cached_tokens: number };
+  tool_calls?: ProtoToolCall[];
+  started_at: { seconds: number; nanos: number };
+  finished_at: { seconds: number; nanos: number };
+  vendor_raw: ProtoStruct;
 }
 
 export function parseOpenRouterResponse(or: OrResponse, ctx: ParseRequestContext): MappedCompletion {
@@ -272,7 +311,7 @@ export function parseOpenRouterResponse(or: OrResponse, ctx: ParseRequestContext
     throw new AiLlmOpenRouterError('OR returned no choices', GrpcStatus.INTERNAL, 'AI_LLM_VENDOR_UNAVAILABLE');
   }
 
-  const content: MappedCompletion['content'] = [];
+  const content: ProtoContentBlockOut[] = [];
   if (typeof choice.message?.content === 'string' && choice.message.content.length > 0) {
     content.push({ type: 1, text: { text: choice.message.content } });
   }
@@ -280,24 +319,27 @@ export function parseOpenRouterResponse(or: OrResponse, ctx: ParseRequestContext
     content.push({ type: 7, thinking: { text: choice.message.reasoning, redacted: false } });
   }
 
-  const toolCalls =
-    choice.message?.tool_calls?.map((tc) => ({
-      id: tc.id ?? '',
-      name: tc.function?.name ?? '',
-      arguments: tc.function?.arguments ? safeJson(tc.function.arguments) : {},
-    })) ?? [];
+  const toolCalls: ProtoToolCall[] =
+    choice.message?.tool_calls?.map((tc) => {
+      const parsed = tc.function?.arguments ? safeJson(tc.function.arguments) : {};
+      const args =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? toProtoStruct(parsed as Record<string, unknown>)
+          : toProtoStruct({ value: parsed });
+      return { id: tc.id ?? '', name: tc.function?.name ?? '', arguments: args };
+    }) ?? [];
 
   for (const tc of toolCalls) {
-    content.push({ type: 5, toolUse: tc });
+    content.push({ type: 5, tool_use: tc });
   }
 
   const u = or.usage ?? {};
   const usage = {
-    inputTokens: u.prompt_tokens ?? 0,
-    outputTokens: u.completion_tokens ?? 0,
-    totalTokens: u.total_tokens ?? 0,
-    reasoningTokens: u.reasoning_tokens ?? 0,
-    cachedTokens: u.cached_tokens ?? 0,
+    input_tokens: u.prompt_tokens ?? 0,
+    output_tokens: u.completion_tokens ?? 0,
+    total_tokens: u.total_tokens ?? 0,
+    reasoning_tokens: u.reasoning_tokens ?? 0,
+    cached_tokens: u.cached_tokens ?? 0,
   };
 
   const vendorRaw: Record<string, unknown> = {};
@@ -306,16 +348,16 @@ export function parseOpenRouterResponse(or: OrResponse, ctx: ParseRequestContext
   if (or.model) vendorRaw.openrouter_model = or.model;
 
   const completion: MappedCompletion = {
-    ref: { canonicalId: ctx.idempotencyKey },
+    ref: { canonical_id: ctx.idempotencyKey },
     model: ctx.model,
     content,
-    finishReason: FinishReasonMap[choice.finish_reason ?? ''] ?? 0,
+    finish_reason: FinishReasonMap[choice.finish_reason ?? ''] ?? 0,
     usage,
-    startedAt: ctx.requestStartedAt,
-    finishedAt: new Date(),
-    vendorRaw,
+    started_at: toProtoTimestamp(ctx.requestStartedAt),
+    finished_at: toProtoTimestamp(new Date()),
+    vendor_raw: toProtoStruct(vendorRaw),
   };
-  if (toolCalls.length > 0) completion.toolCalls = toolCalls;
+  if (toolCalls.length > 0) completion.tool_calls = toolCalls;
   return completion;
 }
 

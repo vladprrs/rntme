@@ -16,11 +16,11 @@ describe('parseOpenRouterResponse', () => {
       usage: { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13 },
     };
     const completion = parseOpenRouterResponse(orResponse, baseRequest);
-    expect(completion.ref?.canonicalId).toBe('idem-1');
+    expect(completion.ref?.canonical_id).toBe('idem-1');
     expect(completion.model).toBe('openrouter/openai/gpt-4o');
     expect(completion.content).toEqual([{ type: 1, text: { text: 'Hello world.' } }]);
-    expect(completion.finishReason).toBe(1); // STOP
-    expect(completion.usage).toEqual({ inputTokens: 10, outputTokens: 3, totalTokens: 13, reasoningTokens: 0, cachedTokens: 0 });
+    expect(completion.finish_reason).toBe(1); // STOP
+    expect(completion.usage).toEqual({ input_tokens: 10, output_tokens: 3, total_tokens: 13, reasoning_tokens: 0, cached_tokens: 0 });
   });
 
   it('maps tool_calls to TOOL_USE content blocks', () => {
@@ -40,8 +40,13 @@ describe('parseOpenRouterResponse', () => {
       usage: { prompt_tokens: 5, completion_tokens: 7, total_tokens: 12 },
     };
     const completion = parseOpenRouterResponse(orResponse, baseRequest);
-    expect(completion.finishReason).toBe(3); // TOOL_CALLS
-    expect(completion.toolCalls).toEqual([{ id: 'call_1', name: 'extract', arguments: { x: 1 } }]);
+    expect(completion.finish_reason).toBe(3); // TOOL_CALLS
+    expect(completion.tool_calls).toBeDefined();
+    expect(completion.tool_calls!.length).toBe(1);
+    expect(completion.tool_calls![0].id).toBe('call_1');
+    expect(completion.tool_calls![0].name).toBe('extract');
+    // arguments is a proto Struct: { fields: { x: { number_value: 1 } } }
+    expect(completion.tool_calls![0].arguments).toEqual({ fields: { x: { number_value: 1 } } });
     expect(completion.content?.some((b: { type: number }) => b.type === 5)).toBe(true);
   });
 
@@ -53,8 +58,7 @@ describe('parseOpenRouterResponse', () => {
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2, cost: 0.0042 },
     };
     const completion = parseOpenRouterResponse(orResponse, baseRequest);
-    const vr = completion.vendorRaw as { cost_usd?: number };
-    expect(vr.cost_usd).toBe(0.0042);
+    expect(completion.vendor_raw.fields.cost_usd).toEqual({ number_value: 0.0042 });
   });
 
   it('maps finish_reason length and content_filter', () => {
@@ -73,7 +77,7 @@ describe('parseOpenRouterResponse', () => {
         },
         baseRequest,
       );
-      expect(completion.finishReason).toBe(want);
+      expect(completion.finish_reason).toBe(want);
     }
   });
 });
