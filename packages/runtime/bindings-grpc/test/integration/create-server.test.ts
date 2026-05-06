@@ -3,14 +3,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import BetterSqlite3 from 'better-sqlite3';
 import { SqliteEventStore } from '@rntme/event-store';
-import type {
-  CommandExecutor,
-  CommandExecutorInput,
-  CommandExecutorOutput,
-  QueryExecutor,
-  QueryExecutorInput,
-  QueryExecutorOutput,
-} from '@rntme/bindings-http/executor-contract';
+import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import { createGrpcServer } from '../../src/index.js';
 import { minimalValidated, minimalShapeRegistry } from '../fixtures/minimal-bindings.js';
 
@@ -23,33 +16,24 @@ afterEach(async () => {
 });
 
 describe('createGrpcServer (integration)', () => {
-  it('accepts a CreateOrder RPC and routes to CodeCommandExecutor', async () => {
+  it('routes an action exposure to OperationExecutor and returns operation result', async () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
     const qsmDb = new BetterSqlite3(':memory:');
     const receivedInputs: Record<string, unknown>[] = [];
 
-    const commandExecutor: CommandExecutor = {
-      async execute(req: CommandExecutorInput): Promise<CommandExecutorOutput> {
-        if (req.commandName !== 'createOrder') {
-          return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: req.commandName } };
+    const operationExecutor: OperationExecutor = {
+      async execute(req) {
+        if (req.operationName !== 'createOrder') {
+          return { ok: false, error: { code: 'OPERATION_NOT_FOUND', message: req.operationName } };
         }
         receivedInputs.push(req.inputs as Record<string, unknown>);
         return {
           ok: true,
           value: {
-            aggregateId: `order-${(req.inputs as Record<string, unknown>).amount}`,
-            version: 1,
-            eventIds: ['evt-1'],
-            commandId: 'cmd-1',
-            correlationId: 'corr-1',
-            result: { reserved: true, reservationId: 'res-1' },
+            value: { reserved: true, reservationId: 'r1' },
+            metadata: { eventIds: ['e1'], commandId: 'cmd', correlationId: 'corr' },
           },
-        } as CommandExecutorOutput;
-      },
-    };
-    const queryExecutor: QueryExecutor = {
-      async execute(req: QueryExecutorInput): Promise<QueryExecutorOutput> {
-        return { ok: false, error: { code: 'QUERY_NOT_FOUND', message: req.queryName } };
+        };
       },
     };
 
@@ -58,8 +42,7 @@ describe('createGrpcServer (integration)', () => {
       shapes: minimalShapeRegistry,
       packageName: 'rntme.minimal.v1',
       serviceName: 'MinimalService',
-      commandExecutor,
-      queryExecutor,
+      operationExecutor,
       eventStore,
       qsmDb,
     });
@@ -86,11 +69,12 @@ describe('createGrpcServer (integration)', () => {
       });
     });
 
-    expect(response.aggregate_id).toBe('order-42');
-    expect(Number(response.version)).toBe(1);
-    expect(structToJson(response.result)).toEqual({ reserved: true, reservationId: 'res-1' });
+    expect(response.aggregate_id).toBeUndefined();
+    expect(response.version).toBeUndefined();
+    expect(response.event_ids).toBeUndefined();
+    expect(structToJson(response.result)).toEqual({ reserved: true, reservationId: 'r1' });
     const inputs = receivedInputs[0];
-    if (inputs === undefined) throw new Error('command executor was not called');
+    if (inputs === undefined) throw new Error('operation executor was not called');
     expect(inputs).toMatchObject({ amount: 42, note: 'hello' });
     expect(typeof inputs.amount).toBe('number');
   });
@@ -105,14 +89,9 @@ describe('createGrpcServer (integration)', () => {
       shapes: minimalShapeRegistry,
       packageName: 'rntme.minimal.v1',
       serviceName: 'MinimalService',
-      commandExecutor: {
+      operationExecutor: {
         async execute() {
-          return { ok: false, error: { code: 'COMMAND_NOT_FOUND', message: 'not used' } };
-        },
-      },
-      queryExecutor: {
-        async execute() {
-          return { ok: false, error: { code: 'QUERY_NOT_FOUND', message: 'not used' } };
+          return { ok: false, error: { code: 'OPERATION_NOT_FOUND', message: 'not used' } };
         },
       },
       eventStore,

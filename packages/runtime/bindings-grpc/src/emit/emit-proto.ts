@@ -7,29 +7,17 @@ export type EmitProtoOptions = {
   serviceName: string;
 };
 
-const COMMAND_RESULT_BLOCK = [
-  'message CommandResult {',
-  '  string aggregate_id = 1;',
-  '  int64 version = 2;',
-  '  repeated string event_ids = 3;',
-  '  string command_id = 4;',
-  '  string correlation_id = 5;',
-  '  google.protobuf.Struct result = 6;',
-  '}',
-].join('\n');
-
 export function emitProto(
   validated: ValidatedBindings,
   shapes: Record<string, ResolvedShape>,
   options: EmitProtoOptions,
 ): string {
-  const { serviceBlock, messageBlocks, usesCommandResult } = buildServiceBlock(validated, options.serviceName);
+  const { serviceBlock, messageBlocks, usesStructResponse } = buildServiceBlock(validated, options.serviceName);
   const usesJsonShape = Object.values(shapes).some((shape) =>
     Object.values(shape.fields).some((field) => field.type.kind === 'json'),
   );
 
   const shapeBlocks = Object.entries(shapes)
-    .filter(([name]) => !(usesCommandResult && name === 'CommandResult'))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, shape]) => shapeToProtoMessage(name, shape));
 
@@ -39,7 +27,7 @@ export function emitProto(
   parts.push('');
   parts.push(`package ${options.packageName};`);
   parts.push('');
-  if (usesCommandResult || usesJsonShape) {
+  if (usesStructResponse || usesJsonShape) {
     parts.push('import "google/protobuf/struct.proto";');
     parts.push('');
   }
@@ -50,10 +38,6 @@ export function emitProto(
   }
   for (const block of messageBlocks) {
     parts.push(block);
-    parts.push('');
-  }
-  if (usesCommandResult) {
-    parts.push(COMMAND_RESULT_BLOCK);
     parts.push('');
   }
   parts.push(serviceBlock);

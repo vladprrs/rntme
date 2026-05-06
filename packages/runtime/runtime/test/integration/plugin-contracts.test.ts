@@ -55,15 +55,17 @@ runQueryExecutorContract('GraphIrQueryExecutor', () => {
 
 import { runGrpcSurfaceContract } from '../../src/plugins/contract-tests.js';
 import { GrpcSurface } from '../../src/plugins/grpc-surface.js';
-import { GraphIrCommandExecutor as GraphIrCommandExecutor2, GraphIrQueryExecutor as GraphIrQueryExecutor2 } from '@rntme/runtime';
 
 runGrpcSurfaceContract(() =>
   new GrpcSurface({
     port: 0,
     packageName: 'rntme.contract.v1',
     serviceName: 'ContractService',
-    commandExecutor: new GraphIrCommandExecutor2({}),
-    queryExecutor: new GraphIrQueryExecutor2({}),
+    operationExecutor: {
+      async execute() {
+        return { ok: false, error: { code: 'OPERATION_NOT_FOUND', message: 'not configured' } };
+      },
+    },
     shapes: {},
   }),
 );

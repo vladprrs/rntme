@@ -17,23 +17,37 @@ const orderShape: ResolvedShape = {
   },
 };
 
+const createOrderResultShape: ResolvedShape = {
+  name: 'CreateOrderResult',
+  origin: 'custom',
+  fields: {
+    reserved: { type: { kind: 'scalar', primitive: 'boolean' }, nullable: false },
+    reservationId: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
+  },
+};
+
 const listOrdersSignature: GraphSignature = {
   id: 'listOrders',
-  role: 'query',
   inputs: {
     limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 50 },
   },
   output: { type: { kind: 'rowset', shape: 'order' }, from: 'rows' },
+  effects: { localReads: true, localEmits: [], calls: [], waits: false },
 };
 
 const createOrderSignature: GraphSignature = {
   id: 'createOrder',
-  role: 'command',
   inputs: {
     amount: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'required' },
     note: { type: { kind: 'scalar', primitive: 'string' }, mode: 'nullable' },
   },
-  output: { type: { kind: 'row', shape: 'CommandResult' }, from: 'emit' },
+  output: { type: { kind: 'row', shape: 'CreateOrderResult' }, from: 'out' },
+  effects: {
+    localReads: true,
+    localEmits: [{ aggregate: 'Order', transition: 'create', eventType: 'OrderCreated' }],
+    calls: [],
+    waits: false,
+  },
 };
 
 const artifact: BindingArtifact = {
@@ -43,7 +57,7 @@ const artifact: BindingArtifact = {
   qsmRef: 'inline',
   bindings: {
     listOrders: {
-      kind: 'query',
+      exposure: 'read',
       graph: 'listOrders',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: {
@@ -55,7 +69,7 @@ const artifact: BindingArtifact = {
       },
     },
     createOrder: {
-      kind: 'command',
+      exposure: 'action',
       graph: 'createOrder',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: {
@@ -76,7 +90,11 @@ const resolvers: BindingResolvers = {
     if (id === 'createOrder') return createOrderSignature;
     return null;
   },
-  resolveShape: (name) => (name === 'order' ? orderShape : null),
+  resolveShape: (name) => {
+    if (name === 'order') return orderShape;
+    if (name === 'CreateOrderResult') return createOrderResultShape;
+    return null;
+  },
 };
 
 const validated = validateBindings(artifact, resolvers);
@@ -90,4 +108,5 @@ export const minimalValidated: ValidatedBindings = validated.value;
 
 export const minimalShapeRegistry: Record<string, ResolvedShape> = {
   order: orderShape,
+  CreateOrderResult: createOrderResultShape,
 };

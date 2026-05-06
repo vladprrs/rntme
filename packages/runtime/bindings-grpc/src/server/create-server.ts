@@ -41,8 +41,7 @@ export function createGrpcServer(opts: GrpcServerOptions): GrpcServerHandle {
   const nextId = opts.nextId ?? ((): string => randomUUID());
 
   const handlers = makeAllHandlers(opts.validated, {
-    commandExecutor: opts.commandExecutor,
-    queryExecutor: opts.queryExecutor,
+    operationExecutor: opts.operationExecutor,
     eventStore: opts.eventStore,
     qsmDb: opts.qsmDb,
     now,

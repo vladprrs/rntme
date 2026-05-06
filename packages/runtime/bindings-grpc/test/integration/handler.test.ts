@@ -2,21 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import { makeGrpcHandler, type HandlerDeps } from '../../src/server/handler.js';
 
 describe('makeGrpcHandler', () => {
-  it('invokes the command executor with entry.graph, not bindingId', async () => {
+  it('invokes the operation executor with entry.graph, not bindingId', async () => {
     const execute = vi.fn().mockResolvedValue({
       ok: true,
       value: {
-        aggregateId: 'a',
-        version: 1,
-        eventIds: [],
-        commandId: 'c',
-        correlationId: 'r',
+        value: { ok: true },
+        metadata: { eventIds: [], commandId: 'c', correlationId: 'r' },
       },
     });
 
     const deps = {
-      commandExecutor: { execute },
-      queryExecutor: { execute: vi.fn() },
+      operationExecutor: { execute },
       eventStore: {} as never,
       qsmDb: {} as never,
       now: () => '2026-04-23T00:00:00.000Z',
@@ -25,7 +21,7 @@ describe('makeGrpcHandler', () => {
 
     const resolved = {
       entry: {
-        kind: 'command',
+        exposure: 'action',
         graph: 'createOrder',
         target: { engine: 'sqlite', dialect: 'rntme' },
         http: { method: 'POST', path: '/orders', parameters: [] },
@@ -33,7 +29,13 @@ describe('makeGrpcHandler', () => {
       signature: {
         id: 'createOrder',
         inputs: {},
-        output: { from: 'x', type: { kind: 'row', shape: 'CommandResult' } },
+        output: { from: 'out', type: { kind: 'row', shape: 'CreateOrderResult' } },
+        effects: {
+          localReads: true,
+          localEmits: [{ aggregate: 'Order', transition: 'create', eventType: 'OrderCreated' }],
+          calls: [],
+          waits: false,
+        },
       },
       outputShape: { fields: [] },
     } as never;
@@ -46,24 +48,20 @@ describe('makeGrpcHandler', () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(execute.mock.calls[0]?.[0].commandName).toBe('createOrder');
+    expect(execute.mock.calls[0]?.[0].operationName).toBe('createOrder');
   });
 
   it('converts snake_case proto fields to camelCase graph inputs', async () => {
     const execute = vi.fn().mockResolvedValue({
       ok: true,
       value: {
-        aggregateId: 'a',
-        version: 1,
-        eventIds: [],
-        commandId: 'c',
-        correlationId: 'r',
+        value: { ok: true },
+        metadata: { eventIds: [], commandId: 'c', correlationId: 'r' },
       },
     });
 
     const deps = {
-      commandExecutor: { execute },
-      queryExecutor: { execute: vi.fn() },
+      operationExecutor: { execute },
       eventStore: {} as never,
       qsmDb: {} as never,
       now: () => '2026-04-23T00:00:00.000Z',
@@ -72,7 +70,7 @@ describe('makeGrpcHandler', () => {
 
     const resolved = {
       entry: {
-        kind: 'command',
+        exposure: 'action',
         graph: 'createOrder',
         target: { engine: 'sqlite', dialect: 'rntme' },
         http: { method: 'POST', path: '/orders', parameters: [] },
@@ -83,7 +81,13 @@ describe('makeGrpcHandler', () => {
           customerId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
           orderLineItems: { type: { kind: 'list', element: 'string' }, mode: 'required' },
         },
-        output: { from: 'x', type: { kind: 'row', shape: 'CommandResult' } },
+        output: { from: 'out', type: { kind: 'row', shape: 'CreateOrderResult' } },
+        effects: {
+          localReads: true,
+          localEmits: [{ aggregate: 'Order', transition: 'create', eventType: 'OrderCreated' }],
+          calls: [],
+          waits: false,
+        },
       },
       outputShape: { fields: [] },
     } as never;

@@ -144,8 +144,7 @@ export async function startService(
   const port = typeof address === 'object' && address !== null ? address.port : listenPort;
 
   const grpcSurface = buildGrpcSurface(service.manifest, {
-    commandExecutor: operationExecutor as never,
-    queryExecutor: operationExecutor as never,
+    operationExecutor,
     shapes: collectShapesFromService(service),
   });
 

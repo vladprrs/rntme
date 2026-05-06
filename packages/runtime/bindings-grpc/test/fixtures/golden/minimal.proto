@@ -5,6 +5,11 @@ package rntme.minimal.v1;
 
 import "google/protobuf/struct.proto";
 
+message CreateOrderResult {
+  bool reserved = 1;
+  string reservation_id = 2;
+}
+
 message Order {
   string id = 1;
   int64 amount = 2;
@@ -16,7 +21,7 @@ message ListOrdersRequest {
 }
 
 message ListOrdersResponse {
-  repeated Order rows = 1;
+  google.protobuf.Struct result = 1;
 }
 
 message CreateOrderRequest {
@@ -24,16 +29,11 @@ message CreateOrderRequest {
   optional string note = 2;
 }
 
-message CommandResult {
-  string aggregate_id = 1;
-  int64 version = 2;
-  repeated string event_ids = 3;
-  string command_id = 4;
-  string correlation_id = 5;
-  google.protobuf.Struct result = 6;
+message CreateOrderResponse {
+  google.protobuf.Struct result = 1;
 }
 
 service MinimalService {
   rpc ListOrders (ListOrdersRequest) returns (ListOrdersResponse);
-  rpc CreateOrder (CreateOrderRequest) returns (CommandResult);
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
 }

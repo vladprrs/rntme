@@ -27,35 +27,35 @@ describe('emitProto', () => {
     expect(out).not.toContain('packages/runtime/bindings-grpc/test/fixtures/golden/minimal.proto');
   });
 
-  it('always emits CommandResult with command_id, correlation_id, and optional result payload', () => {
+  it('emits every operation response as a Struct result payload', () => {
     const out = emitProto(minimalValidated, minimalShapeRegistry, {
       packageName: 'x.y',
       serviceName: 'Svc',
     });
     expect(out).toContain('import "google/protobuf/struct.proto";');
-    expect(out).toContain('message CommandResult {');
-    expect(out).toContain('string command_id = 4;');
-    expect(out).toContain('string correlation_id = 5;');
-    expect(out).toContain('google.protobuf.Struct result = 6;');
+    expect(out).toContain('message ListOrdersResponse {');
+    expect(out).toContain('message CreateOrderResponse {');
+    expect(out).toContain('google.protobuf.Struct result = 1;');
+    expect(out).not.toContain('message CommandResult {');
   });
 
-  it('does not duplicate CommandResult when shapes already include it', () => {
-    const commandResultShape: ResolvedShape = {
-      name: 'CommandResult',
+  it('does not treat result shapes as RPC response messages', () => {
+    const orderResultShape: ResolvedShape = {
+      name: 'CreateOrderResult',
       origin: 'custom',
       fields: {
-        aggregateId: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
-        version: { type: { kind: 'scalar', primitive: 'integer' }, nullable: false },
-        eventIds: { type: { kind: 'array', element: 'string' }, nullable: false },
+        reserved: { type: { kind: 'scalar', primitive: 'boolean' }, nullable: false },
       },
     };
     const out = emitProto(
       minimalValidated,
-      { ...minimalShapeRegistry, CommandResult: commandResultShape },
+      { ...minimalShapeRegistry, CreateOrderResult: orderResultShape },
       { packageName: 'x.y', serviceName: 'Svc' },
     );
 
-    expect(out.match(/message CommandResult \{/g)).toHaveLength(1);
+    expect(out).toContain('message CreateOrderResult {');
+    expect(out).toContain('message CreateOrderResponse {');
+    expect(out).toContain('google.protobuf.Struct result = 1;');
   });
 
   it('emits arbitrary JSON shape fields as protobuf Value', () => {
