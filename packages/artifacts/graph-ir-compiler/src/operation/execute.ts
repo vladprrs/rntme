@@ -40,7 +40,28 @@ export async function executeOperation(
     }
 
     if (node.kind === 'call') {
-      throw runtimeError('RUNTIME_INTERNAL_ERROR', 'call execution is implemented in Task 5');
+      if (ctx.callClient === null) {
+        throw runtimeError('RUNTIME_INTERNAL_ERROR', `call node "${node.id}" requires callClient`);
+      }
+      const registryEntry = compiled.registryEntriesByNodeId[node.id];
+      if (registryEntry === undefined) {
+        throw runtimeError('RUNTIME_INTERNAL_ERROR', `call node "${node.id}" target metadata missing`);
+      }
+      const payload = evalObjectExpr(node.input, params, outputs) as Record<string, unknown>;
+      const callResult = await ctx.callClient.call({
+        target: registryEntry,
+        payload,
+        idempotencyKey: registryEntry.effect === 'action' ? ctx.idempotencyKey : null,
+        correlationId: ctx.correlation.correlationId,
+      });
+      if (!callResult.ok) {
+        throw runtimeError(
+          'RUNTIME_INTERNAL_ERROR',
+          `${callResult.error.code}: ${callResult.error.message}`,
+        );
+      }
+      outputs[node.id] = { result: callResult.value };
+      continue;
     }
 
     if (node.kind === 'emit') {

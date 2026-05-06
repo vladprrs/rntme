@@ -8,7 +8,7 @@ import { validateOperationEffects } from '../validate/effects.js';
 import { ERROR_CODES, err, ok, type Result } from '../types/result.js';
 import { toGraphIrError } from '../types/errors.js';
 import type { Exposure } from '../types/effects.js';
-import type { CompiledOperation, OperationRegistry } from '../types/operation.js';
+import type { CompiledOperation, OperationRegistry, OperationRegistryEntry } from '../types/operation.js';
 
 export type CompileOperationOptions = Readonly<{
   registry: OperationRegistry;
@@ -72,10 +72,18 @@ export function compileOperation(
   });
   if (!effects.ok) return effects;
 
+  const registryEntriesByNodeId: Record<string, OperationRegistryEntry> = {};
+  for (const node of graph.nodes) {
+    if (node.kind !== 'call') continue;
+    const entry = opts.registry.resolve(node.target);
+    if (entry !== null) registryEntriesByNodeId[node.id] = entry;
+  }
+
   return ok({
     graphId: graph.id,
     graph,
     effects: effects.value,
+    registryEntriesByNodeId,
     resultNodeId: graph.outputFrom,
     pdm: pq.value.pdm,
     qsm: pq.value.qsm,

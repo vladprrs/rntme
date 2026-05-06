@@ -41,6 +41,7 @@ export type CompiledOperation = Readonly<{
   graphId: string;
   graph: CanonicalGraph;
   effects: EffectSummary;
+  registryEntriesByNodeId: Readonly<Record<string, OperationRegistryEntry>>;
   resultNodeId: string;
   pdm: ValidatedPdm;
   qsm: ValidatedQsm;
