@@ -54,5 +54,5 @@ Types: `ProvisionerContract`, `ProvisionerInput`, `ProvisionerOutput`, `Provisio
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
+- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — provisioner block / blueprint origin.

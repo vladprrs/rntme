@@ -132,7 +132,7 @@ this package.
 
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
   — original platform-modules-integration spec (§5 module pattern, §12 contract).
-- `docs/superpowers/specs/2026-05-04-platform-contracts-extraction-design.md`
+- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`
   — the layering refactor that extracted contracts out of this package and
   renamed it to `module-scaffold`.
 - `docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md`
