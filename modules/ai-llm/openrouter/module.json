@@ -1,0 +1,34 @@
+{
+  "name": "@rntme/ai-llm-openrouter",
+  "version": "0.0.0",
+  "category": "ai-llm",
+  "vendor": "openrouter",
+  "contract": "ai-llm/v1",
+  "capabilities": {
+    "vendors": ["openrouter"],
+    "gateway_upstreams": [
+      "openai",
+      "anthropic",
+      "google",
+      "meta",
+      "mistralai",
+      "deepseek",
+      "x-ai",
+      "qwen"
+    ],
+    "rpcs": ["Complete", "GetCompletion"],
+    "events": ["CompletionStarted", "CompletionFinished", "CompletionFailed"],
+    "input_modalities": ["text", "image", "file"],
+    "reasoning_visibility_supported": ["hidden", "summary"],
+    "thread": false,
+    "async_job_types": [],
+    "agent_execution_mode": "none"
+  },
+  "limitations": [
+    "Streaming not supported (contract v1 is unary-only).",
+    "Threads/Batch RPCs return UNIMPLEMENTED.",
+    "Per-model capability variance — declared values are the gateway UNION; specific models may not support tools/reasoning/file/image. Caller pins model based on use case.",
+    "Cost from OR exposed only via Completion.vendor_raw.cost_usd.",
+    "Audio modality not declared in v1."
+  ]
+}
