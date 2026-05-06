@@ -6,6 +6,7 @@ export function checkCommandShape(spec: AuthoringSpecOutput): GraphIrError[] {
   for (const graph of Object.values(spec.graphs)) {
     const hasEmit = graph.nodes.some((n) => n.type === 'emit');
     if (!hasEmit) continue;
+    if (graph.nodes.some((n) => n.type === 'result')) continue;
 
     if (graph.signature.output.type !== 'row<CommandResult>') {
       errs.push({
