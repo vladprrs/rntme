@@ -3,7 +3,7 @@
 This directory hosts vendor implementations of the AI/LLM canonical contract `@rntme/contracts-ai-llm-v1`. Each vendor lives at `modules/ai-llm/<vendor>/` and ships:
 
 - A handler implementation against the `AiLlmModule` gRPC service.
-- An idempotency dedup-store (Redis / in-memory / Postgres — chosen by the vendor module; ≥24h TTL).
+- An idempotency dedup-store (SQLite recommended; in-memory acceptable for dev/test only; ≥24h TTL). Postgres and Redis MUST NOT be assumed; the project storage target is SQLite/Turso.
 - A webhook receiver that verifies signatures (e.g. OpenAI Standard Webhooks for Batch API), dedupes, and emits canonical CloudEvents.
 - A `module.json` manifest declaring `capabilities[]` (vendors, rpcs, events, input_modalities, reasoning_visibility_supported, thread, async_job_types, agent_execution_mode).
 - Conformance scenarios passing under both mock-vendor and live-sandbox modes.
@@ -12,7 +12,7 @@ The shared conformance suite lives at `modules/ai-llm/conformance/` and is consu
 
 ## Vendors landed here
 
-None yet. The first vendor (likely `module-ai-llm-openai` or `module-ai-llm-anthropic`) is brainstormed and planned separately after this conformance skeleton merges.
+- `openrouter` — `modules/ai-llm/openrouter/`. Multi-provider gateway. Implements `Complete` and `GetCompletion`; remaining 12 RPCs return `UNIMPLEMENTED`. See `modules/ai-llm/openrouter/README.md`.
 
 ## Capability decision tree (for module authors)
 
@@ -20,7 +20,8 @@ When you scaffold a new AI/LLM vendor module, fill out `module.json#capabilities
 
 | Capability | Decision |
 |---|---|
-| `vendors[]` | Single SaaS module: 1 entry. Multi-provider gateway: list every upstream you route to. |
+| `vendors[]` | Always one element — the routing prefix of THIS module. Single-vendor module: vendor's own name (`["openai"]`). Gateway module: gateway's own name (`["openrouter"]`), not the upstream list. |
+| `gateway_upstreams[]` | Optional, gateway-only. Informational list of upstream providers the gateway routes to (e.g. `["openai", "anthropic", "google"]`). Does not influence routing. Single-vendor modules omit it. |
 | `rpcs[]` | Subset of the 14 canonical RPCs. Unclaimed RPCs return `UNIMPLEMENTED` (anti-conformance enforces this). |
 | `events[]` | Subset of the 16 canonical events. Only emit events you actually publish. |
 | `input_modalities[]` | Subset of `["text", "image", "audio", "file"]`. Vendor without audio = `["text", "image", "file"]`. |

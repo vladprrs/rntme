@@ -63,6 +63,8 @@ All status-style enums follow the rntme convention: `<TYPE>_UNSPECIFIED = 0`, `<
 
 `TokenUsage`, `SamplingParams`, `ReasoningInfo`, `ToolDefinition`, `ToolCall`, `ToolResult`, `Message`, and `ContentBlock`. `ContentBlock` is a oneof of text, image, audio, file, tool_use, tool_result, and thinking.
 
+`SamplingParams.response_format` is one of `"text" | "json_object" | "json_schema"` (any other value is non-canonical and SHOULD be rejected by the structural validator — see backlog item AI_LLM_STRUCTURAL_INVALID_RESPONSE_FORMAT). When `"json_schema"`, `response_schema` (a `google.protobuf.Struct`) is required. When `"json_object"`, `response_schema` is optional. When `"text"` or empty, `response_schema` is ignored.
+
 ### `service AiLlmModule`
 
 | Group | RPCs |
@@ -92,10 +94,11 @@ CloudEvents `type: rntme.ai_llm.v1.<MessageName>`. Topics: `rntme.ai_llm.complet
 - Idempotency is required on every command RPC through `CommandContext.idempotency_key`.
 - `ToolCall.arguments` is `google.protobuf.Struct`, not a string.
 - `vendor_raw` lives on aggregates, not helper messages.
+- `Complete` and `GetCompletion` are declared together. A module that lists `Complete` in `capabilities.rpcs` MUST also list `GetCompletion` and serve it for at least the idempotency TTL window (≥24h). Within the window, `GetCompletion` returns the cached `Completion`. Outside the window, it returns `AI_LLM_REFERENCES_COMPLETION_NOT_FOUND`. Returning `UNIMPLEMENTED` for `GetCompletion` while implementing `Complete` is forbidden.
 
 ## Capability fields
 
-This contract introduces these `module.json#capabilities` fields for AI/LLM modules:
+`module.json#capabilities` for AI/LLM modules:
 
 ```json
 {
@@ -111,6 +114,23 @@ This contract introduces these `module.json#capabilities` fields for AI/LLM modu
   }
 }
 ```
+
+`vendors[]` is the **routing prefix** of the module — exactly one element. Single-vendor module: the vendor's own name (`["openai"]`). Gateway module routing to many upstreams: the gateway's own name (`["openrouter"]`), not the upstream list.
+
+`model` in `CreateCompletionRequest` is `<vendors[0]>/<rest>`; `<rest>` may itself contain slashes for gateway modules (canonical `openrouter/openai/gpt-4o`). The module is responsible for stripping its own prefix before forwarding to the upstream API. `AI_LLM_STRUCTURAL_VENDOR_MISMATCH` fires when `model` does not start with `<vendors[0]>/`.
+
+Optional gateway-only field:
+
+```json
+{
+  "capabilities": {
+    "vendors": ["openrouter"],
+    "gateway_upstreams": ["openai", "anthropic", "google", "meta", "mistralai", "deepseek"]
+  }
+}
+```
+
+`gateway_upstreams[]` is informational — used by catalog/UX/conformance to enumerate which upstream providers the gateway can route to. It does not influence routing.
 
 ## Out of scope
 
