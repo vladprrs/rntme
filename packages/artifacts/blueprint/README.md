@@ -4,7 +4,7 @@ Project-first blueprint parser/validator for rntme.
 
 ## Role in the system
 
-- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `@rntme/workflows`, `zod`
+- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `@rntme/workflows`, `@rntme/platform-core`, `zod`
 - Consumed by: future runtime/tooling tracks
 - Position in pipeline:
   `project directory`
@@ -34,6 +34,12 @@ Project-first blueprint parser/validator for rntme.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
 - `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
 - `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task command binding refs through the project binding registry.
+- `materializeBundle(bundle)` — write a canonical project-version bundle
+  (`files` plus base64 `assets`) to a temporary project directory with path
+  traversal and collision checks.
+- `materializeAndCompose(bundle)` — materialize a canonical bundle, run
+  `loadComposedBlueprint`, return `{ composed, summary }`, and clean up the
+  temporary directory.
 - `readServiceGraphSpec(...)` — load service graph shapes and graph JSON files.
 - `eventTypesForService(...)` — scope project `PDM` event types for service seed validation.
 - `parseProjectBlueprint(raw)` — parse the `project.json` document shape.
