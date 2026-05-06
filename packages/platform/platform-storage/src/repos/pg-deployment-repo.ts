@@ -215,6 +215,7 @@ export class PgDeploymentRepo implements DeploymentRepo {
              finished_at=now(),
              error_code=$3,
              error_message=$4,
+             error_tree=$8::jsonb,
              apply_result=COALESCE($5::jsonb, apply_result),
              verification_report=$6::jsonb,
              warnings=$7::jsonb
@@ -229,6 +230,7 @@ export class PgDeploymentRepo implements DeploymentRepo {
           jsonParam(args.applyResult ?? null),
           jsonParam(args.verificationReport ?? null),
           jsonParam(args.warnings ?? []),
+          jsonParam(args.errorTree ?? null),
         ],
       );
       const row = updated.rows[0] as DbRow | undefined;
@@ -438,6 +440,7 @@ function rowToDeployment(r: DbRow): Deployment {
     warnings: r['warnings'] as unknown[],
     errorCode: (r['error_code'] ?? null) as string | null,
     errorMessage: (r['error_message'] ?? null) as string | null,
+    errorTree: (r['error_tree'] ?? null) as PlatformError | null,
     startedByAccountId: r['started_by_account_id'] as string,
     queuedAt: r['queued_at'] as Date,
     startedAt: (r['started_at'] ?? null) as Date | null,

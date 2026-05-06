@@ -1,6 +1,7 @@
 import type { Buffer } from 'node:buffer';
 import { sql } from 'drizzle-orm';
 import { check, customType, index, jsonb, pgEnum, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { PlatformError } from '@rntme/platform-core';
 import { account, organization } from './identity.js';
 import { projectVersion } from './project-version.js';
 import { project } from './projects.js';
@@ -56,6 +57,7 @@ export const deployment = pgTable(
     warnings: jsonb('warnings').$type<unknown[]>().notNull().default([]),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
+    errorTree: jsonb('error_tree').$type<PlatformError>(),
     startedByAccountId: uuid('started_by_account_id')
       .notNull()
       .references(() => account.id),
