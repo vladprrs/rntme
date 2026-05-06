@@ -37,6 +37,13 @@ export function planWorkflowEngine(input: {
       code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
       message: 'workflow projects require provisioned Operaton config',
       path: 'workflows.engine',
+      cause: [
+        {
+          code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON_HINT',
+          message:
+            'create a workflow-ready target with `rntme target create <slug> --workflow-engine-image <operaton-image> --workflow-worker-image <worker-image> ...`, or patch the existing target with `rntme target set-config <slug> --from <patch.json>`.',
+        },
+      ],
     });
     return { engine: { kind: 'none' }, worker: null };
   }
@@ -56,6 +63,14 @@ export function planWorkflowEngine(input: {
       code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
       message: 'workflow projects require a non-empty Operaton image',
       path: 'workflows.engine.image',
+      cause: [
+        {
+          code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON_HINT',
+          message:
+            'fix with `rntme target set-config <slug> --from <patch.json>` containing {"workflows":{"engine":{"kind":"operaton","mode":"provisioned","image":"operaton/operaton:..."}}}.',
+          path: 'workflows.engine.image',
+        },
+      ],
     });
     return { engine: { kind: 'none' }, worker: null };
   }

@@ -454,6 +454,12 @@ describe('workflow planning', () => {
         expect.objectContaining({
           code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
           path: 'workflows.engine.image',
+          cause: [
+            expect.objectContaining({
+              code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON_HINT',
+              message: expect.stringContaining('rntme target set-config'),
+            }),
+          ],
         }),
       );
     }
