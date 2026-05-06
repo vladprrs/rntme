@@ -1500,9 +1500,15 @@ importers:
       '@grpc/grpc-js':
         specifier: ^1.10.0
         version: 1.14.3
+      '@rntme/event-store':
+        specifier: workspace:*
+        version: link:../event-store
       '@rntme/workflows':
         specifier: workspace:*
         version: link:../../artifacts/workflows
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
       protobufjs:
         specifier: ^7.2.0
         version: 7.5.5

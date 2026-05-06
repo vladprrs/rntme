@@ -27,9 +27,21 @@ export type WorkerConfig = {
   readonly workflowsManifestPath: string;
   readonly workflowServiceEndpoints?: WorkflowServiceEndpointMap;
   readonly workflowGrpcServices?: WorkflowGrpcServiceRegistry;
+  readonly workflowSubscriptions: readonly PlannedWorkflowSubscriptionInput[];
 };
 
 export type LoadedWorkerManifest = WorkflowArtifact;
+
+export type PlannedWorkflowSubscriptionInput = {
+  readonly messageStartId: string;
+  readonly topic: string;
+  readonly service: string;
+  readonly aggregateType: string;
+  readonly eventType: string;
+  readonly processId: string;
+  readonly messageName: string;
+  readonly businessKey: string;
+};
 
 export type CommandMetadata = {
   readonly commandId: string;
