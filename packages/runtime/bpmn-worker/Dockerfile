@@ -1,5 +1,6 @@
 FROM node:20-alpine AS deps
 WORKDIR /repo
+RUN apk add --no-cache python3 make g++
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
