@@ -89,6 +89,7 @@ export type ServiceArtifactPresence = {
   hasUi: boolean;
   hasSeed: boolean;
   hasQsm: boolean;
+  hasCommandHandlers: boolean;
 };
 
 export type CompositionService = ServiceDescriptor & {

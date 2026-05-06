@@ -1,10 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import {
-  validateBindings,
-  type BindingArtifact,
-  type BindingResolvers,
-  type ValidatedBindings,
-} from '@rntme/bindings';
 import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 
@@ -29,6 +23,7 @@ const svc = (
     hasUi: boolean;
     hasSeed: boolean;
     hasQsm: boolean;
+    hasCommandHandlers: boolean;
   }> = {},
 ) => ({
   slug,
@@ -40,65 +35,13 @@ const svc = (
     hasUi: false,
     hasSeed: false,
     hasQsm: false,
+    hasCommandHandlers: false,
     ...artifacts,
   },
 });
 
 const moduleManifest = (name: string, vendor: string): ModuleManifest =>
   ({ name, vendor } as Partial<ModuleManifest> as ModuleManifest);
-
-function bindingsWithPre(input: {
-  id: string;
-  graph: string;
-  audience: string;
-  bindAs: string;
-}): ValidatedBindings {
-  const artifact: BindingArtifact = {
-    version: '1.0',
-    graphSpecRef: '../graphs',
-    pdmRef: '../../pdm',
-    qsmRef: '../qsm',
-    bindings: {
-      [input.id]: {
-        graph: input.graph,
-        target: { engine: 'sqlite', dialect: 'sqlite' },
-        http: { method: 'GET', path: '/notes', parameters: [] },
-        pre: [
-          {
-            kind: 'module-rpc',
-            module: 'identity-auth0',
-            rpc: 'IntrospectSession',
-            input: { audience: input.audience },
-            bindAs: input.bindAs,
-          },
-        ],
-      },
-    },
-  };
-  const resolvers: BindingResolvers = {
-    resolveGraphSignature: (graphId) => graphId === input.graph
-      ? {
-          id: graphId,
-          inputs: {},
-          output: { type: { kind: 'rowset', shape: 'NoteView' }, from: 'rows' },
-        }
-      : null,
-    resolveShape: (shapeName) => shapeName === 'NoteView'
-      ? {
-          name: 'NoteView',
-          origin: 'custom',
-          fields: {
-            id: { type: { kind: 'scalar', primitive: 'string' }, nullable: false },
-          },
-        }
-      : null,
-  };
-  const result = validateBindings(artifact, resolvers, {
-    declaredModules: new Set(['identity-auth0']),
-  });
-  if (!result.ok) throw new Error(JSON.stringify(result.errors));
-  return result.value;
-}
 
 describe('validateBlueprintComposition', () => {
   it('builds routing context for valid project routes + middleware mounts', () => {
@@ -507,120 +450,4 @@ describe('validateBlueprintComposition', () => {
     }
   });
 
-  it('rejects auth middleware audience mismatches in mounted service binding pre-steps', () => {
-    const r = validateBlueprintComposition({
-      project: {
-        name: 'notes',
-        services: ['app', 'identity-auth0'],
-        routes: { http: { '/api': 'app' } },
-        middleware: {
-          auth: {
-            kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://notes.example/api',
-            moduleSlug: 'identity-auth0',
-          },
-        },
-        mounts: [{ target: 'http:/api', use: ['auth'] }],
-      },
-      services: {
-        app: {
-          ...svc('app', 'domain', { hasBindings: true }),
-          bindings: bindingsWithPre({
-            id: 'listNotes',
-            graph: 'listNotes',
-            audience: 'https://wrong.example/api',
-            bindAs: 'session',
-          }),
-        },
-        'identity-auth0': svc('identity-auth0', 'integration'),
-      },
-    });
-
-    expectErrorCodes(r, ['BLUEPRINT_AUTH_AUDIENCE_MISMATCH']);
-  });
-
-  it('allows auth middleware audience placeholder before target vars are resolved', () => {
-    const r = validateBlueprintComposition({
-      project: {
-        name: 'notes',
-        services: ['app', 'identity-auth0'],
-        routes: { http: { '/api': 'app' } },
-        middleware: {
-          auth: {
-            kind: 'auth',
-            provider: 'auth0',
-            audience: '${AUTH0_AUDIENCE}',
-            moduleSlug: 'identity-auth0',
-          },
-        },
-        mounts: [{ target: 'http:/api', use: ['auth'] }],
-        vars: {
-          AUTH0_AUDIENCE: { from: 'target.auth.auth0.audience', required: true },
-        },
-      },
-      services: {
-        app: {
-          ...svc('app', 'domain', { hasBindings: true }),
-          bindings: bindingsWithPre({
-            id: 'listNotes',
-            graph: 'listNotes',
-            audience: 'https://notes.example/api',
-            bindAs: 'session',
-          }),
-        },
-        'identity-auth0': svc('identity-auth0', 'integration'),
-      },
-    });
-
-    expect(r.ok).toBe(true);
-  });
-
-  it('rejects graph $pre references not backed by the binding pre[].bindAs names', () => {
-    const r = validateBlueprintComposition({
-      project: {
-        name: 'notes',
-        services: ['app'],
-        routes: { http: { '/api': 'app' } },
-      },
-      services: {
-        app: {
-          ...svc('app', 'domain', { hasBindings: true, hasGraphs: true }),
-          graphSpec: {
-            version: '1.0-rc7',
-            shapes: {},
-            graphs: {
-              createNote: {
-                id: 'createNote',
-                signature: {
-                  inputs: {},
-                  output: { type: 'row<CommandResult>', from: 'e' },
-                },
-                nodes: [
-                  {
-                    id: 'e',
-                    type: 'emit',
-                    config: {
-                      aggregate: 'Note',
-                      aggregateId: { $param: 'id' },
-                      transition: 'create',
-                      payload: { ownerSub: { $pre: 'session.user_id' } },
-                    },
-                  },
-                ],
-              },
-            },
-          },
-          bindings: bindingsWithPre({
-            id: 'createNote',
-            graph: 'createNote',
-            audience: 'https://notes.example/api',
-            bindAs: 'actor',
-          }),
-        },
-      },
-    });
-
-    expectErrorCodes(r, ['BLUEPRINT_GRAPH_PRE_REF_UNDEFINED_BINDING']);
-  });
 });

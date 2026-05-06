@@ -125,7 +125,6 @@ describe('runDeployment', () => {
     const input = calls[0]![0];
     const runtimeFiles = input.services.api.runtimeFiles;
     const manifest = JSON.parse(runtimeFiles['manifest.json']!) as {
-      commands?: { handlersModule?: string };
       surface?: {
         http?: { enabled: boolean; port: number };
         grpc?: { enabled: boolean; port: number };
@@ -141,11 +140,11 @@ describe('runDeployment', () => {
       http: { enabled: true, port: 3000 },
       grpc: { enabled: true, port: 50051 },
     });
-    expect(manifest.commands?.handlersModule).toBe('commands/handlers.mjs');
+    expect(runtimeFiles['manifest.json']).not.toContain('"commands"');
     expect(runtimeFiles['pdm.json']).toContain('"entities"');
     expect(runtimeFiles['qsm.json']).toContain('"projections"');
     expect(runtimeFiles['seed.json']).toContain('"seed-1"');
-    expect(runtimeFiles['commands/handlers.mjs']).toContain('reserveInventory');
+    expect(runtimeFiles['commands/handlers.mjs']).toBeUndefined();
     expect(runtimeFiles['shapes.json']).toContain('"NoteView"');
     expect(runtimeFiles['ui/manifest.json']).toContain('"2.0"');
     const uiBuildFiles = Object.entries(runtimeFiles).filter(([path]) => path.startsWith('ui-build/'));
@@ -1188,7 +1187,14 @@ function composedBlueprint(): ComposedBlueprint {
         slug: 'api',
         kind: 'domain',
         qsm: null,
-        artifacts: { hasGraphs: true, hasBindings: true, hasUi: true, hasSeed: true, hasQsm: true },
+        artifacts: {
+          hasGraphs: true,
+          hasBindings: true,
+          hasUi: true,
+          hasSeed: true,
+          hasQsm: true,
+          hasCommandHandlers: false,
+        },
         graphSpec: {
           version: '1.0-rc7',
           shapes: { NoteView: { fields: {} } },
@@ -1228,7 +1234,14 @@ function composedBlueprintWithAuthModule(): ComposedBlueprint {
         slug: 'identity-auth0',
         kind: 'integration-module',
         qsm: null,
-        artifacts: { hasGraphs: false, hasBindings: false, hasUi: false, hasSeed: false, hasQsm: false },
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: false,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: false,
+          hasCommandHandlers: false,
+        },
         graphSpec: null,
         qsmValidated: null,
         bindings: null,
