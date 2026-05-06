@@ -2,16 +2,43 @@
   "id": "searchIssues",
   "signature": {
     "inputs": {
-      "q": { "type": "string", "mode": "required" },
-      "from": { "type": "datetime", "mode": "required" },
-      "to": { "type": "datetime", "mode": "required" },
-      "priority": { "type": "string", "mode": "predicate_optional" },
-      "limit": { "type": "integer", "mode": "defaulted", "default": 20 }
+      "q": {
+        "type": "string",
+        "mode": "required"
+      },
+      "from": {
+        "type": "datetime",
+        "mode": "required"
+      },
+      "to": {
+        "type": "datetime",
+        "mode": "required"
+      },
+      "priority": {
+        "type": "string",
+        "mode": "predicate_optional"
+      },
+      "limit": {
+        "type": "integer",
+        "mode": "defaulted",
+        "default": 20
+      }
     },
-    "output": { "type": "rowset<Issue>", "from": "paged" }
+    "output": {
+      "type": "rowset<Issue>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "entity": "Issue"
+        }
+      }
+    },
     {
       "id": "baseFiltered",
       "type": "filter",
@@ -19,8 +46,25 @@
         "input": "items",
         "expr": {
           "and": [
-            { "like": ["issue.title", { "$param": "q" }] },
-            { "between": ["issue.createdAt", { "$param": "from" }, { "$param": "to" }] }
+            {
+              "like": [
+                "issue.title",
+                {
+                  "$param": "q"
+                }
+              ]
+            },
+            {
+              "between": [
+                "issue.createdAt",
+                {
+                  "$param": "from"
+                },
+                {
+                  "$param": "to"
+                }
+              ]
+            }
           ]
         }
       }
@@ -30,7 +74,14 @@
       "type": "filter",
       "config": {
         "input": "baseFiltered",
-        "expr": { "eq": ["issue.priority", { "$param": "priority" }] }
+        "expr": {
+          "eq": [
+            "issue.priority",
+            {
+              "$param": "priority"
+            }
+          ]
+        }
       }
     },
     {
@@ -38,13 +89,31 @@
       "type": "sort",
       "config": {
         "input": "priorityFiltered",
-        "by": [{ "field": "issue.createdAt", "dir": "desc", "nulls": "last" }]
+        "by": [
+          {
+            "field": "issue.createdAt",
+            "dir": "desc",
+            "nulls": "last"
+          }
+        ]
       }
     },
     {
       "id": "paged",
       "type": "limit",
-      "config": { "input": "sorted", "count": { "$param": "limit" } }
+      "config": {
+        "input": "sorted",
+        "count": {
+          "$param": "limit"
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "paged"
+      }
     }
   ]
 }

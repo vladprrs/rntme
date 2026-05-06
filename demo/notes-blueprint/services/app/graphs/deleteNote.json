@@ -2,16 +2,55 @@
   "id": "deleteNote",
   "signature": {
     "inputs": {
-      "id": { "type": "string", "mode": "required" }
+      "id": {
+        "type": "string",
+        "mode": "required"
+      },
+      "authorization": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": {
+      "type": "row<NoteActionResult>",
+      "from": "out"
+    }
   },
   "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": {
+          "$param": "authorization"
+        },
+        "audience": {
+          "$literal": "${auth.audience}"
+        }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": {
+          "attempts": 2,
+          "retryOn": "transient"
+        },
+        "idempotency": {
+          "mode": "none"
+        },
+        "onError": "fail"
+      }
+    },
     {
       "id": "all",
       "type": "findMany",
       "config": {
-        "source": { "projection": "NoteView" }
+        "source": {
+          "projection": "NoteView"
+        }
       }
     },
     {
@@ -21,8 +60,22 @@
         "input": "all",
         "expr": {
           "and": [
-            { "eq": ["noteView.id", { "$param": "id" }] },
-            { "eq": ["noteView.ownerSub", { "$pre": "session.user_id" }] }
+            {
+              "eq": [
+                "noteView.id",
+                {
+                  "$param": "id"
+                }
+              ]
+            },
+            {
+              "eq": [
+                "noteView.ownerSub",
+                {
+                  "$ref": "session.result.user_id"
+                }
+              ]
+            }
           ]
         }
       }
@@ -32,9 +85,23 @@
       "type": "emit",
       "config": {
         "aggregate": "Note",
-        "aggregateId": { "$param": "id" },
+        "aggregateId": {
+          "$param": "id"
+        },
         "transition": "delete",
         "payload": {}
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "noteId": {
+          "$ref": "emit.aggregateId"
+        },
+        "version": {
+          "$ref": "emit.version"
+        }
       }
     }
   ]

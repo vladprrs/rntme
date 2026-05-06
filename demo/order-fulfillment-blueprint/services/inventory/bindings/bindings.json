@@ -5,9 +5,11 @@
   "qsmRef": "../qsm",
   "bindings": {
     "reserveStock": {
-      "kind": "command",
       "graph": "reserveStock",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "POST",
         "path": "/reservations",
@@ -18,7 +20,12 @@
             "bindTo": "orderId",
             "required": true
           },
-          { "name": "sku", "in": "body", "bindTo": "sku", "required": true },
+          {
+            "name": "sku",
+            "in": "body",
+            "bindTo": "sku",
+            "required": true
+          },
           {
             "name": "quantity",
             "in": "body",
@@ -26,12 +33,15 @@
             "required": true
           }
         ]
-      }
+      },
+      "exposure": "action"
     },
     "getReservation": {
-      "kind": "query",
       "graph": "getReservation",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "GET",
         "path": "/reservations/{orderId}",
@@ -43,7 +53,8 @@
             "required": true
           }
         ]
-      }
+      },
+      "exposure": "read"
     }
   }
 }

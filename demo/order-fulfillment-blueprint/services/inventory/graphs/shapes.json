@@ -15,5 +15,12 @@
       "reason": { "type": "string", "nullable": true },
       "status": { "type": "string", "nullable": false }
     }
+  },
+  "ReservationResult": {
+    "fields": {
+      "reserved": { "type": "boolean", "nullable": false },
+      "reservationId": { "type": "string", "nullable": true },
+      "reason": { "type": "string", "nullable": true }
+    }
   }
 }

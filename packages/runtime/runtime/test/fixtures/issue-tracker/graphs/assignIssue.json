@@ -2,10 +2,19 @@
   "id": "assignIssue",
   "signature": {
     "inputs": {
-      "issueId":    { "type": "integer", "mode": "required" },
-      "assigneeId": { "type": "integer", "mode": "required" }
+      "issueId": {
+        "type": "integer",
+        "mode": "required"
+      },
+      "assigneeId": {
+        "type": "integer",
+        "mode": "required"
+      }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": {
+      "type": "row<IssueMutationResult>",
+      "from": "out"
+    }
   },
   "nodes": [
     {
@@ -13,9 +22,27 @@
       "type": "emit",
       "config": {
         "aggregate": "Issue",
-        "aggregateId": { "$param": "issueId" },
+        "aggregateId": {
+          "$param": "issueId"
+        },
         "transition": "assign",
-        "payload": { "assigneeId": { "$param": "assigneeId" } }
+        "payload": {
+          "assigneeId": {
+            "$param": "assigneeId"
+          }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "version": {
+          "$ref": "emit.version"
+        },
+        "aggregateId": {
+          "$ref": "emit.aggregateId"
+        }
       }
     }
   ]

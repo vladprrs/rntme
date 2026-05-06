@@ -2,22 +2,50 @@
   "id": "issuesByProject",
   "signature": {
     "inputs": {},
-    "output": { "type": "rowset<ProjectStats>", "from": "grouped" }
+    "output": {
+      "type": "rowset<ProjectStats>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "entity": "Issue"
+        }
+      }
+    },
     {
       "id": "grouped",
       "type": "reduce",
       "config": {
         "input": "items",
         "into": "ProjectStats",
-        "group": { "projectKey": "issue.project.key" },
+        "group": {
+          "projectKey": "issue.project.key"
+        },
         "measures": {
-          "issueCount": { "fn": "count" },
-          "totalStoryPoints": { "fn": "sum", "expr": "issue.storyPoints" },
-          "avgStoryPoints": { "fn": "avg", "expr": "issue.storyPoints" }
+          "issueCount": {
+            "fn": "count"
+          },
+          "totalStoryPoints": {
+            "fn": "sum",
+            "expr": "issue.storyPoints"
+          },
+          "avgStoryPoints": {
+            "fn": "avg",
+            "expr": "issue.storyPoints"
+          }
         }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "grouped"
       }
     }
   ]

@@ -2,10 +2,19 @@
   "id": "cancelOrder",
   "signature": {
     "inputs": {
-      "orderId": { "type": "string", "mode": "required" },
-      "reason": { "type": "string", "mode": "required" }
+      "orderId": {
+        "type": "string",
+        "mode": "required"
+      },
+      "reason": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": {
+      "type": "row<OrderActionResult>",
+      "from": "out"
+    }
   },
   "nodes": [
     {
@@ -13,10 +22,26 @@
       "type": "emit",
       "config": {
         "aggregate": "Order",
-        "aggregateId": { "$param": "orderId" },
+        "aggregateId": {
+          "$param": "orderId"
+        },
         "transition": "cancel",
         "payload": {
-          "cancelReason": { "$param": "reason" }
+          "cancelReason": {
+            "$param": "reason"
+          }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "orderId": {
+          "$ref": "emit.aggregateId"
+        },
+        "version": {
+          "$ref": "emit.version"
         }
       }
     }

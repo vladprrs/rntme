@@ -75,15 +75,41 @@ function scaffoldProject(): string {
     writeJson(join(dir, `services/${service}/service.json`), {
       kind: 'domain',
     });
-    writeJson(join(dir, `services/${service}/graphs/shapes.json`), {});
+    writeJson(join(dir, `services/${service}/graphs/shapes.json`), {
+      WorkflowActionResult: {
+        fields: {
+          aggregateId: { type: 'string', nullable: false },
+          version: { type: 'integer', nullable: false },
+        },
+      },
+    });
   }
   writeJson(join(dir, 'services/orders/graphs/confirmOrder.json'), {
     id: 'confirmOrder',
     signature: {
       inputs: {},
-      output: { type: 'row<CommandResult>', from: 'emit' },
+      output: { type: 'row<WorkflowActionResult>', from: 'out' },
     },
-    nodes: [{ type: 'emit' }],
+    nodes: [
+      {
+        id: 'emit',
+        type: 'emit',
+        config: {
+          aggregate: 'Order',
+          aggregateId: { $literal: 'order-1' },
+          transition: 'confirm',
+          payload: {},
+        },
+      },
+      {
+        id: 'out',
+        type: 'result',
+        value: {
+          aggregateId: { $ref: 'emit.aggregateId' },
+          version: { $ref: 'emit.version' },
+        },
+      },
+    ],
   });
   writeJson(join(dir, 'services/orders/bindings/bindings.json'), {
     version: '1.0',
@@ -92,7 +118,7 @@ function scaffoldProject(): string {
     qsmRef: '../qsm',
     bindings: {
       confirmOrder: {
-        kind: 'command',
+        exposure: 'action',
         graph: 'confirmOrder',
         target: { engine: 'sqlite', dialect: 'sqlite' },
         http: { method: 'POST', path: '/confirm', parameters: [] },
@@ -103,9 +129,30 @@ function scaffoldProject(): string {
     id: 'reserveStock',
     signature: {
       inputs: {},
-      output: { type: 'row<CommandResult>', from: 'emit' },
+      output: { type: 'row<WorkflowActionResult>', from: 'out' },
     },
-    nodes: [{ type: 'emit' }],
+    nodes: [
+      {
+        id: 'emit',
+        type: 'emit',
+        config: {
+          aggregate: 'StockReservation',
+          aggregateId: { $literal: 'reservation-1' },
+          transition: 'reserve',
+          payload: {
+            orderId: { $literal: 'order-1' },
+          },
+        },
+      },
+      {
+        id: 'out',
+        type: 'result',
+        value: {
+          aggregateId: { $ref: 'emit.aggregateId' },
+          version: { $ref: 'emit.version' },
+        },
+      },
+    ],
   });
   writeJson(join(dir, 'services/inventory/bindings/bindings.json'), {
     version: '1.0',
@@ -114,7 +161,7 @@ function scaffoldProject(): string {
     qsmRef: '../qsm',
     bindings: {
       reserveStock: {
-        kind: 'command',
+        exposure: 'action',
         graph: 'reserveStock',
         target: { engine: 'sqlite', dialect: 'sqlite' },
         http: { method: 'POST', path: '/reserve', parameters: [] },

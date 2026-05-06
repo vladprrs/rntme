@@ -2,24 +2,88 @@
   "id": "createNote",
   "signature": {
     "inputs": {
-      "title": { "type": "string", "mode": "required" },
-      "body":  { "type": "string", "mode": "required" }
+      "title": {
+        "type": "string",
+        "mode": "required"
+      },
+      "body": {
+        "type": "string",
+        "mode": "required"
+      },
+      "authorization": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": {
+      "type": "row<NoteActionResult>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": {
+          "$param": "authorization"
+        },
+        "audience": {
+          "$literal": "${auth.audience}"
+        }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": {
+          "attempts": 2,
+          "retryOn": "transient"
+        },
+        "idempotency": {
+          "mode": "none"
+        },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "newId",
+      "type": "uuid",
+      "config": {}
+    },
     {
       "id": "emit",
       "type": "emit",
       "config": {
         "aggregate": "Note",
-        "aggregateId": { "$node": "newId" },
+        "aggregateId": {
+          "$node": "newId"
+        },
         "transition": "create",
         "payload": {
-          "title":    { "$param": "title" },
-          "body":     { "$param": "body" },
-          "ownerSub": { "$pre":   "session.user_id" }
+          "title": {
+            "$param": "title"
+          },
+          "body": {
+            "$param": "body"
+          },
+          "ownerSub": {
+            "$ref": "session.result.user_id"
+          }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "noteId": {
+          "$ref": "emit.aggregateId"
+        },
+        "version": {
+          "$ref": "emit.version"
         }
       }
     }

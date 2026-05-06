@@ -22,6 +22,13 @@ type BpmnIds = {
   readonly serviceTaskIds: readonly string[];
 };
 
+type GraphFixture = {
+  readonly nodes: readonly {
+    readonly id?: string;
+    readonly type?: string;
+  }[];
+};
+
 function readXmlAttribute(
   source: string,
   attributeName: string,
@@ -169,10 +176,12 @@ describe('order-fulfillment BPMN demo blueprint', () => {
       join(demoDir, 'workflows/order-fulfillment.bpmn'),
       'utf8',
     );
-    const inventoryHandlers = readFileSync(
-      join(demoDir, 'services/inventory/commands/handlers.mjs'),
-      'utf8',
-    );
+    const reserveStockGraph = JSON.parse(
+      readFileSync(
+        join(demoDir, 'services/inventory/graphs/reserveStock.json'),
+        'utf8',
+      ),
+    ) as GraphFixture;
     const bpmnIds = readBpmnIds(bpmn);
 
     expect(definition.processId).toBe(bpmnIds.processId);
@@ -198,9 +207,9 @@ describe('order-fulfillment BPMN demo blueprint', () => {
     expect(bpmn).toContain('reservation.prop("reserved").boolValue() == false');
     expect(bpmn).not.toContain('reservation.aggregateId');
     expect(bpmn).not.toContain('reservation.status');
-    expect(inventoryHandlers).toContain('missing-stock');
-    expect(inventoryHandlers).toContain('StockReserved');
-    expect(inventoryHandlers).toContain('StockReservationRejected');
+    expect(reserveStockGraph.nodes.some((node) => node.type === 'branch')).toBe(true);
+    expect(reserveStockGraph.nodes.some((node) => node.id === 'emitRejected')).toBe(true);
+    expect(reserveStockGraph.nodes.some((node) => node.type === 'result')).toBe(true);
   });
 
 });

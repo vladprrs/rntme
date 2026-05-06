@@ -2,12 +2,26 @@
   "id": "sprintBurndown",
   "signature": {
     "inputs": {
-      "sprintId": { "type": "integer", "mode": "required" }
+      "sprintId": {
+        "type": "integer",
+        "mode": "required"
+      }
     },
-    "output": { "type": "rowset<BurndownBucket>", "from": "grouped" }
+    "output": {
+      "type": "rowset<BurndownBucket>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "entity": "Issue" } } },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "entity": "Issue"
+        }
+      }
+    },
     {
       "id": "filtered",
       "type": "filter",
@@ -15,8 +29,22 @@
         "input": "items",
         "expr": {
           "and": [
-            { "eq": ["issue.sprintId", { "$param": "sprintId" }] },
-            { "neq": ["issue.status", { "$literal": "closed" }] }
+            {
+              "eq": [
+                "issue.sprintId",
+                {
+                  "$param": "sprintId"
+                }
+              ]
+            },
+            {
+              "neq": [
+                "issue.status",
+                {
+                  "$literal": "closed"
+                }
+              ]
+            }
           ]
         }
       }
@@ -27,11 +55,25 @@
       "config": {
         "input": "filtered",
         "into": "BurndownBucket",
-        "group": { "status": "issue.status" },
+        "group": {
+          "status": "issue.status"
+        },
         "measures": {
-          "issueCount": { "fn": "count" },
-          "totalStoryPoints": { "fn": "sum", "expr": "issue.storyPoints" }
+          "issueCount": {
+            "fn": "count"
+          },
+          "totalStoryPoints": {
+            "fn": "sum",
+            "expr": "issue.storyPoints"
+          }
         }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "grouped"
       }
     }
   ]

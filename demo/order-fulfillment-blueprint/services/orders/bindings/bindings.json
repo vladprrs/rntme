@@ -5,14 +5,21 @@
   "qsmRef": "../qsm",
   "bindings": {
     "placeOrder": {
-      "kind": "command",
       "graph": "placeOrder",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "POST",
         "path": "/orders",
         "parameters": [
-          { "name": "sku", "in": "body", "bindTo": "sku", "required": true },
+          {
+            "name": "sku",
+            "in": "body",
+            "bindTo": "sku",
+            "required": true
+          },
           {
             "name": "quantity",
             "in": "body",
@@ -20,12 +27,15 @@
             "required": true
           }
         ]
-      }
+      },
+      "exposure": "action"
     },
     "confirmOrder": {
-      "kind": "command",
       "graph": "confirmOrder",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "POST",
         "path": "/orders/{orderId}/confirm",
@@ -43,12 +53,15 @@
             "required": true
           }
         ]
-      }
+      },
+      "exposure": "action"
     },
     "cancelOrder": {
-      "kind": "command",
       "graph": "cancelOrder",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "POST",
         "path": "/orders/{orderId}/cancel",
@@ -66,19 +79,28 @@
             "required": true
           }
         ]
-      }
+      },
+      "exposure": "action"
     },
     "getOrder": {
-      "kind": "query",
       "graph": "getOrder",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "GET",
         "path": "/orders/{id}",
         "parameters": [
-          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+          {
+            "name": "id",
+            "in": "path",
+            "bindTo": "id",
+            "required": true
+          }
         ]
-      }
+      },
+      "exposure": "read"
     }
   }
 }

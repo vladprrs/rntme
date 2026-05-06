@@ -2,28 +2,55 @@
   "id": "getOrder",
   "signature": {
     "inputs": {
-      "id": { "type": "string", "mode": "required" }
+      "id": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "rowset<OrderView>", "from": "one" }
+    "output": {
+      "type": "rowset<OrderView>",
+      "from": "out"
+    }
   },
   "nodes": [
     {
       "id": "orders",
       "type": "findMany",
-      "config": { "source": { "projection": "OrderView" } }
+      "config": {
+        "source": {
+          "projection": "OrderView"
+        }
+      }
     },
     {
       "id": "filtered",
       "type": "filter",
       "config": {
         "input": "orders",
-        "expr": { "eq": ["orderView.id", { "$param": "id" }] }
+        "expr": {
+          "eq": [
+            "orderView.id",
+            {
+              "$param": "id"
+            }
+          ]
+        }
       }
     },
     {
       "id": "one",
       "type": "limit",
-      "config": { "input": "filtered", "count": 1 }
+      "config": {
+        "input": "filtered",
+        "count": 1
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "one"
+      }
     }
   ]
 }

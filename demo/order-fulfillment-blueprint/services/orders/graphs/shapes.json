@@ -8,5 +8,11 @@
       "cancelReason": { "type": "string", "nullable": true },
       "status": { "type": "string", "nullable": false }
     }
+  },
+  "OrderActionResult": {
+    "fields": {
+      "orderId": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
   }
 }

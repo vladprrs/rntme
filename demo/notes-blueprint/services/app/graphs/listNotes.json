@@ -2,18 +2,83 @@
   "id": "listNotes",
   "signature": {
     "inputs": {
-      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+      "limit": {
+        "type": "integer",
+        "mode": "defaulted",
+        "default": 100
+      },
+      "authorization": {
+        "type": "string",
+        "mode": "required"
+      }
     },
-    "output": { "type": "rowset<NoteView>", "from": "paged" }
+    "output": {
+      "type": "rowset<NoteView>",
+      "from": "out"
+    }
   },
   "nodes": [
-    { "id": "items", "type": "findMany", "config": { "source": { "projection": "NoteView" } } },
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": {
+          "$param": "authorization"
+        },
+        "audience": {
+          "$literal": "${auth.audience}"
+        }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": {
+          "attempts": 2,
+          "retryOn": "transient"
+        },
+        "idempotency": {
+          "mode": "none"
+        },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "items",
+      "type": "findMany",
+      "config": {
+        "source": {
+          "projection": "NoteView"
+        }
+      }
+    },
     {
       "id": "filtered",
       "type": "filter",
       "config": {
         "input": "items",
-        "expr": { "eq": ["noteView.status", { "$literal": "active" }] }
+        "expr": {
+          "and": [
+            {
+              "eq": [
+                "noteView.status",
+                {
+                  "$literal": "active"
+                }
+              ]
+            },
+            {
+              "eq": [
+                "noteView.ownerSub",
+                {
+                  "$ref": "session.result.user_id"
+                }
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -21,13 +86,31 @@
       "type": "sort",
       "config": {
         "input": "filtered",
-        "by": [{ "field": "noteView.createdAt", "dir": "desc", "nulls": "last" }]
+        "by": [
+          {
+            "field": "noteView.createdAt",
+            "dir": "desc",
+            "nulls": "last"
+          }
+        ]
       }
     },
     {
       "id": "paged",
       "type": "limit",
-      "config": { "input": "sorted", "count": { "$param": "limit" } }
+      "config": {
+        "input": "sorted",
+        "count": {
+          "$param": "limit"
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "$ref": "paged"
+      }
     }
   ]
 }

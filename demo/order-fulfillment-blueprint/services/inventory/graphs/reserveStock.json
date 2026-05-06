@@ -6,12 +6,42 @@
       "sku": { "type": "string", "mode": "required" },
       "quantity": { "type": "integer", "mode": "required" }
     },
-    "output": { "type": "row<CommandResult>", "from": "emit" }
+    "output": { "type": "row<ReservationResult>", "from": "out" }
   },
   "nodes": [
-    { "id": "newId", "type": "uuid", "config": {} },
     {
-      "id": "emit",
+      "id": "item",
+      "type": "findOne",
+      "config": {
+        "source": { "projection": "InventoryItemView" },
+        "where": {
+          "eq": ["inventoryItemView.sku", { "$param": "sku" }]
+        }
+      }
+    },
+    {
+      "id": "newId",
+      "type": "uuid",
+      "config": {}
+    },
+    {
+      "id": "decision",
+      "type": "branch",
+      "cases": [
+        {
+          "when": {
+            "gte": [
+              { "$ref": "item.available" },
+              { "$param": "quantity" }
+            ]
+          },
+          "then": "emitReserved"
+        },
+        { "default": true, "then": "emitRejected" }
+      ]
+    },
+    {
+      "id": "emitReserved",
       "type": "emit",
       "config": {
         "aggregate": "StockReservation",
@@ -22,6 +52,30 @@
           "sku": { "$param": "sku" },
           "quantity": { "$param": "quantity" }
         }
+      }
+    },
+    {
+      "id": "emitRejected",
+      "type": "emit",
+      "config": {
+        "aggregate": "StockReservation",
+        "aggregateId": { "$node": "newId" },
+        "transition": "rejected",
+        "payload": {
+          "orderId": { "$param": "orderId" },
+          "sku": { "$param": "sku" },
+          "quantity": { "$param": "quantity" },
+          "reason": { "$literal": "insufficient stock" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "reserved": { "$ref": "emitReserved.didRun" },
+        "reservationId": { "$ref": "emitReserved.aggregateId" },
+        "reason": { "$ref": "emitRejected.payload.after.reason" }
       }
     }
   ]

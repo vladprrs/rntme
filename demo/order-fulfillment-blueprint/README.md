@@ -28,10 +28,9 @@ The BPMN gateway uses Operaton/Camunda Spin JSON accessors
 (`reservation.prop("reserved").boolValue()`) because the worker stores object
 command results as Operaton `Json` process variables.
 
-`inventory` includes a service-local code command handler at
-`services/inventory/commands/handlers.mjs`. The handler keeps `reserveStock`
-as a successful business command in both branches: SKU `missing-stock` appends
-`StockReservationRejected` and returns `{ reserved: false, reason:
+`inventory` implements `reserveStock` as an action graph. The graph branches
+inside Graph IR: SKU `missing-stock` follows the rejection path, appends
+`StockReservationRejected`, and returns `{ reserved: false, reason:
 "insufficient stock" }`; all other SKUs append `StockReserved` and return
 `{ reserved: true, reservationId }`.
 

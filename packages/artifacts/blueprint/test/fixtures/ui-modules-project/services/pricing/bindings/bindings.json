@@ -5,14 +5,17 @@
   "qsmRef": "../qsm",
   "bindings": {
     "listPrices": {
-      "kind": "query",
       "graph": "listPrices",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": {
+        "engine": "sqlite",
+        "dialect": "sqlite"
+      },
       "http": {
         "method": "GET",
         "path": "/prices",
         "parameters": []
-      }
+      },
+      "exposure": "read"
     }
   }
 }
