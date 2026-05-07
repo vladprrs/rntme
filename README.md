@@ -1,40 +1,49 @@
 # rntme
 
+![rntme](hero.png)
+
 [![CI](https://github.com/vladprrs/rntme/actions/workflows/ci.yml/badge.svg)](https://github.com/vladprrs/rntme/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-> **The safe runtime for AI-generated business workflow apps.**
+> **An open, validated runtime for AI-generated business apps.**
 >
-> Coding agents can already help teams build a first app quickly, but every additional app tends to become a custom backend snowflake. rntme turns a validated project blueprint into working APIs and a UI on a standard runtime, so teams can create workflow-heavy business apps repeatably instead of reinventing architecture each time.
+> A team — or an agent — describes the app as a project blueprint: domain model, queries, commands, HTTP bindings, UI, BPMN workflows, vendor modules. rntme validates the blueprint in layers and boots a standard runtime around it. The apps an agent generates stay consistent, observable, and reviewable across the second, third, and tenth iteration.
+>
+> Open-source under Apache 2.0.
 
-- 📖 **Vision, ICP, competitive landscape, GTM:** [`vision.md`](vision.md).
 - 🧱 **Architecture deep-dive:** [`docs/architecture.md`](docs/architecture.md).
 - 🤖 **Coding agents:** start with [`AGENTS.md`](AGENTS.md) — it has the research map, conventions, and task-indexed pointers.
+- ⚖️ **License:** [`LICENSE`](LICENSE) (Apache 2.0).
 
 ## What rntme does
 
-A team (or an agent) describes a working app as a **validated project blueprint**: a project blueprint folder containing `project.json` (project metadata, routing, and middleware), a project-level PDM, one or more services (each with its own QSM, Graph IR, bindings, UI, seed, and manifest), and integration modules. The rntme runtime validates the blueprint in layers and boots the services described by it, with project-level routing and middleware composing them into one HTTP surface — **with zero service-specific code**.
+A team (or an agent) describes a working app as a **validated project blueprint**: a project blueprint folder containing `project.json` (project metadata, routing, middleware), a project-level PDM, one or more services (each with its own QSM, Graph IR, bindings, UI, seed, and manifest), project-level workflows (BPMN), and integration modules. The rntme runtime validates the blueprint in layers and boots the services described by it, with project-level routing and middleware composing them into one HTTP surface — **with zero service-specific code**.
 
-The durable unit is the project blueprint. Teams edit the blueprint; the runtime keeps the app consistent. Agents author blueprints; the runtime enforces what's valid. The second workflow starts from a copy of the first project blueprint, not from an empty repo.
+The durable unit is the project blueprint. Teams edit the blueprint; the runtime keeps the app consistent. Agents author blueprints; the runtime enforces what's valid. The second app you build starts from a copy of the first project blueprint, not from an empty repo.
 
-**Where it fits.** rntme targets **stateful, workflow-heavy services** — approvals, ticketing, customer-ops consoles, onboarding flows, internal admin and back-office. That's the wedge; see [`vision.md`](vision.md) for the full ICP, JTBD, and competitive landscape.
+**Where it fits.** rntme targets **business processes that need consistency, observability, safety, and extensibility** — workflow apps (approvals, ticketing, customer-ops, onboarding, back-office), AI-extraction jobs (see [`demo/cv-extract-blueprint`](demo/cv-extract-blueprint)), and stateful back-office tools where every additional service shouldn't reinvent the backend.
 
 **What we deliberately do not build:** a generic AI app builder (Lovable / Bolt / Firebase Studio), a backend-as-a-service (Supabase / Appwrite / Firebase), an internal-tools low-code platform (Retool / Appsmith / ToolJet / Budibase), or an agent runtime. rntme runs the services that agents describe, not the agents themselves.
 
-## Under the hood
+## How it works
 
-The project blueprint is the market-facing surface. Internally it compiles from a project-level layer (`project.json`, project-level PDM, and optional project-level **workflows**) and per-service artifacts — **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings / UI), **bindings** (HTTP surface), **UI**, **seed**, **manifest** — through a four-layer validator onto an event-sourced SQLite runtime.
+The project blueprint is the bounded authoring object. Internally it compiles from a project-level layer (`project.json`, project-level PDM, optional project-level workflows) and per-service artifacts — **QSM** (read-side projections), **Graph IR** (queries + commands, carried by bindings / UI), **bindings** (HTTP surface), **UI**, **seed**, **manifest** — through a four-layer validator (parse → structural → references → consistency) onto an event-sourced SQLite runtime.
 
-The modules layer, executor seam (`CommandExecutor` / `QueryExecutor`), and gRPC surface add integration points without service-specific glue. CQRS, event-sourcing, SQLite / Turso, branded `Validated*` types, and plugin seams (`DbDriver`, `EventBus`, `Surface`) are **consequences** of the repeatability goal, not the identity of the product — they deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out.
+**Cross-service orchestration: BPMN.** rntme uses BPMN as the orchestration model for cross-service workflows. The current implementation provisions Operaton — the project-level `workflows` artifact compiles into deployable BPMN process definitions, executed by a separate `@rntme/bpmn-worker` workload that calls back into rntme services through gRPC action bindings. The load-bearing choice is **BPMN as the standard**, not Operaton specifically: timers, gateways, message-correlated process starts, and event-driven step sequencing come from the BPMN spec, not from rntme code we'd otherwise have to invent.
+
+**Vendor modules: typed adapters for the outside world.** Every category of external integration (identity, AI/LLM, CRM, object storage, …) has a **canonical contract** under `packages/contracts/<category>/v1` — a protobuf-shaped interface, conformance scenarios, and standardized error codes. **Vendor modules** implement that contract for a specific vendor (Auth0, OpenRouter, Bitrix24, S3-compatible storage, …) and ship as their own packages under `modules/<category>/<vendor>/`. Modules can declare a **provisioner** block in `module.json` to reconcile external resources idempotently as part of deploy (e.g. create the Auth0 client, create the S3 bucket) and feed env vars back into the runtime. This is how rntme reuses existing SDKs without losing the validated-artifact guarantee: the canonical contract is the trust boundary; the vendor module owns the SDK call.
+
+**Production-class consequences, not the identity of the product.** CQRS, event-sourcing, SQLite/Turso storage, branded `Validated*` types, plugin seams (`DbDriver`, `EventBus`, `Surface`), and executor seams (`CommandExecutor` / `QueryExecutor`) are downstream of the repeatability goal. They deliver extensibility without editing artifacts, migrations as event replay, and one-file-per-service scale-out — but they're not the headline.
 
 From the project layer and service-level artifacts, the toolchain produces:
 
 - SQLite DDL for projections and the event log.
 - SQL for every query graph and a runtime to execute it.
-- An event-sourced command runtime with optimistic concurrency, at-least-once Kafka-style relay, and bounded-retry DLQ.
+- An event-sourced command runtime with optimistic concurrency, at-least-once CloudEvents-1.0-enveloped Kafka-style relay, and bounded-retry DLQ.
 - An idempotent projection consumer that keeps the read-side eventually consistent.
 - An OpenAPI 3.1 document and a Hono HTTP surface.
 - A declarative React SPA compiled from the `ui` artifact.
-- Optional BPMN workflow deployment metadata for provisioned Operaton plus a BPMN worker.
+- BPMN workflow deployment metadata for provisioned Operaton plus a `bpmn-worker` workload, when the project declares cross-service workflows.
 
 Organised as a pnpm monorepo. Each package has a single, testable responsibility and depends only on the packages strictly below it.
 
@@ -88,17 +97,6 @@ flowchart LR
 
 > **Deep dive:** [`docs/architecture.md`](docs/architecture.md) — full C4 (L1–L4), 18 diagrams, ~25-entry cross-cutting abstractions catalogue, and a diagnostic observations section across 9 lenses.
 
-## The commercial platform (`platform.rntme.com`)
-
-The `@rntme/runtime` stack is open-source and free — that's the trust engine. The commercial platform, hosted from `apps/platform-http` and live at [`platform.rntme.com`](https://platform.rntme.com), is the monetization layer. It grows along four pillars:
-
-1. **Control plane** — organizations, projects, services, environments, API tokens, RBAC, SSO (WorkOS-backed). *Partially live.*
-2. **Registry** — publish and pull validated blueprints; content-addressed artifact bundles on S3-compatible storage; versions, tags, history, diff, lineage. *Partially live.*
-3. **Deploy surface** — promote a blueprint version onto managed infra; environments; rollbacks; preview deploys. The platform now stores encrypted Dokploy deploy targets, queues deployment records from project versions, runs the `@rntme/deploy-core` planner plus `@rntme/deploy-dokploy` adapter, captures logs/apply results/smoke evidence, and exposes the flow through REST and the UI; see [`docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`](docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md).
-4. **Governance layer** — blueprint review UI for humans (including business users who never touch code); approval workflows; audit trail; policy gates that block bad blueprints before deploy.
-
-Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/superpowers/specs/done/2026-04-19-platform-api-design.md). Strategic context: [`vision.md`](vision.md) §8 *The future platform*.
-
 ## Packages
 
 | Package | Purpose |
@@ -145,6 +143,14 @@ Design: [`docs/superpowers/specs/done/2026-04-19-platform-api-design.md`](docs/s
 [`demo/notes-blueprint`](demo/notes-blueprint) is the canonical project-shape example: a project blueprint folder with `project.json`, project-level PDM, and one or more services under `services/`.
 [`demo/order-fulfillment-blueprint`](demo/order-fulfillment-blueprint) is the BPMN workflow example: two services plus `workflows/workflows.json` and BPMN files.
 [`demo/cv-extract-blueprint`](demo/cv-extract-blueprint) is the first AI-LLM-bearing demo: resume PDF → JSON-schema-pinned structured extraction via `@rntme/ai-llm-openrouter`.
+
+### Apps
+
+| App | Purpose |
+| --- | --- |
+| [`apps/platform-http`](apps/platform-http) | **Optional self-hosted control plane.** Manages organizations, projects, deploy targets, encrypted credentials, and the artifact registry. Self-host alongside your rntme-runtime services if you want a UI for project lifecycle and deploy. |
+| [`apps/cli`](apps/cli) | `rntme` CLI: bundle a project blueprint, publish to a platform instance, trigger deploys. |
+| [`apps/landing`](apps/landing) | Source for the rntme.com landing site. Not required to run rntme. |
 
 ### Dependency graph
 
@@ -242,7 +248,7 @@ CI runs `build → typecheck → test → lint → depcruise → vendor:check` o
 - [`AGENTS.md`](AGENTS.md) — research map for coding agents: task-indexed pointers, conventions, per-package entry points.
 - `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — platform contract layer: module manifest, provisioner, client-runtime, and handler contracts extracted out of implementation packages so modules depend on contracts only.
 - `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md` — project-level BPMN workflow artifact, provisioned Operaton, and BPMN worker deployment.
-- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — historical platform modules, gRPC adapters, executor seams, idempotency cache, and callback-binding context now carried through operation calls.
+- `docs/superpowers/specs/2026-05-07-vision-deletion-readme-rework-design.md` — retiring the standalone positioning doc, condensing its essence into this README, licensing under Apache 2.0.
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — active umbrella spec for the project-first pivot: project blueprint folder, project-level PDM, service-level cross-service QSM, project routing/middleware, runtime deferred.
 - `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md` — deploy pipeline: target-neutral planning, redacted previews, Dokploy rendering, and apply flow.
 - `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md` — compiler scope and MVP deviations from rc7.
@@ -267,10 +273,11 @@ What ships today:
 - UI artifact (`@rntme/ui` + `@rntme/ui-runtime` + `@rntme/contracts-client-runtime-v1`): shadcn-catalog-based React SPA with route-local `data` (read bindings), `actions` (action or navigation bindings), module boot hooks, operation registry, transport middleware, four-layer validation, `NextAppSpec`-compatible format. No SSR.
 - CloudEvents 1.0 envelope end-to-end; topics follow `rntme.{svc}.{agg}` (no `.v1` suffix — breaking event changes use a new `eventType`, not a topic version).
 - Project blueprint composition: `project.json` + project-level PDM + N services + modules; project routes/middleware validated; project-routed binding registry compiled. Runtime intake at the project level is not yet wired.
-- Platform modules integration: `manifest.modules[]` declares external services; Graph IR `call` nodes invoke module/service operations over gRPC; HTTP action idempotency cache has a 24h TTL; callback bindings support GET + 302. Module communication is gRPC-based (`@rntme/bindings-grpc`).
-- Project workflow artifact (`@rntme/workflows`): `workflows/workflows.json` validates BPMN file refs, event-envelope message starts, and BPMN service tasks against project services and action bindings. Deploy planning supports provisioned Operaton plus a separate `bpmn-worker` workload when the deploy target provides workflow config.
+- Vendor-module integration: `manifest.modules[]` declares external services; Graph IR `call` nodes invoke vendor-module operations over gRPC; HTTP action idempotency cache has a 24h TTL; callback bindings support GET + 302. Vendor-module communication is gRPC-based (`@rntme/bindings-grpc`); canonical contracts live under `packages/contracts/<category>/v1` and are independent of any vendor implementation.
+- Project workflow artifact (`@rntme/workflows`): `workflows/workflows.json` validates BPMN file refs, event-envelope message starts, and BPMN service tasks against project services and action bindings. **BPMN as the orchestration model**; current target is provisioned Operaton plus a separate `bpmn-worker` workload when the deploy target provides workflow config.
+- Vendor modules shipping today: `auth0` (identity), `openrouter` (AI/LLM), `bitrix24` (CRM); `s3` (object storage) in design.
 
-Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, auth/authz, multi-tenancy, schema registry / breaking schema evolution.
+Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters, named predicate graphs, `distinct`, `lookupOne`, window functions, multi-tenancy, schema registry / breaking schema evolution.
 
 ## Glossary
 
@@ -293,3 +300,12 @@ Out of scope for now: snapshots, multi-aggregate commands, list/`in` parameters,
 | **Result\<T\>** | `{ ok: true; value: T } \| { ok: false; errors: E[] }` — no exceptions in the validation pipeline. |
 | **Platform contract** | Leaf package under `packages/contracts/*/v1` that exposes a cross-cutting module/platform boundary (`module.json`, provisioner, client runtime) without depending on implementation packages. |
 | **Client runtime contract** | Browser-side platform contract consumed by UI modules and `@rntme/ui-runtime`: `ModuleBootContext`, hooks/providers, operation registry, transport chain, visibility, and router helpers. |
+| **Canonical contract** | The protobuf-shaped interface, conformance scenarios, and `<CATEGORY>_<LAYER>_<KIND>` error codes for a category of external integration. Lives under `packages/contracts/<category>/v1`. Vendor modules code against the contract; the contract has no vendor knowledge. |
+| **Vendor module** | An implementation of a canonical category contract (`identity`, `ai-llm`, `crm`, `storage`, …) for a specific vendor (Auth0, OpenRouter, Bitrix24, …). Lives under `modules/<category>/<vendor>/` and ships its own `module.json`. |
+| **Provisioner** | The optional `module.json` block that lets a vendor module reconcile external resources (e.g. create the Auth0 client, create the S3 bucket) idempotently as part of `provision → plan → render → apply → verify`. The contract lives in `@rntme/contracts-provisioner-v1`. |
+
+## License
+
+rntme is released under the [Apache License 2.0](LICENSE).
+
+That includes the runtime, all artifact validators, all vendor modules in this repository, the `apps/*` workspace, and the demo blueprints. There is no separately-licensed commercial layer. If a future managed offering exists, it will be a separate product.

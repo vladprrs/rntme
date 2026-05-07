@@ -2,7 +2,8 @@
   "name": "rntme",
   "version": "0.0.0",
   "private": true,
-  "description": "rntme — the safe runtime for AI-generated business workflow apps.",
+  "description": "rntme — an open, validated runtime for AI-generated business apps.",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
