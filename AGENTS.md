@@ -64,6 +64,7 @@ CI runs build, typecheck, test, lint, depcruise, and vendor check.
 - Research -> plan -> implement for non-trivial work.
 - Use brainstorming/writing-plans skills for new behavior, architecture,
   feature, or docs-system changes.
+- Use trunk-based development (TBD) for git work.
 - Keep edits scoped to the package or doc surface implied by the task.
 - Do not revert unrelated user changes in a dirty worktree.
 - Every implementation plan includes a documentation-touch evaluation. "No
