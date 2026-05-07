@@ -6849,7 +6849,6 @@ With:
     - `@rntme-cli/platform-core`  — platform domain, use-cases, seam interfaces.
     - `@rntme-cli/platform-storage` — Postgres + rustfs adapters.
     - `@rntme-cli/platform-http`  — Hono server at `platform.rntme.com`.
-  Specs: `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`
   and `docs/history/specs/historical/2026-04-19-platform-api-design.md`.
 ```
 

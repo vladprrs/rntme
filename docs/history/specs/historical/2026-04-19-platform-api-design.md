@@ -19,7 +19,6 @@
 **Status:** design
 **Author:** brainstorm 2026-04-19
 **Location of implementation:** `rntme-cli/packages/` (private submodule `vladprrs/rntme-cli`)
-**Related:** `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics); `AGENTS.md` §3 (package layering); `project_platform_vision` memory (roadmap); `project_coolify_config`, `platform_domains` memory (infra)
 
 ## 1. Problem
 

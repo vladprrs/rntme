@@ -16,7 +16,8 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
   - `esbuild`, `@tailwindcss/cli` — build-time SPA bundling and Tailwind v4 CSS generation (dev-dependencies).
 - Consumed by:
   - `@rntme/runtime` or an embedding Hono app that mounts the returned router and pairs it with HTTP bindings.
-  - `demo/issue-tracker-api` mounts `createApp({ artifact })` at `/` and `@rntme/bindings-http` at `/api`.
+  - generated service runtimes that mount `createApp({ artifact })` at `/` and
+    HTTP bindings at `/api`.
 - Position in pipeline:
   `@rntme/ui` compiled artifact
     -> `server/index.ts` (Hono sub-router: HTML shell, manifest/layouts/screens JSON, static assets)

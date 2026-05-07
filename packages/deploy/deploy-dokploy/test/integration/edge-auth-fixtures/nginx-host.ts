@@ -15,7 +15,8 @@ export const HOST_GATEWAY_HOSTNAME = 'host.docker.internal';
  * port 8080. The container reaches the test process (introspect sidecar) via
  * the `host.docker.internal` extra-host bound to `host-gateway`.
  *
- * Requires Docker. Tests using this fixture should `describe.skipIf(!hasDocker)`.
+ * Requires a working testcontainers runtime. Tests using this fixture should
+ * skip when testcontainers cannot start containers.
  */
 export async function startNginxHost(opts: { readonly nginxConfig: string }): Promise<StartedNginxHost> {
   const dir = await mkdtemp(join(tmpdir(), 'rntme-nginx-'));

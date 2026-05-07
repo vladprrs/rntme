@@ -45,51 +45,51 @@ parity." The target case is:
 ## Snapshot today
 
 - **Project blueprint composition is partially implemented.**
-  `packages/blueprint` loads `project.json`, project-level PDM, service
+  `packages/artifacts/blueprint` loads `project.json`, project-level PDM, service
   descriptors/artifacts, routes/middleware, project-routed binding registry, and
-  service UI compilation (`packages/blueprint/README.md`). `@rntme/runtime`
-  still loads a single service artifact folder via `packages/runtime/src/load/load-service.ts`.
+  service UI compilation (`packages/artifacts/blueprint/README.md`). `@rntme/runtime`
+  still loads a single service artifact folder via `packages/runtime/runtime/src/load/load-service.ts`.
 - **PDM remains flat and scalar.** The type system in
-  `packages/pdm/src/types/artifact.ts` still supports only
+  `packages/artifacts/pdm/src/types/artifact.ts` still supports only
   `integer | decimal | string | boolean | date | datetime`, local relations,
   entity ownership, keys, and entity state machines. There is no money, enum,
   json/struct, `deletedAt`, migration/version artifact, or foreign-service ref.
-- **QSM has entity mirrors plus derived projections.** `packages/qsm` supports
+- **QSM has entity mirrors plus derived projections.** `packages/artifacts/qsm` supports
   `backing: "entity-mirror" | "derived"` and `source: { graph }`;
-  `packages/projection-consumer` applies mirror handlers with
+  `packages/runtime/projection-consumer` applies mirror handlers with
   `last_event_version` and derived handlers with `seen_events`.
 - **Graph IR still lacks explicit `Join` lowering.** `RelJoin` is typed in
-  `packages/graph-ir-compiler/src/types/relational.ts`, but
-  `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` still falls through
+  `packages/artifacts/graph-ir-compiler/src/types/relational.ts`, but
+  `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts` still falls through
   for `Join`; dot-navigation auto-joins exist only for scalar field paths.
 - **Command runtime remains single-aggregate.** `compileCommand` still rejects
   multiple emitted aggregate types with `CMD_MULTI_AGGREGATE_NOT_ALLOWED`;
   `executeCommand` still builds one stream append request even though
   `@rntme/event-store` accepts an array of append requests.
 - **HTTP bindings are materially ahead of the old gap doc.**
-  `packages/bindings` includes `pre[]`, `inputFrom`, redirect response shapes,
-  callback-oriented GET validation, and allowed redirect hosts.
-  `packages/bindings-http` includes idempotency middleware/cache, pre-step
-  orchestration, render-response, correlation middleware, pino logger, and
+  `packages/artifacts/bindings` includes `exposure`, `inputFrom`, redirect
+  response shapes, callback-oriented GET validation, and allowed redirect hosts.
+  `packages/runtime/bindings-http` includes idempotency middleware/cache,
+  operation routing, render-response, correlation middleware, pino logger, and
   metrics hooks.
-- **gRPC is implemented as a runtime surface.** `packages/bindings-grpc`
+- **gRPC is implemented as a runtime surface.** `packages/runtime/bindings-grpc`
   emits protobuf and mounts a grpc-js server; `packages/runtime` can enable a
   `GrpcSurface` from manifest `surface.grpc`.
-- **Event pipeline is stronger than the old snapshot.** `packages/event-store`
+- **Event pipeline is stronger than the old snapshot.** `packages/runtime/event-store`
   has CloudEvents-shaped envelopes, `delivery_tracking`, bounded relay
   attempts, DLQ emission, and service-segmented topic naming. The remaining
   event-driven gaps are schema registry/compatibility and production bus
   contracts.
 - **Runtime/package operability exists but is not production-complete.**
-  Runtime health/metrics are exposed through `packages/runtime/src/plugins/observability.ts`,
-  and `@rntme/db-studio` gives read-only Hrana access to event/QSM DBs. The
-  default runtime still uses `InMemoryBus`; project deployment production mode
-  is intentionally rejected in the deploy spec until production bus/storage
-  decisions land.
-- **Canonical examples lag the model.** `demo/issue-tracker-api` is the richest
-  end-to-end service, but README marks it as a deprecated historical
-  single-service example. `demo/notes-blueprint` shows project shape, not a full
-  production-grade runtime demo.
+  Runtime health/metrics are exposed through `packages/runtime/runtime/src/plugins/observability.ts`,
+  while raw SQL inspection is no longer treated as a product surface
+  (`@rntme/db-studio` is retired). The default runtime still uses `InMemoryBus`;
+  project deployment production mode is intentionally rejected in the deploy
+  spec until production bus/storage decisions land.
+- **Canonical examples lag the model.** `demo/notes-blueprint`,
+  `demo/order-fulfillment-blueprint`, and `demo/cv-extract-blueprint` exercise
+  different slices, but there is still no single canonical production-grade
+  runtime demo.
 
 ## Tier table
 
@@ -114,15 +114,15 @@ parity." The target case is:
 ## Closed or downgraded since the original roadmap
 
 - **HTTP Idempotency-Key middleware/storage:** mostly closed in
-  `packages/bindings-http/src/idempotency/*` and router wiring; remaining work
+  `packages/runtime/bindings-http/src/idempotency/*` and router wiring; remaining work
   is contract-level exposure and gRPC/non-HTTP semantics.
 - **gRPC/protobuf binding emit:** closed at package/runtime-surface level by
-  `packages/bindings-grpc` and `packages/runtime/src/plugins/grpc-surface.ts`.
+  `packages/runtime/bindings-grpc` and `packages/runtime/runtime/src/plugins/grpc-surface.ts`.
 - **Derived projections/idempotency for non-mirror projections:** closed for the
-  event-delta/UPSERT shape by `packages/qsm`, `packages/projection-consumer`,
+  event-delta/UPSERT shape by `packages/artifacts/qsm`, `packages/runtime/projection-consumer`,
   and runtime derived-projection cross-validation.
 - **Outbox/DLQ telemetry:** closed for delivery tracking and bounded relay
-  attempts in `packages/event-store`.
+  attempts in `packages/runtime/event-store`.
 - **Callbacks/pre-fetch/module wiring:** no longer a missing primitive;
   residual gaps are polish, docs, error contracts, and production hardening.
 - **Medusa-class commerce demo as forcing function:** downgraded. Use it for
@@ -155,8 +155,6 @@ parity." The target case is:
 - [queries-and-projections-gaps.md](./queries-and-projections-gaps.md)
 - [commands-and-transactions-gaps.md](./commands-and-transactions-gaps.md)
 - [infra-and-operability-gaps.md](./infra-and-operability-gaps.md)
-- [event-driven-canonical-audit](./2026-04-15-event-driven-canonical-audit.md)
-
 ## Open product questions
 
 1. **Canonical demo choice.** Should the next project-shaped demo be approvals,

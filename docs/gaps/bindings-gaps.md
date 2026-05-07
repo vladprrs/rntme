@@ -1,26 +1,26 @@
 # Gaps: Bindings
 
-This document tracks gaps in the binding layer after modules, gRPC, pre-fetch,
-callback bindings, and HTTP idempotency landed. The old "bindings has no
-idempotency/gRPC/callbacks" snapshot is no longer accurate.
+This document tracks gaps in the binding layer after modules, gRPC, Graph IR
+effect operations, callback bindings, and HTTP idempotency landed. The old
+"bindings has no idempotency/gRPC/callbacks" snapshot is no longer accurate.
 
 ## What rntme has today
 
-- `packages/bindings` validates a declarative HTTP binding artifact and emits
-  OpenAPI 3.1. Types now include `pre[]`, `inputFrom`, `response`, and
-  `allowedRedirectHosts` in `packages/bindings/src/types/artifact.ts`.
-- `packages/bindings/src/validate/structural.ts` enforces callback-oriented GET
-  + redirect constraints and a `pre.length <= 2` gate for command bindings.
-- `packages/bindings-http` mounts Hono routes, extracts inputs, maps command
-  errors, runs pre-steps, caches idempotent HTTP command responses, emits
+- `packages/artifacts/bindings` validates a declarative HTTP binding artifact and emits
+  OpenAPI 3.1. Types now include `exposure`, `inputFrom`, `response`, and
+  `allowedRedirectHosts` in `packages/artifacts/bindings/src/types/artifact.ts`.
+- `packages/artifacts/bindings/src/validate/structural.ts` enforces callback-oriented GET
+  + redirect constraints and rejects legacy `kind` / `pre`.
+- `packages/runtime/bindings-http` mounts Hono routes, extracts inputs, maps action
+  errors, runs operation handlers, caches idempotent HTTP action responses, emits
   correlation context, and can record metrics.
-- `packages/bindings-http/src/idempotency/*` provides a SQLite-backed
+- `packages/runtime/bindings-http/src/idempotency/*` provides a SQLite-backed
   `idempotency_cache`; `router.ts` wires `Idempotency-Key` middleware for
-  command routes.
-- `packages/runtime/src/plugins/adapter-client/*` implements module RPC calls
+  action routes.
+- `packages/runtime/runtime/src/plugins/adapter-client/*` implements module RPC calls
   with retry/circuit-breaker/idempotency-key forwarding.
-- `packages/bindings-grpc` emits protobuf from validated bindings and mounts a
-  grpc-js server; `packages/runtime/src/plugins/grpc-surface.ts` exposes it as a
+- `packages/runtime/bindings-grpc` emits protobuf from validated bindings and mounts a
+  grpc-js server; `packages/runtime/runtime/src/plugins/grpc-surface.ts` exposes it as a
   runtime surface.
 - OpenAPI still does not expose a first-class idempotency declaration, stable
   error-code enum, multipart content, or top-level webhook/callback docs.
@@ -33,8 +33,8 @@ idempotency/gRPC/callbacks" snapshot is no longer accurate.
   Residual: shape coverage, docs, and project deployment integration.
 - **Vendor callbacks / redirects:** partially closed by `inputFrom` and
   `response`/redirect support. OpenAPI `callbacks`/`webhooks` remain separate.
-- **Pre-fetch module calls:** closed as a primitive. Remaining work is error
-  catalog and production module packaging.
+- **Binding-level pre-fetch module calls:** superseded by Graph IR `call` nodes.
+  Remaining work is error catalog and production module packaging.
 
 ## Gaps
 
@@ -47,44 +47,44 @@ semantics apply to gRPC/module calls.
 
 **Current evidence.**
 
-- `packages/bindings-http/src/idempotency/middleware.ts` reads the header and
+- `packages/runtime/bindings-http/src/idempotency/middleware.ts` reads the header and
   replays cached responses.
-- `packages/bindings-http/src/idempotency/cache.ts` creates and manages the
+- `packages/runtime/bindings-http/src/idempotency/cache.ts` creates and manages the
   cache table.
-- `packages/bindings/src/openapi/emit.ts` does not add an `Idempotency-Key`
-  parameter to command operations.
-- `packages/graph-ir-compiler/src/command-runtime/execute.ts` still accepts no
+- `packages/artifacts/bindings/src/openapi/emit.ts` does not add an `Idempotency-Key`
+  parameter to action operations.
+- `packages/artifacts/graph-ir-compiler/src/operation/execute.ts` still accepts no
   idempotency option; dedupe is implemented at the HTTP binding layer.
 
 **Target.**
 
 - Add an artifact-level declaration for mutating operations, with a safe default
-  for commands.
+  for action exposure.
 - Emit OpenAPI header parameters and document replay headers/status behavior.
-- Decide whether gRPC command calls use metadata, a request field, or remain
+- Decide whether gRPC action calls use metadata, a request field, or remain
   caller-managed.
-- Keep module pre-step idempotency-key chaining aligned with the public command
-  contract.
+- Keep Graph IR module-call idempotency-key chaining aligned with the public
+  action contract.
 
 **Acceptance gate.** A generated OpenAPI/protobuf client can discover and use
-idempotency without reading rntme source, and a retry of the same command
+idempotency without reading rntme source, and a retry of the same action
 returns the original outcome on HTTP and the documented behavior on gRPC.
 
 ### [P1] Error catalog with stable codes in OpenAPI and protobuf
 
 **Why it matters.** Agents, UI flows, and BPMN workers need to branch on
 machine-readable error codes. Runtime code already returns stable strings such
-as validation, guard, concurrency, pre-step, and adapter errors; generated
+as validation, guard, concurrency, operation-call, and adapter errors; generated
 contracts still mostly describe error `code` as a string.
 
 **Current evidence.**
 
-- `packages/bindings/src/openapi/errors.ts` emits `ErrorResponse` with a string
+- `packages/artifacts/bindings/src/openapi/errors.ts` emits `ErrorResponse` with a string
   `code` but no enum/catalog.
-- `packages/bindings-http/src/errors.ts` and
-  `packages/graph-ir-compiler/src/command-runtime/errors.ts` contain runtime
+- `packages/runtime/bindings-http/src/errors.ts` and
+  `packages/artifacts/graph-ir-compiler/src/command-runtime/errors.ts` contain runtime
   codes.
-- `packages/bindings-grpc/src/server/errors.ts` maps runtime failures to gRPC
+- `packages/runtime/bindings-grpc/src/server/errors.ts` maps runtime failures to gRPC
   status, but the emitted protobuf does not publish a complete domain error
   catalog.
 
@@ -92,11 +92,11 @@ contracts still mostly describe error `code` as a string.
 
 - Define an append-only error catalog per generated service surface.
 - Emit OpenAPI enum or `x-error-codes` and protobuf-compatible error metadata.
-- Include pre-step/module errors and idempotency replay/conflict states.
+- Include operation-call/module errors and idempotency replay/conflict states.
 - Document source of truth to avoid hand-maintained drift.
 
 **Acceptance gate.** Generated clients can exhaustively switch on documented
-error codes for commands and pre-step/module failures.
+error codes for actions and operation-call/module failures.
 
 ### [P2] Multipart/file upload and object storage
 
@@ -105,10 +105,10 @@ requirements, but not necessary to prove project-blueprint runtime value.
 
 **Current evidence.**
 
-- `packages/bindings/src/openapi/parameters.ts` and
-  `packages/bindings/src/openapi/shapes.ts` emit JSON request/response shapes,
+- `packages/artifacts/bindings/src/openapi/parameters.ts` and
+  `packages/artifacts/bindings/src/openapi/shapes.ts` emit JSON request/response shapes,
   not multipart forms or file primitives.
-- `packages/bindings-http` command handling is JSON-oriented.
+- `packages/runtime/bindings-http` command handling is JSON-oriented.
 - There is no `@rntme/storage` package or project-level object-store binding.
 
 **Target.**
@@ -130,9 +130,9 @@ polymorphic activities). Today shapes are mostly flat object/scalar/array.
 
 **Current evidence.**
 
-- `packages/bindings/src/openapi/shapes.ts` has no first-class tagged union or
+- `packages/artifacts/bindings/src/openapi/shapes.ts` has no first-class tagged union or
   OpenAPI discriminator support.
-- `packages/bindings-grpc` shape emission is similarly constrained by the
+- `packages/runtime/bindings-grpc` shape emission is similarly constrained by the
   resolved shape registry.
 
 **Target.** Add a tagged-variant shape that emits OpenAPI `oneOf`/discriminator
@@ -150,7 +150,7 @@ for the next runtime slice.
 
 **Current evidence.**
 
-- `packages/bindings/src/openapi/emit.ts` builds `paths` and `components`, not
+- `packages/artifacts/bindings/src/openapi/emit.ts` builds `paths` and `components`, not
   `webhooks` or operation-level `callbacks`.
 - Vendor-owned inbound webhooks remain module-owned per the modules integration
   spec, not generic rntme binding routes.

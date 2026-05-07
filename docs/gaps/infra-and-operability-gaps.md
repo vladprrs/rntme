@@ -10,19 +10,20 @@ service artifact folder.
 
 - `packages/runtime` loads and starts one validated service folder through
   `loadService()` and `startService()`.
-- `packages/blueprint` can load/compose project blueprint folders, project-level
+- `packages/artifacts/blueprint` can load/compose project blueprint folders, project-level
   PDM, routes/middleware, service members, and a project-routed binding registry.
 - `packages/deploy/deploy-core` and `deploy-dokploy` model project deployment
   planning/adaptation, but the main repo runtime still uses one service process
   per artifact folder.
 - Runtime default persistence is better-sqlite3; bus default is `InMemoryBus`.
-- `packages/event-store` has `event_log`, `publish_cursor`,
+- `packages/runtime/event-store` has `event_log`, `publish_cursor`,
   `delivery_tracking`, CloudEvents fields, bounded relay retry, and DLQ emit.
-- `packages/projection-consumer` applies mirror and derived projections in SQLite
+- `packages/runtime/projection-consumer` applies mirror and derived projections in SQLite
   transactions.
-- `packages/runtime/src/plugins/observability.ts` provides health and Prometheus
+- `packages/runtime/runtime/src/plugins/observability.ts` provides health and Prometheus
   metrics mounting.
-- `@rntme/db-studio` provides read-only Hrana access to event-store and QSM DBs.
+- `@rntme/db-studio` is retired; raw SQL inspection is not a supported product
+  surface.
 - `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`
   intentionally rejects production deployment mode until bus/storage/auth
   prerequisites are specified.
@@ -33,8 +34,7 @@ service artifact folder.
 - **Basic observability:** partially closed with health/metrics. Residual:
   structured traces/logs, DLQ/lag ops endpoints, dashboards.
 - **gRPC/modules:** implemented as runtime surfaces and adapter-client seams.
-- **db-studio:** new operator inspection surface, but explicitly dev/admin and
-  read-only, not a production control plane.
+- **db-studio:** retired; raw SQL browsing is not a production control plane.
 - **Redis:** no longer a P1 default. The production bus decision should center
   on Kafka/Redpanda for service events; Redis may be optional cache/pubsub only
   if a concrete workload proves it.
@@ -51,9 +51,9 @@ map to runtime processes.
 
 **Current evidence.**
 
-- `packages/runtime/src/load/load-service.ts` expects a single artifact folder
+- `packages/runtime/runtime/src/load/load-service.ts` expects a single artifact folder
   with `manifest.json`, `pdm.json`, `qsm.json`, graphs, bindings, seed, and UI.
-- `packages/blueprint/README.md` says `loadComposedBlueprint` is consumed by
+- `packages/artifacts/blueprint/README.md` says `loadComposedBlueprint` is consumed by
   future runtime/tooling tracks.
 - `README.md` states project-level runtime intake is not yet wired in runtime.
 
@@ -78,12 +78,11 @@ at runtime. This is the main remaining event-driven architecture gap.
 
 **Current evidence.**
 
-- `packages/pdm/src/derive/event-types.ts` derives event type specs from PDM
+- `packages/artifacts/pdm/src/derive/event-types.ts` derives event type specs from PDM
   state machines.
 - There is no committed per-service/project `schemas/` registry and no CI
   backward-compat check.
-- `docs/gaps/2026-04-15-event-driven-canonical-audit.md` still tracks D8/D11 as
-  open.
+- This file is the current backlog surface for schema registry gaps.
 
 **Target.**
 
@@ -131,17 +130,16 @@ events.
 
 **Current evidence.**
 
-- `packages/runtime/src/plugins/observability.ts` mounts health/metrics.
+- `packages/runtime/runtime/src/plugins/observability.ts` mounts health/metrics.
 - `delivery_tracking` stores per-event attempt/delivery/DLQ state.
-- `@rntme/db-studio` can browse tables but is not an authenticated production
-  ops API.
+- Raw SQL browsing is not an authenticated production ops API.
 
 **Target.**
 
 - Add read-only ops endpoints or package APIs for relay lag, DLQ count/list, and
   projection lag.
 - Add structured logger/tracing hooks consistently across relay, consumer,
-  bindings, pre-steps, and executors.
+  bindings, operation calls, and executors.
 - Document safe production exposure rules.
 
 **Acceptance gate.** A failed relay/projection event can be diagnosed from
@@ -154,9 +152,9 @@ scale path. The code currently relies primarily on better-sqlite3 test coverage.
 
 **Current evidence.**
 
-- DDL and SQL live across event-store, QSM, graph-ir-compiler, db-studio, seed,
-  and projection-consumer.
-- `packages/runtime/src/plugins/better-sqlite-driver.ts` is the default driver.
+- DDL and SQL live across event-store, QSM, graph-ir-compiler, seed, and
+  projection-consumer.
+- `packages/runtime/runtime/src/plugins/better-sqlite-driver.ts` is the default driver.
 - No CI matrix proves libsql behavior.
 
 **Target.**
@@ -189,8 +187,8 @@ policy and replay integration.
 - **Project execution should stay service-runtime based unless explicitly
   reversed.** The deploy spec already assumes separate domain service,
   integration module, and edge gateway workloads.
-- **db-studio is inspection, not governance.** Do not treat raw SQL browsing as
-  the business-user review UI.
+- **Raw SQL inspection is not governance.** Do not treat SQL browsing as the
+  business-user review UI.
 - **Redis is optional until proven.** Do not add it as a default production
   dependency without a concrete low-latency/cache requirement.
 
@@ -210,5 +208,5 @@ policy and replay integration.
 2. Should production storage default to persistent local SQLite volumes or
    libsql/Turso first? Recommended default: persistent local volume for preview,
    libsql/Turso for managed production once compatibility tests exist.
-3. Which canonical project demo should replace `demo/issue-tracker-api` as the
-   default? Recommended default: approvals workflow.
+3. Which canonical project demo should become the default full-runtime proof?
+   Recommended default: approvals workflow.

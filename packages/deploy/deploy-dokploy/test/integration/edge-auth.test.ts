@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { createServer } from 'node:http';
+import { GenericContainer } from 'testcontainers';
 import { renderNginxConfig } from '../../src/nginx.js';
 import { HOST_GATEWAY_HOSTNAME, startNginxHost } from './edge-auth-fixtures/nginx-host.js';
 
-const dockerAvailable = await hasDocker();
+const dockerAvailable = await hasTestcontainersRuntime();
 
 describe.skipIf(!dockerAvailable)('edge auth integration', () => {
   let baseUrl: string;
@@ -106,14 +107,11 @@ async function startRejectingIntrospectionServer(): Promise<{ port: number; stop
   });
 }
 
-async function hasDocker(): Promise<boolean> {
+async function hasTestcontainersRuntime(): Promise<boolean> {
   try {
-    const { spawn } = await import('node:child_process');
-    return await new Promise<boolean>((resolve) => {
-      const child = spawn('docker', ['version', '--format', '{{.Server.Version}}'], { stdio: 'ignore' });
-      child.once('error', () => resolve(false));
-      child.once('exit', (code) => resolve(code === 0));
-    });
+    const container = await new GenericContainer('nginx:1.27-alpine').start();
+    await container.stop();
+    return true;
   } catch {
     return false;
   }

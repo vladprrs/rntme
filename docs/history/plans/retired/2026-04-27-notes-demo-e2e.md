@@ -1,7 +1,7 @@
-> Status: historical.
+> Status: retired.
 > Date: 2026-04-27.
-> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Historical rationale and execution context retained for review; it is not current-state truth by itself.
+> Current source: docs/current/owners/demo/notes-blueprint.md, docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md, docs/decision-system.md, and current code/tests.
+> Why retired: Execution checklist for the superseded no-auth preview deploy; use the current Notes owner doc and Auth0/ownership rationale instead.
 
 # Notes Demo E2E Implementation Plan
 
@@ -13,7 +13,6 @@
 
 **Tech Stack:** Node 20+, pnpm 9.12+, TypeScript, `@rntme/blueprint` (validation), `@rntme/cli` (publish), `@rntme/platform-http` (control plane), `@rntme/deploy-core` + `@rntme/deploy-dokploy` (libraries used by executor), Dokploy MCP, Postgres + rustfs (existing на Hetzner).
 
-**Source spec:** `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md`.
 
 **Out of scope for this plan:** Реализация платформенного кода (он merged), production-mode деплои, agent-browser smoke, очистка orphan rustfs blobs.
 
@@ -641,7 +640,6 @@ pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadCo
 
 ## Spec
 
-`docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md`
 ```
 
 ### Task 1.9: Local validation gate
@@ -683,7 +681,6 @@ Minimal project-first blueprint: 1 service, 1 entity (Note), 2
 commands, 2 queries, 1 UI screen. Validated locally via
 loadComposedBlueprint. Prepared for Phase 2 (platform activation)
 and Phase 3 (e2e walkthrough) per spec
-docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
@@ -802,7 +799,6 @@ git commit -m "chore: bump merged CLI/platform packages to f971282 (project depl
 Activates merged Track 1 + Track 2 (PR #9, #10 in merged CLI/platform packages)
 plus stabilization fixes (#11, #12, #13). Pre-stable platform,
 single submodule bump in main per spec
-docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md §3.2.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 git log -2 --oneline

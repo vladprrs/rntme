@@ -5,7 +5,6 @@
 
 # D5 · Consumer Idempotency Hybrid — Design
 
-**Status.** Proposed (2026-04-18). Closes gap D5 in `docs/gaps/2026-04-15-event-driven-canonical-audit.md`.
 
 **Scope.** Unblock non-mirror (derived) projections by (i) introducing a hybrid consumer idempotency strategy — per-row `last_event_version` for mirror projections **plus** a shared `seen_events(event_id, projection_id)` table for derived projections — and (ii) enabling derived projections to be authored in the existing graph-IR, with a tightly constrained MVP operator whitelist. No new DSL is introduced for derived projections; the same graph-IR that powers query graphs is reused.
 
@@ -351,7 +350,6 @@ Demo's `qsm.json` and new graph artifact are additive — all current entity-mir
 
 ## 12 · References
 
-- `docs/gaps/2026-04-15-event-driven-canonical-audit.md` — D5 gap statement this spec resolves.
 - `docs/adr/2026-04-15-event-driven-architecture.md` — ADR D5 canonical design.
 - `graph_ir_rc_7.md` — authoring-IR spec (`findMany`, `filter`, `map`, `reduce` semantics).
 - `packages/pdm/src/derive/event-types.ts` — `deriveEventTypes(pdm)` supplies event-type payload shapes used by the new `eventType` source.

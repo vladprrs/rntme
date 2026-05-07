@@ -13,7 +13,6 @@
 **Related:**
 - `docs/history/specs/historical/2026-04-19-platform-api-design.md` (control-plane API contract)
 - `docs/history/specs/historical/2026-04-19-platform-api-errata-01.md`, `…-errata-02.md` (post-landing corrections to the API)
-- `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md` (submodule mechanics)
 - `AGENTS.md` §3 (package layering), `CLAUDE.md` (non-obvious conventions)
 - memory: `project_platform_deployed` (live platform at `platform.rntme.com`)
 

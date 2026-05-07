@@ -139,7 +139,6 @@ Phase 7
 - Modify: `demo/notes-blueprint/services/app/seed/seed.json`.
 - Create: `demo/notes-blueprint/services/identity-auth0/service.json`.
 - Modify: `demo/notes-blueprint/README.md`.
-- Modify: `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md` — status flip.
 - Modify: `CLAUDE.md`, `AGENTS.md`, root `README.md` per §11 of the spec.
 
 ### Phase 6–7 (External setup, deploy, smoke)
@@ -2324,7 +2323,6 @@ git commit -m "feat(notes-blueprint): Auth0 ownership, identity-auth0 wiring, $p
 
 **Files:**
 - Modify: `demo/notes-blueprint/README.md`
-- Modify: `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md`
 
 - [ ] **Step 1: Rewrite blueprint README**
 
@@ -2349,7 +2347,6 @@ Root `README.md`: add `@rntme/ui-auth-shell` to the packages table.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add demo/notes-blueprint/README.md docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md CLAUDE.md AGENTS.md README.md
 git commit -m "docs: supersede 2026-04-27 notes-demo spec; document auth-middleware wiring"
 ```
 

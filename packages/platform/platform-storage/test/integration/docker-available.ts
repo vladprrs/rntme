@@ -8,7 +8,7 @@ let cached: boolean | undefined;
  * Two backends:
  *  - External: set `PLATFORM_TEST_DATABASE_URL` to bypass testcontainers and
  *    run against a long-lived Postgres (e.g. a disposable Dokploy instance).
- *  - Testcontainers: default, requires the Docker daemon.
+ *  - Testcontainers: default, requires testcontainers to start containers.
  *
  * Opt-out: `SKIP_TESTCONTAINERS=1` forces skip even when Docker is up.
  */
@@ -20,7 +20,20 @@ export function integrationContainersAvailable(): boolean {
 
 export function dockerAvailable(): boolean {
   if (cached !== undefined) return cached;
-  const r = spawnSync('docker', ['info'], { stdio: 'ignore' });
+  const r = spawnSync(
+    process.execPath,
+    [
+      '-e',
+      `
+const { GenericContainer } = require('testcontainers');
+(async () => {
+  const container = await new GenericContainer('nginx:1.27-alpine').start();
+  await container.stop();
+})().catch(() => process.exit(1));
+`,
+    ],
+    { stdio: 'ignore' },
+  );
   cached = r.status === 0;
   return cached;
 }

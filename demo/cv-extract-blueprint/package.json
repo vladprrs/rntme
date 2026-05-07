@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "pnpm -F @rntme/ai-llm-openrouter run build:deps && vitest run"
+    "test": "pnpm -F @rntme/ai-llm-openrouter run build && vitest run"
   },
   "devDependencies": {
     "@rntme/ai-llm-openrouter": "workspace:*",

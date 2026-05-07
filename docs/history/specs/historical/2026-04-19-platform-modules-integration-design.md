@@ -569,7 +569,6 @@ Error-code namespace:
 - `docs/gaps/commands-and-transactions-gaps.md` — P1 idempotency-key canon, P0 outbox pattern.
 - `docs/history/specs/historical/2026-04-19-platform-api-design.md` — control-plane registry, §2 deferred items (gRPC surface + Zeebe) здесь частично покрыты.
 - `docs/history/specs/historical/2026-04-17-cloudevents-envelope-design.md` — envelope/dataschema format, используется модулями.
-- `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md` — где живёт control-plane код.
 - `rntme_orchestration_only` memory — принцип запрета choreography.
 - `project_platform_vision` memory — видение rntme внутри DDD-платформы.
 - `rntme_topic_no_version_suffix` memory — Kafka topic convention.

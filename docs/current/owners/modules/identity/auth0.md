@@ -124,7 +124,7 @@ The container exposes two ports:
 
 | Port | Transport | Caller | Endpoint |
 |---:|---|---|---|
-| 50051 | gRPC | runtime pre-step `module-rpc IntrospectSession` | `IdentityModule/IntrospectSession` |
+| 50051 | gRPC | runtime Graph IR `call` to `IntrospectSession` | `IdentityModule/IntrospectSession` |
 | 50052 | HTTP | edge nginx via `auth_request` | `GET /introspect` |
 
 Both transports share the in-process `IntrospectSession` handler — there is no duplicated validation logic. The HTTP transport exists so edge can reject unauthenticated requests at nginx without involving the runtime, while runtime continues to call gRPC for the canonical `Session` shape.

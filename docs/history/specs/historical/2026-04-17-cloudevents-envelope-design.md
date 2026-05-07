@@ -16,7 +16,6 @@
 
 The current envelope is proprietary: `eventId`, `aggregateType`, `aggregateId`, `stream`, `version`, `eventType`, `occurredAt`, `actor`, `payload`, `schemaVersion`. No `correlationId`, no `causationId`, no `commandId`, no trace-context. Kafka headers carry only three fields (`event-id`, `event-type`, `schema-version`) and the full envelope is stuffed as JSON into `value`.
 
-Consequences documented in `docs/gaps/2026-04-15-event-driven-canonical-audit.md` §D9:
 
 - Cross-service Zeebe saga integration cannot correlate BPMN instances with rntme commands — the envelope has no business-process id.
 - Every consumer (future ksqlDB, future second rntme service) needs bespoke envelope mapping — no standard CE-SDK works.
@@ -566,7 +565,6 @@ Every step compiles only once the types in step 1 are in place; expect a `git ad
 ## 13 · References
 
 - `docs/adr/2026-04-15-event-driven-architecture.md` §D9.
-- `docs/gaps/2026-04-15-event-driven-canonical-audit.md` §D9 (audit & remediation sketch).
 - `docs/history/specs/historical/2026-04-17-relay-dlq-delivery-tracking-design.md` (`delivery_tracking` table — orthogonal; reused as-is).
 - CloudEvents 1.0 specification — `github.com/cloudevents/spec`.
 - CloudEvents Kafka protocol binding — binary content mode.

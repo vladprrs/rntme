@@ -43,8 +43,8 @@ Specs use lifecycle directories:
   explain current decisions;
 - `docs/history/specs/historical/` and `docs/history/plans/historical/` for
   completed or stale context;
-- `docs/history/specs/retired/` and `docs/history/plans/retired/` for known
-  stale deletion candidates after a separate review.
+- retired material is kept out of navigation and should not be linked from
+  current docs.
 
 Every document under `docs/history/**` starts with a banner naming its status,
 date, current source, and retention reason.

@@ -7,19 +7,19 @@ derived projections landed. The key change since the original snapshot:
 
 ## What rntme has today
 
-- `packages/qsm` supports `entity-mirror` and `derived` projection backings.
+- `packages/artifacts/qsm` supports `entity-mirror` and `derived` projection backings.
   Derived projections reference graph IDs and require explicit table names.
-- `packages/qsm/src/derive/ddl.ts` can emit DDL for entity mirrors and derived
+- `packages/artifacts/qsm/src/derive/ddl.ts` can emit DDL for entity mirrors and derived
   projection schemas supplied by runtime cross-validation.
-- `packages/runtime/src/projections/cross-validate.ts` compiles derived
+- `packages/runtime/runtime/src/projections/cross-validate.ts` compiles derived
   projections from graph specs and feeds `derivedSchemas`/`derivedHandlers` into
   QSM/projection-consumer.
-- `packages/projection-consumer/src/apply/apply-event.ts` applies mirror
+- `packages/runtime/projection-consumer/src/apply/apply-event.ts` applies mirror
   handlers with `last_event_version` guards and derived handlers with
   `seen_events(event_id, projection_id)`.
-- `packages/graph-ir-compiler/src/types/relational.ts` includes `Scan`,
+- `packages/artifacts/graph-ir-compiler/src/types/relational.ts` includes `Scan`,
   `Filter`, `Project`, `Aggregate`, `Sort`, `Limit`, and `Join`.
-- `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` lowers everything
+- `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts` lowers everything
   except explicit `Join`. Multi-segment dot-navigation can inject joins for
   scalar path resolution, but `relOutputColumns` still throws for `Join`.
 - Pagination remains `Sort + Limit`; there is no first-class cursor contract.
@@ -50,8 +50,8 @@ queries that need to project columns from both sides.
 
 **Current evidence.**
 
-- `RelJoin` is in `packages/graph-ir-compiler/src/types/relational.ts`.
-- `packages/graph-ir-compiler/src/lower/sqlite/lower.ts` has no `case 'Join'`
+- `RelJoin` is in `packages/artifacts/graph-ir-compiler/src/types/relational.ts`.
+- `packages/artifacts/graph-ir-compiler/src/lower/sqlite/lower.ts` has no `case 'Join'`
   and throws from the default branch.
 - `relOutputColumns` explicitly throws for `Join`.
 
@@ -96,7 +96,7 @@ every agent edit makes diffs unreadable.
 **Current evidence.**
 
 - Relational operators carry structural fields only; no `nodeId`, stable label,
-  or view metadata exists in `packages/graph-ir-compiler/src/types/relational.ts`.
+  or view metadata exists in `packages/artifacts/graph-ir-compiler/src/types/relational.ts`.
 - UI layout should not be embedded in deploy artifacts, but stable IDs need a
   compiler-owned source.
 

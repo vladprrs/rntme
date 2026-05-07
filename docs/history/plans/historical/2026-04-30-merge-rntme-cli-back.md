@@ -641,12 +641,10 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task 11: Add status banners to historical specs/plans
 
 **Files:**
-- Modify: `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`
 - Modify: all other specs/plans in `docs/superpowers/{specs,plans}/done/` containing `rntme-cli/` or `@rntme-cli/` references, including nested `done/<track>/...` plan directories
 
 - [ ] **Step 1: Add `Status: SUPERSEDED` banner to the original submodule spec**
 
-Insert at the very top of `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md` (above the `# Title` line):
 
 ```markdown
 > **Status:** SUPERSEDED by `2026-04-30-merge-rntme-cli-back-design.md` (submodule merge-back planned for this PR; original privacy rationale obsoleted when the repo was made public).
@@ -677,7 +675,6 @@ The body text of these specs/plans is **not** rewritten — they are historical 
 - [ ] **Step 4: Verify**
 
 ```bash
-head -3 docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md | grep SUPERSEDED && echo OK
 xargs -a /tmp/historical-docs.txt -I{} head -3 {} | grep -c 'Path note'
 ```
 
@@ -862,7 +859,6 @@ gh pr create --title "Merge rntme-cli submodule back + restructure by role" --bo
 
 ## Spec
 - `docs/history/specs/active-rationale/2026-04-30-merge-rntme-cli-back-design.md`
-- Supersedes `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`.
 
 ## Why
 Original submodule rationale was privacy. `vladprrs/rntme-cli` is now public. The seam costs two-PR churn on every cross-cutting change (~12 submodule-bump commits in the last two weeks) without any remaining benefit.

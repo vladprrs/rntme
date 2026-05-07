@@ -1,8 +1,13 @@
+> Status: retired.
+> Date: 2026-04-15.
+> Current source: docs/decision-system.md, docs/current/owners/packages/runtime/event-store.md, docs/gaps/infra-and-operability-gaps.md, and current code/tests.
+> Why retired: Point-in-time ADR-vs-implementation audit now conflicts with current topic naming and references removed demo/package paths as live evidence; live event gaps are tracked in current owner docs and infra gaps.
+
 # Gaps: Event-Driven Canonical Audit
 
 **Scope.** Honest delta between the best design (per `docs/adr/2026-04-15-event-driven-architecture.md`) and the current rntme implementation. Each decision from the ADR (D1..D12) gets a verdict and — where diverged — evidence, blast radius, and a remediation sketch. This audit is not comparative against Medusa or any other product; it is canon-vs-implementation.
 
-**Inputs.** The ADR above; `packages/event-store`, `packages/projection-consumer`, `packages/graph-ir-compiler/src/command-runtime`, `packages/bindings-http`, `demo/issue-tracker-api`. Confluent whitepaper at `/20201028-WP-Event_Driven_Microservices.pdf`. Research notes saved in the ADR's References section.
+**Inputs.** The ADR above; `packages/runtime/event-store`, `packages/runtime/projection-consumer`, `packages/artifacts/graph-ir-compiler/src/command-runtime`, `packages/runtime/bindings-http`, `demo/issue-tracker-api`. Confluent whitepaper at `/20201028-WP-Event_Driven_Microservices.pdf`. Research notes saved in the ADR's References section.
 
 ---
 
@@ -29,7 +34,7 @@ Legend: ✅ conforms — ⚠️ partial drift — ❌ missing / must change.
 
 ## D1 · Outbox shape — ✅ resolved (2026-04-17, PR #4)
 
-**Resolved.** `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)` landed in `packages/event-store/src/store/schema.ts`. `EventStore` exposes `readDeliveryAttempt / recordDeliveryAttempt / updateLastError / markDelivered / markDlq` (commits `0e52cfd`…`358b1a9`). Relay now UPSERTs per attempt, records `last_error` (truncated to 1024 bytes), `delivered_at` on success, and `dlq_at` on terminal failure (commits `e6a417d`, `8c8be66`, `8aee1b3`). Attempt counter persists across relay restarts (commit `9d89a1a`, integration proof in `b6ecc59`). `DeliveryAttemptRow` is a public export.
+**Resolved.** `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)` landed in `packages/runtime/event-store/src/store/schema.ts`. `EventStore` exposes `readDeliveryAttempt / recordDeliveryAttempt / updateLastError / markDelivered / markDlq` (commits `0e52cfd`…`358b1a9`). Relay now UPSERTs per attempt, records `last_error` (truncated to 1024 bytes), `delivered_at` on success, and `dlq_at` on terminal failure (commits `e6a417d`, `8c8be66`, `8aee1b3`). Attempt counter persists across relay restarts (commit `9d89a1a`, integration proof in `b6ecc59`). `DeliveryAttemptRow` is a public export.
 
 **Still open.** Ops HTTP surface (`GET /_ops/relay-dlq`, `GET /_ops/relay-lag`) — deferred to a separate operability task; the underlying data is now queryable via SQL.
 
@@ -41,7 +46,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D1).** `event_log` is the authoritative append-only log; `publish_cursor(relay_id, last_event_id)` tracks bulk progress; a new mutable `delivery_tracking(event_id PK, first_attempt_at, last_attempt_at, attempt_count, last_error, delivered_at, dlq_at)` table records per-event delivery state.
 
-**Current state.** `packages/event-store/src/store/schema.ts:3-28` defines `event_log` and `publish_cursor`, nothing else. `packages/event-store/src/relay/loop.ts:47-75` advances the cursor after a batch of successful sends; no per-event record of attempt count or last error survives past the in-memory `console.error` at `loop.ts:29`.
+**Current state.** `packages/runtime/event-store/src/store/schema.ts:3-28` defines `event_log` and `publish_cursor`, nothing else. `packages/runtime/event-store/src/relay/loop.ts:47-75` advances the cursor after a batch of successful sends; no per-event record of attempt count or last error survives past the in-memory `console.error` at `loop.ts:29`.
 
 **Delta.**
 
@@ -52,8 +57,8 @@ Original gap statement preserved below for historical context.
 
 **Remediation sketch.**
 
-1. Add `delivery_tracking` DDL to `packages/event-store/src/store/schema.ts`.
-2. Extend relay loop `packages/event-store/src/relay/loop.ts:47-77` to `UPSERT` into `delivery_tracking` before each attempt (`attempt_count += 1`, `last_attempt_at = now`); on success write `delivered_at`; on terminal failure write `dlq_at`, `last_error` (see D10).
+1. Add `delivery_tracking` DDL to `packages/runtime/event-store/src/store/schema.ts`.
+2. Extend relay loop `packages/runtime/event-store/src/relay/loop.ts:47-77` to `UPSERT` into `delivery_tracking` before each attempt (`attempt_count += 1`, `last_attempt_at = now`); on success write `delivered_at`; on terminal failure write `dlq_at`, `last_error` (see D10).
 3. Ops surface: `GET /_ops/relay-dlq`, `GET /_ops/relay-lag` (ties D10 remediation).
 
 **Priority.** P1 — prerequisite for D10 DLQ behaviour (attempt_count, last_error, dlq_at all live here).
@@ -64,7 +69,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D2).** Sync write-behind: command → SQLite append → ack → async relay.
 
-**Current state.** `packages/graph-ir-compiler/src/command-runtime/execute.ts:42-107` — `executeCommand` synchronously reads history, validates, appends, returns. `packages/bindings-http/src/runtime/command-handler.ts:63-71` wires HTTP → `executeCommand` → JSON response, entirely in-request. Relay runs in a separate loop (`packages/event-store/src/relay/loop.ts:22-94`), no coupling to the write path.
+**Current state.** `packages/artifacts/graph-ir-compiler/src/operation/execute.ts:42-107` — `executeCommand` synchronously reads history, validates, appends, returns. `packages/runtime/bindings-http/src/runtime/operation-handler.ts:63-71` wires HTTP → `executeCommand` → JSON response, entirely in-request. Relay runs in a separate loop (`packages/runtime/event-store/src/relay/loop.ts:22-94`), no coupling to the write path.
 
 **Delta.** None.
 
@@ -76,7 +81,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D3).** Three-layer SoT model: SQLite = per-service command SoT; Kafka topics = inter-service integration SoT with long retention / compaction; ksqlDB = cross-service read layer (new services typically consume ksqlDB-derived streams/tables rather than raw Kafka topics; cross-service joins and aggregations live in ksqlDB, not in individual rntme services).
 
-**Current state.** SQLite is treated as SoT by construction (relay reads from it, never writes back). Kafka topic naming (`packages/event-store/src/relay/topic.ts:1-3` — `rntme.{aggregateType.toLowerCase()}.v1`) is per-aggregate-type, consistent with D6. The demo runs an **in-memory Kafka bridge** (`docs/gaps/commands-and-transactions-gaps.md` references the swap point); production retention policy is not specified anywhere in the code or docs. **No ksqlDB integration exists** — neither in the platform infrastructure nor in rntme's operational story.
+**Current state.** SQLite is treated as SoT by construction (relay reads from it, never writes back). Kafka topic naming (`packages/runtime/event-store/src/relay/topic.ts:1-3` — `rntme.{aggregateType.toLowerCase()}.v1`) is per-aggregate-type, consistent with D6. The demo runs an **in-memory Kafka bridge** (`docs/gaps/commands-and-transactions-gaps.md` references the swap point); production retention policy is not specified anywhere in the code or docs. **No ksqlDB integration exists** — neither in the platform infrastructure nor in rntme's operational story.
 
 **Delta.**
 
@@ -100,7 +105,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D4).** At-least-once delivery; idempotent consumer mandatory.
 
-**Current state.** `packages/event-store/src/relay/loop.ts:50-72` retries sends forever on failure (at-least-once producer side). `packages/projection-consumer/src/consumer.ts:30-45` wraps apply in `BEGIN IMMEDIATE … COMMIT` then `commitOffsets`. `packages/projection-consumer/src/apply/apply-event.ts:26-33` enforces idempotency on the DB side.
+**Current state.** `packages/runtime/event-store/src/relay/loop.ts:50-72` retries sends forever on failure (at-least-once producer side). `packages/runtime/projection-consumer/src/consumer.ts:30-45` wraps apply in `BEGIN IMMEDIATE … COMMIT` then `commitOffsets`. `packages/runtime/projection-consumer/src/apply/apply-event.ts:26-33` enforces idempotency on the DB side.
 
 **Delta.** None on delivery semantics themselves. Related gaps are filed under D5 (idempotency strategy limited to entity-mirror) and D10 (infinite retry = no poison-event handling). The semantic choice is correct; the mechanics around it need work.
 
@@ -129,7 +134,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D5).** Hybrid: per-row `last_event_version` for entity-mirror projections **plus** `seen_events(event_id PRIMARY KEY, applied_at, projection_id)` for non-mirror projections. QSM artifact declares the strategy per projection.
 
-**Current state.** `packages/projection-consumer/src/apply/apply-event.ts:26-33` performs only the per-row `last_event_version` check:
+**Current state.** `packages/runtime/projection-consumer/src/apply/apply-event.ts:26-33` performs only the per-row `last_event_version` check:
 
 ```ts
 const currentVersion = selectCurrentVersion(db, handler, envelope.aggregateId);
@@ -153,7 +158,7 @@ This is why the current QSM validator rejects anything that is not `entity-mirro
 
 1. Add `seen_events(event_id TEXT PK, projection_id TEXT, applied_at TEXT)` DDL to the QSM-managed DB (projection consumer owns it).
 2. Extend QSM artifact schema: per-projection field `idempotency: "entity-mirror" | "seen-events"`. Default = `entity-mirror` for backward compatibility.
-3. Extend `packages/projection-consumer/src/apply/apply-event.ts` with a branch: if handler strategy is `seen-events`, first check `SELECT 1 FROM seen_events WHERE event_id = ?`; skip if present; on apply, insert `(event_id, projection_id, now)`.
+3. Extend `packages/runtime/projection-consumer/src/apply/apply-event.ts` with a branch: if handler strategy is `seen-events`, first check `SELECT 1 FROM seen_events WHERE event_id = ?`; skip if present; on apply, insert `(event_id, projection_id, now)`.
 4. Remove the `derived` kind rejection from QSM validator once (2) and (3) ship.
 5. Add retention job: delete `seen_events WHERE applied_at < now() − 30d` (configurable; must exceed max replay window).
 
@@ -175,7 +180,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D6).** Topic per aggregate type. Partition key = `stream`. Naming: `rntme.{serviceName}.{aggregateType}.v{major}` (where `v{major}` = event schema major version).
 
-**Current state.** `packages/event-store/src/relay/topic.ts:1-3`:
+**Current state.** `packages/runtime/event-store/src/relay/topic.ts:1-3`:
 
 ```ts
 export function defaultTopicOf(aggregateType: string): string {
@@ -183,7 +188,7 @@ export function defaultTopicOf(aggregateType: string): string {
 }
 ```
 
-Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.envelope.stream`. Correct per canon.
+Partition key is set at `packages/runtime/event-store/src/relay/loop.ts:55`: `key: rec.envelope.stream`. Correct per canon.
 
 **Delta.**
 
@@ -204,7 +209,7 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 **Best design (ADR D7).** Polling loop is durability path. An in-process condvar signal from `appendEvents` wakes the poller immediately, cutting tail latency from poll interval to ~1 ms.
 
-**Current state.** `packages/event-store/src/relay/loop.ts:35-77` polls every 100 ms by default (`opts.pollIntervalMs ?? 100`). No notify mechanism from append path. Between an `appendEvents` commit and the next poll, events sit for up to 100 ms before Kafka publish attempt.
+**Current state.** `packages/runtime/event-store/src/relay/loop.ts:35-77` polls every 100 ms by default (`opts.pollIntervalMs ?? 100`). No notify mechanism from append path. Between an `appendEvents` commit and the next poll, events sit for up to 100 ms before Kafka publish attempt.
 
 **Delta.**
 
@@ -226,7 +231,7 @@ Partition key is set at `packages/event-store/src/relay/loop.ts:55`: `key: rec.e
 
 **Best design (ADR D8).** Per-event JSON Schema files committed to the repo. CI step runs a BACKWARD-compat checker between `HEAD` schemas and `main` schemas. PR blocked on violations.
 
-**Current state.** The only schema-evolution signal is `packages/event-store/src/types/envelope.ts:17` — a bare `schemaVersion: number` field on the envelope. No schema files exist. No compatibility checker. No CI gate. Reviewers depend on eyeballing graph-IR `emit.payloadExprs` for changes to see if they are breaking.
+**Current state.** The only schema-evolution signal is `packages/runtime/event-store/src/types/envelope.ts:17` — a bare `schemaVersion: number` field on the envelope. No schema files exist. No compatibility checker. No CI gate. Reviewers depend on eyeballing graph-IR `emit.payloadExprs` for changes to see if they are breaking.
 
 **Delta.**
 
@@ -263,7 +268,7 @@ Zeebe because that was the workflow-engine placeholder on 2026-04-15.
 
 **Best design (ADR D9).** CloudEvents 1.0 envelope end-to-end (in `event_log`, in Kafka messages via binary content mode, in internal APIs). Standard attributes (`id`, `source`, `type`, `time`, `subject`, `datacontenttype`, `dataschema`, `specversion`) + extensions (`correlationid`, `causationid`, `traceparent`, `rntaggregatetype`, `rntaggregateid`, `rntversion`, `rntschemaversion`, `rntactorkind`, `rntactorid`).
 
-**Current state.** `packages/event-store/src/types/envelope.ts:1-18` — proprietary envelope:
+**Current state.** `packages/runtime/event-store/src/types/envelope.ts:1-18` — proprietary envelope:
 
 ```ts
 export type EventEnvelope<TPayload = unknown> = Readonly<{
@@ -282,9 +287,9 @@ export type EventEnvelope<TPayload = unknown> = Readonly<{
 
 No `source`, no `specversion`, no `correlationid`, no `causationid`, no `datacontenttype`, no `dataschema`.
 
-`packages/event-store/src/relay/loop.ts:53-62` emits Kafka messages with only three headers (`event-id`, `event-type`, `schema-version`); the full envelope is serialized into `value` as JSON. No CloudEvents binary or structured content mode.
+`packages/runtime/event-store/src/relay/loop.ts:53-62` emits Kafka messages with only three headers (`event-id`, `event-type`, `schema-version`); the full envelope is serialized into `value` as JSON. No CloudEvents binary or structured content mode.
 
-`demo/issue-tracker-api/src/server.ts:8-22` does not propagate any correlation/trace header to commands. `packages/bindings-http/src/runtime/command-handler.ts:63-71` does not read correlation headers or plumb them to `executeCommand`. The chain from HTTP → command → event carries zero correlation/causation context.
+`demo/issue-tracker-api/src/server.ts:8-22` does not propagate any correlation/trace header to commands. `packages/runtime/bindings-http/src/runtime/operation-handler.ts:63-71` does not read correlation headers or plumb them to `executeCommand`. The chain from HTTP → command → event carries zero correlation/causation context.
 
 **Delta (blast radius).**
 
@@ -319,7 +324,7 @@ Original gap statement preserved below for historical context.
 
 **Best design (ADR D10).** Max-attempts + dedicated DLQ Kafka topic (`{originalTopic}.dlq`). `delivery_tracking.dlq_at` records local auditability; authoritative DLQ lives in Kafka.
 
-**Current state.** `packages/event-store/src/relay/loop.ts:50-70`:
+**Current state.** `packages/runtime/event-store/src/relay/loop.ts:50-70`:
 
 ```ts
 while (true) {
@@ -362,7 +367,7 @@ Unbounded retry. No attempt counter. Default `onErr` is `console.error`. If a si
 
 **Best design (ADR D11).** A per-service registry of JSON Schema files, generated at build time from **PDM alone** (not graphs — graphs are the runtime binding for how to populate a payload, not the schema). Committed to the repo. Source for D8's compat-checker and for external consumers (Operaton BPMN workers, dashboards, other services, ksqlDB DDL generators).
 
-**Current state.** The derivation function **already exists**: `packages/pdm/src/derive/event-types.ts:25` — `deriveEventTypes(pdm: ValidatedPdm) → EventTypeSpec[]`, producing per-transition specs with `eventType`, `aggregateType`, `transition`, `from/to`, `affects`, and `payloadFields: { [field]: { type, nullable } }`. The derivation is clean, PDM-only, no graph input.
+**Current state.** The derivation function **already exists**: `packages/artifacts/pdm/src/derive/event-types.ts:25` — `deriveEventTypes(pdm: ValidatedPdm) → EventTypeSpec[]`, producing per-transition specs with `eventType`, `aggregateType`, `transition`, `from/to`, `affects`, and `payloadFields: { [field]: { type, nullable } }`. The derivation is clean, PDM-only, no graph input.
 
 What is missing:
 
@@ -401,25 +406,25 @@ owned.
 
 **Current state.** The HTTP replay-cache part is implemented:
 
-- `packages/bindings-http/src/idempotency/middleware.ts` reads
+- `packages/runtime/bindings-http/src/idempotency/middleware.ts` reads
   `Idempotency-Key`, derives a stable command run id, and replays cached
   responses with `Idempotency-Replay: true`.
-- `packages/bindings-http/src/idempotency/cache.ts` creates
+- `packages/runtime/bindings-http/src/idempotency/cache.ts` creates
   `idempotency_cache`, stores status/body/headers, reads by `(command_name, key)`,
   and supports expiry cleanup.
-- `packages/bindings-http/src/router.ts` installs the middleware for command
+- `packages/runtime/bindings-http/src/router.ts` installs the middleware for command
   routes and passes the cache into command handlers.
-- `packages/bindings-http/src/runtime/command-handler.ts` stores successful and
+- `packages/runtime/bindings-http/src/runtime/operation-handler.ts` stores successful and
   error command responses in the idempotency cache and derives pre-step keys
   from the top-level run id.
 
 Still open:
 
-- `packages/bindings/src/openapi/emit.ts` does not document
+- `packages/artifacts/bindings/src/openapi/emit.ts` does not document
   `Idempotency-Key` on command operations.
-- `packages/graph-ir-compiler/src/command-runtime/execute.ts` still has no
+- `packages/artifacts/graph-ir-compiler/src/operation/execute.ts` still has no
   idempotency metadata in its execution context.
-- `packages/bindings-grpc` has no documented equivalent contract for command
+- `packages/runtime/bindings-grpc` has no documented equivalent contract for command
   retries.
 - Artifact-level defaults/overrides for idempotency scope and TTL are not
   modeled.
@@ -452,7 +457,7 @@ Several concerns span multiple decisions; listed here for completeness.
 
 ### Observability is absent across the event pipeline
 
-All relay / consumer errors surface through `console.error` (`packages/event-store/src/relay/loop.ts:29`, `packages/projection-consumer/src/consumer.ts:42-44`). No structured logs, no OpenTelemetry spans, no metrics. D9 `traceparent` extension and D1 `delivery_tracking` close part of this, but the larger observability story is tracked separately in `docs/gaps/infra-and-operability-gaps.md` §P1 "Observability".
+All relay / consumer errors surface through `console.error` (`packages/runtime/event-store/src/relay/loop.ts:29`, `packages/runtime/projection-consumer/src/consumer.ts:42-44`). No structured logs, no OpenTelemetry spans, no metrics. D9 `traceparent` extension and D1 `delivery_tracking` close part of this, but the larger observability story is tracked separately in `docs/gaps/infra-and-operability-gaps.md` §P1 "Observability".
 
 **Interaction with this ADR.** After D9 (CloudEvents + `traceparent`) lands, plugging an OTel exporter becomes additive; the trace context is already in the envelope.
 

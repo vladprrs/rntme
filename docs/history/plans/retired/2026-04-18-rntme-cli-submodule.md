@@ -1,7 +1,7 @@
-> Status: historical.
+> Status: retired.
 > Date: 2026-04-18.
-> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Historical rationale and execution context retained for review; it is not current-state truth by itself.
+> Current source: docs/history/specs/active-rationale/2026-04-30-merge-rntme-cli-back-design.md, AGENTS.md, docs/current/owners/apps/cli.md, and current code/tests.
+> Why retired: Implementation checklist for the removed private CLI submodule; current CLI work lives under `apps/cli` and `packages/**` with `@rntme/*` packages.
 
 > **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After the merge-back PR lands they move per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
 
@@ -15,7 +15,6 @@
 
 **Tech Stack:** pnpm 9.12 workspaces, TypeScript 5.5 ESM, vitest 2.1, eslint 9, Node 20 (`node:util.parseArgs`), GitHub `gh` CLI, `actions/checkout@v4`.
 
-**Spec:** `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`.
 
 ---
 
@@ -752,7 +751,6 @@ Registers vladprrs/rntme-cli as a git submodule mounted at rntme-cli/ and
 extends pnpm-workspace.yaml with rntme-cli/packages/*, bringing
 @rntme-cli/cli into the root workspace. Lockfile refreshed.
 
-Spec: docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md
 EOF
 )"
 ```
@@ -838,7 +836,6 @@ Locate the bullet list that currently starts with `- packages/` / `- demo/issue-
 ```markdown
 - `rntme-cli/`              — private git submodule (`vladprrs/rntme-cli`)
   hosting `@rntme-cli/*` packages. See
-  `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`.
 ```
 
 - [ ] **Step 4: Commit**

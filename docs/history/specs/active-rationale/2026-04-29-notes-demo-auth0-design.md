@@ -14,7 +14,6 @@
 - `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` — canonical Identity v1 (24 RPCs, `IntrospectSession`). This spec claims `IntrospectSession` for `@rntme/identity-auth0` and adds `audience` field to its request.
 - `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md` — `deploy-core` / `deploy-dokploy` library. This spec extends `EdgeMiddleware` with `kind: "auth"` and `ExternalEventBusConfig.security` for SASL_SSL/SCRAM.
 - `docs/history/specs/historical/2026-04-26-project-deploy-flow-design.md` — platform deploy-flow.
-- `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md` — preview no-auth notes-demo. **Superseded by this spec** (see §1).
 - `docs/history/specs/historical/2026-04-17-cloudevents-envelope-design.md` — CloudEvents envelope (unchanged here; `actor` not added — ownership is carried in domain payload).
 - Memories: `rntme_orchestration_only`, `project_pre_stable_stage`, `dokploy_compose_dns_collision`.
 
@@ -1058,7 +1057,6 @@ Phase-3 changes (deploy library extensions, runtime SASL/auth env consumption, b
 | `demo/notes-blueprint/README.md` | rewrite | Production-shape demo, login flow, ownership semantics, link to this spec. |
 | `vision.md` | none | Not buyer-facing. |
 | `docs/architecture.md` | none | Architecture unchanged; auth-middleware is a natural extension. |
-| `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md` | status flip | Mark `Status: superseded by 2026-04-29-notes-demo-auth0-design.md` if the deploy was not executed; otherwise `Status: rolled into v2 deploy` with link to the v1 deployment record. Decided in plan Phase 6. |
 | `docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md` | new | This document. |
 | `docs/history/plans/historical/2026-04-29-notes-demo-auth0.md` | new | Implementation plan. |
 

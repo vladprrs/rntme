@@ -1627,7 +1627,6 @@ git commit -m "test(demo): e2e derived projection + dedup assertion"
 ## Task 25 — Full-workspace verification + gap-doc flip + plan archive
 
 **Files:**
-- Modify: `docs/gaps/2026-04-15-event-driven-canonical-audit.md` — update D5 verdict from ❌ to ✅ with a resolution note.
 - Move: `docs/history/plans/historical/2026-04-18-d5-consumer-idempotency-hybrid.md` → `docs/history/plans/historical/2026-04-18-d5-consumer-idempotency-hybrid.md` (follows existing archive pattern — confirm with `ls docs/history/plans/historical/`).
 
 - [ ] **Step 25.1: Full workspace checks**
@@ -1641,7 +1640,6 @@ Expected: all green. If any red, fix in a focused commit before proceeding.
 
 - [ ] **Step 25.2: Update D5 verdict**
 
-In `docs/gaps/2026-04-15-event-driven-canonical-audit.md`, change the D5 row in the verdict matrix:
 
 ```md
 | **D5** | ... | ... | ✅ resolved 2026-04-18 (hybrid: last_event_version + seen_events; graph-IR for derived) |
@@ -1668,7 +1666,6 @@ Run: `git mv docs/history/plans/historical/2026-04-18-d5-consumer-idempotency-hy
 - [ ] **Step 25.5: Commit**
 
 ```bash
-git add docs/gaps/2026-04-15-event-driven-canonical-audit.md docs/history/plans/historical/
 git commit -m "docs(gaps): D5 resolved — hybrid idempotency + graph-IR derived projections"
 ```
 
@@ -1685,5 +1682,3 @@ git commit -m "docs(gaps): D5 resolved — hybrid idempotency + graph-IR derived
 - Snapshot / restore for derived tables.
 - Cross-service derived read-models (ksqlDB territory — D3).
 - HTTP Ops surface for `seen_events` size / retention health.
-
-These are documented in `docs/gaps/2026-04-15-event-driven-canonical-audit.md` under their respective decisions, and in the spec §1 "Non-goals" / §11 "Risks & open questions".

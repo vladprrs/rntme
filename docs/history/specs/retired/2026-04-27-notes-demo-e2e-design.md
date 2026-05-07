@@ -1,7 +1,7 @@
-> Status: active-rationale.
+> Status: retired.
 > Date: 2026-04-27.
-> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Historical rationale and execution context retained for review; it is not current-state truth by itself.
+> Current source: docs/current/owners/demo/notes-blueprint.md, docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md, docs/decision-system.md, and current code/tests.
+> Why retired: Superseded by the Auth0/ownership Notes demo plan; the no-auth preview deploy path is obsolete and should not guide current implementation.
 
 # Notes Demo E2E — design
 
@@ -364,13 +364,11 @@ Phase 2 changes (миграция + новые таблицы + env var + bump s
 | `vision.md` | Нет | Не buyer-facing change. |
 | `docs/architecture.md` | Нет | Архитектура та же. |
 | `demo/notes-blueprint/README.md` | **Да, новый** | Что это за демо, scope, как локально валидировать, ссылка на этот спек. |
-| `docs/history/specs/active-rationale/2026-04-27-notes-demo-e2e-design.md` | **Да, новый** | Этот документ. |
 
 Решение для CLAUDE.md mandate: «no docs need updating in main project tree — recorded decision; новые файлы только в самом блюпринте и в specs/».
 
 ## 7. Plan split
 
-Один план: `docs/history/plans/historical/2026-04-27-notes-demo-e2e.md`.
 
 Phase 1 (blueprint local), Phase 2 (platform activation), Phase 3 (e2e walkthrough) — phases внутри одного плана. Каждая phase имеет внутренний gate (Phase 1 = `loadComposedBlueprint` ok; Phase 2 = 4 smoke checks зелёные; Phase 3 = hard gate из 5.3). `executing-plans` встанет на ближайшем красном.
 

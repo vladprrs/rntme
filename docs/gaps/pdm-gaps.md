@@ -8,21 +8,21 @@ schemas, read models, bindings, UI, and migrations.
 
 ## What rntme has today
 
-- `packages/pdm/src/types/artifact.ts` defines a project/service-agnostic entity
+- `packages/artifacts/pdm/src/types/artifact.ts` defines a project/service-agnostic entity
   artifact with `ownerService`, `kind`, `table`, `fields`, `relations`, `keys`,
   and optional entity `stateMachine`.
 - Field types are still a closed scalar set:
   `integer | decimal | string | boolean | date | datetime`. The Zod schema in
-  `packages/pdm/src/parse/schema.ts` mirrors that exact set.
+  `packages/artifacts/pdm/src/parse/schema.ts` mirrors that exact set.
 - Generated fields are still only `id | createdAt | updatedAt | actor`; there is
   no generated `deletedAt`.
 - Relations are local only: `{ to, cardinality, localKey, foreignKey }`.
-  `packages/pdm/src/validate/structural.ts` rejects relation targets that are
+  `packages/artifacts/pdm/src/validate/structural.ts` rejects relation targets that are
   not entities in the same PDM and validates only local/foreign key presence.
 - State machines are first-class and derive event specs through
-  `packages/pdm/src/derive/event-types.ts`. These event specs drive seed,
+  `packages/artifacts/pdm/src/derive/event-types.ts`. These event specs drive seed,
   projection, command, and schema-governance work.
-- `packages/blueprint` has moved authoring context upward: project blueprint
+- `packages/artifacts/blueprint` has moved authoring context upward: project blueprint
   folders now contain a project-level PDM, and service members consume that PDM.
   The PDM package itself still exposes one JSON artifact shape, not the
   multi-file project folder loader.
@@ -50,11 +50,11 @@ That is too weak for repeatable agent-authored workflow apps.
 
 **Current evidence.**
 
-- `packages/pdm/src/types/artifact.ts` only exposes scalar fields.
-- `packages/pdm/src/parse/schema.ts` rejects any field shape beyond that scalar
+- `packages/artifacts/pdm/src/types/artifact.ts` only exposes scalar fields.
+- `packages/artifacts/pdm/src/parse/schema.ts` rejects any field shape beyond that scalar
   enum.
-- `demo/issue-tracker-api/artifacts/pdm.json` still models workflow states and
-  priorities as strings.
+- Current demos still model workflow states and priorities as strings rather
+  than closed enums.
 
 **Target.** Design a PDM v2 field grammar with:
 
@@ -85,7 +85,7 @@ local FK is also wrong because the target row is not owned by this service.
 - `docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md`
   makes entity ownership project-level but does not introduce field-level
   ownership or a foreign-reference relation kind.
-- `packages/blueprint/src/types/artifact.ts` records service descriptors and
+- `packages/artifacts/blueprint/src/types/artifact.ts` records service descriptors and
   project routing but not typed cross-service entity references.
 
 **Target.** Add one explicit modeling path for cross-service handles:

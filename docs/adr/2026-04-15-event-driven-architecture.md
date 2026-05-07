@@ -1,10 +1,15 @@
+> Status: historical.
+> Date: 2026-04-15.
+> Current source: docs/decision-system.md, docs/current/owners/packages/runtime/event-store.md, docs/current/owners/packages/runtime/projection-consumer.md, and current code/tests.
+> Why retained: ADR rationale for event-log/outbox and delivery decisions; it is not current-state truth by itself.
+
 # ADR 2026-04-15 · Event-Driven Architecture of rntme
 
 **Status:** Proposed — analysis artifact.
 **Scope:** command path, event store, relay, projection consumer, Kafka surface, schema evolution.
 **Non-goals:** cross-service saga orchestration (Zeebe territory), read-side SQL dialect (covered by Turso ADR), UI artifact format.
 
-This ADR defines the canonical event-driven architecture for a rntme service. Each decision answers one design question with alternatives explicitly weighed. Where the best design differs from the current implementation, that delta is captured in the companion gap audit (`docs/gaps/2026-04-15-event-driven-canonical-audit.md`) — not smoothed over here.
+This ADR defines the canonical event-driven architecture for a rntme service. Each decision answers one design question with alternatives explicitly weighed. Where this historical design differs from the current implementation, use current owner docs, live gap docs, and code/tests instead of this ADR as current-state truth.
 
 **Note on implementation commitment.** This document is an analysis artifact. Accepting or scheduling any specific decision is a separate product-value call made per decision, per release, against the gaps backlog. The ADR does not obligate the platform to implement every decision; it records what the canonical design looks like so product prioritization has an honest baseline.
 
@@ -435,7 +440,7 @@ Where this ADR diverges from current code (ranked by blast radius):
 - **D8 schema-compat CI gate.** New script, PR gate.
 - **D1 delivery_tracking additions.** New table; additive to relay.
 
-Each delta is captured in detail in `docs/gaps/2026-04-15-event-driven-canonical-audit.md` with current-state evidence and remediation sketch.
+Current eventing gaps live in `docs/gaps/**` and the current runtime owner docs. This ADR is retained as rationale only.
 
 ---
 

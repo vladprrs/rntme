@@ -96,11 +96,11 @@ const result: { appliedCount: number; skippedCount: number } =
 CLI:
 
 ```bash
-# Validate seed.json against pdm.json in an artifacts directory.
-rntme-seed validate ./demo/issue-tracker-api/artifacts
+# Validate a seed fixture against a PDM fixture.
+rntme-seed validate ./packages/artifacts/seed/test/fixtures
 
 # Apply with idempotent re-run semantics.
-rntme-seed apply ./demo/issue-tracker-api/artifacts \
+rntme-seed apply ./packages/artifacts/seed/test/fixtures \
   --event-store ./data/event-store.db \
   --mode upsert-by-event-id
 ```
@@ -197,7 +197,7 @@ CLI exit codes:
 - "Change payload wrapping" → `src/wrap-payloads.ts`. `streamState` accumulates per-stream `{ ...currentState, ...after }`. Tests in `test/unit/wrap-payloads.test.ts` cover creation, non-creation, terminal transitions, multi-stream, pass-through, and field preservation.
 - "Change CLI flags or output" → `src/bin/cli.ts`. `runValidate`/`runApply` parse argv with `getFlag`; `resolveApplyMode` maps `--mode` to `ApplyMode`; `emitErrors` formats human and JSON output. CLI tests in `test/unit/cli.test.ts` `spawnSync` against the built `dist/bin/cli.js`.
 - "Add a fixture for a new aggregate" → `test/fixtures/minimal-pdm.json` is the synthetic PDM used by `validate-*.test.ts`, `wrap-payloads.test.ts`, `load.test.ts`, and `cli.test.ts`. It declares one entity (`Thing`) with three transitions.
-- "Debug a failing seed in the demo" → run `rntme-seed validate demo/issue-tracker-api/artifacts` (CI also runs this). Spec §11.4.
+- "Debug a failing seed fixture" → run `rntme-seed validate packages/artifacts/seed/test/fixtures`. Spec §11.4.
 - "Trace runtime integration" → `@rntme/runtime`'s `loadService` calls `loadSeed`; `startService` calls `applySeed` between `bootstrapProjections` and `pipeline.start()`. Spec §8.
 
 ## Specs

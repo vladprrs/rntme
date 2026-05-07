@@ -1,7 +1,7 @@
-> Status: historical.
+> Status: retired.
 > Date: 2026-04-18.
-> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Historical rationale and execution context retained for review; it is not current-state truth by itself.
+> Current source: docs/history/specs/active-rationale/2026-04-18-drizzle-adoption-design.md, docs/decision-system.md, and current code/tests.
+> Why retired: Superseded by the Drizzle adoption decision; `@rntme/db-studio` was removed, so this design points at a deleted package.
 
 # DB Studio — libSQL Hrana read-only endpoint for rntme runtimes
 

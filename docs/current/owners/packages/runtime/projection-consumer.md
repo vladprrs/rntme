@@ -11,7 +11,7 @@ Kafka-to-SQLite read-side runner: bootstraps entity-mirror DDL, compiles per-eve
   - `better-sqlite3` — sole runtime DB driver (peer; SQLite-only target).
 - Consumed by:
   - [`@rntme/runtime`](/docs/current/owners/packages/runtime/runtime.md) — wires the consumer into the demo runtime.
-  - `demo/issue-tracker-api` — end-to-end smoke + canonical lifecycle.
+  - project/demo service runtimes that need QSM read models.
 - Position in pipeline: relay (event-store) → Kafka (any adapter conforming to `KafkaConsumer`) → **projection-consumer** → SQLite mirror tables → read-graph compiler reads from `projection_<name>`.
 
 ## File map

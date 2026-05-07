@@ -6,7 +6,6 @@
 # Merge `rntme-cli` submodule back + restructure workspace by architectural role — design
 
 > Status: design (brainstorming complete). Use as input for `writing-plans`.
-> Supersedes: `docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`.
 > Scope: re-merge the `rntme-cli` git submodule into the parent monorepo, unify the npm scope, and reorganize `packages/` by architectural role (artifact validators vs runtime engines vs platform vs deploy vs tooling). One PR.
 > Non-goals: renaming individual packages, restructuring `modules/*` or `demo/*`, splitting `cli`/`platform-http` into sub-packages, replacing `demo/issue-tracker-api`.
 
@@ -14,7 +13,6 @@
 
 ## 1. Problem
 
-The `rntme-cli/` git submodule was introduced **2026-04-18** (`docs/history/specs/historical/2026-04-18-rntme-cli-submodule-design.md`) under one rationale:
 
 > "This code must not ship in the public `vladprrs/rntme` repository while it is still early and **proprietary**."
 

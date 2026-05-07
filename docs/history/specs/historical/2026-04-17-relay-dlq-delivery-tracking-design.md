@@ -6,7 +6,6 @@
 # Relay DLQ + `delivery_tracking` — Design
 
 **Date.** 2026-04-17
-**Scope.** `packages/event-store` — close the operational gap "one poison event halts the relay forever" identified in `docs/gaps/2026-04-15-event-driven-canonical-audit.md` (D1 partial, D10 ❌).
 **Out of scope.** CloudEvents envelope migration (D9), schema registry (D8+D11), idempotency-key middleware (D12), non-mirror projection strategy (D5), ops HTTP surface (A2 deferred), service-manifest config (A3 deferred).
 
 ## 1. Motivation

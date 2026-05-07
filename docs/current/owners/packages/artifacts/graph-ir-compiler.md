@@ -303,7 +303,9 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 
 ## Out of scope / known limits
 
-- **No JOIN-based FK enrichment for list/search endpoints in the demo.** `demo/issue-tracker-api`'s list / search endpoints currently return raw FK IDs; a JOIN compilation strategy is brainstormed in the `demo_join_enrichment_todo` memory entry. The compiler supports dot-nav joins for individual field paths today; bulk enrichment is not modeled.
+- **No JOIN-based FK enrichment for list/search endpoints.** Current demos avoid
+  richer FK-enriched list/search surfaces; explicit JOIN compilation remains
+  unmodeled beyond dot-nav joins for individual field paths.
 - **Tier 1 nodes only.** `distinct`, `lookupOne`, `lookup` expression, named predicate graphs, and `exists` / `in` / `$list` parse but are validator-rejected by `tier1-nodes.ts` / `tier1-expr.ts`.
 - **Single-graph-per-call.** Multi-graph specs are rejected with `STRUCT_DUPLICATE_GRAPH_ID`; multi-graph compilation belongs in the runtime layer.
 - **Composite aggregate keys are not supported.** `aggregateId` is a single Expr coerced to string by the command/operation emit runtime.

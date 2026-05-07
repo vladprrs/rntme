@@ -285,3 +285,22 @@ design. It may need path updates later if ADR/spec references move.
 7. No retired document is physically deleted in the first migration.
 8. The implementation plan includes a docs-touch evaluation for every migrated
    surface.
+
+## 13. Full-Docs Retirement Pass
+
+Completion pass, 2026-05-07:
+
+- Every Markdown document under `docs/` was classified in
+  `docs/history/reports/2026-05-07-docs-full-retirement-audit.md`.
+- Seven documents were moved into `retired/` because they had explicit
+  supersession, removed-package/workspace evidence, or direct current-decision
+  conflict. Their paths are intentionally omitted from current navigation.
+- Root gap documents were kept as live backlog except one obsolete event audit.
+  Stale package paths, binding pre-step wording, removed demo references, and
+  removed `@rntme/db-studio` current-state claims were corrected in the retained
+  gap backlog.
+- ADR, audit, research, report, and runbook documents were retained as
+  historical/rationale surfaces unless they had an explicit harmful navigation
+  signal. They are not current-state truth; current authority remains
+  `docs/current/**`, `docs/decision-system.md`, dependency-cruiser, and
+  code/tests.

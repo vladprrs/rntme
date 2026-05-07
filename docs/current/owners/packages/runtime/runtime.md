@@ -16,8 +16,10 @@ Top-level orchestrator for an rntme service: loads a validated artifact director
   - `@rntme/ui` — `compile()` turns the `ui/` source directory into a `CompiledArtifact`.
   - `@rntme/ui-runtime` — `createApp` serves the compiled artifact; `HttpSurface` mounts it at `/`.
 - Consumed by:
-  - `demo/issue-tracker-api` — embeds `startService` programmatically.
-  - Any image that copies `Dockerfile.template` and a validated artifacts directory.
+  - generated service images that copy `Dockerfile.template` and a validated
+    artifacts directory.
+  - local/demo launch flows that materialize one service runtime from a project
+    blueprint.
 - Position in pipeline: service-level authoring artifacts → `loadService` (validates every input) → `startService` (boots event-store, bus, projections, executor seams, modules, HTTP/gRPC surfaces) → running service answers HTTP. Project-level intake from a project blueprint folder remains deferred to a separate runtime spec.
 
 ## File map
