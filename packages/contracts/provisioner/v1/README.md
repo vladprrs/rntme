@@ -1,58 +1,11 @@
 # @rntme/contracts-provisioner-v1
 
-Provisioner runtime contract for rntme. Defines what a vendor module's provisioner code receives, returns, and can fail with — used by deploy orchestrators that run provisioners.
+Provisioner contract package documentation.
 
-## File map
+Current documentation: [docs/current/owners/packages/contracts/provisioner/v1.md](../../../../docs/current/owners/packages/contracts/provisioner/v1.md)
 
-- `src/provisioner-contract.ts` — `ProvisionerContract`, `ProvisionerInput`, `ProvisionerOutput`, `ProvisionerLog`, `ProvisionerVendorError`.
-- `src/env-mapping-types.ts` — `EnvMappingEntry`, `ProvisionerEnvMapping`, `ResolvedEnvEntry` (the declarative env-mapping shape vendor modules export).
-- `src/result.ts` — minimal `Result<T, E>` shape the contract uses for return values.
-- `src/index.ts` — public re-exports.
+Local commands:
+- `pnpm -F @rntme/contracts-provisioner-v1 test` when the package defines a test script.
 
-## Quick start
-
-```ts
-import type {
-  ProvisionerContract,
-  ProvisionerEnvMapping,
-} from '@rntme/contracts-provisioner-v1';
-
-export const provisioner: ProvisionerContract<MyConfig> = {
-  async provision(input) {
-    // input.publicConfig, input.targetSecrets, input.priorOutputs?, input.log, input.signal
-    return { ok: true, value: { publicOutputs: {}, secretOutputs: {} } };
-  },
-};
-
-export const ENV_MAPPINGS: ProvisionerEnvMapping = {
-  'my-module': [
-    { from: 'someOutput', envName: 'SOME_ENV', secret: false, target: 'app' },
-  ],
-};
-```
-
-## API
-
-Types: `ProvisionerContract`, `ProvisionerInput`, `ProvisionerOutput`, `ProvisionerLog`, `ProvisionerVendorError`, `EnvMappingEntry`, `ProvisionerEnvMapping`, `ResolvedEnvEntry`, `Result`.
-
-## Invariants & gotchas
-
-- This package is **types only** — no zod, no runtime dependencies.
-- A provisioner's `provision()` and optional `tearDown()` MUST return a `Result` rather than throwing. The conformance test in `@rntme/deploy-core` enforces this against every module that declares a `provisioner` block.
-- The env-mapping types describe the **declarative shape** vendor modules export; the actual `resolveEnvMappings` implementation lives in `@rntme/deploy-core` and stays there because it depends on deploy-time `ProvisionedModule` state.
-- `Result` here is the local minimal shape (`{ ok: true; value }` / `{ ok: false; errors: readonly E[] }`). Implementations that need richer Result helpers should depend on `@rntme/deploy-core`'s exports.
-
-## Out of scope
-
-- `resolveEnvMappings` runtime helper (lives in `@rntme/deploy-core`).
-- Module manifest JSON shape (see `@rntme/contracts-module-v1`).
-- Deploy planner/renderer/applier internals (see `@rntme/deploy-core`).
-
-## Where to look first
-
-`provisioner-contract.ts` → `ProvisionerContract`. `env-mapping-types.ts` → `ProvisionerEnvMapping`.
-
-## Specs
-
-- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md` — extraction rationale.
-- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` — provisioner block / blueprint origin.
+Notes:
+- Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.

@@ -1,14 +1,11 @@
 # @rntme/contracts-analytics-v1
 
-Canonical UI contract for the `analytics` category. Vendor modules implementing this contract register both `track` and `identify` operations.
+Analytics canonical contract package documentation.
 
-## Operations
+Current documentation: [docs/current/owners/packages/contracts/analytics/v1.md](../../../../docs/current/owners/packages/contracts/analytics/v1.md)
 
-| Name | Params |
-|------|--------|
-| track | `event: string` (required), `props: object` (optional) |
-| identify | `userId: string` (required), `traits: object` (optional) |
+Local commands:
+- `pnpm -F @rntme/contracts-analytics-v1 test` when the package defines a test script.
 
-## Implementations
-
-- `@rntme/analytics-google-analytics`
+Notes:
+- Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.

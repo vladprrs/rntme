@@ -1,23 +1,11 @@
 # @rntme/landing
 
-Marketing landing for `rntme.com`. See `docs/superpowers/specs/2026-04-20-landing-design.md` for the design and `SHAPE-BRIEF.md` for the UX direction.
+Astro landing site workspace for rntme.com.
 
-## Dev
+Current documentation: [docs/current/owners/apps/landing.md](../../docs/current/owners/apps/landing.md)
 
-    pnpm install
-    pnpm -F @rntme/landing dev
+Local commands:
+- `pnpm -F @rntme/landing test` when the package defines a test script.
 
-Required env (see `src/env.ts`):
-
-- `TALLY_FORM_ID`
-- `GITHUB_URL`
-- `DOCS_URL`
-- `PLATFORM_URL`
-- `DEMO_URL` (optional — when set, the "Try the live demo" section renders)
-- `PLAUSIBLE_DOMAIN` (optional)
-
-## Build
-
-    pnpm -F @rntme/landing build
-
-Output: `dist/`. The Dockerfile in this directory wraps the `dist/` in an nginx:alpine image.
+Notes:
+- Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.
