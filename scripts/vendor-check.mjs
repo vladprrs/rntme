@@ -2,7 +2,7 @@
 // Verifies that demo blueprint vendored modules match their source-of-truth in modules/<cat>/<vendor>/.
 // Compared files: module.json, package.json. dist/ is gitignored and not checked.
 
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { lstat, readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
@@ -42,7 +42,8 @@ async function listVendoredCopies() {
     if (!existsSync(nm)) continue;
     for (const dir of await readdir(nm)) {
       const dirPath = join(nm, dir);
-      if (!(await stat(dirPath)).isDirectory()) continue;
+      const dirStat = await lstat(dirPath);
+      if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) continue;
       const pkgPath = join(dirPath, 'package.json');
       if (!existsSync(pkgPath)) continue;
       const pkg = JSON.parse(await readFile(pkgPath, 'utf8'));
