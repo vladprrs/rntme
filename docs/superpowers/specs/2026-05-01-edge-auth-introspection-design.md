@@ -1,7 +1,7 @@
 # Edge auth via identity-module HTTP introspection — design
 
 **Status:** brainstorming approved 2026-05-01, awaiting user review of this spec.
-**Status update (2026-05-06):** The incident notes below describe the old deployed `pre[]`/`$pre` path. New work must not reintroduce binding-level pre-steps; runtime introspection needed by graph behavior belongs in Graph IR `call` nodes per `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
+**Status update (2026-05-06):** The incident notes below describe the old deployed `pre[]`/`$pre` path. New work must not reintroduce binding-level pre-steps; runtime introspection needed by graph behavior belongs in Graph IR `call` nodes per `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`.
 **Author:** brainstorm 2026-05-01.
 **Related:**
 - `docs/superpowers/specs/done/2026-04-29-notes-demo-auth0-design.md` — landed Auth0 OIDC introspection over gRPC + edge `kind: "auth"` middleware declaration (RNT-364).

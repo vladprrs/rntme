@@ -45,4 +45,4 @@ types, project-routed binding refs, and BPMN file existence under
 
 ## Specs
 
-- `../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`

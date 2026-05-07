@@ -62,7 +62,7 @@ If OpenRouter fails, the graph fails (graph node `policy.onError: "fail"`). The 
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-06-ai-llm-openrouter-module-design.md` — design.
+- `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md` — design.
 
 ## Where to look first
 

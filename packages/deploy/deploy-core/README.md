@@ -158,7 +158,7 @@ On the platform executor path, composed project module aliases are mapped throug
 - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
 - `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
 - `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
-- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ## Provision phase
 

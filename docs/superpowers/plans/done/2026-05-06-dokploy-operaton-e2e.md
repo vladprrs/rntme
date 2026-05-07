@@ -15,7 +15,7 @@
 - Operaton external-task docs: `https://docs.operaton.org/docs/documentation/user-guide/process-engine/external-tasks/`
 - Operaton REST deployment endpoint docs: `https://docs.operaton.org/docs/get-started/quick-start/deploy/`
 - Operaton REST API specification entrypoint: `https://docs.operaton.org/docs/documentation/reference/rest/specification/`
-- Existing BPMN spec: `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- Existing BPMN spec: `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
 - Existing BPMN implementation plan: `docs/superpowers/plans/done/2026-05-05-provisioned-bpmn-operaton.md`
 
 ## Live E2E Contract
@@ -79,7 +79,7 @@ Modify:
 - `packages/runtime/bpmn-worker/src/worker.ts` - preserve `runWorkflowEventOnce`; only extend parameters if needed by concrete Operaton tasks.
 - `packages/runtime/bpmn-worker/README.md` - document env, Docker image build, and live e2e role.
 - `demo/order-fulfillment-blueprint/README.md` - replace mock image example with the live e2e env contract.
-- `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md` - add a live Dokploy acceptance addendum.
+- `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md` - add a live Dokploy acceptance addendum.
 - `AGENTS.md` - update §6.14 or §6.15 with the live BPMN/Dokploy e2e command if this branch owns that docs touch.
 
 ---
@@ -1826,7 +1826,7 @@ git commit -m "test: add live dokploy operaton e2e"
 **Files:**
 - Modify: `packages/runtime/bpmn-worker/README.md`
 - Modify: `demo/order-fulfillment-blueprint/README.md`
-- Modify: `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- Modify: `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
 - Modify: `AGENTS.md`
 
 - [ ] **Step 1: Update worker README**
@@ -1880,7 +1880,7 @@ The test deploys provisioned Redpanda, provisioned Operaton, the two demo servic
 
 - [ ] **Step 3: Add spec addendum**
 
-Append to `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`:
+Append to `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`:
 
 ```md
 ## 15. Live Dokploy Acceptance
@@ -1924,7 +1924,7 @@ Expected: pass. Markdown is not linted by package scripts, but the changed code 
 ```bash
 git add packages/runtime/bpmn-worker/README.md \
   demo/order-fulfillment-blueprint/README.md \
-  docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md \
+  docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md \
   AGENTS.md
 git commit -m "docs: document live dokploy bpmn e2e"
 ```

@@ -521,7 +521,7 @@ under `packages/runtime/event-store/test/`.
 
 ### 6.11 Call a module from an operation graph
 
-1. Read `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md` and `packages/runtime/runtime/README.md`'s module call notes.
+1. Read `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md` and `packages/runtime/runtime/README.md`'s module call notes.
 2. Declare the module in `artifacts/manifest.json`:
 
 ```json
@@ -601,7 +601,7 @@ under `packages/runtime/event-store/test/`.
 
 ### 6.14a Add a BPMN workflow
 
-1. Read `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`, `packages/artifacts/workflows/README.md`, and `demo/order-fulfillment-blueprint/README.md`.
+1. Read `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`, `packages/artifacts/workflows/README.md`, and `demo/order-fulfillment-blueprint/README.md`.
 2. Add `workflows/workflows.json` at the project root. Define `definitions[]` with safe relative `.bpmn` files under `workflows/`, `messageStarts[]` for PDM event-envelope subscriptions, and `serviceTasks[]` for BPMN task ids that call project-routed action bindings.
 3. Add the referenced BPMN files under `workflows/`. Keep BPMN `processId`, message names, and service task ids aligned with the workflow artifact.
 4. Validate with `loadComposedBlueprint(...)` or `rntme project publish --dry-run`. Blueprint discovers `workflows/workflows.json`, calls `@rntme/workflows`, checks BPMN files, resolves event refs through project PDM context, and resolves action binding refs through the project binding registry.
@@ -863,7 +863,7 @@ Map of "if you're tempted to do X, the decision-doc is Y":
 - "Event-driven architecture — what events, what consumers?" →
   `docs/adr/2026-04-15-event-driven-architecture.md`.
 - "Why Operaton for current BPMN orchestration instead of the older Zeebe placeholder?" →
-  `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`.
+  `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`.
 - "Why did blueprint become project-first, and where do project vs service
   responsibilities now live?" →
   `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`.

@@ -1608,7 +1608,7 @@ Recall the primary framing (§1): **rntme is an artifact-driven runtime for AI-a
 > **[info]** Per-subject ordering in Kafka is preserved (key = subject) but cross-subject ordering is not.
 > - **Why it is a smell:** A saga that reasons across subjects (for example "issue created" then "user updated") must tolerate out-of-order delivery.
 > - **Possible direction:** Delegate cross-subject ordering to Operaton BPMN orchestration; ensure the topic convention (`rntme.{svc}.{agg}`) feeds workflow message starts cleanly.
-> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`.
+> - **Links:** `packages/runtime/event-store/src/relay/loop.ts`; `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`.
 
 ## 8. Glossary
 

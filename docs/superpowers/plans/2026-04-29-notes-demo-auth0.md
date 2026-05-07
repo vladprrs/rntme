@@ -6,7 +6,7 @@
 > `runPreSteps`, and Graph IR `$pre` instructions below are historical.
 > New graph-affecting Auth0/session calls must be authored as Graph IR
 > `call` nodes and exposed through binding `exposure`, per
-> `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
+> `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`.
 
 **Goal:** Bring `demo/notes-blueprint/` to production-shape: real Auth0 OIDC login, ownership-enforcement on Note edits, external Redpanda Cloud event bus over SASL_SSL/SCRAM, end-to-end deploy through `platform.rntme.com` to Dokploy.
 

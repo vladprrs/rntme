@@ -1,7 +1,7 @@
 # Provisioned BPMN / Operaton - design
 
 **Status:** brainstorming approved, awaiting user review of this spec
-**Status update (2026-05-06):** Superseded in part by `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`: short intra-request integration calls are now Graph IR `call` nodes rather than binding `pre[]`, and workflow service tasks target action-exposed operations rather than command-kind bindings. The BPMN boundary and Operaton deployment model remain authoritative.
+**Status update (2026-05-06):** Superseded in part by `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`: short intra-request integration calls are now Graph IR `call` nodes rather than binding `pre[]`, and workflow service tasks target action-exposed operations rather than command-kind bindings. The BPMN boundary and Operaton deployment model remain authoritative.
 **Author:** brainstorm 2026-05-05
 **Related:**
 - `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md` - project-first blueprint model. This spec adds a project-level workflow artifact.

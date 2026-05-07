@@ -2,7 +2,7 @@
 
 **Status:** brainstorming approved, awaiting user review of this spec
 **Status update (2026-04-30):** §6 (UI auth-shell) is superseded by `docs/superpowers/specs/2026-04-30-notes-demo-auth0-migration-design.md`. Phases 1-3, 5-7 remain authoritative.
-**Status update (2026-05-06):** Binding-level `pre[]` and Graph IR `$pre` mechanics in this spec are superseded by `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`. Auth/session introspection that feeds graph behavior must now be modeled as Graph IR `call` nodes and consumed through operation result data, while HTTP bindings use `exposure` and `inputFrom`.
+**Status update (2026-05-06):** Binding-level `pre[]` and Graph IR `$pre` mechanics in this spec are superseded by `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`. Auth/session introspection that feeds graph behavior must now be modeled as Graph IR `call` nodes and consumed through operation result data, while HTTP bindings use `exposure` and `inputFrom`.
 **Author:** brainstorm 2026-04-29
 **Related:**
 - `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md` — module pattern (`pre[]` in command bindings, `ExternalAdapterClient`, three-tier integration). This spec extends `pre[]` to query bindings (K1) and uses the module pattern end-to-end.
