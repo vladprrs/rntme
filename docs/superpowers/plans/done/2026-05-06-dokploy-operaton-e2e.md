@@ -16,7 +16,7 @@
 - Operaton REST deployment endpoint docs: `https://docs.operaton.org/docs/get-started/quick-start/deploy/`
 - Operaton REST API specification entrypoint: `https://docs.operaton.org/docs/documentation/reference/rest/specification/`
 - Existing BPMN spec: `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
-- Existing BPMN implementation plan: `docs/superpowers/plans/2026-05-05-provisioned-bpmn-operaton.md`
+- Existing BPMN implementation plan: `docs/superpowers/plans/done/2026-05-05-provisioned-bpmn-operaton.md`
 
 ## Live E2E Contract
 
