@@ -48,7 +48,7 @@ where-to-look-first pointers.
 | Runtime | `packages/runtime/runtime/README.md`, `packages/runtime/event-store/README.md`, `packages/runtime/bindings-http/README.md`, `packages/runtime/bindings-grpc/README.md`, `packages/runtime/projection-consumer/README.md`, `packages/runtime/ui-runtime/README.md`, `packages/runtime/bpmn-worker/README.md` |
 | Contracts | `packages/contracts/module/v1/README.md`, `packages/contracts/provisioner/v1/README.md`, `packages/contracts/client-runtime/v1/README.md`, `packages/contracts/handlers/v1/README.md`, `packages/contracts/_common/v1/README.md`, `packages/contracts/identity/v1/README.md`, `packages/contracts/ai-llm/v1/README.md`, `packages/contracts/crm/v1/README.md`, `packages/contracts/analytics/v1/README.md` |
 | Deploy/platform/tooling | `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, `packages/platform/platform-core/README.md`, `packages/platform/platform-storage/README.md`, `packages/tooling/module-scaffold/README.md` |
-| Modules | `modules/identity/README.md`, `modules/ai-llm/README.md`, `modules/crm/README.md`, plus each vendor module README under `modules/<category>/<vendor>/` |
+| Modules | `modules/identity/README.md`, `modules/ai-llm/README.md`, `modules/crm/README.md`, `modules/marketing-site/README.md`, plus each vendor module README under `modules/<category>/<vendor>/` |
 | Demos | `demo/notes-blueprint/README.md`, `demo/order-fulfillment-blueprint/README.md`, `demo/cv-extract-blueprint/README.md` |
 
 ## Commands
