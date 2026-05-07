@@ -19,6 +19,30 @@ async function mkTempProject(files: Record<string, string>): Promise<string> {
 }
 
 describe('discoverModules — provisioner block', () => {
+  it('accepts module project keys that match the manifest vendor', async () => {
+    const projectDir = await mkTempProject({
+      'project.json': JSON.stringify({
+        name: 'demo',
+        modules: { openrouter: { package: '@rntme/ai-llm-openrouter' } },
+      }),
+      'node_modules/@rntme/ai-llm-openrouter/module.json': JSON.stringify({
+        name: '@rntme/ai-llm-openrouter',
+        version: '1.0.0',
+        category: 'ai-llm',
+        vendor: 'openrouter',
+        contract: 'ai-llm/v1',
+        capabilities: { vendors: ['openrouter'], rpcs: ['Complete'], events: [] },
+      }),
+    });
+
+    const result = discoverModules({ projectDir });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value['@rntme/ai-llm-openrouter']?.projectKey).toBe('openrouter');
+    }
+  });
+
   it('surfaces provisioner block on DiscoveredModule', async () => {
     const projectDir = await mkTempProject({
       'project.json': JSON.stringify({

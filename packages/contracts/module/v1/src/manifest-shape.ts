@@ -20,6 +20,7 @@ export const EdgeAuthDescriptorSchema = z
 export const ModuleCapabilitiesSchema = z
   .object({
     vendors: z.array(z.string().min(1)).optional(),
+    gateway_upstreams: z.array(z.string().min(1)).optional(),
     entities: z.array(z.string().min(1)).optional(),
     rpcs: z.array(z.string().min(1)).default([]),
     events: z.array(z.string().min(1)).default([]),
@@ -27,7 +28,11 @@ export const ModuleCapabilitiesSchema = z
     search_tiers: z.array(z.string().min(1)).optional(),
     labeled_associations: z.boolean().optional(),
     bulk_operations: z.record(z.unknown()).optional(),
+    input_modalities: z.array(z.enum(['text', 'image', 'audio', 'file'])).optional(),
+    reasoning_visibility_supported: z.array(z.enum(['hidden', 'summary', 'full'])).optional(),
+    thread: z.boolean().optional(),
     async_job_types: z.array(z.string().min(1)).optional(),
+    agent_execution_mode: z.enum(['delegated', 'local', 'none']).optional(),
     webhook_format: z.string().min(1).optional(),
     webhook_retry_policy: z.string().min(1).optional(),
   })

@@ -3,8 +3,8 @@
   "data": {
     "/data/resume": {
       "binding": "getResume",
-      "params": { "id": { "$state": "/result/resumeId" } },
-      "refetchOn": ["state-change:/result/resumeId"]
+      "params": { "id": { "$state": "/form/resumeId" } },
+      "refetchOn": ["params"]
     }
   },
   "actions": {
@@ -16,7 +16,7 @@
         "mediaType": "/form/mediaType",
         "fileBase64": "/form/fileBase64"
       },
-      "onSuccess": { "setState": { "/result/resumeId": "{{response.resumeId}}" } },
+      "onSuccess": {},
       "onError": { "showAlert": true }
     }
   }

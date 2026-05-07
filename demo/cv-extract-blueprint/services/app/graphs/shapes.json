@@ -1,0 +1,17 @@
+{
+  "ResumeView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "filename": { "type": "string", "nullable": false },
+      "mediaType": { "type": "string", "nullable": false },
+      "extractedJson": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  },
+  "ResumeActionResult": {
+    "fields": {
+      "resumeId": { "type": "string", "nullable": false }
+    }
+  }
+}

@@ -50,6 +50,19 @@ describe('ModuleManifestSchema', () => {
     }
   });
 
+  it('accepts the checked-in OpenRouter AI/LLM manifest without local rewrites', () => {
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), '..', '..', '..', '..', 'modules', 'ai-llm', 'openrouter', 'module.json'),
+        'utf8',
+      ),
+    ) as unknown;
+
+    const parsed = parseModuleManifest(raw);
+
+    expect(parsed.ok).toBe(true);
+  });
+
   it('every identity vendor declares client.contract = "identity"', () => {
     for (const moduleDir of ['auth0', 'clerk', 'workos']) {
       const raw = JSON.parse(

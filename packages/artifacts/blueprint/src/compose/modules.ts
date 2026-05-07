@@ -82,11 +82,14 @@ export function discoverModules(input: {
       continue;
     }
 
-    if (parsed.value.category !== undefined && parsed.value.category !== projectKey) {
+    const allowedProjectKeys = new Set(
+      [parsed.value.category, parsed.value.vendor].filter((value): value is string => value !== undefined),
+    );
+    if (allowedProjectKeys.size > 0 && !allowedProjectKeys.has(projectKey)) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_CATEGORY_MISMATCH,
-        message: `module "${packageName}" declares category "${parsed.value.category}" but is wired under project key "${projectKey}"`,
+        message: `module "${packageName}" declares category/vendor "${[...allowedProjectKeys].join('/')}" but is wired under project key "${projectKey}"`,
         path: `project.json#modules.${projectKey}`,
       });
       continue;
