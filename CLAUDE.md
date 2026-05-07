@@ -8,6 +8,15 @@ Read [`AGENTS.md`](AGENTS.md) first. It is the research map: repository layout, 
 
 > Note: `graph_ir_rc_7.md` is gitignored (IR source of truth is local-only); `docs/superpowers/plans/`, `specs/`, and `reports/` are tracked so README and `AGENTS.md` spec links resolve for other contributors.
 
+## Decision system
+
+For any strategic, architectural, or convention-level decision: read
+[`docs/decision-system.md`](docs/decision-system.md) first. It contains
+goals, decision filters, and locked-in bets. Before asking the user a
+decision question, check whether the system already answers it. If a
+decision contradicts an existing bet or violates a goal, follow the
+Update protocol (§5 of that file).
+
 ## Product positioning
 
 rntme is an **artifact-driven runtime authored as a project blueprint**. The project blueprint folder is the canonical authoring/versioning/deploy unit. Inside, services compose from JSON artifacts: PDM and workflows are project-level; QSM, Graph IR, bindings, UI, seed, and manifest are per-service. CQRS / event sourcing / branded `Validated*` types / plugin seams (`DbDriver`, `EventBus`, `Surface`) / executor seams (`CommandExecutor`, `QueryExecutor`) are **consequences** of the repeatability goal, not the identity of the product.

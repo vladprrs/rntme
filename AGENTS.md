@@ -841,7 +841,15 @@ CI runs `pnpm vendor:check`. PRs that edit `modules/` without re-vendoring fail 
 
 ## 8. Where decisions live
 
-Map of "if you're tempted to do X, the decision-doc is Y":
+For any strategic, architectural, or convention-level decision: read
+[`docs/decision-system.md`](docs/decision-system.md) first. It contains
+goals, decision filters, and locked-in bets. Before asking the user a
+decision question, check whether the system already answers it. If a
+decision contradicts an existing bet or violates a goal, follow the
+Update protocol (§5 of that file).
+
+The case-specific map below is a fallback for questions not yet absorbed
+into the system — "if you're tempted to do X, the decision-doc is Y":
 
 - "Why SQLite, not Postgres?" →
   `docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`
