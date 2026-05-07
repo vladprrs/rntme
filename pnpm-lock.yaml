@@ -215,9 +215,15 @@ importers:
       '@rntme/ai-llm-openrouter':
         specifier: workspace:*
         version: link:../../modules/ai-llm/openrouter
+      '@rntme/bundle-publish':
+        specifier: workspace:*
+        version: link:../../packages/tooling/bundle-publish
       '@rntme/contracts-ai-llm-v1':
         specifier: workspace:*
         version: link:../../packages/contracts/ai-llm/v1
+      '@rntme/contracts-marketing-site-v1':
+        specifier: workspace:*
+        version: link:../../packages/contracts/marketing-site/v1
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.39

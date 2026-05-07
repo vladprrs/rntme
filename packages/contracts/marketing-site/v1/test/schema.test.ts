@@ -22,6 +22,16 @@ describe('validateMarketingSiteConfig', () => {
     expect(out.ok).toBe(true);
   });
 
+  it('accepts a primaryDomain placeholder declared by blueprint vars', () => {
+    const out = validateMarketingSiteConfig({
+      source: { kind: 's3', bucket: 'b', key: 'k', sha256: 'a'.repeat(64) },
+      primaryDomain: '${MARKETING_DOMAIN}',
+      ssl: 'auto',
+    });
+
+    expect(out.ok).toBe(true);
+  });
+
   it('rejects unknown source kind', () => {
     const out = validateMarketingSiteConfig({
       source: { kind: 'webdav', bucket: 'b', key: 'k', sha256: 'a'.repeat(64) },

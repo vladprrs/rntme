@@ -1,5 +1,9 @@
 {
   "name": "cv-extract",
+  "services": ["app", "marketing"],
+  "vars": {
+    "MARKETING_DOMAIN": { "from": "target.marketing.primaryDomain", "required": true }
+  },
   "modules": {
     "openrouter": {
       "package": "@rntme/ai-llm-openrouter",
@@ -7,9 +11,21 @@
         "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
         "timeoutMs": 60000
       }
+    },
+    "marketing": {
+      "package": "@rntme/marketing-site-static",
+      "publicConfig": {
+        "source": {
+          "kind": "s3",
+          "bucket": "cv-extract",
+          "key": "landings/cv-extract/5b260246e14df59ee8b6aa4e5b2d405dea16d8dcde3cc1a22996d8eec1f2d854.tar.gz",
+          "sha256": "5b260246e14df59ee8b6aa4e5b2d405dea16d8dcde3cc1a22996d8eec1f2d854"
+        },
+        "primaryDomain": "${MARKETING_DOMAIN}",
+        "ssl": "auto"
+      }
     }
   },
-  "services": ["app"],
   "routes": {
     "ui": {
       "/": "app"

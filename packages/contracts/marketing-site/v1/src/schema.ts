@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 const Sha256Hex = z.string().regex(/^[0-9a-f]{64}$/, 'sha256 must be 64 lowercase hex chars');
+const VarPlaceholder = z.string().regex(/^\$\{[A-Z][A-Z0-9_]*\}$/, 'must be a declared blueprint variable placeholder');
+const Hostname = z
+  .string()
+  .min(1)
+  .regex(/^[a-z0-9.-]+$/i, 'domain must be a valid hostname');
 
 const S3SourceSchema = z.object({
   kind: z.literal('s3'),
@@ -21,9 +26,6 @@ export const BundleSourceSchema = z.discriminatedUnion('kind', [S3SourceSchema, 
 
 export const MarketingSiteV1ConfigSchema = z.object({
   source: BundleSourceSchema,
-  primaryDomain: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9.-]+$/i, 'domain must be a valid hostname'),
+  primaryDomain: z.union([Hostname, VarPlaceholder]),
   ssl: z.enum(['auto', 'manual', 'none']),
 });
