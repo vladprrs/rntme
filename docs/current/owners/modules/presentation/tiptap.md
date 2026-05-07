@@ -65,5 +65,5 @@ registers these element-scoped operations:
 
 ## Specs
 
-- [`../../../packages/contracts/client-runtime/v1/README.md`](../../../packages/contracts/client-runtime/v1/README.md) — module browser contract and operation registry.
-- [`../../../docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`](../../../docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md) — UI module contribution model.
+- [`../../../packages/contracts/client-runtime/v1/README.md`](/docs/current/owners/packages/contracts/client-runtime/v1.md) — module browser contract and operation registry.
+- [`../../../docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`](/docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md) — UI module contribution model.

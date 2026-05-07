@@ -239,4 +239,4 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — historical design rationale: §1 source format, §2 compiler pipeline, §3 compiled output format, §4 runtime architecture (server and client modules map 1:1 to files in this package), §6 scope.
+- [`../../docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md`](/docs/superpowers/specs/done/2026-04-16-ui-artifact-v2-design.md) — historical design rationale: §1 source format, §2 compiler pipeline, §3 compiled output format, §4 runtime architecture (server and client modules map 1:1 to files in this package), §6 scope.

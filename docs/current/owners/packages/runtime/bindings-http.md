@@ -110,5 +110,5 @@ The default operation map produced by `buildDefaultGraphIrOperationMap` compiles
 
 ## Specs
 
-- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — unified operation runtime.
-- [`../../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`](../../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md) — original HTTP runtime design background.
+- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](/docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — unified operation runtime.
+- [`../../../docs/superpowers/specs/done/2026-04-14-bindings-http-design.md`](/docs/superpowers/specs/done/2026-04-14-bindings-http-design.md) — original HTTP runtime design background.

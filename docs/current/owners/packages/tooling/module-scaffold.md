@@ -8,10 +8,10 @@ on it as a runtime dep.
 The handler runtime contract (`CodeCommandHandler`,
 `CodeCommandHandlerMap`, structurally-minimal `CommandExecutionContext`,
 `CommandExecutorOutput`) lives in
-[`@rntme/contracts-handlers-v1`](../../contracts/handlers/v1/README.md).
+[`@rntme/contracts-handlers-v1`](/docs/current/owners/packages/contracts/handlers/v1.md).
 The `module.json` manifest schema (`ModuleManifestSchema`,
 `parseModuleManifest`, `ModuleManifest`) lives in
-[`@rntme/contracts-module-v1`](../../contracts/module/v1/README.md). Author
+[`@rntme/contracts-module-v1`](/docs/current/owners/packages/contracts/module/v1.md). Author
 your own modules against those contracts directly.
 
 ## File map

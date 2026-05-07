@@ -2,7 +2,7 @@
 
 Five examples, from minimal to kitchen sink, showing what `compile(spec, pdm, qsm)`
 produces. All examples are compiled and reproduced by
-[`../demo-sql.mjs`](../demo-sql.mjs).
+[`../demo-sql.mjs`](/packages/artifacts/graph-ir-compiler/demo-sql.mjs).
 
 ## Compiler Pipeline
 

@@ -64,5 +64,5 @@ string. With valid config it:
 
 ## Specs
 
-- [`../../contracts/analytics/v1/README.md`](../../../packages/contracts/analytics/v1/README.md) — analytics canonical contract package.
-- [`../../../packages/contracts/client-runtime/v1/README.md`](../../../packages/contracts/client-runtime/v1/README.md) — module browser contract used by `boot(ctx)`.
+- [`../../contracts/analytics/v1/README.md`](/docs/current/owners/packages/contracts/analytics/v1.md) — analytics canonical contract package.
+- [`../../../packages/contracts/client-runtime/v1/README.md`](/docs/current/owners/packages/contracts/client-runtime/v1.md) — module browser contract used by `boot(ctx)`.

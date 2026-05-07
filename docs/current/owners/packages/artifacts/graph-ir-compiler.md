@@ -5,15 +5,15 @@ Graph IR (rc7) authoring JSON compiler. The current runtime path compiles a grap
 ## Role in the system
 
 - Depends on:
-  - [`@rntme/pdm`](../pdm) — entities, fields, state machines, derived event-type table.
-  - [`@rntme/qsm`](../qsm) — projections (`entity-mirror` / derived) and `projections.relations` for dot-nav join planning.
-  - [`@rntme/event-store`](../event-store) — `EventStore`, `appendEvents`, `ConcurrencyConflict` for local emit execution.
+  - [`@rntme/pdm`](/docs/current/owners/packages/artifacts/pdm.md) — entities, fields, state machines, derived event-type table.
+  - [`@rntme/qsm`](/docs/current/owners/packages/artifacts/qsm.md) — projections (`entity-mirror` / derived) and `projections.relations` for dot-nav join planning.
+  - [`@rntme/event-store`](/docs/current/owners/packages/runtime/event-store.md) — `EventStore`, `appendEvents`, `ConcurrencyConflict` for local emit execution.
   - `better-sqlite3` (peer) — the `Database` handle passed to `execute(...)`.
   - `zod` — authoring-spec schema in `parse/schema.ts`.
 - Consumed by:
-  - [`@rntme/bindings-http`](../bindings-http) — HTTP surface compiles each binding's graph as an operation and runs it per-request.
-  - [`@rntme/runtime`](../runtime) — composes compiler with bindings/projections and exposes it through `GraphOperationExecutor`.
-  - [`demo/issue-tracker-api`](../../demo/issue-tracker-api) — end-to-end wiring of every package.
+  - [`@rntme/bindings-http`](/docs/current/owners/packages/runtime/bindings-http.md) — HTTP surface compiles each binding's graph as an operation and runs it per-request.
+  - [`@rntme/runtime`](/docs/current/owners/packages/runtime/runtime.md) — composes compiler with bindings/projections and exposes it through `GraphOperationExecutor`.
+  - [`runtime issue-tracker fixtures`](/packages/runtime/runtime/test/fixtures/issue-tracker) — end-to-end operation wiring used by runtime integration tests.
 - Position in pipeline: operation path is `parse -> structural/semantic validation -> canonical -> effect validation -> executeOperation`. Legacy read SQL path is `parse -> canonical -> semantic-plan -> relational -> lower -> emit -> execute`. `explain(...)` returns intermediate artifacts for the SQL path.
 
 ## File map
@@ -309,7 +309,7 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Composite aggregate keys are not supported.** `aggregateId` is a single Expr coerced to string by the command/operation emit runtime.
 - **Dot-navigation cardinality must be `one`.** Many-cardinality NAV is rejected with `NAV_FAN_OUT_NOT_ALLOWED`; explicit JOIN nodes are not yet a feature.
 - **No planner / optimizer.** Lowering is a direct fold; no predicate pushdown, no JOIN reordering, no projection pruning beyond what `Project` / `Aggregate` already declare.
-- **No HTTP / binding surface here.** Bindings live in [`@rntme/bindings`](../bindings) and [`@rntme/bindings-http`](../bindings-http).
+- **No HTTP / binding surface here.** Bindings live in [`@rntme/bindings`](/docs/current/owners/packages/artifacts/bindings.md) and [`@rntme/bindings-http`](/docs/current/owners/packages/runtime/bindings-http.md).
 - **No YAML.** Authoring artifacts are JSON only.
 - **SQLite forever.** No Postgres dialect path; future scale-out is via Turso (SQLite-compatible Rust) per the project memory entry. Do not introduce Postgres-specific syntax.
 - **Multi-graph `explain` is single-graph too.** The `explain` API matches `compile`'s single-graph contract.
@@ -352,12 +352,12 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 
 ## Specs
 
-- [`../../graph_ir_rc_7.md`](../../graph_ir_rc_7.md) — Graph IR rc7 language: operators, expression grammar, named shapes, input modes, role inference, signature/output shapes.
-- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — Current operation model: effects, call/branch/result nodes, binding exposure, and service-local handler removal.
-- [`../../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`](../../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md) — Authoritative MVP design: layer order, Tier 1 scope, error code conventions, what is intentionally out of scope.
-- [`../../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — Command path: emit nodes, read prelude, replay-and-validate, optimistic concurrency. §4 = command-runtime.
-- [`../../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`](../../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md) — Root-cause analysis and fix for the `wrapPredicateOptional` SQL `?` misalignment.
-- [`../../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](../../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) — Recent QSM relations migration that retargeted dot-nav planning at `qsm.relations` (consumed in `lower/sqlite/joins.ts → expandChain` and validated in `validate/semantic/sources.ts → checkNavRelations`).
+- `graph_ir_rc_7.md` — historical Graph IR rc7 language notes: operators, expression grammar, named shapes, input modes, role inference, signature/output shapes. This file is not tracked in the current workspace.
+- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](/docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — Current operation model: effects, call/branch/result nodes, binding exposure, and service-local handler removal.
+- [`../../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`](/docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md) — historical MVP design rationale: layer order, Tier 1 scope, error code conventions, what is intentionally out of scope.
+- [`../../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](/docs/superpowers/specs/done/2026-04-14-mutations-design.md) — Command path: emit nodes, read prelude, replay-and-validate, optimistic concurrency. §4 = command-runtime.
+- [`../../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`](/docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md) — Root-cause analysis and fix for the `wrapPredicateOptional` SQL `?` misalignment.
+- [`../../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](/docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) — Recent QSM relations migration that retargeted dot-nav planning at `qsm.relations` (consumed in `lower/sqlite/joins.ts → expandChain` and validated in `validate/semantic/sources.ts → checkNavRelations`).
 
 ## Glossary
 

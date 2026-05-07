@@ -70,7 +70,7 @@ canonical project bundle.
 
 The browser client imports `ModuleBootContext`, `useModuleAction`, and
 `useStateStore` from
-[`@rntme/contracts-client-runtime-v1`](../../../packages/contracts/client-runtime/v1/README.md).
+[`@rntme/contracts-client-runtime-v1`](/docs/current/owners/packages/contracts/client-runtime/v1.md).
 It must not import from `@rntme/ui-runtime`; the runtime package hosts the SPA
 bootstrap, while this contract package is the stable module-facing API.
 
@@ -157,7 +157,7 @@ Required env:
 
 `src/provisioner.ts` exports `provision(input)` and `tearDown(input)`. It codes
 against the runtime contract types in
-[`@rntme/contracts-provisioner-v1`](../../../packages/contracts/provisioner/v1/README.md)
+[`@rntme/contracts-provisioner-v1`](/docs/current/owners/packages/contracts/provisioner/v1.md)
 (`ProvisionerEnvMapping` for the `ENV_MAPPINGS` export). The Auth0 module
 declares its provisioner block in `module.json`:
 
@@ -213,6 +213,6 @@ Triggered by the project-delete operation before Dokploy resource deletion. Remo
 
 ## Specs
 
-- Identity contract package: [`packages/contracts/identity/v1/`](../../../packages/contracts/identity/v1).
-- Identity contract design: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](../../../docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
-- Module provisioner contract design: [`docs/superpowers/specs/2026-05-03-module-provisioner-contract-design.md`](../../../docs/superpowers/specs/2026-05-03-module-provisioner-contract-design.md).
+- Identity contract package: [`packages/contracts/identity/v1/`](/docs/current/owners/packages/contracts/identity/v1.md).
+- Identity contract design: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](/docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
+- Module provisioner contract design: [`docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md`](/docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md).

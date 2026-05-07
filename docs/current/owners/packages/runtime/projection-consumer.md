@@ -5,12 +5,12 @@ Kafka-to-SQLite read-side runner: bootstraps entity-mirror DDL, compiles per-eve
 ## Role in the system
 
 - Depends on:
-  - [`@rntme/pdm`](../pdm) — `PdmResolver`, `EventTypeSpec`, `deriveEventTypes` (entity + field metadata, creation-transition detection).
-  - [`@rntme/qsm`](../qsm) — `ValidatedQsm`, `deriveProjectionHandler`, `generateProjectionDdl`, `ProjectionDdlSpec` (entity-mirror table layout + per-event handler specs).
-  - [`@rntme/event-store`](../event-store) — `EventEnvelope` shape (relay output is the consumer input).
+  - [`@rntme/pdm`](/docs/current/owners/packages/artifacts/pdm.md) — `PdmResolver`, `EventTypeSpec`, `deriveEventTypes` (entity + field metadata, creation-transition detection).
+  - [`@rntme/qsm`](/docs/current/owners/packages/artifacts/qsm.md) — `ValidatedQsm`, `deriveProjectionHandler`, `generateProjectionDdl`, `ProjectionDdlSpec` (entity-mirror table layout + per-event handler specs).
+  - [`@rntme/event-store`](/docs/current/owners/packages/runtime/event-store.md) — `EventEnvelope` shape (relay output is the consumer input).
   - `better-sqlite3` — sole runtime DB driver (peer; SQLite-only target).
 - Consumed by:
-  - [`@rntme/runtime`](../runtime) — wires the consumer into the demo runtime.
+  - [`@rntme/runtime`](/docs/current/owners/packages/runtime/runtime.md) — wires the consumer into the demo runtime.
   - `demo/issue-tracker-api` — end-to-end smoke + canonical lifecycle.
 - Position in pipeline: relay (event-store) → Kafka (any adapter conforming to `KafkaConsumer`) → **projection-consumer** → SQLite mirror tables → read-graph compiler reads from `projection_<name>`.
 
@@ -223,4 +223,4 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — historical rationale for §6 (projection consumer + QSM store): §6.1–6.3 mirror table shape, §6.4 batch loop, §6.5 three-layer idempotent apply, §6.6 offset tracking, §6.7 scaling, §6.9 deferred tier-2 list (composite keys, derived projections, replay tooling, DLQ).
+- [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](/docs/superpowers/specs/done/2026-04-14-mutations-design.md) — historical rationale for §6 (projection consumer + QSM store): §6.1–6.3 mirror table shape, §6.4 batch loop, §6.5 three-layer idempotent apply, §6.6 offset tracking, §6.7 scaling, §6.9 deferred tier-2 list (composite keys, derived projections, replay tooling, DLQ).

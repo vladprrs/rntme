@@ -89,5 +89,5 @@ When auth middleware is mounted on a service route, protected graphs are expecte
 
 ## Specs
 
-- [`../../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
-- [`../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`](../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md) — project-level BPMN workflow artifact, Operaton provisioning, and BPMN worker deployment.
+- [`../../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](/docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
+- [`../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`](/docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md) — project-level BPMN workflow artifact, Operaton provisioning, and BPMN worker deployment.
