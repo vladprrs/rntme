@@ -74,10 +74,10 @@
 
 - **Kafka-compat protocol для inter-service eventing** · F8 · `locked`
 - **Redpanda как broker (current default)** — самый простой путь к Kafka (single-node, без Zookeeper); provisioned per project. Engine — pragmatic default, не вечная привязка. · F8, G5 · `current-default`
-- **CloudEvents 1.0 envelope end-to-end** · F8 · `locked` · spec `2026-04-17-cloudevents-envelope-design.md`
+- **CloudEvents 1.0 envelope end-to-end** · F8 · `locked` · spec `done/2026-04-17-cloudevents-envelope-design.md`
 - **Kafka topic = `rntme.{svc}.{agg}` (no version suffix)** — breaking change → new eventType · F5 · `locked`
 - **BPMN as standard для cross-service async; choreography forbidden** · F8, G3, G4 · `locked`
-- **Operaton как BPMN engine (current default)** — самый быстрый путь к BPMN runtime; engine — pragmatic default, BPMN — locked bet · F8 · `current-default` · spec `2026-05-05-provisioned-bpmn-operaton-design.md`
+- **Operaton как BPMN engine (current default)** — самый быстрый путь к BPMN runtime; engine — pragmatic default, BPMN — locked bet · F8 · `current-default` · spec `done/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ### 3.4 API & contracts
 
@@ -94,7 +94,7 @@
 - **Browser module contract `@rntme/contracts-client-runtime-v1`** · F3 · `locked`
 - **Provisioner contract `@rntme/contracts-provisioner-v1`** · G4 · `locked`
 - **Auth0 как первый identity module** · F8 · `locked` · spec `2026-04-29-notes-demo-auth0-design.md`
-- **OpenRouter как первый AI/LLM module** · F8 · `locked` · spec `2026-05-06-ai-llm-openrouter-module-design.md`
+- **OpenRouter как первый AI/LLM module** · F8 · `locked` · spec `done/2026-05-06-ai-llm-openrouter-module-design.md`
 - **S3 как первый storage module** · F1, F8 · `locked` · spec `2026-05-06-storage-s3-module-design.md`
 - **Seed как module (не часть core)** · F1, G4 · `locked-pending` (имплементация TBD)
 

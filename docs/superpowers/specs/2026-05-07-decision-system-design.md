@@ -351,12 +351,12 @@ This spec is complete when:
 
 - ADR `docs/adr/2026-04-15-event-driven-architecture.md` — source for several Eventing/Storage bets (D1, D-series).
 - Spec `done/2026-05-07-vision-deletion-readme-rework-design.md` — establishes OSS-only / Apache 2.0 strategic posture, retires the OSS-vs-commercial frame, broadens the wedge.
-- Spec `2026-04-17-cloudevents-envelope-design.md` — CloudEvents 1.0 envelope bet.
+- Spec `done/2026-04-17-cloudevents-envelope-design.md` — CloudEvents 1.0 envelope bet.
 - Spec `2026-04-18-drizzle-adoption-design.md` — origin of the Drizzle open question.
 - Spec `2026-04-26-modules-monorepo-structure-design.md` — vendor module shape and contract layering.
 - Spec `2026-04-29-notes-demo-auth0-design.md` — Auth0 module bet.
-- Spec `2026-05-05-provisioned-bpmn-operaton-design.md` — Operaton current-default bet.
-- Spec `2026-05-06-ai-llm-openrouter-module-design.md` — OpenRouter module bet.
+- Spec `done/2026-05-05-provisioned-bpmn-operaton-design.md` — Operaton current-default bet.
+- Spec `done/2026-05-06-ai-llm-openrouter-module-design.md` — OpenRouter module bet.
 - Spec `2026-05-06-storage-s3-module-design.md` — S3 module bet.
 - `MEMORY.md` — `project_platform_vision.md`, `rntme_vision_framing.md`, `rntme_market_positioning.md`, `rntme_pre_stable_stage.md`, `rntme_orchestration_only.md`, `rntme_topic_no_version_suffix.md` — sources of strategic framing inputs.
 - `CLAUDE.md` "Non-obvious conventions" — source of convention bets.
