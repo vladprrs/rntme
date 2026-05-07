@@ -1,0 +1,37 @@
+{
+  "name": "@rntme/conformance-marketing-site",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Conformance scenarios for the marketing-site canonical contract.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "build:deps": "pnpm -F @rntme/contracts-marketing-site-v1 run build && pnpm -F @rntme/contracts-provisioner-v1 run build",
+    "test": "pnpm run build:deps && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "@rntme/contracts-marketing-site-v1": "workspace:*",
+    "@rntme/contracts-provisioner-v1": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

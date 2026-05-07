@@ -625,6 +625,86 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
+  modules/marketing-site/conformance:
+    dependencies:
+      '@rntme/contracts-marketing-site-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/marketing-site/v1
+      '@rntme/contracts-provisioner-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/provisioner/v1
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.10.0
+        version: 9.39.4
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
+  modules/marketing-site/static-html:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.650.0
+        version: 3.1039.0
+      '@rntme/conformance-marketing-site':
+        specifier: workspace:*
+        version: link:../conformance
+      '@rntme/contracts-marketing-site-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/marketing-site/v1
+      '@rntme/contracts-module-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/module/v1
+      '@rntme/contracts-provisioner-v1':
+        specifier: workspace:*
+        version: link:../../../packages/contracts/provisioner/v1
+      tar-stream:
+        specifier: ^3.2.0
+        version: 3.2.0
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.10.0
+        version: 9.39.4
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@types/tar-stream':
+        specifier: ^3.1.3
+        version: 3.1.4
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      esbuild:
+        specifier: ^0.23.0
+        version: 0.23.1
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
   modules/presentation/md-mermaid:
     dependencies:
       mermaid:
