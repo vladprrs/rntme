@@ -28,10 +28,10 @@
 - **Every plan must include a documentation-touch task.** When a plan's
   code changes affect any per-package README, this file (§3 layering /
   §6 how-tos / §8 decisions / §10 glossary), `README.md` (packages table /
-  dep graph / MVP scope / design docs), `CLAUDE.md`, `docs/architecture.md`,
-  or `vision.md`, the plan MUST contain a final task that lands those doc
-  updates in the same PR. See §11 for the checklist; see §7 for the
-  anti-pattern.
+  dep graph / MVP scope / design docs), `CLAUDE.md`, or
+  `docs/architecture.md`, the plan MUST contain a final task that lands
+  those doc updates in the same PR. See §11 for the checklist; see §7
+  for the anti-pattern.
 
 ## 2. Repository map
 
@@ -43,8 +43,9 @@
 - `demo/notes-blueprint/`   — canonical project-shape example
   (`project.json` + project-level PDM + services).
 - `apps/cli/`               — `@rntme/cli`, the `rntme` CLI binary.
-- `apps/platform-http/`     — `@rntme/platform-http`, Hono server at
-  `platform.rntme.com`, REST/UI deploy surface, and background deploy executor.
+- `apps/platform-http/`     — `@rntme/platform-http`, the optional
+  self-hosted control plane (Hono server, REST/UI deploy surface,
+  background deploy executor).
 - `apps/landing/`           — `@rntme/landing`, the public landing site.
 - `packages/platform/`      — platform domain/storage packages.
 - `packages/deploy/`        — deploy planner and Dokploy adapter packages.
@@ -1087,8 +1088,6 @@ For each implementation plan, evaluate:
     §4 for component-level changes; §6 for new cross-cutting
     abstractions; §5 L4 pointers if new diagnostic functions; §8
     glossary; §7 if observations need re-evaluation.
-12. **`vision.md`** — only if the bounded-object framing or the platform
-    pillars shift. Most plans will not touch vision.
 
 ### 11.2 Plan structure
 
