@@ -6,7 +6,7 @@
 > `commands.handlersModule`, `services/*/commands/handlers.mjs`,
 > `CodeCommandExecutor`, `GraphIrCommandExecutor`, or command-kind binding
 > assumptions are superseded by
-> `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`.
+> `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`.
 > Workflow service tasks now target action-exposed Graph IR operations, and
 > domain-service behavior stays in operation graphs.
 
@@ -356,7 +356,7 @@ Project-level workflow artifact parser and validator for BPMN/Operaton mappings.
 
 ## Specs
 
-- `../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
 ```
 
 - [x] **Step 7: Add and run result helper test**
@@ -2453,7 +2453,7 @@ bindings, and writes deterministic command metadata for retries.
 
 ## Specs
 
-- `../../../docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
 ```
 
 Commit:
@@ -3382,7 +3382,7 @@ In `AGENTS.md`:
 - add `@rntme/workflows` to repository map and package one-liners;
 - update package layering diagram if necessary;
 - add common task "Add a BPMN workflow";
-- add decision map entry pointing to `docs/superpowers/specs/2026-05-05-provisioned-bpmn-operaton-design.md`;
+- add decision map entry pointing to `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`;
 - update memory/prior decisions language from "Zeebe owns cross-service sagas" to "Operaton owns current BPMN orchestration; older Zeebe docs are historical" where it is active guidance.
 
 - [x] **Step 4: Search for stale current-guidance Zeebe language**

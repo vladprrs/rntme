@@ -6,7 +6,7 @@
 
 **PLAN challenge update (2026-04-30):** This spec is still directionally correct, but the implementation plan must account for the current `main` runtime shape: module clients import hooks/providers from `@rntme/ui-runtime/client`; the current `AppShell` has no `Outlet` slot and renders layout + routed screen as siblings; auth/module consistency validation belongs in module compose after discovery/catalog build, not in the route-only composition validator; and deploy-dokploy currently emits the old auth-shell `/srv/config.json` shape, so the CLI path must propagate `publicConfigJson` explicitly.
 
-**Status update (2026-05-06):** Backend references inherited from the original Auth0 plan that mention binding `pre[]` or Graph IR `$pre` are superseded by `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`. The UI-module migration remains the target browser architecture.
+**Status update (2026-05-06):** Backend references inherited from the original Auth0 plan that mention binding `pre[]` or Graph IR `$pre` are superseded by `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`. The UI-module migration remains the target browser architecture.
 
 ## 1. Why this spec exists
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 5.5 / Node 20 / pnpm workspace. `@grpc/grpc-js` for the gRPC server (mirroring `modules/identity/auth0/`). `better-sqlite3` for the idempotency store. `vitest` for tests; `msw` (or `nock` if simpler) for mocking OpenRouter HTTP. The contract package is `@rntme/contracts-ai-llm-v1`. Demo blueprint is JSON-only authoring (PDM entity, QSM projection, graph IR `call` nodes targeting the module by key).
 
-**Spec:** `docs/superpowers/specs/2026-05-06-ai-llm-openrouter-module-design.md`.
+**Spec:** `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md`.
 
 **Reading order before starting:**
 1. The spec above.
@@ -2401,7 +2401,7 @@ Reads from the idempotency store keyed by `canonical_id` (the original request's
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-06-ai-llm-openrouter-module-design.md` — design.
+- `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md` — design.
 - `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract.
 ```
 
@@ -3214,7 +3214,7 @@ If OpenRouter fails, the graph fails (graph node `policy.onError: "fail"`). The 
 
 ## Specs
 
-- `docs/superpowers/specs/2026-05-06-ai-llm-openrouter-module-design.md` — design.
+- `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md` — design.
 
 ## Where to look first
 

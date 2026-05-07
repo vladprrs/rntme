@@ -14,7 +14,7 @@
 
 Primary spec:
 
-- `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md`
+- `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`
 
 Graph IR compiler:
 
@@ -3034,7 +3034,7 @@ In `apps/cli/src/skills/sources/designing-ui.md`:
 Run:
 
 ```bash
-rg -n "pre\\[\\]|kind: \\\"query\\\"|kind: \\\"command\\\"|row<CommandResult>|commands\\.handlersModule|services/.*/commands/handlers\\.mjs|inferRole\\(\\)" AGENTS.md README.md packages apps demo docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md
+rg -n "pre\\[\\]|kind: \\\"query\\\"|kind: \\\"command\\\"|row<CommandResult>|commands\\.handlersModule|services/.*/commands/handlers\\.mjs|inferRole\\(\\)" AGENTS.md README.md packages apps demo docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md
 ```
 
 Expected: only historical specs/plans under `docs/superpowers/specs/done/` and `docs/superpowers/plans/done/` may still mention old terms. Current READMEs, AGENTS, demos, and CLI skill sources must not present old terms as current guidance.

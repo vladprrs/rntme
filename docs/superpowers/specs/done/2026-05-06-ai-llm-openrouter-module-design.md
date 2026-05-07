@@ -5,7 +5,7 @@
 **Related:**
 - `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — defines the canonical AI/LLM contract this module implements. This spec lands the first vendor module against that contract and adds non-breaking text/test clarifications.
 - `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability declarations, conformance UNION; this spec follows it.
-- `docs/superpowers/specs/2026-05-06-graph-ir-effect-operations-design.md` — graph-IR `call` node mechanics that the demo depends on for invoking `AiLlmModule.Complete`.
+- `docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md` — graph-IR `call` node mechanics that the demo depends on for invoking `AiLlmModule.Complete`.
 - `rntme_turso_target` memory — project storage target is SQLite/Turso, never Postgres/Redis.
 - `project_pre_stable_stage` memory — pre-revenue, no users; no backwards-compat shims.
 

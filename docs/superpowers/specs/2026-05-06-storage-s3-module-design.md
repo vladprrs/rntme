@@ -5,7 +5,7 @@
 **Related:**
 - `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — canonical contract pattern this spec mirrors (category-shaped contract package + first vendor module).
 - `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — second worked example of a category contract; storage follows the same shape.
-- `docs/superpowers/specs/2026-05-06-ai-llm-openrouter-module-design.md` — first vendor module against `ai-llm/v1`; the run/Dockerfile/idempotency pattern this module reuses, with bun substituted for node.
+- `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md` — first vendor module against `ai-llm/v1`; the run/Dockerfile/idempotency pattern this module reuses, with bun substituted for node.
 - `modules/ai-llm/openrouter/README.md` line 75 — explicitly anticipates this brainstorm: *"URL-based file inputs will become useful when an S3-style file storage module lands (separate brainstorm)."*
 - `rntme_provisioner_resolver_gap` memory — open issue with provisioner resolution from `platform-http`; this module's provisioner entry must work within whatever resolution scheme exists when implementation lands.
 - `project_pre_stable_stage` memory — pre-revenue, no users; no backwards-compat shims.
