@@ -7,7 +7,7 @@ Objective audited:
 Replace the query/command Graph IR split with effect-based operations,
 first-class `call` / `branch` / `result` nodes, clean-break binding
 `exposure`, and no executable domain-service command handlers, following
-`docs/superpowers/plans/2026-05-06-graph-ir-effect-operations.md`.
+`docs/superpowers/plans/done/2026-05-06-graph-ir-effect-operations.md`.
 
 ## Success Criteria
 

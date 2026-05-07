@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Spec:** [`docs/superpowers/specs/2026-05-06-publish-to-verify-e2e-hardening-design.md`](../specs/2026-05-06-publish-to-verify-e2e-hardening-design.md)
+**Spec:** [`docs/superpowers/specs/2026-05-06-publish-to-verify-e2e-hardening-design.md`](../../specs/2026-05-06-publish-to-verify-e2e-hardening-design.md)
 
 **Goal:** Make the publish → plan → render → apply → verify path produce actionable feedback at every stage and ship the CLI surface needed to operate it.
 
@@ -2486,7 +2486,7 @@ Or update an existing target:
     EOF
     rntme target set-config my-target --from /tmp/wf.json
 
-See [`demo/order-fulfillment-blueprint/README.md`](../../demo/order-fulfillment-blueprint/README.md) for current image pins.
+See [`demo/order-fulfillment-blueprint/README.md`](../../../../demo/order-fulfillment-blueprint/README.md) for current image pins.
 
 ### Overriding `publicBaseUrl` per deployment
 
