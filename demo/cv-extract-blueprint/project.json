@@ -4,10 +4,18 @@
     "openrouter": {
       "package": "@rntme/ai-llm-openrouter",
       "publicConfig": {
-        "defaultModel": "openrouter/openai/gpt-4o",
+        "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
         "timeoutMs": 60000
       }
     }
   },
-  "services": ["app"]
+  "services": ["app"],
+  "routes": {
+    "ui": {
+      "/": "app"
+    },
+    "http": {
+      "/api": "app"
+    }
+  }
 }

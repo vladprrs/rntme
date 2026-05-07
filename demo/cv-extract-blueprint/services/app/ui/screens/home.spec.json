@@ -9,21 +9,23 @@
     "upload-section": {
       "type": "Stack",
       "props": { "direction": "vertical", "gap": "md" },
-      "children": ["upload-heading", "field-file", "submit-btn"]
+      "children": ["upload-heading", "field-filename", "field-media-type", "field-file-base64", "submit-btn"]
     },
     "upload-heading": {
       "type": "Heading",
       "props": { "level": 2, "text": "Upload resume PDF" }
     },
-    "field-file": {
-      "type": "FileInput",
-      "props": {
-        "label": "Resume PDF",
-        "accept": "application/pdf",
-        "filenameBindState": "/form/filename",
-        "mediaTypeBindState": "/form/mediaType",
-        "base64BindState": "/form/fileBase64"
-      }
+    "field-filename": {
+      "type": "Input",
+      "props": { "label": "Filename", "name": "filename", "value": { "$bindState": "/form/filename" } }
+    },
+    "field-media-type": {
+      "type": "Input",
+      "props": { "label": "Media type", "name": "mediaType", "value": { "$bindState": "/form/mediaType" } }
+    },
+    "field-file-base64": {
+      "type": "Input",
+      "props": { "label": "PDF base64", "name": "fileBase64", "value": { "$bindState": "/form/fileBase64" } }
     },
     "submit-btn": {
       "type": "Button",
@@ -42,7 +44,7 @@
     },
     "extracted-json": {
       "type": "Text",
-      "props": { "text": { "$state": "/data/resume/extractedJson" } }
+      "props": { "text": { "$state": "/data/resume" } }
     }
   }
 }

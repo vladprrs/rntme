@@ -6,7 +6,7 @@
       "mediaType":  { "type": "string", "mode": "required" },
       "fileBase64": { "type": "string", "mode": "required" }
     },
-    "output": { "type": "row<{ resumeId: string }>", "from": "out" }
+    "output": { "type": "row<ResumeActionResult>", "from": "out" }
   },
   "nodes": [
     { "id": "newId", "type": "uuid", "config": {} },
@@ -18,7 +18,7 @@
         "context": {
           "$literal": { "idempotencyKey": "" }
         },
-        "model": { "$literal": "openrouter/openai/gpt-4o" },
+        "model": { "$literal": "openrouter/deepseek/deepseek-v4-flash" },
         "messages": {
           "$literal": [
             {

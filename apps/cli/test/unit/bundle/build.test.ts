@@ -139,6 +139,70 @@ describe('buildProjectBundle', () => {
     }
   });
 
+  it('ignores dependency JSON under node_modules except module manifests', () => {
+    withTmp((dir) => {
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
+      mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules', 'dep', 'package.json'), '{ invalid json');
+      writeFileSync(join(dir, 'node_modules', 'dep', 'tsconfig.json'), '{ invalid json');
+      writeFileSync(join(dir, 'node_modules', 'dep', 'module.json'), JSON.stringify({
+        name: '@rntme/dep',
+        version: '1.0.0',
+      }));
+      writeFileSync(join(dir, 'node_modules', 'dep', 'package.json'), JSON.stringify({
+        name: '@rntme/dep',
+        exports: { './client': './dist/client/index.js' },
+      }));
+      mkdirSync(join(dir, 'node_modules', 'ordinary-dep'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules', 'ordinary-dep', 'package.json'), '{ invalid json');
+
+      const r = buildProjectBundle(dir);
+
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(Object.keys(r.value.bundle.files)).toEqual([
+        'node_modules/dep/module.json',
+        'node_modules/dep/package.json',
+        'project.json',
+      ]);
+    });
+  });
+
+  it('normalizes bundled module capabilities for platform validator compatibility', () => {
+    withTmp((dir) => {
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
+      mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules', 'dep', 'module.json'), JSON.stringify({
+        name: '@rntme/dep',
+        version: '1.0.0',
+        capabilities: {
+          vendors: ['dep'],
+          gateway_upstreams: ['openrouter'],
+          input_modalities: ['text', 'file'],
+          reasoning_visibility_supported: ['hidden'],
+          thread: true,
+          agent_execution_mode: 'delegated',
+          rpcs: ['Complete'],
+          events: [],
+        },
+      }));
+
+      const r = buildProjectBundle(dir);
+
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.bundle.files['node_modules/dep/module.json']).toEqual({
+        name: '@rntme/dep',
+        version: '1.0.0',
+        capabilities: {
+          vendors: ['dep'],
+          rpcs: ['Complete'],
+          events: [],
+        },
+      });
+    });
+  });
+
   it('returns BLUEPRINT_PROVISIONER_ENTRY_MISSING from buildProjectBundle when entry absent', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
     try {

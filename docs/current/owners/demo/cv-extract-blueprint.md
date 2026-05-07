@@ -1,6 +1,6 @@
 # `demo/cv-extract-blueprint/` — Resume extraction demo
 
-Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter`. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/openai/gpt-4o`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON.
+Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter`. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON.
 
 ## File map
 
@@ -31,7 +31,7 @@ demo/cv-extract-blueprint/
 Set the OpenRouter API key as a secret env var on the runtime workload:
 
 ```bash
-export OPENROUTER_API_KEY=sk-or-...
+export OPENROUTER_API_KEY="${OPENROUTER:-sk-or-...}"
 ```
 
 Then deploy or run the blueprint via the standard rntme runtime tooling. The home screen at `/` accepts a PDF (≤10MB), POSTs to `/resumes`, and renders the extracted JSON on response.
@@ -56,7 +56,7 @@ If OpenRouter fails, the graph fails (graph node `policy.onError: "fail"`). The 
 ## Limits and trade-offs
 
 - No authentication. Open demo, like notes-blueprint without identity.
-- Model is hard-coded to `openrouter/openai/gpt-4o` in the graph. Changing it requires editing the literal in `extractResume.json`.
+- Model is hard-coded to `openrouter/deepseek/deepseek-v4-flash` in the graph. Changing it requires editing the literal in `extractResume.json`.
 - `extractedJson` is a string (`TEXT` column). Parse on the client; we do not validate the JSON shape server-side.
 - File payload is inline base64 in the `ResumeUploaded`-equivalent event payload (well, in `ResumeComplete` here). Up to ~10MB is fine; larger needs the future S3 file-storage module (separate brainstorm).
 
