@@ -163,4 +163,4 @@ context: LowerContext = { predicateOptionalParams: new Set(), qsm: {} as unknown
 - `src/types/result.ts`, `src/types/projection.ts`, `src/role/infer.ts`
 - `test/` (90 test files, 297 tests passing)
 - `README.md`, `package.json`, `demo-sql.mjs`
-- Spec: `docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`
+- Spec: `docs/history/specs/historical/2026-04-13-graph-ir-sql-compiler-mvp-design.md`

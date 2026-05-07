@@ -61,4 +61,4 @@ Inbound `int64` request fields are converted to JavaScript numbers before the ex
 
 ## Specs
 
-- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](/docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — operation-based gRPC surface.
+- [`../../../docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md`](/docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md) — operation-based gRPC surface.

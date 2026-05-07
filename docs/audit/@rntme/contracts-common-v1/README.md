@@ -137,8 +137,8 @@ The package is a single truth source for cross-category protobuf primitives (`Ca
 ### Evidence summary
 
 - Package location: `packages/contracts/_common/v1/`
-- Spec: `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §5
-- Layout spec: `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §5.1
+- Spec: `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` §5
+- Layout spec: `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` §5.1
 - Build script: `packages/contracts/_common/v1/package.json:24`
 - Test file: `packages/contracts/_common/v1/test/round-trip.test.ts` (116 lines, 6 tests)
 - Missing .gitignore: confirmed via `ls -la packages/contracts/_common/v1/`

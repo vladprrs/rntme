@@ -23,7 +23,7 @@ service artifact folder.
 - `packages/runtime/src/plugins/observability.ts` provides health and Prometheus
   metrics mounting.
 - `@rntme/db-studio` provides read-only Hrana access to event-store and QSM DBs.
-- `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`
+- `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`
   intentionally rejects production deployment mode until bus/storage/auth
   prerequisites are specified.
 

@@ -75,6 +75,6 @@ Frozen metadata plus `scenariosByRpc` keyed by canonical RPC name. Every scenari
 
 ## Specs
 
-- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` §12.
-- `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7.
-- `docs/superpowers/plans/done/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md`.
+- `docs/history/specs/historical/2026-04-26-ai-llm-canonical-contract-design.md` §12.
+- `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` §7.
+- `docs/history/plans/historical/ai-llm-canonical-contract/02-ai-llm-conformance-skeleton.md`.

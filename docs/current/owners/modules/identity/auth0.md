@@ -214,5 +214,5 @@ Triggered by the project-delete operation before Dokploy resource deletion. Remo
 ## Specs
 
 - Identity contract package: [`packages/contracts/identity/v1/`](/docs/current/owners/packages/contracts/identity/v1.md).
-- Identity contract design: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](/docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
-- Module provisioner contract design: [`docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md`](/docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md).
+- Identity contract design: [`docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md`](/docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md).
+- Module provisioner contract design: [`docs/history/specs/historical/2026-05-03-module-provisioner-contract-design.md`](/docs/history/specs/historical/2026-05-03-module-provisioner-contract-design.md).

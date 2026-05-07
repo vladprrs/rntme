@@ -48,4 +48,4 @@ pnpm -F @rntme/presentation-md-mermaid run typecheck
 
 ## Specs
 
-- [`../../../docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`](/docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md) — UI module contribution model.
+- [`../../../docs/history/specs/active-rationale/2026-04-29-ui-module-contributions-design.md`](/docs/history/specs/active-rationale/2026-04-29-ui-module-contributions-design.md) — UI module contribution model.

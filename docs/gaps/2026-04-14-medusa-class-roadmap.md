@@ -15,13 +15,13 @@ Source of truth:
   not first-app magic or a commerce platform clone.
 - `CLAUDE.md`: internal frame is an artifact-driven runtime authored as a
   project blueprint; service-level artifacts are compiler IR.
-- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`:
+- `docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md`:
   the canonical authoring/versioning/deploy unit is the project blueprint
   folder.
-- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`:
+- `docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md`:
   modules, gRPC surface, pre-fetch steps, callback bindings, and idempotency
   chain.
-- `docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md`:
+- `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`:
   project-level deploy planning lives in `rntme-cli`, while runtime still boots
   one service at a time.
 

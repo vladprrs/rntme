@@ -24,11 +24,13 @@ Read this file first. It is written for agents, not humans.
 - `modules/` — vendor/category modules and conformance suites.
 - `demo/` — example project blueprints.
 - `docs/current/` — current owner docs and authoring guides.
-- `docs/history/` — future home for archived
-  specs/plans/ADRs/audits/research/gaps.
+- `docs/history/` — archived specs, plans, reports, runbooks, and future home
+  for ADRs/audits/research/gaps.
 - `docs/decision-system.md` — decision canon.
-- `docs/superpowers/specs/`, `docs/superpowers/plans/` — active
-  design/plan files until Wave 2 moves historical material.
+- `docs/history/specs/active-rationale/` — recent rationale that may still
+  explain current decisions, but is not current-state truth.
+- `docs/history/specs/historical/`, `docs/history/plans/historical/` —
+  completed or stale design/execution history retained as context.
 
 ## Package Lookup
 
@@ -117,7 +119,7 @@ for detailed package documentation.
 Use `rg` by topic when historical rationale is needed:
 
 ```bash
-rg -n "topic words" docs/current docs/superpowers docs/adr docs/audit docs/gaps docs/research
+rg -n "topic words" docs/current docs/history docs/adr docs/audit docs/gaps docs/research
 ```
 
 ## Do Not Do

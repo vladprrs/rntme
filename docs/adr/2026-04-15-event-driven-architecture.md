@@ -460,4 +460,4 @@ Internal:
 
 - `docs/gaps/commands-and-transactions-gaps.md` — earlier gap analysis against Medusa, complements D12.
 - `docs/gaps/infra-and-operability-gaps.md` — observability and Turso audit.
-- `docs/superpowers/specs/2026-04-14-mutations-design.md` — CQRS/ES mutation design.
+- `docs/history/specs/historical/2026-04-14-mutations-design.md` — CQRS/ES mutation design.

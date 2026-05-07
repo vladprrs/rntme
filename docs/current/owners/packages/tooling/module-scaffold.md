@@ -130,12 +130,12 @@ this package.
 
 ## Specs
 
-- `docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`
+- `docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md`
   — original platform-modules-integration spec (§5 module pattern, §12 contract).
-- `docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`
+- `docs/history/specs/historical/2026-05-04-platform-contracts-extraction-design.md`
   — the layering refactor that extracted contracts out of this package and
   renamed it to `module-scaffold`.
-- `docs/superpowers/specs/done/2026-05-03-module-provisioner-contract-design.md`
+- `docs/history/specs/historical/2026-05-03-module-provisioner-contract-design.md`
   — provisioner block in `module.json` (now hosted by `@rntme/contracts-provisioner-v1`).
-- `docs/superpowers/specs/2026-04-29-ui-module-contributions-design.md`
+- `docs/history/specs/active-rationale/2026-04-29-ui-module-contributions-design.md`
   — UI module contributions + `client` block in `module.json`.

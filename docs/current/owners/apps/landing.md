@@ -1,6 +1,6 @@
 # @rntme/landing
 
-Marketing landing for `rntme.com`. See `docs/superpowers/specs/2026-04-20-landing-design.md` for the design and `SHAPE-BRIEF.md` for the UX direction.
+Marketing landing for `rntme.com`. See `docs/history/specs/historical/2026-04-20-landing-design.md` for the design and `SHAPE-BRIEF.md` for the UX direction.
 
 ## Dev
 

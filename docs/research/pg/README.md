@@ -405,7 +405,7 @@ const inserted = await db.query(
 2. **GitHub changelog (brianc/node-postgres):** `CHANGELOG.md` — release notes for every minor version from 8.0.0 to 8.20.0.
 3. **Direct code inspection:** `packages/platform/platform-storage/src/pg/pool.ts`, `tx.ts`, `migrate.ts`, `repos/pg-*.ts`, `schema/*.ts`, `test/integration/harness.ts` — verified usage patterns, imports, and architecture.
 4. **Lockfile inspection:** `pnpm-lock.yaml` at repo root — exact resolved versions and transitive dependency graph.
-5. **AGENTS.md / platform spec:** `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` — rationale for Postgres in platform layer vs SQLite in runtime.
+5. **AGENTS.md / platform spec:** `docs/history/specs/historical/2026-04-19-platform-api-design.md` — rationale for Postgres in platform layer vs SQLite in runtime.
 
 ### Secondary (MEDIUM confidence)
 6. **Context7 library search:** `/vitaly-t/pg-promise` and `/oguimbal/pg-mem` — verified alternatives exist but are not better fits for Drizzle-centric architecture.

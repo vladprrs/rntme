@@ -353,11 +353,11 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 ## Specs
 
 - `graph_ir_rc_7.md` — historical Graph IR rc7 language notes: operators, expression grammar, named shapes, input modes, role inference, signature/output shapes. This file is not tracked in the current workspace.
-- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](/docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — Current operation model: effects, call/branch/result nodes, binding exposure, and service-local handler removal.
-- [`../../../docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md`](/docs/superpowers/specs/done/2026-04-13-graph-ir-sql-compiler-mvp-design.md) — historical MVP design rationale: layer order, Tier 1 scope, error code conventions, what is intentionally out of scope.
-- [`../../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](/docs/superpowers/specs/done/2026-04-14-mutations-design.md) — Command path: emit nodes, read prelude, replay-and-validate, optimistic concurrency. §4 = command-runtime.
-- [`../../../docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md`](/docs/superpowers/specs/done/2026-04-16-predicate-optional-fix-design.md) — Root-cause analysis and fix for the `wrapPredicateOptional` SQL `?` misalignment.
-- [`../../../docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md`](/docs/superpowers/specs/done/2026-04-16-qsm-relations-migration-design.md) — Recent QSM relations migration that retargeted dot-nav planning at `qsm.relations` (consumed in `lower/sqlite/joins.ts → expandChain` and validated in `validate/semantic/sources.ts → checkNavRelations`).
+- [`../../../docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md`](/docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md) — Current operation model: effects, call/branch/result nodes, binding exposure, and service-local handler removal.
+- [`../../../docs/history/specs/historical/2026-04-13-graph-ir-sql-compiler-mvp-design.md`](/docs/history/specs/historical/2026-04-13-graph-ir-sql-compiler-mvp-design.md) — historical MVP design rationale: layer order, Tier 1 scope, error code conventions, what is intentionally out of scope.
+- [`../../../docs/history/specs/historical/2026-04-14-mutations-design.md`](/docs/history/specs/historical/2026-04-14-mutations-design.md) — Command path: emit nodes, read prelude, replay-and-validate, optimistic concurrency. §4 = command-runtime.
+- [`../../../docs/history/specs/historical/2026-04-16-predicate-optional-fix-design.md`](/docs/history/specs/historical/2026-04-16-predicate-optional-fix-design.md) — Root-cause analysis and fix for the `wrapPredicateOptional` SQL `?` misalignment.
+- [`../../../docs/history/specs/historical/2026-04-16-qsm-relations-migration-design.md`](/docs/history/specs/historical/2026-04-16-qsm-relations-migration-design.md) — Recent QSM relations migration that retargeted dot-nav planning at `qsm.relations` (consumed in `lower/sqlite/joins.ts → expandChain` and validated in `validate/semantic/sources.ts → checkNavRelations`).
 
 ## Glossary
 

@@ -21,8 +21,8 @@ API callers can show actionable nested causes instead of a flattened message.
 keys are `eventBusMode`, `integrationModuleImages`, `policyOverrides`,
 `runtimeImage`, and `publicBaseUrl`; `publicBaseUrl` must be an HTTP(S) URL.
 
-See `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` in the public repo.
-Deployment design: `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`.
+See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the public repo.
+Deployment design: `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`.
 
 ## Project lifecycle operations
 

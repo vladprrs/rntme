@@ -69,11 +69,11 @@ Both filter scenarios by the module's `capabilities[]`.
 
 ## Where to look first
 
-- Spec: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](/docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md) §9.
-- Modules-monorepo conformance design: [`docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md`](/docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md) §7.
+- Spec: [`docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md`](/docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md) §9.
+- Modules-monorepo conformance design: [`docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md`](/docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md) §7.
 - Canonical contract this exercises: [`packages/contracts/identity/v1/`](/docs/current/owners/packages/contracts/identity/v1.md).
 
 ## Specs
 
-- `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` (v1 contract).
-- `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` (umbrella conventions).
+- `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` (v1 contract).
+- `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` (umbrella conventions).

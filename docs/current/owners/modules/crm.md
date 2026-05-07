@@ -45,8 +45,8 @@ When you scaffold a new CRM vendor module, fill out `module.json#capabilities[]`
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` — canonical contract design.
-- `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability UNION conformance.
+- `docs/history/specs/historical/2026-04-27-crm-canonical-contract-design.md` — canonical contract design.
+- `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` — module pattern, capability UNION conformance.
 
 ## Where to look first
 

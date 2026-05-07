@@ -72,7 +72,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 ### Compliance with the spec and product vision
 
-- **Spec:** docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md - the package implements solutions D1–D36 correctly. The core/adapter/frontend boundaries are respected.
+- **Spec:** docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md - the package implements solutions D1–D36 correctly. The core/adapter/frontend boundaries are respected.
 - **Product vision:** The package strengthens the positioning of rntme as a repeatable deployable infrastructure for AI-generated projects. Target-neutral planning will allow future adapters (Fly.io, Railway) to reuse deploy-core without changes.
 
 ---

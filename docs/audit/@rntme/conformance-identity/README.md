@@ -36,7 +36,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 **Recommendation:**
 1. Select canonical shape (identity/ai-llm look more correct: camelCase + `scenariosByRpc` + `Readonly`)
 2. Migrate the CRM in the same PR where the framework is landing, or create a separate sync-issue
-3. Fix the canonical shape in `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7.1 explicitly, with a typical TypeScript signature
+3. Fix the canonical shape in `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` §7.1 explicitly, with a typical TypeScript signature
 
 ---
 
@@ -163,7 +163,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 - [x] Full overview of the public API, internal boundaries, dependencies, types, build/test setup
 - [x] Comparison with sibling packages (CRM, AI-LLM)
-- [x] Checking alignment with `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` §9 and `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md` §7
+- [x] Checking alignment with `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` §9 and `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md` §7
 - [x] Specific recommendations with severity, evidence and impact
 
 **Summary:** The package is structurally sound and fulfills its scaffolding role, but requires sync under the standard contract with the CRM package before `@rntme/conformance-framework` begins integration. Without this, CRM migration will be disruptive.

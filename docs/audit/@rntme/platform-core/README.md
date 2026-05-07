@@ -72,7 +72,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### 🟢 Low
 
 **8. README ссылается на документы, которых нет в репозитории**
-- **Evidence:** README.md:16–17 — `docs/superpowers/specs/done/...` и `docs/superpowers/specs/2026-04-24-...`.
+- **Evidence:** README.md:16–17 — `docs/history/specs/historical/...` и `docs/history/specs/active-rationale/2026-04-24-...`.
 - **Fix:** Уточнить путь или добавить ссылки на внешний репозиторий.
 
 **9. `BlobStore` в доменном пакете содержит `presignedGet`**

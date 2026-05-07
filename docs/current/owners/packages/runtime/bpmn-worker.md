@@ -78,4 +78,4 @@ docker build -f packages/runtime/bpmn-worker/Dockerfile -t ghcr.io/<owner>/rntme
 
 ## Specs
 
-- `../../../docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `../../../docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md`

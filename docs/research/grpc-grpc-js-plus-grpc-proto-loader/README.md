@@ -426,7 +426,7 @@ Rationale:
 - [protobuf-es GitHub](https://github.com/bufbuild/protobuf-es) — conformance comparison, migration paths
 - [npm protobufjs](https://www.npmjs.com/package/protobufjs) — version history, 8.x experimental status
 - rntme audit `docs/audit/@rntme/bindings-grpc/README.md` — current architecture issues and evidence
-- rntme spec `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — decision to defer ts-proto/Buf
+- rntme spec `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` — decision to defer ts-proto/Buf
 
 ### Tertiary (LOW confidence - needs validation)
 - Web search for "grpc-node 1.14 breaking changes" — no significant breaking changes reported in community

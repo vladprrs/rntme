@@ -82,7 +82,7 @@ local FK is also wrong because the target row is not owned by this service.
 
 - `Relation.to` is a string, and `validateStructural` requires it to resolve to
   a local entity name.
-- `docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`
+- `docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md`
   makes entity ownership project-level but does not introduce field-level
   ownership or a foreign-reference relation kind.
 - `packages/blueprint/src/types/artifact.ts` records service descriptors and

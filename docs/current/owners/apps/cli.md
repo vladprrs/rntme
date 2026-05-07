@@ -216,9 +216,9 @@ Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.
 
 ## See Also
 
-- **CLI design spec:** See `docs/superpowers/specs/done/2026-04-19-rntme-cli-platform-commands-design.md` in the rntme monorepo
-- **Platform API design:** See `docs/superpowers/specs/done/2026-04-19-platform-api-design.md` in the rntme monorepo
-- **Deployment pipeline design:** See `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` in the rntme monorepo
+- **CLI design spec:** See `docs/history/specs/historical/2026-04-19-rntme-cli-platform-commands-design.md` in the rntme monorepo
+- **Platform API design:** See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the rntme monorepo
+- **Deployment pipeline design:** See `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md` in the rntme monorepo
 
 ## Bootstrapping a new project
 

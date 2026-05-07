@@ -37,7 +37,7 @@ future trigger instead of standalone churn.
 
 Units: U-048, U-050, U-319, U-320, U-321, U-322.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-package-a-blueprint-ui-fail-fast.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-package-a-blueprint-ui-fail-fast.md`.
 Evidence: `BLUEPRINT_SERVICE_JSON_MALFORMED`, strict project-aware UI
 route/component validation, Zod parse schemas, `DUPLICATE_SCREEN_KEY`, and
 missing-`httpMap` `EMIT_FAILED` tests.
@@ -46,7 +46,7 @@ missing-`httpMap` `EMIT_FAILED` tests.
 
 Units: U-341, U-344, then optionally U-342.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-package-b-ui-runtime-confidence.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-package-b-ui-runtime-confidence.md`.
 Evidence: React 19 type packages aligned, registry dispatch tests added,
 identity boot fallback now asserts `/auth/user = null`, boot errors are asserted
 through `/runtime/bootErrors`, and `@rntme/ui-runtime` test/build pass.
@@ -57,9 +57,9 @@ Closed units: U-114, U-079, U-078.
 
 Remaining units: none.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-platform-http-unhandled-error-logging.md`
-and `docs/superpowers/plans/done/2026-05-04-audit-deploy-dokploy-partial-apply-cleanup.md`
-and `docs/superpowers/plans/done/2026-05-04-audit-deploy-dokploy-resource-comparison.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-platform-http-unhandled-error-logging.md`
+and `docs/history/plans/historical/2026-05-04-audit-deploy-dokploy-partial-apply-cleanup.md`
+and `docs/history/plans/historical/2026-05-04-audit-deploy-dokploy-resource-comparison.md`.
 Evidence: unhandled exceptions now flow through `app.onError(errorHandler(deps.logger))`,
 log request metadata plus `err`, and return a sanitized `PLATFORM_INTERNAL`
 response. Partial Dokploy apply failures now delete resources created earlier in
@@ -75,10 +75,10 @@ Closed units: U-031, U-355, U-289, U-288, U-293.
 
 Remaining units: none.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-runtime-boundary-hygiene-bindings-http.md`
-and `docs/superpowers/plans/done/2026-05-04-audit-runtime-config-validation.md`
-and `docs/superpowers/plans/done/2026-05-04-audit-runtime-actor-validation.md`
-and `docs/superpowers/plans/done/2026-05-04-audit-runtime-derived-projection-validation-boundary.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-runtime-boundary-hygiene-bindings-http.md`
+and `docs/history/plans/historical/2026-05-04-audit-runtime-config-validation.md`
+and `docs/history/plans/historical/2026-05-04-audit-runtime-actor-validation.md`
+and `docs/history/plans/historical/2026-05-04-audit-runtime-derived-projection-validation-boundary.md`.
 Evidence: `BindingsRouterOptions` / `buildPlan` now consume `RuntimeGraphSpec`,
 `ValidatedPdm`, and `ValidatedQsm`; missing runtime dependencies now throw
 `BindingsRuntimeError` with `BINDINGS_HTTP_STARTUP_MISSING_RUNTIME_DEPENDENCY`.
@@ -94,7 +94,7 @@ of stamping them into events. Derived projection validation now calls
 
 Closed units: U-132.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-platform-storage-result-transaction-rollback.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-platform-storage-result-transaction-rollback.md`.
 Evidence: `withTransaction` now rolls back when callbacks return the platform
 `Result.err` shape, returns the error result unchanged, and has unit coverage
 for `ROLLBACK` instead of `COMMIT`; a deploy-target integration regression is
@@ -104,7 +104,7 @@ present for container-enabled environments.
 
 Closed units: U-363.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-event-store-actor-kind-check.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-event-store-actor-kind-check.md`.
 Evidence: `event_log.actor_kind` is enforced by a SQLite `CHECK`, valid D9
 legacy tables without the check are rebuilt in place, and corrupted legacy rows
 fail schema application with `EVENT_STORE_SCHEMA_INCOMPATIBLE`.
@@ -113,7 +113,7 @@ fail schema application with `EVENT_STORE_SCHEMA_INCOMPATIBLE`.
 
 Closed units: U-275.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-qsm-ddl-bootstrap-integration.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-qsm-ddl-bootstrap-integration.md`.
 Evidence: QSM now has `test/integration/ddl-bootstrap.test.ts`, which validates
 realistic fixtures, emits projection DDL, applies it to in-memory SQLite, and
 asserts explicit tables, omitted-table fallback, indexes, idempotency columns,
@@ -123,7 +123,7 @@ resolver/table alignment, and composite-key DDL.
 
 Closed units: U-323, U-324, U-326.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-ui-validation-consistency.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-ui-validation-consistency.md`.
 Evidence: UI validation now emits `BINDING_KIND_MISMATCH` when optional binding
 kind metadata conflicts with data/query or command/action usage, `TYPE_MISMATCH`
 for literal component prop schema mismatches, and `UNCOVERED_INPUT` for
@@ -134,7 +134,7 @@ all three codes.
 
 Closed units: U-292.
 
-Closed by `docs/superpowers/plans/done/2026-05-04-audit-runtime-shutdown-timeout.md`.
+Closed by `docs/history/plans/historical/2026-05-04-audit-runtime-shutdown-timeout.md`.
 Evidence: `RunningService.stop()` now uses a validated `shutdownTimeoutMs`
 budget, starts with graceful `server.close()`, closes idle connections when
 available, force-closes active HTTP connections after the timeout, and has a
@@ -155,7 +155,7 @@ These rows were previously listed above but are no longer current-priority work:
 - U-003 — keep parked; extract shared executor contracts when touching
   gRPC/bindings runtime boundaries.
 - U-004 — closed against the standing dependency-upgrade deferral spec
-  (`docs/superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md`).
+  (`docs/history/specs/active-rationale/2026-04-30-dependency-upgrade-deferral-design.md`).
 
 ## Explicitly Deprioritized For Now
 

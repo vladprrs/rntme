@@ -330,7 +330,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - SQLite-only default. `BetterSqliteDriver` is the only shipped DbDriver. Postgres is explicitly not a target — target dialect is SQLite forever, scale-out goes through Turso.
 - No hot reload. `loadService` runs once at boot; a manifest/artifact edit requires a restart.
 - No authentication beyond the header-based `ActorRef`. `manifest.auth.mode` is fixed at `'header'` in MVP.
-- No `commands: []` / `rows: []` seed sugar — see `docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md` §1 non-goals.
+- No `commands: []` / `rows: []` seed sugar — see `docs/history/specs/historical/2026-04-15-runtime-seed-design.md` §1 non-goals.
 - `rntme-runtime` CLI has two subcommands (`start`, `validate`). `validate` exits 1 with JSON errors on failure; there is no `diff`, `lint`, or `export`.
 - Observability is Prometheus-only via `prom-client`. No OpenTelemetry tracing in MVP.
 
@@ -350,6 +350,6 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](/docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — historical umbrella design rationale for the project-first pivot: project blueprint folder, project routing/middleware declarations, service-level execution under a shared project model; actual project runtime architecture is explicitly deferred to a separate spec.
-- [`../../docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`](/docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md) — historical packaging/runtime boot rationale (§4.1 manifest schema, plugin seams, Docker entry).
-- [`../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](/docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md) — seed lifecycle, `skipSeed`/`seedMode` config, apply-order guarantees (§3.1, §8.3).
+- [`../../docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md`](/docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md) — historical umbrella design rationale for the project-first pivot: project blueprint folder, project routing/middleware declarations, service-level execution under a shared project model; actual project runtime architecture is explicitly deferred to a separate spec.
+- [`../../docs/history/specs/historical/2026-04-15-runtime-packaging-design.md`](/docs/history/specs/historical/2026-04-15-runtime-packaging-design.md) — historical packaging/runtime boot rationale (§4.1 manifest schema, plugin seams, Docker entry).
+- [`../../docs/history/specs/historical/2026-04-15-runtime-seed-design.md`](/docs/history/specs/historical/2026-04-15-runtime-seed-design.md) — seed lifecycle, `skipSeed`/`seedMode` config, apply-order guarantees (§3.1, §8.3).

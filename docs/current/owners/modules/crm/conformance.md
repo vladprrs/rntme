@@ -23,5 +23,5 @@ pnpm -F @rntme/conformance-crm run lint
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md` §11
-- `docs/superpowers/plans/crm-canonical-contract/02-crm-conformance-skeleton.md`
+- `docs/history/specs/historical/2026-04-27-crm-canonical-contract-design.md` §11
+- `docs/history/plans/historical/crm-canonical-contract/02-crm-conformance-skeleton.md`

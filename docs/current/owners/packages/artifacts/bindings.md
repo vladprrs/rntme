@@ -123,6 +123,6 @@ Module/service calls are represented in Graph IR with `call` nodes, and their ef
 
 ## Specs
 
-- [`../../../docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md`](/docs/superpowers/specs/done/2026-05-06-graph-ir-effect-operations-design.md) — effect operations, binding exposure, and handler removal.
-- [`../../../docs/superpowers/specs/done/2026-04-14-bindings-design.md`](/docs/superpowers/specs/done/2026-04-14-bindings-design.md) — original artifact and OpenAPI design background.
-- [`../../../docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`](/docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md) — historical module/callback context now expressed through operation calls and `inputFrom`.
+- [`../../../docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md`](/docs/history/specs/historical/2026-05-06-graph-ir-effect-operations-design.md) — effect operations, binding exposure, and handler removal.
+- [`../../../docs/history/specs/historical/2026-04-14-bindings-design.md`](/docs/history/specs/historical/2026-04-14-bindings-design.md) — original artifact and OpenAPI design background.
+- [`../../../docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md`](/docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md) — historical module/callback context now expressed through operation calls and `inputFrom`.

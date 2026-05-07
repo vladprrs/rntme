@@ -400,7 +400,7 @@ Rationale:
 - Context7 `/drizzle-team/drizzle-orm` — Breaking changes, migration patterns, API examples
 
 ### Secondary (MEDIUM confidence)
-- [rntme design doc: 2026-04-18-drizzle-adoption-design.md](/docs/superpowers/specs/2026-04-18-drizzle-adoption-design.md) — Internal architecture decisions, phased rollout plan
+- [rntme design doc: 2026-04-18-drizzle-adoption-design.md](/docs/history/specs/active-rationale/2026-04-18-drizzle-adoption-design.md) — Internal architecture decisions, phased rollout plan
 - [rntme audit: platform-storage](/docs/audit/@rntme/platform-storage/README.md) — Current usage patterns, known issues
 
 ### Tertiary (LOW confidence - needs validation)

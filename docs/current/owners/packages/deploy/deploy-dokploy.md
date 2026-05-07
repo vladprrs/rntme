@@ -159,10 +159,10 @@ The named 401 fallback is the only canonical 401 body for protected routes. If a
 
 ## Specs
 
-- `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md`
-- `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
-- `docs/superpowers/specs/2026-05-01-provisioned-event-bus-design.md`
-- `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`
+- `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`
+- `docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md`
+- `docs/history/specs/historical/2026-05-01-provisioned-event-bus-design.md`
+- `docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md`
 
 ## Security
 

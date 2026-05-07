@@ -152,7 +152,7 @@ What: Use Hono middleware to inject pre-fetch steps (idempotency key resolution,
 When to use: rntme's command path where `pre[]` steps must run before the executor.
 Example:
 ```ts
-// Source: docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md
+// Source: docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md
 app.use('/v1/*', async (c, next) => {
   const idempotencyKey = c.req.header('x-idempotency-key')
   c.set('idempotencyKey', idempotencyKey)

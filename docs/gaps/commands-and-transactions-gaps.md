@@ -124,7 +124,7 @@ if the platform standard is Operaton timers calling gRPC commands.
   `packages/runtime/src/start/start-service.ts`.
 - The modules integration spec kept workflow worker adapters and BPMN
   conventions out of the original runtime slice; current BPMN worker work is
-  tracked in `docs/superpowers/specs/done/2026-05-05-provisioned-bpmn-operaton-design.md`.
+  tracked in `docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md`.
 
 **Target.** Defer until the project runtime/deploy story proves whether timers
 are platform workflow artifacts or service-local runtime artifacts.

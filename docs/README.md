@@ -32,9 +32,22 @@ Historical documents answer "why did we decide this at the time?" They are not
 current-state truth by themselves. Verify current behavior against code/tests,
 `docs/current/**`, `docs/decision-system.md`, and `.dependency-cruiser.cjs`.
 
-Wave 2 will move archived specs, plans, ADRs, audits, research notes, and gaps
-into `docs/history/**`. Until then, historical material remains in its current
-directories and should be treated as rationale, not current-state truth.
+Archived specs, plans, reports, and runbooks live under `docs/history/**`.
+ADRs, audits, research notes, and gaps still live in their existing directories
+until a later archival pass moves them. Treat all of those historical surfaces
+as rationale, not current-state truth.
+
+Specs use lifecycle directories:
+
+- `docs/history/specs/active-rationale/` for recent rationale that still helps
+  explain current decisions;
+- `docs/history/specs/historical/` and `docs/history/plans/historical/` for
+  completed or stale context;
+- `docs/history/specs/retired/` and `docs/history/plans/retired/` for known
+  stale deletion candidates after a separate review.
+
+Every document under `docs/history/**` starts with a banner naming its status,
+date, current source, and retention reason.
 
 ## Docs Touch
 

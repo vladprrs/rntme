@@ -130,7 +130,7 @@ The package is **architecturally sound in scope** but has **structural inconsist
 - `modules/crm/conformance/test/suite-shape.test.ts`
 - `modules/crm/conformance/test/fixtures-sanity.test.ts`
 - Sibling packages: `modules/identity/conformance/`, `modules/ai-llm/conformance/`
-- Specs: `docs/superpowers/specs/done/2026-04-27-crm-canonical-contract-design.md`, `docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md`
+- Specs: `docs/history/specs/historical/2026-04-27-crm-canonical-contract-design.md`, `docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md`
 
 ---
 

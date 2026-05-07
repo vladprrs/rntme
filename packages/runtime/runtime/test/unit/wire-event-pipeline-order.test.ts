@@ -1,5 +1,5 @@
 /**
- * Plan smoke check only (see `docs/superpowers/plans/done/2026-04-15-runtime-seed.md` Task 13):
+ * Plan smoke check only (see `docs/history/plans/historical/2026-04-15-runtime-seed.md` Task 13):
  * verifies `wireEventPipeline` is wired without asserting start order here.
  * Full start-order behavior is covered in the integration suite (Task 14).
  */

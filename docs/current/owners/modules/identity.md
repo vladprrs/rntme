@@ -18,7 +18,7 @@ Vendor modules implement `@rntme/contracts-identity-v1`. The contract is the sou
 - The `IDENTITY_<LAYER>_<KIND>` error-code catalogue.
 - The three-level metadata model and status enums.
 
-Read the contract's README first: [`packages/contracts/identity/v1/README.md`](/docs/current/owners/packages/contracts/identity/v1.md). Then read the contract spec: [`docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md`](/docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md).
+Read the contract's README first: [`packages/contracts/identity/v1/README.md`](/docs/current/owners/packages/contracts/identity/v1.md). Then read the contract spec: [`docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md`](/docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md).
 
 ## Capability claims
 
@@ -41,5 +41,5 @@ Modules below this baseline are technically valid but rarely useful in practice.
 
 - Canonical contract: [`packages/contracts/identity/v1/`](/docs/current/owners/packages/contracts/identity/v1.md).
 - Conformance suite: [`./conformance/`](./conformance).
-- Modules-monorepo spec: [`docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md`](/docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md) §7 covers the conformance framework split.
-- Module pattern (wrapper, no choreography): [`docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md`](/docs/superpowers/specs/done/2026-04-19-platform-modules-integration-design.md).
+- Modules-monorepo spec: [`docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md`](/docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md) §7 covers the conformance framework split.
+- Module pattern (wrapper, no choreography): [`docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md`](/docs/history/specs/historical/2026-04-19-platform-modules-integration-design.md).

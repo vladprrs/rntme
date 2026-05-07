@@ -89,7 +89,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 ### Low
 
 11. **README refers to a non-existent spec**
-    *Evidence:* `README.md:32` - `docs/superpowers/specs/2026-04-24-project-deployment-pipeline-design.md` is missing from the repo.
+    *Evidence:* `README.md:32` - `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md` is missing from the repo.
     *Recommendation:* Correct the link or delete it.
 
 12. **Version `0.0.0` in `package.json`**

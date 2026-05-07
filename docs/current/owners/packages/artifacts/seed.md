@@ -202,4 +202,4 @@ CLI exit codes:
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](/docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md) — historical design rationale. §3 architecture, §4 artifact, §5 public API, §6 `appendRaw`, §7 validation layers and error codes, §8 runtime integration, §9 CLI, §11 testing, §14 future work.
+- [`../../docs/history/specs/historical/2026-04-15-runtime-seed-design.md`](/docs/history/specs/historical/2026-04-15-runtime-seed-design.md) — historical design rationale. §3 architecture, §4 artifact, §5 public API, §6 `appendRaw`, §7 validation layers and error codes, §8 runtime integration, §9 CLI, §11 testing, §14 future work.

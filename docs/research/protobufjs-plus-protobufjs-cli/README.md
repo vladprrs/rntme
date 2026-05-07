@@ -417,7 +417,7 @@ Rationale:
 ### Secondary (MEDIUM confidence)
 - [protobufjs CLI README](https://github.com/protobufjs/protobuf.js/blob/master/cli/README.md) — pbjs/pbts options and examples
 - [protobuf-es GitHub](https://github.com/bufbuild/protobuf-es) — conformance comparison, modern TypeScript patterns
-- rntme spec `docs/superpowers/specs/done/2026-04-26-identity-canonical-contract-design.md` — decision to defer ts-proto/Buf
+- rntme spec `docs/history/specs/historical/2026-04-26-identity-canonical-contract-design.md` — decision to defer ts-proto/Buf
 - rntme research `docs/research/grpc-grpc-js-plus-grpc-proto-loader/README.md` — related grpc/proto-loader findings (RNT-301)
 
 ### Tertiary (LOW confidence - needs validation)

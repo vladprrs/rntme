@@ -138,4 +138,4 @@ User test after deploy:
    login screen is shown without exposing the access token in state.
 6. Without an `Authorization` header, `GET /api/notes` and `POST /api/notes` return `401 application/json` with `RUNTIME_AUTH_TOKEN_INVALID`; `500 BINDINGS_RUNTIME_EXPRESSION_ERROR` is a failed deployment smoke check.
 
-Spec: `docs/superpowers/specs/2026-04-29-notes-demo-auth0-design.md`
+Spec: `docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md`

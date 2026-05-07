@@ -2,7 +2,7 @@
  * Local stub of the contracts that @rntme/conformance-framework will
  * publish. Replace these with imports from the framework once it lands.
  *
- * Source-of-truth shape: docs/superpowers/specs/2026-04-26-modules-monorepo-structure-design.md §7.
+ * Historical rationale: docs/history/specs/active-rationale/2026-04-26-modules-monorepo-structure-design.md §7.
  */
 
 export type ScenarioStatus =

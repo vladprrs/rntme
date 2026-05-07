@@ -1,6 +1,6 @@
 # Audit waves — consolidated planning
 
-> **Status:** reconciled through merged waves W2, W3, W4, W7, W8, W10, W13, W14, and W15. See [spec](../superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
+> **Status:** reconciled through merged waves W2, W3, W4, W7, W8, W10, W13, W14, and W15. See [spec](../history/specs/historical/2026-04-28-audit-consolidation-and-waves-design.md) for the canonical process.
 >
 > **2026-05-01 note.** Three packages were removed wholesale: `@rntme/db-studio` (superseded by Drizzle Studio per the drizzle-adoption spec), `@rntme/issue-tracker-api-demo` (replaced by `demo/notes-blueprint` as the project-shape canonical example), and `@rntme/pre-step-demo`. All `📦 park` findings against those packages are obsolete; their per-package audit folders under `docs/audit/@rntme/` were deleted alongside the packages. Skip those rows when triaging.
 
@@ -9,7 +9,7 @@
 | Build date | 2026-04-28T13:04:52Z |
 | Build commit | `b6047e5ac4986ac2e9dfc26075a309fd18c3a227` |
 | Audit corpus dir | `docs/audit/` (RNT-199..230, snapshot date 2026-04-28) |
-| Spec | `docs/superpowers/specs/done/2026-04-28-audit-consolidation-and-waves-design.md` |
+| Spec | `docs/history/specs/historical/2026-04-28-audit-consolidation-and-waves-design.md` |
 | Initial active units | 355 |
 | Rejected (false positives + duplicates + outdated) | 13 |
 | Obsolete after follow-up reconciliation | 38 |
@@ -41,7 +41,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 ## Deferred initiatives
 
-- **Dependency upgrades (RNT-298…325):** all 28 research clusters deferred per [`2026-04-30-dependency-upgrade-deferral-design.md`](../superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md). Audit volumes that surface outdated-version units (e.g. U-004 — multiple versions of grpc-js / protobufjs / better-sqlite3 / typescript / vitest across packages) MUST cross-reference that spec instead of opening duplicate fix work. Re-evaluate triggers and 6-month refresh cadence (next: 2026-10-30) are tracked there.
+- **Dependency upgrades (RNT-298…325):** all 28 research clusters deferred per [`2026-04-30-dependency-upgrade-deferral-design.md`](../history/specs/active-rationale/2026-04-30-dependency-upgrade-deferral-design.md). Audit volumes that surface outdated-version units (e.g. U-004 — multiple versions of grpc-js / protobufjs / better-sqlite3 / typescript / vitest across packages) MUST cross-reference that spec instead of opening duplicate fix work. Re-evaluate triggers and 6-month refresh cadence (next: 2026-10-30) are tracked there.
 
 ---
 
@@ -174,7 +174,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Status:** Closed. PRs 1–6 merged; layering pinned by `dependency-cruiser` in CI.
 
-Spec: [`docs/superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md`](../superpowers/specs/done/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/superpowers/plans/done/2026-05-04-platform-contracts-extraction.md`](../superpowers/plans/done/2026-05-04-platform-contracts-extraction.md).
+Spec: [`docs/history/specs/historical/2026-05-04-platform-contracts-extraction-design.md`](../history/specs/historical/2026-05-04-platform-contracts-extraction-design.md). Plan: [`docs/history/plans/historical/2026-05-04-platform-contracts-extraction.md`](../history/plans/historical/2026-05-04-platform-contracts-extraction.md).
 
 Platform contracts extraction wave — extracts `@rntme/contracts-{module,provisioner,client-runtime,handlers}-v1` as leaf packages, removes cross-package layering violations, and renames `@rntme/module-skeleton` → `@rntme/module-scaffold` (the package no longer hosts contracts; it is examples-and-scaffolding).
 
@@ -200,7 +200,7 @@ Wave closed by PR 6.
 |----|-----|-----------|----------|----------|------|----------|----------|------------------|
 | U-002 | `monorepo` | RNT-230#B2 | Blocker | 📦 park | — | ✓ | @rntme/runtime depends on 12 workspace packages (god package) | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot [active-list] removed 2026-05-04; revisit after project-level runtime intake and plugin seams stabilize |
 | U-003 | `monorepo` | RNT-230#B3 | Blocker | 📦 park | — | ✓ | bindings-grpc has dependencies['@rntme/bindings-http']: 'workspace:*' | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot [active-list] removed 2026-05-04; extract shared executor contracts when touching gRPC/bindings runtime boundaries |
-| U-004 | `monorepo` | RNT-230#H1 | High | ✅ closed | A15 | ✓ | dependency-version drift is covered by the standing dependency-upgrade deferral spec | [fix] closed as deferred per `docs/superpowers/specs/2026-04-30-dependency-upgrade-deferral-design.md`; future trigger or 2026-10-30 refresh reopens the relevant dependency cluster. |
+| U-004 | `monorepo` | RNT-230#H1 | High | ✅ closed | A15 | ✓ | dependency-version drift is covered by the standing dependency-upgrade deferral spec | [fix] closed as deferred per `docs/history/specs/active-rationale/2026-04-30-dependency-upgrade-deferral-design.md`; future trigger or 2026-10-30 refresh reopens the relevant dependency cluster. |
 | U-005 | `monorepo` | RNT-230#H2 | High | 📦 park | — | ✓ | 8 module packages have build:deps scripts that pnpm --dir or -F other packages | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
 | U-006 | `monorepo` | RNT-230#H3 | High | 📦 park | — | ✓ | conformance pkgs split between deps/devDeps in crm-bitrix24/amocrm and identity-auth0/clerk | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
 | U-007 | `monorepo` | RNT-230#H4 | High | 📦 park | — | ✓ | runtime has dependencies['@rntme/seed']: 'workspace:^' (CLI tool in prod deps) | [verify-systemic] confirmed via tooling check [triage] park: real but no foreseeable shoot |
@@ -296,7 +296,7 @@ Wave closed by PR 6.
 | U-104 | `@rntme/platform-core` | RNT-227#4 | Medium | 📦 park | — | ✓ | MembershipMirrorSchema uses z.string().min(1) for role, not RoleSchema |  [triage] park: real but no foreseeable shoot |
 | U-106 | `@rntme/platform-core` | RNT-227#6 | Medium | 📦 park | — | ✓ | package.json version 0.0.0; consumed by platform-http, platform-storage, cli |  [triage] park: real but no foreseeable shoot |
 | U-107 | `@rntme/platform-core` | RNT-227#7 | Medium | 📦 park | — | ✓ | vitest.config.ts has no coverage block |  [triage] park: real but no foreseeable shoot |
-| U-108 | `@rntme/platform-core` | RNT-227#8 | Low | 📦 park | — | skip | README references docs/superpowers/specs/done/... not in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-108 | `@rntme/platform-core` | RNT-227#8 | Low | 📦 park | — | skip | README references docs/history/specs/historical/... not in repo | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-109 | `@rntme/platform-core` | RNT-227#9 | Low | 📦 park | — | skip | src/blob/store.ts BlobStore interface exposes presignedGet | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-110 | `@rntme/platform-core` | RNT-227#10 | Low | 📦 park | — | skip | package.json ./testing subpath exports only fakes.ts | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-111 | `@rntme/platform-http` | RNT-228#1 | High | 📦 park | — | ✓ | src/app.ts createApp ~180 LOC mixes middleware/auth/routes/jobs/tx |  [triage] park: real but no foreseeable shoot [active-list] removed 2026-05-04; extract only when another platform HTTP change needs this area |
@@ -526,7 +526,7 @@ Wave closed by PR 6.
 | U-337 | `@rntme/ui` | RNT-212#L2 | Low | 📦 park | — | skip | CommandAction.onSuccess fields not validated against routes/bindings | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-338 | `@rntme/ui` | RNT-212#L3 | Low | 📦 park | — | skip | ResolvedSource.baseDir and ExpandedSource.baseDir carry FS path through | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-339 | `@rntme/ui` | RNT-212#L4 | Low | 📦 park | — | skip | emit.ts casts spread object to CompiledScreen | [verify] not in sample [triage] park: real but no foreseeable shoot |
-| U-340 | `@rntme/ui` | RNT-212#L5 | Low | 📦 park | — | skip | README links to ../../docs/superpowers/specs/done/... via relative paths | [verify] not in sample [triage] park: real but no foreseeable shoot |
+| U-340 | `@rntme/ui` | RNT-212#L5 | Low | 📦 park | — | skip | README links to ../../docs/history/specs/historical/... via relative paths | [verify] not in sample [triage] park: real but no foreseeable shoot |
 | U-341 | `@rntme/ui-runtime` | RNT-213#B1 | Blocker | ✅ closed | A2 | ✓ | React 19 runtime packages now have React 19 type packages | [fix] `@rntme/ui-runtime` uses `@types/react` 19.2.14 and `@types/react-dom` 19.2.3; adjacent React 19 modules were aligned to avoid peer drift; verified by `pnpm -F @rntme/ui-runtime build`. |
 | U-342 | `@rntme/ui-runtime` | RNT-213#H1 | High | 📦 park | — | ✓ | no eslint.config.mjs, no lint script (only pkg without lint) |  [triage] park: real but no foreseeable shoot |
 | U-343 | `@rntme/ui-runtime` | RNT-213#H2 | High | 📦 park | — | ✓ | buildUrl/resolveParamValue/dispatch duplicated across driver/entry/registry |  [triage] park: real but no foreseeable shoot |

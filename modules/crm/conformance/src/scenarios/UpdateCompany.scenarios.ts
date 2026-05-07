@@ -1,7 +1,7 @@
 /**
  * Conformance scenarios for CrmModule.UpdateCompany.
  *
- * Spec: docs/superpowers/specs/2026-04-27-crm-canonical-contract-design.md §11.2.
+ * Spec: docs/history/specs/historical/2026-04-27-crm-canonical-contract-design.md §11.2.
  */
 
 import type { Scenario } from '../types.js';

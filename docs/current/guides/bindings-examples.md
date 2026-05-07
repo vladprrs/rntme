@@ -389,7 +389,7 @@ the ontology work.
 
 ## Not Yet Supported
 
-See design doc `docs/superpowers/specs/2026-04-14-bindings-design.md`, section 2 (Non-goals):
+See design doc `docs/history/specs/historical/2026-04-14-bindings-design.md`, section 2 (Non-goals):
 
 - **Runtime HTTP adapter** - router + graph execution per HTTP request: a separate future
   package `@rntme/bindings-http`.

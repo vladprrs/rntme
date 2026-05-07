@@ -91,5 +91,5 @@ Reads from the idempotency store keyed by `canonical_id` (the original request's
 
 ## Specs
 
-- `docs/superpowers/specs/done/2026-05-06-ai-llm-openrouter-module-design.md` — design.
-- `docs/superpowers/specs/done/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract.
+- `docs/history/specs/historical/2026-05-06-ai-llm-openrouter-module-design.md` — design.
+- `docs/history/specs/historical/2026-04-26-ai-llm-canonical-contract-design.md` — canonical contract.
