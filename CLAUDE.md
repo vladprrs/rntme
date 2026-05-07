@@ -12,8 +12,9 @@ For strategic, architectural, or convention-level decisions, read
 [`docs/decision-system.md`](docs/decision-system.md) before asking the user.
 It owns goals, filters, locked-in bets, and the update protocol.
 
-Package internals live in each package's `README.md`; read the relevant README
-before opening source files.
+Local package README files are stubs; current internals live in linked
+`docs/current/owners/**` docs. Read the local README first, then follow its
+current-doc link before opening source files.
 
 ## Commands
 
@@ -32,5 +33,5 @@ Node 20+, pnpm 9.12+. From the workspace root:
 | `pnpm -F @rntme/<pkg> test:watch` | Watch one package |
 
 Specs, plans, reports, and ADRs are design/history artifacts. Use them for
-rationale, then verify current behavior against code/tests and package
-READMEs.
+rationale, then verify current behavior against code/tests, `docs/current/**`,
+and `docs/decision-system.md`.

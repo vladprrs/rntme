@@ -7,9 +7,9 @@ Read this file first. It is written for agents, not humans.
 1. For strategic, architectural, or convention decisions, read
    [`docs/decision-system.md`](docs/decision-system.md). It owns goals,
    decision filters, locked-in bets, and the update protocol.
-2. Before opening source in a package, read that package's `README.md`.
-   Package READMEs own current internals, APIs, invariants, gotchas, and
-   "where to look first" pointers.
+2. Before opening source in a package, read the local `README.md` stub, then
+   follow its linked `docs/current/owners/**` owner doc. Owner docs own current
+   internals, APIs, invariants, gotchas, and "where to look first" pointers.
 3. Verify current behavior in code and tests. Specs/plans/ADRs explain why
    something was designed or implemented at the time; they are rationale, not
    automatic current-state truth.
@@ -23,13 +23,18 @@ Read this file first. It is written for agents, not humans.
   contracts, deploy, platform, tooling.
 - `modules/` — vendor/category modules and conformance suites.
 - `demo/` — example project blueprints.
+- `docs/current/` — current owner docs and authoring guides.
+- `docs/history/` — future home for archived
+  specs/plans/ADRs/audits/research/gaps.
 - `docs/decision-system.md` — decision canon.
-- `docs/superpowers/specs/`, `docs/superpowers/plans/`,
-  `docs/superpowers/reports/`, `docs/adr/` — design/history artifacts.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/` — active
+  design/plan files until Wave 2 moves historical material.
 
 ## Package Lookup
 
-Open the README first, then follow its local pointers.
+Open the local README stub first, then follow its `Current documentation` link.
+The owner doc under `docs/current/owners/**` owns APIs, invariants, gotchas, and
+where-to-look-first pointers.
 
 | Area | READMEs |
 | --- | --- |
@@ -87,6 +92,9 @@ it a named `pathNot` carve-out with a comment linking to the spec/PR.
 
 ## Navigation Recipes
 
+Recipe paths point to local README stubs; follow each stub's current-doc link
+for detailed package documentation.
+
 - New or changed project-blueprint composition: start at
   `packages/artifacts/blueprint/README.md`.
 - PDM fields/entities/state: `packages/artifacts/pdm/README.md`.
@@ -109,7 +117,7 @@ it a named `pathNot` carve-out with a comment linking to the spec/PR.
 Use `rg` by topic when historical rationale is needed:
 
 ```bash
-rg -n "topic words" docs/superpowers docs/adr
+rg -n "topic words" docs/current docs/superpowers docs/adr docs/audit docs/gaps docs/research
 ```
 
 ## Do Not Do
@@ -124,7 +132,7 @@ rg -n "topic words" docs/superpowers docs/adr
   SQLite is the default service store and Turso is the scale-out target.
 - Do not let vendor SDK types leak across canonical contract boundaries.
 - Do not treat an old spec as current truth before checking current
-  code/tests, package README, and `docs/decision-system.md`.
+  code/tests, `docs/current/**`, and `docs/decision-system.md`.
 - Do not add long package inventories, dependency diagrams, or spec indexes to
   root docs. Prefer pointers to current owners.
 
@@ -132,10 +140,13 @@ rg -n "topic words" docs/superpowers docs/adr
 
 For each implementation plan, evaluate these surfaces:
 
-- package README when public API, errors, invariants, gotchas, or local
-  navigation changed;
 - `docs/decision-system.md` when a strategic/architectural/convention decision
   changes;
+- local README stub when the current-doc link or local command hint changes;
+- `docs/current/owners/**` when public API, errors, invariants, gotchas, or
+  local navigation changes;
+- `docs/current/guides/**` when authoring rules or examples change;
+- `docs/README.md` when documentation navigation changes;
 - `AGENTS.md` when repo navigation, workflow, layering, or common lookup paths
   change;
 - `README.md` when user-facing positioning, quick start, license, or public
