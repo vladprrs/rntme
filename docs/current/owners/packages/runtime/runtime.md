@@ -350,6 +350,6 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — active umbrella spec for the project-first pivot: project blueprint folder, project routing/middleware declarations, service-level execution under a shared project model; actual project runtime architecture is explicitly deferred to a separate spec.
-- [`../../docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md) — authoritative packaging/runtime boot spec (§4.1 manifest schema, plugin seams, Docker entry).
+- [`../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md`](../../docs/superpowers/specs/done/2026-04-23-project-first-blueprint-design.md) — historical umbrella design rationale for the project-first pivot: project blueprint folder, project routing/middleware declarations, service-level execution under a shared project model; actual project runtime architecture is explicitly deferred to a separate spec.
+- [`../../docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-packaging-design.md) — historical packaging/runtime boot rationale (§4.1 manifest schema, plugin seams, Docker entry).
 - [`../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md`](../../docs/superpowers/specs/done/2026-04-15-runtime-seed-design.md) — seed lifecycle, `skipSeed`/`seedMode` config, apply-order guarantees (§3.1, §8.3).

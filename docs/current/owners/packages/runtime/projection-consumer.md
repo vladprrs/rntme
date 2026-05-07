@@ -223,4 +223,4 @@ Verified by `test/unit/bind-update.test.ts` "IssueAssign" assertion `vals.slice(
 
 ## Specs
 
-- [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — §6 (projection consumer + QSM store) is authoritative: §6.1–6.3 mirror table shape, §6.4 batch loop, §6.5 three-layer idempotent apply, §6.6 offset tracking, §6.7 scaling, §6.9 deferred tier-2 list (composite keys, derived projections, replay tooling, DLQ).
+- [`../../docs/superpowers/specs/done/2026-04-14-mutations-design.md`](../../docs/superpowers/specs/done/2026-04-14-mutations-design.md) — historical rationale for §6 (projection consumer + QSM store): §6.1–6.3 mirror table shape, §6.4 batch loop, §6.5 three-layer idempotent apply, §6.6 offset tracking, §6.7 scaling, §6.9 deferred tier-2 list (composite keys, derived projections, replay tooling, DLQ).
