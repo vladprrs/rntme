@@ -50,8 +50,8 @@ packages/contracts/marketing-site/v1/        ← new leaf contract
   ├ package.json                              @rntme/contracts-marketing-site-v1
   ├ src/
   │ ├ index.ts                                public types + validators
-  │ ├ schema.ts                               JSON Schema for publicConfig
-  │ └ error-codes.ts                          MARKETING_SITE_<LAYER>_<KIND>
+  │ └ schema.ts                               JSON Schema for publicConfig
+  ├ error-codes.json                          MARKETING_SITE_<LAYER>_<KIND>
   └ test/                                     schema unit tests
 
 modules/marketing-site/                       ← new category
@@ -147,7 +147,7 @@ Implements `@rntme/contracts-provisioner-v1`. No runtime server; the module is i
 1. Pull bundle (S3 GetObject or local FS read).
 2. Stream-hash; abort with `HASH_MISMATCH` if differs.
 3. Untar to a scratch dir; assert `index.html` exists.
-4. Build a Docker image: `FROM nginx:alpine`, `COPY ./bundle /usr/share/nginx/html`, ship a small `nginx.conf` (gzip on, cache headers, fallback to `/index.html` for SPA-style routes — opt-in via `routing: 'spa' | 'static'`, default `static`).
+4. Build a Docker image: `FROM nginx:alpine`, `COPY ./bundle /usr/share/nginx/html`, ship a small `nginx.conf` (gzip on, cache headers, strict static — no SPA fallback in v1; a `routing` option can be added additively if a real product needs it).
 5. Tag image as `<registry>/<project>-<service>:<sha256-short>` and push.
 6. Through `deploy-dokploy`: upsert app pointing to the image, bind `primaryDomain`, request SSL (auto = Let's Encrypt).
 7. Idempotency: if image tag already exists in registry and Dokploy app already points to it, no-op.
@@ -156,7 +156,7 @@ Implements `@rntme/contracts-provisioner-v1`. No runtime server; the module is i
 
 ### 4.3 `@rntme/bundle-publish`
 
-Generic, vendor-neutral. Reusable by future modules that need "publish a folder, get a `BundleSource` reference".
+Generic, vendor-neutral. Reusable by any module/task that needs "publish a folder to S3, get back a verifiable reference". Defines its own neutral `S3Reference` type rather than importing `BundleSource` from `@rntme/contracts-marketing-site-v1` — keeps the tool decoupled from any single contract.
 
 ```ts
 export type PublishTarget =
@@ -168,8 +168,16 @@ export type PublishOptions = {
   ignore?: string[];                  // default ['.git/**', 'node_modules/**']
 };
 
+export type S3Reference = {
+  bucket: string;
+  key: string;
+  sha256: string;                     // hex, lowercase
+  endpoint?: string;
+  region?: string;
+};
+
 export type PublishResult = {
-  source: BundleSource;               // ready to paste into blueprint
+  ref: S3Reference;
   bytes: number;
   durationMs: number;
 };
@@ -180,6 +188,8 @@ export function publishFolder(
   opts?: PublishOptions,
 ): Promise<Result<PublishResult, PublishError>>;
 ```
+
+`apps/cli`'s `bundle publish` wraps `S3Reference` in `{ kind: 's3', ...ref }` to produce a contract-shaped `BundleSource` for stdout/`--print-json`. The contract layer owns the `kind` discriminator; the tool stays neutral.
 
 Determinism requirements:
 - tar entries sorted by path; mtime fixed (`0`); uid/gid `0`; mode normalized.
