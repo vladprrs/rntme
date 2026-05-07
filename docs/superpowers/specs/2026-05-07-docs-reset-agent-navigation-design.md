@@ -256,13 +256,15 @@ New policy:
 2. Rewrite `AGENTS.md` to the compact agent-navigation shape in §6.
 3. Rewrite `CLAUDE.md` to the bootstrap shape in §7.
 4. Delete `docs/architecture.md`.
-5. Search for stale references:
+5. Search live documentation surfaces for stale references:
 
    ```bash
-   rg "docs/architecture.md|architecture.md"
+   rg -n "docs/architecture.md" README.md AGENTS.md CLAUDE.md packages apps modules demo docs \
+     --glob '!docs/superpowers/**' --glob '!docs/adr/**' --glob '!docs/gaps/**'
    ```
 
-6. Remove or redirect live stale references.
+6. Remove or redirect live stale references. Historical specs/plans/ADRs may
+   still mention the deleted file as part of their own history.
 7. Verify README does not include the removed long sections.
 8. Verify AGENTS is under the target size.
 
@@ -270,8 +272,8 @@ New policy:
 
 Docs-only verification:
 
-- `rg "docs/architecture.md|architecture.md"` returns no live stale
-  references, except this spec if it is still active.
+- The live-docs stale-reference search from §10 returns no references.
+  Historical specs/plans/ADRs may still mention the deleted file.
 - `README.md` contains no package table, dependency graph, architecture
   diagram, long spec index, MVP inventory, or glossary.
 - `README.md` has a CLI-first try-it path based on the real current CLI
