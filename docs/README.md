@@ -37,8 +37,10 @@ ADRs, audits, research notes, and gaps still live in their existing directories
 until a later archival pass moves them. Treat all of those historical surfaces
 as rationale, not current-state truth.
 
-Specs use lifecycle directories:
+Specs and plans use lifecycle directories:
 
+- `docs/history/specs/autonomous/` and `docs/history/plans/autonomous/` for
+  agent-authored specs/plans produced from autonomous backlog items;
 - `docs/history/specs/active-rationale/` for recent rationale that still helps
   explain current decisions;
 - `docs/history/specs/historical/` and `docs/history/plans/historical/` for

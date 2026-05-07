@@ -27,6 +27,9 @@ Read this file first. It is written for agents, not humans.
 - `docs/history/` — archived specs, plans, reports, runbooks, and future home
   for ADRs/audits/research/gaps.
 - `docs/decision-system.md` — decision canon.
+- `docs/history/specs/autonomous/`, `docs/history/plans/autonomous/` —
+  agent-authored specs/plans for autonomous backlog work; use as rationale and
+  execution context, then verify against current docs/code/tests.
 - `docs/history/specs/active-rationale/` — recent rationale that may still
   explain current decisions, but is not current-state truth.
 - `docs/history/specs/historical/`, `docs/history/plans/historical/` —
