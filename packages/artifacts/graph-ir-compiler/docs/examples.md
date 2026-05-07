@@ -1,37 +1,37 @@
-# Примеры компиляции: Graph IR → SQLite
+# Compilation Examples: Graph IR -> SQLite
 
-5 примеров, от минимального до «kitchen sink», показывающих что `compile(spec, pdm, qsm)`
-генерирует на выходе. Все примеры компилируются и воспроизводятся скриптом
+Five examples, from minimal to kitchen sink, showing what `compile(spec, pdm, qsm)`
+produces. All examples are compiled and reproduced by
 [`../demo-sql.mjs`](../demo-sql.mjs).
 
-## Пайплайн компилятора
+## Compiler Pipeline
 
+```text
+authoring spec  --parse-->  canonical  --semantic-plan-->  relational IR  --lower-->  SQL AST  --emit-->  SQL
+     (JSON)                                                 (Scan/Filter/...)                         (string + paramOrder)
 ```
-authoring spec  ──parse──▶  canonical  ──semantic-plan──▶  relational IR  ──lower──▶  SQL AST  ──emit──▶  SQL
-     (JSON)                                                 (Scan/Filter/...)                            (строка + paramOrder)
-```
 
-Посмотреть все промежуточные артефакты одного графа можно через `explain(spec, pdm, qsm)`.
+Use `explain(spec, pdm, qsm)` to inspect all intermediate artifacts for one graph.
 
-## Доменная модель
+## Domain Model
 
-Все примеры используют PDM из `test/e2e/fixtures/commerce.pdm.json`:
+All examples use the PDM from `test/e2e/fixtures/commerce.pdm.json`:
 
-| Сущность    | Таблица       | Ключевые поля                                            | Связи (`one`)                             |
-| ----------- | ------------- | -------------------------------------------------------- | ----------------------------------------- |
-| `OrderItem` | `order_items` | `id, orderId, productId, unitPrice, quantity`            | `order → Order`, `product → Product`      |
-| `Order`     | `orders`      | `id, createdAt`                                          | —                                         |
-| `Product`   | `products`    | `id, categoryId, name`                                   | `category → Category`                     |
-| `Category`  | `categories`  | `id, name` (nullable)                                    | —                                         |
+| Entity | Table | Key fields | Relations (`one`) |
+| --- | --- | --- | --- |
+| `OrderItem` | `order_items` | `id, orderId, productId, unitPrice, quantity` | `order -> Order`, `product -> Product` |
+| `Order` | `orders` | `id, createdAt` | - |
+| `Product` | `products` | `id, categoryId, name` | `category -> Category` |
+| `Category` | `categories` | `id, name` (nullable) | - |
 
-Имена полей в спеке — camelCase (как в PDM), имена колонок в SQL — snake_case (из `column:` в PDM).
-Алиасы таблиц в SQL берутся из имени entity в lowerCamel (`OrderItem` → `orderItem`).
+Field names in specs are camelCase (as in PDM); SQL column names are snake_case (from `column:` in PDM).
+SQL table aliases come from the entity name in lowerCamel (`OrderItem` -> `orderItem`).
 
 ---
 
-## Пример 1 — Минимальный: `findMany`
+## Example 1 - Minimal: `findMany`
 
-**Цель:** достать все строки таблицы.
+**Goal:** fetch every row from a table.
 
 ```js
 {
@@ -62,13 +62,13 @@ FROM   "order_items" AS "orderItem"
 - `paramOrder: []`
 - `shape: OrderItem`
 
-Замечание: без явного `map`-узла селект строится по всем полям сущности; колонки заaliases в camelCase.
+Note: without an explicit `map` node, the select is built from all fields on the entity and aliases columns back to camelCase.
 
 ---
 
-## Пример 2 — Простой: фильтр с обязательным параметром
+## Example 2 - Simple: Filter With a Required Parameter
 
-**Цель:** отфильтровать `OrderItem` по `quantity >= :minQty`.
+**Goal:** filter `OrderItem` by `quantity >= :minQty`.
 
 ```js
 nodes: [
@@ -82,23 +82,21 @@ nodes: [
 **SQL:**
 
 ```sql
-SELECT /* все поля OrderItem */
+SELECT /* all OrderItem fields */
 FROM   "order_items" AS "orderItem"
 WHERE  ("orderItem"."quantity" >= ?)
 ```
 
 - `paramOrder: ["minQty"]`
 
-Замечание: выражения записываются как `{ op: [arg1, arg2] }`. Голая строка `'orderItem.quantity'` — это ссылка
-на поле (dot-path), поэтому **строковый литерал** нужно оборачивать в `{ $literal: 'text' }` — иначе парсер
-попробует резолвить его как путь.
+Note: expressions are written as `{ op: [arg1, arg2] }`. A bare string such as `'orderItem.quantity'` is a field reference (dot path), so a **string literal** must be wrapped in `{ $literal: 'text' }`; otherwise the parser tries to resolve it as a path.
 
 ---
 
-## Пример 3 — Средний: `predicate_optional` + `sort` + `limit` с дефолтом
+## Example 3 - Medium: `predicate_optional` + `sort` + `limit` With a Default
 
-**Цель:** «листинг» с опциональным фильтром цены, сортировкой по цене и пагинацией.
-Если клиент не передал `minPrice`, фильтр пропускается; `limit` имеет дефолт 20.
+**Goal:** a listing with an optional price filter, price sorting, and pagination.
+If the client does not pass `minPrice`, the filter is skipped; `limit` defaults to 20.
 
 ```js
 {
@@ -123,7 +121,7 @@ WHERE  ("orderItem"."quantity" >= ?)
 **SQL:**
 
 ```sql
-SELECT /* все поля OrderItem */
+SELECT /* all OrderItem fields */
 FROM   "order_items" AS "orderItem"
 WHERE  ((? IS NULL) OR ("orderItem"."unit_price" >= ?))
 ORDER BY "orderItem"."unit_price" DESC NULLS LAST
@@ -134,18 +132,18 @@ LIMIT  ?
 - `optionalParams: ["minPrice"]`
 - `paramDefaults: { limit: 20 }`
 
-Замечания:
-- `predicate_optional` раскрывается в шаблон `(? IS NULL) OR (<предикат>)` — поэтому параметр `minPrice`
-  **занимает два слота** в `paramOrder`; рантайм биндит его дважды.
-- `defaulted` — одно место в `paramOrder` + значение по умолчанию в `paramDefaults`; подставить дефолт должен вызывающий
-  код (см. `execute`), компилятор дефолты в SQL не зашивает.
+Notes:
+- `predicate_optional` expands to `(? IS NULL) OR (<predicate>)`, so `minPrice`
+  **occupies two slots** in `paramOrder`; runtime binds it twice.
+- `defaulted` uses one `paramOrder` slot plus a default value in `paramDefaults`; caller code
+  supplies the default (see `execute`), and the compiler does not bake defaults into SQL.
 
 ---
 
-## Пример 4 — Сложный: JOIN через точечную навигацию
+## Example 4 - Complex: JOIN Through Dot Navigation
 
-**Цель:** отфильтровать `OrderItem` по дате связанного `Order`. Дот-путь
-`orderItem.order.createdAt` компилятор превращает в `LEFT JOIN` по `OrderItem.order` (cardinality `one`).
+**Goal:** filter `OrderItem` by the date of the related `Order`. The compiler turns dot path
+`orderItem.order.createdAt` into a `LEFT JOIN` through `OrderItem.order` (cardinality `one`).
 
 ```js
 {
@@ -167,7 +165,7 @@ LIMIT  ?
 **SQL:**
 
 ```sql
-SELECT /* все поля OrderItem */
+SELECT /* all OrderItem fields */
 FROM   "order_items" AS "orderItem"
 LEFT JOIN "orders" AS "order" ON ("orderItem"."order_id" = "order"."id")
 WHERE  ("order"."created_at" BETWEEN ? AND ?)
@@ -175,39 +173,39 @@ WHERE  ("order"."created_at" BETWEEN ? AND ?)
 
 - `paramOrder: ["dateFrom", "dateTo"]`
 
-Замечания:
-- Имя relation (`order`) становится алиасом таблицы.
-- JOIN всегда `LEFT` (tier-1 MVP); `INNER` не выбирается, даже если поле NOT NULL.
-- В SELECT остаются только поля «левой» сущности — JOIN тут нужен исключительно для предиката.
+Notes:
+- The relation name (`order`) becomes the table alias.
+- JOIN is always `LEFT` in the tier-1 MVP; `INNER` is not selected even when the field is NOT NULL.
+- The SELECT still contains only fields from the left entity; the JOIN is needed only for the predicate.
 
-### Внутренние представления
+### Internal Representations
 
-`explain()` для этого же графа:
+`explain()` for the same graph:
 
 ```jsonc
 // semanticPlan.steps
 [
   { "kind": "scan", "nodeId": "items", "table": "order_items", "alias": "orderItem",
-    "entity": "OrderItem", "fields": [ /* все поля OrderItem */ ] },
+    "entity": "OrderItem", "fields": [ /* all OrderItem fields */ ] },
   { "kind": "filter", "nodeId": "f",
     "predicate": { "between": ["orderItem.order.createdAt", { "$param": "dateFrom" }, { "$param": "dateTo" }] } }
 ]
 
 // relational IR
 { "op": "Filter",
-  "predicate": { "between": [ /* тот же */ ] },
+  "predicate": { "between": [ /* same predicate */ ] },
   "child": { "op": "Scan", "table": "order_items", "alias": "orderItem", "entity": "OrderItem", "fields": [...] } }
 ```
 
-JOIN в relational IR ещё нет — он появляется на стадии `lower` из дот-путей в предикатах.
+The JOIN is not present in relational IR yet; it appears during `lower` from dot paths in predicates.
 
 ---
 
-## Пример 5 — Kitchen sink: filter → 2-hop JOIN → reduce → HAVING → sort → limit
+## Example 5 - Kitchen Sink: filter -> 2-hop JOIN -> reduce -> HAVING -> sort -> limit
 
-**Цель:** агрегат продаж по категории товара за период, с опциональным порогом выручки и пагинацией.
-Демонстрирует: `reduce` (GROUP BY), `HAVING` (фильтр **после** reduce), двухуровневый JOIN
-(`orderItem.product.categoryId`), все три режима параметров.
+**Goal:** sales aggregate by product category for a period, with an optional revenue threshold and pagination.
+Demonstrates: `reduce` (GROUP BY), `HAVING` (filter **after** reduce), two-hop JOIN
+(`orderItem.product.categoryId`), and all three parameter modes.
 
 ```js
 {
@@ -281,17 +279,17 @@ LIMIT  ?
 - `paramDefaults: { limit: 20 }`
 - `shape: CategorySalesAgg`
 
-Замечания:
-- Фильтр `dateFiltered` стоит **до** `reduce` → попадает в `WHERE`.
-- Фильтр `revFiltered` стоит **после** `reduce` и ссылается на выходное поле `revenue` → попадает в `HAVING`.
-- JOIN на `products` нужен не для SELECT (мы проецируем только `category_id`), а для `GROUP BY "product"."category_id"`
-  — это второй уровень дот-пути `orderItem.product.categoryId`.
-- `count` без аргументов → `COUNT(*)`; `count_distinct` (в примере не использован) → `COUNT(DISTINCT ...)`.
+Notes:
+- Filter `dateFiltered` is **before** `reduce`, so it goes into `WHERE`.
+- Filter `revFiltered` is **after** `reduce` and references output field `revenue`, so it goes into `HAVING`.
+- The JOIN to `products` is needed not for SELECT (we project only `category_id`) but for `GROUP BY "product"."category_id"`;
+  it is the second level of dot path `orderItem.product.categoryId`.
+- `count` without arguments becomes `COUNT(*)`; `count_distinct` (not used here) becomes `COUNT(DISTINCT ...)`.
 
 ---
 
-## Что пока не поддерживается
+## Not Yet Supported
 
-См. README, раздел *Not yet supported*: `distinct`, `lookupOne`, `lookup`-expr, именованные predicate-графы,
-`exists`, `in`, `$list`, `case` (!) — в README он помечен как Tier 1, но семантический валидатор его не
-знает (`src/validate/semantic/types.ts:163`), баг документации.
+See the README section *Not yet supported*: `distinct`, `lookupOne`, `lookup` expressions, named predicate graphs,
+`exists`, `in`, `$list`, `case` (!). The README marks `case` as Tier 1, but the semantic validator does not know it
+(`src/validate/semantic/types.ts:163`), which is a documentation bug.

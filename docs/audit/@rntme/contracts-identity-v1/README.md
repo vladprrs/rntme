@@ -18,80 +18,80 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит `@rntme/contracts-identity-v1`
+## Architectural audit `@rntme/contracts-identity-v1`
 
 ### 1. Verdict: **needs cleanup**
 
-Архитектурная форма пакета верна и соответствует спецификации `2026-04-26-identity-canonical-contract-design.md`. Публичный API стабилен, тесты проходят, build/lint/typecheck чистые. Однако есть риски поддерживаемости: мёртвый код, отсутствие проверки синхронизации сгенерированных файлов с proto-источниками, и потенциальная проблема ESM/CJS в сгенерированных typings.
+The architectural form of the package is correct and conforms to the `2026-04-26-identity-canonical-contract-design.md` specification. The public API is stable, tests pass, build/lint/typecheck are clean. However, there are maintainability risks: dead code, lack of synchronization check of generated files with proto-sources, and a potential ESM/CJS problem in generated typings.
 
 ---
 
-### 2. Обнаруженные проблемы
+### 2. Issues found
 
-#### **HIGH** — `scripts/check-imports.mjs` — мёртвый код
-- **Evidence:** файл существует (`packages/contracts/identity/v1/scripts/check-imports.mjs`), но не упомянут ни в одном `package.json#scripts`, не запускается в CI, не импортирован тестами.
-- **Impact:** со временем оторвётся от актуального API; создаёт ложное ощущение coverage для импортов. Следующий разработчик может потратить время на поддержку неиспользуемого скрипта.
-- **Recommendation:** удалить файл и директорию `scripts/`, либо если интеграционная проверка импортов нужна — завести отдельный task и добавить в `package.json#scripts` + CI.
+#### **HIGH** - `scripts/check-imports.mjs` - dead code
+- **Evidence:** the file exists (`packages/contracts/identity/v1/scripts/check-imports.mjs`), but is not mentioned in any `package.json#scripts`, not run in CI, not imported by tests.
+- **Impact:** will eventually break away from the current API; creates a false sense of coverage for imports. The next developer may waste time maintaining an unused script.
+- **Recommendation:** delete the file and directory `scripts/`, or if an integration check of imports is needed, create a separate task and add it to `package.json#scripts` + CI.
 
-#### **HIGH** — `import Long = require(\"long\")` в сгенерированном `proto.gen.d.ts`
-- **Evidence:** строка 2 в `src/proto.gen.d.ts` и `src/proto.gen.js` содержит `import Long = require(\"long\")`. Пакет не декларирует `long` в `dependencies` / `devDependencies` (только транзитивно через `protobufjs`).
-- **Impact:** в strict ESM-окружении или при использовании bundler'ов (vite, esbuild, rollup) этот CJS-require может сломать сборку потребителя. TypeScript с `moduleResolution: NodeNext` / `Bundler` может не разрешить этот импорт без явного `long` в зависимостях.
+#### **HIGH** - `import Long = require(\"long\")` in the generated `proto.gen.d.ts`
+- **Evidence:** line 2 in `src/proto.gen.d.ts` and `src/proto.gen.js` contains `import Long = require(\"long\")`. The package does not declare `long` in `dependencies` / `devDependencies` (only transitively via `protobufjs`).
+- **Impact:** in a strict ESM environment or when using bundlers (vite, esbuild, rollup) this CJS-require can break the consumer build. TypeScript with `moduleResolution: NodeNext` / `Bundler` may not resolve this import without an explicit `long` in the dependencies.
 - **Recommendation:**
-  1. Добавить `long` в `devDependencies` (или `dependencies`, если типы нужны потребителям).
-  2. Либо перейти на `protobufjs` codegen без `long` (флаг `--no-long` в `pbjs`, если совместимость с 64-bit integers не критична для Identity-контракта — в спеке int64 не используется).
-  3. Альтернатива: заменить `import Long = require(...)` на ESM-совместимый синтетический тип в post-generation script.
+  1. Add `long` to `devDependencies` (or `dependencies` if the types are needed by consumers).
+  2. Or switch to `protobufjs` codegen without `long` (the `--no-long` flag in `pbjs`, if compatibility with 64-bit integers is not critical for the Identity contract - int64 is not used in the spec).
+  3. Alternative: replace `import Long = require(...)` with an ESM-compatible synthetic type in the post-generation script.
 
-#### **MEDIUM** — Нет CI-проверки синхронизации `.proto` → `proto.gen.*`
-- **Evidence:** `scripts/gen.mjs` есть, но в CI / pre-commit не проверяется, что сгенерированные файлы соответствуют `.proto`-источникам. Разработчик может изменить `.proto`, забыть запустить `proto:gen`, и закоммитить рассинхронизированные артефакты.
-- **Impact:** drift между `.proto` (source of truth) и committed `src/proto.gen.{js,d.ts}`. Это нарушает инвариант "spec is source of truth".
-- **Recommendation:** добавить в CI шаг `proto:gen` + `git diff --exit-code src/proto.gen.*` (или аналогичную проверку), чтобы fail happened при рассинхронизации.
+#### **MEDIUM** - No CI synchronization check `.proto` → `proto.gen.*`
+- **Evidence:** `scripts/gen.mjs` is there, but CI/pre-commit does not check that the generated files correspond to the `.proto` sources. A developer can change `.proto`, forget to run `proto:gen`, and commit out-of-sync artifacts.
+- **Impact:** drift between `.proto` (source of truth) and committed `src/proto.gen.{js,d.ts}`. This violates the "spec is source of truth" invariant.
+- **Recommendation:** add the `proto:gen` + `git diff --exit-code src/proto.gen.*` step (or a similar check) to CI so that it fails when out of sync.
 
-#### **MEDIUM** — `src/index.ts` реэкспортирует примитивы из `@rntme/contracts-common-v1`
-- **Evidence:** строки 26–35 в `src/index.ts` экспортируют `CanonicalRef`, `CommandContext`, `Name`, `ListRequest` и т.д. напрямую из `protoRoot.rntme.contracts.common.v1`.
-- **Impact:** потребители могут импортировать common-примитивы из identity-пакета, создавая неявную зависимость. Если common-контракт изменится (v2), identity-пакет станет двойным источником truth — часть потребителей импортирует из common, часть из identity. Это нарушает границу ответственности.
-- **Recommendation:** либо убрать реэкспорты common-примитивов из `index.ts` (потребители импортируют напрямую из `@rntme/contracts-common-v1`), либо явно задокументировать, что identity-пакет предоставляет "convenience re-exports" и добавить тест, проверяющий, что они идентичны common-экспортам.
+#### **MEDIUM** - `src/index.ts` re-exports primitives from `@rntme/contracts-common-v1`
+- **Evidence:** lines 26-35 in `src/index.ts` export `CanonicalRef`, `CommandContext`, `Name`, `ListRequest`, etc. directly from `protoRoot.rntme.contracts.common.v1`.
+- **Impact:** Consumers can import common primitives from an identity package, creating an implicit dependency. If the common contract changes (v2), the identity package will become a dual source of truth - some consumers import from common, some from identity. This violates the line of responsibility.
+- **Recommendation:** Either remove the common primitive re-exports from `index.ts` (consumers import directly from `@rntme/contracts-common-v1`), or explicitly document that the identity package provides "convenience re-exports" and add a test to check that they are identical to the common exports.
 
-#### **MEDIUM** — Тесты не покрывают прямые экспорты `src/index.ts`
-- **Evidence:** все 19 тестов (`entities.test.ts`, `events.test.ts`, `service-shape.test.ts`, `error-codes.test.ts`) обращаются к типам через `proto.rntme.contracts.identity.v1.*` или `errorCodes`. Ни один тест не импортирует `User`, `Organization`, `CanonicalRef` напрямую из `@rntme/contracts-identity-v1`.
-- **Impact:** если `index.ts` сломается (например, реэкспорт common-типов перестанет работать из-за изменения в protobufjs-генерации), это не будет поймано тестами пакета.
-- **Recommendation:** добавить тест `test/exports.test.ts`, который импортирует каждый символ из `src/index.ts` и проверяет, что он truthy и имеет ожидаемый тип (`typeof User === 'function'` и т.п.).
+#### **MEDIUM** - Tests do not cover direct exports `src/index.ts`
+- **Evidence:** all 19 tests (`entities.test.ts`, `events.test.ts`, `service-shape.test.ts`, `error-codes.test.ts`) access types via `proto.rntme.contracts.identity.v1.*` or `errorCodes`. No test imports `User`, `Organization`, `CanonicalRef` directly from `@rntme/contracts-identity-v1`.
+- **Impact:** if `index.ts` breaks (for example, re-exporting common types stops working due to a change in protobufjs generation), it will not be caught by the package's tests.
+- **Recommendation:** add a test `test/exports.test.ts` that imports each symbol from `src/index.ts` and checks that it is truthy and has the expected type (`typeof User === 'function'`, etc.).
 
-#### **LOW** — `version: \"0.0.0\"` не несёт смысла
-- **Evidence:** `package.json#version` равен `0.0.0`, хотя пакет приватный и не публикуется в npm.
-- **Impact:** минимальный, но при использовании `workspace:*` в downstream-пакетах версия может появляться в lockfile / bundle analysis.
-- **Recommendation:** установить `version: \"0.1.0\"` или `\"1.0.0\"`, чтобы соответствовать contract version `v1`.
+#### **LOW** — `version: \"0.0.0\"` makes no sense
+- **Evidence:** `package.json#version` is `0.0.0`, although the package is private and not published to npm.
+- **Impact:** is minimal, but when using `workspace:*` in downstream bundles, the version may appear in the lockfile/bundle analysis.
+- **Recommendation:** set `version: \"0.1.0\"` or `\"1.0.0\"` to match contract version `v1`.
 
-#### **LOW** — Отсутствуют поля `repository`, `bugs`, `homepage` в `package.json`
-- **Evidence:** `package.json` не содержит metadata-ссылок на монорепозиторий.
-- **Impact:** при навигации через `npm info` / IDE package viewer нет быстрого перехода к исходникам.
-- **Recommendation:** добавить стандартные monorepo-поля (см. пример в `@rntme/contracts-common-v1` — там тоже нет, так что это workspace-wide pattern, который стоит зафиксировать отдельным issue).
-
----
-
-### 3. Quick wins (можно сделать без продуктового решения)
-
-1. **Удалить `scripts/check-imports.mjs`** и пустую директорию `scripts/`, если не нужен.
-2. **Добавить `long` в `devDependencies`** как явную зависимость.
-3. **Добавить `test/exports.test.ts`** для прямых экспортов `index.ts`.
-4. **Обновить `version`** с `0.0.0` на `0.1.0`.
-5. **Добавить CI-шаг** `proto:gen` + `git diff --exit-code` для проверки синхронизации.
+#### **LOW** — Missing fields `repository`, `bugs`, `homepage` in `package.json`
+- **Evidence:** `package.json` does not contain metadata links to the monorepository.
+- **Impact:** There is no quick access to sources when navigating through `npm info` / IDE package viewer.
+- **Recommendation:** add standard monorepo fields (see example in `@rntme/contracts-common-v1` - it’s not there either, so this is a workspace-wide pattern that should be recorded in a separate issue).
 
 ---
 
-### 4. Решения, требующие Влада / архитектурного решения
+### 3. Quick wins (can be done without a product solution)
 
-1. **Реэкспорты common-примитивов из identity-пакета:** оставлять как convenience-exports или заставить потребителей импортировать из `@rntme/contracts-common-v1`? Это вопрос границ ответственности и discoverability API.
-2. **Стратегия `long` / 64-bit integers:** нужен ли `long` в Identity-контракте? В текущей спецификации int64 не используется. Если не нужен — можно перейти на `--no-long` в `pbjs` и упростить ESM-совместимость.
-3. **Политика версионирования contract-пакетов:** `0.0.0` vs семантическое версионирование, даже для private workspace-пакетов.
-
----
-
-### 5. Соответствие product vision и спецификациям
-
-- **Спецификация:** `2026-04-26-identity-canonical-contract-design.md` — реализована полностью. 24 RPC, 6 сущностей, 17 событий, 18 error codes, drift detection в conformance — всё на месте.
-- **Product vision:** пакет точно попадает в rntme positioning как "safe runtime for AI-generated business workflow apps" — canonical contract даёт агентам bounded target для генерации vendor-модулей.
-- **Единственный архитектурный риск:** если `@rntme/conformance-framework` не появится в ближайшее время, пустые stub-сценарии в `modules/identity/conformance/` могут стать привычкой, и drift между contract и conformance станет менее значимым, чем кажется (сейчас drift-test работает, но scenario-content пуст). Это не проблема самого пакета, а риск downstream.
+1. **Delete `scripts/check-imports.mjs`** and the empty `scripts/` directory if not needed.
+2. **Add `long` to `devDependencies`** as an explicit dependency.
+3. **Add `test/exports.test.ts`** for direct `index.ts` exports.
+4. **Update `version`** from `0.0.0` to `0.1.0`.
+5. **Add CI step** `proto:gen` + `git diff --exit-code` to check synchronization.
 
 ---
 
-**Итог:** пакет архитектурно здоров, соответствует спеке и vision. Основные риски — мёртвый код, ESM/CJS friction в сгенерированных typings, и отсутствие автоматической проверки sync proto ↔ generated. Все фиксы нетривиальны, но не требуют переписывания контракта.
+### 4. Solutions requiring Vlad / architectural solution
+
+1. **Re-exports of common primitives from the identity package:** leave them as convenience-exports or force consumers to import from `@rntme/contracts-common-v1`? This is a question of boundaries of responsibility and discoverability of the API.
+2. **Strategy `long` / 64-bit integers:** Is `long` needed in the Identity contract? The current specification does not use int64. If you don’t need it, you can switch to `--no-long` in `pbjs` and simplify ESM compatibility.
+3. **Versioning policy for contract packages:** `0.0.0` vs semantic versioning, even for private workspace packages.
+
+---
+
+### 5. Compliance with product vision and specifications
+
+- **Specification:** `2026-04-26-identity-canonical-contract-design.md` - fully implemented. 24 RPCs, 6 entities, 17 events, 18 error codes, drift detection in conformance - everything is in place.
+- **Product vision:** the package exactly falls into rntme positioning as “safe runtime for AI-generated business workflow apps” - the canonical contract gives agents a bounded target for generating vendor modules.
+- **The only architectural risk:** if `@rntme/conformance-framework` does not appear soon, empty stub-scenarios in `modules/identity/conformance/` may become a habit, and the drift between contract and conformance will become less significant than it seems (currently drift-test works, but scenario-content is empty). This is not a problem with the package itself, but a downstream risk.
+
+---
+
+**Result:** the package is architecturally sound, corresponds to the spec and vision. The main risks are dead code, ESM/CJS friction in generated typings, and lack of automatic checking sync proto ↔ generated. All fixes are non-trivial, but do not require rewriting the contract.

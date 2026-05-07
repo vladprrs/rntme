@@ -80,7 +80,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Units (8):**
 
-- [x] U-032 — IdempotencyCache — нет автоматической очистки — `@rntme/bindings-http` — closed in RNT-275 / PR #55 / merge `f3f45c4`
+- [x] U-032 - IdempotencyCache - no automatic cleanup - `@rntme/bindings-http` - closed in RNT-275 / PR #55 / merge `f3f45c4`
 - [x] U-206 — ActorRef duplicated locally without sync guarantee with @rntme/pdm — `@rntme/event-store` — closed in RNT-275 / PR #55 / merge `f3f45c4`
 - [x] U-207 — serviceName changes semantics of existing events on rename — `@rntme/event-store` — closed in RNT-275 / PR #55 / merge `f3f45c4`
 - [x] U-209 — SQLite single-writer has no runtime enforcement — `@rntme/event-store` — closed in RNT-275 / PR #55 / merge `f3f45c4`
@@ -124,7 +124,7 @@ Each verified finding runs the decision tree: **Q1 already shoots? → fire**; e
 
 **Units (1):**
 
-- [x] U-023 — Только insecure credentials — `@rntme/bindings-grpc` — closed in RNT-278 / PR #78 / merge `c5ecc7d8d8fa97cd085d67f9b58ac9a66fda4796`
+- [x] U-023 - Only insecure credentials - `@rntme/bindings-grpc` - closed in RNT-278 / PR #78 / merge `c5ecc7d8d8fa97cd085d67f9b58ac9a66fda4796`
 
 **Exit criteria:**
 - All units in this wave closed; affected packages green on `pnpm -F <pkg> test`.
@@ -833,13 +833,13 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-005 — Module packages have build:deps invoking other packages — `monorepo`
 - U-006 — Conformance packages inconsistently placed in deps vs devDeps — `monorepo`
 - U-007 — runtime depends on seed (a CLI tool) in prod dependencies — `monorepo`
-- U-014 — actor: null во всех gRPC-командах — `@rntme/bindings-grpc`
-- U-015 — bindings-grpc зависит от bindings-http только для executor-contract — `@rntme/bindings-grpc`
-- U-016 — Неисчерпывающие switch без fallback-return — `@rntme/bindings-grpc`
-- U-027 — Public API surface дрейф vs spec — `@rntme/bindings-http`
-- U-028 — Дублирование/расхождение типов с @rntme/graph-ir-compiler — `@rntme/bindings-http`
-- U-029 — command-handler.ts нарушает SRP (290 строк) — `@rntme/bindings-http`
-- U-030 — Жестко закодированный /api префикс — `@rntme/bindings-http`
+- U-014 - actor: null in all gRPC commands - `@rntme/bindings-grpc`
+- U-015 - bindings-grpc depends on bindings-http for executor-contract only - `@rntme/bindings-grpc`
+- U-016 - Non-exhaustive switches without fallback-return - `@rntme/bindings-grpc`
+- U-027 - Public API surface drift vs spec - `@rntme/bindings-http`
+- U-028 - Type duplication/divergence with @rntme/graph-ir-compiler - `@rntme/bindings-http`
+- U-029 - command-handler.ts violates SRP (290 lines) - `@rntme/bindings-http`
+- U-030 - Hard-coded /api prefix - `@rntme/bindings-http`
 - U-049 — Hardcoded scalar registry in binding-resolvers.ts — `@rntme/blueprint`
 - U-080 — DokployClient tightly coupled to RenderedDokployResource — `@rntme/deploy-dokploy`
 - U-081 — Sequential resource apply with no concurrency control — `@rntme/deploy-dokploy`
@@ -873,12 +873,12 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 
 ### Trigger: second service appears in workspace
 
-- U-022 — Нет grpc.health.v1.Health surface — `@rntme/bindings-grpc`
-- U-024 — collectShapesFromService собирает только output-шейпы — `@rntme/bindings-grpc`
-- U-025 — Нет собственного реестра ERROR_CODES — `@rntme/bindings-grpc`
-- U-026 — Пробелы в тестовом покрытии — `@rntme/bindings-grpc`
+- U-022 - No grpc.health.v1.Health surface - `@rntme/bindings-grpc`
+- U-024 - collectShapesFromService collects only output shapes - `@rntme/bindings-grpc`
+- U-025 - No own registry ERROR_CODES - `@rntme/bindings-grpc`
+- U-026 - Gaps in test coverage - `@rntme/bindings-grpc`
 - U-037 — VERSION = '0.0.0' — `@rntme/bindings-http`
-- U-038 — Тесты требуют предварительной сборки workspace — `@rntme/bindings-http`
+- U-038 - Tests require preliminary assembly of workspace - `@rntme/bindings-http`
 - U-043 — demo-openapi.mjs imports from ./dist/index.js requiring manual build — `@rntme/bindings`
 - U-044 — No integration / contract tests against @rntme/bindings-http — `@rntme/bindings`
 - U-045 — PathItem type is overly permissive — `@rntme/bindings`
@@ -968,14 +968,14 @@ Findings real per audit, but no current shoot and no foreseeable shoot. Each gro
 - U-010 — bindings-http depends on graph-ir-compiler crossing layer boundary — `monorepo`
 - U-011 — 22 packages missing .gitignore files — `monorepo`
 - U-012 — ui and ui-runtime still missing description in package.json; db-studio subfinding obsolete — `monorepo`
-- U-018 — Нет поддержки pre[] middleware в gRPC surface — `@rntme/bindings-grpc`
-- U-019 — Хардкод строки 'CommandResult' вместо константы из @rntme/bindings — `@rntme/bindings-grpc`
-- U-020 — Ручная реализация сериализации в buildServiceDefinition — `@rntme/bindings-grpc`
-- U-021 — Имя поля в query-ответе не валидируется на существование в shape — `@rntme/bindings-grpc`
-- U-033 — Error-to-HTTP mapping нерасширяем — `@rntme/bindings-http`
+- U-018 - No support for pre[] middleware in gRPC surface - `@rntme/bindings-grpc`
+- U-019 — Hardcode of the string 'CommandResult' instead of the constant from @rntme/bindings - `@rntme/bindings-grpc`
+- U-020 - Manual implementation of serialization in buildServiceDefinition - `@rntme/bindings-grpc`
+- U-021 — The field name in the query response is not validated to exist in the shape — `@rntme/bindings-grpc`
+- U-033 - Error-to-HTTP mapping is not extensible - `@rntme/bindings-http`
 - U-034 — Zod v4 vs v3 mismatch — `@rntme/bindings-http`
-- U-035 — Отсутствие e2e/golden тестов — `@rntme/bindings-http`
-- U-036 — Adapter-типы в bindings-http — `@rntme/bindings-http`
+- U-035 - Lack of e2e/golden tests - `@rntme/bindings-http`
+- U-036 - Adapter types in bindings-http - `@rntme/bindings-http`
 - U-039 — generateOpenApi accepts unused _resolvers parameter — misleading public API — `@rntme/bindings`
 - U-040 — BindingEntry.kind optional in TS type but has Zod default — type-system drift — `@rntme/bindings`
 - U-041 — shapes property validated but not typed in BindingArtifact — `@rntme/bindings`

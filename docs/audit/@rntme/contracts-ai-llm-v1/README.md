@@ -7,7 +7,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 | **Multica issue** | `RNT-215` (`f1d0c8cb-59dc-40d8-9105-c48354dc44ab`) |
 | **Issue title** | Audit: package architecture — @rntme/contracts-ai-llm-v1 |
 | **Package / scope** | `@rntme/contracts-ai-llm-v1` |
-| **Verdict (summary)** | needs cleanup — пакет структурно здоров, но есть type-safety пробелы, тестовые дыры и cross-package несоответствия, кото |
+| **Verdict (summary)** | needs cleanup - the package is structurally sound, but there are type-safety gaps, test holes and cross-package inconsistencies, which |
 | **Audit comment id** | `079963bc-1073-4622-8d42-5585d6a3c82f` |
 | **Audit comment date** | 2026-04-28 |
 
@@ -18,80 +18,80 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит @rntme/contracts-ai-llm-v1
+## Architectural audit @rntme/contracts-ai-llm-v1
 
-**Verdict:** needs cleanup — пакет структурно здоров, но есть type-safety пробелы, тестовые дыры и cross-package несоответствия, которые нужно закрыть до первого vendor-модуля.
+**Verdict:** needs cleanup - the package is structurally sound, but there are type-safety gaps, test holes and cross-package inconsistencies that need to be closed before the first vendor module.
 
 ---
 
-### Проблемы
+### Problems
 
-#### 1. HIGH — Plain-string поля в местах, где нужны enum
-**Evidence:** proto/ai_llm.proto:133, 280, 310, 470, 514 — tool_choice, Message.role, ThreadItem.role, response_format объявлены как string.
-**Impact:** Каждый vendor-модуль будет изобретать свои константы. Нарушает цель canonical contract — быть единым типизированным surface. Сейчас нет единого источника truth для значений вроде "auto"|"required"|"none".
-**Recommendation:** Ввести enum ToolChoice, MessageRole, ResponseFormat в proto. Обновить fixtures и тесты.
+#### 1. HIGH — Plain-string fields in places where enum is needed
+**Evidence:** proto/ai_llm.proto:133, 280, 310, 470, 514 - tool_choice, Message.role, ThreadItem.role, response_format are declared as string.
+**Impact:** Each vendor module will invent its own constants. Violates the purpose of the canonical contract - to be a single typed surface. There is currently no single source of truth for values ​​like "auto"|"required"|"none".
+**Recommendation:** Enter enum ToolChoice, MessageRole, ResponseFormat in proto. Update fixtures and tests.
 
-#### 2. HIGH — Пустые conformance-сценарии
-**Evidence:** modules/ai-llm/conformance/src/scenarios/*.scenarios.ts — все 14 файлов экспортируют []. test/suite-shape.test.ts:24-28 явно проверяет, что массивы пусты.
-**Impact:** Spec §12.2 требует конкретных сценариев per RPC. Vendor-модуль не может начать conformance без них. Сейчас skeleton не даёт реальной ценности.
-**Recommendation:** Либо (a) заполнить сценарии минимальными stub-ами со status: pending и seed/action/assertion структурой, либо (b) создать follow-up issue на заполнение после landing @rntme/conformance-framework. Не оставлять пустыми — это замаскированный technical debt.
+#### 2. HIGH — Empty conformance scripts
+**Evidence:** modules/ai-llm/conformance/src/scenarios/*.scenarios.ts - all 14 files export []. test/suite-shape.test.ts:24-28 explicitly checks that arrays are empty.
+**Impact:** Spec §12.2 requires specific per RPC scenarios. The Vendor module cannot start conformance without them. Right now skeleton doesn't provide any real value.
+**Recommendation:** Either (a) fill the scenarios with minimal stubs with status: pending and seed/action/assertion structure, or (b) create a follow-up issue for completion after landing @rntme/conformance-framework. Do not leave empty - this is a disguised technical debt.
 
-#### 3. MEDIUM — layerOf молча возвращает vendor для любого неизвестного кода
-**Evidence:** src/error-codes.ts:29-34 — fallthrough без проверки.
-**Impact:** Если внешний код сделает layerOf неизвестного кода, получит vendor вместо ошибки. Маскирует баги при дрейфе error-codes.
-**Recommendation:** Изменить возвращаемый тип на ErrorLayer | null, вернуть null для неизвестных кодов. Добавить тест на invalid code.
+#### 3. MEDIUM - layerOf silently returns vendor for any unknown code
+**Evidence:** src/error-codes.ts:29-34 - fallthrough without verification.
+**Impact:** If external code makes layerOf of unknown code, it will get vendor instead of an error. Masks bugs when error-codes drift.
+**Recommendation:** Change return type to ErrorLayer | null, return null for unknown codes. Add a test for invalid code.
 
-#### 4. MEDIUM — Поле time_to_first_token в v1 proto
-**Evidence:** proto/ai_llm.proto:196 — Duration time_to_first_token на aggregate Completion.
-**Impact:** Spec §Q3 явно исключает streaming из v1. Наличие этого поля вводит implementerов в заблуждение — они будут ожидать, что streaming поддерживается или скоро появится.
-**Recommendation:** Удалить поле из v1 (reserved = 10) или добавить комментарий. Второе — быстрый fix.
+#### 4. MEDIUM — Time_to_first_token field in v1 proto
+**Evidence:** proto/ai_llm.proto:196 — Duration time_to_first_token on aggregate Completion.
+**Impact:** Spec §Q3 explicitly excludes streaming from v1. The presence of this field misleads implementers into expecting streaming to be supported or coming soon.
+**Recommendation:** Remove field from v1 (reserved = 10) or add comment. The second is a quick fix.
 
-#### 5. MEDIUM — Несоответствие build-скриптов между contract-пакетами
-**Evidence:** AI-LLM и Identity используют inline shell. CRM использует scripts/build.mjs.
-**Impact:** Расхождение усложняет обслуживание workspace — фикс нужно делать в N местах по-разному.
-**Recommendation:** Унифицировать: либо все на inline shell (просто), либо все на build.mjs (если нужна кросс-платформенность).
+#### 5. MEDIUM — Mismatch of build scripts between contract packages
+**Evidence:** AI-LLM and Identity use an inline shell. CRM uses scripts/build.mjs.
+**Impact:** The discrepancy complicates workspace maintenance - the fix needs to be done in N places in different ways.
+**Recommendation:** Unify: either everything on the inline shell (simple), or everything on build.mjs (if cross-platform is needed).
 
-#### 6. MEDIUM — Отсутствие range-валидации в тестах
-**Evidence:** progress_percentage (0-100), TokenUsage.total_tokens (должен быть >= sum частей), SamplingParams.temperature (0-2) — нет тестов на граничные значения.
-**Impact:** Vendor-модули могут получать или генерировать невалидные значения, и contract не даёт им signal о допустимых диапазонах.
-**Recommendation:** Добавить unit-тесты на граничные значения. Рассмотреть proto validation rules если в workspace появится protoc-gen-validate.
+#### 6. MEDIUM - Lack of range validation in tests
+**Evidence:** progress_percentage (0-100), TokenUsage.total_tokens (must be >= sum of parts), SamplingParams.temperature (0-2) - no tests for boundary values.
+**Impact:** Vendor modules can receive or generate invalid values, and the contract does not signal them about valid ranges.
+**Recommendation:** Add unit tests for boundary values. Consider proto validation rules if protoc-gen-validate appears in the workspace.
 
-#### 7. LOW — Версия 0.0.0 у всех contract-пакетов
+#### 7. LOW — Version 0.0.0 for all contract packages
 **Evidence:** package.json:3 — version 0.0.0.
-**Impact:** Невозможно отследить breaking changes через semver. Workspace consumers не могут pin version.
-**Recommendation:** Определить стратегию версионирования contract-пакетов. Предлагаю: 0.1.0 для v1 skeleton, 1.0.0 когда первый vendor-модуль проходит live-conformance.
+**Impact:** Unable to track breaking changes through semver. Workspace consumers cannot pin version.
+**Recommendation:** Define a versioning strategy for contract packages. I suggest: 0.1.0 for v1 skeleton, 1.0.0 when the first vendor module passes live-conformance.
 
-#### 8. LOW — JSON import assertion в error-codes.ts
+#### 8. LOW - JSON import assertion in error-codes.ts
 **Evidence:** src/error-codes.ts:1 — import with type json.
-**Impact:** Некоторые bundler-конфигурации потребителей могут не поддерживать import assertions.
-**Recommendation:** Заменить на readFileSync + JSON.parse или добавить fallback. Низкий приоритет — workspace target = Node 20.
+**Impact:** Some consumer bundler configurations may not support import assertions.
+**Recommendation:** Replace with readFileSync + JSON.parse or add fallback. Low priority - workspace target = Node 20.
 
 ---
 
-### Quick wins (можно сделать без продуктового решения)
-- Исправить layerOf -> ErrorLayer | null + тест
-- Добавить комментарий к time_to_first_token или сделать reserved
-- Унифицировать build-скрипт с CRM или Identity
-- Добавить unit-тесты на invalid error code и enum sentinel values
-- Добавить vitest.config.ts для консистентности с другими пакетами
+### Quick wins (can be done without a product solution)
+- Fix layerOf -> ErrorLayer | null + test
+- Add a comment to time_to_first_token or make it reserved
+- Unify the build script with CRM or Identity
+- Add unit tests for invalid error code and enum sentinel values
+- Add vitest.config.ts for consistency with other packages
 
-### Требуют решения Влада / архитектурного комитета
-- Нужны ли enum для tool_choice/role/response_format в v1, или string — осознанный trade-off?
-- Когда и кем заполняются conformance-сценарии: сейчас (skeleton с pending-статусом) или после landing framework?
-- Стратегия semver для contract-пакетов
-
----
-
-### Что сделано хорошо
-- Чистая структура, полностью повторяет pattern Identity/CRM.
-- Все 35 тестов проходят, build/lint/typecheck — зелёные.
-- 32 error-кода покрывают все 4 слоя (structural/references/consistency/vendor).
-- Правильное разделение ai_llm.proto (service) и ai_llm-events.proto (events).
-- Drift-тесты гарантируют 1:1 соответствие RPC <-> scenario-файл.
-- Binary fixtures проверены на magic bytes и size <= 100KB.
-- Зависимости минимальны: только @rntme/contracts-common-v1 + protobufjs.
+### Requires decision from Vlad/architectural committee
+- Do we need enum for tool_choice/role/response_format in v1, or string - a conscious trade-off?
+- When and by whom are conformance scenarios filled out: now (skeleton with pending status) or after the landing framework?
+- Semver strategy for contract packages
 
 ---
 
-### Готовность к DEV
-План готов к DEV с оговоркой: перед началом первого vendor-модуля нужно закрыть HIGH-проблемы (#1 enum strings, #2 empty scenarios). Остальное — MEDIUM/LOW — можно фиксить параллельно. Рекомендую завести follow-up issue на заполнение conformance-сценариев с приоритетом blocker.
+### What's done well
+- Clean structure, completely repeats the Identity/CRM pattern.
+- All 35 tests pass, build/lint/typecheck are green.
+- 32 error codes cover all 4 layers (structural/references/consistency/vendor).
+- Correct separation of ai_llm.proto (service) and ai_llm-events.proto (events).
+- Drift tests guarantee 1:1 correspondence between RPC <-> scenario file.
+- Binary fixtures are checked for magic bytes and size <= 100KB.
+- Dependencies are minimal: only @rntme/contracts-common-v1 + protobufjs.
+
+---
+
+### DEV Ready
+The plan is ready for DEV with a caveat: before starting the first vendor module, you need to close HIGH problems (#1 enum strings, #2 empty scenarios). The rest - MEDIUM/LOW - can be fixed in parallel. I recommend creating a follow-up issue to fill out conformance scripts with blocker priority.

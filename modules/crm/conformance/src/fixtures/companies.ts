@@ -5,7 +5,7 @@
  */
 
 export const acmeRu = {
-  name: 'ООО «Акме»',
+  name: 'Acme LLC',
   domain: 'acme.example',
   industry: 'manufacturing',
   employee_count: 250,

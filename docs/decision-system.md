@@ -1,200 +1,200 @@
 # Decision System
 
-> Канон стратегических и архитектурных решений rntme.
-> Если нужно принять решение — читай отсюда.
-> Если решение не вписывается — правь Goals/Filters, не Bets.
-> Update protocol — §5.
+> Canon for rntme strategic and architectural decisions.
+> When a decision is needed, start here.
+> If a decision does not fit, update Goals/Filters, not Bets.
+> Update protocol: section 5.
 
 ---
 
-## 1. North-star goals
+## 1. North-Star Goals
 
-Шесть целей. Стабильны. Меняются осознанно через update protocol §5.C.
+Six goals. They are stable and change only deliberately through the update protocol in section 5.C.
 
-**G1 · Blueprint = unit of truth.** Project blueprint folder — каноническая единица authoring, versioning, deploy. Identical inputs → identical running system. Authoring, review, rollback оперируют на уровне blueprint.
+**G1 - Blueprint = unit of truth.** The project blueprint folder is the canonical unit of authoring, versioning, and deploy. Identical inputs produce an identical running system. Authoring, review, and rollback operate at the blueprint level.
 
-**G2 · AI agents author, humans decide.** Основной автор артефактов — AI agent, решающий проблему человека. Оптимизируем под: structured artifacts (validatable), codified errors (LLM-correctable), canonical conventions (LLM-composable), fail-fast validation. Humans **не читают артефакты** — они review через inspection surfaces (см. G3).
+**G2 - AI agents author, humans decide.** The primary artifact author is an AI agent solving a human problem. Optimize for structured artifacts that can be validated, codified errors that an LLM can correct, canonical conventions that an LLM can compose, and fail-fast validation. Humans **do not read artifacts directly**; they review through inspection surfaces (see G3).
 
-**G3 · Inspectable runtime.** Понимание системы человеком идёт через UI / observability surfaces (routes, events, ownership, state, traces) — **не через чтение JSON**. UI можно строить позже, но runtime обязан поставлять данные для него уже сейчас. Каждое архитектурное решение либо обеспечивает, либо сохраняет inspectability.
+**G3 - Inspectable runtime.** Human understanding of the system comes through UI and observability surfaces (routes, events, ownership, state, traces), **not by reading JSON**. The UI can be built later, but the runtime must provide the data for it now. Every architectural decision either enables or preserves inspectability.
 
-**G4 · Compose via canonical contracts; keep core lean.** Бизнес-процессы и опциональные capabilities собираются из vendor modules под canonical contracts (BPMN, CloudEvents, gRPC, leaf contracts). Vendor SDK живут за contract boundary. Blueprint core содержит **только universally-required артефакты** (то, без чего service'а не существует). Всё что нужно лишь некоторым service'ам — module. Default bias: «скорее новый module под существующий contract, чем новый артефакт/концепт в core». File storage, AI/LLM, identity, CRM, email, seed — модули, не core.
+**G4 - Compose via canonical contracts; keep core lean.** Business processes and optional capabilities are assembled from vendor modules behind canonical contracts (BPMN, CloudEvents, gRPC, leaf contracts). Vendor SDKs stay behind the contract boundary. Blueprint core contains **only universally required artifacts**: the pieces without which a service does not exist. Anything needed only by some services is a module. Default bias: prefer a new module under an existing contract over a new core artifact or concept. File storage, AI/LLM, identity, CRM, email, and seed are modules, not core.
 
-**G5 · Minimize entropy.** One canonical way per concept. Convention over flexibility. Новая абстракция оправдывает себя против существующих; «ещё один способ делать X» — smell.
+**G5 - Minimize entropy.** One canonical way per concept. Convention over flexibility. A new abstraction must justify itself against existing ones; "another way to do X" is a smell.
 
-**G6 · Pre-stable: change is free** *(stage-conditional, expires at first design partners)*. Нет пользователей → backwards-compat обсуждения преждевременны. Renames/removals/breaking changes — free когда мотивация ясна. Заменится stability-дисциплиной на следующей стадии — и тогда этот goal удаляется или инвертируется.
-
----
-
-## 2. Decision filters
-
-Восемь фильтров. Каждый выводится из одной или нескольких целей. Filters отвечают на «почему?» для любого решения; если ни один не отвечает — см. §5.B.
-
-**F1 · Lean-core check** *(from G4)*. «Нужно ли это каждому service'у/проекту, или только некоторым?» Только некоторым → module под существующий contract, не расширение core.
-
-**F2 · Canonical-way check** *(from G5)*. «Делает ли это то же что уже существующий механизм, но иначе?» Если да — обоснуй почему существующий не подходит; иначе используй существующий.
-
-**F3 · Contract-boundary check** *(from G4)*. Двухступенчатый:
-1. *If contract exists* — vendor SDK типы и поведение живут только в module реализации. Contract — leaf, без vendor-зависимостей. Решение требует менять contract под одного vendor'а → smell.
-2. *If contract is being shaped* — выводи его из (a) поведения которое runtime'у реально нужно, (b) общих capabilities у нескольких vendors которых ты планируешь поддержать. Contract — наименьший общий знаменатель под нужды runtime, не один vendor. По мере добавления vendors contract эволюционирует; квирки одного vendor'а не диктуют форму.
-
-**F4 · Inspectability check** *(from G3)*. «Может ли будущий UI показать что эта функциональность делает в runtime?» Если ответ требует «прочитай код / артефакт» — нарушение. Runtime эмитит события, state, ownership, traces в общеизвестные surfaces (CloudEvents, OpenTelemetry).
-
-**F5 · LLM-authorability check** *(from G2)*. «Может ли AI agent сгенерировать корректный артефакт с одной попытки или после fail-fast feedback'а?» Структурированный JSON-Schema, codified error codes, deterministic validation. Out-of-band знание для корректности → smell.
-
-**F6 · Repeatability check** *(from G1)*. «Identical blueprint inputs → identical running system?» Никаких runtime-only флагов, dynamic discovery, side-effects при boot которых нет в blueprint. Зависимость от чего-то вне blueprint = либо явный input (env, secret), либо bug.
-
-**F7 · Pre-stable bias** *(from G6, stage-conditional)*. «Это backwards-compat tax или forward optimization?» Сейчас: backwards-compat откладывается до design partners. Renames/removals/breaking changes — free; deprecation paths не строим. Когда G6 отменится, этот filter тоже.
-
-**F8 · Leverage existing standards and libraries** *(from G4 + G5)*. Прежде чем писать своё — используй существующее. Два слоя:
-- *Внешние протоколы/стандарты* (BPMN, CloudEvents, gRPC, OAuth, OpenTelemetry, JSON Schema, ...) — для интерфейсов, обмена, наблюдаемости.
-- *Популярные актуальные проекты внутри rntme кода* — например **Bun** (заменяет pnpm + tsc + esbuild + test runner одним тулом), **JSON-driven UI rendering** библиотеки (вместо рукописного движка в ui-runtime), и т.д.
-
-Критерии applicability: maintained, broad adoption, не abandonware. Custom код обосновывает себя против existing solution. Hand-roll'инг hashmap'а, парсера, schema-validator'а, DB клиента, дифферa, retry-логики, миграционного движка — smell. Меньше custom code → легче onboard, проще патчить security, устойчивее к bus-factor.
+**G6 - Pre-stable: change is free** *(stage-conditional, expires at first design partners)*. With no users, backwards-compatibility discussions are premature. Renames, removals, and breaking changes are free when the motivation is clear. This will be replaced by stability discipline at the next stage; then this goal is removed or inverted.
 
 ---
 
-## 3. Locked-in bets
+## 2. Decision Filters
 
-Формат строки: `**<name>** — <one-line what> · Filter: <Fx/Gx> · Status: <status> · <optional ref>`. Status meanings — §4.
+Eight filters. Each derives from one or more goals. Filters answer "why?" for any decision; if none applies, see section 5.B.
+
+**F1 - Lean-core check** *(from G4)*. "Is this needed by every service/project, or only by some?" Only by some means a module under an existing contract, not a core extension.
+
+**F2 - Canonical-way check** *(from G5)*. "Does this do the same thing as an existing mechanism, but differently?" If yes, explain why the existing mechanism does not fit; otherwise use the existing one.
+
+**F3 - Contract-boundary check** *(from G4)*. Two-step check:
+1. *If contract exists* - vendor SDK types and behavior live only in the module implementation. The contract is a leaf and has no vendor dependencies. A decision that changes the contract for one vendor is a smell.
+2. *If contract is being shaped* - derive it from (a) behavior the runtime actually needs and (b) common capabilities across multiple vendors you plan to support. A contract is the smallest common denominator required by the runtime, not a single vendor. As vendors are added, the contract evolves; one vendor's quirks do not dictate the shape.
+
+**F4 - Inspectability check** *(from G3)*. "Can a future UI show what this functionality does at runtime?" If the answer requires "read the code/artifact", it is a violation. Runtime emits events, state, ownership, and traces into well-known surfaces (CloudEvents, OpenTelemetry).
+
+**F5 - LLM-authorability check** *(from G2)*. "Can an AI agent generate a correct artifact on the first attempt or after fail-fast feedback?" Structured JSON Schema, codified error codes, deterministic validation. Out-of-band knowledge required for correctness is a smell.
+
+**F6 - Repeatability check** *(from G1)*. "Do identical blueprint inputs produce an identical running system?" No runtime-only flags, dynamic discovery, or boot-time side effects that are absent from the blueprint. Any dependency outside the blueprint is either an explicit input (env, secret) or a bug.
+
+**F7 - Pre-stable bias** *(from G6, stage-conditional)*. "Is this a backwards-compatibility tax or a forward optimization?" Today, backwards compatibility is deferred until design partners. Renames, removals, and breaking changes are free; do not build deprecation paths. When G6 is removed, this filter goes with it.
+
+**F8 - Leverage existing standards and libraries** *(from G4 + G5)*. Before writing custom code, use what already exists. Two layers:
+- *External protocols/standards* (BPMN, CloudEvents, gRPC, OAuth, OpenTelemetry, JSON Schema, ...) for interfaces, exchange, and observability.
+- *Popular, current projects inside rntme code* - for example **Bun** (replaces pnpm + tsc + esbuild + test runner with one tool), **JSON-driven UI rendering** libraries (instead of a hand-written engine in ui-runtime), and so on.
+
+Applicability criteria: maintained, broadly adopted, not abandonware. Custom code must justify itself against an existing solution. Hand-rolling a hashmap, parser, schema validator, DB client, differ, retry logic, or migration engine is a smell. Less custom code means easier onboarding, simpler security patching, and lower bus-factor risk.
+
+---
+
+## 3. Locked-In Bets
+
+Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status> · <optional ref>`. Status meanings: section 4.
 
 ### 3.1 Strategy
 
-- **OSS-only Apache 2.0** — нет commercial layer; identity / constraint, не daily filter · `locked`
+- **OSS-only Apache 2.0** - no commercial layer; identity/constraint, not a daily filter · `locked`
 - **Blueprint folder = authoring/versioning/deploy unit** · G1, F6 · `locked`
-- **AI agent = primary author** — humans review · G2, F5 · `locked`
-- **Pre-stable: change is free** · G6, F7 · `locked-conditional` (до first design partners)
+- **AI agent = primary author** - humans review · G2, F5 · `locked`
+- **Pre-stable: change is free** · G6, F7 · `locked-conditional` (until first design partners)
 
-### 3.2 Storage / persistence
+### 3.2 Storage / Persistence
 
-- **SQLite as default service store** — упрощает deploy (no provisioned DB), избегает db-per-service Postgres-zoo. Альтернативы (ClickHouse/DuckDB для аналитики, Postgres где обоснованно) — по делу с обоснованием. · F8, G5 · `current-default`
-- **Single-writer event log** — event_store = единственный write path; load-bearing для optimistic concurrency и monotonic publish cursor · G1 · `locked` · ADR `docs/adr/2026-04-15-event-driven-architecture.md`
-- **No outbox table; event log IS the outbox** — + delivery_tracking для метрик · F2 · `locked` · ADR D1
+- **SQLite as default service store** - simplifies deploy (no provisioned DB) and avoids a db-per-service Postgres zoo. Alternatives (ClickHouse/DuckDB for analytics, Postgres where justified) are allowed when there is a concrete reason. · F8, G5 · `current-default`
+- **Single-writer event log** - `event_store` is the only write path; load-bearing for optimistic concurrency and the monotonic publish cursor · G1 · `locked` · ADR `docs/adr/2026-04-15-event-driven-architecture.md`
+- **No outbox table; event log IS the outbox** - plus delivery tracking for metrics · F2 · `locked` · ADR D1
 
-### 3.3 Eventing & messaging
+### 3.3 Eventing & Messaging
 
-- **Kafka-compat protocol для inter-service eventing** · F8 · `locked`
-- **Redpanda как broker (current default)** — самый простой путь к Kafka (single-node, без Zookeeper); provisioned per project. Engine — pragmatic default, не вечная привязка. · F8, G5 · `current-default`
+- **Kafka-compatible protocol for inter-service eventing** · F8 · `locked`
+- **Redpanda as broker (current default)** - simplest path to Kafka (single-node, no ZooKeeper); provisioned per project. The engine is a pragmatic default, not a permanent binding. · F8, G5 · `current-default`
 - **CloudEvents 1.0 envelope end-to-end** · F8 · `locked` · spec `done/2026-04-17-cloudevents-envelope-design.md`
-- **Kafka topic = `rntme.{svc}.{agg}` (no version suffix)** — breaking change → new eventType · F5 · `locked`
-- **BPMN as standard для cross-service async; choreography forbidden** · F8, G3, G4 · `locked`
-- **Operaton как BPMN engine (current default)** — самый быстрый путь к BPMN runtime; engine — pragmatic default, BPMN — locked bet · F8 · `current-default` · spec `done/2026-05-05-provisioned-bpmn-operaton-design.md`
+- **Kafka topic = `rntme.{svc}.{agg}` (no version suffix)** - breaking change means new eventType · F5 · `locked`
+- **BPMN as the standard for cross-service async; choreography forbidden** · F8, G3, G4 · `locked`
+- **Operaton as BPMN engine (current default)** - fastest path to a BPMN runtime; the engine is a pragmatic default, BPMN is the locked bet · F8 · `current-default` · spec `done/2026-05-05-provisioned-bpmn-operaton-design.md`
 
-### 3.4 API & contracts
+### 3.4 API & Contracts
 
-- **gRPC между service'ами** · F8 · `locked`
-- **HTTP entry через `@rntme/bindings-http`** · F8 · `locked`
-- **Leaf contracts в `packages/contracts/<category>/v1/`** — каждый contract отдельный package; modules/runtime/blueprint импортируют contracts, не друг друга · F3, G4 · `locked`
-- **JSON-only authoring** — AI agents лучше делают structured output в JSON чем в YAML/TOML/custom DSL · F5, G2 · `locked`
-- **4-layer validation: parse → structural → references → consistency** · F5 · `locked`
+- **gRPC between services** · F8 · `locked`
+- **HTTP entry through `@rntme/bindings-http`** · F8 · `locked`
+- **Leaf contracts in `packages/contracts/<category>/v1/`** - each contract is a separate package; modules/runtime/blueprint import contracts, not each other · F3, G4 · `locked`
+- **JSON-only authoring** - AI agents produce structured JSON more reliably than YAML/TOML/custom DSLs · F5, G2 · `locked`
+- **4-layer validation: parse -> structural -> references -> consistency** · F5 · `locked`
 
-### 3.5 Modules & integrations
+### 3.5 Modules & Integrations
 
-- **Vendor capabilities → modules под canonical contracts** — identity, AI/LLM, storage, CRM, email, notifications, seed · F1, F3, G4 · `locked`
+- **Vendor capabilities -> modules under canonical contracts** - identity, AI/LLM, storage, CRM, email, notifications, seed · F1, F3, G4 · `locked`
 - **Module shape: `module.json` + `@rntme/contracts-module-v1`** · F3 · `locked`
 - **Browser module contract `@rntme/contracts-client-runtime-v1`** · F3 · `locked`
 - **Provisioner contract `@rntme/contracts-provisioner-v1`** · G4 · `locked`
-- **Auth0 как первый identity module** · F8 · `locked` · spec `2026-04-29-notes-demo-auth0-design.md`
-- **OpenRouter как первый AI/LLM module** · F8 · `locked` · spec `done/2026-05-06-ai-llm-openrouter-module-design.md`
-- **S3 как первый storage module** · F1, F8 · `locked` · spec `2026-05-06-storage-s3-module-design.md`
-- **Seed как module (не часть core)** · F1, G4 · `locked-pending` (имплементация TBD)
+- **Auth0 as first identity module** · F8 · `locked` · spec `2026-04-29-notes-demo-auth0-design.md`
+- **OpenRouter as first AI/LLM module** · F8 · `locked` · spec `done/2026-05-06-ai-llm-openrouter-module-design.md`
+- **S3 as first storage module** · F1, F8 · `locked` · spec `2026-05-06-storage-s3-module-design.md`
+- **Seed as module (not part of core)** · F1, G4 · `locked-pending` (implementation TBD)
 
 ### 3.6 Conventions
 
-- **`Result<T>` everywhere — no exceptions в validation/compile** · F5, G2 · `locked`
-- **Branded `Validated*` types только через свои validators** · F5 · `locked`
+- **`Result<T>` everywhere - no exceptions across validation/compile boundaries** · F5, G2 · `locked`
+- **Branded `Validated*` types only through their validators** · F5 · `locked`
 - **Error code format `<PKG>_<LAYER>_<KIND>`** · F5, G2 · `locked`
-- **Layering enforced by dependency-cruiser** — modules → contracts only; contracts — leaves; artifacts/deploy не импортируют runtime; no cycles · F3, G4 · `locked`
-- **No backwards-compat shims** — pre-stable · F7, G6 · `locked-conditional`
+- **Layering enforced by dependency-cruiser** - modules -> contracts only; contracts are leaves; artifacts/deploy do not import runtime; no cycles · F3, G4 · `locked`
+- **No backwards-compatibility shims** - pre-stable · F7, G6 · `locked-conditional`
 
 ### 3.7 Tooling
 
-- **pnpm + Node 20 + tsc + vitest + esbuild** · F8 · `current-default` · *in-flight migration to Bun planned (см. §6 Open questions)*
-- **dependency-cruiser** для layering · F8 · `locked`
-- **Dokploy** для deploy · F8 · `current-default`
+- **pnpm + Node 20 + tsc + vitest + esbuild** · F8 · `current-default` · *in-flight migration to Bun planned (see section 6 Open Questions)*
+- **dependency-cruiser for layering** · F8 · `locked`
+- **Dokploy for deploy** · F8 · `current-default`
 
 ---
 
-## 4. Status meanings
+## 4. Status Meanings
 
 | Status | Meaning | Change protocol |
 |---|---|---|
-| `locked` | Решение зафиксировано. Откат — через update protocol §5.A.4. | Уходит в `superseded` через 5.A.4 или 5.C.3 — никогда silently re-decided. |
-| `current-default` | Текущий прагматичный выбор; альтернативы возможны при обосновании. | Меняется свободно с rationale в spec'е (без contradiction-эскалации). |
-| `locked-conditional` | Locked пока действует stated условие. Условие — триггер. | Когда условие отпадает — становится `locked` permanently или удаляется. |
-| `locked-pending` | Решено, но не имплементировано. | Становится `locked` когда имплементация landed. |
-| `superseded` | Заменён более новым bet'ом. Остаётся в файле strikethrough + ссылка на replacement, для traceability. | Никогда не реактивируется; если нужно снова — добавляется новый bet. |
+| `locked` | Decision is fixed. Reversal goes through update protocol section 5.A.4. | Moves to `superseded` through 5.A.4 or 5.C.3 - never silently re-decided. |
+| `current-default` | Current pragmatic choice; alternatives are allowed with rationale. | Changes freely with rationale in the spec, without contradiction escalation. |
+| `locked-conditional` | Locked while the stated condition holds. The condition is the trigger. | When the condition no longer holds, becomes permanently `locked` or is removed. |
+| `locked-pending` | Decided, but not implemented. | Becomes `locked` when implementation lands. |
+| `superseded` | Replaced by a newer bet. Kept in the file with strikethrough plus a link to the replacement for traceability. | Never reactivated; if it is needed again, add a new bet. |
 
-Superseded строки **остаются** в файле (вычеркнутые, с ссылкой на замену) — иначе теряется история «почему мы так не делаем».
+Superseded lines **stay** in the file (struck through, with a link to the replacement), otherwise the history of why we no longer do something is lost.
 
 ---
 
-## 5. Update protocol
+## 5. Update Protocol
 
-Цель: каждое противоречие между новым решением и системой превращается в **намеренный** edit goals/filters/bets, а не silent drift.
+Goal: every contradiction between a new decision and the decision system becomes an **intentional** edit to goals/filters/bets, not silent drift.
 
-### 5.A · Bet contradiction (наиболее частый)
+### 5.A - Bet Contradiction (Most Common)
 
-Decision не совпадает с существующим bet'ом. Сигнал: либо bet устарел, либо decision неправильное.
+A decision does not match an existing bet. Signal: either the bet is outdated or the decision is wrong.
 
-1. Identify which bet и его status.
-2. Check filters — выводится ли новое решение из существующих filters лучше чем старый bet? Если да — старый bet был слабо обоснован; обнови.
-3. **For `current-default`**: замена — нормальный path. Обнови строку с новым rationale; без эскалации. Статус существует именно для этого.
-4. **For `locked`**: эскалация. Либо (a) `locked` → `superseded` с inline-маркером и ссылкой на новый bet, либо (b) reject новое решение если оно слабее обоснованно. Решает user явно. Списанная строка остаётся для traceability.
-5. **For `locked-pending`**: имплементация ещё не landed — обновляй свободно как `current-default`.
+1. Identify the bet and its status.
+2. Check filters: does the new decision derive from existing filters better than the old bet? If yes, the old bet was weakly justified; update it.
+3. **For `current-default`**: replacement is the normal path. Update the line with new rationale; no escalation. This status exists for exactly that.
+4. **For `locked`**: escalate. Either (a) move `locked` -> `superseded` with an inline marker and a link to the new bet, or (b) reject the new decision if it is less justified. The user decides explicitly. The retired line stays for traceability.
+5. **For `locked-pending`**: implementation has not landed yet; update freely like `current-default`.
 
-### 5.B · Filter gap (новый тип обоснования)
+### 5.B - Filter Gap (New Type of Rationale)
 
-Decision обосновывается аргументом, не покрытым filters. Признак: «делаем X потому что Y», и Y не сводится к Fx/Gx.
+A decision is justified by an argument not covered by filters. Signal: "we do X because Y", and Y does not reduce to Fx/Gx.
 
-1. **Извлечь принцип** из argumentации Y. Это частный случай существующего filter'а или новый axis?
-2. Если **частный случай** — расширь существующий filter одной строкой (примером, edge-case'ом). Не плоди дубликаты.
-3. Если **новый axis** — предложи новый filter `Fn`, привяжи к существующему goal. Если goal'а нет — это сигнал §5.C.
-4. Filter add/extend = **edit `decision-system.md` в том же spec'е** что родил decision. Не отдельным PR.
+1. **Extract the principle** from rationale Y. Is it a special case of an existing filter, or a new axis?
+2. If it is a **special case**, extend the existing filter with one line (example, edge case). Do not duplicate filters.
+3. If it is a **new axis**, propose a new filter `Fn` and tie it to an existing goal. If no goal exists, this is a section 5.C signal.
+4. Filter add/extend = **edit `decision-system.md` in the same spec** that produced the decision. Do not use a separate PR.
 
-### 5.C · Goal violation (самый серьёзный)
+### 5.C - Goal Violation (Most Serious)
 
-Decision напрямую противоречит goal'у. Это redesign-уровень.
+A decision directly contradicts a goal. This is redesign-level.
 
-1. **Stop.** Не имплементируй decision и не правь goal без явного user authorization.
-2. **Surface the conflict**: «Decision X нарушает G_n потому что [reason]. Варианты: (a) goal нуждается в уточнении/замене — какая реальность сдвинулась? (b) decision неправильное — отклоняем. (c) исключение оправдано — записываем как documented exception в bets с inline-rationale».
-3. **User решает явно** какой из трёх путей.
-4. Если goal меняется — **переэкзаменуй все filters и bets** на которые goal влияет. Это не optional.
+1. **Stop.** Do not implement the decision or edit the goal without explicit user authorization.
+2. **Surface the conflict**: "Decision X violates G_n because [reason]. Options: (a) the goal needs refinement/replacement - what reality changed? (b) the decision is wrong - reject it. (c) an exception is justified - record it as a documented exception in bets with inline rationale."
+3. **The user explicitly chooses** one of the three paths.
+4. If a goal changes, **re-examine every filter and bet** affected by that goal. This is not optional.
 
-### 5.D · Status transitions (mechanical)
+### 5.D - Status Transitions (Mechanical)
 
+```text
+locked-pending     -> locked              (implementation landed)
+current-default    -> locked              (alternatives explored and rejected)
+current-default    -> current-default     (replaced, no escalation, with spec)
+locked             -> superseded          (through path 5.A.4 or 5.C.3)
+locked-conditional -> locked              (condition fixed permanently)
+locked-conditional -> removed             (condition resolved away)
 ```
-locked-pending     →  locked              (имплементация landed)
-current-default    →  locked              (alternatives explored & rejected)
-current-default    →  current-default     (replaced — без эскалации, со spec'ом)
-locked             →  superseded          (через path 5.A.4 или 5.C.3)
-locked-conditional →  locked              (condition fixed permanently)
-locked-conditional →  removed             (condition resolved away)
-```
 
-### 5.E · Authorization matrix
+### 5.E - Authorization Matrix
 
 | Change | Initiator | Approver |
 |---|---|---|
-| Bet (`current-default` swap) | Claude или user | User в spec'е |
-| Bet (`locked` → `superseded`) | Через path 5.A.4 | User явно |
-| Filter add/extend | Claude предлагает | User в spec'е |
+| Bet (`current-default` swap) | Claude or user | User in spec |
+| Bet (`locked` -> `superseded`) | Through path 5.A.4 | User explicitly |
+| Filter add/extend | Claude proposes | User in spec |
 | Goal text refinement | User | User |
 | Goal add/remove | User | User |
 
-Claude **никогда** не правит goals без явного user authorization. Filters и bets — Claude предлагает edit как часть spec'а brainstorming-сессии.
+Claude **never** edits goals without explicit user authorization. Filters and bets are proposed by Claude as part of the brainstorming-session spec.
 
-### 5.F · Audit trail
+### 5.F - Audit Trail
 
-Полагаемся на git history `docs/decision-system.md` + ссылки в bets/filters на specs которые их меняли. Отдельный change-log не делаем.
+Rely on git history for `docs/decision-system.md` plus links from bets/filters to specs that changed them. Do not maintain a separate changelog.
 
 ---
 
-## 6. Open questions
+## 6. Open Questions
 
-Незакрытые развилки. Каждая несёт `re-evaluate when:` триггер.
+Unresolved forks. Each carries a `re-evaluate when:` trigger.
 
-1. **Adopt Drizzle ORM in service runtime?** — Рассматривался в spec `2026-04-18-drizzle-adoption-design.md`. Имплементирован в платформе, но платформа переписывается. *Re-evaluate when:* нужен service-layer migration tool сильнее чем сырые SQL файлы.
+1. **Adopt Drizzle ORM in service runtime?** - Considered in spec `2026-04-18-drizzle-adoption-design.md`. Implemented in the platform, but the platform is being rewritten. *Re-evaluate when:* service-layer migration tooling is needed more than raw SQL files.
 
-2. **Migrate toolchain to Bun?** — Заменяет pnpm + tsc + esbuild + test runner одним тулом (F8, G5). *Re-evaluate when:* стартует dedicated migration spec.
+2. **Migrate toolchain to Bun?** - Replaces pnpm + tsc + esbuild + test runner with one tool (F8, G5). *Re-evaluate when:* a dedicated migration spec starts.
 
-3. **Promote `Operaton` и `Redpanda` из `current-default` в `locked`?** — Сейчас прагматичные defaults. *Re-evaluate when:* второй project отгружен на тех же engines без friction'а указывающего на другой выбор.
+3. **Promote `Operaton` and `Redpanda` from `current-default` to `locked`?** - They are pragmatic defaults today. *Re-evaluate when:* a second project ships on the same engines without friction pointing to another choice.

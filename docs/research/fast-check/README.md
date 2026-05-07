@@ -38,7 +38,7 @@ grep -r "fast-check" --include="*.md" .
 
 **Audit references:**
 - `docs/audit/00-waves.md` — U-103: "fast-check declared but unused in devDependencies — `@rntme/platform-core`"
-- `docs/audit/@rntme/platform-core/README.md` — Recommendation: "2. Удалить или начать использовать `fast-check`."
+- `docs/audit/@rntme/platform-core/README.md` — Recommendation: "2. Remove or start using `fast-check`."
 
 ## Latest Versions / Release State
 

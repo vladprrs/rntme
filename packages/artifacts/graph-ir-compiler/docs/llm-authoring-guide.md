@@ -1,54 +1,54 @@
-# LLM Authoring Guide — формат артефактов для `graph-ir-compiler`
+# LLM Authoring Guide - Artifact Format for `graph-ir-compiler`
 
-Этот документ — справка для LLM, который будет **генерировать** входные артефакты
-(`spec`, `pdm`, `qsm`) для `compile(spec, pdm, qsm)` из `@rntme/graph-ir-compiler`.
+This document is a reference for an LLM that will **generate** input artifacts
+(`spec`, `pdm`, `qsm`) for `compile(spec, pdm, qsm)` from `@rntme/graph-ir-compiler`.
 
-Цель: описать формат **ровно настолько**, чтобы LLM мог писать валидные спеки
-с первой попытки, не гадая. Все правила ниже — нормативные и подтверждены кодом.
+Goal: describe the format **only as much as needed** for an LLM to write valid specs
+on the first attempt without guessing. Every rule below is normative and backed by code.
 
-## 0. Контракт на вход
+## 0. Input Contract
 
+```text
+compile(spec, pdm, qsm) -> Result<{ sql, paramOrder, shape, optionalParams, paramDefaults }>
 ```
-compile(spec, pdm, qsm) → Result<{ sql, paramOrder, shape, optionalParams, paramDefaults }>
-```
 
-Три независимых артефакта, каждый со своим Zod-схемой:
+Three independent artifacts, each with its own Zod schema:
 
-| Артефакт | Кто его пишет                           | Меняется ли per-query | Описывает                                     |
-| -------- | --------------------------------------- | --------------------- | --------------------------------------------- |
-| `pdm`    | описание домена                         | нет (стабильный)      | физические таблицы, поля, связи               |
-| `qsm`    | query-side marks                        | нет (стабильный)      | проекции, роли связей (в Tier 1 почти пустой) |
-| `spec`   | authoring-спека конкретного графа (запроса) | да                    | форма запроса (узлы + сигнатура)              |
+| Artifact | Author | Changes per query | Describes |
+| --- | --- | --- | --- |
+| `pdm` | domain description | no (stable) | physical tables, fields, relations |
+| `qsm` | query-side marks | no (stable) | projections, relation roles (almost empty in Tier 1) |
+| `spec` | authoring spec for one graph/query | yes | query shape (nodes + signature) |
 
-**Важно**: LLM обычно генерирует только **`spec`**, используя заранее
-зафиксированные `pdm`/`qsm`. Но структуру pdm/qsm надо понимать, чтобы
-правильно ссылаться на сущности, поля и связи.
+**Important**: an LLM usually generates only **`spec`**, using pre-fixed
+`pdm`/`qsm`. Still, it must understand the PDM/QSM structure to reference
+entities, fields, and relations correctly.
 
-## 1. Примитивные типы
+## 1. Primitive Types
 
-Единый набор типов во всех трёх артефактах:
+The same primitive set is used across all three artifacts:
 
 ```ts
 type Primitive = 'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'date' | 'datetime'
 ```
 
-Правила совместимости (widening) — реализованы в `validate/semantic/types.ts`:
-- `integer ⊂ long ⊂ decimal` (арифметика и сравнения расширяются вверх).
-- `date ⊂ datetime`.
-- Числа сравнимы только с числами; `date`/`datetime` — только между собой; строки/булы — только с самими собой.
-- `COMPARABLE = {integer, long, decimal, string, date, datetime, boolean}` — только эти годятся в `eq/neq/gt/gte/lt/lte`.
+Compatibility (widening) rules are implemented in `validate/semantic/types.ts`:
+- `integer < long < decimal` (arithmetic and comparisons widen upward).
+- `date < datetime`.
+- Numbers are comparable only with numbers; `date`/`datetime` only with each other; strings/booleans only with themselves.
+- `COMPARABLE = {integer, long, decimal, string, date, datetime, boolean}`; only these work in `eq/neq/gt/gte/lt/lte`.
 
-## 2. PDM — Physical Data Model
+## 2. PDM - Physical Data Model
 
-Описывает **физические таблицы**. LLM читает PDM, чтобы знать имена entity, полей, связей.
+Describes **physical tables**. The LLM reads PDM to know entity, field, and relation names.
 
 ```jsonc
 {
   "entities": {
-    "<EntityName>": {                          // логическое имя (PascalCase, используется в спеке)
-      "table": "<sql_table_name>",             // физическая таблица (snake_case типично)
+    "<EntityName>": {                          // logical name (PascalCase, used in spec)
+      "table": "<sql_table_name>",             // physical table (typically snake_case)
       "fields": {
-        "<fieldName>": {                       // логическое имя поля (camelCase)
+        "<fieldName>": {                       // logical field name (camelCase)
           "type": "<Primitive>",
           "nullable": <boolean>,
           "column": "<sql_column_name>"
@@ -56,35 +56,35 @@ type Primitive = 'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'date' 
         // ...
       },
       "relations": {
-        "<relName>": {                         // алиас связи (camelCase); станет алиасом таблицы в SQL
-          "to": "<EntityName>",                // куда указывает
-          "cardinality": "one" | "many",       // в Tier 1 используется только "one"
-          "localKey": "<fieldName>",           // поле этой сущности (логическое имя)
-          "foreignKey": "<fieldName>"          // поле той сущности (логическое имя)
+        "<relName>": {                         // relation alias (camelCase); becomes table alias in SQL
+          "to": "<EntityName>",                // target entity
+          "cardinality": "one" | "many",       // only "one" is usable in Tier 1
+          "localKey": "<fieldName>",           // field on this entity (logical name)
+          "foreignKey": "<fieldName>"          // field on the target entity (logical name)
         }
       },
-      "keys": ["<fieldName>", ...]             // первичный ключ (логические имена)
+      "keys": ["<fieldName>", ...]             // primary key (logical names)
     }
   }
 }
 ```
 
-Правила:
-- Ключи `fields` и `relations` — **логические имена** (camelCase), на них ссылаются дот-пути.
-- Значения `fields[...].column` — **физические имена колонок** (SQL-идентификаторы).
-- В Tier 1 доступна только навигация по `cardinality: "one"`-связям. `many` — не поддерживается в выражениях.
+Rules:
+- `fields` and `relations` keys are **logical names** (camelCase); dot paths reference them.
+- `fields[...].column` values are **physical column names** (SQL identifiers).
+- Tier 1 supports navigation only through `cardinality: "one"` relations. `many` is not supported in expressions.
 
-## 3. QSM — Query Semantic Model
+## 3. QSM - Query Semantic Model
 
-В Tier 1 используется минимально. Обе секции имеют дефолт `{}`.
+Used minimally in Tier 1. Both sections default to `{}`.
 
 ```jsonc
 {
-  "projections": {                             // виртуальные «таблицы» для QSM-источников
+  "projections": {                             // virtual "tables" for QSM sources
     "<ProjectionName>": {
       "grain":  ["<keyField>", ...],
       "keys":   ["<keyField>", ...],
-      "exposed": ["<fieldName>", ...],         // публичные поля проекции
+      "exposed": ["<fieldName>", ...],         // public projection fields
       "source": { "entity": "<EntityName>", "pathPrefix": "<dot.path>" }
     }
   },
@@ -94,70 +94,70 @@ type Primitive = 'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'date' 
 }
 ```
 
-Для большинства Tier 1-сценариев достаточно:
+For most Tier 1 scenarios this is enough:
 ```json
 { "projections": {}, "relationRoles": {} }
 ```
 
-## 4. Authoring spec — что генерирует LLM
+## 4. Authoring Spec - What the LLM Generates
 
 ```jsonc
 {
-  "version": "1.0-rc7",                        // ОБЯЗАТЕЛЬНО ровно эта строка
-  "pdmRef": "<any string ref>",                // опознавательный идентификатор PDM
-  "qsmRef": "<any string ref>",                // опознавательный идентификатор QSM
-  "shapes": {                                  // именованные shape'ы для map/reduce.into
+  "version": "1.0-rc7",                        // REQUIRED, exactly this string
+  "pdmRef": "<any string ref>",                // identifying PDM reference
+  "qsmRef": "<any string ref>",                // identifying QSM reference
+  "shapes": {                                  // named shapes for map/reduce.into
     "<ShapeName>": {
       "fields": {
         "<fieldName>": { "type": "<Primitive>", "nullable": <boolean> }
       }
     }
   },
-  "graphs": {                                  // Tier 1 MVP: РОВНО ОДИН граф на вызов compile()
+  "graphs": {                                  // Tier 1 MVP: EXACTLY ONE graph per compile() call
     "<graphId>": {
-      "id": "<graphId>",                       // должно совпадать с ключом
+      "id": "<graphId>",                       // must match the key
       "signature": {
         "inputs":  { "<paramName>": <InputDecl>, ... },
         "output":  { "type": "rowset<T>" | "row<T>", "from": "<nodeId>" }
       },
-      "nodes": [ <Node>, ... ]                 // массив; порядок = порядок исполнения
+      "nodes": [ <Node>, ... ]                 // array; order = execution order
     }
   }
 }
 ```
 
-### 4.1. Input declarations
+### 4.1. Input Declarations
 
 ```ts
 type InputDecl = {
   type: Primitive | { list: Primitive } | { row: ShapeName } | { rowset: ShapeName }
   mode: 'root' | 'required' | 'nullable' | 'defaulted' | 'predicate_optional'
-  default?: unknown   // используется только при mode === 'defaulted'
+  default?: unknown   // used only when mode === 'defaulted'
 }
 ```
 
-Семантика режимов:
+Mode semantics:
 
-| mode                 | значение            | место в `paramOrder`   | место в SQL                                          |
-| -------------------- | ------------------- | ---------------------- | ---------------------------------------------------- |
-| `root`               | входной rowset/row  | —                      | (Tier 2, пока не используется)                       |
-| `required`           | обязан быть передан | один `?`               | `WHERE ... = ?`                                      |
-| `nullable`           | может быть `null`   | один `?`               | подставляется как есть (NULL пройдёт в предикат)     |
-| `defaulted`          | есть `default`      | один `?` + `paramDefaults[name] = default` | `?` заполняется рантаймом (не зашивается в SQL) |
-| `predicate_optional` | опциональный фильтр | **два** `?` подряд     | `(? IS NULL) OR (<predicate>)`                       |
+| mode | meaning | position in `paramOrder` | SQL location |
+| --- | --- | --- | --- |
+| `root` | input rowset/row | - | (Tier 2, not used yet) |
+| `required` | must be provided | one `?` | `WHERE ... = ?` |
+| `nullable` | may be `null` | one `?` | bound as-is (NULL flows into predicate) |
+| `defaulted` | has `default` | one `?` + `paramDefaults[name] = default` | `?` filled by runtime, not baked into SQL |
+| `predicate_optional` | optional filter | **two** consecutive `?` slots | `(? IS NULL) OR (<predicate>)` |
 
-Ограничения:
-- Не более одного input с `mode: "root"` на граф.
-- `root`-input обязан иметь `type: row<T>` или `rowset<T>`.
-- `predicate_optional` можно использовать **только внутри `filter.config.expr`**. Использование в `map.fields`, `reduce.measures`, `limit.count` → `SEM_PARAM_CONTEXT`.
+Constraints:
+- At most one input with `mode: "root"` per graph.
+- A `root` input must have `type: row<T>` or `rowset<T>`.
+- `predicate_optional` can be used **only inside `filter.config.expr`**. Use in `map.fields`, `reduce.measures`, or `limit.count` produces `SEM_PARAM_CONTEXT`.
 
-## 5. Узлы (nodes) — полный справочник
+## 5. Nodes - Full Reference
 
-Tier 1 поддерживает ровно 6 типов. Порядок узлов в массиве = порядок исполнения.
-Поле `id` должно быть уникально в пределах графа. Граф — DAG без циклов.
-Один из узлов упоминается в `signature.output.from` — он становится «выходом».
+Tier 1 supports exactly 6 node types. The `nodes` array order is execution order.
+`id` must be unique within the graph. A graph is a DAG with no cycles.
+One node is referenced by `signature.output.from`; it becomes the output.
 
-### 5.1. `findMany` — источник строк
+### 5.1. `findMany` - Row Source
 
 ```jsonc
 {
@@ -169,29 +169,29 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
 }
 ```
 
-- Должен быть как минимум один `findMany` в графе (корневой источник).
-- Алиас таблицы в SQL = `camelCase(EntityName)` (например `OrderItem → orderItem`).
-- После `findMany` в scope попадает alias = camelCase entity, с полями этой entity.
+- A graph must have at least one `findMany` root source.
+- SQL table alias = `camelCase(EntityName)` (for example `OrderItem -> orderItem`).
+- After `findMany`, scope contains alias = camelCase entity, with fields from that entity.
 
-### 5.2. `filter` — WHERE или HAVING
+### 5.2. `filter` - WHERE or HAVING
 
 ```jsonc
 {
   "id": "<nodeId>",
   "type": "filter",
   "config": {
-    "input": "<nodeId>",      // ссылка на предыдущий узел
-    "expr":  <Expr>           // булево выражение (ОБЯЗАТЕЛЬНО в Tier 1)
-    // "predicate": "..."     // именованный predicate-граф НЕ поддержан в Tier 1
+    "input": "<nodeId>",      // reference to previous node
+    "expr":  <Expr>           // boolean expression (REQUIRED in Tier 1)
+    // "predicate": "..."     // named predicate graph is NOT supported in Tier 1
   }
 }
 ```
 
-- Тип `expr` должен резолвиться в `boolean`.
-- Если `filter` стоит **до** `reduce` — компилируется в `WHERE`.
-- Если **после** `reduce` — в `HAVING` (и его `expr` может ссылаться на поля результирующего shape).
+- `expr` must resolve to `boolean`.
+- If `filter` is **before** `reduce`, it compiles to `WHERE`.
+- If it is **after** `reduce`, it compiles to `HAVING` and its `expr` may reference result-shape fields.
 
-### 5.3. `map` — проекция
+### 5.3. `map` - Projection
 
 ```jsonc
 {
@@ -199,7 +199,7 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
   "type": "map",
   "config": {
     "input": "<nodeId>",
-    "into":  "<ShapeName>",   // имя shape из spec.shapes ИЛИ имя Entity ИЛИ Projection
+    "into":  "<ShapeName>",   // spec.shapes name OR Entity name OR Projection name
     "fields": {
       "<shapeFieldName>": <FieldExpr>,
       // ...
@@ -208,13 +208,13 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
 }
 ```
 
-Правила:
-- Набор ключей `fields` должен **точно совпадать** с набором полей `into`-shape
-  (иначе `STRUCT_MAP_SHAPE_COVERAGE`). Ни добавить лишнего, ни пропустить.
-- `<FieldExpr>` — это `Expr` ИЛИ `{ lookup: {...} }` (но `lookup` в Tier 1 запрещён).
-- Тип выражения должен widен-совместим с типом целевого поля.
+Rules:
+- The `fields` key set must **exactly match** the `into` shape fields
+  (otherwise `STRUCT_MAP_SHAPE_COVERAGE`). No extra keys, no missing keys.
+- `<FieldExpr>` is an `Expr` OR `{ lookup: {...} }`, but `lookup` is forbidden in Tier 1.
+- The expression type must be widen-compatible with the target field type.
 
-### 5.4. `reduce` — GROUP BY + агрегаты
+### 5.4. `reduce` - GROUP BY + Aggregates
 
 ```jsonc
 {
@@ -223,30 +223,30 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
   "config": {
     "input": "<nodeId>",
     "into":  "<ShapeName>",
-    "group": {                              // ключи группировки
-      "<shapeFieldName>": "<dot.path>"      // только строка-дот-путь, НЕ Expr
+    "group": {                              // grouping keys
+      "<shapeFieldName>": "<dot.path>"      // only a string dot path, NOT Expr
     },
     "measures": {
       "<shapeFieldName>": {
         "fn": "count" | "count_distinct" | "sum" | "avg" | "min" | "max" | "group_array",
-        "expr": <Expr>                      // обязателен ВСЕГДА, кроме "count"
+        "expr": <Expr>                      // always required except for "count"
       }
     }
   }
 }
 ```
 
-Правила:
-- Объединённый набор ключей `group ∪ measures` должен покрывать все поля `into` (иначе `STRUCT_REDUCE_SHAPE_COVERAGE`).
-- Типы возврата агрегатов:
-  - `count`, `count_distinct` → `integer`
-  - `sum(integer)` → `integer`, `sum(long|decimal)` → `long`/`decimal`
-  - `avg(numeric)` → `decimal`
-  - `min`/`max` → тип аргумента
-  - `group_array` → `string`
-- `count` без аргумента → `COUNT(*)`.
+Rules:
+- The combined key set `group union measures` must cover every `into` field (otherwise `STRUCT_REDUCE_SHAPE_COVERAGE`).
+- Aggregate return types:
+  - `count`, `count_distinct` -> `integer`
+  - `sum(integer)` -> `integer`, `sum(long|decimal)` -> `long`/`decimal`
+  - `avg(numeric)` -> `decimal`
+  - `min`/`max` -> argument type
+  - `group_array` -> `string`
+- `count` without an argument becomes `COUNT(*)`.
 
-### 5.5. `sort` — ORDER BY
+### 5.5. `sort` - ORDER BY
 
 ```jsonc
 {
@@ -254,9 +254,9 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
   "type": "sort",
   "config": {
     "input": "<nodeId>",
-    "by": [                                 // минимум один ключ
+    "by": [                                 // at least one key
       {
-        "field": "<dot.path>" | "<shapeFieldName>",  // для sort после reduce — поле shape'а
+        "field": "<dot.path>" | "<shapeFieldName>",  // after reduce, a shape field
         "dir":   "asc" | "desc",            // default: "asc"
         "nulls": "first" | "last"           // default: "last"
       }
@@ -265,7 +265,7 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
 }
 ```
 
-### 5.6. `limit` — LIMIT
+### 5.6. `limit` - LIMIT
 
 ```jsonc
 {
@@ -278,53 +278,53 @@ Tier 1 поддерживает ровно 6 типов. Порядок узло
 }
 ```
 
-- Литерал → `LIMIT 3` (константа в SQL).
-- `$param` → `LIMIT ?` (слот в paramOrder). Параметр не может быть `predicate_optional`.
+- Literal -> `LIMIT 3` (SQL constant).
+- `$param` -> `LIMIT ?` (slot in `paramOrder`). The parameter cannot be `predicate_optional`.
 
-## 6. EXPR — грамматика выражений
+## 6. EXPR - Expression Grammar
 
-**Главная тонкость**: голая строка — это **дот-путь к полю**, НЕ строковый литерал.
-Чтобы получить строковый литерал, используй `{ "$literal": "text" }`.
+**Main subtlety**: a bare string is a **dot path to a field**, NOT a string literal.
+To produce a string literal, use `{ "$literal": "text" }`.
 
 ```ts
 type Expr =
-  | string                                      // dot-path: "orderItem.order.createdAt" или "revenue" (поле shape)
-  | number                                      // integer если целое, иначе decimal
+  | string                                      // dot path: "orderItem.order.createdAt" or "revenue" (shape field)
+  | number                                      // integer when whole, decimal otherwise
   | boolean
   | null
-  | { $literal: string }                        // СТРОКОВЫЙ литерал (ТОЛЬКО строка — для чисел используй number)
-  | { $param: string }                          // ссылка на signature.inputs.<name>
-  | { [op: string]: Expr[] }                    // оператор-узел (см. таблицу ниже)
-  | { between: [Expr, Expr, Expr] }             // специальная форма
-  // РАЗРЕШЕНО СХЕМОЙ, НО НЕ ПОДДЕРЖАНО В TIER 1:
-  // | { case: { when: [[Expr, Expr], ...], else: Expr } }   ← парсится, но валится в semantic: "unsupported operator case"
-  // | { exists: { relation: string, where?: Expr } }        ← запрещено на структурной фазе
-  // | { $list: Expr[] }                                     ← запрещено на структурной фазе
-  // | { in: ... }                                           ← запрещено на структурной фазе
+  | { $literal: string }                        // STRING literal (ONLY strings; use number for numeric values)
+  | { $param: string }                          // reference to signature.inputs.<name>
+  | { [op: string]: Expr[] }                    // operator node (see table below)
+  | { between: [Expr, Expr, Expr] }             // special form
+  // ALLOWED BY SCHEMA, BUT NOT SUPPORTED IN TIER 1:
+  // | { case: { when: [[Expr, Expr], ...], else: Expr } }   <- parses, then fails semantic: "unsupported operator case"
+  // | { exists: { relation: string, where?: Expr } }        <- rejected structurally
+  // | { $list: Expr[] }                                     <- rejected structurally
+  // | { in: ... }                                           <- rejected structurally
 ```
 
-### 6.1. Поддерживаемые операторы (Tier 1)
+### 6.1. Supported Operators (Tier 1)
 
-| Оператор                         | Арность | Типы аргументов                             | Тип результата                   |
-| -------------------------------- | ------- | ------------------------------------------- | -------------------------------- |
-| `eq`, `neq`, `gt`, `gte`, `lt`, `lte` | 2  | одинаковые (после widen), оба `COMPARABLE`  | `boolean`                        |
-| `add`, `sub`, `mul`, `div`       | 2       | `numeric × numeric`                         | `widen` (integer / long / decimal) |
-| `and`, `or`                      | variadic | все `boolean`                              | `boolean`                        |
-| `not`                            | variadic (обычно 1) | `boolean`                         | `boolean`                        |
-| `is_null`                        | 1       | любой                                       | `boolean` (non-null)             |
-| `like`                           | 2       | `string × string`                           | `boolean`                        |
-| `concat`                         | variadic | все `string`                               | `string` (non-null)              |
-| `coalesce`                       | variadic | типы должны widen'иться                    | widen; nullable если ВСЕ nullable |
-| `between`                        | 3       | все должны widen'иться                      | `boolean`                        |
+| Operator | Arity | Argument types | Result type |
+| --- | --- | --- | --- |
+| `eq`, `neq`, `gt`, `gte`, `lt`, `lte` | 2 | same after widening, both `COMPARABLE` | `boolean` |
+| `add`, `sub`, `mul`, `div` | 2 | `numeric x numeric` | widened numeric (integer / long / decimal) |
+| `and`, `or` | variadic | all `boolean` | `boolean` |
+| `not` | variadic (usually 1) | `boolean` | `boolean` |
+| `is_null` | 1 | any | `boolean` (non-null) |
+| `like` | 2 | `string x string` | `boolean` |
+| `concat` | variadic | all `string` | `string` (non-null) |
+| `coalesce` | variadic | types must widen | widened type; nullable if ALL inputs are nullable |
+| `between` | 3 | all must widen | `boolean` |
 
-Синтаксис унифицирован: `{ "<op>": [arg1, arg2, ...] }`. Исключения: `between`
-использует **кортеж-тройку**, `case`/`exists` имеют собственные объектные формы
-(но недоступны в Tier 1).
+Syntax is unified: `{ "<op>": [arg1, arg2, ...] }`. Exceptions: `between`
+uses a **3-tuple**; `case`/`exists` have their own object forms
+(but are unavailable in Tier 1).
 
-### 6.2. Примеры
+### 6.2. Examples
 
 ```jsonc
-// Сравнение с параметром
+// Comparison with parameter
 { "gte": ["orderItem.unitPrice", { "$param": "minPrice" }] }
 
 // AND + LIKE + NOT IS_NULL
@@ -333,36 +333,36 @@ type Expr =
     { "not": [{ "is_null": ["product.categoryId"] }] }
 ] }
 
-// BETWEEN (обрати внимание: массив из ТРЁХ элементов — это особая форма)
+// BETWEEN (note: an array with THREE items is the special form)
 { "between": ["orderItem.order.createdAt", { "$param": "from" }, { "$param": "to" }] }
 
-// Арифметика в measures
+// Arithmetic in measures
 { "mul": ["orderItem.unitPrice", "orderItem.quantity"] }
 
-// Строковая конкатенация с литералами (обязательно $literal!)
+// String concatenation with literals ($literal is required)
 { "concat": [ { "$literal": "cat#" }, { "coalesce": ["category.name", { "$literal": "n/a" }] } ] }
 ```
 
-## 7. Дот-пути (dot-paths)
+## 7. Dot Paths
 
-Строка в EXPR или в `sort.by[].field` или в `reduce.group[*]` — это дот-путь.
+A string in EXPR, `sort.by[].field`, or `reduce.group[*]` is a dot path.
 
-Резолвер (`validate/semantic/fields.ts`):
-1. `head.field` — головой идёт **алиас** (= camelCase имени entity активного `findMany`),
-   затем имя поля.
-2. `head.rel1.rel2.field` — между head и field может быть любая цепочка `one`-связей.
-   Каждый шаг делает поле результата nullable (даже если исходное NOT NULL).
-3. После `reduce` в scope появляются поля **выходного shape** — к ним обращаются
-   по **одному имени**: `"revenue"`, а не `"agg.revenue"`.
+Resolver (`validate/semantic/fields.ts`):
+1. `head.field` - the head is an **alias** (= camelCase of the active `findMany` entity),
+   followed by a field name.
+2. `head.rel1.rel2.field` - any chain of `one` relations may appear between head and field.
+   Every step makes the result field nullable, even if the source was NOT NULL.
+3. After `reduce`, scope contains **output shape** fields; reference them by
+   **one name**: `"revenue"`, not `"agg.revenue"`.
 
-Типичные ошибки:
-- `"unitPrice"` вместо `"orderItem.unitPrice"` → `SEM_FIELD_NOT_FOUND: alias "unitPrice" not in scope` (до reduce нет shape-полей, только entity aliases).
-- `"agg.revenue"` после reduce → то же самое.
+Common mistakes:
+- `"unitPrice"` instead of `"orderItem.unitPrice"` -> `SEM_FIELD_NOT_FOUND: alias "unitPrice" not in scope` (before reduce there are no shape fields, only entity aliases).
+- `"agg.revenue"` after reduce -> same error.
 
 ## 8. Shapes
 
-Shape нужен только как target для `map.config.into` или `reduce.config.into`.
-Если `into` — имя Entity из PDM или Projection из QSM, отдельный shape **не нужен**.
+A shape is needed only as the target for `map.config.into` or `reduce.config.into`.
+If `into` is an Entity name from PDM or a Projection name from QSM, no separate shape is needed.
 
 ```jsonc
 "shapes": {
@@ -375,26 +375,25 @@ Shape нужен только как target для `map.config.into` или `red
 }
 ```
 
-- В поле `signature.output.type` пишется `rowset<ShapeName>` или `row<ShapeName>`.
-- В `map`/`reduce` можно целиться в entity (`into: "OrderItem"`) или projection,
-  тогда набор ожидаемых полей берётся оттуда.
+- In `signature.output.type`, write `rowset<ShapeName>` or `row<ShapeName>`.
+- `map`/`reduce` may target an entity (`into: "OrderItem"`) or projection; expected fields are then read from that target.
 
-## 9. Структурные и семантические правила
+## 9. Structural and Semantic Rules
 
-Порядок валидаторов: `parse → structural → canonical → semantic → semantic-plan → relational → lowering`.
+Validator order: `parse -> structural -> canonical -> semantic -> semantic-plan -> relational -> lowering`.
 
-Ключевые инварианты:
-- Все `id` узлов уникальны внутри графа.
-- Нет циклов в графе (он DAG по связям `input → nodeId`).
-- `signature.output.from` указывает на существующий `nodeId`.
-- Ровно один `findMany` как корень chain'а (несколько источников = несколько deps, Tier 1 оптимизирован под линейный pipeline).
-- Для `map`/`reduce`: набор ключей выхода совпадает с полями `into` (coverage).
-- Tier 1 НЕ поддерживает узлы: `distinct`, `lookupOne`.
-- Tier 1 НЕ поддерживает выражения: `exists`, `$list`, `in`, `lookup` в `map.fields`.
-- `case` принимается парсером, но **валится на семантике** — не генерируй `case`.
-- В одном `compile()`-вызове должно быть **ровно 1** имя графа в `graphs`.
+Key invariants:
+- All node `id` values are unique inside the graph.
+- The graph has no cycles (it is a DAG by `input -> nodeId` links).
+- `signature.output.from` points to an existing `nodeId`.
+- Exactly one `findMany` is the chain root (multiple sources mean multiple dependencies; Tier 1 is optimized for a linear pipeline).
+- For `map`/`reduce`, the output key set matches the fields of `into` (coverage).
+- Tier 1 does NOT support nodes: `distinct`, `lookupOne`.
+- Tier 1 does NOT support expressions: `exists`, `$list`, `in`, `lookup` in `map.fields`.
+- `case` is accepted by the parser but **fails semantically**; do not generate `case`.
+- One `compile()` call must contain **exactly 1** graph name in `graphs`.
 
-## 10. Минимальный рабочий скелет
+## 10. Minimal Working Skeleton
 
 ```json
 {
@@ -417,45 +416,45 @@ Shape нужен только как target для `map.config.into` или `red
 }
 ```
 
-## 11. Коды ошибок (для отладки LLM-генерации)
+## 11. Error Codes (For Debugging LLM Generation)
 
-| Layer          | Code                           | Что чинить                                                                  |
-| -------------- | ------------------------------ | --------------------------------------------------------------------------- |
-| `parse`        | `PARSE_SCHEMA_VIOLATION`       | JSON не соответствует Zod-схеме (лишние/недостающие поля, неверный тип)     |
-| `structural`   | `STRUCT_DUPLICATE_NODE_ID`     | повторяющиеся `id` в `nodes`                                                |
-| `structural`   | `STRUCT_INVALID_INPUT_REF`     | `input: "X"` ссылается на несуществующий узел                                |
-| `structural`   | `STRUCT_DAG_CYCLE`             | цикл в графе                                                                 |
-| `structural`   | `STRUCT_INVALID_OUTPUT_FROM`   | `signature.output.from` не совпадает ни с одним `nodeId`                     |
-| `structural`   | `STRUCT_MULTIPLE_ROOT_INPUTS`  | больше одного input с `mode: "root"`                                        |
-| `structural`   | `STRUCT_ROOT_INPUT_TYPE`       | `root`-input имеет не `row<T>`/`rowset<T>`                                  |
-| `structural`   | `STRUCT_UNKNOWN_SHAPE`         | `into` ссылается на несуществующий shape / entity / projection              |
-| `structural`   | `STRUCT_MAP_SHAPE_COVERAGE`    | `map.fields` не покрывает поля `into` (missing/extra)                       |
-| `structural`   | `STRUCT_REDUCE_SHAPE_COVERAGE` | `group ∪ measures` не покрывает поля `into`                                 |
-| `structural`   | `TIER1_UNSUPPORTED_NODE`       | `distinct`, `lookupOne`, или `filter.predicate`                             |
-| `structural`   | `TIER1_UNSUPPORTED_EXPR`       | `exists`, `$list`, `in`, или `lookup` в `map.fields`                        |
-| `semantic`     | `SEM_FIELD_NOT_FOUND`          | дот-путь не резолвится (alias/field/relation отсутствует)                   |
-| `semantic`     | `SEM_TYPE_MISMATCH`            | несовместимые типы в выражении, либо `unsupported operator "<op>"`          |
-| `semantic`     | `SEM_SHAPE_MISMATCH`           | тип выходного поля map/reduce не совпадает с ожидаемым в shape              |
-| `semantic`     | `SEM_PARAM_UNKNOWN`            | `$param` ссылается на неописанный input                                     |
-| `semantic`     | `SEM_PARAM_CONTEXT`            | `predicate_optional` использован вне `filter.expr`                          |
+| Layer | Code | What to fix |
+| --- | --- | --- |
+| `parse` | `PARSE_SCHEMA_VIOLATION` | JSON does not match the Zod schema (extra/missing fields, wrong type) |
+| `structural` | `STRUCT_DUPLICATE_NODE_ID` | duplicate `id` values in `nodes` |
+| `structural` | `STRUCT_INVALID_INPUT_REF` | `input: "X"` references a non-existing node |
+| `structural` | `STRUCT_DAG_CYCLE` | cycle in graph |
+| `structural` | `STRUCT_INVALID_OUTPUT_FROM` | `signature.output.from` does not match any `nodeId` |
+| `structural` | `STRUCT_MULTIPLE_ROOT_INPUTS` | more than one input with `mode: "root"` |
+| `structural` | `STRUCT_ROOT_INPUT_TYPE` | `root` input is not `row<T>`/`rowset<T>` |
+| `structural` | `STRUCT_UNKNOWN_SHAPE` | `into` references a missing shape / entity / projection |
+| `structural` | `STRUCT_MAP_SHAPE_COVERAGE` | `map.fields` does not cover `into` fields (missing/extra) |
+| `structural` | `STRUCT_REDUCE_SHAPE_COVERAGE` | `group union measures` does not cover `into` fields |
+| `structural` | `TIER1_UNSUPPORTED_NODE` | `distinct`, `lookupOne`, or `filter.predicate` |
+| `structural` | `TIER1_UNSUPPORTED_EXPR` | `exists`, `$list`, `in`, or `lookup` in `map.fields` |
+| `semantic` | `SEM_FIELD_NOT_FOUND` | dot path does not resolve (alias/field/relation missing) |
+| `semantic` | `SEM_TYPE_MISMATCH` | incompatible expression types, or `unsupported operator "<op>"` |
+| `semantic` | `SEM_SHAPE_MISMATCH` | output field type from map/reduce does not match the expected shape field |
+| `semantic` | `SEM_PARAM_UNKNOWN` | `$param` references an undeclared input |
+| `semantic` | `SEM_PARAM_CONTEXT` | `predicate_optional` used outside `filter.expr` |
 
-## 12. Чек-лист перед выдачей спеки
+## 12. Checklist Before Emitting a Spec
 
-1. `version` — ровно `"1.0-rc7"`.
-2. Ровно один ключ в `graphs`, и `id` графа совпадает с ключом.
-3. Каждый `nodes[i].config.input` указывает на предыдущий `nodes[j].id`.
-4. `signature.output.from` указывает на реальный узел.
-5. `signature.output.type` — строка `rowset<X>` или `row<X>` без пробелов.
-6. Строковые литералы — **всегда** `{ "$literal": "..." }`, иначе парсер примет строку за дот-путь.
-7. В выражениях первое имя сегмента дот-пути — **alias entity в camelCase** (`orderItem`, `product`), не `OrderItem`.
-8. Числа в EXPR — пишем числами, не строками: `3`, не `"3"`.
-9. Для `map.into` / `reduce.into` — сверить набор ключей с полями цели (ни больше, ни меньше).
-10. `predicate_optional` — только в `filter.config.expr`.
-11. НЕ генерировать: `case`, `exists`, `$list`, `in`, `distinct`, `lookupOne`, `lookup`, `filter.predicate`.
-12. JOIN не пишется явно — достаточно написать `orderItem.order.createdAt` в выражении, JOIN синтезируется автоматически (LEFT JOIN по `one`-связи).
+1. `version` is exactly `"1.0-rc7"`.
+2. `graphs` has exactly one key, and graph `id` matches that key.
+3. Every `nodes[i].config.input` points to a previous `nodes[j].id`.
+4. `signature.output.from` points to a real node.
+5. `signature.output.type` is `rowset<X>` or `row<X>` with no spaces.
+6. String literals are **always** `{ "$literal": "..." }`; otherwise the parser treats a string as a dot path.
+7. In expressions, the first dot-path segment is the **entity alias in camelCase** (`orderItem`, `product`), not `OrderItem`.
+8. Numbers in EXPR are numbers, not strings: `3`, not `"3"`.
+9. For `map.into` / `reduce.into`, check the key set against target fields (no more, no less).
+10. `predicate_optional` appears only in `filter.config.expr`.
+11. Do NOT generate: `case`, `exists`, `$list`, `in`, `distinct`, `lookupOne`, `lookup`, `filter.predicate`.
+12. JOIN is never written explicitly; writing `orderItem.order.createdAt` in an expression is enough. The compiler synthesizes a LEFT JOIN through the `one` relation.
 
-## 13. Живые примеры
+## 13. Live Examples
 
-Прогоняемые примеры (+ их SQL) — в [`examples.md`](./examples.md).
-Полный набор тестовых спек — `packages/artifacts/graph-ir-compiler/test/e2e/*.test.ts`.
-Эталонная «kitchen sink»-спека — `packages/artifacts/graph-ir-compiler/test/golden/category-sales/graph.json`.
+Runnable examples plus their SQL are in [`examples.md`](./examples.md).
+The full test spec set is `packages/artifacts/graph-ir-compiler/test/e2e/*.test.ts`.
+The canonical kitchen-sink spec is `packages/artifacts/graph-ir-compiler/test/golden/category-sales/graph.json`.

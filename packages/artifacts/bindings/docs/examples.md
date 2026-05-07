@@ -1,58 +1,58 @@
-# Примеры биндингов: HTTP-артефакт → OpenAPI 3.1
+# Binding Examples: HTTP Artifact -> OpenAPI 3.1
 
-5 примеров, от минимального до «kitchen sink», показывающих что
+Five examples, from minimal to kitchen sink, showing what
 `generateOpenApi(validateBindings(parseBindingArtifact(input), resolvers), resolvers)`
-выдаёт на выходе. Все примеры воспроизводятся скриптом
-[`../demo-openapi.mjs`](../demo-openapi.mjs) (`node demo-openapi.mjs` после `pnpm build`).
+produces. All examples are reproduced by
+[`../demo-openapi.mjs`](../demo-openapi.mjs) (`node demo-openapi.mjs` after `pnpm build`).
 
-## Пайплайн
+## Pipeline
 
+```text
+binding artifact --parse--> BindingArtifact --validateStructural--> StructurallyValid
+                                                                           |
+          ValidatedBindings <--validateConsistency-- ResolvedBindings <--validateReferences--+
+                  |
+                  +--generateOpenApi--> OpenAPI 3.1 document
 ```
-binding artifact ──parse──▶ BindingArtifact ──validateStructural──▶ StructurallyValid
-                                                                           │
-          ValidatedBindings ◀──validateConsistency── ResolvedBindings ◀──validateReferences──┘
-                  │
-                  └──generateOpenApi──▶ OpenAPI 3.1 document
-```
 
-- `parseBindingArtifact` — Zod-разбор (`src/parse/parse.ts:5`).
-- `validateStructural` — замкнут на сам артефакт: уникальность `method+path`,
-  уникальность `(in,name)` и `bindTo`, симметрия `{placeholder}` и `in:"path"`,
-  запрет `body` на `GET`, обязательность path-параметров (`src/validate/structural.ts:17`).
-- `validateReferences` — разрешает `graph` и `output.shape` через `resolvers`;
-  сверяет `bindTo` с `signature.inputs` (`src/validate/references.ts:66`).
-- `validateConsistency` — запрет `root`-входов, только `rowset` на выходе,
-  совместимость `mode ↔ required`, `type ↔ location`, все `required/nullable`-входы
-  должны быть связаны (`src/validate/consistency.ts:123`).
-- `generateOpenApi` — эмиттер без сайд-эффектов
-  (`src/openapi/emit.ts:104`); резолверы в этой фазе не вызываются — всё уже в
+- `parseBindingArtifact` - Zod parse (`src/parse/parse.ts:5`).
+- `validateStructural` - self-contained artifact checks: unique `method+path`,
+  unique `(in,name)` and `bindTo`, symmetry between `{placeholder}` and `in:"path"`,
+  `body` forbidden on `GET`, path parameters required (`src/validate/structural.ts:17`).
+- `validateReferences` - resolves `graph` and `output.shape` through `resolvers`;
+  checks `bindTo` against `signature.inputs` (`src/validate/references.ts:66`).
+- `validateConsistency` - rejects `root` inputs, accepts only `rowset` outputs,
+  checks `mode <-> required`, `type <-> location`, and requires every
+  `required`/`nullable` input to be bound (`src/validate/consistency.ts:123`).
+- `generateOpenApi` - side-effect-free emitter (`src/openapi/emit.ts:104`);
+  resolvers are not called in this phase because everything is already in
   `ResolvedBinding.outputShape`.
 
-## Доменная модель
+## Domain Model
 
-Все примеры используют ту же схему, что и граф-компилятор
-(`commerce.pdm.json` / `commerce.qsm.json`). Резолверы в `demo-openapi.mjs` отдают
-упрощённые `GraphSignature` / `ResolvedShape`:
+All examples use the same schema as the graph compiler
+(`commerce.pdm.json` / `commerce.qsm.json`). Resolvers in `demo-openapi.mjs` return
+simplified `GraphSignature` / `ResolvedShape` values:
 
-| Shape              | Поля                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `OrderItem`        | `id, orderId, productId, unitPrice(decimal), quantity` — все non-null                      |
-| `CategorySalesRow` | `categoryId, revenue, totalQuantity, lineCount, avgItemPrice, categoryName?` (nullable)    |
+| Shape | Fields |
+| --- | --- |
+| `OrderItem` | `id, orderId, productId, unitPrice(decimal), quantity` - all non-null |
+| `CategorySalesRow` | `categoryId, revenue, totalQuantity, lineCount, avgItemPrice, categoryName?` (nullable) |
 
-Тип `decimal` по умолчанию эмитится как `{type:'string', format:'decimal'}` — опция
-`decimalEncoding:'number'` переключает на `{type:'number'}` (`src/openapi/shapes.ts:8`).
-Все поля shape попадают в `required`, даже nullable — ключ всегда присутствует
-в ответе, отсутствие выражается значением `null` (`src/openapi/shapes.ts:58`).
+By default, `decimal` emits as `{type:'string', format:'decimal'}`; option
+`decimalEncoding:'number'` switches it to `{type:'number'}` (`src/openapi/shapes.ts:8`).
+Every shape field is included in `required`, including nullable fields: the key is always present
+in responses, and absence is represented by `null` (`src/openapi/shapes.ts:58`).
 
-Любой биндинг в артефакте оборачивается в операцию под ключом `method`
-(`get`/`post`); два разных биндинга с одинаковыми `method + path` отвергаются ещё на
-structural-слое (`src/validate/structural.ts:88`).
+Every binding in the artifact becomes an operation under the `method` key
+(`get`/`post`); two different bindings with the same `method + path` are rejected at
+the structural layer (`src/validate/structural.ts:88`).
 
 ---
 
-## Пример 1 — Минимальный: `GET /v1/items`, без параметров
+## Example 1 - Minimal: `GET /v1/items`, No Parameters
 
-**Цель:** достать всю таблицу, ровно одна операция.
+**Goal:** fetch the whole table as exactly one operation.
 
 ```js
 {
@@ -71,7 +71,7 @@ structural-слое (`src/validate/structural.ts:88`).
 // signature: inputs: {}, output: { type: rowset<OrderItem>, from: 'items' }
 ```
 
-**OpenAPI (сокращённо):**
+**OpenAPI (abridged):**
 
 ```jsonc
 {
@@ -98,22 +98,22 @@ structural-слое (`src/validate/structural.ts:88`).
 }
 ```
 
-Замечания:
-- `operationId` по умолчанию — ключ биндинга (`listItems`), переопределяется через `http.operationId`
+Notes:
+- `operationId` defaults to the binding key (`listItems`) and can be overridden through `http.operationId`
   (`src/openapi/emit.ts:89`).
-- `info.title='API'`, `info.version='0.0.0'` — дефолты эмиттера, срабатывают, когда в артефакте
-  нет `openapi.info` и в вызов не передан `options.info` (`src/openapi/emit.ts:32`).
-- Ответ всегда `type:'array'` с `$ref` на shape — одноэлементные/скалярные результаты на данном этапе
-  не поддерживаются (`src/validate/consistency.ts:41`).
-- Стандартные ошибки `400/422/500` включены по умолчанию; отключаются
+- `info.title='API'`, `info.version='0.0.0'` are emitter defaults used when the artifact
+  has no `openapi.info` and the caller passes no `options.info` (`src/openapi/emit.ts:32`).
+- Response is always `type:'array'` with a `$ref` to the shape; singleton/scalar results are not supported at this stage
+  (`src/validate/consistency.ts:41`).
+- Standard `400/422/500` errors are included by default; disable with
   `generateOpenApi(v, r, { standardErrors: false })` (`src/openapi/emit.ts:27`, usage at
   `src/openapi/emit.ts:112`).
 
 ---
 
-## Пример 2 — Обязательный query-параметр
+## Example 2 - Required Query Parameter
 
-**Цель:** `GET /v1/items?minQty=…`, фильтр `quantity >= :minQty`.
+**Goal:** `GET /v1/items?minQty=...`, filter `quantity >= :minQty`.
 
 ```js
 bindings: {
@@ -131,7 +131,7 @@ bindings: {
 // signature.inputs: { minQty: { type: scalar<integer>, mode: 'required' } }
 ```
 
-**Параметры в итоговой операции:**
+**Parameters in the final operation:**
 
 ```jsonc
 "parameters": [
@@ -139,20 +139,20 @@ bindings: {
 ]
 ```
 
-Замечания:
-- `parameter.name` — внешнее HTTP-имя, `bindTo` — имя входа графа; в OpenAPI попадает именно `name`
+Notes:
+- `parameter.name` is the external HTTP name; `bindTo` is the graph input name. OpenAPI receives `name`
   (`src/openapi/parameters.ts:34`).
-- `mode:'required'` допускает только `required:true` — рассинхрон ловит consistency-слой
-  с кодом `BINDINGS_REQUIRED_MISMATCH` (`src/validate/consistency.ts:10`).
-- Схема параметра — это проекция `input.type`; `mode` в схему не протекает, он влияет лишь на
-  флаги `required` и `default` (`src/openapi/parameters.ts:31`).
+- `mode:'required'` allows only `required:true`; a mismatch is caught by the consistency layer
+  with `BINDINGS_REQUIRED_MISMATCH` (`src/validate/consistency.ts:10`).
+- The parameter schema is a projection of `input.type`; `mode` does not leak into the schema. It only affects
+  `required` and `default` flags (`src/openapi/parameters.ts:31`).
 
 ---
 
-## Пример 3 — `predicate_optional` + `defaulted`
+## Example 3 - `predicate_optional` + `defaulted`
 
-**Цель:** листинг по цене с опциональным фильтром и пагинацией:
-`GET /v1/items/listing?minPrice=…&limit=…`.
+**Goal:** a price listing with optional filter and pagination:
+`GET /v1/items/listing?minPrice=...&limit=...`.
 
 ```js
 bindings: {
@@ -173,7 +173,7 @@ bindings: {
 //   limit:    { type: scalar<integer>, mode: 'defaulted', default: 20 }
 ```
 
-**Параметры:**
+**Parameters:**
 
 ```jsonc
 "parameters": [
@@ -184,22 +184,22 @@ bindings: {
 ]
 ```
 
-Замечания:
-- `predicate_optional` и `defaulted` обязаны иметь `required:false`
-  (таблица `REQUIRED_BY_MODE`, `src/validate/consistency.ts:10`).
-- Дефолт из `input.default` проникает в JSON Schema через `schemaWithDefault`
-  только для `mode:'defaulted'` (`src/openapi/parameters.ts:19`); для `predicate_optional`
-  сам факт «опциональности» уже закодирован в SQL (`(? IS NULL) OR ...`) — на уровне HTTP это
-  просто `required:false`.
-- `decimal` кодируется строкой (precision-safe). Для клиентов, которых это не устраивает,
-  — `generateOpenApi(v, r, { decimalEncoding: 'number' })` (`src/openapi/shapes.ts:13`).
+Notes:
+- `predicate_optional` and `defaulted` must use `required:false`
+  (table `REQUIRED_BY_MODE`, `src/validate/consistency.ts:10`).
+- `input.default` enters JSON Schema through `schemaWithDefault`
+  only for `mode:'defaulted'` (`src/openapi/parameters.ts:19`); for `predicate_optional`,
+  optionality is already encoded in SQL (`(? IS NULL) OR ...`), so at HTTP level it is simply
+  `required:false`.
+- `decimal` is encoded as string (precision-safe). For clients that reject this,
+  use `generateOpenApi(v, r, { decimalEncoding: 'number' })` (`src/openapi/shapes.ts:13`).
 
 ---
 
-## Пример 4 — Path-параметр и массив в теле (POST)
+## Example 4 - Path Parameter and Array in Body (POST)
 
-**Цель:** `POST /v1/orders/{orderId}/items/search` с JSON-телом, в котором необязательный
-список `productIds` — фильтр внутри конкретного заказа.
+**Goal:** `POST /v1/orders/{orderId}/items/search` with a JSON body containing an optional
+`productIds` list; the graph filters within a specific order.
 
 ```js
 bindings: {
@@ -221,7 +221,7 @@ bindings: {
 //   productIds: { type: list<integer>,       mode: 'nullable' }
 ```
 
-**Операция:**
+**Operation:**
 
 ```jsonc
 "parameters": [
@@ -239,34 +239,33 @@ bindings: {
 }
 ```
 
-Замечания:
-- Каждый `{name}` в пути обязан иметь соответствующий `in:"path"`-параметр, и наоборот.
-  Регекс `/\{([^{}]+)\}/g` выдёргивает плейсхолдеры (`src/validate/structural.ts:67`);
-  рассинхрон — `BINDINGS_PATH_PLACEHOLDER_MISMATCH`.
-- `in:"path"` и `required:false` — всегда ошибка: `BINDINGS_PATH_NOT_REQUIRED`
+Notes:
+- Every `{name}` in the path must have a corresponding `in:"path"` parameter, and vice versa.
+  Regex `/\{([^{}]+)\}/g` extracts placeholders (`src/validate/structural.ts:67`);
+  mismatch gives `BINDINGS_PATH_PLACEHOLDER_MISMATCH`.
+- `in:"path"` plus `required:false` is always an error: `BINDINGS_PATH_NOT_REQUIRED`
   (`src/validate/structural.ts:51`).
-- `in:"body"` на `GET` отсекается structural-слоем (`BINDINGS_BODY_ON_GET`,
-  `src/validate/structural.ts:60`). Список в `path` невозможен: `list` разрешён только в
-  `query` и `body` (`src/validate/consistency.ts:51`).
-- Тело — всегда `application/json`, `requestBody.required:true` вне зависимости от
-  required-флагов отдельных полей (`src/openapi/parameters.ts:68`). `required` в inner-schema
-  собирает только те body-параметры, у которых собственный `required:true`.
-- Список в query получил бы `style:'form', explode:true` — это даёт `?ids=1&ids=2&ids=3`
-  (`src/openapi/parameters.ts:40`). В body этот хак не нужен.
-- Тонкий момент: `mode:'nullable'` означает «SQL-NULL допустим», но эмиттер сегодня не
-  продвигает nullability в схему *параметра/поля тела*. В схеме `productIds` нет `"null"` в
-  типе. Nullable отражается только в shapes ответа (`src/openapi/shapes.ts:30`). Для пользователя это
-  означает: чтобы «не задать» список — пропустите поле целиком, не пишите `null`.
+- `in:"body"` on `GET` is rejected by the structural layer (`BINDINGS_BODY_ON_GET`,
+  `src/validate/structural.ts:60`). A list in `path` is impossible: `list` is allowed only in
+  `query` and `body` (`src/validate/consistency.ts:51`).
+- Body is always `application/json`; `requestBody.required:true` regardless of required flags on individual fields
+  (`src/openapi/parameters.ts:68`). `required` in the inner schema contains only body parameters whose own `required:true`.
+- A list in query would receive `style:'form', explode:true`, producing `?ids=1&ids=2&ids=3`
+  (`src/openapi/parameters.ts:40`). Body does not need that hack.
+- Subtle point: `mode:'nullable'` means SQL NULL is allowed, but today the emitter does not
+  propagate nullability into the schema for a *parameter/body field*. The `productIds` schema has no `"null"` in its
+  type. Nullable is reflected only in response shapes (`src/openapi/shapes.ts:30`). For users this means:
+  to omit the list, omit the field entirely instead of writing `null`.
 
 ---
 
-## Пример 5 — Kitchen sink: агрегат с четырьмя параметрами и переопределением `info`
+## Example 5 - Kitchen Sink: Aggregate With Four Parameters and `info` Override
 
-**Цель:** воспроизведение golden-фикстуры
-(`test/golden/category-sales/expected.openapi.json`) — аналог пятого примера из
-`graph-ir-compiler`, но теперь как HTTP-операция. Демонстрирует все три режима
-параметров, `predicate_optional` + `defaulted` одновременно, кастомный shape ответа
-с nullable-полем, и override для `info`/`servers` через `artifact.openapi`.
+**Goal:** reproduce the golden fixture
+(`test/golden/category-sales/expected.openapi.json`), analogous to the fifth
+`graph-ir-compiler` example but exposed as an HTTP operation. Demonstrates all three
+parameter modes, `predicate_optional` + `defaulted` together, a custom response shape
+with a nullable field, and an `info`/`servers` override through `artifact.openapi`.
 
 ```js
 {
@@ -304,7 +303,7 @@ bindings: {
 // output: rowset<CategorySalesRow>  (includes nullable `categoryName`)
 ```
 
-**OpenAPI (ключевые фрагменты, `paths` + `components`):**
+**OpenAPI (key fragments, `paths` + `components`):**
 
 ```jsonc
 "paths": {
@@ -347,64 +346,62 @@ bindings: {
 "servers": [{ "url": "https://api.example.com" }]
 ```
 
-Замечания:
-- `artifact.openapi.info` и `artifact.openapi.servers` имеют приоритет над `options.info`/`options.servers`
-  при вызове `generateOpenApi` — значение из артефакта выигрывает, опции подхватываются только
-  там, где в артефакте `undefined` (`src/openapi/emit.ts:34`). Для `servers` это `??`-выбор
-  целиком: если массив в артефакте задан (даже пустой), опция `options.servers` игнорируется
+Notes:
+- `artifact.openapi.info` and `artifact.openapi.servers` take priority over `options.info`/`options.servers`
+  when calling `generateOpenApi`. Artifact values win; options are used only
+  where the artifact has `undefined` (`src/openapi/emit.ts:34`). For `servers`, this is a whole-value `??`
+  choice: if the artifact array is set, even empty, `options.servers` is ignored
   (`src/openapi/emit.ts:49`).
-- `summary`, `tags`, `description` — чисто косметические, пробрасываются в операцию 1-в-1
+- `summary`, `tags`, and `description` are cosmetic and pass through to the operation 1:1
   (`src/openapi/emit.ts:92`).
-- Nullable-поле `categoryName` в shape отдаётся как `type: ["string","null"]` (OpenAPI 3.1 union)
-  и тем не менее остаётся в `required` — контракт «ключ всегда есть, значение может быть `null`»
+- Nullable shape field `categoryName` emits as `type: ["string","null"]` (OpenAPI 3.1 union)
+  and still remains in `required`: the contract is "key always exists, value may be `null`"
   (`src/openapi/shapes.ts:33`).
-- `http.openapi` (per-operation) и `parameter.openapi` (per-parameter) — это точки расширения
-  для `x-*` / готовых passthrough-полей. Мёржатся через deep-merge: объекты — рекурсивно,
-  массивы/скаляры — заменяются (`src/openapi/passthrough.ts:5`). Для читаемости примера здесь
-  они не использованы; включив `http.openapi = { 'x-rate-limit': 100, description: '...' }`,
-  получите эти поля в операции без дополнительной логики.
-- Если вы добавите второй биндинг с тем же `method + path` — structural-слой отклонит артефакт
-  с `BINDINGS_DUPLICATE_METHOD_PATH` (`src/validate/structural.ts:95`). Ключ строится как
-  `"${method} ${path}"`, поэтому `GET /x` и `POST /x` — это разные ключи и прекрасно сосуществуют
-  (мёржатся в один `PathItem` при эмите).
+- `http.openapi` (per-operation) and `parameter.openapi` (per-parameter) are extension points
+  for `x-*` / ready passthrough fields. They merge via deep merge: objects recursively,
+  arrays/scalars replace (`src/openapi/passthrough.ts:5`). They are not used here for readability;
+  setting `http.openapi = { 'x-rate-limit': 100, description: '...' }` would put those fields
+  into the operation without extra logic.
+- Adding a second binding with the same `method + path` makes the structural layer reject the artifact
+  with `BINDINGS_DUPLICATE_METHOD_PATH` (`src/validate/structural.ts:95`). The key is
+  `"${method} ${path}"`, so `GET /x` and `POST /x` are different keys and can coexist
+  (merged into one `PathItem` during emit).
 
-### Внутренние представления
+### Internal Representations
 
-`validateBindings` возвращает `ValidatedBindings` — это `ResolvedBindings` с brand-тегом.
-В нём по каждому биндингу лежит:
+`validateBindings` returns `ValidatedBindings`, which is `ResolvedBindings` with a brand tag.
+For each binding it contains:
 
 ```ts
 // src/types/artifact.ts:57
 type ResolvedBinding = {
-  entry: BindingEntry;            // исходный http + target + graph id
-  signature: GraphSignature;      // что отдал resolveGraphSignature
-  outputShape: ResolvedShape;     // что отдал resolveShape (или плейсхолдер, если scalar)
+  entry: BindingEntry;            // original http + target + graph id
+  signature: GraphSignature;      // returned by resolveGraphSignature
+  outputShape: ResolvedShape;     // returned by resolveShape (or placeholder for scalar)
 };
 ```
 
-Эмиттер ходит только в эту уже-резолвнутую структуру; никаких повторных лукапов, никакого
-парсинга графа — потому `generateOpenApi` чистый и дешёвый, а всю «онтологическую» работу
-делает слой references.
+The emitter reads only this already-resolved structure; it does no repeated lookups and no
+graph parsing. That keeps `generateOpenApi` pure and cheap, while the references layer does
+the ontology work.
 
 ---
 
-## Что пока не поддерживается
+## Not Yet Supported
 
-См. дизайн-док `docs/superpowers/specs/2026-04-14-bindings-design.md`, §2 (Non-goals):
+See design doc `docs/superpowers/specs/2026-04-14-bindings-design.md`, section 2 (Non-goals):
 
-- **Runtime HTTP-адаптер** — маршрутизатор + исполнение графа по HTTP-запросу: отдельный
-  будущий пакет `@rntme/bindings-http`.
-- **Выходы, отличные от `rowset`** — `row` и скаляры отклоняются consistency-слоем
-  (`BINDINGS_UNSUPPORTED_OUTPUT_TYPE`, `src/validate/consistency.ts:39`), даже если resolver
-  их выдаёт.
-- **`PUT` / `PATCH` / `DELETE`** — Zod-схема принимает только `GET` и `POST`
-  (`src/parse/schema.ts:28`). Граф-IR сейчас read-only, write-слой появится отдельно.
-- **Headers, cookies, security schemes, pagination, rate-limit** — не кодифицированы в
-  артефакте; ручная прокачка через `http.openapi` passthrough работает, но компилятор о них
-  ничего не знает и не валидирует.
-- **Scalar-nullability в параметрах и body** — `mode:'nullable'` не превращается в `type: [T, null]`
-  в схеме параметра/body-поля (см. пример 4). Отражается только в shape ответа.
-- **Генератор из GraphSpec** — автоматически выводить разумный дефолт-артефакт по графу
-  умеет будущий `@rntme/graph-ir-compiler/from-graph-spec`; сейчас артефакт пишется руками.
-- **Сериализация** — ни YAML, ни запись в файл в SDK нет; результат возвращается как JS-объект,
-  `JSON.stringify` — на стороне вызывающего.
+- **Runtime HTTP adapter** - router + graph execution per HTTP request: a separate future
+  package `@rntme/bindings-http`.
+- **Outputs other than `rowset`** - `row` and scalars are rejected by the consistency layer
+  (`BINDINGS_UNSUPPORTED_OUTPUT_TYPE`, `src/validate/consistency.ts:39`), even if resolver returns them.
+- **`PUT` / `PATCH` / `DELETE`** - Zod schema accepts only `GET` and `POST`
+  (`src/parse/schema.ts:28`). Graph IR is read-only today; the write layer comes separately.
+- **Headers, cookies, security schemes, pagination, rate-limit** - not codified in the artifact;
+  manual passthrough through `http.openapi` works, but the compiler does not know about them or validate them.
+- **Scalar nullability in parameters and body** - `mode:'nullable'` does not become `type: [T, null]`
+  in the parameter/body-field schema (see example 4). Reflected only in response shape.
+- **Generator from GraphSpec** - a future `@rntme/graph-ir-compiler/from-graph-spec` can infer
+  a reasonable default artifact from a graph; today the artifact is handwritten.
+- **Serialization** - the SDK has neither YAML nor file output; result is returned as a JS object,
+  and `JSON.stringify` is the caller's responsibility.

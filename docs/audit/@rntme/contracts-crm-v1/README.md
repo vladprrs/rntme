@@ -18,108 +18,108 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит @rntme/contracts-crm-v1
+## Architectural audit @rntme/contracts-crm-v1
 
 ### Verdict: needs cleanup
 
-Пакет структурно целостен и соответствует спецификации `crm-canonical-contract-design.md`, но содержит несколько проблем среднего/высокого уровня, которые создают риски при включении conformance-сценариев и развитии контрактов. Билд, тесты, линт и typecheck проходят зелёным.
+The package is structurally sound and complies with the `crm-canonical-contract-design.md` specification, but contains several medium/high level issues that create risks when enabling conformance scripts and developing contracts. Build, tests, lint and typecheck pass in green.
 
 ---
 
 ### 🔴 High
 
-#### 1. Conformance-assertions ссылаются на несуществующие символы
+#### 1. Conformance-assertions refer to non-existent symbols
 **Evidence:**
-- `modules/crm/conformance/src/scenarios/assertions.ts:42` — `CRM_REFERENCES_JOB_NOT_FOUND` (должен быть `CRM_REFERENCES_ASYNC_JOB_NOT_FOUND`)
-- `modules/crm/conformance/src/scenarios/assertions.ts:48` — `CRM_REFERENCES_JOB_NOT_FOUND` (тот же код)
-- `modules/crm/conformance/src/scenarios/assertions.ts:55` — событие `AsyncJobCancelled` (в proto его нет; отменённые задачи порождают `AsyncJobFailed`)
+- `modules/crm/conformance/src/scenarios/assertions.ts:42` - `CRM_REFERENCES_JOB_NOT_FOUND` (should be `CRM_REFERENCES_ASYNC_JOB_NOT_FOUND`)
+- `modules/crm/conformance/src/scenarios/assertions.ts:48` - `CRM_REFERENCES_JOB_NOT_FOUND` (same code)
+- `modules/crm/conformance/src/scenarios/assertions.ts:55` - `AsyncJobCancelled` event (it is not in proto; canceled tasks generate `AsyncJobFailed`)
 
-**Impact:** При включении conformance-фреймворка сценарии упадут на этапе компиляции/рантайма, создавая ложное ощущение покрытия.
+**Impact:** When the conformance framework is enabled, scripts will crash at compilation/runtime, creating a false sense of coverage.
 
-**Recommendation:** Исправить коды ошибок на `CRM_REFERENCES_ASYNC_JOB_NOT_FOUND`, заменить `AsyncJobCancelled` на `AsyncJobFailed` с нужным статусом.
+**Recommendation:** Fix error codes for `CRM_REFERENCES_ASYNC_JOB_NOT_FOUND`, replace `AsyncJobCancelled` with `AsyncJobFailed` with the desired status.
 
-#### 2. `layerOf` реализован через string-split — хрупко
+#### 2. `layerOf` implemented via string-split - fragile
 **Evidence:**
 - `packages/contracts/crm/v1/src/error-codes.ts:23` — `return code.split('_')[1] as CrmErrorLayer`
 
-**Impact:** При изменении naming-конвенции (например, добавление префикса `CRM_INTERNAL_...`) функция сломается скрытно, так как нет тестов на неё.
+**Impact:** If the naming convention is changed (for example, adding the prefix `CRM_INTERNAL_...`), the function will break secretly, since there are no tests for it.
 
-**Recommendation:** Заменить на lookup по Set/Map или сгенерировать из `error-codes.json` на этапе сборки.
+**Recommendation:** Replace with lookup by Set/Map or generate from `error-codes.json` at the build stage.
 
 ---
 
 ### 🟡 Medium
 
-#### 3. Отсутствуют тесты на `isErrorCode` / `layerOf`
+#### 3. Missing tests for `isErrorCode` / `layerOf`
 **Evidence:**
-- `packages/contracts/crm/v1/test/error-codes.test.ts` — 7 тестов, все проверяют только список кодов, не runtime-helpers.
-- Сравнение: `ai-llm/v1/test/error-codes.test.ts` содержит 2 дополнительных теста на эти функции.
+- `packages/contracts/crm/v1/test/error-codes.test.ts` - 7 tests, all check only the list of codes, not runtime-helpers.
+- Comparison: `ai-llm/v1/test/error-codes.test.ts` contains 2 additional tests for these functions.
 
-**Impact:** Регрессии в runtime-поведении контрактов не ловятся CI.
+**Impact:** Regressions in the runtime behavior of contracts are not caught by CI.
 
-**Recommendation:** Добавить тесты, аналогичные `ai-llm/v1`.
+**Recommendation:** Add tests similar to `ai-llm/v1`.
 
-#### 4. `Rntme` экспортируется как тип, но undefined в runtime
+#### 4. `Rntme` is exported as a type, but undefined at runtime
 **Evidence:**
 - `packages/contracts/crm/v1/src/index.ts:4` — `export type { Rntme } from './proto.gen.js'`
 - Runtime: `import { Rntme } from '@rntme/contracts-crm-v1'; console.log(Rntme)` → `undefined`
 
-**Impact:** Потенциальная путаница для потребителей, ожидающих объект пространства имён.
+**Impact:** Potential confusion for consumers expecting a namespace object.
 
-**Recommendation:** Либо удалить runtime-экспорт (оставить только type), либо экспортировать `rntme` как значение. Требует согласования с identity/ai-llm.
+**Recommendation:** Either remove runtime export (leave only type), or export `rntme` as a value. Requires agreement with identity/ai-llm.
 
-#### 5. Версия `0.0.0` и `private: true`
+#### 5. Version `0.0.0` and `private: true`
 **Evidence:**
 - `packages/contracts/crm/v1/package.json` — `"version": "0.0.0"`, `"private": true`
 
-**Impact:** Отсутствие семантического версионирования затрудняет понимание stability guarantee для downstream-модулей.
+**Impact:** The lack of semantic versioning makes it difficult to understand the stability guarantee for downstream modules.
 
-**Recommendation:** Определить политику версионирования контрактных пакетов (pre-release tags, alpha/beta).
+**Recommendation:** Define a versioning policy for contract packages (pre-release tags, alpha/beta).
 
-#### 6. Сгенерированные proto-файлы (~2.4 МБ) коммитятся в репозиторий
+#### 6. Generated proto files (~2.4 MB) are committed to the repository
 **Evidence:**
 - `packages/contracts/crm/v1/dist/proto.gen.js` (~1.8 MB)
 - `packages/contracts/crm/v1/dist/proto.gen.d.ts` (~614 KB)
-- `.gitattributes` помечает их как generated, но они всё равно в истории
+- `.gitattributes` marks them as generated, but they are still in history
 
-**Impact:** Раздувание репозитория, merge-conflicts при регенерации.
+**Impact:** Repository bloat, merge-conflicts on regeneration.
 
-**Recommendation:** Вынести генерацию в `prebuild`/`prepare` скрипт; держать в `.gitignore` (требует решения по CI). **Требует архитектурного решения.**
+**Recommendation:** Place the generation in the `prebuild`/`prepare` script; keep in `.gitignore` (requires a CI solution). **Requires an architectural solution.**
 
 ---
 
 ### 🟢 Low
 
-#### 7. README — boilerplate без CRM-специфики
+#### 7. README — boilerplate without CRM specifics
 **Evidence:**
-- `packages/contracts/crm/v1/README.md` — общие примеры из шаблона, нет упоминания 34 RPC, событий, aggregates.
+- `packages/contracts/crm/v1/README.md` - general examples from the template, no mention of 34 RPCs, events, aggregates.
 
-**Recommendation:** Добавить примеры импорта service-типов, enums, error codes, описание связи с proto-файлами.
+**Recommendation:** Add examples of importing service types, enums, error codes, description of connection with proto files.
 
-#### 8. Отсутствует явная документация по 34 RPC
+#### 8. No explicit documentation for 34 RPC
 **Evidence:**
-- `proto/crm.proto` содержит 34 метода, но README не описывает ни одного.
+- `proto/crm.proto` contains 34 methods, but the README does not describe any.
 
-**Recommendation:** Сгенерировать или написать краткую сводку RPC-групп (Leads, Contacts, Opportunities и т.д.).
+**Recommendation:** Generate or write a short summary of RPC groups (Leads, Contacts, Opportunities, etc.).
 
 ---
 
-### Quick wins (можно сделать без согласования)
+### Quick wins (can be done without approval)
 
-1. Исправить коды ошибок и события в conformance-assertions.
-2. Добавить тесты на `isErrorCode` / `layerOf`.
-3. Заменить `layerOf` на lookup по Set.
-4. Обновить README CRM-специфичными примерами.
+1. Fix error codes and events in conformance-assertions.
+2. Add tests for `isErrorCode` / `layerOf`.
+3. Replace `layerOf` with lookup by Set.
+4. Update the README with CRM-specific examples.
 
-### Требуют решения Влада / архитектурного комитета
+### Requires decision from Vlad/architectural committee
 
-1. **Стратегия для generated proto-файлов:** коммитить vs генерировать при сборке. Влияет на CI, Docker, reproducible builds.
-2. **Политика версионирования контрактов:** когда поднимать версию, какие stability guarantees давать downstream.
-3. **Runtime-экспорт `Rntme`:** унифицировать поведение между contracts-пакетами.
-4. **Conformance-сценарии:** все 35 сценариев — `pending` stubs. Нужен ли реальный conformance-фреймворк в ближайшем квартале?
+1. **Strategy for generated proto files:** commit vs generate during build. Affects CI, Docker, reproducible builds.
+2. **Contract versioning policy:** when to upgrade the version, what stability guarantees to give downstream.
+3. **Runtime export `Rntme`:** unify behavior between contract packages.
+4. **Conformance scenarios:** all 35 scenarios are `pending` stubs. Do we need a real conformance framework in the next quarter?
 
 ---
 
-### Итог
+### Summary
 
-Пакет готов к использованию в текущем виде, но имеет скрытые риски (сломанные conformance-assertions, хрупкий `layerOf`, отсутствие тестов на runtime-helpers). Рекомендуется закрыть quick wins в рамках одного follow-up issue, а архитектурные вопросы вынести на обсуждение.
+The package is ready to use in its current form, but has hidden risks (broken conformance-assertions, fragile `layerOf`, lack of tests for runtime-helpers). It is recommended to close quick wins within one follow-up issue, and bring up architectural issues for discussion.

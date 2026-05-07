@@ -20,95 +20,95 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 # Audit Report: @rntme/cli
 
-**Verdict: needs cleanup** — пакет имеет прочную архитектурную основу (Result<T>, harness pattern, typed API client, Zod schemas), но содержит несколько серьёзных расхождений между кодом, тестами и документацией.
+**Verdict: needs cleanup** - The package has a solid architectural foundation (Result<T>, harness pattern, typed API client, Zod schemas), but contains several serious discrepancies between the code, tests and documentation.
 
 ---
 
 ## High
 
-### 1. E2E-тест полностью сломан
-**Evidence:** `test/e2e/skills-smoke.test.ts:18` вызывает `main(['validate'])`, но команда `validate` отсутствует в диспетчере `src/bin/cli.ts`. Тест также ожидает файлы `rntme.json` и `artifacts/pdm.json`, которые `init` не создаёт.
-**Impact:** E2E-тест всегда падает на `validate`; CI невозможен без отключения e2e.
-**Rec:** Удалить или переписать e2e-тест. Если `validate` нужен — реализовать как alias для `project publish --dry-run`. Если нет — удалить из e2e.
+### 1. E2E test is completely broken
+**Evidence:** `test/e2e/skills-smoke.test.ts:18` calls `main(['validate'])`, but the `validate` command is missing from the `src/bin/cli.ts` manager. The test also expects `rntme.json` and `artifacts/pdm.json` files, which `init` does not create.
+**Impact:** E2E test always fails on `validate`; CI is not possible without disabling e2e.
+**Rec:** Remove or rewrite e2e test. If `validate` is needed, implement it as an alias for `project publish --dry-run`. If not, remove from e2e.
 
-### 2. `init` не создаёт `rntme.json`
-**Evidence:** `src/commands/init.ts` создаёт `project.json`, но `src/config/project.ts:57` ищет `rntme.json` при обходе дерева. `rntme.json` — это локальный конфиг сервиса (org/project/service/artifacts), отличный от `project.json`.
-**Impact:** После `rntme init` команды, требующие `discoverProjectConfig` (publish, и потенциально deploy), не найдут конфигурацию.
-**Rec:** Добавить создание `rntme.json` в `runInit`, либо явно документировать, что пользователь должен создать его вручную.
+### 2. `init` does not create `rntme.json`
+**Evidence:** `src/commands/init.ts` creates `project.json`, but `src/config/project.ts:57` looks for `rntme.json` when traversing the tree. `rntme.json` is a local service config (org/project/service/artifacts), different from `project.json`.
+**Impact:** After `rntme init`, commands requiring `discoverProjectConfig` (publish, and potentially deploy) will not find the configuration.
+**Rec:** Add creation of `rntme.json` to `runInit`, or explicitly document that the user must create it manually.
 
-### 3. README документирует несуществующие команды `deploy`
-**Evidence:** `README.md:62-64` описывает `deploy plan`, `deploy render dokploy`, `deploy apply dokploy`, но в `src/bin/cli.ts` нет ни одной `deploy`-ветки.
-**Impact:** Документация вводит в заблуждение; пользователи ожидают функциональность, которой нет.
-**Rec:** Либо реализовать deploy-команды (требует интеграции с `@rntme/deploy-core`/`deploy-dokploy`), либо удалить из README и завести follow-up issue.
+### 3. README documents non-existent `deploy` commands
+**Evidence:** `README.md:62-64` describes `deploy plan`, `deploy render dokploy`, `deploy apply dokploy`, but there is not a single `deploy` branch in `src/bin/cli.ts`.
+**Impact:** Documentation is misleading; Users expect functionality that is not there.
+**Rec:** Either implement deploy commands (requires integration with `@rntme/deploy-core`/`deploy-dokploy`), or remove it from the README and create a follow-up issue.
 
 ---
 
 ## Medium
 
-### 4. `skills install` обходит harness pattern
-**Evidence:** `src/commands/skills/install.ts` реализует собственный `writeOk`/`writeErr` вместо использования `runCommand` из `src/commands/harness.ts`.
-**Impact:** Несогласованность обработки ошибок и вывода; `--json` флаг работает иначе, чем в других командах.
-**Rec:** Рефакторить `skills install` на использование `runCommand` и `CommandHandler<T>`.
+### 4. `skills install` bypasses the harness pattern
+**Evidence:** `src/commands/skills/install.ts` implements its own `writeOk`/`writeErr` instead of using `runCommand` from `src/commands/harness.ts`.
+**Impact:** Inconsistency between error handling and output; The `--json` flag works differently than other commands.
+**Rec:** Refactor `skills install` to use `runCommand` and `CommandHandler<T>`.
 
-### 5. Версия зашита как "0.0.0"
-**Evidence:** `package.json:3` и `src/api/client.ts:42` содержат `"0.0.0"`. `readVersion()` читает её из package.json.
-**Impact:** User-Agent и `--version` всегда возвращают 0.0.0; невозможно определить версию CLI при отладке.
-**Rec:** Настроить версионирование (semantic-release, или хотя бы ручной bump перед релизом).
+### 5. The version is hardcoded as "0.0.0"
+**Evidence:** `package.json:3` and `src/api/client.ts:42` contain `"0.0.0"`. `readVersion()` reads it from package.json.
+**Impact:** User-Agent and `--version` always return 0.0.0; It is not possible to determine the CLI version when debugging.
+**Rec:** Set up versioning (semantic-release, or at least manual bump before release).
 
-### 6. Недостаточное тестовое покрытие команд
-**Evidence:** Есть тесты для login, project create, project publish, whoami (integration), но нет тестов для: logout, project list, project show, project version list/show, token create/list/revoke, skills install (кроме сломанного e2e).
-**Impact:** Регрессии в непокрытых командах не отлавливаются.
-**Rec:** Добавить unit/integration тесты для всех команд.
+### 6. Insufficient test command coverage
+**Evidence:** There are tests for login, project create, project publish, whoami (integration), but no tests for: logout, project list, project show, project version list/show, token create/list/revoke, skills install (except for broken e2e).
+**Impact:** Regressions in uncovered commands are not caught.
+**Rec:** Add unit/integration tests for all teams.
 
-### 7. `postbuild` скрипт с хрупкими путями
-**Evidence:** `package.json:21` — скрипт ищет `package.json` по `../../package.json` относительно `dist/bin/cli.js`. Если структура сборки изменится, скрипт сломается.
-**Impact:** Хрупкость сборки.
-**Rec:** Использовать `import.meta.url` в runtime или копировать package.json в dist на этапе сборки.
+### 7. `postbuild` script with fragile paths
+**Evidence:** `package.json:21` - the script searches for `package.json` by `../../package.json` relative to `dist/bin/cli.js`. If the build structure changes, the script will break.
+**Impact:** Assembly fragility.
+**Rec:** Use `import.meta.url` at runtime or copy package.json to dist at build time.
 
-### 8. `validate` удалён из CLI, но unit-тест называет его "legacy"
-**Evidence:** `test/unit/cli.test.ts:72-78` проверяет, что `validate` отклоняется. E2E при этом ожидает, что он работает.
-**Impact:** Противоречие между unit и e2e тестами.
-**Rec:** Решить, нужна ли команда `validate`, и привести тесты в соответствие.
+### 8. `validate` has been removed from the CLI, but the unit test calls it "legacy"
+**Evidence:** `test/unit/cli.test.ts:72-78` checks that `validate` is rejected. E2E expects it to work.
+**Impact:** Contradiction between unit and e2e tests.
+**Rec:** Decide if the `validate` command is needed and bring the tests into compliance.
 
 ---
 
 ## Low
 
-### 9. `init` принимает флаги `--org`/`--project`, но игнорирует их
-**Evidence:** `test/e2e/skills-smoke.test.ts:13` передаёт `--org demo --project smoke`, но `runInit` не использует эти флаги. `parseArgs` с `strict: false` позволяет неизвестные флаги.
-**Rec:** Либо добавить в `init` поддержку `--org`/`--project` для генерации `rntme.json`, либо убрать из e2e.
+### 9. `init` accepts `--org`/`--project` flags, but ignores them
+**Evidence:** `test/e2e/skills-smoke.test.ts:13` passes `--org demo --project smoke`, but `runInit` does not use these flags. `parseArgs` with `strict: false` allows unknown flags.
+**Rec:** Either add support for `--org`/`--project` to `init` to generate `rntme.json`, or remove it from e2e.
 
-### 10. Cursor adapter бросает исключение вместо Result
-**Evidence:** `src/skills/adapters/cursor.ts:14` — `throw new Error` при отсутствии frontmatter.
-**Impact:** Необработанное исключение вместо graceful error.
-**Rec:** Вернуть Result или выбросить структурированную ошибку с кодом.
+### 10. Cursor adapter throws an exception instead of Result
+**Evidence:** `src/skills/adapters/cursor.ts:14` - `throw new Error` if there is no frontmatter.
+**Impact:** Unhandled exception instead of graceful error.
+**Rec:** Return Result or throw a structured error with code.
 
-### 11. Отсутствие команды `validate` в диспетчере
-**Evidence:** README упоминает `rntme project publish --dry-run` как способ валидации, но отдельной команды `validate` нет.
-**Rec:** Либо добавить `validate` как alias/sugar, либо обновить документацию.
+### 11. Absence of the `validate` command in the dispatcher
+**Evidence:** The README mentions `rntme project publish --dry-run` as a way to validate, but there is no separate `validate` command.
+**Rec:** Either add `validate` as alias/sugar, or update the documentation.
 
 ---
 
 ## Quick Wins
 
-1. Удалить/закомментировать сломанный e2e-тест.
-2. Обновить README — убрать `deploy` команды или пометить как "coming soon".
-3. Добавить `rntme.json` в вывод `rntme init`.
-4. Добавить базовые тесты для `logout`, `project list`, `token list`.
+1. Delete/comment out the broken e2e test.
+2. Update the README - remove the `deploy` commands or mark it as "coming soon".
+3. Add `rntme.json` to the output of `rntme init`.
+4. Add basic tests for `logout`, `project list`, `token list`.
 
-## Требуют продуктового решения Влада
+## Require Vlad's product solution
 
-1. **Нужна ли отдельная команда `validate`?** Сейчас dry-run делается через `project publish --dry-run`, но e2e и интуиция пользователей ожидают `rntme validate`.
-2. **Когда реализовывать `deploy` команды?** README их обещает, код — нет. Это блокер для документации или приоритетная фича?
-3. **Какая семантика у `rntme init`?** Создаёт ли он только project blueprint, или и локальный `rntme.json` тоже? Сейчас оба файла нужны, но создаётся только один.
+1. **Do we need a separate `validate` command?** Currently dry-run is done via `project publish --dry-run`, but e2e and user intuition expect `rntme validate`.
+2. **When to implement `deploy` commands?** The README promises them, the code does not. Is this a documentation blocker or a priority feature?
+3. **What is the semantics of `rntme init`?** Does it create only a project blueprint, or a local `rntme.json` too? Now both files are needed, but only one is created.
 
 ---
 
-**Файлы, требующие изменений:**
-- `src/commands/init.ts` — добавить `rntme.json`
-- `src/bin/cli.ts` — добавить `validate` или удалить ожидания
-- `README.md` — синхронизировать с реальным CLI surface
-- `test/e2e/skills-smoke.test.ts` — исправить или удалить
-- `src/commands/skills/install.ts` — перевести на harness pattern
+**Files requiring changes:**
+- `src/commands/init.ts` — add `rntme.json`
+- `src/bin/cli.ts` - add `validate` or remove waits
+- `README.md` - synchronize with the real CLI surface
+- `test/e2e/skills-smoke.test.ts` - fix or delete
+- `src/commands/skills/install.ts` — translate to harness pattern
 
-**План готов к dev-реализации quick wins; продуктовые вопросы (validate/deploy) требуют ответа Влада.**
+**The plan is ready for dev implementation quick wins; product questions (validate/deploy) require Vlad's answer.**

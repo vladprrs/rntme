@@ -94,7 +94,7 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 4. Reduce `assertionsDescription.length` threshold in `suite-shape.test.ts`.
 5. Add `TODO(framework)` comments in `types.ts` and `README.md` about executable assertion migration.
 
-### 6. Requires product/architecture decision from Влад
+### 6. Requires product/architecture decision from Vlad
 
 1. **H1 — Type schema divergence:** Is CRM's `Scenario` shape (`action`/`steps`, `assertionsDescription` string, `capability` field) intentionally different from identity/ai-llm, or is it drift? If intentional, document the rationale; if drift, schedule alignment.
 2. **M2 — `capabilities.ts` registry:** Should CRM conformance export canonical RPC/event registries like AI-LLM does? This affects how vendor modules validate capability claims.

@@ -7,7 +7,7 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 | **Multica issue** | `RNT-214` (`4b76db71-0e9c-4ecd-9b41-2b8705f277af`) |
 | **Issue title** | Audit: package architecture — @rntme/contracts-common-v1 |
 | **Package / scope** | `@rntme/contracts-common-v1` |
-| **Verdict (summary)** | OK — структурно корректен, выполняет роль primitives-only shared package. Есть 3 medium-риска (тестовое покрытие, отсутс |
+| **Verdict (summary)** | OK - structurally correct, serves as a primitives-only shared package. There are 3 medium risks (test coverage, absent |
 | **Audit comment id** | `9c69bf3a-e199-4184-98e5-91b8dc26ca06` |
 | **Audit comment date** | 2026-04-28 |
 
@@ -20,54 +20,54 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 ## Audit Report: @rntme/contracts-common-v1
 
-**Verdict:** OK — структурно корректен, выполняет роль primitives-only shared package. Есть 3 medium-риска (тестовое покрытие, отсутствие .gitignore, хрупкий build-скрипт) и 2 low (документация, отсутствие cross-package compatibility guard).
+**Verdict:** OK - structurally correct, serves as a primitives-only shared package. There are 3 medium risks (test coverage, lack of .gitignore, fragile build script) and 2 low (documentation, lack of cross-package compatibility guard).
 
 ---
 
-### 1. Назначение и место в архитектуре
+### 1. Purpose and place in architecture
 
-**Статус:** Соответствует спеке.
+**Status:** Corresponds to the spec.
 
-Пакет — единый источник truth для cross-category protobuf-примитивов (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/`Filter`/`Sort`/`ListResponseMeta`, `Metadata`). Все 3 category contract packages (`identity`, `ai-llm`, `crm`) зависят от него через `workspace:*` и импортируют `common.proto` через symlink в `proto-deps/`. Это предотвращает дрифт между категориями.
-
----
-
-### 2. Публичный API / exports / naming
-
-**Статус:** OK, но есть gap.
-
-- **Exports:** `proto` (namespace), `Rntme` (type). Достаточно для потребителей.
-- **Naming:** Соответствует спеке `rntme.contracts.common.v1`.
-- **Gap:** Category contracts (`identity`, `crm`) re-export common types напрямую (`export const CanonicalRef = commonv1.CanonicalRef`), но common package сам этого не делает. Это сознательное решение (common — низкоуровневые примитивы), но означает, что потребители обязаны импортировать common отдельно или полагаться на re-export category package.
+The package is a single truth source for cross-category protobuf primitives (`CanonicalRef`, `CommandContext`, `Name`, `ListRequest`/`Filter`/`Sort`/`ListResponseMeta`, `Metadata`). All 3 category contract packages (`identity`, `ai-llm`, `crm`) depend on it via `workspace:*` and import `common.proto` via symlink into `proto-deps/`. This prevents drift between categories.
 
 ---
 
-### 3. Внутренние границы
+### 2. Public API / exports / naming
 
-**Статус:** Хорошо.
+**Status:** OK, but there is a gap.
 
-- Чистое разделение: `proto/` (canonical source) → `scripts/gen.mjs` (codegen) → `src/proto.gen.{js,d.ts}` (generated) → `src/index.ts` (thin re-export layer).
-- Нет runtime/platform/demo/test concerns внутри пакета — он чисто compile-time / type-level.
-
----
-
-### 4. Зависимости
-
-**Статус:** OK.
-
-- Прямые deps: только `protobufjs` (runtime для generated bindings).
-- Нет workspace deps (by design — он корневой для категорий).
-- Нет нежелательных импортов.
+- **Exports:** `proto` (namespace), `Rntme` (type). Enough for consumers.
+- **Naming:** Corresponds to the `rntme.contracts.common.v1` spec.
+- **Gap:** Category contracts (`identity`, `crm`) re-export common types directly (`export const CanonicalRef = commonv1.CanonicalRef`), but the common package itself does not do this. This is a conscious decision (common are low-level primitives), but means that consumers are required to import common separately or rely on the re-export category package.
 
 ---
 
-### 5. Типы, схемы, валидация, error handling
+### 3. Internal boundaries
 
-**Статус:** OK с оговорками.
+**Status:** Okay.
 
-- `common.proto` соответствует спеке §5 identity-canonical-contract-design.
-- `error-codes.json` — пустой `{}` (intentional, по спеке §5.1).
-- **Issue:** Нет `error-codes.ts` (в отличие от category packages). Это intentional, но создает несоответствие в шаблоне: category packages экспортируют `errorCodes` / `isErrorCode` / `layerOf`, а common — нет. При добавлении общих error codes в будущем (например, `COMMON_STRUCTURAL_INVALID_UUID`) придется вводить этот файл retroactively.
+- Clean separation: `proto/` (canonical source) → `scripts/gen.mjs` (codegen) → `src/proto.gen.{js,d.ts}` (generated) → `src/index.ts` (thin re-export layer).
+- There are no runtime/platform/demo/test concerns inside the package - it is purely compile-time/type-level.
+
+---
+
+### 4. Dependencies
+
+**Status:** OK.
+
+- Direct deps: `protobufjs` only (runtime for generated bindings).
+- No workspace deps (by design - it is the root for categories).
+- No unwanted imports.
+
+---
+
+### 5. Types, schemes, validation, error handling
+
+**Status:** OK with reservations.
+
+- `common.proto` corresponds to the §5 identity-canonical-contract-design spec.
+- `error-codes.json` - empty `{}` (intentional, according to the spec §5.1).
+- **Issue:** No `error-codes.ts` (unlike category packages). This is intentional, but creates a template inconsistency: category packages export `errorCodes` / `isErrorCode` / `layerOf`, but common packages do not. When adding common error codes in the future (for example, `COMMON_STRUCTURAL_INVALID_UUID`) you will have to enter this file retroactively.
 
 ---
 
@@ -75,62 +75,62 @@ The sections below reproduce the audit comment body **verbatim** from Multica (f
 
 **Severity: medium**
 
-| Проблема | Evidence | Impact | Рекомендация |
+| Problem | Evidence | Impact | Recommendation |
 |---|---|---|---|
-| **6.1 Хрупкий build-скрипт** | `package.json#build`: `"tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/"` | `cp` не кроссплатформенный, не проверяет наличие dist/, может молча падать | Перейти на `scripts/build.mjs` как в CRM package (mkdir + copyFileSync + spawnSync с проверкой exit code) |
-| **6.2 Отсутствие .gitignore** | Нет `.gitignore` в `_common/v1/` | `proto-deps/` и `dist/` могут случайно попасть в git (CRM package игнорирует `dist/` и `proto-deps/`) | Добавить `.gitignore` с `dist/` и `proto-deps/` |
-| **6.3 Нет @vitest/coverage-v8** | `pnpm test --coverage` падает с MISSING DEPENDENCY | Невозможно измерить покрытие локально | Добавить `@vitest/coverage-v8` в devDependencies |
-| **6.4 Тестовое покрытие минимально** | Только 6 round-trip тестов (116 строк), нет negative cases | Не проверяются edge cases (null/undefined fields, empty structs, max int32) | Добавить тесты на default values, empty repeated fields, boundary values |
+| **6.1 Fragile build script** | `package.json#build`: `"tsc -p tsconfig.json && cp src/proto.gen.d.ts src/proto.gen.js dist/"` | `cp` is not cross-platform, does not check for the presence of dist/, may silently crash | Go to `scripts/build.mjs` as in CRM package (mkdir + copyFileSync + spawnSync with exit code check) |
+| **6.2 Missing .gitignore** | No `.gitignore` in `_common/v1/` | `proto-deps/` and `dist/` may accidentally end up in git (CRM package ignores `dist/` and `proto-deps/`) | Add `.gitignore` with `dist/` and `proto-deps/` |
+| **6.3 No @vitest/coverage-v8** | `pnpm test --coverage` crashes with MISSING DEPENDENCY | Cannot measure coverage locally | Add `@vitest/coverage-v8` to devDependencies |
+| **6.4 Test coverage is minimal** | Only 6 round-trip tests (116 lines), no negative cases | edge cases are not checked (null/undefined fields, empty structs, max int32) | Add tests for default values, empty repeated fields, boundary values ​​|
 
-**Build/test/lint gates:** Все проходят (`build`, `test`, `typecheck`, `lint`).
+**Build/test/lint gates:** All pass (`build`, `test`, `typecheck`, `lint`).
 
 ---
 
-### 7. Документация и onboarding
+### 7. Documentation and onboarding
 
 **Severity: low**
 
-- README есть, но краток. Нет секций: "Where to look first" (стандартный шаблон rntme package README), "Invariants & gotchas", "Out of scope".
-- Нет примера использования `ListRequest` с `Filter` + `Sort` (основной use case).
-- Нет упоминания о том, что `Metadata` использует `google.protobuf.Struct` и требует специального construction.
+- There is a README, but it is short. There are no sections: "Where to look first" (standard rntme package README template), "Invariants & gotchas", "Out of scope".
+- There is no example of using `ListRequest` with `Filter` + `Sort` (the main use case).
+- There is no mention that `Metadata` uses `google.protobuf.Struct` and requires special construction.
 
 ---
 
-### 8. Соответствие product vision и specs
+### 8. Compliance with product vision and specs
 
-**Статус:** Полное соответствие.
+**Status:** Full compliance.
 
-- Реализует решение Q5 из identity-canonical-contract-design.md §3.
-- Layout соответствует modules-monorepo-structure-design.md §5.1.
-- Proto package `rntme.contracts.common.v1` соответствует naming convention §6.1.
-
----
-
-### 9. Quick wins (можно сделать без продуктового решения)
-
-1. **Добавить `.gitignore`** (`dist/`, `proto-deps/`) — 1 строка.
-2. **Улучшить build-скрипт** — скопировать `scripts/build.mjs` из CRM package.
-3. **Добавить `@vitest/coverage-v8`** в devDependencies.
-4. **Расширить round-trip тесты:** empty structs, default values, boundary values (limit=0, limit=2147483647).
-5. **Дополнить README** секциями по шаблону rntme package README.
+- Implements solution Q5 from identity-canonical-contract-design.md §3.
+- Layout complies with modules-monorepo-structure-design.md §5.1.
+- Proto package `rntme.contracts.common.v1` complies with naming convention §6.1.
 
 ---
 
-### 10. Изменения, требующие продуктового/архитектурного решения Влада
+### 9. Quick wins (can be done without a product solution)
 
-1. **Нужен ли `error-codes.ts` в common package?** Сейчас несоответствие шаблону: category packages экспортируют типизированные error codes, common — нет. Если в будущем появятся общие ошибки (например, `COMMON_STRUCTURAL_INVALID_UUID`), нужен ли единообразный API?
-2. **Нужны ли cross-package compatibility тесты?** Сейчас нет автоматической проверки, что изменение `common.proto` не ломает codegen в зависимых category packages. Можно добавить CI job, который после изменения common пересобирает все category packages.
+1. **Add `.gitignore`** (`dist/`, `proto-deps/`) - 1 line.
+2. **Improve the build script** - copy `scripts/build.mjs` from the CRM package.
+3. **Add `@vitest/coverage-v8`** to devDependencies.
+4. **Extend round-trip tests:** empty structs, default values, boundary values ​​(limit=0, limit=2147483647).
+5. **Add README** with sections based on the rntme package README template.
 
 ---
 
-### 11. Проблемы по severity
+### 10. Changes requiring Vlad’s product/architectural solution
 
-| Severity | Count | Проблемы |
+1. **Is `error-codes.ts` needed in the common package?** Now there is a mismatch with the template: category packages export typed error codes, common does not. If common errors (e.g. `COMMON_STRUCTURAL_INVALID_UUID`) appear in the future, is there a need for a consistent API?
+2. **Are cross-package compatibility tests necessary?** Currently there is no automatic check that changing `common.proto` does not break codegen in dependent category packages. You can add a CI job, which, after changing common, rebuilds all category packages.
+
+---
+
+### 11. Problems by severity
+
+| Severity | Count | Problems |
 |---|---|---|
 | **blocker** | 0 | — |
 | **high** | 0 | — |
-| **medium** | 3 | Хрупкий build-скрипт, отсутствие .gitignore, недостаточное тестовое покрытие |
-| **low** | 2 | Неполный README, отсутствие @vitest/coverage-v8 |
+| **medium** | 3 | Fragile build script, lack of .gitignore, insufficient test coverage |
+| **low** | 2 | Incomplete README, missing @vitest/coverage-v8 |
 
 ---
 

@@ -1,8 +1,8 @@
 # rntme landing — content inventory
 
-Весь копирайт страницы `rntme.com`, собранный из `src/components/*.astro`,
-`src/content/*.mdx` и `src/layouts/BaseLayout.astro`.
-Порядок секций совпадает с порядком рендера в `src/pages/index.astro`.
+All copy for the `rntme.com` page, collected from `src/components/*.astro`,
+`src/content/*.mdx`, and `src/layouts/BaseLayout.astro`.
+Section order matches the render order in `src/pages/index.astro`.
 
 ---
 
@@ -268,23 +268,23 @@ boot issues.v1 → staging
 
 ---
 
-## Env-зависимые значения
+## Env-Dependent Values
 
-Подставляются из `process.env` во время билда (`src/env.ts`):
+Injected from `process.env` during build (`src/env.ts`):
 
-| Переменная | Где используется |
+| Variable | Used in |
 | --- | --- |
-| `TALLY_FORM_ID` | Hero CTA, PilotForm iframe и noscript |
+| `TALLY_FORM_ID` | Hero CTA, PilotForm iframe and noscript |
 | `GITHUB_URL` | StatusBar, Hero CTA, Footer nav |
 | `DOCS_URL` | Footer nav |
 | `PLATFORM_URL` | Footer nav |
-| `DEMO_URL` *(optional)* | включает §04 и ставит его как CTA |
-| `PLAUSIBLE_DOMAIN` *(optional)* | подгружает `plausible.io/js/script.js` |
+| `DEMO_URL` *(optional)* | enables section §04 and uses it as a CTA |
+| `PLAUSIBLE_DOMAIN` *(optional)* | loads `plausible.io/js/script.js` |
 
 ---
 
-## Источники
+## Sources
 
-- Компоненты: `src/components/*.astro`, `src/components/AhaReveal.tsx`, `src/components/SideRail.tsx`, `src/components/StatusBar.astro`
-- Контент-слой (MDX): `src/content/micro-jobs.mdx`, `src/content/objections.mdx`, `src/content/competitors.mdx`
-- Мета: `src/pages/index.astro`, `src/layouts/BaseLayout.astro`
+- Components: `src/components/*.astro`, `src/components/AhaReveal.tsx`, `src/components/SideRail.tsx`, `src/components/StatusBar.astro`
+- Content layer (MDX): `src/content/micro-jobs.mdx`, `src/content/objections.mdx`, `src/content/competitors.mdx`
+- Meta: `src/pages/index.astro`, `src/layouts/BaseLayout.astro`

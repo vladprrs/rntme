@@ -101,7 +101,7 @@ None found.
 4. **Fix M4 / L4** — add missing unit tests for empty bindings, form/header inputFrom, redirect host checks. ~30 min.
 5. **Fix L1** — change `demo-openapi.mjs` import to `src/index.ts` or add build step to docs. ~5 min.
 
-### Requires product/architectural decision from Влад
+### Requires product/architectural decision from Vlad
 
 1. **M3** — Is `shapes` an official artifact field? If yes, it needs schema + docs. If no, remove the validator check.
 2. **L4** — Is `form` input source supported in Tier 1? If yes, fix OpenAPI emission. If no, reject it in `validateStructural` with a clear error code.

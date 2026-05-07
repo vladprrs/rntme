@@ -18,120 +18,120 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-Аудит `@rntme/bindings-grpc` завершён. Verdict: **needs cleanup** — пакет работает для MVP, но есть архитектурные риски, которые будут расти по мере расширения платформы.
+The audit of `@rntme/bindings-grpc` has been completed. Verdict: **needs cleanup** - the package works for an MVP, but there are architectural risks that will grow as the platform expands.
 
-## 1. Сводка по severity
+## 1. Severity summary
 
-| Severity | Count | Кратко |
+| Severity | Count | Briefly |
 |----------|-------|--------|
-| blocker  | 1     | `actor: null` ломает audit/actor-guard для всех gRPC-команд |
-| high     | 3     | Неправильное направление зависимости; неисчерпывающие switch; нефальсифицируемый E2E-тест |
-| medium   | 4     | Нет `pre[]`; хардкод `CommandResult`; ручная сериализация protobuf; невалидированное имя поля в ответе |
-| low      | 5     | Нет health/TLS; только output-шейпы; нет своих ERROR_CODES; пробелы в покрытии |
+| blocker | 1 | `actor: null` breaks audit/actor-guard for all gRPC commands |
+| high | 3 | Wrong direction of dependence; non-exhaustive switch; unfalsifiable E2E test |
+| medium | 4 | No `pre[]`; hardcode `CommandResult`; manual serialization protobuf; unvalidated field name in response |
+| low | 5 | No health/TLS; output shapes only; no own ERROR_CODES; coverage gaps |
 
-## 2. Проблемы
+## 2. Problems
 
 ### BLOCKER
 
-**B1. `actor: null` во всех gRPC-командах**
+**B1. `actor: null` in all gRPC commands**
 Evidence: `packages/runtime/bindings-grpc/src/server/handler.ts:60`
-Impact: Любая команда, пришедшая по gRPC, теряет actor-атрибуцию. Ломается audit trail и actor-based guard. HTTP-surface в `bindings-http` передаёт `actor: deps.actorFromRequest(c)`. gRPC-surface не принимает `actorFromRequest` в опциях и всегда ставит `null`.
-Рекомендация: добавить `actorFromRequest?: (metadata: grpc.Metadata) => ActorRef | null` в `GrpcServerOptions` и пробросить в handler.
+Impact: Any command that comes via gRPC loses actor attribution. The audit trail and actor-based guard are broken. The HTTP surface in `bindings-http` passes `actor: deps.actorFromRequest(c)`. gRPC-surface does not accept `actorFromRequest` in options and always puts `null`.
+Recommendation: add `actorFromRequest?: (metadata: grpc.Metadata) => ActorRef | null` in `GrpcServerOptions` and forward to handler.
 
 ### HIGH
 
-**H1. `bindings-grpc` зависит от `bindings-http` только для `executor-contract`**
-Evidence: `src/server/handler.ts:3-8`, `src/server/errors.ts:3-5`, `src/types.ts:3-5` импортируют `CommandExecutor` / `QueryExecutor` из `@rntme/bindings-http/executor-contract`.
-Impact: Executor seam — это shared контракт между HTTP и gRPC. Зависимость grpc от http нарушает layering и создаёт риск цикла при рефакторинге.
-Рекомендация: вынести `executor-contract.ts` в `@rntme/bindings` (или отдельный `@rntme/executor-contract`). Требует решения Влада, потому что затрагивает публичный API обоих пакетов.
+**H1. `bindings-grpc` depends on `bindings-http` only for `executor-contract`**
+Evidence: `src/server/handler.ts:3-8`, `src/server/errors.ts:3-5`, `src/types.ts:3-5` import `CommandExecutor` / `QueryExecutor` from `@rntme/bindings-http/executor-contract`.
+Impact: Executor seam is a shared contract between HTTP and gRPC. grpc's dependency on http breaks layering and creates a loop risk when refactoring.
+Recommendation: move `executor-contract.ts` to `@rntme/bindings` (or a separate `@rntme/executor-contract`). Requires Vlad's solution because it affects the public API of both packages.
 
-**H2. Неисчерпывающие `switch` без fallback-return**
-Evidence: `src/emit/scalars.ts:3-11` и `src/emit/shapes.ts:5-16`.
-Impact: Если в `@rntme/bindings` добавится новый `ScalarPrimitive` или `FieldType.kind`, компилятор TypeScript (`strict`) выдаст ошибку, но runtime-поведение при пропущенном `case` — `undefined`, и `.proto` будет сгенерирован с `undefined` вместо типа.
-Рекомендация: добавить `default` с `throw new Error('unreachable')` после exhaustive-проверки `_exhaustive: never`.
+**H2. Non-exhaustive `switch` without fallback-return**
+Evidence: `src/emit/scalars.ts:3-11` and `src/emit/shapes.ts:5-16`.
+Impact: If a new `ScalarPrimitive` or `FieldType.kind` is added to `@rntme/bindings`, the TypeScript compiler (`strict`) will throw an error, but the runtime behavior when `case` is omitted is `undefined`, and `.proto` will be generated with `undefined` instead of type.
+Recommendation: add `default` with `throw new Error('unreachable')` after the exhaustive check `_exhaustive: never`.
 
-**H3. Нефальсифицируемое assertion в demo E2E**
+**H3. Unfalsifiable assertion in demo E2E**
 Evidence: `demo/issue-tracker-api/test/e2e/grpc.test.ts:49` — `expect(error !== null || typeof response === 'object').toBe(true)`.
-Impact: Это утверждение всегда истинно для любого gRPC-ответа (даже ошибки). Дает ложное чувство покрытия. Ультраревью (spec `2026-04-23-ultrareview-fixes-design.md`) уже отмечал это как deferred.
-Рекомендация: заменить на конкретную проверку полей ответа (`expect(response.rows).toBeDefined()` и т.д.).
+Impact: This statement is always true for any gRPC response (even an error). Gives a false sense of coverage. Ultrareview (spec `2026-04-23-ultrareview-fixes-design.md`) already marked this as deferred.
+Recommendation: replace with a specific check of response fields (`expect(response.rows).toBeDefined()`, etc.).
 
 ### MEDIUM
 
-**M1. Нет поддержки `pre[]` middleware в gRPC surface**
+**M1. No support for `pre[]` middleware in gRPC surface**
 Evidence: `README.md:57` — "Not yet supported: `pre[]` middleware (plan 3)".
-Impact: Команды по gRPC не могут делать pre-fetch к модулям. Это core-фича платформы, и её отсутствие в gRPC делает surface вторым сортом.
-Рекомендация: либо реализовать `pre[]` оркестрацию в `handler.ts` (сложно, т.к. нет HTTP-контекста), либо явно задокументировать, что gRPC surface — только для internal module-to-service вызовов без `pre[]`, и валидатор должен reject binding с `pre[]` + gRPC exposure. Решение Влада.
+Impact: gRPC teams cannot pre-fetch modules. This is a core feature of the platform, and its absence in gRPC makes surface second-rate.
+Recommendation: either implement `pre[]` orchestration in `handler.ts` (difficult since there is no HTTP context), or explicitly document that gRPC surface is only for internal module-to-service calls without `pre[]`, and the validator should reject binding with `pre[]` + gRPC exposure. Vlad's decision.
 
-**M2. Хардкод строки `'CommandResult'` вместо константы из `@rntme/bindings`**
-Evidence: `src/emit/emit-proto.ts:28` фильтрует по `name === 'CommandResult'`.
-Impact: Если константа `COMMAND_RESULT_SHAPE_NAME` в `@rntme/bindings` изменится, фильтр сломается и `CommandResult` задублируется.
-Рекомендация: импортировать `COMMAND_RESULT_SHAPE_NAME` из `@rntme/bindings`.
+**M2. Hardcode of the string `'CommandResult'` instead of the constant from `@rntme/bindings`**
+Evidence: `src/emit/emit-proto.ts:28` filters by `name === 'CommandResult'`.
+Impact: If the `COMMAND_RESULT_SHAPE_NAME` constant in `@rntme/bindings` changes, the filter will break and `CommandResult` will be duplicated.
+Recommendation: Import `COMMAND_RESULT_SHAPE_NAME` from `@rntme/bindings`.
 
-**M3. Ручная реализация сериализации в `buildServiceDefinition`**
-Evidence: `src/server/create-server.ts:8-26` вручную строит `requestSerialize` / `requestDeserialize` через `protobufjs`.
-Impact: Дублирование логики, которую `@grpc/proto-loader` делает из коробки. Усложняет поддержку (например, добавление `google.protobuf.Any` или `Timestamp`).
-Рекомендация: рассмотреть переход на `@grpc/proto-loader` для загрузки `.proto` в `grpc.Server` — это соответствует решению в spec `2026-04-19-platform-modules-integration-design.md` §6.2.
+**M3. Manual implementation of serialization in `buildServiceDefinition`**
+Evidence: `src/server/create-server.ts:8-26` manually builds `requestSerialize` / `requestDeserialize` via `protobufjs`.
+Impact: Duplicate logic that `@grpc/proto-loader` does out of the box. Makes it more difficult to maintain (for example, adding `google.protobuf.Any` or `Timestamp`).
+Recommendation: Consider switching to `@grpc/proto-loader` to load `.proto` into `grpc.Server` - this corresponds to the solution in spec `2026-04-19-platform-modules-integration-design.md` §6.2.
 
-**M4. Имя поля в query-ответе не валидируется на существование в shape**
+**M4. The field name in the query response is not validated to exist in shape**
 Evidence: `src/server/handler.ts:99` — `{ [toSnakeCase(fromField)]: qout.value }`.
-Impact: Если `output.from` указывает на несуществующее поле, ответ будет содержать произвольный ключ. В HTTP-surface эта логика проходит через `render-response`, который имеет дополнительные проверки.
-Рекомендация: валидировать `fromField` против `outputShape.fields` на этапе компиляции (в `createGrpcServer`) или хотя бы assert в runtime.
+Impact: If `output.from` points to a non-existent field, the response will contain an arbitrary key. In HTTP-surface, this logic goes through `render-response`, which has additional checks.
+Recommendation: validate `fromField` against `outputShape.fields` at compile time (in `createGrpcServer`) or at least assert at runtime.
 
 ### LOW
 
-**L1. Нет `grpc.health.v1.Health` surface**
-Evidence: `README.md:60`. Для production оркестраторы (K8s, Dokploy) ожидают health endpoint.
-Рекомендация: добавить `Health` сервис в emitted proto при опции `healthCheck: true`.
+**L1. No `grpc.health.v1.Health` surface**
+Evidence: `README.md:60`. For production, orchestrators (K8s, Dokploy) expect a health endpoint.
+Recommendation: add the `Health` service to the emitted proto with the `healthCheck: true` option.
 
-**L2. Только insecure credentials**
-Evidence: `README.md:61` и `src/server/create-server.ts:58` — `grpc.ServerCredentials.createInsecure()`.
-Impact: Внутрикластерный трафик без mTLS.
-Рекомендация: roadmap item; пока задокументировать как known limitation.
+**L2. Only insecure credentials**
+Evidence: `README.md:61` and `src/server/create-server.ts:58` - `grpc.ServerCredentials.createInsecure()`.
+Impact: Intra-cluster traffic without mTLS.
+Recommendation: roadmap item; For now, document it as a known limitation.
 
-**L3. `collectShapesFromService` собирает только output-шейпы**
-Evidence: `packages/runtime/runtime/src/start/build-grpc-surface.ts:38-47` и inline TODO.
-Impact: Если binding имеет `row`/`rowset` input, соответствующее message не попадёт в `.proto`.
-Рекомендация: реализовать полный shape registry когда появится первый модуль с row-typed inputs (уже tracked).
+**L3. `collectShapesFromService` collects only output shapes**
+Evidence: `packages/runtime/runtime/src/start/build-grpc-surface.ts:38-47` and inline TODO.
+Impact: If the binding has a `row`/`rowset` input, the corresponding message will not end up in `.proto`.
+Recommendation: implement a full shape registry when the first module with row-typed inputs (already tracked) appears.
 
-**L4. Нет собственного реестра `ERROR_CODES`**
-Evidence: в пакете нет `src/types/result.ts` с `ERROR_CODES`. Ошибки маппятся из executor contract.
-Impact: Невозможно добавить gRPC-специфичные ошибки (например, `GRPC_PROTO_LOAD_FAILED`).
-Рекомендация: добавить `ERROR_CODES` по аналогии с другими пакетами.
+**L4. No own registry `ERROR_CODES`**
+Evidence: There is no `src/types/result.ts` with `ERROR_CODES` in the package. Errors are mapped from the executor contract.
+Impact: Cannot add gRPC-specific errors (e.g. `GRPC_PROTO_LOAD_FAILED`).
+Recommendation: add `ERROR_CODES` similar to other packages.
 
-**L5. Пробелы в тестовом покрытии**
-Evidence: анализ `test/`:
-- Нет теста на query с реальными данными (только `QUERY_NOT_FOUND` stub в `create-server.test.ts`).
-- Нет теста на metadata / correlation propagation.
-- Нет теста на `loadProtoFromString` с невалидным proto.
-- Нет теста на empty bindings (`emitProto` с пустым `validated.resolved`).
-- Нет теста на actor (всегда null).
+**L5. Gaps in test coverage**
+Evidence: analysis of `test/`:
+- There is no query test with real data (only `QUERY_NOT_FOUND` stub in `create-server.test.ts`).
+- No test for metadata / correlation propagation.
+- No test for `loadProtoFromString` with invalid proto.
+- No test for empty bindings (`emitProto` with empty `validated.resolved`).
+- No test for actor (always null).
 
 ## 3. Quick wins
 
-1. Исправить `actor: null` → проброс `actorFromRequest` через `GrpcServerOptions`.
-2. Добавить fallback `throw` в `scalarToProto` и `fieldTypeToProto`.
-3. Заменить хардкод `'CommandResult'` на импорт `COMMAND_RESULT_SHAPE_NAME`.
-4. Исправить assertion в `demo/issue-tracker-api/test/e2e/grpc.test.ts`.
-5. Добавить unit-тест на `loadProtoFromString` с невалидным proto.
-6. Добавить `ERROR_CODES` registry для gRPC-специфичных ошибок.
+1. Fix `actor: null` → forwarding `actorFromRequest` via `GrpcServerOptions`.
+2. Add fallback `throw` to `scalarToProto` and `fieldTypeToProto`.
+3. Replace the hardcode `'CommandResult'` with the import `COMMAND_RESULT_SHAPE_NAME`.
+4. Fix assertion in `demo/issue-tracker-api/test/e2e/grpc.test.ts`.
+5. Add a unit test for `loadProtoFromString` with an invalid proto.
+6. Add `ERROR_CODES` registry for gRPC-specific errors.
 
-## 4. Требуют продуктового/архитектурного решения Влада
+## 4. Requires Vlad’s product/architectural solution
 
-1. **Вынести `executor-contract` из `bindings-http` в shared пакет.** Это ломает публичный API `bindings-http`.
-2. **Поддержка `pre[]` в gRPC.** Реализовать или явно запретить на уровне валидатора?
-3. **Health-check proto и TLS/mTLS** — в каком приоритете?
-4. **Переход на `@grpc/proto-loader`** вместо ручной сериализации?
+1. **Move `executor-contract` from `bindings-http` into a shared package.** This breaks the public `bindings-http` API.
+2. **Support for `pre[]` in gRPC.** Implement or explicitly disable at validator level?
+3. **Health-check proto and TLS/mTLS** - what is the priority?
+4. **Switch to `@grpc/proto-loader`** instead of manual serialization?
 
-## 5. Соответствие product vision
+## 5. Compliance with product vision
 
-Пакет соответствует vision: gRPC — declared transport для module/service communication. Но текущий scope (emit + server без `pre[]`, без health, без actor) — это "minimal viable gRPC", а не production-ready surface. Необходимо закрыть blocker/high до того, как пакет станет публично документированным контрактом для module authors.
+The package corresponds to vision: gRPC — declared transport for module/service communication. But the current scope (emit + server without `pre[]`, without health, without actor) is a “minimal viable gRPC”, not a production-ready surface. Blocker/high must be closed before the package becomes a publicly documented contract for module authors.
 
-## 6. Definition of done для audit
+## 6. Definition of done for audit
 
-- [x] Полный обзор исходников, тестов, specs, runtime integration
-- [x] Проверены зависимости и направления импортов
-- [x] Проверены build/test/lint (все зелёные после `pnpm -r run build`)
-- [x] Проблемы ранжированы по severity с evidence и рекомендациями
-- [x] Выделены quick wins vs решения, требующие Влада
+- [x] Full review of sources, tests, specs, runtime integration
+- [x] Dependencies and directions of imports have been checked
+- [x] Build/test/lint checked (all green after `pnpm -r run build`)
+- [x] Issues ranked by severity with evidence and recommendations
+- [x] Highlighted quick wins vs solutions that require Vlad
 
-Audit готов для заведения implementation tasks.
+Audit is ready for implementation tasks.

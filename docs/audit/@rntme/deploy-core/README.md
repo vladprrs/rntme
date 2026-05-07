@@ -18,87 +18,87 @@ This document mirrors the read-only architecture audit posted on Multica so it c
 The sections below reproduce the audit comment body **verbatim** from Multica (formatting preserved).
 
 
-## Архитектурный аудит @rntme/deploy-core
+## Architectural audit @rntme/deploy-core
 
-**Verdict: needs cleanup.** Архитектура пакета соответствует спеке и product vision, публичный API чистый, границы ответственности соблюдены. Однако есть конкретные проблемы качества кода и покрытия тестами, которые нужно устранить до того, как пакет начнёт расти (production mode, новые middleware kinds, multi-environment).
+**Verdict: needs cleanup.** The architecture of the package corresponds to the spec and product vision, the public API is clean, the boundaries of responsibility are respected. However, there are specific problems of code quality and test coverage that need to be addressed before the package begins to grow (production mode, new middleware kinds, multi-environment).
 
 ---
 
-### Проблемы по severity
+### Problems by severity
 
-#### medium — Code duplication в edge.ts (middleware dispatch)
-- **Evidence:** src/edge.ts:167–220 — четыре почти идентичных блока для request-context, rate-limit, body-limit, timeout.
-- **Impact:** Добавление нового middleware kind (например, auth когда он будет поддерживаться) потребует copy-paste пятого блока. Риск забыть обновить один из блоков при изменении общей логики (например, добавить path в ошибку).
-- **Рекомендация:** Вынести generic dispatch: после isSupportedMiddlewareKind сделать единый вызов resolvePolicy(decl.kind, ...) и push в planned без switch по kind. Тип MiddlewarePolicyByKind уже позволяет это сделать.
+#### medium - Code duplication in edge.ts (middleware dispatch)
+- **Evidence:** src/edge.ts:167–220 - four almost identical blocks for request-context, rate-limit, body-limit, timeout.
+- **Impact:** Adding a new middleware kind (for example, auth when it is supported) will require copy-paste of the fifth block. There is a risk of forgetting to update one of the blocks when the general logic changes (for example, adding path to an error).
+- **Recommendation:** Make a generic dispatch: after isSupportedMiddlewareKind, make a single call resolvePolicy(decl.kind, ...) and push in planned without switch by kind. The MiddlewarePolicyByKind type already allows you to do this.
 
-#### medium — Мёртвая зависимость zod
-- **Evidence:** package.json:22 — "zod": "^4.0.0" в dependencies. grep -r zod src/ test/ — ноль использований.
-- **Impact:** Лишний runtime dependency, путает читателя (ожидаешь runtime validation, а её нет), замедляет install.
-- **Рекомендация:** Либо удалить из dependencies (если валидация на уровне структурных типов — осознанный выбор), либо добавить Zod-схемы для ComposedProjectInput и ProjectDeploymentConfig и валидировать вход до планирования. Это решение продукта.
+#### medium — Dead addiction zod
+- **Evidence:** package.json:22 - "zod": "^4.0.0" in dependencies. grep -r zod src/ test/ - zero uses.
+- **Impact:** Extra runtime dependency, confuses the reader (you expect runtime validation, but there is none), slows down the install.
+- **Recommendation:** Either remove from dependencies (if validation at the level of structural types is an informed choice), or add Zod schemas for ComposedProjectInput and ProjectDeploymentConfig and validate the input before scheduling. This is a product solution.
 
-#### medium — Недостаточное покрытие unit-тестами
-- **Evidence:** 12 тестов, все в test/unit/. Нет тестов для:
-  - body-limit и timeout middleware (только request-context и rate-limit покрыты);
-  - пустого project (services: {});
-  - duplicate service slug в project.services;
-  - одновременного failure нескольких policy values;
-  - orgSlug с пробелами (только trim() === '' проверяется, но не whitespace-only);
+#### medium — Insufficient unit test coverage
+- **Evidence:** 12 tests, all in test/unit/. No tests for:
+  - body-limit and timeout middleware (only request-context and rate-limit are covered);
+  - empty project (services: {});
+  - duplicate service slug in project.services;
+  - simultaneous failure of several policy values;
+  - orgSlug with spaces (only trim() === '' is checked, but not whitespace-only);
   - runtimeImage override;
-  - warnings (сейчас всегда [], но тип DeploymentWarning публичный).
-- **Impact:** Регрессии при добавлении новых features не будут ловиться на уровне этого пакета.
-- **Рекомендация:** Добавить тесты на перечисленные сценарии. Минимум: покрыть все 4 supported middleware kinds и empty/edge-case inputs.
+  - warnings (now always [], but the DeploymentWarning type is public).
+- **Impact:** Regressions when adding new features will not be caught at the level of this package.
+- **Recommendation:** Add tests for the listed scenarios. Minimum: cover all 4 supported middleware kinds and empty/edge-case inputs.
 
-#### low — Избыточная проверка в plan.ts
-- **Evidence:** src/plan.ts:116 — if (errors.length > 0 || config.eventBus === undefined). Если eventBus === undefined, ошибка DEPLOY_PLAN_MISSING_EVENT_BUS уже добавлена в errors на строке 104–110, поэтому errors.length > 0 уже true. Вторая часть OR избыточна.
-- **Impact:** Минимальный, но путает читателя — создаёт впечатление, что есть edge case, который первая часть не покрывает.
-- **Рекомендация:** Упростить до if (errors.length > 0).
+#### low — Redundant check in plan.ts
+- **Evidence:** src/plan.ts:116 — if (errors.length > 0 || config.eventBus === undefined). If eventBus === undefined, the DEPLOY_PLAN_MISSING_EVENT_BUS error is already added to errors on line 104–110, so errors.length > 0 is already true. The second part of the OR is redundant.
+- **Impact:** Minimal, but confuses the reader - it gives the impression that there is an edge case that the first part does not cover.
+- **Recommendation:** Simplify to if (errors.length > 0).
 
-#### low — DeploymentPlanError не типобезопасен по контексту
-- **Evidence:** src/errors.ts:17–25 — одна структура с необязательными полями path, service, route, middleware, policy. Нельзя на уровне типов выразить, что DEPLOY_PLAN_ROUTE_TARGET_MISSING_WORKLOAD обязан иметь service и route, а DEPLOY_PLAN_MISSING_ORG_SLUG — path.
-- **Impact:** Код downstream может полагаться на поля, которые не гарантированы. Легко забыть заполнить релевантное поле при добавлении нового error code.
-- **Рекомендация:** Рассмотреть discriminated union по code, где каждый code несёт свои обязательные поля. Это breaking change для потребителей, поэтому требует отдельного follow-up.
+#### low — DeploymentPlanError is not type-safe by context
+- **Evidence:** src/errors.ts:17–25 - one structure with optional fields path, service, route, middleware, policy. It is impossible to express at the type level that DEPLOY_PLAN_ROUTE_TARGET_MISSING_WORKLOAD must have service and route, and DEPLOY_PLAN_MISSING_ORG_SLUG must have path.
+- **Impact:** Downstream code may rely on fields that are not guaranteed. It's easy to forget to fill in the relevant field when adding a new error code.
+- **Recommendation:** Consider a discriminated union by code, where each code has its own required fields. This is a breaking change for consumers, and therefore requires a separate follow-up.
 
-#### low — passWithNoTests: true в vitest.config.ts
+#### low - passWithNoTests: true in vitest.config.ts
 - **Evidence:** vitest.config.ts:9.
-- **Impact:** Если все тестовые файлы случайно пропадут или будут исключены, CI не упадёт.
-- **Рекомендация:** Удалить эту опцию. В пакете уже есть тесты, так что false positive не ожидается.
+- **Impact:** If all test files accidentally disappear or are excluded, CI will not crash.
+- **Recommendation:** Remove this option. The package already has tests, so false positives are not expected.
 
-#### low — Нет runtime validation входных данных
-- **Evidence:** buildProjectDeploymentPlan принимает ComposedProjectInput и ProjectDeploymentConfig как plain structural types. Нет проверки, что project.services не null/undefined, что slug'и не содержат недопустимых символов, что routes.ui и routes.http не конфликтуют по path.
-- **Impact:** Невалидный input от caller'а (например, баг в @rntme/blueprint или platform-http executor) может привести к странным runtime ошибкам вместо читаемых DEPLOY_PLAN_* ошибок.
-- **Рекомендация:** Добавить defensive checks на вход (или Zod-схемы, если решаем medium-проблему с zod выше).
-
----
-
-### Соответствие спеке и product vision
-
-- **Спека:** docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md — пакет реализует решения D1–D36 корректно. Границы core/adapter/frontend соблюдены.
-- **Product vision:** Пакет усиливает позиционирование rntme как repeatable deploy-инфраструктуры для AI-generated проектов. Target-neutral planning позволит будущим адаптерам (Fly.io, Railway) переиспользовать deploy-core без изменений.
+#### low — No runtime validation of input data
+- **Evidence:** buildProjectDeploymentPlan accepts ComposedProjectInput and ProjectDeploymentConfig as plain structural types. There is no check that project.services is not null/undefined, that slugs do not contain invalid characters, that routes.ui and routes.http do not conflict in path.
+- **Impact:** Invalid input from the caller (for example, a bug in @rntme/blueprint or platform-http executor) can lead to strange runtime errors instead of readable DEPLOY_PLAN_* errors.
+- **Recommendation:** Add defensive checks to the input (or Zod schemes, if we are solving the medium problem with the Zod above).
 
 ---
 
-### Quick wins (можно сделать без продуктового решения)
+### Compliance with the spec and product vision
 
-1. Убрать passWithNoTests: true.
-2. Упростить if в plan.ts.
-3. Отрефакторить дублирование в edge.ts (единый dispatch loop).
-4. Добавить недостающие unit-тесты на body-limit, timeout, empty project, runtimeImage override.
-
-### Требуют решения Влада
-
-1. **Удалить или использовать zod?** Если валидация входов через structural types — осознанный выбор, удаляем зависимость. Если хочется runtime validation, добавляем Zod-схемы.
-2. **Типобезопасность DeploymentPlanError?** Переход на discriminated union — breaking change. Нужен ли он сейчас или отложить до стабилизации API?
-3. **Какой порог покрытия тестами установить?** Сейчас 12 тестов — достаточно для MVP, но нужен ли formal coverage gate (например, 80%)?
+- **Spec:** docs/superpowers/specs/done/2026-04-24-project-deployment-pipeline-design.md - the package implements solutions D1–D36 correctly. The core/adapter/frontend boundaries are respected.
+- **Product vision:** The package strengthens the positioning of rntme as a repeatable deployable infrastructure for AI-generated projects. Target-neutral planning will allow future adapters (Fly.io, Railway) to reuse deploy-core without changes.
 
 ---
 
-### Файлы, к которым применимы рекомендации
+### Quick wins (can be done without a product solution)
 
-- src/edge.ts — рефакторинг dispatch loop
-- src/plan.ts — убрать избыточную проверку
-- src/errors.ts — типобезопасность ошибок (по решению)
+1. Remove passWithNoTests: true.
+2. Simplify if in plan.ts.
+3. Refactor duplication in edge.ts (single dispatch loop).
+4. Add the missing unit tests for body-limit, timeout, empty project, runtimeImage override.
+
+### Require Vlad's decision
+
+1. **Delete or use zod?** If validating inputs through structural types is a conscious choice, remove the dependency. If you want runtime validation, add Zod schemes.
+2. **Type safety DeploymentPlanError?** Transition to discriminated union - breaking change. Is it needed now or should it be postponed until the API stabilizes?
+3. **What test coverage threshold should I set?** Now 12 tests are enough for an MVP, but is a formal coverage gate necessary (for example, 80%)?
+
+---
+
+### Files to which the recommendations apply
+
+- src/edge.ts — dispatch loop refactoring
+- src/plan.ts — remove redundant checks
+- src/errors.ts — type safety of errors (by decision)
 - package.json — zod dependency
 - vitest.config.ts — passWithNoTests
-- test/unit/plan.test.ts, test/unit/edge.test.ts — дополнить тесты
+- test/unit/plan.test.ts, test/unit/edge.test.ts — add tests
 
-Аудит read-only. PR не создан.
+Read-only audit. PR has not been created.
