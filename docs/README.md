@@ -32,6 +32,10 @@ Historical documents answer "why did we decide this at the time?" They are not
 current-state truth by themselves. Verify current behavior against code/tests,
 `docs/current/**`, `docs/decision-system.md`, and `.dependency-cruiser.cjs`.
 
+Wave 2 will move archived specs, plans, ADRs, audits, research notes, and gaps
+into `docs/history/**`. Until then, historical material remains in its current
+directories and should be treated as rationale, not current-state truth.
+
 ## Docs Touch
 
 Every implementation plan must evaluate whether it changes:
