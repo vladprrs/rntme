@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@rntme/blueprint": "workspace:*",
+    "@rntme/bundle-publish": "workspace:*",
     "@rntme/platform-core": "workspace:*",
     "@truestamp/canonify": "^1.0.0",
     "zod": "^4.0.0"

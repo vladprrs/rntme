@@ -50,6 +50,7 @@ Commands:
   login                   Save credentials to local credentials file
   logout                  Remove local credentials
   whoami                  Print the authenticated user/org
+  bundle publish          Publish a static folder as a sha256-pinned S3 bundle
   project create <slug>   Create a new project
   project list            List projects in the org
   project show [slug]     Show a project
@@ -137,6 +138,37 @@ rntme project operation watch --org my-org --project my-project <operation-id>
 
 `project update` always requires an explicit `--target`; it never falls back to
 the default deploy target implicitly.
+
+## Bundle Publish
+
+`rntme bundle publish` turns a prebuilt static folder into a deterministic tar+gzip bundle, uploads it to S3-compatible storage, and prints the `BundleSource` shape used by marketing-site modules.
+
+```bash
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=testtest \
+  rntme bundle publish demo/cv-extract-blueprint/landing \
+  --target s3 \
+  --bucket cv-extract \
+  --endpoint http://localhost:9000 \
+  --key-prefix landings/cv-extract \
+  --print-json
+```
+
+Options:
+
+- `<folder>` - folder to publish; must contain root `index.html`.
+- `--target s3` - only target kind in v1.
+- `--bucket <bucket>` - S3 bucket.
+- `--endpoint <url>` - optional S3-compatible endpoint such as MinIO.
+- `--region <region>` - optional AWS region.
+- `--key-prefix <prefix>` - object prefix; final key is `<prefix>/<sha256>.tar.gz`.
+- `--max-bytes <n>` - source-folder byte cap before bundle creation.
+- `--ignore <glob>` - repeatable minimal glob, where `*` matches one segment and `**` crosses separators.
+- `--print-json` - print compact `{ "kind": "s3", "bucket", "key", "sha256", ... }` for `project.json`.
+
+Credentials use the AWS SDK default provider chain (`AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`, profiles, or instance/task roles). The command does not read rntme platform credentials.
+
+Expected publish failures are printed as `BUNDLE_PUBLISH_*` codes from `@rntme/bundle-publish`, including missing folders, missing `index.html`, oversized inputs, credential failures, and S3 PutObject failures.
 
 ## Environment Variables
 
