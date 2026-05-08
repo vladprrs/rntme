@@ -565,7 +565,7 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    expect(r.value.urls.projectUrl).toBe('https://commerce.example.com/');
+    expect(r.value.urls.projectUrl).toBe('https://commerce.example.com');
     expect(r.value.urls.uiUrl).toBe('https://commerce.example.com/');
     expect(r.value.urls.publicRoutes).toEqual([
       { routeId: 'http:/api/catalog', url: 'https://commerce.example.com/api/catalog' },

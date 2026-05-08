@@ -14,7 +14,7 @@ export {
   type DokployCompose,
   type DokployProjectRef,
 } from './client.js';
-export { type DokployTargetConfig } from './config.js';
+export { type DokployTargetConfig, validateDokployTargetConfig, type NormalizedDokployTargetConfig } from './config.js';
 export { dokployLabels, dokployResourceName } from './names.js';
 export { renderNginxConfig } from './nginx.js';
 export {

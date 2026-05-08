@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
-import type { DokployTargetConfig } from './config.js';
+import { validateDokployTargetConfig, type DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
@@ -129,7 +129,11 @@ export function renderDokployPlan(
   provisionedModules: ReadonlyMap<string, ProvisionedModule> = new Map(),
   envMappings: ProvisionerEnvMapping = {},
 ): Result<RenderedDokployPlan, DokployDeploymentError> {
-  const targetProject = resolveProject(config);
+  const configResult = validateDokployTargetConfig(config);
+  if (!configResult.ok) return err(configResult.errors);
+
+  const resolvedConfig = configResult.value;
+  const targetProject = resolveProject(resolvedConfig);
   if (targetProject === null) {
     return err([
       {
@@ -164,7 +168,7 @@ export function renderDokployPlan(
   }
 
   const infrastructureResources = renderInfrastructureResources(plan);
-  const workloadResources = renderWorkloadResources(plan, nginxConfig.value, config.publicBaseUrl);
+  const workloadResources = renderWorkloadResources(plan, nginxConfig.value, resolvedConfig.publicBaseUrl);
   if (!workloadResources.ok) return workloadResources;
   const resources = [...infrastructureResources, ...workloadResources.value];
 
@@ -185,21 +189,23 @@ export function renderDokployPlan(
   const ingressRoutes = plan.edge.routes.map((route) => ({
     routeId: route.id,
     path: route.path,
-    url: joinPublicUrl(config.publicBaseUrl, route.path),
+    url: joinPublicUrl(resolvedConfig.publicBaseUrl, route.path),
   }));
   const publicSmokeRoutes = ingressRoutes.filter((_, idx) => {
     const route = plan.edge.routes[idx];
     return route !== undefined && route.kind !== 'ui' && !isAuthProtectedRoute(plan, route.id);
   });
-  const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
+  const protectedRouteChecks = protectedSmokeChecks(plan, resolvedConfig.publicBaseUrl);
   const operatonUiAccess = plan.infrastructure.workflowEngine?.kind === 'operaton'
     ? plan.infrastructure.workflowEngine.uiAccess
     : undefined;
   const operatonUiUrl = operatonUiAccess?.publicBaseUrl;
   const redpandaConsoleUrl = plan.infrastructure.manualAccess?.redpandaConsole?.publicBaseUrl;
   const urls: RenderedDokployPlan['urls'] = {
-    projectUrl: config.publicBaseUrl,
-    ...(uiRoute === undefined ? {} : { uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path) }),
+    projectUrl: resolvedConfig.publicBaseUrl,
+    ...(uiRoute === undefined
+      ? {}
+      : { uiUrl: joinPublicUrl(resolvedConfig.publicBaseUrl, uiRoute.path) }),
     ...(operatonUiUrl === undefined
       ? {}
       : {
@@ -211,7 +217,7 @@ export function renderDokployPlan(
     protectedRouteChecks,
   };
   const renderedWithoutDigest = {
-    target: { kind: 'dokploy' as const, endpoint: config.endpoint },
+    target: { kind: 'dokploy' as const, endpoint: resolvedConfig.endpoint },
     targetProject,
     deployment: {
       orgSlug: plan.project.orgSlug,
@@ -226,7 +232,7 @@ export function renderDokployPlan(
             ...resource,
             ports: [{ containerPort: 8080, protocol: 'http' as const }],
             ingress: {
-              publicBaseUrl: config.publicBaseUrl,
+              publicBaseUrl: resolvedConfig.publicBaseUrl,
               containerPort: 8080,
               healthPath: '/health' as const,
               routes: ingressRoutes,

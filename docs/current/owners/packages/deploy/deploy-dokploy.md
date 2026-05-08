@@ -12,6 +12,15 @@ On the platform path, deploy target credentials are decrypted inside
 `@rntme/platform-http`'s Dokploy client factory. This package receives only
 redacted target configuration and the injected client seam.
 
+`endpoint` (Dokploy API base) and `publicBaseUrl` (browser-facing app origin)
+are validated at the start of `renderDokployPlan`. Invalid or empty values fail
+with `DEPLOY_DOKPLOY_INVALID_TARGET_URL` and an error `path` of `endpoint` or
+`publicBaseUrl`. Only `http:` and `https:` URLs with a host are accepted; URLs
+must not include userinfo, query strings, or fragments. Accepted values are
+normalized (whitespace trimmed; redundant trailing slashes removed on the path
+and on the root) so rendered smoke URLs and `target.endpoint` stay stable.
+Error messages never include raw URL values or credentials.
+
 ## Public API
 
 - `renderDokployPlan(plan, config)` — creates a redacted Dokploy plan with
