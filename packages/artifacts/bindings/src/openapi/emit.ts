@@ -1,5 +1,4 @@
 import type { ResolvedBinding, ValidatedBindings } from '../types/artifact.js';
-import type { BindingResolvers } from '../types/resolvers.js';
 import type {
   InfoObject,
   OpenApiDoc,
@@ -134,7 +133,6 @@ function buildOperation(
 
 export function generateOpenApi(
   validated: ValidatedBindings,
-  _resolvers: BindingResolvers,
   options: OpenApiGenOptions = {},
 ): Result<OpenApiDoc> {
   const shapeOptions: ShapeEmitOptions = {

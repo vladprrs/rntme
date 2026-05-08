@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateOpenApi } from '../../../src/openapi/emit.js';
 import type { ValidatedBindings, BindingEntry } from '../../../src/types/artifact.js';
-import type { GraphSignature, ResolvedShape, BindingResolvers } from '../../../src/types/resolvers.js';
-
-const dummyResolvers: BindingResolvers = {
-  resolveGraphSignature: () => null,
-  resolveShape: () => null,
-};
+import type { GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
 
 const emptyEffects = {
   localReads: false,
@@ -57,7 +52,7 @@ describe('OpenAPI emission for P2 callback', () => {
         onOk: { redirect: '/app/connected?flow={$result.aggregateId}', status: 302 },
         onErr: { redirect: '/app/error?c={$error.code}' },
       },
-    }), dummyResolvers);
+    }));
     expect(doc.ok).toBe(true);
     if (!doc.ok) return;
     const op = doc.value.paths['/oauth/stripe/callback']?.get;
@@ -80,7 +75,7 @@ describe('OpenAPI emission for P2 callback', () => {
         onOk: { redirect: '/app', status: 303 },
         onErr: { json: '$error' },
       },
-    }), dummyResolvers);
+    }));
     expect(doc.ok).toBe(true);
     if (!doc.ok) return;
     const op = doc.value.paths['/callback']?.get;
@@ -98,7 +93,7 @@ describe('OpenAPI emission for P2 callback', () => {
         onOk: { redirect: '/app' },
         onErr: { json: '$error' },
       },
-    }), dummyResolvers);
+    }));
     expect(doc.ok).toBe(true);
     if (!doc.ok) return;
     const op = doc.value.paths['/callback']?.get;
@@ -112,7 +107,7 @@ describe('OpenAPI emission for P2 callback', () => {
       graph: 'createOrder',
       target: { engine: 'graph-ir', dialect: 'sqlite' },
       http: { method: 'POST', path: '/commands/createOrder', parameters: [] },
-    }), dummyResolvers);
+    }));
     expect(doc.ok).toBe(true);
     if (!doc.ok) return;
     const op = doc.value.paths['/commands/createOrder']?.post;

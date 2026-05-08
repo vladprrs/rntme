@@ -1,7 +1,7 @@
 # Binding Examples: HTTP Artifact -> OpenAPI 3.1
 
 Five examples, from minimal to kitchen sink, showing what
-`generateOpenApi(validateBindings(parseBindingArtifact(input), resolvers), resolvers)`
+`generateOpenApi(validateBindings(parseBindingArtifact(input), resolvers))`
 produces. All examples are reproduced by
 [`../demo-openapi.mjs`](/packages/artifacts/bindings/demo-openapi.mjs) (`node demo-openapi.mjs` after `pnpm build`).
 
@@ -106,7 +106,7 @@ Notes:
 - Response is always `type:'array'` with a `$ref` to the shape; singleton/scalar results are not supported at this stage
   (`src/validate/consistency.ts:41`).
 - Standard `400/422/500` errors are included by default; disable with
-  `generateOpenApi(v, r, { standardErrors: false })` (`src/openapi/emit.ts:27`, usage at
+  `generateOpenApi(v, { standardErrors: false })` (`src/openapi/emit.ts:27`, usage at
   `src/openapi/emit.ts:112`).
 
 ---
@@ -192,7 +192,7 @@ Notes:
   optionality is already encoded in SQL (`(? IS NULL) OR ...`), so at HTTP level it is simply
   `required:false`.
 - `decimal` is encoded as string (precision-safe). For clients that reject this,
-  use `generateOpenApi(v, r, { decimalEncoding: 'number' })` (`src/openapi/shapes.ts:13`).
+  use `generateOpenApi(v, { decimalEncoding: 'number' })` (`src/openapi/shapes.ts:13`).
 
 ---
 
