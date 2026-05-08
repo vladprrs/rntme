@@ -1,5 +1,5 @@
 export { ok, err, isOk, isErr } from './types/result.js';
-export type { Result, UiError, UiErrorCode } from './types/result.js';
+export type { Result, UiError, UiErrorCode, UiErrorLayer } from './types/result.js';
 
 export type {
   SourceManifest, RouteEntry, ScreenDescriptor, DataBinding,

@@ -25,7 +25,7 @@ src/
   validate/
     index.ts                  (entry) validate() — runs structural on all layouts+screens, then references/consistency; merges manifest route patterns into the route resolver.
     structural.ts             validateStructural — root exists, no orphan elements, child references resolve, Slot elements rejected outside layouts.
-    references.ts             validateReferences — data/action bindings resolve with optional logical kind checks, navigation targets match routes, $state paths and command/data inputs are covered, component props match catalog schemas.
+    references.ts             validateReferences — data/action bindings resolve with optional logical kind checks, navigation targets match routes, $state paths and command/data inputs are covered, storage route ids can resolve through caller-provided storage metadata, component props match catalog schemas.
   emit/
     emit.ts                   (entry) emit() — maps manifest routes to { layout, screen }; projects each layout+screen through resolveScreenHttp into CompiledScreen form.
     http-map.ts               resolveScreenHttp + HttpEntry — translates DataBinding and CommandAction binding IDs into { method, path } via the caller-supplied httpMap; passes navigation/refetch actions through.
@@ -73,11 +73,15 @@ const httpMap: Record<string, HttpEntry> = {
   listIssues: { method: 'GET', path: '/api/issues' },
   createIssue: { method: 'POST', path: '/api/issues' },
 };
+const storageRouteMap: Record<string, string> = {};
 
 const resolvers: ValidateResolvers = {
   resolveBinding: (id) => (id in httpMap ? { id } : undefined),
   resolveComponent: (type) => ({ childrenModel: type === 'Text' ? 'none' : 'list' }),
   resolveRoute: () => false, // manifest routes are merged automatically
+  resolveOperation: () => undefined,
+  resolveCategoryToModule: () => undefined,
+  resolveStorageRoute: (routeId) => storageRouteMap[routeId],
 };
 
 const result = compile({
@@ -113,13 +117,13 @@ The individual phases (`resolve`, `expand`, `validate`, `emit`) are exported as 
 | Type | File | Role |
 |---|---|---|
 | `Result<T>` | `types/result.ts` | `{ ok: true; value } \| { ok: false; errors: UiError[] }`. |
-| `UiError`, `UiErrorCode` | `types/result.ts` | Frozen code union + `{ code, message, path? }`. |
+| `UiError`, `UiErrorCode`, `UiErrorLayer` | `types/result.ts` | Frozen code union + `{ layer?, code, message, path? }`. |
 | `SourceManifest`, `SpecJson`, `ScreenDescriptor`, `RefElement` | `types/source.ts` | Authoring shapes (input). |
 | `ResolvedSource` | `types/source.ts` | Output of `resolve`. |
 | `ExpandedSource` | `expand/expand.ts` | Output of `expand` (specs are already `CompiledSpec` shape; no `$ref`/`$param`). |
 | `CompiledArtifact`, `CompiledManifest`, `CompiledScreen`, `CompiledSpec`, `CompiledElement`, `CompiledDataEndpoint`, `CompiledAction` | `types/compiled.ts` | Output shapes consumed by `@rntme/ui-runtime`. |
 | `CompileOptions` | `compile.ts` | `{ sourceDir, httpMap, resolvers }`. |
-| `ValidateResolvers` | `validate/index.ts` | `{ resolveBinding, resolveComponent, resolveRoute, resolveOperation, resolveCategoryToModule }`. `resolveBinding` may return optional `{ kind }` or `{ entry: { kind } }` metadata. |
+| `ValidateResolvers` | `validate/index.ts` | `{ resolveBinding, resolveComponent, resolveRoute, resolveOperation, resolveCategoryToModule, resolveStorageRoute? }`. `resolveBinding` may return optional `{ kind }` or `{ entry: { kind } }` metadata. |
 | `HttpEntry` | `emit/http-map.ts` | `{ method: 'GET' \| 'POST'; path: string }`. |
 
 ### Error codes (`UiErrorCode`)
@@ -132,7 +136,7 @@ Frozen union in `types/result.ts`. Grouped by phase.
 | Expand | `UNBOUND_PARAM`, `UNKNOWN_PARAM` |
 | Validate (parse) | `SPEC_INVALID`, `SCREEN_SCHEMA_INVALID` |
 | Validate (structural) | `MISSING_ROOT`, `ORPHAN_ELEMENT`, `BAD_CHILD_REF`, `SLOT_NOT_IN_LAYOUT` |
-| Validate (references) | `UNRESOLVED_BINDING`, `BINDING_KIND_MISMATCH`, `UNCOVERED_STATE_PATH`, `UNKNOWN_ROUTE` |
+| Validate (references) | `UNRESOLVED_BINDING`, `BINDING_KIND_MISMATCH`, `UNCOVERED_STATE_PATH`, `UNKNOWN_ROUTE`, `UI_REFERENCES_UNKNOWN_STORAGE_ROUTE` |
 | Validate (consistency) | `TYPE_MISMATCH`, `UNCOVERED_INPUT` |
 | Emit | `EMIT_FAILED` |
 | Generic | `INTERNAL` |
@@ -204,6 +208,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 - **`expand` preserves element `repeat` metadata verbatim.** `repeat: { statePath, key? }` is copied through without `$param` substitution on `statePath` (by design: statePath is a target, not a value).
 - **Circular-ref detection tracks paths, not file handles.** `collectFragments.visiting` is a `Set<string>` of base paths; two different files normalized to the same base path are treated as the same node.
 - **`resolveComponent` is load-bearing.** The references layer validates element component types, required props, and literal prop types through `ValidateResolvers.resolveComponent`; project composition supplies core runtime components plus module catalog components.
+- **Storage route validation is caller-fed.** When `ValidateResolvers.resolveStorageRoute` is supplied, `UploadDropzone`, `FileList`, and `FilePreview` literal `routeId` props are checked against the emitted storage route map and fail with `UI_REFERENCES_UNKNOWN_STORAGE_ROUTE` when missing. Dynamic `$state` route ids are not statically checked.
 - **`resolveBinding` return values may be opaque.** Missing values still emit `UNRESOLVED_BINDING`. If the returned value has no logical `kind` metadata, binding-kind validation is skipped for compatibility; if it has metadata, mismatches emit `BINDING_KIND_MISMATCH`.
 - **Validation is pure on `ExpandedSource`.** Post-expand, specs are free of `$ref`/`$param`; structural and reference validators operate on `CompiledSpec` directly, which is why they can also be reused for runtime-side sanity checks.
 
@@ -223,6 +228,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 
 - Add a new element-tree structural rule → `src/validate/structural.ts`; follow the pattern of `SLOT_NOT_IN_LAYOUT`. Register the code in `UiErrorCode` (`src/types/result.ts`) and document it above.
 - Add a new `$state` coverage prefix → `src/validate/references.ts`, `collectStatePaths` + the `isCovered` check.
+- Add a new cross-artifact reference check → `src/validate/references.ts`; prefer an optional resolver on `ValidateResolvers` so `@rntme/ui` keeps no `@rntme/*` package dependencies.
 - Add a new action kind → extend `ActionDef` in `src/types/source.ts` and `CompiledAction` in `src/types/compiled.ts`; branch in `src/emit/http-map.ts` (`resolveScreenHttp`) and in `src/validate/references.ts` (reference checks for the new kind).
 - Change fragment inlining semantics → `src/expand/expand.ts`, functions `inlineFragment` and `expandSpec`.
 - Add a fragment cycle reproduction → `test/fixtures/cycle-app` (`fragments/a` ↔ `fragments/b`) triggers `CIRCULAR_REF`.
