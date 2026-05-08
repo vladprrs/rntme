@@ -7,6 +7,7 @@ import { createRouteResolver } from '../route-resolver.js';
 import { createStorageGrpcServer, type StorageRpcName } from '../server.js';
 import { createBunS3Client, resolveS3OptionsFromEnv } from '../s3-client.js';
 import { NOOP_BUS } from '../event-bus.js';
+import { startSweeper } from '../sweeper.js';
 
 async function main(): Promise<void> {
   const port = Number(process.env.PORT ?? 50051);
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
 
   const server = createStorageGrpcServer({ module, port });
   const { port: bound } = await server.listen();
+  startSweeper({ store, s3, bus: NOOP_BUS });
   console.log(`storage-s3 grpc listening on :${bound}`);
 }
 

@@ -10,3 +10,4 @@ export { createBunS3Client, resolveS3OptionsFromEnv } from './s3-client.js';
 export type { S3ClientLike, S3ClientOptions } from './s3-client.js';
 export { createStorageGrpcServer } from './server.js';
 export type { StorageGrpcServer, StorageGrpcServerOptions, StorageRpcName } from './server.js';
+export { runSweepOnce, startSweeper } from './sweeper.js';
