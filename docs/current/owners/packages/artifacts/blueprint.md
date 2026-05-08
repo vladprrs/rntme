@@ -35,7 +35,7 @@ Project-first blueprint parser/validator for rntme.
 - **Seed loading:** `loadServiceMember` reads `services/<svc>/seed/seed.json` only when `service.artifacts.hasSeed` is true (for example after `discoverServiceArtifacts` or an equivalent explicit descriptor). If `seed/seed.json` exists on disk but `hasSeed` is false, the file is ignored; callers must re-run discovery or pass an updated artifacts object to load it.
 - `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
-- `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
+- `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context. Scalar primitive validation delegates to `@rntme/bindings` (`SCALAR_PRIMITIVES` / `isScalarPrimitive`); do not add a separate blueprint scalar list.
 - `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
 - `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task action binding refs through the project binding registry.
 - `materializeBundle(bundle)` — write a canonical project-version bundle
