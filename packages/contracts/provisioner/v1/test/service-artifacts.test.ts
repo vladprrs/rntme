@@ -14,7 +14,7 @@ describe('ProvisionerInput.serviceArtifacts', () => {
       publicConfig: { x: 1 },
       targetSecrets: {},
       log: () => undefined,
-      signal: new AbortController().signal,
+      signal: new globalThis.AbortController().signal,
     };
     expectTypeOf(input).not.toBeNullable();
   });

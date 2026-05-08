@@ -30,7 +30,7 @@ describe('storageS3Provisioner', () => {
       backend: 'aws-s3' as const,
     },
     log: () => undefined,
-    signal: new AbortController().signal,
+    signal: new globalThis.AbortController().signal,
   };
 
   it('returns STORAGE_PROVISIONER_VALIDATION_FAILED when no creds at all', async () => {

@@ -46,10 +46,11 @@ async function main(): Promise<void> {
   const server = createStorageGrpcServer({ module, port });
   const { port: bound } = await server.listen();
   startSweeper({ store, s3, bus: NOOP_BUS });
-  console.log(`storage-s3 grpc listening on :${bound}`);
+  process.stdout.write(`storage-s3 grpc listening on :${bound}\n`);
 }
 
 main().catch((error) => {
-  console.error(error);
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  process.stderr.write(`${message}\n`);
   process.exit(1);
 });

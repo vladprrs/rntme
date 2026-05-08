@@ -33,11 +33,11 @@ export function startSweeper(deps: {
   intervalMs?: number;
 }): () => void {
   const interval = deps.intervalMs ?? 60_000;
-  const timer = setInterval(() => {
+  const timer = globalThis.setInterval(() => {
     void runSweepOnce(deps);
   }, interval);
   if (typeof (timer as unknown as { unref?: () => void }).unref === 'function') {
     (timer as unknown as { unref: () => void }).unref();
   }
-  return () => clearInterval(timer);
+  return () => globalThis.clearInterval(timer);
 }

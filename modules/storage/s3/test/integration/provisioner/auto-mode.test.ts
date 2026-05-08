@@ -35,7 +35,7 @@ describe.skipIf(skip)('provisioner auto-mode against MinIO', () => {
       targetSecrets: { s3Admin: creds, projectSlug: 'demo', env: 'test' },
       serviceArtifacts: {},
       log: () => undefined,
-      signal: new AbortController().signal,
+      signal: new globalThis.AbortController().signal,
     });
 
     expect(result.ok).toBe(true);
