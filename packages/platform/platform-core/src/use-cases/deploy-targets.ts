@@ -46,6 +46,7 @@ export async function createDeployTarget(
       modules: input.req.modules,
       workflows: input.req.workflows,
       auth: input.req.auth,
+      manualAccess: input.req.manualAccess,
       policyValues: input.req.policyValues,
       isDefault: input.req.isDefault,
     },
@@ -74,8 +75,7 @@ export async function updateDeployTarget(
   if (input.patch.eventBus !== undefined) patch.eventBusConfig = input.patch.eventBus;
   if (input.patch.modules !== undefined) patch.modules = input.patch.modules;
   if (input.patch.workflows !== undefined) patch.workflows = input.patch.workflows;
-  if (input.patch.auth !== undefined) patch.auth = input.patch.auth;
-  if (input.patch.policyValues !== undefined) patch.policyValues = input.patch.policyValues;
+  if (input.patch.manualAccess !== undefined) patch.manualAccess = input.patch.manualAccess;
   if (input.patch.isDefault !== undefined) patch.isDefault = input.patch.isDefault;
 
   return deps.repos.deployTargets.update({

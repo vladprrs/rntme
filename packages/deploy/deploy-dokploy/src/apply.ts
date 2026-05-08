@@ -4,6 +4,7 @@ import type {
   DokployPartialFailureCleanup,
   DokployPartialFailure,
   DokployPartialFailureStep,
+  DokployPartialFailureResource,
 } from './errors.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from './render.js';
 import { err, ok, type Result } from './result.js';
@@ -17,7 +18,9 @@ export type DeploymentApplyResource = {
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
   readonly kind?: RenderedApplicationResource['workloadKind'];
-  readonly infrastructureKind?: RenderedComposeResource['infrastructureKind'];
+  readonly infrastructureKind?:
+    | RenderedComposeResource['infrastructureKind']
+    | RenderedApplicationResource['infrastructureKind'];
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -39,6 +42,7 @@ export type DeploymentApplyResult = {
     readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
+    readonly redpandaConsoleUrl?: string;
   };
 };
 
@@ -329,8 +333,9 @@ function appliedResource(
   return {
     logicalId: resource.logicalId,
     resourceKind: 'application',
-    workloadSlug: resource.workloadSlug,
-    kind: resource.workloadKind,
+    ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+    ...(resource.workloadKind !== undefined ? { kind: resource.workloadKind } : {}),
+    ...(resource.infrastructureKind !== undefined ? { infrastructureKind: resource.infrastructureKind } : {}),
     targetResourceId: target.id,
     targetResourceName: target.name,
     action,
@@ -344,11 +349,13 @@ function resourceOrder(a: RenderedDokployResource, b: RenderedDokployResource): 
 function resourceRank(resource: RenderedDokployResource): number {
   if (resource.kind === 'compose' && resource.infrastructureKind === 'event-bus') return 0;
   if (resource.kind === 'compose' && resource.infrastructureKind === 'workflow-engine') return 1;
-  if (resource.kind === 'application' && resource.workloadKind === 'domain-service') return 2;
-  if (resource.kind === 'application' && resource.workloadKind === 'integration-module') return 2;
-  if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 3;
-  if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 4;
-  return 5;
+  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console') return 2;
+  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy') return 3;
+  if (resource.kind === 'application' && resource.workloadKind === 'domain-service') return 4;
+  if (resource.kind === 'application' && resource.workloadKind === 'integration-module') return 4;
+  if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 5;
+  if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 6;
+  return 7;
 }
 
 function networkNameMap(
@@ -441,14 +448,33 @@ async function partialFailure(
   ]);
 }
 
-function resourceIdentifier(resource: RenderedDokployResource): {
-  readonly resourceKind: 'application' | 'compose';
-  readonly workloadSlug?: string;
-  readonly infrastructureKind?: RenderedComposeResource['infrastructureKind'];
-} {
-  return resource.kind === 'compose'
-    ? { resourceKind: 'compose', infrastructureKind: resource.infrastructureKind }
-    : { resourceKind: 'application', workloadSlug: resource.workloadSlug };
+function resourceIdentifier(resource: RenderedDokployResource): Pick<
+  DokployPartialFailureStep,
+  'resourceKind' | 'workloadSlug' | 'infrastructureKind'
+> {
+  if (resource.kind === 'compose') {
+    return { resourceKind: 'compose', infrastructureKind: resource.infrastructureKind };
+  }
+  return {
+    resourceKind: 'application',
+    ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+    ...(resource.infrastructureKind !== undefined ? { infrastructureKind: resource.infrastructureKind } : {}),
+  };
+}
+
+function applyResourceAsPartialFailure(
+  resource: DeploymentApplyResource,
+): DokployPartialFailureResource {
+  return {
+    logicalId: resource.logicalId,
+    resourceKind: resource.resourceKind,
+    targetResourceId: resource.targetResourceId,
+    targetResourceName: resource.targetResourceName,
+    action: resource.action,
+    ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+    ...(resource.kind !== undefined ? { kind: resource.kind } : {}),
+    ...(resource.infrastructureKind !== undefined ? { infrastructureKind: resource.infrastructureKind } : {}),
+  };
 }
 
 function buildPartialFailure(
@@ -457,8 +483,12 @@ function buildPartialFailure(
   cleanup: DokployPartialFailureCleanup,
 ): DokployPartialFailure {
   return {
-    createdResources: applied.filter((resource) => resource.action === 'created'),
-    updatedResources: applied.filter((resource) => resource.action === 'updated'),
+    createdResources: applied
+      .filter((resource) => resource.action === 'created')
+      .map(applyResourceAsPartialFailure),
+    updatedResources: applied
+      .filter((resource) => resource.action === 'updated')
+      .map(applyResourceAsPartialFailure),
     failedStep,
     cleanup,
     retrySafe: cleanup.errors.length === 0,
@@ -493,16 +523,18 @@ async function cleanupCreatedResources(
     return {
       attempted: true,
       deletedResources: cleanup.value.deletedResources.map((resource) => {
-        const applied = createdResources.find(
+        const appliedFound = createdResources.find(
           (created) => created.targetResourceId === resource.targetResourceId,
         );
-        return applied ?? {
-          logicalId: resource.targetResourceName,
-          resourceKind: resource.resourceKind,
-          targetResourceId: resource.targetResourceId,
-          targetResourceName: resource.targetResourceName,
-          action: 'created',
-        };
+        return appliedFound !== undefined
+          ? applyResourceAsPartialFailure(appliedFound)
+          : {
+              logicalId: resource.targetResourceName,
+              resourceKind: resource.resourceKind,
+              targetResourceId: resource.targetResourceId,
+              targetResourceName: resource.targetResourceName,
+              action: 'created',
+            };
       }),
       warnings: cleanup.value.warnings,
       errors: [],
@@ -538,6 +570,8 @@ function sanitizeNestedCause(cause: unknown): unknown {
 function resourceMatches(
   existing: {
     readonly image?: string;
+    readonly command?: string | null;
+    readonly args?: readonly string[] | null;
     readonly composeFile?: string;
     readonly build?: RenderedApplicationResource['build'];
     readonly ports?: RenderedApplicationResource['ports'];
@@ -570,6 +604,8 @@ function composeResourceMatches(
 
 function applicationResourceMatches(
   existing: {
+    readonly command?: string | null;
+    readonly args?: readonly string[] | null;
     readonly build?: RenderedApplicationResource['build'];
     readonly ports?: RenderedApplicationResource['ports'];
     readonly ingress?: RenderedApplicationResource['ingress'];
@@ -577,10 +613,29 @@ function applicationResourceMatches(
   },
   resource: RenderedApplicationResource,
 ): boolean {
+  if (
+    normalizedApplicationCommand(existing.command) !== normalizedApplicationCommand(resource.command)
+  ) {
+    return false;
+  }
+  if (
+    normalizedApplicationArgs(existing.args) !== normalizedApplicationArgs(resource.args ?? undefined)
+  ) {
+    return false;
+  }
   if (!optionalBuildMatches(existing.build, resource.build)) return false;
   if (!optionalPortsMatch(existing.ports, resource.ports)) return false;
   if (!optionalIngressMatches(existing.ingress, resource.ingress)) return false;
   return optionalStringRecordMatches(existing.files, resource.files);
+}
+
+function normalizedApplicationCommand(value: string | null | undefined): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  return value;
+}
+
+function normalizedApplicationArgs(value: readonly string[] | null | undefined): string {
+  return JSON.stringify([...(value ?? [])]);
 }
 
 function optionalBuildMatches(
@@ -735,6 +790,7 @@ function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult
     configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
     protectedRouteChecks: rendered.urls.protectedRouteChecks,
+    ...(rendered.urls.redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl: rendered.urls.redpandaConsoleUrl }),
   };
 
   if (rendered.urls.uiUrl === undefined) return base;

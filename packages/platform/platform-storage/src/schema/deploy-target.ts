@@ -46,6 +46,7 @@ export const deployTarget = pgTable(
     workflowConfig: jsonb('workflow_config').$type<Record<string, unknown> | null>().default(null),
     authConfig: jsonb('auth_config').$type<Record<string, unknown>>().notNull().default({}),
     policyValues: jsonb('policy_values').$type<Record<string, unknown>>().notNull(),
+    manualAccess: jsonb('manual_access').$type<Record<string, unknown>>().notNull().default({}),
     isDefault: boolean('is_default').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

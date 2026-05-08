@@ -80,6 +80,46 @@ export const DeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nul
 export type DeployTargetWorkflows = z.infer<typeof DeployTargetWorkflowsSchema>;
 const PatchDeployTargetWorkflowsSchema = DeployTargetWorkflowsConfigSchema.nullable().optional();
 
+export const DeployTargetManualAccessSchema = z
+  .object({
+    redpandaConsole: z
+      .object({
+        enabled: z.boolean(),
+        image: z.string().min(1).optional(),
+        publicBaseUrl: HttpUrlSchema.optional(),
+        basicAuth: z
+          .object({
+            username: z.string().trim().min(1),
+            htpasswdSecretRef: z.string().trim().min(1),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .default({});
+export type DeployTargetManualAccess = z.infer<typeof DeployTargetManualAccessSchema>;
+const PatchDeployTargetManualAccessSchema = z
+  .object({
+    redpandaConsole: z
+      .object({
+        enabled: z.boolean(),
+        image: z.string().min(1).optional(),
+        publicBaseUrl: HttpUrlSchema.optional(),
+        basicAuth: z
+          .object({
+            username: z.string().trim().min(1),
+            htpasswdSecretRef: z.string().trim().min(1),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .optional();
+
 const Auth0TargetConfigSchema = z.object({
   clientId: z.string().min(1),
   domain: z.string().min(1).optional(),
@@ -116,6 +156,7 @@ export const CreateDeployTargetRequestSchema = z
     workflows: DeployTargetWorkflowsSchema,
     auth: DeployTargetAuthConfigSchema,
     policyValues: PolicyValuesSchema,
+    manualAccess: DeployTargetManualAccessSchema,
     isDefault: z.boolean().default(false),
   })
   .refine(
@@ -141,6 +182,7 @@ export const UpdateDeployTargetRequestSchema = z
     workflows: PatchDeployTargetWorkflowsSchema,
     auth: PatchDeployTargetAuthConfigSchema.optional(),
     policyValues: PatchPolicyValuesSchema.optional(),
+    manualAccess: PatchDeployTargetManualAccessSchema,
     isDefault: z.boolean().optional(),
   })
   .strict();
@@ -166,6 +208,7 @@ export const DeployTargetSchema = z.object({
   workflows: DeployTargetWorkflowsSchema,
   auth: DeployTargetAuthConfigSchema,
   policyValues: PolicyValuesSchema,
+  manualAccess: DeployTargetManualAccessSchema,
   isDefault: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),

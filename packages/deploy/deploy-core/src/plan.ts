@@ -1,6 +1,7 @@
 import type { ComposedProjectInput } from './composed-project.js';
 import {
   DEFAULT_REDPANDA_IMAGE,
+  DEFAULT_REDPANDA_CONSOLE_IMAGE,
   type DeploymentMode,
   type EventBusConfig,
   type ExternalEventBusConfig,
@@ -150,12 +151,26 @@ export type PlannedInMemoryEventBus = {
 
 export type PlannedEventBus = PlannedExternalEventBus | PlannedProvisionedEventBus | PlannedInMemoryEventBus;
 
+export type PlannedRedpandaConsoleAccess = {
+  readonly kind: 'redpanda-console';
+  readonly resourceName: string;
+  readonly proxyResourceName: string;
+  readonly internalUrl: string;
+  readonly image: string;
+  readonly publicBaseUrl: string;
+  readonly basicAuthUsername: string;
+  readonly htpasswdSecretRef: string;
+};
+
 export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
   readonly infrastructure: {
     readonly eventBus: PlannedEventBus;
     readonly workflowEngine: PlannedWorkflowEngine;
     readonly auth?: ProjectAuthConfig;
+    readonly manualAccess?: {
+      readonly redpandaConsole?: PlannedRedpandaConsoleAccess;
+    };
   };
   readonly workloads: readonly DeploymentWorkload[];
   readonly edge: EdgePlan;
@@ -248,6 +263,9 @@ export function buildProjectDeploymentPlan(
         ]
       : [];
 
+  const manualAccess = planRedpandaConsoleAccess(config, plannedEventBus, project, errors);
+  if (errors.length > 0) return err(errors);
+
   return ok({
     project: {
       orgSlug: config.orgSlug,
@@ -259,6 +277,7 @@ export function buildProjectDeploymentPlan(
       eventBus: plannedEventBus,
       workflowEngine: workflowPlan.engine,
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
+      ...(manualAccess === undefined ? {} : { manualAccess: { redpandaConsole: manualAccess } }),
     },
     workloads: allWorkloads,
     edge,
@@ -323,6 +342,91 @@ function buildWorkloads(
   });
 
   return workloads;
+}
+
+function planRedpandaConsoleAccess(
+  config: ProjectDeploymentConfig,
+  plannedEventBus: PlannedEventBus,
+  project: ComposedProjectInput,
+  errors: DeploymentPlanError[],
+): PlannedRedpandaConsoleAccess | undefined {
+  const cfg = config.manualAccess?.redpandaConsole;
+  if (cfg === undefined || cfg.enabled !== true) return undefined;
+
+  if (plannedEventBus.mode !== 'provisioned' || plannedEventBus.provider !== 'redpanda') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_EVENT_BUS_INVALID',
+      message: 'Redpanda Console manual access requires provisioned Redpanda',
+      path: 'manualAccess.redpandaConsole',
+    });
+    return undefined;
+  }
+
+  const username = cfg.basicAuth.username.trim();
+  const htpasswdRef = cfg.basicAuth.htpasswdSecretRef.trim();
+  if (username === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_USERNAME_REQUIRED',
+      message: 'Redpanda Console basic auth username is required',
+      path: 'manualAccess.redpandaConsole.basicAuth.username',
+    });
+  }
+  if (htpasswdRef === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_HTPASSWD_REF_REQUIRED',
+      message: 'Redpanda Console htpasswdSecretRef is required',
+      path: 'manualAccess.redpandaConsole.basicAuth.htpasswdSecretRef',
+    });
+  }
+
+  const image = cfg.image ?? DEFAULT_REDPANDA_CONSOLE_IMAGE;
+  if (!isPinnedContainerImage(image)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_IMAGE_INVALID',
+      message: 'Redpanda Console image must use a non-latest tag',
+      path: 'manualAccess.redpandaConsole.image',
+    });
+  }
+
+  const publicBaseUrl = cfg.publicBaseUrl?.trim() ?? '';
+  if (publicBaseUrl === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_PUBLIC_URL_REQUIRED',
+      message: 'Redpanda Console publicBaseUrl must be resolved before planning',
+      path: 'manualAccess.redpandaConsole.publicBaseUrl',
+    });
+  } else if (!isValidHttpUrl(publicBaseUrl)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_PUBLIC_URL_INVALID',
+      message: 'Redpanda Console publicBaseUrl must be an http(s) URL',
+      path: 'manualAccess.redpandaConsole.publicBaseUrl',
+    });
+  }
+
+  if (errors.length > 0) return undefined;
+
+  const consoleResourceName = resourceName(config.orgSlug, project.name, 'redpanda-console');
+  const proxyResourceName = resourceName(config.orgSlug, project.name, 'redpanda-console-proxy');
+
+  return {
+    kind: 'redpanda-console',
+    resourceName: consoleResourceName,
+    proxyResourceName,
+    internalUrl: `http://${consoleResourceName}:8080`,
+    image,
+    publicBaseUrl,
+    basicAuthUsername: username,
+    htpasswdSecretRef: htpasswdRef,
+  };
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string): string {

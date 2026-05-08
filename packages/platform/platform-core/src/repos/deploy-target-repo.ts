@@ -1,6 +1,7 @@
 import type {
   DeployTarget,
   DeployTargetAuthConfig,
+  DeployTargetManualAccess,
   DeployTargetModules,
   DeployTargetWorkflows,
   DeployTargetWithSecret,
@@ -27,6 +28,7 @@ export type DeployTargetInsertRow = {
   readonly modules: DeployTargetModules;
   readonly workflows: DeployTargetWorkflows;
   readonly auth: DeployTargetAuthConfig;
+  readonly manualAccess: DeployTargetManualAccess;
   readonly policyValues: PolicyValues;
   readonly isDefault: boolean;
 };
@@ -42,6 +44,7 @@ export type DeployTargetUpdateRow = {
   readonly modules?: DeployTargetModules;
   readonly workflows?: DeployTargetWorkflows;
   readonly auth?: DeployTargetAuthConfig;
+  readonly manualAccess?: DeployTargetManualAccess;
   readonly policyValues?: PolicyValues;
   readonly isDefault?: boolean;
 };

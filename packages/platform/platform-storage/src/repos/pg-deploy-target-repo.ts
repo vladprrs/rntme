@@ -4,7 +4,7 @@ import {
   err,
   ok,
   type DeployTarget,
-  type DeployTargetAuthConfig,
+  type DeployTargetManualAccess,
   type DeployTargetModules,
   type DeployTargetWorkflows,
   type DeployTargetRepo,
@@ -37,9 +37,10 @@ export class PgDeployTargetRepo implements DeployTargetRepo {
              id, org_id, slug, display_name, kind, dokploy_url, public_base_url,
              dokploy_project_id, dokploy_project_name, allow_create_project,
              api_token_ciphertext, api_token_nonce, api_token_key_version,
-             event_bus_config, module_config, workflow_config, auth_config, policy_values, is_default
+             event_bus_config, module_config, workflow_config, auth_config, policy_values,
+             manual_access, is_default
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
            RETURNING *`,
           [
             args.row.id,
@@ -60,6 +61,7 @@ export class PgDeployTargetRepo implements DeployTargetRepo {
             args.row.workflows,
             args.row.auth,
             args.row.policyValues,
+            args.row.manualAccess,
             args.row.isDefault,
           ],
         );
@@ -111,6 +113,7 @@ export class PgDeployTargetRepo implements DeployTargetRepo {
         addSet(sets, values, 'workflow_config', args.patch.workflows);
         addSet(sets, values, 'auth_config', args.patch.auth);
         addSet(sets, values, 'policy_values', args.patch.policyValues);
+        addSet(sets, values, 'manual_access', args.patch.manualAccess);
         addSet(sets, values, 'is_default', args.patch.isDefault);
         values.push(targetId);
 
@@ -314,6 +317,7 @@ function rowToTarget(r: DbRow): DeployTarget {
     workflows: (r['workflow_config'] ?? null) as DeployTargetWorkflows,
     auth: (r['auth_config'] ?? {}) as DeployTargetAuthConfig,
     policyValues: r['policy_values'] as PolicyValues,
+    manualAccess: (r['manual_access'] ?? {}) as DeployTargetManualAccess,
     isDefault: r['is_default'] as boolean,
     createdAt: r['created_at'] as Date,
     updatedAt: r['updated_at'] as Date,
@@ -338,6 +342,7 @@ function rowToTargetWithSecret(r: DbRow): DeployTargetWithSecret {
     workflows: target.workflows,
     auth: target.auth,
     policyValues: target.policyValues,
+    manualAccess: target.manualAccess,
     isDefault: target.isDefault,
     createdAt: target.createdAt,
     updatedAt: target.updatedAt,

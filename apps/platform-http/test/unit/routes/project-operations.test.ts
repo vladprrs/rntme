@@ -100,6 +100,7 @@ async function operationApp(
       workflows: null,
       auth: {},
       policyValues: {},
+      manualAccess: {},
       isDefault: true,
     },
     auditActorAccountId: account.id,

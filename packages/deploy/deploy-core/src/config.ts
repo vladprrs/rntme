@@ -15,6 +15,18 @@ export type ExternalEventBusSecurity =
 
 export const DEFAULT_REDPANDA_IMAGE = 'docker.redpanda.com/redpandadata/redpanda:v24.3.6';
 
+export const DEFAULT_REDPANDA_CONSOLE_IMAGE = 'docker.redpanda.com/redpandadata/console:v3.7.2';
+
+export type RedpandaConsoleAccessConfig = {
+  readonly enabled: boolean;
+  readonly image?: string;
+  readonly publicBaseUrl?: string;
+  readonly basicAuth: {
+    readonly username: string;
+    readonly htpasswdSecretRef: string;
+  };
+};
+
 export type ExternalEventBusConfig = {
   readonly kind: 'kafka';
   readonly mode?: 'external';
@@ -104,5 +116,8 @@ export type ProjectDeploymentConfig = {
   readonly workflows?: {
     readonly engine: WorkflowEngineConfig;
     readonly worker: BpmnWorkerConfig;
+  };
+  readonly manualAccess?: {
+    readonly redpandaConsole?: RedpandaConsoleAccessConfig;
   };
 };
