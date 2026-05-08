@@ -484,6 +484,46 @@ describe('references — module-action lookups', () => {
     if (result.ok) return;
     expect(result.errors.some((e) => e.code === 'UNCOVERED_INPUT')).toBe(true);
   });
+
+  it('accepts repeat.statePath when screen data covers the collection path', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.spec.elements['row'] = {
+      type: 'Text',
+      props: { text: 'row' },
+      repeat: { statePath: '/items' },
+    };
+    expanded.screens['home']!.spec.elements['page']!.children = ['row'];
+    expanded.screens['home']!.screen.data = {
+      '/items': { binding: 'listItems', params: {} },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'query' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(true);
+  });
+
+  it('UNCOVERED_STATE_PATH for repeat.statePath without a covering data binding', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.spec.elements['row'] = {
+      type: 'Text',
+      props: { text: 'x' },
+      repeat: { statePath: '/items' },
+    };
+    expanded.screens['home']!.spec.elements['page']!.children = ['row'];
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'query' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const e = result.errors.find((err) => err.code === 'UNCOVERED_STATE_PATH');
+    expect(e).toBeDefined();
+    expect(e!.path).toBe('screen:home/elements/row/repeat/statePath');
+    expect(e!.message).toContain('/items');
+  });
 });
 
 describe('references — onSuccess validation', () => {

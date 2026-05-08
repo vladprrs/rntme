@@ -9,8 +9,13 @@ import type {
   ValidateResolvers,
 } from './resolvers-type.js';
 
-/** Collect all $state paths used in a spec by deep-walking props */
-function collectStatePaths(spec: CompiledSpec): Set<string> {
+type InputStatePathUsage = {
+  statePath: string;
+  path: string;
+};
+
+/** Collect $state paths from element props/visible/on/watch (excludes repeat.statePath). */
+function collectStatePathsFromElementFields(spec: CompiledSpec): Set<string> {
   const paths = new Set<string>();
 
   function walk(value: unknown): void {
@@ -34,6 +39,24 @@ function collectStatePaths(spec: CompiledSpec): Set<string> {
     walk(el.watch);
   }
   return paths;
+}
+
+/** Collect repeat collection state paths (repeat.statePath on each element). */
+function collectRepeatStatePathUsages(
+  spec: CompiledSpec,
+  context: string,
+): InputStatePathUsage[] {
+  const usages: InputStatePathUsage[] = [];
+  for (const [elKey, el] of Object.entries(spec.elements)) {
+    const sp = el.repeat?.statePath;
+    if (typeof sp === 'string' && sp.length > 0) {
+      usages.push({
+        statePath: sp,
+        path: `${context}/elements/${elKey}/repeat/statePath`,
+      });
+    }
+  }
+  return usages;
 }
 
 function collectStatePathsFromScreen(screen: ScreenDescriptor): Set<string> {
@@ -127,11 +150,6 @@ function isStatePathCovered(path: string, coveredPrefixes: Set<string>): boolean
     path === '/currentUser'
   );
 }
-
-type InputStatePathUsage = {
-  statePath: string;
-  path: string;
-};
 
 const STORAGE_COMPONENT_TYPES = new Set(['UploadDropzone', 'FileList', 'FilePreview']);
 
@@ -505,9 +523,6 @@ export function validateReferences(
     }
   }
 
-  const statePaths = collectStatePaths(spec);
-  for (const p of collectStatePathsFromScreen(screen)) statePaths.add(p);
-
   const coveredPrefixes = new Set<string>();
   if (screen.data) {
     for (const statePath of Object.keys(screen.data)) {
@@ -515,7 +530,20 @@ export function validateReferences(
     }
   }
 
-  for (const path of statePaths) {
+  for (const usage of collectRepeatStatePathUsages(spec, context)) {
+    if (!isStatePathCovered(usage.statePath, coveredPrefixes)) {
+      errors.push({
+        code: 'UNCOVERED_STATE_PATH',
+        message: `State path "${usage.statePath}" in ${context} is not covered by any data binding, form, route param, or action status`,
+        path: usage.path,
+      });
+    }
+  }
+
+  const uncoveredFieldPaths = collectStatePathsFromElementFields(spec);
+  for (const p of collectStatePathsFromScreen(screen)) uncoveredFieldPaths.add(p);
+
+  for (const path of uncoveredFieldPaths) {
     if (!isStatePathCovered(path, coveredPrefixes)) {
       errors.push({
         code: 'UNCOVERED_STATE_PATH',
