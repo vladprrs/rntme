@@ -52,6 +52,7 @@ export type IntegrationModuleWorkload = {
   readonly expose: boolean;
   readonly env: Readonly<Record<string, string>>;
   readonly secretRefs: Readonly<Record<string, string>>;
+  readonly modulePackageName?: string;
 };
 
 export type EdgeGatewayWorkload = {
@@ -359,6 +360,9 @@ function buildWorkloads(
       expose: moduleConfig.expose === true,
       env: moduleConfig.env ?? {},
       secretRefs: moduleConfig.secretRefs ?? {},
+      ...(project.modules?.[service.slug]?.packageName === undefined
+        ? {}
+        : { modulePackageName: project.modules[service.slug]!.packageName }),
     });
   }
 

@@ -7,6 +7,7 @@ export type ServiceKind = 'domain' | 'integration';
 export type { EdgeAuthDescriptor };
 
 export type ComposedProjectModuleInfo = {
+  readonly packageName?: string;
   readonly edgeAuth?: EdgeAuthDescriptor | null;
 };
 

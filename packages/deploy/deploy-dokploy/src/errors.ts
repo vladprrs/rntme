@@ -21,13 +21,14 @@ export type DokployPartialFailureInfrastructureKind =
   | 'event-bus'
   | 'workflow-engine'
   | 'redpanda-console'
-  | 'redpanda-console-proxy';
+  | 'redpanda-console-proxy'
+  | 'object-storage';
 
 export type DokployPartialFailureResource = {
   readonly logicalId: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway' | 'bpmn-worker';
+  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway' | 'bpmn-worker' | 'infrastructure-proxy';
   readonly infrastructureKind?: DokployPartialFailureInfrastructureKind;
   readonly targetResourceId: string;
   readonly targetResourceName: string;

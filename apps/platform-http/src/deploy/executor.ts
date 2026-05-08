@@ -681,13 +681,13 @@ async function toDeployCoreInput(
   // the canonical manifest name used by the catalog.
   const catalogManifest = value.catalogManifest;
   const moduleEdgeAuth = catalogManifest?.moduleEdgeAuth ?? {};
-  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null }> = {};
+  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null; packageName?: string }> = {};
   for (const [projectKey, moduleRef] of Object.entries(value.project.modules ?? {})) {
     const manifestName = catalogManifest?.categoryToModule[projectKey] ?? moduleRef.package;
     const edgeAuth = moduleEdgeAuth[manifestName] ?? moduleEdgeAuth[moduleRef.package] ?? null;
     const slugs = new Set([manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
     for (const slug of slugs) {
-      modules[slug] = { edgeAuth };
+      modules[slug] = { edgeAuth, packageName: manifestName };
     }
   }
 
