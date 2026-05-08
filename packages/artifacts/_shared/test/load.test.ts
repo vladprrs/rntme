@@ -5,12 +5,21 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { isErr, isOk, loadArtifactDir, ok } from '../src/index.js';
 
-type DemoError = { code: string; message: string; path: string };
+type DemoError = { code: string; message: string; path: string; cause?: unknown };
 
-const buildIoError = ({ message, path }: { message: string; path: string }): DemoError => ({
+const buildIoError = ({
+  message,
+  path,
+  cause,
+}: {
+  message: string;
+  path: string;
+  cause?: unknown;
+}): DemoError => ({
   code: 'IO',
   message,
   path,
+  ...(cause === undefined ? {} : { cause }),
 });
 
 const IndexSchema = z
@@ -122,7 +131,9 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe(dir);
+      expect(r.errors[0]?.path).toBe('index.json');
+      expect(r.errors[0]?.message).toContain('JSON');
+      expect(r.errors[0]?.cause).toBeInstanceOf(SyntaxError);
     }
   });
 
@@ -139,7 +150,8 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe(dir);
+      expect(r.errors[0]?.path).toBe('index.json');
+      expect(r.errors[0]?.cause).toEqual(expect.any(Array));
     }
   });
 
@@ -159,7 +171,9 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe(dir);
+      expect(r.errors[0]?.path).toBe('leaves/bad.json');
+      expect(r.errors[0]?.message).toContain('JSON');
+      expect(r.errors[0]?.cause).toBeInstanceOf(SyntaxError);
     }
   });
 

@@ -4,7 +4,7 @@ Parser, validator, resolver, and event-type deriver for the Platform Domain Mode
 
 ## Role in the system
 
-- Depends on: `zod` (sole runtime dep). No `@rntme/*` dependencies.
+- Depends on: `zod` (sole runtime dep), `@rntme/artifact-shared` (directory loader helper for entity-per-file layout).
 - Consumed by:
   - `@rntme/qsm` — cross-validates projections against `PdmResolver`; entity-mirror projections require the source entity to declare a `stateMachine`.
   - `@rntme/projection-consumer` — uses the resolver to bind generated columns and primary keys when compiling apply plans.
@@ -17,6 +17,8 @@ Parser, validator, resolver, and event-type deriver for the Platform Domain Mode
 ```
 src/
   index.ts                       (entry) Public re-exports; sole import surface.
+  load/
+    load-dir.ts                  (entry) loadPdmDir() — loads pdm/entities directory format and returns ValidatedPdm.
   derive/
     event-types.ts               (entry) deriveEventTypes() — one EventTypeSpec per transition.
   parse/
@@ -41,6 +43,7 @@ src/
 import {
   parsePdm,
   validatePdm,
+  loadPdmDir,
   createPdmResolver,
   deriveEventTypes,
   isErr,
@@ -92,6 +95,7 @@ const eventTypes = deriveEventTypes(validated.value);
 | `validateStructural` | `(artifact: PdmArtifact) => Result<StructurallyValidPdm>` | Keys reference real fields; relation `to` / `localKey` / `foreignKey` resolve. |
 | `validateStateMachine` | `(artifact: StructurallyValidPdm) => Result<ValidatedPdm>` | State-machine-layer rules; BFS reachability from creation transitions. |
 | `validatePdm` | `(artifact: PdmArtifact) => Result<ValidatedPdm>` | Runs structural, then state-machine. Fail-fast across layers; aggregating within. |
+| `loadPdmDir` | `(dir: string) => Promise<Result<ValidatedPdm>>` | Loads `pdm.json` + `entities/*.json`, runs `parsePdm -> validatePdm`, and returns only validated PDM or PDM errors. |
 | `createPdmResolver` | `(artifact: ValidatedPdm) => PdmResolver` | Pure lookup of entities, fields, relations, stateMachine, transitions. |
 | `deriveEventTypes` | `(artifact: ValidatedPdm) => EventTypeSpec[]` | One spec per transition, across every entity that has a `stateMachine`. |
 | `ok`, `err`, `isOk`, `isErr` | — | `Result<T>` constructors and discriminators. |
@@ -114,9 +118,9 @@ Type-only exports: `PdmArtifact`, `Entity`, `Field`, `Relation`, `RelationCardin
 
 ### Error codes
 
-Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are members of `ERROR_CODES` and the `PdmErrorCode` union.
+Every `PdmError` carries `{ layer, code, message, path?, hint?, cause? }`. `cause` is reserved for machine-readable underlying details such as JSON parse failures, Zod issues from directory index validation, or other directory load failures. All codes are members of `ERROR_CODES` and the `PdmErrorCode` union.
 
-- Parse: `PDM_PARSE_SCHEMA_VIOLATION`.
+- Parse: `PDM_PARSE_SCHEMA_VIOLATION`, `PDM_PARSE_DIR_INVALID`.
 - Structural: `PDM_STRUCT_KEY_EMPTY`, `PDM_STRUCT_KEY_UNKNOWN_FIELD`, `PDM_STRUCT_RELATION_UNKNOWN_ENTITY`, `PDM_STRUCT_RELATION_UNKNOWN_LOCAL_KEY`, `PDM_STRUCT_RELATION_UNKNOWN_FOREIGN_KEY`.
 - State-machine: `PDM_SM_STATE_FIELD_MISSING`, `PDM_SM_STATE_FIELD_TYPE_INVALID`, `PDM_SM_STATES_EMPTY`, `PDM_SM_STATES_DUPLICATE`, `PDM_SM_UNKNOWN_STATE`, `PDM_SM_UNKNOWN_AFFECTED_FIELD`, `PDM_SM_AFFECTS_KEY`, `PDM_SM_AFFECTS_GENERATED`, `PDM_SM_EMPTY_SELF_LOOP`, `PDM_SM_CREATION_MISSING_AFFECTS`, `PDM_SM_UNREACHABLE_STATE`, `PDM_SM_EVENT_TYPE_DUPLICATE`.
 - Internal: `PDM_INTERNAL`.
@@ -124,6 +128,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 
 ## Invariants & gotchas
 
+- `loadPdmDir` is the safe directory authoring boundary. It returns `ValidatedPdm`, not raw `PdmArtifact`; callers should not run `validatePdm` again or catch and rewrap validation errors as `PDM_PARSE_DIR_INVALID`.
 - `validatePdm` is fail-fast across layers, aggregating within. Structural failure short-circuits the state-machine layer entirely. Verified by `test/unit/validate.test.ts` — "fails-fast on structural errors — does not run state-machine layer". To collect both reports, call `validateStructural` and `validateStateMachine` separately.
 - `stateField` MUST be a non-nullable `string` field. Integer / nullable state machines are rejected by `validateStateMachine` (`test/unit/validate-state-machine.test.ts` — "rejects when stateField is not string type" / "rejects when stateField is nullable").
 - Transitions are a `Record` keyed by name; `Transition` itself has no `name` field. The key MUST match `/^[a-z][a-zA-Z0-9]*$/` at the parse layer (`test/unit/parse.test.ts` — "rejects stateMachine with invalid transition name").
@@ -159,6 +164,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint? }`. All codes are
 - "Why is `payloadFields` smaller than `affects`?" → `buildSpec` in `src/derive/event-types.ts`; for creation transitions the payload skips the auto-prepended `stateField` because the new value comes from `to`.
 - "What does the resolver expose?" → `createPdmResolver` in `src/resolvers/pdm-resolver.ts`. The `Resolved*` shapes live in `src/types/resolvers.ts`.
 - "Where are the error codes defined?" → `ERROR_CODES` const in `src/types/result.ts`. The `Layer` and `PdmError` types are in the same file.
+- "How is entity-per-file PDM loaded?" → `src/load/load-dir.ts`; directory I/O and malformed JSON errors use `PDM_PARSE_DIR_INVALID`, while assembled schema and validation failures keep their normal PDM parse/structural/state-machine codes.
 - "What is the schema shape?" → `src/parse/schema.ts`; every Zod sub-schema is `.strict()`.
 - "How are the branded `StructurallyValidPdm` / `ValidatedPdm` types declared?" → `src/types/artifact.ts` (bottom of file).
 - "End-to-end pipeline example?" → `test/smoke.test.ts` exercises `parsePdm → validatePdm → deriveEventTypes → createPdmResolver` against `test/fixtures/issue-tracker-with-sm.pdm.json` (seven transitions, including the `reassign` self-loop).

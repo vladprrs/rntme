@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadPdmDir, validatePdm } from '@rntme/pdm';
+import { loadPdmDir } from '@rntme/pdm';
 import { loadQsmDir, type QsmArtifact } from '@rntme/qsm';
 import { parseProjectBlueprint } from '../parse/parse.js';
 import { ServiceDescriptorSchema } from '../parse/schema.js';
@@ -124,7 +124,7 @@ export async function loadBlueprint(dir: string): Promise<Result<LoadedBlueprint
     }
 
     // Read project.json, load pdm dir, and discover service dirs in parallel.
-    const [projectRaw, rawPdm, serviceDirs] = await Promise.all([
+    const [projectRaw, loadedPdm, serviceDirs] = await Promise.all([
       readJsonFile(dir, 'project.json'),
       loadPdmDir(pdmDir),
       listServiceDirs(dir),
@@ -133,27 +133,14 @@ export async function loadBlueprint(dir: string): Promise<Result<LoadedBlueprint
     const parsedProject = parseProjectBlueprint(projectRaw);
     if (!parsedProject.ok) return parsedProject;
 
-    if (!rawPdm.ok) {
+    if (!loadedPdm.ok) {
       return err([
         {
           layer: 'load',
           code: ERROR_CODES.BLUEPRINT_IO_ERROR,
           message: 'project pdm directory failed to load',
           path: 'pdm',
-          cause: rawPdm.errors,
-        },
-      ]);
-    }
-
-    const validatedPdm = validatePdm(rawPdm.value);
-    if (!validatedPdm.ok) {
-      return err([
-        {
-          layer: 'load',
-          code: ERROR_CODES.BLUEPRINT_IO_ERROR,
-          message: 'project pdm failed validation',
-          path: 'pdm',
-          cause: validatedPdm.errors,
+          cause: loadedPdm.errors,
         },
       ]);
     }
@@ -181,7 +168,7 @@ export async function loadBlueprint(dir: string): Promise<Result<LoadedBlueprint
 
     return ok({
       project: parsedProject.value,
-      pdm: validatedPdm.value,
+      pdm: loadedPdm.value,
       services,
     });
   } catch (error) {

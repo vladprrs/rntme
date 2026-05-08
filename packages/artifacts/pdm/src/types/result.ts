@@ -11,6 +11,7 @@ export type PdmError = {
   message: string;
   path?: string;
   hint?: string;
+  cause?: unknown;
 };
 
 export type Result<T> = SharedResult<T, PdmError>;
