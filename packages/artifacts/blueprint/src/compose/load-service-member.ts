@@ -23,6 +23,7 @@ import {
 import { createServiceBindingResolvers } from './binding-resolvers.js';
 import { readServiceGraphSpec } from './service-graphs.js';
 import { eventTypesForService } from './seed-scope.js';
+import { validateStorageJson } from '../validate/storage/index.js';
 
 export function loadServiceMember(input: {
   rootDir: string;
@@ -135,12 +136,39 @@ export function loadServiceMember(input: {
     seed = loadedSeed.value;
   }
 
+  let storage = null;
+  const storagePath = `services/${input.service.slug}/storage.json`;
+  if (input.service.artifacts.hasStorage || existsSync(join(input.rootDir, storagePath))) {
+    let text: string;
+    try {
+      text = readFileSync(join(input.rootDir, storagePath), 'utf8');
+    } catch (error) {
+      return serviceErr(
+        ERROR_CODES.BLUEPRINT_IO_ERROR,
+        error instanceof Error ? error.message : String(error),
+        storagePath,
+      );
+    }
+
+    const validatedStorage = validateStorageJson(text, input.pdm);
+    if (!validatedStorage.ok) {
+      return serviceErr(
+        ERROR_CODES.BLUEPRINT_SERVICE_STORAGE_INVALID,
+        `service "${input.service.slug}" storage.json failed validation`,
+        storagePath,
+        validatedStorage.errors,
+      );
+    }
+    storage = validatedStorage.value;
+  }
+
   return ok({
     ...input.service,
     graphSpec,
     qsmValidated,
     bindings,
     seed,
+    storage,
     compiledUi: null,
     eventTypes,
   });

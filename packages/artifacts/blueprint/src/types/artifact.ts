@@ -6,6 +6,7 @@ import type { ValidatedSeed } from '@rntme/seed';
 import type { CompiledArtifact } from '@rntme/ui';
 import type { ValidatedWorkflows } from '@rntme/workflows';
 import type { PropSchema } from './result.js';
+import type { ValidatedStorageJson } from './storage-json.js';
 
 export type ServiceKind = 'domain' | 'integration' | 'integration-module';
 
@@ -89,6 +90,7 @@ export type ServiceArtifactPresence = {
   hasUi: boolean;
   hasSeed: boolean;
   hasQsm: boolean;
+  hasStorage: boolean;
   hasCommandHandlers: boolean;
 };
 
@@ -128,6 +130,7 @@ export type ValidatedServiceMember = CompositionService & {
   qsmValidated: ValidatedQsm | null;
   bindings: ValidatedBindings | null;
   seed: ValidatedSeed | null;
+  storage: ValidatedStorageJson | null;
   compiledUi: CompiledArtifact | null;
   eventTypes: readonly EventTypeSpec[];
 };

@@ -18,6 +18,7 @@ Project-first blueprint parser/validator for rntme.
 - `services/<svc>/graphs/shapes.json` + `graphs/*.json`
 - `services/<svc>/bindings/bindings.json`
 - `services/<svc>/seed/seed.json`
+- `services/<svc>/storage.json`
 - `services/<svc>/ui/...`
 - `workflows/workflows.json` + `workflows/**/*.bpmn`
 
@@ -28,6 +29,7 @@ Project-first blueprint parser/validator for rntme.
   When `project.json` declares `modules`, compose also resolves each UI module (`module.json`), builds `catalogManifest`, validates `publicConfig`, checks `./client` exports, and fills `virtualEntrySource` + `publicConfigJson` on the composed result.
   When `workflows/workflows.json` exists, compose parses and validates it with `@rntme/workflows` after the project binding registry is available, then attaches `workflows` to the composed result.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
+- `validateStorageJson(text, pdm)` — validate optional per-service `storage.json` through parse, structural, references, and consistency layers. References treat `route.owner.aggregate` as a PDM entity key; successful output is branded `ValidatedStorageJson`.
 - `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts.
 - `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
