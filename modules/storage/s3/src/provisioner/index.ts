@@ -143,4 +143,10 @@ export const storageS3Provisioner: ProvisionerContract<S3PublicConfig> = {
   },
 };
 
+export async function provision(
+  input: ProvisionerInput<S3PublicConfig>,
+): Promise<Result<ProvisionerOutput, ProvisionerVendorError>> {
+  return storageS3Provisioner.provision(input);
+}
+
 export default storageS3Provisioner;
