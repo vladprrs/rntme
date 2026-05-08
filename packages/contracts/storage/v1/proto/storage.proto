@@ -1,0 +1,115 @@
+syntax = "proto3";
+package rntme.contracts.storage.v1;
+
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/common/v1/common.proto";
+
+enum FileState {
+  FILE_STATE_UNSPECIFIED = 0;
+  FILE_STATE_PENDING = 1;
+  FILE_STATE_COMMITTED = 2;
+  FILE_STATE_ABORTED = 3;
+  FILE_STATE_DELETED = 4;
+  FILE_STATE_VENDOR_SPECIFIC = 100;
+}
+
+message FileMetadata {
+  string file_id = 1;
+  string route_id = 2;
+  string entity_id = 3;
+  string owner_principal_id = 4;
+  FileState state = 5;
+  string content_type = 6;
+  int64 declared_size = 7;
+  int64 actual_size = 8;
+  string sha256 = 9;
+  string object_key = 10;
+  google.protobuf.Timestamp initiated_at = 11;
+  google.protobuf.Timestamp expires_at = 12;
+  google.protobuf.Timestamp committed_at = 13;
+  google.protobuf.Timestamp deleted_at = 14;
+}
+
+message PresignedRequest {
+  string url = 1;
+  map<string, string> headers = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message PrepareUploadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string route_id = 2;
+  string entity_id = 3;
+  string filename = 4;
+  string content_type = 5;
+  int64 declared_size = 6;
+}
+message PrepareUploadResponse {
+  string file_id = 1;
+  string object_key = 2;
+  PresignedRequest presigned = 3;
+}
+
+message CommitUploadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string file_id = 2;
+}
+message CommitUploadResponse {
+  FileMetadata file = 1;
+}
+
+message AbortUploadRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string file_id = 2;
+  string reason = 3;
+}
+message AbortUploadResponse {
+  FileMetadata file = 1;
+}
+
+message GetFileRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string file_id = 2;
+}
+message GetFileResponse {
+  FileMetadata file = 1;
+}
+
+message ListFilesRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string route_id = 2;
+  string entity_id = 3;
+  int32 limit = 4;
+  string page_token = 5;
+}
+message ListFilesResponse {
+  repeated FileMetadata files = 1;
+  string next_page_token = 2;
+}
+
+message GetDownloadUrlRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string file_id = 2;
+  int32 ttl_sec = 3;
+}
+message GetDownloadUrlResponse {
+  PresignedRequest presigned = 1;
+}
+
+message DeleteFileRequest {
+  rntme.contracts.common.v1.CommandContext context = 1;
+  string file_id = 2;
+}
+message DeleteFileResponse {
+  FileMetadata file = 1;
+}
+
+service StorageModule {
+  rpc PrepareUpload(PrepareUploadRequest) returns (PrepareUploadResponse);
+  rpc CommitUpload(CommitUploadRequest) returns (CommitUploadResponse);
+  rpc AbortUpload(AbortUploadRequest) returns (AbortUploadResponse);
+  rpc GetFile(GetFileRequest) returns (GetFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc GetDownloadUrl(GetDownloadUrlRequest) returns (GetDownloadUrlResponse);
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+}
