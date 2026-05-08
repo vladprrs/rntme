@@ -5,7 +5,7 @@ import type { ValidatedQsm } from '@rntme/qsm';
 import pdm from '../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../e2e/fixtures/commerce.qsm.json' with { type: 'json' };
 
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; errors?: { message?: string }[] }, label: string): T {
+function unwrap<T>(r: { ok: true; value: T } | { ok: false; errors?: readonly { message?: string }[] }, label: string): T {
   if (!r.ok) {
     const msg = r.errors?.map((e) => e.message).join('; ') ?? 'unknown error';
     throw new Error(`${label}: ${msg}`);
