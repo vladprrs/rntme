@@ -1,42 +1,28 @@
+import { parseWithSchema } from '@rntme/artifact-shared';
+import type { ZodType } from 'zod';
+
 import { WorkflowArtifactSchema } from './schema.js';
 import type { WorkflowArtifact } from '../types/artifact.js';
-import { ERROR_CODES, err, ok, type Result, type WorkflowError } from '../types/result.js';
+import { ERROR_CODES, type Result, type WorkflowError } from '../types/result.js';
 
 export function parseWorkflowArtifact(input: unknown): Result<WorkflowArtifact> {
-  let candidate: unknown = input;
-
-  if (typeof input === 'string') {
-    try {
-      candidate = JSON.parse(input) as unknown;
-    } catch (e) {
-      return err([
-        {
+  return parseWithSchema<WorkflowArtifact, WorkflowError>(
+    input,
+    WorkflowArtifactSchema as ZodType<WorkflowArtifact>,
+    {
+      fromJson: (message) => ({
+        layer: 'parse',
+        code: ERROR_CODES.WORKFLOWS_PARSE_SCHEMA_VIOLATION,
+        message,
+      }),
+      fromIssue: (issue, path) => {
+        const base: WorkflowError = {
           layer: 'parse',
           code: ERROR_CODES.WORKFLOWS_PARSE_SCHEMA_VIOLATION,
-          message: e instanceof Error ? e.message : 'invalid JSON',
-        },
-      ]);
-    }
-  }
-
-  const parsed = WorkflowArtifactSchema.safeParse(candidate);
-  if (!parsed.success) {
-    const errors: WorkflowError[] = parsed.error.issues.map((issue) => {
-      const path =
-        issue.path.length > 0
-          ? issue.path.join('.')
-          : 'keys' in issue && Array.isArray(issue.keys) && issue.keys.length > 0
-            ? String(issue.keys[0])
-            : undefined;
-      const base = {
-        layer: 'parse' as const,
-        code: ERROR_CODES.WORKFLOWS_PARSE_SCHEMA_VIOLATION,
-        message: issue.message,
-      };
-      return path !== undefined ? { ...base, path } : base;
-    });
-    return err(errors);
-  }
-
-  return ok(parsed.data as WorkflowArtifact);
+          message: issue.message,
+        };
+        return path !== undefined ? { ...base, path } : base;
+      },
+    },
+  );
 }

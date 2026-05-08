@@ -21,7 +21,9 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write ."
   },
-  "dependencies": {},
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
