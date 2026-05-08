@@ -1037,6 +1037,9 @@ importers:
       '@rntme/contracts-module-v1':
         specifier: workspace:*
         version: link:../../contracts/module/v1
+      '@rntme/init':
+        specifier: workspace:*
+        version: link:../init
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm

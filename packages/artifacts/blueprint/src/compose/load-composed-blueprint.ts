@@ -21,6 +21,7 @@ import {
 import { discoverServiceArtifacts } from './discover-service-artifacts.js';
 import { loadServiceMember } from './load-service-member.js';
 import { loadProjectWorkflows } from './project-workflows.js';
+import { loadProjectInit } from './project-init.js';
 
 export async function loadComposedBlueprint(
   dir: string,
@@ -123,6 +124,17 @@ export async function loadComposedBlueprint(
   });
   if (!workflows.ok) return workflows;
 
+  const eventsByService = Object.fromEntries(
+    Object.entries(validatedServices).map(([slug, service]) => [slug, service.eventTypes]),
+  );
+  const init = loadProjectInit({
+    rootDir: dir,
+    services: Object.keys(validatedServices),
+    pdm: pdmResolver,
+    eventsByService,
+  });
+  if (!init.ok) return init;
+
   for (const [slug, service] of Object.entries(validatedServices)) {
     const compiledUi = compileServiceUi({
       rootDir: dir,
@@ -145,6 +157,7 @@ export async function loadComposedBlueprint(
     routing: composedValidation.value,
     bindingRegistry,
     workflows: workflows.value,
+    init: init.value,
     services: validatedServices,
     catalogManifest,
     publicConfigJson,

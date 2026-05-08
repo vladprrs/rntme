@@ -32,6 +32,7 @@
     "@rntme/qsm": "workspace:*",
     "@rntme/seed": "workspace:*",
     "@rntme/ui": "workspace:*",
+    "@rntme/init": "workspace:*",
     "@rntme/workflows": "workspace:*",
     "zod": "^4.0.0",
     "@rntme/contracts-module-v1": "workspace:*"
