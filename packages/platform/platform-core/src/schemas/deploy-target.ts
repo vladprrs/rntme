@@ -59,6 +59,17 @@ export const DeployTargetModulesSchema = z.record(z.string(), IntegrationModuleD
 export type DeployTargetModules = z.infer<typeof DeployTargetModulesSchema>;
 const PatchDeployTargetModulesSchema = z.record(z.string(), IntegrationModuleDeploymentConfigSchema);
 
+export const OperatonUiAccessSchema = z
+  .object({
+    enabled: z.literal(true),
+    publicBaseUrl: HttpUrlSchema,
+    auth: z.object({
+      kind: z.literal('basic'),
+      secretRef: z.string().min(1),
+    }),
+  })
+  .strict();
+
 const DeployTargetWorkflowsConfigSchema = z
   .object({
     engine: z
@@ -66,6 +77,7 @@ const DeployTargetWorkflowsConfigSchema = z
         kind: z.literal('operaton'),
         mode: z.literal('provisioned'),
         image: z.string().min(1),
+        adminUserSecretRef: z.string().min(1).optional(),
       })
       .strict(),
     worker: z
@@ -73,6 +85,7 @@ const DeployTargetWorkflowsConfigSchema = z
         image: z.string().min(1),
       })
       .strict(),
+    operatonUi: OperatonUiAccessSchema.optional(),
   })
   .strict();
 

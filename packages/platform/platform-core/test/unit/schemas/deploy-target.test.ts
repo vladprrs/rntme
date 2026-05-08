@@ -170,6 +170,114 @@ describe('CreateDeployTargetRequestSchema', () => {
     expect(r.success).toBe(false);
   });
 
+  it('preserves operatonUi access config on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'https://operaton.example.test',
+          auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data as { workflows?: unknown }).workflows).toEqual({
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'https://operaton.example.test',
+          auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      });
+    }
+  });
+
+  it('preserves adminUserSecretRef on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test', adminUserSecretRef: 'operaton-admin-user-v1' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data as { workflows?: unknown }).workflows).toEqual({
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test', adminUserSecretRef: 'operaton-admin-user-v1' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      });
+    }
+  });
+
+  it('rejects operatonUi with missing fields', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'not-a-url',
+          auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects operatonUi with non-basic auth kind', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-workflows',
+      displayName: 'Workflow Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'https://operaton.example.test',
+          auth: { kind: 'oauth', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(false);
+  });
+
   it('rejects non-http Auth0 redirect URI', () => {
     const r = UpdateDeployTargetRequestSchema.safeParse({
       auth: {
