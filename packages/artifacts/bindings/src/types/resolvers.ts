@@ -1,6 +1,21 @@
 import type { EffectSummary } from '@rntme/graph-ir-compiler';
 
-export type ScalarPrimitive = 'integer' | 'decimal' | 'string' | 'boolean' | 'date' | 'datetime';
+export const SCALAR_PRIMITIVES = [
+  'integer',
+  'decimal',
+  'string',
+  'boolean',
+  'date',
+  'datetime',
+] as const;
+
+export type ScalarPrimitive = (typeof SCALAR_PRIMITIVES)[number];
+
+const scalarPrimitiveSet: ReadonlySet<string> = new Set(SCALAR_PRIMITIVES);
+
+export function isScalarPrimitive(value: string): value is ScalarPrimitive {
+  return scalarPrimitiveSet.has(value);
+}
 
 export type FieldType =
   | { kind: 'scalar'; primitive: ScalarPrimitive }

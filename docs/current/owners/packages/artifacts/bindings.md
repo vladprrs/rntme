@@ -112,6 +112,7 @@ Module/service calls are represented in Graph IR with `call` nodes, and their ef
 - `BindingResolvers` are used by `validateBindings`; OpenAPI emission consumes the already-resolved `ValidatedBindings`.
 - `inputFrom` keys must match graph input names and must not duplicate `parameters[].bindTo`.
 - Redirect strings reject protocol-relative URLs and unallowlisted absolute origins.
+- `SCALAR_PRIMITIVES` and `isScalarPrimitive(value)` are the public runtime source for scalar primitives accepted by `BindingResolvers`, resolver field/input/output types, and OpenAPI scalar encoding. Add or remove binding scalars there first, then update OpenAPI scalar emission and tests in the same change.
 - Decimal OpenAPI encoding defaults to string with `format: "decimal"`; pass `{ decimalEncoding: "number" }` as the second `generateOpenApi` argument to emit JSON numbers.
 
 ## Where To Look First

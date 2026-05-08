@@ -1,11 +1,12 @@
-import type {
-  BindingResolvers,
-  FieldType,
-  GraphSignature,
-  InputType,
-  OutputType,
-  ResolvedShape,
-  ScalarPrimitive,
+import {
+  isScalarPrimitive,
+  type BindingResolvers,
+  type FieldType,
+  type GraphSignature,
+  type InputType,
+  type OutputType,
+  type ResolvedShape,
+  type ScalarPrimitive,
 } from '@rntme/bindings';
 import type { PdmResolver } from '@rntme/pdm';
 import type { ServiceGraphSpec } from '../types/artifact.js';
@@ -16,15 +17,6 @@ import {
   type BlueprintError,
   type Result,
 } from '../types/result.js';
-
-const SCALARS: ReadonlySet<ScalarPrimitive> = new Set([
-  'integer',
-  'decimal',
-  'string',
-  'boolean',
-  'date',
-  'datetime',
-]);
 
 export function createServiceBindingResolvers(input: {
   serviceSlug: string;
@@ -81,7 +73,7 @@ export function createServiceBindingResolvers(input: {
 }
 
 function parseScalar(raw: string): ScalarPrimitive | null {
-  return SCALARS.has(raw as ScalarPrimitive) ? (raw as ScalarPrimitive) : null;
+  return isScalarPrimitive(raw) ? raw : null;
 }
 
 function parseInputType(raw: string): InputType | null {

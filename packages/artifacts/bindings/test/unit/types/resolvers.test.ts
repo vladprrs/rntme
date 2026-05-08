@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type {
-  BindingResolvers,
-  GraphSignature,
-  ResolvedShape,
-  ScalarPrimitive,
+import {
+  SCALAR_PRIMITIVES,
+  isScalarPrimitive,
+  type BindingResolvers,
+  type GraphSignature,
+  type ResolvedShape,
+  type ScalarPrimitive,
 } from '../../../src/types/resolvers.js';
 
 describe('resolver types', () => {
@@ -29,9 +31,37 @@ describe('resolver types', () => {
       resolveGraphSignature: (id) => (id === 'g' ? sig : null),
       resolveShape: (name) => (name === 'Row' ? shape : null),
     };
-    const primitives: ScalarPrimitive[] = ['integer', 'decimal', 'string', 'boolean', 'date', 'datetime'];
+    const primitives: ScalarPrimitive[] = [...SCALAR_PRIMITIVES];
     expect(resolvers.resolveGraphSignature('g')?.id).toBe('g');
     expect(resolvers.resolveShape('Row')?.origin).toBe('custom');
-    expect(primitives).toHaveLength(6);
+    expect(primitives).toEqual([
+      'integer',
+      'decimal',
+      'string',
+      'boolean',
+      'date',
+      'datetime',
+    ]);
+  });
+
+  it('exports scalar primitives in canonical order', () => {
+    expect(SCALAR_PRIMITIVES).toEqual([
+      'integer',
+      'decimal',
+      'string',
+      'boolean',
+      'date',
+      'datetime',
+    ]);
+  });
+
+  it('guards scalar primitive strings at runtime', () => {
+    for (const primitive of SCALAR_PRIMITIVES) {
+      expect(isScalarPrimitive(primitive)).toBe(true);
+    }
+
+    expect(isScalarPrimitive('uuid')).toBe(false);
+    expect(isScalarPrimitive('json')).toBe(false);
+    expect(isScalarPrimitive('')).toBe(false);
   });
 });

@@ -47,6 +47,11 @@ export type {
   ParameterPassthrough,
 } from './types/artifact.js';
 
+export {
+  SCALAR_PRIMITIVES,
+  isScalarPrimitive,
+} from './types/resolvers.js';
+
 export type {
   BindingResolvers,
   GraphSignature,
