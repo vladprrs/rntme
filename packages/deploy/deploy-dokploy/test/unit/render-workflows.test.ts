@@ -477,6 +477,143 @@ describe('workflow rendering', () => {
       secret: false,
     });
   });
+
+  it('renders Operaton compose with admin user secret file ref', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          workflowEngine: {
+            ...(plan.infrastructure.workflowEngine as Extract<
+              ProjectDeploymentPlan['infrastructure']['workflowEngine'],
+              { kind: 'operaton' }
+            >),
+            adminUserSecretRef: 'operaton-admin-user-v1',
+          },
+        },
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const operaton = result.value.resources.find(
+      (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
+    );
+    expect(operaton?.kind).toBe('compose');
+    if (operaton?.kind !== 'compose') return;
+    expect(operaton.secretFiles).toEqual({
+      '/operaton/configuration/application.yaml': {
+        schema: 'operaton-admin-user-v1',
+        secretRef: 'operaton-admin-user-v1',
+        field: 'applicationYaml',
+      },
+    });
+  });
+
+  it('renders Operaton UI gateway with nginx config and basic auth', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          workflowEngine: {
+            ...(plan.infrastructure.workflowEngine as Extract<
+              ProjectDeploymentPlan['infrastructure']['workflowEngine'],
+              { kind: 'operaton' }
+            >),
+            uiAccess: {
+              enabled: true,
+              publicBaseUrl: 'https://operaton.acme.example.test',
+              authKind: 'basic',
+              authSecretRef: 'operaton-ui-basic-auth-v1',
+            },
+          },
+        },
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const gateway = result.value.resources.find(
+      (resource) =>
+        resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
+    );
+    expect(gateway).toBeDefined();
+    if (gateway?.kind !== 'application') return;
+
+    expect(gateway.name).toBe('rntme-acme-order-fulfillment-operaton-ui-gateway');
+    expect(gateway.image).toBe('nginx:1.27-alpine');
+    expect(gateway.ports).toEqual([{ containerPort: 8080, protocol: 'http' }]);
+    expect(gateway.ingress).toEqual({
+      publicBaseUrl: 'https://operaton.acme.example.test',
+      containerPort: 8080,
+      healthPath: '/health',
+      routes: [],
+    });
+    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain(
+      'auth_basic "rntme Operaton";',
+    );
+    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain(
+      'proxy_pass http://rntme-acme-order-fulfillment-operaton:8080;',
+    );
+    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain('location = /health');
+    expect(gateway.secretFiles).toEqual({
+      '/etc/nginx/.htpasswd': {
+        schema: 'operaton-ui-basic-auth-v1',
+        secretRef: 'operaton-ui-basic-auth-v1',
+        field: 'htpasswd',
+      },
+    });
+  });
+
+  it('includes operatonUiUrl and operatonUiAuthChecks in plan urls', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          workflowEngine: {
+            ...(plan.infrastructure.workflowEngine as Extract<
+              ProjectDeploymentPlan['infrastructure']['workflowEngine'],
+              { kind: 'operaton' }
+            >),
+            uiAccess: {
+              enabled: true,
+              publicBaseUrl: 'https://operaton.acme.example.test',
+              authKind: 'basic',
+              authSecretRef: 'operaton-ui-basic-auth-v1',
+            },
+          },
+        },
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.urls.operatonUiUrl).toBe('https://operaton.acme.example.test');
+    expect(result.value.urls.operatonUiAuthChecks).toEqual([
+      { name: 'operaton-ui', url: 'https://operaton.acme.example.test' },
+    ]);
+  });
+
+  it('omits operaton UI gateway when uiAccess is absent', () => {
+    const result = renderDokployPlan(plan, targetConfig());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.value.resources.some(
+        (resource) => resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
+      ),
+    ).toBe(false);
+    expect(result.value.urls.operatonUiUrl).toBeUndefined();
+    expect(result.value.urls.operatonUiAuthChecks).toBeUndefined();
+  });
 });
 
 function targetConfig() {

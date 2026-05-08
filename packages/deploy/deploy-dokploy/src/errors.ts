@@ -20,6 +20,7 @@ export type DokployDeploymentErrorCode = keyof typeof DEPLOY_DOKPLOY_ERROR_CODES
 export type DokployPartialFailureInfrastructureKind =
   | 'event-bus'
   | 'workflow-engine'
+  | 'operaton-ui-gateway'
   | 'redpanda-console'
   | 'redpanda-console-proxy'
   | 'object-storage';

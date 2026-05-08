@@ -111,6 +111,7 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
             resources?: unknown[];
             urls?: { projectUrl?: string };
           } | null;
+          verificationReport?: { checks?: Array<{ name: string; status: number; ok: boolean }> } | null;
         };
       };
       expect(showJson.deployment.status, JSON.stringify(showJson.deployment)).toBe('succeeded');
@@ -122,6 +123,13 @@ describe.skipIf(!live.enabled)(`live Dokploy order fulfillment${live.enabled ? '
         expect.objectContaining({ workloadSlug: 'inventory' }),
         expect.objectContaining({ workloadSlug: 'edge' }),
       ]));
+
+      if (live.operatonUiBaseUrl) {
+        const checks = showJson.deployment.verificationReport?.checks as Array<{ name: string; status: number; ok: boolean }> | undefined;
+        expect(checks).toBeDefined();
+        expect(checks).toContainEqual(expect.objectContaining({ name: 'operaton-ui (no-auth)', status: 401, ok: true }));
+        expect(checks).toContainEqual(expect.objectContaining({ name: 'operaton-ui (invalid-basic)', status: 401, ok: true }));
+      }
 
       const baseUrl = showJson.deployment.applyResult?.urls?.projectUrl;
       if (typeof baseUrl !== 'string' || baseUrl.length === 0) {

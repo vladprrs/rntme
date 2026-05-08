@@ -6,6 +6,7 @@ import type {
   DokployCompose,
   DokployProjectRef,
   RenderedDokployResource,
+  RenderedSecretFileRef,
   RenderedEnvVar,
 } from '@rntme/deploy-dokploy';
 import { parseTargetSecret, type DeployTargetWithSecret, type SecretCipher } from '@rntme/platform-core';
@@ -203,7 +204,14 @@ export function createDokployClientFactory(
             registryUrl: '',
           });
         }
-        await configureFileMounts(request, applicationId, resource.files);
+        await configureFileMounts(
+          request,
+          'application',
+          applicationId,
+          resource.files,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
         if (resource.ingress !== undefined) {
           const domainsResponse = await request<unknown>('GET', '/api/domain.byApplicationId', {
             applicationId,
@@ -303,6 +311,14 @@ export function createDokployClientFactory(
           composeId,
           env: envBlock(resource),
         });
+        await configureFileMounts(
+          request,
+          'compose',
+          composeId,
+          undefined,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
       },
       deployCompose: async (composeId: string) => {
         await request('POST', '/api/compose.deploy', { composeId });
@@ -441,26 +457,42 @@ async function findComposeByName(
 
 async function configureFileMounts(
   request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
-  applicationId: string,
+  serviceType: 'application' | 'compose',
+  serviceId: string,
   files: Readonly<Record<string, string>> | undefined,
+  secretFiles: Readonly<Record<string, RenderedSecretFileRef>> | undefined,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
 ): Promise<void> {
-  if (files === undefined) return;
-
   const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
-    serviceType: 'application',
-    serviceId: applicationId,
+    serviceType,
+    serviceId,
   });
   const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
 
-  for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+  const allMounts: Array<{ path: string; content: string }> = [];
+
+  if (files !== undefined) {
+    for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+      allMounts.push({ path, content });
+    }
+  }
+
+  if (secretFiles !== undefined) {
+    for (const [path, ref] of Object.entries(secretFiles).sort(([a], [b]) => a.localeCompare(b))) {
+      const content = resolveSecretFileContent(ref, resolvedTargetSecrets);
+      allMounts.push({ path, content });
+    }
+  }
+
+  for (const { path, content } of allMounts) {
     const matches = mounts.filter((mount) => mount.mountPath === path);
     const existing = matches[0];
     const body = {
       type: 'file',
-      serviceType: 'application',
-      serviceId: applicationId,
+      serviceType,
+      serviceId,
       mountPath: path,
-      filePath: dokployFilePath(applicationId, path),
+      filePath: dokployFilePath(serviceId, path),
       content,
     };
     if (existing === undefined) {
@@ -469,13 +501,49 @@ async function configureFileMounts(
       await request('POST', '/api/mounts.update', {
         ...body,
         mountId: existing.mountId,
-        applicationId,
+        ...(serviceType === 'application' ? { applicationId: serviceId } : { composeId: serviceId }),
       });
       for (const duplicate of matches.slice(1)) {
         await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
       }
     }
   }
+}
+
+function resolveSecretFileContent(
+  ref: RenderedSecretFileRef,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
+): string {
+  if (resolvedTargetSecrets === undefined) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+  const secret = resolvedTargetSecrets[ref.secretRef];
+  if (secret === undefined || typeof secret !== 'object' || secret === null) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+
+  if (ref.schema === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
+    const htpasswd = (secret as Record<string, unknown>).htpasswd;
+    if (typeof htpasswd !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return htpasswd;
+  }
+
+  if (ref.schema === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
+    const id = (secret as Record<string, unknown>).id;
+    const password = (secret as Record<string, unknown>).password;
+    if (typeof id !== 'string' || typeof password !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return `operaton:\n  bpm:\n    admin-user:\n      id: "${escapeYamlString(id)}"\n      password: "${escapeYamlString(password)}"\n`;
+  }
+
+  throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+}
+
+function escapeYamlString(value: string): string {
+  return value.replace(/"/g, '\\"');
 }
 
 function dokployFilePath(applicationId: string, mountPath: string): string {

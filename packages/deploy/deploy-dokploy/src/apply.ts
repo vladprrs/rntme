@@ -42,6 +42,7 @@ export type DeploymentApplyResult = {
     readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
+    readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
     readonly redpandaConsoleUrl?: string;
   };
 };
@@ -581,12 +582,20 @@ function resourceMatches(
     readonly env?: RenderedDokployResource['env'];
     readonly labels?: RenderedDokployResource['labels'];
     readonly files?: RenderedApplicationResource['files'];
+    readonly secretFiles?: RenderedApplicationResource['secretFiles'];
   },
   resource: RenderedDokployResource,
 ): boolean {
   if (existing.image === undefined || existing.image !== resource.image) return false;
   if (existing.env === undefined || !envVarsMatch(existing.env, resource.env)) return false;
   if (existing.labels === undefined || !stringRecordMatches(existing.labels, resource.labels)) {
+    return false;
+  }
+
+  // Secret files always contain refs (not values) in the rendered plan digest,
+  // so they must be treated as changed on every apply so the client boundary
+  // can resolve the current secret values and mount them.
+  if (resource.secretFiles !== undefined && Object.keys(resource.secretFiles).length > 0) {
     return false;
   }
 
@@ -795,11 +804,16 @@ function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult
     ...(rendered.urls.redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl: rendered.urls.redpandaConsoleUrl }),
   };
 
-  if (rendered.urls.uiUrl === undefined) return base;
+  if (rendered.urls.uiUrl === undefined && rendered.urls.operatonUiAuthChecks === undefined) {
+    return base;
+  }
 
   return {
     ...base,
-    uiUrl: rendered.urls.uiUrl,
+    ...(rendered.urls.uiUrl === undefined ? {} : { uiUrl: rendered.urls.uiUrl }),
+    ...(rendered.urls.operatonUiAuthChecks === undefined
+      ? {}
+      : { operatonUiAuthChecks: rendered.urls.operatonUiAuthChecks }),
   };
 }
 

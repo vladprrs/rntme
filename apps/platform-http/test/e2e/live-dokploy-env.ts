@@ -11,6 +11,7 @@ export type LiveDokployEnv =
     readonly operatonImage: string;
     readonly redpandaImage?: string;
     readonly httpTimeoutMs: number;
+    readonly operatonUiBaseUrl?: string;
   };
 
 export function readLiveDokployEnv(env: Record<string, string | undefined> = process.env): LiveDokployEnv {
@@ -41,5 +42,6 @@ export function readLiveDokployEnv(env: Record<string, string | undefined> = pro
     operatonImage: env['RNTME_E2E_OPERATON_IMAGE']!.trim(),
     ...(env['RNTME_E2E_REDPANDA_IMAGE'] ? { redpandaImage: env['RNTME_E2E_REDPANDA_IMAGE'].trim() } : {}),
     httpTimeoutMs: Number.parseInt(env['RNTME_E2E_HTTP_TIMEOUT_MS'] ?? '180000', 10),
+    ...(env['RNTME_E2E_OPERATON_UI_BASE_URL'] ? { operatonUiBaseUrl: env['RNTME_E2E_OPERATON_UI_BASE_URL'].trim() } : {}),
   };
 }

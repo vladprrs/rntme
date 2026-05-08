@@ -20,6 +20,7 @@ export {
   type ExternalStorageConfig,
   type InMemoryEventBusConfig,
   type IntegrationModuleDeploymentConfig,
+  type OperatonUiAccessConfig,
   type ProvisionedEventBusConfig,
   type ProvisionedRustfsStorageConfig,
   type ProjectDeploymentConfig,
@@ -50,7 +51,9 @@ export {
   type PlannedWorkflowEngine,
   type PlannedWorkflowServiceTask,
   type PlannedWorkflowSubscription,
+  type PlannedWorkflowUiAccess,
   type ProjectDeploymentPlan,
+  type RequiredTargetSecretRef,
 } from './plan.js';
 export { type EdgeMiddleware, type EdgeRoute } from './edge.js';
 export {

@@ -8,6 +8,30 @@ export const TARGET_SECRET_SCHEMAS = {
       mgmtClientSecret: z.string().min(1),
     })
     .strict(),
+  'operaton-ui-basic-auth-v1': z
+    .object({
+      htpasswd: z
+        .string()
+        .min(1)
+        .refine(
+          (val) =>
+            val
+              .split('\n')
+              .filter((line) => line.trim().length > 0)
+              .every((line) => line.includes(':')),
+          { message: 'htpasswd must contain username:hash lines' },
+        ),
+    })
+    .strict(),
+  'operaton-admin-user-v1': z
+    .object({
+      id: z.string().min(1),
+      password: z.string().min(1),
+      firstName: z.string().min(1).optional(),
+      lastName: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+    })
+    .strict(),
   'redpanda-console-basic-auth-v1': z
     .object({
       username: z.string().trim().min(1),

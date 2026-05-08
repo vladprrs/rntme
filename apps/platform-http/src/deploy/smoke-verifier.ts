@@ -19,6 +19,7 @@ export type VerificationHints = {
   readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
   readonly protectedRouteChecks: readonly ProtectedRouteSpec[];
+  readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
   readonly redpandaConsoleUrl?: string;
 };
 
@@ -89,6 +90,26 @@ export class SmokeVerifier {
           status: r.status,
           latencyMs: r.latencyMs,
           ok: r.status === 401 && isJson(r.contentType) && bodyOk,
+        });
+      }
+    }
+
+    for (const check of verificationHints.operatonUiAuthChecks ?? []) {
+      for (const [label, auth] of [
+        ['no-auth', undefined],
+        ['invalid-basic', `Basic ${Buffer.from('invalid:invalid').toString('base64')}`],
+      ] as const) {
+        const r = await this.fetcher(check.url, {
+          method: 'GET',
+          timeoutMs: 5_000,
+          ...(auth ? { headers: { Authorization: auth } } : {}),
+        });
+        checks.push({
+          name: `${check.name} (${label})`,
+          url: check.url,
+          status: r.status,
+          latencyMs: r.latencyMs,
+          ok: r.status === 401,
         });
       }
     }

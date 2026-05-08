@@ -62,6 +62,20 @@ export type EdgeGatewayWorkload = {
   readonly image: 'nginx:1.27-alpine';
 };
 
+export type RequiredTargetSecretRef = {
+  readonly kind: 'target-secret';
+  readonly secretRef: string;
+  readonly schema: string;
+  readonly purpose: string;
+};
+
+export type PlannedWorkflowUiAccess = {
+  readonly enabled: true;
+  readonly publicBaseUrl: string;
+  readonly authKind: 'basic';
+  readonly authSecretRef: string;
+};
+
 export type PlannedWorkflowEngine =
   | { readonly kind: 'none' }
   | {
@@ -70,6 +84,8 @@ export type PlannedWorkflowEngine =
       readonly resourceName: string;
       readonly internalBaseUrl: string;
       readonly image: string;
+      readonly adminUserSecretRef?: string;
+      readonly uiAccess?: PlannedWorkflowUiAccess;
     };
 
 export type PlannedWorkflowSubscription = {
@@ -201,6 +217,7 @@ export type ProjectDeploymentPlan = {
   };
   readonly workloads: readonly DeploymentWorkload[];
   readonly edge: EdgePlan;
+  readonly requiredTargetSecrets: readonly RequiredTargetSecretRef[];
   readonly diagnostics: {
     readonly warnings: readonly DeploymentWarning[];
   };
@@ -257,11 +274,13 @@ export function buildProjectDeploymentPlan(
     config.eventBus === undefined
       ? undefined
       : planEventBus(config.eventBus, config.orgSlug, project.name, errors);
+  const requiredTargetSecrets: RequiredTargetSecretRef[] = [];
   const workflowPlan = planWorkflowEngine({
     project,
     config,
     eventBus: plannedEventBus,
     errors,
+    requiredTargetSecrets,
   });
   const plannedObjectStorage = planObjectStorage(config.storage, config.orgSlug, project.name, errors);
 
@@ -310,6 +329,7 @@ export function buildProjectDeploymentPlan(
     },
     workloads: allWorkloads,
     edge,
+    requiredTargetSecrets,
     diagnostics: { warnings },
   });
 }

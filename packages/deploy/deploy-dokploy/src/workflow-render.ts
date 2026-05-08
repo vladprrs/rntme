@@ -6,6 +6,7 @@ import type {
   RenderedDokployApplicationResource,
   RenderedDokployComposeResource,
   RenderedEnvVar,
+  RenderedSecretFileRef,
 } from './render.js';
 
 type BpmnWorkerWorkload = Extract<ProjectDeploymentPlan['workloads'][number], { kind: 'bpmn-worker' }>;
@@ -14,6 +15,17 @@ type WorkflowEngine = NonNullable<ProjectDeploymentPlan['infrastructure']['workf
 export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource | null {
   const engine = workflowEngine(plan);
   if (engine.kind === 'none') return null;
+
+  const secretFiles: Record<string, RenderedSecretFileRef> | undefined =
+    engine.adminUserSecretRef !== undefined
+      ? {
+          '/operaton/configuration/application.yaml': {
+            schema: 'operaton-admin-user-v1',
+            secretRef: engine.adminUserSecretRef,
+            field: 'applicationYaml',
+          },
+        }
+      : undefined;
 
   return {
     logicalId: 'workflow-engine',
@@ -33,6 +45,7 @@ export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokp
       'rntme.infrastructure': 'workflow-engine',
       'rntme.provider': 'operaton',
     },
+    ...(secretFiles !== undefined ? { secretFiles } : {}),
   };
 }
 
@@ -235,4 +248,68 @@ function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['ev
     env.push({ name: 'RNTME_EVENT_BUS_TOPIC_PREFIX', value: eventBus.topicPrefix, secret: false });
   }
   return env;
+}
+
+export function renderOperatonUiGateway(
+  plan: ProjectDeploymentPlan,
+): RenderedDokployApplicationResource | null {
+  const engine = workflowEngine(plan);
+  if (engine.kind !== 'operaton' || engine.uiAccess === undefined) return null;
+
+  const name = `${engine.resourceName}-ui-gateway`;
+  const nginxConfig = renderOperatonUiNginxConfig(engine.resourceName);
+
+  return {
+    logicalId: 'operaton-ui-gateway',
+    kind: 'application',
+    workloadKind: 'infrastructure-proxy',
+    workloadSlug: 'operaton-ui-gateway',
+    infrastructureKind: 'operaton-ui-gateway',
+    name,
+    image: 'nginx:1.27-alpine',
+    env: [],
+    labels: dokployLabels(
+      plan.project.orgSlug,
+      plan.project.projectSlug,
+      plan.project.environment,
+      'operaton-ui-gateway',
+    ),
+    ports: [{ containerPort: 8080, protocol: 'http' as const }],
+    ingress: {
+      publicBaseUrl: engine.uiAccess.publicBaseUrl,
+      containerPort: 8080,
+      healthPath: '/health' as const,
+      routes: [],
+    },
+    files: {
+      '/etc/nginx/nginx.conf': nginxConfig,
+    },
+    secretFiles: {
+      '/etc/nginx/.htpasswd': {
+        schema: 'operaton-ui-basic-auth-v1',
+        secretRef: engine.uiAccess.authSecretRef,
+        field: 'htpasswd',
+      },
+    },
+  };
+}
+
+function renderOperatonUiNginxConfig(engineResourceName: string): string {
+  return [
+    'events {}',
+    'http {',
+    '  server {',
+    '    listen 8080;',
+    '    location = /health { return 200 "ok\\n"; }',
+    '    location / {',
+    '      auth_basic "rntme Operaton";',
+    '      auth_basic_user_file /etc/nginx/.htpasswd;',
+    `      proxy_pass http://${engineResourceName}:8080;`,
+    '      proxy_set_header Host $host;',
+    '      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
+    '    }',
+    '  }',
+    '}',
+    '',
+  ].join('\n');
 }

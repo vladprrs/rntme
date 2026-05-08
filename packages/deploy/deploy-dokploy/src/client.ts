@@ -2,6 +2,7 @@ import type {
   RenderedDokployProject,
   RenderedDokployResource,
   RenderedEnvVar,
+  RenderedSecretFileRef,
 } from './render.js';
 
 export type DokployProjectRef = RenderedDokployProject;
@@ -19,6 +20,7 @@ export type DokployApplication = {
   readonly env?: readonly RenderedEnvVar[];
   readonly labels?: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
+  readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
 };
 
 export type DokployCompose = {

@@ -110,6 +110,41 @@ Worker file paths are validated as relative paths below `/srv/workflows`; empty
 segments, parent traversal, absolute paths, backslashes, and URL-scheme paths
 are rejected during render.
 
+## Operaton UI gateway
+
+When `plan.infrastructure.workflowEngine.uiAccess` is present, render adds a
+separate Dokploy **application** resource (`operaton-ui-gateway`) with its own
+Dokploy application ingress. This is distinct from the `workflow-engine` Compose
+resource, which remains internal-only on `dokploy-network` and is never publicly
+exposed. Direct public Compose exposure is forbidden by design.
+
+The gateway runs `nginx:1.27-alpine` and proxies to the internal Operaton
+service. Nginx Basic Auth (`auth_basic`) is enforced before proxying. The
+`.htpasswd` file is declared as a `secretFiles` mount:
+
+```ts
+secretFiles: {
+  '/etc/nginx/.htpasswd': {
+    schema: 'basic-auth-v1',
+    secretRef: engine.uiAccess.authSecretRef,
+    field: 'htpasswd',
+  }
+}
+```
+
+Secret files are rendered as **references** (`schema` + `secretRef` + `field`).
+The values are resolved only inside the platform client's Dokploy client
+factory, which decrypts the target secret and mounts the resolved content as a
+Dokploy application file. The render/apply packages never see secret values.
+
+### Edge gateway and Operaton UI ingress ordering
+
+The edge gateway handles project-level routes (UI, APIs, modules). The
+`operaton-ui-gateway` application has its own independent Dokploy ingress with
+`publicBaseUrl` from `uiAccess`. Both ingresses are rendered and applied;
+smoke checks verify the Operaton UI URL returns `401` for no-auth and invalid
+Basic Auth before the deployment is marked successful.
+
 ## Provisioner outputs in render
 
 `renderDokployPlan` accepts optional `provisionedModules` (a map of module slug to `ProvisionerOutput`) and `envMappings` (an array of `EnvMapping` entries produced by `resolveEnvMappings` in `@rntme/deploy-core`). When present, render bakes provisioner outputs into the env entries of the relevant resource definitions before computing the plan digest. The digest therefore covers provisioned values: re-rendering with different provisioner outputs produces a different digest and forces a re-apply.

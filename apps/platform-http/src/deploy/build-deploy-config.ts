@@ -83,7 +83,7 @@ export function buildProjectDeploymentConfig(
       ...(target.policyValues as DeploymentPolicyConfig),
       ...((overrides.policyOverrides ?? {}) as DeploymentPolicyConfig),
     },
-    ...(target.workflows === null ? {} : { workflows: target.workflows }),
+    ...(target.workflows === null ? {} : { workflows: cleanWorkflowsConfig(target.workflows) }),
     auth: cleanAuthConfig(target.auth),
     ...(overrides.runtimeImage ? { runtimeImage: overrides.runtimeImage } : {}),
     ...(manualAccess === undefined ? {} : { manualAccess }),
@@ -169,6 +169,19 @@ function cleanAuthConfig(input: DeployTarget['auth']): NonNullable<ProjectDeploy
       ...(input.auth0.audience === undefined ? {} : { audience: input.auth0.audience }),
       ...(input.auth0.redirectUri === undefined ? {} : { redirectUri: input.auth0.redirectUri }),
     },
+  };
+}
+
+function cleanWorkflowsConfig(input: NonNullable<DeployTarget['workflows']>): NonNullable<ProjectDeploymentConfig['workflows']> {
+  return {
+    engine: {
+      kind: input.engine.kind,
+      mode: input.engine.mode,
+      image: input.engine.image,
+      ...(input.engine.adminUserSecretRef === undefined ? {} : { adminUserSecretRef: input.engine.adminUserSecretRef }),
+    },
+    worker: input.worker,
+    ...(input.operatonUi === undefined ? {} : { operatonUi: input.operatonUi }),
   };
 }
 

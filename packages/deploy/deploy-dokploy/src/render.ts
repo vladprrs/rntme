@@ -7,7 +7,17 @@ import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
 import { renderRedpandaConsoleApplications } from './redpanda-console.js';
-import { renderBpmnWorker, renderOperatonCompose } from './workflow-render.js';
+import {
+  renderBpmnWorker,
+  renderOperatonCompose,
+  renderOperatonUiGateway,
+} from './workflow-render.js';
+
+export type RenderedSecretFileRef = {
+  readonly schema: string;
+  readonly secretRef: string;
+  readonly field: string;
+};
 
 export type RenderedDokployProject =
   | { readonly mode: 'existing'; readonly projectId: string }
@@ -62,7 +72,7 @@ export type RenderedDokployApplicationResource = {
   readonly kind: 'application';
   readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy';
   readonly workloadSlug?: string;
-  readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
+  readonly infrastructureKind?: 'operaton-ui-gateway' | 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
   readonly image: string;
   readonly command?: string;
@@ -73,6 +83,7 @@ export type RenderedDokployApplicationResource = {
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
+  readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
   readonly secretResolutionHints?: {
     readonly redpandaConsoleHtpasswd?: { readonly secretRef: string; readonly expectedUsername: string };
   };
@@ -87,6 +98,7 @@ export type RenderedDokployComposeResource = {
   readonly composeFile: string;
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
+  readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
 };
 
 export type RenderedDokployResource =
@@ -101,6 +113,8 @@ export type RenderedDokployPlan = {
   readonly urls: {
     readonly projectUrl: string;
     readonly uiUrl?: string;
+    readonly operatonUiUrl?: string;
+    readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
     readonly redpandaConsoleUrl?: string;
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
@@ -178,22 +192,24 @@ export function renderDokployPlan(
     return route !== undefined && route.kind !== 'ui' && !isAuthProtectedRoute(plan, route.id);
   });
   const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
+  const operatonUiAccess = plan.infrastructure.workflowEngine?.kind === 'operaton'
+    ? plan.infrastructure.workflowEngine.uiAccess
+    : undefined;
+  const operatonUiUrl = operatonUiAccess?.publicBaseUrl;
   const redpandaConsoleUrl = plan.infrastructure.manualAccess?.redpandaConsole?.publicBaseUrl;
-  const urls: RenderedDokployPlan['urls'] =
-    uiRoute === undefined
-      ? {
-          projectUrl: config.publicBaseUrl,
-          ...(redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl }),
-          publicRoutes: publicSmokeRoutes.map(stripRoutePath),
-          protectedRouteChecks,
-        }
+  const urls: RenderedDokployPlan['urls'] = {
+    projectUrl: config.publicBaseUrl,
+    ...(uiRoute === undefined ? {} : { uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path) }),
+    ...(operatonUiUrl === undefined
+      ? {}
       : {
-          projectUrl: config.publicBaseUrl,
-          uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
-          ...(redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl }),
-          publicRoutes: publicSmokeRoutes.map(stripRoutePath),
-          protectedRouteChecks,
-        };
+          operatonUiUrl,
+          operatonUiAuthChecks: [{ name: 'operaton-ui', url: operatonUiUrl }],
+        }),
+    ...(redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl }),
+    publicRoutes: publicSmokeRoutes.map(stripRoutePath),
+    protectedRouteChecks,
+  };
   const renderedWithoutDigest = {
     target: { kind: 'dokploy' as const, endpoint: config.endpoint },
     targetProject,
@@ -284,6 +300,8 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   }
   const workflowEngine = renderOperatonCompose(plan);
   if (workflowEngine !== null) resources.push(workflowEngine);
+  const uiGateway = renderOperatonUiGateway(plan);
+  if (uiGateway !== null) resources.push(uiGateway);
   const consoleAccess = plan.infrastructure.manualAccess?.redpandaConsole;
   if (consoleAccess !== undefined && eventBus.mode === 'provisioned') {
     resources.push(...renderRedpandaConsoleApplications(plan, consoleAccess, eventBus.resourceName));

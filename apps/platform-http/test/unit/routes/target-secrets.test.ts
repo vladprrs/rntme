@@ -237,6 +237,84 @@ describe('target-secrets routes', () => {
       expect(body.error.code).toBe('TARGET_SECRET_VALIDATION_FAILED');
     });
 
+    it('stores a valid operaton-ui-basic-auth-v1 secret', async () => {
+      const secretsRepo = fakeSecretsRepo();
+      const app = buildApp({ secretsRepo });
+      const res = await app.request(`${BASE}/operaton-ui-basic-auth-v1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          schema: 'operaton-ui-basic-auth-v1',
+          value: { htpasswd: 'admin:$2y$10$...\nuser:$2y$10$...' },
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json() as { name: string; schema: string };
+      expect(body.name).toBe('operaton-ui-basic-auth-v1');
+      expect(body.schema).toBe('operaton-ui-basic-auth-v1');
+    });
+
+    it('rejects operaton-ui-basic-auth-v1 with invalid htpasswd format', async () => {
+      const app = buildApp({});
+      const res = await app.request(`${BASE}/operaton-ui-basic-auth-v1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          schema: 'operaton-ui-basic-auth-v1',
+          value: { htpasswd: 'no-colon-line' },
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json() as { error: { code: string } };
+      expect(body.error.code).toBe('TARGET_SECRET_VALIDATION_FAILED');
+    });
+
+    it('stores a valid operaton-admin-user-v1 secret', async () => {
+      const secretsRepo = fakeSecretsRepo();
+      const app = buildApp({ secretsRepo });
+      const res = await app.request(`${BASE}/operaton-admin-user-v1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          schema: 'operaton-admin-user-v1',
+          value: { id: 'admin', password: 'secret', firstName: 'Admin', lastName: 'User' },
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json() as { name: string; schema: string };
+      expect(body.name).toBe('operaton-admin-user-v1');
+      expect(body.schema).toBe('operaton-admin-user-v1');
+    });
+
+    it('stores operaton-admin-user-v1 with optional email', async () => {
+      const secretsRepo = fakeSecretsRepo();
+      const app = buildApp({ secretsRepo });
+      const res = await app.request(`${BASE}/operaton-admin-user-v1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          schema: 'operaton-admin-user-v1',
+          value: { id: 'admin', password: 'secret', firstName: 'Admin', lastName: 'User', email: 'admin@example.com' },
+        }),
+      });
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects operaton-admin-user-v1 missing required fields', async () => {
+      const app = buildApp({});
+      const res = await app.request(`${BASE}/operaton-admin-user-v1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          schema: 'operaton-admin-user-v1',
+          value: { id: 'admin' },
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json() as { error: { code: string } };
+      expect(body.error.code).toBe('TARGET_SECRET_VALIDATION_FAILED');
+    });
+
     it('returns 404 when target not found', async () => {
       const app = buildApp({ targetFound: false });
       const res = await app.request(`${BASE}/auth0-mgmt-api-v1`, {

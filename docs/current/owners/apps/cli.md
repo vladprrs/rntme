@@ -117,6 +117,44 @@ Patch existing targets with `rntme target set-config <slug> --from patch.json`.
 `publicBaseUrl`; the DNS record for that URL must already point at the same
 Dokploy host.
 
+### JSON-patch example: Operaton UI and admin secret
+
+Use a JSON patch file to configure `workflows.operatonUi` and
+`engine.adminUserSecretRef` on an existing target:
+
+```json
+{
+  "workflows": {
+    "engine": {
+      "kind": "operaton",
+      "mode": "provisioned",
+      "image": "operaton/operaton:2.1.0",
+      "adminUserSecretRef": "operaton-admin-user-v1"
+    },
+    "worker": {
+      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1"
+    },
+    "operatonUi": {
+      "enabled": true,
+      "publicBaseUrl": "https://operaton.acme.example.test",
+      "auth": {
+        "kind": "basic",
+        "secretRef": "operaton-ui-basic-auth-v1"
+      }
+    }
+  }
+}
+```
+
+Apply it with:
+
+```bash
+rntme target set-config dokploy-workflows --from operaton-ui-patch.json
+```
+
+The target secrets (`operaton-ui-basic-auth-v1`, `operaton-admin-user-v1`) must
+be created separately via the platform REST API before deployment.
+
 ```bash
 rntme token create deploy-bot --preset deploy --org my-org
 rntme project publish --org my-org --project order-fulfillment demo/order-fulfillment-blueprint

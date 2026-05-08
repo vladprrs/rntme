@@ -9,6 +9,8 @@ import type {
   PlannedWorkflowEngine,
   PlannedWorkflowServiceTask,
   PlannedWorkflowSubscription,
+  PlannedWorkflowUiAccess,
+  RequiredTargetSecretRef,
 } from './plan.js';
 
 export function planWorkflowEngine(input: {
@@ -16,6 +18,7 @@ export function planWorkflowEngine(input: {
   readonly config: ProjectDeploymentConfig;
   readonly eventBus: PlannedEventBus | undefined;
   readonly errors: DeploymentPlanError[];
+  readonly requiredTargetSecrets: RequiredTargetSecretRef[];
 }): { readonly engine: PlannedWorkflowEngine; readonly worker: BpmnWorkerWorkload | null } {
   const workflows = input.project.workflows;
   if (workflows === undefined || workflows === null) {
@@ -32,6 +35,17 @@ export function planWorkflowEngine(input: {
 
   const workflowConfig = asRecord(input.config.workflows);
   const engineConfig = asRecord(workflowConfig?.engine);
+  const operatonUiConfig = asRecord(workflowConfig?.operatonUi);
+  const operatonUiEnabled = operatonUiConfig !== null && operatonUiConfig.enabled === true;
+
+  if (operatonUiEnabled && (workflowConfig === null || engineConfig === null || engineConfig.kind !== 'operaton' || engineConfig.mode !== 'provisioned')) {
+    input.errors.push({
+      code: 'DEPLOY_PLAN_WORKFLOWS_UI_REQUIRES_OPERATON',
+      message: 'Operaton UI access requires a workflow project with provisioned Operaton engine',
+      path: 'workflows.operatonUi',
+    });
+  }
+
   if (workflowConfig === null || engineConfig === null) {
     input.errors.push({
       code: 'DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON',
@@ -76,6 +90,53 @@ export function planWorkflowEngine(input: {
   }
 
   const engineResource = resourceName(input.config.orgSlug, input.project.name, 'operaton');
+
+  const adminUserSecretRef = nonEmptyString(engineConfig.adminUserSecretRef);
+  if (engineConfig.adminUserSecretRef !== undefined && adminUserSecretRef === null) {
+    input.errors.push({
+      code: 'DEPLOY_PLAN_WORKFLOWS_OPERATON_ADMIN_SECRET_MISSING',
+      message: 'Operaton admin user secret ref must be a non-empty string',
+      path: 'workflows.engine.adminUserSecretRef',
+    });
+  }
+
+  let uiAccess: PlannedWorkflowUiAccess | undefined = undefined;
+  if (operatonUiEnabled) {
+    const publicBaseUrl = nonEmptyString(operatonUiConfig.publicBaseUrl);
+    if (publicBaseUrl === null) {
+      input.errors.push({
+        code: 'DEPLOY_PLAN_WORKFLOWS_UI_PUBLIC_URL_MISSING',
+        message: 'Operaton UI access requires a non-empty publicBaseUrl',
+        path: 'workflows.operatonUi.publicBaseUrl',
+      });
+    }
+
+    const auth = asRecord(operatonUiConfig.auth);
+    const authSecretRef = nonEmptyString(auth?.secretRef);
+    if (authSecretRef === null) {
+      input.errors.push({
+        code: 'DEPLOY_PLAN_WORKFLOWS_UI_AUTH_SECRET_MISSING',
+        message: 'Operaton UI access requires a non-empty auth.secretRef',
+        path: 'workflows.operatonUi.auth.secretRef',
+      });
+    }
+
+    if (publicBaseUrl !== null && authSecretRef !== null) {
+      uiAccess = {
+        enabled: true,
+        publicBaseUrl,
+        authKind: 'basic',
+        authSecretRef,
+      };
+      input.requiredTargetSecrets.push({
+        kind: 'target-secret',
+        secretRef: authSecretRef,
+        schema: 'operaton-ui-basic-auth-v1',
+        purpose: 'Operaton UI Basic Auth htpasswd',
+      });
+    }
+  }
+
   const workerConfig = asRecord(workflowConfig.worker);
   const workerImage = nonEmptyString(workerConfig?.image);
   if (workerImage === null) {
@@ -91,6 +152,8 @@ export function planWorkflowEngine(input: {
         resourceName: engineResource,
         internalBaseUrl: `http://${engineResource}:8080`,
         image: engineImage,
+        ...(adminUserSecretRef !== null ? { adminUserSecretRef } : {}),
+        ...(uiAccess !== undefined ? { uiAccess } : {}),
       },
       worker: null,
     };
@@ -105,6 +168,8 @@ export function planWorkflowEngine(input: {
       resourceName: engineResource,
       internalBaseUrl: `http://${engineResource}:8080`,
       image: engineImage,
+      ...(adminUserSecretRef !== null ? { adminUserSecretRef } : {}),
+      ...(uiAccess !== undefined ? { uiAccess } : {}),
     },
     worker: {
       kind: 'bpmn-worker',

@@ -107,6 +107,51 @@ Stages run in this sequence:
 
 Provision runs before plan so blueprint vars can pull from `provisionResult`. Public provisioner outputs persist as JSONB on `deployment.provisionResult`; secret outputs persist encrypted as `deployment.provisionResultCiphertext`.
 
+## Pre-apply target-secret validation
+
+After `buildProjectDeploymentPlan` returns successfully, the executor validates
+`plan.requiredTargetSecrets` before calling `renderDokployPlan` or
+`applyDokployPlan`. For each required secret:
+
+1. Looks up the secret by `secretRef` in the target's secret repo.
+2. Verifies the stored schema matches the required schema.
+3. Decrypts the value and runs `parseTargetSecret` from `@rntme/platform-core`.
+4. Stores the validated value in `resolvedTargetSecrets` for the Dokploy client
+   factory to use when resolving secret-file mounts.
+
+Failure at any step finalizes the deployment as failed with one of:
+
+- `DEPLOY_EXECUTOR_TARGET_SECRET_MISSING` — secret not found on target.
+- `DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH` — stored schema does not match
+  required schema.
+- `DEPLOY_EXECUTOR_TARGET_SECRET_INVALID` — decrypted value fails schema
+  validation.
+
+This ordering guarantees that missing or misconfigured secrets are caught before
+any Dokploy resources are created or updated.
+
+## Smoke checks for Operaton UI
+
+When the rendered plan includes `urls.operatonUiAuthChecks`, the smoke verifier
+runs two checks per URL:
+
+- **No-auth** — `GET` without an `Authorization` header must return `401`.
+- **Invalid Basic Auth** — `GET` with `Basic invalid:invalid` must return `401`.
+
+These checks verify that Nginx Basic Auth is active before the deployment is
+marked successful. Valid credentials are not tested during smoke; those are
+verified manually after deploy.
+
+### Manual evidence checklist
+
+After a workflow deployment succeeds, confirm the following manually:
+
+1. Operaton UI loads at the configured `publicBaseUrl` with valid Basic Auth.
+2. BPMN processes are visible in the Operaton cockpit.
+3. The `bpmn-worker` application logs show successful subscriptions to the
+   provisioned Redpanda topics.
+4. Workflow service-task bindings resolve to the correct gRPC endpoints.
+
 ## Reading deployment logs
 
 The Dokploy MCP `application-readLogs` tool is unreliable for this codebase — it has been observed to return `success: true` with an empty body, and to 500 when given the `search` filter (verified 2026-05-04). Until the MCP is fixed, read logs via SSH:
