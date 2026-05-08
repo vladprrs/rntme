@@ -35,8 +35,8 @@ reflect the validated graph/input/output truth or some binding-local state.
   lookups during emission.
 - Update all in-repo callers, golden tests, examples, and current docs to the
   chosen signature.
-- Add a TypeScript guard so future unused parameters in the bindings package are
-  caught by package build/typecheck gates.
+- Add TypeScript guards so the public `generateOpenApi` signature cannot drift
+  back to an unused resolver argument during package build/typecheck gates.
 
 ## Non-goals
 
@@ -129,16 +129,27 @@ Keep resolver fixtures only where tests still need them for
 `validateBindings`. Remove emitter-only dummy resolver fixtures that become
 unused.
 
-### 3. Add a package TypeScript unused-parameter guard
+### 3. Add package TypeScript drift guards
 
 Enable `noUnusedParameters: true` for `@rntme/bindings`, preferably in
 `packages/artifacts/bindings/tsconfig.json` so both `build` and
 `tsconfig.check.json` inherit it.
 
-The implementation must clean up any package-local source/test fallout rather
-than prefixing new unused parameters with `_`. The goal is that a future
-`generateOpenApi(validated, _resolvers, options)` style drift fails the normal
-TypeScript gates.
+The implementation must clean up any package-local source/test fallout instead
+of adding new unused parameters. This is useful package hygiene, but it is not
+enough for the historical drift by itself: TypeScript intentionally exempts
+unused parameters whose names start with `_`.
+
+Add a package-local compile-time API contract assertion, covered by
+`tsconfig.check.json`, that verifies `typeof generateOpenApi` accepts exactly:
+
+```ts
+[validated: ValidatedBindings, options?: OpenApiGenOptions]
+```
+
+Place it in the existing test/typecheck surface rather than runtime code. The
+assertion should fail if a third `BindingResolvers` parameter is reintroduced,
+even if that parameter is named `_resolvers`.
 
 Do not enable this repo-wide in the same PR unless the bindings package cannot
 own the guard locally. A repo-wide compiler-policy change is a broader
@@ -198,8 +209,12 @@ Required regression checks:
   bindings.
 - A stale call such as `generateOpenApi(validated, resolvers)` fails TypeScript
   once the signature changes.
-- A newly added unused parameter in bindings source fails the package
-  TypeScript gate through `noUnusedParameters`.
+- A compile-time contract assertion fails TypeScript if `generateOpenApi`
+  accepts any third argument again.
+- A newly added non-underscore unused parameter in bindings source fails the
+  package TypeScript gate through `noUnusedParameters`; underscore-prefixed
+  unused parameters are covered for `generateOpenApi` by the explicit contract
+  assertion above.
 
 Suggested gates:
 
@@ -231,6 +246,8 @@ SPEC evidence:
 - Enabling `noUnusedParameters` may expose unrelated unused parameters inside
   `@rntme/bindings`. Keep cleanup scoped to that package and avoid a repo-wide
   compiler policy change in this PR.
+- TypeScript's `noUnusedParameters` underscore exemption means the API contract
+  assertion is load-bearing for preventing a future `_resolvers` parameter.
 - TypeScript structurally rejects most stale calls because `BindingResolvers`
   has no properties in common with `OpenApiGenOptions`, but tests should still
   include build/typecheck coverage rather than relying on runtime behavior.
@@ -242,8 +259,9 @@ Recommended implementation path:
 1. Change `generateOpenApi` to `(validated, options?)` and remove the unused
    resolver import.
 2. Update in-repo call sites, tests, demo, owner docs, and current guides.
-3. Add `noUnusedParameters: true` in the bindings package TypeScript config and
-   clean up package-local fallout.
+3. Add `noUnusedParameters: true` in the bindings package TypeScript config,
+   add the `generateOpenApi` arity/type contract assertion, and clean up
+   package-local fallout.
 4. Run the bindings test/build gates and one affected runtime gate.
 
 Next stage can go directly to PLAN/DEV; there is no product-decision blocker.
