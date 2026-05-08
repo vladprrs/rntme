@@ -1,4 +1,4 @@
-import { generateOpenApi, type OpenApiGenOptions } from '../../src/openapi/emit.js';
+import type { generateOpenApi, OpenApiGenOptions } from '../../src/openapi/emit.js';
 import type { ValidatedBindings } from '../../src/types/artifact.js';
 import type { OpenApiDoc } from '../../src/types/openapi.js';
 import type { Result } from '../../src/types/result.js';
@@ -11,12 +11,12 @@ type Equal<A, B> =
 
 type Expect<T extends true> = T;
 
-type GenerateOpenApiFunctionContract = Expect<Equal<
+type _GenerateOpenApiFunctionContract = Expect<Equal<
   typeof generateOpenApi,
   (validated: ValidatedBindings, options?: OpenApiGenOptions) => Result<OpenApiDoc>
 >>;
 
-type GenerateOpenApiParameterContract = Expect<Equal<
+type _GenerateOpenApiParameterContract = Expect<Equal<
   Parameters<typeof generateOpenApi>,
   [validated: ValidatedBindings, options?: OpenApiGenOptions]
 >>;
