@@ -1,5 +1,5 @@
 export { parseInitArtifact } from './parse/parse.js';
-export { validateInitStructural } from './validate/index.js';
+export { validateInitCrossRef, validateInitStructural } from './validate/index.js';
 export type {
   InitArtifact,
   InitMode,
@@ -22,3 +22,4 @@ export {
   type InitErrorCode,
   type Result,
 } from './types/result.js';
+export type { InitCrossRefContext } from './types/context.js';
