@@ -1,16 +1,9 @@
 import type Database from 'better-sqlite3';
-import { parseAuthoringSpec } from './parse/parse.js';
-import { validateStructural } from './validate/structural/index.js';
-import { validateSemantic } from './validate/semantic/index.js';
-import { normalize } from './canonical/normalize.js';
-import { buildSemanticPlan } from './semantic-plan/build.js';
-import { buildRelational } from './relational/build.js';
-import { lowerToSqlite } from './lower/sqlite/lower.js';
-import { emitSql } from './lower/sqlite/emit.js';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
-import { err, ok, ERROR_CODES, type Result } from './types/result.js';
-import { parseGraphIrArtifacts, type ExplainArtifacts, type ExplainOutput } from './explain/explain.js';
-import { compileFailed, toGraphIrError } from './types/errors.js';
+import { err, ok, type Result } from './types/result.js';
+import type { ExplainOutput } from './explain/explain.js';
+import { compileFailed } from './types/errors.js';
+import { _runPipeline } from './pipeline/run.js';
 
 export { CommandExecutionError } from './command-runtime/errors.js';
 export type { EmitPlan } from './types/command.js';
@@ -88,54 +81,13 @@ export function compile(
   rawQsm: unknown,
   _options?: CompileOptions,
 ): Result<CompileResult> {
-  const specR = parseAuthoringSpec(rawSpec);
-  if (!specR.ok) return specR;
+  const r = _runPipeline(rawSpec, rawPdm, rawQsm, { collect: false });
+  if (!r.ok) return err(r.errors);
 
-  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
-  if (!pq.ok) return pq;
-  const { pdm, qsm } = pq.value;
-
-  const sv = validateStructural(specR.value, pdm, qsm);
-  if (!sv.ok) return sv;
-
-  let canonical;
-  try {
-    canonical = normalize(sv.value);
-  } catch (e) {
-    return err([toGraphIrError(e, 'canonical')]);
-  }
-
-  const { graphs } = canonical;
-  const graphIds = Object.keys(graphs);
-  if (graphIds.length !== 1) {
-    return err([
-      {
-        layer: 'canonical',
-        code: ERROR_CODES.STRUCT_DUPLICATE_GRAPH_ID,
-        message: 'Tier 1 MVP compiles exactly one graph per call',
-      },
-    ]);
-  }
-  const graph = graphs[graphIds[0]!]!;
-
-  const semR = validateSemantic(graph, pdm, qsm, sv.value.shapes);
-  if (!semR.ok) return semR;
-
-  const planR = buildSemanticPlan(graph, pdm, qsm);
-  if (!planR.ok) return planR;
-  let rel;
-  try {
-    rel = buildRelational(planR.value);
-  } catch (e) {
-    return err([toGraphIrError(e, 'relational')]);
-  }
-
-  const predicateOptionalParams = new Set<string>(
-    Object.entries(graph.signature.inputs)
-      .filter(([, i]) => i.mode === 'predicate_optional')
-      .map(([name]) => name),
-  );
-  const optionalParams = [...predicateOptionalParams];
+  const { graph } = r;
+  const optionalParams = Object.entries(graph.signature.inputs)
+    .filter(([, i]) => i.mode === 'predicate_optional')
+    .map(([name]) => name);
 
   const paramDefaults: Record<string, unknown> = {};
   for (const [name, decl] of Object.entries(graph.signature.inputs)) {
@@ -144,18 +96,14 @@ export function compile(
     }
   }
 
-  let ast;
-  let paramOrder;
-  let sql;
-  try {
-    ({ ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm }));
-    sql = emitSql(ast);
-  } catch (e) {
-    return err([toGraphIrError(e, 'lowering')]);
-  }
-
   const shapeName = graph.signature.output.type.replace(/^rowset<|^row<|>$/g, '');
-  return ok({ sql, paramOrder, shape: { name: shapeName }, optionalParams, paramDefaults });
+  return ok({
+    sql: r.sql,
+    paramOrder: r.paramOrder,
+    shape: { name: shapeName },
+    optionalParams,
+    paramDefaults,
+  });
 }
 
 export function execute(
@@ -185,84 +133,17 @@ export function run(
 }
 
 export function explain(rawSpec: unknown, rawPdm: unknown, rawQsm: unknown): ExplainOutput {
-  const artifacts: ExplainArtifacts = {};
-
-  const specR = parseAuthoringSpec(rawSpec);
-  if (!specR.ok) return { ok: false, artifacts, errors: specR.errors };
-  artifacts.parsed = specR.value;
-
-  const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
-  if (!pq.ok) return { ok: false, artifacts, errors: pq.errors };
-
-  const { pdm, qsm } = pq.value;
-
-  const sv = validateStructural(specR.value, pdm, qsm);
-  if (!sv.ok) return { ok: false, artifacts, errors: sv.errors };
-
-  let canonical;
-  try {
-    canonical = normalize(sv.value);
-  } catch (e) {
-    return { ok: false, artifacts, errors: [toGraphIrError(e, 'canonical')] };
-  }
-  artifacts.canonical = canonical;
-
-  const graphIds = Object.keys(canonical.graphs);
-  if (graphIds.length !== 1) {
-    return {
-      ok: false,
-      artifacts,
-      errors: [
-        {
-          layer: 'canonical',
-          code: ERROR_CODES.STRUCT_DUPLICATE_GRAPH_ID,
-          message: 'Tier 1 MVP compiles exactly one graph per call',
-        },
-      ],
-    };
-  }
-  const graph = canonical.graphs[graphIds[0]!]!;
-
-  const semR = validateSemantic(graph, pdm, qsm, sv.value.shapes);
-  if (!semR.ok) return { ok: false, artifacts, errors: semR.errors };
-
-  const planR = buildSemanticPlan(graph, pdm, qsm);
-  if (!planR.ok) return { ok: false, artifacts, errors: planR.errors };
-  artifacts.semanticPlan = planR.value;
-
-  let rel;
-  try {
-    rel = buildRelational(planR.value);
-  } catch (e) {
-    return { ok: false, artifacts, errors: [toGraphIrError(e, 'relational')] };
-  }
-  artifacts.relational = rel;
-
-  const predicateOptionalParams = new Set<string>(
-    Object.entries(graph.signature.inputs)
-      .filter(([, i]) => i.mode === 'predicate_optional')
-      .map(([name]) => name),
-  );
-
-  let ast;
-  let paramOrder;
-  let sql;
-  try {
-    ({ ast, paramOrder } = lowerToSqlite(rel, { predicateOptionalParams, pdm, qsm }));
-    sql = emitSql(ast);
-  } catch (e) {
-    return { ok: false, artifacts, errors: [toGraphIrError(e, 'lowering')] };
-  }
-
+  const r = _runPipeline(rawSpec, rawPdm, rawQsm, { collect: true });
+  if (!r.ok) return { ok: false, artifacts: r.artifacts, errors: r.errors };
   return {
     ok: true,
     value: {
-      parsed: specR.value,
-      canonical,
-      semanticPlan: planR.value,
-      relational: rel,
-      sql,
-      paramOrder,
+      parsed: r.parsedSpec,
+      canonical: r.canonical,
+      semanticPlan: r.semanticPlan,
+      relational: r.rel,
+      sql: r.sql,
+      paramOrder: r.paramOrder,
     },
   };
 }
