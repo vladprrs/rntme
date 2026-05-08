@@ -146,6 +146,16 @@ export class GrpcAdapterClient implements ExternalAdapterClient {
   }
 }
 
+const VENDOR_HTTP_STATUS: Record<number, number> = {
+  [grpc.status.INVALID_ARGUMENT]: 400,
+  [grpc.status.NOT_FOUND]: 404,
+  [grpc.status.FAILED_PRECONDITION]: 409,
+  [grpc.status.PERMISSION_DENIED]: 403,
+  [grpc.status.UNAUTHENTICATED]: 401,
+  [grpc.status.ALREADY_EXISTS]: 409,
+  [grpc.status.ABORTED]: 409,
+};
+
 export function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterError {
   const status = (err.code ?? grpc.status.UNKNOWN) as grpc.status;
   const message = err.message ?? 'unknown gRPC error';
@@ -161,15 +171,6 @@ export function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterEr
   if (status === grpc.status.INTERNAL || status === grpc.status.UNKNOWN) {
     return { code: 'EXTERNAL_MODULE_INTERNAL', message, httpStatus: 502 };
   }
-  const httpMap: Record<number, number> = {
-    [grpc.status.INVALID_ARGUMENT]: 400,
-    [grpc.status.NOT_FOUND]: 404,
-    [grpc.status.FAILED_PRECONDITION]: 409,
-    [grpc.status.PERMISSION_DENIED]: 403,
-    [grpc.status.UNAUTHENTICATED]: 401,
-    [grpc.status.ALREADY_EXISTS]: 409,
-    [grpc.status.ABORTED]: 409,
-  };
   // Prefer err.details (the original server-supplied detail string) for vendor
   // domain code extraction. grpc-js prefixes err.message with the status code
   // (e.g. "3 INVALID_ARGUMENT: LIMIT_EXCEEDED: ..."), which would defeat the
@@ -181,6 +182,6 @@ export function statusToAdapterError(err: Partial<grpc.ServiceError>): AdapterEr
     code: 'EXTERNAL_VENDOR_DOMAIN',
     message,
     ...(domainCode !== undefined ? { domainCode } : {}),
-    httpStatus: httpMap[status] ?? 502,
+    httpStatus: VENDOR_HTTP_STATUS[status] ?? 502,
   };
 }

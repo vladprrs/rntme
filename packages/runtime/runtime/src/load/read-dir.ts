@@ -1,12 +1,15 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function readTextFile(dir: string, name: string): string {
-  const path = join(dir, name);
-  if (!existsSync(path)) {
-    throw new Error(`missing required file: ${name}`);
+  try {
+    return readFileSync(join(dir, name), 'utf8');
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ENOENT') {
+      throw new Error(`missing required file: ${name}`);
+    }
+    throw e;
   }
-  return readFileSync(path, 'utf8');
 }
 
 export function readJsonFile<T = unknown>(dir: string, name: string): T {
@@ -15,9 +18,15 @@ export function readJsonFile<T = unknown>(dir: string, name: string): T {
 
 export function readGraphsDir(dir: string): Record<string, unknown> {
   const graphsDir = join(dir, 'graphs');
-  if (!existsSync(graphsDir)) return {};
+  let entries: string[];
+  try {
+    entries = readdirSync(graphsDir);
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ENOENT') return {};
+    throw e;
+  }
   const out: Record<string, unknown> = {};
-  for (const fname of readdirSync(graphsDir)) {
+  for (const fname of entries) {
     if (!fname.endsWith('.json')) continue;
     const g = JSON.parse(readFileSync(join(graphsDir, fname), 'utf8')) as { id?: string };
     if (typeof g.id !== 'string') {

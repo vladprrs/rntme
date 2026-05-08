@@ -1,7 +1,7 @@
 import type { ValidatedManifest } from '../manifest/types.js';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { ResolvedShape, ScalarPrimitive } from '@rntme/bindings';
-import { createPdmResolver } from '@rntme/pdm';
+import { createPdmResolver, type PdmResolver } from '@rntme/pdm';
 import { GrpcSurface } from '../plugins/grpc-surface.js';
 import type { ValidatedService } from '../types.js';
 
@@ -35,10 +35,11 @@ function toPascal(name: string): string {
 }
 
 export function collectShapesFromService(service: ValidatedService): Record<string, ResolvedShape> {
+  const pdmResolver = createPdmResolver(service.pdm);
   const acc: Record<string, ResolvedShape> = {};
   const addShape = (shapeName: string): void => {
     if (acc[shapeName] !== undefined) return;
-    const shape = resolveServiceShape(service, shapeName);
+    const shape = resolveServiceShape(service, pdmResolver, shapeName);
     if (shape !== null) acc[shapeName] = shape;
   };
 
@@ -53,7 +54,11 @@ export function collectShapesFromService(service: ValidatedService): Record<stri
   return acc;
 }
 
-function resolveServiceShape(service: ValidatedService, name: string): ResolvedShape | null {
+function resolveServiceShape(
+  service: ValidatedService,
+  pdmResolver: PdmResolver,
+  name: string,
+): ResolvedShape | null {
   const custom = service.graphSpec.shapes[name];
   if (custom !== undefined) {
     const fields: ResolvedShape['fields'] = {};
@@ -66,7 +71,7 @@ function resolveServiceShape(service: ValidatedService, name: string): ResolvedS
     return { name, origin: 'custom', fields };
   }
 
-  const entity = createPdmResolver(service.pdm).resolveEntity(name);
+  const entity = pdmResolver.resolveEntity(name);
   if (entity === null) return null;
   const fields: ResolvedShape['fields'] = {};
   for (const field of entity.fields) {

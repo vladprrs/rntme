@@ -44,9 +44,16 @@ import {
 } from '@rntme/graph-ir-compiler';
 import type { DerivedHandler } from '@rntme/projection-consumer';
 
-// Manifest schema version accepted by this runtime. Bumped manually on
-// breaking manifest schema changes — NOT tied to the npm package semver.
+// Manifest schema version, not the npm package semver.
 const RUNTIME_VERSION = { major: 1, minor: 0, patch: 0 };
+
+const SCALAR_PRIMITIVES: readonly ScalarPrimitive[] = [
+  'integer', 'decimal', 'string', 'boolean', 'date', 'datetime',
+];
+
+function asScalarPrimitive(raw: string): ScalarPrimitive | null {
+  return (SCALAR_PRIMITIVES as readonly string[]).includes(raw) ? (raw as ScalarPrimitive) : null;
+}
 
 type GraphJson = {
   id: string;
@@ -58,21 +65,12 @@ type GraphJson = {
 };
 
 function parseInputType(raw: string): InputType {
-  if (
-    raw === 'integer' || raw === 'decimal' || raw === 'string' ||
-    raw === 'boolean' || raw === 'date' || raw === 'datetime'
-  ) {
-    return { kind: 'scalar', primitive: raw };
-  }
+  const scalar = asScalarPrimitive(raw);
+  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
   const list = /^list<(\w+)>$/.exec(raw);
   if (list) {
-    const element = list[1] as ScalarPrimitive;
-    if (
-      element === 'integer' || element === 'decimal' || element === 'string' ||
-      element === 'boolean' || element === 'date' || element === 'datetime'
-    ) {
-      return { kind: 'list', element };
-    }
+    const element = asScalarPrimitive(list[1]!);
+    if (element !== null) return { kind: 'list', element };
   }
   const row = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
   if (row) {
@@ -82,12 +80,8 @@ function parseInputType(raw: string): InputType {
 }
 
 function parseOutputType(raw: string): OutputType {
-  if (
-    raw === 'integer' || raw === 'decimal' || raw === 'string' ||
-    raw === 'boolean' || raw === 'date' || raw === 'datetime'
-  ) {
-    return { kind: 'scalar', primitive: raw };
-  }
+  const scalar = asScalarPrimitive(raw);
+  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
   const m = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
   if (!m) throw new Error(`unsupported output type: "${raw}"`);
   return { kind: m[1] as 'rowset' | 'row', shape: m[2] as string };

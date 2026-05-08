@@ -17,7 +17,6 @@ export type GrpcSurfaceOptions = {
 
 export class GrpcSurface implements Surface {
   private handle: GrpcServerHandle | null = null;
-  private listenedPort = 0;
 
   constructor(private readonly opts: GrpcSurfaceOptions) {}
 
@@ -35,9 +34,9 @@ export class GrpcSurface implements Surface {
       eventStore: ctx.eventStore,
       qsmDb: ctx.qsmDb,
     });
-    this.listenedPort = await this.handle.listen(this.opts.port);
+    const port = await this.handle.listen(this.opts.port);
     return {
-      port: this.listenedPort,
+      port,
       stop: async (): Promise<void> => {
         if (this.handle !== null) await this.handle.stop();
       },

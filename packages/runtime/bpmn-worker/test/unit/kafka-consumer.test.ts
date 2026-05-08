@@ -85,7 +85,7 @@ describe('createKafkaWorkflowConsumer', () => {
     });
 
     expect(kafkaMock.subscribeCalls).toEqual([
-      { topic: 'rntme.preview.orders.order', fromBeginning: true },
+      { topics: ['rntme.preview.orders.order'], fromBeginning: true },
     ]);
 
     await consumer.stop();
