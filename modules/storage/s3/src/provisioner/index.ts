@@ -98,7 +98,7 @@ export const storageS3Provisioner: ProvisionerContract<S3PublicConfig> = {
         forcePathStyle: cfg.forcePathStyle,
         credentials: adminCreds,
       });
-      const iam = cfg.backend === 'cloudflare-r2' ? null : new IAMClient({ region: cfg.region, credentials: adminCreds });
+      const iam = cfg.backend === 'aws-s3' ? new IAMClient({ region: cfg.region, credentials: adminCreds }) : null;
       const result = await provisionAuto({
         config: cfg,
         lifecycleRules: gatherLifecycleRules(input.serviceArtifacts),
