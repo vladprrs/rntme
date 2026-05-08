@@ -20,6 +20,9 @@ API callers can show actionable nested causes instead of a flattened message.
 `StartDeploymentRequestSchema.configOverrides` is strict. Supported override
 keys are `eventBusMode`, `integrationModuleImages`, `policyOverrides`,
 `runtimeImage`, and `publicBaseUrl`; `publicBaseUrl` must be an HTTP(S) URL.
+Deploy targets may persist optional `manualAccess` (validated JSON): `redpandaConsole`
+gates manual Console validation when the Kafka bus is provisioned; basic-auth
+material is target-secret-backed (`redpanda-console-basic-auth-v1`).
 
 See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the public repo.
 Deployment design: `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`.

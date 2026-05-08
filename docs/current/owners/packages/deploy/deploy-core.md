@@ -85,6 +85,8 @@ Callers without `provision.*` vars can omit `options`; behavior is identical to 
 
 Provisioned Redpanda is internal-only plaintext in this design. Cleanup/deprovisioning is a separate future workflow.
 
+Optional **Redpanda Console (manual validation access)** (`ProjectDeploymentConfig.manualAccess.redpandaConsole`) plans an internal Console workload plus an nginx Basic Auth proxy with public ingress only when the event bus is `provisioned` Redpanda. The plan carries secret **names/ref** (`htpasswdSecretRef`) and pinned Console image identifiers; decrypted values resolve only during platform apply.
+
 ## BPMN workflow planning
 
 `ComposedProjectInput.workflows` carries the validated project-level

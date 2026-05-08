@@ -172,3 +172,7 @@ injected `DokployClient` implementation and never enter render or apply
 argument surfaces. Leak-prevention is structural for render/apply inputs; apply
 error cause serialization also redacts common credential-bearing fragments from
 client error messages while preserving non-secret diagnostic context.
+
+### Redpanda Console (manual validation)
+
+When `manualAccess.redpandaConsole` is enabled in the upstream deployment input, rendering adds an internal Console application wired to the provisioned broker and a sibling `nginx` proxy with public ingress. The proxy uses `auth_basic_user_file /etc/nginx/.htpasswd`, populated at container start from `RNTME_CONSOLE_HTPASSWD_B64` (target secret resolved at apply — not embedded in rendered plan JSON). Dokploy workloads may declare explicit `command` / `args` for this bootstrap pattern.
