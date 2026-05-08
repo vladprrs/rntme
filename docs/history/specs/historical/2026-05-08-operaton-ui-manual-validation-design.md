@@ -1,7 +1,7 @@
-> Status: autonomous spec.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, and current code/tests as of branch `spec/rnt-465-operaton-ui-manual-validation`.
-> Why retained: Design rationale for safe manual access to provisioned Operaton UI during BPMN/workflow runtime validation.
+> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, current code/tests, merged PR #168, and main evidence at 7c4164ac8a44bb4caafbd2ce7b7581c2d5ae6fea or newer.
+> Why retained: Historical rationale for implemented manual access to provisioned Operaton UI during BPMN/workflow runtime validation; not current-state truth by itself.
 
 # Operaton UI manual validation access - design
 

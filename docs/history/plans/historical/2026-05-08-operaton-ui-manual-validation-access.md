@@ -1,7 +1,7 @@
-> Status: autonomous plan.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, current code/tests on `origin/main` at `d2b42f78`, and accepted spec commit `f03b5b03`.
-> Why retained: Executable implementation handoff for safe manual access to provisioned Operaton UI during BPMN/workflow runtime validation.
+> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, current code/tests, merged PR #168, and main evidence at 7c4164ac8a44bb4caafbd2ce7b7581c2d5ae6fea or newer.
+> Why retained: Historical implementation rationale for implemented manual access to provisioned Operaton UI during BPMN/workflow runtime validation; not current-state truth by itself.
 
 # Operaton UI Manual Validation Access Implementation Plan
 
@@ -40,7 +40,7 @@ Out of scope:
 
 ## References Checked
 
-- Accepted spec: `docs/history/specs/autonomous/2026-05-08-operaton-ui-manual-validation-design.md` at commit `f03b5b03`.
+- Accepted spec: `docs/history/specs/historical/2026-05-08-operaton-ui-manual-validation-design.md` at commit `f03b5b03`.
 - Operaton Run docs: webapps are under `/operaton/app/`, REST is under `/engine-rest/`, Run uses `configuration/default.yml` and `production.yml`, and Run can be configured through YAML.
 - Operaton security docs: REST API and web applications require authentication when exposed to users; webapp authentication is enabled by default.
 - Operaton Spring Boot configuration docs: `operaton.bpm.admin-user.id`, `operaton.bpm.webapp.application-path`, and related webapp properties are available through `application.yaml`.
