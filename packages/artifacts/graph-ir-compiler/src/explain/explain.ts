@@ -29,7 +29,7 @@ export type ExplainOk = {
 export type ExplainErr = {
   ok: false;
   artifacts: ExplainArtifacts;
-  errors: GraphIrError[];
+  errors: readonly GraphIrError[];
 };
 
 export type ExplainOutput = ExplainOk | ExplainErr;

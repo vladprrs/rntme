@@ -169,7 +169,7 @@ export function expand(resolved: ResolvedSource): Result<ExpandedSource> {
     };
   }
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   return ok({
     manifest: resolved.manifest,

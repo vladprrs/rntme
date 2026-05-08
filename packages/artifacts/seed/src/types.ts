@@ -1,4 +1,8 @@
 import type { EventEnvelope } from '@rntme/event-store';
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
 
 export type SeedArtifact = Readonly<{
   seedVersion: 1;
@@ -66,9 +70,7 @@ export type SeedError = Readonly<{
   details?: Readonly<Record<string, string>>;
 }>;
 
-export type Result<T> =
-  | { ok: true; value: T }
-  | { ok: false; errors: readonly SeedError[] };
+export type Result<T> = SharedResult<T, SeedError>;
 
 export type ApplyMode = 'strict' | 'upsertByEventId';
 

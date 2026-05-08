@@ -57,7 +57,7 @@ export function emit(
     } as CompiledScreen;
   }
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   return ok({ manifest, layouts, screens });
 }

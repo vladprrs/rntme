@@ -1,3 +1,8 @@
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
+
 export type UiErrorCode =
   // Resolve phase
   | 'MANIFEST_INVALID'
@@ -61,22 +66,4 @@ export type UiErrorLayer =
   | 'emit'
   | 'internal';
 
-export type Ok<T> = { ok: true; value: T };
-export type Err = { ok: false; errors: UiError[] };
-export type Result<T> = Ok<T> | Err;
-
-export function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
-}
-
-export function err(...errors: UiError[]): Err {
-  return { ok: false, errors };
-}
-
-export function isOk<T>(r: Result<T>): r is Ok<T> {
-  return r.ok;
-}
-
-export function isErr<T>(r: Result<T>): r is Err {
-  return !r.ok;
-}
+export type Result<T> = SharedResult<T, UiError>;
