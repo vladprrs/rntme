@@ -118,6 +118,42 @@ runtime surface. If a task's binding ref points at a missing service or a
 non-domain service, planning fails with
 `DEPLOY_PLAN_WORKFLOWS_BINDING_GRPC_UNAVAILABLE`.
 
+### Operaton UI access
+
+`workflows.operatonUi` is **target config**, not blueprint. It is stored on the
+deploy target and passed through `ProjectDeploymentConfig.workflows`:
+
+```ts
+{
+  engine: { kind: 'operaton', mode: 'provisioned', image: '...' },
+  worker: { image: '...' },
+  operatonUi: {
+    enabled: true,
+    publicBaseUrl: 'https://operaton.acme.example.test',
+    auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' }
+  }
+}
+```
+
+`operatonUi.enabled` triggers UI access planning only when the workflow engine
+is a provisioned Operaton. The planner writes `workflowEngine.uiAccess` into the
+plan infrastructure and adds the referenced secret to `requiredTargetSecrets`.
+
+deploy-core **never reads target secret values**. It only records which secrets
+are required (`secretRef`, `schema`, `purpose`) so the platform executor can
+fetch, decrypt, and validate them before render/apply.
+
+Planning fails with one of the following if the UI access config is invalid:
+
+- `DEPLOY_PLAN_WORKFLOWS_UI_REQUIRES_OPERATON` — `operatonUi.enabled` is set but
+the engine is missing or not `kind: 'operaton', mode: 'provisioned'`.
+- `DEPLOY_PLAN_WORKFLOWS_UI_PUBLIC_URL_MISSING` — `publicBaseUrl` is empty or
+missing.
+- `DEPLOY_PLAN_WORKFLOWS_UI_AUTH_SECRET_MISSING` — `auth.secretRef` is empty or
+missing.
+- `DEPLOY_PLAN_WORKFLOWS_OPERATON_ADMIN_SECRET_MISSING` —
+`engine.adminUserSecretRef` is present but empty.
+
 ### Edge auth
 
 `mounts: [...].use: ["auth"]` declares an `auth` middleware. Planning enforces:

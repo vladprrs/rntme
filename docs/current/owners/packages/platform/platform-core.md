@@ -24,6 +24,23 @@ keys are `eventBusMode`, `integrationModuleImages`, `policyOverrides`,
 See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the public repo.
 Deployment design: `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`.
 
+## Target-secret schemas
+
+The platform owns the schema registry for deploy-target secrets. Two schemas are
+used for Operaton deployments:
+
+- **`operaton-ui-basic-auth-v1`** — stores an `htpasswd` field (newline-separated
+  `username:hash` lines). Validated by `parseTargetSecret` in
+  `src/use-cases/target-secrets/schemas.ts`.
+- **`operaton-admin-user-v1`** — stores `id`, `password`, `firstName`,
+  `lastName`, and optional `email`. Rendered as an `application.yaml` secret
+  file mount into the Operaton Compose container.
+
+The target-secret list endpoint (`GET …/secrets`) returns secret **names and
+schemas only** — never values. Values are decrypted only inside the platform
+executor's pre-apply validation stage or inside the Dokploy client factory when
+mounting secret files.
+
 ## Project lifecycle operations
 
 Project records now carry a lifecycle `status`:
