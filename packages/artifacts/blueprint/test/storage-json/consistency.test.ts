@@ -25,7 +25,7 @@ describe('validateStorageJsonConsistency', () => {
     const r = validateStorageJsonConsistency(sj);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_CONSISTENCY_DUPLICATE_ASSOCIATION');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_CONSISTENCY_DUPLICATE_ASSOCIATION');
   });
 
   it('rejects expirePending below 1 minute', () => {
@@ -36,7 +36,7 @@ describe('validateStorageJsonConsistency', () => {
     const r = validateStorageJsonConsistency(sj);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_CONSISTENCY_PENDING_TTL_OUT_OF_RANGE');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_CONSISTENCY_PENDING_TTL_OUT_OF_RANGE');
   });
 
   it('rejects expirePending above 7 days', () => {
@@ -49,7 +49,7 @@ describe('validateStorageJsonConsistency', () => {
     const r = validateStorageJsonConsistency(sj);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_CONSISTENCY_PENDING_TTL_OUT_OF_RANGE');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_CONSISTENCY_PENDING_TTL_OUT_OF_RANGE');
   });
 
   it('rejects maxSize > 5 GB', () => {
@@ -60,7 +60,7 @@ describe('validateStorageJsonConsistency', () => {
     const r = validateStorageJsonConsistency(sj);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_CONSISTENCY_MAX_SIZE_TOO_LARGE');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_CONSISTENCY_MAX_SIZE_TOO_LARGE');
   });
 
   it('rejects maxCount === 0', () => {
@@ -71,7 +71,7 @@ describe('validateStorageJsonConsistency', () => {
     const r = validateStorageJsonConsistency(sj);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_CONSISTENCY_MAX_COUNT_INVALID');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_CONSISTENCY_MAX_COUNT_INVALID');
   });
 
   it('passes for a well-formed file', () => {

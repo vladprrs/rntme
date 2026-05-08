@@ -37,13 +37,13 @@ describe('validateStorageJson - end to end (fail-fast)', () => {
     const r = validateStorageJson('{', pdm as never);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_PARSE_INVALID_JSON');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_PARSE_INVALID_JSON');
   });
 
   it('returns references error when PDM is missing the aggregate (does not reach consistency)', () => {
     const r = validateStorageJson(goodFile, { entities: { ticket: {} } } as never);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_REFERENCES_AGGREGATE_NOT_FOUND');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_REFERENCES_AGGREGATE_NOT_FOUND');
   });
 });

@@ -6,21 +6,21 @@ describe('parseStorageJson - parse layer', () => {
     const result = parseStorageJson('{ not: json');
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.errors[0].code).toBe('STORAGE_PARSE_INVALID_JSON');
+    expect(result.errors.at(0)?.code).toBe('STORAGE_PARSE_INVALID_JSON');
   });
 
   it('rejects missing version', () => {
     const result = parseStorageJson(JSON.stringify({ routes: {} }));
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.errors[0].code).toBe('STORAGE_PARSE_MISSING_VERSION');
+    expect(result.errors.at(0)?.code).toBe('STORAGE_PARSE_MISSING_VERSION');
   });
 
   it('rejects missing routes', () => {
     const result = parseStorageJson(JSON.stringify({ version: '1.0' }));
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.errors[0].code).toBe('STORAGE_PARSE_MISSING_ROUTES');
+    expect(result.errors.at(0)?.code).toBe('STORAGE_PARSE_MISSING_ROUTES');
   });
 
   it('rejects route with non-object value', () => {
@@ -29,7 +29,7 @@ describe('parseStorageJson - parse layer', () => {
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.errors[0].code).toBe('STORAGE_PARSE_INVALID_ROUTE_SHAPE');
+    expect(result.errors.at(0)?.code).toBe('STORAGE_PARSE_INVALID_ROUTE_SHAPE');
   });
 
   it('accepts a minimal well-formed file', () => {

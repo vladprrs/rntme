@@ -26,7 +26,7 @@ describe('validateStorageJsonReferences', () => {
     const r = validateStorageJsonReferences(sj, pdm(['note']) as never);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_REFERENCES_AGGREGATE_NOT_FOUND');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_REFERENCES_AGGREGATE_NOT_FOUND');
   });
 
   it('passes when every owner.aggregate is a PDM entity', () => {

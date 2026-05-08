@@ -22,7 +22,7 @@ describe('validateStorageJsonStructural', () => {
     const r = validateStorageJsonStructural(parsed.value);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_STRUCTURAL_ROUTE_ID_FORMAT');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_STRUCTURAL_ROUTE_ID_FORMAT');
   });
 
   it('rejects an unparseable duration', () => {
@@ -38,7 +38,7 @@ describe('validateStorageJsonStructural', () => {
     const r = validateStorageJsonStructural(parsed.value);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_STRUCTURAL_INVALID_DURATION');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_STRUCTURAL_INVALID_DURATION');
   });
 
   it('rejects an unparseable byte size', () => {
@@ -51,7 +51,7 @@ describe('validateStorageJsonStructural', () => {
     const r = validateStorageJsonStructural(parsed.value);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_STRUCTURAL_INVALID_BYTE_SIZE');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_STRUCTURAL_INVALID_BYTE_SIZE');
   });
 
   it('rejects a malformed mime glob', () => {
@@ -64,7 +64,7 @@ describe('validateStorageJsonStructural', () => {
     const r = validateStorageJsonStructural(parsed.value);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.errors[0].code).toBe('STORAGE_STRUCTURAL_INVALID_MIME_GLOB');
+    expect(r.errors.at(0)?.code).toBe('STORAGE_STRUCTURAL_INVALID_MIME_GLOB');
   });
 
   it('produces a normalized StorageJson on success (durations to ms, sizes to bytes)', () => {
@@ -74,6 +74,8 @@ describe('validateStorageJsonStructural', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const route = r.value.routes['ticket-attachments'];
+    expect(route).toBeDefined();
+    if (route === undefined) return;
     expect(route.maxSize).toBe(10 * 1024 * 1024);
     expect(route.lifecycle.expirePendingMs).toBe(24 * 60 * 60 * 1000);
     expect(route.lifecycle.retainCommittedMs).toBeNull();
