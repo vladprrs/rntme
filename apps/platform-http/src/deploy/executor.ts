@@ -237,6 +237,7 @@ export async function runDeployment(
     let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
     let provisionResultForPlan: ProvisionResultForVars | undefined;
     let discoveredModulesForPlan: DiscoveredModulesForVars | undefined;
+    let decrypted: Readonly<Record<string, unknown>> | undefined;
 
     if (provModules.length > 0) {
       // Build discoveredModules input for plan-time var validation.
@@ -251,7 +252,7 @@ export async function runDeployment(
 
       await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
       const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
-      const decrypted = await targetSecretsRepo.getAllDecrypted(target.id);
+      decrypted = await targetSecretsRepo.getAllDecrypted(target.id);
 
       const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
 
@@ -397,7 +398,7 @@ export async function runDeployment(
     await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
     const applied = await runStage('apply', async () => (deps.applyPlan ?? applyDokployPlan)(
       rendered.value as RenderedDokployPlan,
-      deps.dokployClientFactory(target),
+      deps.dokployClientFactory(target, decrypted),
     ), { log });
     if (!applied.ok) {
       await logApplyFailure(deps, deploymentId, orgId, applied.errors);

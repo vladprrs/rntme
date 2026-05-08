@@ -551,6 +551,56 @@ describe('applyDokployPlan', () => {
     expect(client.updateCalls).toHaveLength(1);
   });
 
+  it('treats resources with secretFiles as changed even when all other fields match', async () => {
+    const client = new FakeDokployClient([
+      {
+        id: 'app_existing',
+        name: 'rntme-acme-commerce-catalog',
+        image: 'rntme-runtime',
+        env: rendered.resources[0].env,
+        labels: { 'rntme.workload': 'catalog' },
+        files: { '/etc/nginx/nginx.conf': 'events {}' },
+      },
+    ]);
+    const resourceWithSecretFiles = resource({
+      files: { '/etc/nginx/nginx.conf': 'events {}' },
+      secretFiles: { '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' } },
+    });
+    const r = await applyDokployPlan({ ...rendered, resources: [resourceWithSecretFiles] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.resources[0]).toMatchObject({
+      targetResourceId: 'app_existing',
+      action: 'updated',
+    });
+    expect(client.updateCalls).toHaveLength(1);
+  });
+
+  it('includes operatonUiAuthChecks in verification hints when present', async () => {
+    const client = new FakeDokployClient();
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        urls: {
+          ...rendered.urls,
+          operatonUiAuthChecks: [
+            { name: 'operaton-ui-basic-auth', url: 'https://commerce.example.com/operaton/login' },
+          ],
+        },
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.verificationHints.operatonUiAuthChecks).toEqual([
+      { name: 'operaton-ui-basic-auth', url: 'https://commerce.example.com/operaton/login' },
+    ]);
+  });
+
   it('updates existing resources when rendered build, ports, or ingress metadata is missing from current state', async () => {
     const resourceWithMetadata = resource({
       build: {

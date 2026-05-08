@@ -26,6 +26,7 @@ export {
   type RenderedDokployProject,
   type RenderedDokployResource,
   type RenderedEnvVar,
+  type RenderedSecretFileRef,
 } from './render.js';
 export { err, isErr, isOk, ok, type Err, type Ok, type Result } from './result.js';
 export {

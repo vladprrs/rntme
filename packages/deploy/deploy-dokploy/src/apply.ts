@@ -39,6 +39,7 @@ export type DeploymentApplyResult = {
     readonly configUrl?: string;
     readonly publicRouteUrls: readonly string[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
+    readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
   };
 };
 
@@ -329,7 +330,7 @@ function appliedResource(
   return {
     logicalId: resource.logicalId,
     resourceKind: 'application',
-    workloadSlug: resource.workloadSlug,
+    ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
     kind: resource.workloadKind,
     targetResourceId: target.id,
     targetResourceName: target.name,
@@ -448,7 +449,10 @@ function resourceIdentifier(resource: RenderedDokployResource): {
 } {
   return resource.kind === 'compose'
     ? { resourceKind: 'compose', infrastructureKind: resource.infrastructureKind }
-    : { resourceKind: 'application', workloadSlug: resource.workloadSlug };
+    : {
+        resourceKind: 'application',
+        ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+      };
 }
 
 function buildPartialFailure(
@@ -545,6 +549,7 @@ function resourceMatches(
     readonly env?: RenderedDokployResource['env'];
     readonly labels?: RenderedDokployResource['labels'];
     readonly files?: RenderedApplicationResource['files'];
+    readonly secretFiles?: RenderedApplicationResource['secretFiles'];
   },
   resource: RenderedDokployResource,
 ): boolean {
@@ -556,6 +561,13 @@ function resourceMatches(
 
   if (resource.kind === 'compose') {
     return composeResourceMatches(existing, resource);
+  }
+
+  // Secret files always contain refs (not values) in the rendered plan digest,
+  // so they must be treated as changed on every apply so the client boundary
+  // can resolve the current secret values and mount them.
+  if (resource.secretFiles !== undefined && Object.keys(resource.secretFiles).length > 0) {
+    return false;
   }
 
   return applicationResourceMatches(existing, resource);
@@ -737,11 +749,16 @@ function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult
     protectedRouteChecks: rendered.urls.protectedRouteChecks,
   };
 
-  if (rendered.urls.uiUrl === undefined) return base;
+  if (rendered.urls.uiUrl === undefined && rendered.urls.operatonUiAuthChecks === undefined) {
+    return base;
+  }
 
   return {
     ...base,
-    uiUrl: rendered.urls.uiUrl,
+    ...(rendered.urls.uiUrl === undefined ? {} : { uiUrl: rendered.urls.uiUrl }),
+    ...(rendered.urls.operatonUiAuthChecks === undefined
+      ? {}
+      : { operatonUiAuthChecks: rendered.urls.operatonUiAuthChecks }),
   };
 }
 

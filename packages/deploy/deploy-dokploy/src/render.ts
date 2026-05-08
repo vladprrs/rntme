@@ -6,7 +6,21 @@ import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
-import { renderBpmnWorker, renderOperatonCompose } from './workflow-render.js';
+import {
+  renderBpmnWorker,
+  renderOperatonCompose,
+  renderOperatonUiGateway,
+} from './workflow-render.js';
+
+export type RenderedSecretFileRef = {
+  readonly schema: string;
+  readonly secretRef: string;
+  readonly field: string;
+};
+
+export type RenderedDokployApplicationWorkloadKind =
+  | DeploymentWorkload['kind']
+  | 'operaton-ui-gateway';
 
 export type RenderedDokployProject =
   | { readonly mode: 'existing'; readonly projectId: string }
@@ -59,8 +73,8 @@ export type RenderedDokployIngress = {
 export type RenderedDokployApplicationResource = {
   readonly logicalId: string;
   readonly kind: 'application';
-  readonly workloadKind: DeploymentWorkload['kind'];
-  readonly workloadSlug: string;
+  readonly workloadKind: RenderedDokployApplicationWorkloadKind;
+  readonly workloadSlug?: string;
   readonly name: string;
   readonly image: string;
   readonly build?: RenderedDomainArtifactBuild;
@@ -69,6 +83,7 @@ export type RenderedDokployApplicationResource = {
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
+  readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
 };
 
 export type RenderedDokployComposeResource = {
@@ -80,6 +95,7 @@ export type RenderedDokployComposeResource = {
   readonly composeFile: string;
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
+  readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
 };
 
 export type RenderedDokployResource =
@@ -94,6 +110,8 @@ export type RenderedDokployPlan = {
   readonly urls: {
     readonly projectUrl: string;
     readonly uiUrl?: string;
+    readonly operatonUiUrl?: string;
+    readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
   };
@@ -167,15 +185,35 @@ export function renderDokployPlan(
     return route !== undefined && route.kind !== 'ui' && !isAuthProtectedRoute(plan, route.id);
   });
   const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
+  const operatonUiAccess = plan.infrastructure.workflowEngine?.kind === 'operaton'
+    ? plan.infrastructure.workflowEngine.uiAccess
+    : undefined;
+  const operatonUiUrl = operatonUiAccess?.publicBaseUrl;
+  const baseUrls: RenderedDokployPlan['urls'] = {
+    projectUrl: config.publicBaseUrl,
+    publicRoutes: publicSmokeRoutes.map(stripRoutePath),
+    protectedRouteChecks,
+  };
   const urls: RenderedDokployPlan['urls'] =
-    uiRoute === undefined
-      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicSmokeRoutes.map(stripRoutePath), protectedRouteChecks }
-      : {
-          projectUrl: config.publicBaseUrl,
-          uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
-          publicRoutes: publicSmokeRoutes.map(stripRoutePath),
-          protectedRouteChecks,
-        };
+    uiRoute === undefined && operatonUiUrl === undefined
+      ? baseUrls
+      : uiRoute !== undefined && operatonUiUrl !== undefined
+        ? {
+            ...baseUrls,
+            uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
+            operatonUiUrl,
+            operatonUiAuthChecks: [{ name: 'operaton-ui', url: operatonUiUrl }],
+          }
+        : uiRoute !== undefined
+          ? {
+              ...baseUrls,
+              uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
+            }
+          : {
+              ...baseUrls,
+              operatonUiUrl: operatonUiUrl!,
+              operatonUiAuthChecks: [{ name: 'operaton-ui', url: operatonUiUrl! }],
+            };
   const renderedWithoutDigest = {
     target: { kind: 'dokploy' as const, endpoint: config.endpoint },
     targetProject,
@@ -260,6 +298,8 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
   const workflowEngine = renderOperatonCompose(plan);
   if (workflowEngine !== null) resources.push(workflowEngine);
+  const uiGateway = renderOperatonUiGateway(plan);
+  if (uiGateway !== null) resources.push(uiGateway);
   return resources;
 }
 

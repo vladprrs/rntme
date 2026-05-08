@@ -6,10 +6,14 @@ import type {
   DokployCompose,
   DokployProjectRef,
   RenderedDokployResource,
+  RenderedSecretFileRef,
 } from '@rntme/deploy-dokploy';
 import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 
-export type DokployClientFactory = (target: DeployTargetWithSecret) => DokployClient;
+export type DokployClientFactory = (
+  target: DeployTargetWithSecret,
+  resolvedTargetSecrets?: Readonly<Record<string, unknown>>,
+) => DokployClient;
 type Sleep = (ms: number) => Promise<void>;
 
 type DokployApiApplicationSummary = {
@@ -66,7 +70,7 @@ export function createDokployClientFactory(
   httpFetch: typeof globalThis.fetch = globalThis.fetch,
   sleepFn: Sleep = sleep,
 ): DokployClientFactory {
-  return (target) => {
+  return (target, resolvedTargetSecrets) => {
     let token: string;
     try {
       token = cipher.decrypt({
@@ -191,7 +195,7 @@ export function createDokployClientFactory(
             registryUrl: '',
           });
         }
-        await configureFileMounts(request, applicationId, resource.files);
+        await configureFileMounts(request, applicationId, resource.files, resource.secretFiles, resolvedTargetSecrets);
         if (resource.ingress !== undefined) {
           const domainsResponse = await request<unknown>('GET', '/api/domain.byApplicationId', {
             applicationId,
@@ -384,16 +388,31 @@ async function configureFileMounts(
   request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
   applicationId: string,
   files: Readonly<Record<string, string>> | undefined,
+  secretFiles: Readonly<Record<string, RenderedSecretFileRef>> | undefined,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
 ): Promise<void> {
-  if (files === undefined) return;
-
   const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
     serviceType: 'application',
     serviceId: applicationId,
   });
   const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
 
-  for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+  const allMounts: Array<{ path: string; content: string }> = [];
+
+  if (files !== undefined) {
+    for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+      allMounts.push({ path, content });
+    }
+  }
+
+  if (secretFiles !== undefined) {
+    for (const [path, ref] of Object.entries(secretFiles).sort(([a], [b]) => a.localeCompare(b))) {
+      const content = resolveSecretFileContent(ref, resolvedTargetSecrets);
+      allMounts.push({ path, content });
+    }
+  }
+
+  for (const { path, content } of allMounts) {
     const matches = mounts.filter((mount) => mount.mountPath === path);
     const existing = matches[0];
     const body = {
@@ -417,6 +436,42 @@ async function configureFileMounts(
       }
     }
   }
+}
+
+function resolveSecretFileContent(
+  ref: RenderedSecretFileRef,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
+): string {
+  if (resolvedTargetSecrets === undefined) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+  const secret = resolvedTargetSecrets[ref.secretName];
+  if (secret === undefined || typeof secret !== 'object' || secret === null) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+
+  if (ref.secretName === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
+    const htpasswd = (secret as Record<string, unknown>).htpasswd;
+    if (typeof htpasswd !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return htpasswd;
+  }
+
+  if (ref.secretName === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
+    const id = (secret as Record<string, unknown>).id;
+    const password = (secret as Record<string, unknown>).password;
+    if (typeof id !== 'string' || typeof password !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return `operaton:\n  bpm:\n    admin-user:\n      id: "${escapeYamlString(id)}"\n      password: "${escapeYamlString(password)}"\n`;
+  }
+
+  throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+}
+
+function escapeYamlString(value: string): string {
+  return value.replace(/"/g, '\\"');
 }
 
 function dokployFilePath(applicationId: string, mountPath: string): string {
