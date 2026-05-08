@@ -4,12 +4,20 @@ import type { ZodType } from 'zod';
 
 import { err, type Result } from './result.js';
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Build a package-specific I/O error. Used by `loadArtifactDir` to surface
  * missing files, malformed JSON, schema violations on the index, and any
  * unexpected `readFile`/`readdir` throw.
  */
-export type IoErrorBuilder<E> = (info: { message: string; path: string }) => E;
+export type IoErrorBuilder<E> = (info: {
+  message: string;
+  path: string;
+  cause?: unknown;
+}) => E;
 
 export type LoadArtifactDirOptions<I, T, E> = {
   /** Absolute or relative path to the directory containing the index file and leaf dir. */
@@ -74,34 +82,76 @@ export async function loadArtifactDir<I, T, E>(
     ]);
   }
 
+  let indexText: string;
+  let leafFileNames: string[];
   try {
-    const [indexText, leafFileNames] = await Promise.all([
+    [indexText, leafFileNames] = await Promise.all([
       readFile(indexPath, 'utf8'),
       readdir(leafDirPath),
     ]);
-
-    const index = indexSchema.parse(JSON.parse(indexText));
-
-    const jsonFileNames = leafFileNames.filter((fname) => fname.endsWith('.json'));
-    const leafJsonTexts = await Promise.all(
-      jsonFileNames.map((fname) => readFile(join(leafDirPath, fname), 'utf8')),
-    );
-
-    const leafEntries: Record<string, unknown> = {};
-    for (let i = 0; i < jsonFileNames.length; i += 1) {
-      const fname = jsonFileNames[i]!;
-      const text = leafJsonTexts[i]!;
-      const entryName = basename(fname, '.json');
-      leafEntries[entryName] = JSON.parse(text);
-    }
-
-    return parseFn({ index, leafEntries });
   } catch (error) {
     return err([
       buildIoError({
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
         path: dir,
+        cause: error,
       }),
     ]);
   }
+
+  let indexRaw: unknown;
+  try {
+    indexRaw = JSON.parse(indexText);
+  } catch (error) {
+    return err([
+      buildIoError({
+        message: errorMessage(error),
+        path: indexFile,
+        cause: error,
+      }),
+    ]);
+  }
+
+  const parsedIndex = indexSchema.safeParse(indexRaw);
+  if (!parsedIndex.success) {
+    return err([
+      buildIoError({
+        message: `${indexFile} failed validation`,
+        path: indexFile,
+        cause: parsedIndex.error.issues,
+      }),
+    ]);
+  }
+
+  const jsonFileNames = leafFileNames.filter((fname) => fname.endsWith('.json'));
+  const leafEntries: Record<string, unknown> = {};
+  for (const fname of jsonFileNames) {
+    const leafPath = `${leafDir}/${fname}`;
+    let text: string;
+    try {
+      text = await readFile(join(leafDirPath, fname), 'utf8');
+    } catch (error) {
+      return err([
+        buildIoError({
+          message: errorMessage(error),
+          path: leafPath,
+          cause: error,
+        }),
+      ]);
+    }
+
+    try {
+      leafEntries[basename(fname, '.json')] = JSON.parse(text);
+    } catch (error) {
+      return err([
+        buildIoError({
+          message: errorMessage(error),
+          path: leafPath,
+          cause: error,
+        }),
+      ]);
+    }
+  }
+
+  return parseFn({ index: parsedIndex.data, leafEntries });
 }

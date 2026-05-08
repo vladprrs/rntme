@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cpSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,5 +41,50 @@ describe('loadBlueprint', () => {
     });
     expect(r.errors[0]!.message).toContain('service "catalog" service.json failed validation');
     expect(r.errors[0]!.cause).toEqual(expect.any(Array));
+  });
+
+  it('wraps PDM directory validation errors as blueprint load errors', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const copied = join(temp, 'product-catalog-project');
+    cpSync(fixtureDir, copied, { recursive: true });
+    try {
+      writeFileSync(
+        join(copied, 'pdm', 'entities', 'Product.json'),
+        JSON.stringify(
+          {
+            ownerService: 'catalog',
+            kind: 'root',
+            table: 'products',
+            fields: {
+              productId: { type: 'integer', nullable: false, column: 'product_id' },
+            },
+            keys: ['missingProductId'],
+          },
+          null,
+          2,
+        ),
+      );
+
+      const r = await loadBlueprint(copied);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+
+      expect(r.errors[0]).toMatchObject({
+        layer: 'load',
+        code: ERROR_CODES.BLUEPRINT_IO_ERROR,
+        message: 'project pdm directory failed to load',
+        path: 'pdm',
+      });
+      expect(r.errors[0]?.cause).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            layer: 'structural',
+            code: 'PDM_STRUCT_KEY_UNKNOWN_FIELD',
+          }),
+        ]),
+      );
+    } finally {
+      rmSync(temp, { recursive: true, force: true });
+    }
   });
 });
