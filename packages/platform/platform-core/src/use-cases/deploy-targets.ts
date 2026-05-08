@@ -43,6 +43,7 @@ export async function createDeployTarget(
       apiTokenNonce: encrypted.value.nonce,
       apiTokenKeyVersion: encrypted.value.keyVersion,
       eventBusConfig: input.req.eventBus,
+      storageConfig: input.req.storage,
       modules: input.req.modules,
       workflows: input.req.workflows,
       auth: input.req.auth,
@@ -73,6 +74,7 @@ export async function updateDeployTarget(
     patch.allowCreateProject = input.patch.allowCreateProject;
   }
   if (input.patch.eventBus !== undefined) patch.eventBusConfig = input.patch.eventBus;
+  if (input.patch.storage !== undefined) patch.storageConfig = input.patch.storage;
   if (input.patch.modules !== undefined) patch.modules = input.patch.modules;
   if (input.patch.workflows !== undefined) patch.workflows = input.patch.workflows;
   if (input.patch.manualAccess !== undefined) patch.manualAccess = input.patch.manualAccess;

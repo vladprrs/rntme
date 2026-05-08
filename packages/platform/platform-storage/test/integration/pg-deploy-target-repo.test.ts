@@ -97,6 +97,68 @@ d('PgDeployTargetRepo', () => {
     await expectAuditActions(['deploy_target.created']);
   });
 
+  it('persists provisioned RustFS storage config', async () => {
+    const targetId = randomUUID();
+    const created = await withTransaction(h.appPool, orgId, async (client) => {
+      const repo = new PgDeployTargetRepo(client);
+      return repo.create({
+        row: {
+          ...targetRow({ id: targetId, slug: 'storage' }),
+          storageConfig: {
+            mode: 'provisioned',
+            provider: 'rustfs',
+            publicBaseUrl: 'https://storage.example.test',
+            accessKeyRef: 'RUSTFS_ACCESS_KEY',
+            secretKeyRef: 'RUSTFS_SECRET_KEY',
+          },
+        },
+        auditActorAccountId: accountId,
+        auditActorTokenId: null,
+      });
+    });
+
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.value.storage).toEqual({
+      mode: 'provisioned',
+      provider: 'rustfs',
+      publicBaseUrl: 'https://storage.example.test',
+      accessKeyRef: 'RUSTFS_ACCESS_KEY',
+      secretKeyRef: 'RUSTFS_SECRET_KEY',
+    });
+
+    const updated = await withTransaction(h.appPool, orgId, async (client) => {
+      const repo = new PgDeployTargetRepo(client);
+      return repo.update({
+        orgId,
+        slug: 'storage',
+        patch: {
+          storageConfig: {
+            mode: 'provisioned',
+            provider: 'rustfs',
+            image: 'rustfs/rustfs:1.0.0',
+            publicBaseUrl: 'https://storage-2.example.test',
+            accessKeyRef: 'RUSTFS_ACCESS_KEY_2',
+            secretKeyRef: 'RUSTFS_SECRET_KEY_2',
+          },
+        },
+        auditActorAccountId: accountId,
+        auditActorTokenId: null,
+      });
+    });
+
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(updated.value.storage).toEqual({
+      mode: 'provisioned',
+      provider: 'rustfs',
+      image: 'rustfs/rustfs:1.0.0',
+      publicBaseUrl: 'https://storage-2.example.test',
+      accessKeyRef: 'RUSTFS_ACCESS_KEY_2',
+      secretKeyRef: 'RUSTFS_SECRET_KEY_2',
+    });
+  });
+
   it('updates mutable fields without changing the stored api token secret', async () => {
     const targetId = randomUUID();
     await createTarget(targetRow({ id: targetId, slug: 'prod' }));
@@ -373,6 +435,7 @@ d('PgDeployTargetRepo', () => {
       apiTokenNonce: Buffer.from('nonce-v1'),
       apiTokenKeyVersion: 1,
       eventBusConfig: EVENT_BUS,
+      storageConfig: { mode: 'external' as const },
       modules: {
         'identity-auth0': {
           image: 'identity-auth0:test',

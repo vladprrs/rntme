@@ -76,6 +76,7 @@ d('PgTargetSecretsRepo', () => {
           apiTokenNonce: Buffer.from('nonce-v1'),
           apiTokenKeyVersion: 1,
           eventBusConfig: EVENT_BUS,
+          storageConfig: { mode: 'external' },
           modules: {},
           workflows: null,
           auth: {},
