@@ -20,7 +20,7 @@ describe('golden: assign-issue', () => {
     expect(validated.ok).toBe(true);
     if (!validated.ok) return;
 
-    const emitted = generateOpenApi(validated.value, resolvers);
+    const emitted = generateOpenApi(validated.value);
     expect(emitted.ok).toBe(true);
     if (!emitted.ok) return;
 

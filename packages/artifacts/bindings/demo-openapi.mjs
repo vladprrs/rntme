@@ -216,7 +216,7 @@ for (const c of cases) {
   if (!isOk(parsed)) { console.log(c.title, 'PARSE FAIL', parsed.errors); continue; }
   const validated = validateBindings(parsed.value, resolvers);
   if (!isOk(validated)) { console.log(c.title, 'VALIDATE FAIL', validated.errors); continue; }
-  const emitted = generateOpenApi(validated.value, resolvers);
+  const emitted = generateOpenApi(validated.value);
   if (!isOk(emitted)) { console.log(c.title, 'EMIT FAIL', emitted.errors); continue; }
 
   console.log('=========================================================');

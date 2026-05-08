@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateOpenApi } from '../../../src/openapi/emit.js';
 import type { ValidatedBindings } from '../../../src/types/artifact.js';
-import type { BindingResolvers, GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
+import type { GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';
 
 const emptyEffects = {
   localReads: false,
@@ -70,14 +70,9 @@ const validated: ValidatedBindings = {
   },
 } as unknown as ValidatedBindings;
 
-const resolvers: BindingResolvers = {
-  resolveGraphSignature: (id) => (id === 'g' ? signature : null),
-  resolveShape: (name) => (name === 'Row' ? row : null),
-};
-
 describe('generateOpenApi', () => {
   it('emits a minimal valid document', () => {
-    const r = generateOpenApi(validated, resolvers);
+    const r = generateOpenApi(validated);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const doc = r.value;
@@ -102,7 +97,7 @@ describe('generateOpenApi', () => {
     const v = structuredClone(validated);
     v.resolved.primary!.entry.http.operationId = 'listThings';
     v.artifact.bindings.primary!.http.operationId = 'listThings';
-    const r = generateOpenApi(v, resolvers);
+    const r = generateOpenApi(v);
     if (!r.ok) throw new Error('expected ok');
     expect(r.value.paths['/v1/things']?.get?.operationId).toBe('listThings');
   });
@@ -110,7 +105,7 @@ describe('generateOpenApi', () => {
   it('falls back to options.info/servers when artifact lacks them', () => {
     const v = structuredClone(validated);
     delete (v.artifact as { openapi?: unknown }).openapi;
-    const r = generateOpenApi(v, resolvers, {
+    const r = generateOpenApi(v, {
       info: { title: 'FromOptions', version: '0.0.1' },
       servers: [{ url: 'https://api.example.com' }],
     });
@@ -122,13 +117,13 @@ describe('generateOpenApi', () => {
   it('uses ultimate fallback info when neither artifact nor options provide it', () => {
     const v = structuredClone(validated);
     delete (v.artifact as { openapi?: unknown }).openapi;
-    const r = generateOpenApi(v, resolvers);
+    const r = generateOpenApi(v);
     if (!r.ok) throw new Error('expected ok');
     expect(r.value.info).toEqual({ title: 'API', version: '0.0.0' });
   });
 
   it('omits standard errors when option set to false', () => {
-    const r = generateOpenApi(validated, resolvers, { standardErrors: false });
+    const r = generateOpenApi(validated, { standardErrors: false });
     if (!r.ok) throw new Error('expected ok');
     expect(Object.keys(r.value.paths['/v1/things']?.get?.responses ?? {})).toEqual(['200']);
     expect(r.value.components.schemas.ErrorResponse).toBeUndefined();
@@ -142,7 +137,7 @@ describe('generateOpenApi', () => {
     };
     const v = structuredClone(validated);
     v.resolved.primary!.outputShape = shape;
-    const r = generateOpenApi(v, resolvers, { decimalEncoding: 'number' });
+    const r = generateOpenApi(v, { decimalEncoding: 'number' });
     if (!r.ok) throw new Error('expected ok');
     expect(r.value.components.schemas.Row).toEqual({
       type: 'object',
@@ -155,7 +150,7 @@ describe('generateOpenApi', () => {
     const v = structuredClone(validated);
     v.resolved.primary!.entry.http.openapi = { 'x-rate-limit': { max: 60 } };
     v.artifact.bindings.primary!.http.openapi = { 'x-rate-limit': { max: 60 } };
-    const r = generateOpenApi(v, resolvers);
+    const r = generateOpenApi(v);
     if (!r.ok) throw new Error('expected ok');
     expect(r.value.paths['/v1/things']?.get?.['x-rate-limit']).toEqual({ max: 60 });
   });
@@ -164,7 +159,7 @@ describe('generateOpenApi', () => {
     const v = structuredClone(validated);
     v.resolved.primary!.entry.http.parameters[0]!.openapi = { example: 5 };
     v.artifact.bindings.primary!.http.parameters[0]!.openapi = { example: 5 };
-    const r = generateOpenApi(v, resolvers);
+    const r = generateOpenApi(v);
     if (!r.ok) throw new Error('expected ok');
     expect(r.value.paths['/v1/things']?.get?.parameters?.[0]?.example).toBe(5);
   });
@@ -179,7 +174,7 @@ describe('generateOpenApi', () => {
       outputShape: row,
     };
     v.artifact.bindings.secondary = entry2;
-    const r = generateOpenApi(v, resolvers);
+    const r = generateOpenApi(v);
     if (!r.ok) throw new Error('expected ok');
     expect(Object.keys(r.value.components.schemas).sort()).toEqual(['ErrorResponse', 'Row']);
   });
@@ -240,12 +235,7 @@ describe('generateOpenApi', () => {
       },
     } as unknown as ValidatedBindings;
 
-    const cmdResolvers: BindingResolvers = {
-      resolveGraphSignature: (id) => (id === 'assignIssue' ? cmdSig : null),
-      resolveShape: (name) => (name === 'AssignIssueResult' ? assignIssueResult : null),
-    };
-
-    const r = generateOpenApi(v, cmdResolvers);
+    const r = generateOpenApi(v);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const op = r.value.paths['/v1/issues/{issueId}/actions/assign']?.post;
