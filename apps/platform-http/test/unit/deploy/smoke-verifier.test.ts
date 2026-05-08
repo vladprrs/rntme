@@ -143,4 +143,69 @@ describe('SmokeVerifier', () => {
       ok: false,
     }));
   });
+
+  it('returns ok when operaton UI auth checks reject unauthenticated access with 401', async () => {
+    const verifier = new SmokeVerifier(
+      stubFetcher({
+        'https://edge.example/health': { status: 200 },
+        'https://edge.example/operaton/ui': { status: 401 },
+      }),
+    );
+
+    const report = await verifier.verify({
+      verificationHints: {
+        healthUrl: 'https://edge.example/health',
+        publicRouteUrls: [],
+        protectedRouteChecks: [],
+        operatonUiAuthChecks: [{ name: 'operaton-ui', url: 'https://edge.example/operaton/ui' }],
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.map((check) => check.name)).toEqual([
+      'edge-health',
+      'operaton-ui (no-auth)',
+      'operaton-ui (invalid-basic)',
+    ]);
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'operaton-ui (no-auth)',
+      status: 401,
+      ok: true,
+    }));
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'operaton-ui (invalid-basic)',
+      status: 401,
+      ok: true,
+    }));
+  });
+
+  it('fails deployment when operaton UI auth check returns 200 instead of 401', async () => {
+    const verifier = new SmokeVerifier(
+      stubFetcher({
+        'https://edge.example/health': { status: 200 },
+        'https://edge.example/operaton/ui': { status: 200 },
+      }),
+    );
+
+    const report = await verifier.verify({
+      verificationHints: {
+        healthUrl: 'https://edge.example/health',
+        publicRouteUrls: [],
+        protectedRouteChecks: [],
+        operatonUiAuthChecks: [{ name: 'operaton-ui', url: 'https://edge.example/operaton/ui' }],
+      },
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'operaton-ui (no-auth)',
+      status: 200,
+      ok: false,
+    }));
+    expect(report.checks).toContainEqual(expect.objectContaining({
+      name: 'operaton-ui (invalid-basic)',
+      status: 200,
+      ok: false,
+    }));
+  });
 });
