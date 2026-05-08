@@ -21,7 +21,7 @@ export type GrpcStatusCode = (typeof GrpcStatus)[keyof typeof GrpcStatus];
 
 export class StorageS3Error extends Error {
   constructor(
-    readonly code: ErrorCode,
+    readonly storageCode: ErrorCode,
     message: string,
     readonly grpcStatus: GrpcStatusCode = GrpcStatus.UNKNOWN,
     readonly cause?: unknown,
