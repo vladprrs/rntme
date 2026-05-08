@@ -1,11 +1,14 @@
 import { SCALAR_PRIMITIVES } from '@rntme/bindings';
 import type { PdmResolver } from '@rntme/pdm';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { createServiceBindingResolvers } from '../../src/compose/binding-resolvers.js';
 import type { ServiceGraphSpec } from '../../src/types/artifact.js';
 import { ERROR_CODES } from '../../src/types/result.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const emptyPdmResolver: PdmResolver = {
   listEntities: () => [],
@@ -44,7 +47,7 @@ function graphSpecWithScalar(primitive: string): ServiceGraphSpec {
 describe('createServiceBindingResolvers scalar primitives', () => {
   it('delegates scalar validation to bindings without a local scalar set', () => {
     const source = readFileSync(
-      fileURLToPath(new URL('../../src/compose/binding-resolvers.ts', import.meta.url)),
+      join(here, '../../src/compose/binding-resolvers.ts'),
       'utf8',
     );
 
