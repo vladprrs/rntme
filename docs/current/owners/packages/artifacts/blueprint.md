@@ -92,5 +92,6 @@ When auth middleware is mounted on a service route, protected graphs are expecte
 
 ## Specs
 
+- [`../../../docs/history/specs/active-rationale/2026-05-06-storage-s3-module-design.md`](/docs/history/specs/active-rationale/2026-05-06-storage-s3-module-design.md) — `storage.json` per-service artifact, route validation, and S3 vendor rationale.
 - [`../../../docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md`](/docs/history/specs/historical/2026-04-23-project-first-blueprint-design.md) — project-first blueprint model: Track A structure, project-level `PDM`, service-level artifacts, and Track B project composition rules for routing, middleware, service validation, and UI binding resolution.
 - [`../../../docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md`](/docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md) — project-level BPMN workflow artifact, Operaton provisioning, and BPMN worker deployment.
