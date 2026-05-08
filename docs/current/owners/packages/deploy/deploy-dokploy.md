@@ -68,6 +68,21 @@ workflow message-start topics before waiting on the Redpanda process. This
 covers BPMN workers and older runtime images that subscribe or publish before
 the first automatic topic creation would otherwise happen.
 
+## Provisioned RustFS object storage
+
+When `plan.infrastructure.objectStorage.kind === "s3-compatible"` and
+`provider === "rustfs"`, render adds:
+
+- a RustFS Compose resource on `dokploy-network`;
+- a persistent named volume;
+- secret env entries for `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY`;
+- a public Nginx proxy application bound to `storage.publicBaseUrl`;
+- `STORAGE_S3_*` env entries on `@rntme/storage-s3` integration-module workloads.
+
+The public proxy preserves the browser-facing `Host` header so presigned URLs
+are validated against the public storage origin. File bytes do not flow through
+the rntme runtime or edge gateway.
+
 ## Provisioned Operaton and BPMN worker
 
 When `plan.infrastructure.workflowEngine.kind === "operaton"`, render adds a

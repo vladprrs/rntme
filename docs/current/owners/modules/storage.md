@@ -41,6 +41,11 @@ The shared conformance UNION lives at `modules/storage/conformance/`.
 | rustfs | best-effort | best-effort | best-effort | n/a | use `manual` unless admin API is verified |
 | DigitalOcean Spaces, Backblaze B2, Tigris | yes | yes | varies | varies | default to `manual` if unsure |
 
+Provisioned RustFS on Dokploy is target-level infrastructure, not a
+module-owned provisioner side effect. It creates one RustFS instance and one
+bucket per project environment, then wires `@rntme/storage-s3` through
+S3-compatible env.
+
 ## Where to look first
 
 - `modules/storage/conformance/src/scenarios/` - scenario inventory per canonical RPC.

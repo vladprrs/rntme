@@ -87,6 +87,19 @@ Provisioned Redpanda is internal-only plaintext in this design. Cleanup/deprovis
 
 Optional **Redpanda Console (manual validation access)** (`ProjectDeploymentConfig.manualAccess.redpandaConsole`) plans an internal Console workload plus an nginx Basic Auth proxy with public ingress only when the event bus is `provisioned` Redpanda. The plan carries secret **names/ref** (`htpasswdSecretRef`) and pinned Console image identifiers; decrypted values resolve only during platform apply.
 
+## Object storage planning
+
+`ProjectDeploymentConfig.storage` supports:
+
+- `{ mode: "external" }` or omitted, which leaves object storage to module provisioners and target secrets.
+- `{ mode: "provisioned", provider: "rustfs", publicBaseUrl, accessKeyRef, secretKeyRef, image? }`, which plans one target-local RustFS resource per `org/project/environment`.
+
+Provisioned RustFS plans `infrastructure.objectStorage` with a deterministic
+internal endpoint, public S3 origin, project bucket, `us-east-1`, path-style
+access, a persistent volume, and credential refs. The MVP does not add an
+infrastructure-before-provisioner phase; storage-s3 performs a startup ensure
+bridge for bucket/CORS/lifecycle.
+
 ## BPMN workflow planning
 
 `ComposedProjectInput.workflows` carries the validated project-level
