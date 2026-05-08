@@ -57,6 +57,7 @@ async function setup() {
       workflows: null,
       auth: {},
       policyValues: {},
+      manualAccess: {},
       isDefault: true,
     },
   });

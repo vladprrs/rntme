@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { clearTimeout, setTimeout } from 'node:timers';
 import type { VerificationReport } from '@rntme/platform-core';
 
@@ -18,6 +19,7 @@ export type VerificationHints = {
   readonly configUrl?: string;
   readonly publicRouteUrls: readonly string[];
   readonly protectedRouteChecks: readonly ProtectedRouteSpec[];
+  readonly redpandaConsoleUrl?: string;
 };
 
 export class SmokeVerifier {
@@ -99,6 +101,34 @@ export class SmokeVerifier {
         status: r.status,
         latencyMs: r.latencyMs,
         ok: isReachableEdgeRouteStatus(r.status),
+      });
+    }
+
+    const consoleUrl = verificationHints.redpandaConsoleUrl;
+    if (consoleUrl !== undefined && consoleUrl !== '') {
+      const unauth = await this.fetcher(consoleUrl, {
+        method: 'GET',
+        timeoutMs: 10_000,
+      });
+      checks.push({
+        name: 'redpanda-console-no-auth',
+        url: consoleUrl,
+        status: unauth.status,
+        latencyMs: unauth.latencyMs,
+        ok: unauth.status === 401 || unauth.status === 403,
+      });
+
+      const invalidBasic = await this.fetcher(consoleUrl, {
+        method: 'GET',
+        timeoutMs: 10_000,
+        headers: { Authorization: `Basic ${Buffer.from('invalid:invalid').toString('base64')}` },
+      });
+      checks.push({
+        name: 'redpanda-console-invalid-basic',
+        url: consoleUrl,
+        status: invalidBasic.status,
+        latencyMs: invalidBasic.latencyMs,
+        ok: invalidBasic.status === 401 || invalidBasic.status === 403,
       });
     }
 

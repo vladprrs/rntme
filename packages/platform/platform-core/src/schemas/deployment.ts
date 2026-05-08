@@ -29,19 +29,33 @@ export const VerificationReportSchema = z.object({
 });
 export type VerificationReport = z.infer<typeof VerificationReportSchema>;
 
+const StartDeploymentConfigOverridesSchema = z
+  .object({
+    eventBusMode: z.literal('in-memory').optional(),
+    integrationModuleImages: z.record(z.string(), z.string()).optional(),
+    policyOverrides: z.record(z.string(), z.unknown()).optional(),
+    runtimeImage: z.string().min(1).optional(),
+    publicBaseUrl: HttpUrlSchema.optional(),
+    manualAccess: z
+      .object({
+        redpandaConsole: z
+          .object({
+            enabled: z.boolean().optional(),
+            publicBaseUrl: HttpUrlSchema.optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .default({});
+
 export const StartDeploymentRequestSchema = z.object({
   projectVersionSeq: z.number().int().positive(),
   targetSlug: z.string().trim().min(1),
-  configOverrides: z
-    .object({
-      eventBusMode: z.literal('in-memory').optional(),
-      integrationModuleImages: z.record(z.string(), z.string()).optional(),
-      policyOverrides: z.record(z.string(), z.unknown()).optional(),
-      runtimeImage: z.string().min(1).optional(),
-      publicBaseUrl: HttpUrlSchema.optional(),
-    })
-    .strict()
-    .default({}),
+  configOverrides: StartDeploymentConfigOverridesSchema,
 });
 export type StartDeploymentRequest = z.infer<typeof StartDeploymentRequestSchema>;
 

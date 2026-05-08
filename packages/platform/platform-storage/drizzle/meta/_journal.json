@@ -78,6 +78,13 @@
       "when": 1777818600000,
       "tag": "0010_deploy_error_tree",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777905000000,
+      "tag": "0011_deploy_target_manual_access",
+      "breakpoints": true
     }
   ]
 }

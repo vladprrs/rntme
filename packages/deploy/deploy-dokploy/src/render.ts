@@ -6,6 +6,7 @@ import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
+import { renderRedpandaConsoleApplications } from './redpanda-console.js';
 import { renderBpmnWorker, renderOperatonCompose } from './workflow-render.js';
 
 export type RenderedDokployProject =
@@ -59,16 +60,22 @@ export type RenderedDokployIngress = {
 export type RenderedDokployApplicationResource = {
   readonly logicalId: string;
   readonly kind: 'application';
-  readonly workloadKind: DeploymentWorkload['kind'];
-  readonly workloadSlug: string;
+  readonly workloadKind?: DeploymentWorkload['kind'];
+  readonly workloadSlug?: string;
+  readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
   readonly image: string;
+  readonly command?: string;
+  readonly args?: readonly string[];
   readonly build?: RenderedDomainArtifactBuild;
   readonly ports?: readonly RenderedDokployPort[];
   readonly ingress?: RenderedDokployIngress;
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
+  readonly secretResolutionHints?: {
+    readonly redpandaConsoleHtpasswd?: { readonly secretRef: string; readonly expectedUsername: string };
+  };
 };
 
 export type RenderedDokployComposeResource = {
@@ -94,6 +101,7 @@ export type RenderedDokployPlan = {
   readonly urls: {
     readonly projectUrl: string;
     readonly uiUrl?: string;
+    readonly redpandaConsoleUrl?: string;
     readonly publicRoutes: readonly { readonly routeId: string; readonly url: string }[];
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
   };
@@ -148,7 +156,10 @@ export function renderDokployPlan(
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv = resources.map((resource) => {
-    const slug = resource.kind === 'application' ? resource.workloadSlug : resource.logicalId;
+    const slug =
+      resource.kind === 'application'
+        ? (resource.workloadSlug ?? resource.logicalId)
+        : resource.logicalId;
     const additions = envEntries
       .filter((e) => e.target === slug)
       .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
@@ -167,12 +178,19 @@ export function renderDokployPlan(
     return route !== undefined && route.kind !== 'ui' && !isAuthProtectedRoute(plan, route.id);
   });
   const protectedRouteChecks = protectedSmokeChecks(plan, config.publicBaseUrl);
+  const redpandaConsoleUrl = plan.infrastructure.manualAccess?.redpandaConsole?.publicBaseUrl;
   const urls: RenderedDokployPlan['urls'] =
     uiRoute === undefined
-      ? { projectUrl: config.publicBaseUrl, publicRoutes: publicSmokeRoutes.map(stripRoutePath), protectedRouteChecks }
+      ? {
+          projectUrl: config.publicBaseUrl,
+          ...(redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl }),
+          publicRoutes: publicSmokeRoutes.map(stripRoutePath),
+          protectedRouteChecks,
+        }
       : {
           projectUrl: config.publicBaseUrl,
           uiUrl: joinPublicUrl(config.publicBaseUrl, uiRoute.path),
+          ...(redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl }),
           publicRoutes: publicSmokeRoutes.map(stripRoutePath),
           protectedRouteChecks,
         };
@@ -186,7 +204,8 @@ export function renderDokployPlan(
       mode: plan.project.mode,
     },
     resources: resourcesWithProvisionedEnv.map((resource) =>
-      resource.kind === 'application' && resource.workloadKind === 'edge-gateway'
+      resource.kind === 'application' &&
+      resource.workloadKind === 'edge-gateway'
         ? {
             ...resource,
             ports: [{ containerPort: 8080, protocol: 'http' as const }],
@@ -260,6 +279,10 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
   const workflowEngine = renderOperatonCompose(plan);
   if (workflowEngine !== null) resources.push(workflowEngine);
+  const consoleAccess = plan.infrastructure.manualAccess?.redpandaConsole;
+  if (consoleAccess !== undefined && eventBus.mode === 'provisioned') {
+    resources.push(...renderRedpandaConsoleApplications(plan, consoleAccess, eventBus.resourceName));
+  }
   return resources;
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProjectDeploymentPlan } from '../../src/plan.js';
 import type { ComposedProjectInput } from '../../src/composed-project.js';
 import type { ProjectDeploymentConfig } from '../../src/config.js';
+import { DEFAULT_REDPANDA_CONSOLE_IMAGE } from '../../src/config.js';
 
 const project: ComposedProjectInput = {
   name: 'commerce',
@@ -457,5 +458,74 @@ describe('buildProjectDeploymentPlan with provisionResult', () => {
     if (!r.ok) {
       expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING');
     }
+  });
+
+  it('plans Redpanda Console access for provisioned Redpanda', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          publicBaseUrl: 'https://console-acme-commerce-default.example.com',
+          basicAuth: {
+            username: 'ops',
+            htpasswdSecretRef: 'console-auth',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.manualAccess?.redpandaConsole).toMatchObject({
+      kind: 'redpanda-console',
+      resourceName: 'rntme-acme-commerce-redpanda-console',
+      proxyResourceName: 'rntme-acme-commerce-redpanda-console-proxy',
+      publicBaseUrl: 'https://console-acme-commerce-default.example.com',
+      basicAuthUsername: 'ops',
+      htpasswdSecretRef: 'console-auth',
+      image: DEFAULT_REDPANDA_CONSOLE_IMAGE,
+    });
+  });
+
+  it('rejects Console access for external event bus', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          publicBaseUrl: 'https://c.example.com',
+          basicAuth: { username: 'a', htpasswdSecretRef: 'r' },
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'DEPLOY_PLAN_REDPANDA_CONSOLE_EVENT_BUS_INVALID')).toBe(true);
+    }
+  });
+
+  it('rejects Console image with latest tag', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          image: 'docker.redpanda.com/redpandadata/console:latest',
+          publicBaseUrl: 'https://c.example.com',
+          basicAuth: { username: 'a', htpasswdSecretRef: 'r' },
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
   });
 });

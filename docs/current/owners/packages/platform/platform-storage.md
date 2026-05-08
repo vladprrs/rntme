@@ -7,7 +7,8 @@ Postgres (Drizzle + RLS) and rustfs (S3-compatible) adapters that implement the 
 Deploy targets and deployment records live in Postgres with tenant RLS:
 
 - `deploy_target` stores Dokploy endpoint/project metadata, event-bus config,
-  policy values, default-target state, and AES-GCM encrypted API tokens.
+  policy values, optional `manual_access` JSON for gated operator surfaces,
+  default-target state, and AES-GCM encrypted API tokens.
 - `deployment` stores queue/run/final status, rendered plan digest, apply
   result, verification report, warnings, errors, and heartbeat timestamps.
 - `deployment_log_line` stores append-only sanitized executor logs with bounded

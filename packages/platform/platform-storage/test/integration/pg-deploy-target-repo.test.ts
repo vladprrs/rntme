@@ -382,6 +382,7 @@ d('PgDeployTargetRepo', () => {
       workflows: null,
       auth: { auth0: { clientId: 'public-client-id' } },
       policyValues: POLICY_VALUES,
+      manualAccess: {},
       isDefault: overrides.isDefault ?? false,
     };
   }

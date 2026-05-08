@@ -173,6 +173,11 @@ application, and the package-level workflow tests cover both order-fulfillment
 branches through the worker/service-task path. Public ingress smoke remains
 `/health`, UI, `/config.json`, and protected API checks when applicable.
 
+Manual **Redpanda Console** validation: when configured on the deploy target /
+deployment override, apply wires basic-auth nginx in front of the internal
+Console; smoke checks probe the public URL without credentials and with invalid
+Basic Auth (expect 401).
+
 ## Security headers (UI only)
 
 Applied by `securityHeaders()` middleware on UI responses:

@@ -80,6 +80,7 @@ d('PgTargetSecretsRepo', () => {
           workflows: null,
           auth: {},
           policyValues: POLICY_VALUES,
+          manualAccess: {},
           isDefault: false,
         },
         auditActorAccountId: accountId,

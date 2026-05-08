@@ -343,6 +343,7 @@ export class FakeStore {
         modules: args.row.modules,
         workflows: args.row.workflows,
         auth: args.row.auth,
+        manualAccess: args.row.manualAccess,
         policyValues: args.row.policyValues,
         isDefault: args.row.isDefault,
         createdAt: this.now(),
