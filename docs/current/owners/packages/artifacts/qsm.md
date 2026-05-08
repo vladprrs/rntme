@@ -103,6 +103,7 @@ qsmResolver.resolveRelation('IssueView', 'project');
 
 | Export | Signature | Purpose |
 | --- | --- | --- |
+| `loadQsmDir` | `(dir: string) => Promise<Result<QsmArtifact>>` | Loads a multi-file QSM directory (`qsm.json` + `projections/*.json`) and returns parse-layer errors for directory IO, JSON syntax, index schema, and composed QSM schema issues. |
 | `parseQsm` | `(raw: unknown) => Result<QsmArtifact>` | Accepts a raw object or a JSON string; runs `QsmArtifactSchema.safeParse`; returns aggregated Zod issues with `layer: 'parse'`. |
 | `QsmArtifactSchema` | `z.ZodSchema` | Strict Zod schema for `{ projections, relations }`; both default to `{}`. |
 | `validateStructural` | `(QsmArtifact) => Result<StructurallyValidQsm>` | PDM-free rules; brands the artifact on success. |
@@ -185,6 +186,8 @@ qsmResolver.resolveRelation('IssueView', 'project');
 
 Parse: `QSM_PARSE_SCHEMA_VIOLATION`.
 
+Directory parse/load: `QSM_PARSE_DIR_INDEX_MISSING`, `QSM_PARSE_DIR_PROJECTIONS_MISSING`, `QSM_PARSE_DIR_INDEX_JSON_INVALID`, `QSM_PARSE_DIR_INDEX_SCHEMA_VIOLATION`, `QSM_PARSE_DIR_PROJECTION_JSON_INVALID`, `QSM_PARSE_DIR_READ_FAILED`. `QSM_PARSE_DIR_INVALID` is legacy/deprecated and remains registered for append-only error-code stability; known directory failures should use the specific codes above.
+
 Structural: `QSM_STRUCT_PROJECTION_KEYS_EMPTY`, `QSM_STRUCT_PROJECTION_GRAIN_EMPTY`, `QSM_STRUCT_PROJECTION_EXPOSED_EMPTY`, `QSM_STRUCT_PROJECTION_DUPLICATE_KEY`, `QSM_STRUCT_PROJECTION_DUPLICATE_GRAIN`, `QSM_STRUCT_PROJECTION_DUPLICATE_EXPOSED`, `QSM_STRUCT_DUPLICATE_TABLE`, `QSM_RELATION_KEY_MALFORMED`, `QSM_RELATION_TO_MISSING`, `QSM_RELATION_KEY_MISSING`.
 
 Cross-ref (entity / projection): `QSM_XREF_SOURCE_UNKNOWN_ENTITY`, `QSM_XREF_KEY_UNKNOWN_FIELD`, `QSM_XREF_GRAIN_UNKNOWN_FIELD`, `QSM_XREF_EXPOSED_UNKNOWN_FIELD`, `QSM_XREF_EXPOSED_INCLUDES_GENERATED`, `QSM_XREF_ENTITY_MIRROR_REQUIRES_STATE_MACHINE`, `QSM_XREF_ENTITY_MIRROR_KEYS_MISMATCH`, `QSM_XREF_ENTITY_MIRROR_GRAIN_MISMATCH`, `QSM_XREF_ENTITY_MIRROR_DUPLICATE`.
@@ -219,6 +222,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
   keys. This is test-only coverage; applying DDL in production remains owned by
   `@rntme/projection-consumer`.
 - `parseQsm` accepts both `unknown` (already-parsed JSON) and a JSON string — the string path runs `JSON.parse` first and surfaces SyntaxError as a parse-layer error. Source: `parse/parse.ts`.
+- `loadQsmDir(dir)` loads `qsm.json` plus every `projections/*.json` file and returns parse-layer `Result` errors. Expected absence uses `QSM_PARSE_DIR_INDEX_MISSING` (`path: "qsm.json"`) or `QSM_PARSE_DIR_PROJECTIONS_MISSING` (`path: "projections"`). Malformed JSON points to the exact file. Invalid composed projection shape is preserved as `QSM_PARSE_SCHEMA_VIOLATION` from `parseQsm`, with paths such as `projections.ProductCard.keys`; it is not wrapped as a directory-load error. Other filesystem failures use `QSM_PARSE_DIR_READ_FAILED` and should not include file contents or secrets in `cause`.
 - Both `projections` and `relations` default to `{}` at the schema level, so a QSM artifact with no relations is valid. The compiler will emit `NAV_NOT_ALLOWED` only when a graph attempts dot-nav through an undeclared relation. Source: `parse/schema.ts` `.default({})`; relations spec §3.
 - Column types are mapped from PDM `ScalarPrimitive`: `integer` → `INTEGER`, `decimal` → `REAL`, `boolean` → `INTEGER`, `string` / `date` / `datetime` → `TEXT`. Source: `derive/ddl.ts` `mapSqlType`. SQLite has no native boolean; do not introduce one.
 - A state-field index (`idx_<table>_<state_column>`) is emitted automatically when the source entity has a `stateMachine`. The index is added to `ProjectionDdlSpec.indexes` and rendered as a separate `CREATE INDEX` statement. Source: `derive/ddl.ts` `buildSpec`.
