@@ -87,4 +87,33 @@ describe('loadBlueprint', () => {
       rmSync(temp, { recursive: true, force: true });
     }
   });
+
+  it('preserves structured qsm load errors inside blueprint IO cause', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const copied = join(temp, 'product-catalog-project');
+    cpSync(fixtureDir, copied, { recursive: true });
+    try {
+      writeFileSync(join(copied, 'services', 'catalog', 'qsm', 'qsm.json'), '{not-json');
+
+      const r = await loadBlueprint(copied);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+
+      expect(r.errors[0]).toMatchObject({
+        layer: 'load',
+        code: ERROR_CODES.BLUEPRINT_IO_ERROR,
+        path: 'services/catalog/qsm',
+      });
+      expect(r.errors[0]!.cause).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'QSM_PARSE_DIR_INDEX_JSON_INVALID',
+            path: 'qsm.json',
+          }),
+        ]),
+      );
+    } finally {
+      rmSync(temp, { recursive: true, force: true });
+    }
+  });
 });

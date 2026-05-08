@@ -4,6 +4,30 @@ import type { ZodType } from 'zod';
 
 import { err, type Result } from './result.js';
 
+export type LoadArtifactDirFailureKind =
+  | 'index-missing'
+  | 'leaf-dir-missing'
+  | 'index-json-invalid'
+  | 'index-schema-invalid'
+  | 'leaf-json-invalid'
+  | 'read-failed';
+
+export type LoadArtifactDirFailure = {
+  kind: LoadArtifactDirFailureKind;
+  message: string;
+  path: string;
+  cause?: unknown;
+};
+
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+  );
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -13,11 +37,7 @@ function errorMessage(error: unknown): string {
  * missing files, malformed JSON, schema violations on the index, and any
  * unexpected `readFile`/`readdir` throw.
  */
-export type IoErrorBuilder<E> = (info: {
-  message: string;
-  path: string;
-  cause?: unknown;
-}) => E;
+export type IoErrorBuilder<E> = (info: LoadArtifactDirFailure) => E;
 
 export type LoadArtifactDirOptions<I, T, E> = {
   /** Absolute or relative path to the directory containing the index file and leaf dir. */
@@ -49,8 +69,6 @@ export type LoadArtifactDirOptions<I, T, E> = {
  * - the schema applied to the index (`indexSchema`)
  * - whether the inner parser uses parsed-index fields (`parseFn`)
  * - the package's error type (`buildIoError`)
- *
- * Reads the index file and the leaf directory entries in parallel.
  */
 export async function loadArtifactDir<I, T, E>(
   opts: LoadArtifactDirOptions<I, T, E>,
@@ -62,38 +80,59 @@ export async function loadArtifactDir<I, T, E>(
 
   try {
     await stat(indexPath);
-  } catch {
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return err([
+        buildIoError({
+          kind: 'index-missing',
+          message: `missing required file: ${indexFile}`,
+          path: indexFile,
+          cause: error,
+        }),
+      ]);
+    }
     return err([
       buildIoError({
-        message: `missing required file: ${indexFile}`,
+        kind: 'read-failed',
+        message: errorMessage(error),
         path: indexFile,
+        cause: error,
       }),
     ]);
   }
 
   try {
     await stat(leafDirPath);
-  } catch {
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return err([
+        buildIoError({
+          kind: 'leaf-dir-missing',
+          message: `missing required directory: ${leafDir}`,
+          path: leafDir,
+          cause: error,
+        }),
+      ]);
+    }
     return err([
       buildIoError({
-        message: `missing required directory: ${leafDir}`,
+        kind: 'read-failed',
+        message: errorMessage(error),
         path: leafDir,
+        cause: error,
       }),
     ]);
   }
 
   let indexText: string;
-  let leafFileNames: string[];
   try {
-    [indexText, leafFileNames] = await Promise.all([
-      readFile(indexPath, 'utf8'),
-      readdir(leafDirPath),
-    ]);
+    indexText = await readFile(indexPath, 'utf8');
   } catch (error) {
     return err([
       buildIoError({
+        kind: 'read-failed',
         message: errorMessage(error),
-        path: dir,
+        path: indexFile,
         cause: error,
       }),
     ]);
@@ -105,7 +144,8 @@ export async function loadArtifactDir<I, T, E>(
   } catch (error) {
     return err([
       buildIoError({
-        message: errorMessage(error),
+        kind: 'index-json-invalid',
+        message: `invalid JSON in ${indexFile}: ${errorMessage(error)}`,
         path: indexFile,
         cause: error,
       }),
@@ -116,6 +156,7 @@ export async function loadArtifactDir<I, T, E>(
   if (!parsedIndex.success) {
     return err([
       buildIoError({
+        kind: 'index-schema-invalid',
         message: `${indexFile} failed validation`,
         path: indexFile,
         cause: parsedIndex.error.issues,
@@ -123,9 +164,22 @@ export async function loadArtifactDir<I, T, E>(
     ]);
   }
 
-  const jsonFileNames = leafFileNames.filter((fname) => fname.endsWith('.json'));
+  let leafFileNames: string[];
+  try {
+    leafFileNames = await readdir(leafDirPath);
+  } catch (error) {
+    return err([
+      buildIoError({
+        kind: 'read-failed',
+        message: errorMessage(error),
+        path: leafDir,
+        cause: error,
+      }),
+    ]);
+  }
+
   const leafEntries: Record<string, unknown> = {};
-  for (const fname of jsonFileNames) {
+  for (const fname of leafFileNames.filter((name) => name.endsWith('.json'))) {
     const leafPath = `${leafDir}/${fname}`;
     let text: string;
     try {
@@ -133,6 +187,7 @@ export async function loadArtifactDir<I, T, E>(
     } catch (error) {
       return err([
         buildIoError({
+          kind: 'read-failed',
           message: errorMessage(error),
           path: leafPath,
           cause: error,
@@ -145,7 +200,8 @@ export async function loadArtifactDir<I, T, E>(
     } catch (error) {
       return err([
         buildIoError({
-          message: errorMessage(error),
+          kind: 'leaf-json-invalid',
+          message: `invalid JSON in ${leafPath}: ${errorMessage(error)}`,
           path: leafPath,
           cause: error,
         }),

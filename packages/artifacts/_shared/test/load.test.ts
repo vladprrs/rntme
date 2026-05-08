@@ -4,19 +4,19 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { isErr, isOk, loadArtifactDir, ok } from '../src/index.js';
+import type { LoadArtifactDirFailure } from '../src/index.js';
 
-type DemoError = { code: string; message: string; path: string; cause?: unknown };
-
-const buildIoError = ({
-  message,
-  path,
-  cause,
-}: {
+type DemoError = {
+  code: string;
+  kind: LoadArtifactDirFailure['kind'];
   message: string;
   path: string;
   cause?: unknown;
-}): DemoError => ({
+};
+
+const buildIoError = ({ kind, message, path, cause }: LoadArtifactDirFailure): DemoError => ({
   code: 'IO',
+  kind,
   message,
   path,
   ...(cause === undefined ? {} : { cause }),
@@ -83,7 +83,7 @@ describe('loadArtifactDir', () => {
     expect(received).toEqual({ relations: {} });
   });
 
-  it('returns IO error when index file is missing', async () => {
+  it('returns index-missing when index file is missing', async () => {
     mkdirSync(join(dir, 'leaves'));
     const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
@@ -96,12 +96,15 @@ describe('loadArtifactDir', () => {
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
       expect(r.errors).toHaveLength(1);
-      expect(r.errors[0]?.path).toBe('index.json');
+      expect(r.errors[0]).toMatchObject({
+        kind: 'index-missing',
+        path: 'index.json',
+      });
       expect(r.errors[0]?.message).toContain('missing required file: index.json');
     }
   });
 
-  it('returns IO error when leaf directory is missing', async () => {
+  it('returns leaf-dir-missing when leaf directory is missing', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
     const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
@@ -113,12 +116,15 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe('leaves');
+      expect(r.errors[0]).toMatchObject({
+        kind: 'leaf-dir-missing',
+        path: 'leaves',
+      });
       expect(r.errors[0]?.message).toContain('missing required directory: leaves');
     }
   });
 
-  it('returns IO error when index JSON is malformed', async () => {
+  it('returns index-json-invalid when index JSON is malformed', async () => {
     writeFileSync(join(dir, 'index.json'), '{not json');
     mkdirSync(join(dir, 'leaves'));
     const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
@@ -131,13 +137,16 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe('index.json');
+      expect(r.errors[0]).toMatchObject({
+        kind: 'index-json-invalid',
+        path: 'index.json',
+      });
       expect(r.errors[0]?.message).toContain('JSON');
       expect(r.errors[0]?.cause).toBeInstanceOf(SyntaxError);
     }
   });
 
-  it('returns IO error when index fails the schema', async () => {
+  it('returns index-schema-invalid when index fails the schema', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({ version: 5 }));
     mkdirSync(join(dir, 'leaves'));
     const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
@@ -150,12 +159,15 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe('index.json');
+      expect(r.errors[0]).toMatchObject({
+        kind: 'index-schema-invalid',
+        path: 'index.json',
+      });
       expect(r.errors[0]?.cause).toEqual(expect.any(Array));
     }
   });
 
-  it('returns IO error when a leaf JSON is malformed', async () => {
+  it('returns leaf-json-invalid when a leaf JSON is malformed', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
     mkdirSync(join(dir, 'leaves'));
     writeFileSync(join(dir, 'leaves', 'good.json'), JSON.stringify({ a: 1 }));
@@ -171,7 +183,10 @@ describe('loadArtifactDir', () => {
     });
     expect(isErr(r)).toBe(true);
     if (isErr(r)) {
-      expect(r.errors[0]?.path).toBe('leaves/bad.json');
+      expect(r.errors[0]).toMatchObject({
+        kind: 'leaf-json-invalid',
+        path: 'leaves/bad.json',
+      });
       expect(r.errors[0]?.message).toContain('JSON');
       expect(r.errors[0]?.cause).toBeInstanceOf(SyntaxError);
     }
@@ -196,5 +211,95 @@ describe('loadArtifactDir', () => {
       buildIoError,
     });
     expect(Object.keys(entries)).toEqual(['real']);
+  });
+
+  it('treats ENOTDIR on the index route as index-missing', async () => {
+    writeFileSync(join(dir, 'index-parent'), 'not a directory');
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+      dir: join(dir, 'index-parent'),
+      indexFile: 'index.json',
+      leafDir: 'leaves',
+      indexSchema: IndexSchema,
+      parseFn: () => ok(null),
+      buildIoError,
+    });
+
+    expect(isErr(r)).toBe(true);
+    if (isErr(r)) {
+      expect(r.errors[0]).toMatchObject({
+        kind: 'index-missing',
+        path: 'index.json',
+      });
+    }
+  });
+
+  it('reports a directory at index path as read-failed', async () => {
+    mkdirSync(join(dir, 'index.json'));
+    mkdirSync(join(dir, 'leaves'));
+
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+      dir,
+      indexFile: 'index.json',
+      leafDir: 'leaves',
+      indexSchema: IndexSchema,
+      parseFn: () => ok(null),
+      buildIoError,
+    });
+
+    expect(isErr(r)).toBe(true);
+    if (isErr(r)) {
+      expect(r.errors[0]).toMatchObject({
+        kind: 'read-failed',
+        path: 'index.json',
+      });
+    }
+  });
+
+  it('reports a file at leaf directory path as read-failed', async () => {
+    writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
+    writeFileSync(join(dir, 'leaves'), 'not a directory');
+
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+      dir,
+      indexFile: 'index.json',
+      leafDir: 'leaves',
+      indexSchema: IndexSchema,
+      parseFn: () => ok(null),
+      buildIoError,
+    });
+
+    expect(isErr(r)).toBe(true);
+    if (isErr(r)) {
+      expect(r.errors[0]).toMatchObject({
+        kind: 'read-failed',
+        path: 'leaves',
+      });
+    }
+  });
+
+  it('returns parseFn errors without wrapping them as IO failures', async () => {
+    writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
+    mkdirSync(join(dir, 'leaves'));
+
+    const parseError: DemoError = {
+      code: 'PARSE',
+      kind: 'read-failed',
+      message: 'parser-owned error',
+      path: 'leaves.Example.keys',
+    };
+
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+      dir,
+      indexFile: 'index.json',
+      leafDir: 'leaves',
+      indexSchema: IndexSchema,
+      parseFn: () => ({ ok: false, errors: [parseError] }),
+      buildIoError,
+    });
+
+    expect(isErr(r)).toBe(true);
+    if (isErr(r)) {
+      expect(r.errors).toEqual([parseError]);
+    }
   });
 });
