@@ -1,7 +1,7 @@
-> Status: autonomous-plan, ready for DEV.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, current code/tests, and approved spec PR #162.
-> Why retained: Autonomous backlog implementation plan for safe manual validation access to provisioned Redpanda Console; history/rationale only until promoted by current docs and implementation.
+> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, and current code/tests.
+> Why retained: Completed implementation handoff for Redpanda Console manual validation access; implementation landed via PR #167 and current truth is code/tests plus current owner docs.
 
 # Redpanda Console Manual Validation Access Implementation Plan
 
@@ -71,7 +71,7 @@ git checkout -b dev/rnt-471-redpanda-console-access origin/spec/rnt-466-redpanda
 sed -n '1,260p' AGENTS.md
 sed -n '1,260p' docs/README.md
 sed -n '1,320p' docs/decision-system.md
-sed -n '1,360p' docs/history/specs/autonomous/2026-05-08-redpanda-console-manual-validation-design.md
+sed -n '1,360p' docs/history/specs/historical/2026-05-08-redpanda-console-manual-validation-design.md
 ```
 
 - [ ] Verify external assumptions before coding:
