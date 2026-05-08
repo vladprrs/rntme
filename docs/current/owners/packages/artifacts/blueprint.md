@@ -31,7 +31,8 @@ Project-first blueprint parser/validator for rntme.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
 - `validateStorageJson(text, pdm)` — validate optional per-service `storage.json` through parse, structural, references, and consistency layers. References treat `route.owner.aggregate` as a PDM entity key; successful output is branded `ValidatedStorageJson`.
 - `emitStorageRouteIdTypes(servicesStorage)` — emit a route id union string plus `routeAggregateMap` for UI compile-time storage route reference checks.
-- `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts.
+- `discoverServiceArtifacts(...)` — inspect a service directory for optional QSM, graph, bindings, seed, and UI artifacts. This discovery output is the canonical optional-artifact presence contract for a service directory.
+- **Seed loading:** `loadServiceMember` reads `services/<svc>/seed/seed.json` only when `service.artifacts.hasSeed` is true (for example after `discoverServiceArtifacts` or an equivalent explicit descriptor). If `seed/seed.json` exists on disk but `hasSeed` is false, the file is ignored; callers must re-run discovery or pass an updated artifacts object to load it.
 - `validateBlueprintComposition(...)` — enforce project routing, middleware, entry UI, and service artifact invariants.
 - `buildBindingRegistry(...)`, `resolveProjectBindingRef(...)`, `buildUiHttpMap(...)` — derive qualified binding IDs and routed HTTP entries for project-aware callers.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context.
