@@ -22,8 +22,10 @@ import { discoverServiceArtifacts } from './discover-service-artifacts.js';
 import { loadServiceMember } from './load-service-member.js';
 import { loadProjectWorkflows } from './project-workflows.js';
 
-export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
-  const loaded = loadBlueprint(dir);
+export async function loadComposedBlueprint(
+  dir: string,
+): Promise<Result<ComposedBlueprint>> {
+  const loaded = await loadBlueprint(dir);
   if (!loaded.ok) return loaded;
 
   const services: Record<string, CompositionService> = {};
@@ -49,7 +51,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   let discoveredModulesValue: Record<string, DiscoveredModule> | null = null;
 
   if (hasModules) {
-    const discovered = discoverModules({ projectDir: dir });
+    const discovered = await discoverModules({ projectDir: dir });
     if (!discovered.ok) return discovered;
 
     const catalog = buildCatalog(discovered.value);
@@ -78,21 +80,27 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
       .map((service) => service.slug),
   );
 
-  for (const slug of loaded.value.project.services) {
-    const service = services[slug];
-    if (service === undefined) continue;
+  // Load each declared service member in parallel.
+  const orderedServiceSlugs = loaded.value.project.services.filter(
+    (slug) => services[slug] !== undefined,
+  );
+  const loadedServiceResults = await Promise.all(
+    orderedServiceSlugs.map((slug) =>
+      loadServiceMember({
+        rootDir: dir,
+        service: services[slug]!,
+        pdm: loaded.value.pdm,
+        pdmResolver,
+        allEventTypes,
+        declaredModules,
+      }),
+    ),
+  );
 
-    const loadedService = loadServiceMember({
-      rootDir: dir,
-      service,
-      pdm: loaded.value.pdm,
-      pdmResolver,
-      allEventTypes,
-      declaredModules,
-    });
-    if (!loadedService.ok) return loadedService;
-
-    validatedServices[slug] = loadedService.value;
+  for (let i = 0; i < orderedServiceSlugs.length; i += 1) {
+    const result = loadedServiceResults[i]!;
+    if (!result.ok) return result;
+    validatedServices[orderedServiceSlugs[i]!] = result.value;
   }
 
   const composedValidation = validateBlueprintComposition({

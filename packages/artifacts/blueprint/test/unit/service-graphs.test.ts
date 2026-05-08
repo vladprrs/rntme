@@ -28,8 +28,8 @@ function validGraph(id: string): unknown {
   };
 }
 
-function expectInvalidServiceGraphs(root: string): void {
-  const r = readServiceGraphSpec(root, 'catalog');
+async function expectInvalidServiceGraphs(root: string): Promise<void> {
+  const r = await readServiceGraphSpec(root, 'catalog');
   expect(r.ok).toBe(false);
   if (!r.ok) {
     expect(r.errors[0]?.code).toBe(
@@ -39,7 +39,7 @@ function expectInvalidServiceGraphs(root: string): void {
 }
 
 describe('readServiceGraphSpec', () => {
-  it('loads graphs/shapes.json and graph documents from a service directory', () => {
+  it('loads graphs/shapes.json and graph documents from a service directory', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -57,7 +57,7 @@ describe('readServiceGraphSpec', () => {
       nodes: [],
     });
 
-    const r = readServiceGraphSpec(root, 'catalog');
+    const r = await readServiceGraphSpec(root, 'catalog');
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(Object.keys(r.value.graphs)).toEqual(['listProducts']);
@@ -67,7 +67,7 @@ describe('readServiceGraphSpec', () => {
     }
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID when shapes.json is missing', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID when shapes.json is missing', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(
       root,
@@ -75,10 +75,10 @@ describe('readServiceGraphSpec', () => {
       validGraph('listProducts'),
     );
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for invalid JSON in shapes.json', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for invalid JSON in shapes.json', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeText(root, 'services/catalog/graphs/shapes.json', '{');
     writeJson(
@@ -87,10 +87,10 @@ describe('readServiceGraphSpec', () => {
       validGraph('listProducts'),
     );
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for invalid JSON in a graph file', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for invalid JSON in a graph file', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -101,10 +101,10 @@ describe('readServiceGraphSpec', () => {
     });
     writeText(root, 'services/catalog/graphs/listProducts.json', '{');
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for malformed-but-valid shapes JSON', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for malformed-but-valid shapes JSON', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -119,10 +119,10 @@ describe('readServiceGraphSpec', () => {
       validGraph('listProducts'),
     );
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for malformed-but-valid graph JSON', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for malformed-but-valid graph JSON', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -142,10 +142,10 @@ describe('readServiceGraphSpec', () => {
       nodes: [],
     });
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for an unknown input mode', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID for an unknown input mode', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -165,10 +165,10 @@ describe('readServiceGraphSpec', () => {
       nodes: [],
     });
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID when filename stem differs from graph id', () => {
+  it('returns BLUEPRINT_SERVICE_GRAPHS_INVALID when filename stem differs from graph id', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -183,10 +183,10 @@ describe('readServiceGraphSpec', () => {
       validGraph('listCatalogProducts'),
     );
 
-    expectInvalidServiceGraphs(root);
+    await expectInvalidServiceGraphs(root);
   });
 
-  it('ignores shapes.json as a graph and loads graph files in sorted order', () => {
+  it('ignores shapes.json as a graph and loads graph files in sorted order', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/graphs/shapes.json', {
       ProductRow: {
@@ -206,7 +206,7 @@ describe('readServiceGraphSpec', () => {
       validGraph('aGetProduct'),
     );
 
-    const r = readServiceGraphSpec(root, 'catalog');
+    const r = await readServiceGraphSpec(root, 'catalog');
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(Object.keys(r.value.graphs)).toEqual([

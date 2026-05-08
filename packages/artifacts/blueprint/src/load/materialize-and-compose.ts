@@ -32,7 +32,7 @@ export async function materializeAndCompose(bundle: CanonicalBundle): Promise<Re
   }
 
   try {
-    const composed = loadComposedBlueprint(dir);
+    const composed = await loadComposedBlueprint(dir);
     if (!composed.ok) return composed;
 
     const project = composed.value.project;

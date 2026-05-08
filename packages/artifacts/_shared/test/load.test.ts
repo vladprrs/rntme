@@ -31,14 +31,14 @@ describe('loadArtifactDir', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('happy path: parses index and assembles leaf entries', () => {
+  it('happy path: parses index and assembles leaf entries', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({ version: '1', relations: { a: {} } }));
     mkdirSync(join(dir, 'leaves'));
     writeFileSync(join(dir, 'leaves', 'one.json'), JSON.stringify({ name: 'one' }));
     writeFileSync(join(dir, 'leaves', 'two.json'), JSON.stringify({ name: 'two' }));
     writeFileSync(join(dir, 'leaves', 'README.md'), 'ignored');
 
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, { index: unknown; leaves: unknown }, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, { index: unknown; leaves: unknown }, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -54,12 +54,12 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('threads the parsed index through to parseFn (relations default applied)', () => {
+  it('threads the parsed index through to parseFn (relations default applied)', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
     mkdirSync(join(dir, 'leaves'));
 
     let received: unknown;
-    loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -74,9 +74,9 @@ describe('loadArtifactDir', () => {
     expect(received).toEqual({ relations: {} });
   });
 
-  it('returns IO error when index file is missing', () => {
+  it('returns IO error when index file is missing', async () => {
     mkdirSync(join(dir, 'leaves'));
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -92,9 +92,9 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('returns IO error when leaf directory is missing', () => {
+  it('returns IO error when leaf directory is missing', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -109,10 +109,10 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('returns IO error when index JSON is malformed', () => {
+  it('returns IO error when index JSON is malformed', async () => {
     writeFileSync(join(dir, 'index.json'), '{not json');
     mkdirSync(join(dir, 'leaves'));
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -126,10 +126,10 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('returns IO error when index fails the schema', () => {
+  it('returns IO error when index fails the schema', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({ version: 5 }));
     mkdirSync(join(dir, 'leaves'));
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -143,13 +143,13 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('returns IO error when a leaf JSON is malformed', () => {
+  it('returns IO error when a leaf JSON is malformed', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
     mkdirSync(join(dir, 'leaves'));
     writeFileSync(join(dir, 'leaves', 'good.json'), JSON.stringify({ a: 1 }));
     writeFileSync(join(dir, 'leaves', 'bad.json'), '{nope');
 
-    const r = loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    const r = await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',
@@ -163,14 +163,14 @@ describe('loadArtifactDir', () => {
     }
   });
 
-  it('skips non-.json entries in the leaf dir', () => {
+  it('skips non-.json entries in the leaf dir', async () => {
     writeFileSync(join(dir, 'index.json'), JSON.stringify({}));
     mkdirSync(join(dir, 'leaves'));
     writeFileSync(join(dir, 'leaves', 'real.json'), JSON.stringify({ x: 1 }));
     writeFileSync(join(dir, 'leaves', 'NOTES.txt'), 'skip me');
 
     let entries: Record<string, unknown> = {};
-    loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
+    await loadArtifactDir<z.output<typeof IndexSchema>, null, DemoError>({
       dir,
       indexFile: 'index.json',
       leafDir: 'leaves',

@@ -128,8 +128,8 @@ function readBpmnIds(xml: string): BpmnIds {
 }
 
 describe('order-fulfillment BPMN demo blueprint', () => {
-  it('composes with validated workflows', () => {
-    const result = loadComposedBlueprint(demoDir);
+  it('composes with validated workflows', async () => {
+    const result = await loadComposedBlueprint(demoDir);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;

@@ -79,7 +79,7 @@ export type ExecutorDeps = {
   readonly dokployClientFactory: DokployClientFactory;
   readonly smoker: SmokeVerifier;
   readonly logger: Pick<Logger, 'error' | 'warn' | 'info'>;
-  readonly loadComposed?: (dir: string) => ResultLike<LoadedDeployProject>;
+  readonly loadComposed?: (dir: string) => ResultLike<LoadedDeployProject> | Promise<ResultLike<LoadedDeployProject>>;
   readonly planProject?: typeof buildProjectDeploymentPlan;
   readonly renderPlan?: typeof renderDokployPlan;
   readonly applyPlan?: typeof applyDokployPlan;
@@ -214,7 +214,7 @@ export async function runDeployment(
       appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
 
     await appendLog(deps, deploymentId, orgId, 'info', 'plan', 'Re-validating blueprint');
-    const composed = (deps.loadComposed ?? defaultLoadComposed)(bundleDir);
+    const composed = await (deps.loadComposed ?? defaultLoadComposed)(bundleDir);
     if (!composed.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: 'DEPLOY_EXECUTOR_BLUEPRINT_REVALIDATION_FAILED',
@@ -235,7 +235,7 @@ export async function runDeployment(
     });
     const deployInput = await toDeployCoreInput(composed.value, bundleDir, config);
     const materializedDir: string = bundleDir;
-    const provModules = collectProvisionerModules(composed.value, materializedDir);
+    const provModules = await collectProvisionerModules(composed.value, materializedDir);
 
     // Bus mode log moved out of plan (was post-plan; now pre-provision).
     const eventBusModeForLog =
@@ -697,8 +697,8 @@ async function finalize(
   });
 }
 
-function defaultLoadComposed(dir: string): ResultLike<LoadedDeployProject> {
-  const result = loadComposedBlueprint(dir);
+async function defaultLoadComposed(dir: string): Promise<ResultLike<LoadedDeployProject>> {
+  const result = await loadComposedBlueprint(dir);
   return result as ResultLike<LoadedDeployProject>;
 }
 
@@ -1287,17 +1287,17 @@ function errorSummary(errors: readonly { readonly code?: string; readonly messag
  * Only `ComposedBlueprint` values can have modules; `ComposedProjectInput` never does.
  * Returns an empty array when there are no provisioner-bearing modules (clean skip).
  */
-function collectProvisionerModules(
+async function collectProvisionerModules(
   composed: LoadedDeployProject,
   tmpDir: string,
-): DiscoveredProvisionerModule[] {
+): Promise<DiscoveredProvisionerModule[]> {
   if (!isComposedBlueprint(composed)) return [];
   const projectModules = composed.project.modules;
   if (projectModules === undefined || Object.keys(projectModules).length === 0) return [];
 
   // Re-use the discovery result from blueprint to get full module manifests
   // (including provisioner blocks) without re-loading the project from scratch.
-  const discovered = discoverModules({ projectDir: tmpDir });
+  const discovered = await discoverModules({ projectDir: tmpDir });
   if (!discovered.ok) return [];
 
   const out: DiscoveredProvisionerModule[] = [];

@@ -35,7 +35,7 @@ describe('discoverModules — provisioner block', () => {
       }),
     });
 
-    const result = discoverModules({ projectDir });
+    const result = await discoverModules({ projectDir });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -63,7 +63,7 @@ describe('discoverModules — provisioner block', () => {
         },
       }),
     });
-    const result = discoverModules({ projectDir });
+    const result = await discoverModules({ projectDir });
     expect(result.ok).toBe(true);
     if (result.ok) {
       const m = result.value['@rntme/identity-auth0'];
@@ -94,7 +94,7 @@ describe('discoverModules — provisioner block', () => {
         },
       }),
     });
-    const result = discoverModules({ projectDir });
+    const result = await discoverModules({ projectDir });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.some((e) => e.code === 'BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY')).toBe(true);
@@ -120,7 +120,7 @@ describe('discoverModules — provisioner block', () => {
         },
       }),
     });
-    const result = discoverModules({ projectDir });
+    const result = await discoverModules({ projectDir });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.some((e) => e.code === 'BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY')).toBe(true);

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { ZodType } from 'zod';
 
@@ -7,7 +7,7 @@ import { err, type Result } from './result.js';
 /**
  * Build a package-specific I/O error. Used by `loadArtifactDir` to surface
  * missing files, malformed JSON, schema violations on the index, and any
- * unexpected `readFileSync`/`readdirSync` throw.
+ * unexpected `readFile`/`readdir` throw.
  */
 export type IoErrorBuilder<E> = (info: { message: string; path: string }) => E;
 
@@ -41,43 +41,58 @@ export type LoadArtifactDirOptions<I, T, E> = {
  * - the schema applied to the index (`indexSchema`)
  * - whether the inner parser uses parsed-index fields (`parseFn`)
  * - the package's error type (`buildIoError`)
+ *
+ * Reads the index file and the leaf directory entries in parallel.
  */
-export function loadArtifactDir<I, T, E>(
+export async function loadArtifactDir<I, T, E>(
   opts: LoadArtifactDirOptions<I, T, E>,
-): Result<T, E> {
+): Promise<Result<T, E>> {
   const { dir, indexFile, leafDir, indexSchema, parseFn, buildIoError } = opts;
 
+  const indexPath = join(dir, indexFile);
+  const leafDirPath = join(dir, leafDir);
+
   try {
-    const indexPath = join(dir, indexFile);
-    const leafDirPath = join(dir, leafDir);
+    await stat(indexPath);
+  } catch {
+    return err([
+      buildIoError({
+        message: `missing required file: ${indexFile}`,
+        path: indexFile,
+      }),
+    ]);
+  }
 
-    if (!existsSync(indexPath)) {
-      return err([
-        buildIoError({
-          message: `missing required file: ${indexFile}`,
-          path: indexFile,
-        }),
-      ]);
-    }
+  try {
+    await stat(leafDirPath);
+  } catch {
+    return err([
+      buildIoError({
+        message: `missing required directory: ${leafDir}`,
+        path: leafDir,
+      }),
+    ]);
+  }
 
-    if (!existsSync(leafDirPath)) {
-      return err([
-        buildIoError({
-          message: `missing required directory: ${leafDir}`,
-          path: leafDir,
-        }),
-      ]);
-    }
+  try {
+    const [indexText, leafFileNames] = await Promise.all([
+      readFile(indexPath, 'utf8'),
+      readdir(leafDirPath),
+    ]);
 
-    const index = indexSchema.parse(JSON.parse(readFileSync(indexPath, 'utf8')));
+    const index = indexSchema.parse(JSON.parse(indexText));
+
+    const jsonFileNames = leafFileNames.filter((fname) => fname.endsWith('.json'));
+    const leafJsonTexts = await Promise.all(
+      jsonFileNames.map((fname) => readFile(join(leafDirPath, fname), 'utf8')),
+    );
 
     const leafEntries: Record<string, unknown> = {};
-    for (const fname of readdirSync(leafDirPath)) {
-      if (!fname.endsWith('.json')) continue;
+    for (let i = 0; i < jsonFileNames.length; i += 1) {
+      const fname = jsonFileNames[i]!;
+      const text = leafJsonTexts[i]!;
       const entryName = basename(fname, '.json');
-      leafEntries[entryName] = JSON.parse(
-        readFileSync(join(leafDirPath, fname), 'utf8'),
-      );
+      leafEntries[entryName] = JSON.parse(text);
     }
 
     return parseFn({ index, leafEntries });

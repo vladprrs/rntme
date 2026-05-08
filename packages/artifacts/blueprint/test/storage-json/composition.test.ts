@@ -16,7 +16,7 @@ function copyFixture(): string {
 }
 
 describe('blueprint composition with storage.json', () => {
-  it('attaches a ValidatedStorageJson to the service member when present', () => {
+  it('attaches a ValidatedStorageJson to the service member when present', async () => {
     const root = copyFixture();
     writeFileSync(
       join(root, 'services', 'catalog', 'storage.json'),
@@ -39,7 +39,7 @@ describe('blueprint composition with storage.json', () => {
       ),
     );
 
-    const r = loadComposedBlueprint(root);
+    const r = await loadComposedBlueprint(root);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const catalog = r.value.services.catalog;

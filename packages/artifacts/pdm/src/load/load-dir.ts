@@ -10,7 +10,7 @@ const PdmDirectoryIndexSchema = z
   })
   .strict();
 
-export function loadPdmDir(dir: string): Result<PdmArtifact> {
+export function loadPdmDir(dir: string): Promise<Result<PdmArtifact>> {
   return loadArtifactDir<z.output<typeof PdmDirectoryIndexSchema>, PdmArtifact, PdmError>({
     dir,
     indexFile: 'pdm.json',
