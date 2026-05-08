@@ -153,6 +153,7 @@ function target(id: string): DeployTargetWithSecret {
     workflows: null,
     auth: {},
     policyValues: {},
+    manualAccess: {},
     isDefault: true,
     createdAt: new Date(),
     updatedAt: new Date(),

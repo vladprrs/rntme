@@ -177,6 +177,95 @@ describe('renderDokployPlan', () => {
     });
   });
 
+  it('renders Redpanda Console behind a public basic-auth proxy without secret material', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          eventBus: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            resourceName: 'rntme-acme-commerce-event-bus',
+            internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+            image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-event-bus-data',
+            },
+          },
+          manualAccess: {
+            redpandaConsole: {
+              kind: 'redpanda-console',
+              resourceName: 'rntme-acme-commerce-redpanda-console',
+              proxyResourceName: 'rntme-acme-commerce-redpanda-console-proxy',
+              internalUrl: 'http://rntme-acme-commerce-redpanda-console:8080',
+              image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+              publicBaseUrl: 'https://console-commerce.example.com',
+              basicAuthUsername: 'operator',
+              htpasswdSecretRef: 'console-basic-auth',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.urls.redpandaConsoleUrl).toBe('https://console-commerce.example.com');
+    expect(r.value.resources.map((resource) => resource.name)).toEqual([
+      'rntme-acme-commerce-event-bus',
+      'rntme-acme-commerce-redpanda-console',
+      'rntme-acme-commerce-redpanda-console-proxy',
+      'rntme-acme-commerce-catalog',
+      'rntme-acme-commerce-edge',
+    ]);
+
+    const consoleApp = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console',
+    );
+    expect(consoleApp).toMatchObject({
+      image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+      env: expect.arrayContaining([
+        { name: 'KAFKA_BROKERS', value: 'rntme-acme-commerce-event-bus:9092', secret: false },
+      ]),
+      labels: expect.objectContaining({
+        'rntme.infrastructure': 'redpanda-console',
+        'rntme.access': 'internal',
+      }),
+    });
+    expect(consoleApp).not.toHaveProperty('ingress');
+    expect(consoleApp).not.toHaveProperty('ports');
+
+    const proxy = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy',
+    );
+    expect(proxy).toMatchObject({
+      image: 'nginx:1.27-alpine',
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+      ingress: {
+        publicBaseUrl: 'https://console-commerce.example.com',
+        containerPort: 8080,
+      },
+      env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
+      labels: expect.objectContaining({
+        'rntme.infrastructure': 'redpanda-console-proxy',
+        'rntme.access': 'public',
+      }),
+    });
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
+    expect(JSON.stringify(r.value)).not.toContain('$apr1$');
+    expect(JSON.stringify(r.value)).not.toContain('plaintext-password');
+  });
+
   it('omits Kafka runtime env when the plan uses an in-memory event bus', () => {
     const r = renderDokployPlan(
       {

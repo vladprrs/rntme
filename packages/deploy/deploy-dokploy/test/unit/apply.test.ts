@@ -204,6 +204,87 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
+  it('applies Redpanda Console and proxy before workloads with resolved upstream and command args', async () => {
+    const client = new FakeDokployClient();
+    const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const consoleApp = resource({
+      logicalId: 'redpanda-console',
+      infrastructureKind: 'redpanda-console',
+      workloadKind: undefined,
+      workloadSlug: undefined,
+      name: 'rntme-acme-commerce-redpanda-console',
+      image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+      env: [{ name: 'KAFKA_BROKERS', value: 'rntme-acme-commerce-event-bus:9092', secret: false }],
+      labels: { 'rntme.infrastructure': 'redpanda-console' },
+    });
+    const proxy = resource({
+      logicalId: 'redpanda-console-proxy',
+      infrastructureKind: 'redpanda-console-proxy',
+      workloadKind: undefined,
+      workloadSlug: undefined,
+      name: 'rntme-acme-commerce-redpanda-console-proxy',
+      image: 'nginx:1.27-alpine',
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+      env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
+      labels: { 'rntme.infrastructure': 'redpanda-console-proxy' },
+      files: {
+        '/etc/nginx/nginx.conf':
+          'proxy_pass http://rntme-acme-commerce-redpanda-console:8080;\nproxy_set_header Authorization "";',
+      },
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [rendered.resources[0], proxy, eventBus, consoleApp],
+        urls: {
+          ...rendered.urls,
+          redpandaConsoleUrl: 'https://console-commerce.example.com',
+        },
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-event-bus',
+      'configure-compose:compose_1:rntme-acme-commerce-event-bus',
+      'deploy-compose:compose_1',
+      'create:rntme-acme-commerce-redpanda-console',
+      'create:rntme-acme-commerce-redpanda-console-proxy',
+      'create:rntme-acme-commerce-catalog',
+      'configure:app_1:rntme-acme-commerce-redpanda-console',
+      'deploy:app_1',
+      'inspect:app_1',
+      'configure:app_2:rntme-acme-commerce-redpanda-console-proxy',
+      'deploy:app_2',
+      'inspect:app_2',
+      'configure:app_3:rntme-acme-commerce-catalog',
+      'deploy:app_3',
+      'inspect:app_3',
+    ]);
+    const proxyConfigure = client.configureCalls.find(
+      (call) => call.resource.name === 'rntme-acme-commerce-redpanda-console-proxy',
+    );
+    expect(proxyConfigure?.resource).toMatchObject({
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+    });
+    expect(proxyConfigure?.resource.files?.['/etc/nginx/nginx.conf']).toContain(
+      'http://rntme-acme-commerce-redpanda-console-dns:8080',
+    );
+    expect(r.value.verificationHints.redpandaConsoleUrl).toBe('https://console-commerce.example.com');
+    expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
+      'event-bus',
+      'redpanda-console',
+      'redpanda-console-proxy',
+      'catalog',
+    ]);
+  });
+
   it('keeps BPMN worker compose references on deterministic compose network aliases', async () => {
     const client = new FakeDokployClient();
     const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;

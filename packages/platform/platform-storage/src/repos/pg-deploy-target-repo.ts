@@ -4,6 +4,7 @@ import {
   err,
   ok,
   type DeployTarget,
+  type DeployTargetAuthConfig,
   type DeployTargetManualAccess,
   type DeployTargetModules,
   type DeployTargetWorkflows,

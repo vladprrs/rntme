@@ -17,6 +17,9 @@ export const TARGET_SECRET_SCHEMAS = {
     .superRefine((value, ctx) => {
       let decoded = '';
       try {
+        if (!isCanonicalBase64(value.htpasswdB64)) {
+          throw new Error('invalid base64');
+        }
         decoded = Buffer.from(value.htpasswdB64, 'base64').toString('utf8');
       } catch {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'htpasswdB64 must be valid base64' });
@@ -33,6 +36,10 @@ export const TARGET_SECRET_SCHEMAS = {
 } as const;
 
 export type TargetSecretSchemaId = keyof typeof TARGET_SECRET_SCHEMAS;
+
+function isCanonicalBase64(value: string): boolean {
+  return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
+}
 
 export type TargetSecretParseError = {
   readonly code: 'TARGET_SECRET_SCHEMA_UNKNOWN' | 'TARGET_SECRET_VALIDATION_FAILED';

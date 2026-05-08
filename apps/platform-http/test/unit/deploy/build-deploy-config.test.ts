@@ -212,6 +212,7 @@ function target(): DeployTarget {
     workflows: null,
     auth: {},
     policyValues: { rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } } },
+    manualAccess: {},
     isDefault: true,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
