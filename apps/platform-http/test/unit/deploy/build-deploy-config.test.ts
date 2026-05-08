@@ -96,6 +96,33 @@ describe('buildProjectDeploymentConfig', () => {
     });
   });
 
+  it('passes provisioned RustFS storage config through to deploy-core', () => {
+    const config = buildProjectDeploymentConfig(
+      {
+        ...target(),
+        storage: {
+          mode: 'provisioned',
+          provider: 'rustfs',
+          image: 'rustfs/rustfs:1.0.0',
+          publicBaseUrl: 'https://storage.example.test',
+          accessKeyRef: 'RUSTFS_ACCESS_KEY',
+          secretKeyRef: 'RUSTFS_SECRET_KEY',
+        },
+      },
+      'acme',
+      {},
+    );
+
+    expect(config.storage).toEqual({
+      mode: 'provisioned',
+      provider: 'rustfs',
+      image: 'rustfs/rustfs:1.0.0',
+      publicBaseUrl: 'https://storage.example.test',
+      accessKeyRef: 'RUSTFS_ACCESS_KEY',
+      secretKeyRef: 'RUSTFS_SECRET_KEY',
+    });
+  });
+
   it('allows deployment config overrides to force the runtime in-memory event bus', () => {
     const config = buildProjectDeploymentConfig(target(), 'acme', {
       eventBusMode: 'in-memory',
@@ -208,6 +235,7 @@ function target(): DeployTarget {
     allowCreateProject: false,
     apiTokenRedacted: '***',
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {},
     workflows: null,
     auth: {},

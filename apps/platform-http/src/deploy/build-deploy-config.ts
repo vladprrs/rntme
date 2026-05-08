@@ -76,6 +76,7 @@ export function buildProjectDeploymentConfig(
     environment: 'default',
     mode: 'preview',
     eventBus,
+    storage: target.storage,
     modules,
     policies: {
       ...(target.policyValues as DeploymentPolicyConfig),
