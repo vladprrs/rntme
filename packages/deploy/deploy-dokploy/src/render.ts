@@ -277,7 +277,7 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   const resources: RenderedDokployResource[] = [];
   const eventBus = plan.infrastructure.eventBus;
   if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
-  const objectStorage = plan.infrastructure.objectStorage;
+  const objectStorage = plan.infrastructure.objectStorage ?? { kind: 'none' };
   if (objectStorage.kind === 's3-compatible') {
     resources.push(renderRustfsCompose(plan));
     resources.push(renderRustfsPublicProxy(plan));
