@@ -151,6 +151,46 @@ describe('buildProjectDeploymentConfig', () => {
       timeout: { edge: { upstreamTimeoutMs: 1000 } },
     });
   });
+
+  it('passes operatonUi and adminUserSecretRef through to deploy-core', () => {
+    const config = buildProjectDeploymentConfig(
+      {
+        ...target(),
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: {
+            kind: 'operaton',
+            mode: 'provisioned',
+            image: 'operaton/operaton:test',
+            adminUserSecretRef: 'operaton-admin-user-v1',
+          },
+          worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+          operatonUi: {
+            enabled: true,
+            publicBaseUrl: 'https://operaton.acme.example.test',
+            auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+          },
+        },
+      },
+      'acme',
+      {},
+    );
+
+    expect(config.workflows).toEqual({
+      engine: {
+        kind: 'operaton',
+        mode: 'provisioned',
+        image: 'operaton/operaton:test',
+        adminUserSecretRef: 'operaton-admin-user-v1',
+      },
+      worker: { image: 'ghcr.io/rntme/bpmn-worker:test' },
+      operatonUi: {
+        enabled: true,
+        publicBaseUrl: 'https://operaton.acme.example.test',
+        auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+      },
+    });
+  });
 });
 
 describe('buildDokployTargetConfig', () => {

@@ -568,4 +568,200 @@ describe('workflow planning', () => {
       );
     }
   });
+
+  it('populates uiAccess and requiredTargetSecrets when operatonUi is configured', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowFiles: {
+          'workflows.json': '{"workflowVersion":1}',
+          'order-fulfillment.bpmn': '<definitions />',
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+          operatonUi: {
+            enabled: true,
+            publicBaseUrl: 'https://operaton.acme.example.test',
+            auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+          },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.infrastructure.workflowEngine).toMatchObject({
+      uiAccess: {
+        enabled: true,
+        publicBaseUrl: 'https://operaton.acme.example.test',
+        authKind: 'basic',
+        authSecretRef: 'operaton-ui-basic-auth-v1',
+      },
+    });
+    expect(result.value.requiredTargetSecrets).toContainEqual({
+      kind: 'target-secret',
+      secretRef: 'operaton-ui-basic-auth-v1',
+      purpose: 'Operaton UI Basic Auth htpasswd',
+    });
+  });
+
+  it('populates adminUserSecretRef on the planned engine when configured', () => {
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflowFiles: {
+          'workflows.json': '{"workflowVersion":1}',
+          'order-fulfillment.bpmn': '<definitions />',
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: {
+            kind: 'operaton',
+            mode: 'provisioned',
+            image: 'operaton/operaton:test',
+            adminUserSecretRef: 'operaton-admin-user-v1',
+          },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.infrastructure.workflowEngine).toMatchObject({
+      adminUserSecretRef: 'operaton-admin-user-v1',
+    });
+  });
+
+  it('rejects operatonUi when publicBaseUrl is missing', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: '',
+          auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_UI_PUBLIC_URL_MISSING',
+          path: 'workflows.operatonUi.publicBaseUrl',
+        }),
+      );
+    }
+  });
+
+  it('rejects operatonUi when auth.secretRef is missing', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'https://operaton.acme.example.test',
+          auth: { kind: 'basic', secretRef: '' },
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_UI_AUTH_SECRET_MISSING',
+          path: 'workflows.operatonUi.auth.secretRef',
+        }),
+      );
+    }
+  });
+
+  it('rejects empty adminUserSecretRef on the Operaton engine', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: {
+          kind: 'operaton',
+          mode: 'provisioned',
+          image: 'operaton/operaton:test',
+          adminUserSecretRef: '   ',
+        },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_OPERATON_ADMIN_SECRET_MISSING',
+          path: 'workflows.engine.adminUserSecretRef',
+        }),
+      );
+    }
+  });
+
+  it('rejects operatonUi when engine is not provisioned Operaton', () => {
+    const result = buildProjectDeploymentPlan(project, {
+      orgSlug: 'acme',
+      environment: 'default',
+      mode: 'preview',
+      runtimeImage: 'ghcr.io/acme/runtime:v1',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      workflows: {
+        engine: { kind: 'operaton', mode: 'external', image: 'operaton/operaton:test' },
+        worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        operatonUi: {
+          enabled: true,
+          publicBaseUrl: 'https://operaton.acme.example.test',
+          auth: { kind: 'basic', secretRef: 'operaton-ui-basic-auth-v1' },
+        },
+      },
+    } as unknown as Parameters<typeof buildProjectDeploymentPlan>[1]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_WORKFLOWS_UI_REQUIRES_OPERATON',
+          path: 'workflows.operatonUi',
+        }),
+      );
+    }
+  });
 });

@@ -17,6 +17,7 @@ export {
   type ExternalEventBusConfig,
   type InMemoryEventBusConfig,
   type IntegrationModuleDeploymentConfig,
+  type OperatonUiAccessConfig,
   type ProvisionedEventBusConfig,
   type ProjectDeploymentConfig,
   type RateLimitPolicyConfig,
@@ -42,7 +43,9 @@ export {
   type PlannedWorkflowEngine,
   type PlannedWorkflowServiceTask,
   type PlannedWorkflowSubscription,
+  type PlannedWorkflowUiAccess,
   type ProjectDeploymentPlan,
+  type RequiredTargetSecretRef,
 } from './plan.js';
 export { type EdgeMiddleware, type EdgeRoute } from './edge.js';
 export {

@@ -44,7 +44,14 @@ export type WorkflowEngineConfig =
       readonly kind: 'operaton';
       readonly mode: 'provisioned';
       readonly image: string;
+      readonly adminUserSecretRef?: string;
     };
+
+export type OperatonUiAccessConfig = {
+  readonly enabled: true;
+  readonly publicBaseUrl: string;
+  readonly auth: { readonly kind: 'basic'; readonly secretRef: string };
+};
 
 export type BpmnWorkerConfig = {
   readonly image: string;
@@ -104,5 +111,6 @@ export type ProjectDeploymentConfig = {
   readonly workflows?: {
     readonly engine: WorkflowEngineConfig;
     readonly worker: BpmnWorkerConfig;
+    readonly operatonUi?: OperatonUiAccessConfig;
   };
 };
