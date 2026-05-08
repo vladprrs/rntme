@@ -1,0 +1,96 @@
+{
+  "name": "@rntme/storage-s3",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "S3-compatible vendor module for the Storage canonical contract. Server runs on bun; provisioner runs on node.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./provisioner": {
+      "types": "./dist/provisioner/index.d.ts",
+      "import": "./dist/provisioner/index.js"
+    },
+    "./provisioner.entry": {
+      "import": "./dist/provisioner.entry.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "rntme-storage-s3": "./dist/bin/server.js"
+  },
+  "files": [
+    "dist",
+    "module.json",
+    "README.md"
+  ],
+  "engines": {
+    "bun": ">=1.2"
+  },
+  "scripts": {
+    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-storage-v1 run build && pnpm -F @rntme/contracts-provisioner-v1 run build && pnpm -F @rntme/contracts-client-runtime-v1 run build && pnpm -F @rntme/conformance-storage run build",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && tsc -p tsconfig.provisioner.json && pnpm run build:provisioner-entry",
+    "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
+    "build:provisioner-entry": "esbuild dist/provisioner/index.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
+    "start": "bun dist/bin/server.js",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "test": "pnpm run build:deps && vitest run test/unit",
+    "test:watch": "vitest",
+    "test:integration": "pnpm run build:deps && vitest run test/integration",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-iam": "^3.640.0",
+    "@aws-sdk/client-s3": "^3.640.0",
+    "@grpc/grpc-js": "^1.14.3",
+    "@uppy/drag-drop": "^4.2.2",
+    "@uppy/file-input": "^4.2.2",
+    "@uppy/progress-bar": "^4.3.2",
+    "@uppy/screen-capture": "^4.4.2",
+    "@uppy/status-bar": "^4.2.2",
+    "@uppy/webcam": "^4.3.2",
+    "@rntme/conformance-storage": "workspace:*",
+    "@rntme/contracts-client-runtime-v1": "workspace:*",
+    "@rntme/contracts-common-v1": "workspace:*",
+    "@rntme/contracts-provisioner-v1": "workspace:*",
+    "@rntme/contracts-storage-v1": "workspace:*",
+    "@uppy/aws-s3": "^4.1.0",
+    "@uppy/core": "^4.2.0",
+    "@uppy/dashboard": "^4.1.0",
+    "@uppy/react": "^4.0.2",
+    "uuid": "^10.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@types/bun": "^1.2.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "better-sqlite3": "^11.3.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^9.10.0",
+    "jsdom": "^25.0.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "testcontainers": "^10.13.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

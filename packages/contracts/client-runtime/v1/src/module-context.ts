@@ -10,11 +10,14 @@ export type ModuleBootContext = {
     set(path: string, value: unknown): void;
     subscribe(path: string, handler: (value: unknown) => void): () => void;
   };
-  transport: { use(mw: TransportMiddleware): void };
+  transport: {
+    fetch(req: Request): Promise<Response>;
+    use(mw: TransportMiddleware): void;
+  };
   on: LifecycleBus['on'];
   registerOperation: (
     name: string,
-    handler: (params: Record<string, unknown>) => void | Promise<void>,
+    handler: (params: Record<string, unknown>) => unknown | Promise<unknown>,
   ) => void;
 };
 
@@ -42,7 +45,10 @@ export function createModuleBootContext(opts: {
         });
       },
     },
-    transport: { use: (mw) => opts.chain.use(mw) },
+    transport: {
+      fetch: (req) => opts.chain.fetch(req),
+      use: (mw) => opts.chain.use(mw),
+    },
     on: opts.bus.on,
     registerOperation: (name, h) => opts.registry.registerModule(opts.moduleName, name, h),
   };

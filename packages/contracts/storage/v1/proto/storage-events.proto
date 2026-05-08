@@ -1,0 +1,50 @@
+syntax = "proto3";
+package rntme.contracts.storage.v1;
+
+import "google/protobuf/timestamp.proto";
+import "rntme/contracts/storage/v1/storage.proto";
+
+message FileUploadInitiated {
+  string file_id = 1;
+  string route_id = 2;
+  string entity_id = 3;
+  string owner_principal_id = 4;
+  string content_type = 5;
+  int64 declared_size = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message FileUploadCommitted {
+  string file_id = 1;
+  string object_key = 2;
+  string sha256 = 3;
+  int64 size_bytes = 4;
+  google.protobuf.Timestamp committed_at = 5;
+}
+
+message FileUploadAborted {
+  string file_id = 1;
+  // 'client_abort' | 'timeout' | 'route_disabled'
+  string reason = 2;
+  google.protobuf.Timestamp aborted_at = 3;
+}
+
+message FileOrphaned {
+  string file_id = 1;
+  // 'owner_deleted'
+  string reason = 2;
+  google.protobuf.Timestamp orphaned_at = 3;
+}
+
+message FileDeleted {
+  string file_id = 1;
+  string deleted_by = 2;
+  google.protobuf.Timestamp deleted_at = 3;
+}
+
+message FileLifecycleSwept {
+  int32 count = 1;
+  google.protobuf.Timestamp before_at = 2;
+  // file ids carried in CloudEvent extensions / vendor_raw
+  repeated string file_ids_sample = 3;
+}

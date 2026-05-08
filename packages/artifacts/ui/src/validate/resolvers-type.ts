@@ -37,4 +37,5 @@ export type ValidateResolvers = {
     opts: { module?: string; category?: string; targetElementType?: string },
   ) => OperationDescriptor | undefined;
   resolveCategoryToModule: (category: string) => string | undefined;
+  resolveStorageRoute?: (routeId: string) => string | undefined;
 };

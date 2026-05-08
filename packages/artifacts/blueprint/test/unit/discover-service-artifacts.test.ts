@@ -21,11 +21,12 @@ describe('discoverServiceArtifacts', () => {
       hasUi: false,
       hasSeed: false,
       hasQsm: false,
+      hasStorage: false,
       hasCommandHandlers: false,
     });
   });
 
-  it('detects qsm/, graphs/, bindings/, ui/, and seed/ conventions', () => {
+  it('detects qsm/, graphs/, bindings/, ui/, seed/, and storage.json conventions', () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     writeJson(root, 'services/catalog/qsm/qsm.json', { version: '1' });
     writeJson(root, 'services/catalog/graphs/shapes.json', {});
@@ -37,6 +38,10 @@ describe('discoverServiceArtifacts', () => {
       events: [],
     });
     writeJson(root, 'services/catalog/ui/manifest.json', { version: '2.0' });
+    writeJson(root, 'services/catalog/storage.json', {
+      version: '1.0',
+      routes: {},
+    });
 
     expect(discoverServiceArtifacts(root, 'catalog')).toEqual({
       hasGraphs: true,
@@ -44,6 +49,7 @@ describe('discoverServiceArtifacts', () => {
       hasUi: true,
       hasSeed: true,
       hasQsm: true,
+      hasStorage: true,
       hasCommandHandlers: false,
     });
   });
@@ -65,6 +71,9 @@ describe('discoverServiceArtifacts', () => {
     mkdirSync(join(root, 'services/catalog/qsm/qsm.json'), {
       recursive: true,
     });
+    mkdirSync(join(root, 'services/catalog/storage.json'), {
+      recursive: true,
+    });
 
     expect(discoverServiceArtifacts(root, 'catalog')).toEqual({
       hasGraphs: false,
@@ -72,6 +81,7 @@ describe('discoverServiceArtifacts', () => {
       hasUi: false,
       hasSeed: false,
       hasQsm: false,
+      hasStorage: false,
       hasCommandHandlers: false,
     });
   });

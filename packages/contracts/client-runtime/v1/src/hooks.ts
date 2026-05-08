@@ -26,7 +26,7 @@ export function useStateStore(): StateStore {
 export function useOperationRegistry(): {
   register(
     elementId: string,
-    handlers: Record<string, (params: Record<string, unknown>) => void | Promise<void>>,
+    handlers: Record<string, (params: Record<string, unknown>) => unknown | Promise<unknown>>,
   ): () => void;
 } {
   const c = useContext(RegistryContext);
@@ -42,6 +42,20 @@ export function useModuleAction(
   return useCallback(
     async (params: Record<string, unknown> = {}) => {
       await registry?.lookupModule(moduleName, name)?.(params);
+    },
+    [moduleName, name, registry],
+  );
+}
+
+export function useOperation<TResult = unknown>(
+  moduleName: string,
+  name: string,
+): (params?: Record<string, unknown>) => Promise<TResult> {
+  const registry = useContext(RegistryContext);
+  return useCallback(
+    async (params: Record<string, unknown> = {}) => {
+      const result = await registry?.lookupModule(moduleName, name)?.(params);
+      return result as TResult;
     },
     [moduleName, name, registry],
   );
