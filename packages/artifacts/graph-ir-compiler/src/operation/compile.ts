@@ -1,7 +1,9 @@
-import { deriveEventTypes } from '@rntme/pdm';
+import { deriveEventTypes, type ValidatedPdm } from '@rntme/pdm';
+import type { ValidatedQsm } from '@rntme/qsm';
 import { normalize } from '../canonical/normalize.js';
 import { parseGraphIrArtifacts } from '../explain/explain.js';
 import { parseAuthoringSpec } from '../parse/parse.js';
+import type { AuthoringSpecOutput } from '../parse/schema.js';
 import { validateStructural } from '../validate/structural/index.js';
 import { validateSemantic } from '../validate/semantic/index.js';
 import { validateOperationEffects } from '../validate/effects.js';
@@ -23,15 +25,24 @@ export function compileOperation(
   rawQsm: unknown,
   opts: CompileOperationOptions,
 ): Result<CompiledOperation> {
-  void opts.serviceName;
-
   const specR = parseAuthoringSpec(rawSpec);
   if (!specR.ok) return specR;
 
   const pq = parseGraphIrArtifacts(rawPdm, rawQsm);
   if (!pq.ok) return pq;
 
-  const sv = validateStructural(specR.value, pq.value.pdm, pq.value.qsm);
+  return compileOperationFromValidated(specR.value, pq.value.pdm, pq.value.qsm, opts);
+}
+
+export function compileOperationFromValidated(
+  spec: AuthoringSpecOutput,
+  pdm: ValidatedPdm,
+  qsm: ValidatedQsm,
+  opts: CompileOperationOptions,
+): Result<CompiledOperation> {
+  void opts.serviceName;
+
+  const sv = validateStructural(spec, pdm, qsm);
   if (!sv.ok) return sv;
 
   let canonical;
@@ -53,11 +64,11 @@ export function compileOperation(
   }
 
   const graph = canonical.graphs[graphIds[0]!]!;
-  const semR = validateSemantic(graph, pq.value.pdm, pq.value.qsm, sv.value.shapes);
+  const semR = validateSemantic(graph, pdm, qsm, sv.value.shapes);
   if (!semR.ok) return semR;
 
   const eventTypes = new Map(
-    deriveEventTypes(pq.value.pdm).map((event) => [
+    deriveEventTypes(pdm).map((event) => [
       `${event.aggregateType}.${event.transition}`,
       event.eventType,
     ]),
@@ -85,7 +96,7 @@ export function compileOperation(
     effects: effects.value,
     registryEntriesByNodeId,
     resultNodeId: graph.outputFrom,
-    pdm: pq.value.pdm,
-    qsm: pq.value.qsm,
+    pdm,
+    qsm,
   });
 }
