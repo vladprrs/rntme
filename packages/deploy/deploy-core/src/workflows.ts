@@ -9,6 +9,7 @@ import type {
   PlannedWorkflowEngine,
   PlannedWorkflowServiceTask,
   PlannedWorkflowSubscription,
+  PlannedWorkflowUiAccess,
   RequiredTargetSecretRef,
 } from './plan.js';
 
@@ -99,7 +100,7 @@ export function planWorkflowEngine(input: {
     });
   }
 
-  let uiAccess: import('./plan.js').PlannedWorkflowUiAccess | undefined = undefined;
+  let uiAccess: PlannedWorkflowUiAccess | undefined = undefined;
   if (operatonUiEnabled) {
     const publicBaseUrl = nonEmptyString(operatonUiConfig.publicBaseUrl);
     if (publicBaseUrl === null) {

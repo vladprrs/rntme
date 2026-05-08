@@ -610,6 +610,7 @@ describe('workflow planning', () => {
     expect(result.value.requiredTargetSecrets).toContainEqual({
       kind: 'target-secret',
       secretRef: 'operaton-ui-basic-auth-v1',
+      schema: 'operaton-ui-basic-auth-v1',
       purpose: 'Operaton UI Basic Auth htpasswd',
     });
   });

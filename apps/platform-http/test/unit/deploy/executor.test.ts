@@ -91,7 +91,7 @@ describe('runDeployment', () => {
     const planProject = vi.fn(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
         workloads: [],
         edge: { routes: [], middleware: [] },
         diagnostics: { warnings: [] },
@@ -454,7 +454,7 @@ describe('runDeployment', () => {
     const planProject = vi.fn(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
         workloads: [],
         edge: { routes: [], middleware: [] },
         diagnostics: { warnings: [] },
@@ -491,7 +491,7 @@ describe('runDeployment', () => {
     const planProject = vi.fn(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
         workloads: [],
         edge: { routes: [], middleware: [] },
         diagnostics: { warnings: [] },
@@ -519,7 +519,7 @@ describe('runDeployment', () => {
     const planProject = vi.fn(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
         workloads: [],
         edge: { routes: [], middleware: [] },
         diagnostics: { warnings: [] },
@@ -697,7 +697,7 @@ describe('runDeployment', () => {
     const planProject = vi.fn(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+        infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
         workloads: [],
         edge: { routes: [], middleware: [] },
         requiredTargetSecrets: [],
@@ -895,10 +895,10 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
-          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
           diagnostics: { warnings: [] },
         }),
       ),
@@ -922,10 +922,10 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
-          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
           diagnostics: { warnings: [] },
         }),
       ),
@@ -949,10 +949,10 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
-          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
           diagnostics: { warnings: [] },
         }),
       ),
@@ -977,10 +977,10 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
-          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
           diagnostics: { warnings: [] },
         }),
       ),
@@ -1175,7 +1175,7 @@ function setup(
     ...(overrides.useDefaultPlanProject
       ? {}
       : {
-          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
+          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
         }),
     ...(overrides.useDefaultRenderPlan
       ? {}
@@ -1239,7 +1239,7 @@ function applyResultFromRendered(rendered: RenderedDokployPlan): DeploymentApply
         : {
             logicalId: resource.logicalId,
             resourceKind: 'application' as const,
-            workloadSlug: resource.workloadSlug,
+            workloadSlug: resource.workloadSlug ?? '',
             kind: resource.workloadKind,
             targetResourceId: `app_${idx + 1}`,
             targetResourceName: resource.name,

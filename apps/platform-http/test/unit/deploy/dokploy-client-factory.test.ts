@@ -511,7 +511,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
+        '/etc/nginx/.htpasswd': { schema: 'operaton-ui-basic-auth-v1', secretRef: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
       },
     };
     await expect(client.configureApplication('app-1', resourceWithSecret)).rejects.toThrow(
@@ -536,7 +536,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
+        '/etc/nginx/.htpasswd': { schema: 'operaton-ui-basic-auth-v1', secretRef: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
       },
     };
     await expect(client.configureApplication('app-1', resourceWithSecret)).rejects.toThrow(
@@ -559,7 +559,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
+        '/etc/nginx/.htpasswd': { schema: 'operaton-ui-basic-auth-v1', secretRef: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
       },
     };
     await expect(client.configureApplication('app-1', resourceWithSecret)).rejects.toThrow();
