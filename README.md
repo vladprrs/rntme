@@ -26,6 +26,9 @@ and built on open contracts instead of closed platform magic.
   BPMN; the current worker targets provisioned Operaton.
 - **Integrations stay behind contracts.** Vendor modules implement canonical
   contracts for identity, AI/LLM, CRM, storage, and other capabilities.
+- **Files use a standard storage path.** The first storage vendor is an
+  S3-compatible module with per-service `storage.json` routes, direct browser
+  uploads, and conditional bucket provisioning.
 - **Open by default.** Runtime, validators, modules, apps, and demos are
   Apache 2.0. There is no separately licensed commercial layer.
 

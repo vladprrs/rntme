@@ -110,6 +110,100 @@ describe('CreateDeployTargetRequestSchema', () => {
     if (r.success) expect((r.data as { workflows?: unknown }).workflows).toBeNull();
   });
 
+  it('preserves provisioned RustFS storage config on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-storage',
+      displayName: 'Storage Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      publicBaseUrl: 'https://notes.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        image: 'rustfs/rustfs:1.0.0',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.storage).toEqual({
+        mode: 'provisioned',
+        provider: 'rustfs',
+        image: 'rustfs/rustfs:1.0.0',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      });
+    }
+  });
+
+  it('defaults omitted storage config to external on create', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-staging',
+      displayName: 'Staging',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.storage).toEqual({ mode: 'external' });
+  });
+
+  it('preserves provisioned RustFS storage config on patch and allows external', () => {
+    const enabled = UpdateDeployTargetRequestSchema.parse({
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+    });
+    expect(enabled.storage).toEqual({
+      mode: 'provisioned',
+      provider: 'rustfs',
+      publicBaseUrl: 'https://storage.example.test',
+      accessKeyRef: 'RUSTFS_ACCESS_KEY',
+      secretKeyRef: 'RUSTFS_SECRET_KEY',
+    });
+
+    const external = UpdateDeployTargetRequestSchema.parse({ storage: { mode: 'external' } });
+    expect(external.storage).toEqual({ mode: 'external' });
+  });
+
+  it('rejects invalid provisioned RustFS storage config', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-storage',
+      displayName: 'Storage Target',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      storage: {
+        mode: 'provisioned',
+        provider: 'minio',
+        publicBaseUrl: 'ftp://storage.example.test',
+        accessKeyRef: '',
+        secretKeyRef: '',
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(false);
+  });
+
   it('leaves omitted policyValues undefined on patch', () => {
     const r = UpdateDeployTargetRequestSchema.parse({ displayName: 'Renamed' });
     expect(r).toEqual({ displayName: 'Renamed' });

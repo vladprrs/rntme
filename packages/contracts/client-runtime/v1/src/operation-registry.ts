@@ -1,4 +1,4 @@
-export type OperationHandler = (params: Record<string, unknown>) => void | Promise<void>;
+export type OperationHandler = (params: Record<string, unknown>) => unknown | Promise<unknown>;
 export type Unregister = () => void;
 
 export type OperationRegistry = {

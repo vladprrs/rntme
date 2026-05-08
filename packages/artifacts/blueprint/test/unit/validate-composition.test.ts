@@ -23,6 +23,7 @@ const svc = (
     hasUi: boolean;
     hasSeed: boolean;
     hasQsm: boolean;
+    hasStorage: boolean;
     hasCommandHandlers: boolean;
   }> = {},
 ) => ({
@@ -35,6 +36,7 @@ const svc = (
     hasUi: false,
     hasSeed: false,
     hasQsm: false,
+    hasStorage: false,
     hasCommandHandlers: false,
     ...artifacts,
   },

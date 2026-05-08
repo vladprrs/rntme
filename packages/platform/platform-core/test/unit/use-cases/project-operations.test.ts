@@ -53,10 +53,12 @@ async function setup() {
       allowCreateProject: false,
       apiToken: 'secret',
       eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
+      storage: { mode: 'external' },
       modules: {},
       workflows: null,
       auth: {},
       policyValues: {},
+      manualAccess: {},
       isDefault: true,
     },
   });

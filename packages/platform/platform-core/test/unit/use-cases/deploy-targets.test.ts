@@ -287,6 +287,7 @@ function createRequest() {
     allowCreateProject: false,
     apiToken: 'dkp_secret',
     eventBus: { kind: 'kafka' as const, brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' as const },
     modules: {
       'identity-auth0': {
         image: 'identity-auth0:test',
@@ -299,6 +300,7 @@ function createRequest() {
     },
     auth: { auth0: { clientId: 'public-client-id' } },
     policyValues: {},
+    manualAccess: {},
     isDefault: false,
   };
 }
@@ -317,6 +319,7 @@ function deployTarget(): DeployTarget {
     allowCreateProject: false,
     apiTokenRedacted: '***',
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {
       'identity-auth0': {
         image: 'identity-auth0:test',
@@ -326,6 +329,7 @@ function deployTarget(): DeployTarget {
     workflows: null,
     auth: { auth0: { clientId: 'public-client-id' } },
     policyValues: {},
+    manualAccess: {},
     isDefault: false,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),

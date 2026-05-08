@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProjectDeploymentPlan } from '../../src/plan.js';
 import type { ComposedProjectInput } from '../../src/composed-project.js';
 import type { ProjectDeploymentConfig } from '../../src/config.js';
+import { DEFAULT_REDPANDA_CONSOLE_IMAGE } from '../../src/config.js';
 
 const project: ComposedProjectInput = {
   name: 'commerce',
@@ -171,6 +172,74 @@ describe('buildProjectDeploymentPlan', () => {
         volumeName: 'rntme-acme-commerce-event-bus-data',
       },
     });
+  });
+
+  it('defaults object storage infrastructure to none', () => {
+    const r = buildProjectDeploymentPlan(project, previewConfig);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.objectStorage).toEqual({ kind: 'none' });
+  });
+
+  it('plans provisioned RustFS object storage with deterministic names', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.objectStorage).toEqual({
+      kind: 's3-compatible',
+      mode: 'provisioned',
+      provider: 'rustfs',
+      resourceName: 'rntme-acme-commerce-storage',
+      internalEndpoint: 'http://rntme-acme-commerce-storage:9000',
+      publicBaseUrl: 'https://storage.example.test',
+      bucketName: 'rntme-acme-commerce-default-storage',
+      region: 'us-east-1',
+      forcePathStyle: true,
+      image: 'rustfs/rustfs:1.0.0',
+      credentials: {
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+      persistence: {
+        mode: 'persistent',
+        volumeName: 'rntme-acme-commerce-storage-data',
+      },
+    });
+  });
+
+  it('rejects latest as a provisioned RustFS image tag', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        image: 'rustfs/rustfs:latest',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_STORAGE_IMAGE_INVALID',
+          path: 'storage.image',
+        }),
+      );
+    }
   });
 
   it('allows preview deployments to use a non-durable in-memory event bus', () => {
@@ -457,5 +526,74 @@ describe('buildProjectDeploymentPlan with provisionResult', () => {
     if (!r.ok) {
       expect(r.errors[0]?.code).toBe('BLUEPRINT_VAR_PROVISION_OUTPUT_MISSING');
     }
+  });
+
+  it('plans Redpanda Console access for provisioned Redpanda', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          publicBaseUrl: 'https://console-acme-commerce-default.example.com',
+          basicAuth: {
+            username: 'ops',
+            htpasswdSecretRef: 'console-auth',
+          },
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.manualAccess?.redpandaConsole).toMatchObject({
+      kind: 'redpanda-console',
+      resourceName: 'rntme-acme-commerce-redpanda-console',
+      proxyResourceName: 'rntme-acme-commerce-redpanda-console-proxy',
+      publicBaseUrl: 'https://console-acme-commerce-default.example.com',
+      basicAuthUsername: 'ops',
+      htpasswdSecretRef: 'console-auth',
+      image: DEFAULT_REDPANDA_CONSOLE_IMAGE,
+    });
+  });
+
+  it('rejects Console access for external event bus', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          publicBaseUrl: 'https://c.example.com',
+          basicAuth: { username: 'a', htpasswdSecretRef: 'r' },
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.code === 'DEPLOY_PLAN_REDPANDA_CONSOLE_EVENT_BUS_INVALID')).toBe(true);
+    }
+  });
+
+  it('rejects Console image with latest tag', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+      },
+      manualAccess: {
+        redpandaConsole: {
+          enabled: true,
+          image: 'docker.redpanda.com/redpandadata/console:latest',
+          publicBaseUrl: 'https://c.example.com',
+          basicAuth: { username: 'a', htpasswdSecretRef: 'r' },
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
   });
 });

@@ -201,11 +201,20 @@ export async function runDeployment(
       return;
     }
 
+    if (tmpDir === null) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_EXECUTOR_BUNDLE_MATERIALIZE_FAILED',
+        errorMessage: 'internal: bundle materialization produced no workspace directory',
+      });
+      return;
+    }
+    const bundleDir = tmpDir;
+
     const log = async (entry: { step: string; level: 'error'; code: string; message: string }) =>
       appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
 
     await appendLog(deps, deploymentId, orgId, 'info', 'plan', 'Re-validating blueprint');
-    const composed = (deps.loadComposed ?? defaultLoadComposed)(tmpDir);
+    const composed = (deps.loadComposed ?? defaultLoadComposed)(bundleDir);
     if (!composed.ok) {
       await finalize(deps, deploymentId, orgId, 'failed', {
         errorCode: 'DEPLOY_EXECUTOR_BLUEPRINT_REVALIDATION_FAILED',
@@ -217,10 +226,15 @@ export async function runDeployment(
     const target = await resolveTarget(deps, orgId, ctx.targetId);
     const orgSlug = await deps.orgSlugFor(orgId);
     const redactedTarget = redactTarget(target);
-    const config = buildProjectDeploymentConfig(redactedTarget, orgSlug, ctx.configOverrides);
-    const deployInput = await toDeployCoreInput(composed.value, tmpDir, config);
-    if (tmpDir === null) throw new Error('tmpDir not initialized');
-    const materializedDir: string = tmpDir;
+    const deployProjectSlug = isComposedBlueprint(composed.value)
+      ? composed.value.project.name
+      : composed.value.name;
+    const config = buildProjectDeploymentConfig(redactedTarget, orgSlug, ctx.configOverrides, {
+      projectSlug: deployProjectSlug,
+      ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
+    });
+    const deployInput = await toDeployCoreInput(composed.value, bundleDir, config);
+    const materializedDir: string = bundleDir;
     const provModules = collectProvisionerModules(composed.value, materializedDir);
 
     // Bus mode log moved out of plan (was post-plan; now pre-provision).
@@ -238,7 +252,28 @@ export async function runDeployment(
     let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
     let provisionResultForPlan: ProvisionResultForVars | undefined;
     let discoveredModulesForPlan: DiscoveredModulesForVars | undefined;
-    let decrypted: Readonly<Record<string, unknown>> | undefined;
+    const needsProvisionerSecrets = provModules.length > 0;
+    const needsConsoleSecrets = config.manualAccess?.redpandaConsole?.enabled === true;
+    let decryptedTargetSecrets: Readonly<Record<string, unknown>> | undefined;
+
+    if (needsProvisionerSecrets || needsConsoleSecrets) {
+      await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
+      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
+      decryptedTargetSecrets = await targetSecretsRepo.getAllDecrypted(target.id);
+    }
+
+    if (needsConsoleSecrets) {
+      const urlHint = config.manualAccess?.redpandaConsole?.publicBaseUrl ?? 'unset';
+      const userHint = config.manualAccess?.redpandaConsole?.basicAuth.username ?? '';
+      await appendLog(
+        deps,
+        deploymentId,
+        orgId,
+        'info',
+        'provision',
+        `Redpanda Console manual validation access enabled url=${urlHint} user=${userHint}`,
+      );
+    }
 
     if (provModules.length > 0) {
       // Build discoveredModules input for plan-time var validation.
@@ -250,10 +285,6 @@ export async function runDeployment(
         dm[m.projectKey] = { producesNames: names };
       }
       discoveredModulesForPlan = dm;
-
-      await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
-      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
-      decrypted = await targetSecretsRepo.getAllDecrypted(target.id);
 
       const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
 
@@ -289,7 +320,10 @@ export async function runDeployment(
               const prior = priorOutputs[m.projectKey];
               return prior === undefined ? m : { ...m, priorOutputs: prior };
             }),
-            resolvedTargetSecrets: decrypted ?? {},
+            resolvedTargetSecrets:
+              decryptedTargetSecrets === undefined
+                ? ({} as Readonly<Record<string, unknown>>)
+                : decryptedTargetSecrets,
             projectDir: materializedDir,
             resolveProvisioner: deps.resolveProvisioner,
             log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
@@ -439,7 +473,7 @@ export async function runDeployment(
     await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
     const applied = await runStage('apply', async () => (deps.applyPlan ?? applyDokployPlan)(
       rendered.value as RenderedDokployPlan,
-      deps.dokployClientFactory(target, resolvedTargetSecrets ?? decrypted),
+      deps.dokployClientFactory(target, resolvedTargetSecrets ?? decryptedTargetSecrets),
     ), { log });
     if (!applied.ok) {
       await logApplyFailure(deps, deploymentId, orgId, applied.errors);
@@ -687,13 +721,13 @@ async function toDeployCoreInput(
   // the canonical manifest name used by the catalog.
   const catalogManifest = value.catalogManifest;
   const moduleEdgeAuth = catalogManifest?.moduleEdgeAuth ?? {};
-  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null }> = {};
+  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null; packageName?: string }> = {};
   for (const [projectKey, moduleRef] of Object.entries(value.project.modules ?? {})) {
     const manifestName = catalogManifest?.categoryToModule[projectKey] ?? moduleRef.package;
     const edgeAuth = moduleEdgeAuth[manifestName] ?? moduleEdgeAuth[moduleRef.package] ?? null;
     const slugs = new Set([manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
     for (const slug of slugs) {
-      modules[slug] = { edgeAuth };
+      modules[slug] = { edgeAuth, packageName: manifestName };
     }
   }
 

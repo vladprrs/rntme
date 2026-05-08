@@ -1,12 +1,15 @@
 import type { ComposedProjectInput } from './composed-project.js';
 import {
+  DEFAULT_RUSTFS_IMAGE,
   DEFAULT_REDPANDA_IMAGE,
+  DEFAULT_REDPANDA_CONSOLE_IMAGE,
   type DeploymentMode,
   type EventBusConfig,
   type ExternalEventBusConfig,
   type ExternalEventBusSecurity,
   type ProjectAuthConfig,
   type ProjectDeploymentConfig,
+  type StorageConfig,
 } from './config.js';
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
@@ -49,6 +52,7 @@ export type IntegrationModuleWorkload = {
   readonly expose: boolean;
   readonly env: Readonly<Record<string, string>>;
   readonly secretRefs: Readonly<Record<string, string>>;
+  readonly modulePackageName?: string;
 };
 
 export type EdgeGatewayWorkload = {
@@ -166,12 +170,50 @@ export type PlannedInMemoryEventBus = {
 
 export type PlannedEventBus = PlannedExternalEventBus | PlannedProvisionedEventBus | PlannedInMemoryEventBus;
 
+export type PlannedRedpandaConsoleAccess = {
+  readonly kind: 'redpanda-console';
+  readonly resourceName: string;
+  readonly proxyResourceName: string;
+  readonly internalUrl: string;
+  readonly image: string;
+  readonly publicBaseUrl: string;
+  readonly basicAuthUsername: string;
+  readonly htpasswdSecretRef: string;
+};
+
+export type PlannedObjectStorage =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 's3-compatible';
+      readonly mode: 'provisioned';
+      readonly provider: 'rustfs';
+      readonly resourceName: string;
+      readonly internalEndpoint: string;
+      readonly publicBaseUrl: string;
+      readonly bucketName: string;
+      readonly region: 'us-east-1';
+      readonly forcePathStyle: true;
+      readonly image: string;
+      readonly credentials: {
+        readonly accessKeyRef: string;
+        readonly secretKeyRef: string;
+      };
+      readonly persistence: {
+        readonly mode: 'persistent';
+        readonly volumeName: string;
+      };
+    };
+
 export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
   readonly infrastructure: {
     readonly eventBus: PlannedEventBus;
+    readonly objectStorage: PlannedObjectStorage;
     readonly workflowEngine: PlannedWorkflowEngine;
     readonly auth?: ProjectAuthConfig;
+    readonly manualAccess?: {
+      readonly redpandaConsole?: PlannedRedpandaConsoleAccess;
+    };
   };
   readonly workloads: readonly DeploymentWorkload[];
   readonly edge: EdgePlan;
@@ -240,6 +282,7 @@ export function buildProjectDeploymentPlan(
     errors,
     requiredTargetSecrets,
   });
+  const plannedObjectStorage = planObjectStorage(config.storage, config.orgSlug, project.name, errors);
 
   if (config.eventBus === undefined) {
     errors.push({
@@ -267,6 +310,9 @@ export function buildProjectDeploymentPlan(
         ]
       : [];
 
+  const manualAccess = planRedpandaConsoleAccess(config, plannedEventBus, project, errors);
+  if (errors.length > 0) return err(errors);
+
   return ok({
     project: {
       orgSlug: config.orgSlug,
@@ -276,8 +322,10 @@ export function buildProjectDeploymentPlan(
     },
     infrastructure: {
       eventBus: plannedEventBus,
+      objectStorage: plannedObjectStorage,
       workflowEngine: workflowPlan.engine,
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
+      ...(manualAccess === undefined ? {} : { manualAccess: { redpandaConsole: manualAccess } }),
     },
     workloads: allWorkloads,
     edge,
@@ -332,6 +380,9 @@ function buildWorkloads(
       expose: moduleConfig.expose === true,
       env: moduleConfig.env ?? {},
       secretRefs: moduleConfig.secretRefs ?? {},
+      ...(project.modules?.[service.slug]?.packageName === undefined
+        ? {}
+        : { modulePackageName: project.modules[service.slug]!.packageName }),
     });
   }
 
@@ -345,8 +396,155 @@ function buildWorkloads(
   return workloads;
 }
 
+function planRedpandaConsoleAccess(
+  config: ProjectDeploymentConfig,
+  plannedEventBus: PlannedEventBus,
+  project: ComposedProjectInput,
+  errors: DeploymentPlanError[],
+): PlannedRedpandaConsoleAccess | undefined {
+  const cfg = config.manualAccess?.redpandaConsole;
+  if (cfg === undefined || cfg.enabled !== true) return undefined;
+
+  if (plannedEventBus.mode !== 'provisioned' || plannedEventBus.provider !== 'redpanda') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_EVENT_BUS_INVALID',
+      message: 'Redpanda Console manual access requires provisioned Redpanda',
+      path: 'manualAccess.redpandaConsole',
+    });
+    return undefined;
+  }
+
+  const username = cfg.basicAuth.username.trim();
+  const htpasswdRef = cfg.basicAuth.htpasswdSecretRef.trim();
+  if (username === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_USERNAME_REQUIRED',
+      message: 'Redpanda Console basic auth username is required',
+      path: 'manualAccess.redpandaConsole.basicAuth.username',
+    });
+  }
+  if (htpasswdRef === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_HTPASSWD_REF_REQUIRED',
+      message: 'Redpanda Console htpasswdSecretRef is required',
+      path: 'manualAccess.redpandaConsole.basicAuth.htpasswdSecretRef',
+    });
+  }
+
+  const image = cfg.image ?? DEFAULT_REDPANDA_CONSOLE_IMAGE;
+  if (!isPinnedContainerImage(image)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_IMAGE_INVALID',
+      message: 'Redpanda Console image must use a non-latest tag',
+      path: 'manualAccess.redpandaConsole.image',
+    });
+  }
+
+  const publicBaseUrl = cfg.publicBaseUrl?.trim() ?? '';
+  if (publicBaseUrl === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_PUBLIC_URL_REQUIRED',
+      message: 'Redpanda Console publicBaseUrl must be resolved before planning',
+      path: 'manualAccess.redpandaConsole.publicBaseUrl',
+    });
+  } else if (!isValidHttpUrl(publicBaseUrl)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_REDPANDA_CONSOLE_PUBLIC_URL_INVALID',
+      message: 'Redpanda Console publicBaseUrl must be an http(s) URL',
+      path: 'manualAccess.redpandaConsole.publicBaseUrl',
+    });
+  }
+
+  if (errors.length > 0) return undefined;
+
+  const consoleResourceName = resourceName(config.orgSlug, project.name, 'redpanda-console');
+  const proxyResourceName = resourceName(config.orgSlug, project.name, 'redpanda-console-proxy');
+
+  return {
+    kind: 'redpanda-console',
+    resourceName: consoleResourceName,
+    proxyResourceName,
+    internalUrl: `http://${consoleResourceName}:8080`,
+    image,
+    publicBaseUrl,
+    basicAuthUsername: username,
+    htpasswdSecretRef: htpasswdRef,
+  };
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string): string {
   return `rntme-${orgSlug}-${projectSlug}-${workloadSlug}`;
+}
+
+function planObjectStorage(
+  storage: StorageConfig | undefined,
+  orgSlug: string,
+  projectSlug: string,
+  errors: DeploymentPlanError[],
+): PlannedObjectStorage {
+  if (storage === undefined || storage.mode === 'external') return { kind: 'none' };
+  if (storage.provider !== 'rustfs') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_PROVIDER_UNSUPPORTED',
+      message: `unsupported provisioned storage provider "${String(storage.provider)}"`,
+      path: 'storage.provider',
+    });
+    return { kind: 'none' };
+  }
+  if (!isPinnedContainerImage(storage.image ?? DEFAULT_RUSTFS_IMAGE)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_IMAGE_INVALID',
+      message: 'provisioned RustFS image must use a non-latest tag',
+      path: 'storage.image',
+    });
+    return { kind: 'none' };
+  }
+  if (storage.publicBaseUrl.trim() === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_PUBLIC_BASE_URL_MISSING',
+      message: 'provisioned RustFS storage requires a publicBaseUrl',
+      path: 'storage.publicBaseUrl',
+    });
+    return { kind: 'none' };
+  }
+  if (storage.accessKeyRef.trim() === '' || storage.secretKeyRef.trim() === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_CREDENTIAL_REF_MISSING',
+      message: 'provisioned RustFS storage requires accessKeyRef and secretKeyRef',
+      path: 'storage',
+    });
+    return { kind: 'none' };
+  }
+  const resource = resourceName(orgSlug, projectSlug, 'storage');
+  return {
+    kind: 's3-compatible',
+    mode: 'provisioned',
+    provider: 'rustfs',
+    resourceName: resource,
+    internalEndpoint: `http://${resource}:9000`,
+    publicBaseUrl: storage.publicBaseUrl,
+    bucketName: resourceName(orgSlug, projectSlug, 'default-storage'),
+    region: 'us-east-1',
+    forcePathStyle: true,
+    image: storage.image ?? DEFAULT_RUSTFS_IMAGE,
+    credentials: {
+      accessKeyRef: storage.accessKeyRef,
+      secretKeyRef: storage.secretKeyRef,
+    },
+    persistence: {
+      mode: 'persistent',
+      volumeName: `${resource}-data`,
+    },
+  };
 }
 
 function planEventBus(

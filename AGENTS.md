@@ -46,9 +46,9 @@ where-to-look-first pointers.
 | Apps | `apps/cli/README.md`, `apps/platform-http/README.md`, `apps/landing/README.md` |
 | Artifacts | `packages/artifacts/blueprint/README.md`, `packages/artifacts/pdm/README.md`, `packages/artifacts/qsm/README.md`, `packages/artifacts/workflows/README.md`, `packages/artifacts/graph-ir-compiler/README.md`, `packages/artifacts/bindings/README.md`, `packages/artifacts/ui/README.md`, `packages/artifacts/seed/README.md` |
 | Runtime | `packages/runtime/runtime/README.md`, `packages/runtime/event-store/README.md`, `packages/runtime/bindings-http/README.md`, `packages/runtime/bindings-grpc/README.md`, `packages/runtime/projection-consumer/README.md`, `packages/runtime/ui-runtime/README.md`, `packages/runtime/bpmn-worker/README.md` |
-| Contracts | `packages/contracts/module/v1/README.md`, `packages/contracts/provisioner/v1/README.md`, `packages/contracts/client-runtime/v1/README.md`, `packages/contracts/handlers/v1/README.md`, `packages/contracts/_common/v1/README.md`, `packages/contracts/identity/v1/README.md`, `packages/contracts/ai-llm/v1/README.md`, `packages/contracts/crm/v1/README.md`, `packages/contracts/analytics/v1/README.md` |
+| Contracts | `packages/contracts/module/v1/README.md`, `packages/contracts/provisioner/v1/README.md`, `packages/contracts/client-runtime/v1/README.md`, `packages/contracts/handlers/v1/README.md`, `packages/contracts/_common/v1/README.md`, `packages/contracts/identity/v1/README.md`, `packages/contracts/ai-llm/v1/README.md`, `packages/contracts/crm/v1/README.md`, `packages/contracts/analytics/v1/README.md`, `packages/contracts/storage/v1/README.md` |
 | Deploy/platform/tooling | `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, `packages/platform/platform-core/README.md`, `packages/platform/platform-storage/README.md`, `packages/tooling/module-scaffold/README.md` |
-| Modules | `modules/identity/README.md`, `modules/ai-llm/README.md`, `modules/crm/README.md`, `modules/marketing-site/README.md`, plus each vendor module README under `modules/<category>/<vendor>/` |
+| Modules | `modules/identity/README.md`, `modules/ai-llm/README.md`, `modules/crm/README.md`, `modules/marketing-site/README.md`, `modules/storage/README.md`, plus each vendor module README under `modules/<category>/<vendor>/` |
 | Demos | `demo/notes-blueprint/README.md`, `demo/order-fulfillment-blueprint/README.md`, `demo/cv-extract-blueprint/README.md` |
 
 ## Commands
@@ -92,6 +92,11 @@ authority. Current rules block:
 - artifacts or deploy packages importing runtime packages.
 - circular dependencies.
 
+Storage vendor modules follow the same vendor layering as identity and AI/LLM:
+server code imports canonical contracts, provisioner code may import the
+provisioner contract, and browser code may import the client-runtime contract.
+Do not import implementation packages from `modules/storage/**`.
+
 Do not add warning-only architecture rules. If an exception is justified, make
 it a named `pathNot` carve-out with a comment linking to the spec/PR.
 
@@ -118,6 +123,9 @@ for detailed package documentation.
 - CLI behavior: `apps/cli/README.md`.
 - Vendor module work: category README, vendor README, canonical contract
   README, conformance README.
+- Storage vendor work: `modules/storage/README.md`,
+  `modules/storage/s3/README.md`, `packages/contracts/storage/v1/README.md`,
+  and `modules/storage/conformance/README.md`.
 
 Use `rg` by topic when historical rationale is needed:
 

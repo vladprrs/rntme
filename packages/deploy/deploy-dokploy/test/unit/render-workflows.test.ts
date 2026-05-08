@@ -507,7 +507,7 @@ describe('workflow rendering', () => {
       '/operaton/configuration/application.yaml': {
         schema: 'operaton-admin-user-v1',
         secretRef: 'operaton-admin-user-v1',
-        field: 'application.yaml',
+        field: 'applicationYaml',
       },
     });
   });
@@ -540,7 +540,7 @@ describe('workflow rendering', () => {
 
     const gateway = result.value.resources.find(
       (resource) =>
-        resource.kind === 'application' && resource.workloadKind === 'operaton-ui-gateway',
+        resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
     );
     expect(gateway).toBeDefined();
     if (gateway?.kind !== 'application') return;
@@ -563,7 +563,7 @@ describe('workflow rendering', () => {
     expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain('location = /health');
     expect(gateway.secretFiles).toEqual({
       '/etc/nginx/.htpasswd': {
-        schema: 'basic-auth-v1',
+        schema: 'operaton-ui-basic-auth-v1',
         secretRef: 'operaton-ui-basic-auth-v1',
         field: 'htpasswd',
       },
@@ -608,7 +608,7 @@ describe('workflow rendering', () => {
     if (!result.ok) return;
     expect(
       result.value.resources.some(
-        (resource) => resource.kind === 'application' && resource.workloadKind === 'operaton-ui-gateway',
+        (resource) => resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
       ),
     ).toBe(false);
     expect(result.value.urls.operatonUiUrl).toBeUndefined();

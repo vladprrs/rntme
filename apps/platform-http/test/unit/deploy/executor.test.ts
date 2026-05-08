@@ -895,7 +895,7 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
           requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
@@ -922,7 +922,7 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
           requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
@@ -949,7 +949,7 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
           requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
@@ -977,7 +977,7 @@ describe('runDeployment', () => {
       planProject: vi.fn(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
-          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
           workloads: [],
           edge: { routes: [], middleware: [] },
           requiredTargetSecrets: [{ kind: 'target-secret' as const, secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
@@ -1101,10 +1101,12 @@ function setup(
         dokployProjectName: null,
         allowCreateProject: false,
         eventBus: (overrides.targetEventBus ?? { kind: 'kafka' as const, brokers: ['redpanda:9092'] }) as never,
+        storage: { mode: 'external' as const },
         modules: {},
         workflows: overrides.targetWorkflows ?? null,
         auth: overrides.targetAuth ?? { auth0: { clientId: 'target-spa-client' } },
         policyValues: {},
+        manualAccess: {},
         isDefault: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -1175,7 +1177,7 @@ function setup(
     ...(overrides.useDefaultPlanProject
       ? {}
       : {
-          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
+          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
         }),
     ...(overrides.useDefaultRenderPlan
       ? {}
@@ -1239,8 +1241,9 @@ function applyResultFromRendered(rendered: RenderedDokployPlan): DeploymentApply
         : {
             logicalId: resource.logicalId,
             resourceKind: 'application' as const,
-            workloadSlug: resource.workloadSlug ?? '',
-            kind: resource.workloadKind,
+            ...(resource.workloadSlug === undefined ? {} : { workloadSlug: resource.workloadSlug }),
+            ...(resource.workloadKind === undefined ? {} : { kind: resource.workloadKind }),
+            ...(resource.infrastructureKind === undefined ? {} : { infrastructureKind: resource.infrastructureKind }),
             targetResourceId: `app_${idx + 1}`,
             targetResourceName: resource.name,
             action: 'created' as const,
@@ -1306,6 +1309,7 @@ function composedBlueprint(): ComposedBlueprint {
           hasUi: true,
           hasSeed: true,
           hasQsm: true,
+          hasStorage: false,
           hasCommandHandlers: false,
         },
         graphSpec: {
@@ -1316,6 +1320,7 @@ function composedBlueprint(): ComposedBlueprint {
         qsmValidated: { projections: {}, relations: {} } as never,
         bindings: { artifact: { version: '1.0', bindings: {} }, resolved: {} } as never,
         seed: { events: [] } as never,
+        storage: null,
         compiledUi: null,
         eventTypes: [],
       },
@@ -1353,12 +1358,14 @@ function composedBlueprintWithAuthModule(): ComposedBlueprint {
           hasUi: false,
           hasSeed: false,
           hasQsm: false,
+          hasStorage: false,
           hasCommandHandlers: false,
         },
         graphSpec: null,
         qsmValidated: null,
         bindings: null,
         seed: null,
+        storage: null,
         compiledUi: null,
         eventTypes: [],
       },

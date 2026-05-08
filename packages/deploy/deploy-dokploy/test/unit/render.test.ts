@@ -6,6 +6,7 @@ const plan: ProjectDeploymentPlan = {
   project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
   infrastructure: {
     eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda.internal:9092'] },
+    objectStorage: { kind: 'none' },
   },
   workloads: [
     {
@@ -21,6 +22,17 @@ const plan: ProjectDeploymentPlan = {
       },
       publicConfigJson: '{}',
       persistence: { mode: 'ephemeral' },
+    },
+    {
+      kind: 'integration-module',
+      slug: 'storage-s3',
+      serviceSlug: 'storage-s3',
+      resourceName: 'rntme-acme-commerce-storage-s3',
+      image: 'ghcr.io/acme/storage-s3:test',
+      expose: false,
+      env: {},
+      secretRefs: {},
+      modulePackageName: '@rntme/storage-s3',
     },
     {
       kind: 'edge-gateway',
@@ -64,6 +76,7 @@ describe('renderDokployPlan', () => {
     expect(r.value.targetProject).toEqual({ mode: 'existing', projectId: 'project_123' });
     expect(r.value.resources.map((resource) => resource.name)).toEqual([
       'rntme-acme-commerce-catalog',
+      'rntme-acme-commerce-storage-s3',
       'rntme-acme-commerce-edge',
     ]);
     expect(r.value.resources[0]).toMatchObject({
@@ -96,6 +109,7 @@ describe('renderDokployPlan', () => {
       {
         ...plan,
         infrastructure: {
+          ...plan.infrastructure,
           eventBus: {
             kind: 'kafka',
             mode: 'provisioned',
@@ -123,6 +137,7 @@ describe('renderDokployPlan', () => {
 
     expect(r.value.resources.map((resource) => resource.kind)).toEqual([
       'compose',
+      'application',
       'application',
       'application',
     ]);
@@ -177,11 +192,205 @@ describe('renderDokployPlan', () => {
     });
   });
 
+  it('renders Redpanda Console behind a public basic-auth proxy without secret material', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          eventBus: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            resourceName: 'rntme-acme-commerce-event-bus',
+            internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+            image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-event-bus-data',
+            },
+          },
+          manualAccess: {
+            redpandaConsole: {
+              kind: 'redpanda-console',
+              resourceName: 'rntme-acme-commerce-redpanda-console',
+              proxyResourceName: 'rntme-acme-commerce-redpanda-console-proxy',
+              internalUrl: 'http://rntme-acme-commerce-redpanda-console:8080',
+              image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+              publicBaseUrl: 'https://console-commerce.example.com',
+              basicAuthUsername: 'operator',
+              htpasswdSecretRef: 'console-basic-auth',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.urls.redpandaConsoleUrl).toBe('https://console-commerce.example.com');
+    expect(r.value.resources.map((resource) => resource.name)).toEqual([
+      'rntme-acme-commerce-event-bus',
+      'rntme-acme-commerce-redpanda-console',
+      'rntme-acme-commerce-redpanda-console-proxy',
+      'rntme-acme-commerce-catalog',
+      'rntme-acme-commerce-storage-s3',
+      'rntme-acme-commerce-edge',
+    ]);
+
+    const consoleApp = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console',
+    );
+    expect(consoleApp).toMatchObject({
+      image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+      env: expect.arrayContaining([
+        { name: 'KAFKA_BROKERS', value: 'rntme-acme-commerce-event-bus:9092', secret: false },
+      ]),
+      labels: expect.objectContaining({
+        'rntme.infrastructure': 'redpanda-console',
+        'rntme.access': 'internal',
+      }),
+    });
+    expect(consoleApp).not.toHaveProperty('ingress');
+    expect(consoleApp).not.toHaveProperty('ports');
+
+    const proxy = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy',
+    );
+    expect(proxy).toMatchObject({
+      image: 'nginx:1.27-alpine',
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+      ingress: {
+        publicBaseUrl: 'https://console-commerce.example.com',
+        containerPort: 8080,
+      },
+      env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
+      labels: expect.objectContaining({
+        'rntme.infrastructure': 'redpanda-console-proxy',
+        'rntme.access': 'public',
+      }),
+    });
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
+    expect(JSON.stringify(r.value)).not.toContain('$apr1$');
+    expect(JSON.stringify(r.value)).not.toContain('plaintext-password');
+  });
+
+  it('renders provisioned RustFS compose, public proxy, and storage-s3 env', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          objectStorage: {
+            kind: 's3-compatible',
+            mode: 'provisioned',
+            provider: 'rustfs',
+            resourceName: 'rntme-acme-commerce-storage',
+            internalEndpoint: 'http://rntme-acme-commerce-storage:9000',
+            publicBaseUrl: 'https://storage.example.test',
+            bucketName: 'rntme-acme-commerce-default-storage',
+            region: 'us-east-1',
+            forcePathStyle: true,
+            image: 'rustfs/rustfs:1.0.0',
+            credentials: {
+              accessKeyRef: 'RUSTFS_ACCESS_KEY',
+              secretKeyRef: 'RUSTFS_SECRET_KEY',
+            },
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-storage-data',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources.map((resource) => `${resource.kind}:${resource.logicalId}`)).toEqual([
+      'compose:object-storage',
+      'application:object-storage-public',
+      'application:catalog',
+      'application:storage-s3',
+      'application:edge',
+    ]);
+
+    const rustfs = r.value.resources[0];
+    expect(rustfs).toMatchObject({
+      kind: 'compose',
+      infrastructureKind: 'object-storage',
+      name: 'rntme-acme-commerce-storage',
+      image: 'rustfs/rustfs:1.0.0',
+      labels: {
+        'rntme.infrastructure': 'object-storage',
+        'rntme.provider': 'rustfs',
+      },
+    });
+    if (rustfs.kind !== 'compose') return;
+    expect(rustfs.env).toEqual([
+      { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },
+      { name: 'RUSTFS_SECRET_KEY', value: 'RUSTFS_SECRET_KEY', secret: true },
+    ]);
+    expect(rustfs.composeFile).toContain('rustfs/rustfs:1.0.0');
+    expect(rustfs.composeFile).toContain('rntme-acme-commerce-storage-data');
+    expect(rustfs.composeFile).toContain('dokploy-network');
+
+    const proxy = r.value.resources.find((resource) => resource.logicalId === 'object-storage-public');
+    expect(proxy).toMatchObject({
+      kind: 'application',
+      workloadKind: 'infrastructure-proxy',
+      name: 'rntme-acme-commerce-storage-public',
+      image: 'nginx:1.27-alpine',
+      ingress: {
+        publicBaseUrl: 'https://storage.example.test',
+        containerPort: 8080,
+        healthPath: '/health',
+      },
+    });
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://rntme-acme-commerce-storage:9000');
+
+    const storageModule = r.value.resources.find((resource) => resource.logicalId === 'storage-s3');
+    expect(storageModule?.env).toContainEqual({
+      name: 'STORAGE_S3_ENDPOINT',
+      value: 'http://rntme-acme-commerce-storage:9000',
+      secret: false,
+    });
+    expect(storageModule?.env).toContainEqual({
+      name: 'STORAGE_S3_PUBLIC_ENDPOINT',
+      value: 'https://storage.example.test',
+      secret: false,
+    });
+    expect(storageModule?.env).toContainEqual({
+      name: 'STORAGE_S3_ACCESS_KEY_ID',
+      value: 'RUSTFS_ACCESS_KEY',
+      secret: true,
+    });
+    expect(storageModule?.env).toContainEqual({
+      name: 'STORAGE_S3_APP_ORIGINS',
+      value: 'https://commerce.example.com',
+      secret: false,
+    });
+  });
+
   it('omits Kafka runtime env when the plan uses an in-memory event bus', () => {
     const r = renderDokployPlan(
       {
         ...plan,
         infrastructure: {
+          ...plan.infrastructure,
           eventBus: { kind: 'memory', mode: 'in-memory' },
         },
       } as ProjectDeploymentPlan,
@@ -194,7 +403,7 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.resources.map((resource) => resource.kind)).toEqual(['application', 'application']);
+    expect(r.value.resources.map((resource) => resource.kind)).toEqual(['application', 'application', 'application']);
     const domain = r.value.resources.find((resource) => resource.workloadKind === 'domain-service');
     const envNames = domain?.env.map((env) => env.name) ?? [];
     expect(envNames).not.toContain('RNTME_EVENT_BUS_BROKERS');
@@ -211,7 +420,8 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    expect(r.value.resources[1]).toMatchObject({
+    const edge = r.value.resources.find((resource) => resource.workloadKind === 'edge-gateway');
+    expect(edge).toMatchObject({
       kind: 'application',
       workloadKind: 'edge-gateway',
       files: {
@@ -471,6 +681,7 @@ describe('renderDokployPlan', () => {
     const authPlan: ProjectDeploymentPlan = {
       ...plan,
       infrastructure: {
+        ...plan.infrastructure,
         eventBus: {
           kind: 'kafka',
           mode: 'external',
@@ -744,7 +955,10 @@ describe('renderDokployPlan — provisioner outputs', () => {
 function authProtectedPlan(): ProjectDeploymentPlan {
   return {
     project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
-    infrastructure: { eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] } },
+    infrastructure: {
+      eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
+      objectStorage: { kind: 'none' },
+    },
     workloads: [
       {
         kind: 'domain-service',

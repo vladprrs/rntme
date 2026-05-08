@@ -437,7 +437,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/etc/nginx/.htpasswd': { secretRef: 'operaton-ui-basic-auth-v1', schema: 'basic-auth-v1', field: 'htpasswd' },
+        '/etc/nginx/.htpasswd': { secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
       },
     };
     await client.configureApplication('app-1', resourceWithSecret);
@@ -492,6 +492,49 @@ describe('createDokployClientFactory', () => {
       serviceType: 'application',
       serviceId: 'app-1',
       mountPath: '/srv/operaton-config/application.yml',
+      content: 'operaton:\n  bpm:\n    admin-user:\n      id: "demo"\n      password: "demo"\n',
+    });
+  });
+
+  it('mounts resolved secret files for compose resources', async () => {
+    type FetchInit = Parameters<typeof globalThis.fetch>[1];
+    const calls: { url: string; body: unknown }[] = [];
+    const fetcher = vi.fn(async (url: string | URL | Request, init?: FetchInit) => {
+      calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (String(url).includes('/api/mounts.listByServiceId')) return jsonResponse([]);
+      if (String(url).includes('/api/compose.saveEnvironment')) return jsonResponse({});
+      if (String(url).includes('/api/compose.update')) return jsonResponse({});
+      return jsonResponse({});
+    });
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+
+    const client = createDokployClientFactory(cipher, fetcher as typeof globalThis.fetch)(target(), {
+      'operaton-admin-user-v1': { id: 'demo', password: 'demo' },
+    });
+    await client.configureCompose('compose-1', {
+      ...renderedComposeResource(),
+      secretFiles: {
+        '/operaton/configuration/application.yaml': {
+          secretRef: 'operaton-admin-user-v1',
+          schema: 'operaton-admin-user-v1',
+          field: 'applicationYaml',
+        },
+      },
+    });
+
+    const mountCreate = calls.find(
+      (call) =>
+        new URL(call.url).pathname === '/api/mounts.create' &&
+        (call.body as Record<string, unknown>)?.mountPath === '/operaton/configuration/application.yaml',
+    );
+    expect(mountCreate?.body).toMatchObject({
+      type: 'file',
+      serviceType: 'compose',
+      serviceId: 'compose-1',
+      mountPath: '/operaton/configuration/application.yaml',
       content: 'operaton:\n  bpm:\n    admin-user:\n      id: "demo"\n      password: "demo"\n',
     });
   });
@@ -598,10 +641,12 @@ function target(): DeployTargetWithSecret {
     dokployProjectName: null,
     allowCreateProject: false,
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {},
     workflows: null,
     auth: {},
     policyValues: {},
+    manualAccess: {},
     isDefault: true,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),

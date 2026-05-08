@@ -1,7 +1,9 @@
 import type {
   DeployTarget,
   DeployTargetAuthConfig,
+  DeployTargetManualAccess,
   DeployTargetModules,
+  DeployTargetStorage,
   DeployTargetWorkflows,
   DeployTargetWithSecret,
   EventBusConfig,
@@ -24,9 +26,11 @@ export type DeployTargetInsertRow = {
   readonly apiTokenNonce: Buffer;
   readonly apiTokenKeyVersion: number;
   readonly eventBusConfig: EventBusConfig;
+  readonly storageConfig: DeployTargetStorage;
   readonly modules: DeployTargetModules;
   readonly workflows: DeployTargetWorkflows;
   readonly auth: DeployTargetAuthConfig;
+  readonly manualAccess: DeployTargetManualAccess;
   readonly policyValues: PolicyValues;
   readonly isDefault: boolean;
 };
@@ -39,9 +43,11 @@ export type DeployTargetUpdateRow = {
   readonly dokployProjectName?: string | null;
   readonly allowCreateProject?: boolean;
   readonly eventBusConfig?: EventBusConfig;
+  readonly storageConfig?: DeployTargetStorage;
   readonly modules?: DeployTargetModules;
   readonly workflows?: DeployTargetWorkflows;
   readonly auth?: DeployTargetAuthConfig;
+  readonly manualAccess?: DeployTargetManualAccess;
   readonly policyValues?: PolicyValues;
   readonly isDefault?: boolean;
 };

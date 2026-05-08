@@ -1,0 +1,19 @@
+{
+  "name": "bun-grpc-smoke",
+  "module": "server.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "server": "bun server.ts",
+    "client": "bun client.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.3"
+  }
+}

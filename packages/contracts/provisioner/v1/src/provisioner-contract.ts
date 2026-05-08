@@ -14,6 +14,12 @@ export type ProvisionerInput<I = unknown> = {
     readonly publicOutputs: Readonly<Record<string, unknown>>;
     readonly secretOutputs: Readonly<Record<string, unknown>>;
   };
+  /**
+   * Per-service validated artifacts keyed by service slug. Vendor provisioners
+   * that need service-level configuration can cast entries to their own
+   * validated branded types (for example ValidatedStorageJson).
+   */
+  readonly serviceArtifacts?: Readonly<Record<string, unknown>>;
   readonly log: ProvisionerLog;
   readonly signal: globalThis.AbortSignal;
 };

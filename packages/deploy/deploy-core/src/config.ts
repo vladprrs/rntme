@@ -14,6 +14,19 @@ export type ExternalEventBusSecurity =
     };
 
 export const DEFAULT_REDPANDA_IMAGE = 'docker.redpanda.com/redpandadata/redpanda:v24.3.6';
+export const DEFAULT_RUSTFS_IMAGE = 'rustfs/rustfs:1.0.0';
+
+export const DEFAULT_REDPANDA_CONSOLE_IMAGE = 'docker.redpanda.com/redpandadata/console:v3.7.2';
+
+export type RedpandaConsoleAccessConfig = {
+  readonly enabled: boolean;
+  readonly image?: string;
+  readonly publicBaseUrl?: string;
+  readonly basicAuth: {
+    readonly username: string;
+    readonly htpasswdSecretRef: string;
+  };
+};
 
 export type ExternalEventBusConfig = {
   readonly kind: 'kafka';
@@ -37,6 +50,21 @@ export type InMemoryEventBusConfig = {
 };
 
 export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig | InMemoryEventBusConfig;
+
+export type ExternalStorageConfig = {
+  readonly mode: 'external';
+};
+
+export type ProvisionedRustfsStorageConfig = {
+  readonly mode: 'provisioned';
+  readonly provider: 'rustfs';
+  readonly image?: string;
+  readonly publicBaseUrl: string;
+  readonly accessKeyRef: string;
+  readonly secretKeyRef: string;
+};
+
+export type StorageConfig = ExternalStorageConfig | ProvisionedRustfsStorageConfig;
 
 export type WorkflowEngineConfig =
   | { readonly kind: 'none' }
@@ -104,6 +132,7 @@ export type ProjectDeploymentConfig = {
   readonly environment: DeploymentEnvironment;
   readonly mode: DeploymentMode;
   readonly eventBus?: EventBusConfig;
+  readonly storage?: StorageConfig;
   readonly modules?: Readonly<Record<string, IntegrationModuleDeploymentConfig>>;
   readonly policies?: DeploymentPolicyConfig;
   readonly auth?: ProjectAuthConfig;
@@ -112,5 +141,8 @@ export type ProjectDeploymentConfig = {
     readonly engine: WorkflowEngineConfig;
     readonly worker: BpmnWorkerConfig;
     readonly operatonUi?: OperatonUiAccessConfig;
+  };
+  readonly manualAccess?: {
+    readonly redpandaConsole?: RedpandaConsoleAccessConfig;
   };
 };

@@ -134,6 +134,57 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
+  it('applies object storage before storage public proxy and workloads', async () => {
+    const client = new FakeDokployClient();
+    const objectStorage: Extract<RenderedDokployResource, { kind: 'compose' }> = {
+      logicalId: 'object-storage',
+      kind: 'compose',
+      infrastructureKind: 'object-storage',
+      name: 'rntme-acme-commerce-storage',
+      image: 'rustfs/rustfs:1.0.0',
+      composeFile: 'services:\n  rustfs:\n    image: rustfs/rustfs:1.0.0\n',
+      env: [],
+      labels: { 'rntme.infrastructure': 'object-storage' },
+    };
+    const proxy = resource({
+      logicalId: 'object-storage-public',
+      workloadKind: 'infrastructure-proxy',
+      workloadSlug: 'object-storage-public',
+      name: 'rntme-acme-commerce-storage-public',
+      image: 'nginx:1.27-alpine',
+      env: [],
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [rendered.resources[0], proxy, objectStorage],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-storage',
+      'configure-compose:compose_1:rntme-acme-commerce-storage',
+      'deploy-compose:compose_1',
+      'create:rntme-acme-commerce-catalog',
+      'create:rntme-acme-commerce-storage-public',
+      'configure:app_1:rntme-acme-commerce-catalog',
+      'deploy:app_1',
+      'inspect:app_1',
+      'configure:app_2:rntme-acme-commerce-storage-public',
+      'deploy:app_2',
+      'inspect:app_2',
+    ]);
+    expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
+      'object-storage',
+      'catalog',
+      'object-storage-public',
+    ]);
+  });
+
   it('applies workflow engine before apps and BPMN worker before edge', async () => {
     const client = new FakeDokployClient();
     const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
@@ -201,6 +252,87 @@ describe('applyDokployPlan', () => {
       'catalog',
       'bpmn-worker',
       'edge',
+    ]);
+  });
+
+  it('applies Redpanda Console and proxy before workloads with resolved upstream and command args', async () => {
+    const client = new FakeDokployClient();
+    const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const consoleApp = resource({
+      logicalId: 'redpanda-console',
+      infrastructureKind: 'redpanda-console',
+      workloadKind: undefined,
+      workloadSlug: undefined,
+      name: 'rntme-acme-commerce-redpanda-console',
+      image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
+      env: [{ name: 'KAFKA_BROKERS', value: 'rntme-acme-commerce-event-bus:9092', secret: false }],
+      labels: { 'rntme.infrastructure': 'redpanda-console' },
+    });
+    const proxy = resource({
+      logicalId: 'redpanda-console-proxy',
+      infrastructureKind: 'redpanda-console-proxy',
+      workloadKind: undefined,
+      workloadSlug: undefined,
+      name: 'rntme-acme-commerce-redpanda-console-proxy',
+      image: 'nginx:1.27-alpine',
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+      env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
+      labels: { 'rntme.infrastructure': 'redpanda-console-proxy' },
+      files: {
+        '/etc/nginx/nginx.conf':
+          'proxy_pass http://rntme-acme-commerce-redpanda-console:8080;\nproxy_set_header Authorization "";',
+      },
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [rendered.resources[0], proxy, eventBus, consoleApp],
+        urls: {
+          ...rendered.urls,
+          redpandaConsoleUrl: 'https://console-commerce.example.com',
+        },
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-event-bus',
+      'configure-compose:compose_1:rntme-acme-commerce-event-bus',
+      'deploy-compose:compose_1',
+      'create:rntme-acme-commerce-redpanda-console',
+      'create:rntme-acme-commerce-redpanda-console-proxy',
+      'create:rntme-acme-commerce-catalog',
+      'configure:app_1:rntme-acme-commerce-redpanda-console',
+      'deploy:app_1',
+      'inspect:app_1',
+      'configure:app_2:rntme-acme-commerce-redpanda-console-proxy',
+      'deploy:app_2',
+      'inspect:app_2',
+      'configure:app_3:rntme-acme-commerce-catalog',
+      'deploy:app_3',
+      'inspect:app_3',
+    ]);
+    const proxyConfigure = client.configureCalls.find(
+      (call) => call.resource.name === 'rntme-acme-commerce-redpanda-console-proxy',
+    );
+    expect(proxyConfigure?.resource).toMatchObject({
+      command: '/bin/sh',
+      args: ['/docker-entrypoint-rntme.sh'],
+    });
+    expect(proxyConfigure?.resource.files?.['/etc/nginx/nginx.conf']).toContain(
+      'http://rntme-acme-commerce-redpanda-console-dns:8080',
+    );
+    expect(r.value.verificationHints.redpandaConsoleUrl).toBe('https://console-commerce.example.com');
+    expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
+      'event-bus',
+      'redpanda-console',
+      'redpanda-console-proxy',
+      'catalog',
     ]);
   });
 
@@ -312,6 +444,40 @@ describe('applyDokployPlan', () => {
     if (!r.ok) return;
     expect(r.value.resources[0]?.action).toBe('unchanged');
     expect(client.updateComposeCalls).toEqual([]);
+  });
+
+  it('treats compose resources with secretFiles as changed even when all other fields match', async () => {
+    const baseCompose = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
+    const compose = {
+      ...baseCompose,
+      secretFiles: {
+        '/etc/operaton/application.yaml': {
+          schema: 'operaton-admin-user-v1',
+          secretRef: 'operaton-admin',
+          field: 'applicationYaml',
+        },
+      },
+    };
+    const client = new FakeDokployClient([], [
+      {
+        id: 'compose_existing',
+        name: compose.name,
+        image: compose.image,
+        composeFile: compose.composeFile,
+        env: compose.env,
+        labels: compose.labels,
+      },
+    ]);
+    const r = await applyDokployPlan({ ...renderedWithCompose, resources: [compose] }, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources[0]).toMatchObject({
+      resourceKind: 'compose',
+      targetResourceId: 'compose_existing',
+      action: 'updated',
+    });
+    expect(client.updateComposeCalls).toHaveLength(1);
   });
 
   it('configures and deploys created applications before returning success', async () => {
@@ -564,7 +730,13 @@ describe('applyDokployPlan', () => {
     ]);
     const resourceWithSecretFiles = resource({
       files: { '/etc/nginx/nginx.conf': 'events {}' },
-      secretFiles: { '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' } },
+      secretFiles: {
+        '/etc/nginx/.htpasswd': {
+          schema: 'operaton-ui-basic-auth-v1',
+          secretRef: 'operaton-ui-basic-auth',
+          field: 'htpasswd',
+        },
+      },
     });
     const r = await applyDokployPlan({ ...rendered, resources: [resourceWithSecretFiles] }, client);
 

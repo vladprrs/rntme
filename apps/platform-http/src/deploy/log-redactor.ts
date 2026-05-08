@@ -1,5 +1,5 @@
 const SECRET_KEY =
-  String.raw`(?:apiToken|api[-_]?key|x-api-key|clientSecret|client_secret|mgmtClientSecret|mgmt_client_secret|m2m_client_secret|m2mClientSecret|accessToken|access_token|refreshToken|refresh_token|password|token|secret|adminUser|admin-user|operatonAdmin|applicationYaml)`;
+  String.raw`(?:apiToken|api[-_]?key|x-api-key|clientSecret|client_secret|mgmtClientSecret|mgmt_client_secret|m2m_client_secret|m2mClientSecret|accessToken|access_token|refreshToken|refresh_token|password|token|secret|adminUser|admin-user|operatonAdmin|applicationYaml|htpasswdB64|consolePassword|RNTME_CONSOLE_HTPASSWD_B64|htpasswd)`;
 
 const REDACTION_PATTERNS: readonly {
   readonly pattern: RegExp;
@@ -35,6 +35,10 @@ const STRUCTURAL_REDACTION_PATTERNS: readonly { pattern: RegExp; replace: string
   {
     pattern: /("(?:secretOutputs|targetSecrets|mgmtClientSecret|m2mClients)"\s*:\s*)([^,}\]]+)/g,
     replace: '$1"***"',
+  },
+  {
+    pattern: /("(?:consolePassword|htpasswdB64)"\s*:\s*")([^"]*)(")/g,
+    replace: '$1***$3',
   },
 ];
 

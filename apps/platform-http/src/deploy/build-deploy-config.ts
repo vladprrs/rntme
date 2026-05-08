@@ -4,6 +4,7 @@ import type {
   DeploymentPolicyConfig,
   IntegrationModuleDeploymentConfig,
   ProjectDeploymentConfig,
+  StorageConfig,
 } from '@rntme/deploy-core';
 import type { DeployTarget } from '@rntme/platform-core';
 import { normalizeDokployBaseUrl } from './dokploy-client-factory.js';
@@ -14,9 +15,17 @@ type DeployConfigOverrides = {
   readonly policyOverrides?: Record<string, unknown>;
   readonly publicBaseUrl?: string;
   readonly runtimeImage?: string;
+  readonly manualAccess?: {
+    readonly redpandaConsole?: { readonly enabled?: boolean; readonly publicBaseUrl?: string };
+  };
 };
 
-type PublicBaseUrlContext = {
+type ProjectSlugContext = {
+  readonly projectSlug: string;
+  readonly publicDeployDomain?: string;
+};
+
+export type PublicBaseUrlContext = {
   readonly orgSlug: string;
   readonly projectSlug: string;
   readonly environment: string;
@@ -27,6 +36,7 @@ export function buildProjectDeploymentConfig(
   target: DeployTarget,
   orgSlug: string,
   configOverrides: Record<string, unknown>,
+  projectCtx?: ProjectSlugContext,
 ): ProjectDeploymentConfig {
   const overrides = configOverrides as DeployConfigOverrides;
   const modules: Record<string, IntegrationModuleDeploymentConfig> = {};
@@ -59,12 +69,15 @@ export function buildProjectDeploymentConfig(
           ...(target.eventBus.security === undefined ? {} : { security: target.eventBus.security }),
         };
 
+  const manualAccess = buildManualAccessDeployConfig(target, overrides, orgSlug, projectCtx);
+
   return {
     targetSlug: target.slug,
     orgSlug,
     environment: 'default',
     mode: 'preview',
     eventBus,
+    storage: cleanStorageConfig(target.storage),
     modules,
     policies: {
       ...(target.policyValues as DeploymentPolicyConfig),
@@ -73,6 +86,68 @@ export function buildProjectDeploymentConfig(
     ...(target.workflows === null ? {} : { workflows: cleanWorkflowsConfig(target.workflows) }),
     auth: cleanAuthConfig(target.auth),
     ...(overrides.runtimeImage ? { runtimeImage: overrides.runtimeImage } : {}),
+    ...(manualAccess === undefined ? {} : { manualAccess }),
+  };
+}
+
+function buildManualAccessDeployConfig(
+  target: DeployTarget,
+  overrides: DeployConfigOverrides,
+  orgSlug: string,
+  projectCtx: ProjectSlugContext | undefined,
+): ProjectDeploymentConfig['manualAccess'] {
+  const t = target.manualAccess.redpandaConsole;
+  const d = overrides.manualAccess?.redpandaConsole;
+  if (d?.enabled === false) return undefined;
+
+  if (t === undefined || t.enabled !== true) return undefined;
+
+  const publicUrl =
+    d?.publicBaseUrl ??
+    t.publicBaseUrl ??
+    (projectCtx === undefined
+      ? undefined
+      : deriveRedpandaConsolePublicBaseUrl({
+          orgSlug,
+          projectSlug: projectCtx.projectSlug,
+          environment: 'default',
+          ...(projectCtx.publicDeployDomain === undefined
+            ? {}
+            : { publicDeployDomain: projectCtx.publicDeployDomain }),
+        }));
+
+  return {
+    redpandaConsole: {
+      enabled: true,
+      ...(t.image === undefined ? {} : { image: t.image }),
+      ...(publicUrl === undefined || publicUrl === '' ? {} : { publicBaseUrl: publicUrl }),
+      basicAuth: {
+        username: t.basicAuth.username,
+        htpasswdSecretRef: t.basicAuth.htpasswdSecretRef,
+      },
+    },
+  };
+}
+
+function deriveRedpandaConsolePublicBaseUrl(input: {
+  readonly orgSlug: string;
+  readonly projectSlug: string;
+  readonly environment: string;
+  readonly publicDeployDomain?: string;
+}): string {
+  const label = compactDnsLabel(['console', input.orgSlug, input.projectSlug, input.environment]);
+  return `https://${label}.${normalizePublicDeployDomain(input.publicDeployDomain ?? 'rntme.com')}`;
+}
+
+function cleanStorageConfig(input: DeployTarget['storage']): StorageConfig {
+  if (input.mode === 'external') return { mode: 'external' };
+  return {
+    mode: 'provisioned',
+    provider: input.provider,
+    ...(input.image === undefined ? {} : { image: input.image }),
+    publicBaseUrl: input.publicBaseUrl,
+    accessKeyRef: input.accessKeyRef,
+    secretKeyRef: input.secretKeyRef,
   };
 }
 

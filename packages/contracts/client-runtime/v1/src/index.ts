@@ -22,6 +22,7 @@ export {
   useTransport,
   useStateStore,
   useOperationRegistry,
+  useOperation,
   useModuleAction,
   TransportProvider,
   StoreProvider,

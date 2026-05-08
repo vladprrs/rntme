@@ -133,6 +133,29 @@ type InputStatePathUsage = {
   path: string;
 };
 
+const STORAGE_COMPONENT_TYPES = new Set(['UploadDropzone', 'FileList', 'FilePreview']);
+
+function validateStorageRouteRefs(
+  spec: CompiledSpec,
+  context: string,
+  resolvers: ValidateResolvers,
+  errors: UiError[],
+): void {
+  if (resolvers.resolveStorageRoute === undefined) return;
+  for (const [key, element] of Object.entries(spec.elements)) {
+    if (!STORAGE_COMPONENT_TYPES.has(element.type)) continue;
+    const routeId = element.props.routeId;
+    if (typeof routeId !== 'string') continue;
+    if (resolvers.resolveStorageRoute(routeId) !== undefined) continue;
+    errors.push({
+      layer: 'references',
+      code: 'UI_REFERENCES_UNKNOWN_STORAGE_ROUTE',
+      message: `component "${element.type}" references unknown storage route "${routeId}"`,
+      path: `${context}/elements/${key}/props/routeId`,
+    });
+  }
+}
+
 function collectInputStatePathUsages(
   screen: ScreenDescriptor,
   context: string,
@@ -459,6 +482,8 @@ export function validateReferences(
       });
     }
   }
+
+  validateStorageRouteRefs(spec, context, resolvers, errors);
 
   for (const usage of collectInputStatePathUsages(screen, context)) {
     if (isStatePathCovered(usage.statePath, coveredPrefixes)) continue;

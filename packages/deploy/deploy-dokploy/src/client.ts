@@ -12,6 +12,8 @@ export type DokployApplication = {
   readonly name: string;
   readonly appName?: string;
   readonly image?: string;
+  readonly command?: string | null;
+  readonly args?: readonly string[] | null;
   readonly build?: Extract<RenderedDokployResource, { kind: 'application' }>['build'];
   readonly ports?: Extract<RenderedDokployResource, { kind: 'application' }>['ports'];
   readonly ingress?: Extract<RenderedDokployResource, { kind: 'application' }>['ingress'];

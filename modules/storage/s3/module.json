@@ -1,0 +1,121 @@
+{
+  "name": "@rntme/storage-s3",
+  "version": "0.0.0",
+  "category": "storage",
+  "vendor": "s3",
+  "contract": "storage/v1",
+  "capabilities": {
+    "vendors": ["s3"],
+    "s3_compatible_backends": [
+      "aws-s3",
+      "cloudflare-r2",
+      "minio",
+      "rustfs",
+      "digitalocean-spaces",
+      "backblaze-b2",
+      "tigris"
+    ],
+    "rpcs": [
+      "PrepareUpload",
+      "CommitUpload",
+      "AbortUpload",
+      "GetFile",
+      "ListFiles",
+      "GetDownloadUrl",
+      "DeleteFile"
+    ],
+    "events": [
+      "FileUploadInitiated",
+      "FileUploadCommitted",
+      "FileUploadAborted",
+      "FileOrphaned",
+      "FileDeleted",
+      "FileLifecycleSwept"
+    ],
+    "max_object_size_bytes": 5368709120,
+    "presign_ttl_default_sec": 900,
+    "supports_multipart": false
+  },
+  "limitations": [
+    "Single PUT only in v1; multipart upload via @uppy/aws-s3-multipart deferred to v1.1.",
+    "Cross-region replication not configured; deploy chooses one region per service.",
+    "Per-user quotas not enforced; STORAGE_VENDOR_QUOTA_EXCEEDED is reserved for future use.",
+    "Auto-cleanup of orphaned files is sweeper-via-bucket-lifecycle in v1; explicit orphan-scanner is v1.1.",
+    "Provisioner admin mode is backend-dependent; use manual mode for unsupported IAM administration."
+  ],
+  "client": {
+    "entry": "./dist/client/index.js",
+    "contract": "storage",
+    "boot": false,
+    "config": {
+      "schema": {
+        "uppyLocale": { "type": "string" },
+        "downloadUrlTtlSec": { "type": "number" }
+      }
+    },
+    "components": [
+      {
+        "type": "UploadDropzone",
+        "props": {
+          "routeId": { "type": "string", "required": true },
+          "entityId": { "type": "string", "required": true }
+        }
+      },
+      {
+        "type": "FileList",
+        "props": {
+          "routeId": { "type": "string", "required": true },
+          "entityId": { "type": "string", "required": true }
+        }
+      },
+      {
+        "type": "FilePreview",
+        "props": {
+          "fileId": { "type": "string", "required": true }
+        }
+      }
+    ],
+    "operations": [
+      {
+        "name": "upload",
+        "params": {
+          "routeId": { "type": "string", "required": true },
+          "entityId": { "type": "string", "required": true },
+          "file": { "type": "object", "required": true }
+        }
+      },
+      {
+        "name": "list",
+        "params": {
+          "routeId": { "type": "string", "required": true },
+          "entityId": { "type": "string", "required": true }
+        }
+      },
+      {
+        "name": "delete",
+        "params": {
+          "fileId": { "type": "string", "required": true }
+        }
+      },
+      {
+        "name": "getDownloadUrl",
+        "params": {
+          "fileId": { "type": "string", "required": true },
+          "ttlSec": { "type": "number" }
+        }
+      }
+    ]
+  },
+  "provisioner": {
+    "entry": "./dist/provisioner.entry.js",
+    "produces": [
+      { "name": "scopedCredentials", "kind": "single", "secret": true },
+      { "name": "bucketName", "kind": "single", "secret": false },
+      { "name": "endpoint", "kind": "single", "secret": false }
+    ],
+    "requires": [
+      { "name": "s3Admin", "schema": "s3-admin-v1", "optional": true }
+    ],
+    "timeoutMs": 120000
+  }
+}

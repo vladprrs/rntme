@@ -17,17 +17,20 @@ export const DEPLOY_DOKPLOY_ERROR_CODES = {
 
 export type DokployDeploymentErrorCode = keyof typeof DEPLOY_DOKPLOY_ERROR_CODES;
 
+export type DokployPartialFailureInfrastructureKind =
+  | 'event-bus'
+  | 'workflow-engine'
+  | 'operaton-ui-gateway'
+  | 'redpanda-console'
+  | 'redpanda-console-proxy'
+  | 'object-storage';
+
 export type DokployPartialFailureResource = {
   readonly logicalId: string;
   readonly resourceKind: 'application' | 'compose';
-  readonly workloadSlug?: string | undefined;
-  readonly kind?:
-    | 'domain-service'
-    | 'integration-module'
-    | 'edge-gateway'
-    | 'bpmn-worker'
-    | 'operaton-ui-gateway';
-  readonly infrastructureKind?: 'event-bus' | 'workflow-engine';
+  readonly workloadSlug?: string;
+  readonly kind?: 'domain-service' | 'integration-module' | 'edge-gateway' | 'bpmn-worker' | 'infrastructure-proxy';
+  readonly infrastructureKind?: DokployPartialFailureInfrastructureKind;
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
@@ -38,7 +41,7 @@ export type DokployPartialFailureStep = {
   readonly resourceName: string;
   readonly resourceKind: 'application' | 'compose';
   readonly workloadSlug?: string;
-  readonly infrastructureKind?: 'event-bus' | 'workflow-engine';
+  readonly infrastructureKind?: DokployPartialFailureInfrastructureKind;
 };
 
 export type DokployPartialFailureCleanup = {

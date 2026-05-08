@@ -7,12 +7,14 @@ import type {
   DokployProjectRef,
   RenderedDokployResource,
   RenderedSecretFileRef,
+  RenderedEnvVar,
 } from '@rntme/deploy-dokploy';
-import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
+import { parseTargetSecret, type DeployTargetWithSecret, type SecretCipher } from '@rntme/platform-core';
 
+export type DokployResolvedTargetSecretMap = Readonly<Record<string, unknown>>;
 export type DokployClientFactory = (
   target: DeployTargetWithSecret,
-  resolvedTargetSecrets?: Readonly<Record<string, unknown>>,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
 ) => DokployClient;
 type Sleep = (ms: number) => Promise<void>;
 
@@ -25,6 +27,8 @@ type DokployApiApplication = DokployApiApplicationSummary & {
   appName?: string;
   dockerImage?: string;
   env?: string;
+  command?: string | null;
+  args?: string[] | null;
   applicationStatus?: string;
   lastDeploymentStatus?: string;
   statusMessage?: string;
@@ -150,6 +154,8 @@ export function createDokployClientFactory(
           name: resource.name,
           appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
           description: `Managed by rntme-cli`,
+          ...(resource.command !== undefined ? { command: resource.command } : {}),
+          ...(resource.args !== undefined ? { args: [...resource.args] } : {}),
         });
         if (typeof app !== 'object' || app === null || app.applicationId === undefined || app.applicationId === '') {
           const updated = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId });
@@ -162,16 +168,19 @@ export function createDokployClientFactory(
         resource: Extract<RenderedDokployResource, { kind: 'application' }>,
       ) => {
         const appName = resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63);
+        const envResolved = resolvedApplicationEnv(resource, resolvedTargetSecrets);
         await request('POST', '/api/application.update', {
           applicationId,
           name: resource.name,
           appName,
           description: `Managed by rntme-cli`,
-          env: envBlock(resource),
+          env: envResolved,
+          ...(resource.command !== undefined ? { command: resource.command } : {}),
+          ...(resource.args !== undefined ? { args: [...resource.args] } : {}),
         });
         await request('POST', '/api/application.saveEnvironment', {
           applicationId,
-          env: envBlock(resource),
+          env: envResolved,
           buildArgs: '',
           buildSecrets: '',
           createEnvFile: true,
@@ -195,7 +204,14 @@ export function createDokployClientFactory(
             registryUrl: '',
           });
         }
-        await configureFileMounts(request, applicationId, resource.files, resource.secretFiles, resolvedTargetSecrets);
+        await configureFileMounts(
+          request,
+          'application',
+          applicationId,
+          resource.files,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
         if (resource.ingress !== undefined) {
           const domainsResponse = await request<unknown>('GET', '/api/domain.byApplicationId', {
             applicationId,
@@ -295,6 +311,14 @@ export function createDokployClientFactory(
           composeId,
           env: envBlock(resource),
         });
+        await configureFileMounts(
+          request,
+          'compose',
+          composeId,
+          undefined,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
       },
       deployCompose: async (composeId: string) => {
         await request('POST', '/api/compose.deploy', { composeId });
@@ -338,8 +362,55 @@ function isTransientDokployStartRace(cause: unknown): boolean {
   return /application\.start/.test(message) && /service .* not found/i.test(message);
 }
 
-function envBlock(resource: RenderedDokployResource): string {
-  return resource.env.map((e) => `${e.name}=${e.value}`).join('\n');
+function envBlock(resource: RenderedDokployResource, resolvedTargetSecrets?: DokployResolvedTargetSecretMap): string {
+  if (resource.kind === 'compose') {
+    return resource.env.map((e) => `${e.name}=${e.value}`).join('\n');
+  }
+  return resolvedApplicationEnv(resource, resolvedTargetSecrets);
+}
+
+function resolvedApplicationEnv(
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+): string {
+  return resource.env
+    .map((entry) => `${entry.name}=${resolveRenderedEnvValue(resource, entry, resolvedTargetSecrets)}`)
+    .join('\n');
+}
+
+function resolveRenderedEnvValue(
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+  envVar: RenderedEnvVar,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+): string {
+  const needsConsoleSecret =
+    envVar.name === 'RNTME_CONSOLE_HTPASSWD_B64' &&
+    envVar.secret === true &&
+    resource.infrastructureKind === 'redpanda-console-proxy';
+
+  if (!needsConsoleSecret) return envVar.value;
+
+  const hints = resource.secretResolutionHints?.redpandaConsoleHtpasswd;
+  if (hints === undefined || resolvedTargetSecrets === undefined) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_RESOLUTION_UNAVAILABLE');
+  }
+
+  const rawSecret = resolvedTargetSecrets[hints.secretRef];
+  if (rawSecret === undefined || rawSecret === null) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_MISSING');
+  }
+
+  const parsed = parseTargetSecret('redpanda-console-basic-auth-v1', rawSecret);
+  if (!parsed.ok) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_VALIDATION_FAILED');
+  }
+
+  const v = parsed.value as { username: string; htpasswdB64: string };
+  if (v.username !== hints.expectedUsername) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_USERNAME_MISMATCH');
+  }
+
+  return v.htpasswdB64;
 }
 
 async function findApplicationByName(
@@ -386,14 +457,15 @@ async function findComposeByName(
 
 async function configureFileMounts(
   request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
-  applicationId: string,
+  serviceType: 'application' | 'compose',
+  serviceId: string,
   files: Readonly<Record<string, string>> | undefined,
   secretFiles: Readonly<Record<string, RenderedSecretFileRef>> | undefined,
   resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
 ): Promise<void> {
   const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
-    serviceType: 'application',
-    serviceId: applicationId,
+    serviceType,
+    serviceId,
   });
   const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
 
@@ -417,10 +489,10 @@ async function configureFileMounts(
     const existing = matches[0];
     const body = {
       type: 'file',
-      serviceType: 'application',
-      serviceId: applicationId,
+      serviceType,
+      serviceId,
       mountPath: path,
-      filePath: dokployFilePath(applicationId, path),
+      filePath: dokployFilePath(serviceId, path),
       content,
     };
     if (existing === undefined) {
@@ -429,7 +501,7 @@ async function configureFileMounts(
       await request('POST', '/api/mounts.update', {
         ...body,
         mountId: existing.mountId,
-        applicationId,
+        ...(serviceType === 'application' ? { applicationId: serviceId } : { composeId: serviceId }),
       });
       for (const duplicate of matches.slice(1)) {
         await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
@@ -450,7 +522,7 @@ function resolveSecretFileContent(
     throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
   }
 
-  if (ref.secretRef === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
+  if (ref.schema === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
     const htpasswd = (secret as Record<string, unknown>).htpasswd;
     if (typeof htpasswd !== 'string') {
       throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
@@ -458,7 +530,7 @@ function resolveSecretFileContent(
     return htpasswd;
   }
 
-  if (ref.secretRef === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
+  if (ref.schema === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
     const id = (secret as Record<string, unknown>).id;
     const password = (secret as Record<string, unknown>).password;
     if (typeof id !== 'string' || typeof password !== 'string') {
@@ -490,6 +562,12 @@ function toDokployApplication(details: DokployApiApplication): DokployApplicatio
     name: details.name,
     ...(details.appName ? { appName: details.appName } : {}),
     ...(details.dockerImage ? { image: details.dockerImage } : {}),
+    ...(details.command !== undefined && details.command !== null && details.command !== ''
+      ? { command: details.command }
+      : {}),
+    ...(details.args !== undefined && details.args !== null && details.args.length > 0
+      ? { args: details.args }
+      : {}),
     env: parseEnvBlock(details.env),
   };
 }

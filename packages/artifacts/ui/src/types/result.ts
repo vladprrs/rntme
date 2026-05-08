@@ -20,6 +20,7 @@ export type UiErrorCode =
   | 'BINDING_KIND_MISMATCH'
   | 'UNCOVERED_STATE_PATH'
   | 'UNKNOWN_ROUTE'
+  | 'UI_REFERENCES_UNKNOWN_STORAGE_ROUTE'
   // Validate — consistency
   | 'TYPE_MISMATCH'
   | 'UNCOVERED_INPUT'
@@ -44,10 +45,21 @@ export type UiErrorCode =
   | 'ON_HANDLER_ARRAY_INVALID';
 
 export type UiError = {
+  layer?: UiErrorLayer;
   code: UiErrorCode;
   message: string;
   path?: string;
 };
+
+export type UiErrorLayer =
+  | 'resolve'
+  | 'expand'
+  | 'parse'
+  | 'structural'
+  | 'references'
+  | 'consistency'
+  | 'emit'
+  | 'internal';
 
 export type Ok<T> = { ok: true; value: T };
 export type Err = { ok: false; errors: UiError[] };

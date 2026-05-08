@@ -22,7 +22,7 @@ export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokp
           '/operaton/configuration/application.yaml': {
             schema: 'operaton-admin-user-v1',
             secretRef: engine.adminUserSecretRef,
-            field: 'application.yaml',
+            field: 'applicationYaml',
           },
         }
       : undefined;
@@ -262,7 +262,9 @@ export function renderOperatonUiGateway(
   return {
     logicalId: 'operaton-ui-gateway',
     kind: 'application',
-    workloadKind: 'operaton-ui-gateway',
+    workloadKind: 'infrastructure-proxy',
+    workloadSlug: 'operaton-ui-gateway',
+    infrastructureKind: 'operaton-ui-gateway',
     name,
     image: 'nginx:1.27-alpine',
     env: [],
@@ -284,7 +286,7 @@ export function renderOperatonUiGateway(
     },
     secretFiles: {
       '/etc/nginx/.htpasswd': {
-        schema: 'basic-auth-v1',
+        schema: 'operaton-ui-basic-auth-v1',
         secretRef: engine.uiAccess.authSecretRef,
         field: 'htpasswd',
       },
