@@ -78,7 +78,7 @@ export async function startService(
         'code' in err &&
         (err as { code?: string }).code;
       if (code === 'SEED_STORE_NOT_EMPTY') {
-        // Second boot with persistent store: strict mode skips when log already has events.
+        // strict mode no-op when persistent log already has events
       } else {
         await pipeline.stop();
         if (bus.stop) await bus.stop();
@@ -105,9 +105,7 @@ export async function startService(
   const operationExecutor =
     runtimeConfig.operationExecutor ?? new GraphOperationExecutor(defaultOperationMapResult.value);
 
-  // Periodic sweep of the derived-projection idempotency side-table. Started
-  // AFTER `wireEventPipeline` has created the `seen_events` table via
-  // `bootstrapProjections`. The disposer is invoked from `RunningService.stop`.
+  // Must run after wireEventPipeline creates the seen_events table.
   const stopSeenEventsRetention = startSeenEventsRetention(pipeline.qsmDb);
 
   const metrics = createMetrics(service.manifest.service.name);

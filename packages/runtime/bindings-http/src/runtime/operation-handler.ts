@@ -166,6 +166,9 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
       queryData = { ...Object.fromEntries(searchParams.entries()), ...queryData };
     }
 
+    const actor = deps.actorFromRequest(c);
+    const clientKey = c.req.header('Idempotency-Key') ?? null;
+
     let out;
     try {
       out = await deps.operationExecutor.execute({
@@ -177,9 +180,9 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
           callClient: null,
           now: deps.now,
           nextId: deps.nextId,
-          actor: deps.actorFromRequest(c),
+          actor,
           correlation: fallbackCorrelation(c),
-          idempotencyKey: c.req.header('Idempotency-Key') ?? null,
+          idempotencyKey: clientKey,
         },
       });
     } catch (err) {
@@ -192,7 +195,7 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
       form: formValues,
       query: queryData,
       header: headerValues,
-      auth: { userId: (deps.actorFromRequest(c) as { id?: string } | null)?.id ?? null },
+      auth: { userId: (actor as { id?: string } | null)?.id ?? null },
       config: {},
     };
 
@@ -218,7 +221,6 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
         }
       }
 
-      const clientKey = c.req.header('Idempotency-Key') ?? null;
       if (out.ok && deps.idempotencyCache !== undefined && clientKey !== null) {
         deps.idempotencyCache.set(
           plan.operationName,
@@ -242,7 +244,6 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
       return c.json(operationErrorBody(out.error), status as 400 | 404 | 409 | 422 | 500);
     }
 
-    const clientKey = c.req.header('Idempotency-Key') ?? null;
     if (deps.idempotencyCache !== undefined && clientKey !== null) {
       const body = defaultSuccessBody(plan, out);
       deps.idempotencyCache.set(

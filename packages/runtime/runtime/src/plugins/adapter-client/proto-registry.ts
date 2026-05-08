@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import protobuf from 'protobufjs';
 import type * as grpc from '@grpc/grpc-js';
 
@@ -14,34 +13,21 @@ export class ProtoRegistry {
   private modules: Map<string, LoadedModule> = new Map();
 
   registerModule(moduleName: string, protoPath: string): void {
-    readFileSync(protoPath, 'utf8');
     const root = new protobuf.Root();
     root.loadSync(protoPath, { keepCase: true });
     root.resolveAll();
-    const pkg = packageNameFor(root);
-    const pkgPrefix = pkg.length > 0 ? `${pkg}.` : '';
 
-    // Find the first Service in the file.
-    let service: protobuf.Service | null = null;
-    const walk = (obj: protobuf.ReflectionObject): void => {
-      if (obj instanceof protobuf.Service && service === null) {
-        service = obj;
-        return;
-      }
-      if (obj instanceof protobuf.Namespace) {
-        for (const child of Object.values(obj.nested ?? {})) walk(child);
-      }
-    };
-    for (const child of Object.values(root.nested ?? {})) walk(child);
+    const service = findFirstService(root);
     if (service === null) throw new Error(`no service found in proto file ${protoPath}`);
+    const pkgPrefix = packageNameOf(service);
 
     const methods: Record<string, MethodDescriptor> = {};
-    for (const [methodName, method] of Object.entries((service as protobuf.Service).methods)) {
+    for (const [methodName, method] of Object.entries(service.methods)) {
       const m = method as protobuf.Method;
       const req = root.lookupType(m.requestType);
       const res = root.lookupType(m.responseType);
       methods[methodName] = {
-        path: `/${pkgPrefix}${(service as protobuf.Service).name}/${methodName}`,
+        path: `/${pkgPrefix}${service.name}/${methodName}`,
         requestStream: false,
         responseStream: false,
         requestSerialize: (v: object): Buffer => Buffer.from(req.encode(req.fromObject(v)).finish()),
@@ -64,11 +50,12 @@ export class ProtoRegistry {
   }
 }
 
-function packageNameFor(root: protobuf.Root): string {
-  const found: { service: protobuf.Service | null } = { service: null };
+function findFirstService(root: protobuf.Root): protobuf.Service | null {
+  let found: protobuf.Service | null = null;
   const walk = (obj: protobuf.ReflectionObject): void => {
-    if (obj instanceof protobuf.Service && found.service === null) {
-      found.service = obj;
+    if (found !== null) return;
+    if (obj instanceof protobuf.Service) {
+      found = obj;
       return;
     }
     if (obj instanceof protobuf.Namespace) {
@@ -76,5 +63,10 @@ function packageNameFor(root: protobuf.Root): string {
     }
   };
   for (const child of Object.values(root.nested ?? {})) walk(child);
-  return found.service === null ? '' : found.service.fullName.replace(/^\./, '').split('.').slice(0, -1).join('.');
+  return found;
+}
+
+function packageNameOf(service: protobuf.Service): string {
+  const pkg = service.fullName.replace(/^\./, '').split('.').slice(0, -1).join('.');
+  return pkg.length > 0 ? `${pkg}.` : '';
 }

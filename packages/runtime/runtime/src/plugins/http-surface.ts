@@ -59,9 +59,6 @@ export class HttpSurface implements Surface {
       artifact: ctx.service.compiledUi,
       ...(ctx.service.uiAssetsDir === null ? {} : { assetsDir: ctx.service.uiAssetsDir }),
     });
-    // Mount correlation middleware BEFORE the bindings router so every
-    // /api request gets a CorrelationCtx. Command handlers read it via
-    // `c.var.correlation` (typed by CorrelationVariables).
     app.use('/api/*', bodyLimitMiddleware(ctx.service.manifest.surface.http.bodyLimit));
     app.use('/api/*', rateLimiter);
     app.use('/api/*', correlationMiddleware());

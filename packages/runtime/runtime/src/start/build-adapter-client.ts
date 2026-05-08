@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, resolve } from 'node:path';
 import * as grpc from '@grpc/grpc-js';
@@ -38,7 +38,7 @@ function resolveModuleProtoPath(artifactDir: string, protoPath: string): string 
 
 function canRead(path: string): boolean {
   try {
-    readFileSync(path);
+    statSync(path);
     return true;
   } catch {
     return false;
