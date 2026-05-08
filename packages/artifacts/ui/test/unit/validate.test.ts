@@ -485,3 +485,160 @@ describe('references — module-action lookups', () => {
     expect(result.errors.some((e) => e.code === 'UNCOVERED_INPUT')).toBe(true);
   });
 });
+
+describe('references — onSuccess validation', () => {
+  it('accepts valid command onSuccess.navigateTo', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { navigateTo: '/issues' },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+      resolveRoute: (p) => p === '/issues',
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(true);
+  });
+
+  it('UNKNOWN_ONSUCCESS_ROUTE when command onSuccess.navigateTo does not resolve', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { navigateTo: '/nowhere' },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+      resolveRoute: () => false,
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const e = result.errors.find((e) => e.code === 'UNKNOWN_ONSUCCESS_ROUTE');
+    expect(e).toBeDefined();
+    expect(e!.path).toBe('screen:home/actions/save/onSuccess/navigateTo');
+  });
+
+  it('accepts valid command onSuccess.refetchData', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.data = {
+      '/issues': { binding: 'listIssues', params: {} },
+    };
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { refetchData: ['/issues'] },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: (id) => (id === 'listIssues' ? { kind: 'query' } : { kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(true);
+  });
+
+  it('UNDECLARED_REFETCH_TARGET when command onSuccess.refetchData points to missing data key', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { refetchData: ['/missing'] },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const e = result.errors.find((e) => e.code === 'UNDECLARED_REFETCH_TARGET');
+    expect(e).toBeDefined();
+    expect(e!.path).toBe('screen:home/actions/save/onSuccess/refetchData');
+  });
+
+  it('accepts valid command onSuccess.clearFormState', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { clearFormState: ['/form/title', '/actions/save/status'] },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(true);
+  });
+
+  it('INVALID_FORM_STATE_CLEAR when command onSuccess.clearFormState has bad prefix', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      save: {
+        kind: 'command',
+        binding: 'createIssue',
+        paramsFromState: {},
+        onSuccess: { clearFormState: ['/data/title'] },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveBinding: () => ({ kind: 'command' }),
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const e = result.errors.find((e) => e.code === 'INVALID_FORM_STATE_CLEAR');
+    expect(e).toBeDefined();
+    expect(e!.path).toBe('screen:home/actions/save/onSuccess/clearFormState');
+  });
+
+  it('UNKNOWN_ONSUCCESS_ROUTE when module-action onSuccess.navigateTo does not resolve', () => {
+    const expanded = loadExpanded('minimal-app');
+    expanded.screens['home']!.screen.actions = {
+      t: {
+        kind: 'module-action',
+        category: 'analytics',
+        name: 'track',
+        params: { event: 'e' },
+        onSuccess: { navigateTo: '/nowhere' },
+      },
+    };
+    const resolvers: ValidateResolvers = {
+      ...noopResolvers,
+      resolveCategoryToModule: () => '@rntme/ga',
+      resolveOperation: () => ({
+        module: '@rntme/ga',
+        appliesTo: null,
+        params: { event: { type: 'string', required: true } },
+        category: 'analytics',
+      }),
+      resolveRoute: () => false,
+    };
+    const result = validate(expanded, resolvers);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const e = result.errors.find((e) => e.code === 'UNKNOWN_ONSUCCESS_ROUTE');
+    expect(e).toBeDefined();
+    expect(e!.path).toBe('screen:home/actions/t/onSuccess/navigateTo');
+  });
+});
