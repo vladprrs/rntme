@@ -437,7 +437,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/etc/nginx/.htpasswd': { secretName: 'operaton-ui-basic-auth-v1', field: 'htpasswd' },
+        '/etc/nginx/.htpasswd': { secretRef: 'operaton-ui-basic-auth-v1', schema: 'basic-auth-v1', field: 'htpasswd' },
       },
     };
     await client.configureApplication('app-1', resourceWithSecret);
@@ -477,7 +477,7 @@ describe('createDokployClientFactory', () => {
     const resourceWithSecret = {
       ...resource,
       secretFiles: {
-        '/srv/operaton-config/application.yml': { secretName: 'operaton-admin-user-v1', field: 'applicationYaml' },
+        '/srv/operaton-config/application.yml': { secretRef: 'operaton-admin-user-v1', schema: 'operaton-admin-user-v1', field: 'applicationYaml' },
       },
     };
     await client.configureApplication('app-1', resourceWithSecret);

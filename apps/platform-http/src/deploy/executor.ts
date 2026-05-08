@@ -52,6 +52,7 @@ import {
   type TargetSecretsRepo,
   type VerificationReport,
   parseCanonicalBundle,
+  parseTargetSecret,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
 import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-deploy-config.js';
@@ -288,7 +289,7 @@ export async function runDeployment(
               const prior = priorOutputs[m.projectKey];
               return prior === undefined ? m : { ...m, priorOutputs: prior };
             }),
-            resolvedTargetSecrets: decrypted,
+            resolvedTargetSecrets: decrypted ?? {},
             projectDir: materializedDir,
             resolveProvisioner: deps.resolveProvisioner,
             log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
@@ -356,6 +357,46 @@ export async function runDeployment(
       return;
     }
 
+    let resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined;
+    const requiredSecrets = plan.value.requiredTargetSecrets;
+    if (requiredSecrets.length > 0) {
+      await appendLog(deps, deploymentId, orgId, 'info', 'validate-secrets', 'Validating required target secrets');
+      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
+      const listed = await targetSecretsRepo.list(target.id);
+      const allDecrypted = await targetSecretsRepo.getAllDecrypted(target.id);
+      const listedByName = new Map(listed.map((s) => [s.name, s]));
+      const validated: Record<string, unknown> = {};
+
+      for (const ref of requiredSecrets) {
+        const summary = listedByName.get(ref.secretRef);
+        if (summary === undefined) {
+          await finalize(deps, deploymentId, orgId, 'failed', {
+            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_MISSING',
+            errorMessage: redact(`target secret "${ref.secretRef}" is required for ${ref.purpose} but not found on target`),
+          });
+          return;
+        }
+        if (summary.schema !== ref.schema) {
+          await finalize(deps, deploymentId, orgId, 'failed', {
+            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH',
+            errorMessage: redact(`target secret "${ref.secretRef}" has schema "${summary.schema}" but "${ref.schema}" is required`),
+          });
+          return;
+        }
+        const decryptedValue = allDecrypted[ref.secretRef];
+        const parseResult = parseTargetSecret(ref.schema, decryptedValue);
+        if (!parseResult.ok) {
+          await finalize(deps, deploymentId, orgId, 'failed', {
+            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
+            errorMessage: redact(`target secret "${ref.secretRef}" failed validation: ${parseResult.errors.map((e) => e.message).join('; ')}`),
+          });
+          return;
+        }
+        validated[ref.secretRef] = parseResult.value;
+      }
+      resolvedTargetSecrets = validated;
+    }
+
     const envMappings: Record<string, ProvisionerEnvMapping[string]> = {};
     for (const m of provModules) {
       try {
@@ -398,7 +439,7 @@ export async function runDeployment(
     await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
     const applied = await runStage('apply', async () => (deps.applyPlan ?? applyDokployPlan)(
       rendered.value as RenderedDokployPlan,
-      deps.dokployClientFactory(target, decrypted),
+      deps.dokployClientFactory(target, resolvedTargetSecrets ?? decrypted),
     ), { log });
     if (!applied.ok) {
       await logApplyFailure(deps, deploymentId, orgId, applied.errors);

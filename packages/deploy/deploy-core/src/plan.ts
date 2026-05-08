@@ -61,6 +61,7 @@ export type EdgeGatewayWorkload = {
 export type RequiredTargetSecretRef = {
   readonly kind: 'target-secret';
   readonly secretRef: string;
+  readonly schema: string;
   readonly purpose: string;
 };
 

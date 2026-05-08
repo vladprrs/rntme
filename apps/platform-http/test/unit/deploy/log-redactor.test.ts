@@ -52,3 +52,36 @@ describe('redact — provisioner extensions', () => {
     expect(out).not.toContain('"v"');
   });
 });
+
+describe('redact — Operaton UI secrets', () => {
+  it('redacts htpasswd hash fragments', () => {
+    expect(redact('htpasswd admin:$apr1$xxxxx')).toBe('htpasswd ***');
+    expect(redact('htpasswd: user:$2y$10$hash')).toBe('htpasswd: ***');
+    expect(redact('some htpasswd content here')).toBe('some htpasswd *** here');
+  });
+
+  it('redacts adminUser values', () => {
+    expect(redact('adminUser=superadmin')).toBe('adminUser=***');
+    expect(redact('"adminUser":"root"')).toBe('"adminUser":"***"');
+  });
+
+  it('redacts admin-user values', () => {
+    expect(redact('admin-user=root')).toBe('admin-user=***');
+    expect(redact('"admin-user":"admin"')).toBe('"admin-user":"***"');
+  });
+
+  it('redacts operatonAdmin values', () => {
+    expect(redact('operatonAdmin=demo')).toBe('operatonAdmin=***');
+    expect(redact('"operatonAdmin":"admin"')).toBe('"operatonAdmin":"***"');
+  });
+
+  it('redacts applicationYaml values', () => {
+    expect(redact('applicationYaml=secret')).toBe('applicationYaml=***');
+    expect(redact('"applicationYaml":"config"')).toBe('"applicationYaml":"***"');
+  });
+
+  it('does not redact non-secret URLs', () => {
+    expect(redact('https://example.com/path?token=abc')).toBe('https://example.com/path?token=***');
+    expect(redact('visit https://example.com for docs')).toBe('visit https://example.com for docs');
+  });
+});

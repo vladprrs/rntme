@@ -185,6 +185,7 @@ describe('runDeployment', () => {
         },
         workloads: [],
         edge: { routes: [], middleware: [] },
+        requiredTargetSecrets: [],
         diagnostics: { warnings: [] },
       }),
     );
@@ -699,6 +700,7 @@ describe('runDeployment', () => {
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
         workloads: [],
         edge: { routes: [], middleware: [] },
+        requiredTargetSecrets: [],
         diagnostics: { warnings: [] },
       }),
     );
@@ -887,6 +889,115 @@ describe('runDeployment', () => {
       }),
     );
   });
+
+  it('fails when a required target secret is missing', async () => {
+    const { deps, deployments } = setup({
+      planProject: vi.fn(() =>
+        ok({
+          project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          workloads: [],
+          edge: { routes: [], middleware: [] },
+          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          diagnostics: { warnings: [] },
+        }),
+      ),
+      targetSecrets: {
+        list: [{ name: 'other-secret', schema: 'other', updatedAt: new Date() }],
+        decrypted: {},
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
+      status: 'failed',
+      errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_MISSING',
+      errorMessage: expect.stringContaining('operaton-ui-basic-auth-v1'),
+    });
+  });
+
+  it('fails when a required target secret has schema mismatch', async () => {
+    const { deps, deployments } = setup({
+      planProject: vi.fn(() =>
+        ok({
+          project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          workloads: [],
+          edge: { routes: [], middleware: [] },
+          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          diagnostics: { warnings: [] },
+        }),
+      ),
+      targetSecrets: {
+        list: [{ name: 'operaton-ui-basic-auth-v1', schema: 'wrong-schema', updatedAt: new Date() }],
+        decrypted: { 'operaton-ui-basic-auth-v1': { htpasswd: 'user:hash' } },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
+      status: 'failed',
+      errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH',
+      errorMessage: expect.stringContaining('operaton-ui-basic-auth-v1'),
+    });
+  });
+
+  it('fails when a required target secret has invalid decrypted value', async () => {
+    const { deps, deployments } = setup({
+      planProject: vi.fn(() =>
+        ok({
+          project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          workloads: [],
+          edge: { routes: [], middleware: [] },
+          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          diagnostics: { warnings: [] },
+        }),
+      ),
+      targetSecrets: {
+        list: [{ name: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', updatedAt: new Date() }],
+        decrypted: { 'operaton-ui-basic-auth-v1': { htpasswd: 'invalid-no-colon' } },
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
+      status: 'failed',
+      errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
+      errorMessage: expect.stringContaining('operaton-ui-basic-auth-v1'),
+    });
+  });
+
+  it('passes resolved target secrets to dokploy client factory when validation succeeds', async () => {
+    const dokployClientFactory = vi.fn(() => ({} as never));
+    const { deps } = setup({
+      planProject: vi.fn(() =>
+        ok({
+          project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+          infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } },
+          workloads: [],
+          edge: { routes: [], middleware: [] },
+          requiredTargetSecrets: [{ kind: 'target-secret', secretRef: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', purpose: 'test' }],
+          diagnostics: { warnings: [] },
+        }),
+      ),
+      targetSecrets: {
+        list: [{ name: 'operaton-ui-basic-auth-v1', schema: 'operaton-ui-basic-auth-v1', updatedAt: new Date() }],
+        decrypted: { 'operaton-ui-basic-auth-v1': { htpasswd: 'admin:$apr1$xxxxx' } },
+      },
+      dokployClientFactory,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(dokployClientFactory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'target-1' }),
+      expect.objectContaining({ 'operaton-ui-basic-auth-v1': { htpasswd: 'admin:$apr1$xxxxx' } }),
+    );
+  });
 });
 
 function setup(
@@ -906,6 +1017,8 @@ function setup(
     targetWorkflows?: unknown;
     verificationReport?: { checks: never[] | [{ name: string; url: string; status: number; latencyMs: number; ok: boolean }]; ok: boolean; partialOk: boolean };
     runProvisioners?: ExecutorDeps['runProvisioners'];
+    targetSecrets?: { list: Array<{ name: string; schema: string; updatedAt: Date }>; decrypted: Record<string, unknown> };
+    dokployClientFactory?: ExecutorDeps['dokployClientFactory'];
   } = {},
 ) {
   const deployments = {
@@ -1040,7 +1153,7 @@ function setup(
         } as never,
       }),
     orgSlugFor: vi.fn(async () => 'acme'),
-    dokployClientFactory: vi.fn(() => ({} as never)),
+    dokployClientFactory: overrides.dokployClientFactory ?? vi.fn(() => ({} as never)),
     smoker: { verify: vi.fn(async () => overrides.verificationReport ?? { checks: [], ok: true, partialOk: false }) } as never,
     logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
     ...(overrides.useDefaultLoadComposed
@@ -1062,7 +1175,7 @@ function setup(
     ...(overrides.useDefaultPlanProject
       ? {}
       : {
-          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
+          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
         }),
     ...(overrides.useDefaultRenderPlan
       ? {}
@@ -1074,10 +1187,10 @@ function setup(
     ...(overrides.runProvisioners === undefined ? {} : { runProvisioners: overrides.runProvisioners }),
     resolveProvisioner: vi.fn(async () => ({ provision: vi.fn() } as never)),
     targetSecretsRepoFor: vi.fn(async () => ({
-      list: vi.fn(async () => []),
+      list: vi.fn(async () => overrides.targetSecrets?.list ?? []),
       upsert: vi.fn(async () => undefined),
       remove: vi.fn(async () => undefined),
-      getAllDecrypted: vi.fn(async () => ({})),
+      getAllDecrypted: vi.fn(async () => overrides.targetSecrets?.decrypted ?? {}),
     })),
     secretCipher: {
       encrypt: vi.fn(() => ({ ciphertext: Buffer.from('ct'), nonce: Buffer.from('n'), keyVersion: 1 })),

@@ -130,6 +130,7 @@ export function planWorkflowEngine(input: {
       input.requiredTargetSecrets.push({
         kind: 'target-secret',
         secretRef: authSecretRef,
+        schema: 'operaton-ui-basic-auth-v1',
         purpose: 'Operaton UI Basic Auth htpasswd',
       });
     }

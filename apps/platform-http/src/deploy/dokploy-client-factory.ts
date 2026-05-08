@@ -445,12 +445,12 @@ function resolveSecretFileContent(
   if (resolvedTargetSecrets === undefined) {
     throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
   }
-  const secret = resolvedTargetSecrets[ref.secretName];
+  const secret = resolvedTargetSecrets[ref.secretRef];
   if (secret === undefined || typeof secret !== 'object' || secret === null) {
     throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
   }
 
-  if (ref.secretName === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
+  if (ref.secretRef === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
     const htpasswd = (secret as Record<string, unknown>).htpasswd;
     if (typeof htpasswd !== 'string') {
       throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
@@ -458,7 +458,7 @@ function resolveSecretFileContent(
     return htpasswd;
   }
 
-  if (ref.secretName === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
+  if (ref.secretRef === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
     const id = (secret as Record<string, unknown>).id;
     const password = (secret as Record<string, unknown>).password;
     if (typeof id !== 'string' || typeof password !== 'string') {
