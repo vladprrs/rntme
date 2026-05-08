@@ -35,6 +35,10 @@ export const ModuleCapabilitiesSchema = z
     agent_execution_mode: z.enum(['delegated', 'local', 'none']).optional(),
     webhook_format: z.string().min(1).optional(),
     webhook_retry_policy: z.string().min(1).optional(),
+    s3_compatible_backends: z.array(z.string().min(1)).optional(),
+    max_object_size_bytes: z.number().int().positive().optional(),
+    presign_ttl_default_sec: z.number().int().positive().optional(),
+    supports_multipart: z.boolean().optional(),
   })
   .strict();
 
@@ -72,7 +76,7 @@ export const ClientBlockSchema = z
     entry: z.string().min(1),
     boot: z.boolean().optional(),
     bootTimeoutMs: z.number().int().positive().optional(),
-    contract: z.enum(['identity']).optional(),
+    contract: z.enum(['identity', 'storage']).optional(),
     config: ClientConfigSchema.optional(),
     components: z.array(ComponentDeclarationSchema).optional(),
     operations: z.array(OperationDeclarationSchema).optional(),
@@ -91,6 +95,7 @@ export const ProvisionerRequiresSchema = z
   .object({
     name: z.string().min(1),
     schema: z.string().min(1),
+    optional: z.boolean().optional(),
   })
   .strict();
 

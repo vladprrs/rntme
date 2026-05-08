@@ -63,6 +63,19 @@ describe('ModuleManifestSchema', () => {
     expect(parsed.ok).toBe(true);
   });
 
+  it('accepts the checked-in storage-s3 manifest without local rewrites', () => {
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), '..', '..', '..', '..', 'modules', 'storage', 's3', 'module.json'),
+        'utf8',
+      ),
+    ) as unknown;
+
+    const parsed = parseModuleManifest(raw);
+
+    expect(parsed.ok).toBe(true);
+  });
+
   it('every identity vendor declares client.contract = "identity"', () => {
     for (const moduleDir of ['auth0', 'clerk', 'workos']) {
       const raw = JSON.parse(
@@ -328,6 +341,17 @@ describe('ClientBlockSchema — contract field', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.value.client?.contract).toBe('identity');
+    }
+  });
+
+  it('accepts contract: "storage"', () => {
+    const r = parseModuleManifest({
+      ...baseClient,
+      client: { ...baseClient.client, contract: 'storage' },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.client?.contract).toBe('storage');
     }
   });
 
