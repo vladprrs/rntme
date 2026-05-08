@@ -11,17 +11,17 @@ backed by code (file references are listed inline).
 ## 0. Input Contract
 
 ```text
-parseBindingArtifact(input)      -> Result<BindingArtifact>
-validateBindings(artifact, res)  -> Result<ValidatedBindings>
-generateOpenApi(valid, res, opt) -> Result<OpenApiDoc>
+parseBindingArtifact(input)             -> Result<BindingArtifact>
+validateBindings(artifact, resolvers)   -> Result<ValidatedBindings>
+generateOpenApi(validated, options?)    -> Result<OpenApiDoc>
 ```
 
-Exactly one artifact, one resolver object, and one optional options object.
+Exactly one artifact, one validation resolver object, and one optional OpenAPI options object.
 
 | Artifact | Author | Describes |
 | --- | --- | --- |
 | **binding artifact** | **LLM** | HTTP routes and mappings to graph inputs |
-| `BindingResolvers` | host environment (code) | returns `GraphSignature` and `ResolvedShape` by name |
+| `BindingResolvers` | host environment (code) | returns `GraphSignature` and `ResolvedShape` by name during validation |
 | `OpenApiGenOptions` | host environment (optional) | `decimalEncoding`, `info/servers`, `standardErrors` |
 
 **Important**: the LLM generates **only the binding artifact**. Resolvers are runtime responsibility.

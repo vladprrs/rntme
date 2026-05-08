@@ -323,7 +323,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   }
 
   // 8. OpenAPI
-  const openapi = generateOpenApi(validatedBindings, bindingResolvers);
+  const openapi = generateOpenApi(validatedBindings);
   if (!openapi.ok) {
     return { ok: false, errors: [{ code: 'OPENAPI_INVALID', details: openapi.errors }] };
   }

@@ -83,7 +83,7 @@ if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
 const validated = validateBindings(parsed.value, resolvers);
 if (!validated.ok) throw new Error(JSON.stringify(validated.errors));
 
-const openapi = generateOpenApi(validated.value, resolvers);
+const openapi = generateOpenApi(validated.value);
 ```
 
 ## Binding Shape
@@ -109,9 +109,10 @@ Module/service calls are represented in Graph IR with `call` nodes, and their ef
 - Root inputs cannot be bound to HTTP.
 - Required/nullable graph inputs must be covered by either `http.parameters[]` or `inputFrom`.
 - Output must be `row<Shape>` or `rowset<Shape>`; the shape is resolved through `BindingResolvers.resolveShape`.
+- `BindingResolvers` are used by `validateBindings`; OpenAPI emission consumes the already-resolved `ValidatedBindings`.
 - `inputFrom` keys must match graph input names and must not duplicate `parameters[].bindTo`.
 - Redirect strings reject protocol-relative URLs and unallowlisted absolute origins.
-- Decimal OpenAPI encoding defaults to string with `format: "decimal"`; pass `{ decimalEncoding: "number" }` to `generateOpenApi` to emit JSON numbers.
+- Decimal OpenAPI encoding defaults to string with `format: "decimal"`; pass `{ decimalEncoding: "number" }` as the second `generateOpenApi` argument to emit JSON numbers.
 
 ## Where To Look First
 
