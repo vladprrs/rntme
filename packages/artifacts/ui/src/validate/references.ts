@@ -450,6 +450,39 @@ export function validateReferences(
             errors,
           );
         }
+        if (action.onSuccess) {
+          if (action.onSuccess.navigateTo) {
+            if (!resolvers.resolveRoute(action.onSuccess.navigateTo)) {
+              errors.push({
+                code: 'UNKNOWN_ONSUCCESS_ROUTE',
+                message: `onSuccess navigation target "${action.onSuccess.navigateTo}" not found for action "${actionId}" in ${context}`,
+                path: `${context}/actions/${actionId}/onSuccess/navigateTo`,
+              });
+            }
+          }
+          if (action.onSuccess.refetchData) {
+            for (const target of action.onSuccess.refetchData) {
+              if (!screen.data || !(target in screen.data)) {
+                errors.push({
+                  code: 'UNDECLARED_REFETCH_TARGET',
+                  message: `onSuccess refetchData target "${target}" is not declared in ${context}/data for action "${actionId}"`,
+                  path: `${context}/actions/${actionId}/onSuccess/refetchData`,
+                });
+              }
+            }
+          }
+          if (action.onSuccess.clearFormState) {
+            for (const target of action.onSuccess.clearFormState) {
+              if (!target.startsWith('/form/') && !target.startsWith('/actions/')) {
+                errors.push({
+                  code: 'INVALID_FORM_STATE_CLEAR',
+                  message: `onSuccess clearFormState target "${target}" must start with "/form/" or "/actions/" for action "${actionId}" in ${context}`,
+                  path: `${context}/actions/${actionId}/onSuccess/clearFormState`,
+                });
+              }
+            }
+          }
+        }
       }
       if (action.kind === 'navigation' && action.navigateTo) {
         if (!resolvers.resolveRoute(action.navigateTo)) {
@@ -457,6 +490,15 @@ export function validateReferences(
             code: 'UNKNOWN_ROUTE',
             message: `Navigation target "${action.navigateTo}" not found for action "${actionId}" in ${context}`,
             path: `${context}/actions/${actionId}`,
+          });
+        }
+      }
+      if (action.kind === 'module-action' && action.onSuccess?.navigateTo) {
+        if (!resolvers.resolveRoute(action.onSuccess.navigateTo)) {
+          errors.push({
+            code: 'UNKNOWN_ONSUCCESS_ROUTE',
+            message: `onSuccess navigation target "${action.onSuccess.navigateTo}" not found for action "${actionId}" in ${context}`,
+            path: `${context}/actions/${actionId}/onSuccess/navigateTo`,
           });
         }
       }

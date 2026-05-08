@@ -136,7 +136,7 @@ Frozen union in `types/result.ts`. Grouped by phase.
 | Expand | `UNBOUND_PARAM`, `UNKNOWN_PARAM` |
 | Validate (parse) | `SPEC_INVALID`, `SCREEN_SCHEMA_INVALID` |
 | Validate (structural) | `MISSING_ROOT`, `ORPHAN_ELEMENT`, `BAD_CHILD_REF`, `SLOT_NOT_IN_LAYOUT` |
-| Validate (references) | `UNRESOLVED_BINDING`, `BINDING_KIND_MISMATCH`, `UNCOVERED_STATE_PATH`, `UNKNOWN_ROUTE`, `UI_REFERENCES_UNKNOWN_STORAGE_ROUTE` |
+| Validate (references) | `UNRESOLVED_BINDING`, `BINDING_KIND_MISMATCH`, `UNCOVERED_STATE_PATH`, `UNKNOWN_ROUTE`, `UI_REFERENCES_UNKNOWN_STORAGE_ROUTE`, `UNKNOWN_ONSUCCESS_ROUTE`, `UNDECLARED_REFETCH_TARGET`, `INVALID_FORM_STATE_CLEAR` |
 | Validate (consistency) | `TYPE_MISMATCH`, `UNCOVERED_INPUT` |
 | Emit | `EMIT_FAILED` |
 | Generic | `INTERNAL` |
@@ -171,7 +171,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 | `kind` | Input shape (`ActionDef`) | Validated by | Compiled shape (`CompiledAction`) | `emit` behavior |
 |---|---|---|---|---|
 | `navigation` | `{ kind, navigateTo, paramsFromState? }` | `resolveRoute(navigateTo)` in references layer (`UNKNOWN_ROUTE`). | Same shape, `kind: 'navigation'`. | Passed through verbatim. |
-| `command` | `{ kind, binding, paramsFromState, onSuccess?, onError? }` | `resolveBinding(binding)` (`UNRESOLVED_BINDING`), optional logical binding kind (`BINDING_KIND_MISMATCH`), and covered `paramsFromState` paths (`UNCOVERED_INPUT`). | `{ kind: 'command', method: 'POST', path, paramsFromState, onSuccess?, onError? }`. | `binding` replaced with `{ method, path }` from `httpMap`. |
+| `command` | `{ kind, binding, paramsFromState, onSuccess?, onError? }` | `resolveBinding(binding)` (`UNRESOLVED_BINDING`), optional logical binding kind (`BINDING_KIND_MISMATCH`), covered `paramsFromState` paths (`UNCOVERED_INPUT`), and `onSuccess` targets: `navigateTo` via `resolveRoute` (`UNKNOWN_ONSUCCESS_ROUTE`), `refetchData` against declared `screen.data` keys (`UNDECLARED_REFETCH_TARGET`), `clearFormState` prefixes must be `/form/*` or `/actions/*` (`INVALID_FORM_STATE_CLEAR`). | `{ kind: 'command', method: 'POST', path, paramsFromState, onSuccess?, onError? }`. | `binding` replaced with `{ method, path }` from `httpMap`. |
 | `refetch` | `{ kind, targets }` | No reference check. | Same shape, `kind: 'refetch'`. | Passed through verbatim. |
 
 ### Data bindings
