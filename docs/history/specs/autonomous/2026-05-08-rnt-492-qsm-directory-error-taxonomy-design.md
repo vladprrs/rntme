@@ -104,17 +104,19 @@ loader changes need it now.
 Append new codes after `QSM_PARSE_DIR_INVALID` in
 `packages/artifacts/qsm/src/types/result.ts`:
 
-- `QSM_PARSE_DIR_INDEX_MISSING`: required `qsm.json` is absent or not readable
-  as a file.
-- `QSM_PARSE_DIR_PROJECTIONS_MISSING`: required `projections/` is absent or not
-  readable as a directory.
+- `QSM_PARSE_DIR_INDEX_MISSING`: required `qsm.json` is absent or unreachable
+  because stat reports `ENOENT`/`ENOTDIR`.
+- `QSM_PARSE_DIR_PROJECTIONS_MISSING`: required `projections/` is absent or
+  unreachable because stat reports `ENOENT`/`ENOTDIR`.
 - `QSM_PARSE_DIR_INDEX_JSON_INVALID`: `qsm.json` exists but is not valid JSON.
 - `QSM_PARSE_DIR_INDEX_SCHEMA_VIOLATION`: parsed `qsm.json` fails
   `QsmDirectoryIndexSchema`.
 - `QSM_PARSE_DIR_PROJECTION_JSON_INVALID`: a `projections/<name>.json` file is
   not valid JSON.
 - `QSM_PARSE_DIR_READ_FAILED`: fallback for filesystem read/list/stat failures
-  not covered by the explicit missing-file/missing-directory checks.
+  not covered by the explicit missing-file/missing-directory checks, including
+  permission errors, non-file `qsm.json`, non-directory `projections`, and
+  unreadable projection files.
 
 Leave `QSM_PARSE_DIR_INVALID` registered and documented as legacy/deprecated.
 Do not delete or reorder existing codes.
@@ -155,6 +157,11 @@ The helper should set paths as author-facing relative paths:
 - `projections/<file>.json` for malformed or unreadable leaf JSON;
 - the relative file or directory that failed for other filesystem errors.
 
+Treat only expected "path does not exist along this route" errors such as
+`ENOENT` and `ENOTDIR` as missing. Permission, type, and other stat/read/list
+failures should map to `read-failed` so missing files/directories remain
+distinct from filesystem failures.
+
 ### 4. Keep parse result errors intact
 
 Structure `loadArtifactDir` so only filesystem, JSON decoding, and index-schema
@@ -182,7 +189,8 @@ In `loadQsmDir`, map shared failure kinds to QSM codes and messages:
 - Malformed projection JSON: `QSM_PARSE_DIR_PROJECTION_JSON_INVALID`, message
   starts `invalid JSON in projections/<file>.json: ...`.
 - Other read/list/stat failures: `QSM_PARSE_DIR_READ_FAILED`, message includes
-  the failed path and original error message.
+  the failed path and original error message. Do not report permission errors,
+  `qsm.json` as a directory, or `projections` as a file as "missing".
 
 Every emitted error should use `layer: 'parse'`. Keep `hint` optional; use it
 only if a message would otherwise become too long.
@@ -229,6 +237,10 @@ Regression tests should cover at least:
 - Malformed `projections/ProductCard.json` ->
   `QSM_PARSE_DIR_PROJECTION_JSON_INVALID`,
   `path: 'projections/ProductCard.json'`.
+- Filesystem failures that are not absence, for example unreadable
+  `qsm.json`, `projections` as a file, failed `readdir`, or unreadable
+  `projections/ProductCard.json`, map to `QSM_PARSE_DIR_READ_FAILED` with the
+  failed relative path and do not use a missing-file/directory code.
 - Invalid projection schema that reaches `parseQsm` remains
   `QSM_PARSE_SCHEMA_VIOLATION`, not any `QSM_PARSE_DIR_*` wrapper.
 - Blueprint load of a bad service QSM retains the nested QSM error in
