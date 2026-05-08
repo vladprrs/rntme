@@ -42,9 +42,9 @@
     "build:provisioner-entry": "esbuild dist/provisioner/index.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
     "start": "bun dist/bin/server.js",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
-    "test": "pnpm run build:deps && vitest run",
+    "test": "pnpm run build:deps && vitest run test/unit",
     "test:watch": "vitest",
-    "test:integration": "vitest run test/integration",
+    "test:integration": "pnpm run build:deps && vitest run test/integration",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
   },
   "dependencies": {

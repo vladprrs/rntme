@@ -5,7 +5,8 @@ S3-compatible vendor module documentation for the Storage contract.
 Current documentation: [docs/current/owners/modules/storage/s3.md](../../../docs/current/owners/modules/storage/s3.md)
 
 Local commands:
-- `pnpm -F @rntme/storage-s3 test` runs unit tests plus skipped-by-env integration tests.
+- `pnpm -F @rntme/storage-s3 test` runs unit tests.
+- `SKIP_INTEGRATION=1 pnpm -F @rntme/storage-s3 run test:integration` verifies integration wiring without a container runtime.
 - `pnpm -F @rntme/storage-s3 run build` builds server, browser client, provisioner, and bundled provisioner entry.
 
 Notes:
