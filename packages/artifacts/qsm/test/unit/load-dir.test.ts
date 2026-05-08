@@ -1,10 +1,4 @@
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dirname, join } from 'node:path';
@@ -25,25 +19,6 @@ describe('loadQsmDir', () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
-
-  function writeMinimalQsm(root: string): void {
-    writeFileSync(join(root, 'qsm.json'), JSON.stringify({ version: '1' }, null, 2));
-    mkdirSync(join(root, 'projections'));
-    writeFileSync(
-      join(root, 'projections', 'ProductCard.json'),
-      JSON.stringify(
-        {
-          backing: 'entity-mirror',
-          source: { entity: 'Product' },
-          keys: ['id'],
-          grain: ['id'],
-          exposed: ['id', 'name'],
-        },
-        null,
-        2,
-      ),
-    );
-  }
 
   it('assembles projection-per-file qsm directory into one artifact', async () => {
     const r = await loadQsmDir(fixtureDir);
