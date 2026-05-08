@@ -17,7 +17,7 @@ export type BlueprintError = Readonly<{
   code: BlueprintErrorCode;
   message: string;
   path?: string;
-  cause?: unknown[];
+  cause?: readonly unknown[];
 }>;
 
 export type Result<T> = SharedResult<T, BlueprintError>;
