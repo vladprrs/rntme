@@ -138,6 +138,7 @@ type PlannedRedpandaConsole = {
 Validation rules:
 
 - Reject Console access unless event bus is provisioned Redpanda.
+- Reject missing or blank `basicAuth.username`.
 - Reject missing `basicAuth.htpasswdSecretRef`.
 - Require a pinned Console image tag; no `latest`.
 - Derive a deterministic default public URL when not supplied, for example
@@ -168,8 +169,13 @@ gateway:
    - Image: pinned `nginx:1.27-alpine`.
    - Public ingress/domain on `publicBaseUrl`.
    - Mounted Nginx config proxies to the Console app on `http://<console-resource>:8080`.
-   - Mounted entrypoint script decodes a secret env var into
-     `/etc/nginx/.htpasswd`.
+   - Mounted bootstrap script decodes a secret env var into
+     `/etc/nginx/.htpasswd`, then `exec`s `nginx -g 'daemon off;'`.
+   - `deploy-dokploy` must add an explicit application command/entrypoint
+     field, and the Dokploy client must apply it, so the bootstrap script is
+     run deterministically. Do not rely on mounted file executable bits or
+     Docker image entrypoint hook behavior unless the implementation first
+     proves and tests that Dokploy preserves the required mode bits.
    - Env:
      - `RNTME_CONSOLE_HTPASSWD_B64=<htpasswdSecretRef>`, `secret: true`
    - Nginx config:
@@ -188,6 +194,19 @@ Dokploy app network names after target creation. The proxy config should rely on
 that mechanism for the Console upstream hostname, the same way current edge
 gateway files are resolved.
 
+Because current rendered application resources are workload-backed, the
+implementation should add an explicit infrastructure-application render shape
+for Console and Console proxy instead of pretending they are domain, integration,
+BPMN-worker, or edge workloads. Suggested apply rank:
+
+1. provisioned Redpanda compose;
+2. provisioned workflow-engine compose, when present;
+3. internal Redpanda Console application;
+4. public Console proxy application;
+5. domain-service and integration-module workloads;
+6. BPMN worker;
+7. edge gateway.
+
 ## 8. Credentials handling
 
 The platform should generate or accept Console basic-auth material at the
@@ -196,7 +215,10 @@ platform boundary:
 - Plain password is shown once to the operator or accepted through stdin/UI
   secret input.
 - Platform stores only the htpasswd line, encrypted like other deploy target
-  secrets.
+  secrets. When the platform generates the line, it must use
+  `basicAuth.username`; when it accepts an existing line, it must reject a
+  username mismatch so logs/UI do not display a different user than Nginx
+  accepts.
 - Render/apply receives only a secret reference or decrypted secret inside the
   existing Dokploy client closure, never a plaintext password.
 - Logs and deployment records show the Console URL, username, and `***` for the
@@ -288,7 +310,11 @@ Future implementation acceptance gates:
   resource names.
 - Unit tests in `deploy-dokploy` render Console and proxy resources with no
   secret values in files, env values marked secret, no direct Console ingress,
-  and correct resource ordering.
+  deterministic proxy bootstrap command/entrypoint, and correct resource
+  ordering.
+- Unit tests in `deploy-dokploy` apply cover command/entrypoint persistence and
+  network-name replacement inside the proxy config without exposing the
+  htpasswd value.
 - Unit tests in `platform-core` validate the persisted access config and reject
   missing auth material.
 - Unit tests in `platform-http` cover deploy config construction, secret
