@@ -1,7 +1,6 @@
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
-
-type Node = AuthoringSpecOutput['graphs'][string]['nodes'][number];
+import { runStructuralVisitor, type CheckBundle, type GraphCtx, type Node } from './visitor.js';
 
 function inputRef(n: Node): string | undefined {
   switch (n.type) {
@@ -18,31 +17,38 @@ function inputRef(n: Node): string | undefined {
   }
 }
 
-export function checkOutputFrom(spec: AuthoringSpecOutput): GraphIrError[] {
-  const errs: GraphIrError[] = [];
-  for (const graph of Object.values(spec.graphs)) {
-    const { from } = graph.signature.output;
-    const node = graph.nodes.find((n) => n.id === from);
-    if (!node) {
-      errs.push({
-        layer: 'structural',
-        code: ERROR_CODES.STRUCT_INVALID_OUTPUT_FROM,
-        message: `signature.output.from "${from}" does not match any node id`,
-        location: { graphId: graph.id },
-      });
-      continue;
-    }
-    const consumed = new Set(
-      graph.nodes.map(inputRef).filter((x): x is string => typeof x === 'string' && x !== '$root'),
-    );
-    if (consumed.has(from)) {
-      errs.push({
-        layer: 'structural',
-        code: ERROR_CODES.STRUCT_INVALID_OUTPUT_FROM,
-        message: `signature.output.from "${from}" is consumed by another node and is not terminal`,
-        location: { graphId: graph.id, nodeId: from },
-      });
-    }
+const collectConsumed = (node: Node, ctx: GraphCtx): void => {
+  const ref = inputRef(node);
+  if (typeof ref === 'string' && ref !== '$root') ctx.consumedInputs.add(ref);
+};
+
+const checkOutputFromTerminal = (ctx: GraphCtx): void => {
+  const { from } = ctx.graph.signature.output;
+  const node = ctx.nodesById.get(from);
+  if (!node) {
+    ctx.errors.push({
+      layer: 'structural',
+      code: ERROR_CODES.STRUCT_INVALID_OUTPUT_FROM,
+      message: `signature.output.from "${from}" does not match any node id`,
+      location: { graphId: ctx.graph.id },
+    });
+    return;
   }
-  return errs;
+  if (ctx.consumedInputs.has(from)) {
+    ctx.errors.push({
+      layer: 'structural',
+      code: ERROR_CODES.STRUCT_INVALID_OUTPUT_FROM,
+      message: `signature.output.from "${from}" is consumed by another node and is not terminal`,
+      location: { graphId: ctx.graph.id, nodeId: from },
+    });
+  }
+};
+
+export const outputFromBundle: CheckBundle = {
+  nodeAll: [collectConsumed],
+  post: [checkOutputFromTerminal],
+};
+
+export function checkOutputFrom(spec: AuthoringSpecOutput): GraphIrError[] {
+  return runStructuralVisitor(spec, undefined as never, undefined as never, [outputFromBundle]);
 }

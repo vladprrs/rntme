@@ -7,8 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const notesDemoDir = join(here, '..', '..', '..', '..', 'demo', 'notes-blueprint');
 
 describe('loadComposedBlueprint (notes demo)', () => {
-  it('loads Auth0 edge-auth metadata from the vendored module manifest', () => {
-    const r = loadComposedBlueprint(notesDemoDir);
+  it('loads Auth0 edge-auth metadata from the vendored module manifest', async () => {
+    const r = await loadComposedBlueprint(notesDemoDir);
     expect(r.ok, r.ok ? '' : JSON.stringify(r.errors)).toBe(true);
     if (!r.ok) return;
 

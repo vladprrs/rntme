@@ -2,6 +2,7 @@ import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
+import { runStructuralVisitor, type CheckBundle, type GraphCtx, type Node } from './visitor.js';
 
 function resolveShapeFieldNames(
   name: string,
@@ -33,32 +34,37 @@ function diff(expected: string[], actual: string[]): { missing: string[]; extra:
   };
 }
 
-export function checkMapReduceCoverage(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
-  const errs: GraphIrError[] = [];
-  for (const graph of Object.values(spec.graphs)) {
-    for (const node of graph.nodes) {
-      if (node.type !== 'map' && node.type !== 'reduce') continue;
-      const expected = resolveShapeFieldNames(node.config.into, spec, pdm, qsm);
-      if (!expected) continue;
-      const actual =
+const checkMapReduceCoverageHook = (node: Node, ctx: GraphCtx): void => {
+  if (node.type !== 'map' && node.type !== 'reduce') return;
+  const expected = resolveShapeFieldNames(node.config.into, ctx.spec, ctx.pdm, ctx.qsm);
+  if (!expected) return;
+  const actual =
+    node.type === 'map'
+      ? Object.keys(node.config.fields)
+      : [...Object.keys(node.config.group), ...Object.keys(node.config.measures)];
+  const { missing, extra } = diff(expected, actual);
+  if (missing.length || extra.length) {
+    ctx.errors.push({
+      layer: 'structural',
+      code:
         node.type === 'map'
-          ? Object.keys(node.config.fields)
-          : [...Object.keys(node.config.group), ...Object.keys(node.config.measures)];
-      const { missing, extra } = diff(expected, actual);
-      if (missing.length || extra.length) {
-        errs.push({
-          layer: 'structural',
-          code:
-            node.type === 'map'
-              ? ERROR_CODES.STRUCT_MAP_SHAPE_COVERAGE
-              : ERROR_CODES.STRUCT_REDUCE_SHAPE_COVERAGE,
-          message:
-            (missing.length ? `missing: ${missing.join(', ')}; ` : '') +
-            (extra.length ? `extra: ${extra.join(', ')}` : ''),
-          location: { graphId: graph.id, nodeId: node.id },
-        });
-      }
-    }
+          ? ERROR_CODES.STRUCT_MAP_SHAPE_COVERAGE
+          : ERROR_CODES.STRUCT_REDUCE_SHAPE_COVERAGE,
+      message:
+        (missing.length ? `missing: ${missing.join(', ')}; ` : '') +
+        (extra.length ? `extra: ${extra.join(', ')}` : ''),
+      location: { graphId: ctx.graph.id, nodeId: node.id },
+    });
   }
-  return errs;
+};
+
+export const mapReduceBundle: CheckBundle = {
+  nodeByKind: {
+    map: [checkMapReduceCoverageHook],
+    reduce: [checkMapReduceCoverageHook],
+  },
+};
+
+export function checkMapReduceCoverage(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
+  return runStructuralVisitor(spec, pdm, qsm, [mapReduceBundle]);
 }

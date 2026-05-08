@@ -10,8 +10,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures', 'product-catalog-project');
 
 describe('loadBlueprint', () => {
-  it('loads project.json + project pdm + service descriptors', () => {
-    const r = loadBlueprint(fixtureDir);
+  it('loads project.json + project pdm + service descriptors', async () => {
+    const r = await loadBlueprint(fixtureDir);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -21,7 +21,7 @@ describe('loadBlueprint', () => {
     expect(r.value.services.catalog?.qsm).not.toBeNull();
   });
 
-  it('rejects a malformed service.json with a descriptor-specific load error', () => {
+  it('rejects a malformed service.json with a descriptor-specific load error', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const copied = join(temp, 'product-catalog-project');
     cpSync(fixtureDir, copied, { recursive: true });
@@ -30,7 +30,7 @@ describe('loadBlueprint', () => {
       JSON.stringify({ kind: 'not-a-kind' }, null, 2),
     );
 
-    const r = loadBlueprint(copied);
+    const r = await loadBlueprint(copied);
     expect(r.ok).toBe(false);
     if (r.ok) return;
 

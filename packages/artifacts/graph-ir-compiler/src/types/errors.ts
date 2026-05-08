@@ -22,9 +22,9 @@ export class GraphIrRuntimeError extends Error {
 }
 
 export class GraphIrCompileError extends Error {
-  readonly errors: GraphIrError[];
+  readonly errors: readonly GraphIrError[];
 
-  constructor(errors: GraphIrError[]) {
+  constructor(errors: readonly GraphIrError[]) {
     super('compile failed');
     this.name = 'GraphIrCompileError';
     this.errors = errors;
@@ -52,7 +52,7 @@ export function runtimeError(
   return new GraphIrRuntimeError(code, message);
 }
 
-export function compileFailed(errors: GraphIrError[]): GraphIrCompileError {
+export function compileFailed(errors: readonly GraphIrError[]): GraphIrCompileError {
   return new GraphIrCompileError(errors);
 }
 

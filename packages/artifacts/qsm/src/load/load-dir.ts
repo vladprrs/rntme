@@ -1,9 +1,8 @@
-import { basename, join } from 'node:path';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { loadArtifactDir } from '@rntme/artifact-shared';
 import { z } from 'zod';
 import { parseQsm } from '../parse/parse.js';
-import { err, type Result } from '../types/result.js';
 import type { QsmArtifact } from '../types/artifact.js';
+import { ERROR_CODES, type QsmError, type Result } from '../types/result.js';
 
 const QsmDirectoryIndexSchema = z
   .object({
@@ -12,58 +11,19 @@ const QsmDirectoryIndexSchema = z
   })
   .strict();
 
-export function loadQsmDir(dir: string): Result<QsmArtifact> {
-  try {
-    const indexPath = join(dir, 'qsm.json');
-    const projectionsDir = join(dir, 'projections');
-
-    if (!existsSync(indexPath)) {
-      return err([
-        {
-          layer: 'parse',
-          code: 'QSM_PARSE_DIR_INVALID',
-          message: 'missing required file: qsm.json',
-          path: 'qsm.json',
-        },
-      ]);
-    }
-
-    if (!existsSync(projectionsDir)) {
-      return err([
-        {
-          layer: 'parse',
-          code: 'QSM_PARSE_DIR_INVALID',
-          message: 'missing required directory: projections',
-          path: 'projections',
-        },
-      ]);
-    }
-
-    const index = QsmDirectoryIndexSchema.parse(
-      JSON.parse(readFileSync(indexPath, 'utf8')),
-    );
-    const projections: Record<string, unknown> = {};
-
-    for (const fname of readdirSync(projectionsDir)) {
-      if (!fname.endsWith('.json')) continue;
-      const projectionName = basename(fname, '.json');
-      projections[projectionName] = JSON.parse(
-        readFileSync(join(projectionsDir, fname), 'utf8'),
-      );
-    }
-
-    return parseQsm({
-      projections,
-      relations: index.relations,
-    });
-  } catch (error) {
-    return err([
-      {
-        layer: 'parse',
-        code: 'QSM_PARSE_DIR_INVALID',
-        message: error instanceof Error ? error.message : String(error),
-        path: dir,
-      },
-    ]);
-  }
+export function loadQsmDir(dir: string): Promise<Result<QsmArtifact>> {
+  return loadArtifactDir<z.output<typeof QsmDirectoryIndexSchema>, QsmArtifact, QsmError>({
+    dir,
+    indexFile: 'qsm.json',
+    leafDir: 'projections',
+    indexSchema: QsmDirectoryIndexSchema,
+    parseFn: ({ index, leafEntries }) =>
+      parseQsm({ projections: leafEntries, relations: index.relations }),
+    buildIoError: ({ message, path }) => ({
+      layer: 'parse',
+      code: ERROR_CODES.QSM_PARSE_DIR_INVALID,
+      message,
+      path,
+    }),
+  });
 }

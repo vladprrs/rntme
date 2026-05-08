@@ -1,5 +1,6 @@
 import {
-  compileOperation,
+  compileOperationFromValidated,
+  parseAuthoringSpec,
   type CompiledOperation,
   type Result,
 } from '@rntme/graph-ir-compiler';
@@ -38,7 +39,9 @@ export function compileOperationForGraph(
   qsm: ValidatedQsm,
   exposure: 'read' | 'action',
 ): Result<CompiledOperation> {
-  return compileOperation(sliceSpec(rawSpec, graphId), pdm, qsm, {
+  const specR = parseAuthoringSpec(sliceSpec(rawSpec, graphId));
+  if (!specR.ok) return specR;
+  return compileOperationFromValidated(specR.value, pdm, qsm, {
     registry: emptyOperationRegistry,
     serviceName: '',
     ownedAggregates: ownedAggregatesFromPdm(pdm),

@@ -2,6 +2,7 @@ import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
+import { runStructuralVisitor, type CheckBundle, type GraphCtx, type Node } from './visitor.js';
 
 export function shapeExists(
   name: string,
@@ -12,22 +13,26 @@ export function shapeExists(
   return name in spec.shapes || name in pdm.entities || name in qsm.projections;
 }
 
-export function checkShapes(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
-  const errs: GraphIrError[] = [];
-  for (const graph of Object.values(spec.graphs)) {
-    for (const node of graph.nodes) {
-      if (node.type === 'map' || node.type === 'reduce') {
-        const into = node.config.into;
-        if (!shapeExists(into, spec, pdm, qsm)) {
-          errs.push({
-            layer: 'structural',
-            code: ERROR_CODES.STRUCT_UNKNOWN_SHAPE,
-            message: `shape "${into}" is not defined in shapes, PDM, or QSM`,
-            location: { graphId: graph.id, nodeId: node.id },
-          });
-        }
-      }
-    }
+const checkMapReduceInto = (node: Node, ctx: GraphCtx): void => {
+  if (node.type !== 'map' && node.type !== 'reduce') return;
+  const into = node.config.into;
+  if (!shapeExists(into, ctx.spec, ctx.pdm, ctx.qsm)) {
+    ctx.errors.push({
+      layer: 'structural',
+      code: ERROR_CODES.STRUCT_UNKNOWN_SHAPE,
+      message: `shape "${into}" is not defined in shapes, PDM, or QSM`,
+      location: { graphId: ctx.graph.id, nodeId: node.id },
+    });
   }
-  return errs;
+};
+
+export const shapesBundle: CheckBundle = {
+  nodeByKind: {
+    map: [checkMapReduceInto],
+    reduce: [checkMapReduceInto],
+  },
+};
+
+export function checkShapes(spec: AuthoringSpecOutput, pdm: ValidatedPdm, qsm: ValidatedQsm): GraphIrError[] {
+  return runStructuralVisitor(spec, pdm, qsm, [shapesBundle]);
 }

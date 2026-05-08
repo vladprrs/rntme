@@ -1,16 +1,29 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export function readJsonFile<T = unknown>(dir: string, name: string): T {
-  return JSON.parse(readFileSync(join(dir, name), 'utf8')) as T;
+export async function readJsonFile<T = unknown>(dir: string, name: string): Promise<T> {
+  return JSON.parse(await readFile(join(dir, name), 'utf8')) as T;
 }
 
-export function listServiceDirs(dir: string): string[] {
+export async function listServiceDirs(dir: string): Promise<string[]> {
   const servicesDir = join(dir, 'services');
-  if (!existsSync(servicesDir)) return [];
-  return readdirSync(servicesDir).filter((name) =>
-    statSync(join(servicesDir, name)).isDirectory(),
+  let entries: string[];
+  try {
+    entries = await readdir(servicesDir);
+  } catch {
+    return [];
+  }
+  const stats = await Promise.all(
+    entries.map(async (name) => {
+      try {
+        const s = await stat(join(servicesDir, name));
+        return { name, isDir: s.isDirectory() };
+      } catch {
+        return { name, isDir: false };
+      }
+    }),
   );
+  return stats.filter((entry) => entry.isDir).map((entry) => entry.name);
 }
 
 export function serviceDirPath(rootDir: string, slug: string): string {

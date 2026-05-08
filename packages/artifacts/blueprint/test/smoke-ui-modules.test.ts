@@ -7,8 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'ui-modules-project');
 
 describe('loadComposedBlueprint (UI modules)', () => {
-  it('discovers modules, validates UI with catalog, emits virtual entry + publicConfig', () => {
-    const r = loadComposedBlueprint(fixtureDir);
+  it('discovers modules, validates UI with catalog, emits virtual entry + publicConfig', async () => {
+    const r = await loadComposedBlueprint(fixtureDir);
     expect(r.ok, r.ok ? '' : JSON.stringify(r.errors)).toBe(true);
     if (!r.ok) return;
 

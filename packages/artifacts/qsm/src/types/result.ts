@@ -1,3 +1,8 @@
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
+
 export type Layer = 'parse' | 'structural' | 'cross-ref' | 'derive' | 'internal';
 
 export type QsmError = {
@@ -8,14 +13,7 @@ export type QsmError = {
   hint?: string;
 };
 
-export type Ok<T> = { ok: true; value: T };
-export type Err = { ok: false; errors: QsmError[] };
-export type Result<T> = Ok<T> | Err;
-
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-export const err = (errors: QsmError[]): Err => ({ ok: false, errors });
-export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
-export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+export type Result<T> = SharedResult<T, QsmError>;
 
 export const ERROR_CODES = {
   // Parse

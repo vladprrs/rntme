@@ -212,8 +212,8 @@ describe('project workflows', () => {
     }
   });
 
-  it('loads validated workflows into composed blueprint', () => {
-    const result = loadComposedBlueprint(scaffoldProject());
+  it('loads validated workflows into composed blueprint', async () => {
+    const result = await loadComposedBlueprint(scaffoldProject());
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.workflows?.definitions[0]?.id).toBe(
@@ -222,13 +222,13 @@ describe('project workflows', () => {
     }
   });
 
-  it('rejects workflow definitions whose BPMN path is a directory', () => {
+  it('rejects workflow definitions whose BPMN path is a directory', async () => {
     const dir = scaffoldProject();
     const bpmnPath = join(dir, 'workflows/order-fulfillment.bpmn');
     rmSync(bpmnPath);
     mkdirSync(bpmnPath);
 
-    const result = loadComposedBlueprint(dir);
+    const result = await loadComposedBlueprint(dir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

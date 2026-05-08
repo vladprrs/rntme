@@ -30,15 +30,15 @@ export type ValidatedService = {
 };
 
 export type ServiceError =
-  | { code: 'MANIFEST_INVALID'; details: ManifestError[] }
-  | { code: 'PDM_INVALID'; details: unknown[] }
-  | { code: 'QSM_INVALID'; details: unknown[] }
-  | { code: 'GRAPH_INVALID'; details: unknown[] }
-  | { code: 'BINDINGS_INVALID'; details: unknown[] }
-  | { code: 'UI_INVALID'; details: unknown[] }
-  | { code: 'OPENAPI_INVALID'; details: unknown[] }
+  | { code: 'MANIFEST_INVALID'; details: readonly ManifestError[] }
+  | { code: 'PDM_INVALID'; details: readonly unknown[] }
+  | { code: 'QSM_INVALID'; details: readonly unknown[] }
+  | { code: 'GRAPH_INVALID'; details: readonly unknown[] }
+  | { code: 'BINDINGS_INVALID'; details: readonly unknown[] }
+  | { code: 'UI_INVALID'; details: readonly unknown[] }
+  | { code: 'OPENAPI_INVALID'; details: readonly unknown[] }
   | { code: 'SEED_INVALID'; details: readonly SeedError[] }
-  | { code: 'DERIVED_PROJECTION_INVALID'; details: unknown[] }
+  | { code: 'DERIVED_PROJECTION_INVALID'; details: readonly unknown[] }
   | { code: 'IO_ERROR'; details: { message: string } };
 
 export type RunningService = {

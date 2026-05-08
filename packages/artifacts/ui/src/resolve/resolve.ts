@@ -22,22 +22,22 @@ function readJson<T>(
   sourceLabel: string,
 ): Result<T> {
   if (!existsSync(filePath)) {
-    return err({ code: 'FILE_NOT_FOUND', message: `File not found: ${filePath}`, path: filePath });
+    return err([{ code: 'FILE_NOT_FOUND', message: `File not found: ${filePath}`, path: filePath }]);
   }
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(filePath, 'utf-8'));
   } catch (e) {
-    return err({ code: invalidCode, message: `Invalid JSON: ${filePath}: ${e}`, path: filePath });
+    return err([{ code: invalidCode, message: `Invalid JSON: ${filePath}: ${e}`, path: filePath }]);
   }
 
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    return err({
+    return err([{
       code: invalidCode,
       message: `${sourceLabel} failed schema validation: ${formatZodIssues(parsed.error.issues)}`,
       path: filePath,
-    });
+    }]);
   }
 
   return ok(parsed.data as T);
@@ -130,11 +130,11 @@ export function resolve(baseDir: string): Result<ResolvedSource> {
     const key = route.screen.split('/').pop()!;
     const previousPath = screenPathByKey.get(key);
     if (previousPath !== undefined && previousPath !== route.screen) {
-      return err({
+      return err([{
         code: 'DUPLICATE_SCREEN_KEY',
         message: `Duplicate derived screen key "${key}" for "${previousPath}" and "${route.screen}"`,
         path: route.screen,
-      });
+      }]);
     }
     screenPathByKey.set(key, route.screen);
     const pair = readPair(baseDir, route.screen);
@@ -150,7 +150,7 @@ export function resolve(baseDir: string): Result<ResolvedSource> {
   ];
   const errors: UiError[] = [];
   collectFragments(baseDir, allSpecs, fragments, new Set(), errors);
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   return ok({ manifest, baseDir, layouts, screens, fragments });
 }

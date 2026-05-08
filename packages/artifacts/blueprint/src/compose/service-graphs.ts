@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { InputMode } from '@rntme/bindings';
 import type { GraphJson, ServiceGraphSpec } from '../types/artifact.js';
@@ -63,15 +63,17 @@ function isValidGraph(value: unknown): value is GraphJson {
   return true;
 }
 
-export function readServiceGraphSpec(
+export async function readServiceGraphSpec(
   rootDir: string,
   slug: string,
-): Result<ServiceGraphSpec> {
+): Promise<Result<ServiceGraphSpec>> {
   const graphRelPath = `services/${slug}/graphs`;
   const graphsDir = join(rootDir, graphRelPath);
   const shapesPath = join(graphsDir, 'shapes.json');
 
-  if (!existsSync(shapesPath)) {
+  try {
+    await stat(shapesPath);
+  } catch {
     return err([
       {
         layer: 'service',
@@ -83,20 +85,36 @@ export function readServiceGraphSpec(
   }
 
   try {
-    const shapes = JSON.parse(readFileSync(shapesPath, 'utf8')) as unknown;
+    // Read shapes.json and the directory listing in parallel; then read all
+    // graph files in parallel.
+    const [shapesText, allFileNames] = await Promise.all([
+      readFile(shapesPath, 'utf8'),
+      readdir(graphsDir),
+    ]);
+
+    const shapes = JSON.parse(shapesText) as unknown;
     if (!isValidShapes(shapes)) {
       throw new Error(`service "${slug}" graph shapes file is malformed`);
     }
 
+    const graphFileNames = allFileNames
+      .filter(
+        (fileName) => fileName.endsWith('.json') && fileName !== 'shapes.json',
+      )
+      .sort();
+    const graphTexts = await Promise.all(
+      graphFileNames.map((fileName) =>
+        readFile(join(graphsDir, fileName), 'utf8'),
+      ),
+    );
+
     const graphs: Record<string, GraphJson> = {};
 
-    for (const fileName of readdirSync(graphsDir).sort()) {
-      if (!fileName.endsWith('.json') || fileName === 'shapes.json') continue;
-
+    for (let i = 0; i < graphFileNames.length; i += 1) {
+      const fileName = graphFileNames[i]!;
+      const text = graphTexts[i]!;
       const graphName = fileName.slice(0, -'.json'.length);
-      const graph = JSON.parse(
-        readFileSync(join(graphsDir, fileName), 'utf8'),
-      ) as unknown;
+      const graph = JSON.parse(text) as unknown;
       if (!isValidGraph(graph)) {
         throw new Error(
           `service "${slug}" graph file "${fileName}" is malformed`,

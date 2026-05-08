@@ -12,7 +12,7 @@ describe('Result helpers', () => {
 
   it('err() creates an Err result', () => {
     const e: UiError = { code: 'INTERNAL', message: 'boom' };
-    const r = err(e);
+    const r = err([e]);
     expect(r.ok).toBe(false);
     expect(isErr(r)).toBe(true);
     if (isErr(r)) expect(r.errors).toEqual([e]);

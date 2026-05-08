@@ -92,12 +92,12 @@ describe('loadServiceMember', () => {
     ]);
   });
 
-  it('validates a service qsm against the shared project pdm', () => {
+  it('validates a service qsm against the shared project pdm', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const pdm = projectPdm();
     const resolver = createPdmResolver(pdm);
 
-    const r = loadServiceMember({
+    const r = await loadServiceMember({
       rootDir: root,
       service: {
         slug: 'app',
@@ -135,7 +135,7 @@ describe('loadServiceMember', () => {
     }
   });
 
-  it('loads bindings without converting unbound helper graph signatures', () => {
+  it('loads bindings without converting unbound helper graph signatures', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const pdm = projectPdm();
     const resolver = createPdmResolver(pdm);
@@ -182,7 +182,7 @@ describe('loadServiceMember', () => {
       },
     });
 
-    const r = loadServiceMember({
+    const r = await loadServiceMember({
       rootDir: root,
       service: {
         slug: 'catalog',
@@ -212,7 +212,7 @@ describe('loadServiceMember', () => {
     }
   });
 
-  it('rejects seed events for aggregates owned by a different service', () => {
+  it('rejects seed events for aggregates owned by a different service', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const pdm = projectPdm();
     const resolver = createPdmResolver(pdm);
@@ -233,7 +233,7 @@ describe('loadServiceMember', () => {
       ],
     });
 
-    const r = loadServiceMember({
+    const r = await loadServiceMember({
       rootDir: root,
       service: {
         slug: 'pricing',

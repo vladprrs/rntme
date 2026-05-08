@@ -7,8 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'product-catalog-project');
 
 describe('loadComposedBlueprint (smoke)', () => {
-  it('loads the canonical composed project fixture', () => {
-    const r = loadComposedBlueprint(fixtureDir);
+  it('loads the canonical composed project fixture', async () => {
+    const r = await loadComposedBlueprint(fixtureDir);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -20,9 +20,9 @@ describe('loadComposedBlueprint (smoke)', () => {
 });
 
 describe('catalog fields on legacy fixture', () => {
-  it('has null catalog when project.json omits modules', () => {
+  it('has null catalog when project.json omits modules', async () => {
     const legacyDir = join(here, 'fixtures', 'product-catalog-project');
-    const r = loadComposedBlueprint(legacyDir);
+    const r = await loadComposedBlueprint(legacyDir);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.catalogManifest).toBeNull();

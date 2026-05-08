@@ -27,7 +27,7 @@ const base: BindingArtifact = {
 const clone = (a: BindingArtifact): BindingArtifact =>
   JSON.parse(JSON.stringify(a)) as BindingArtifact;
 
-const first = <T>(xs: T[]): T => {
+const first = <T>(xs: readonly T[]): T => {
   if (xs.length === 0) throw new Error('empty');
   return xs[0] as T;
 };

@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { loadComposedBlueprint } from '../../src/compose/load-composed-blueprint.js';
+import * as compositionModule from '../../src/validate/composition.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures', 'product-catalog-project');
@@ -16,8 +17,8 @@ function copyFixture(): string {
 }
 
 describe('loadComposedBlueprint', () => {
-  it('compiles app ui against project-routed foreign bindings', () => {
-    const r = loadComposedBlueprint(fixtureDir);
+  it('compiles app ui against project-routed foreign bindings', async () => {
+    const r = await loadComposedBlueprint(fixtureDir);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -27,7 +28,18 @@ describe('loadComposedBlueprint', () => {
     expect(r.value.services.pricing?.seed).not.toBeNull();
   });
 
-  it('fails when app ui references a service that is not published through project.routes.http', () => {
+  it('invokes validateBlueprintComposition exactly once per load', async () => {
+    const spy = vi.spyOn(compositionModule, 'validateBlueprintComposition');
+    try {
+      const r = await loadComposedBlueprint(fixtureDir);
+      expect(r.ok).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('fails when app ui references a service that is not published through project.routes.http', async () => {
     const copied = copyFixture();
 
     const projectPath = join(copied, 'project.json');
@@ -35,14 +47,14 @@ describe('loadComposedBlueprint', () => {
     delete raw.routes.http['/api/pricing'];
     writeFileSync(projectPath, JSON.stringify(raw, null, 2));
 
-    const r = loadComposedBlueprint(copied);
+    const r = await loadComposedBlueprint(copied);
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.errors.some((e) => e.code === 'BLUEPRINT_SERVICE_UI_INVALID')).toBe(true);
     }
   });
 
-  it('fails when app ui navigates to an unknown route', () => {
+  it('fails when app ui navigates to an unknown route', async () => {
     const copied = copyFixture();
     const screenPath = join(copied, 'services', 'app', 'ui', 'screens', 'home.screen.json');
     const raw = JSON.parse(readFileSync(screenPath, 'utf8'));
@@ -51,7 +63,7 @@ describe('loadComposedBlueprint', () => {
     };
     writeFileSync(screenPath, JSON.stringify(raw, null, 2));
 
-    const r = loadComposedBlueprint(copied);
+    const r = await loadComposedBlueprint(copied);
     expect(r.ok).toBe(false);
     if (r.ok) return;
 
@@ -62,7 +74,7 @@ describe('loadComposedBlueprint', () => {
     );
   });
 
-  it('fails when app ui references an unknown component type', () => {
+  it('fails when app ui references an unknown component type', async () => {
     const copied = copyFixture();
     const specPath = join(copied, 'services', 'app', 'ui', 'screens', 'home.spec.json');
     const raw = JSON.parse(readFileSync(specPath, 'utf8'));
@@ -70,7 +82,7 @@ describe('loadComposedBlueprint', () => {
     raw.elements.page.children = [...raw.elements.page.children, 'unknown'];
     writeFileSync(specPath, JSON.stringify(raw, null, 2));
 
-    const r = loadComposedBlueprint(copied);
+    const r = await loadComposedBlueprint(copied);
     expect(r.ok).toBe(false);
     if (r.ok) return;
 

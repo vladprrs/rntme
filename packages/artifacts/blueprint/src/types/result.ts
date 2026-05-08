@@ -1,3 +1,8 @@
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
+
 export type Layer =
   | 'load'
   | 'parse'
@@ -12,18 +17,10 @@ export type BlueprintError = Readonly<{
   code: BlueprintErrorCode;
   message: string;
   path?: string;
-  cause?: unknown[];
+  cause?: readonly unknown[];
 }>;
 
-export type Ok<T> = { ok: true; value: T };
-export type Err = { ok: false; errors: BlueprintError[] };
-export type Result<T> = Ok<T> | Err;
-
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-
-export const err = (errors: BlueprintError[]): Err => ({ ok: false, errors });
-export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
-export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+export type Result<T> = SharedResult<T, BlueprintError>;
 
 export const ERROR_CODES = {
   BLUEPRINT_IO_ERROR: 'BLUEPRINT_IO_ERROR',
