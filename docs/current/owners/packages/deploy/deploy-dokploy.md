@@ -18,8 +18,9 @@ with `DEPLOY_DOKPLOY_INVALID_TARGET_URL` and an error `path` of `endpoint` or
 `publicBaseUrl`. Only `http:` and `https:` URLs with a host are accepted; URLs
 must not include userinfo, query strings, or fragments. Accepted values are
 normalized (whitespace trimmed; redundant trailing slashes removed on the path
-and on the root) so rendered smoke URLs and `target.endpoint` stay stable.
-Error messages never include raw URL values or credentials.
+and on the root) so rendered smoke URLs and `target.endpoint` stay stable. When
+`publicBaseUrl` includes a path prefix, rendered route and smoke URLs stay under
+that prefix. Error messages never include raw URL values or credentials.
 
 ## Public API
 

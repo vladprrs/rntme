@@ -118,10 +118,9 @@ function normalizeTargetHttpUrl(raw: string, field: UrlField): Result<string, Do
 
 /** Stable serialization: drop trailing slash on root; trim trailing slash on paths. */
 function serializedStableHttpUrl(url: URL): string {
-  const path = url.pathname;
-  if (path === '/' || path === '') {
+  const path = url.pathname.replace(/\/+$/, '');
+  if (path === '') {
     return `${url.protocol}//${url.host}`;
   }
-  const withoutTrailingSlash = path.endsWith('/') ? path.slice(0, -1) : path;
-  return `${url.protocol}//${url.host}${withoutTrailingSlash}`;
+  return `${url.protocol}//${url.host}${path}`;
 }

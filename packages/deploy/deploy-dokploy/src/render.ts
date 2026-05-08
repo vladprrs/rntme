@@ -749,7 +749,7 @@ function digest(value: unknown): string {
 
 function joinPublicUrl(base: string, path: string): string {
   const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-  return new URL(path, normalizedBase).toString();
+  return new URL(path.replace(/^\/+/, ''), normalizedBase).toString();
 }
 
 function sortedEntries(value: Readonly<Record<string, string>>): [string, string][] {

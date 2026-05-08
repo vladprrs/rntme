@@ -156,4 +156,30 @@ describe('renderDokployPlan URL validation', () => {
     expect(r.errors[0]?.code).toBe('DEPLOY_DOKPLOY_INVALID_TARGET_URL');
     expect(r.errors[0]?.path).toBe('endpoint');
   });
+
+  it('preserves a normalized publicBaseUrl path prefix in rendered route URLs', () => {
+    const r = renderDokployPlan(minimalPlan, {
+      endpoint: 'https://dokploy.example',
+      projectId: 'p',
+      publicBaseUrl: 'https://app.example/preview///',
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.urls.projectUrl).toBe('https://app.example/preview');
+    expect(r.value.urls.publicRoutes).toEqual([
+      { routeId: 'http:/api/catalog', url: 'https://app.example/preview/api/catalog' },
+    ]);
+    const edge = r.value.resources.find(
+      (resource) => resource.kind === 'application' && resource.workloadKind === 'edge-gateway',
+    );
+    expect(edge).toMatchObject({
+      ingress: {
+        publicBaseUrl: 'https://app.example/preview',
+        routes: [
+          { routeId: 'http:/api/catalog', path: '/api/catalog', url: 'https://app.example/preview/api/catalog' },
+        ],
+      },
+    });
+  });
 });
