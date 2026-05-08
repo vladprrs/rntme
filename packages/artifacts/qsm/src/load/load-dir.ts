@@ -11,7 +11,7 @@ const QsmDirectoryIndexSchema = z
   })
   .strict();
 
-export function loadQsmDir(dir: string): Result<QsmArtifact> {
+export function loadQsmDir(dir: string): Promise<Result<QsmArtifact>> {
   return loadArtifactDir<z.output<typeof QsmDirectoryIndexSchema>, QsmArtifact, QsmError>({
     dir,
     indexFile: 'qsm.json',

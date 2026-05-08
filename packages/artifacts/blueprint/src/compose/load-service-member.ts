@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import type { Buffer } from 'node:buffer';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   parseBindingArtifact,
@@ -25,14 +26,23 @@ import { readServiceGraphSpec } from './service-graphs.js';
 import { eventTypesForService } from './seed-scope.js';
 import { validateStorageJson } from '../validate/storage/index.js';
 
-export function loadServiceMember(input: {
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function loadServiceMember(input: {
   rootDir: string;
   service: CompositionService;
   pdm: ValidatedPdm;
   pdmResolver: PdmResolver;
   allEventTypes: readonly EventTypeSpec[];
   declaredModules?: ReadonlySet<string>;
-}): Result<ValidatedServiceMember> {
+}): Promise<Result<ValidatedServiceMember>> {
   const eventTypes = eventTypesForService(
     input.service.slug,
     input.pdmResolver,
@@ -55,7 +65,7 @@ export function loadServiceMember(input: {
 
   let graphSpec: ServiceGraphSpec | null = null;
   if (input.service.artifacts.hasGraphs || input.service.artifacts.hasBindings) {
-    const loadedGraphs = readServiceGraphSpec(
+    const loadedGraphs = await readServiceGraphSpec(
       input.rootDir,
       input.service.slug,
     );
@@ -82,7 +92,7 @@ export function loadServiceMember(input: {
     if (!resolvers.ok) return resolvers;
 
     const bindingPath = `services/${input.service.slug}/bindings/bindings.json`;
-    const rawBindings = readJson(input.rootDir, bindingPath);
+    const rawBindings = await readJson(input.rootDir, bindingPath);
     if (!rawBindings.ok) {
       return serviceErr(
         ERROR_CODES.BLUEPRINT_SERVICE_BINDINGS_INVALID,
@@ -119,8 +129,19 @@ export function loadServiceMember(input: {
 
   let seed: ValidatedSeed | null = null;
   const seedPath = `services/${input.service.slug}/seed/seed.json`;
-  if (input.service.artifacts.hasSeed || existsSync(join(input.rootDir, seedPath))) {
-    const loadedSeed = loadSeed(join(input.rootDir, seedPath), {
+  const seedAbsPath = join(input.rootDir, seedPath);
+  if (input.service.artifacts.hasSeed || (await pathExists(seedAbsPath))) {
+    let seedBuffer: Buffer;
+    try {
+      seedBuffer = await readFile(seedAbsPath);
+    } catch (error) {
+      return serviceErr(
+        ERROR_CODES.BLUEPRINT_IO_ERROR,
+        error instanceof Error ? error.message : String(error),
+        seedPath,
+      );
+    }
+    const loadedSeed = loadSeed(seedBuffer, {
       pdm: input.pdmResolver,
       events: eventTypes,
       serviceName: input.service.slug,
@@ -138,10 +159,11 @@ export function loadServiceMember(input: {
 
   let storage = null;
   const storagePath = `services/${input.service.slug}/storage.json`;
-  if (input.service.artifacts.hasStorage || existsSync(join(input.rootDir, storagePath))) {
+  const storageAbsPath = join(input.rootDir, storagePath);
+  if (input.service.artifacts.hasStorage || (await pathExists(storageAbsPath))) {
     let text: string;
     try {
-      text = readFileSync(join(input.rootDir, storagePath), 'utf8');
+      text = await readFile(storageAbsPath, 'utf8');
     } catch (error) {
       return serviceErr(
         ERROR_CODES.BLUEPRINT_IO_ERROR,
@@ -174,9 +196,9 @@ export function loadServiceMember(input: {
   });
 }
 
-function readJson(rootDir: string, relPath: string): Result<unknown> {
+async function readJson(rootDir: string, relPath: string): Promise<Result<unknown>> {
   try {
-    return ok(JSON.parse(readFileSync(join(rootDir, relPath), 'utf8')));
+    return ok(JSON.parse(await readFile(join(rootDir, relPath), 'utf8')));
   } catch (error) {
     return err([
       {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 
@@ -13,16 +13,16 @@ export type DiscoveredModule = {
   publicConfig: Record<string, unknown>;
 };
 
-export function discoverModules(input: {
+export async function discoverModules(input: {
   projectDir: string;
-  resolvePackage?: (packageName: string, projectDir: string) => string;
-}): Result<Record<string, DiscoveredModule>> {
+  resolvePackage?: (packageName: string, projectDir: string) => Promise<string> | string;
+}): Promise<Result<Record<string, DiscoveredModule>>> {
   const errors: BlueprintError[] = [];
   const out: Record<string, DiscoveredModule> = {};
 
   let projectRaw: unknown;
   try {
-    projectRaw = JSON.parse(readFileSync(join(input.projectDir, 'project.json'), 'utf-8'));
+    projectRaw = JSON.parse(await readFile(join(input.projectDir, 'project.json'), 'utf-8'));
   } catch (e) {
     return err([
       {
@@ -40,30 +40,63 @@ export function discoverModules(input: {
 
   const resolver = input.resolvePackage ?? defaultResolvePackage;
 
-  for (const [projectKey, moduleRef] of Object.entries(modules)) {
+  // Resolve package directories in parallel.
+  const moduleEntries = Object.entries(modules);
+  const resolved = await Promise.all(
+    moduleEntries.map(async ([projectKey, moduleRef]) => {
+      const packageName = moduleRef.package;
+      try {
+        const packageDir = await resolver(packageName, input.projectDir);
+        return { projectKey, moduleRef, packageDir, error: null as null | Error };
+      } catch (e) {
+        return {
+          projectKey,
+          moduleRef,
+          packageDir: '',
+          error: e instanceof Error ? e : new Error(String(e)),
+        };
+      }
+    }),
+  );
+
+  // Read each module.json in parallel.
+  const manifestReads = await Promise.all(
+    resolved.map(async (entry) => {
+      if (entry.error !== null) return { entry, manifestRaw: null, readError: null };
+      try {
+        const manifestRaw = JSON.parse(
+          await readFile(join(entry.packageDir, 'module.json'), 'utf-8'),
+        );
+        return { entry, manifestRaw, readError: null as null | Error };
+      } catch (e) {
+        return {
+          entry,
+          manifestRaw: null,
+          readError: e instanceof Error ? e : new Error(String(e)),
+        };
+      }
+    }),
+  );
+
+  for (const { entry, manifestRaw, readError } of manifestReads) {
+    const { projectKey, moduleRef } = entry;
     const packageName = moduleRef.package;
 
-    let packageDir: string;
-    try {
-      packageDir = resolver(packageName, input.projectDir);
-    } catch (e) {
+    if (entry.error !== null) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_MODULE_RESOLVE_FAILED,
-        message: `module package "${packageName}" does not resolve from project (${e instanceof Error ? e.message : String(e)})`,
+        message: `module package "${packageName}" does not resolve from project (${entry.error.message})`,
         path: `project.json#modules.${projectKey}`,
       });
       continue;
     }
 
-    let manifestRaw: unknown;
-    try {
-      manifestRaw = JSON.parse(readFileSync(join(packageDir, 'module.json'), 'utf-8'));
-    } catch (e) {
+    if (readError !== null) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_MODULE_MANIFEST_INVALID,
-        message: `cannot read module.json for "${packageName}": ${e instanceof Error ? e.message : String(e)}`,
+        message: `cannot read module.json for "${packageName}": ${readError.message}`,
         path: `${packageName}/module.json`,
       });
       continue;
@@ -96,12 +129,17 @@ export function discoverModules(input: {
     }
 
     if (parsed.value.provisioner) {
-      const entry = parsed.value.provisioner.entry;
-      if (entry.startsWith('/') || entry.startsWith('..') || entry.includes('/../') || entry.includes('\\..\\')) {
+      const moduleEntry = parsed.value.provisioner.entry;
+      if (
+        moduleEntry.startsWith('/') ||
+        moduleEntry.startsWith('..') ||
+        moduleEntry.includes('/../') ||
+        moduleEntry.includes('\\..\\')
+      ) {
         errors.push({
           layer: 'composition',
           code: ERROR_CODES.BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY,
-          message: `module "${packageName}" provisioner.entry "${entry}" must be a relative path inside the package`,
+          message: `module "${packageName}" provisioner.entry "${moduleEntry}" must be a relative path inside the package`,
           path: `${packageName}/module.json:provisioner.entry`,
         });
         continue;
@@ -110,7 +148,7 @@ export function discoverModules(input: {
 
     out[parsed.value.name] = {
       manifest: parsed.value,
-      packageDir,
+      packageDir: entry.packageDir,
       projectKey,
       publicConfig: moduleRef.publicConfig ?? {},
     };
@@ -121,7 +159,7 @@ export function discoverModules(input: {
 }
 
 /** Resolve the on-disk package root from the project, with exports-safe fallbacks. */
-export function defaultResolvePackage(packageName: string, projectDir: string): string {
+export async function defaultResolvePackage(packageName: string, projectDir: string): Promise<string> {
   const absProjectDir = resolve(projectDir);
   const projectRequire = createRequire(join(absProjectDir, 'project.json'));
   try {
@@ -129,13 +167,13 @@ export function defaultResolvePackage(packageName: string, projectDir: string): 
   } catch (error) {
     const fallback = join(absProjectDir, 'node_modules', ...packageName.split('/'), 'module.json');
     try {
-      readFileSync(fallback);
+      await readFile(fallback);
       return dirname(fallback);
     } catch {
       try {
         return dirname(projectRequire.resolve(`${packageName}/module.json`));
       } catch {
-        const workspaceDir = workspacePackageDir(packageName, absProjectDir);
+        const workspaceDir = await workspacePackageDir(packageName, absProjectDir);
         if (workspaceDir !== null) return workspaceDir;
         throw error;
       }
@@ -143,7 +181,10 @@ export function defaultResolvePackage(packageName: string, projectDir: string): 
   }
 }
 
-function workspacePackageDir(packageName: string, projectDir: string): string | null {
+async function workspacePackageDir(
+  packageName: string,
+  projectDir: string,
+): Promise<string | null> {
   const candidates = [
     join(projectDir, '..', '..'),
     join(projectDir, '..', '..', '..'),
@@ -151,7 +192,7 @@ function workspacePackageDir(packageName: string, projectDir: string): string | 
   for (const root of candidates) {
     const dir = join(root, ...workspacePackagePathSegments(packageName));
     try {
-      readFileSync(join(dir, 'module.json'));
+      await readFile(join(dir, 'module.json'));
       return resolve(dir);
     } catch {
       // Keep trying candidate roots.

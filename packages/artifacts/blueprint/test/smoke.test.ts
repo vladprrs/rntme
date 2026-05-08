@@ -7,8 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'product-catalog-project');
 
 describe('loadBlueprint (smoke)', () => {
-  it('loads the canonical product-catalog project fixture', () => {
-    const r = loadBlueprint(fixtureDir);
+  it('loads the canonical product-catalog project fixture', async () => {
+    const r = await loadBlueprint(fixtureDir);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 

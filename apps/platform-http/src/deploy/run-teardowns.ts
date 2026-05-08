@@ -84,7 +84,7 @@ export async function runTearDownsForDeployment(input: {
     }
 
     // Discover modules from the materialized project directory.
-    const discovered = discoverModules({ projectDir: tmpDir });
+    const discovered = await discoverModules({ projectDir: tmpDir });
     if (!discovered.ok) {
       return {
         ok: false,
