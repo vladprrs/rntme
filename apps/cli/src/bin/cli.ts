@@ -25,12 +25,14 @@ import { runTokenList } from '../commands/token/list.js';
 import { runTokenRevoke } from '../commands/token/revoke.js';
 import { runInit } from '../commands/init.js';
 import { runSkillsInstall } from '../commands/skills/install.js';
+import { runBundlePublish } from '../commands/bundle/index.js';
 import { runTargetList } from '../commands/target/list.js';
 import { runTargetShow } from '../commands/target/show.js';
 import { runTargetSetConfig } from '../commands/target/set-config.js';
 import { runTargetCreate } from '../commands/target/create.js';
 import type { CommonFlags } from '../commands/harness.js';
 import { registerHelp, lookupHelp } from '../help/registry.js';
+import type { PublishTarget } from '@rntme/bundle-publish';
 
 registerHelp(['project', 'deploy'], `Usage: rntme project deploy --org <slug> --project <slug> --version <seq> --target <target-slug>
   [--runtime-image <ref>] [--config-overrides <path.json>] [--wait] [--timeout <sec>]
@@ -40,6 +42,10 @@ Starts a platform deployment of a previously published version against a deploy 
 registerHelp(['project', 'publish'], `Usage: rntme project publish [--org <slug>] [--project <slug>] [--dry-run] [folder]
 
 Validates and uploads the project blueprint as a new version. Folder defaults to current directory.`);
+
+registerHelp(['bundle', 'publish'], `Usage: rntme bundle publish <folder> --target s3 --bucket <bucket> [--endpoint <url>] [--region <region>] [--key-prefix <prefix>] [--max-bytes <n>] [--ignore <glob>...] [--print-json]
+
+Creates a deterministic tar+gzip bundle, uploads it to S3-compatible storage, and prints a sha256-pinned BundleSource.`);
 
 registerHelp(['project', 'deployment', 'list'], `Usage: rntme project deployment list --org <slug> --project <slug> [--limit <n>]`);
 registerHelp(['project', 'deployment', 'show'], `Usage: rntme project deployment show --org <slug> --project <slug> <deployment-id>`);
@@ -63,6 +69,7 @@ Commands:
 
   init <slug>             Scaffold a project blueprint in cwd
   skills install --agent  Install skill pack for the chosen agent
+  bundle publish          Publish a static folder as a sha256-pinned S3 bundle
 
   project create <slug>   Create a new project
   project list            List projects in the org
@@ -190,6 +197,13 @@ export async function main(argv: string[]): Promise<number> {
         agent: { type: 'string' },
         target: { type: 'string' },
         force: { type: 'boolean' },
+        bucket: { type: 'string' },
+        endpoint: { type: 'string' },
+        region: { type: 'string' },
+        'key-prefix': { type: 'string' },
+        'max-bytes': { type: 'string' },
+        ignore: { type: 'string', multiple: true },
+        'print-json': { type: 'boolean' },
         'runtime-image': { type: 'string' },
         'config-overrides': { type: 'string' },
         wait: { type: 'boolean' },
@@ -262,6 +276,39 @@ export async function main(argv: string[]): Promise<number> {
 
     case 'whoami': {
       return runWhoami(commonFlags);
+    }
+
+    // -------------------------------------------------------------------------
+    // bundle
+    // -------------------------------------------------------------------------
+    case 'bundle': {
+      const sub = positionals[1];
+      if (sub !== 'publish') {
+        process.stderr.write('Usage: rntme bundle publish <folder> --target s3 --bucket <bucket>\n');
+        return sub === undefined ? 1 : 2;
+      }
+
+      const folder = positionals[2];
+      const targetKind = asString(values['target']);
+      const bucket = asString(values['bucket']);
+      if (!folder || targetKind !== 's3' || !bucket) {
+        process.stderr.write('Usage: rntme bundle publish <folder> --target s3 --bucket <bucket>\n');
+        return 1;
+      }
+
+      const target: PublishTarget = { kind: 's3', bucket };
+      setIfDefined(target, 'endpoint', asString(values['endpoint']));
+      setIfDefined(target, 'region', asString(values['region']));
+      return runBundlePublish(
+        {
+          folder,
+          target,
+          keyPrefix: asString(values['key-prefix']),
+          maxBytes: parsePositiveInt(asString(values['max-bytes'])),
+          ignore: asStringArray(values['ignore']),
+          printJson: asBool(values['print-json']) === true,
+        },
+      );
     }
 
     // -------------------------------------------------------------------------

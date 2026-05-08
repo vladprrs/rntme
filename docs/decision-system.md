@@ -96,6 +96,8 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **Auth0 as first identity module** · F8 · `locked` · spec `2026-04-29-notes-demo-auth0-design.md`
 - **OpenRouter as first AI/LLM module** · F8 · `locked` · spec `done/2026-05-06-ai-llm-openrouter-module-design.md`
 - **S3 as first storage module** · F1, F8 · `locked` · spec `2026-05-06-storage-s3-module-design.md`
+- **`marketing-site` as a module category** — products attach externally-authored HTML landings as a first-class blueprint service · F1, G4 · `locked-pending` · spec `2026-05-07-product-landings-marketing-site-module-design.md`
+- **`marketing-site-static` as first vendor** — HTML bundle pulled from S3, hosted via `nginx:alpine` · F8 · `locked-pending` · spec `2026-05-07-product-landings-marketing-site-module-design.md`
 - **Seed as module (not part of core)** · F1, G4 · `locked-pending` (implementation TBD)
 
 ### 3.6 Conventions

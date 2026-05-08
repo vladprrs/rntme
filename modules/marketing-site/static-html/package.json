@@ -1,0 +1,52 @@
+{
+  "name": "@rntme/marketing-site-static",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Static HTML vendor module for the marketing-site canonical contract.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./provisioner": {
+      "types": "./dist/provisioner.d.ts",
+      "import": "./dist/provisioner.js"
+    },
+    "./provisioner.entry": {
+      "import": "./dist/provisioner.entry.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "module.json", "README.md"],
+  "scripts": {
+    "build": "pnpm run build:deps && tsc -p tsconfig.json && pnpm run build:provisioner",
+    "build:provisioner": "esbuild dist/provisioner.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
+    "build:deps": "pnpm -F @rntme/contracts-marketing-site-v1 run build && pnpm -F @rntme/contracts-provisioner-v1 run build && pnpm -F @rntme/conformance-marketing-site run build",
+    "test": "pnpm run build:deps && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.650.0",
+    "@rntme/conformance-marketing-site": "workspace:*",
+    "@rntme/contracts-marketing-site-v1": "workspace:*",
+    "@rntme/contracts-module-v1": "workspace:*",
+    "@rntme/contracts-provisioner-v1": "workspace:*",
+    "tar-stream": "^3.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.0",
+    "@types/tar-stream": "^3.1.3",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

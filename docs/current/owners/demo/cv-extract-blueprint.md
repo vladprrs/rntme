@@ -1,12 +1,13 @@
 # `demo/cv-extract-blueprint/` — Resume extraction demo
 
-Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter`. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON.
+Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter` and dogfoods the `marketing-site` module. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON. The same blueprint also declares a `marketing` service backed by `@rntme/marketing-site-static`.
 
 ## File map
 
 ```
 demo/cv-extract-blueprint/
-├── project.json                       modules: openrouter
+├── project.json                       modules: openrouter, marketing-site-static
+├── landing/                           static marketing landing bundle source
 ├── pdm/
 │   ├── pdm.json                       version stamp
 │   └── entities/Resume.json           single state, single transition
@@ -23,7 +24,8 @@ demo/cv-extract-blueprint/
 │   └── ui/                            single screen: file picker + result
 └── test/
     ├── fixtures/sample-resume.pdf     1-page fictional resume
-    └── integration/extract.test.ts    blueprint smoke against mocked OR
+    ├── integration/extract.test.ts    blueprint smoke against mocked OR
+    └── landing-deploy.test.ts         marketing publicConfig validation smoke
 ```
 
 ## Quick start
@@ -35,6 +37,21 @@ export OPENROUTER_API_KEY="${OPENROUTER:-sk-or-...}"
 ```
 
 Then deploy or run the blueprint via the standard rntme runtime tooling. The home screen at `/` accepts a PDF (≤10MB), POSTs to `/resumes`, and renders the extracted JSON on response.
+
+The marketing landing is attached as a separate `marketing` service and not routed through the app's `/` route. Deploy targets provide `MARKETING_DOMAIN`, which fills `modules.marketing.publicConfig.primaryDomain`.
+
+To publish a new landing bundle:
+
+```bash
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=testtest \
+  rntme bundle publish demo/cv-extract-blueprint/landing \
+  --target s3 \
+  --bucket cv-extract \
+  --key-prefix landings/cv-extract \
+  --print-json
+```
+
+Paste the printed `BundleSource` into `project.json#modules.marketing.publicConfig.source`.
 
 ## How it works
 
@@ -56,6 +73,7 @@ If OpenRouter fails, the graph fails (graph node `policy.onError: "fail"`). The 
 ## Limits and trade-offs
 
 - No authentication. Open demo, like notes-blueprint without identity.
+- Marketing landing bundle references an S3 object by sha256; re-publishing the landing requires updating the source key and hash together.
 - Model is hard-coded to `openrouter/deepseek/deepseek-v4-flash` in the graph. Changing it requires editing the literal in `extractResume.json`.
 - `extractedJson` is a string (`TEXT` column). Parse on the client; we do not validate the JSON shape server-side.
 - File payload is inline base64 in the `ResumeUploaded`-equivalent event payload (well, in `ResumeComplete` here). Up to ~10MB is fine; larger needs the future S3 file-storage module (separate brainstorm).
