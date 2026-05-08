@@ -212,6 +212,92 @@ describe('loadServiceMember', () => {
     }
   });
 
+  it('ignores seed.json on disk when artifacts.hasSeed is false', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const pdm = projectPdm();
+    const resolver = createPdmResolver(pdm);
+
+    // Invalid for pricing (catalog-owned aggregate); would fail if loaded.
+    writeJson(root, 'services/pricing/seed/seed.json', {
+      seedVersion: 1,
+      events: [
+        {
+          id: 'seed:Publication:1:v1',
+          subject: 'Publication-1',
+          rntAggregateType: 'Publication',
+          rntAggregateId: '1',
+          rntVersion: 1,
+          eventType: 'PublicationPublish',
+          data: { productId: 1 },
+          time: '2026-04-23T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const r = await loadServiceMember({
+      rootDir: root,
+      service: {
+        slug: 'pricing',
+        kind: 'domain',
+        qsm: null,
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: false,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: false,
+          hasStorage: false,
+          hasCommandHandlers: false,
+        },
+      },
+      pdm,
+      pdmResolver: resolver,
+      allEventTypes: deriveEventTypes(pdm),
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.seed).toBeNull();
+    }
+  });
+
+  it('loads seed when artifacts.hasSeed is true and seed.json is valid', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const pdm = projectPdm();
+    const resolver = createPdmResolver(pdm);
+
+    writeJson(root, 'services/pricing/seed/seed.json', {
+      seedVersion: 1,
+      events: [],
+    });
+
+    const r = await loadServiceMember({
+      rootDir: root,
+      service: {
+        slug: 'pricing',
+        kind: 'domain',
+        qsm: null,
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: false,
+          hasUi: false,
+          hasSeed: true,
+          hasQsm: false,
+          hasStorage: false,
+          hasCommandHandlers: false,
+        },
+      },
+      pdm,
+      pdmResolver: resolver,
+      allEventTypes: deriveEventTypes(pdm),
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.seed).not.toBeNull();
+    }
+  });
+
   it('rejects seed events for aggregates owned by a different service', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const pdm = projectPdm();

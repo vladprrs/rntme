@@ -130,7 +130,7 @@ export async function loadServiceMember(input: {
   let seed: ValidatedSeed | null = null;
   const seedPath = `services/${input.service.slug}/seed/seed.json`;
   const seedAbsPath = join(input.rootDir, seedPath);
-  if (input.service.artifacts.hasSeed || (await pathExists(seedAbsPath))) {
+  if (input.service.artifacts.hasSeed) {
     let seedBuffer: Buffer;
     try {
       seedBuffer = await readFile(seedAbsPath);
