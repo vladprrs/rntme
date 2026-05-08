@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { renderDokployPlan } from '../../src/render.js';
-import { validateDokployTargetConfig } from '../../src/config.js';
+import { validateDokployTargetConfig, type DokployTargetConfig } from '../../src/config.js';
 
 const minimalPlan: ProjectDeploymentPlan = {
   project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
@@ -112,6 +112,15 @@ describe('validateDokployTargetConfig', () => {
     if (a.ok) return;
     expect(a.errors).toHaveLength(2);
     expect(new Set(a.errors.map((e) => e.path))).toEqual(new Set(['endpoint', 'publicBaseUrl']));
+  });
+
+  it('rejects missing endpoint and publicBaseUrl with structured errors', () => {
+    const a = validateDokployTargetConfig({ projectId: 'p' } as DokployTargetConfig);
+    expect(a.ok).toBe(false);
+    if (a.ok) return;
+    expect(a.errors).toHaveLength(2);
+    expect(new Set(a.errors.map((e) => e.path))).toEqual(new Set(['endpoint', 'publicBaseUrl']));
+    expect(a.errors.every((e) => e.code === 'DEPLOY_DOKPLOY_INVALID_TARGET_URL')).toBe(true);
   });
 
   it('does not echo credentials from userinfo in error output', () => {

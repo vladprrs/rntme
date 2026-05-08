@@ -30,9 +30,8 @@ export function validateDokployTargetConfig(config: DokployTargetConfig): Result
   });
 }
 
-function normalizeTargetHttpUrl(raw: string, field: UrlField): Result<string, DokployDeploymentError> {
-  const trimmed = raw.trim();
-  if (trimmed === '') {
+function normalizeTargetHttpUrl(raw: unknown, field: UrlField): Result<string, DokployDeploymentError> {
+  if (typeof raw !== 'string' || raw.trim() === '') {
     return err([
       {
         code: 'DEPLOY_DOKPLOY_INVALID_TARGET_URL',
@@ -45,6 +44,7 @@ function normalizeTargetHttpUrl(raw: string, field: UrlField): Result<string, Do
     ]);
   }
 
+  const trimmed = raw.trim();
   let url: URL;
   try {
     url = new URL(trimmed);
