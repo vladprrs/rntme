@@ -26,6 +26,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/artifact-shared": "workspace:*",
     "@rntme/event-store": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "zod": "^4.0.0"

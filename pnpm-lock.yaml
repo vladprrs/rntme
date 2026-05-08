@@ -964,8 +964,35 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
 
+  packages/artifacts/_shared:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.6.0
+        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.6.0
+        version: 8.58.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.10.0
+        version: 9.39.4(jiti@2.6.1)
+      prettier:
+        specifier: ^3.3.3
+        version: 3.8.2
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.39)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(jsdom@25.0.1)(lightningcss@1.32.0)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))
+
   packages/artifacts/bindings:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       '@rntme/graph-ir-compiler':
         specifier: workspace:*
         version: link:../graph-ir-compiler
@@ -997,6 +1024,9 @@ importers:
 
   packages/artifacts/blueprint:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       '@rntme/bindings':
         specifier: workspace:*
         version: link:../bindings
@@ -1049,6 +1079,9 @@ importers:
 
   packages/artifacts/graph-ir-compiler:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../../runtime/event-store
@@ -1092,6 +1125,9 @@ importers:
 
   packages/artifacts/pdm:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       zod:
         specifier: ^4.0.0
         version: 4.3.6
@@ -1120,6 +1156,9 @@ importers:
 
   packages/artifacts/qsm:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       '@rntme/pdm':
         specifier: workspace:*
         version: link:../pdm
@@ -1157,6 +1196,9 @@ importers:
 
   packages/artifacts/seed:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       '@rntme/event-store':
         specifier: workspace:*
         version: link:../../runtime/event-store
@@ -1197,6 +1239,9 @@ importers:
 
   packages/artifacts/ui:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       zod:
         specifier: ^4.0.0
         version: 4.3.6
@@ -1213,6 +1258,9 @@ importers:
 
   packages/artifacts/workflows:
     dependencies:
+      '@rntme/artifact-shared':
+        specifier: workspace:*
+        version: link:../_shared
       zod:
         specifier: ^4.0.0
         version: 4.3.6

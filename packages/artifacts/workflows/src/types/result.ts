@@ -1,3 +1,8 @@
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
+
 export type Layer = 'parse' | 'structural' | 'cross-ref' | 'internal';
 
 export type WorkflowError = {
@@ -8,14 +13,7 @@ export type WorkflowError = {
   readonly hint?: string;
 };
 
-export type Ok<T> = { readonly ok: true; readonly value: T };
-export type Err = { readonly ok: false; readonly errors: readonly WorkflowError[] };
-export type Result<T> = Ok<T> | Err;
-
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-export const err = (errors: readonly WorkflowError[]): Err => ({ ok: false, errors });
-export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
-export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+export type Result<T> = SharedResult<T, WorkflowError>;
 
 export const ERROR_CODES = {
   WORKFLOWS_PARSE_SCHEMA_VIOLATION: 'WORKFLOWS_PARSE_SCHEMA_VIOLATION',

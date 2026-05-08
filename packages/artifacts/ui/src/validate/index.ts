@@ -21,7 +21,7 @@ export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers)
     errors.push(...validateStructural(screen.spec, `screen:${name}`, false));
   }
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   for (const [name, layout] of Object.entries(expanded.layouts)) {
     errors.push(...validateSpecSemantics(layout.spec, layout.screen, `layout:${name}`));
@@ -31,7 +31,7 @@ export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers)
     errors.push(...validateSpecSemantics(screen.spec, screen.screen, `screen:${name}`));
   }
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   const routePatterns = Object.keys(expanded.manifest.routes);
   const resolveRoute = (path: string): boolean => {
@@ -61,11 +61,11 @@ export function validate(expanded: ExpandedSource, resolvers: ValidateResolvers)
     );
   }
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
 
   validateModuleActions(expanded, mergedResolvers, errors);
   validateComponentTypesAndProps(expanded, mergedResolvers, errors);
 
-  if (errors.length > 0) return err(...errors);
+  if (errors.length > 0) return err(errors);
   return ok(undefined);
 }

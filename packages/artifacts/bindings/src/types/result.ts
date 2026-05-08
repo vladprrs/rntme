@@ -1,3 +1,8 @@
+import type { Result as SharedResult } from '@rntme/artifact-shared';
+
+export { ok, err, isOk, isErr } from '@rntme/artifact-shared';
+export type { Ok, Err } from '@rntme/artifact-shared';
+
 export type Layer = 'parse' | 'structural' | 'references' | 'consistency' | 'internal';
 
 export type BindingsError = {
@@ -8,14 +13,7 @@ export type BindingsError = {
   hint?: string;
 };
 
-export type Ok<T> = { ok: true; value: T };
-export type Err = { ok: false; errors: BindingsError[] };
-export type Result<T> = Ok<T> | Err;
-
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-export const err = (errors: BindingsError[]): Err => ({ ok: false, errors });
-export const isOk = <T>(r: Result<T>): r is Ok<T> => r.ok;
-export const isErr = <T>(r: Result<T>): r is Err => !r.ok;
+export type Result<T> = SharedResult<T, BindingsError>;
 
 export const ERROR_CODES = {
   BINDINGS_PARSE_SCHEMA_VIOLATION: 'BINDINGS_PARSE_SCHEMA_VIOLATION',

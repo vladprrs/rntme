@@ -25,6 +25,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/artifact-shared": "workspace:*",
     "@rntme/bindings": "workspace:*",
     "@rntme/platform-core": "workspace:*",
     "@rntme/pdm": "workspace:*",
