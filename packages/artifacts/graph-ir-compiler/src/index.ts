@@ -44,7 +44,11 @@ export {
   inferEffectSummary,
   validateOperationEffects,
 } from './validate/effects.js';
-export { compileOperation, type CompileOperationOptions } from './operation/compile.js';
+export {
+  compileOperation,
+  compileOperationFromValidated,
+  type CompileOperationOptions,
+} from './operation/compile.js';
 export { executeOperation } from './operation/execute.js';
 export { normalize } from './canonical/normalize.js';
 

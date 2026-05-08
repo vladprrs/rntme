@@ -22,7 +22,24 @@ export type EventTypeSpec = Readonly<{
   payloadFields: Readonly<Record<string, EventFieldSpec>>;
 }>;
 
-export function deriveEventTypes(artifact: ValidatedPdm): EventTypeSpec[] {
+// Cache keyed by ValidatedPdm identity. Branded `Readonly<...>` brands are
+// still real objects, so WeakMap is GC-safe: when the PDM goes out of scope,
+// its cache entry is collected. Callers (graph-ir-compiler emit/validate/
+// compile, blueprint compose, runtime load-service, seed CLI/tests) all pass
+// the same ValidatedPdm reference repeatedly per service boot, so cache hits
+// dominate after the first call.
+const eventTypesCache = new WeakMap<ValidatedPdm, readonly EventTypeSpec[]>();
+
+export function deriveEventTypes(artifact: ValidatedPdm): readonly EventTypeSpec[] {
+  const cached = eventTypesCache.get(artifact);
+  if (cached !== undefined) return cached;
+
+  const computed = computeEventTypes(artifact);
+  eventTypesCache.set(artifact, computed);
+  return computed;
+}
+
+function computeEventTypes(artifact: ValidatedPdm): readonly EventTypeSpec[] {
   const events: EventTypeSpec[] = [];
 
   for (const [entityName, entity] of Object.entries(artifact.entities)) {
