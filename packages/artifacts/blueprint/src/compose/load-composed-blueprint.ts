@@ -11,7 +11,7 @@ import { validateBlueprintComposition } from '../validate/composition.js';
 import { buildBindingRegistry } from './binding-registry.js';
 import { compileServiceUi } from './compile-service-ui.js';
 import { buildCatalog } from './catalog.js';
-import { discoverModules } from './modules.js';
+import { discoverModules, type DiscoveredModule } from './modules.js';
 import { renderVirtualEntry } from './virtual-entry.js';
 import {
   buildPublicConfigSidecar,
@@ -34,12 +34,11 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     };
   }
 
-  const routing = validateBlueprintComposition({
-    project: loaded.value.project,
-    services,
-  });
-  if (!routing.ok) return routing;
-
+  // Module discovery runs before service load so the final composition
+  // validation can see the catalog/discovered modules. We don't gate this
+  // with an early validateBlueprintComposition call — the single call after
+  // services load covers every check the early ones did, plus the
+  // bindings/graphSpec checks that require validatedServices.
   const hasModules =
     loaded.value.project.modules !== undefined &&
     Object.keys(loaded.value.project.modules).length > 0;
@@ -47,6 +46,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   let catalogManifest: CatalogManifest | null = null;
   let publicConfigJson: string | null = null;
   let virtualEntrySource: string | null = null;
+  let discoveredModulesValue: Record<string, DiscoveredModule> | null = null;
 
   if (hasModules) {
     const discovered = discoverModules({ projectDir: dir });
@@ -54,14 +54,6 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
 
     const catalog = buildCatalog(discovered.value);
     if (!catalog.ok) return catalog;
-
-    const moduleComposition = validateBlueprintComposition({
-      project: loaded.value.project,
-      services,
-      catalogManifest: catalog.value,
-      discoveredModules: discovered.value,
-    });
-    if (!moduleComposition.ok) return moduleComposition;
 
     const pub = validateModulePublicConfigs(discovered.value);
     if (!pub.ok) return pub;
@@ -74,6 +66,7 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
     catalogManifest = catalog.value;
     publicConfigJson = buildPublicConfigSidecar(discovered.value);
     virtualEntrySource = virtualResult.value;
+    discoveredModulesValue = discovered.value;
   }
 
   const pdmResolver = createPdmResolver(loaded.value.pdm);
@@ -105,6 +98,8 @@ export function loadComposedBlueprint(dir: string): Result<ComposedBlueprint> {
   const composedValidation = validateBlueprintComposition({
     project: loaded.value.project,
     services: validatedServices,
+    catalogManifest,
+    discoveredModules: discoveredModulesValue,
   });
   if (!composedValidation.ok) return composedValidation;
 
