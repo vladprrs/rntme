@@ -1,5 +1,6 @@
 import type { ComposedProjectInput } from './composed-project.js';
 import {
+  DEFAULT_RUSTFS_IMAGE,
   DEFAULT_REDPANDA_IMAGE,
   DEFAULT_REDPANDA_CONSOLE_IMAGE,
   type DeploymentMode,
@@ -8,6 +9,7 @@ import {
   type ExternalEventBusSecurity,
   type ProjectAuthConfig,
   type ProjectDeploymentConfig,
+  type StorageConfig,
 } from './config.js';
 import { planEdge, type EdgeMiddleware, type EdgeRoute } from './edge.js';
 import type { DeploymentPlanError } from './errors.js';
@@ -162,10 +164,34 @@ export type PlannedRedpandaConsoleAccess = {
   readonly htpasswdSecretRef: string;
 };
 
+export type PlannedObjectStorage =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 's3-compatible';
+      readonly mode: 'provisioned';
+      readonly provider: 'rustfs';
+      readonly resourceName: string;
+      readonly internalEndpoint: string;
+      readonly publicBaseUrl: string;
+      readonly bucketName: string;
+      readonly region: 'us-east-1';
+      readonly forcePathStyle: true;
+      readonly image: string;
+      readonly credentials: {
+        readonly accessKeyRef: string;
+        readonly secretKeyRef: string;
+      };
+      readonly persistence: {
+        readonly mode: 'persistent';
+        readonly volumeName: string;
+      };
+    };
+
 export type ProjectDeploymentPlan = {
   readonly project: PlannedProject;
   readonly infrastructure: {
     readonly eventBus: PlannedEventBus;
+    readonly objectStorage: PlannedObjectStorage;
     readonly workflowEngine: PlannedWorkflowEngine;
     readonly auth?: ProjectAuthConfig;
     readonly manualAccess?: {
@@ -236,6 +262,7 @@ export function buildProjectDeploymentPlan(
     eventBus: plannedEventBus,
     errors,
   });
+  const plannedObjectStorage = planObjectStorage(config.storage, config.orgSlug, project.name, errors);
 
   if (config.eventBus === undefined) {
     errors.push({
@@ -275,6 +302,7 @@ export function buildProjectDeploymentPlan(
     },
     infrastructure: {
       eventBus: plannedEventBus,
+      objectStorage: plannedObjectStorage,
       workflowEngine: workflowPlan.engine,
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
       ...(manualAccess === undefined ? {} : { manualAccess: { redpandaConsole: manualAccess } }),
@@ -431,6 +459,68 @@ function isValidHttpUrl(value: string): boolean {
 
 function resourceName(orgSlug: string, projectSlug: string, workloadSlug: string): string {
   return `rntme-${orgSlug}-${projectSlug}-${workloadSlug}`;
+}
+
+function planObjectStorage(
+  storage: StorageConfig | undefined,
+  orgSlug: string,
+  projectSlug: string,
+  errors: DeploymentPlanError[],
+): PlannedObjectStorage {
+  if (storage === undefined || storage.mode === 'external') return { kind: 'none' };
+  if (storage.provider !== 'rustfs') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_PROVIDER_UNSUPPORTED',
+      message: `unsupported provisioned storage provider "${String(storage.provider)}"`,
+      path: 'storage.provider',
+    });
+    return { kind: 'none' };
+  }
+  if (!isPinnedContainerImage(storage.image ?? DEFAULT_RUSTFS_IMAGE)) {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_IMAGE_INVALID',
+      message: 'provisioned RustFS image must use a non-latest tag',
+      path: 'storage.image',
+    });
+    return { kind: 'none' };
+  }
+  if (storage.publicBaseUrl.trim() === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_PUBLIC_BASE_URL_MISSING',
+      message: 'provisioned RustFS storage requires a publicBaseUrl',
+      path: 'storage.publicBaseUrl',
+    });
+    return { kind: 'none' };
+  }
+  if (storage.accessKeyRef.trim() === '' || storage.secretKeyRef.trim() === '') {
+    errors.push({
+      code: 'DEPLOY_PLAN_STORAGE_CREDENTIAL_REF_MISSING',
+      message: 'provisioned RustFS storage requires accessKeyRef and secretKeyRef',
+      path: 'storage',
+    });
+    return { kind: 'none' };
+  }
+  const resource = resourceName(orgSlug, projectSlug, 'storage');
+  return {
+    kind: 's3-compatible',
+    mode: 'provisioned',
+    provider: 'rustfs',
+    resourceName: resource,
+    internalEndpoint: `http://${resource}:9000`,
+    publicBaseUrl: storage.publicBaseUrl,
+    bucketName: resourceName(orgSlug, projectSlug, 'default-storage'),
+    region: 'us-east-1',
+    forcePathStyle: true,
+    image: storage.image ?? DEFAULT_RUSTFS_IMAGE,
+    credentials: {
+      accessKeyRef: storage.accessKeyRef,
+      secretKeyRef: storage.secretKeyRef,
+    },
+    persistence: {
+      mode: 'persistent',
+      volumeName: `${resource}-data`,
+    },
+  };
 }
 
 function planEventBus(
