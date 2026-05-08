@@ -120,6 +120,31 @@ const PatchDeployTargetManualAccessSchema = z
   .strict()
   .optional();
 
+const ExternalStorageConfigSchema = z
+  .object({
+    mode: z.literal('external'),
+  })
+  .strict();
+
+const ProvisionedRustfsStorageConfigSchema = z
+  .object({
+    mode: z.literal('provisioned'),
+    provider: z.literal('rustfs'),
+    image: z.string().min(1).optional(),
+    publicBaseUrl: HttpUrlSchema,
+    accessKeyRef: z.string().min(1),
+    secretKeyRef: z.string().min(1),
+  })
+  .strict();
+
+export const DeployTargetStorageSchema = z
+  .discriminatedUnion('mode', [ExternalStorageConfigSchema, ProvisionedRustfsStorageConfigSchema])
+  .default({ mode: 'external' });
+export type DeployTargetStorage = z.infer<typeof DeployTargetStorageSchema>;
+const PatchDeployTargetStorageSchema = z
+  .discriminatedUnion('mode', [ExternalStorageConfigSchema, ProvisionedRustfsStorageConfigSchema])
+  .optional();
+
 const Auth0TargetConfigSchema = z.object({
   clientId: z.string().min(1),
   domain: z.string().min(1).optional(),
@@ -154,6 +179,7 @@ export const CreateDeployTargetRequestSchema = z
     eventBus: EventBusConfigSchema,
     modules: DeployTargetModulesSchema,
     workflows: DeployTargetWorkflowsSchema,
+    storage: DeployTargetStorageSchema,
     auth: DeployTargetAuthConfigSchema,
     policyValues: PolicyValuesSchema,
     manualAccess: DeployTargetManualAccessSchema,
@@ -180,6 +206,7 @@ export const UpdateDeployTargetRequestSchema = z
     eventBus: EventBusConfigSchema.optional(),
     modules: PatchDeployTargetModulesSchema.optional(),
     workflows: PatchDeployTargetWorkflowsSchema,
+    storage: PatchDeployTargetStorageSchema,
     auth: PatchDeployTargetAuthConfigSchema.optional(),
     policyValues: PatchPolicyValuesSchema.optional(),
     manualAccess: PatchDeployTargetManualAccessSchema,
@@ -206,6 +233,7 @@ export const DeployTargetSchema = z.object({
   eventBus: EventBusConfigSchema,
   modules: DeployTargetModulesSchema,
   workflows: DeployTargetWorkflowsSchema,
+  storage: DeployTargetStorageSchema,
   auth: DeployTargetAuthConfigSchema,
   policyValues: PolicyValuesSchema,
   manualAccess: DeployTargetManualAccessSchema,

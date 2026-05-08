@@ -174,6 +174,74 @@ describe('buildProjectDeploymentPlan', () => {
     });
   });
 
+  it('defaults object storage infrastructure to none', () => {
+    const r = buildProjectDeploymentPlan(project, previewConfig);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.objectStorage).toEqual({ kind: 'none' });
+  });
+
+  it('plans provisioned RustFS object storage with deterministic names', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.infrastructure.objectStorage).toEqual({
+      kind: 's3-compatible',
+      mode: 'provisioned',
+      provider: 'rustfs',
+      resourceName: 'rntme-acme-commerce-storage',
+      internalEndpoint: 'http://rntme-acme-commerce-storage:9000',
+      publicBaseUrl: 'https://storage.example.test',
+      bucketName: 'rntme-acme-commerce-default-storage',
+      region: 'us-east-1',
+      forcePathStyle: true,
+      image: 'rustfs/rustfs:1.0.0',
+      credentials: {
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+      persistence: {
+        mode: 'persistent',
+        volumeName: 'rntme-acme-commerce-storage-data',
+      },
+    });
+  });
+
+  it('rejects latest as a provisioned RustFS image tag', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      storage: {
+        mode: 'provisioned',
+        provider: 'rustfs',
+        image: 'rustfs/rustfs:latest',
+        publicBaseUrl: 'https://storage.example.test',
+        accessKeyRef: 'RUSTFS_ACCESS_KEY',
+        secretKeyRef: 'RUSTFS_SECRET_KEY',
+      },
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toContainEqual(
+        expect.objectContaining({
+          code: 'DEPLOY_PLAN_STORAGE_IMAGE_INVALID',
+          path: 'storage.image',
+        }),
+      );
+    }
+  });
+
   it('allows preview deployments to use a non-durable in-memory event bus', () => {
     const r = buildProjectDeploymentPlan(project, {
       ...previewConfig,

@@ -340,6 +340,7 @@ export class FakeStore {
         apiTokenNonce: args.row.apiTokenNonce,
         apiTokenKeyVersion: args.row.apiTokenKeyVersion,
         eventBus: args.row.eventBusConfig,
+        storage: args.row.storageConfig,
         modules: args.row.modules,
         workflows: args.row.workflows,
         auth: args.row.auth,

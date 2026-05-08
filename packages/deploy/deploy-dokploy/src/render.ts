@@ -60,7 +60,7 @@ export type RenderedDokployIngress = {
 export type RenderedDokployApplicationResource = {
   readonly logicalId: string;
   readonly kind: 'application';
-  readonly workloadKind?: DeploymentWorkload['kind'];
+  readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy';
   readonly workloadSlug?: string;
   readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
@@ -81,7 +81,7 @@ export type RenderedDokployApplicationResource = {
 export type RenderedDokployComposeResource = {
   readonly logicalId: string;
   readonly kind: 'compose';
-  readonly infrastructureKind: 'event-bus' | 'workflow-engine';
+  readonly infrastructureKind: 'event-bus' | 'workflow-engine' | 'object-storage';
   readonly name: string;
   readonly image: string;
   readonly composeFile: string;
@@ -150,7 +150,7 @@ export function renderDokployPlan(
   }
 
   const infrastructureResources = renderInfrastructureResources(plan);
-  const workloadResources = renderWorkloadResources(plan, nginxConfig.value);
+  const workloadResources = renderWorkloadResources(plan, nginxConfig.value, config.publicBaseUrl);
   if (!workloadResources.ok) return workloadResources;
   const resources = [...infrastructureResources, ...workloadResources.value];
 
@@ -277,6 +277,11 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
   const resources: RenderedDokployResource[] = [];
   const eventBus = plan.infrastructure.eventBus;
   if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
+  const objectStorage = plan.infrastructure.objectStorage ?? { kind: 'none' };
+  if (objectStorage.kind === 's3-compatible') {
+    resources.push(renderRustfsCompose(plan));
+    resources.push(renderRustfsPublicProxy(plan));
+  }
   const workflowEngine = renderOperatonCompose(plan);
   if (workflowEngine !== null) resources.push(workflowEngine);
   const consoleAccess = plan.infrastructure.manualAccess?.redpandaConsole;
@@ -289,10 +294,11 @@ function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDok
 function renderWorkloadResources(
   plan: ProjectDeploymentPlan,
   nginxConfig: string,
+  publicAppBaseUrl: string,
 ): Result<RenderedDokployApplicationResource[], DokployDeploymentError> {
   const resources: RenderedDokployApplicationResource[] = [];
   for (const workload of plan.workloads) {
-    const resource = renderResource(plan, workload, nginxConfig);
+    const resource = renderResource(plan, workload, nginxConfig, publicAppBaseUrl);
     if (!resource.ok) return resource;
     resources.push(resource.value);
   }
@@ -380,6 +386,104 @@ function redpandaComposeFile(
   ].join('\n');
 }
 
+function renderRustfsCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
+  const storage = plan.infrastructure.objectStorage;
+  if (storage.kind !== 's3-compatible') throw new Error('renderRustfsCompose called without object storage');
+  return {
+    logicalId: 'object-storage',
+    kind: 'compose',
+    infrastructureKind: 'object-storage',
+    name: storage.resourceName,
+    image: storage.image,
+    composeFile: rustfsComposeFile(storage),
+    env: [
+      { name: 'RUSTFS_ACCESS_KEY', value: storage.credentials.accessKeyRef, secret: true },
+      { name: 'RUSTFS_SECRET_KEY', value: storage.credentials.secretKeyRef, secret: true },
+    ],
+    labels: {
+      ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'object-storage'),
+      'rntme.infrastructure': 'object-storage',
+      'rntme.provider': storage.provider,
+    },
+  };
+}
+
+function rustfsComposeFile(storage: Extract<ProjectDeploymentPlan['infrastructure']['objectStorage'], { kind: 's3-compatible' }>): string {
+  return [
+    'services:',
+    '  rustfs:',
+    `    image: ${storage.image}`,
+    '    command: server /data',
+    '    environment:',
+    '      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}',
+    '      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}',
+    '    volumes:',
+    `      - ${storage.persistence.volumeName}:/data`,
+    '    networks:',
+    '      default:',
+    '      dokploy-network:',
+    '        aliases:',
+    `          - ${storage.resourceName}`,
+    'volumes:',
+    `  ${storage.persistence.volumeName}:`,
+    `    name: ${storage.persistence.volumeName}`,
+    'networks:',
+    '  dokploy-network:',
+    '    external: true',
+    '',
+  ].join('\n');
+}
+
+function renderRustfsPublicProxy(plan: ProjectDeploymentPlan): RenderedDokployApplicationResource {
+  const storage = plan.infrastructure.objectStorage;
+  if (storage.kind !== 's3-compatible') throw new Error('renderRustfsPublicProxy called without object storage');
+  return {
+    logicalId: 'object-storage-public',
+    kind: 'application',
+    workloadKind: 'infrastructure-proxy',
+    workloadSlug: 'object-storage-public',
+    name: `${storage.resourceName}-public`,
+    image: 'nginx:1.27-alpine',
+    env: [],
+    labels: {
+      ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'object-storage-public'),
+      'rntme.infrastructure': 'object-storage-public',
+      'rntme.provider': storage.provider,
+    },
+    ports: [{ containerPort: 8080, protocol: 'http' }],
+    ingress: {
+      publicBaseUrl: storage.publicBaseUrl,
+      containerPort: 8080,
+      healthPath: '/health',
+      routes: [],
+    },
+    files: {
+      '/etc/nginx/nginx.conf': rustfsProxyNginxConfig(storage.resourceName),
+    },
+  };
+}
+
+function rustfsProxyNginxConfig(resourceName: string): string {
+  return [
+    'events {}',
+    'http {',
+    '  server {',
+    '    listen 8080;',
+    '    client_max_body_size 0;',
+    '    location = /health { return 200 "ok"; }',
+    '    location / {',
+    `      proxy_pass http://${resourceName}:9000;`,
+    '      proxy_set_header Host $host;',
+    '      proxy_set_header X-Forwarded-Proto $scheme;',
+    '      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
+    '      proxy_request_buffering off;',
+    '    }',
+    '  }',
+    '}',
+    '',
+  ].join('\n');
+}
+
 function workflowMessageStartTopics(plan: ProjectDeploymentPlan): readonly string[] {
   const topics = new Set<string>();
   for (const workload of plan.workloads) {
@@ -401,6 +505,7 @@ function renderResource(
   plan: ProjectDeploymentPlan,
   workload: DeploymentWorkload,
   nginxConfig: string,
+  publicAppBaseUrl: string,
 ): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
   if (workload.kind === 'bpmn-worker') {
     return renderBpmnWorker(plan, workload);
@@ -448,6 +553,7 @@ function renderResource(
           value: ref,
           secret: true,
         })),
+        ...storageS3Env(plan, workload, publicAppBaseUrl),
       ],
       labels,
       ports: [
@@ -506,6 +612,27 @@ function renderResource(
   }
 
   return assertNever(workload);
+}
+
+function storageS3Env(
+  plan: ProjectDeploymentPlan,
+  workload: Extract<DeploymentWorkload, { kind: 'integration-module' }>,
+  publicAppBaseUrl: string,
+): RenderedEnvVar[] {
+  const storage = plan.infrastructure.objectStorage;
+  if (storage.kind !== 's3-compatible') return [];
+  if (workload.modulePackageName !== '@rntme/storage-s3') return [];
+  return [
+    { name: 'STORAGE_S3_ENDPOINT', value: storage.internalEndpoint, secret: false },
+    { name: 'STORAGE_S3_PUBLIC_ENDPOINT', value: storage.publicBaseUrl, secret: false },
+    { name: 'STORAGE_S3_BUCKET', value: storage.bucketName, secret: false },
+    { name: 'STORAGE_S3_REGION', value: storage.region, secret: false },
+    { name: 'STORAGE_S3_FORCE_PATH_STYLE', value: String(storage.forcePathStyle), secret: false },
+    { name: 'STORAGE_S3_ACCESS_KEY_ID', value: storage.credentials.accessKeyRef, secret: true },
+    { name: 'STORAGE_S3_SECRET_ACCESS_KEY', value: storage.credentials.secretKeyRef, secret: true },
+    { name: 'STORAGE_S3_BACKEND', value: storage.provider, secret: false },
+    { name: 'STORAGE_S3_APP_ORIGINS', value: publicAppBaseUrl, secret: false },
+  ];
 }
 
 function runtimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {

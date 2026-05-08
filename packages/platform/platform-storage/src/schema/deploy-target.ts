@@ -42,6 +42,7 @@ export const deployTarget = pgTable(
     targetSecretsNonce: bytea('target_secrets_nonce'),
     targetSecretsKeyVersion: smallint('target_secrets_key_version'),
     eventBusConfig: jsonb('event_bus_config').$type<Record<string, unknown>>().notNull(),
+    storageConfig: jsonb('storage_config').$type<Record<string, unknown>>().notNull().default({ mode: 'external' }),
     moduleConfig: jsonb('module_config').$type<Record<string, unknown>>().notNull().default({}),
     workflowConfig: jsonb('workflow_config').$type<Record<string, unknown> | null>().default(null),
     authConfig: jsonb('auth_config').$type<Record<string, unknown>>().notNull().default({}),

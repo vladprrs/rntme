@@ -4,6 +4,7 @@ import type {
   DeploymentPolicyConfig,
   IntegrationModuleDeploymentConfig,
   ProjectDeploymentConfig,
+  StorageConfig,
 } from '@rntme/deploy-core';
 import type { DeployTarget } from '@rntme/platform-core';
 import { normalizeDokployBaseUrl } from './dokploy-client-factory.js';
@@ -76,6 +77,7 @@ export function buildProjectDeploymentConfig(
     environment: 'default',
     mode: 'preview',
     eventBus,
+    storage: cleanStorageConfig(target.storage),
     modules,
     policies: {
       ...(target.policyValues as DeploymentPolicyConfig),
@@ -135,6 +137,18 @@ function deriveRedpandaConsolePublicBaseUrl(input: {
 }): string {
   const label = compactDnsLabel(['console', input.orgSlug, input.projectSlug, input.environment]);
   return `https://${label}.${normalizePublicDeployDomain(input.publicDeployDomain ?? 'rntme.com')}`;
+}
+
+function cleanStorageConfig(input: DeployTarget['storage']): StorageConfig {
+  if (input.mode === 'external') return { mode: 'external' };
+  return {
+    mode: 'provisioned',
+    provider: input.provider,
+    ...(input.image === undefined ? {} : { image: input.image }),
+    publicBaseUrl: input.publicBaseUrl,
+    accessKeyRef: input.accessKeyRef,
+    secretKeyRef: input.secretKeyRef,
+  };
 }
 
 function cleanModuleConfig(input: DeployTarget['modules'][string]): IntegrationModuleDeploymentConfig {

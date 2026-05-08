@@ -181,6 +181,7 @@ function deployTarget(overrides: Partial<DeployTarget> = {}): DeployTarget {
     allowCreateProject: false,
     apiTokenRedacted: '***',
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {},
     workflows: null,
     auth: {},

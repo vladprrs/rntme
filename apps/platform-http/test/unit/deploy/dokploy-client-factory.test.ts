@@ -443,6 +443,7 @@ function target(): DeployTargetWithSecret {
     dokployProjectName: null,
     allowCreateProject: false,
     eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {},
     workflows: null,
     auth: {},

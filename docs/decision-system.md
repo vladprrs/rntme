@@ -67,6 +67,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 ### 3.2 Storage / Persistence
 
 - **SQLite as default service store** - simplifies deploy (no provisioned DB) and avoids a db-per-service Postgres zoo. Alternatives (ClickHouse/DuckDB for analytics, Postgres where justified) are allowed when there is a concrete reason. · F8, G5 · `current-default`
+- **RustFS as provisioned object storage (current default)** - target-local S3-compatible storage for preview Dokploy targets; external S3-compatible storage remains supported. · F8, G5 · `current-default` · spec `docs/superpowers/specs/2026-05-08-provisioned-rustfs-storage-design.md`
 - **Single-writer event log** - `event_store` is the only write path; load-bearing for optimistic concurrency and the monotonic publish cursor · G1 · `locked` · ADR `docs/adr/2026-04-15-event-driven-architecture.md`
 - **No outbox table; event log IS the outbox** - plus delivery tracking for metrics · F2 · `locked` · ADR D1
 

@@ -146,6 +146,49 @@ describe('handler.CommitUpload', () => {
       }),
     ).rejects.toMatchObject({ storageCode: 'STORAGE_REFERENCES_FILE_NOT_FOUND' });
   });
+
+  it('uses public presign URLs while keeping internal object operations', async () => {
+    const calls: string[] = [];
+    const s3 = {
+      presign: vi.fn((key: string) => `https://storage.example.test/${key}?sig=x`),
+      exists: vi.fn(async (key: string) => {
+        calls.push(`exists:${key}`);
+        return true;
+      }),
+      size: vi.fn(async (key: string) => {
+        calls.push(`size:${key}`);
+        return 42;
+      }),
+      deleteObject: vi.fn(async (key: string) => {
+        calls.push(`delete:${key}`);
+      }),
+    };
+    const handler = createHandler({
+      storage: sj,
+      s3,
+      pendingStore: createPendingStore({
+        db: new Database(':memory:') as unknown as DatabaseLike,
+        now: () => 1_000_000,
+      }),
+      routeResolver: createRouteResolver(sj),
+      bus: { async publish() {} },
+      uuid: () => 'public-uuid',
+      now: () => 1_000_000,
+      presignTtlSec: 900,
+    });
+
+    const init = await handler.PrepareUpload({
+      context: { idempotency_key: 'pub', correlation_id: 'c', actor_user_id: 'u' },
+      route_id: 'img',
+      entity_id: 'e',
+      filename: 'x.png',
+      content_type: 'image/png',
+      declared_size: 100,
+    });
+    expect(init.presigned.url).toBe('https://storage.example.test/img/e/public-uuid?sig=x');
+    await handler.CommitUpload({ context: { idempotency_key: 'commit', correlation_id: 'c' }, file_id: init.file_id });
+    expect(calls).toEqual(['exists:img/e/public-uuid', 'size:img/e/public-uuid']);
+  });
 });
 
 describe('handler.ListFiles + DeleteFile + GetDownloadUrl', () => {

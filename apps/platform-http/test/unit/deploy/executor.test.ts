@@ -988,6 +988,7 @@ function setup(
         dokployProjectName: null,
         allowCreateProject: false,
         eventBus: (overrides.targetEventBus ?? { kind: 'kafka' as const, brokers: ['redpanda:9092'] }) as never,
+        storage: { mode: 'external' as const },
         modules: {},
         workflows: overrides.targetWorkflows ?? null,
         auth: overrides.targetAuth ?? { auth0: { clientId: 'target-spa-client' } },
@@ -1063,7 +1064,7 @@ function setup(
     ...(overrides.useDefaultPlanProject
       ? {}
       : {
-          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
+          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, diagnostics: { warnings: [] } })) as never,
         }),
     ...(overrides.useDefaultRenderPlan
       ? {}

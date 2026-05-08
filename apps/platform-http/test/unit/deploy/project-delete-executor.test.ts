@@ -149,6 +149,7 @@ function target(id: string): DeployTargetWithSecret {
     apiTokenNonce: Buffer.from('nonce'),
     apiTokenKeyVersion: 1,
     eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
+    storage: { mode: 'external' },
     modules: {},
     workflows: null,
     auth: {},

@@ -348,14 +348,16 @@ function resourceOrder(a: RenderedDokployResource, b: RenderedDokployResource): 
 
 function resourceRank(resource: RenderedDokployResource): number {
   if (resource.kind === 'compose' && resource.infrastructureKind === 'event-bus') return 0;
-  if (resource.kind === 'compose' && resource.infrastructureKind === 'workflow-engine') return 1;
-  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console') return 2;
-  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy') return 3;
-  if (resource.kind === 'application' && resource.workloadKind === 'domain-service') return 4;
-  if (resource.kind === 'application' && resource.workloadKind === 'integration-module') return 4;
-  if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 5;
-  if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 6;
-  return 7;
+  if (resource.kind === 'compose' && resource.infrastructureKind === 'object-storage') return 1;
+  if (resource.kind === 'compose' && resource.infrastructureKind === 'workflow-engine') return 2;
+  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console') return 3;
+  if (resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy') return 4;
+  if (resource.kind === 'application' && resource.workloadKind === 'domain-service') return 5;
+  if (resource.kind === 'application' && resource.workloadKind === 'integration-module') return 5;
+  if (resource.kind === 'application' && resource.workloadKind === 'infrastructure-proxy') return 6;
+  if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 7;
+  if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 8;
+  return 9;
 }
 
 function networkNameMap(
