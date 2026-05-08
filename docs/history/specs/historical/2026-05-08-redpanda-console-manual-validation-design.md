@@ -1,7 +1,7 @@
-> Status: autonomous-spec, ready for SPEC-REVIEW.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, and current code/tests.
-> Why retained: Autonomous backlog spec for safe manual validation access to provisioned Redpanda Console; history/rationale only until promoted by current docs and implementation.
+> Current source: docs/current/**, docs/decision-system.md, .dependency-cruiser.cjs, current code/tests, merged PR #167, and main evidence at 35e4041eed77b60bec104a4c1ad7a87d9db7ebee or newer.
+> Why retained: Historical rationale for implemented manual validation access to provisioned Redpanda Console; not current-state truth by itself.
 
 # Redpanda Console Manual Validation Access - design
 
