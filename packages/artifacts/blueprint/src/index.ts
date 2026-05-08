@@ -18,6 +18,10 @@ export { safeProvisionerName } from './compose/safe-provisioner-name.js';
 export { parseProjectBlueprint } from './parse/parse.js';
 export { validateBlueprintComposition } from './validate/composition.js';
 export { validateBlueprintStructural } from './validate/structural.js';
+export {
+  validateStorageJson,
+  type PdmShape as StoragePdmShape,
+} from './validate/storage/index.js';
 export { ERROR_CODES, ok, err, isOk, isErr } from './types/result.js';
 export type {
   BlueprintError,
@@ -42,5 +46,13 @@ export type {
   ValidatedServiceMember,
   CatalogManifest,
 } from './types/artifact.js';
+export type {
+  RouteAuth,
+  RouteLifecycle,
+  RouteOwner,
+  StorageJson,
+  StorageRoute,
+  ValidatedStorageJson,
+} from './types/storage-json.js';
 export type { VarsManifest, VarBinding } from './types/vars.js';
 export { isKnownVarPath, extractPlaceholders } from './types/vars.js';
