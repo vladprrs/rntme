@@ -134,6 +134,57 @@ describe('applyDokployPlan', () => {
     ]);
   });
 
+  it('applies object storage before storage public proxy and workloads', async () => {
+    const client = new FakeDokployClient();
+    const objectStorage: Extract<RenderedDokployResource, { kind: 'compose' }> = {
+      logicalId: 'object-storage',
+      kind: 'compose',
+      infrastructureKind: 'object-storage',
+      name: 'rntme-acme-commerce-storage',
+      image: 'rustfs/rustfs:1.0.0',
+      composeFile: 'services:\n  rustfs:\n    image: rustfs/rustfs:1.0.0\n',
+      env: [],
+      labels: { 'rntme.infrastructure': 'object-storage' },
+    };
+    const proxy = resource({
+      logicalId: 'object-storage-public',
+      workloadKind: 'infrastructure-proxy',
+      workloadSlug: 'object-storage-public',
+      name: 'rntme-acme-commerce-storage-public',
+      image: 'nginx:1.27-alpine',
+      env: [],
+    });
+
+    const r = await applyDokployPlan(
+      {
+        ...rendered,
+        resources: [rendered.resources[0], proxy, objectStorage],
+      },
+      client,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce-storage',
+      'configure-compose:compose_1:rntme-acme-commerce-storage',
+      'deploy-compose:compose_1',
+      'create:rntme-acme-commerce-catalog',
+      'create:rntme-acme-commerce-storage-public',
+      'configure:app_1:rntme-acme-commerce-catalog',
+      'deploy:app_1',
+      'inspect:app_1',
+      'configure:app_2:rntme-acme-commerce-storage-public',
+      'deploy:app_2',
+      'inspect:app_2',
+    ]);
+    expect(r.value.resources.map((resource) => resource.logicalId)).toEqual([
+      'object-storage',
+      'catalog',
+      'object-storage-public',
+    ]);
+  });
+
   it('applies workflow engine before apps and BPMN worker before edge', async () => {
     const client = new FakeDokployClient();
     const eventBus = renderedWithCompose.resources[0] as Extract<RenderedDokployResource, { kind: 'compose' }>;
