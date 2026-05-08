@@ -848,6 +848,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.640.0
         version: 3.1039.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.650.0
+        version: 3.1039.0
       '@grpc/grpc-js':
         specifier: ^1.14.3
         version: 1.14.3
@@ -10555,7 +10558,7 @@ snapshots:
       '@aws-sdk/middleware-recursion-detection': 3.972.11
       '@aws-sdk/middleware-user-agent': 3.972.37
       '@aws-sdk/region-config-resolver': 3.972.13
-      '@aws-sdk/signature-v4-multi-region': 3.996.24
+      '@aws-sdk/signature-v4-multi-region': 3.996.25
       '@aws-sdk/types': 3.973.8
       '@aws-sdk/util-endpoints': 3.996.8
       '@aws-sdk/util-user-agent-browser': 3.972.10
@@ -10643,7 +10646,7 @@ snapshots:
 
   '@aws-sdk/s3-request-presigner@3.1039.0':
     dependencies:
-      '@aws-sdk/signature-v4-multi-region': 3.996.24
+      '@aws-sdk/signature-v4-multi-region': 3.996.25
       '@aws-sdk/types': 3.973.8
       '@aws-sdk/util-format-url': 3.972.10
       '@smithy/middleware-endpoint': 4.4.32

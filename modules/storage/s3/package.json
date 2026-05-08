@@ -50,6 +50,7 @@
   "dependencies": {
     "@aws-sdk/client-iam": "^3.640.0",
     "@aws-sdk/client-s3": "^3.640.0",
+    "@aws-sdk/s3-request-presigner": "^3.650.0",
     "@grpc/grpc-js": "^1.14.3",
     "@uppy/drag-drop": "^4.2.2",
     "@uppy/file-input": "^4.2.2",

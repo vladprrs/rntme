@@ -104,9 +104,9 @@ export function createHandler(deps: HandlerDeps): Handler {
   const uuid = deps.uuid ?? uuidv7;
   const now = deps.now ?? (() => Date.now());
 
-  function makePresign(key: string, method: 'PUT' | 'GET', expiresIn: number, contentType?: string): Presigned {
+  async function makePresign(key: string, method: 'PUT' | 'GET', expiresIn: number, contentType?: string): Promise<Presigned> {
     try {
-      const url = deps.s3.presign(key, { method, expiresIn, contentType });
+      const url = await deps.s3.presign(key, { method, expiresIn, contentType });
       return {
         url,
         headers: {},
@@ -157,7 +157,7 @@ export function createHandler(deps: HandlerDeps): Handler {
         idempotencyKey: req.context.idempotency_key,
       });
 
-      const presigned = makePresign(
+      const presigned = await makePresign(
         insert.objectKey,
         'PUT',
         Math.min(deps.presignTtlSec, Math.floor(allowed.route.lifecycle.expirePendingMs / 1000)),
@@ -281,7 +281,7 @@ export function createHandler(deps: HandlerDeps): Handler {
       if (row.state !== 'committed') {
         throw new StorageS3Error('STORAGE_REFERENCES_FILE_NOT_FOUND', 'file not committed', GrpcStatus.NOT_FOUND);
       }
-      return { presigned: makePresign(row.objectKey, 'GET', req.ttl_sec > 0 ? req.ttl_sec : deps.presignTtlSec) };
+      return { presigned: await makePresign(row.objectKey, 'GET', req.ttl_sec > 0 ? req.ttl_sec : deps.presignTtlSec) };
     },
 
     async DeleteFile(req) {
