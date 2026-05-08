@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { loadComposedBlueprint } from '../../src/compose/load-composed-blueprint.js';
+import * as compositionModule from '../../src/validate/composition.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures', 'product-catalog-project');
@@ -25,6 +26,17 @@ describe('loadComposedBlueprint', () => {
     expect(r.value.services.app?.compiledUi?.screens.home?.data?.['/data/prices']?.path).toBe('/api/pricing/prices');
     expect(r.value.services.app?.qsmValidated).not.toBeNull();
     expect(r.value.services.pricing?.seed).not.toBeNull();
+  });
+
+  it('invokes validateBlueprintComposition exactly once per load', () => {
+    const spy = vi.spyOn(compositionModule, 'validateBlueprintComposition');
+    try {
+      const r = loadComposedBlueprint(fixtureDir);
+      expect(r.ok).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('fails when app ui references a service that is not published through project.routes.http', () => {
