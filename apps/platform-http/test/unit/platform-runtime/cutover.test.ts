@@ -16,4 +16,15 @@ describe('platform runtime cutover surface', () => {
     const ct = legacy.headers.get('content-type') ?? '';
     expect(ct).toMatch(/text\/html/);
   });
+
+  it('serves platform UI manifest in blueprint mode', async () => {
+    const loaded = await loadPlatformBlueprint();
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const app = await createPlatformRuntimeApp({ blueprint: loaded.value });
+    const manifest = await app.request('/_manifest.json');
+    expect(manifest.status).toBe(200);
+    const body = await manifest.json() as { routes: Record<string, unknown> };
+    expect(body.routes['/:orgId']).toBeDefined();
+  });
 });

@@ -245,6 +245,12 @@ pnpm -F @rntme/platform-http start      # runs dist/bin/server.js
 
 See `src/config/env.ts`. Required: `DATABASE_URL`, `RUSTFS_*`, `WORKOS_*`, `PLATFORM_BASE_URL`, `PLATFORM_SESSION_COOKIE_DOMAIN`, `PLATFORM_COOKIE_PASSWORD` (≥32 chars), `PLATFORM_SECRET_ENCRYPTION_KEY` (64 hex chars).
 
+## Blueprint runtime mode
+
+`PLATFORM_RUNTIME_MODE=blueprint` runs the platform-as-blueprint runtime and
+does not expose legacy `/v1/*` platform routes. Legacy mode remains only as a
+temporary migration fallback until production cutover is complete.
+
 ## Not in the UI (MVP)
 
 - Creating / renaming / archiving projects — CLI only.
