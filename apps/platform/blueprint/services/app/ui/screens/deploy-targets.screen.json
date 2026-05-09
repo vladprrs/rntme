@@ -1,1 +1,30 @@
-{}
+{
+  "metadata": { "title": "Deploy Targets" },
+  "data": {
+    "/data/targets": {
+      "binding": "deployments.listDeployTargets",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  },
+  "actions": {
+    "createDeployTarget": {
+      "kind": "command",
+      "binding": "deployments.createDeployTarget",
+      "paramsFromState": {
+        "organizationId": "/route/params/orgId",
+        "slug": "/form/target/slug",
+        "provider": "/form/target/provider",
+        "environment": "/form/target/environment",
+        "configJson": "/form/target/configJson"
+      },
+      "onSuccess": {
+        "refetchData": ["/data/targets"],
+        "clearFormState": ["/form/target"]
+      }
+    }
+  }
+}

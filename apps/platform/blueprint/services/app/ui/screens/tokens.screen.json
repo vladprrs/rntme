@@ -1,1 +1,35 @@
-{}
+{
+  "metadata": { "title": "API Tokens" },
+  "data": {
+    "/data/tokens": {
+      "binding": "tokens.listTokens",
+      "params": { "organizationId": { "$state": "/route/params/orgId" }, "limit": 100 },
+      "refetchOn": ["mount", "params"]
+    }
+  },
+  "actions": {
+    "createToken": {
+      "kind": "command",
+      "binding": "tokens.createToken",
+      "paramsFromState": {
+        "organizationId": "/route/params/orgId",
+        "name": "/form/token/name",
+        "prefix": "/form/token/prefix",
+        "scopesJson": "/form/token/scopesJson"
+      },
+      "onSuccess": {
+        "refetchData": ["/data/tokens"],
+        "clearFormState": ["/form/token"]
+      }
+    },
+    "revokeToken": {
+      "kind": "command",
+      "binding": "tokens.revokeToken",
+      "paramsFromState": {
+        "id": "/actions/revokeToken/id",
+        "revokedAt": "/actions/revokeToken/revokedAt"
+      },
+      "onSuccess": { "refetchData": ["/data/tokens"] }
+    }
+  }
+}

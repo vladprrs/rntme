@@ -1,1 +1,28 @@
-{}
+{
+  "metadata": { "title": "Project Version" },
+  "data": {
+    "/data/version": {
+      "binding": "projects.listProjectVersions",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  },
+  "actions": {
+    "queueDeployment": {
+      "kind": "command",
+      "binding": "deployments.queueDeployment",
+      "paramsFromState": {
+        "organizationId": "/route/params/orgId",
+        "projectId": "/route/params/projectId",
+        "projectVersionId": "/route/params/versionId",
+        "targetId": "/form/queue/targetId"
+      },
+      "onSuccess": {
+        "refetchData": ["/data/version"]
+      }
+    }
+  }
+}

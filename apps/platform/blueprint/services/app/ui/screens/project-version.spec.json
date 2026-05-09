@@ -1,9 +1,9 @@
 {
   "root": "page",
   "elements": {
-    "page": {
-      "type": "Stack",
-      "props": {}
-    }
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "targetId", "queue"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Project Version" } },
+    "targetId": { "type": "Input", "props": { "statePath": "/form/queue/targetId", "placeholder": "Deploy target ID" } },
+    "queue": { "type": "Button", "props": { "label": "Queue deployment" }, "on": { "click": { "action": "queueDeployment" } } }
   }
 }

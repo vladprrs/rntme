@@ -1,9 +1,32 @@
 {
   "root": "page",
   "elements": {
-    "page": {
-      "type": "Stack",
-      "props": {}
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "refresh", "deploymentTable", "logsTable"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Deployment" } },
+    "refresh": { "type": "Button", "props": { "label": "Refresh" }, "on": { "click": { "action": "refreshDeployment" } } },
+    "deploymentTable": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/deployment",
+        "columns": [
+          { "key": "id", "label": "ID" },
+          { "key": "status", "label": "Status" },
+          { "key": "targetId", "label": "Target" },
+          { "key": "projectVersionId", "label": "Version" }
+        ]
+      }
+    },
+    "logsTable": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/logs",
+        "columns": [
+          { "key": "level", "label": "Level" },
+          { "key": "stage", "label": "Stage" },
+          { "key": "message", "label": "Message" },
+          { "key": "createdAt", "label": "Time" }
+        ]
+      }
     }
   }
 }
