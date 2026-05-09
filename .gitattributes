@@ -1,0 +1,22 @@
+# GitHub Linguist: keep language/LOC stats aligned with hand-written product code (RNT-532).
+# Docs: https://github.com/github-linguist/linguist/blob/master/docs/overrides.md
+
+# Buf/protobuf generated ECMAScript typings (all contract packages, including storage).
+packages/contracts/*/v1/src/proto.gen.js linguist-generated=true
+packages/contracts/*/v1/src/proto.gen.d.ts linguist-generated=true
+
+# Drizzle Kit migration journal snapshots (generated metadata, not app logic).
+packages/platform/platform-storage/drizzle/meta/*_snapshot.json linguist-generated=true
+
+# Large JSON/proto blobs used as test inputs/outputs (not production source).
+**/test/fixtures/**/*.json linguist-detectable=false
+**/test/fixtures/**/*.proto linguist-detectable=false
+**/test/golden/**/*.json linguist-detectable=false
+**/test/golden/**/*.sql linguist-detectable=false
+**/conformance/**/fixtures/**/*.json linguist-detectable=false
+
+# Rationale: still shown in diffs and search; counts as documentation in Linguist breakdown.
+docs/history/** linguist-documentation
+
+# In case demo apps ever vendor node_modules into git.
+demo/**/node_modules/** linguist-vendored
