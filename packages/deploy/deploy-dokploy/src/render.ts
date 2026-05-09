@@ -8,6 +8,7 @@ import {
   type RenderedComposeDomain,
   type RenderedComposeService,
 } from './compose-model.js';
+import { renderComposeYaml } from './compose-yaml.js';
 import { validateDokployTargetConfig, type DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
@@ -182,6 +183,23 @@ export function renderDokployPlan(
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv = resources.map((resource) => {
+    if (resource.kind === 'compose' && resource.services !== undefined) {
+      const services = resource.services.map((service) => {
+        const slug = service.workloadSlug ?? service.logicalId;
+        const additions = envEntries
+          .filter((e) => e.target === slug)
+          .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
+        if (additions.length === 0) return service;
+        return { ...service, env: [...service.env, ...additions] };
+      });
+      const stackSlug = resource.logicalId;
+      const stackAdditions = envEntries
+        .filter((e) => e.target === stackSlug)
+        .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
+      const stackEnv = stackAdditions.length === 0 ? resource.env : [...resource.env, ...stackAdditions];
+      const next: typeof resource = { ...resource, services, env: stackEnv };
+      return { ...next, composeFile: renderComposeYaml(services) };
+    }
     const slug =
       resource.kind === 'application'
         ? (resource.workloadSlug ?? resource.logicalId)
@@ -381,7 +399,7 @@ function renderProjectStackResource(
     infrastructureKind: 'project-stack',
     name: projectStackName(plan.project.orgSlug, plan.project.projectSlug),
     image: 'docker-compose',
-    composeFile: 'services: {}\n',
+    composeFile: renderComposeYaml(services),
     services,
     domains: [composeDomain(publicBaseUrl, 'edge', 8080)],
     env: [],

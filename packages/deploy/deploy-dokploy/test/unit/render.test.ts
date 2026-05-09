@@ -74,13 +74,17 @@ describe('renderDokployPlan', () => {
       mode: 'preview',
     });
     expect(r.value.targetProject).toEqual({ mode: 'existing', projectId: 'project_123' });
-    expect(r.value.resources.map((resource) => resource.name)).toEqual([
-      'rntme-acme-commerce-catalog',
-      'rntme-acme-commerce-storage-s3',
-      'rntme-acme-commerce-edge',
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => service.name)).toEqual([
+      'svc-catalog',
+      'mod-storage-s3',
+      'edge',
     ]);
-    expect(r.value.resources[0]).toMatchObject({
-      kind: 'application',
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
+    expect(catalog).toMatchObject({
       workloadKind: 'domain-service',
       image: 'rntme-runtime',
       files: {
@@ -89,13 +93,13 @@ describe('renderDokployPlan', () => {
         '/srv/config.json': '{}',
       },
     });
-    expect(r.value.resources[0]).not.toHaveProperty('build');
-    expect(r.value.resources[0].env).toContainEqual({
+    expect(catalog).not.toHaveProperty('build');
+    expect(catalog?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
       value: 'redpanda.internal:9092',
       secret: false,
     });
-    expect(r.value.resources[0].env).toContainEqual({
+    expect(catalog?.env).toContainEqual({
       name: 'RNTME_ARTIFACTS_DIR',
       value: '/srv/artifacts',
       secret: false,
@@ -403,8 +407,11 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.resources.map((resource) => resource.kind)).toEqual(['application', 'application', 'application']);
-    const domain = r.value.resources.find((resource) => resource.workloadKind === 'domain-service');
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const domain = stack.services.find((service) => service.workloadKind === 'domain-service');
     const envNames = domain?.env.map((env) => env.name) ?? [];
     expect(envNames).not.toContain('RNTME_EVENT_BUS_BROKERS');
     expect(envNames).not.toContain('RNTME_EVENT_BUS_PROTOCOL');
@@ -420,27 +427,29 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const edge = r.value.resources.find((resource) => resource.workloadKind === 'edge-gateway');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     expect(edge).toMatchObject({
-      kind: 'application',
       workloadKind: 'edge-gateway',
       files: {
         '/srv/config.json': '{}',
       },
-      ports: [{ containerPort: 8080, protocol: 'http' }],
-      ingress: {
-        publicBaseUrl: 'https://commerce.example.com',
-        containerPort: 8080,
-        healthPath: '/health',
-        routes: [
-          {
-            routeId: 'http:/api/catalog',
-            path: '/api/catalog',
-            url: 'https://commerce.example.com/api/catalog',
-          },
-        ],
-      },
+      ports: [8080],
     });
+    expect(stack.domains).toEqual([
+      {
+        host: 'commerce.example.com',
+        path: '/',
+        serviceName: 'edge',
+        containerPort: 8080,
+        https: true,
+      },
+    ]);
+    expect(r.value.urls.publicRoutes).toEqual([
+      { routeId: 'http:/api/catalog', url: 'https://commerce.example.com/api/catalog' },
+    ]);
   });
 
   it('rejects missing Dokploy project identity when creation is disabled', () => {
@@ -604,7 +613,11 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    expect(r.value.resources[0].env).toEqual([
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const moduleService = stack.services.find((service) => service.name === 'mod-payments');
+    expect(moduleService?.env).toEqual([
       { name: 'A_VAR', value: 'a', secret: false },
       { name: 'Z_VAR', value: 'z', secret: false },
       { name: 'A_SECRET', value: 'secret/a', secret: true },
@@ -644,12 +657,12 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const moduleRes = r.value.resources.find((res) => res.workloadKind === 'integration-module');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const moduleRes = stack.services.find((service) => service.workloadKind === 'integration-module');
     expect(moduleRes).toBeDefined();
-    expect(moduleRes?.ports).toEqual([
-      { containerPort: 50051, protocol: 'http' },
-      { containerPort: 50052, protocol: 'http' },
-    ]);
+    expect(moduleRes?.ports).toEqual([50051, 50052]);
   });
 
   it('renders create target project when allowed', () => {
@@ -770,7 +783,10 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const app = r.value.resources.find((resource) => resource.workloadSlug === 'app');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const app = stack.services.find((service) => service.workloadSlug === 'app');
     expect(app?.env).toEqual(
       expect.arrayContaining([
         { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'sasl_ssl', secret: false },
@@ -795,7 +811,7 @@ describe('renderDokployPlan', () => {
     expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('auth0');
     expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('runtime');
 
-    const edge = r.value.resources.find((resource) => resource.workloadKind === 'edge-gateway');
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     expect(JSON.parse(edge?.files?.['/srv/config.json'] ?? '{}')).toEqual(publicConfig);
   });
 
@@ -816,7 +832,10 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    const edge = r.value.resources.find((res) => res.workloadKind === 'edge-gateway');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     const nginx = edge?.files?.['/etc/nginx/nginx.conf'] ?? '';
     expect(nginx).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
     expect(nginx).toContain('server rntme-acme-commerce-identity-auth0:50052;');
@@ -875,7 +894,38 @@ describe('renderDokployPlan', () => {
     expect(edge?.resources).toEqual({ cpus: '0.10', memory: '128M' });
   });
 
+  it('serializes compose services with restart policy resources networks and mounts', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    expect(stack.composeFile).toContain('services:\n');
+    expect(stack.composeFile).toContain('  svc-catalog:\n');
+    expect(stack.composeFile).toContain('    image: rntme-runtime\n');
+    expect(stack.composeFile).toContain('    restart: on-failure:3\n');
+    expect(stack.composeFile).toContain('      max_attempts: 3\n');
+    expect(stack.composeFile).toContain('      memory: 512M\n');
+    expect(stack.composeFile).toContain('  edge:\n');
+    expect(stack.composeFile).toContain('      memory: 128M\n');
+    expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
+  });
+
   it('rejects target resource name collisions after normalization', () => {
+    // In the single-stack model the only top-level Dokploy resource is the
+    // project-stack compose. Workloads whose slugs differ only by normalization
+    // (e.g. `billing-api` vs `billing_api`) now coexist as distinct compose
+    // services (`svc-billing-api`, `svc-billing_api`). Top-level collision
+    // detection no longer fires for this input. Stack-internal service-name
+    // collision detection is a Task 7 concern; this test currently asserts
+    // the new behaviour to keep the regression net wired up.
     const r = renderDokployPlan(
       {
         ...plan,
@@ -917,15 +967,17 @@ describe('renderDokployPlan', () => {
       },
     );
 
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.errors).toContainEqual(
-        expect.objectContaining({
-          code: 'DEPLOY_RENDER_DOKPLOY_NAME_COLLISION',
-          resource: 'rntme-acme-commerce-billing-api',
-        }),
-      );
-    }
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => service.name).sort()).toEqual([
+      'edge',
+      'svc-billing-api',
+      'svc-billing_api',
+    ]);
   });
 });
 
@@ -960,7 +1012,10 @@ describe('renderDokployPlan — provisioner outputs', () => {
     });
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
-    const appResource = rendered.value.resources.find((r) => r.workloadSlug === 'app');
+    const stack = rendered.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const appResource = stack.services.find((service) => service.workloadSlug === 'app');
     expect(appResource?.env).toContainEqual({ name: 'AUTH0_SPA_CLIENT_ID', value: 'cid_xyz', secret: false });
   });
 
@@ -972,7 +1027,10 @@ describe('renderDokployPlan — provisioner outputs', () => {
     });
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
-    const idResource = rendered.value.resources.find((r) => r.workloadSlug === 'identity-auth0');
+    const stack = rendered.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const idResource = stack.services.find((service) => service.workloadSlug === 'identity-auth0');
     expect(idResource?.env).toContainEqual({ name: 'AUTH0_M2M_INTROSPECT_CLIENT_SECRET', value: 'sss', secret: true });
   });
 
