@@ -54,6 +54,29 @@ function buildUrl(path: string, params?: Record<string, unknown>, stateGetter?: 
   return qs ? `${url}?${qs}` : url;
 }
 
+function createNotFoundScreen(path: string): CompiledScreen {
+  return {
+    spec: {
+      root: 'runtimeNotFound',
+      elements: {
+        runtimeNotFound: {
+          type: 'Stack',
+          props: { direction: 'vertical', gap: 'lg' },
+          children: ['runtimeNotFoundTitle', 'runtimeNotFoundPath'],
+        },
+        runtimeNotFoundTitle: {
+          type: 'Heading',
+          props: { level: 1, text: 'Page not found' },
+        },
+        runtimeNotFoundPath: {
+          type: 'Heading',
+          props: { level: 2, text: path },
+        },
+      },
+    },
+  };
+}
+
 export type ModuleSpec = {
   name: string;
   boot?: (ctx: ModuleBootContext) => void | Promise<void>;
@@ -211,16 +234,40 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     return evaluateVisible(root?.visible, (path) => store.get(path));
   }
 
+  function setMatchedRouteState(path: string, params: Record<string, string>): void {
+    store.set('/route/status', 'ok');
+    store.set('/route/path', path);
+    store.set('/route/params', params);
+  }
+
+  function setNotFoundRouteState(path: string): void {
+    store.set('/route/status', 'not_found');
+    store.set('/route/path', path);
+    store.set('/route/params', {});
+  }
+
+  function renderNotFound(path: string): void {
+    currentLayout = null;
+    currentLayoutName = null;
+    currentScreen = createNotFoundScreen(path);
+    setNotFoundRouteState(path);
+    rerender();
+  }
+
   async function enterRoute(path: string): Promise<void> {
     const match = matchRoute(patterns, path);
-    if (!match) return;
+    if (!match) {
+      renderNotFound(path);
+      return;
+    }
 
     const routeEntry = manifest.routes[match.pattern];
-    if (!routeEntry) return;
-
-    for (const [k, v] of Object.entries(match.params)) {
-      store.set(`/route/params/${k}`, v);
+    if (!routeEntry) {
+      renderNotFound(path);
+      return;
     }
+
+    setMatchedRouteState(path, match.params);
     bus.emit('navigate', { path, params: match.params });
 
     if (routeEntry.layout !== currentLayoutName) {
@@ -257,14 +304,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   store.subscribe(() => rerender());
 
   const initialPath = window.location.pathname || '/';
-  const initialMatch = matchRoute(patterns, initialPath);
-  if (!initialMatch) {
-    const defaultRoute = patterns[0] ?? '/';
-    window.history.replaceState({}, '', defaultRoute);
-    await enterRoute(defaultRoute);
-  } else {
-    await enterRoute(initialPath);
-  }
+  await enterRoute(initialPath);
 
   window.addEventListener('popstate', () => {
     void enterRoute(window.location.pathname);
