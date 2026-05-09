@@ -15,7 +15,10 @@
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
       },
-      "exposure": "read"
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "recordAuditEvent": {
       "graph": "recordAuditEvent",
@@ -32,7 +35,10 @@
           { "name": "detailsJson", "in": "body", "bindTo": "detailsJson", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     }
   }
 }
