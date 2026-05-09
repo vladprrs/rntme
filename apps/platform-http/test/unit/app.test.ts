@@ -39,23 +39,35 @@ function buildDeps(): AppDeps {
 
 describe('createApp', () => {
   it('GET /health returns 200 ok', async () => {
-    const app = createApp(buildDeps());
+    const app = await createApp(buildDeps());
     const r = await app.request('/health');
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ status: 'ok' });
   });
 
   it('GET /login renders the UI LoginPage instead of 401 JSON', async () => {
-    const app = createApp(buildDeps());
+    const app = await createApp(buildDeps());
     const r = await app.request('/login');
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type') ?? '').toMatch(/text\/html/);
   });
 
   it('GET /v1/auth/me still requires auth (401 JSON)', async () => {
-    const app = createApp(buildDeps());
+    const app = await createApp(buildDeps());
     const r = await app.request('/v1/auth/me');
     expect(r.status).toBe(401);
     expect(r.headers.get('content-type') ?? '').toMatch(/application\/json/);
+  });
+
+  it('serves blueprint runtime when PLATFORM_RUNTIME_MODE=blueprint', async () => {
+    const deps = buildDeps();
+    deps.env = parseEnv({ ...baseline, PLATFORM_RUNTIME_MODE: 'blueprint' });
+    const app = await createApp(deps);
+    // Legacy auth gate is absent — SPA fallback serves HTML shell for unrecognised paths
+    const authMe = await app.request('/v1/auth/me');
+    expect(authMe.status).not.toBe(401);
+    // UI manifest route must be served by the platform runtime
+    const manifest = await app.request('/_manifest.json');
+    expect(manifest.status).toBe(200);
   });
 });

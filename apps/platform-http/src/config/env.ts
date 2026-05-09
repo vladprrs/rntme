@@ -23,6 +23,7 @@ export const EnvSchema = z.object({
   PLATFORM_COOKIE_PASSWORD: z.string().min(32),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
+  PLATFORM_RUNTIME_MODE: z.enum(['legacy', 'blueprint']).default('legacy'),
 });
 export type Env = z.infer<typeof EnvSchema>;
 

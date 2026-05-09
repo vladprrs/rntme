@@ -130,6 +130,9 @@ importers:
       '@hono/zod-openapi':
         specifier: ^0.16.0
         version: 0.16.4(hono@4.12.12)(zod@4.3.6)
+      '@rntme/bindings':
+        specifier: workspace:*
+        version: link:../../packages/artifacts/bindings
       '@rntme/bindings-grpc':
         specifier: workspace:*
         version: link:../../packages/runtime/bindings-grpc
@@ -148,6 +151,9 @@ importers:
       '@rntme/platform-storage':
         specifier: workspace:*
         version: link:../../packages/platform/platform-storage
+      '@rntme/ui-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime/ui-runtime
       '@workos-inc/node':
         specifier: ^7.32.0
         version: 7.82.0

@@ -24,7 +24,7 @@ export type E2eEnv = {
   pg: StartedPostgreSqlContainer | null;
   minio: StartedTestContainer | null;
   ownerPool: ReturnType<typeof createPool>;
-  app: ReturnType<typeof createApp>;
+  app: Awaited<ReturnType<typeof createApp>>;
   deps: AppDeps;
   seedRepos: AppDeps['poolRepos'];
   teardown(): Promise<void>;
@@ -124,7 +124,7 @@ export async function bootE2e(options: BootE2eOptions = {}): Promise<E2eEnv> {
     ...(options.scheduleDeployment ? { scheduleDeployment: options.scheduleDeployment } : {}),
     poolRepos,
   };
-  const app = createApp(deps);
+  const app = await createApp(deps);
   return {
     pg,
     minio,

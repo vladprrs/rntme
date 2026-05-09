@@ -25,14 +25,12 @@ const TERMINAL = new Set<DeploymentStatus>([
 
 export async function watchUntilTerminal(opts: {
   apiCtx: { baseUrl: string; token: string | null };
-  org: string;
-  project: string;
   deploymentId: string;
   pollIntervalMs?: number | undefined;
   timeoutMs?: number | undefined;
   printLogs?: boolean | undefined;
 }): Promise<Result<DeploymentResponse, ClientError | CliError>> {
-  const { apiCtx, org, project, deploymentId, pollIntervalMs = 2_000, timeoutMs, printLogs = true } = opts;
+  const { apiCtx, deploymentId, pollIntervalMs = 2_000, timeoutMs, printLogs = true } = opts;
   let sinceLineId = 0;
   const startTime = Date.now();
 
@@ -41,10 +39,10 @@ export async function watchUntilTerminal(opts: {
       return err(cliError('CLI_NETWORK_TIMEOUT', `deployment watch timed out after ${timeoutMs}ms`));
     }
 
-    const status = await endpoints.deployments.show(apiCtx, org, project, deploymentId);
+    const status = await endpoints.deployments.show(apiCtx, deploymentId);
     if (!isOk(status)) return status;
 
-    const logs = await endpoints.deployments.logs(apiCtx, org, project, deploymentId, {
+    const logs = await endpoints.deployments.logs(apiCtx, deploymentId, {
       sinceLineId,
       limit: 200,
     });
@@ -89,15 +87,9 @@ export async function runProjectDeploymentWatch(args: ProjectDeploymentWatchArgs
     async (ctx) => {
       const id = validateUuid(args.deploymentId, 'deployment-id');
       if (!id.ok) return id;
-      const org = flags.org ?? ctx.resolved.org;
-      const project = flags.project ?? ctx.resolved.project;
-      if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
-      if (!project) return err(cliError('CLI_CONFIG_MISSING', 'no project; use --project'));
 
       return watchUntilTerminal({
         apiCtx: { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
-        org,
-        project,
         deploymentId: id.value,
         pollIntervalMs: args.pollIntervalMs,
         printLogs: flags.json !== true && flags.quiet !== true,

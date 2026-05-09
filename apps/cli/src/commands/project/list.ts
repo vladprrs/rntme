@@ -9,7 +9,7 @@ import { cliError } from '../../errors/codes.js';
 
 type ProjectsList = z.infer<typeof ProjectsListResponseSchema>;
 
-export type ProjectListArgs = { includeArchived?: boolean };
+export type ProjectListArgs = { limit?: number | undefined };
 
 export async function runProjectList(args: ProjectListArgs, flags: CommonFlags): Promise<number> {
   return runCommand<ProjectsList>(
@@ -30,7 +30,8 @@ export async function runProjectList(args: ProjectListArgs, flags: CommonFlags):
     async (ctx) => {
       const org = flags.org ?? ctx.resolved.org;
       if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org'));
-      const listOpts = args.includeArchived !== undefined ? { includeArchived: args.includeArchived } : undefined;
+      const listOpts: { limit?: number } = {};
+      if (args.limit !== undefined) listOpts.limit = args.limit;
       return endpoints.projects.list(
         { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
         org,

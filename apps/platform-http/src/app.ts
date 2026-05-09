@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { Hono } from 'hono';
 import { safeProvisionerName } from '@rntme/blueprint';
 import type { Env } from './config/env.js';
+import { loadPlatformBlueprint } from './platform-runtime/load-platform-blueprint.js';
+import { createPlatformRuntimeApp } from './platform-runtime/create-platform-runtime-app.js';
 import { requestId } from './middleware/request-id.js';
 import { loggerMiddleware } from './middleware/logger.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -109,8 +111,29 @@ export type AppDeps = {
   };
 };
 
-export function createApp(deps: AppDeps): Hono {
+export async function createApp(deps: AppDeps): Promise<Hono> {
   const app = new Hono();
+
+  // Blueprint mode: load platform blueprint and route all traffic to runtime app.
+  // Observability middleware is applied first so request-id, logging, and CORS
+  // work uniformly regardless of mode.
+  if (deps.env.PLATFORM_RUNTIME_MODE === 'blueprint') {
+    app.use('*', requestId());
+    app.use('*', loggerMiddleware(deps.logger));
+    app.onError(errorHandler(deps.logger));
+    app.use('*', corsMiddleware(deps.env.PLATFORM_CORS_ORIGINS));
+
+    const loaded = await loadPlatformBlueprint();
+    if (!loaded.ok) {
+      throw new Error(
+        `PLATFORM_BLUEPRINT_LOAD_FAILED: ${JSON.stringify(loaded.errors)}`,
+      );
+    }
+    const runtimeApp = await createPlatformRuntimeApp({ blueprint: loaded.value });
+    app.route('/', runtimeApp);
+    return app;
+  }
+
   const cipher = deps.cipher ?? {
     encrypt: () => {
       throw new Error('PLATFORM_SECRET_ENCRYPTION_KEY is not configured');

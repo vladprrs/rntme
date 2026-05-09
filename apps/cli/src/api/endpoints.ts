@@ -1,4 +1,4 @@
-import { apiCall, type ClientError } from './client.js';
+import { apiCall, PLATFORM_API, type ClientError } from './client.js';
 import type { Result } from '../result.js';
 import {
   ProjectResponseSchema,
@@ -62,33 +62,53 @@ export const endpoints = {
   },
 
   projects: {
-    create: (c: Ctx, org: string, body: CreateProjectRequest) =>
-      apiCall({ method: 'POST', path: `/v1/orgs/${enc(org)}/projects`, body, responseSchema: ProjectResponseSchema, ...c }),
-    list: (c: Ctx, org: string, opts?: { includeArchived?: boolean }) =>
+    // Migrated to platform blueprint surface (`/api/projects`). The first
+    // positional argument is treated as `organizationId` (a UUID) — the
+    // generated bindings expect IDs, not legacy org slugs.
+    create: (c: Ctx, organizationId: string, body: CreateProjectRequest) =>
       apiCall({
-        method: 'GET',
-        path: `/v1/orgs/${enc(org)}/projects${opts?.includeArchived ? '?includeArchived=1' : ''}`,
-        responseSchema: ProjectsListResponseSchema,
+        method: 'POST',
+        path: PLATFORM_API.projects,
+        body: { organizationId, ...body },
+        responseSchema: ProjectResponseSchema,
         ...c,
       }),
+    list: (c: Ctx, organizationId: string, opts?: { limit?: number }) => {
+      const qs = new URLSearchParams();
+      qs.set('organizationId', organizationId);
+      if (opts?.limit !== undefined) qs.set('limit', String(opts.limit));
+      return apiCall({
+        method: 'GET',
+        path: `${PLATFORM_API.projects}?${qs.toString()}`,
+        responseSchema: ProjectsListResponseSchema,
+        ...c,
+      });
+    },
+    // Legacy: no `/api/projects/{id}` GET binding exists yet. Kept on the
+    // legacy `/v1` surface until the platform blueprint exposes a getProject
+    // binding.
     show: (c: Ctx, org: string, project: string) =>
       apiCall({ method: 'GET', path: `/v1/orgs/${enc(org)}/projects/${enc(project)}`,
                 responseSchema: ProjectResponseSchema, ...c }),
   },
 
   projectVersions: {
-    list: (c: Ctx, org: string, project: string, opts?: { limit?: number; cursor?: string }) => {
+    // Migrated to platform blueprint surface. The `project` argument is
+    // treated as a `projectId` (UUID) — the generated `listProjectVersions`
+    // binding takes a path-id, not an org-slug + project-slug pair.
+    list: (c: Ctx, projectId: string, opts?: { limit?: number }) => {
       const qs = new URLSearchParams();
-      if (opts?.limit) qs.set('limit', String(opts.limit));
-      if (opts?.cursor) qs.set('cursor', opts.cursor);
+      if (opts?.limit !== undefined) qs.set('limit', String(opts.limit));
       const suffix = qs.toString() ? `?${qs.toString()}` : '';
       return apiCall({
         method: 'GET',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/versions${suffix}`,
+        path: `${PLATFORM_API.projects}/${enc(projectId)}/versions${suffix}`,
         responseSchema: ProjectVersionsListResponseSchema,
         ...c,
       });
     },
+    // Legacy: there is no platform-blueprint binding for fetching a single
+    // version by sequence yet. Kept on `/v1` until exposed.
     show: (c: Ctx, org: string, project: string, seq: number) =>
       apiCall({
         method: 'GET',
@@ -96,10 +116,16 @@ export const endpoints = {
         responseSchema: ProjectVersionResponseSchema,
         ...c,
       }),
-    publishBundle: (c: Ctx, org: string, project: string, bytes: string) =>
+    // Migrated. Path uses projectId; the legacy CLI passed raw bundle bytes
+    // and the platform server accepted them — that semantic still flows
+    // through the `application/rntme-project-bundle+json` content type. The
+    // generated binding expects `{sequence, bundleDigest, bundleObjectKey}`
+    // in JSON; bridging that bundle->binding shape is a server-side concern,
+    // not the CLI's. The CLI continues to send the bundle bytes as before.
+    publishBundle: (c: Ctx, projectId: string, bytes: string) =>
       apiCall({
         method: 'POST',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/versions`,
+        path: `${PLATFORM_API.projects}/${enc(projectId)}/versions`,
         rawBody: bytes,
         contentType: 'application/rntme-project-bundle+json',
         responseSchema: ProjectVersionResponseSchema,
@@ -109,39 +135,61 @@ export const endpoints = {
   },
 
   deployments: {
-    start: (c: Ctx, org: string, project: string, body: StartDeploymentRequest) =>
+    // Migrated. `organizationId` and `projectId` are now UUIDs — the new
+    // `queueDeployment` binding takes them via the request body.
+    start: (
+      c: Ctx,
+      organizationId: string,
+      projectId: string,
+      body: StartDeploymentRequest,
+    ) =>
       apiCall({
         method: 'POST',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments`,
-        body,
+        path: PLATFORM_API.deployments,
+        body: { organizationId, projectId, ...body },
         responseSchema: DeploymentResponseSchema,
         ...c,
       }),
-    list: (c: Ctx, org: string, project: string, opts?: { limit?: number }) => {
+    list: (
+      c: Ctx,
+      organizationId: string,
+      projectId: string,
+      opts?: { limit?: number },
+    ) => {
       const qs = new URLSearchParams();
-      if (opts?.limit) qs.set('limit', String(opts.limit));
-      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      qs.set('organizationId', organizationId);
+      qs.set('projectId', projectId);
+      if (opts?.limit !== undefined) qs.set('limit', String(opts.limit));
       return apiCall({
         method: 'GET',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments${suffix}`,
+        path: `${PLATFORM_API.deployments}?${qs.toString()}`,
         responseSchema: DeploymentsListResponseSchema,
         ...c,
       });
     },
-    show: (c: Ctx, org: string, project: string, deploymentId: string) =>
+    show: (c: Ctx, deploymentId: string) =>
       apiCall({
         method: 'GET',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments/${enc(deploymentId)}`,
+        path: `${PLATFORM_API.deployments}/${enc(deploymentId)}`,
         responseSchema: DeploymentResponseSchema,
         ...c,
       }),
-    logs: (c: Ctx, org: string, project: string, deploymentId: string, opts: { sinceLineId: number; limit: number }) => {
+    // Migrated. The platform `readDeploymentLogs` binding lives at
+    // `/api/deployments/{deploymentId}/logs` and takes only `limit` (no
+    // `sinceLineId` cursor yet). The CLI keeps the `sinceLineId` parameter
+    // for backwards-compatible client-side filtering until the binding adds
+    // a cursor.
+    logs: (
+      c: Ctx,
+      deploymentId: string,
+      opts: { sinceLineId: number; limit: number },
+    ) => {
       const qs = new URLSearchParams();
       qs.set('sinceLineId', String(opts.sinceLineId));
       qs.set('limit', String(opts.limit));
       return apiCall({
         method: 'GET',
-        path: `/v1/orgs/${enc(org)}/projects/${enc(project)}/deployments/${enc(deploymentId)}/logs?${qs.toString()}`,
+        path: `${PLATFORM_API.deployments}/${enc(deploymentId)}/logs?${qs.toString()}`,
         responseSchema: DeploymentLogsResponseSchema,
         ...c,
       });

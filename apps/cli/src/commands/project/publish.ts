@@ -94,11 +94,11 @@ export async function runProjectPublish(args: ProjectPublishArgs, flags: CommonF
       }
 
       const apiCtx = { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token };
-      let published = await endpoints.projectVersions.publishBundle(apiCtx, org, project, built.value.bytes);
+      let published = await endpoints.projectVersions.publishBundle(apiCtx, project, built.value.bytes);
       if (!published.ok && published.error.kind === 'http' && published.error.status === 404 && args.createProject === true) {
         const created = await endpoints.projects.create(apiCtx, org, { slug: project, displayName: project });
         if (!created.ok) return created;
-        published = await endpoints.projectVersions.publishBundle(apiCtx, org, project, built.value.bytes);
+        published = await endpoints.projectVersions.publishBundle(apiCtx, project, built.value.bytes);
       }
       if (!published.ok) return published;
 

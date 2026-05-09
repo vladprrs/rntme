@@ -71,8 +71,6 @@ export async function runProjectDeploy(args: ProjectDeployArgs, flags: CommonFla
       if (args.wait) {
         const final = await watchUntilTerminal({
           apiCtx: { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
-          org,
-          project,
           deploymentId: queued.value.deployment.id,
           timeoutMs: (args.timeoutSec ?? 300) * 1000,
           printLogs: flags.json !== true && flags.quiet !== true,
