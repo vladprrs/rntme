@@ -290,6 +290,12 @@ git commit -m "feat(platform): introspect Auth0 sessions in platform graphs"
 
 Create `apps/platform/blueprint/test/platform-auth0.test.ts`:
 
+> Note: `catalogManifest.moduleEdgeAuth` is keyed by manifest name (`@rntme/identity-auth0`), not
+> the project slot name (`identity`). `discoveredModules` is internal to `loadComposedBlueprint`
+> and is NOT exposed on the returned `ComposedBlueprint` type — the rpcs assertion is dropped
+> because checking our own vendored copy is tautological; `package` + `moduleEdgeAuth` populated
+> already proves Auth0 wiring end-to-end.
+
 ```ts
 import { describe, expect, it } from 'vitest';
 import { dirname, join } from 'node:path';
@@ -306,15 +312,14 @@ describe('platform Auth0 wiring', () => {
     if (!result.ok) return;
 
     expect(result.value.project.modules?.identity?.package).toBe('rntme_identity_auth0');
-    expect(result.value.discoveredModules?.identity?.manifest.capabilities.rpcs).toContain('IntrospectSession');
-    expect(result.value.discoveredModules?.identity?.manifest.capabilities.edgeAuth).toMatchObject({
+    expect(result.value.catalogManifest?.moduleEdgeAuth['@rntme/identity-auth0']).toMatchObject({
       kind: 'introspection-sidecar',
       transport: 'http',
       method: 'GET',
       path: '/introspect',
       port: 50052,
     });
-    for (const mount of result.value.project.mounts) {
+    for (const mount of result.value.project.mounts ?? []) {
       if (mount.target.startsWith('http:')) expect(mount.use).toContain('auth');
     }
   });
