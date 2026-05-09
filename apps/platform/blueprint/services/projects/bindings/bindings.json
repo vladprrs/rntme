@@ -10,7 +10,10 @@
       "http": {
         "method": "GET",
         "path": "/",
-        "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
       },
       "exposure": "read",
       "inputFrom": {
