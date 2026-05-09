@@ -1,6 +1,24 @@
 {
   "name": "rntme-platform",
   "services": ["organizations", "projects", "tokens", "audit", "identity-auth0"],
+  "vars": {
+    "AUTH0_SPA_CLIENT_ID": { "from": "provision.identity.spaClient.id", "required": true },
+    "AUTH0_DOMAIN": { "from": "target.auth.auth0.domain", "required": true },
+    "AUTH0_AUDIENCE": { "from": "target.auth.auth0.audience", "required": true },
+    "AUTH0_REDIRECT_URI": { "from": "target.auth.auth0.redirectUri", "required": true }
+  },
+  "modules": {
+    "identity": {
+      "package": "rntme_identity_auth0",
+      "publicConfig": {
+        "appName": "rntme-platform",
+        "domain": "${AUTH0_DOMAIN}",
+        "clientId": "${AUTH0_SPA_CLIENT_ID}",
+        "audience": "${AUTH0_AUDIENCE}",
+        "redirectUri": "${AUTH0_REDIRECT_URI}"
+      }
+    }
+  },
   "routes": {
     "http": {
       "/api/organizations": "organizations",
@@ -10,12 +28,18 @@
     }
   },
   "middleware": {
-    "requestContext": { "kind": "request-context" }
+    "requestContext": { "kind": "request-context" },
+    "auth": {
+      "kind": "auth",
+      "provider": "auth0",
+      "audience": "${AUTH0_AUDIENCE}",
+      "moduleSlug": "identity-auth0"
+    }
   },
   "mounts": [
-    { "target": "http:/api/organizations", "use": ["requestContext"] },
-    { "target": "http:/api/projects", "use": ["requestContext"] },
-    { "target": "http:/api/tokens", "use": ["requestContext"] },
-    { "target": "http:/api/audit", "use": ["requestContext"] }
+    { "target": "http:/api/organizations", "use": ["requestContext", "auth"] },
+    { "target": "http:/api/projects", "use": ["requestContext", "auth"] },
+    { "target": "http:/api/tokens", "use": ["requestContext", "auth"] },
+    { "target": "http:/api/audit", "use": ["requestContext", "auth"] }
   ]
 }
