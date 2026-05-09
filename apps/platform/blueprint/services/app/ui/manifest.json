@@ -15,7 +15,7 @@
     "/:orgId/projects/:projectId": { "layout": "main", "screen": "screens/project" },
     "/:orgId/projects/:projectId/versions/:versionId": { "layout": "main", "screen": "screens/project-version" },
     "/:orgId/deploy-targets": { "layout": "main", "screen": "screens/deploy-targets" },
-    "/:orgId/deployments": { "layout": "main", "screen": "screens/deployments" },
+    "/:orgId/projects/:projectId/deployments": { "layout": "main", "screen": "screens/deployments" },
     "/:orgId/deployments/:deploymentId": { "layout": "main", "screen": "screens/deployment" },
     "/:orgId/tokens": { "layout": "main", "screen": "screens/tokens" },
     "/:orgId/audit": { "layout": "main", "screen": "screens/audit" }
