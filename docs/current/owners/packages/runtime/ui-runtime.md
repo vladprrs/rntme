@@ -165,6 +165,11 @@ registry, transport chain, visibility, router helpers) are exported by
 
 - `/runtime/bootErrors`: `Array<{ moduleName: string; cause: unknown }>`. Empty if every boot succeeded.
 - `/auth/status`: `'anon' | 'authed' | undefined`. See identity contract below.
+- `/runtime/renderErrors/layout` and `/runtime/renderErrors/screen`:
+  optional sanitized renderer-failure records shaped as
+  `{ scope, identity, message: 'Renderer failed', errorName, componentStack? }`.
+  These are inspectability/debug slots, not user notification APIs. The runtime
+  replaces the prior record for the same scope instead of keeping a growing log.
 
 ### Identity contract
 
@@ -177,6 +182,30 @@ A module may declare `module.json#client.contract: "identity"`. The blueprint su
 ### Failure semantics for non-identity modules
 
 A non-identity module's failure is recorded in `/runtime/bootErrors` and logged via `console.error`. The runtime takes no automatic compensating action.
+
+### Renderer failure semantics
+
+Generated layout and screen specs are rendered behind separate React Error
+Boundaries in `layout-manager.tsx`. A screen render crash replaces only the
+screen region with `#rntme-screen-error`; the layout remains mounted. A layout
+render crash replaces only the layout region with `#rntme-layout-error`; the
+screen still renders when it can.
+
+`@json-render/react` also wraps each element in its own error boundary; throws
+inside a module component are typically caught there (rendering `null` for that
+element) before they reach the runtime `RendererErrorBoundary`. The runtime
+boundary covers failures outside that path (e.g. renderer composition) and
+keeps a consistent sanitized record under `/runtime/renderErrors/<scope>`.
+
+Fallback UI is plain React DOM with `role="alert"` and
+`data-rntme-error-scope`. It intentionally does not show raw exception
+messages, JavaScript stacks, props, state snapshots, request data, or compiled
+artifact JSON. Sanitized records are written to `/runtime/renderErrors/<scope>`
+and logged once with `[rntme] UI renderer failed`.
+
+Screen boundaries reset when navigation changes the route-derived screen
+identity (`screen:<route-pattern>:<screen-name>`). Layout boundaries reset when
+the layout identity changes (`layout:<layout-name>`) or the page reloads.
 
 ### Boot timeout
 
@@ -203,6 +232,11 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - **`registry.ts` pulls the shadcn catalog from `@json-render/shadcn`** and binds `navigate` and `dispatch` actions validated by zod (`z.object({ to: z.string() }).passthrough()` and `z.object({ name: z.string() })`). Additional custom actions belong in a fork of `createRegistry`.
 - **Tailwind v4 scans `build/main.js`** (`client/styles.css` `@source` directive, `build.ts` ordering). CSS must be built after JS or shadcn class names will be pruned — `build.ts` enforces this order.
 - **`AppShell` returns a loading div until `screenSpec` is non-null** (`layout-manager.tsx`). No layout mounts before a screen is resolved, so layout-persistent state begins only after the first successful `enterRoute`.
+- **Renderer crashes fail locally** (`layout-manager.tsx`). Layout and screen
+  `<Renderer>` calls have separate boundaries; fallback copy is sanitized and
+  diagnostics live under `/runtime/renderErrors/<scope>`. If the same broken
+  route is revisited, the boundary will throw and show the fallback again until
+  the compiled artifact or module component is fixed.
 - **Module-facing APIs live in the client-runtime contract.** Browser modules
   import from `@rntme/contracts-client-runtime-v1`. `@rntme/ui-runtime` owns the
   host bootstrap (`hydrateApp` / `mountUiRuntime`), server routes, SPA bundle,
@@ -233,7 +267,10 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
   the contract package's `test/unit/router.test.ts`.
 - "Tune the esbuild or Tailwind build" -> `src/build.ts`; preserve the JS-before-CSS order.
 - "Debug a failing SPA deep link" -> confirm the server falls through to the shell (`app.get('/*', ...)`), then verify the path matches a pattern in the manifest.
-- "Debug a blank screen after navigation" -> `layout-manager.tsx` renders `Loading...` until `screenSpec` is non-null; check the `_screens/:name.json` response and the store subscribe callback in `entry.tsx`.
+- "Debug a blank screen after navigation" -> first check for `#rntme-screen-error`,
+  `#rntme-layout-error`, and `/runtime/renderErrors/<scope>`; then check that
+  `_screens/:name.json` loaded and that the store subscribe callback in
+  `entry.tsx` rerendered `AppShell`.
 - "Write a new server test" -> `test/unit/server.test.ts` and `test/fixtures/compiled-manifest.ts` / `compiled-screen.ts` show how to hand-build a minimal `CompiledArtifact` and invoke `app.request(path)` without a live network.
 - "Add action status reflection in the UI" -> bind a shadcn component's prop to `/data/__status<statePath>` or `/data/__error<statePath>`; `driver.ts` already writes these keys on every fetch.
 - "Replace the shadcn theme tokens" -> edit the `@theme inline` block in `client/styles.css`; the tokens feed Tailwind v4 utilities used by `@json-render/shadcn` components.

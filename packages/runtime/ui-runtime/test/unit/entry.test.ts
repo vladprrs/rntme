@@ -279,4 +279,82 @@ describe('mountUiRuntime', () => {
       '/_screens/home.json'
     ]);
   });
+
+  it('passes route-derived renderer identity keys to AppShell and updates them on navigation', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/': { layout: 'main', screen: 'home' },
+        '/settings': { layout: 'main', screen: 'settings' },
+      },
+    };
+    const layout: CompiledScreen = {
+      spec: {
+        root: 'layout',
+        elements: {
+          layout: { type: 'Stack', props: {} },
+        },
+      },
+    };
+    const home: CompiledScreen = {
+      spec: {
+        root: 'home',
+        elements: {
+          home: { type: 'Heading', props: { text: 'Home' } },
+        },
+      },
+    };
+    const settings: CompiledScreen = {
+      spec: {
+        root: 'settings',
+        elements: {
+          settings: { type: 'Heading', props: { text: 'Settings' } },
+        },
+      },
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestPath(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') return Response.json(layout);
+      if (url === '/_screens/home.json') return Response.json(home);
+      if (url === '/_screens/settings.json') return Response.json(settings);
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport,
+    });
+
+    const firstApp = render.mock.calls.at(-1)?.[0] as {
+      props: {
+        actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<void>>;
+        layoutKey: string;
+        screenKey: string;
+      };
+    };
+    expect(firstApp.props.layoutKey).toBe('layout:main');
+    expect(firstApp.props.screenKey).toBe('screen:/:home');
+
+    await firstApp.props.actionHandlers.navigate({ to: '/settings' });
+
+    await vi.waitFor(() => {
+      const app = render.mock.calls.at(-1)?.[0] as {
+        props: { layoutKey: string; screenKey: string };
+      };
+      expect(app.props.screenKey).toBe('screen:/settings:settings');
+    });
+
+    const secondApp = render.mock.calls.at(-1)?.[0] as {
+      props: {
+        layoutKey: string;
+        screenKey: string;
+      };
+    };
+    expect(secondApp.props.layoutKey).toBe('layout:main');
+    expect(secondApp.props.screenKey).toBe('screen:/settings:settings');
+  });
 });

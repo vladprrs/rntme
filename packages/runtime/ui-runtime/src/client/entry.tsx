@@ -99,6 +99,8 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   let currentLayout: CompiledScreen | null = null;
   let currentScreen: CompiledScreen | null = null;
   let currentLayoutName: string | null = null;
+  let currentLayoutKey = 'layout:none';
+  let currentScreenKey = 'screen:none';
   const operationRegistry = createOperationRegistry();
 
   const bus = createLifecycleBus();
@@ -218,6 +220,9 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
     const routeEntry = manifest.routes[match.pattern];
     if (!routeEntry) return;
 
+    currentLayoutKey = `layout:${routeEntry.layout}`;
+    currentScreenKey = `screen:${match.pattern}:${routeEntry.screen}`;
+
     for (const [k, v] of Object.entries(match.params)) {
       store.set(`/route/params/${k}`, v);
     }
@@ -250,6 +255,8 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
         actionHandlers,
         store,
         operationRegistry,
+        layoutKey: currentLayoutKey,
+        screenKey: currentScreenKey,
       }),
     );
   }

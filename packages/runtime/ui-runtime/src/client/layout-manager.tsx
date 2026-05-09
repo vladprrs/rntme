@@ -9,6 +9,7 @@ import {
   RegistryProvider,
   StoreProvider,
 } from '@rntme/contracts-client-runtime-v1';
+import { RendererErrorBoundary } from './renderer-error-boundary.js';
 
 export type AppShellProps = {
   layoutSpec: CompiledSpec | null;
@@ -17,6 +18,8 @@ export type AppShellProps = {
   actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<void>>;
   store: StateStore;
   operationRegistry?: OperationRegistry;
+  layoutKey?: string | undefined;
+  screenKey?: string | undefined;
 };
 
 function injectRuntimeElementIds(spec: CompiledSpec | null): CompiledSpec | null {
@@ -34,7 +37,16 @@ function injectRuntimeElementIds(spec: CompiledSpec | null): CompiledSpec | null
   return { ...spec, elements };
 }
 
-export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, store, operationRegistry }: AppShellProps): React.ReactElement {
+export function AppShell({
+  layoutSpec,
+  screenSpec,
+  registry,
+  actionHandlers,
+  store,
+  operationRegistry,
+  layoutKey = layoutSpec ? 'layout:default' : 'layout:none',
+  screenKey = 'screen:default',
+}: AppShellProps): React.ReactElement {
   if (!screenSpec) {
     return React.createElement('div', { id: 'rntme-loading' }, 'Loading...');
   }
@@ -46,12 +58,30 @@ export function AppShell({ layoutSpec, screenSpec, registry, actionHandlers, sto
     'div',
     { id: 'rntme-app', style: { maxWidth: 960, margin: '0 auto', padding: 24 } },
     layoutRendererSpec
-      ? React.createElement('div', { id: 'rntme-layout', key: 'layout' },
-          React.createElement(Renderer, { spec: layoutRendererSpec, registry }),
+      ? React.createElement(
+          'div',
+          { id: 'rntme-layout', key: 'layout' },
+          React.createElement(RendererErrorBoundary, {
+              key: layoutKey,
+              scope: 'layout',
+              identity: layoutKey,
+              store,
+              fallbackId: 'rntme-layout-error',
+              children: React.createElement(Renderer, { spec: layoutRendererSpec, registry }),
+            }),
         )
       : null,
-    React.createElement('div', { id: 'rntme-screen', key: 'screen' },
-      React.createElement(Renderer, { spec: screenRendererSpec, registry }),
+    React.createElement(
+      'div',
+      { id: 'rntme-screen', key: 'screen' },
+      React.createElement(RendererErrorBoundary, {
+        key: screenKey,
+        scope: 'screen',
+        identity: screenKey,
+        store,
+        fallbackId: 'rntme-screen-error',
+        children: React.createElement(Renderer, { spec: screenRendererSpec, registry }),
+      }),
     ),
   );
   const runtimeContext = operationRegistry
