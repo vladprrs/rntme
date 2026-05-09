@@ -16,6 +16,10 @@ export {
   type DokployComposeTaskInspection,
   type DokployProjectRef,
 } from './client.js';
+export {
+  type RenderedComposeDomain,
+  type RenderedComposeServiceClass,
+} from './compose-model.js';
 export { type DokployTargetConfig, validateDokployTargetConfig, type NormalizedDokployTargetConfig } from './config.js';
 export { dokployLabels, dokployResourceName } from './names.js';
 export { renderNginxConfig } from './nginx.js';

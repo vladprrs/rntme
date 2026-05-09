@@ -4,7 +4,9 @@ import type {
   DokployApplication,
   DokployClient,
   DokployCompose,
+  DokployComposeTaskInspection,
   DokployProjectRef,
+  RenderedComposeServiceClass,
   RenderedDokployResource,
   RenderedSecretFileRef,
   RenderedEnvVar,
@@ -323,6 +325,41 @@ export function createDokployClientFactory(
       deployCompose: async (composeId: string) => {
         await request('POST', '/api/compose.deploy', { composeId });
       },
+      configureComposeDomains: async (composeId, domains) => {
+        const existingResponse = await request<unknown>('GET', '/api/domain.byComposeId', { composeId });
+        const existing = Array.isArray(existingResponse) ? (existingResponse as DokployApiDomain[]) : [];
+        for (const domain of domains) {
+          const current = existing.find((item) => item.host === domain.host);
+          const body = {
+            composeId,
+            host: domain.host,
+            path: domain.path,
+            serviceName: domain.serviceName,
+            port: domain.containerPort,
+            https: domain.https,
+            certificateType: 'letsencrypt',
+          };
+          if (current === undefined) {
+            await request('POST', '/api/domain.create', body);
+          } else {
+            await request('POST', '/api/domain.update', { ...body, domainId: current.domainId });
+          }
+        }
+      },
+      startCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.start', { composeId });
+      },
+      loadComposeServices: async (composeId: string) => {
+        const response = await request<unknown>('GET', '/api/compose.loadServices', { composeId });
+        const rows = Array.isArray(response) ? response : [];
+        return rows
+          .map((row) => normalizeComposeService(row))
+          .filter((row): row is NonNullable<ReturnType<typeof normalizeComposeService>> => row !== null);
+      },
+      inspectComposeTasks: async (composeId: string, services) => {
+        const response = await request<unknown>('GET', '/api/compose.inspectTasks', { composeId });
+        return normalizeComposeTaskInspections(response, services);
+      },
       deleteApplication: async (applicationId: string) => {
         await request('POST', '/api/application.delete', { applicationId });
       },
@@ -603,5 +640,75 @@ export function normalizeDokployBaseUrl(input: string): string {
 function normalizeApplicationStatus(status: string | undefined): 'running' | 'done' | 'failed' | 'rejected' | 'unknown' {
   if (status === 'running' || status === 'done' || status === 'failed' || status === 'rejected') return status;
   if (status === 'error') return 'failed';
+  return 'unknown';
+}
+
+function normalizeComposeService(
+  input: unknown,
+): { name: string; serviceClass: RenderedComposeServiceClass } | null {
+  if (typeof input !== 'object' || input === null) return null;
+  const raw = input as Record<string, unknown>;
+  const name = typeof raw.name === 'string'
+    ? raw.name
+    : typeof raw.serviceName === 'string'
+      ? raw.serviceName
+      : '';
+  if (name === '') return null;
+  return { name, serviceClass: serviceClassFromName(name) };
+}
+
+function serviceClassFromName(name: string): RenderedComposeServiceClass {
+  if (name === 'edge') return 'edge-gateway';
+  if (name === 'bpmn-worker') return 'bpmn-worker';
+  if (name === 'redpanda') return 'event-bus';
+  if (name === 'operaton') return 'workflow-engine';
+  if (name === 'rustfs') return 'object-storage';
+  if (name.startsWith('mod-')) return 'integration-module';
+  if (name.endsWith('-public') || name.endsWith('-proxy') || name === 'operaton-ui') return 'infrastructure-proxy';
+  return 'domain-service';
+}
+
+function normalizeComposeTaskInspections(
+  input: unknown,
+  services: readonly { name: string; serviceClass: RenderedComposeServiceClass }[],
+): readonly DokployComposeTaskInspection[] {
+  const rows = Array.isArray(input) ? input : [];
+  const byName = new Map<string, DokployComposeTaskInspection>();
+  for (const row of rows) {
+    if (typeof row !== 'object' || row === null) continue;
+    const raw = row as Record<string, unknown>;
+    const serviceName = typeof raw.serviceName === 'string'
+      ? raw.serviceName
+      : typeof raw.name === 'string'
+        ? raw.name
+        : '';
+    if (serviceName === '') continue;
+    const status = normalizeTaskStatus(raw.status);
+    byName.set(serviceName, {
+      serviceName,
+      status,
+      failedCount: typeof raw.failedCount === 'number' ? raw.failedCount : status === 'running' ? 0 : 1,
+      ...(typeof raw.message === 'string' ? { message: raw.message } : {}),
+    });
+  }
+  return services.map((service) => byName.get(service.name) ?? {
+    serviceName: service.name,
+    status: 'unknown',
+    failedCount: 0,
+  });
+}
+
+function normalizeTaskStatus(input: unknown): DokployComposeTaskInspection['status'] {
+  const value = typeof input === 'string' ? input.toLowerCase() : '';
+  if (
+    value === 'running' ||
+    value === 'healthy' ||
+    value === 'starting' ||
+    value === 'failed' ||
+    value === 'rejected' ||
+    value === 'exited'
+  ) {
+    return value;
+  }
   return 'unknown';
 }

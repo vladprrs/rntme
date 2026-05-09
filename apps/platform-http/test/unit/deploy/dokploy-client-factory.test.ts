@@ -614,6 +614,65 @@ describe('createDokployClientFactory', () => {
     }
   });
 
+  it('configures domains for a compose service and port', async () => {
+    const calls: Array<{ path: string; body?: unknown }> = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (_input, init) => {
+      const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
+      calls.push({ path: new URL(String(_input)).pathname, body });
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await client.configureComposeDomains?.('compose-1', [
+      { host: 'commerce.example.com', path: '/', serviceName: 'edge', containerPort: 8080, https: true },
+    ]);
+
+    expect(calls.map((call) => call.path)).toContain('/api/domain.create');
+    expect(calls.at(-1)?.body).toMatchObject({
+      composeId: 'compose-1',
+      host: 'commerce.example.com',
+      path: '/',
+      serviceName: 'edge',
+      port: 8080,
+      https: true,
+    });
+  });
+
+  it('normalizes compose task inspection for failed services', async () => {
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/compose.loadServices') {
+        return new globalThis.Response(JSON.stringify([{ name: 'svc-catalog' }, { name: 'edge' }]), { status: 200 });
+      }
+      if (url.pathname === '/api/compose.inspectTasks') {
+        return new globalThis.Response(JSON.stringify([
+          { serviceName: 'svc-catalog', status: 'failed', failedCount: 2, message: 'exit code 1' },
+          { serviceName: 'edge', status: 'running', failedCount: 0 },
+        ]), { status: 200 });
+      }
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await expect(client.loadComposeServices?.('compose-1')).resolves.toEqual([
+      { name: 'svc-catalog', serviceClass: 'domain-service' },
+      { name: 'edge', serviceClass: 'edge-gateway' },
+    ]);
+    await expect(client.inspectComposeTasks?.('compose-1', [
+      { name: 'svc-catalog', serviceClass: 'domain-service' },
+      { name: 'edge', serviceClass: 'edge-gateway' },
+    ])).resolves.toEqual([
+      { serviceName: 'svc-catalog', status: 'failed', failedCount: 2, message: 'exit code 1' },
+      { serviceName: 'edge', status: 'running', failedCount: 0 },
+    ]);
+  });
+
   it('throws a redacted decrypt failure', () => {
     const cipher: SecretCipher = {
       encrypt: vi.fn(),
