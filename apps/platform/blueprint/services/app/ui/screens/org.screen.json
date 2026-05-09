@@ -1,1 +1,13 @@
-{}
+{
+  "metadata": { "title": "Organization" },
+  "data": {
+    "/data/projects": {
+      "binding": "projects.listProjects",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

@@ -1,1 +1,13 @@
-{}
+{
+  "metadata": { "title": "Audit" },
+  "data": {
+    "/data/events": {
+      "binding": "audit.listAuditEvents",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

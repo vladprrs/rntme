@@ -1,9 +1,18 @@
 {
   "root": "page",
   "elements": {
-    "page": {
-      "type": "Stack",
-      "props": {}
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "versions"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Versions" } },
+    "versions": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/versions",
+        "columns": [
+          { "key": "sequence", "label": "#" },
+          { "key": "status", "label": "Status" },
+          { "key": "createdAt", "label": "Created" }
+        ]
+      }
     }
   }
 }
