@@ -108,6 +108,8 @@ The helper should:
   `currentScreen` to a runtime-generated `CompiledScreen`;
 - store route diagnostics such as `/route/status = 'not_found'` and
   `/route/path = path` so runtime state is inspectable;
+- replace `/route/params` with `{}` for unmatched paths so stale params from a
+  previously matched route are not exposed as current route state;
 - call `rerender()`;
 - avoid layout/screen JSON fetches and mount data refetches for the unmatched
   path.
@@ -154,9 +156,13 @@ removes the special `patterns[0]` fallback branch and makes initial load,
 programmatic navigation to a bad route, and browser back/forward to a bad route
 deterministic.
 
-For matched routes, set `/route/status = 'ok'` and `/route/path = path` before
-rendering the valid screen. This keeps route diagnostics consistent after a
-user moves from a not-found path back to a valid path.
+For matched routes, set `/route/status = 'ok'`, `/route/path = path`, and
+`/route/params = match.params` before rendering the valid screen. This keeps
+route diagnostics consistent after a user moves from a not-found path back to a
+valid path and prevents old params from surviving route changes. Existing
+per-param state paths such as `/route/params/:name` may continue to work if the
+runtime still writes params individually, but the object snapshot is the
+inspectable route authority.
 
 Do not add a new lifecycle event in the client-runtime contract for this issue.
 Existing modules that listen for `navigate` should continue receiving events for
@@ -209,10 +215,11 @@ the command hint or current-doc link changes.
 - **Keep redirecting to the first manifest route and document it.** Rejected
   because it hides route bugs and keeps behavior dependent on manifest pattern
   order.
-- **Return HTTP 404 for unknown server paths.** Rejected because the server
-  cannot know whether an unknown path is a valid client deep link until the SPA
-  loads the manifest. Returning 404 from `GET /*` would break direct navigation
-  for valid generated routes.
+- **Return HTTP 404 for unknown server paths.** Rejected for this issue because
+  it would change `createApp`'s server-side SPA fallback contract and broaden
+  the audit fix into server route-status semantics. The server has the artifact
+  manifest and could perform route matching in a later design, but this issue
+  keeps the current shell fallback and makes the client route state explicit.
 - **Require every artifact to define a 404 route now.** Rejected as too broad
   for a runtime audit fix. Authored not-found routes may be useful later, but
   they need artifact schema, validation, docs, and compiler decisions.
