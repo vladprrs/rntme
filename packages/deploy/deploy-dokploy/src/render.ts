@@ -14,7 +14,7 @@ import {
 import { renderComposeYaml } from './compose-yaml.js';
 import { validateDokployTargetConfig, type DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
-import { dokployLabels, dokployResourceName } from './names.js';
+import { dokployLabels, dokployResourceName, normalizePart } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
 import { renderRedpandaConsoleServices } from './redpanda-console.js';
@@ -450,16 +450,7 @@ function composeDomain(publicBaseUrl: string, serviceName: string, containerPort
 }
 
 function projectStackName(orgSlug: string, projectSlug: string): string {
-  return ['rntme', orgSlug, projectSlug].map(normalizeSlug).join('-');
-}
-
-function normalizeSlug(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return normalized.length === 0 ? 'unknown' : normalized;
+  return ['rntme', orgSlug, projectSlug].map(normalizePart).join('-');
 }
 
 function renderRedpandaService(plan: ProjectDeploymentPlan): RenderedComposeService | null {

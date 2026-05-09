@@ -13,10 +13,6 @@ chmod 600 /etc/nginx/.htpasswd
 exec nginx -g 'daemon off;'
 `;
 
-export function consoleBootstrapScriptDigest(): string {
-  return `${PROXY_BOOTSTRAP_SCRIPT.length}`;
-}
-
 export function renderRedpandaConsoleServices(
   plan: ProjectDeploymentPlan,
   planned: PlannedRedpandaConsoleAccess,
