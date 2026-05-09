@@ -6,7 +6,7 @@ import { createApp } from '../../../src/app.js';
 
 describe('helpful 404 for project-scoped deploy-targets', () => {
   it('returns helpful body for project-scoped deploy-targets', async () => {
-    const app = createApp({
+    const app = await createApp({
       env: parseEnv({
         DATABASE_URL: 'postgres://localhost:5432/test',
         RUSTFS_ENDPOINT: 'https://rustfs.internal',

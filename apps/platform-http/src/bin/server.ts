@@ -46,7 +46,7 @@ async function main() {
     tokens: new PgTokenRepo(pool),
   };
 
-  const app = createApp({
+  const app = await createApp({
     env,
     logger,
     workos,
