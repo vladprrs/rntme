@@ -1,0 +1,9 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "Stack",
+      "props": {}
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "root": "shell",
+  "elements": {
+    "shell": {
+      "type": "Card",
+      "props": { "className": "min-h-screen rounded-none border-0 shadow-none" },
+      "children": ["header", "content"]
+    },
+    "header": {
+      "type": "Heading",
+      "props": { "level": 1, "text": "rntme Platform" }
+    },
+    "content": {
+      "type": "Slot",
+      "props": {}
+    }
+  }
+}
