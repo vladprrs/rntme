@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
 import {
+  infraRestartPolicy,
   proxyLimits,
+  redpandaLimits,
   runtimeLimits,
   runtimeRestartPolicy,
+  rustfsLimits,
   type RenderedComposeDomain,
   type RenderedComposeService,
 } from './compose-model.js';
@@ -14,11 +17,11 @@ import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
 import { renderNginxConfig } from './nginx.js';
 import { err, ok, type Result } from './result.js';
-import { renderRedpandaConsoleApplications } from './redpanda-console.js';
+import { renderRedpandaConsoleServices } from './redpanda-console.js';
 import {
-  renderBpmnWorker,
-  renderOperatonCompose,
-  renderOperatonUiGateway,
+  renderBpmnWorkerService,
+  renderOperatonService,
+  renderOperatonUiGatewayService,
 } from './workflow-render.js';
 
 export type RenderedSecretFileRef = {
@@ -158,7 +161,7 @@ export function renderDokployPlan(
       .filter((w) => w.kind !== 'edge-gateway' && w.kind !== 'bpmn-worker')
       .map((w) => [
         w.slug,
-        `http://${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, w.slug)}:${workloadHttpPort(w)}`,
+        `http://${composeServiceNameForWorkload(w)}:${workloadHttpPort(w)}`,
       ]),
   );
   const nginxConfig = renderEdgeGatewayConfig(plan, upstreams);
@@ -321,77 +324,54 @@ function resolveProject(config: DokployTargetConfig): RenderedDokployProject | n
   return null;
 }
 
-// Retained for Task 3 (will be reworked into per-service inventory inside the project stack).
-function _renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
-  const resources: RenderedDokployResource[] = [];
-  const eventBus = plan.infrastructure.eventBus;
-  if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
-  const objectStorage = plan.infrastructure.objectStorage ?? { kind: 'none' };
-  if (objectStorage.kind === 's3-compatible') {
-    resources.push(renderRustfsCompose(plan));
-    resources.push(renderRustfsPublicProxy(plan));
-  }
-  const workflowEngine = renderOperatonCompose(plan);
-  if (workflowEngine !== null) resources.push(workflowEngine);
-  const uiGateway = renderOperatonUiGateway(plan);
-  if (uiGateway !== null) resources.push(uiGateway);
-  const consoleAccess = plan.infrastructure.manualAccess?.redpandaConsole;
-  if (consoleAccess !== undefined && eventBus.mode === 'provisioned') {
-    resources.push(...renderRedpandaConsoleApplications(plan, consoleAccess, eventBus.resourceName));
-  }
-  return resources;
-}
-
-function renderWorkloadResources(
-  plan: ProjectDeploymentPlan,
-  nginxConfig: string,
-  publicAppBaseUrl: string,
-): Result<RenderedDokployApplicationResource[], DokployDeploymentError> {
-  const resources: RenderedDokployApplicationResource[] = [];
-  for (const workload of plan.workloads) {
-    const resource = renderResource(plan, workload, nginxConfig, publicAppBaseUrl);
-    if (!resource.ok) return resource;
-    resources.push(resource.value);
-  }
-  return ok(resources);
-}
-
 function renderProjectStackResource(
   plan: ProjectDeploymentPlan,
   nginxConfig: string,
   publicBaseUrl: string,
 ): Result<RenderedDokployComposeResource, DokployDeploymentError> {
-  const workloadResources = renderWorkloadResources(plan, nginxConfig, publicBaseUrl);
-  if (!workloadResources.ok) return workloadResources;
-  const services: RenderedComposeService[] = workloadResources.value.map((resource) => {
-    const ports =
-      resource.workloadKind === 'edge-gateway'
-        ? ([8080] as const)
-        : resource.ports?.map((port) => port.containerPort);
-    return {
-      name: composeServiceName(resource),
-      logicalId: resource.logicalId,
-      serviceClass:
-        resource.workloadKind === 'edge-gateway'
-          ? 'edge-gateway'
-          : resource.workloadKind === 'integration-module'
-            ? 'integration-module'
-            : resource.workloadKind === 'bpmn-worker'
-              ? 'bpmn-worker'
-              : 'domain-service',
-      ...(resource.workloadKind !== undefined ? { workloadKind: resource.workloadKind } : {}),
-      ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
-      image: resource.image,
-      ...(resource.command !== undefined ? { command: resource.command } : {}),
-      ...(resource.args !== undefined ? { args: resource.args } : {}),
-      env: resource.env,
-      ...(resource.files !== undefined ? { files: resource.files } : {}),
-      ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
-      ...(ports !== undefined ? { ports } : {}),
-      restart: resource.workloadKind === 'edge-gateway' ? runtimeRestartPolicy() : runtimeRestartPolicy(),
-      resources: resource.workloadKind === 'edge-gateway' ? proxyLimits() : runtimeLimits(),
-    };
-  });
+  const services: RenderedComposeService[] = [];
+  const domains: RenderedComposeDomain[] = [composeDomain(publicBaseUrl, 'edge', 8080)];
+
+  const redpanda = renderRedpandaService(plan);
+  if (redpanda !== null) services.push(redpanda);
+  const rustfs = renderRustfsService(plan);
+  if (rustfs !== null) services.push(rustfs);
+  const rustfsProxy = renderRustfsPublicProxyService(plan);
+  if (rustfsProxy !== null) {
+    services.push(rustfsProxy.service);
+    domains.push(rustfsProxy.domain);
+  }
+  const operaton = renderOperatonService(plan);
+  if (operaton !== null) services.push(operaton);
+  const operatonUiGateway = renderOperatonUiGatewayService(plan);
+  if (operatonUiGateway !== null) {
+    services.push(operatonUiGateway);
+    const uiAccess =
+      plan.infrastructure.workflowEngine?.kind === 'operaton'
+        ? plan.infrastructure.workflowEngine.uiAccess
+        : undefined;
+    if (uiAccess !== undefined) {
+      domains.push(composeDomain(uiAccess.publicBaseUrl, 'operaton-ui-gateway', 8080));
+    }
+  }
+  const consoleAccess = plan.infrastructure.manualAccess?.redpandaConsole;
+  if (consoleAccess !== undefined && plan.infrastructure.eventBus.mode === 'provisioned') {
+    const consoleRendered = renderRedpandaConsoleServices(plan, consoleAccess);
+    services.push(...consoleRendered.services);
+    domains.push(...consoleRendered.domains);
+  }
+
+  for (const workload of plan.workloads) {
+    if (workload.kind === 'bpmn-worker') {
+      const worker = renderBpmnWorkerService(plan, workload);
+      if (!worker.ok) return worker;
+      services.push(worker.value);
+      continue;
+    }
+    const resource = renderResource(plan, workload, nginxConfig, publicBaseUrl);
+    if (!resource.ok) return resource;
+    services.push(applicationResourceToComposeService(resource.value));
+  }
 
   return ok({
     logicalId: 'project-stack',
@@ -401,7 +381,7 @@ function renderProjectStackResource(
     image: 'docker-compose',
     composeFile: renderComposeYaml(services),
     services,
-    domains: [composeDomain(publicBaseUrl, 'edge', 8080)],
+    domains,
     env: [],
     labels: {
       ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'project-stack'),
@@ -410,12 +390,55 @@ function renderProjectStackResource(
   });
 }
 
+function applicationResourceToComposeService(resource: RenderedDokployApplicationResource): RenderedComposeService {
+  const ports =
+    resource.workloadKind === 'edge-gateway'
+      ? ([8080] as const)
+      : resource.ports?.map((port) => port.containerPort);
+  return {
+    name: composeServiceName(resource),
+    logicalId: resource.logicalId,
+    serviceClass:
+      resource.workloadKind === 'edge-gateway'
+        ? 'edge-gateway'
+        : resource.workloadKind === 'integration-module'
+          ? 'integration-module'
+          : resource.workloadKind === 'infrastructure-proxy'
+            ? 'infrastructure-proxy'
+            : 'domain-service',
+    ...(resource.workloadKind !== undefined ? { workloadKind: resource.workloadKind } : {}),
+    ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+    image: resource.image,
+    ...(resource.command !== undefined ? { command: resource.command } : {}),
+    ...(resource.args !== undefined ? { args: resource.args } : {}),
+    env: resource.env,
+    ...(resource.files !== undefined ? { files: resource.files } : {}),
+    ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
+    ...(ports !== undefined ? { ports } : {}),
+    restart:
+      resource.workloadKind === 'edge-gateway' || resource.workloadKind === 'infrastructure-proxy'
+        ? runtimeRestartPolicy()
+        : runtimeRestartPolicy(),
+    resources:
+      resource.workloadKind === 'edge-gateway' || resource.workloadKind === 'infrastructure-proxy'
+        ? proxyLimits()
+        : runtimeLimits(),
+  };
+}
+
 function composeServiceName(resource: RenderedDokployApplicationResource): string {
   if (resource.workloadKind === 'edge-gateway') return 'edge';
   if (resource.workloadKind === 'integration-module') return `mod-${resource.workloadSlug ?? resource.logicalId}`;
   if (resource.workloadKind === 'bpmn-worker') return 'bpmn-worker';
   if (resource.workloadKind === 'infrastructure-proxy') return resource.workloadSlug ?? resource.logicalId;
   return `svc-${resource.workloadSlug ?? resource.logicalId}`;
+}
+
+function composeServiceNameForWorkload(
+  workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' | 'bpmn-worker' }>,
+): string {
+  if (workload.kind === 'integration-module') return `mod-${workload.slug}`;
+  return `svc-${workload.slug}`;
 }
 
 function composeDomain(publicBaseUrl: string, serviceName: string, containerPort: number): RenderedComposeDomain {
@@ -442,165 +465,86 @@ function normalizeSlug(value: string): string {
   return normalized.length === 0 ? 'unknown' : normalized;
 }
 
-function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
+function renderRedpandaService(plan: ProjectDeploymentPlan): RenderedComposeService | null {
   const eventBus = plan.infrastructure.eventBus;
-  if (eventBus.mode !== 'provisioned') {
-    throw new Error('renderRedpandaCompose called for external event bus');
-  }
-
-  const labels = {
-    ...dokployLabels(
-      plan.project.orgSlug,
-      plan.project.projectSlug,
-      plan.project.environment,
-      'event-bus',
-    ),
-    'rntme.infrastructure': 'event-bus',
-    'rntme.provider': eventBus.provider,
-  };
-
+  if (eventBus.mode !== 'provisioned') return null;
   return {
+    name: 'redpanda',
     logicalId: 'event-bus',
-    kind: 'compose',
-    infrastructureKind: 'event-bus',
-    name: eventBus.resourceName,
+    serviceClass: 'event-bus',
     image: eventBus.image,
-    composeFile: redpandaComposeFile(eventBus, workflowMessageStartTopics(plan)),
+    command: redpandaCommand(eventBus, workflowMessageStartTopics(plan)),
     env: [],
-    labels,
+    ports: [9092],
+    restart: infraRestartPolicy(),
+    resources: redpandaLimits(),
   };
 }
 
-function redpandaComposeFile(
-  eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
-  seedTopics: readonly string[] = [],
-): string {
-  // The runtime/edge/module containers run as Docker Swarm services attached
-  // to the shared `dokploy-network` overlay. Without explicitly attaching the
-  // compose stack to that network, Redpanda lives only on its private
-  // `<stack>_default` bridge and the broker hostname does not resolve from
-  // sibling apps (`getaddrinfo ENOTFOUND`). Attaching here gives the broker
-  // a stable resource-name alias inside dokploy-network. Redpanda must
-  // advertise the same alias because Kafka clients follow broker metadata
-  // after the initial bootstrap connection.
-  const startArgs = [
-    'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
-    `--advertise-kafka-addr=internal://${eventBus.resourceName}:9092`,
-  ].join(' ');
-  const startCommand = seedTopics.length === 0 ? startArgs : `rpk ${startArgs}`;
-  const command =
-    seedTopics.length === 0
-      ? startArgs
-      : shellSingleQuote(
-          [
-            `${startCommand} & pid=$$!`,
-            `until rpk cluster info --brokers ${eventBus.resourceName}:9092 >/dev/null 2>&1; do sleep 1; done`,
-            `rpk topic create --brokers ${eventBus.resourceName}:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
-            'wait "$$pid"',
-          ].join('; '),
-        );
-
-  return [
-    'services:',
-    '  redpanda:',
-    `    image: ${eventBus.image}`,
-    ...(seedTopics.length === 0 ? [] : ['    entrypoint: ["/bin/sh", "-ec"]']),
-    ...(seedTopics.length === 0 ? [`    command: ${command}`] : ['    command:', `      - ${command}`]),
-    '    volumes:',
-    `      - ${eventBus.persistence.volumeName}:/var/lib/redpanda/data`,
-    '    networks:',
-    '      default:',
-    '      dokploy-network:',
-    '        aliases:',
-    `          - ${eventBus.resourceName}`,
-    'volumes:',
-    `  ${eventBus.persistence.volumeName}:`,
-    '    name: ' + eventBus.persistence.volumeName,
-    'networks:',
-    '  dokploy-network:',
-    '    external: true',
-    '',
-  ].join('\n');
-}
-
-function renderRustfsCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {
-  const storage = plan.infrastructure.objectStorage;
-  if (storage.kind !== 's3-compatible') throw new Error('renderRustfsCompose called without object storage');
+function renderRustfsService(plan: ProjectDeploymentPlan): RenderedComposeService | null {
+  const storage = plan.infrastructure.objectStorage ?? { kind: 'none' };
+  if (storage.kind !== 's3-compatible') return null;
   return {
+    name: 'rustfs',
     logicalId: 'object-storage',
-    kind: 'compose',
-    infrastructureKind: 'object-storage',
-    name: storage.resourceName,
+    serviceClass: 'object-storage',
     image: storage.image,
-    composeFile: rustfsComposeFile(storage),
+    command: 'server /data',
     env: [
       { name: 'RUSTFS_ACCESS_KEY', value: storage.credentials.accessKeyRef, secret: true },
       { name: 'RUSTFS_SECRET_KEY', value: storage.credentials.secretKeyRef, secret: true },
     ],
-    labels: {
-      ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'object-storage'),
-      'rntme.infrastructure': 'object-storage',
-      'rntme.provider': storage.provider,
-    },
+    ports: [9000],
+    restart: infraRestartPolicy(),
+    resources: rustfsLimits(),
   };
 }
 
-function rustfsComposeFile(storage: Extract<ProjectDeploymentPlan['infrastructure']['objectStorage'], { kind: 's3-compatible' }>): string {
-  return [
-    'services:',
-    '  rustfs:',
-    `    image: ${storage.image}`,
-    '    command: server /data',
-    '    environment:',
-    '      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}',
-    '      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}',
-    '    volumes:',
-    `      - ${storage.persistence.volumeName}:/data`,
-    '    networks:',
-    '      default:',
-    '      dokploy-network:',
-    '        aliases:',
-    `          - ${storage.resourceName}`,
-    'volumes:',
-    `  ${storage.persistence.volumeName}:`,
-    `    name: ${storage.persistence.volumeName}`,
-    'networks:',
-    '  dokploy-network:',
-    '    external: true',
-    '',
-  ].join('\n');
-}
-
-function renderRustfsPublicProxy(plan: ProjectDeploymentPlan): RenderedDokployApplicationResource {
-  const storage = plan.infrastructure.objectStorage;
-  if (storage.kind !== 's3-compatible') throw new Error('renderRustfsPublicProxy called without object storage');
-  return {
+function renderRustfsPublicProxyService(
+  plan: ProjectDeploymentPlan,
+): { service: RenderedComposeService; domain: RenderedComposeDomain } | null {
+  const storage = plan.infrastructure.objectStorage ?? { kind: 'none' };
+  if (storage.kind !== 's3-compatible') return null;
+  const service: RenderedComposeService = {
+    name: 'object-storage-public',
     logicalId: 'object-storage-public',
-    kind: 'application',
+    serviceClass: 'infrastructure-proxy',
     workloadKind: 'infrastructure-proxy',
     workloadSlug: 'object-storage-public',
-    name: `${storage.resourceName}-public`,
     image: 'nginx:1.27-alpine',
     env: [],
-    labels: {
-      ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'object-storage-public'),
-      'rntme.infrastructure': 'object-storage-public',
-      'rntme.provider': storage.provider,
-    },
-    ports: [{ containerPort: 8080, protocol: 'http' }],
-    ingress: {
-      publicBaseUrl: storage.publicBaseUrl,
-      containerPort: 8080,
-      healthPath: '/health',
-      routes: [],
-    },
-    files: {
-      '/etc/nginx/nginx.conf': rustfsProxyNginxConfig(storage.resourceName),
-    },
+    ports: [8080],
+    restart: runtimeRestartPolicy(),
+    resources: proxyLimits(),
+    files: { '/etc/nginx/nginx.conf': rustfsProxyNginxConfig('rustfs') },
   };
+  const domain = composeDomain(storage.publicBaseUrl, 'object-storage-public', 8080);
+  return { service, domain };
 }
 
-function rustfsProxyNginxConfig(resourceName: string): string {
+function redpandaCommand(
+  eventBus: Extract<ProjectDeploymentPlan['infrastructure']['eventBus'], { mode: 'provisioned' }>,
+  seedTopics: readonly string[] = [],
+): string {
+  // Inside the project compose stack, the broker is reachable as `redpanda`
+  // (the compose service name). Advertise that alias so Kafka clients follow
+  // broker metadata correctly after bootstrap.
+  const startArgs = [
+    'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
+    '--advertise-kafka-addr=internal://redpanda:9092',
+  ].join(' ');
+  if (seedTopics.length === 0) return startArgs;
+  return shellSingleQuote(
+    [
+      `rpk ${startArgs} & pid=$$!`,
+      'until rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1; do sleep 1; done',
+      `rpk topic create --brokers redpanda:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
+      'wait "$$pid"',
+    ].join('; '),
+  );
+}
+
+function rustfsProxyNginxConfig(upstream: string): string {
   return [
     'events {}',
     'http {',
@@ -609,7 +553,7 @@ function rustfsProxyNginxConfig(resourceName: string): string {
     '    client_max_body_size 0;',
     '    location = /health { return 200 "ok"; }',
     '    location / {',
-    `      proxy_pass http://${resourceName}:9000;`,
+    `      proxy_pass http://${upstream}:9000;`,
     '      proxy_set_header Host $host;',
     '      proxy_set_header X-Forwarded-Proto $scheme;',
     '      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
@@ -640,14 +584,10 @@ function shellSingleQuote(value: string): string {
 
 function renderResource(
   plan: ProjectDeploymentPlan,
-  workload: DeploymentWorkload,
+  workload: Exclude<DeploymentWorkload, { kind: 'bpmn-worker' }>,
   nginxConfig: string,
   publicAppBaseUrl: string,
 ): Result<RenderedDokployApplicationResource, DokployDeploymentError> {
-  if (workload.kind === 'bpmn-worker') {
-    return renderBpmnWorker(plan, workload);
-  }
-
   const name = dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, workload.slug);
   const labels = dokployLabels(
     plan.project.orgSlug,
@@ -734,11 +674,7 @@ function renderResource(
               { name: 'RNTME_AUTH_MODULE_SLUG', value: authMiddleware.moduleSlug, secret: false },
               {
                 name: 'RNTME_AUTH_MODULE_ENDPOINT',
-                value: `${dokployResourceName(
-                  plan.project.orgSlug,
-                  plan.project.projectSlug,
-                  authMiddleware.moduleSlug,
-                )}:50051`,
+                value: `mod-${normalizeSlug(authMiddleware.moduleSlug)}:50051`,
                 secret: false,
               },
             ]),
@@ -759,8 +695,11 @@ function storageS3Env(
   const storage = plan.infrastructure.objectStorage;
   if (storage.kind !== 's3-compatible') return [];
   if (workload.modulePackageName !== '@rntme/storage-s3') return [];
+  // Inside the project compose stack the storage container is reachable as
+  // `rustfs:9000`; the plan's `internalEndpoint` carries the legacy
+  // dokploy-resource hostname which does not resolve on the stack network.
   return [
-    { name: 'STORAGE_S3_ENDPOINT', value: storage.internalEndpoint, secret: false },
+    { name: 'STORAGE_S3_ENDPOINT', value: 'http://rustfs:9000', secret: false },
     { name: 'STORAGE_S3_PUBLIC_ENDPOINT', value: storage.publicBaseUrl, secret: false },
     { name: 'STORAGE_S3_BUCKET', value: storage.bucketName, secret: false },
     { name: 'STORAGE_S3_REGION', value: storage.region, secret: false },
@@ -791,7 +730,7 @@ function eventBusEnv(
     return [
       {
         name: 'RNTME_EVENT_BUS_BROKERS',
-        value: eventBus.internalBrokers.join(','),
+        value: 'redpanda:9092',
         secret: false,
       },
       { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },

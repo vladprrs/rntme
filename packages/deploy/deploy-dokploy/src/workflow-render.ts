@@ -1,6 +1,14 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
+import {
+  infraRestartPolicy,
+  operatonLimits,
+  proxyLimits,
+  runtimeLimits,
+  runtimeRestartPolicy,
+  type RenderedComposeService,
+} from './compose-model.js';
 import type { DokployDeploymentError } from './errors.js';
-import { dokployLabels, dokployResourceName } from './names.js';
+import { dokployLabels } from './names.js';
 import { err, ok, type Result } from './result.js';
 import type {
   RenderedDokployApplicationResource,
@@ -46,6 +54,84 @@ export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokp
       'rntme.provider': 'operaton',
     },
     ...(secretFiles !== undefined ? { secretFiles } : {}),
+  };
+}
+
+export function renderOperatonService(plan: ProjectDeploymentPlan): RenderedComposeService | null {
+  const engine = workflowEngine(plan);
+  if (engine.kind === 'none') return null;
+  return {
+    name: 'operaton',
+    logicalId: 'workflow-engine',
+    serviceClass: 'workflow-engine',
+    image: engine.image,
+    env: [],
+    ports: [8080],
+    restart: infraRestartPolicy(),
+    resources: operatonLimits(),
+    ...(engine.adminUserSecretRef === undefined
+      ? {}
+      : {
+          secretFiles: {
+            '/operaton/configuration/application.yaml': {
+              schema: 'operaton-admin-user-v1',
+              secretRef: engine.adminUserSecretRef,
+              field: 'applicationYaml',
+            },
+          },
+        }),
+  };
+}
+
+export function renderBpmnWorkerService(
+  plan: ProjectDeploymentPlan,
+  workload: BpmnWorkerWorkload,
+): Result<RenderedComposeService, DokployDeploymentError> {
+  const rendered = renderBpmnWorker(plan, workload);
+  if (!rendered.ok) return rendered;
+  return ok({
+    name: 'bpmn-worker',
+    logicalId: rendered.value.logicalId,
+    serviceClass: 'bpmn-worker',
+    workloadKind: 'bpmn-worker',
+    workloadSlug: rendered.value.workloadSlug ?? rendered.value.logicalId,
+    image: rendered.value.image,
+    env: rendered.value.env.map((entry) =>
+      entry.name === 'RNTME_OPERATON_BASE_URL'
+        ? { ...entry, value: 'http://operaton:8080' }
+        : entry,
+    ),
+    ...(rendered.value.files === undefined ? {} : { files: rendered.value.files }),
+    restart: runtimeRestartPolicy(),
+    resources: runtimeLimits(),
+  });
+}
+
+export function renderOperatonUiGatewayService(
+  plan: ProjectDeploymentPlan,
+): RenderedComposeService | null {
+  const engine = workflowEngine(plan);
+  if (engine.kind !== 'operaton' || engine.uiAccess === undefined) return null;
+  const nginxConfig = renderOperatonUiNginxConfig('operaton');
+  return {
+    name: 'operaton-ui-gateway',
+    logicalId: 'operaton-ui-gateway',
+    serviceClass: 'infrastructure-proxy',
+    workloadKind: 'infrastructure-proxy',
+    workloadSlug: 'operaton-ui-gateway',
+    image: 'nginx:1.27-alpine',
+    env: [],
+    ports: [8080],
+    restart: runtimeRestartPolicy(),
+    resources: proxyLimits(),
+    files: { '/etc/nginx/nginx.conf': nginxConfig },
+    secretFiles: {
+      '/etc/nginx/.htpasswd': {
+        schema: 'operaton-ui-basic-auth-v1',
+        secretRef: engine.uiAccess.authSecretRef,
+        field: 'htpasswd',
+      },
+    },
   };
 }
 
@@ -124,7 +210,7 @@ function workflowServiceEndpointsJson(
       .filter((candidate) => candidate.kind === 'domain-service')
       .map((candidate) => [
         candidate.slug,
-        `${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, candidate.slug)}:50051`,
+        `svc-${normalizeComposePart(candidate.slug)}:50051`,
       ]),
   );
 
@@ -147,6 +233,15 @@ function workflowServiceEndpointsJson(
   }
 
   return ok(JSON.stringify(Object.fromEntries(Object.entries(endpoints).sort(([a], [b]) => a.localeCompare(b)))));
+}
+
+function normalizeComposePart(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized.length === 0 ? 'unknown' : normalized;
 }
 
 function workflowEngine(plan: ProjectDeploymentPlan): WorkflowEngine {
@@ -217,7 +312,7 @@ function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['ev
     return [
       {
         name: 'RNTME_EVENT_BUS_BROKERS',
-        value: eventBus.internalBrokers.join(','),
+        value: 'redpanda:9092',
         secret: false,
       },
       { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },

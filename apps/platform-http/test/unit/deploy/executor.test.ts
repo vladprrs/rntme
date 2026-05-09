@@ -310,23 +310,19 @@ describe('runDeployment', () => {
 
     expect(applyPlan).toHaveBeenCalledTimes(1);
     const rendered = applyPlan.mock.calls[0]![0];
-    const worker = rendered.resources.find(
-      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
+    expect(rendered.resources).toHaveLength(1);
+    const stack = rendered.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') throw new Error('expected compose stack');
+    const worker = stack.services?.find((service) => service.workloadKind === 'bpmn-worker');
+    const orders = stack.services?.find(
+      (service) => service.workloadKind === 'domain-service' && service.workloadSlug === 'orders',
     );
-    const orders = rendered.resources.find(
-      (resource) =>
-        resource.kind === 'application' &&
-        resource.workloadKind === 'domain-service' &&
-        resource.workloadSlug === 'orders',
-    );
-    expect(rendered.resources).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'compose', infrastructureKind: 'workflow-engine' }),
-      expect.objectContaining({ kind: 'application', workloadKind: 'bpmn-worker' }),
-    ]));
-    expect(worker?.kind).toBe('application');
-    if (worker?.kind !== 'application') throw new Error('missing rendered BPMN worker');
-    expect(orders?.kind).toBe('application');
-    if (orders?.kind !== 'application') throw new Error('missing rendered orders service');
+    const operaton = stack.services?.find((service) => service.serviceClass === 'workflow-engine');
+    expect(operaton).toBeDefined();
+    expect(worker).toBeDefined();
+    expect(orders).toBeDefined();
+    if (orders === undefined || worker === undefined) throw new Error('missing services');
     expect(orders.files?.['/srv/artifacts/ui/manifest.json']).toContain('"version": "2.0"');
     expect(orders.files?.['/srv/artifacts/ui/screens/home.spec.json']).toContain('"Heading"');
     expect(worker.files?.['/srv/workflows/workflows.json']).toContain('"orderFulfillment"');
@@ -335,8 +331,7 @@ describe('runDeployment', () => {
       'deployment-1',
       expect.objectContaining({
         resources: expect.arrayContaining([
-          expect.objectContaining({ infrastructureKind: 'workflow-engine' }),
-          expect.objectContaining({ kind: 'bpmn-worker' }),
+          expect.objectContaining({ resourceKind: 'compose', infrastructureKind: 'project-stack' }),
         ]),
       }),
     );

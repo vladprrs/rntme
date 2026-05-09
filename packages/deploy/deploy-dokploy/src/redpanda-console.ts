@@ -1,10 +1,11 @@
 import type { PlannedRedpandaConsoleAccess, ProjectDeploymentPlan } from '@rntme/deploy-core';
-import { dokployLabels } from './names.js';
-import type {
-  RenderedDokployApplicationResource,
-  RenderedDokployIngress,
-  RenderedDokployPort,
-} from './render.js';
+import {
+  consoleLimits,
+  proxyLimits,
+  runtimeRestartPolicy,
+  type RenderedComposeDomain,
+  type RenderedComposeService,
+} from './compose-model.js';
 
 const PROXY_BOOTSTRAP_SCRIPT = `set -eu
 printf '%s' "$RNTME_CONSOLE_HTPASSWD_B64" | base64 -d > /etc/nginx/.htpasswd
@@ -16,68 +17,34 @@ export function consoleBootstrapScriptDigest(): string {
   return `${PROXY_BOOTSTRAP_SCRIPT.length}`;
 }
 
-export function renderRedpandaConsoleApplications(
+export function renderRedpandaConsoleServices(
   plan: ProjectDeploymentPlan,
   planned: PlannedRedpandaConsoleAccess,
-  eventBusResourceName: string,
-): readonly RenderedDokployApplicationResource[] {
-  const { orgSlug, projectSlug, environment } = plan.project;
-
-  const consoleLabels = {
-    ...dokployLabels(orgSlug, projectSlug, environment, 'redpanda-console'),
-    'rntme.infrastructure': 'redpanda-console',
-    'rntme.access': 'internal',
-  };
-
-  const consoleApp: RenderedDokployApplicationResource = {
+): { services: readonly RenderedComposeService[]; domains: readonly RenderedComposeDomain[] } {
+  void plan;
+  const consoleService: RenderedComposeService = {
+    name: 'redpanda-console',
     logicalId: 'redpanda-console',
-    kind: 'application',
-    infrastructureKind: 'redpanda-console',
-    name: planned.resourceName,
+    serviceClass: 'infrastructure-proxy',
     image: planned.image,
     env: [
-      { name: 'KAFKA_BROKERS', value: `${eventBusResourceName}:9092`, secret: false },
+      { name: 'KAFKA_BROKERS', value: 'redpanda:9092', secret: false },
       { name: 'SERVER_LISTENADDRESS', value: '0.0.0.0', secret: false },
       { name: 'SERVER_LISTENPORT', value: '8080', secret: false },
       { name: 'ANALYTICS_ENABLED', value: 'false', secret: false },
     ],
-    labels: consoleLabels,
+    ports: [8080],
+    restart: runtimeRestartPolicy(),
+    resources: consoleLimits(),
   };
 
-  const nginxConf = renderConsoleProxyNginxConfig(planned.resourceName);
-  const proxyLabels = {
-    ...dokployLabels(orgSlug, projectSlug, environment, 'redpanda-console-proxy'),
-    'rntme.infrastructure': 'redpanda-console-proxy',
-    'rntme.access': 'public',
-    'rntme.console.basic-auth-user': planned.basicAuthUsername,
-  };
-
-  const ingressRoutes: RenderedDokployIngress['routes'] = [
-    {
-      routeId: 'redpanda-console-root',
-      path: '/',
-      url: joinUrl(planned.publicBaseUrl, '/'),
-    },
-  ];
-
-  const proxyPorts: readonly RenderedDokployPort[] = [{ containerPort: 8080, protocol: 'http' }];
-  const ingress: RenderedDokployIngress = {
-    publicBaseUrl: planned.publicBaseUrl,
-    containerPort: 8080,
-    healthPath: '/health',
-    routes: ingressRoutes,
-  };
-
-  const proxyApp: RenderedDokployApplicationResource = {
+  const proxyService: RenderedComposeService = {
+    name: 'redpanda-console-proxy',
     logicalId: 'redpanda-console-proxy',
-    kind: 'application',
-    infrastructureKind: 'redpanda-console-proxy',
-    name: planned.proxyResourceName,
+    serviceClass: 'infrastructure-proxy',
     image: 'nginx:1.27-alpine',
     command: '/bin/sh',
     args: ['/docker-entrypoint-rntme.sh'],
-    ports: proxyPorts,
-    ingress,
     env: [
       {
         name: 'RNTME_CONSOLE_HTPASSWD_B64',
@@ -85,20 +52,28 @@ export function renderRedpandaConsoleApplications(
         secret: true,
       },
     ],
-    labels: proxyLabels,
+    ports: [8080],
+    restart: runtimeRestartPolicy(),
+    resources: proxyLimits(),
     files: {
-      '/etc/nginx/nginx.conf': nginxConf,
+      '/etc/nginx/nginx.conf': renderConsoleProxyNginxConfig('redpanda-console'),
       '/docker-entrypoint-rntme.sh': PROXY_BOOTSTRAP_SCRIPT,
-    },
-    secretResolutionHints: {
-      redpandaConsoleHtpasswd: {
-        secretRef: planned.htpasswdSecretRef,
-        expectedUsername: planned.basicAuthUsername,
-      },
     },
   };
 
-  return [consoleApp, proxyApp];
+  const domain = composeDomain(planned.publicBaseUrl, 'redpanda-console-proxy', 8080);
+  return { services: [consoleService, proxyService], domains: [domain] };
+}
+
+function composeDomain(publicBaseUrl: string, serviceName: string, containerPort: number): RenderedComposeDomain {
+  const url = new URL(publicBaseUrl);
+  return {
+    host: url.host,
+    path: '/',
+    serviceName,
+    containerPort,
+    https: url.protocol === 'https:',
+  };
 }
 
 function renderConsoleProxyNginxConfig(upstreamHostname: string): string {
@@ -128,9 +103,4 @@ function renderConsoleProxyNginxConfig(upstreamHostname: string): string {
     '}',
     '',
   ].join('\n');
-}
-
-function joinUrl(base: string, path: string): string {
-  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-  return new URL(path, normalizedBase).toString();
 }
