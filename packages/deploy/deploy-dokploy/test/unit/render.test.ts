@@ -788,7 +788,7 @@ describe('renderDokployPlan', () => {
     // compose service name. The compose service name is `mod-${workload.slug}`
     // (raw, no normalization), so the env must use the raw `moduleSlug` too —
     // otherwise a slug like `IdentityAuth0` (mixed case is rewritten by
-    // `normalizeSlug` but kept as-is by `composeServiceName`) would resolve
+    // `normalizePart` but kept as-is by `composeServiceName`) would resolve
     // to a non-existent host inside the compose network.
     const rawModuleSlug = 'IdentityAuth0';
     const authPlan: ProjectDeploymentPlan = {

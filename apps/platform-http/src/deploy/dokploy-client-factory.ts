@@ -62,7 +62,11 @@ type DokployApiEnvironment = {
   environmentId: string;
   name: string;
   applications?: readonly DokployApiApplicationSummary[];
+  // Dokploy's project.all payload nests composes under the singular key
+  // `compose` (not `composes`). Both shapes are tolerated so that future
+  // server changes don't silently strand the cleanup pass.
   composes?: readonly DokployApiComposeSummary[];
+  compose?: readonly DokployApiComposeSummary[];
 };
 
 type DokployApiProject = {
@@ -366,6 +370,40 @@ export function createDokployClientFactory(
       deleteCompose: async (composeId: string) => {
         await request('POST', '/api/compose.delete', { composeId });
       },
+      // Dokploy exposes neither `/api/application.all` nor `/api/compose.all`,
+      // so cleanup discovery walks `/api/project.all` and filters by the
+      // target `environmentId`. The list payload has no labels — list-side
+      // filtering must rely on the resource name prefix.
+      listApplications: async (environmentId: string) => {
+        const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+        const result: { id: string; name: string }[] = [];
+        for (const p of projects) {
+          for (const e of p.environments ?? []) {
+            if (e.environmentId !== environmentId) continue;
+            for (const app of environmentApplications(e)) {
+              if (typeof app.applicationId !== 'string' || app.applicationId === '') continue;
+              if (typeof app.name !== 'string' || app.name === '') continue;
+              result.push({ id: app.applicationId, name: app.name });
+            }
+          }
+        }
+        return result;
+      },
+      listComposes: async (environmentId: string) => {
+        const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+        const result: { id: string; name: string }[] = [];
+        for (const p of projects) {
+          for (const e of p.environments ?? []) {
+            if (e.environmentId !== environmentId) continue;
+            for (const compose of environmentComposes(e)) {
+              if (typeof compose.composeId !== 'string' || compose.composeId === '') continue;
+              if (typeof compose.name !== 'string' || compose.name === '') continue;
+              result.push({ id: compose.composeId, name: compose.name });
+            }
+          }
+        }
+        return result;
+      },
     };
   };
 }
@@ -480,7 +518,8 @@ async function findComposeByName(
   for (const p of projects) {
     for (const e of p.environments || []) {
       if (e.environmentId === environmentId) {
-        const compose = e.composes?.find((c) => c.name === name);
+        const composes = environmentComposes(e);
+        const compose = composes.find((c) => c.name === name);
         if (compose) {
           const details = await request<DokployApiCompose>('GET', '/api/compose.one', { composeId: compose.composeId });
           return toDokployCompose(details);
@@ -490,6 +529,20 @@ async function findComposeByName(
     }
   }
   return null;
+}
+
+function environmentApplications(
+  environment: DokployApiEnvironment,
+): readonly DokployApiApplicationSummary[] {
+  return environment.applications ?? [];
+}
+
+function environmentComposes(
+  environment: DokployApiEnvironment,
+): readonly DokployApiComposeSummary[] {
+  // Dokploy currently returns `compose` (singular). Fall back to `composes`
+  // for forward compatibility with future API renames.
+  return environment.compose ?? environment.composes ?? [];
 }
 
 async function configureFileMounts(

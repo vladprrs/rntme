@@ -1338,11 +1338,15 @@ describe('applyDokployPlan', () => {
       {
         id: 'app_old_1',
         name: 'rntme-acme-commerce-catalog',
-        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+        // Dokploy's list APIs do not return labels, so the realistic case is
+        // an absent label; cleanup must treat that as ours-by-name.
+        labels: undefined,
       },
       {
         id: 'app_unmanaged',
         name: 'rntme-acme-commerce-other',
+        // A foreign `rntme.managed-by` value is the only veto signal we have
+        // when labels happen to be present; cleanup must respect it.
         labels: { 'rntme.managed-by': 'something-else' },
       },
       {
@@ -1358,9 +1362,9 @@ describe('applyDokployPlan', () => {
         labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
       },
       {
-        id: 'compose_unmanaged',
+        id: 'compose_foreign',
         name: 'rntme-acme-commerce-legacy',
-        labels: undefined,
+        labels: { 'rntme.managed-by': 'manual-import' },
       },
     ];
 
@@ -1373,16 +1377,21 @@ describe('applyDokployPlan', () => {
     expect(client.deletedApplications).not.toContain('app_unmanaged');
     expect(client.deletedApplications).not.toContain('app_other_project');
     expect(client.deletedComposes).toContain('compose_old_1');
-    expect(client.deletedComposes).not.toContain('compose_unmanaged');
+    expect(client.deletedComposes).not.toContain('compose_foreign');
     expect(client.deletedComposes).not.toContain('compose_1');
   });
 
-  it('swallows failures from old topology cleanup', async () => {
+  it('isolates per-resource cleanup failures and surfaces them as warnings', async () => {
     const client = new FakeDokployClient();
     client.oldApplications = [
       {
         id: 'app_old_fail',
         name: 'rntme-acme-commerce-catalog',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+      {
+        id: 'app_old_ok',
+        name: 'rntme-acme-commerce-orders',
         labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
       },
     ];
@@ -1391,6 +1400,75 @@ describe('applyDokployPlan', () => {
     const r = await applyDokployPlan(projectStackRendered(), client);
 
     expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // First failure must NOT abort the loop — the second app still gets deleted.
+    expect(client.deletedApplications).toContain('app_old_ok');
+    expect(client.deletedApplications).toContain('app_old_fail');
+    // The cleanup error must surface as a warning so operators can see it.
+    expect(r.value.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('failed to delete legacy application rntme-acme-commerce-catalog (app_old_fail)'),
+      ]),
+    );
+    // The token fixture leaks must still be redacted in warnings.
+    expect(JSON.stringify(r.value.warnings)).not.toContain('dokploy-token-secret');
+  });
+
+  it('surfaces a warning when listing legacy resources fails', async () => {
+    const client = new FakeDokployClient();
+    client.failListApplications = true;
+    client.oldComposes = [
+      {
+        id: 'compose_old',
+        name: 'rntme-acme-commerce-event-bus',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // List failure for applications must not block compose cleanup.
+    expect(client.deletedComposes).toContain('compose_old');
+    expect(r.value.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('failed to list legacy applications')]),
+    );
+  });
+
+  it('normalizes org/project slugs when building the cleanup name prefix', async () => {
+    const client = new FakeDokployClient();
+    // Applied resources were named via `dokployResourceName`, which lower-cases
+    // and slugifies. The legacy resource here uses the *normalized* prefix
+    // `rntme-acme-corp-commerce-foo-` derived from `Acme_Corp` / `commerce`.
+    client.oldApplications = [
+      {
+        id: 'app_old',
+        name: 'rntme-acme-corp-commerce-legacy',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+    const stack: RenderedDokployPlan = {
+      ...projectStackRendered(),
+      deployment: {
+        ...projectStackRendered().deployment,
+        orgSlug: 'Acme_Corp',
+      },
+      resources: projectStackRendered().resources.map((resource) =>
+        resource.kind === 'compose' && resource.infrastructureKind === 'project-stack'
+          ? { ...resource, name: 'rntme-acme-corp-commerce' }
+          : resource,
+      ),
+    };
+
+    const r = await applyDokployPlan(stack, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Without normalization the prefix would have been `rntme-Acme_Corp-commerce-`,
+    // which would never match the actual lower-cased resource names and the
+    // legacy app would survive forever.
+    expect(client.deletedApplications).toContain('app_old');
   });
 
   it('redacts JSON-style credential keys while preserving surrounding diagnostic context', async () => {
@@ -1464,6 +1542,8 @@ class FakeDokployClient implements DokployClient {
   readonly deletedComposes: string[] = [];
   oldApplications: DokployApplication[] = [];
   oldComposes: DokployCompose[] = [];
+  failListApplications = false;
+  failListComposes = false;
   readonly failureModes: FakeFailures;
 
   private next = 1;
@@ -1478,18 +1558,14 @@ class FakeDokployClient implements DokployClient {
     this.failureModes = failures;
   }
 
-  private get failures(): FakeFailures {
-    return this.failureModes;
-  }
-
   async ensureEnvironment(
     ref: DokployProjectRef,
     environmentName: string,
   ): Promise<{ environmentId: string }> {
     void ref;
-    if (this.failures.failEnvironment === true) {
-      throw clientError(this.failures.failMessage ?? 'environment failed', {
-        includeSecretFixture: this.failures.includeSecretFixture ?? true,
+    if (this.failureModes.failEnvironment === true) {
+      throw clientError(this.failureModes.failMessage ?? 'environment failed', {
+        includeSecretFixture: this.failureModes.includeSecretFixture ?? true,
       });
     }
     return { environmentId: `env_${environmentName}` };
@@ -1500,7 +1576,7 @@ class FakeDokployClient implements DokployClient {
     name: string,
   ): Promise<DokployApplication | null> {
     void environmentId;
-    if (this.failures.failFindFor === name) throw secretError('find failed');
+    if (this.failureModes.failFindFor === name) throw secretError('find failed');
     return this.apps.get(name) ?? null;
   }
 
@@ -1508,7 +1584,7 @@ class FakeDokployClient implements DokployClient {
     environmentId: string,
     input: RenderedDokployResource,
   ): Promise<{ id: string; name: string }> {
-    if (this.failures.failCreateFor === input.name) throw secretError('create failed');
+    if (this.failureModes.failCreateFor === input.name) throw secretError('create failed');
     this.lifecycleCalls.push(`create:${input.name}`);
     this.createCalls.push({ environmentId, resource: input });
     const app = { id: `app_${this.next++}`, name: input.name, appName: `${input.name}-dns` };
@@ -1520,7 +1596,7 @@ class FakeDokployClient implements DokployClient {
     id: string,
     input: RenderedDokployResource,
   ): Promise<{ id: string; name: string }> {
-    if (this.failures.failUpdateFor === input.name) throw secretError('update failed');
+    if (this.failureModes.failUpdateFor === input.name) throw secretError('update failed');
     this.lifecycleCalls.push(`update:${id}:${input.name}`);
     this.updateCalls.push({ applicationId: id, resource: input });
     const app = { id, name: input.name, appName: `${input.name}-dns` };
@@ -1531,26 +1607,26 @@ class FakeDokployClient implements DokployClient {
   async configureApplication(id: string, input: RenderedDokployResource): Promise<void> {
     this.lifecycleCalls.push(`configure:${id}:${input.name}`);
     this.configureCalls.push({ applicationId: id, resource: input });
-    if (this.failures.failConfigureFor === id) throw secretError('configure failed');
+    if (this.failureModes.failConfigureFor === id) throw secretError('configure failed');
   }
 
   async deployApplication(id: string): Promise<void> {
     this.lifecycleCalls.push(`deploy:${id}`);
     this.deployCalls.push({ applicationId: id });
-    if (this.failures.failDeployFor === id) throw secretError('deploy failed');
+    if (this.failureModes.failDeployFor === id) throw secretError('deploy failed');
   }
 
   async startApplication(id: string): Promise<void> {
     this.lifecycleCalls.push(`start:${id}`);
     this.startCalls.push({ applicationId: id });
-    if (this.failures.failStartFor === id) throw secretError('start failed');
+    if (this.failureModes.failStartFor === id) throw secretError('start failed');
   }
 
   async inspectApplication(id: string): Promise<{ status: 'running' | 'done' | 'failed' | 'rejected' | 'unknown'; message?: string }> {
     this.lifecycleCalls.push(`inspect:${id}`);
     return {
-      status: this.failures.inspectStatus ?? 'running',
-      message: this.failures.inspectStatus === undefined ? undefined : `task ${this.failures.inspectStatus}`,
+      status: this.failureModes.inspectStatus ?? 'running',
+      message: this.failureModes.inspectStatus === undefined ? undefined : `task ${this.failureModes.inspectStatus}`,
     };
   }
 
@@ -1655,22 +1731,24 @@ class FakeDokployClient implements DokployClient {
   async deleteApplication(applicationId: string): Promise<void> {
     this.lifecycleCalls.push(`delete-application:${applicationId}`);
     this.deletedApplications.push(applicationId);
-    if (this.failures.failDeleteApplicationFor === applicationId) throw secretError('delete app failed');
+    if (this.failureModes.failDeleteApplicationFor === applicationId) throw secretError('delete app failed');
   }
 
   async deleteCompose(composeId: string): Promise<void> {
     this.lifecycleCalls.push(`delete-compose:${composeId}`);
     this.deletedComposes.push(composeId);
-    if (this.failures.failDeleteComposeFor === composeId) throw secretError('delete compose failed');
+    if (this.failureModes.failDeleteComposeFor === composeId) throw secretError('delete compose failed');
   }
 
   async listApplications(_environmentId: string): Promise<readonly DokployApplication[]> {
     void _environmentId;
+    if (this.failListApplications) throw secretError('list applications failed');
     return this.oldApplications;
   }
 
   async listComposes(_environmentId: string): Promise<readonly DokployCompose[]> {
     void _environmentId;
+    if (this.failListComposes) throw secretError('list composes failed');
     return this.oldComposes;
   }
 }

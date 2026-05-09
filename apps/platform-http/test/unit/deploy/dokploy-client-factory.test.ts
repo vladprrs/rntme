@@ -771,6 +771,99 @@ describe('createDokployClientFactory', () => {
     ]);
   });
 
+  it('lists applications and composes scoped to the target environment for cleanup', async () => {
+    const calls: { path: string }[] = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input) => {
+      const url = new URL(String(input));
+      calls.push({ path: url.pathname });
+      if (url.pathname === '/api/project.all') {
+        return new globalThis.Response(
+          JSON.stringify([
+            {
+              projectId: 'project-1',
+              name: 'rntme-demos',
+              environments: [
+                {
+                  environmentId: 'env-1',
+                  name: 'production',
+                  applications: [
+                    { applicationId: 'app_1', name: 'rntme-acme-commerce-old' },
+                    { applicationId: 'app_2', name: 'unrelated' },
+                    // Defensive: a malformed row missing applicationId must be skipped.
+                    { name: 'no-id' },
+                  ],
+                  // Dokploy's real payload uses `compose` (singular).
+                  compose: [
+                    { composeId: 'compose_1', name: 'rntme-acme-commerce' },
+                  ],
+                },
+                {
+                  environmentId: 'env-other',
+                  name: 'staging',
+                  applications: [{ applicationId: 'app_other', name: 'should-not-be-listed' }],
+                  compose: [{ composeId: 'compose_other', name: 'should-not-be-listed' }],
+                },
+              ],
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await expect(client.listApplications?.('env-1')).resolves.toEqual([
+      { id: 'app_1', name: 'rntme-acme-commerce-old' },
+      { id: 'app_2', name: 'unrelated' },
+    ]);
+    await expect(client.listComposes?.('env-1')).resolves.toEqual([
+      { id: 'compose_1', name: 'rntme-acme-commerce' },
+    ]);
+    expect(calls.map((call) => call.path)).toEqual([
+      '/api/project.all',
+      '/api/project.all',
+    ]);
+  });
+
+  it('falls back to legacy `composes` plural key when listing composes', async () => {
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/project.all') {
+        return new globalThis.Response(
+          JSON.stringify([
+            {
+              projectId: 'project-1',
+              name: 'rntme-demos',
+              environments: [
+                {
+                  environmentId: 'env-1',
+                  name: 'production',
+                  applications: [],
+                  // Tolerate the alternative shape too.
+                  composes: [{ composeId: 'compose_1', name: 'rntme-acme-commerce' }],
+                },
+              ],
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await expect(client.listComposes?.('env-1')).resolves.toEqual([
+      { id: 'compose_1', name: 'rntme-acme-commerce' },
+    ]);
+  });
+
   it('throws a redacted decrypt failure', () => {
     const cipher: SecretCipher = {
       encrypt: vi.fn(),

@@ -83,7 +83,7 @@ export type RenderedDokployApplicationResource = {
   readonly kind: 'application';
   readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy';
   readonly workloadSlug?: string;
-  readonly infrastructureKind?: 'operaton-ui-gateway' | 'redpanda-console' | 'redpanda-console-proxy';
+  readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
   readonly image: string;
   readonly command?: string;
