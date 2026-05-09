@@ -1,0 +1,22 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "name", "prefix", "scopes", "create", "tokens"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "API Tokens" } },
+    "name": { "type": "Input", "props": { "statePath": "/form/token/name", "placeholder": "Token name" } },
+    "prefix": { "type": "Input", "props": { "statePath": "/form/token/prefix", "placeholder": "Token prefix" } },
+    "scopes": { "type": "Input", "props": { "statePath": "/form/token/scopesJson", "placeholder": "[\"project:read\"]" } },
+    "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createToken" } } },
+    "tokens": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/tokens",
+        "columns": [
+          { "key": "name", "label": "Name" },
+          { "key": "prefix", "label": "Prefix" },
+          { "key": "status", "label": "Status" }
+        ]
+      }
+    }
+  }
+}

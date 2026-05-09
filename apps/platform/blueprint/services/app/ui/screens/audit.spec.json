@@ -1,0 +1,20 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "events"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Audit Log" } },
+    "events": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/events",
+        "columns": [
+          { "key": "actorId", "label": "Actor" },
+          { "key": "action", "label": "Action" },
+          { "key": "targetType", "label": "Target Type" },
+          { "key": "status", "label": "Status" },
+          { "key": "createdAt", "label": "Time" }
+        ]
+      }
+    }
+  }
+}

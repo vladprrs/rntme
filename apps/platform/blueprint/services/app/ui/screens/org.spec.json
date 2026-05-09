@@ -1,0 +1,18 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "projects"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Projects" } },
+    "projects": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/projects",
+        "columns": [
+          { "key": "slug", "label": "Slug" },
+          { "key": "displayName", "label": "Name" },
+          { "key": "status", "label": "Status" }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "metadata": { "title": "Project" },
+  "data": {
+    "/data/versions": {
+      "binding": "projects.listProjectVersions",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "body"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "No organization" } },
+    "body": { "type": "Text", "props": { "text": "Your account is not linked to an organization." } }
+  }
+}

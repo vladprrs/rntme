@@ -1,0 +1,23 @@
+{
+  "version": "2.0",
+  "pdmRef": "platform.domain.v1",
+  "qsmRef": "platform.read.v1",
+  "graphSpecRef": "platform.graphs.v1",
+  "bindingsRef": "platform.bindings.v1",
+  "metadata": { "title": "rntme Platform" },
+  "layouts": {
+    "main": "layouts/main"
+  },
+  "routes": {
+    "/login": { "layout": "main", "screen": "screens/login" },
+    "/no-org": { "layout": "main", "screen": "screens/no-org" },
+    "/:orgId": { "layout": "main", "screen": "screens/org" },
+    "/:orgId/projects/:projectId": { "layout": "main", "screen": "screens/project" },
+    "/:orgId/projects/:projectId/versions/:versionId": { "layout": "main", "screen": "screens/project-version" },
+    "/:orgId/deploy-targets": { "layout": "main", "screen": "screens/deploy-targets" },
+    "/:orgId/projects/:projectId/deployments": { "layout": "main", "screen": "screens/deployments" },
+    "/:orgId/deployments/:deploymentId": { "layout": "main", "screen": "screens/deployment" },
+    "/:orgId/tokens": { "layout": "main", "screen": "screens/tokens" },
+    "/:orgId/audit": { "layout": "main", "screen": "screens/audit" }
+  }
+}

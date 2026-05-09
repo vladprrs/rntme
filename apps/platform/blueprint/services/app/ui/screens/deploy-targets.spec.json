@@ -1,0 +1,23 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "slug", "provider", "environment", "configJson", "create", "targets"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Deploy Targets" } },
+    "slug": { "type": "Input", "props": { "statePath": "/form/target/slug", "placeholder": "Target slug" } },
+    "provider": { "type": "Input", "props": { "statePath": "/form/target/provider", "placeholder": "Provider (e.g. dokploy)" } },
+    "environment": { "type": "Input", "props": { "statePath": "/form/target/environment", "placeholder": "Environment (e.g. production)" } },
+    "configJson": { "type": "Input", "props": { "statePath": "/form/target/configJson", "placeholder": "{}" } },
+    "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createDeployTarget" } } },
+    "targets": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/targets",
+        "columns": [
+          { "key": "slug", "label": "Slug" },
+          { "key": "provider", "label": "Provider" },
+          { "key": "environment", "label": "Environment" }
+        ]
+      }
+    }
+  }
+}

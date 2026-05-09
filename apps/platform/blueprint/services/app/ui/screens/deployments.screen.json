@@ -1,0 +1,14 @@
+{
+  "metadata": { "title": "Deployments" },
+  "data": {
+    "/data/deployments": {
+      "binding": "deployments.listDeployments",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "projectId": { "$state": "/route/params/projectId" },
+        "limit": 100
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

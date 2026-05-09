@@ -1,0 +1,18 @@
+{
+  "metadata": { "title": "Deployment" },
+  "data": {
+    "/data/deployment": {
+      "binding": "deployments.getDeployment",
+      "params": { "id": { "$state": "/route/params/deploymentId" } },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/logs": {
+      "binding": "deployments.readDeploymentLogs",
+      "params": { "deploymentId": { "$state": "/route/params/deploymentId" }, "limit": 200 },
+      "refetchOn": ["mount", "params"]
+    }
+  },
+  "actions": {
+    "refreshDeployment": { "kind": "refetch", "targets": ["/data/deployment", "/data/logs"] }
+  }
+}

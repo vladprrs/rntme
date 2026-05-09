@@ -1,0 +1,19 @@
+{
+  "root": "page",
+  "elements": {
+    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "deployments"] },
+    "title": { "type": "Heading", "props": { "level": 2, "text": "Deployments" } },
+    "deployments": {
+      "type": "DataTable",
+      "props": {
+        "statePath": "/data/deployments",
+        "columns": [
+          { "key": "id", "label": "ID" },
+          { "key": "status", "label": "Status" },
+          { "key": "targetId", "label": "Target" },
+          { "key": "projectVersionId", "label": "Version" }
+        ]
+      }
+    }
+  }
+}
