@@ -949,6 +949,165 @@ describe('renderDokployPlan', () => {
     expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
   });
 
+  it('folds service env entries up into the stack env so ${VAR} references resolve at deploy time', () => {
+    // Compose YAML emits `<NAME>: ${<NAME>}` for every service env entry.
+    // Those interpolations resolve against the stack-level env block
+    // (delivered via `compose.saveEnvironment`). The stack env therefore
+    // MUST contain every name referenced by any service or the rendered
+    // containers boot without their environment configuration.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          eventBus: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            resourceName: 'rntme-acme-commerce-event-bus',
+            internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+            image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+            persistence: { mode: 'persistent', volumeName: 'rntme-acme-commerce-event-bus-data' },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    // Both catalog and any other service that references the broker share
+    // the same value, so the stack env must dedupe to one entry.
+    const brokers = stack.env.filter((entry) => entry.name === 'RNTME_EVENT_BUS_BROKERS');
+    expect(brokers).toEqual([
+      { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda:9092', secret: false },
+    ]);
+
+    // Every distinct env name on any service must be present on the stack
+    // env, otherwise its `${VAR}` interpolation in YAML would render empty.
+    const stackNames = new Set(stack.env.map((entry) => entry.name));
+    for (const service of stack.services ?? []) {
+      for (const entry of service.env) {
+        expect(stackNames.has(entry.name)).toBe(true);
+      }
+    }
+
+    // Stack env is alphabetized so digests stay stable.
+    const sortedNames = [...stack.env].map((entry) => entry.name);
+    const expectedSortedNames = [...sortedNames].sort((a, b) => a.localeCompare(b));
+    expect(sortedNames).toEqual(expectedSortedNames);
+  });
+
+  it('preserves the secret flag when folding service env into the stack env', () => {
+    // Provisioned RustFS exposes secret credentials on the service. After
+    // folding those values up to the stack level the secret flag must be
+    // preserved so the Dokploy client can flag them appropriately.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          objectStorage: {
+            kind: 's3-compatible',
+            mode: 'provisioned',
+            provider: 'rustfs',
+            resourceName: 'rntme-acme-commerce-object-storage',
+            image: 'rustfs/rustfs:1.0.0-alpha.65',
+            internalEndpoint: 'http://rntme-acme-commerce-object-storage:9000',
+            publicBaseUrl: 'https://storage-commerce.example.com',
+            bucketName: 'rntme-commerce',
+            region: 'us-east-1',
+            forcePathStyle: true,
+            credentials: {
+              accessKeyRef: 'rntme-rustfs-access-key',
+              secretKeyRef: 'rntme-rustfs-secret-key',
+            },
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-object-storage-data',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    if (stack.kind !== 'compose') throw new Error('expected compose stack');
+
+    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ACCESS_KEY');
+    expect(accessKey).toEqual({
+      name: 'RUSTFS_ACCESS_KEY',
+      value: 'rntme-rustfs-access-key',
+      secret: true,
+    });
+  });
+
+  it('rejects stack env collisions when two services disagree on the same env name', () => {
+    // Construct a plan where two integration-module workloads declare the
+    // same env name with different values. Folding those into the stack env
+    // must error so the rendered stack does not silently pick a winner.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: [
+          {
+            kind: 'integration-module',
+            slug: 'storage-a',
+            serviceSlug: 'storage-a',
+            resourceName: 'rntme-acme-commerce-storage-a',
+            image: 'ghcr.io/acme/storage-a:test',
+            expose: false,
+            env: { SHARED_TOKEN: 'value-a' },
+            secretRefs: {},
+            modulePackageName: '@rntme/storage-a',
+          },
+          {
+            kind: 'integration-module',
+            slug: 'storage-b',
+            serviceSlug: 'storage-b',
+            resourceName: 'rntme-acme-commerce-storage-b',
+            image: 'ghcr.io/acme/storage-b:test',
+            expose: false,
+            env: { SHARED_TOKEN: 'value-b' },
+            secretRefs: {},
+            modulePackageName: '@rntme/storage-b',
+          },
+          {
+            kind: 'edge-gateway',
+            slug: 'edge',
+            resourceName: 'rntme-acme-commerce-edge',
+            image: 'nginx:1.27-alpine',
+          },
+        ],
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors[0]?.code).toBe('DEPLOY_RENDER_DOKPLOY_STACK_ENV_COLLISION');
+    expect(r.errors[0]?.message).toContain('SHARED_TOKEN');
+  });
+
   it('rejects target resource name collisions after normalization', () => {
     // In the single-stack model the only top-level Dokploy resource is the
     // project-stack compose. Workloads whose slugs differ only by normalization

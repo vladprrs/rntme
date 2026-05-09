@@ -332,6 +332,53 @@ describe('createDokployClientFactory', () => {
     });
   });
 
+  it('forwards stack env to /api/compose.saveEnvironment so ${VAR} interpolations resolve', async () => {
+    // Regression: the rendered compose YAML emits `<NAME>: ${<NAME>}`
+    // interpolation references for every service env entry. For Docker
+    // Compose to substitute those at deploy time, the NAMES and VALUES must
+    // be present on the stack-level env block sent via
+    // `compose.saveEnvironment`. If a future change drops the env-folding
+    // logic, this test will fail loudly instead of letting containers boot
+    // with empty environment configuration.
+    const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'dokploy-token-secret'),
+    };
+    const client = createDokployClientFactory(cipher, async (input, init) => {
+      const url = String(input);
+      calls.push({
+        url,
+        method: init?.method ?? 'GET',
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      return jsonResponse({});
+    })(target());
+
+    const compose = renderedComposeResource();
+    const composeWithEnv: Extract<RenderedDokployResource, { kind: 'compose' }> = {
+      ...compose,
+      env: [
+        { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda:9092', secret: false },
+        { name: 'RNTME_PERSISTENCE_MODE', value: 'ephemeral', secret: false },
+        { name: 'RUSTFS_SECRET_KEY', value: 'rntme-rustfs-secret-key', secret: true },
+      ],
+    };
+
+    await client.configureCompose('compose-1', composeWithEnv);
+
+    const saveEnvCall = calls.find((call) =>
+      call.url.endsWith('/api/compose.saveEnvironment'),
+    );
+    expect(saveEnvCall).toBeDefined();
+    const body = saveEnvCall?.body as { composeId: string; env: string };
+    expect(body.composeId).toBe('compose-1');
+    expect(body.env).toContain('RNTME_EVENT_BUS_BROKERS=redpanda:9092');
+    expect(body.env).toContain('RNTME_PERSISTENCE_MODE=ephemeral');
+    expect(body.env).toContain('RUSTFS_SECRET_KEY=rntme-rustfs-secret-key');
+    expect(body.env.length).toBeGreaterThan(0);
+  });
+
   it('runs the configure/deploy/start lifecycle against the e2e Dokploy mock', async () => {
     const mock = createMockDokployApp();
     const cipher: SecretCipher = {

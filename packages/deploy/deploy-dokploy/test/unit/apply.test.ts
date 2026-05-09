@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { applyDokployPlan } from '../../src/apply.js';
 import type {
   DokployApplication,
@@ -9,6 +10,7 @@ import type {
   DokployProjectRef,
 } from '../../src/client.js';
 import type { RenderedComposeDomain } from '../../src/compose-model.js';
+import { renderDokployPlan } from '../../src/render.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from '../../src/render.js';
 
 const rendered: RenderedDokployPlan = {
@@ -146,6 +148,53 @@ describe('applyDokployPlan', () => {
         { name: 'edge', serviceClass: 'edge-gateway' },
       ],
     });
+  });
+
+  it('configures compose with the folded stack env so ${VAR} interpolations resolve', async () => {
+    // Regression: the rendered compose YAML emits `<NAME>: ${<NAME>}` for
+    // every service env entry. If the renderer ever stops folding service
+    // envs up into the stack-level env block, the resource passed to
+    // configureCompose would carry an empty env list and the deployed
+    // containers would come up with no environment configuration. This test
+    // exercises render -> apply end-to-end and asserts the env survives.
+    const renderedResult = renderDokployPlan(envFoldingPlan(), {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+    expect(renderedResult.ok).toBe(true);
+    if (!renderedResult.ok) return;
+
+    const client = new FakeDokployClient();
+    const r = await applyDokployPlan(renderedResult.value, client);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.configureComposeCalls).toHaveLength(1);
+    const configured = client.configureComposeCalls[0] as {
+      readonly composeId: string;
+      readonly resource: Extract<RenderedDokployResource, { kind: 'compose' }>;
+    };
+    expect(configured.resource.env.length).toBeGreaterThan(0);
+    const envByName = new Map(configured.resource.env.map((entry) => [entry.name, entry]));
+    expect(envByName.get('RNTME_EVENT_BUS_BROKERS')).toEqual({
+      name: 'RNTME_EVENT_BUS_BROKERS',
+      value: 'redpanda:9092',
+      secret: false,
+    });
+    expect(envByName.get('RNTME_PERSISTENCE_MODE')).toEqual({
+      name: 'RNTME_PERSISTENCE_MODE',
+      value: 'ephemeral',
+      secret: false,
+    });
+    // Every service env entry must have a corresponding stack env entry,
+    // otherwise its `${VAR}` reference in the rendered YAML would resolve
+    // to empty at deploy time.
+    for (const service of configured.resource.services ?? []) {
+      for (const entry of service.env) {
+        expect(envByName.has(entry.name)).toBe(true);
+      }
+    }
   });
 
   it('creates missing resources and returns structured result', async () => {
@@ -1500,6 +1549,67 @@ describe('applyDokployPlan', () => {
     }
   });
 });
+
+function envFoldingPlan(): ProjectDeploymentPlan {
+  return {
+    project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
+    infrastructure: {
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        resourceName: 'rntme-acme-commerce-event-bus',
+        internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+        image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+        persistence: { mode: 'persistent', volumeName: 'rntme-acme-commerce-event-bus-data' },
+      },
+      objectStorage: { kind: 'none' },
+    },
+    workloads: [
+      {
+        kind: 'domain-service',
+        slug: 'catalog',
+        serviceSlug: 'catalog',
+        resourceName: 'rntme-acme-commerce-catalog',
+        runtime: { image: 'rntme-runtime' },
+        artifact: { source: 'composed-project', serviceSlug: 'catalog' },
+        runtimeFiles: { 'manifest.json': '{"service":{"name":"catalog"}}' },
+        publicConfigJson: '{}',
+        persistence: { mode: 'ephemeral' },
+      },
+      {
+        kind: 'domain-service',
+        slug: 'orders',
+        serviceSlug: 'orders',
+        resourceName: 'rntme-acme-commerce-orders',
+        runtime: { image: 'rntme-runtime' },
+        artifact: { source: 'composed-project', serviceSlug: 'orders' },
+        runtimeFiles: { 'manifest.json': '{"service":{"name":"orders"}}' },
+        publicConfigJson: '{}',
+        persistence: { mode: 'ephemeral' },
+      },
+      {
+        kind: 'edge-gateway',
+        slug: 'edge',
+        resourceName: 'rntme-acme-commerce-edge',
+        image: 'nginx:1.27-alpine',
+      },
+    ],
+    edge: {
+      routes: [
+        {
+          id: 'http:/api/catalog',
+          kind: 'http',
+          path: '/api/catalog',
+          targetService: 'catalog',
+          targetWorkload: 'catalog',
+        },
+      ],
+      middleware: [],
+    },
+    diagnostics: { warnings: [] },
+  };
+}
 
 type FakeFailures = {
   failEnvironment?: boolean;

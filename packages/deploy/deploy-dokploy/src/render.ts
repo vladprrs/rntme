@@ -185,7 +185,8 @@ export function renderDokployPlan(
   const resources: RenderedDokployResource[] = [stackResource.value];
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
-  const resourcesWithProvisionedEnv = resources.map((resource) => {
+  const resourcesWithProvisionedEnv: RenderedDokployResource[] = [];
+  for (const resource of resources) {
     if (resource.kind === 'compose' && resource.services !== undefined) {
       const services = resource.services.map((service) => {
         const slug = service.workloadSlug ?? service.logicalId;
@@ -199,9 +200,17 @@ export function renderDokployPlan(
       const stackAdditions = envEntries
         .filter((e) => e.target === stackSlug)
         .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
-      const stackEnv = stackAdditions.length === 0 ? resource.env : [...resource.env, ...stackAdditions];
-      const next: typeof resource = { ...resource, services, env: stackEnv };
-      return { ...next, composeFile: renderComposeYaml(services) };
+      const stackSeed = stackAdditions.length === 0 ? resource.env : [...resource.env, ...stackAdditions];
+      // Compose YAML emits `<NAME>: ${<NAME>}` interpolation references for
+      // every service env entry. For these to resolve at deploy time, the
+      // values themselves must travel on the stack-level env block (sent via
+      // `compose.saveEnvironment`). Fold service envs UP into the stack env
+      // here so the YAML and the Dokploy env block stay in lockstep.
+      const collectedEnv = collectStackEnv(services, stackSeed);
+      if (!collectedEnv.ok) return collectedEnv;
+      const next: typeof resource = { ...resource, services, env: collectedEnv.value };
+      resourcesWithProvisionedEnv.push({ ...next, composeFile: renderComposeYaml(services) });
+      continue;
     }
     const slug =
       resource.kind === 'application'
@@ -210,9 +219,12 @@ export function renderDokployPlan(
     const additions = envEntries
       .filter((e) => e.target === slug)
       .map((e) => ({ name: e.envName, value: e.value, secret: e.secret }));
-    if (additions.length === 0) return resource;
-    return { ...resource, env: [...resource.env, ...additions] };
-  });
+    if (additions.length === 0) {
+      resourcesWithProvisionedEnv.push(resource);
+      continue;
+    }
+    resourcesWithProvisionedEnv.push({ ...resource, env: [...resource.env, ...additions] });
+  }
 
   const uiRoute = plan.edge.routes.find((route) => route.kind === 'ui');
   const ingressRoutes = plan.edge.routes.map((route) => ({
@@ -291,6 +303,41 @@ export function renderDokployPlan(
 
 function workloadHttpPort(workload: Exclude<DeploymentWorkload, { kind: 'edge-gateway' | 'bpmn-worker' }>): number {
   return workload.kind === 'integration-module' ? 50052 : 3000;
+}
+
+/**
+ * Fold every service env entry up into a single stack-level env block so the
+ * `${VAR}` references the YAML emits actually resolve at deploy time. Same
+ * names with matching value+secret flag dedupe; same name with disagreeing
+ * value or secret flag is a render error (the rendered stack would otherwise
+ * have to pick a winner silently). Output is alphabetized so digests stay
+ * stable.
+ */
+function collectStackEnv(
+  services: readonly RenderedComposeService[],
+  existingStackEnv: readonly RenderedEnvVar[],
+): Result<readonly RenderedEnvVar[], DokployDeploymentError> {
+  const byName = new Map<string, RenderedEnvVar>();
+  for (const entry of existingStackEnv) byName.set(entry.name, entry);
+  for (const service of services) {
+    for (const entry of service.env) {
+      const existing = byName.get(entry.name);
+      if (existing === undefined) {
+        byName.set(entry.name, entry);
+        continue;
+      }
+      if (existing.value !== entry.value || existing.secret !== entry.secret) {
+        return err([
+          {
+            code: 'DEPLOY_RENDER_DOKPLOY_STACK_ENV_COLLISION',
+            message: `stack env collision for ${entry.name}: services disagree on value or secret flag`,
+            service: service.name,
+          },
+        ]);
+      }
+    }
+  }
+  return ok([...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
 }
 
 function renderEdgeGatewayConfig(
