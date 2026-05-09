@@ -1,7 +1,5 @@
 import { endpoints } from '../../api/endpoints.js';
 import type { DeploymentResponseSchema } from '../../api/types.js';
-import { err } from '../../result.js';
-import { cliError } from '../../errors/codes.js';
 import { runCommand, type CommonFlags } from '../harness.js';
 import { validateUuid } from '../../util/uuid.js';
 import type { z } from 'zod';
@@ -40,14 +38,8 @@ export async function runProjectDeploymentShow(args: ProjectDeploymentShowArgs, 
     async (ctx) => {
       const id = validateUuid(args.deploymentId, 'deployment-id');
       if (!id.ok) return id;
-      const org = flags.org ?? ctx.resolved.org;
-      const project = flags.project ?? ctx.resolved.project;
-      if (!org) return err(cliError('CLI_CONFIG_MISSING', 'no org; use --org'));
-      if (!project) return err(cliError('CLI_CONFIG_MISSING', 'no project; use --project'));
       return endpoints.deployments.show(
         { baseUrl: ctx.resolved.baseUrl, token: ctx.resolved.token },
-        org,
-        project,
         id.value,
       );
     },

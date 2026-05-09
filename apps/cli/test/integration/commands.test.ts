@@ -83,7 +83,7 @@ describe('whoami', () => {
 describe('project create', () => {
   it('201 → exit 0 with slug', async () => {
     server.use(
-      http.post(`${BASE}/v1/orgs/acme/projects`, () =>
+      http.post(`${BASE}/api/projects`, () =>
         HttpResponse.json(
           {
             project: {
@@ -154,8 +154,10 @@ describe('project deploy commands', () => {
 
   it('dispatches project deploy to the platform deployments endpoint', async () => {
     server.use(
-      http.post(`${BASE}/v1/orgs/acme/projects/notes-demo/deployments`, async ({ request }) => {
+      http.post(`${BASE}/api/deployments`, async ({ request }) => {
         expect(await request.json()).toEqual({
+          organizationId: 'acme',
+          projectId: 'notes-demo',
           projectVersionSeq: 4,
           targetSlug: 'preview',
           configOverrides: {},

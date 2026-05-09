@@ -65,7 +65,8 @@ describe('runProjectPublish', () => {
     expect(exit).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://platform.example/v1/orgs/acme/projects/demo/versions');
+    expect(url).toBe('https://platform.example/api/projects/demo/versions');
+    expect(url).not.toContain('/v1/');
     expect(init.method).toBe('POST');
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/rntme-project-bundle+json');
     expect(JSON.parse(init.body as string)).toMatchObject({
@@ -134,7 +135,11 @@ describe('runProjectPublish', () => {
 
     expect(exit).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://platform.example/v1/orgs/acme/projects');
-    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ slug: 'demo', displayName: 'demo' });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://platform.example/api/projects');
+    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({
+      organizationId: 'acme',
+      slug: 'demo',
+      displayName: 'demo',
+    });
   });
 });

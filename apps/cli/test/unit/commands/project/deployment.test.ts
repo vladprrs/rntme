@@ -53,8 +53,11 @@ describe('project deployment commands', () => {
     const exit = await runProjectDeploy({ version: 4, target: 'dokploy-rnt-364' }, flags);
 
     expect(exit).toBe(0);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://platform.example/v1/orgs/acme/projects/notes-demo/deployments');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://platform.example/api/deployments');
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('/v1/');
     expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toEqual({
+      organizationId: 'acme',
+      projectId: 'notes-demo',
       projectVersionSeq: 4,
       targetSlug: 'dokploy-rnt-364',
       configOverrides: {},
@@ -68,7 +71,10 @@ describe('project deployment commands', () => {
     const exit = await runProjectDeploymentList({ limit: 25 }, flags);
 
     expect(exit).toBe(0);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://platform.example/v1/orgs/acme/projects/notes-demo/deployments?limit=25');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://platform.example/api/deployments?organizationId=acme&projectId=notes-demo&limit=25',
+    );
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('/v1/');
   });
 
   it('shows one deployment by id', async () => {
@@ -78,7 +84,8 @@ describe('project deployment commands', () => {
     const exit = await runProjectDeploymentShow({ deploymentId: deployment.id }, flags);
 
     expect(exit).toBe(0);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://platform.example/v1/orgs/acme/projects/notes-demo/deployments/${deployment.id}`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://platform.example/api/deployments/${deployment.id}`);
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('/v1/');
   });
 
   it('watches incremental logs and exits 10 for failed terminal deployments', async () => {
@@ -115,9 +122,12 @@ describe('project deployment commands', () => {
 
     expect(exit).toBe(10);
     expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
-      `https://platform.example/v1/orgs/acme/projects/notes-demo/deployments/${deployment.id}`,
-      `https://platform.example/v1/orgs/acme/projects/notes-demo/deployments/${deployment.id}/logs?sinceLineId=0&limit=200`,
+      `https://platform.example/api/deployments/${deployment.id}`,
+      `https://platform.example/api/deployments/${deployment.id}/logs?sinceLineId=0&limit=200`,
     ]);
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).not.toContain('/v1/');
+    }
   });
 
   it('does not stream plain-text log lines when --json is set', async () => {

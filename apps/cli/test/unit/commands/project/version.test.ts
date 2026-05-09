@@ -36,7 +36,7 @@ describe('project version commands', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ versions: [version], nextCursor: null }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const exit = await runProjectVersionList({ limit: 10, cursor: '4' }, {
+    const exit = await runProjectVersionList({ limit: 10 }, {
       org: 'acme',
       project: 'demo',
       token: 'rntme_pat_test',
@@ -45,7 +45,8 @@ describe('project version commands', () => {
     });
 
     expect(exit).toBe(0);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://platform.example/v1/orgs/acme/projects/demo/versions?limit=10&cursor=4');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://platform.example/api/projects/demo/versions?limit=10');
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('/v1/');
   });
 
   it('shows a project version by sequence number', async () => {

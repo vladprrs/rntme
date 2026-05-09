@@ -42,6 +42,23 @@ export type ApiCallOptions<T> = {
 
 const VERSION = '0.0.0';
 
+/**
+ * Mount paths for the platform blueprint HTTP surface.
+ *
+ * These are the prefixes asserted by `platform-blueprint.test.ts`. CLI command
+ * code should compose URLs from these constants instead of hard-coding `/v1`
+ * org-slug-nested paths. Legacy `/v1/...` paths still exist for endpoints not
+ * yet ported to the platform blueprint (auth.me, tokens, project operations,
+ * deploy-targets, project version show).
+ */
+export const PLATFORM_API = {
+  projects: '/api/projects',
+  deployments: '/api/deployments',
+  deployTargets: '/api/deployments/targets',
+  tokens: '/api/tokens',
+  audit: '/api/audit',
+} as const;
+
 export async function apiCall<T>(opts: ApiCallOptions<T>): Promise<Result<T, ClientError>> {
   const requestId = opts.requestId ?? `req_${randomUUID().replaceAll('-', '')}`;
   const url = `${opts.baseUrl.replace(/\/+$/, '')}${opts.path}`;

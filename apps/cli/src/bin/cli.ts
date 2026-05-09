@@ -333,7 +333,7 @@ export async function main(argv: string[]): Promise<number> {
         }
         case 'list': {
           const projectListArgs: Parameters<typeof runProjectList>[0] = {};
-          setIfDefined(projectListArgs, 'includeArchived', asBool(values['include-archived']));
+          setIfDefined(projectListArgs, 'limit', parsePositiveInt(asString(values['limit'])));
           return runProjectList(projectListArgs, commonFlags);
         }
         case 'show': {
