@@ -9,18 +9,10 @@ export const DEPLOY_VERIFY_ERROR_CODES = {
 } as const;
 
 export type DeploymentVerifyErrorCode = keyof typeof DEPLOY_VERIFY_ERROR_CODES;
-export type WorkloadStatus =
-  | 'running'
-  | 'healthy'
-  | 'starting'
-  | 'failed'
-  | 'rejected'
-  | 'exited'
-  | 'unknown';
 
 export type DeploymentVerifyError = Readonly<{
   code: DeploymentVerifyErrorCode;
   message: string;
   url?: string;
-  status?: number | 'timeout' | 'error' | WorkloadStatus;
+  status?: number | 'timeout' | 'error';
 }>;
