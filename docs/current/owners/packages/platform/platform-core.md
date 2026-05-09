@@ -27,6 +27,13 @@ material is target-secret-backed (`redpanda-console-basic-auth-v1`).
 See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the public repo.
 Deployment design: `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`.
 
+## Internal deploy adapter seam
+
+`src/deploy-adapter/seam.ts` defines the temporary internal seam used by the
+platform `deployments` service while Dokploy execution still lives in existing
+deploy packages. The seam returns sanitized status, logs, digest, evidence, and
+coded failure details. It is not a public deploy-adapter module contract.
+
 ## Target-secret schemas
 
 The platform owns the schema registry for deploy-target secrets. Two schemas are

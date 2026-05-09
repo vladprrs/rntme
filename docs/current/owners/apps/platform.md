@@ -31,6 +31,14 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 | `ApiToken` | `tokens` | Machine token metadata, prefix, scopes, revocation state. |
 | `AuditEvent` | `audit` | Append-only inspectable audit stream. |
 
+## Deployments
+
+The platform blueprint has a `deployments` domain service that owns deploy
+targets, deployment records, project operations, sanitized log lines, and
+execution evidence. The first implementation uses an internal adapter seam to
+call the existing Dokploy deploy path. A public deploy-adapter module contract
+is intentionally deferred.
+
 ## Identity
 
 The platform blueprint uses `@rntme/identity-auth0` as its first identity
