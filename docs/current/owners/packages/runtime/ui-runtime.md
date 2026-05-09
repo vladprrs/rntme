@@ -205,7 +205,9 @@ and logged once with `[rntme] UI renderer failed`.
 
 Screen boundaries reset when navigation changes the route-derived screen
 identity (`screen:<route-pattern>:<screen-name>`). Layout boundaries reset when
-the layout identity changes (`layout:<layout-name>`) or the page reloads.
+the layout identity changes (`layout:<layout-name>`) or the page reloads. A
+scope's prior `/runtime/renderErrors/<scope>` record is cleared when the failed
+boundary is replaced by a different identity.
 
 ### Boot timeout
 

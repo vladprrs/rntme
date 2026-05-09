@@ -23,6 +23,13 @@ type RendererErrorBoundaryState = {
   hasError: boolean;
 };
 
+function sanitizeErrorName(error: unknown): string {
+  const raw = error instanceof Error ? error.name : typeof error;
+  const trimmed = raw.trim();
+  if (!trimmed) return 'UnknownError';
+  return /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(trimmed) ? trimmed : 'UnknownError';
+}
+
 export class RendererErrorBoundary extends React.Component<
   RendererErrorBoundaryProps,
   RendererErrorBoundaryState
@@ -38,7 +45,7 @@ export class RendererErrorBoundary extends React.Component<
       scope: this.props.scope,
       identity: this.props.identity,
       message: 'Renderer failed',
-      errorName: error instanceof Error ? error.name : typeof error,
+      errorName: sanitizeErrorName(error),
     };
 
     if (info.componentStack) {
@@ -51,7 +58,22 @@ export class RendererErrorBoundary extends React.Component<
 
   override componentDidUpdate(prevProps: RendererErrorBoundaryProps): void {
     if (prevProps.identity !== this.props.identity && this.state.hasError) {
+      this.clearCurrentRecord(prevProps.identity);
       this.setState({ hasError: false });
+    }
+  }
+
+  override componentWillUnmount(): void {
+    if (this.state.hasError) {
+      this.clearCurrentRecord(this.props.identity);
+    }
+  }
+
+  private clearCurrentRecord(identity: string): void {
+    const path = `/runtime/renderErrors/${this.props.scope}`;
+    const current = this.props.store.get(path) as Partial<RenderErrorRecord> | undefined;
+    if (current?.identity === identity) {
+      this.props.store.set(path, undefined);
     }
   }
 

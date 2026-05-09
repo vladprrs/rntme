@@ -18,7 +18,9 @@ vi.mock('@json-render/react', async (importOriginal) => {
     if (spec?.elements && spec.root) {
       const root = spec.elements[spec.root];
       if (root && (root as { type?: string }).type === FORCE_RENDERER_THROW) {
-        throw new Error('secret token 123');
+        const error = new Error('secret token 123');
+        error.name = 'SecretToken123 Error';
+        throw error;
       }
     }
     return React.createElement(actual.Renderer, props);
@@ -150,9 +152,10 @@ describe('AppShell module component bridge', () => {
       scope: 'screen',
       identity: 'screen:/broken:broken',
       message: 'Renderer failed',
-      errorName: 'Error',
+      errorName: 'UnknownError',
     });
     expect(JSON.stringify(record)).not.toContain('secret token 123');
+    expect(JSON.stringify(record)).not.toContain('SecretToken123');
     expect(
       consoleErrorSpy.mock.calls.some(([message]) => message === '[rntme] UI renderer failed'),
     ).toBe(true);
@@ -214,5 +217,6 @@ describe('AppShell module component bridge', () => {
 
     expect(shell.target.querySelector('#rntme-screen-error')).toBeNull();
     expect(shell.target.querySelector('#rntme-screen')?.textContent).toContain('healthy screen');
+    expect(shell.store.get('/runtime/renderErrors/screen')).toBeUndefined();
   });
 });
