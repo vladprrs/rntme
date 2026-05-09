@@ -19,6 +19,7 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 - `services/tokens`
 - `services/audit`
 - `services/deployments`
+- `services/app`
 
 ## Services
 
@@ -66,6 +67,14 @@ parity plan adds canonical session/edge introspection support.
   return every tenant's orgs to any authenticated caller.
 - The `session` call result is not consumed by downstream nodes. Actor
   derivation from the session is deferred to the cutover plan.
+
+## UI
+
+The platform UI is authored as `@rntme/ui` artifacts under
+`apps/platform/blueprint/services/app/ui`. The UI is a functional port of the
+legacy Hono JSX platform UI and reads/mutates state through platform blueprint
+bindings. `apps/platform-http/src/ui/**` remains legacy reference code until
+runtime cutover.
 
 ## Local commands
 
