@@ -823,6 +823,58 @@ describe('renderDokployPlan', () => {
     expect(nginx).not.toContain('server rntme-acme-commerce-identity-auth0:3000;');
   });
 
+  it('renders one project-stack compose resource with service inventory', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack).toMatchObject({
+      logicalId: 'project-stack',
+      kind: 'compose',
+      infrastructureKind: 'project-stack',
+      name: 'rntme-acme-commerce',
+    });
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => [service.name, service.serviceClass])).toEqual([
+      ['svc-catalog', 'domain-service'],
+      ['mod-storage-s3', 'integration-module'],
+      ['edge', 'edge-gateway'],
+    ]);
+  });
+
+  it('renders default restart and resource policy by compose service class', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
+    const module = stack.services.find((service) => service.name === 'mod-storage-s3');
+    const edge = stack.services.find((service) => service.name === 'edge');
+
+    expect(catalog?.restart).toEqual({
+      container: 'on-failure:3',
+      swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+    });
+    expect(module?.resources).toEqual({ cpus: '0.50', memory: '512M' });
+    expect(edge?.resources).toEqual({ cpus: '0.10', memory: '128M' });
+  });
+
   it('rejects target resource name collisions after normalization', () => {
     const r = renderDokployPlan(
       {

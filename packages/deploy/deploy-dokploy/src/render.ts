@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
+import {
+  proxyLimits,
+  runtimeLimits,
+  runtimeRestartPolicy,
+  type RenderedComposeDomain,
+  type RenderedComposeService,
+} from './compose-model.js';
 import { validateDokployTargetConfig, type DokployTargetConfig } from './config.js';
 import type { DokployDeploymentError } from './errors.js';
 import { dokployLabels, dokployResourceName } from './names.js';
@@ -92,10 +99,12 @@ export type RenderedDokployApplicationResource = {
 export type RenderedDokployComposeResource = {
   readonly logicalId: string;
   readonly kind: 'compose';
-  readonly infrastructureKind: 'event-bus' | 'workflow-engine' | 'object-storage';
+  readonly infrastructureKind: 'event-bus' | 'workflow-engine' | 'object-storage' | 'project-stack';
   readonly name: string;
   readonly image: string;
   readonly composeFile: string;
+  readonly services?: readonly RenderedComposeService[];
+  readonly domains?: readonly RenderedComposeDomain[];
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
   readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
@@ -167,10 +176,9 @@ export function renderDokployPlan(
     ]);
   }
 
-  const infrastructureResources = renderInfrastructureResources(plan);
-  const workloadResources = renderWorkloadResources(plan, nginxConfig.value, resolvedConfig.publicBaseUrl);
-  if (!workloadResources.ok) return workloadResources;
-  const resources = [...infrastructureResources, ...workloadResources.value];
+  const stackResource = renderProjectStackResource(plan, nginxConfig.value, resolvedConfig.publicBaseUrl);
+  if (!stackResource.ok) return stackResource;
+  const resources: RenderedDokployResource[] = [stackResource.value];
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv = resources.map((resource) => {
@@ -295,7 +303,8 @@ function resolveProject(config: DokployTargetConfig): RenderedDokployProject | n
   return null;
 }
 
-function renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
+// Retained for Task 3 (will be reworked into per-service inventory inside the project stack).
+function _renderInfrastructureResources(plan: ProjectDeploymentPlan): RenderedDokployResource[] {
   const resources: RenderedDokployResource[] = [];
   const eventBus = plan.infrastructure.eventBus;
   if (eventBus.mode === 'provisioned') resources.push(renderRedpandaCompose(plan));
@@ -327,6 +336,92 @@ function renderWorkloadResources(
     resources.push(resource.value);
   }
   return ok(resources);
+}
+
+function renderProjectStackResource(
+  plan: ProjectDeploymentPlan,
+  nginxConfig: string,
+  publicBaseUrl: string,
+): Result<RenderedDokployComposeResource, DokployDeploymentError> {
+  const workloadResources = renderWorkloadResources(plan, nginxConfig, publicBaseUrl);
+  if (!workloadResources.ok) return workloadResources;
+  const services: RenderedComposeService[] = workloadResources.value.map((resource) => {
+    const ports =
+      resource.workloadKind === 'edge-gateway'
+        ? ([8080] as const)
+        : resource.ports?.map((port) => port.containerPort);
+    return {
+      name: composeServiceName(resource),
+      logicalId: resource.logicalId,
+      serviceClass:
+        resource.workloadKind === 'edge-gateway'
+          ? 'edge-gateway'
+          : resource.workloadKind === 'integration-module'
+            ? 'integration-module'
+            : resource.workloadKind === 'bpmn-worker'
+              ? 'bpmn-worker'
+              : 'domain-service',
+      ...(resource.workloadKind !== undefined ? { workloadKind: resource.workloadKind } : {}),
+      ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
+      image: resource.image,
+      ...(resource.command !== undefined ? { command: resource.command } : {}),
+      ...(resource.args !== undefined ? { args: resource.args } : {}),
+      env: resource.env,
+      ...(resource.files !== undefined ? { files: resource.files } : {}),
+      ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
+      ...(ports !== undefined ? { ports } : {}),
+      restart: resource.workloadKind === 'edge-gateway' ? runtimeRestartPolicy() : runtimeRestartPolicy(),
+      resources: resource.workloadKind === 'edge-gateway' ? proxyLimits() : runtimeLimits(),
+    };
+  });
+
+  return ok({
+    logicalId: 'project-stack',
+    kind: 'compose',
+    infrastructureKind: 'project-stack',
+    name: projectStackName(plan.project.orgSlug, plan.project.projectSlug),
+    image: 'docker-compose',
+    composeFile: 'services: {}\n',
+    services,
+    domains: [composeDomain(publicBaseUrl, 'edge', 8080)],
+    env: [],
+    labels: {
+      ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'project-stack'),
+      'rntme.infrastructure': 'project-stack',
+    },
+  });
+}
+
+function composeServiceName(resource: RenderedDokployApplicationResource): string {
+  if (resource.workloadKind === 'edge-gateway') return 'edge';
+  if (resource.workloadKind === 'integration-module') return `mod-${resource.workloadSlug ?? resource.logicalId}`;
+  if (resource.workloadKind === 'bpmn-worker') return 'bpmn-worker';
+  if (resource.workloadKind === 'infrastructure-proxy') return resource.workloadSlug ?? resource.logicalId;
+  return `svc-${resource.workloadSlug ?? resource.logicalId}`;
+}
+
+function composeDomain(publicBaseUrl: string, serviceName: string, containerPort: number): RenderedComposeDomain {
+  const url = new URL(publicBaseUrl);
+  return {
+    host: url.host,
+    path: '/',
+    serviceName,
+    containerPort,
+    https: url.protocol === 'https:',
+  };
+}
+
+function projectStackName(orgSlug: string, projectSlug: string): string {
+  return ['rntme', orgSlug, projectSlug].map(normalizeSlug).join('-');
+}
+
+function normalizeSlug(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized.length === 0 ? 'unknown' : normalized;
 }
 
 function renderRedpandaCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource {

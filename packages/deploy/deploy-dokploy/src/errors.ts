@@ -24,7 +24,8 @@ export type DokployPartialFailureInfrastructureKind =
   | 'operaton-ui-gateway'
   | 'redpanda-console'
   | 'redpanda-console-proxy'
-  | 'object-storage';
+  | 'object-storage'
+  | 'project-stack';
 
 export type DokployPartialFailureResource = {
   readonly logicalId: string;
