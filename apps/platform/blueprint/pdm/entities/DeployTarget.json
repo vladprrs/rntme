@@ -1,0 +1,26 @@
+{
+  "ownerService": "deployments",
+  "kind": "owned",
+  "table": "deploy_targets",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "slug": { "type": "string", "nullable": false, "column": "slug" },
+    "provider": { "type": "string", "nullable": false, "column": "provider" },
+    "environment": { "type": "string", "nullable": false, "column": "environment" },
+    "configJson": { "type": "json", "nullable": false, "column": "config_json" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "archived"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["organizationId", "slug", "provider", "environment", "configJson"] },
+      "updateConfig": { "from": "active", "to": "active", "affects": ["configJson"] },
+      "archive": { "from": "active", "to": "archived" }
+    }
+  }
+}
