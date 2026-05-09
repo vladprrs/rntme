@@ -415,10 +415,7 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
     ...(resource.files !== undefined ? { files: resource.files } : {}),
     ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
     ...(ports !== undefined ? { ports } : {}),
-    restart:
-      resource.workloadKind === 'edge-gateway' || resource.workloadKind === 'infrastructure-proxy'
-        ? runtimeRestartPolicy()
-        : runtimeRestartPolicy(),
+    restart: runtimeRestartPolicy(),
     resources:
       resource.workloadKind === 'edge-gateway' || resource.workloadKind === 'infrastructure-proxy'
         ? proxyLimits()
