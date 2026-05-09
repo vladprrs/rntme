@@ -19,6 +19,24 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 - `services/tokens`
 - `services/audit`
 
+## Services
+
+| Entity | Owner service | Purpose |
+| --- | --- | --- |
+| `Organization` | `organizations` | Tenant identity and display metadata. |
+| `Account` | `organizations` | Human or machine principal mirror. |
+| `Membership` | `organizations` | Account-to-organization role/scopes mirror. |
+| `Project` | `projects` | Project metadata and lifecycle state. |
+| `ProjectVersion` | `projects` | Immutable published bundle metadata. |
+| `ApiToken` | `tokens` | Machine token metadata, prefix, scopes, revocation state. |
+| `AuditEvent` | `audit` | Append-only inspectable audit stream. |
+
+## Local commands
+
+```bash
+pnpm -F @rntme/blueprint test -- ../../apps/platform/blueprint/test/platform-blueprint.test.ts
+```
+
 ## Invariants
 
 - This app owns authoring artifacts only in the foundation slice.
