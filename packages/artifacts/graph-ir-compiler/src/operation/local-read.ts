@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3';
-import { createPdmResolver, type ValidatedPdm } from '@rntme/pdm';
-import { createQsmResolver, type ValidatedQsm } from '@rntme/qsm';
+import type { PdmResolver, ValidatedPdm } from '@rntme/pdm';
+import type { QsmResolver, ValidatedQsm } from '@rntme/qsm';
 import { runtimeError } from '../types/errors.js';
+import { quoteIdent as q } from '../lower/sqlite/sql-text.js';
 import type {
   CanonicalFilter,
   CanonicalFindMany,
@@ -26,6 +27,8 @@ type ReadEvalContext = {
   db: Database.Database;
   pdm: ValidatedPdm;
   qsm: ValidatedQsm;
+  pdmResolver: PdmResolver;
+  qsmResolver: QsmResolver;
   params: Record<string, unknown>;
   predicateOptionalParams: ReadonlySet<string>;
   relationCache: Map<string, Row | null>;
@@ -144,7 +147,7 @@ function readSourceRows(
   alias: string,
   ctx: ReadEvalContext,
 ): { rows: Row[]; meta: RowsetMeta } {
-  const scan = resolveScan(source, ctx.pdm, ctx.qsm);
+  const scan = resolveScan(source, ctx);
   const columns = scan.fields.map((field) => `${q(field.column)} AS ${q(field.name)}`).join(', ');
   const rows = ctx.db.prepare(`SELECT ${columns} FROM ${q(scan.table)}`).all() as Row[];
   return { rows, meta: { alias, projectionName: scan.projectionName, entityName: scan.entityName } };
@@ -152,11 +155,9 @@ function readSourceRows(
 
 function resolveScan(
   source: CanonicalFindMany['source'],
-  pdm: ValidatedPdm,
-  qsm: ValidatedQsm,
+  ctx: ReadEvalContext,
 ): { table: string; projectionName: string | null; entityName: string | null; fields: ReadonlyArray<{ name: string; column: string }> } {
-  const pdmResolver = createPdmResolver(pdm);
-  const qsmResolver = createQsmResolver(qsm);
+  const { pdmResolver, qsmResolver } = ctx;
 
   if ('entity' in source) {
     const entity = pdmResolver.resolveEntity(source.entity);
@@ -264,10 +265,9 @@ function readFieldPath(path: string, row: Row, meta: RowsetMeta, ctx: ReadEvalCo
 
   const [relationName, ...rest] = parts;
   if (meta.projectionName === null || relationName === undefined) return null;
-  const qsmResolver = createQsmResolver(ctx.qsm);
-  const relation = qsmResolver.resolveRelation(meta.projectionName, relationName);
+  const relation = ctx.qsmResolver.resolveRelation(meta.projectionName, relationName);
   if (relation === null) return null;
-  const target = qsmResolver.resolveProjection(relation.to);
+  const target = ctx.qsmResolver.resolveProjection(relation.to);
   if (target === null || !('entity' in target.source)) return null;
 
   const keyValue = row[relation.localKey];
@@ -287,10 +287,9 @@ function readRelatedRow(
   value: unknown,
   ctx: ReadEvalContext,
 ): Row | null {
-  const qsmResolver = createQsmResolver(ctx.qsm);
-  const projection = qsmResolver.resolveProjection(projectionName);
+  const projection = ctx.qsmResolver.resolveProjection(projectionName);
   if (projection === null || !('entity' in projection.source)) return null;
-  const entity = createPdmResolver(ctx.pdm).resolveEntity(projection.source.entity);
+  const entity = ctx.pdmResolver.resolveEntity(projection.source.entity);
   if (entity === null) return null;
   const foreignField = entity.fields.find((field) => field.name === foreignKey);
   if (foreignField === undefined) return null;
@@ -315,6 +314,3 @@ function compareValues(a: unknown, b: unknown, nulls: 'first' | 'last'): number 
   return String(a).localeCompare(String(b));
 }
 
-function q(identifier: string): string {
-  return `"${identifier.replaceAll('"', '""')}"`;
-}

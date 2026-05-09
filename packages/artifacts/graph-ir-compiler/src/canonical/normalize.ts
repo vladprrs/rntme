@@ -9,10 +9,7 @@ import type {
 } from '../types/canonical.js';
 import type { CallPolicy, Expr, FieldExpr } from '../types/authoring.js';
 import { internalError } from '../types/errors.js';
-
-function camelCase(name: string): string {
-  return name.charAt(0).toLowerCase() + name.slice(1);
-}
+import { camelCase } from '../types/strings.js';
 
 function sourceAlias(source: { entity?: unknown; projection?: unknown; eventType?: unknown }): string {
   if ('entity' in source && typeof source.entity === 'string') return camelCase(source.entity);

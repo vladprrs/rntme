@@ -1,24 +1,9 @@
 import type { AuthoringSpecOutput } from '../../parse/schema.js';
 import { ERROR_CODES, type GraphIrError } from '../../types/result.js';
-import { runStructuralVisitor, type CheckBundle, type GraphCtx, type Node } from './visitor.js';
-
-function inputRef(n: Node): string | undefined {
-  switch (n.type) {
-    case 'filter':
-    case 'map':
-    case 'reduce':
-    case 'sort':
-    case 'limit':
-    case 'distinct':
-    case 'lookupOne':
-      return (n.config as { input?: string }).input;
-    default:
-      return undefined;
-  }
-}
+import { nodeInputRef, runStructuralVisitor, type CheckBundle, type GraphCtx, type Node } from './visitor.js';
 
 const collectConsumed = (node: Node, ctx: GraphCtx): void => {
-  const ref = inputRef(node);
+  const ref = nodeInputRef(node);
   if (typeof ref === 'string' && ref !== '$root') ctx.consumedInputs.add(ref);
 };
 

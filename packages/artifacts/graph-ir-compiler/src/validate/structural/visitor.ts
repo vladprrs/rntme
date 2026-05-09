@@ -33,6 +33,26 @@ export type NodeCheck = (node: Node, ctx: GraphCtx) => void;
 export type PostWalkCheck = (ctx: GraphCtx) => void;
 
 /**
+ * Returns the prior-node id this node consumes via `config.input`, or undefined
+ * for nodes that don't take a prior node as input. Used by ref/dag/output-from
+ * checks to walk the rowset edges.
+ */
+export function nodeInputRef(n: Node): string | undefined {
+  switch (n.type) {
+    case 'filter':
+    case 'map':
+    case 'reduce':
+    case 'sort':
+    case 'limit':
+    case 'distinct':
+    case 'lookupOne':
+      return (n.config as { input?: string }).input;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * A bundle of hooks contributed by one rule (or module).
  *
  * `nodeByKind` lets a rule register node hooks for specific node kinds only,

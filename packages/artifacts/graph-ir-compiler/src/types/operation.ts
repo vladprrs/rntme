@@ -3,6 +3,7 @@ import type { ActorRef, EventStore } from '@rntme/event-store';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import type { CanonicalGraph } from './canonical.js';
+import type { EmitPlan } from './command.js';
 import type { EffectSummary } from './effects.js';
 
 export type OperationTarget =
@@ -48,6 +49,8 @@ export type CompiledOperation = Readonly<{
   graph: CanonicalGraph;
   effects: EffectSummary;
   registryEntriesByNodeId: Readonly<Record<string, OperationRegistryEntry>>;
+  emitPlansByNodeId: Readonly<Record<string, EmitPlan>>;
+  predicateOptionalParams: ReadonlySet<string>;
   resultNodeId: string;
   pdm: ValidatedPdm;
   qsm: ValidatedQsm;

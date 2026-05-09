@@ -62,17 +62,11 @@ export function checkNavProjectionRequired(
   qsm: ValidatedQsm,
   sources: SourceMap,
 ): GraphIrError[] {
-  // Build set of aliases that have no entity-mirror projection
+  const qsmResolver = createQsmResolver(qsm);
   const projectionlessAliases = new Set<string>();
   for (const [, src] of sources) {
     if (src.kind !== 'entity') continue;
-    const hasMirror = Object.values(qsm.projections).some(
-      (p) =>
-        (p.backing ?? 'entity-mirror') === 'entity-mirror' &&
-        isEntityMirrorSource(p.source) &&
-        p.source.entity === src.entity,
-    );
-    if (!hasMirror) {
+    if (qsmResolver.findEntityMirror(src.entity) === null) {
       projectionlessAliases.add(src.alias);
     }
   }

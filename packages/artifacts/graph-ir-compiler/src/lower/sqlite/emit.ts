@@ -1,7 +1,6 @@
 import type { SqlExpr, SqlSelect } from './ast.js';
 import { internalError } from '../../types/errors.js';
-
-const q = (id: string): string => `"${id.replace(/"/g, '""')}"`;
+import { escapeStringLiteral, quoteIdent as q } from './sql-text.js';
 
 function expr(e: SqlExpr): string {
   switch (e.kind) {
@@ -10,7 +9,7 @@ function expr(e: SqlExpr): string {
     case 'num':
       return String(e.value);
     case 'str':
-      return `'${e.value.replace(/'/g, "''")}'`;
+      return `'${escapeStringLiteral(e.value)}'`;
     case 'bool':
       return e.value ? '1' : '0';
     case 'null':
