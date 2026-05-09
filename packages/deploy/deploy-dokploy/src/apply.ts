@@ -1,4 +1,10 @@
-import type { DokployApplication, DokployClient, DokployCompose } from './client.js';
+import type {
+  DokployApplication,
+  DokployClient,
+  DokployCompose,
+  DokployComposeServiceSummary,
+  DokployComposeTaskInspection,
+} from './client.js';
 import type {
   DokployDeploymentError,
   DokployPartialFailureCleanup,
@@ -24,6 +30,7 @@ export type DeploymentApplyResource = {
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
+  readonly services?: readonly DokployComposeServiceSummary[];
 };
 
 export type DeploymentApplyResult = {
@@ -44,6 +51,11 @@ export type DeploymentApplyResult = {
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
     readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
     readonly redpandaConsoleUrl?: string;
+    readonly stack?: {
+      readonly composeId: string;
+      readonly services: readonly DokployComposeServiceSummary[];
+      readonly inspections?: readonly DokployComposeTaskInspection[];
+    };
   };
 };
 
@@ -63,6 +75,13 @@ export async function applyDokployPlan(
     readonly resource: RenderedDokployResource;
     readonly target: DokployApplication | DokployCompose;
   }> = [];
+  let stackVerification:
+    | {
+        readonly composeId: string;
+        readonly services: readonly DokployComposeServiceSummary[];
+        readonly inspections?: readonly DokployComposeTaskInspection[];
+      }
+    | undefined;
 
   try {
     const { environmentId } = await client.ensureEnvironment(rendered.targetProject, rendered.deployment.environment);
@@ -84,13 +103,29 @@ export async function applyDokployPlan(
             created,
           ], createdForCleanup);
           if (!lifecycleResult.ok) return lifecycleResult;
+          if (resource.infrastructureKind === 'project-stack') {
+            stackVerification = {
+              composeId: created.targetResourceId,
+              services: lifecycleResult.value.services,
+              ...(lifecycleResult.value.inspections === undefined
+                ? {}
+                : { inspections: lifecycleResult.value.inspections }),
+            };
+          }
           applied.push(created);
           continue;
         }
 
         networkTargets.push({ resource, target: existing });
         if (resourceMatches(existing, resource)) {
-          applied.push(appliedResource(resource, existing, 'unchanged'));
+          const unchanged = appliedResource(resource, existing, 'unchanged');
+          if (resource.infrastructureKind === 'project-stack') {
+            stackVerification = {
+              composeId: unchanged.targetResourceId,
+              services: serviceSummaries(resource),
+            };
+          }
+          applied.push(unchanged);
           continue;
         }
 
@@ -102,6 +137,15 @@ export async function applyDokployPlan(
           updated,
         ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
+        if (resource.infrastructureKind === 'project-stack') {
+          stackVerification = {
+            composeId: updated.targetResourceId,
+            services: lifecycleResult.value.services,
+            ...(lifecycleResult.value.inspections === undefined
+              ? {}
+              : { inspections: lifecycleResult.value.inspections }),
+          };
+        }
         applied.push(updated);
         continue;
       }
@@ -156,7 +200,7 @@ export async function applyDokployPlan(
       urls: rendered.urls,
       renderedPlanDigest: rendered.digest,
       warnings: rendered.warnings,
-      verificationHints: verificationHints(rendered),
+      verificationHints: verificationHints(rendered, stackVerification),
     });
   } catch (cause) {
     return err([
@@ -293,17 +337,34 @@ async function updateComposeTarget(
   }
 }
 
+type ComposeLifecycleOutcome = {
+  readonly services: readonly DokployComposeServiceSummary[];
+  readonly inspections?: readonly DokployComposeTaskInspection[];
+};
+
 async function runComposeLifecycle(
   client: DokployClient,
   target: DeploymentApplyResource,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
   createdForCleanup: readonly DeploymentApplyResource[],
-): Promise<Result<void, DokployDeploymentError>> {
+): Promise<Result<ComposeLifecycleOutcome, DokployDeploymentError>> {
   try {
     await client.configureCompose(target.targetResourceId, resource);
   } catch (cause) {
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
+  }
+
+  if (
+    resource.infrastructureKind === 'project-stack' &&
+    resource.domains !== undefined &&
+    client.configureComposeDomains !== undefined
+  ) {
+    try {
+      await client.configureComposeDomains(target.targetResourceId, resource.domains);
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
+    }
   }
 
   try {
@@ -312,7 +373,63 @@ async function runComposeLifecycle(
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
-  return ok(undefined);
+  if (resource.infrastructureKind === 'project-stack' && client.startCompose !== undefined) {
+    try {
+      await client.startCompose(target.targetResourceId);
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
+    }
+  }
+
+  const renderedSummaries = serviceSummaries(resource);
+
+  let loadedSummaries: readonly DokployComposeServiceSummary[] | undefined;
+  if (resource.infrastructureKind === 'project-stack' && client.loadComposeServices !== undefined) {
+    try {
+      const loaded = await client.loadComposeServices(target.targetResourceId);
+      loadedSummaries = loaded.length > 0 ? loaded : undefined;
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+    }
+  }
+
+  let inspections: readonly DokployComposeTaskInspection[] | undefined;
+  if (resource.infrastructureKind === 'project-stack' && client.inspectComposeTasks !== undefined) {
+    const summariesForInspect = loadedSummaries ?? renderedSummaries;
+    try {
+      const inspected = await client.inspectComposeTasks(
+        target.targetResourceId,
+        summariesForInspect,
+      );
+      // Only surface inspections when at least one task is not in a healthy
+      // running state; Task 6 uses this signal to flag crash loops.
+      const interesting = inspected.filter((task) => !isHealthyRunning(task));
+      inspections = interesting.length > 0 ? inspected : undefined;
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+    }
+  }
+
+  // Prefer rendered list as canonical source so verificationHints stays
+  // deterministic from the plan; loaded list is only used as input to
+  // inspectComposeTasks so the platform can match by live service name.
+  return ok({
+    services: renderedSummaries,
+    ...(inspections === undefined ? {} : { inspections }),
+  });
+}
+
+function isHealthyRunning(task: DokployComposeTaskInspection): boolean {
+  return (task.status === 'running' || task.status === 'healthy') && task.failedCount === 0;
+}
+
+function serviceSummaries(
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+): readonly DokployComposeServiceSummary[] {
+  return (resource.services ?? []).map((service) => ({
+    name: service.name,
+    serviceClass: service.serviceClass,
+  }));
 }
 
 function appliedResource(
@@ -321,6 +438,7 @@ function appliedResource(
   action: DeploymentApplyResource['action'],
 ): DeploymentApplyResource {
   if (resource.kind === 'compose') {
+    const services = serviceSummaries(resource);
     return {
       logicalId: resource.logicalId,
       resourceKind: 'compose',
@@ -328,6 +446,7 @@ function appliedResource(
       targetResourceId: target.id,
       targetResourceName: target.name,
       action,
+      ...(services.length > 0 ? { services } : {}),
     };
   }
 
@@ -795,13 +914,23 @@ function stringSetMatches(existing: readonly string[], rendered: readonly string
   return sortedRendered.every((value, index) => sortedExisting[index] === value);
 }
 
-function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult['verificationHints'] {
+function verificationHints(
+  rendered: RenderedDokployPlan,
+  stack:
+    | {
+        readonly composeId: string;
+        readonly services: readonly DokployComposeServiceSummary[];
+        readonly inspections?: readonly DokployComposeTaskInspection[];
+      }
+    | undefined,
+): DeploymentApplyResult['verificationHints'] {
   const base = {
     healthUrl: joinUrl(rendered.urls.projectUrl, '/health'),
     configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
     protectedRouteChecks: rendered.urls.protectedRouteChecks,
     ...(rendered.urls.redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl: rendered.urls.redpandaConsoleUrl }),
+    ...(stack === undefined ? {} : { stack }),
   };
 
   if (rendered.urls.uiUrl === undefined && rendered.urls.operatonUiAuthChecks === undefined) {

@@ -1,4 +1,8 @@
 import type {
+  RenderedComposeDomain,
+  RenderedComposeServiceClass,
+} from './compose-model.js';
+import type {
   RenderedDokployProject,
   RenderedDokployResource,
   RenderedEnvVar,
@@ -6,6 +10,18 @@ import type {
 } from './render.js';
 
 export type DokployProjectRef = RenderedDokployProject;
+
+export type DokployComposeServiceSummary = {
+  readonly name: string;
+  readonly serviceClass: RenderedComposeServiceClass;
+};
+
+export type DokployComposeTaskInspection = {
+  readonly serviceName: string;
+  readonly status: 'running' | 'healthy' | 'starting' | 'failed' | 'rejected' | 'exited' | 'unknown';
+  readonly failedCount: number;
+  readonly message?: string;
+};
 
 export type DokployApplication = {
   readonly id: string;
@@ -70,6 +86,16 @@ export type DokployClient = {
     resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   ): Promise<void>;
   deployCompose(composeId: string): Promise<void>;
+  configureComposeDomains?(
+    composeId: string,
+    domains: readonly RenderedComposeDomain[],
+  ): Promise<void>;
+  startCompose?(composeId: string): Promise<void>;
+  loadComposeServices?(composeId: string): Promise<readonly DokployComposeServiceSummary[]>;
+  inspectComposeTasks?(
+    composeId: string,
+    services: readonly DokployComposeServiceSummary[],
+  ): Promise<readonly DokployComposeTaskInspection[]>;
   deleteApplication(applicationId: string): Promise<void>;
   deleteCompose(composeId: string): Promise<void>;
 };

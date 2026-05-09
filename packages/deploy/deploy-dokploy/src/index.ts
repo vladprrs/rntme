@@ -12,6 +12,8 @@ export {
   type DokployApplication,
   type DokployClient,
   type DokployCompose,
+  type DokployComposeServiceSummary,
+  type DokployComposeTaskInspection,
   type DokployProjectRef,
 } from './client.js';
 export { type DokployTargetConfig, validateDokployTargetConfig, type NormalizedDokployTargetConfig } from './config.js';

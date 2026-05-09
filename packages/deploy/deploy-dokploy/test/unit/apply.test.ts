@@ -4,8 +4,11 @@ import type {
   DokployApplication,
   DokployClient,
   DokployCompose,
+  DokployComposeServiceSummary,
+  DokployComposeTaskInspection,
   DokployProjectRef,
 } from '../../src/client.js';
+import type { RenderedComposeDomain } from '../../src/compose-model.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from '../../src/render.js';
 
 const rendered: RenderedDokployPlan = {
@@ -57,7 +60,94 @@ const renderedWithCompose: RenderedDokployPlan = {
   ],
 };
 
+function projectStackRendered(): RenderedDokployPlan {
+  return {
+    ...rendered,
+    resources: [
+      {
+        logicalId: 'project-stack',
+        kind: 'compose',
+        infrastructureKind: 'project-stack',
+        name: 'rntme-acme-commerce',
+        image: 'docker-compose',
+        composeFile: 'services:\n  edge:\n    image: nginx:1.27-alpine\n',
+        env: [],
+        labels: { 'rntme.infrastructure': 'project-stack' },
+        domains: [
+          { host: 'commerce.example.com', path: '/', serviceName: 'edge', containerPort: 8080, https: true },
+        ],
+        services: [
+          {
+            name: 'svc-catalog',
+            logicalId: 'catalog',
+            serviceClass: 'domain-service',
+            image: 'rntme-runtime',
+            env: [],
+            restart: {
+              container: 'on-failure:3',
+              swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+            },
+            resources: { cpus: '0.50', memory: '512M' },
+          },
+          {
+            name: 'edge',
+            logicalId: 'edge',
+            serviceClass: 'edge-gateway',
+            image: 'nginx:1.27-alpine',
+            env: [],
+            restart: {
+              container: 'on-failure:3',
+              swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+            },
+            resources: { cpus: '0.10', memory: '128M' },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 describe('applyDokployPlan', () => {
+  it('applies a single project-stack compose and configures compose domains', async () => {
+    const client = new FakeDokployClient();
+    const stack = projectStackRendered();
+
+    const r = await applyDokployPlan(stack, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce',
+      'configure-compose:compose_1:rntme-acme-commerce',
+      'configure-compose-domains:compose_1:edge:8080',
+      'deploy-compose:compose_1',
+      'start-compose:compose_1',
+      'load-compose-services:compose_1',
+      'inspect-compose-tasks:compose_1',
+    ]);
+    expect(r.value.resources).toEqual([
+      {
+        logicalId: 'project-stack',
+        resourceKind: 'compose',
+        infrastructureKind: 'project-stack',
+        targetResourceId: 'compose_1',
+        targetResourceName: 'rntme-acme-commerce',
+        action: 'created',
+        services: [
+          { name: 'svc-catalog', serviceClass: 'domain-service' },
+          { name: 'edge', serviceClass: 'edge-gateway' },
+        ],
+      },
+    ]);
+    expect(r.value.verificationHints.stack).toEqual({
+      composeId: 'compose_1',
+      services: [
+        { name: 'svc-catalog', serviceClass: 'domain-service' },
+        { name: 'edge', serviceClass: 'edge-gateway' },
+      ],
+    });
+  });
+
   it('creates missing resources and returns structured result', async () => {
     const client = new FakeDokployClient();
     const r = await applyDokployPlan(rendered, client);
@@ -1274,6 +1364,7 @@ describe('applyDokployPlan', () => {
 class FakeDokployClient implements DokployClient {
   private readonly apps = new Map<string, DokployApplication>();
   readonly composeResources = new Map<string, DokployCompose>();
+  private readonly composeStackServices = new Map<string, readonly DokployComposeServiceSummary[]>();
   readonly createCalls: Array<{
     readonly environmentId: string;
     readonly resource: RenderedDokployResource;
@@ -1411,6 +1502,15 @@ class FakeDokployClient implements DokployClient {
       labels: resource.labels,
     };
     this.composeResources.set(resource.name, created);
+    if (resource.services !== undefined) {
+      this.composeStackServices.set(
+        resource.name,
+        resource.services.map((service) => ({
+          name: service.name,
+          serviceClass: service.serviceClass,
+        })),
+      );
+    }
     return created;
   }
 
@@ -1442,6 +1542,42 @@ class FakeDokployClient implements DokployClient {
 
   async deployCompose(composeId: string): Promise<void> {
     this.lifecycleCalls.push(`deploy-compose:${composeId}`);
+  }
+
+  async configureComposeDomains(
+    composeId: string,
+    domains: readonly RenderedComposeDomain[],
+  ): Promise<void> {
+    for (const domain of domains) {
+      this.lifecycleCalls.push(
+        `configure-compose-domains:${composeId}:${domain.serviceName}:${domain.containerPort}`,
+      );
+    }
+  }
+
+  async startCompose(composeId: string): Promise<void> {
+    this.lifecycleCalls.push(`start-compose:${composeId}`);
+  }
+
+  async loadComposeServices(
+    composeId: string,
+  ): Promise<readonly DokployComposeServiceSummary[]> {
+    this.lifecycleCalls.push(`load-compose-services:${composeId}`);
+    const compose = [...this.composeResources.values()].find((value) => value.id === composeId);
+    if (compose === undefined) return [];
+    return this.composeStackServices.get(compose.name) ?? [];
+  }
+
+  async inspectComposeTasks(
+    composeId: string,
+    services: readonly DokployComposeServiceSummary[],
+  ): Promise<readonly DokployComposeTaskInspection[]> {
+    this.lifecycleCalls.push(`inspect-compose-tasks:${composeId}`);
+    return services.map((service) => ({
+      serviceName: service.name,
+      status: 'running',
+      failedCount: 0,
+    }));
   }
 
   async deleteApplication(applicationId: string): Promise<void> {
