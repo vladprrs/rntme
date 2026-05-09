@@ -66,11 +66,30 @@ Per-resource delete failures and list-step failures are isolated and surface
 as warnings on the apply result so operators can observe legacy-cleanup
 issues without failing a successful project-stack deploy.
 
+### Rollback
+
+The lifecycle change from per-workload Dokploy applications to a single
+project-stack Compose resource is one-way once the post-apply cleanup pass has
+run: legacy applications matching the `rntme-<org>-<project>-` prefix have
+been deleted and there is no automatic restore. There is no rollback button.
+
+To revert to a pre-branch deploy adapter, an operator would need to manually
+delete the project-stack Compose resource in Dokploy and redeploy from a
+pre-branch tag of `@rntme/deploy-dokploy`. Volumes that were attached to the
+old per-workload applications are gone with those applications, and volumes
+attached to the new project-stack are gone when the stack is deleted, so any
+runtime state that does not survive the topology swap (provisioned-infra
+volumes in particular) is lost. This is an operational caveat, not a
+supported reverse migration: plan rollbacks against staging environments and
+treat first production cutover as forward-only.
+
 ## Apply hardening
 
 Application file mounts are idempotent by `mountPath`: apply lists existing mounts, updates the first matching mount, creates missing mounts, and removes duplicate stale mounts for the same target path. Generated `filePath` values use the platform convention `/etc/dokploy/rntme/<applicationId>/<digest>-<safe-name>` so Dokploy materializes real source files for Swarm bind mounts.
 
 Application lifecycle is `configure -> deploy -> start -> inspect` when the injected client supports inspection. A rejected or failed application task is returned as `DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE`, which causes the platform deployment to finalize as failed.
+
+The project-stack Compose resource has its own post-apply lifecycle: `configure -> configure compose domains -> deploy -> start compose -> load compose services -> inspect compose tasks`. `configureComposeDomains` is called when the rendered resource carries `domains` (project-level edge route plus any infrastructure-proxy domains). `loadComposeServices` lets the platform match Dokploy's live service names back to the rendered service summaries; `inspectComposeTasks` then queries Swarm task state and only surfaces inspections when at least one task is not in a healthy running state. That filtered set is the signal the post-apply verification uses to fail the deployment with `DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks are observed. Each compose lifecycle step maps a thrown client error to a `partialFailure` with phase `configure`, `deploy`, or `inspect`, so operators can see which stage broke without losing the structured cleanup behavior.
 
 Existing-resource comparison is typed by resource kind instead of raw object
 serialization. Apply compares common fields (`image`, env entries, labels),
@@ -117,15 +136,16 @@ the first automatic topic creation would otherwise happen.
 ## Provisioned RustFS object storage
 
 When `plan.infrastructure.objectStorage.kind === "s3-compatible"` and
-`provider === "rustfs"`, render adds:
+`provider === "rustfs"`, render adds, inside the project-stack Compose:
 
-- a RustFS Compose resource on `dokploy-network`;
+- a `rustfs` service on `dokploy-network`;
 - a persistent named volume;
 - secret env entries for `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY`;
-- a public Nginx proxy application bound to `storage.publicBaseUrl`;
+- a sibling compose service `object-storage-public` (`serviceClass: 'infrastructure-proxy'`, `workloadKind: 'infrastructure-proxy'`) running `nginx:1.27-alpine`, bound to `storage.publicBaseUrl` via a Compose-level domain entry on the project-stack;
 - `STORAGE_S3_*` env entries on `@rntme/storage-s3` integration-module workloads.
 
-The public proxy preserves the browser-facing `Host` header so presigned URLs
+The public proxy is an in-stack Compose service, not a separate Dokploy
+application. It preserves the browser-facing `Host` header so presigned URLs
 are validated against the public storage origin. File bytes do not flow through
 the rntme runtime or edge gateway.
 
@@ -159,19 +179,22 @@ are rejected during render.
 ## Operaton UI gateway
 
 When `plan.infrastructure.workflowEngine.uiAccess` is present, render adds a
-separate Dokploy **application** resource (`operaton-ui-gateway`) with its own
-Dokploy application ingress. This is distinct from the `workflow-engine` Compose
-resource, which remains internal-only on `dokploy-network` and is never publicly
-exposed. Direct public Compose exposure is forbidden by design.
+sibling compose service `operaton-ui-gateway` inside the project-stack
+(`serviceClass: 'infrastructure-proxy'`, `workloadKind: 'infrastructure-proxy'`),
+fronted by a Compose-level domain entry on the project-stack bound to
+`uiAccess.publicBaseUrl`. The `operaton` compose service itself stays
+internal-only on `dokploy-network` and is never publicly exposed. Direct public
+Compose exposure of the engine is forbidden by design; the gateway is the only
+public surface.
 
-The gateway runs `nginx:1.27-alpine` and proxies to the internal Operaton
-service. Nginx Basic Auth (`auth_basic`) is enforced before proxying. The
-`.htpasswd` file is declared as a `secretFiles` mount:
+The gateway runs `nginx:1.27-alpine` and proxies to the internal `operaton`
+compose service. Nginx Basic Auth (`auth_basic`) is enforced before proxying.
+The `.htpasswd` file is declared as a `secretFiles` mount:
 
 ```ts
 secretFiles: {
   '/etc/nginx/.htpasswd': {
-    schema: 'basic-auth-v1',
+    schema: 'operaton-ui-basic-auth-v1',
     secretRef: engine.uiAccess.authSecretRef,
     field: 'htpasswd',
   }
@@ -180,16 +203,19 @@ secretFiles: {
 
 Secret files are rendered as **references** (`schema` + `secretRef` + `field`).
 The values are resolved only inside the platform client's Dokploy client
-factory, which decrypts the target secret and mounts the resolved content as a
-Dokploy application file. The render/apply packages never see secret values.
+factory, which decrypts the target secret and materializes the content into the
+gateway service at apply time. The render/apply packages never see secret
+values.
 
 ### Edge gateway and Operaton UI ingress ordering
 
 The edge gateway handles project-level routes (UI, APIs, modules). The
-`operaton-ui-gateway` application has its own independent Dokploy ingress with
-`publicBaseUrl` from `uiAccess`. Both ingresses are rendered and applied;
-smoke checks verify the Operaton UI URL returns `401` for no-auth and invalid
-Basic Auth before the deployment is marked successful.
+`operaton-ui-gateway` is a sibling compose service inside the same project-stack
+with its own Compose-level domain entry derived from `uiAccess.publicBaseUrl`.
+Both domain entries are rendered onto the project-stack and applied via
+`configureComposeDomains`; smoke checks verify the Operaton UI URL returns
+`401` for no-auth and invalid Basic Auth before the deployment is marked
+successful.
 
 ## Provisioner outputs in render
 
