@@ -21,7 +21,15 @@ export function dokployLabels(
   };
 }
 
-function normalizePart(value: string): string {
+/**
+ * Canonical slug normalizer for Dokploy resource and compose service names.
+ * Lower-cases, replaces any non-alphanumeric run with a single `-`, trims
+ * leading/trailing dashes, and falls back to `unknown` for empty inputs.
+ *
+ * Exported so other modules in this package (render, workflow-render) can
+ * share one definition rather than diverging copies.
+ */
+export function normalizePart(value: string): string {
   const normalized = value
     .trim()
     .toLowerCase()

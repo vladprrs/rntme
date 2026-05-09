@@ -1,51 +1,98 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
+import {
+  infraRestartPolicy,
+  operatonLimits,
+  proxyLimits,
+  runtimeLimits,
+  runtimeRestartPolicy,
+  type RenderedComposeService,
+} from './compose-model.js';
 import type { DokployDeploymentError } from './errors.js';
-import { dokployLabels, dokployResourceName } from './names.js';
+import { dokployLabels, normalizePart } from './names.js';
 import { err, ok, type Result } from './result.js';
 import type {
   RenderedDokployApplicationResource,
-  RenderedDokployComposeResource,
   RenderedEnvVar,
-  RenderedSecretFileRef,
 } from './render.js';
 
 type BpmnWorkerWorkload = Extract<ProjectDeploymentPlan['workloads'][number], { kind: 'bpmn-worker' }>;
 type WorkflowEngine = NonNullable<ProjectDeploymentPlan['infrastructure']['workflowEngine']>;
 
-export function renderOperatonCompose(plan: ProjectDeploymentPlan): RenderedDokployComposeResource | null {
+export function renderOperatonService(plan: ProjectDeploymentPlan): RenderedComposeService | null {
   const engine = workflowEngine(plan);
   if (engine.kind === 'none') return null;
-
-  const secretFiles: Record<string, RenderedSecretFileRef> | undefined =
-    engine.adminUserSecretRef !== undefined
-      ? {
-          '/operaton/configuration/application.yaml': {
-            schema: 'operaton-admin-user-v1',
-            secretRef: engine.adminUserSecretRef,
-            field: 'applicationYaml',
-          },
-        }
-      : undefined;
-
   return {
+    name: 'operaton',
     logicalId: 'workflow-engine',
-    kind: 'compose',
-    infrastructureKind: 'workflow-engine',
-    name: engine.resourceName,
+    serviceClass: 'workflow-engine',
     image: engine.image,
-    composeFile: operatonComposeFile(engine),
     env: [],
-    labels: {
-      ...dokployLabels(
-        plan.project.orgSlug,
-        plan.project.projectSlug,
-        plan.project.environment,
-        'workflow-engine',
-      ),
-      'rntme.infrastructure': 'workflow-engine',
-      'rntme.provider': 'operaton',
+    ports: [8080],
+    restart: infraRestartPolicy(),
+    resources: operatonLimits(),
+    ...(engine.adminUserSecretRef === undefined
+      ? {}
+      : {
+          secretFiles: {
+            '/operaton/configuration/application.yaml': {
+              schema: 'operaton-admin-user-v1',
+              secretRef: engine.adminUserSecretRef,
+              field: 'applicationYaml',
+            },
+          },
+        }),
+  };
+}
+
+export function renderBpmnWorkerService(
+  plan: ProjectDeploymentPlan,
+  workload: BpmnWorkerWorkload,
+): Result<RenderedComposeService, DokployDeploymentError> {
+  const rendered = renderBpmnWorker(plan, workload);
+  if (!rendered.ok) return rendered;
+  return ok({
+    name: 'bpmn-worker',
+    logicalId: rendered.value.logicalId,
+    serviceClass: 'bpmn-worker',
+    workloadKind: 'bpmn-worker',
+    workloadSlug: rendered.value.workloadSlug ?? rendered.value.logicalId,
+    image: rendered.value.image,
+    env: rendered.value.env.map((entry) =>
+      entry.name === 'RNTME_OPERATON_BASE_URL'
+        ? { ...entry, value: 'http://operaton:8080' }
+        : entry,
+    ),
+    ...(rendered.value.files === undefined ? {} : { files: rendered.value.files }),
+    restart: runtimeRestartPolicy(),
+    resources: runtimeLimits(),
+  });
+}
+
+export function renderOperatonUiGatewayService(
+  plan: ProjectDeploymentPlan,
+): RenderedComposeService | null {
+  const engine = workflowEngine(plan);
+  if (engine.kind !== 'operaton' || engine.uiAccess === undefined) return null;
+  const nginxConfig = renderOperatonUiNginxConfig('operaton');
+  return {
+    name: 'operaton-ui-gateway',
+    logicalId: 'operaton-ui-gateway',
+    serviceClass: 'infrastructure-proxy',
+    workloadKind: 'infrastructure-proxy',
+    workloadSlug: 'operaton-ui-gateway',
+    image: 'nginx:1.27-alpine',
+    env: [],
+    ports: [8080],
+    restart: runtimeRestartPolicy(),
+    resources: proxyLimits(),
+    files: { '/etc/nginx/nginx.conf': nginxConfig },
+    secretFiles: {
+      '/etc/nginx/.htpasswd': {
+        schema: 'operaton-ui-basic-auth-v1',
+        secretRef: engine.uiAccess.authSecretRef,
+        field: 'htpasswd',
+      },
     },
-    ...(secretFiles !== undefined ? { secretFiles } : {}),
   };
 }
 
@@ -124,7 +171,7 @@ function workflowServiceEndpointsJson(
       .filter((candidate) => candidate.kind === 'domain-service')
       .map((candidate) => [
         candidate.slug,
-        `${dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, candidate.slug)}:50051`,
+        `svc-${normalizePart(candidate.slug)}:50051`,
       ]),
   );
 
@@ -151,25 +198,6 @@ function workflowServiceEndpointsJson(
 
 function workflowEngine(plan: ProjectDeploymentPlan): WorkflowEngine {
   return plan.infrastructure.workflowEngine ?? { kind: 'none' };
-}
-
-function operatonComposeFile(
-  engine: Extract<ProjectDeploymentPlan['infrastructure']['workflowEngine'], { kind: 'operaton' }>,
-): string {
-  return [
-    'services:',
-    '  operaton:',
-    `    image: ${engine.image}`,
-    '    networks:',
-    '      default:',
-    '      dokploy-network:',
-    '        aliases:',
-    `          - ${engine.resourceName}`,
-    'networks:',
-    '  dokploy-network:',
-    '    external: true',
-    '',
-  ].join('\n');
 }
 
 function workflowFileMounts(
@@ -217,7 +245,7 @@ function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['ev
     return [
       {
         name: 'RNTME_EVENT_BUS_BROKERS',
-        value: eventBus.internalBrokers.join(','),
+        value: 'redpanda:9092',
         secret: false,
       },
       { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'plaintext', secret: false },
@@ -248,50 +276,6 @@ function workerEventBusEnv(eventBus: ProjectDeploymentPlan['infrastructure']['ev
     env.push({ name: 'RNTME_EVENT_BUS_TOPIC_PREFIX', value: eventBus.topicPrefix, secret: false });
   }
   return env;
-}
-
-export function renderOperatonUiGateway(
-  plan: ProjectDeploymentPlan,
-): RenderedDokployApplicationResource | null {
-  const engine = workflowEngine(plan);
-  if (engine.kind !== 'operaton' || engine.uiAccess === undefined) return null;
-
-  const name = `${engine.resourceName}-ui-gateway`;
-  const nginxConfig = renderOperatonUiNginxConfig(engine.resourceName);
-
-  return {
-    logicalId: 'operaton-ui-gateway',
-    kind: 'application',
-    workloadKind: 'infrastructure-proxy',
-    workloadSlug: 'operaton-ui-gateway',
-    infrastructureKind: 'operaton-ui-gateway',
-    name,
-    image: 'nginx:1.27-alpine',
-    env: [],
-    labels: dokployLabels(
-      plan.project.orgSlug,
-      plan.project.projectSlug,
-      plan.project.environment,
-      'operaton-ui-gateway',
-    ),
-    ports: [{ containerPort: 8080, protocol: 'http' as const }],
-    ingress: {
-      publicBaseUrl: engine.uiAccess.publicBaseUrl,
-      containerPort: 8080,
-      healthPath: '/health' as const,
-      routes: [],
-    },
-    files: {
-      '/etc/nginx/nginx.conf': nginxConfig,
-    },
-    secretFiles: {
-      '/etc/nginx/.htpasswd': {
-        schema: 'operaton-ui-basic-auth-v1',
-        secretRef: engine.uiAccess.authSecretRef,
-        field: 'htpasswd',
-      },
-    },
-  };
 }
 
 function renderOperatonUiNginxConfig(engineResourceName: string): string {

@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { applyDokployPlan } from '../../src/apply.js';
 import type {
   DokployApplication,
   DokployClient,
   DokployCompose,
+  DokployComposeServiceSummary,
+  DokployComposeTaskInspection,
   DokployProjectRef,
 } from '../../src/client.js';
+import type { RenderedComposeDomain } from '../../src/compose-model.js';
+import { renderDokployPlan } from '../../src/render.js';
 import type { RenderedDokployPlan, RenderedDokployResource } from '../../src/render.js';
 
 const rendered: RenderedDokployPlan = {
@@ -57,7 +62,141 @@ const renderedWithCompose: RenderedDokployPlan = {
   ],
 };
 
+function projectStackRendered(): RenderedDokployPlan {
+  return {
+    ...rendered,
+    resources: [
+      {
+        logicalId: 'project-stack',
+        kind: 'compose',
+        infrastructureKind: 'project-stack',
+        name: 'rntme-acme-commerce',
+        image: 'docker-compose',
+        composeFile: 'services:\n  edge:\n    image: nginx:1.27-alpine\n',
+        env: [],
+        labels: { 'rntme.infrastructure': 'project-stack' },
+        domains: [
+          { host: 'commerce.example.com', path: '/', serviceName: 'edge', containerPort: 8080, https: true },
+        ],
+        services: [
+          {
+            name: 'svc-catalog',
+            logicalId: 'catalog',
+            serviceClass: 'domain-service',
+            image: 'rntme-runtime',
+            env: [],
+            restart: {
+              container: 'on-failure:3',
+              swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+            },
+            resources: { cpus: '0.50', memory: '512M' },
+          },
+          {
+            name: 'edge',
+            logicalId: 'edge',
+            serviceClass: 'edge-gateway',
+            image: 'nginx:1.27-alpine',
+            env: [],
+            restart: {
+              container: 'on-failure:3',
+              swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+            },
+            resources: { cpus: '0.10', memory: '128M' },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 describe('applyDokployPlan', () => {
+  it('applies a single project-stack compose and configures compose domains', async () => {
+    const client = new FakeDokployClient();
+    const stack = projectStackRendered();
+
+    const r = await applyDokployPlan(stack, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(client.lifecycleCalls).toEqual([
+      'create-compose:rntme-acme-commerce',
+      'configure-compose:compose_1:rntme-acme-commerce',
+      'configure-compose-domains:compose_1:edge:8080',
+      'deploy-compose:compose_1',
+      'start-compose:compose_1',
+      'load-compose-services:compose_1',
+      'inspect-compose-tasks:compose_1',
+    ]);
+    expect(r.value.resources).toEqual([
+      {
+        logicalId: 'project-stack',
+        resourceKind: 'compose',
+        infrastructureKind: 'project-stack',
+        targetResourceId: 'compose_1',
+        targetResourceName: 'rntme-acme-commerce',
+        action: 'created',
+        services: [
+          { name: 'svc-catalog', serviceClass: 'domain-service' },
+          { name: 'edge', serviceClass: 'edge-gateway' },
+        ],
+      },
+    ]);
+    expect(r.value.verificationHints.stack).toEqual({
+      composeId: 'compose_1',
+      services: [
+        { name: 'svc-catalog', serviceClass: 'domain-service' },
+        { name: 'edge', serviceClass: 'edge-gateway' },
+      ],
+    });
+  });
+
+  it('configures compose with the folded stack env so ${VAR} interpolations resolve', async () => {
+    // Regression: the rendered compose YAML emits `<NAME>: ${<NAME>}` for
+    // every service env entry. If the renderer ever stops folding service
+    // envs up into the stack-level env block, the resource passed to
+    // configureCompose would carry an empty env list and the deployed
+    // containers would come up with no environment configuration. This test
+    // exercises render -> apply end-to-end and asserts the env survives.
+    const renderedResult = renderDokployPlan(envFoldingPlan(), {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+    expect(renderedResult.ok).toBe(true);
+    if (!renderedResult.ok) return;
+
+    const client = new FakeDokployClient();
+    const r = await applyDokployPlan(renderedResult.value, client);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(client.configureComposeCalls).toHaveLength(1);
+    const configured = client.configureComposeCalls[0] as {
+      readonly composeId: string;
+      readonly resource: Extract<RenderedDokployResource, { kind: 'compose' }>;
+    };
+    expect(configured.resource.env.length).toBeGreaterThan(0);
+    const envByName = new Map(configured.resource.env.map((entry) => [entry.name, entry]));
+    expect(envByName.get('RNTME_EVENT_BUS_BROKERS')).toEqual({
+      name: 'RNTME_EVENT_BUS_BROKERS',
+      value: 'redpanda:9092',
+      secret: false,
+    });
+    expect(envByName.get('RNTME_PERSISTENCE_MODE')).toEqual({
+      name: 'RNTME_PERSISTENCE_MODE',
+      value: 'ephemeral',
+      secret: false,
+    });
+    // Every service env entry must have a corresponding stack env entry,
+    // otherwise its `${VAR}` reference in the rendered YAML would resolve
+    // to empty at deploy time.
+    for (const service of configured.resource.services ?? []) {
+      for (const entry of service.env) {
+        expect(envByName.has(entry.name)).toBe(true);
+      }
+    }
+  });
+
   it('creates missing resources and returns structured result', async () => {
     const client = new FakeDokployClient();
     const r = await applyDokployPlan(rendered, client);
@@ -1160,6 +1299,7 @@ describe('applyDokployPlan', () => {
         'create:rntme-acme-commerce-catalog',
         'configure:app_1:rntme-acme-commerce-catalog',
         'deploy:app_1',
+        'delete-application:app_1',
       ]);
     }
   });
@@ -1241,6 +1381,145 @@ describe('applyDokployPlan', () => {
     }
   });
 
+  it('cleans old rntme-managed topology after project stack deploy succeeds', async () => {
+    const client = new FakeDokployClient();
+    client.oldApplications = [
+      {
+        id: 'app_old_1',
+        name: 'rntme-acme-commerce-catalog',
+        // Dokploy's list APIs do not return labels, so the realistic case is
+        // an absent label; cleanup must treat that as ours-by-name.
+        labels: undefined,
+      },
+      {
+        id: 'app_unmanaged',
+        name: 'rntme-acme-commerce-other',
+        // A foreign `rntme.managed-by` value is the only veto signal we have
+        // when labels happen to be present; cleanup must respect it.
+        labels: { 'rntme.managed-by': 'something-else' },
+      },
+      {
+        id: 'app_other_project',
+        name: 'rntme-acme-otherproject-thing',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+    client.oldComposes = [
+      {
+        id: 'compose_old_1',
+        name: 'rntme-acme-commerce-event-bus',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+      {
+        id: 'compose_foreign',
+        name: 'rntme-acme-commerce-legacy',
+        labels: { 'rntme.managed-by': 'manual-import' },
+      },
+    ];
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    expect(client.lifecycleCalls).toContain('delete-application:app_old_1');
+    expect(client.lifecycleCalls).toContain('delete-compose:compose_old_1');
+    expect(client.deletedApplications).toContain('app_old_1');
+    expect(client.deletedApplications).not.toContain('app_unmanaged');
+    expect(client.deletedApplications).not.toContain('app_other_project');
+    expect(client.deletedComposes).toContain('compose_old_1');
+    expect(client.deletedComposes).not.toContain('compose_foreign');
+    expect(client.deletedComposes).not.toContain('compose_1');
+  });
+
+  it('isolates per-resource cleanup failures and surfaces them as warnings', async () => {
+    const client = new FakeDokployClient();
+    client.oldApplications = [
+      {
+        id: 'app_old_fail',
+        name: 'rntme-acme-commerce-catalog',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+      {
+        id: 'app_old_ok',
+        name: 'rntme-acme-commerce-orders',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+    client.failureModes.failDeleteApplicationFor = 'app_old_fail';
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // First failure must NOT abort the loop — the second app still gets deleted.
+    expect(client.deletedApplications).toContain('app_old_ok');
+    expect(client.deletedApplications).toContain('app_old_fail');
+    // The cleanup error must surface as a warning so operators can see it.
+    expect(r.value.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('failed to delete legacy application rntme-acme-commerce-catalog (app_old_fail)'),
+      ]),
+    );
+    // The token fixture leaks must still be redacted in warnings.
+    expect(JSON.stringify(r.value.warnings)).not.toContain('dokploy-token-secret');
+  });
+
+  it('surfaces a warning when listing legacy resources fails', async () => {
+    const client = new FakeDokployClient();
+    client.failListApplications = true;
+    client.oldComposes = [
+      {
+        id: 'compose_old',
+        name: 'rntme-acme-commerce-event-bus',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // List failure for applications must not block compose cleanup.
+    expect(client.deletedComposes).toContain('compose_old');
+    expect(r.value.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('failed to list legacy applications')]),
+    );
+  });
+
+  it('normalizes org/project slugs when building the cleanup name prefix', async () => {
+    const client = new FakeDokployClient();
+    // Applied resources were named via `dokployResourceName`, which lower-cases
+    // and slugifies. The legacy resource here uses the *normalized* prefix
+    // `rntme-acme-corp-commerce-foo-` derived from `Acme_Corp` / `commerce`.
+    client.oldApplications = [
+      {
+        id: 'app_old',
+        name: 'rntme-acme-corp-commerce-legacy',
+        labels: { 'rntme.managed-by': 'rntme-deploy-dokploy' },
+      },
+    ];
+    const stack: RenderedDokployPlan = {
+      ...projectStackRendered(),
+      deployment: {
+        ...projectStackRendered().deployment,
+        orgSlug: 'Acme_Corp',
+      },
+      resources: projectStackRendered().resources.map((resource) =>
+        resource.kind === 'compose' && resource.infrastructureKind === 'project-stack'
+          ? { ...resource, name: 'rntme-acme-corp-commerce' }
+          : resource,
+      ),
+    };
+
+    const r = await applyDokployPlan(stack, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Without normalization the prefix would have been `rntme-Acme_Corp-commerce-`,
+    // which would never match the actual lower-cased resource names and the
+    // legacy app would survive forever.
+    expect(client.deletedApplications).toContain('app_old');
+  });
+
   it('redacts JSON-style credential keys while preserving surrounding diagnostic context', async () => {
     const client = new FakeDokployClient([], [], {
       failEnvironment: true,
@@ -1271,9 +1550,86 @@ describe('applyDokployPlan', () => {
   });
 });
 
+function envFoldingPlan(): ProjectDeploymentPlan {
+  return {
+    project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },
+    infrastructure: {
+      eventBus: {
+        kind: 'kafka',
+        mode: 'provisioned',
+        provider: 'redpanda',
+        resourceName: 'rntme-acme-commerce-event-bus',
+        internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+        image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+        persistence: { mode: 'persistent', volumeName: 'rntme-acme-commerce-event-bus-data' },
+      },
+      objectStorage: { kind: 'none' },
+    },
+    workloads: [
+      {
+        kind: 'domain-service',
+        slug: 'catalog',
+        serviceSlug: 'catalog',
+        resourceName: 'rntme-acme-commerce-catalog',
+        runtime: { image: 'rntme-runtime' },
+        artifact: { source: 'composed-project', serviceSlug: 'catalog' },
+        runtimeFiles: { 'manifest.json': '{"service":{"name":"catalog"}}' },
+        publicConfigJson: '{}',
+        persistence: { mode: 'ephemeral' },
+      },
+      {
+        kind: 'domain-service',
+        slug: 'orders',
+        serviceSlug: 'orders',
+        resourceName: 'rntme-acme-commerce-orders',
+        runtime: { image: 'rntme-runtime' },
+        artifact: { source: 'composed-project', serviceSlug: 'orders' },
+        runtimeFiles: { 'manifest.json': '{"service":{"name":"orders"}}' },
+        publicConfigJson: '{}',
+        persistence: { mode: 'ephemeral' },
+      },
+      {
+        kind: 'edge-gateway',
+        slug: 'edge',
+        resourceName: 'rntme-acme-commerce-edge',
+        image: 'nginx:1.27-alpine',
+      },
+    ],
+    edge: {
+      routes: [
+        {
+          id: 'http:/api/catalog',
+          kind: 'http',
+          path: '/api/catalog',
+          targetService: 'catalog',
+          targetWorkload: 'catalog',
+        },
+      ],
+      middleware: [],
+    },
+    diagnostics: { warnings: [] },
+  };
+}
+
+type FakeFailures = {
+  failEnvironment?: boolean;
+  failFindFor?: string;
+  failCreateFor?: string;
+  failUpdateFor?: string;
+  failConfigureFor?: string;
+  failDeployFor?: string;
+  failStartFor?: string;
+  failDeleteApplicationFor?: string;
+  failDeleteComposeFor?: string;
+  inspectStatus?: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
+  failMessage?: string;
+  includeSecretFixture?: boolean;
+};
+
 class FakeDokployClient implements DokployClient {
   private readonly apps = new Map<string, DokployApplication>();
   readonly composeResources = new Map<string, DokployCompose>();
+  private readonly composeStackServices = new Map<string, readonly DokployComposeServiceSummary[]>();
   readonly createCalls: Array<{
     readonly environmentId: string;
     readonly resource: RenderedDokployResource;
@@ -1294,29 +1650,22 @@ class FakeDokployClient implements DokployClient {
   readonly lifecycleCalls: string[] = [];
   readonly deletedApplications: string[] = [];
   readonly deletedComposes: string[] = [];
+  oldApplications: DokployApplication[] = [];
+  oldComposes: DokployCompose[] = [];
+  failListApplications = false;
+  failListComposes = false;
+  readonly failureModes: FakeFailures;
 
   private next = 1;
 
   constructor(
     existing: DokployApplication[] = [],
     existingCompose: DokployCompose[] = [],
-    private readonly failures: {
-      readonly failEnvironment?: boolean;
-      readonly failFindFor?: string;
-      readonly failCreateFor?: string;
-      readonly failUpdateFor?: string;
-      readonly failConfigureFor?: string;
-      readonly failDeployFor?: string;
-      readonly failStartFor?: string;
-      readonly failDeleteApplicationFor?: string;
-      readonly failDeleteComposeFor?: string;
-      readonly inspectStatus?: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
-      readonly failMessage?: string;
-      readonly includeSecretFixture?: boolean;
-    } = {},
+    failures: FakeFailures = {},
   ) {
     for (const app of existing) this.apps.set(app.name, app);
     for (const compose of existingCompose) this.composeResources.set(compose.name, compose);
+    this.failureModes = failures;
   }
 
   async ensureEnvironment(
@@ -1324,9 +1673,9 @@ class FakeDokployClient implements DokployClient {
     environmentName: string,
   ): Promise<{ environmentId: string }> {
     void ref;
-    if (this.failures.failEnvironment === true) {
-      throw clientError(this.failures.failMessage ?? 'environment failed', {
-        includeSecretFixture: this.failures.includeSecretFixture ?? true,
+    if (this.failureModes.failEnvironment === true) {
+      throw clientError(this.failureModes.failMessage ?? 'environment failed', {
+        includeSecretFixture: this.failureModes.includeSecretFixture ?? true,
       });
     }
     return { environmentId: `env_${environmentName}` };
@@ -1337,7 +1686,7 @@ class FakeDokployClient implements DokployClient {
     name: string,
   ): Promise<DokployApplication | null> {
     void environmentId;
-    if (this.failures.failFindFor === name) throw secretError('find failed');
+    if (this.failureModes.failFindFor === name) throw secretError('find failed');
     return this.apps.get(name) ?? null;
   }
 
@@ -1345,7 +1694,7 @@ class FakeDokployClient implements DokployClient {
     environmentId: string,
     input: RenderedDokployResource,
   ): Promise<{ id: string; name: string }> {
-    if (this.failures.failCreateFor === input.name) throw secretError('create failed');
+    if (this.failureModes.failCreateFor === input.name) throw secretError('create failed');
     this.lifecycleCalls.push(`create:${input.name}`);
     this.createCalls.push({ environmentId, resource: input });
     const app = { id: `app_${this.next++}`, name: input.name, appName: `${input.name}-dns` };
@@ -1357,7 +1706,7 @@ class FakeDokployClient implements DokployClient {
     id: string,
     input: RenderedDokployResource,
   ): Promise<{ id: string; name: string }> {
-    if (this.failures.failUpdateFor === input.name) throw secretError('update failed');
+    if (this.failureModes.failUpdateFor === input.name) throw secretError('update failed');
     this.lifecycleCalls.push(`update:${id}:${input.name}`);
     this.updateCalls.push({ applicationId: id, resource: input });
     const app = { id, name: input.name, appName: `${input.name}-dns` };
@@ -1368,26 +1717,26 @@ class FakeDokployClient implements DokployClient {
   async configureApplication(id: string, input: RenderedDokployResource): Promise<void> {
     this.lifecycleCalls.push(`configure:${id}:${input.name}`);
     this.configureCalls.push({ applicationId: id, resource: input });
-    if (this.failures.failConfigureFor === id) throw secretError('configure failed');
+    if (this.failureModes.failConfigureFor === id) throw secretError('configure failed');
   }
 
   async deployApplication(id: string): Promise<void> {
     this.lifecycleCalls.push(`deploy:${id}`);
     this.deployCalls.push({ applicationId: id });
-    if (this.failures.failDeployFor === id) throw secretError('deploy failed');
+    if (this.failureModes.failDeployFor === id) throw secretError('deploy failed');
   }
 
   async startApplication(id: string): Promise<void> {
     this.lifecycleCalls.push(`start:${id}`);
     this.startCalls.push({ applicationId: id });
-    if (this.failures.failStartFor === id) throw secretError('start failed');
+    if (this.failureModes.failStartFor === id) throw secretError('start failed');
   }
 
   async inspectApplication(id: string): Promise<{ status: 'running' | 'done' | 'failed' | 'rejected' | 'unknown'; message?: string }> {
     this.lifecycleCalls.push(`inspect:${id}`);
     return {
-      status: this.failures.inspectStatus ?? 'running',
-      message: this.failures.inspectStatus === undefined ? undefined : `task ${this.failures.inspectStatus}`,
+      status: this.failureModes.inspectStatus ?? 'running',
+      message: this.failureModes.inspectStatus === undefined ? undefined : `task ${this.failureModes.inspectStatus}`,
     };
   }
 
@@ -1411,6 +1760,15 @@ class FakeDokployClient implements DokployClient {
       labels: resource.labels,
     };
     this.composeResources.set(resource.name, created);
+    if (resource.services !== undefined) {
+      this.composeStackServices.set(
+        resource.name,
+        resource.services.map((service) => ({
+          name: service.name,
+          serviceClass: service.serviceClass,
+        })),
+      );
+    }
     return created;
   }
 
@@ -1444,14 +1802,64 @@ class FakeDokployClient implements DokployClient {
     this.lifecycleCalls.push(`deploy-compose:${composeId}`);
   }
 
+  async configureComposeDomains(
+    composeId: string,
+    domains: readonly RenderedComposeDomain[],
+  ): Promise<void> {
+    for (const domain of domains) {
+      this.lifecycleCalls.push(
+        `configure-compose-domains:${composeId}:${domain.serviceName}:${domain.containerPort}`,
+      );
+    }
+  }
+
+  async startCompose(composeId: string): Promise<void> {
+    this.lifecycleCalls.push(`start-compose:${composeId}`);
+  }
+
+  async loadComposeServices(
+    composeId: string,
+  ): Promise<readonly DokployComposeServiceSummary[]> {
+    this.lifecycleCalls.push(`load-compose-services:${composeId}`);
+    const compose = [...this.composeResources.values()].find((value) => value.id === composeId);
+    if (compose === undefined) return [];
+    return this.composeStackServices.get(compose.name) ?? [];
+  }
+
+  async inspectComposeTasks(
+    composeId: string,
+    services: readonly DokployComposeServiceSummary[],
+  ): Promise<readonly DokployComposeTaskInspection[]> {
+    this.lifecycleCalls.push(`inspect-compose-tasks:${composeId}`);
+    return services.map((service) => ({
+      serviceName: service.name,
+      status: 'running',
+      failedCount: 0,
+    }));
+  }
+
   async deleteApplication(applicationId: string): Promise<void> {
+    this.lifecycleCalls.push(`delete-application:${applicationId}`);
     this.deletedApplications.push(applicationId);
-    if (this.failures.failDeleteApplicationFor === applicationId) throw secretError('delete app failed');
+    if (this.failureModes.failDeleteApplicationFor === applicationId) throw secretError('delete app failed');
   }
 
   async deleteCompose(composeId: string): Promise<void> {
+    this.lifecycleCalls.push(`delete-compose:${composeId}`);
     this.deletedComposes.push(composeId);
-    if (this.failures.failDeleteComposeFor === composeId) throw secretError('delete compose failed');
+    if (this.failureModes.failDeleteComposeFor === composeId) throw secretError('delete compose failed');
+  }
+
+  async listApplications(_environmentId: string): Promise<readonly DokployApplication[]> {
+    void _environmentId;
+    if (this.failListApplications) throw secretError('list applications failed');
+    return this.oldApplications;
+  }
+
+  async listComposes(_environmentId: string): Promise<readonly DokployCompose[]> {
+    void _environmentId;
+    if (this.failListComposes) throw secretError('list composes failed');
+    return this.oldComposes;
   }
 }
 

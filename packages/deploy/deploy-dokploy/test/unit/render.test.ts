@@ -74,13 +74,17 @@ describe('renderDokployPlan', () => {
       mode: 'preview',
     });
     expect(r.value.targetProject).toEqual({ mode: 'existing', projectId: 'project_123' });
-    expect(r.value.resources.map((resource) => resource.name)).toEqual([
-      'rntme-acme-commerce-catalog',
-      'rntme-acme-commerce-storage-s3',
-      'rntme-acme-commerce-edge',
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => service.name)).toEqual([
+      'svc-catalog',
+      'mod-storage-s3',
+      'edge',
     ]);
-    expect(r.value.resources[0]).toMatchObject({
-      kind: 'application',
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
+    expect(catalog).toMatchObject({
       workloadKind: 'domain-service',
       image: 'rntme-runtime',
       files: {
@@ -89,13 +93,13 @@ describe('renderDokployPlan', () => {
         '/srv/config.json': '{}',
       },
     });
-    expect(r.value.resources[0]).not.toHaveProperty('build');
-    expect(r.value.resources[0].env).toContainEqual({
+    expect(catalog).not.toHaveProperty('build');
+    expect(catalog?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
       value: 'redpanda.internal:9092',
       secret: false,
     });
-    expect(r.value.resources[0].env).toContainEqual({
+    expect(catalog?.env).toContainEqual({
       name: 'RNTME_ARTIFACTS_DIR',
       value: '/srv/artifacts',
       secret: false,
@@ -104,7 +108,7 @@ describe('renderDokployPlan', () => {
     expect(JSON.stringify(r.value)).not.toContain('apiToken');
   });
 
-  it('renders provisioned Redpanda as an internal compose resource before applications', () => {
+  it('renders provisioned infra as services inside the project stack', () => {
     const r = renderDokployPlan(
       {
         ...plan,
@@ -116,12 +120,8 @@ describe('renderDokployPlan', () => {
             provider: 'redpanda',
             resourceName: 'rntme-acme-commerce-event-bus',
             internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
-            topicPrefix: 'rntme.notes',
             image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
-            persistence: {
-              mode: 'persistent',
-              volumeName: 'rntme-acme-commerce-event-bus-data',
-            },
+            persistence: { mode: 'persistent', volumeName: 'rntme-acme-commerce-event-bus-data' },
           },
         },
       },
@@ -134,65 +134,28 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
 
-    expect(r.value.resources.map((resource) => resource.kind)).toEqual([
-      'compose',
-      'application',
-      'application',
-      'application',
-    ]);
-    const redpanda = r.value.resources[0];
+    const redpanda = stack.services.find((service) => service.name === 'redpanda');
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
     expect(redpanda).toMatchObject({
-      logicalId: 'event-bus',
-      kind: 'compose',
-      infrastructureKind: 'event-bus',
-      name: 'rntme-acme-commerce-event-bus',
+      serviceClass: 'event-bus',
       image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
-      labels: {
-        'rntme.infrastructure': 'event-bus',
-        'rntme.provider': 'redpanda',
-      },
+      restart: { container: 'unless-stopped' },
+      resources: { cpus: '1.00', memory: '1G' },
     });
-    expect(redpanda).not.toHaveProperty('ingress');
-    expect(redpanda).not.toHaveProperty('ports');
-    expect(redpanda.kind).toBe('compose');
-    if (redpanda.kind !== 'compose') return;
-    expect(redpanda.composeFile).toContain('redpanda start');
-    expect(redpanda.composeFile).toContain('rntme-acme-commerce-event-bus-data');
-    // Compose must attach Redpanda to dokploy-network with a deterministic
-    // alias so swarm-service apps can resolve the broker hostname; without
-    // this, fresh provisioned deploys fail at boot with `getaddrinfo
-    // ENOTFOUND` on the broker host.
-    expect(redpanda.composeFile).toContain('dokploy-network');
-    expect(redpanda.composeFile).toContain(
-      '--advertise-kafka-addr=internal://rntme-acme-commerce-event-bus:9092',
-    );
-    expect(redpanda.composeFile).toMatch(/networks:\s*\n\s*dokploy-network:\s*\n\s*external: true/);
-    expect(redpanda.composeFile).toMatch(
-      /services:[\s\S]*redpanda:[\s\S]*networks:\s*\n\s*default:\s*\n\s*dokploy-network:\s*\n\s*aliases:\s*\n\s*- rntme-acme-commerce-event-bus/,
-    );
-
-    const domain = r.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.workloadKind === 'domain-service',
-    );
-    expect(domain?.env).toContainEqual({
+    expect(catalog?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
-      value: 'rntme-acme-commerce-event-bus:9092',
+      value: 'redpanda:9092',
       secret: false,
     });
-    expect(domain?.env).toContainEqual({
-      name: 'RNTME_EVENT_BUS_PROTOCOL',
-      value: 'plaintext',
-      secret: false,
-    });
-    expect(domain?.env).toContainEqual({
-      name: 'RNTME_EVENT_BUS_TOPIC_PREFIX',
-      value: 'rntme.notes',
-      secret: false,
-    });
+    expect(stack.composeFile).toContain('  redpanda:\n');
+    expect(stack.composeFile).toContain('    restart: unless-stopped\n');
   });
 
-  it('renders Redpanda Console behind a public basic-auth proxy without secret material', () => {
+  it('renders Redpanda Console as compose services with a public basic-auth proxy', () => {
     const r = renderDokployPlan(
       {
         ...plan,
@@ -235,55 +198,46 @@ describe('renderDokployPlan', () => {
     if (!r.ok) return;
 
     expect(r.value.urls.redpandaConsoleUrl).toBe('https://console-commerce.example.com');
-    expect(r.value.resources.map((resource) => resource.name)).toEqual([
-      'rntme-acme-commerce-event-bus',
-      'rntme-acme-commerce-redpanda-console',
-      'rntme-acme-commerce-redpanda-console-proxy',
-      'rntme-acme-commerce-catalog',
-      'rntme-acme-commerce-storage-s3',
-      'rntme-acme-commerce-edge',
-    ]);
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
 
-    const consoleApp = r.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console',
-    );
-    expect(consoleApp).toMatchObject({
+    const consoleService = stack.services.find((service) => service.name === 'redpanda-console');
+    expect(consoleService).toMatchObject({
+      serviceClass: 'infrastructure-proxy',
       image: 'docker.redpanda.com/redpandadata/console:v3.7.2',
       env: expect.arrayContaining([
-        { name: 'KAFKA_BROKERS', value: 'rntme-acme-commerce-event-bus:9092', secret: false },
+        { name: 'KAFKA_BROKERS', value: 'redpanda:9092', secret: false },
       ]),
-      labels: expect.objectContaining({
-        'rntme.infrastructure': 'redpanda-console',
-        'rntme.access': 'internal',
-      }),
     });
-    expect(consoleApp).not.toHaveProperty('ingress');
-    expect(consoleApp).not.toHaveProperty('ports');
 
-    const proxy = r.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.infrastructureKind === 'redpanda-console-proxy',
-    );
-    expect(proxy).toMatchObject({
+    const proxyService = stack.services.find((service) => service.name === 'redpanda-console-proxy');
+    expect(proxyService).toMatchObject({
+      serviceClass: 'infrastructure-proxy',
       image: 'nginx:1.27-alpine',
       command: '/bin/sh',
       args: ['/docker-entrypoint-rntme.sh'],
-      ingress: {
-        publicBaseUrl: 'https://console-commerce.example.com',
-        containerPort: 8080,
-      },
       env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
-      labels: expect.objectContaining({
-        'rntme.infrastructure': 'redpanda-console-proxy',
-        'rntme.access': 'public',
-      }),
     });
-    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
-    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
+    expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
+    expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
+    expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://redpanda-console:8080;');
+
+    const consoleDomain = stack.domains?.find((domain) => domain.serviceName === 'redpanda-console-proxy');
+    expect(consoleDomain).toEqual({
+      host: 'console-commerce.example.com',
+      path: '/',
+      serviceName: 'redpanda-console-proxy',
+      containerPort: 8080,
+      https: true,
+    });
+
     expect(JSON.stringify(r.value)).not.toContain('$apr1$');
     expect(JSON.stringify(r.value)).not.toContain('plaintext-password');
   });
 
-  it('renders provisioned RustFS compose, public proxy, and storage-s3 env', () => {
+  it('renders provisioned RustFS as compose services with a public proxy and storage-s3 env', () => {
     const r = renderDokployPlan(
       {
         ...plan,
@@ -294,7 +248,7 @@ describe('renderDokployPlan', () => {
             mode: 'provisioned',
             provider: 'rustfs',
             resourceName: 'rntme-acme-commerce-storage',
-            internalEndpoint: 'http://rntme-acme-commerce-storage:9000',
+            internalEndpoint: 'http://rustfs:9000',
             publicBaseUrl: 'https://storage.example.test',
             bucketName: 'rntme-acme-commerce-default-storage',
             region: 'us-east-1',
@@ -320,52 +274,43 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.resources.map((resource) => `${resource.kind}:${resource.logicalId}`)).toEqual([
-      'compose:object-storage',
-      'application:object-storage-public',
-      'application:catalog',
-      'application:storage-s3',
-      'application:edge',
-    ]);
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
 
-    const rustfs = r.value.resources[0];
+    const rustfs = stack.services.find((service) => service.name === 'rustfs');
     expect(rustfs).toMatchObject({
-      kind: 'compose',
-      infrastructureKind: 'object-storage',
-      name: 'rntme-acme-commerce-storage',
+      serviceClass: 'object-storage',
       image: 'rustfs/rustfs:1.0.0',
-      labels: {
-        'rntme.infrastructure': 'object-storage',
-        'rntme.provider': 'rustfs',
-      },
+      command: 'server /data',
+      env: [
+        { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },
+        { name: 'RUSTFS_SECRET_KEY', value: 'RUSTFS_SECRET_KEY', secret: true },
+      ],
+      restart: { container: 'unless-stopped' },
     });
-    if (rustfs.kind !== 'compose') return;
-    expect(rustfs.env).toEqual([
-      { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },
-      { name: 'RUSTFS_SECRET_KEY', value: 'RUSTFS_SECRET_KEY', secret: true },
-    ]);
-    expect(rustfs.composeFile).toContain('rustfs/rustfs:1.0.0');
-    expect(rustfs.composeFile).toContain('rntme-acme-commerce-storage-data');
-    expect(rustfs.composeFile).toContain('dokploy-network');
 
-    const proxy = r.value.resources.find((resource) => resource.logicalId === 'object-storage-public');
+    const proxy = stack.services.find((service) => service.name === 'object-storage-public');
     expect(proxy).toMatchObject({
-      kind: 'application',
-      workloadKind: 'infrastructure-proxy',
-      name: 'rntme-acme-commerce-storage-public',
+      serviceClass: 'infrastructure-proxy',
       image: 'nginx:1.27-alpine',
-      ingress: {
-        publicBaseUrl: 'https://storage.example.test',
-        containerPort: 8080,
-        healthPath: '/health',
-      },
     });
-    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://rntme-acme-commerce-storage:9000');
+    expect(proxy?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://rustfs:9000');
 
-    const storageModule = r.value.resources.find((resource) => resource.logicalId === 'storage-s3');
+    const proxyDomain = stack.domains?.find((domain) => domain.serviceName === 'object-storage-public');
+    expect(proxyDomain).toEqual({
+      host: 'storage.example.test',
+      path: '/',
+      serviceName: 'object-storage-public',
+      containerPort: 8080,
+      https: true,
+    });
+
+    const storageModule = stack.services.find((service) => service.workloadSlug === 'storage-s3');
     expect(storageModule?.env).toContainEqual({
       name: 'STORAGE_S3_ENDPOINT',
-      value: 'http://rntme-acme-commerce-storage:9000',
+      value: 'http://rustfs:9000',
       secret: false,
     });
     expect(storageModule?.env).toContainEqual({
@@ -403,8 +348,11 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.resources.map((resource) => resource.kind)).toEqual(['application', 'application', 'application']);
-    const domain = r.value.resources.find((resource) => resource.workloadKind === 'domain-service');
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const domain = stack.services.find((service) => service.workloadKind === 'domain-service');
     const envNames = domain?.env.map((env) => env.name) ?? [];
     expect(envNames).not.toContain('RNTME_EVENT_BUS_BROKERS');
     expect(envNames).not.toContain('RNTME_EVENT_BUS_PROTOCOL');
@@ -420,27 +368,29 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const edge = r.value.resources.find((resource) => resource.workloadKind === 'edge-gateway');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     expect(edge).toMatchObject({
-      kind: 'application',
       workloadKind: 'edge-gateway',
       files: {
         '/srv/config.json': '{}',
       },
-      ports: [{ containerPort: 8080, protocol: 'http' }],
-      ingress: {
-        publicBaseUrl: 'https://commerce.example.com',
-        containerPort: 8080,
-        healthPath: '/health',
-        routes: [
-          {
-            routeId: 'http:/api/catalog',
-            path: '/api/catalog',
-            url: 'https://commerce.example.com/api/catalog',
-          },
-        ],
-      },
+      ports: [8080],
     });
+    expect(stack.domains).toEqual([
+      {
+        host: 'commerce.example.com',
+        path: '/',
+        serviceName: 'edge',
+        containerPort: 8080,
+        https: true,
+      },
+    ]);
+    expect(r.value.urls.publicRoutes).toEqual([
+      { routeId: 'http:/api/catalog', url: 'https://commerce.example.com/api/catalog' },
+    ]);
   });
 
   it('rejects missing Dokploy project identity when creation is disabled', () => {
@@ -604,7 +554,11 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    expect(r.value.resources[0].env).toEqual([
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const moduleService = stack.services.find((service) => service.name === 'mod-payments');
+    expect(moduleService?.env).toEqual([
       { name: 'A_VAR', value: 'a', secret: false },
       { name: 'Z_VAR', value: 'z', secret: false },
       { name: 'A_SECRET', value: 'secret/a', secret: true },
@@ -644,12 +598,12 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const moduleRes = r.value.resources.find((res) => res.workloadKind === 'integration-module');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const moduleRes = stack.services.find((service) => service.workloadKind === 'integration-module');
     expect(moduleRes).toBeDefined();
-    expect(moduleRes?.ports).toEqual([
-      { containerPort: 50051, protocol: 'http' },
-      { containerPort: 50052, protocol: 'http' },
-    ]);
+    expect(moduleRes?.ports).toEqual([50051, 50052]);
   });
 
   it('renders create target project when allowed', () => {
@@ -770,7 +724,10 @@ describe('renderDokployPlan', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
-    const app = r.value.resources.find((resource) => resource.workloadSlug === 'app');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const app = stack.services.find((service) => service.workloadSlug === 'app');
     expect(app?.env).toEqual(
       expect.arrayContaining([
         { name: 'RNTME_EVENT_BUS_PROTOCOL', value: 'sasl_ssl', secret: false },
@@ -783,7 +740,7 @@ describe('renderDokployPlan', () => {
         { name: 'RNTME_AUTH_MODULE_SLUG', value: 'identity-auth0', secret: false },
         {
           name: 'RNTME_AUTH_MODULE_ENDPOINT',
-          value: 'rntme-acme-commerce-identity-auth0:50051',
+          value: 'mod-identity-auth0:50051',
           secret: false,
         },
       ]),
@@ -795,7 +752,7 @@ describe('renderDokployPlan', () => {
     expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('auth0');
     expect(JSON.parse(app?.files?.['/srv/config.json'] ?? '{}')).not.toHaveProperty('runtime');
 
-    const edge = r.value.resources.find((resource) => resource.workloadKind === 'edge-gateway');
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     expect(JSON.parse(edge?.files?.['/srv/config.json'] ?? '{}')).toEqual(publicConfig);
   });
 
@@ -816,14 +773,349 @@ describe('renderDokployPlan', () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    const edge = r.value.resources.find((res) => res.workloadKind === 'edge-gateway');
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     const nginx = edge?.files?.['/etc/nginx/nginx.conf'] ?? '';
     expect(nginx).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
-    expect(nginx).toContain('server rntme-acme-commerce-identity-auth0:50052;');
-    expect(nginx).not.toContain('server rntme-acme-commerce-identity-auth0:3000;');
+    expect(nginx).toContain('server mod-identity-auth0:50052;');
+    expect(nginx).not.toContain('server mod-identity-auth0:3000;');
+  });
+
+  it('uses the raw module slug for the auth endpoint env so it matches the compose service name', () => {
+    // Regression: the auth endpoint env value must agree byte-for-byte with the
+    // compose service name. The compose service name is `mod-${workload.slug}`
+    // (raw, no normalization), so the env must use the raw `moduleSlug` too —
+    // otherwise a slug like `IdentityAuth0` (mixed case is rewritten by
+    // `normalizePart` but kept as-is by `composeServiceName`) would resolve
+    // to a non-existent host inside the compose network.
+    const rawModuleSlug = 'IdentityAuth0';
+    const authPlan: ProjectDeploymentPlan = {
+      ...plan,
+      infrastructure: {
+        ...plan.infrastructure,
+        auth: { auth0: { clientId: 'auth0-public-client-id' } },
+      },
+      workloads: [
+        {
+          kind: 'domain-service',
+          slug: 'app',
+          serviceSlug: 'app',
+          resourceName: 'rntme-acme-commerce-app',
+          runtime: { image: 'rntme-runtime' },
+          artifact: { source: 'composed-project', serviceSlug: 'app' },
+          runtimeFiles: { 'manifest.json': '{"service":{"name":"app"}}' },
+          publicConfigJson: '{}',
+          persistence: { mode: 'ephemeral' },
+        },
+        {
+          kind: 'integration-module',
+          slug: rawModuleSlug,
+          serviceSlug: rawModuleSlug,
+          resourceName: `rntme-acme-commerce-${rawModuleSlug}`,
+          image: 'identity-auth0:latest',
+          expose: false,
+          env: {},
+          secretRefs: {},
+        },
+        {
+          kind: 'edge-gateway',
+          slug: 'edge',
+          resourceName: 'rntme-acme-commerce-edge',
+          image: 'nginx:1.27-alpine',
+        },
+      ],
+      edge: {
+        routes: [
+          {
+            id: 'http:/api',
+            kind: 'http',
+            path: '/api',
+            targetService: 'app',
+            targetWorkload: 'app',
+          },
+        ],
+        middleware: [
+          {
+            mountTarget: 'http:/api',
+            name: 'auth',
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://commerce.example.com/api',
+            moduleSlug: rawModuleSlug,
+          },
+        ],
+      },
+    };
+
+    const r = renderDokployPlan(authPlan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    // The compose service for the integration module keeps the raw slug.
+    const moduleService = stack.services.find(
+      (service) => service.workloadKind === 'integration-module',
+    );
+    expect(moduleService?.name).toBe(`mod-${rawModuleSlug}`);
+
+    // The auth endpoint env MUST point at that exact service name (no normalization drift).
+    const app = stack.services.find((service) => service.workloadSlug === 'app');
+    const authEndpoint = app?.env.find((entry) => entry.name === 'RNTME_AUTH_MODULE_ENDPOINT');
+    expect(authEndpoint?.value).toBe(`mod-${rawModuleSlug}:50051`);
+  });
+
+  it('renders one project-stack compose resource with service inventory', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack).toMatchObject({
+      logicalId: 'project-stack',
+      kind: 'compose',
+      infrastructureKind: 'project-stack',
+      name: 'rntme-acme-commerce',
+    });
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => [service.name, service.serviceClass])).toEqual([
+      ['svc-catalog', 'domain-service'],
+      ['mod-storage-s3', 'integration-module'],
+      ['edge', 'edge-gateway'],
+    ]);
+  });
+
+  it('renders default restart and resource policy by compose service class', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
+    const module = stack.services.find((service) => service.name === 'mod-storage-s3');
+    const edge = stack.services.find((service) => service.name === 'edge');
+
+    expect(catalog?.restart).toEqual({
+      container: 'on-failure:3',
+      swarm: { condition: 'on-failure', delay: '30s', maxAttempts: 3, window: '5m' },
+    });
+    expect(module?.resources).toEqual({ cpus: '0.50', memory: '512M' });
+    expect(edge?.resources).toEqual({ cpus: '0.10', memory: '128M' });
+  });
+
+  it('serializes compose services with restart policy resources networks and mounts', () => {
+    const r = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    expect(stack.composeFile).toContain('services:\n');
+    expect(stack.composeFile).toContain('  svc-catalog:\n');
+    expect(stack.composeFile).toContain('    image: rntme-runtime\n');
+    expect(stack.composeFile).toContain('    restart: on-failure:3\n');
+    expect(stack.composeFile).toContain('      max_attempts: 3\n');
+    expect(stack.composeFile).toContain('      memory: 512M\n');
+    expect(stack.composeFile).toContain('  edge:\n');
+    expect(stack.composeFile).toContain('      memory: 128M\n');
+    expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
+  });
+
+  it('folds service env entries up into the stack env so ${VAR} references resolve at deploy time', () => {
+    // Compose YAML emits `<NAME>: ${<NAME>}` for every service env entry.
+    // Those interpolations resolve against the stack-level env block
+    // (delivered via `compose.saveEnvironment`). The stack env therefore
+    // MUST contain every name referenced by any service or the rendered
+    // containers boot without their environment configuration.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          eventBus: {
+            kind: 'kafka',
+            mode: 'provisioned',
+            provider: 'redpanda',
+            resourceName: 'rntme-acme-commerce-event-bus',
+            internalBrokers: ['rntme-acme-commerce-event-bus:9092'],
+            image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+            persistence: { mode: 'persistent', volumeName: 'rntme-acme-commerce-event-bus-data' },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    // Both catalog and any other service that references the broker share
+    // the same value, so the stack env must dedupe to one entry.
+    const brokers = stack.env.filter((entry) => entry.name === 'RNTME_EVENT_BUS_BROKERS');
+    expect(brokers).toEqual([
+      { name: 'RNTME_EVENT_BUS_BROKERS', value: 'redpanda:9092', secret: false },
+    ]);
+
+    // Every distinct env name on any service must be present on the stack
+    // env, otherwise its `${VAR}` interpolation in YAML would render empty.
+    const stackNames = new Set(stack.env.map((entry) => entry.name));
+    for (const service of stack.services ?? []) {
+      for (const entry of service.env) {
+        expect(stackNames.has(entry.name)).toBe(true);
+      }
+    }
+
+    // Stack env is alphabetized so digests stay stable.
+    const sortedNames = [...stack.env].map((entry) => entry.name);
+    const expectedSortedNames = [...sortedNames].sort((a, b) => a.localeCompare(b));
+    expect(sortedNames).toEqual(expectedSortedNames);
+  });
+
+  it('preserves the secret flag when folding service env into the stack env', () => {
+    // Provisioned RustFS exposes secret credentials on the service. After
+    // folding those values up to the stack level the secret flag must be
+    // preserved so the Dokploy client can flag them appropriately.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        infrastructure: {
+          ...plan.infrastructure,
+          objectStorage: {
+            kind: 's3-compatible',
+            mode: 'provisioned',
+            provider: 'rustfs',
+            resourceName: 'rntme-acme-commerce-object-storage',
+            image: 'rustfs/rustfs:1.0.0-alpha.65',
+            internalEndpoint: 'http://rntme-acme-commerce-object-storage:9000',
+            publicBaseUrl: 'https://storage-commerce.example.com',
+            bucketName: 'rntme-commerce',
+            region: 'us-east-1',
+            forcePathStyle: true,
+            credentials: {
+              accessKeyRef: 'rntme-rustfs-access-key',
+              secretKeyRef: 'rntme-rustfs-secret-key',
+            },
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-object-storage-data',
+            },
+          },
+        },
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    if (stack.kind !== 'compose') throw new Error('expected compose stack');
+
+    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ACCESS_KEY');
+    expect(accessKey).toEqual({
+      name: 'RUSTFS_ACCESS_KEY',
+      value: 'rntme-rustfs-access-key',
+      secret: true,
+    });
+  });
+
+  it('rejects stack env collisions when two services disagree on the same env name', () => {
+    // Construct a plan where two integration-module workloads declare the
+    // same env name with different values. Folding those into the stack env
+    // must error so the rendered stack does not silently pick a winner.
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: [
+          {
+            kind: 'integration-module',
+            slug: 'storage-a',
+            serviceSlug: 'storage-a',
+            resourceName: 'rntme-acme-commerce-storage-a',
+            image: 'ghcr.io/acme/storage-a:test',
+            expose: false,
+            env: { SHARED_TOKEN: 'value-a' },
+            secretRefs: {},
+            modulePackageName: '@rntme/storage-a',
+          },
+          {
+            kind: 'integration-module',
+            slug: 'storage-b',
+            serviceSlug: 'storage-b',
+            resourceName: 'rntme-acme-commerce-storage-b',
+            image: 'ghcr.io/acme/storage-b:test',
+            expose: false,
+            env: { SHARED_TOKEN: 'value-b' },
+            secretRefs: {},
+            modulePackageName: '@rntme/storage-b',
+          },
+          {
+            kind: 'edge-gateway',
+            slug: 'edge',
+            resourceName: 'rntme-acme-commerce-edge',
+            image: 'nginx:1.27-alpine',
+          },
+        ],
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors[0]?.code).toBe('DEPLOY_RENDER_DOKPLOY_STACK_ENV_COLLISION');
+    expect(r.errors[0]?.message).toContain('SHARED_TOKEN');
   });
 
   it('rejects target resource name collisions after normalization', () => {
+    // In the single-stack model the only top-level Dokploy resource is the
+    // project-stack compose. Workloads whose slugs differ only by normalization
+    // (e.g. `billing-api` vs `billing_api`) now coexist as distinct compose
+    // services (`svc-billing-api`, `svc-billing_api`). Top-level collision
+    // detection no longer fires for this input. Stack-internal service-name
+    // collision detection is a Task 7 concern; this test currently asserts
+    // the new behaviour to keep the regression net wired up.
     const r = renderDokployPlan(
       {
         ...plan,
@@ -865,15 +1157,17 @@ describe('renderDokployPlan', () => {
       },
     );
 
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.errors).toContainEqual(
-        expect.objectContaining({
-          code: 'DEPLOY_RENDER_DOKPLOY_NAME_COLLISION',
-          resource: 'rntme-acme-commerce-billing-api',
-        }),
-      );
-    }
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.resources).toHaveLength(1);
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.map((service) => service.name).sort()).toEqual([
+      'edge',
+      'svc-billing-api',
+      'svc-billing_api',
+    ]);
   });
 });
 
@@ -908,7 +1202,10 @@ describe('renderDokployPlan — provisioner outputs', () => {
     });
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
-    const appResource = rendered.value.resources.find((r) => r.workloadSlug === 'app');
+    const stack = rendered.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const appResource = stack.services.find((service) => service.workloadSlug === 'app');
     expect(appResource?.env).toContainEqual({ name: 'AUTH0_SPA_CLIENT_ID', value: 'cid_xyz', secret: false });
   });
 
@@ -920,7 +1217,10 @@ describe('renderDokployPlan — provisioner outputs', () => {
     });
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
-    const idResource = rendered.value.resources.find((r) => r.workloadSlug === 'identity-auth0');
+    const stack = rendered.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const idResource = stack.services.find((service) => service.workloadSlug === 'identity-auth0');
     expect(idResource?.env).toContainEqual({ name: 'AUTH0_M2M_INTROSPECT_CLIENT_SECRET', value: 'sss', secret: true });
   });
 

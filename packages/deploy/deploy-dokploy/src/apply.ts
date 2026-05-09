@@ -1,4 +1,11 @@
-import type { DokployApplication, DokployClient, DokployCompose } from './client.js';
+import type {
+  DokployApplication,
+  DokployClient,
+  DokployCompose,
+  DokployComposeServiceSummary,
+  DokployComposeTaskInspection,
+} from './client.js';
+import { isComposeTaskHealthy } from './client.js';
 import type {
   DokployDeploymentError,
   DokployPartialFailureCleanup,
@@ -9,6 +16,7 @@ import type {
 import type { RenderedDokployPlan, RenderedDokployResource } from './render.js';
 import { err, ok, type Result } from './result.js';
 import { deleteDokployResources } from './delete.js';
+import { normalizePart } from './names.js';
 
 type RenderedApplicationResource = Extract<RenderedDokployResource, { kind: 'application' }>;
 type RenderedComposeResource = Extract<RenderedDokployResource, { kind: 'compose' }>;
@@ -24,6 +32,7 @@ export type DeploymentApplyResource = {
   readonly targetResourceId: string;
   readonly targetResourceName: string;
   readonly action: 'created' | 'updated' | 'unchanged';
+  readonly services?: readonly DokployComposeServiceSummary[];
 };
 
 export type DeploymentApplyResult = {
@@ -44,6 +53,11 @@ export type DeploymentApplyResult = {
     readonly protectedRouteChecks: readonly { readonly name: string; readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'; readonly url: string }[];
     readonly operatonUiAuthChecks?: readonly { readonly name: string; readonly url: string }[];
     readonly redpandaConsoleUrl?: string;
+    readonly stack?: {
+      readonly composeId: string;
+      readonly services: readonly DokployComposeServiceSummary[];
+      readonly inspections?: readonly DokployComposeTaskInspection[];
+    };
   };
 };
 
@@ -63,6 +77,13 @@ export async function applyDokployPlan(
     readonly resource: RenderedDokployResource;
     readonly target: DokployApplication | DokployCompose;
   }> = [];
+  let stackVerification:
+    | {
+        readonly composeId: string;
+        readonly services: readonly DokployComposeServiceSummary[];
+        readonly inspections?: readonly DokployComposeTaskInspection[];
+      }
+    | undefined;
 
   try {
     const { environmentId } = await client.ensureEnvironment(rendered.targetProject, rendered.deployment.environment);
@@ -84,13 +105,27 @@ export async function applyDokployPlan(
             created,
           ], createdForCleanup);
           if (!lifecycleResult.ok) return lifecycleResult;
+          if (resource.infrastructureKind === 'project-stack') {
+            stackVerification = stackVerificationFor(
+              created.targetResourceId,
+              lifecycleResult.value.services,
+              lifecycleResult.value.inspections,
+            );
+          }
           applied.push(created);
           continue;
         }
 
         networkTargets.push({ resource, target: existing });
         if (resourceMatches(existing, resource)) {
-          applied.push(appliedResource(resource, existing, 'unchanged'));
+          const unchanged = appliedResource(resource, existing, 'unchanged');
+          if (resource.infrastructureKind === 'project-stack') {
+            stackVerification = stackVerificationFor(
+              unchanged.targetResourceId,
+              serviceSummaries(resource),
+            );
+          }
+          applied.push(unchanged);
           continue;
         }
 
@@ -102,6 +137,13 @@ export async function applyDokployPlan(
           updated,
         ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
+        if (resource.infrastructureKind === 'project-stack') {
+          stackVerification = stackVerificationFor(
+            updated.targetResourceId,
+            lifecycleResult.value.services,
+            lifecycleResult.value.inspections,
+          );
+        }
         applied.push(updated);
         continue;
       }
@@ -149,14 +191,19 @@ export async function applyDokployPlan(
       }
     }
 
+    const cleanupWarnings = await cleanupOldTopology(client, environmentId, rendered, applied);
+
     return ok({
       target: { kind: 'dokploy', environmentId },
       deployment: rendered.deployment,
       resources: applied,
       urls: rendered.urls,
       renderedPlanDigest: rendered.digest,
-      warnings: rendered.warnings,
-      verificationHints: verificationHints(rendered),
+      warnings:
+        cleanupWarnings.length === 0
+          ? rendered.warnings
+          : [...rendered.warnings, ...cleanupWarnings],
+      verificationHints: verificationHints(rendered, stackVerification),
     });
   } catch (cause) {
     return err([
@@ -293,17 +340,34 @@ async function updateComposeTarget(
   }
 }
 
+type ComposeLifecycleOutcome = {
+  readonly services: readonly DokployComposeServiceSummary[];
+  readonly inspections?: readonly DokployComposeTaskInspection[];
+};
+
 async function runComposeLifecycle(
   client: DokployClient,
   target: DeploymentApplyResource,
   resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
   applied: readonly DeploymentApplyResource[],
   createdForCleanup: readonly DeploymentApplyResource[],
-): Promise<Result<void, DokployDeploymentError>> {
+): Promise<Result<ComposeLifecycleOutcome, DokployDeploymentError>> {
   try {
     await client.configureCompose(target.targetResourceId, resource);
   } catch (cause) {
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
+  }
+
+  if (
+    resource.infrastructureKind === 'project-stack' &&
+    resource.domains !== undefined &&
+    client.configureComposeDomains !== undefined
+  ) {
+    try {
+      await client.configureComposeDomains(target.targetResourceId, resource.domains);
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'configure');
+    }
   }
 
   try {
@@ -312,7 +376,71 @@ async function runComposeLifecycle(
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
-  return ok(undefined);
+  if (resource.infrastructureKind === 'project-stack' && client.startCompose !== undefined) {
+    try {
+      await client.startCompose(target.targetResourceId);
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
+    }
+  }
+
+  const renderedSummaries = serviceSummaries(resource);
+
+  let loadedSummaries: readonly DokployComposeServiceSummary[] | undefined;
+  if (resource.infrastructureKind === 'project-stack' && client.loadComposeServices !== undefined) {
+    try {
+      const loaded = await client.loadComposeServices(target.targetResourceId);
+      loadedSummaries = loaded.length > 0 ? loaded : undefined;
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+    }
+  }
+
+  let inspections: readonly DokployComposeTaskInspection[] | undefined;
+  if (resource.infrastructureKind === 'project-stack' && client.inspectComposeTasks !== undefined) {
+    const summariesForInspect = loadedSummaries ?? renderedSummaries;
+    try {
+      const inspected = await client.inspectComposeTasks(
+        target.targetResourceId,
+        summariesForInspect,
+      );
+      // Only surface inspections when at least one task is not in a healthy
+      // running state; Task 6 uses this signal to flag crash loops.
+      const interesting = inspected.filter((task) => !isComposeTaskHealthy(task));
+      inspections = interesting.length > 0 ? inspected : undefined;
+    } catch (cause) {
+      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+    }
+  }
+
+  // Prefer rendered list as canonical source so verificationHints stays
+  // deterministic from the plan; loaded list is only used as input to
+  // inspectComposeTasks so the platform can match by live service name.
+  return ok({
+    services: renderedSummaries,
+    ...(inspections === undefined ? {} : { inspections }),
+  });
+}
+
+function stackVerificationFor(
+  composeId: string,
+  services: readonly DokployComposeServiceSummary[],
+  inspections?: readonly DokployComposeTaskInspection[],
+): NonNullable<DeploymentApplyResult['verificationHints']['stack']> {
+  return {
+    composeId,
+    services,
+    ...(inspections !== undefined ? { inspections } : {}),
+  };
+}
+
+function serviceSummaries(
+  resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+): readonly DokployComposeServiceSummary[] {
+  return (resource.services ?? []).map((service) => ({
+    name: service.name,
+    serviceClass: service.serviceClass,
+  }));
 }
 
 function appliedResource(
@@ -321,6 +449,7 @@ function appliedResource(
   action: DeploymentApplyResource['action'],
 ): DeploymentApplyResource {
   if (resource.kind === 'compose') {
+    const services = serviceSummaries(resource);
     return {
       logicalId: resource.logicalId,
       resourceKind: 'compose',
@@ -328,6 +457,7 @@ function appliedResource(
       targetResourceId: target.id,
       targetResourceName: target.name,
       action,
+      ...(services.length > 0 ? { services } : {}),
     };
   }
 
@@ -341,6 +471,110 @@ function appliedResource(
     targetResourceName: target.name,
     action,
   };
+}
+
+/**
+ * Best-effort cleanup of legacy rntme-managed Dokploy resources. After a
+ * successful project-stack apply this removes pre-existing applications and
+ * composes in the same environment whose names begin with the normalized
+ * rntme `<org>-<project>-` prefix and which are not the current project-stack
+ * compose.
+ *
+ * The Dokploy list APIs do not expose Docker labels, so the cleanup filter
+ * relies on the rntme name prefix as the ownership marker. When labels do
+ * happen to be present, a non-matching `rntme.managed-by` value vetoes the
+ * candidate so foreign systems can opt out by setting that label themselves.
+ *
+ * Per-resource failures are isolated so a single bad delete cannot strand
+ * the rest of the cleanup pass; failures are surfaced via the returned
+ * warnings list (and on through the apply result). The apply itself has
+ * already succeeded by the time this runs, so cleanup never throws.
+ */
+async function cleanupOldTopology(
+  client: DokployClient,
+  environmentId: string,
+  rendered: RenderedDokployPlan,
+  applied: readonly DeploymentApplyResource[],
+): Promise<readonly string[]> {
+  const stackName = applied.find(
+    (resource) => resource.infrastructureKind === 'project-stack',
+  )?.targetResourceName;
+  if (stackName === undefined) return [];
+
+  // Resource names were created via `dokployResourceName`, which runs each
+  // slug through `normalizePart`. Cleanup must mirror that normalization or
+  // a slug like `Acme_Corp` would silently miss every legacy resource.
+  const expectedPrefix = `rntme-${normalizePart(rendered.deployment.orgSlug)}-${normalizePart(rendered.deployment.projectSlug)}-`;
+
+  const warnings: string[] = [];
+
+  // Sequential delete: Dokploy resources can hold inter-resource references
+  // (shared compose networks, shared secrets, follow-up cleanup hooks), and
+  // its API has historically been sensitive to concurrent destructive ops on
+  // the same project. Sequential delete trades throughput for safety, which
+  // is the right call for a best-effort cleanup pass.
+
+  if (client.listApplications !== undefined) {
+    let applications: readonly { readonly id: string; readonly name: string; readonly labels?: Record<string, string> }[] = [];
+    try {
+      applications = await client.listApplications(environmentId);
+    } catch (cause) {
+      warnings.push(`failed to list legacy applications: ${describeCleanupError(cause)}`);
+    }
+    for (const app of applications) {
+      if (!isCleanupCandidate(app.name, app.labels, stackName, expectedPrefix)) continue;
+      try {
+        await client.deleteApplication(app.id);
+      } catch (cause) {
+        warnings.push(
+          `failed to delete legacy application ${app.name} (${app.id}): ${describeCleanupError(cause)}`,
+        );
+      }
+    }
+  }
+
+  if (client.listComposes !== undefined) {
+    let composes: readonly { readonly id: string; readonly name: string; readonly labels?: Record<string, string> }[] = [];
+    try {
+      composes = await client.listComposes(environmentId);
+    } catch (cause) {
+      warnings.push(`failed to list legacy composes: ${describeCleanupError(cause)}`);
+    }
+    for (const compose of composes) {
+      if (!isCleanupCandidate(compose.name, compose.labels, stackName, expectedPrefix)) continue;
+      try {
+        await client.deleteCompose(compose.id);
+      } catch (cause) {
+        warnings.push(
+          `failed to delete legacy compose ${compose.name} (${compose.id}): ${describeCleanupError(cause)}`,
+        );
+      }
+    }
+  }
+
+  return warnings;
+}
+
+function isCleanupCandidate(
+  name: string,
+  labels: Readonly<Record<string, string>> | undefined,
+  stackName: string,
+  expectedPrefix: string,
+): boolean {
+  if (name === stackName) return false;
+  if (!name.startsWith(expectedPrefix)) return false;
+  // Labels are advisory because Dokploy's list APIs do not return them.
+  // Reject only when a foreign `rntme.managed-by` value is explicitly set;
+  // an absent label is treated as ours-by-name.
+  const managedBy = labels?.['rntme.managed-by'];
+  if (managedBy !== undefined && managedBy !== 'rntme-deploy-dokploy') return false;
+  return true;
+}
+
+function describeCleanupError(cause: unknown): string {
+  const sanitized = sanitizeCause(cause);
+  if (typeof sanitized === 'string') return sanitized;
+  return sanitized.message;
 }
 
 function resourceOrder(a: RenderedDokployResource, b: RenderedDokployResource): number {
@@ -795,13 +1029,23 @@ function stringSetMatches(existing: readonly string[], rendered: readonly string
   return sortedRendered.every((value, index) => sortedExisting[index] === value);
 }
 
-function verificationHints(rendered: RenderedDokployPlan): DeploymentApplyResult['verificationHints'] {
+function verificationHints(
+  rendered: RenderedDokployPlan,
+  stack:
+    | {
+        readonly composeId: string;
+        readonly services: readonly DokployComposeServiceSummary[];
+        readonly inspections?: readonly DokployComposeTaskInspection[];
+      }
+    | undefined,
+): DeploymentApplyResult['verificationHints'] {
   const base = {
     healthUrl: joinUrl(rendered.urls.projectUrl, '/health'),
     configUrl: joinUrl(rendered.urls.projectUrl, '/config.json'),
     publicRouteUrls: rendered.urls.publicRoutes.map((route) => route.url),
     protectedRouteChecks: rendered.urls.protectedRouteChecks,
     ...(rendered.urls.redpandaConsoleUrl === undefined ? {} : { redpandaConsoleUrl: rendered.urls.redpandaConsoleUrl }),
+    ...(stack === undefined ? {} : { stack }),
   };
 
   if (rendered.urls.uiUrl === undefined && rendered.urls.operatonUiAuthChecks === undefined) {
