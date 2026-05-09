@@ -312,6 +312,7 @@ describe('runDeployment', () => {
     const rendered = applyPlan.mock.calls[0]![0];
     expect(rendered.resources).toHaveLength(1);
     const stack = rendered.resources[0];
+    if (stack === undefined) throw new Error('expected at least one rendered resource');
     expect(stack.kind).toBe('compose');
     if (stack.kind !== 'compose') throw new Error('expected compose stack');
     const worker = stack.services?.find((service) => service.workloadKind === 'bpmn-worker');
@@ -964,6 +965,59 @@ describe('runDeployment', () => {
       errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
       errorMessage: expect.stringContaining('operaton-ui-basic-auth-v1'),
     });
+  });
+
+  it('finalizes failed when compose stack guard detects crash-looping workload', async () => {
+    const baseApply = {
+      target: { kind: 'dokploy' as const, environmentId: 'env_default' },
+      deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+      resources: [
+        {
+          logicalId: 'project-stack',
+          resourceKind: 'compose' as const,
+          infrastructureKind: 'project-stack' as const,
+          targetResourceId: 'compose_1',
+          targetResourceName: 'shop',
+          action: 'created' as const,
+          services: [{ name: 'svc-catalog', serviceClass: 'domain-service' as const }],
+        },
+      ],
+      urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] },
+      renderedPlanDigest: 'sha256:rendered',
+      warnings: [],
+      verificationHints: {
+        healthUrl: 'https://app.example.test/health',
+        publicRouteUrls: [],
+        protectedRouteChecks: [],
+        stack: {
+          composeId: 'compose_1',
+          services: [{ name: 'svc-catalog', serviceClass: 'domain-service' as const }],
+          inspections: [
+            {
+              serviceName: 'svc-catalog',
+              status: 'failed' as const,
+              failedCount: 3,
+              message: 'exit code 1',
+            },
+          ],
+        },
+      },
+    };
+    const { deps, deployments } = setup({
+      applyPlan: vi.fn(async () => ok(baseApply)) as never,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
+        errorMessage: 'workload crash loop detected',
+      }),
+    );
+    expect(deps.smoker.verify).not.toHaveBeenCalled();
   });
 
   it('passes resolved target secrets to dokploy client factory when validation succeeds', async () => {

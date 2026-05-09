@@ -5,12 +5,22 @@ export const DEPLOY_VERIFY_ERROR_CODES = {
   DEPLOY_VERIFY_PROTECTED_ROUTE_NOT_401: 'DEPLOY_VERIFY_PROTECTED_ROUTE_NOT_401',
   DEPLOY_VERIFY_PROTECTED_ROUTE_BAD_BODY: 'DEPLOY_VERIFY_PROTECTED_ROUTE_BAD_BODY',
   DEPLOY_VERIFY_TIMEOUT: 'DEPLOY_VERIFY_TIMEOUT',
+  DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
 } as const;
 
 export type DeploymentVerifyErrorCode = keyof typeof DEPLOY_VERIFY_ERROR_CODES;
+export type WorkloadStatus =
+  | 'running'
+  | 'healthy'
+  | 'starting'
+  | 'failed'
+  | 'rejected'
+  | 'exited'
+  | 'unknown';
+
 export type DeploymentVerifyError = Readonly<{
   code: DeploymentVerifyErrorCode;
   message: string;
   url?: string;
-  status?: number | 'timeout' | 'error';
+  status?: number | 'timeout' | 'error' | WorkloadStatus;
 }>;

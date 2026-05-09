@@ -501,6 +501,17 @@ export async function runDeployment(
       );
     }
 
+    await appendLog(deps, deploymentId, orgId, 'info', 'verify', 'Running compose stack verification');
+    const stackVerification = verifyComposeStack(applied.value as DeploymentApplyResult);
+    if (stackVerification !== null && !stackVerification.ok) {
+      await finalize(deps, deploymentId, orgId, 'failed', {
+        errorCode: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
+        errorMessage: 'workload crash loop detected',
+        verificationReport: stackVerification,
+      });
+      return;
+    }
+
     await appendLog(deps, deploymentId, orgId, 'info', 'verify', 'Running smoke verification');
     const verification = await deps.smoker.verify(applied.value as DeploymentApplyResult);
     await finalizeFromVerification(deps, deploymentId, orgId, verification);
@@ -641,6 +652,28 @@ function applyFailureCause(cause: unknown): string | undefined {
     return redact(cause.message);
   }
   return redact(JSON.stringify(cause));
+}
+
+function verifyComposeStack(applyResult: DeploymentApplyResult): VerificationReport | null {
+  const stack = applyResult.verificationHints.stack;
+  if (stack === undefined) return null;
+  const checks = (stack.inspections ?? []).map((inspection) => {
+    const statusOk =
+      inspection.status === 'running' ||
+      inspection.status === 'healthy' ||
+      inspection.status === 'starting' ||
+      inspection.status === 'unknown';
+    return {
+      name: `workload ${inspection.serviceName}`,
+      url: `dokploy:compose/${stack.composeId}/${inspection.serviceName}`,
+      status: inspection.status,
+      latencyMs: 0,
+      ok: statusOk && inspection.failedCount === 0,
+      note: inspection.message ?? `failedCount=${inspection.failedCount}`,
+    };
+  });
+  if (checks.length === 0) return { checks: [], ok: true, partialOk: false };
+  return { checks, ok: checks.every((check) => check.ok), partialOk: false };
 }
 
 async function finalizeFromVerification(
