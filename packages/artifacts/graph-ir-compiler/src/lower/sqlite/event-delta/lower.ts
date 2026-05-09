@@ -14,6 +14,7 @@ import { buildBootstrapSql } from './bootstrap.js';
 import { buildFilterArtifact, type EventSourceFilterColumn } from './filter.js';
 import { buildRelational } from '../../../relational/build.js';
 import { internalError } from '../../../types/errors.js';
+import { escapeStringLiteral } from '../sql-text.js';
 
 /**
  * Glue function: maps the semantic plan of a projection-role graph into a
@@ -198,7 +199,7 @@ function renderExprForBootstrap(
   }
   if (typeof e === 'object') {
     if ('$literal' in e) {
-      return `'${String((e as { $literal: string }).$literal).replace(/'/g, "''")}'`;
+      return `'${escapeStringLiteral(String((e as { $literal: string }).$literal))}'`;
     }
     if ('$param' in e) {
       throw internalError('lowering', 'lowerToEventDelta: $param not supported in projection-role expressions');

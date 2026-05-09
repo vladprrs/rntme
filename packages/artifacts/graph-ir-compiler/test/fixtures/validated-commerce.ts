@@ -20,3 +20,9 @@ export const commerceQsm: ValidatedQsm = unwrap(
   validateQsm(qsmParsed, createPdmResolver(commercePdm)),
   'validateQsm',
 );
+
+const emptyQsmParsed = unwrap(parseQsm({ projections: {}, relations: {} }), 'parseQsm(empty)');
+export const emptyQsm: ValidatedQsm = unwrap(
+  validateQsm(emptyQsmParsed, createPdmResolver(commercePdm)),
+  'validateQsm(empty)',
+);

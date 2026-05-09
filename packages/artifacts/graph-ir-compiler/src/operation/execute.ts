@@ -1,11 +1,13 @@
 import type { AppendEventInput } from '@rntme/event-store';
+import { createPdmResolver } from '@rntme/pdm';
+import { createQsmResolver } from '@rntme/qsm';
 import { checkTransitionLegal } from '../command-runtime/transition.js';
 import { replayAggregateState } from '../command-runtime/replay.js';
-import { buildEmitPlans } from '../emit/plan.js';
 import { derivePayload, evalExprAtRuntime } from '../emit/payload.js';
 import { runtimeError } from '../types/errors.js';
 import type { EmitPlan } from '../types/command.js';
 import type { CompiledOperation, OperationExecutionContext, OperationResult } from '../types/operation.js';
+import { camelCase } from '../types/strings.js';
 import { evalObjectExpr, evalOperationExpr, type NodeOutputs } from './eval.js';
 import {
   executeFilter,
@@ -24,21 +26,17 @@ export async function executeOperation(
   ctx: OperationExecutionContext,
 ): Promise<OperationResult> {
   const effectiveParams = applyInputDefaults(compiled, params);
-  const predicateOptionalParams = new Set(
-    Object.entries(compiled.graph.signature.inputs)
-      .filter(([, input]) => input.mode === 'predicate_optional')
-      .map(([name]) => name),
-  );
   const outputs: NodeOutputs = {};
   const rowsets: RowsetMetas = {};
   const eventIds: string[] = [];
-  const emitPlans = new Map(buildEmitPlans(compiled.graph, compiled.pdm).map((plan) => [plan.nodeId, plan]));
   const readCtx = {
     db: ctx.qsmDb,
     pdm: compiled.pdm,
     qsm: compiled.qsm,
+    pdmResolver: createPdmResolver(compiled.pdm),
+    qsmResolver: createQsmResolver(compiled.qsm),
     params: effectiveParams,
-    predicateOptionalParams,
+    predicateOptionalParams: compiled.predicateOptionalParams,
     relationCache: new Map<string, Record<string, unknown> | null>(),
   };
   let selectedBranchTarget: string | null = null;
@@ -80,14 +78,14 @@ export async function executeOperation(
     if (node.kind === 'map') {
       const input = rowsFor(node.input, outputs, node.id);
       outputs[node.id] = executeMap(node, input, metaFor(node.input, rowsets, node.id), readCtx);
-      rowsets[node.id] = { alias: node.into.charAt(0).toLowerCase() + node.into.slice(1), projectionName: null, entityName: null };
+      rowsets[node.id] = { alias: camelCase(node.into), projectionName: null, entityName: null };
       continue;
     }
 
     if (node.kind === 'reduce') {
       const input = rowsFor(node.input, outputs, node.id);
       outputs[node.id] = executeReduce(node, input, metaFor(node.input, rowsets, node.id), readCtx);
-      rowsets[node.id] = { alias: node.into.charAt(0).toLowerCase() + node.into.slice(1), projectionName: null, entityName: null };
+      rowsets[node.id] = { alias: camelCase(node.into), projectionName: null, entityName: null };
       continue;
     }
 
@@ -138,7 +136,7 @@ export async function executeOperation(
       if (ctx.eventStore === null) {
         throw runtimeError('RUNTIME_INTERNAL_ERROR', `emit node "${node.id}" requires eventStore`);
       }
-      const plan = emitPlans.get(node.id);
+      const plan = compiled.emitPlansByNodeId[node.id];
       if (plan === undefined) {
         throw runtimeError('RUNTIME_INTERNAL_ERROR', `emit plan missing for "${node.id}"`);
       }

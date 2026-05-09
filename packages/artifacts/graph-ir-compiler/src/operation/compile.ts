@@ -7,8 +7,10 @@ import type { AuthoringSpecOutput } from '../parse/schema.js';
 import { validateStructural } from '../validate/structural/index.js';
 import { validateSemantic } from '../validate/semantic/index.js';
 import { validateOperationEffects } from '../validate/effects.js';
+import { buildEmitPlans } from '../emit/plan.js';
 import { ERROR_CODES, err, ok, type Result } from '../types/result.js';
 import { toGraphIrError } from '../types/errors.js';
+import type { EmitPlan } from '../types/command.js';
 import type { Exposure } from '../types/effects.js';
 import type { CompiledOperation, OperationRegistry, OperationRegistryEntry } from '../types/operation.js';
 
@@ -90,11 +92,24 @@ export function compileOperationFromValidated(
     if (entry !== null) registryEntriesByNodeId[node.id] = entry;
   }
 
+  const emitPlansByNodeId: Record<string, EmitPlan> = {};
+  for (const plan of buildEmitPlans(graph, pdm)) {
+    emitPlansByNodeId[plan.nodeId] = plan;
+  }
+
+  const predicateOptionalParams = new Set<string>(
+    Object.entries(graph.signature.inputs)
+      .filter(([, input]) => input.mode === 'predicate_optional')
+      .map(([name]) => name),
+  );
+
   return ok({
     graphId: graph.id,
     graph,
     effects: effects.value,
     registryEntriesByNodeId,
+    emitPlansByNodeId,
+    predicateOptionalParams,
     resultNodeId: graph.outputFrom,
     pdm,
     qsm,

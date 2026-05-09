@@ -1,4 +1,5 @@
 import type { DerivedColumnBinding, DerivedTableSchema } from '../../../types/projection.js';
+import { quoteIdent as q } from '../sql-text.js';
 
 /**
  * Produce the deltaSql (UPSERT) and its `?`-ordered binding list from a
@@ -41,6 +42,3 @@ export function buildDeltaArtifact(schema: DerivedTableSchema): {
   return { deltaSql: sql, deltaBindings };
 }
 
-function q(id: string): string {
-  return `"${id.replace(/"/g, '""')}"`;
-}

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { lowerFilterWithLifting } from '../../../../src/lower/sqlite/lower.js';
+import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('predicate_optional lifting', () => {
   it('wraps predicate with null-guard on each predicate_optional param', () => {
@@ -15,7 +16,10 @@ describe('predicate_optional lifting', () => {
         fields: [{ name: 'unitPrice', column: 'unit_price', type: 'decimal', nullable: false }],
       },
     };
-    const { ast, paramOrder } = lowerFilterWithLifting(rel, new Set(['minPrice']));
+    const { ast, paramOrder } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(['minPrice']),
+      qsm: emptyQsm,
+    });
     const sql = emitSql(ast);
     expect(sql).toContain('("orderItem"."unit_price" >= ?) OR (? IS NULL)');
     expect(paramOrder).toEqual(['minPrice', 'minPrice']);
@@ -40,7 +44,10 @@ describe('predicate_optional lifting', () => {
         ],
       },
     };
-    const { ast, paramOrder } = lowerFilterWithLifting(rel, new Set(['minPrice']));
+    const { ast, paramOrder } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(['minPrice']),
+      qsm: emptyQsm,
+    });
     const sql = emitSql(ast);
     expect(paramOrder).toEqual(['status', 'minPrice', 'minPrice']);
     expect(sql).toContain(

@@ -1,6 +1,7 @@
 import type { Expr } from '../../../types/authoring.js';
 import type { DerivedColumnBinding, DerivedSqlType } from '../../../types/projection.js';
 import { internalError } from '../../../types/errors.js';
+import { escapeStringLiteral } from '../sql-text.js';
 
 /**
  * Per-virtual-column metadata used when lowering a filter expression to SQL.
@@ -74,7 +75,7 @@ function renderExpr(
   if (typeof e === 'object') {
     if ('$literal' in e) {
       const raw = (e as { $literal: string }).$literal;
-      return { sql: `'${String(raw).replace(/'/g, "''")}'`, sqlType: 'TEXT' };
+      return { sql: `'${escapeStringLiteral(String(raw))}'`, sqlType: 'TEXT' };
     }
     if ('$param' in e) {
       throw internalError(

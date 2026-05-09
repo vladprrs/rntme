@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('Project lowering', () => {
   it('replaces columns with the Project cols', () => {
@@ -23,7 +24,10 @@ describe('Project lowering', () => {
         ],
       },
     };
-    const { ast } = lowerToSqlite(rel);
+    const { ast } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(),
+      qsm: emptyQsm,
+    });
     const sql = emitSql(ast);
     expect(sql).toContain('"orderItem"."id" AS "id"');
     expect(sql).toContain('("orderItem"."unit_price" * "orderItem"."quantity") AS "total"');

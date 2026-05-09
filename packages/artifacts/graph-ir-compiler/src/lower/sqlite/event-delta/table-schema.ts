@@ -8,6 +8,7 @@ import type {
   DerivedTableSchema,
 } from '../../../types/projection.js';
 import { internalError } from '../../../types/errors.js';
+import { escapeStringLiteral, quoteIdent as q } from '../sql-text.js';
 
 /**
  * Per-virtual-column metadata for an event-source scan (the event_log row mirror),
@@ -165,7 +166,7 @@ function renderExpr(
   }
   if (typeof e === 'object') {
     if ('$literal' in e) {
-      return { sql: `'${String((e as { $literal: string }).$literal).replace(/'/g, "''")}'`, sqlType: 'TEXT' };
+      return { sql: `'${escapeStringLiteral(String((e as { $literal: string }).$literal))}'`, sqlType: 'TEXT' };
     }
     if ('$param' in e) {
       throw internalError(
@@ -196,6 +197,3 @@ function renderExpr(
   throw internalError('lowering', `buildSumInitial: unsupported expression ${JSON.stringify(e)}`);
 }
 
-function q(id: string): string {
-  return `"${id.replace(/"/g, '""')}"`;
-}

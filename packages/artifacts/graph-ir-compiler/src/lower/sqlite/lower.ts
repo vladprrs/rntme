@@ -1,6 +1,6 @@
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
-import { isEntityMirrorSource } from '@rntme/qsm';
+import { createQsmResolver, isEntityMirrorSource } from '@rntme/qsm';
 import type { RelOp, RelScan } from '../../types/relational.js';
 import type { SqlSelect, SqlExpr } from './ast.js';
 import { chainToSqlJoins, expandChain } from './joins.js';
@@ -11,26 +11,15 @@ import { internalError } from '../../types/errors.js';
 export type LowerResult = { ast: SqlSelect; paramOrder: string[] };
 
 export type LowerContext = {
-  predicateOptionalParams: Set<string>;
+  predicateOptionalParams: ReadonlySet<string>;
   pdm?: ValidatedPdm;
   qsm: ValidatedQsm;
 };
 
-export function lowerToSqlite(
-  rel: RelOp,
-  context: LowerContext = { predicateOptionalParams: new Set(), qsm: {} as unknown as ValidatedQsm },
-): LowerResult {
+export function lowerToSqlite(rel: RelOp, context: LowerContext): LowerResult {
   const paramOrder: string[] = [];
   const ast = toSelect(rel, paramOrder, context);
   return { ast, paramOrder };
-}
-
-export function lowerFilterWithLifting(
-  rel: RelOp,
-  predicateOptionalParams: Set<string>,
-  qsm: ValidatedQsm = {} as unknown as ValidatedQsm,
-): LowerResult {
-  return lowerToSqlite(rel, { predicateOptionalParams, qsm });
 }
 
 function measureToAggSql(
@@ -193,7 +182,7 @@ function wrapPredicateOptional(
   predicateSql: SqlExpr,
   predicate: unknown,
   paramOrder: string[],
-  predicateOptionalParams: Set<string>,
+  predicateOptionalParams: ReadonlySet<string>,
 ): SqlExpr {
   const used = uniqueInOrder(
     collectParamRefs(predicate).filter((n) => predicateOptionalParams.has(n)),
@@ -290,24 +279,14 @@ function makeColumnOf(
       if (parts[0] !== scan.alias) {
         throw internalError('lowering', `lower: path "${path}" root alias does not match scan`);
       }
-      // Resolve scan.entity → entity-mirror projection name
-      let startProjName: string | undefined;
-      for (const [projName, proj] of Object.entries(context.qsm.projections)) {
-        if (
-          (proj.backing ?? 'entity-mirror') === 'entity-mirror' &&
-          isEntityMirrorSource(proj.source) &&
-          proj.source.entity === scan.entity
-        ) {
-          startProjName = projName;
-          break;
-        }
-      }
-      if (!startProjName) {
+      const mirror = createQsmResolver(context.qsm).findEntityMirror(scan.entity);
+      if (!mirror) {
         throw internalError(
           'lowering',
           `NAV_PROJECTION_REQUIRED: scan on entity "${scan.entity}" has no entity-mirror projection; cannot resolve dot-nav "${path}"`,
         );
       }
+      const startProjName = mirror.name;
 
       const prefix = parts.slice(0, -1);
       const joinChain = expandChain(scan.alias, startProjName, prefix, context.qsm, context.pdm);

@@ -3,6 +3,7 @@ import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
 import type { Expr } from '../../../../src/types/authoring.js';
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('lower Filter', () => {
   it('emits WHERE with param placeholder', () => {
@@ -19,7 +20,10 @@ describe('lower Filter', () => {
         ],
       },
     };
-    const { ast, paramOrder } = lowerToSqlite(rel);
+    const { ast, paramOrder } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(),
+      qsm: emptyQsm,
+    });
     const sql = emitSql(ast);
     expect(sql).toContain('WHERE ("orderItem"."unit_price" >= ?)');
     expect(paramOrder).toEqual(['minPrice']);

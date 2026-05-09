@@ -7,7 +7,6 @@ import { _runPipeline } from './pipeline/run.js';
 
 export { CommandExecutionError } from './command-runtime/errors.js';
 export type { EmitPlan } from './types/command.js';
-export { inferRole, type GraphRole } from './role/infer.js';
 export { deriveEventTypeName } from './emit/event-type.js';
 
 export { ok, err, isOk, isErr, ERROR_CODES } from './types/result.js';
@@ -38,19 +37,12 @@ export type { ValidatedQsm } from '@rntme/qsm';
 export type { ExplainOutput } from './explain/explain.js';
 
 export { parseAuthoringSpec } from './parse/parse.js';
-export { validateStructural } from './validate/structural/index.js';
-export { validateSemantic } from './validate/semantic/index.js';
-export {
-  inferEffectSummary,
-  validateOperationEffects,
-} from './validate/effects.js';
 export {
   compileOperation,
   compileOperationFromValidated,
   type CompileOperationOptions,
 } from './operation/compile.js';
 export { executeOperation } from './operation/execute.js';
-export { normalize } from './canonical/normalize.js';
 
 export type {
   DerivedCompileResult,

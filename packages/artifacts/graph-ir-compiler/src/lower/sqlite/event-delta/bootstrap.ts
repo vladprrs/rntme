@@ -1,5 +1,6 @@
 import type { DerivedTableSchema } from '../../../types/projection.js';
 import { internalError } from '../../../types/errors.js';
+import { escapeStringLiteral as escapeSqlLiteral, quoteIdent as q } from '../sql-text.js';
 
 /**
  * Emit the bootstrap SQL that rebuilds a derived projection from the full
@@ -65,10 +66,3 @@ export function buildBootstrapSql(
   return sql;
 }
 
-function q(id: string): string {
-  return `"${id.replace(/"/g, '""')}"`;
-}
-
-function escapeSqlLiteral(s: string): string {
-  return s.replace(/'/g, "''");
-}

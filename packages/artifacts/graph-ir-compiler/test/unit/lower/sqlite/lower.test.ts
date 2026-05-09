@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import type { RelOp } from '../../../../src/types/relational.js';
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('lowerToSqlite (scan + limit)', () => {
   it('produces a SELECT AST with limit literal', () => {
@@ -17,7 +18,10 @@ describe('lowerToSqlite (scan + limit)', () => {
         ],
       },
     };
-    const { ast, paramOrder } = lowerToSqlite(rel);
+    const { ast, paramOrder } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(),
+      qsm: emptyQsm,
+    });
     expect(ast.kind).toBe('select');
     expect(ast.from).toEqual({ table: 'order_items', alias: 'orderItem' });
     expect(ast.limit).toEqual({ kind: 'num', value: 10 });
