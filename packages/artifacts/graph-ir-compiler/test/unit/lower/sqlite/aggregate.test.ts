@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('Aggregate lowering', () => {
   it('emits GROUP BY + SUM/COUNT/AVG', () => {
@@ -25,7 +26,10 @@ describe('Aggregate lowering', () => {
         ],
       },
     };
-    const { ast } = lowerToSqlite(rel);
+    const { ast } = lowerToSqlite(rel, {
+      predicateOptionalParams: new Set(),
+      qsm: emptyQsm,
+    });
     const sql = emitSql(ast);
     expect(sql).toContain('GROUP BY "orderItem"."product_id"');
     expect(sql).toContain('SUM(("orderItem"."unit_price" * "orderItem"."quantity")) AS "revenue"');

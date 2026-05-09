@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import type { ValidatedQsm } from '@rntme/qsm';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';
-
-const emptyQsm = {} as ValidatedQsm;
+import { emptyQsm } from '../../../fixtures/validated-commerce.js';
 
 describe('predicate_optional lifting', () => {
   it('wraps predicate with null-guard on each predicate_optional param', () => {

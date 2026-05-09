@@ -16,12 +16,7 @@ export type LowerContext = {
   qsm: ValidatedQsm;
 };
 
-const EMPTY_CONTEXT: LowerContext = {
-  predicateOptionalParams: new Set(),
-  qsm: {} as ValidatedQsm,
-};
-
-export function lowerToSqlite(rel: RelOp, context: LowerContext = EMPTY_CONTEXT): LowerResult {
+export function lowerToSqlite(rel: RelOp, context: LowerContext): LowerResult {
   const paramOrder: string[] = [];
   const ast = toSelect(rel, paramOrder, context);
   return { ast, paramOrder };
