@@ -4,7 +4,7 @@ Project-first blueprint parser/validator for rntme.
 
 ## Role in the system
 
-- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `@rntme/workflows`, `@rntme/platform-core`, `zod`
+- Depends on: `@rntme/pdm`, `@rntme/qsm`, `@rntme/bindings`, `@rntme/ui`, `@rntme/seed`, `@rntme/workflows`, `@rntme/init`, `@rntme/platform-core`, `zod`
 - Consumed by: future runtime/tooling tracks
 - Position in pipeline:
   `project directory`
@@ -21,6 +21,7 @@ Project-first blueprint parser/validator for rntme.
 - `services/<svc>/storage.json`
 - `services/<svc>/ui/...`
 - `workflows/workflows.json` + `workflows/**/*.bpmn`
+- `init/init.json` + `init/files/**`
 
 ## Public API
 
@@ -28,6 +29,7 @@ Project-first blueprint parser/validator for rntme.
 - `loadComposedBlueprint(dir)` — load the Track A blueprint, validate project composition rules, load validated service members, build the project binding registry, and compile project-routed service UI.
   When `project.json` declares `modules`, compose also resolves each UI module (`module.json`), builds `catalogManifest`, validates `publicConfig`, checks `./client` exports, and fills `virtualEntrySource` + `publicConfigJson` on the composed result.
   When `workflows/workflows.json` exists, compose parses and validates it with `@rntme/workflows` after the project binding registry is available, then attaches `workflows` to the composed result.
+  When `init/init.json` exists, compose parses and validates it and attaches `init` to the composed result.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
 - `validateStorageJson(text, pdm)` — validate optional per-service `storage.json` through parse, structural, references, and consistency layers. References treat `route.owner.aggregate` as a PDM entity key; successful output is branded `ValidatedStorageJson`.
 - `emitStorageRouteIdTypes(servicesStorage)` — emit a route id union string plus `routeAggregateMap` for UI compile-time storage route reference checks.
@@ -38,6 +40,7 @@ Project-first blueprint parser/validator for rntme.
 - `createServiceBindingResolvers(...)` — build bindings validators that resolve service-local graphs against project service context. Scalar primitive validation delegates to `@rntme/bindings` (`SCALAR_PRIMITIVES` / `isScalarPrimitive`); do not add a separate blueprint scalar list.
 - `compileServiceUi(...)` — compile a service UI artifact with routed binding resolution from the project binding registry. UI validation uses project UI route patterns plus an explicit core-component catalog and module `catalogManifest`; unknown routes/components fail during compose.
 - `loadProjectWorkflows(...)` — discover `workflows/workflows.json`, validate BPMN file paths, resolve project PDM event refs, and resolve service-task action binding refs through the project binding registry.
+- `loadProjectInit(...)` — discover `init/init.json`, parse and structurally validate the init artifact, then cross-reference validate seed-event types against service-owned PDM event types.
 - `materializeBundle(bundle)` — write a canonical project-version bundle
   (`files` plus base64 `assets`) to a temporary project directory with path
   traversal and collision checks.
@@ -69,6 +72,7 @@ The structural validator only enforces syntax. Module-existence and output-decla
 - `src/validate/composition.ts`
 - `src/compose/load-service-member.ts`
 - `src/compose/load-composed-blueprint.ts`
+- `src/compose/project-init.ts`
 - `src/compose/project-workflows.ts`
 - `test/fixtures/product-catalog-project/`
 
