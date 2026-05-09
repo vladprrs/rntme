@@ -783,6 +783,96 @@ describe('renderDokployPlan', () => {
     expect(nginx).not.toContain('server mod-identity-auth0:3000;');
   });
 
+  it('uses the raw module slug for the auth endpoint env so it matches the compose service name', () => {
+    // Regression: the auth endpoint env value must agree byte-for-byte with the
+    // compose service name. The compose service name is `mod-${workload.slug}`
+    // (raw, no normalization), so the env must use the raw `moduleSlug` too —
+    // otherwise a slug like `IdentityAuth0` (mixed case is rewritten by
+    // `normalizeSlug` but kept as-is by `composeServiceName`) would resolve
+    // to a non-existent host inside the compose network.
+    const rawModuleSlug = 'IdentityAuth0';
+    const authPlan: ProjectDeploymentPlan = {
+      ...plan,
+      infrastructure: {
+        ...plan.infrastructure,
+        auth: { auth0: { clientId: 'auth0-public-client-id' } },
+      },
+      workloads: [
+        {
+          kind: 'domain-service',
+          slug: 'app',
+          serviceSlug: 'app',
+          resourceName: 'rntme-acme-commerce-app',
+          runtime: { image: 'rntme-runtime' },
+          artifact: { source: 'composed-project', serviceSlug: 'app' },
+          runtimeFiles: { 'manifest.json': '{"service":{"name":"app"}}' },
+          publicConfigJson: '{}',
+          persistence: { mode: 'ephemeral' },
+        },
+        {
+          kind: 'integration-module',
+          slug: rawModuleSlug,
+          serviceSlug: rawModuleSlug,
+          resourceName: `rntme-acme-commerce-${rawModuleSlug}`,
+          image: 'identity-auth0:latest',
+          expose: false,
+          env: {},
+          secretRefs: {},
+        },
+        {
+          kind: 'edge-gateway',
+          slug: 'edge',
+          resourceName: 'rntme-acme-commerce-edge',
+          image: 'nginx:1.27-alpine',
+        },
+      ],
+      edge: {
+        routes: [
+          {
+            id: 'http:/api',
+            kind: 'http',
+            path: '/api',
+            targetService: 'app',
+            targetWorkload: 'app',
+          },
+        ],
+        middleware: [
+          {
+            mountTarget: 'http:/api',
+            name: 'auth',
+            kind: 'auth',
+            provider: 'auth0',
+            audience: 'https://commerce.example.com/api',
+            moduleSlug: rawModuleSlug,
+          },
+        ],
+      },
+    };
+
+    const r = renderDokployPlan(authPlan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    // The compose service for the integration module keeps the raw slug.
+    const moduleService = stack.services.find(
+      (service) => service.workloadKind === 'integration-module',
+    );
+    expect(moduleService?.name).toBe(`mod-${rawModuleSlug}`);
+
+    // The auth endpoint env MUST point at that exact service name (no normalization drift).
+    const app = stack.services.find((service) => service.workloadSlug === 'app');
+    const authEndpoint = app?.env.find((entry) => entry.name === 'RNTME_AUTH_MODULE_ENDPOINT');
+    expect(authEndpoint?.value).toBe(`mod-${rawModuleSlug}:50051`);
+  });
+
   it('renders one project-stack compose resource with service inventory', () => {
     const r = renderDokployPlan(plan, {
       endpoint: 'https://dokploy.example.com',

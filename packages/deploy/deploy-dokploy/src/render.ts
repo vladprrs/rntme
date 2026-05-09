@@ -674,7 +674,7 @@ function renderResource(
               { name: 'RNTME_AUTH_MODULE_SLUG', value: authMiddleware.moduleSlug, secret: false },
               {
                 name: 'RNTME_AUTH_MODULE_ENDPOINT',
-                value: `mod-${normalizeSlug(authMiddleware.moduleSlug)}:50051`,
+                value: `mod-${authMiddleware.moduleSlug}:50051`,
                 secret: false,
               },
             ]),
