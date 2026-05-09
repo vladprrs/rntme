@@ -9,7 +9,18 @@ describe('platform generated API', () => {
     if (!loaded.ok) return;
 
     const app = await createPlatformRuntimeApp({ blueprint: loaded.value });
-    const res = await app.request('/api/projects/openapi.json');
-    expect(res.status).toBe(200);
+
+    const endpoints = [
+      '/api/projects/openapi.json',
+      '/api/organizations/openapi.json',
+      '/api/tokens/openapi.json',
+      '/api/audit/openapi.json',
+      '/api/deployments/openapi.json',
+    ];
+
+    for (const endpoint of endpoints) {
+      const res = await app.request(endpoint);
+      expect(res.status).toBe(200);
+    }
   });
 });

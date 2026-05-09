@@ -16,10 +16,12 @@ export async function createPlatformRuntimeApp(opts: CreatePlatformRuntimeAppOpt
   }
 
   for (const [slug, service] of Object.entries(opts.blueprint.services)) {
-    const router = buildServiceRouter(slug, service);
+    const router = buildOpenApiRouter(slug, service);
     if (router === null) continue;
     const base = opts.blueprint.routing.httpBaseByService[slug];
     if (base === undefined) continue;
+    // TODO(platform-runtime-cutover Task 4+): mount @rntme/bindings-http handlers
+    // here once cross-module operation registry/executor wiring is in place.
     app.route(base, router);
   }
 
@@ -27,13 +29,11 @@ export async function createPlatformRuntimeApp(opts: CreatePlatformRuntimeAppOpt
   return app;
 }
 
-function buildServiceRouter(slug: string, service: ValidatedServiceMember): Hono | null {
+function buildOpenApiRouter(slug: string, service: ValidatedServiceMember): Hono | null {
   if (service.bindings === null) return null;
 
   const router = new Hono();
   mountOpenApi(router, slug, service.bindings);
-  // TODO(platform-runtime-cutover Task 4+): mount @rntme/bindings-http handlers
-  // here once cross-module operation registry/executor wiring is in place.
   return router;
 }
 
