@@ -7,7 +7,7 @@
     "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
     "accountId": { "type": "string", "nullable": false, "column": "account_id" },
     "role": { "type": "string", "nullable": false, "column": "role" },
-    "scopesJson": { "type": "json", "nullable": false, "column": "scopes_json" },
+    "scopesJson": { "type": "string", "nullable": false, "column": "scopes_json" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
   },

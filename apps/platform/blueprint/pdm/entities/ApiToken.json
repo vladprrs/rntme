@@ -7,7 +7,7 @@
     "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
     "name": { "type": "string", "nullable": false, "column": "name" },
     "prefix": { "type": "string", "nullable": false, "column": "prefix" },
-    "scopesJson": { "type": "json", "nullable": false, "column": "scopes_json" },
+    "scopesJson": { "type": "string", "nullable": false, "column": "scopes_json" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
     "revokedAt": { "type": "datetime", "nullable": true, "column": "revoked_at" }

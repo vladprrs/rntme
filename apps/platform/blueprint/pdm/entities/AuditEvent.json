@@ -9,7 +9,7 @@
     "action": { "type": "string", "nullable": false, "column": "action" },
     "targetType": { "type": "string", "nullable": false, "column": "target_type" },
     "targetId": { "type": "string", "nullable": false, "column": "target_id" },
-    "detailsJson": { "type": "json", "nullable": false, "column": "details_json" },
+    "detailsJson": { "type": "string", "nullable": false, "column": "details_json" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
   },
