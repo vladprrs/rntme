@@ -1,0 +1,31 @@
+{
+  "id": "createOrganization",
+  "signature": {
+    "inputs": {
+      "slug": { "type": "string", "mode": "required" },
+      "displayName": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Organization",
+        "aggregateId": { "$node": "newId" },
+        "transition": "create",
+        "payload": {
+          "slug": { "$param": "slug" },
+          "displayName": { "$param": "displayName" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

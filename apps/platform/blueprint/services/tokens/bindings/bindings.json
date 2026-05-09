@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listTokens": {
+      "graph": "listTokens",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read"
+    },
+    "createToken": {
+      "graph": "createToken",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "name", "in": "body", "bindTo": "name", "required": true },
+          { "name": "prefix", "in": "body", "bindTo": "prefix", "required": true },
+          { "name": "scopesJson", "in": "body", "bindTo": "scopesJson", "required": true }
+        ]
+      },
+      "exposure": "action"
+    },
+    "revokeToken": {
+      "graph": "revokeToken",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{id}/actions/revoke",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true },
+          { "name": "revokedAt", "in": "body", "bindTo": "revokedAt", "required": true }
+        ]
+      },
+      "exposure": "action"
+    }
+  }
+}

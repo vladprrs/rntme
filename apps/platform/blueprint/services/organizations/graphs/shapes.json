@@ -1,0 +1,27 @@
+{
+  "OrganizationView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "slug": { "type": "string", "nullable": false },
+      "displayName": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  },
+  "MembershipView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "organizationId": { "type": "string", "nullable": false },
+      "accountId": { "type": "string", "nullable": false },
+      "role": { "type": "string", "nullable": false },
+      "scopesJson": { "type": "json", "nullable": false },
+      "status": { "type": "string", "nullable": false }
+    }
+  },
+  "ActionResult": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
+  }
+}

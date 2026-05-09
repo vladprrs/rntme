@@ -1,0 +1,22 @@
+{
+  "id": "listProjects",
+  "signature": {
+    "inputs": {
+      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+    },
+    "output": { "type": "rowset<ProjectView>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "ProjectView" } } },
+    {
+      "id": "active",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["projectView.status", { "$literal": "active" }] }
+      }
+    },
+    { "id": "paged", "type": "limit", "config": { "input": "active", "count": { "$param": "limit" } } },
+    { "id": "out", "type": "result", "value": { "$ref": "paged" } }
+  ]
+}

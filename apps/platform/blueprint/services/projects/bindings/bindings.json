@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listProjects": {
+      "graph": "listProjects",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/",
+        "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
+      },
+      "exposure": "read"
+    },
+    "createProject": {
+      "graph": "createProject",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "slug", "in": "body", "bindTo": "slug", "required": true },
+          { "name": "displayName", "in": "body", "bindTo": "displayName", "required": true }
+        ]
+      },
+      "exposure": "action"
+    },
+    "listProjectVersions": {
+      "graph": "listProjectVersions",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/versions",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read"
+    },
+    "publishProjectVersion": {
+      "graph": "publishProjectVersion",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{projectId}/versions",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true },
+          { "name": "sequence", "in": "body", "bindTo": "sequence", "required": true },
+          { "name": "bundleDigest", "in": "body", "bindTo": "bundleDigest", "required": true },
+          { "name": "bundleObjectKey", "in": "body", "bindTo": "bundleObjectKey", "required": true }
+        ]
+      },
+      "exposure": "action"
+    }
+  }
+}

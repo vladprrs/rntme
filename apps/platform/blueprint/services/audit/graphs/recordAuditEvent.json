@@ -1,0 +1,39 @@
+{
+  "id": "recordAuditEvent",
+  "signature": {
+    "inputs": {
+      "organizationId": { "type": "string", "mode": "required" },
+      "actorId": { "type": "string", "mode": "required" },
+      "action": { "type": "string", "mode": "required" },
+      "targetType": { "type": "string", "mode": "required" },
+      "targetId": { "type": "string", "mode": "required" },
+      "detailsJson": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "AuditEvent",
+        "aggregateId": { "$node": "newId" },
+        "transition": "record",
+        "payload": {
+          "organizationId": { "$param": "organizationId" },
+          "actorId": { "$param": "actorId" },
+          "action": { "$param": "action" },
+          "targetType": { "$param": "targetType" },
+          "targetId": { "$param": "targetId" },
+          "detailsJson": { "$param": "detailsJson" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "createToken",
+  "signature": {
+    "inputs": {
+      "organizationId": { "type": "string", "mode": "required" },
+      "name": { "type": "string", "mode": "required" },
+      "prefix": { "type": "string", "mode": "required" },
+      "scopesJson": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "ApiToken",
+        "aggregateId": { "$node": "newId" },
+        "transition": "create",
+        "payload": {
+          "organizationId": { "$param": "organizationId" },
+          "name": { "$param": "name" },
+          "prefix": { "$param": "prefix" },
+          "scopesJson": { "$param": "scopesJson" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}
