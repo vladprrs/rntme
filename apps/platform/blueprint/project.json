@@ -1,0 +1,21 @@
+{
+  "name": "rntme-platform",
+  "services": ["organizations", "projects", "tokens", "audit"],
+  "routes": {
+    "http": {
+      "/api/organizations": "organizations",
+      "/api/projects": "projects",
+      "/api/tokens": "tokens",
+      "/api/audit": "audit"
+    }
+  },
+  "middleware": {
+    "requestContext": { "kind": "request-context" }
+  },
+  "mounts": [
+    { "target": "http:/api/organizations", "use": ["requestContext"] },
+    { "target": "http:/api/projects", "use": ["requestContext"] },
+    { "target": "http:/api/tokens", "use": ["requestContext"] },
+    { "target": "http:/api/audit", "use": ["requestContext"] }
+  ]
+}
