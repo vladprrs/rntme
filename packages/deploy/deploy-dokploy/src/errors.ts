@@ -14,6 +14,7 @@ export const DEPLOY_DOKPLOY_ERROR_CODES = {
     'DEPLOY_RENDER_DOKPLOY_WORKFLOW_MANIFEST_FILE_MISSING',
   DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE:
     'DEPLOY_RENDER_DOKPLOY_WORKFLOW_SERVICE_ENDPOINT_UNAVAILABLE',
+  DEPLOY_RENDER_DOKPLOY_STACK_ENV_COLLISION: 'DEPLOY_RENDER_DOKPLOY_STACK_ENV_COLLISION',
 } as const;
 
 export type DokployDeploymentErrorCode = keyof typeof DEPLOY_DOKPLOY_ERROR_CODES;
@@ -24,7 +25,8 @@ export type DokployPartialFailureInfrastructureKind =
   | 'operaton-ui-gateway'
   | 'redpanda-console'
   | 'redpanda-console-proxy'
-  | 'object-storage';
+  | 'object-storage'
+  | 'project-stack';
 
 export type DokployPartialFailureResource = {
   readonly logicalId: string;

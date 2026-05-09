@@ -117,6 +117,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **pnpm + Node 20 + tsc + vitest + esbuild** · F8 · `current-default` · *in-flight migration to Bun planned (see section 6 Open Questions)*
 - **dependency-cruiser for layering** · F8 · `locked`
 - **Dokploy for deploy** · F8 · `current-default`
+- **Single Dokploy Compose per project deploy** - Dokploy preview deployments materialize one blueprint/project/environment as one Dokploy Compose resource with per-workload Compose services, not as multiple Dokploy Applications. This preserves blueprint-as-deploy-unit and a canonical Dokploy topology. · G1, G5, F6 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md`
 
 ---
 

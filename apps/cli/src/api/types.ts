@@ -108,10 +108,25 @@ export const DeploymentStatusSchema = z.enum([
 ]);
 export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>;
 
+const WorkloadStatusSchema = z.enum([
+  'running',
+  'healthy',
+  'starting',
+  'failed',
+  'rejected',
+  'exited',
+  'unknown',
+]);
+
 export const VerificationCheckSchema = z.object({
   name: z.string(),
   url: z.string(),
-  status: z.union([z.number().int(), z.literal('timeout'), z.literal('error')]),
+  status: z.union([
+    z.number().int(),
+    z.literal('timeout'),
+    z.literal('error'),
+    WorkloadStatusSchema,
+  ]),
   latencyMs: z.number().int().nonnegative(),
   ok: z.boolean(),
   note: z.string().optional(),

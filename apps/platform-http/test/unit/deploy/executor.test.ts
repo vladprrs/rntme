@@ -310,23 +310,20 @@ describe('runDeployment', () => {
 
     expect(applyPlan).toHaveBeenCalledTimes(1);
     const rendered = applyPlan.mock.calls[0]![0];
-    const worker = rendered.resources.find(
-      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
+    expect(rendered.resources).toHaveLength(1);
+    const stack = rendered.resources[0];
+    if (stack === undefined) throw new Error('expected at least one rendered resource');
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') throw new Error('expected compose stack');
+    const worker = stack.services?.find((service) => service.workloadKind === 'bpmn-worker');
+    const orders = stack.services?.find(
+      (service) => service.workloadKind === 'domain-service' && service.workloadSlug === 'orders',
     );
-    const orders = rendered.resources.find(
-      (resource) =>
-        resource.kind === 'application' &&
-        resource.workloadKind === 'domain-service' &&
-        resource.workloadSlug === 'orders',
-    );
-    expect(rendered.resources).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'compose', infrastructureKind: 'workflow-engine' }),
-      expect.objectContaining({ kind: 'application', workloadKind: 'bpmn-worker' }),
-    ]));
-    expect(worker?.kind).toBe('application');
-    if (worker?.kind !== 'application') throw new Error('missing rendered BPMN worker');
-    expect(orders?.kind).toBe('application');
-    if (orders?.kind !== 'application') throw new Error('missing rendered orders service');
+    const operaton = stack.services?.find((service) => service.serviceClass === 'workflow-engine');
+    expect(operaton).toBeDefined();
+    expect(worker).toBeDefined();
+    expect(orders).toBeDefined();
+    if (orders === undefined || worker === undefined) throw new Error('missing services');
     expect(orders.files?.['/srv/artifacts/ui/manifest.json']).toContain('"version": "2.0"');
     expect(orders.files?.['/srv/artifacts/ui/screens/home.spec.json']).toContain('"Heading"');
     expect(worker.files?.['/srv/workflows/workflows.json']).toContain('"orderFulfillment"');
@@ -335,8 +332,7 @@ describe('runDeployment', () => {
       'deployment-1',
       expect.objectContaining({
         resources: expect.arrayContaining([
-          expect.objectContaining({ infrastructureKind: 'workflow-engine' }),
-          expect.objectContaining({ kind: 'bpmn-worker' }),
+          expect.objectContaining({ resourceKind: 'compose', infrastructureKind: 'project-stack' }),
         ]),
       }),
     );
@@ -969,6 +965,59 @@ describe('runDeployment', () => {
       errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
       errorMessage: expect.stringContaining('operaton-ui-basic-auth-v1'),
     });
+  });
+
+  it('finalizes failed when compose stack guard detects crash-looping workload', async () => {
+    const baseApply = {
+      target: { kind: 'dokploy' as const, environmentId: 'env_default' },
+      deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
+      resources: [
+        {
+          logicalId: 'project-stack',
+          resourceKind: 'compose' as const,
+          infrastructureKind: 'project-stack' as const,
+          targetResourceId: 'compose_1',
+          targetResourceName: 'shop',
+          action: 'created' as const,
+          services: [{ name: 'svc-catalog', serviceClass: 'domain-service' as const }],
+        },
+      ],
+      urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] },
+      renderedPlanDigest: 'sha256:rendered',
+      warnings: [],
+      verificationHints: {
+        healthUrl: 'https://app.example.test/health',
+        publicRouteUrls: [],
+        protectedRouteChecks: [],
+        stack: {
+          composeId: 'compose_1',
+          services: [{ name: 'svc-catalog', serviceClass: 'domain-service' as const }],
+          inspections: [
+            {
+              serviceName: 'svc-catalog',
+              status: 'failed' as const,
+              failedCount: 3,
+              message: 'exit code 1',
+            },
+          ],
+        },
+      },
+    };
+    const { deps, deployments } = setup({
+      applyPlan: vi.fn(async () => ok(baseApply)) as never,
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith(
+      'deployment-1',
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
+        errorMessage: 'workload crash loop detected',
+      }),
+    );
+    expect(deps.smoker.verify).not.toHaveBeenCalled();
   });
 
   it('passes resolved target secrets to dokploy client factory when validation succeeds', async () => {

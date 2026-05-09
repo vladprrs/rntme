@@ -132,65 +132,79 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.resources.some((resource) => resource.logicalId === 'workflow-engine')).toBe(false);
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.some((service) => service.name === 'operaton')).toBe(false);
   });
 
-  it('renders Operaton and BPMN worker resources', () => {
+  it('renders Operaton and BPMN worker inside the project stack with compose service endpoints', () => {
     const result = renderDokployPlan(plan, targetConfig());
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
 
-    expect(
-      result.value.resources.some(
-        (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
-      ),
-    ).toBe(true);
-    const redpanda = result.value.resources.find(
-      (resource) => resource.kind === 'compose' && resource.logicalId === 'event-bus',
-    );
-    expect(redpanda?.kind).toBe('compose');
-    if (redpanda?.kind !== 'compose') return;
-    expect(redpanda.composeFile).toContain(
-      'rpk topic create --brokers rntme-acme-order-fulfillment-event-bus:9092 rntme.acme.orders.order',
-    );
-    expect(redpanda.composeFile).toContain('& pid=$$!');
-    expect(redpanda.composeFile).toContain('wait "$$pid"');
-    expect(redpanda.composeFile).not.toContain('&;');
-
-    const worker = result.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.logicalId === 'bpmn-worker',
-    );
-    expect(worker).toBeDefined();
-    if (worker?.kind !== 'application') return;
-
-    expect(worker.env).toContainEqual({
+    expect(stack.services.map((service) => service.name)).toContain('operaton');
+    expect(stack.services.map((service) => service.name)).toContain('bpmn-worker');
+    const worker = stack.services.find((service) => service.name === 'bpmn-worker');
+    expect(worker?.env).toContainEqual({
       name: 'RNTME_OPERATON_BASE_URL',
-      value: 'http://rntme-acme-order-fulfillment-operaton:8080',
+      value: 'http://operaton:8080',
       secret: false,
     });
-    const operaton = result.value.resources.find(
-      (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
-    );
-    expect(operaton?.kind).toBe('compose');
-    if (operaton?.kind !== 'compose') return;
-    expect(operaton.composeFile).toMatch(
-      /services:[\s\S]*operaton:[\s\S]*networks:\s*\n\s*default:\s*\n\s*dokploy-network:\s*\n\s*aliases:\s*\n\s*- rntme-acme-order-fulfillment-operaton/,
-    );
-    expect(worker.env).toContainEqual({
+    expect(worker?.env.find((entry) => entry.name === 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON')?.value).toContain('svc-');
+  });
+
+  it('renders Operaton and BPMN worker services with deterministic compose env', () => {
+    const result = renderDokployPlan(plan, targetConfig());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    const operaton = stack.services.find((service) => service.name === 'operaton');
+    expect(operaton).toMatchObject({
+      serviceClass: 'workflow-engine',
+      image: 'operaton/operaton:test',
+      restart: { container: 'unless-stopped' },
+    });
+    expect(stack.composeFile).toContain('  operaton:\n');
+
+    const redpanda = stack.services.find((service) => service.name === 'redpanda');
+    expect(redpanda).toMatchObject({
+      serviceClass: 'event-bus',
+      image: 'docker.redpanda.com/redpandadata/redpanda:v24.3.6',
+    });
+    // The redpanda compose service command seeds workflow message-start topics
+    // referenced by BPMN worker subscriptions.
+    expect(redpanda?.command).toContain('rntme.acme.orders.order');
+
+    const worker = stack.services.find((service) => service.name === 'bpmn-worker');
+    expect(worker?.serviceClass).toBe('bpmn-worker');
+    expect(worker?.env).toContainEqual({
+      name: 'RNTME_OPERATON_BASE_URL',
+      value: 'http://operaton:8080',
+      secret: false,
+    });
+    expect(worker?.env).toContainEqual({
       name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
       value: JSON.stringify({
-        'inventory.reserveStock': 'rntme-acme-order-fulfillment-inventory:50051',
-        'orders.confirmOrder': 'rntme-acme-order-fulfillment-orders:50051',
+        'inventory.reserveStock': 'svc-inventory:50051',
+        'orders.confirmOrder': 'svc-orders:50051',
       }),
       secret: false,
     });
-    expect(worker.env).toContainEqual({
+    expect(worker?.env).toContainEqual({
       name: 'RNTME_WORKFLOW_SUBSCRIPTIONS_JSON',
       value: JSON.stringify(plan.workloads.find((workload) => workload.kind === 'bpmn-worker')!.subscriptions),
       secret: false,
     });
-    expect(worker.env).toContainEqual({
+    expect(worker?.env).toContainEqual({
       name: 'RNTME_WORKFLOW_GRPC_SERVICES_JSON',
       value: JSON.stringify({
         inventory: {
@@ -206,10 +220,10 @@ describe('workflow rendering', () => {
       }),
       secret: false,
     });
-    expect(worker.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
+    expect(worker?.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
   });
 
-  it('renders workflow service endpoints from normalized Dokploy domain-service names', () => {
+  it('renders workflow service endpoints with normalized compose service names', () => {
     const result = renderDokployPlan(
       {
         ...plan,
@@ -253,15 +267,14 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const worker = result.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.logicalId === 'bpmn-worker',
-    );
-    expect(worker?.kind).toBe('application');
-    if (worker?.kind !== 'application') return;
-    expect(worker.env).toContainEqual({
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const worker = stack.services.find((service) => service.name === 'bpmn-worker');
+    expect(worker?.env).toContainEqual({
       name: 'RNTME_WORKFLOW_SERVICE_ENDPOINTS_JSON',
       value: JSON.stringify({
-        'Inventory_Service.reserveStock': 'rntme-acme-inc-order-fulfillment-inventory-service:50051',
+        'Inventory_Service.reserveStock': 'svc-inventory-service:50051',
       }),
       secret: false,
     });
@@ -323,9 +336,10 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const worker = result.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
-    );
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const worker = stack.services.find((service) => service.name === 'bpmn-worker');
     expect(Object.keys(worker?.files ?? {})).toEqual([
       '/srv/workflows/a-first.bpmn',
       '/srv/workflows/workflows.json',
@@ -458,9 +472,10 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const worker = result.value.resources.find(
-      (resource) => resource.kind === 'application' && resource.workloadKind === 'bpmn-worker',
-    );
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const worker = stack.services.find((service) => service.name === 'bpmn-worker');
     expect(worker?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_USERNAME',
       value: 'secret://kafka/username',
@@ -478,7 +493,7 @@ describe('workflow rendering', () => {
     });
   });
 
-  it('renders Operaton compose with admin user secret file ref', () => {
+  it('renders Operaton compose service with admin user secret file ref', () => {
     const result = renderDokployPlan(
       {
         ...plan,
@@ -498,12 +513,11 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const operaton = result.value.resources.find(
-      (resource) => resource.kind === 'compose' && resource.logicalId === 'workflow-engine',
-    );
-    expect(operaton?.kind).toBe('compose');
-    if (operaton?.kind !== 'compose') return;
-    expect(operaton.secretFiles).toEqual({
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const operaton = stack.services.find((service) => service.name === 'operaton');
+    expect(operaton?.secretFiles).toEqual({
       '/operaton/configuration/application.yaml': {
         schema: 'operaton-admin-user-v1',
         secretRef: 'operaton-admin-user-v1',
@@ -512,7 +526,7 @@ describe('workflow rendering', () => {
     });
   });
 
-  it('renders Operaton UI gateway with nginx config and basic auth', () => {
+  it('renders Operaton UI gateway as a compose proxy service with basic auth', () => {
     const result = renderDokployPlan(
       {
         ...plan,
@@ -538,35 +552,33 @@ describe('workflow rendering', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const gateway = result.value.resources.find(
-      (resource) =>
-        resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
-    );
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const gateway = stack.services.find((service) => service.name === 'operaton-ui-gateway');
     expect(gateway).toBeDefined();
-    if (gateway?.kind !== 'application') return;
-
-    expect(gateway.name).toBe('rntme-acme-order-fulfillment-operaton-ui-gateway');
-    expect(gateway.image).toBe('nginx:1.27-alpine');
-    expect(gateway.ports).toEqual([{ containerPort: 8080, protocol: 'http' }]);
-    expect(gateway.ingress).toEqual({
-      publicBaseUrl: 'https://operaton.acme.example.test',
-      containerPort: 8080,
-      healthPath: '/health',
-      routes: [],
+    expect(gateway).toMatchObject({
+      serviceClass: 'infrastructure-proxy',
+      image: 'nginx:1.27-alpine',
+      ports: [8080],
     });
-    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain(
-      'auth_basic "rntme Operaton";',
-    );
-    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain(
-      'proxy_pass http://rntme-acme-order-fulfillment-operaton:8080;',
-    );
-    expect(gateway.files?.['/etc/nginx/nginx.conf']).toContain('location = /health');
-    expect(gateway.secretFiles).toEqual({
+    expect(gateway?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic "rntme Operaton";');
+    expect(gateway?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://operaton:8080;');
+    expect(gateway?.files?.['/etc/nginx/nginx.conf']).toContain('location = /health');
+    expect(gateway?.secretFiles).toEqual({
       '/etc/nginx/.htpasswd': {
         schema: 'operaton-ui-basic-auth-v1',
         secretRef: 'operaton-ui-basic-auth-v1',
         field: 'htpasswd',
       },
+    });
+    const gatewayDomain = stack.domains?.find((domain) => domain.serviceName === 'operaton-ui-gateway');
+    expect(gatewayDomain).toEqual({
+      host: 'operaton.acme.example.test',
+      path: '/',
+      serviceName: 'operaton-ui-gateway',
+      containerPort: 8080,
+      https: true,
     });
   });
 
@@ -606,11 +618,10 @@ describe('workflow rendering', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(
-      result.value.resources.some(
-        (resource) => resource.kind === 'application' && resource.infrastructureKind === 'operaton-ui-gateway',
-      ),
-    ).toBe(false);
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    expect(stack.services.some((service) => service.name === 'operaton-ui-gateway')).toBe(false);
     expect(result.value.urls.operatonUiUrl).toBeUndefined();
     expect(result.value.urls.operatonUiAuthChecks).toBeUndefined();
   });
