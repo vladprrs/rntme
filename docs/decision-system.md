@@ -114,7 +114,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 
 ### 3.7 Tooling
 
-- **pnpm + Node 20 + tsc + vitest + esbuild** · F8 · `current-default` · *in-flight migration to Bun planned (see section 6 Open Questions)*
+- **Bun-first toolchain + scoped `tsc` exception** - Bun is the current default for package management, script running, tests, bundling, runtime, Docker runtime, and SQLite (`bun:sqlite`). `tsc` remains only for typecheck and `.d.ts` emit until the package-consumer contract intentionally moves to Bun-native raw TypeScript. · F8, G5 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-bun-first-toolchain-migration-design.md`
 - **dependency-cruiser for layering** · F8 · `locked`
 - **Dokploy for deploy** · F8 · `current-default`
 - **Single Dokploy Compose per project deploy** - Dokploy preview deployments materialize one blueprint/project/environment as one Dokploy Compose resource with per-workload Compose services, not as multiple Dokploy Applications. This preserves blueprint-as-deploy-unit and a canonical Dokploy topology. · G1, G5, F6 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md`
@@ -202,6 +202,6 @@ Unresolved forks. Each carries a `re-evaluate when:` trigger.
 
 1. **Adopt Drizzle ORM in service runtime?** - Considered in spec `2026-04-18-drizzle-adoption-design.md`. Implemented in the platform, but the platform is being rewritten. *Re-evaluate when:* service-layer migration tooling is needed more than raw SQL files.
 
-2. **Migrate toolchain to Bun?** - Replaces pnpm + tsc + esbuild + test runner with one tool (F8, G5). *Re-evaluate when:* a dedicated migration spec starts.
+2. **Move from Bun-first + `tsc` exception to Bun-native raw TypeScript packages?** - Long-term target is raw `.ts` package consumption under Bun, removing `tsc` once rntme intentionally makes Bun the package-consumer contract. *Re-evaluate when:* Bun-first migration has landed and package publishing/consumer requirements are ready for a dedicated 2A spec.
 
 3. **Promote `Operaton` and `Redpanda` from `current-default` to `locked`?** - They are pragmatic defaults today. *Re-evaluate when:* a second project ships on the same engines without friction pointing to another choice.
