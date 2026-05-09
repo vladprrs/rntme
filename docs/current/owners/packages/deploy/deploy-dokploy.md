@@ -30,6 +30,39 @@ that prefix. Error messages never include raw URL values or credentials.
   injected client and returns a structured apply result.
 - `DokployClient` — narrow interface for the real HTTP client and tests.
 
+## Single Compose topology
+
+Dokploy preview deploys render one Compose resource per
+org/project/environment. The Compose resource is the deployment unit and
+contains per-workload services for domain runtime services, integration modules,
+edge, BPMN worker, and provisioned project infrastructure.
+
+Service names are stable:
+
+- `edge`
+- `svc-<serviceSlug>`
+- `mod-<moduleSlug>`
+- `bpmn-worker`
+- `redpanda`
+- `operaton`
+- `rustfs`
+
+Runtime, module, worker, edge, and proxy services render bounded restart policy
+and resource limits. Provisioned infra renders `restart: unless-stopped` for
+host reboot recovery. Post-apply verification inspects Compose service/task
+state before HTTP smoke verification and fails the deployment with
+`DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks
+are observed.
+
+After a successful project-stack apply, the apply pipeline lists existing
+applications and composes in the same Dokploy environment and removes any
+resources that (a) carry the `rntme.managed-by=rntme-deploy-dokploy` label,
+(b) have a name starting with the `rntme-<org>-<project>-` prefix, and
+(c) are not the current project-stack. This drains legacy per-workload
+applications/composes left over from the pre-stack topology. Cleanup is
+best-effort: failures are swallowed because the apply itself already
+succeeded, and unmanaged or other-project resources are never touched.
+
 ## Apply hardening
 
 Application file mounts are idempotent by `mountPath`: apply lists existing mounts, updates the first matching mount, creates missing mounts, and removes duplicate stale mounts for the same target path. Generated `filePath` values use the platform convention `/etc/dokploy/rntme/<applicationId>/<digest>-<safe-name>` so Dokploy materializes real source files for Swarm bind mounts.

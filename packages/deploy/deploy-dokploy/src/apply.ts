@@ -190,6 +190,8 @@ export async function applyDokployPlan(
       }
     }
 
+    await cleanupOldTopology(client, environmentId, rendered, applied).catch(() => undefined);
+
     return ok({
       target: { kind: 'dokploy', environmentId },
       deployment: rendered.deployment,
@@ -465,6 +467,61 @@ function appliedResource(
     targetResourceName: target.name,
     action,
   };
+}
+
+/**
+ * Best-effort cleanup of legacy rntme-managed Dokploy resources. After a
+ * successful project-stack apply this removes pre-existing applications and
+ * composes in the same environment that:
+ *   - carry the `rntme.managed-by` = `rntme-deploy-dokploy` label, and
+ *   - have a name starting with the rntme `<org>-<project>-` prefix, and
+ *   - are not the current project-stack compose.
+ *
+ * Resources owned by other systems (different `rntme.managed-by`, missing
+ * label, or unrelated name) are left untouched. Any list/delete failure is
+ * swallowed by the caller via `.catch(() => undefined)` because the apply
+ * itself already succeeded.
+ */
+async function cleanupOldTopology(
+  client: DokployClient,
+  environmentId: string,
+  rendered: RenderedDokployPlan,
+  applied: readonly DeploymentApplyResource[],
+): Promise<void> {
+  const stackName = applied.find(
+    (resource) => resource.infrastructureKind === 'project-stack',
+  )?.targetResourceName;
+  if (stackName === undefined) return;
+
+  const expectedPrefix = `rntme-${rendered.deployment.orgSlug}-${rendered.deployment.projectSlug}-`;
+
+  if (client.listApplications !== undefined) {
+    const applications = await client.listApplications(environmentId);
+    for (const app of applications) {
+      if (!isCleanupCandidate(app.name, app.labels, stackName, expectedPrefix)) continue;
+      await client.deleteApplication(app.id);
+    }
+  }
+
+  if (client.listComposes !== undefined) {
+    const composes = await client.listComposes(environmentId);
+    for (const compose of composes) {
+      if (!isCleanupCandidate(compose.name, compose.labels, stackName, expectedPrefix)) continue;
+      await client.deleteCompose(compose.id);
+    }
+  }
+}
+
+function isCleanupCandidate(
+  name: string,
+  labels: Readonly<Record<string, string>> | undefined,
+  stackName: string,
+  expectedPrefix: string,
+): boolean {
+  if (name === stackName) return false;
+  if (!name.startsWith(expectedPrefix)) return false;
+  if (labels?.['rntme.managed-by'] !== 'rntme-deploy-dokploy') return false;
+  return true;
 }
 
 function resourceOrder(a: RenderedDokployResource, b: RenderedDokployResource): number {

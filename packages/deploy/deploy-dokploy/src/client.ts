@@ -121,4 +121,14 @@ export type DokployClient = {
   ): Promise<readonly DokployComposeTaskInspection[]>;
   deleteApplication(applicationId: string): Promise<void>;
   deleteCompose(composeId: string): Promise<void>;
+  /**
+   * Optional list methods used by post-apply old-topology cleanup. When
+   * implemented, the apply pipeline lists existing org/project applications
+   * and composes after a successful project-stack apply and removes any
+   * resources still labelled `rntme.managed-by=rntme-deploy-dokploy` whose
+   * names match the project prefix but are not the current project-stack.
+   * Best-effort: failures are swallowed.
+   */
+  listApplications?(environmentId: string): Promise<readonly DokployApplication[]>;
+  listComposes?(environmentId: string): Promise<readonly DokployCompose[]>;
 };
