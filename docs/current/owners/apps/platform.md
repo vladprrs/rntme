@@ -46,6 +46,12 @@ execution evidence. The first implementation uses an internal adapter seam to
 call the existing Dokploy deploy path. A public deploy-adapter module contract
 is intentionally deferred.
 
+## Runtime cutover
+
+The active platform runtime is hosted through `apps/platform-http` blueprint
+mode. The platform blueprint is the source of truth for domain API and UI
+surfaces. The old `/v1/*` Hono route ownership is not part of blueprint mode.
+
 ## Identity
 
 The platform blueprint uses `@rntme/identity-auth0` as its first identity

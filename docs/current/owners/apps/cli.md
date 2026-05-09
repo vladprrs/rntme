@@ -290,6 +290,44 @@ Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.
 - **Platform API design:** See `docs/history/specs/historical/2026-04-19-platform-api-design.md` in the rntme monorepo
 - **Deployment pipeline design:** See `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md` in the rntme monorepo
 
+## Platform API surface (partial migration)
+
+The CLI is partially migrated to the platform blueprint `/api/*` surface. The
+migration is in progress; many flows still use the legacy `/v1/*` Hono routes
+because the platform blueprint does not yet expose equivalent bindings for
+those operations.
+
+### Migrated to `/api/*`
+
+| CLI operation | Endpoint |
+|---|---|
+| `project create` | `POST /api/projects` |
+| `project list` | `GET /api/projects` |
+| `project version list` | `GET /api/projects/{projectId}/versions` |
+| `project publish` (bundle upload) | `POST /api/projects/{projectId}/versions` |
+| `project deploy` (start) | `POST /api/deployments` |
+| `project deployment list` | `GET /api/deployments` |
+| `project deployment show` | `GET /api/deployments/{deploymentId}` |
+| `project deployment watch` (logs) | `GET /api/deployments/{deploymentId}/logs` |
+
+These endpoints route through the platform blueprint generated bindings when
+`PLATFORM_RUNTIME_MODE=blueprint` is active. The default mode is `legacy`; the
+blueprint surface is opt-in.
+
+### Remaining on legacy `/v1/*`
+
+| CLI operation | Legacy endpoint | Reason |
+|---|---|---|
+| `whoami` | `GET /v1/auth/me` | No platform blueprint auth binding yet |
+| `token create/list/revoke` | `/v1/orgs/{org}/tokens` | No `/api/tokens` binding yet |
+| `project show` | `GET /v1/orgs/{org}/projects/{project}` | No `getProject` binding yet |
+| `project version show` | `GET /v1/orgs/{org}/projects/{project}/versions/{seq}` | No single-version binding yet |
+| `project update` / `project delete` (operations) | `/v1/orgs/{org}/projects/{project}/operations/*` | No project-operations bindings yet |
+| `target list/show/create/set-config` | `/v1/orgs/{org}/deploy-targets/*` | No deploy-targets bindings yet |
+
+The platform blueprint must expose bindings for the remaining operations before
+the `/v1/*` surface can be retired.
+
 ## Bootstrapping a new project
 
 ```bash
