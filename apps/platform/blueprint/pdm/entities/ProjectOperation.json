@@ -8,8 +8,8 @@
     "projectId": { "type": "string", "nullable": false, "column": "project_id" },
     "kind": { "type": "string", "nullable": false, "column": "kind" },
     "status": { "type": "string", "nullable": false, "column": "status" },
-    "inputJson": { "type": "json", "nullable": false, "column": "input_json" },
-    "resultJson": { "type": "json", "nullable": true, "column": "result_json" },
+    "inputJson": { "type": "string", "nullable": false, "column": "input_json" },
+    "resultJson": { "type": "string", "nullable": true, "column": "result_json" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
     "startedAt": { "type": "datetime", "nullable": true, "column": "started_at" },
     "finishedAt": { "type": "datetime", "nullable": true, "column": "finished_at" }

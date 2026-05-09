@@ -1,0 +1,42 @@
+{
+  "id": "listDeployTargets",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "organizationId": { "type": "string", "mode": "required" },
+      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+    },
+    "output": { "type": "rowset<DeployTargetView>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "DeployTargetView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["deployTargetView.organizationId", { "$param": "organizationId" }] }
+      }
+    },
+    { "id": "paged", "type": "limit", "config": { "input": "filtered", "count": { "$param": "limit" } } },
+    { "id": "out", "type": "result", "value": { "$ref": "paged" } }
+  ]
+}

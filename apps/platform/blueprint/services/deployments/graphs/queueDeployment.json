@@ -1,0 +1,54 @@
+{
+  "id": "queueDeployment",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "organizationId": { "type": "string", "mode": "required" },
+      "projectId": { "type": "string", "mode": "required" },
+      "projectVersionId": { "type": "string", "mode": "required" },
+      "targetId": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Deployment",
+        "aggregateId": { "$node": "newId" },
+        "transition": "queue",
+        "payload": {
+          "organizationId": { "$param": "organizationId" },
+          "projectId": { "$param": "projectId" },
+          "projectVersionId": { "$param": "projectVersionId" },
+          "targetId": { "$param": "targetId" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

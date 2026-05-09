@@ -8,7 +8,7 @@
     "slug": { "type": "string", "nullable": false, "column": "slug" },
     "provider": { "type": "string", "nullable": false, "column": "provider" },
     "environment": { "type": "string", "nullable": false, "column": "environment" },
-    "configJson": { "type": "json", "nullable": false, "column": "config_json" },
+    "configJson": { "type": "string", "nullable": false, "column": "config_json" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
   },

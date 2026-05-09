@@ -9,7 +9,7 @@
     "projectVersionId": { "type": "string", "nullable": false, "column": "project_version_id" },
     "targetId": { "type": "string", "nullable": false, "column": "target_id" },
     "status": { "type": "string", "nullable": false, "column": "status" },
-    "resultJson": { "type": "json", "nullable": true, "column": "result_json" },
+    "resultJson": { "type": "string", "nullable": true, "column": "result_json" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
     "startedAt": { "type": "datetime", "nullable": true, "column": "started_at" },
     "finishedAt": { "type": "datetime", "nullable": true, "column": "finished_at" }
