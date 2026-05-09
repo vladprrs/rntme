@@ -104,13 +104,11 @@ export async function applyDokployPlan(
           ], createdForCleanup);
           if (!lifecycleResult.ok) return lifecycleResult;
           if (resource.infrastructureKind === 'project-stack') {
-            stackVerification = {
-              composeId: created.targetResourceId,
-              services: lifecycleResult.value.services,
-              ...(lifecycleResult.value.inspections === undefined
-                ? {}
-                : { inspections: lifecycleResult.value.inspections }),
-            };
+            stackVerification = stackVerificationFor(
+              created.targetResourceId,
+              lifecycleResult.value.services,
+              lifecycleResult.value.inspections,
+            );
           }
           applied.push(created);
           continue;
@@ -120,10 +118,10 @@ export async function applyDokployPlan(
         if (resourceMatches(existing, resource)) {
           const unchanged = appliedResource(resource, existing, 'unchanged');
           if (resource.infrastructureKind === 'project-stack') {
-            stackVerification = {
-              composeId: unchanged.targetResourceId,
-              services: serviceSummaries(resource),
-            };
+            stackVerification = stackVerificationFor(
+              unchanged.targetResourceId,
+              serviceSummaries(resource),
+            );
           }
           applied.push(unchanged);
           continue;
@@ -138,13 +136,11 @@ export async function applyDokployPlan(
         ], createdForCleanup);
         if (!lifecycleResult.ok) return lifecycleResult;
         if (resource.infrastructureKind === 'project-stack') {
-          stackVerification = {
-            composeId: updated.targetResourceId,
-            services: lifecycleResult.value.services,
-            ...(lifecycleResult.value.inspections === undefined
-              ? {}
-              : { inspections: lifecycleResult.value.inspections }),
-          };
+          stackVerification = stackVerificationFor(
+            updated.targetResourceId,
+            lifecycleResult.value.services,
+            lifecycleResult.value.inspections,
+          );
         }
         applied.push(updated);
         continue;
@@ -419,8 +415,28 @@ async function runComposeLifecycle(
   });
 }
 
+// Mirrors Task 6's stack guard OK set: a task with failedCount=0 in any of these
+// statuses is considered healthy, so we don't surface inspections for it here.
 function isHealthyRunning(task: DokployComposeTaskInspection): boolean {
-  return (task.status === 'running' || task.status === 'healthy') && task.failedCount === 0;
+  if (task.failedCount > 0) return false;
+  return (
+    task.status === 'running' ||
+    task.status === 'healthy' ||
+    task.status === 'starting' ||
+    task.status === 'unknown'
+  );
+}
+
+function stackVerificationFor(
+  composeId: string,
+  services: readonly DokployComposeServiceSummary[],
+  inspections?: readonly DokployComposeTaskInspection[],
+): NonNullable<DeploymentApplyResult['verificationHints']['stack']> {
+  return {
+    composeId,
+    services,
+    ...(inspections !== undefined ? { inspections } : {}),
+  };
 }
 
 function serviceSummaries(
