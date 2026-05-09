@@ -23,6 +23,29 @@ export type DokployComposeTaskInspection = {
   readonly message?: string;
 };
 
+/**
+ * Shared OK predicate for compose tasks: a task with `failedCount === 0` in any
+ * of the listed statuses is considered healthy. Both apply-side inspection
+ * surfacing and post-apply crash-loop verification must agree on this set,
+ * otherwise healthy tasks would still be surfaced as inspections and trigger
+ * crash-loop guards.
+ *
+ * Parameter type is structural so callers don't have to construct a full
+ * `DokployComposeTaskInspection` if they have looser data.
+ */
+export function isComposeTaskHealthy(task: {
+  readonly status: DokployComposeTaskInspection['status'];
+  readonly failedCount: number;
+}): boolean {
+  if (task.failedCount > 0) return false;
+  return (
+    task.status === 'running' ||
+    task.status === 'healthy' ||
+    task.status === 'starting' ||
+    task.status === 'unknown'
+  );
+}
+
 export type DokployApplication = {
   readonly id: string;
   readonly name: string;

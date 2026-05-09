@@ -5,6 +5,7 @@ import type {
   DokployComposeServiceSummary,
   DokployComposeTaskInspection,
 } from './client.js';
+import { isComposeTaskHealthy } from './client.js';
 import type {
   DokployDeploymentError,
   DokployPartialFailureCleanup,
@@ -399,7 +400,7 @@ async function runComposeLifecycle(
       );
       // Only surface inspections when at least one task is not in a healthy
       // running state; Task 6 uses this signal to flag crash loops.
-      const interesting = inspected.filter((task) => !isHealthyRunning(task));
+      const interesting = inspected.filter((task) => !isComposeTaskHealthy(task));
       inspections = interesting.length > 0 ? inspected : undefined;
     } catch (cause) {
       return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
@@ -413,18 +414,6 @@ async function runComposeLifecycle(
     services: renderedSummaries,
     ...(inspections === undefined ? {} : { inspections }),
   });
-}
-
-// Mirrors Task 6's stack guard OK set: a task with failedCount=0 in any of these
-// statuses is considered healthy, so we don't surface inspections for it here.
-function isHealthyRunning(task: DokployComposeTaskInspection): boolean {
-  if (task.failedCount > 0) return false;
-  return (
-    task.status === 'running' ||
-    task.status === 'healthy' ||
-    task.status === 'starting' ||
-    task.status === 'unknown'
-  );
 }
 
 function stackVerificationFor(

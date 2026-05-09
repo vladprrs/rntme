@@ -15,6 +15,7 @@ export {
   type DokployComposeServiceSummary,
   type DokployComposeTaskInspection,
   type DokployProjectRef,
+  isComposeTaskHealthy,
 } from './client.js';
 export {
   type RenderedComposeDomain,

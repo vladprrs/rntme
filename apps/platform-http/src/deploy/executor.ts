@@ -32,7 +32,7 @@ import {
   targetForVars,
 } from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
-import { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
+import { applyDokployPlan, isComposeTaskHealthy, renderDokployPlan } from '@rntme/deploy-dokploy';
 import { build, type Plugin } from 'esbuild';
 import {
   isOk,
@@ -658,18 +658,13 @@ function verifyComposeStack(applyResult: DeploymentApplyResult): VerificationRep
   const stack = applyResult.verificationHints.stack;
   if (stack === undefined) return null;
   const checks = (stack.inspections ?? []).map((inspection) => {
-    const statusOk =
-      inspection.status === 'running' ||
-      inspection.status === 'healthy' ||
-      inspection.status === 'starting' ||
-      inspection.status === 'unknown';
     return {
       name: `workload ${inspection.serviceName}`,
       url: `dokploy:compose/${stack.composeId}/${inspection.serviceName}`,
       status: inspection.status,
       latencyMs: 0,
-      ok: statusOk && inspection.failedCount === 0,
-      note: inspection.message ?? `failedCount=${inspection.failedCount}`,
+      ok: isComposeTaskHealthy(inspection),
+      note: inspection.message ?? `status=${inspection.status} failedCount=${inspection.failedCount}`,
     };
   });
   if (checks.length === 0) return { checks: [], ok: true, partialOk: false };
