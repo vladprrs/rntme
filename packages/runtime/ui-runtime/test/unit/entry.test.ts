@@ -8,6 +8,25 @@ const requestPath = (input: RequestInfo | URL): string => {
   return String(input);
 };
 
+type RenderedAppShell = {
+  props: {
+    layoutSpec: unknown;
+    screenSpec: {
+      root: string;
+      elements: Record<string, { type: string; props?: Record<string, unknown>; children?: string[] }>;
+    } | null;
+    store: {
+      get: (path: string) => unknown;
+    };
+  };
+};
+
+function lastRenderedApp(): RenderedAppShell {
+  const app = render.mock.calls.at(-1)?.[0] as RenderedAppShell | undefined;
+  if (!app) throw new Error('expected AppShell to render');
+  return app;
+}
+
 vi.mock('react-dom/client', () => ({
   createRoot: vi.fn(() => ({
     render,
@@ -278,6 +297,166 @@ describe('mountUiRuntime', () => {
       '/_layouts/main.json',
       '/_screens/home.json'
     ]);
+  });
+
+  it('renders not-found for unmatched initial path without redirecting to the first route', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/': { layout: 'main', screen: 'home' },
+        '/issues/:id': { layout: 'main', screen: 'issue' },
+      },
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestPath(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') {
+        throw new Error('unmatched route must not load the first layout');
+      }
+      if (url === '/_screens/home.json' || url === '/_screens/issue.json') {
+        throw new Error('unmatched route must not load a manifest screen');
+      }
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+
+    window.history.replaceState({}, '', '/missing');
+    replaceState.mockClear();
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport,
+      initialState: { route: { params: { id: 'stale' } } } as Record<string, unknown>,
+    });
+
+    const app = lastRenderedApp();
+
+    expect(window.location.pathname).toBe('/missing');
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(vi.mocked(transport).mock.calls.map(([input]) => requestPath(input))).toEqual([
+      '/_manifest.json',
+    ]);
+    expect(app.props.layoutSpec).toBeNull();
+    expect(app.props.screenSpec?.root).toBe('runtimeNotFound');
+    expect(app.props.screenSpec?.elements.runtimeNotFoundTitle?.props?.text).toBe('Page not found');
+    expect(app.props.screenSpec?.elements.runtimeNotFoundPath?.props?.text).toBe('/missing');
+    expect(app.props.store.get('/route/status')).toBe('not_found');
+    expect(app.props.store.get('/route/path')).toBe('/missing');
+    expect(app.props.store.get('/route/params')).toEqual({});
+    expect(app.props.store.get('/route/params/id')).toBeUndefined();
+
+    replaceState.mockRestore();
+  });
+
+  it('sets route diagnostics for matched parameterized routes', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/': { layout: 'main', screen: 'home' },
+        '/issues/:id': { layout: 'main', screen: 'issue' },
+      },
+    };
+    const layout: CompiledScreen = {
+      spec: {
+        root: 'layout',
+        elements: {
+          layout: { type: 'Stack', props: {} },
+        },
+      },
+    };
+    const issueScreen: CompiledScreen = {
+      spec: {
+        root: 'page',
+        elements: {
+          page: { type: 'Heading', props: { text: 'Issue' } },
+        },
+      },
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestPath(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') return Response.json(layout);
+      if (url === '/_screens/issue.json') return Response.json(issueScreen);
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    window.history.replaceState({}, '', '/issues/42');
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport,
+    });
+
+    const app = lastRenderedApp();
+
+    expect(app.props.store.get('/route/status')).toBe('ok');
+    expect(app.props.store.get('/route/path')).toBe('/issues/42');
+    expect(app.props.store.get('/route/params')).toEqual({ id: '42' });
+    expect(app.props.store.get('/route/params/id')).toBe('42');
+  });
+
+  it('renders not-found on browser back to an unmatched path without leaving the previous screen mounted', async () => {
+    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    const manifest: CompiledManifest = {
+      version: '2.0',
+      metadata: { title: 'Notes' },
+      routes: {
+        '/issues/:id': { layout: 'main', screen: 'issue' },
+      },
+    };
+    const layout: CompiledScreen = {
+      spec: {
+        root: 'layout',
+        elements: {
+          layout: { type: 'Stack', props: {} },
+        },
+      },
+    };
+    const issueScreen: CompiledScreen = {
+      spec: {
+        root: 'page',
+        elements: {
+          page: { type: 'Heading', props: { text: 'Issue' } },
+        },
+      },
+    };
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestPath(input);
+      if (url === '/_manifest.json') return Response.json(manifest);
+      if (url === '/_layouts/main.json') return Response.json(layout);
+      if (url === '/_screens/issue.json') return Response.json(issueScreen);
+      return new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    window.history.replaceState({}, '', '/issues/42');
+
+    await mountUiRuntime({
+      manifestUrl: '/_manifest.json',
+      target: document.querySelector<HTMLElement>('#root')!,
+      transport,
+    });
+
+    expect(lastRenderedApp().props.screenSpec?.elements.page?.props?.text).toBe('Issue');
+
+    window.history.pushState({}, '', '/missing');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await Promise.resolve();
+
+    const app = lastRenderedApp();
+
+    expect(window.location.pathname).toBe('/missing');
+    expect(app.props.layoutSpec).toBeNull();
+    expect(app.props.screenSpec?.root).toBe('runtimeNotFound');
+    expect(app.props.store.get('/route/status')).toBe('not_found');
+    expect(app.props.store.get('/route/path')).toBe('/missing');
+    expect(app.props.store.get('/route/params')).toEqual({});
+    expect(app.props.store.get('/route/params/id')).toBeUndefined();
   });
 
   it('passes route-derived renderer identity keys to AppShell and updates them on navigation', async () => {
