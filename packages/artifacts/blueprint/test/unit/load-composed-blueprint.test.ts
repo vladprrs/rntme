@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -91,5 +91,47 @@ describe('loadComposedBlueprint', () => {
     expect(uiError?.cause).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'UNKNOWN_COMPONENT_TYPE' })]),
     );
+  });
+
+  it('loads project-level init artifact during composition', async () => {
+    const copied = copyFixture();
+    mkdirSync(join(copied, 'init', 'files'), { recursive: true });
+    writeFileSync(join(copied, 'init', 'project-initialized.bpmn'), '<definitions />');
+    const seedText = readFileSync(
+      join(copied, 'services', 'pricing', 'seed', 'seed.json'),
+      'utf8',
+    );
+    writeFileSync(join(copied, 'init', 'files', 'pricing.seed.json'), seedText);
+    writeFileSync(
+      join(copied, 'init', 'init.json'),
+      JSON.stringify(
+        {
+          initVersion: 1,
+          process: {
+            kind: 'bpmn',
+            definition: 'project-initialized.bpmn',
+            processId: 'ProjectInitialized',
+          },
+          steps: [
+            {
+              id: 'pricing.initial',
+              type: 'init',
+              provider: 'seed-events',
+              targetService: 'pricing',
+              mode: 'lifecycle',
+              input: { path: 'files/pricing.seed.json' },
+              dependsOn: [],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const r = await loadComposedBlueprint(copied);
+    expect(r.ok, r.ok ? '' : JSON.stringify(r.errors)).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.init?.steps[0]?.id).toBe('pricing.initial');
   });
 });

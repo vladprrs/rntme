@@ -122,6 +122,8 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   let currentLayout: CompiledScreen | null = null;
   let currentScreen: CompiledScreen | null = null;
   let currentLayoutName: string | null = null;
+  let currentLayoutKey = 'layout:none';
+  let currentScreenKey = 'screen:none';
   const operationRegistry = createOperationRegistry();
 
   const bus = createLifecycleBus();
@@ -249,6 +251,8 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
   function renderNotFound(path: string): void {
     currentLayout = null;
     currentLayoutName = null;
+    currentLayoutKey = 'layout:none';
+    currentScreenKey = `screen:not_found:${path}`;
     currentScreen = createNotFoundScreen(path);
     setNotFoundRouteState(path);
     rerender();
@@ -266,6 +270,9 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
       renderNotFound(path);
       return;
     }
+
+    currentLayoutKey = `layout:${routeEntry.layout}`;
+    currentScreenKey = `screen:${match.pattern}:${routeEntry.screen}`;
 
     setMatchedRouteState(path, match.params);
     bus.emit('navigate', { path, params: match.params });
@@ -297,6 +304,8 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
         actionHandlers,
         store,
         operationRegistry,
+        layoutKey: currentLayoutKey,
+        screenKey: currentScreenKey,
       }),
     );
   }

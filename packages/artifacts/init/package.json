@@ -1,9 +1,9 @@
 {
-  "name": "@rntme/blueprint",
+  "name": "@rntme/init",
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "Project-first blueprint folder parser/validator for rntme.",
+  "description": "Project-level lifecycle init artifact parser and validator.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,10 +12,7 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -26,16 +23,9 @@
   },
   "dependencies": {
     "@rntme/artifact-shared": "workspace:*",
-    "@rntme/bindings": "workspace:*",
-    "@rntme/platform-core": "workspace:*",
     "@rntme/pdm": "workspace:*",
-    "@rntme/qsm": "workspace:*",
     "@rntme/seed": "workspace:*",
-    "@rntme/ui": "workspace:*",
-    "@rntme/init": "workspace:*",
-    "@rntme/workflows": "workspace:*",
-    "zod": "^4.0.0",
-    "@rntme/contracts-module-v1": "workspace:*"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

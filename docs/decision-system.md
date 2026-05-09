@@ -68,8 +68,9 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 
 - **SQLite as default service store** - simplifies deploy (no provisioned DB) and avoids a db-per-service Postgres zoo. Alternatives (ClickHouse/DuckDB for analytics, Postgres where justified) are allowed when there is a concrete reason. · F8, G5 · `current-default`
 - **RustFS as provisioned object storage (current default)** - target-local S3-compatible storage for preview Dokploy targets; external S3-compatible storage remains supported. · F8, G5 · `current-default` · spec `docs/superpowers/specs/2026-05-08-provisioned-rustfs-storage-design.md`
-- **Single-writer event log** - `event_store` is the only write path; load-bearing for optimistic concurrency and the monotonic publish cursor · G1 · `locked` · ADR `docs/adr/2026-04-15-event-driven-architecture.md`
-- **No outbox table; event log IS the outbox** - plus delivery tracking for metrics · F2 · `locked` · ADR D1
+- ~~**Single-writer event log** - `event_store` is the only write path; load-bearing for optimistic concurrency and the monotonic publish cursor · G1 · `superseded` · superseded by `Project event log + DWH own replay truth` in spec `docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md`~~
+- ~~**No outbox table; event log IS the outbox** - plus delivery tracking for metrics · F2 · `superseded` · superseded by `Project event log + DWH own replay truth` in spec `docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md`~~
+- **Project event log + DWH own replay truth** - Kafka-compatible project topics are the operational event log; DWH is the long-retention replay/audit source. Service-local event stores are allowed as transactional outbox/write buffers, not as the durable replay boundary. QSM is serving state and must not be treated as replay truth. Events must carry the domain facts needed to rebuild owned projections; projection logic must not depend on unrecorded point-in-time external state. · G1, G3, F4, F6, F8 · `locked-pending` · spec `docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md`
 
 ### 3.3 Eventing & Messaging
 
