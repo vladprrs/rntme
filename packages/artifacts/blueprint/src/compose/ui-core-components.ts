@@ -5,6 +5,7 @@ const CORE_COMPONENTS: Readonly<Record<string, ComponentInfo>> = {
   Button: { childrenModel: 'none', props: {} },
   Card: { childrenModel: 'list', props: {} },
   DataList: { childrenModel: 'none', props: {} },
+  DataTable: { childrenModel: 'none', props: {} },
   Heading: { childrenModel: 'none', props: {} },
   Input: { childrenModel: 'none', props: {} },
   Slot: { childrenModel: 'none', props: {} },

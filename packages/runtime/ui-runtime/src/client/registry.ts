@@ -17,6 +17,21 @@ export type RuntimeBridge = {
   operationRegistry?: OperationRegistry;
 };
 
+function DataTable(props: { statePath?: string; columns?: ReadonlyArray<{ key: string; label: string }> }) {
+  return React.createElement('div', { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' });
+}
+
+const coreDefs = {
+  DataTable: {
+    props: z.object({
+      statePath: z.string().optional(),
+      columns: z.array(z.object({ key: z.string(), label: z.string() })).optional(),
+    }),
+  },
+} as const;
+
+const coreReact = { DataTable } as const;
+
 function propsRecordToZod(props: Record<string, PropSchema>): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [k, sch] of Object.entries(props)) {
@@ -88,12 +103,12 @@ export function createRegistry(bridge: RuntimeBridge, surface?: ModuleSurfaceFor
   }
 
   const catalog = defineCatalog(schema, {
-    components: { ...shadcnComponentDefinitions, ...(extraDefs as typeof shadcnComponentDefinitions) },
+    components: { ...shadcnComponentDefinitions, ...(coreDefs as unknown as typeof shadcnComponentDefinitions), ...(extraDefs as typeof shadcnComponentDefinitions) },
     actions: { ...sharedActions },
   });
 
   const { registry, handlers } = defineRegistry(catalog, {
-    components: { ...shadcnComponents, ...extraReact },
+    components: { ...shadcnComponents, ...coreReact, ...extraReact },
     actions: {
       navigate: async (params) => {
         if (!params) return;
