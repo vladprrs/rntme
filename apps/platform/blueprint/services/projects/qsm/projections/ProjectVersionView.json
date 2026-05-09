@@ -3,5 +3,5 @@
   "source": { "entity": "ProjectVersion" },
   "keys": ["id"],
   "grain": ["id"],
-  "exposed": ["projectId", "sequence", "bundleDigest", "bundleObjectKey", "status", "createdAt"]
+  "exposed": ["projectId", "sequence", "bundleDigest", "bundleObjectKey", "status"]
 }

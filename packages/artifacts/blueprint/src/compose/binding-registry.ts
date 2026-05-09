@@ -60,7 +60,6 @@ export function buildUiHttpMap(
 function joinHttpPath(basePath: string, bindingPath: string): string {
   const base = basePath === '/' ? '' : basePath.replace(/\/+$/, '');
   const path = bindingPath === '/' ? '' : bindingPath.replace(/^\/+/, '');
-  if (path === '') return base === '' ? '/' : base;
   const joined = `${base}/${path}`.replace(/\/{2,}/g, '/');
   return joined === '' ? '/' : joined;
 }

@@ -3,5 +3,5 @@
   "source": { "entity": "Project" },
   "keys": ["id"],
   "grain": ["id"],
-  "exposed": ["organizationId", "slug", "displayName", "status", "createdAt"]
+  "exposed": ["organizationId", "slug", "displayName", "status"]
 }
