@@ -37,6 +37,7 @@
     "@rntme/deploy-dokploy": "workspace:*",
     "@rntme/platform-core": "workspace:*",
     "@rntme/platform-storage": "workspace:*",
+    "@rntme/ui-runtime": "workspace:*",
     "@workos-inc/node": "^7.32.0",
     "esbuild": "^0.27.7",
     "hono": "^4.6.3",

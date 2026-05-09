@@ -148,6 +148,9 @@ importers:
       '@rntme/platform-storage':
         specifier: workspace:*
         version: link:../../packages/platform/platform-storage
+      '@rntme/ui-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime/ui-runtime
       '@workos-inc/node':
         specifier: ^7.32.0
         version: 7.82.0
