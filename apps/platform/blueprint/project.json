@@ -1,6 +1,6 @@
 {
   "name": "rntme-platform",
-  "services": ["organizations", "projects", "tokens", "audit", "identity-auth0"],
+  "services": ["organizations", "projects", "tokens", "audit", "identity-auth0", "deployments"],
   "vars": {
     "AUTH0_SPA_CLIENT_ID": { "from": "provision.identity.spaClient.id", "required": true },
     "AUTH0_DOMAIN": { "from": "target.auth.auth0.domain", "required": true },
@@ -24,7 +24,8 @@
       "/api/organizations": "organizations",
       "/api/projects": "projects",
       "/api/tokens": "tokens",
-      "/api/audit": "audit"
+      "/api/audit": "audit",
+      "/api/deployments": "deployments"
     }
   },
   "middleware": {
@@ -40,6 +41,7 @@
     { "target": "http:/api/organizations", "use": ["requestContext", "auth"] },
     { "target": "http:/api/projects", "use": ["requestContext", "auth"] },
     { "target": "http:/api/tokens", "use": ["requestContext", "auth"] },
-    { "target": "http:/api/audit", "use": ["requestContext", "auth"] }
+    { "target": "http:/api/audit", "use": ["requestContext", "auth"] },
+    { "target": "http:/api/deployments", "use": ["requestContext", "auth"] }
   ]
 }
