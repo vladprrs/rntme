@@ -31,6 +31,17 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 | `ApiToken` | `tokens` | Machine token metadata, prefix, scopes, revocation state. |
 | `AuditEvent` | `audit` | Append-only inspectable audit stream. |
 
+## Identity
+
+The platform blueprint uses `@rntme/identity-auth0` as its first identity
+provider through the canonical identity contract. Platform API mounts use the
+project `auth` middleware with Auth0 edge introspection. Graphs receive the
+`Authorization` header through binding `inputFrom.authorization` and call
+`identity-auth0.IntrospectSession` for canonical session data.
+
+WorkOS remains a legacy hosted-platform integration until a future provider
+parity plan adds canonical session/edge introspection support.
+
 ## Local commands
 
 ```bash
