@@ -55,13 +55,16 @@ state before HTTP smoke verification and fails the deployment with
 are observed.
 
 After a successful project-stack apply, the apply pipeline lists existing
-applications and composes in the same Dokploy environment and removes any
-resources that (a) carry the `rntme.managed-by=rntme-deploy-dokploy` label,
-(b) have a name starting with the `rntme-<org>-<project>-` prefix, and
-(c) are not the current project-stack. This drains legacy per-workload
-applications/composes left over from the pre-stack topology. Cleanup is
-best-effort: failures are swallowed because the apply itself already
-succeeded, and unmanaged or other-project resources are never touched.
+applications and composes in the same Dokploy environment and removes legacy
+per-workload resources left over from the pre-stack topology. A candidate is
+deleted when its name starts with the `rntme-<org>-<project>-` prefix and it
+is not the current project-stack. The name prefix is the primary ownership
+marker because Dokploy's list APIs do not return resource-level labels; an
+explicit foreign `rntme.managed-by` label on a candidate vetoes deletion, so
+unmanaged or other-tool resources sharing the prefix are never touched.
+Per-resource delete failures and list-step failures are isolated and surface
+as warnings on the apply result so operators can observe legacy-cleanup
+issues without failing a successful project-stack deploy.
 
 ## Apply hardening
 
