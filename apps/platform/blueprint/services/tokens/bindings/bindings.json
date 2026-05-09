@@ -15,7 +15,10 @@
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
       },
-      "exposure": "read"
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "createToken": {
       "graph": "createToken",
@@ -30,7 +33,10 @@
           { "name": "scopesJson", "in": "body", "bindTo": "scopesJson", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "revokeToken": {
       "graph": "revokeToken",
@@ -43,7 +49,10 @@
           { "name": "revokedAt", "in": "body", "bindTo": "revokedAt", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     }
   }
 }

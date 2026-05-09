@@ -2,6 +2,7 @@
   "id": "recordAuditEvent",
   "signature": {
     "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
       "organizationId": { "type": "string", "mode": "required" },
       "actorId": { "type": "string", "mode": "nullable" },
       "action": { "type": "string", "mode": "required" },
@@ -12,6 +13,24 @@
     "output": { "type": "row<ActionResult>", "from": "out" }
   },
   "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
     { "id": "newId", "type": "uuid", "config": {} },
     {
       "id": "emit",

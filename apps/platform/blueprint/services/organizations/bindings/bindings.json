@@ -12,7 +12,10 @@
         "path": "/",
         "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
       },
-      "exposure": "read"
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "createOrganization": {
       "graph": "createOrganization",
@@ -25,7 +28,10 @@
           { "name": "displayName", "in": "body", "bindTo": "displayName", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     }
   }
 }

@@ -13,7 +13,7 @@ describe('platform blueprint', () => {
     if (!result.ok) return;
 
     expect(result.value.project.name).toBe('rntme-platform');
-    expect(Object.keys(result.value.services).sort()).toEqual(['audit', 'organizations', 'projects', 'tokens']);
+    expect(Object.keys(result.value.services).sort()).toEqual(['audit', 'identity-auth0', 'organizations', 'projects', 'tokens']);
     expect(result.value.bindingRegistry['organizations.listOrganizations']?.path).toBe('/api/organizations');
     expect(result.value.bindingRegistry['projects.listProjects']?.path).toBe('/api/projects');
     expect(result.value.bindingRegistry['tokens.listTokens']?.path).toBe('/api/tokens');

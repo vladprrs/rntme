@@ -10,9 +10,15 @@
       "http": {
         "method": "GET",
         "path": "/",
-        "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
       },
-      "exposure": "read"
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "createProject": {
       "graph": "createProject",
@@ -26,7 +32,10 @@
           { "name": "displayName", "in": "body", "bindTo": "displayName", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "listProjectVersions": {
       "graph": "listProjectVersions",
@@ -39,7 +48,10 @@
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
       },
-      "exposure": "read"
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     },
     "publishProjectVersion": {
       "graph": "publishProjectVersion",
@@ -54,7 +66,10 @@
           { "name": "bundleObjectKey", "in": "body", "bindTo": "bundleObjectKey", "required": true }
         ]
       },
-      "exposure": "action"
+      "exposure": "action",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true }
+      }
     }
   }
 }
