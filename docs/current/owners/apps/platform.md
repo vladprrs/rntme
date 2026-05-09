@@ -42,6 +42,17 @@ project `auth` middleware with Auth0 edge introspection. Graphs receive the
 WorkOS remains a legacy hosted-platform integration until a future provider
 parity plan adds canonical session/edge introspection support.
 
+### Known gaps (resolved in the runtime cutover slice)
+
+- The `${auth.audience}` placeholder in graph `IntrospectSession` calls is not
+  yet resolved by any graph-IR pass — at runtime every session call will fail
+  audience validation until a resolver is added.
+- `organizations.listOrganizations` filters only by `status = active`. Once
+  the session result is consumed it must scope by membership; today it would
+  return every tenant's orgs to any authenticated caller.
+- The `session` call result is not consumed by downstream nodes. Actor
+  derivation from the session is deferred to the cutover plan.
+
 ## Local commands
 
 ```bash
