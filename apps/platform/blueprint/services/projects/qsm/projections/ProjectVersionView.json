@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "ProjectVersion" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["projectId", "sequence", "bundleDigest", "bundleObjectKey", "status"]
+}

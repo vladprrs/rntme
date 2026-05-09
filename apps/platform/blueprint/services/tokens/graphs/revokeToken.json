@@ -1,0 +1,29 @@
+{
+  "id": "revokeToken",
+  "signature": {
+    "inputs": {
+      "id": { "type": "string", "mode": "required" },
+      "revokedAt": { "type": "datetime", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "ApiToken",
+        "aggregateId": { "$param": "id" },
+        "transition": "revoke",
+        "payload": {
+          "revokedAt": { "$param": "revokedAt" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listOrganizations": {
+      "graph": "listOrganizations",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/",
+        "parameters": [{ "name": "limit", "in": "query", "bindTo": "limit", "required": false }]
+      },
+      "exposure": "read"
+    },
+    "createOrganization": {
+      "graph": "createOrganization",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "slug", "in": "body", "bindTo": "slug", "required": true },
+          { "name": "displayName", "in": "body", "bindTo": "displayName", "required": true }
+        ]
+      },
+      "exposure": "action"
+    }
+  }
+}

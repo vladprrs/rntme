@@ -1,0 +1,25 @@
+{
+  "ownerService": "tokens",
+  "kind": "owned",
+  "table": "api_tokens",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "name": { "type": "string", "nullable": false, "column": "name" },
+    "prefix": { "type": "string", "nullable": false, "column": "prefix" },
+    "scopesJson": { "type": "string", "nullable": false, "column": "scopes_json" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
+    "revokedAt": { "type": "datetime", "nullable": true, "column": "revoked_at" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "revoked"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["organizationId", "name", "prefix", "scopesJson"] },
+      "revoke": { "from": "active", "to": "revoked", "affects": ["revokedAt"] }
+    }
+  }
+}

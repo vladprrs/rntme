@@ -1,0 +1,23 @@
+{
+  "ownerService": "organizations",
+  "kind": "owned",
+  "table": "organizations",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "slug": { "type": "string", "nullable": false, "column": "slug" },
+    "displayName": { "type": "string", "nullable": false, "column": "display_name" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "archived"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["slug", "displayName"] },
+      "rename": { "from": "active", "to": "active", "affects": ["displayName"] },
+      "archive": { "from": "active", "to": "archived" }
+    }
+  }
+}

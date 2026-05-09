@@ -63,6 +63,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **Blueprint folder = authoring/versioning/deploy unit** · G1, F6 · `locked`
 - **AI agent = primary author** - humans review · G2, F5 · `locked`
 - **Pre-stable: change is free** · G6, F7 · `locked-conditional` (until first design partners)
+- **Platform as blueprint** - The rntme control plane is authored, reviewed, deployed, and evolved as a rntme project blueprint rooted at `apps/platform/blueprint`. Hand-written launchers may host or bridge the platform during migration, but domain/API/UI source of truth moves to artifacts. · G1, G2, G3, G5, F2, F4, F5, F6 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md`
 
 ### 3.2 Storage / Persistence
 

@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listAuditEvents": {
+      "graph": "listAuditEvents",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read"
+    },
+    "recordAuditEvent": {
+      "graph": "recordAuditEvent",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "actorId", "in": "body", "bindTo": "actorId", "required": false },
+          { "name": "action", "in": "body", "bindTo": "action", "required": true },
+          { "name": "targetType", "in": "body", "bindTo": "targetType", "required": true },
+          { "name": "targetId", "in": "body", "bindTo": "targetId", "required": true },
+          { "name": "detailsJson", "in": "body", "bindTo": "detailsJson", "required": true }
+        ]
+      },
+      "exposure": "action"
+    }
+  }
+}

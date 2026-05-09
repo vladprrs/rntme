@@ -1,0 +1,26 @@
+{
+  "ownerService": "projects",
+  "kind": "owned",
+  "table": "projects",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "slug": { "type": "string", "nullable": false, "column": "slug" },
+    "displayName": { "type": "string", "nullable": false, "column": "display_name" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "deleting", "delete_failed", "decommissioned"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["organizationId", "slug", "displayName"] },
+      "rename": { "from": "active", "to": "active", "affects": ["displayName"] },
+      "startDelete": { "from": "active", "to": "deleting" },
+      "deleteFailed": { "from": "deleting", "to": "delete_failed" },
+      "decommission": { "from": "deleting", "to": "decommissioned" }
+    }
+  }
+}

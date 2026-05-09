@@ -1,0 +1,24 @@
+{
+  "ownerService": "projects",
+  "kind": "owned",
+  "table": "project_versions",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "projectId": { "type": "string", "nullable": false, "column": "project_id" },
+    "sequence": { "type": "integer", "nullable": false, "column": "sequence" },
+    "bundleDigest": { "type": "string", "nullable": false, "column": "bundle_digest" },
+    "bundleObjectKey": { "type": "string", "nullable": false, "column": "bundle_object_key" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["published", "rejected"],
+    "transitions": {
+      "publish": { "from": null, "to": "published", "affects": ["projectId", "sequence", "bundleDigest", "bundleObjectKey"] },
+      "reject": { "from": null, "to": "rejected", "affects": ["projectId", "sequence", "bundleDigest", "bundleObjectKey"] }
+    }
+  }
+}

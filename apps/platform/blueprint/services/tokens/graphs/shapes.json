@@ -1,0 +1,20 @@
+{
+  "ApiTokenView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "organizationId": { "type": "string", "nullable": false },
+      "name": { "type": "string", "nullable": false },
+      "prefix": { "type": "string", "nullable": false },
+      "scopesJson": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false },
+      "revokedAt": { "type": "datetime", "nullable": true }
+    }
+  },
+  "ActionResult": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
+  }
+}

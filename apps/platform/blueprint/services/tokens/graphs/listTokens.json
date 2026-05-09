@@ -1,0 +1,23 @@
+{
+  "id": "listTokens",
+  "signature": {
+    "inputs": {
+      "organizationId": { "type": "string", "mode": "required" },
+      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+    },
+    "output": { "type": "rowset<ApiTokenView>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "ApiTokenView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["apiTokenView.organizationId", { "$param": "organizationId" }] }
+      }
+    },
+    { "id": "paged", "type": "limit", "config": { "input": "filtered", "count": { "$param": "limit" } } },
+    { "id": "out", "type": "result", "value": { "$ref": "paged" } }
+  ]
+}

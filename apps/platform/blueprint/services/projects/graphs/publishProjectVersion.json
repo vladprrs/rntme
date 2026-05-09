@@ -1,0 +1,35 @@
+{
+  "id": "publishProjectVersion",
+  "signature": {
+    "inputs": {
+      "projectId": { "type": "string", "mode": "required" },
+      "sequence": { "type": "integer", "mode": "required" },
+      "bundleDigest": { "type": "string", "mode": "required" },
+      "bundleObjectKey": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "ProjectVersion",
+        "aggregateId": { "$node": "newId" },
+        "transition": "publish",
+        "payload": {
+          "projectId": { "$param": "projectId" },
+          "sequence": { "$param": "sequence" },
+          "bundleDigest": { "$param": "bundleDigest" },
+          "bundleObjectKey": { "$param": "bundleObjectKey" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

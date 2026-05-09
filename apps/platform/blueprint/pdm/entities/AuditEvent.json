@@ -1,0 +1,25 @@
+{
+  "ownerService": "audit",
+  "kind": "owned",
+  "table": "audit_events",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "actorId": { "type": "string", "nullable": true, "column": "actor_id" },
+    "action": { "type": "string", "nullable": false, "column": "action" },
+    "targetType": { "type": "string", "nullable": false, "column": "target_type" },
+    "targetId": { "type": "string", "nullable": false, "column": "target_id" },
+    "detailsJson": { "type": "string", "nullable": false, "column": "details_json" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["recorded"],
+    "transitions": {
+      "record": { "from": null, "to": "recorded", "affects": ["organizationId", "actorId", "action", "targetType", "targetId", "detailsJson"] }
+    }
+  }
+}

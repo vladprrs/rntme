@@ -1,0 +1,23 @@
+{
+  "id": "listProjectVersions",
+  "signature": {
+    "inputs": {
+      "projectId": { "type": "string", "mode": "required" },
+      "limit": { "type": "integer", "mode": "defaulted", "default": 100 }
+    },
+    "output": { "type": "rowset<ProjectVersionView>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "ProjectVersionView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["projectVersionView.projectId", { "$param": "projectId" }] }
+      }
+    },
+    { "id": "paged", "type": "limit", "config": { "input": "filtered", "count": { "$param": "limit" } } },
+    { "id": "out", "type": "result", "value": { "$ref": "paged" } }
+  ]
+}

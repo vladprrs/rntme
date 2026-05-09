@@ -1,0 +1,21 @@
+{
+  "AuditEventView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "organizationId": { "type": "string", "nullable": false },
+      "actorId": { "type": "string", "nullable": true },
+      "action": { "type": "string", "nullable": false },
+      "targetType": { "type": "string", "nullable": false },
+      "targetId": { "type": "string", "nullable": false },
+      "detailsJson": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  },
+  "ActionResult": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
+  }
+}
