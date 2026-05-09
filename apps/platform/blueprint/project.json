@@ -1,6 +1,6 @@
 {
   "name": "rntme-platform",
-  "services": ["organizations", "projects", "tokens", "audit"],
+  "services": ["organizations", "projects", "tokens", "audit", "identity-auth0"],
   "routes": {
     "http": {
       "/api/organizations": "organizations",

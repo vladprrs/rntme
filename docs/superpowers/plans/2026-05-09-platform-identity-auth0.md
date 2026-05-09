@@ -37,7 +37,7 @@ This plan depends on `2026-05-09-platform-blueprint-foundation.md`. It updates t
 Create `apps/platform/blueprint/services/identity-auth0/service.json`:
 
 ```json
-{ "kind": "integration-module", "module": "identity" }
+{ "kind": "integration-module" }
 ```
 
 - [ ] **Step 2: Copy Auth0 module manifest**
