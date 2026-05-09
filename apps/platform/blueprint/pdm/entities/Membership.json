@@ -1,0 +1,25 @@
+{
+  "ownerService": "organizations",
+  "kind": "owned",
+  "table": "memberships",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "accountId": { "type": "string", "nullable": false, "column": "account_id" },
+    "role": { "type": "string", "nullable": false, "column": "role" },
+    "scopesJson": { "type": "json", "nullable": false, "column": "scopes_json" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "revoked"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["organizationId", "accountId", "role", "scopesJson"] },
+      "changeRole": { "from": "active", "to": "active", "affects": ["role", "scopesJson"] },
+      "revoke": { "from": "active", "to": "revoked" }
+    }
+  }
+}

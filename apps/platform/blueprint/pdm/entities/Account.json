@@ -1,0 +1,25 @@
+{
+  "ownerService": "organizations",
+  "kind": "owned",
+  "table": "accounts",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "identityProvider": { "type": "string", "nullable": false, "column": "identity_provider" },
+    "identitySubject": { "type": "string", "nullable": false, "column": "identity_subject" },
+    "email": { "type": "string", "nullable": true, "column": "email" },
+    "displayName": { "type": "string", "nullable": true, "column": "display_name" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["active", "disabled"],
+    "transitions": {
+      "create": { "from": null, "to": "active", "affects": ["identityProvider", "identitySubject", "email", "displayName"] },
+      "updateProfile": { "from": "active", "to": "active", "affects": ["email", "displayName"] },
+      "disable": { "from": "active", "to": "disabled" }
+    }
+  }
+}
