@@ -664,7 +664,14 @@ function serviceClassFromName(name: string): RenderedComposeServiceClass {
   if (name === 'operaton') return 'workflow-engine';
   if (name === 'rustfs') return 'object-storage';
   if (name.startsWith('mod-')) return 'integration-module';
-  if (name.endsWith('-public') || name.endsWith('-proxy') || name === 'operaton-ui') return 'infrastructure-proxy';
+  if (
+    name === 'redpanda-console' ||
+    name === 'operaton-ui-gateway' ||
+    name.endsWith('-public') ||
+    name.endsWith('-proxy')
+  ) {
+    return 'infrastructure-proxy';
+  }
   return 'domain-service';
 }
 

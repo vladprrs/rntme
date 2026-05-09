@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
-import type { RenderedDokployResource } from '@rntme/deploy-dokploy';
+import type { RenderedComposeServiceClass, RenderedDokployResource } from '@rntme/deploy-dokploy';
 import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../../src/deploy/dokploy-client-factory.js';
 import { createMockDokployApp } from '../../fixtures/mock-dokploy.js';
@@ -630,7 +630,10 @@ describe('createDokployClientFactory', () => {
       { host: 'commerce.example.com', path: '/', serviceName: 'edge', containerPort: 8080, https: true },
     ]);
 
-    expect(calls.map((call) => call.path)).toContain('/api/domain.create');
+    expect(calls.map((call) => call.path)).toEqual([
+      '/api/domain.byComposeId',
+      '/api/domain.create',
+    ]);
     expect(calls.at(-1)?.body).toMatchObject({
       composeId: 'compose-1',
       host: 'commerce.example.com',
@@ -639,6 +642,101 @@ describe('createDokployClientFactory', () => {
       port: 8080,
       https: true,
     });
+  });
+
+  it('configures domains uses domain.update when an existing domain matches host', async () => {
+    const calls: Array<{ path: string; body?: unknown }> = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input, init) => {
+      const url = new URL(String(input));
+      const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
+      calls.push({ path: url.pathname, body });
+      if (url.pathname === '/api/domain.byComposeId') {
+        return new globalThis.Response(
+          JSON.stringify([{ domainId: 'dom_1', host: 'commerce.example.com' }]),
+          { status: 200 },
+        );
+      }
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await client.configureComposeDomains?.('compose-1', [
+      { host: 'commerce.example.com', path: '/', serviceName: 'edge', containerPort: 8080, https: true },
+    ]);
+
+    expect(calls.map((call) => call.path)).toEqual([
+      '/api/domain.byComposeId',
+      '/api/domain.update',
+    ]);
+    expect(calls.at(-1)?.body).toMatchObject({
+      domainId: 'dom_1',
+      composeId: 'compose-1',
+      host: 'commerce.example.com',
+      path: '/',
+      serviceName: 'edge',
+      port: 8080,
+      https: true,
+    });
+  });
+
+  it('startCompose posts to /api/compose.start with composeId', async () => {
+    const calls: Array<{ path: string; body?: unknown }> = [];
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input, init) => {
+      const url = new URL(String(input));
+      const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
+      calls.push({ path: url.pathname, body });
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await client.startCompose?.('compose-1');
+
+    expect(calls).toEqual([
+      { path: '/api/compose.start', body: { composeId: 'compose-1' } },
+    ]);
+  });
+
+  it('classifies compose service names from the renderer into expected service classes', async () => {
+    const cases: ReadonlyArray<{ name: string; expected: RenderedComposeServiceClass }> = [
+      { name: 'edge', expected: 'edge-gateway' },
+      { name: 'bpmn-worker', expected: 'bpmn-worker' },
+      { name: 'redpanda', expected: 'event-bus' },
+      { name: 'operaton', expected: 'workflow-engine' },
+      { name: 'rustfs', expected: 'object-storage' },
+      { name: 'mod-auth', expected: 'integration-module' },
+      { name: 'mod-payments', expected: 'integration-module' },
+      { name: 'object-storage-public', expected: 'infrastructure-proxy' },
+      { name: 'redpanda-console', expected: 'infrastructure-proxy' },
+      { name: 'redpanda-console-proxy', expected: 'infrastructure-proxy' },
+      { name: 'operaton-ui-gateway', expected: 'infrastructure-proxy' },
+      { name: 'svc-catalog', expected: 'domain-service' },
+      { name: 'svc-orders', expected: 'domain-service' },
+    ];
+
+    const cipher: SecretCipher = {
+      encrypt: vi.fn(),
+      decrypt: vi.fn(() => 'plain-token'),
+    };
+    const client = createDokployClientFactory(cipher, async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/compose.loadServices') {
+        return new globalThis.Response(
+          JSON.stringify(cases.map((entry) => ({ name: entry.name }))),
+          { status: 200 },
+        );
+      }
+      return new globalThis.Response('{}', { status: 200 });
+    })(target());
+
+    await expect(client.loadComposeServices?.('compose-1')).resolves.toEqual(
+      cases.map((entry) => ({ name: entry.name, serviceClass: entry.expected })),
+    );
   });
 
   it('normalizes compose task inspection for failed services', async () => {
