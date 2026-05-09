@@ -1,0 +1,41 @@
+{
+  "id": "getDeployment",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "id": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "rowset<DeploymentView>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "DeploymentView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["deploymentView.id", { "$param": "id" }] }
+      }
+    },
+    { "id": "paged", "type": "limit", "config": { "input": "filtered", "count": 1 } },
+    { "id": "out", "type": "result", "value": { "$ref": "paged" } }
+  ]
+}

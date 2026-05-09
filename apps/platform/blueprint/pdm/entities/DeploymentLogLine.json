@@ -1,0 +1,23 @@
+{
+  "ownerService": "deployments",
+  "kind": "owned",
+  "table": "deployment_log_lines",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "deploymentId": { "type": "string", "nullable": false, "column": "deployment_id" },
+    "level": { "type": "string", "nullable": false, "column": "level" },
+    "stage": { "type": "string", "nullable": false, "column": "stage" },
+    "message": { "type": "string", "nullable": false, "column": "message" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
+    "status": { "type": "string", "nullable": false, "column": "status" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["recorded"],
+    "transitions": {
+      "record": { "from": null, "to": "recorded", "affects": ["deploymentId", "level", "stage", "message"] }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "ownerService": "deployments",
+  "kind": "owned",
+  "table": "deployments",
+  "fields": {
+    "id": { "type": "string", "nullable": false, "column": "id" },
+    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "projectId": { "type": "string", "nullable": false, "column": "project_id" },
+    "projectVersionId": { "type": "string", "nullable": false, "column": "project_version_id" },
+    "targetId": { "type": "string", "nullable": false, "column": "target_id" },
+    "status": { "type": "string", "nullable": false, "column": "status" },
+    "resultJson": { "type": "string", "nullable": true, "column": "result_json" },
+    "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
+    "startedAt": { "type": "datetime", "nullable": true, "column": "started_at" },
+    "finishedAt": { "type": "datetime", "nullable": true, "column": "finished_at" }
+  },
+  "keys": ["id"],
+  "stateMachine": {
+    "stateField": "status",
+    "initial": null,
+    "states": ["queued", "running", "succeeded", "failed", "cancelled"],
+    "transitions": {
+      "queue": { "from": null, "to": "queued", "affects": ["organizationId", "projectId", "projectVersionId", "targetId"] },
+      "start": { "from": "queued", "to": "running", "affects": ["startedAt"] },
+      "succeed": { "from": "running", "to": "succeeded", "affects": ["finishedAt", "resultJson"] },
+      "fail": { "from": "running", "to": "failed", "affects": ["finishedAt", "resultJson"] },
+      "cancel": { "from": "queued", "to": "cancelled", "affects": ["finishedAt", "resultJson"] }
+    }
+  }
+}

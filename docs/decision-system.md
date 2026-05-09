@@ -64,6 +64,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **AI agent = primary author** - humans review · G2, F5 · `locked`
 - **Pre-stable: change is free** · G6, F7 · `locked-conditional` (until first design partners)
 - **Platform as blueprint** - The rntme control plane is authored, reviewed, deployed, and evolved as a rntme project blueprint rooted at `apps/platform/blueprint`. Hand-written launchers may host or bridge the platform during migration, but domain/API/UI source of truth moves to artifacts. · G1, G2, G3, G5, F2, F4, F5, F6 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md`
+- **Deployments service + adapter boundary** - Platform deployment lifecycle is owned by a rntme `deployments` service. Target-neutral planning and provider-specific apply details sit behind an adapter seam. Dokploy remains the first adapter; a public deploy-adapter module contract is deferred until the service boundary stabilizes or a second backend exists. · G3, G4, F1, F3, F4, F8 · `locked-pending` · spec `docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md`
 
 ### 3.2 Storage / Persistence
 

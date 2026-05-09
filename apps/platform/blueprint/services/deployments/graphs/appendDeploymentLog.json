@@ -1,0 +1,54 @@
+{
+  "id": "appendDeploymentLog",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "deploymentId": { "type": "string", "mode": "required" },
+      "level": { "type": "string", "mode": "required" },
+      "stage": { "type": "string", "mode": "required" },
+      "message": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "DeploymentLogLine",
+        "aggregateId": { "$node": "newId" },
+        "transition": "record",
+        "payload": {
+          "deploymentId": { "$param": "deploymentId" },
+          "level": { "$param": "level" },
+          "stage": { "$param": "stage" },
+          "message": { "$param": "message" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

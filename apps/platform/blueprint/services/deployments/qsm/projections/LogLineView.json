@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "DeploymentLogLine" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["deploymentId", "level", "stage", "message"]
+}

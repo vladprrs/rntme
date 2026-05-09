@@ -1,0 +1,39 @@
+{
+  "DeployTargetView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "organizationId": { "type": "string", "nullable": false },
+      "slug": { "type": "string", "nullable": false },
+      "provider": { "type": "string", "nullable": false },
+      "environment": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false }
+    }
+  },
+  "DeploymentView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "organizationId": { "type": "string", "nullable": false },
+      "projectId": { "type": "string", "nullable": false },
+      "projectVersionId": { "type": "string", "nullable": false },
+      "targetId": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "resultJson": { "type": "string", "nullable": true }
+    }
+  },
+  "LogLineView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "deploymentId": { "type": "string", "nullable": false },
+      "level": { "type": "string", "nullable": false },
+      "stage": { "type": "string", "nullable": false },
+      "message": { "type": "string", "nullable": false },
+      "createdAt": { "type": "datetime", "nullable": false }
+    }
+  },
+  "ActionResult": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "version": { "type": "integer", "nullable": true }
+    }
+  }
+}

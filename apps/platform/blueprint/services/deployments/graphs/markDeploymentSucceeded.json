@@ -1,0 +1,50 @@
+{
+  "id": "markDeploymentSucceeded",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "id": { "type": "string", "mode": "required" },
+      "finishedAt": { "type": "datetime", "mode": "required" },
+      "resultJson": { "type": "string", "mode": "nullable" }
+    },
+    "output": { "type": "row<ActionResult>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "emit",
+      "type": "emit",
+      "config": {
+        "aggregate": "Deployment",
+        "aggregateId": { "$param": "id" },
+        "transition": "succeed",
+        "payload": {
+          "finishedAt": { "$param": "finishedAt" },
+          "resultJson": { "$param": "resultJson" }
+        }
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "id": { "$ref": "emit.aggregateId" }, "version": { "$ref": "emit.version" } }
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "graphSpecRef": "../graphs",
+  "pdmRef": "../../pdm",
+  "qsmRef": "../qsm",
+  "bindings": {
+    "listDeployTargets": {
+      "graph": "listDeployTargets",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/targets",
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "createDeployTarget": {
+      "graph": "createDeployTarget",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/targets",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "slug", "in": "body", "bindTo": "slug", "required": true },
+          { "name": "provider", "in": "body", "bindTo": "provider", "required": true },
+          { "name": "environment", "in": "body", "bindTo": "environment", "required": true },
+          { "name": "configJson", "in": "body", "bindTo": "configJson", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "queueDeployment": {
+      "graph": "queueDeployment",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "projectId", "in": "body", "bindTo": "projectId", "required": true },
+          { "name": "projectVersionId", "in": "body", "bindTo": "projectVersionId", "required": true },
+          { "name": "targetId", "in": "body", "bindTo": "targetId", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "listDeployments": {
+      "graph": "listDeployments",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "projectId", "in": "query", "bindTo": "projectId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "getDeployment": {
+      "graph": "getDeployment",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/{id}",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "markDeploymentRunning": {
+      "graph": "markDeploymentRunning",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{id}/actions/start",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true },
+          { "name": "startedAt", "in": "body", "bindTo": "startedAt", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "markDeploymentSucceeded": {
+      "graph": "markDeploymentSucceeded",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{id}/actions/succeed",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true },
+          { "name": "finishedAt", "in": "body", "bindTo": "finishedAt", "required": true },
+          { "name": "resultJson", "in": "body", "bindTo": "resultJson", "required": false }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "markDeploymentFailed": {
+      "graph": "markDeploymentFailed",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{id}/actions/fail",
+        "parameters": [
+          { "name": "id", "in": "path", "bindTo": "id", "required": true },
+          { "name": "finishedAt", "in": "body", "bindTo": "finishedAt", "required": true },
+          { "name": "resultJson", "in": "body", "bindTo": "resultJson", "required": false }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "appendDeploymentLog": {
+      "graph": "appendDeploymentLog",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/{deploymentId}/log",
+        "parameters": [
+          { "name": "deploymentId", "in": "path", "bindTo": "deploymentId", "required": true },
+          { "name": "level", "in": "body", "bindTo": "level", "required": true },
+          { "name": "stage", "in": "body", "bindTo": "stage", "required": true },
+          { "name": "message", "in": "body", "bindTo": "message", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "readDeploymentLogs": {
+      "graph": "readDeploymentLogs",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "GET",
+        "path": "/{deploymentId}/logs",
+        "parameters": [
+          { "name": "deploymentId", "in": "path", "bindTo": "deploymentId", "required": true },
+          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    }
+  }
+}

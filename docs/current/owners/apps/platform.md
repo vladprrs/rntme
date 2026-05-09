@@ -18,6 +18,7 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 - `services/projects`
 - `services/tokens`
 - `services/audit`
+- `services/deployments`
 
 ## Services
 
@@ -30,6 +31,19 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 | `ProjectVersion` | `projects` | Immutable published bundle metadata. |
 | `ApiToken` | `tokens` | Machine token metadata, prefix, scopes, revocation state. |
 | `AuditEvent` | `audit` | Append-only inspectable audit stream. |
+| `DeployTarget` | `deployments` | Provider-scoped deploy target metadata and lifecycle. |
+| `Deployment` | `deployments` | Per-target deployment record with queue/run/terminal state. |
+| `DeploymentLogLine` | `deployments` | Sanitized append-only log line for a deployment. |
+| `ProjectOperation` | `deployments` | Long-running project operation record (e.g., archive/delete). |
+| `ProjectOperationLogLine` | `deployments` | Sanitized append-only log line for a project operation. |
+
+## Deployments
+
+The platform blueprint has a `deployments` domain service that owns deploy
+targets, deployment records, project operations, sanitized log lines, and
+execution evidence. The first implementation uses an internal adapter seam to
+call the existing Dokploy deploy path. A public deploy-adapter module contract
+is intentionally deferred.
 
 ## Identity
 
@@ -63,7 +77,6 @@ pnpm -F @rntme/blueprint test -- ../../apps/platform/blueprint/test/platform-blu
 
 - This app owns authoring artifacts only in the foundation slice.
 - `apps/platform-http` remains the active hosted platform until cutover.
-- Deployment entities are intentionally absent until the deployments-service plan.
 
 ## Where to look first
 
