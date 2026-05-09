@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "AuditEvent" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["organizationId", "actorId", "action", "targetType", "targetId", "detailsJson", "status", "createdAt"]
+}

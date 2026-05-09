@@ -14,7 +14,7 @@
       "organizationId": { "type": "string", "nullable": false },
       "accountId": { "type": "string", "nullable": false },
       "role": { "type": "string", "nullable": false },
-      "scopesJson": { "type": "json", "nullable": false },
+      "scopesJson": { "type": "string", "nullable": false },
       "status": { "type": "string", "nullable": false }
     }
   },

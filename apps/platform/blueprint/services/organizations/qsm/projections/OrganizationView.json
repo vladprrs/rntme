@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "Organization" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["slug", "displayName", "status", "createdAt"]
+}

@@ -3,7 +3,7 @@
   "signature": {
     "inputs": {
       "organizationId": { "type": "string", "mode": "required" },
-      "actorId": { "type": "string", "mode": "required" },
+      "actorId": { "type": "string", "mode": "nullable" },
       "action": { "type": "string", "mode": "required" },
       "targetType": { "type": "string", "mode": "required" },
       "targetId": { "type": "string", "mode": "required" },

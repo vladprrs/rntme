@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "ApiToken" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["organizationId", "name", "prefix", "scopesJson", "status", "createdAt", "revokedAt"]
+}

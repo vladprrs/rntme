@@ -25,7 +25,7 @@
         "path": "/",
         "parameters": [
           { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
-          { "name": "actorId", "in": "body", "bindTo": "actorId", "required": true },
+          { "name": "actorId", "in": "body", "bindTo": "actorId", "required": false },
           { "name": "action", "in": "body", "bindTo": "action", "required": true },
           { "name": "targetType", "in": "body", "bindTo": "targetType", "required": true },
           { "name": "targetId", "in": "body", "bindTo": "targetId", "required": true },
