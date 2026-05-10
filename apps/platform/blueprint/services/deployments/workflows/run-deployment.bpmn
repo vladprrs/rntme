@@ -18,21 +18,21 @@
 
     <bpmn:serviceTask id="compose" name="Compose blueprint" operaton:type="external" operaton:topic="compose">
       <bpmn:incoming>Flow_Queued_Compose</bpmn:incoming>
-      <bpmn:outgoing>Flow_Compose_Plan</bpmn:outgoing>
-    </bpmn:serviceTask>
-    <bpmn:serviceTask id="plan" name="Build deployment plan" operaton:type="external" operaton:topic="plan">
-      <bpmn:incoming>Flow_Compose_Plan</bpmn:incoming>
-      <bpmn:outgoing>Flow_Plan_Provision</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Compose_Provision</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="provision" name="Run provisioners" operaton:type="external" operaton:topic="provision" operaton:asyncAfter="true">
       <bpmn:extensionElements>
         <operaton:failedJobRetryTimeCycle>R1/PT30S</operaton:failedJobRetryTimeCycle>
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_Plan_Provision</bpmn:incoming>
-      <bpmn:outgoing>Flow_Provision_Render</bpmn:outgoing>
+      <bpmn:incoming>Flow_Compose_Provision</bpmn:incoming>
+      <bpmn:outgoing>Flow_Provision_Plan</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="plan" name="Build deployment plan" operaton:type="external" operaton:topic="plan">
+      <bpmn:incoming>Flow_Provision_Plan</bpmn:incoming>
+      <bpmn:outgoing>Flow_Plan_Render</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="render" name="Render Dokploy plan" operaton:type="external" operaton:topic="render">
-      <bpmn:incoming>Flow_Provision_Render</bpmn:incoming>
+      <bpmn:incoming>Flow_Plan_Render</bpmn:incoming>
       <bpmn:outgoing>Flow_Render_Apply</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="apply" name="Apply Dokploy plan" operaton:type="external" operaton:topic="apply">
@@ -52,9 +52,9 @@
     </bpmn:endEvent>
 
     <bpmn:sequenceFlow id="Flow_Queued_Compose" sourceRef="deploymentQueued" targetRef="compose" />
-    <bpmn:sequenceFlow id="Flow_Compose_Plan" sourceRef="compose" targetRef="plan" />
-    <bpmn:sequenceFlow id="Flow_Plan_Provision" sourceRef="plan" targetRef="provision" />
-    <bpmn:sequenceFlow id="Flow_Provision_Render" sourceRef="provision" targetRef="render" />
+    <bpmn:sequenceFlow id="Flow_Compose_Provision" sourceRef="compose" targetRef="provision" />
+    <bpmn:sequenceFlow id="Flow_Provision_Plan" sourceRef="provision" targetRef="plan" />
+    <bpmn:sequenceFlow id="Flow_Plan_Render" sourceRef="plan" targetRef="render" />
     <bpmn:sequenceFlow id="Flow_Render_Apply" sourceRef="render" targetRef="apply" />
     <bpmn:sequenceFlow id="Flow_Apply_Verify" sourceRef="apply" targetRef="verify" />
     <bpmn:sequenceFlow id="Flow_Verify_End" sourceRef="verify" targetRef="deploymentSucceeded" />

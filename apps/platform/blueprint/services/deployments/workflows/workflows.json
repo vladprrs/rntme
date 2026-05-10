@@ -15,7 +15,7 @@
       "event": {
         "service": "deployments",
         "aggregateType": "Deployment",
-        "eventType": "queued"
+        "eventType": "DeploymentQueue"
       },
       "businessKey": "$event.rntAggregateId",
       "variables": {
