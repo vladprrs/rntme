@@ -3,7 +3,7 @@ import type { ComposedProjectInput } from '@rntme/deploy-core';
 import type { Result } from '../result.js';
 import { ok, err } from '../result.js';
 import { cliError, type CliError } from '../errors/codes.js';
-import { toDeployCoreInput } from './to-deploy-core-input.js';
+import { toDeployCoreInput } from '@rntme/deploy-bundle-input';
 
 export type LoadedBlueprint = {
   readonly composedBlueprint: ComposedProjectInput;

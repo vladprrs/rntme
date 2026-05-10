@@ -98,6 +98,41 @@ export function validateWorkflowStructural(
     }
   }
 
+  const nativeTaskIdsByDefinition = new Map<string, Set<string>>();
+  for (const [idx, native] of artifact.nativeTasks.entries()) {
+    const serviceTaskIds = taskIdsByDefinition.get(native.definition);
+    if (serviceTaskIds?.has(native.taskId)) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.WORKFLOW_TASK_DEFINITION_OVERLAP,
+        message: `task "${native.taskId}" in definition "${native.definition}" is defined as both a serviceTask (bindingRef) and a nativeTask (handler); pick exactly one`,
+        path: `nativeTasks.${idx}.taskId`,
+      });
+    }
+    const nativeTaskIds = nativeTaskIdsByDefinition.get(native.definition) ?? new Set<string>();
+    if (nativeTaskIds.has(native.taskId)) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.WORKFLOW_NATIVE_TASK_DUPLICATE,
+        message: `duplicate native task "${native.taskId}" in definition "${native.definition}"`,
+        path: `nativeTasks.${idx}.taskId`,
+      });
+    }
+    nativeTaskIds.add(native.taskId);
+    nativeTaskIdsByDefinition.set(native.definition, nativeTaskIds);
+    if (!definitionIds.has(native.definition)) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.WORKFLOWS_STRUCT_UNKNOWN_DEFINITION,
+        message: `nativeTask "${native.taskId}" references unknown definition "${native.definition}"`,
+        path: `nativeTasks.${idx}.definition`,
+      });
+    }
+    for (const [name, value] of Object.entries(native.input ?? {})) {
+      checkMappingValue(value, `nativeTasks.${idx}.input.${name}`, errors);
+    }
+  }
+
   if (errors.length > 0) return err(errors);
   return ok(artifact as StructurallyValidWorkflows);
 }

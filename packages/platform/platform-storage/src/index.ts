@@ -16,5 +16,12 @@ export * from './repos/pg-project-operation-repo.js';
 export * from './repos/pg-token-repo.js';
 export * from './repos/pg-audit-repo.js';
 export * from './repos/pg-outbox-repo.js';
+export {
+  createPgDeployStageStateRepo,
+  type DeployStage,
+  type DeployStageStatus,
+  type DeployStageStateRepo,
+  type DeployStageStateRow,
+} from './repos/pg-deploy-stage-state-repo.js';
 export * from './secret/aes-gcm-cipher.js';
 export * from './blob/s3-blob-store.js';

@@ -473,7 +473,7 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
 function composeServiceName(resource: RenderedDokployApplicationResource): string {
   if (resource.workloadKind === 'edge-gateway') return 'edge';
   if (resource.workloadKind === 'integration-module') return `mod-${resource.workloadSlug ?? resource.logicalId}`;
-  if (resource.workloadKind === 'bpmn-worker') return 'bpmn-worker';
+  if (resource.workloadKind === 'bpmn-worker') return resource.workloadSlug ?? 'bpmn-worker';
   if (resource.workloadKind === 'infrastructure-proxy') return resource.workloadSlug ?? resource.logicalId;
   return `svc-${resource.workloadSlug ?? resource.logicalId}`;
 }

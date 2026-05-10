@@ -20,3 +20,14 @@ export type {
 export { evaluateMappingValue } from './mapping.js';
 export { buildCommandMetadata } from './metadata.js';
 export { runWorkflowEventOnce, type RunWorkflowEventOnceInput } from './worker.js';
+export {
+  resolveNativeHandlers,
+  NativeHandlerError,
+  type NativeHandlerFn,
+  type NativeHandlerInput,
+  type NativeHandlerProcessVariables,
+  type NativeHandlerKey,
+  type ResolveNativeHandlersInput,
+} from './native-handlers.js';
+export { runPollOnce, runPollLoop } from './poll-loop.js';
+export type { RunPollOnceInput, RunPollLoopInput } from './poll-loop.js';

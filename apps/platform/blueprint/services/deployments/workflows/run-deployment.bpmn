@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:operaton="http://operaton.org/schema/1.0/bpmn"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="runDeploymentDefinitions"
+  targetNamespace="https://rntme.com/platform/deployments">
+  <bpmn:message id="Message_DeploymentQueued" name="DeploymentQueued" />
+
+  <bpmn:process id="runDeployment" name="Run Deployment" isExecutable="true" operaton:historyTimeToLive="30">
+    <bpmn:startEvent id="deploymentQueued" name="Deployment queued">
+      <bpmn:outgoing>Flow_Queued_Compose</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_DeploymentQueued" />
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="compose" name="Compose blueprint" operaton:type="external" operaton:topic="compose">
+      <bpmn:incoming>Flow_Queued_Compose</bpmn:incoming>
+      <bpmn:outgoing>Flow_Compose_Provision</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="provision" name="Run provisioners" operaton:type="external" operaton:topic="provision" operaton:asyncAfter="true">
+      <bpmn:extensionElements>
+        <operaton:failedJobRetryTimeCycle>R1/PT30S</operaton:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Compose_Provision</bpmn:incoming>
+      <bpmn:outgoing>Flow_Provision_Plan</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="plan" name="Build deployment plan" operaton:type="external" operaton:topic="plan">
+      <bpmn:incoming>Flow_Provision_Plan</bpmn:incoming>
+      <bpmn:outgoing>Flow_Plan_Render</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="render" name="Render Dokploy plan" operaton:type="external" operaton:topic="render">
+      <bpmn:incoming>Flow_Plan_Render</bpmn:incoming>
+      <bpmn:outgoing>Flow_Render_Apply</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="apply" name="Apply Dokploy plan" operaton:type="external" operaton:topic="apply">
+      <bpmn:incoming>Flow_Render_Apply</bpmn:incoming>
+      <bpmn:outgoing>Flow_Apply_Verify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="verify" name="Verify deployment" operaton:type="external" operaton:topic="verify">
+      <bpmn:extensionElements>
+        <operaton:failedJobRetryTimeCycle>R3/PT10S,R3/PT30S,R3/PT60S</operaton:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Apply_Verify</bpmn:incoming>
+      <bpmn:outgoing>Flow_Verify_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="deploymentSucceeded" name="Deployment succeeded">
+      <bpmn:incoming>Flow_Verify_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Queued_Compose" sourceRef="deploymentQueued" targetRef="compose" />
+    <bpmn:sequenceFlow id="Flow_Compose_Provision" sourceRef="compose" targetRef="provision" />
+    <bpmn:sequenceFlow id="Flow_Provision_Plan" sourceRef="provision" targetRef="plan" />
+    <bpmn:sequenceFlow id="Flow_Plan_Render" sourceRef="plan" targetRef="render" />
+    <bpmn:sequenceFlow id="Flow_Render_Apply" sourceRef="render" targetRef="apply" />
+    <bpmn:sequenceFlow id="Flow_Apply_Verify" sourceRef="apply" targetRef="verify" />
+    <bpmn:sequenceFlow id="Flow_Verify_End" sourceRef="verify" targetRef="deploymentSucceeded" />
+
+  </bpmn:process>
+</bpmn:definitions>

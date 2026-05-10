@@ -102,7 +102,7 @@ describe('runWorkflowEventOnce', () => {
     expect(calls).toEqual([]);
   });
 
-  it('leaves unmapped service tasks locked without command execution', async () => {
+  it('fails the task loudly when no nativeTask or serviceTask mapping exists', async () => {
     const calls: string[] = [];
 
     await runWorkflowEventOnce({
@@ -125,7 +125,87 @@ describe('runWorkflowEventOnce', () => {
       commands: createCommands(calls),
     });
 
-    expect(calls).toEqual(['start:orderFulfillment:ord_1']);
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'fail:task_1:WORKFLOW_TASK_HANDLER_MISSING: no nativeTask or serviceTask mapping for "orderFulfillment.chargeCard"',
+    ]);
+  });
+
+  it('dispatches to native handler when mapping exists', async () => {
+    const calls: string[] = [];
+    const handlerCalls: Array<{ input: Record<string, unknown>; vars: Record<string, unknown> }> = [];
+    const nativeHandlers = new Map<
+      string,
+      (input: Readonly<Record<string, unknown>>, vars: Readonly<Record<string, unknown>>) => Promise<unknown>
+    >([
+      [
+        'orderFulfillment.reserveStock',
+        async (input, vars) => {
+          handlerCalls.push({ input: { ...input }, vars: { ...vars } });
+          return { reserved: true, reservationId: 'native_res_1' };
+        },
+      ],
+    ]);
+
+    await runWorkflowEventOnce({
+      manifest: createManifest({
+        serviceTasks: [],
+        nativeTasks: [
+          {
+            definition: 'orderFulfillment',
+            taskId: 'reserveStock',
+            handler: { module: 'inline', export: 'reserveStock' },
+            input: { orderId: '$process.orderId' },
+            resultVariable: 'reservation',
+          },
+        ],
+      }),
+      event: createEvent(),
+      eventRef: { service: 'orders', aggregateType: 'Order', eventType: 'OrderPlaced' },
+      operaton: createOperaton(calls),
+      commands: createCommands(calls),
+      nativeHandlers,
+    });
+
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'complete:task_1:true',
+    ]);
+    expect(handlerCalls).toEqual([
+      { input: { orderId: 'ord_1' }, vars: { orderId: 'ord_1' } },
+    ]);
+  });
+
+  it('fails the task loudly when both nativeTask and serviceTask map the same task', async () => {
+    const calls: string[] = [];
+    const nativeHandlers = new Map<
+      string,
+      (input: Readonly<Record<string, unknown>>, vars: Readonly<Record<string, unknown>>) => Promise<unknown>
+    >([
+      ['orderFulfillment.reserveStock', async () => ({ reserved: true })],
+    ]);
+
+    await runWorkflowEventOnce({
+      manifest: createManifest({
+        nativeTasks: [
+          {
+            definition: 'orderFulfillment',
+            taskId: 'reserveStock',
+            handler: { module: 'inline', export: 'reserveStock' },
+          },
+        ],
+      }),
+      event: createEvent(),
+      eventRef: { service: 'orders', aggregateType: 'Order', eventType: 'OrderPlaced' },
+      operaton: createOperaton(calls),
+      commands: createCommands(calls),
+      nativeHandlers,
+    });
+
+    expect(calls).toEqual([
+      'start:orderFulfillment:ord_1',
+      'fail:task_1:WORKFLOW_TASK_AMBIGUOUS_DISPATCH: task "orderFulfillment.reserveStock" matched both a nativeTask and a serviceTask',
+    ]);
   });
 
   it('ignores tasks from another process instance', async () => {
@@ -381,6 +461,7 @@ function createManifest(overrides: Partial<WorkflowArtifact> = {}): WorkflowArti
         resultVariable: 'reservation',
       },
     ],
+    nativeTasks: [],
     ...overrides,
   };
 }

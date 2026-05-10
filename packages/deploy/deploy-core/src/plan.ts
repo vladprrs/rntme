@@ -113,11 +113,14 @@ export type PlannedWorkflowGrpcService = {
   readonly protoSource: string;
 };
 
+export type BpmnWorkerWorkloadSlug = 'bpmn-worker' | 'deploy-worker';
+
 export type BpmnWorkerWorkload = {
   readonly kind: 'bpmn-worker';
-  readonly slug: 'bpmn-worker';
+  readonly slug: BpmnWorkerWorkloadSlug;
   readonly resourceName: string;
   readonly image: string;
+  readonly command: string;
   readonly workflowManifestPath: '/srv/workflows/workflows.json';
   readonly workflowFiles: Readonly<Record<string, string>>;
   readonly subscriptions: readonly PlannedWorkflowSubscription[];
@@ -293,8 +296,7 @@ export function buildProjectDeploymentPlan(
   }
 
   const workloads = buildWorkloads(project, config, errors, vars);
-  const allWorkloads =
-    workflowPlan.worker === null ? workloads : [...workloads, workflowPlan.worker];
+  const allWorkloads = [...workloads, ...workflowPlan.workers];
   const { edge, errors: edgeErrors } = planEdge(project, config, allWorkloads, vars);
   errors.push(...edgeErrors);
 

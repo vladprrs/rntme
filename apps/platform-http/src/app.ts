@@ -190,6 +190,12 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
       });
     });
   });
+  // LEGACY MODE ONLY: in PLATFORM_RUNTIME_MODE=blueprint, the entire imperative
+  // server is short-circuited above (see the early return at PLATFORM_RUNTIME_MODE
+  // === 'blueprint' branch) and the deployment lifecycle is driven by the
+  // runDeployment BPMN process owned by services/deployments.
+  // See docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md
+  // (plan 3) for the BPMN flow.
   const scheduleDeployment = deps.scheduleDeployment ?? ((deploymentId: string, orgId: string) => {
     setImmediate(() => {
       void runDeployment(deploymentId, orgId, executorDeps).catch((cause) => {

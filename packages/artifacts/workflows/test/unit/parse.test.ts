@@ -50,4 +50,25 @@ describe('parseWorkflowArtifact', () => {
     const result = parseWorkflowArtifact({ ...valid, workflowVersion: 2 });
     expect(result.ok).toBe(false);
   });
+
+  it('accepts a workflow artifact with nativeTasks', () => {
+    const result = parseWorkflowArtifact({
+      workflowVersion: 1,
+      definitions: [{ id: 'd1', bpmnFile: 'd1.bpmn', processId: 'p1' }],
+      messageStarts: [],
+      serviceTasks: [],
+      nativeTasks: [
+        {
+          definition: 'd1',
+          taskId: 'task-1',
+          handler: { module: '@rntme/deploy-runner', export: 'composeStageHandler' },
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.nativeTasks).toHaveLength(1);
+      expect(result.value.nativeTasks?.[0]?.handler.module).toBe('@rntme/deploy-runner');
+    }
+  });
 });

@@ -5,6 +5,8 @@ export {
   validateWorkflows,
 } from './validate/index.js';
 export type {
+  NativeTaskHandlerRef,
+  NativeTaskMapping,
   StructurallyValidWorkflows,
   ValidatedWorkflows,
   WorkflowArtifact,

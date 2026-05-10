@@ -217,4 +217,78 @@ describe('validateWorkflowStructural', () => {
     );
     expect(result.ok).toBe(true);
   });
+
+  it('rejects nativeTasks that overlap with serviceTasks on the same taskId', () => {
+    const result = validateWorkflowStructural(
+      parseValid({
+        workflowVersion: 1,
+        definitions: [{ id: 'd1', bpmnFile: 'd1.bpmn', processId: 'p1' }],
+        messageStarts: [],
+        serviceTasks: [{ definition: 'd1', taskId: 'task-1', bindingRef: 'svc.binding' }],
+        nativeTasks: [
+          { definition: 'd1', taskId: 'task-1', handler: { module: '@x', export: 'h' } },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((e) => e.code)).toContain('WORKFLOW_TASK_DEFINITION_OVERLAP');
+    }
+  });
+
+  it('rejects duplicate nativeTasks within the same definition', () => {
+    const result = validateWorkflowStructural(
+      parseValid({
+        workflowVersion: 1,
+        definitions: [{ id: 'd1', bpmnFile: 'd1.bpmn', processId: 'p1' }],
+        messageStarts: [],
+        serviceTasks: [],
+        nativeTasks: [
+          { definition: 'd1', taskId: 'task-1', handler: { module: '@x', export: 'h' } },
+          { definition: 'd1', taskId: 'task-1', handler: { module: '@y', export: 'k' } },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((e) => e.code)).toContain('WORKFLOW_NATIVE_TASK_DUPLICATE');
+    }
+  });
+
+  it('does not collide serviceTask vs nativeTask ids by joined definition and task strings', () => {
+    const result = validateWorkflowStructural(
+      parseValid({
+        workflowVersion: 1,
+        definitions: [
+          { id: 'a.b', bpmnFile: 'first.bpmn', processId: 'first' },
+          { id: 'a', bpmnFile: 'second.bpmn', processId: 'second' },
+        ],
+        messageStarts: [],
+        serviceTasks: [{ definition: 'a.b', taskId: 'c', bindingRef: 'inventory.reserveStock' }],
+        nativeTasks: [
+          { definition: 'a', taskId: 'b.c', handler: { module: '@x', export: 'h' } },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('does not collide nativeTask ids within nativeTasks by joined definition and task strings', () => {
+    const result = validateWorkflowStructural(
+      parseValid({
+        workflowVersion: 1,
+        definitions: [
+          { id: 'a.b', bpmnFile: 'first.bpmn', processId: 'first' },
+          { id: 'a', bpmnFile: 'second.bpmn', processId: 'second' },
+        ],
+        messageStarts: [],
+        serviceTasks: [],
+        nativeTasks: [
+          { definition: 'a.b', taskId: 'c', handler: { module: '@x', export: 'h' } },
+          { definition: 'a', taskId: 'b.c', handler: { module: '@y', export: 'k' } },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+  });
 });

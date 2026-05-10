@@ -9,7 +9,14 @@ import {
 } from '@rntme/deploy-runner';
 import type { DirectRunResult } from './report.js';
 
-export type DirectDeploymentInputs = Omit<RunDeploymentInputs, 'hooks'> & {
+/**
+ * CLI direct-mode always pre-converts the blueprint via `toDeployCoreInput`
+ * before invoking the runner, so `composedBlueprint` is required here even
+ * though the runner accepts it as optional (the runner can also load from
+ * `bundleDir`, but the CLI never relies on that path).
+ */
+export type DirectDeploymentInputs = Omit<RunDeploymentInputs, 'hooks' | 'composedBlueprint'> & {
+  readonly composedBlueprint: NonNullable<RunDeploymentInputs['composedBlueprint']>;
   readonly stdout: { write: (s: string) => boolean | void };
   readonly logFileWriter?: (line: string) => void;
   readonly orchestrator?: typeof defaultRunDeployment;

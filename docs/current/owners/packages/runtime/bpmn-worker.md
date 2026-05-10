@@ -57,6 +57,43 @@ at least 15 seconds (or external-task long-poll timeout + 5 seconds) and raises
 so the deploy platform can restart the worker instead of leaving it alive but
 unsubscribed from Kafka.
 
+## Native task handlers (`workflows.json#nativeTasks`)
+
+In addition to gRPC-bound BPMN service tasks, the worker can execute **native
+in-process handlers** declared in the workflow artifact's
+`workflows.json#nativeTasks` section. Each entry maps a BPMN task id (or
+external-task topic) to a handler **module + export** that the worker resolves
+at startup and calls with the process variables as input.
+
+This is how the platform's `runDeployment` BPMN drives
+`@rntme/deploy-runner`'s `stages.*`: each of the six stages (compose, plan,
+provision, render, apply, verify) is a native task whose handler is the
+matching `stages.<name>.handler` export. Native handlers run in the worker
+process — no gRPC hop — and therefore avoid the `bindings-grpc` dependency
+for purely platform-internal orchestration.
+
+### Loud-failure contract
+
+A workflow artifact that names a `nativeTasks` handler the worker cannot
+resolve **fails loudly at worker startup**. There is no silent skip, no
+fallback to "unhandled", and no log-and-continue. Missing handler =
+`BPMN_WORKER_NATIVE_HANDLER_UNRESOLVED` and the worker exits non-zero so the
+deploy platform restarts it (or surfaces the broken artifact). The same
+contract applies to invalid handler exports and handler runtime errors that
+escape the stage's own error envelope.
+
+## Poll-mode bin (`rntme-bpmn-poll-worker`)
+
+The package ships a second bin, `rntme-bpmn-poll-worker`, that runs the
+worker as a **continuous Operaton long-poller** rather than as a
+Kafka-message-driven bridge. Use this bin for the platform's `deploy-worker`
+container, where work originates from BPMN process instances started inside
+Operaton (by `messageStartEventSubscription` from a Kafka command) and is
+fetched via Operaton external-task long-poll.
+
+The bin reuses the same handler resolution and loud-failure contract as the
+default worker.
+
 ## Deployable worker image
 
 `@rntme/bpmn-worker` ships a `rntme-bpmn-worker` bin and Dockerfile. The image

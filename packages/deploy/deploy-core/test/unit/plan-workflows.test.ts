@@ -130,6 +130,7 @@ describe('workflow planning', () => {
       slug: 'bpmn-worker',
       resourceName: 'rntme-acme-order-fulfillment-bpmn-worker',
       image: 'ghcr.io/acme/bpmn-worker:v1',
+      command: 'rntme-bpmn-worker',
       workflowManifestPath: '/srv/workflows/workflows.json',
       workflowFiles: {
         'workflows.json': expect.stringContaining('"workflowVersion": 1'),
@@ -764,5 +765,50 @@ describe('workflow planning', () => {
         }),
       );
     }
+  });
+
+  it('plans both bpmn-worker and deploy-worker workloads for projects whose workflows include native deploy handlers', () => {
+    const workflowsWithNative = {
+      ...workflows,
+      nativeTasks: [
+        {
+          definition: 'orderFulfillment',
+          taskId: 'deployStage.compose',
+          handler: { module: '@rntme/deploy-runner', export: 'composeStageHandler' },
+          input: {},
+        },
+      ],
+    } as unknown as ValidatedWorkflows;
+
+    const result = buildProjectDeploymentPlan(
+      {
+        ...project,
+        workflows: workflowsWithNative,
+        workflowFiles: {
+          'workflows.json': '{"workflowVersion":1}',
+          'order-fulfillment.bpmn': '<definitions />',
+        },
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        runtimeImage: 'ghcr.io/acme/runtime:v1',
+        eventBus: { kind: 'kafka', mode: 'provisioned', provider: 'redpanda' },
+        workflows: {
+          engine: { kind: 'operaton', mode: 'provisioned', image: 'operaton/operaton:test' },
+          worker: { image: 'ghcr.io/acme/bpmn-worker:v1' },
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.infrastructure.workflowEngine.kind).toBe('operaton');
+    const workerSlugs = result.value.workloads
+      .filter((workload) => workload.kind === 'bpmn-worker')
+      .map((workload) => workload.slug);
+    expect(workerSlugs).toEqual(expect.arrayContaining(['bpmn-worker', 'deploy-worker']));
+    expect(workerSlugs).toHaveLength(2);
   });
 });

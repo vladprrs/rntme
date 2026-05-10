@@ -16,7 +16,7 @@ export type SanitizedLogLine = {
   readonly message: string;
 };
 
-export type StageName = 'plan' | 'provision' | 'render' | 'apply' | 'verify';
+export type StageName = 'compose' | 'plan' | 'provision' | 'render' | 'apply' | 'verify';
 
 export type StageEvidence = {
   readonly stage: StageName;
@@ -111,8 +111,13 @@ export type RunDeploymentInputs = {
    * `ComposedBlueprint` (including runtime artifact + workflow gRPC bundling)
    * lives outside the runner because it depends on `@rntme/bindings-grpc`,
    * which is forbidden inside `packages/deploy/**` by the layering policy.
+   *
+   * Optional: when omitted the runner invokes the `compose` stage on
+   * `bundleDir` to load the blueprint. Existing callers (platform-http
+   * executor, CLI direct-mode) pre-convert via `toDeployCoreInput` and pass
+   * the result here, bypassing the on-disk load.
    */
-  readonly composedBlueprint: ComposedProjectInput;
+  readonly composedBlueprint?: ComposedProjectInput;
   /** Already-materialized bundle directory on disk. */
   readonly bundleDir: string;
   /** Full structural target (including modules / storage / workflows / auth / …). */

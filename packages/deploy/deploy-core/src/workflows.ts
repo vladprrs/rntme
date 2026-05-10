@@ -4,6 +4,7 @@ import type { ProjectDeploymentConfig } from './config.js';
 import type { DeploymentPlanError } from './errors.js';
 import type {
   BpmnWorkerWorkload,
+  BpmnWorkerWorkloadSlug,
   PlannedEventBus,
   PlannedWorkflowGrpcService,
   PlannedWorkflowEngine,
@@ -19,10 +20,10 @@ export function planWorkflowEngine(input: {
   readonly eventBus: PlannedEventBus | undefined;
   readonly errors: DeploymentPlanError[];
   readonly requiredTargetSecrets: RequiredTargetSecretRef[];
-}): { readonly engine: PlannedWorkflowEngine; readonly worker: BpmnWorkerWorkload | null } {
+}): { readonly engine: PlannedWorkflowEngine; readonly workers: readonly BpmnWorkerWorkload[] } {
   const workflows = input.project.workflows;
   if (workflows === undefined || workflows === null) {
-    return { engine: { kind: 'none' }, worker: null };
+    return { engine: { kind: 'none' }, workers: [] };
   }
 
   if (input.eventBus?.kind !== 'kafka' || input.eventBus.mode !== 'provisioned') {
@@ -59,7 +60,7 @@ export function planWorkflowEngine(input: {
         },
       ],
     });
-    return { engine: { kind: 'none' }, worker: null };
+    return { engine: { kind: 'none' }, workers: [] };
   }
 
   if (engineConfig.kind !== 'operaton' || engineConfig.mode !== 'provisioned') {
@@ -68,7 +69,7 @@ export function planWorkflowEngine(input: {
       message: 'workflow projects support only provisioned Operaton engine config',
       path: 'workflows.engine',
     });
-    return { engine: { kind: 'none' }, worker: null };
+    return { engine: { kind: 'none' }, workers: [] };
   }
 
   const engineImage = nonEmptyString(engineConfig.image);
@@ -86,7 +87,7 @@ export function planWorkflowEngine(input: {
         },
       ],
     });
-    return { engine: { kind: 'none' }, worker: null };
+    return { engine: { kind: 'none' }, workers: [] };
   }
 
   const engineResource = resourceName(input.config.orgSlug, input.project.name, 'operaton');
@@ -137,6 +138,16 @@ export function planWorkflowEngine(input: {
     }
   }
 
+  const engine: PlannedWorkflowEngine = {
+    kind: 'operaton',
+    mode: 'provisioned',
+    resourceName: engineResource,
+    internalBaseUrl: `http://${engineResource}:8080`,
+    image: engineImage,
+    ...(adminUserSecretRef !== null ? { adminUserSecretRef } : {}),
+    ...(uiAccess !== undefined ? { uiAccess } : {}),
+  };
+
   const workerConfig = asRecord(workflowConfig.worker);
   const workerImage = nonEmptyString(workerConfig?.image);
   if (workerImage === null) {
@@ -145,43 +156,71 @@ export function planWorkflowEngine(input: {
       message: 'workflow worker image must be a non-empty string',
       path: 'workflows.worker.image',
     });
-    return {
-      engine: {
-        kind: 'operaton',
-        mode: 'provisioned',
-        resourceName: engineResource,
-        internalBaseUrl: `http://${engineResource}:8080`,
-        image: engineImage,
-        ...(adminUserSecretRef !== null ? { adminUserSecretRef } : {}),
-        ...(uiAccess !== undefined ? { uiAccess } : {}),
-      },
-      worker: null,
-    };
+    return { engine, workers: [] };
   }
 
-  const workerResource = resourceName(input.config.orgSlug, input.project.name, 'bpmn-worker');
   const workflowFiles = buildWorkflowFiles(workflows, input.project.workflowFiles, input.errors);
+  const subscriptions = buildSubscriptions(workflows, input.eventBus);
+  const serviceTasks = buildServiceTasks(workflows, input.project, input.config, input.errors);
+  const grpcServices = buildGrpcServices(workflows, input.project, input.errors);
+
+  const workers: BpmnWorkerWorkload[] = [];
+  if (workflows.serviceTasks.length > 0 || workflows.messageStarts.length > 0) {
+    workers.push(
+      buildBpmnWorkerWorkload({
+        slug: 'bpmn-worker',
+        bin: 'rntme-bpmn-worker',
+        orgSlug: input.config.orgSlug,
+        projectName: input.project.name,
+        image: workerImage,
+        workflowFiles,
+        subscriptions,
+        serviceTasks,
+        grpcServices,
+      }),
+    );
+  }
+  if ((workflows.nativeTasks ?? []).length > 0) {
+    workers.push(
+      buildBpmnWorkerWorkload({
+        slug: 'deploy-worker',
+        bin: 'rntme-bpmn-poll-worker',
+        orgSlug: input.config.orgSlug,
+        projectName: input.project.name,
+        image: workerImage,
+        workflowFiles,
+        subscriptions,
+        serviceTasks,
+        grpcServices,
+      }),
+    );
+  }
+
+  return { engine, workers };
+}
+
+function buildBpmnWorkerWorkload(input: {
+  readonly slug: BpmnWorkerWorkloadSlug;
+  readonly bin: string;
+  readonly orgSlug: string;
+  readonly projectName: string;
+  readonly image: string;
+  readonly workflowFiles: Readonly<Record<string, string>>;
+  readonly subscriptions: readonly PlannedWorkflowSubscription[];
+  readonly serviceTasks: readonly PlannedWorkflowServiceTask[];
+  readonly grpcServices: Readonly<Record<string, PlannedWorkflowGrpcService>>;
+}): BpmnWorkerWorkload {
   return {
-    engine: {
-      kind: 'operaton',
-      mode: 'provisioned',
-      resourceName: engineResource,
-      internalBaseUrl: `http://${engineResource}:8080`,
-      image: engineImage,
-      ...(adminUserSecretRef !== null ? { adminUserSecretRef } : {}),
-      ...(uiAccess !== undefined ? { uiAccess } : {}),
-    },
-    worker: {
-      kind: 'bpmn-worker',
-      slug: 'bpmn-worker',
-      resourceName: workerResource,
-      image: workerImage,
-      workflowManifestPath: '/srv/workflows/workflows.json',
-      workflowFiles,
-      subscriptions: buildSubscriptions(workflows, input.eventBus),
-      serviceTasks: buildServiceTasks(workflows, input.project, input.config, input.errors),
-      grpcServices: buildGrpcServices(workflows, input.project, input.errors),
-    },
+    kind: 'bpmn-worker',
+    slug: input.slug,
+    resourceName: resourceName(input.orgSlug, input.projectName, input.slug),
+    image: input.image,
+    command: input.bin,
+    workflowManifestPath: '/srv/workflows/workflows.json',
+    workflowFiles: input.workflowFiles,
+    subscriptions: input.subscriptions,
+    serviceTasks: input.serviceTasks,
+    grpcServices: input.grpcServices,
   };
 }
 

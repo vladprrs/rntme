@@ -31,6 +31,9 @@
       "/": "app"
     }
   },
+  "workflows": {
+    "manifest": "services/deployments/workflows/workflows.json"
+  },
   "middleware": {
     "requestContext": { "kind": "request-context" },
     "auth": {
