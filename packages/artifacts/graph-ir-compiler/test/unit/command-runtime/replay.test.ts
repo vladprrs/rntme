@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import type { EventEnvelope } from '@rntme/event-store';
 import { replayAggregateState } from '../../../src/command-runtime/replay.js';
 

@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { ok, type DeployTargetWithSecret, type ProjectOperationRepo, type DeploymentRepo, type ProjectRepo, type ProjectVersionRepo } from '@rntme/platform-core';
 import { runProjectDeleteOperation, type ProjectDeleteExecutorDeps } from '../../../src/deploy/project-delete-executor.js';
 
@@ -9,12 +9,12 @@ describe('runProjectDeleteOperation', () => {
     const projects = projectRepo();
   const deployments = deploymentRepo();
   const deployTargets = {
-    getWithSecretById: vi.fn(async () => ok(target('target-1'))),
+    getWithSecretById: mock(async () => ok(target('target-1'))),
   };
   const projectVersions = projectVersionRepo();
   const client = {
-    deleteApplication: vi.fn(async () => undefined),
-    deleteCompose: vi.fn(async () => undefined),
+    deleteApplication: mock(async () => undefined),
+    deleteCompose: mock(async () => undefined),
   };
   const withOrgTx = async (_orgId: string, fn: (repos: {
     projectOperations: typeof operations;
@@ -27,21 +27,21 @@ describe('runProjectDeleteOperation', () => {
     await runProjectDeleteOperation('operation-1', 'org-1', {
       withOrgTx: withOrgTx as unknown as ProjectDeleteExecutorDeps['withOrgTx'],
       dokployClientFactory: () => client as never,
-      logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+      logger: { warn: mock(), error: mock(), info: mock() },
       heartbeatMs: 1_000,
       blob: {
-        getRaw: vi.fn(async () => ok(Buffer.alloc(0))),
-        putIfAbsent: vi.fn(async () => ok(undefined as never)),
-        presignedGet: vi.fn(async () => ok('')),
-        getJson: vi.fn(async () => ok({})),
+        getRaw: mock(async () => ok(Buffer.alloc(0))),
+        putIfAbsent: mock(async () => ok(undefined as never)),
+        presignedGet: mock(async () => ok('')),
+        getJson: mock(async () => ok({})),
       } as unknown as ProjectDeleteExecutorDeps['blob'],
       secretCipher: {
-        encrypt: vi.fn(() => ({ ciphertext: Buffer.alloc(0), nonce: Buffer.alloc(0), keyVersion: 1 })),
-        decrypt: vi.fn(() => '{"modules":{}}'),
+        encrypt: mock(() => ({ ciphertext: Buffer.alloc(0), nonce: Buffer.alloc(0), keyVersion: 1 })),
+        decrypt: mock(() => '{"modules":{}}'),
       } as ProjectDeleteExecutorDeps['secretCipher'],
-      resolveProvisioner: vi.fn(async () => ({
-        provision: vi.fn(),
-        tearDown: vi.fn(),
+      resolveProvisioner: mock(async () => ({
+        provision: mock(),
+        tearDown: mock(),
       })) as unknown as ProjectDeleteExecutorDeps['resolveProvisioner'],
     });
 
@@ -54,9 +54,9 @@ describe('runProjectDeleteOperation', () => {
 
 function operationRepo(): ProjectOperationRepo {
   return {
-    create: vi.fn(),
-    attachDeployment: vi.fn(),
-    getById: vi.fn(async () => ok({
+    create: mock(),
+    attachDeployment: mock(),
+    getById: mock(async () => ok({
       id: 'operation-1',
       orgId: 'org-1',
       projectId: 'project-1',
@@ -76,10 +76,10 @@ function operationRepo(): ProjectOperationRepo {
       finishedAt: null,
       lastHeartbeatAt: null,
     })),
-    getByDeploymentId: vi.fn(),
-    listByProject: vi.fn(),
-    transition: vi.fn(async () => ok(undefined)),
-    finalize: vi.fn(async (_id, args) => ok({
+    getByDeploymentId: mock(),
+    listByProject: mock(),
+    transition: mock(async () => ok(undefined)),
+    finalize: mock(async (_id, args) => ok({
       id: 'operation-1',
       orgId: 'org-1',
       projectId: 'project-1',
@@ -99,20 +99,20 @@ function operationRepo(): ProjectOperationRepo {
       finishedAt: new Date(),
       lastHeartbeatAt: new Date(),
     })),
-    touchHeartbeat: vi.fn(async () => ok(undefined)),
-    appendLog: vi.fn(async () => ok(undefined)),
-    readLogs: vi.fn(),
-    findStaleRunning: vi.fn(),
+    touchHeartbeat: mock(async () => ok(undefined)),
+    appendLog: mock(async () => ok(undefined)),
+    readLogs: mock(),
+    findStaleRunning: mock(),
   } as ProjectOperationRepo;
 }
 
 function projectRepo(): Pick<ProjectRepo, 'setStatus'> {
-  return { setStatus: vi.fn(async () => ok({} as never)) };
+  return { setStatus: mock(async () => ok({} as never)) };
 }
 
 function deploymentRepo(): Pick<DeploymentRepo, 'listAppliedResourcesByProject' | 'findLastSuccessfulForProjectTarget'> {
   return {
-    listAppliedResourcesByProject: vi.fn(async () => ok([
+    listAppliedResourcesByProject: mock(async () => ok([
       {
         deploymentId: 'deployment-1',
         targetId: 'target-1',
@@ -123,13 +123,13 @@ function deploymentRepo(): Pick<DeploymentRepo, 'listAppliedResourcesByProject' 
       },
     ])),
     // Returns null provisionResult → tearDown phase is skipped.
-    findLastSuccessfulForProjectTarget: vi.fn(async () => ok(null)),
+    findLastSuccessfulForProjectTarget: mock(async () => ok(null)),
   };
 }
 
 function projectVersionRepo(): Pick<ProjectVersionRepo, 'getById'> {
   return {
-    getById: vi.fn(async () => ok(null)),
+    getById: mock(async () => ok(null)),
   };
 }
 

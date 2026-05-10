@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { AuthoringSpecSchema } from '../../../src/parse/schema.js';
 
 const minimal = {

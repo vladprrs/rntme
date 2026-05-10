@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { createRegistry } from '../../src/client/registry.js';
+import './dom-setup';
+import { describe, expect, it } from 'bun:test';
+
+const { createRegistry } = await import('../../src/client/registry.js');
 
 describe('DataTable runtime primitive', () => {
   it('registers DataTable in the runtime catalog', () => {

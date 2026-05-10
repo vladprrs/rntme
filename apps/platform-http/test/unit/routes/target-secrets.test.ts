@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Hono } from 'hono';
 import { targetSecretsRoutes } from '../../../src/routes/target-secrets.js';
 import type { AuthSubject, DeployTargetRepo, TargetSecretsRepo } from '@rntme/platform-core';

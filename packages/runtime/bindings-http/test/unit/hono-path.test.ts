@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { honoPath } from '../../src/startup/hono-path.js';
 
 describe('honoPath', () => {

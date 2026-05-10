@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { provision, tearDown, ENV_MAPPINGS } from '../../src/provisioner.js';
 
 type FetchFn = typeof globalThis.fetch;
@@ -24,7 +24,7 @@ const baseInput = {
 describe('provision — create path', () => {
   it('creates SPA client + Resource Server + M2M when none exist', async () => {
     const calls: { method: string; path: string; body?: unknown }[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       calls.push({ method: init?.method ?? 'GET', path: u.pathname + u.search, body: init?.body });
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
@@ -45,7 +45,7 @@ describe('provision — create path', () => {
       throw new Error(`unhandled ${u.pathname}`);
     });
 
-    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
+    const out = await provision({ ...baseInput, fetch: fetcher as unknown as FetchFn });
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.value.publicOutputs).toMatchObject({
@@ -67,7 +67,7 @@ describe('provision — create path', () => {
 describe('provision — reconcile path', () => {
   it('PATCHes a SPA client whose token_endpoint_auth_method differs from desired', async () => {
     let patchCalled = false;
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/clients' && u.searchParams.get('name')?.includes('m2m')) return new Response('[]', { status: 200 });
@@ -100,7 +100,7 @@ describe('provision — reconcile path', () => {
       throw new Error(`unhandled ${u.pathname}`);
     });
 
-    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
+    const out = await provision({ ...baseInput, fetch: fetcher as unknown as FetchFn });
     expect(out.ok).toBe(true);
     expect(patchCalled).toBe(true);
   });
@@ -109,7 +109,7 @@ describe('provision — reconcile path', () => {
 describe('provision — optional field defaults', () => {
   it('runs end-to-end when publicConfig omits allowedOrigins, allowedLogoutUrls, organizationsCapability, m2mClients', async () => {
     let spaPostBody: Record<string, unknown> | undefined;
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
@@ -138,7 +138,7 @@ describe('provision — optional field defaults', () => {
     const out = await provision({
       ...baseInput,
       publicConfig: minimalConfig as never,
-      fetch: fetcher as FetchFn,
+      fetch: fetcher as unknown as FetchFn,
     });
     expect(out.ok).toBe(true);
     expect(spaPostBody).toBeDefined();
@@ -157,7 +157,7 @@ describe('provision — optional field defaults', () => {
 describe('provision — reconcile resource server', () => {
   it('PATCH /resource-servers/{id} body excludes immutable identifier and id', async () => {
     let rsPatchBody: Record<string, unknown> | undefined;
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/clients' && u.searchParams.get('name')?.includes('m2m')) {
@@ -196,7 +196,7 @@ describe('provision — reconcile resource server', () => {
       throw new Error(`unhandled ${u.pathname}`);
     });
 
-    const out = await provision({ ...baseInput, fetch: fetcher as FetchFn });
+    const out = await provision({ ...baseInput, fetch: fetcher as unknown as FetchFn });
     expect(out.ok).toBe(true);
     expect(rsPatchBody).toBeDefined();
     // Auth0 PATCH /resource-servers/{id} rejects identifier (and id) as
@@ -210,7 +210,7 @@ describe('provision — reconcile resource server', () => {
 describe('provision — no-op path', () => {
   it('issues zero PATCH/POST when state is already converged', async () => {
     const mutations: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       const method = init?.method ?? 'GET';
       if ((method === 'POST' || method === 'PATCH') && u.pathname.startsWith('/api/v2/')) mutations.push(`${method} ${u.pathname}`);
@@ -244,7 +244,7 @@ describe('provision — no-op path', () => {
         publicOutputs: { spaClient: { id: 'spa_x', name: baseInput.publicConfig.appName }, resourceServer: { id: 'rs_1', identifier: baseInput.publicConfig.audience } },
         secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'kept' }] },
       },
-      fetch: fetcher as FetchFn,
+      fetch: fetcher as unknown as FetchFn,
     });
 
     expect(out.ok).toBe(true);
@@ -255,7 +255,7 @@ describe('provision — no-op path', () => {
 describe('provision — idempotence', () => {
   it('twice in a row produces identical outputs and zero extra mutations', async () => {
     const mutations: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       const method = init?.method ?? 'GET';
       if ((method === 'POST' || method === 'PATCH') && u.pathname.startsWith('/api/v2/')) mutations.push(`${method} ${u.pathname}`);
@@ -288,9 +288,9 @@ describe('provision — idempotence', () => {
       secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'kept' }] },
     };
 
-    const a = await provision({ ...baseInput, priorOutputs, fetch: fetcher as FetchFn });
+    const a = await provision({ ...baseInput, priorOutputs, fetch: fetcher as unknown as FetchFn });
     const mutationsAfterFirst = [...mutations];
-    const b = await provision({ ...baseInput, priorOutputs, fetch: fetcher as FetchFn });
+    const b = await provision({ ...baseInput, priorOutputs, fetch: fetcher as unknown as FetchFn });
 
     expect(a.ok && b.ok).toBe(true);
     if (a.ok && b.ok) {
@@ -315,7 +315,7 @@ describe('ENV_MAPPINGS', () => {
 describe('tearDown', () => {
   it('deletes M2M clients, client-grants, resource server, and SPA client', async () => {
     const deletes: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (init?.method === 'DELETE') {
@@ -330,7 +330,7 @@ describe('tearDown', () => {
     const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
       secretOutputs: { m2mClients: [{ name: 'introspect', clientId: 'm2m_c', clientSecret: 'shh' }] },
-    }, fetch: fetcher });
+    }, fetch: fetcher as unknown as typeof globalThis.fetch });
     expect(r.ok).toBe(true);
     expect(deletes).toContain('/api/v2/client-grants/g');
     expect(deletes).toContain('/api/v2/clients/m2m_c');
@@ -345,7 +345,7 @@ describe('tearDown', () => {
     // there is no "list-and-rewrite" path that could accidentally drop
     // sibling clients (`other_app`).
     const deletes: string[] = [];
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/connections' && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
@@ -359,7 +359,7 @@ describe('tearDown', () => {
     const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' } },
       secretOutputs: { m2mClients: [] },
-    }, fetch: fetcher });
+    }, fetch: fetcher as unknown as typeof globalThis.fetch });
     expect(r.ok).toBe(true);
     expect(deletes).toContain('/api/v2/connections/conn_1/clients/spa_x');
     // No DELETE targeting `other_app` — the old code path that rewrote the
@@ -368,7 +368,7 @@ describe('tearDown', () => {
   });
 
   it('treats 404 on delete as success (idempotent)', async () => {
-    const fetcher = vi.fn(async (url: string, init?: RequestInitLike) => {
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
       const u = new URL(url);
       if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
       if (u.pathname === '/api/v2/connections') return new Response('[]', { status: 200 });
@@ -379,7 +379,7 @@ describe('tearDown', () => {
     const r = await tearDown({ ...baseInput, priorOutputs: {
       publicOutputs: { spaClient: { id: 'spa_x' }, resourceServer: { id: 'rs_1', identifier: 'https://x/api' } },
       secretOutputs: { m2mClients: [{ name: 'a', clientId: 'm', clientSecret: 's' }] },
-    }, fetch: fetcher });
+    }, fetch: fetcher as unknown as typeof globalThis.fetch });
     expect(r.ok).toBe(true);
   });
 });

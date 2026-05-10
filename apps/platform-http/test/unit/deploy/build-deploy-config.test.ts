@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { DeployTarget } from '@rntme/platform-core';
 import { buildProjectDeploymentConfig, buildDokployTargetConfig } from '../../../src/deploy/build-deploy-config.js';
 
@@ -225,7 +225,6 @@ describe('buildDokployTargetConfig', () => {
     expect(buildDokployTargetConfig(target(), { publicBaseUrl: 'https://app.example.test' })).toEqual({
       endpoint: 'https://dokploy.example.test',
       projectId: 'project-1',
-      projectName: undefined,
       allowCreateProject: false,
       publicBaseUrl: 'https://app.example.test',
     });

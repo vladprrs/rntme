@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ok, err, isOk, isErr, ERROR_CODES } from '../../src/types/result.js';
 import type { QsmError } from '../../src/types/result.js';
 

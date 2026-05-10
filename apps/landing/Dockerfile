@@ -1,23 +1,17 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- builder ----------
-FROM node:20-alpine AS build
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+FROM oven/bun:1.3.13-alpine AS build
 WORKDIR /repo
 
-# 1) Copy only the workspace + package manifests first so `pnpm install` can
-#    resolve the filtered closure without invalidating the layer on every
-#    landing source change.
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY apps/landing/package.json             ./apps/landing/package.json
+# 1) Copy the workspace. Bun's frozen workspace install validates all packages
+#    in bun.lock; .dockerignore keeps local installs and build output out.
+COPY . .
 
-# 2) Install only what @rntme/landing needs.
-RUN pnpm install --frozen-lockfile --filter @rntme/landing...
+# 2) Install the locked workspace.
+RUN bun install --frozen-lockfile
 
-# 3) Copy landing source.
-COPY apps/landing ./apps/landing
-
-# 4) Build-time env. Required vars fail the build if absent (src/env.ts).
+# 3) Build-time env. Required vars fail the build if absent (src/env.ts).
 ARG TALLY_FORM_ID
 ARG GITHUB_URL
 ARG DOCS_URL
@@ -31,7 +25,7 @@ ENV TALLY_FORM_ID=$TALLY_FORM_ID \
     DEMO_URL=$DEMO_URL \
     PLAUSIBLE_DOMAIN=$PLAUSIBLE_DOMAIN
 
-RUN pnpm -F @rntme/landing build
+RUN bun run -F @rntme/landing build
 
 # Sanity check: dist/ must contain index.html. If not, fail the build here
 # rather than ship an empty nginx image.

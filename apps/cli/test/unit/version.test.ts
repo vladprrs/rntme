@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { CLI_VERSION } from '../../src/util/version.js';
 import pkg from '../../package.json' assert { type: 'json' };
 

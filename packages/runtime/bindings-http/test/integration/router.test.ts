@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, expect, it } from 'bun:test';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { createBindingsRouter } from '../../src/router.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
 import type { OperationExecutor } from '../../src/operation-contract.js';
@@ -52,7 +52,7 @@ function makeRouter(executor: OperationExecutor, openApiDoc?: never) {
     graphSpec,
     pdm: { entities: {} } as never,
     qsm: { projections: {}, relations: {} } as never,
-    db: new Database(':memory:'),
+    db: openSqliteDatabase({ filename: ':memory:' }),
     operationExecutor: executor,
   };
   return createBindingsRouter(openApiDoc === undefined ? opts : { ...opts, openApiDoc });
@@ -98,7 +98,7 @@ describe('createBindingsRouter', () => {
         graphSpec: { version: '1.0-rc7', pdmRef: 'p', qsmRef: 'q', shapes: {}, graphs: {} } as never,
         pdm: { entities: {} } as never,
         qsm: { projections: {}, relations: {} } as never,
-        db: new Database(':memory:'),
+        db: openSqliteDatabase({ filename: ':memory:' }),
         operationExecutor: { async execute() { throw new Error('not called'); } },
       }),
     ).toThrow(BindingsRuntimeError);

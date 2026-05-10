@@ -1,22 +1,22 @@
 import { Buffer } from 'node:buffer';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { toCloudEventWire, type EventEnvelope } from '@rntme/event-store';
 import { createKafkaWorkflowConsumer, decodeKafkaJsMessage } from '../../src/kafka-consumer.js';
 
-const kafkaMock = vi.hoisted(() => ({
-  subscribeCalls: [] as Array<{ topic: string; fromBeginning?: boolean }>,
-  disconnect: vi.fn(async () => undefined),
-}));
+const kafkaMock = {
+  subscribeCalls: [] as Array<{ topics: string[]; fromBeginning?: boolean }>,
+  disconnect: mock(async () => undefined),
+};
 
-vi.mock('kafkajs', () => ({
+mock.module('kafkajs', () => ({
   Kafka: class {
     consumer() {
       return {
-        connect: vi.fn(async () => undefined),
-        subscribe: vi.fn(async (input: { topic: string; fromBeginning?: boolean }) => {
+        connect: mock(async () => undefined),
+        subscribe: mock(async (input: { topics: string[]; fromBeginning?: boolean }) => {
           kafkaMock.subscribeCalls.push(input);
         }),
-        run: vi.fn(async () => undefined),
+        run: mock(async () => undefined),
         disconnect: kafkaMock.disconnect,
       };
     }
@@ -89,6 +89,6 @@ describe('createKafkaWorkflowConsumer', () => {
     ]);
 
     await consumer.stop();
-    expect(kafkaMock.disconnect).toHaveBeenCalledOnce();
+    expect(kafkaMock.disconnect).toHaveBeenCalledTimes(1);
   });
 });

@@ -13,19 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: '9.12.0'
+          bun-version: latest
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org/'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --filter "@rntme/*" build
-      - run: pnpm -r --filter "@rntme/*" test
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter "@rntme/*" build
+      - run: bun run --filter "@rntme/*" test
 
       - name: Derive version
         id: ver
@@ -46,6 +40,8 @@ jobs:
             ghcr.io/vladprrs/rntme-runtime:${{ steps.ver.outputs.v }}
             ghcr.io/vladprrs/rntme-runtime:latest
 
-      - run: pnpm -F @rntme/runtime publish --access public --no-git-checks
+      - run: |
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > ~/.npmrc
+          bun publish --cwd packages/runtime/runtime --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

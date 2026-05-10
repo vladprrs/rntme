@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkTier1Nodes } from '../../../../src/validate/structural/tier1-nodes.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 

@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect } from 'bun:test';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { applyEventStoreSchema, assertSchemaD9Compatible } from '../../src/store/schema.js';
 
 describe('applyEventStoreSchema', () => {
   it('creates event_log and publish_cursor tables', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
 
     const tables = db
@@ -16,7 +16,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('creates UNIQUE(subject, version) index on event_log', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
 
     const idx = db
@@ -55,13 +55,13 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('is idempotent — applying twice does not throw', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
     expect(() => applyEventStoreSchema(db)).not.toThrow();
   });
 
   it('creates delivery_tracking table with expected columns', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
 
     const tables = db
@@ -85,7 +85,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('creates event_store_metadata table for immutable store metadata', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
 
     const tables = db
@@ -105,7 +105,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('creates correlation/causation/command/traceparent columns on event_log', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
     const cols = db.prepare("PRAGMA table_info('event_log')").all() as {
       name: string;
@@ -120,7 +120,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('rejects invalid actor_kind values at write time', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
 
     expect(() =>
@@ -129,7 +129,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('adds actor_kind CHECK to a valid legacy D9 event_log table', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     createLegacyD9EventLogWithoutActorCheck(db);
     insertEventLogRow(db, { eventId: 'valid-legacy', actorKind: 'user' });
 
@@ -145,7 +145,7 @@ describe('applyEventStoreSchema', () => {
   });
 
   it('rejects legacy D9 event_log rows with invalid actor_kind during schema apply', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     createLegacyD9EventLogWithoutActorCheck(db);
     insertEventLogRow(db, { eventId: 'corrupt-legacy', actorKind: 'owner' });
 
@@ -155,18 +155,18 @@ describe('applyEventStoreSchema', () => {
 
 describe('assertSchemaD9Compatible', () => {
   it('passes on a freshly applied D9 schema', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     applyEventStoreSchema(db);
     expect(() => assertSchemaD9Compatible(db)).not.toThrow();
   });
 
   it('is a no-op when event_log table does not exist', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     expect(() => assertSchemaD9Compatible(db)).not.toThrow();
   });
 
   it('rejects pre-D9 event_log schema (missing correlation_id sentinel)', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     db.exec(
       `CREATE TABLE event_log (
         id INTEGER PRIMARY KEY,
@@ -180,7 +180,7 @@ describe('assertSchemaD9Compatible', () => {
   });
 });
 
-function createLegacyD9EventLogWithoutActorCheck(db: Database.Database): void {
+function createLegacyD9EventLogWithoutActorCheck(db: SqliteDatabase): void {
   db.exec(`
     CREATE TABLE event_log (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,7 +205,7 @@ function createLegacyD9EventLogWithoutActorCheck(db: Database.Database): void {
 }
 
 function insertEventLogRow(
-  db: Database.Database,
+  db: SqliteDatabase,
   overrides: { eventId: string; actorKind: string | null },
 ): void {
   db.prepare(

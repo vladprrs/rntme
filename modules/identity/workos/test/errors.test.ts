@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import {
   GRPC_STATUS_ALREADY_EXISTS,
   GRPC_STATUS_INVALID_ARGUMENT,

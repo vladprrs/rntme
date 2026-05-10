@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { inputToParameter, collectRequestBody } from '../../../src/openapi/parameters.js';
 import type { GraphInput } from '../../../src/types/resolvers.js';
 import type { HttpParameter } from '../../../src/types/artifact.js';

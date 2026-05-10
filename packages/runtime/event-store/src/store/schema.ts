@@ -1,4 +1,4 @@
-import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 
 const EVENT_LOG_COLUMNS = [
   'id',
@@ -75,7 +75,7 @@ CREATE TABLE ${ifNotExists ? 'IF NOT EXISTS ' : ''}${tableName} (
 `;
 }
 
-export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
+export function applyEventStoreSchema(db: SqliteDatabase): void {
   db.exec(`${eventLogTableDdl('event_log', true)}\n${OTHER_DDL}`);
   ensureEventLogActorKindCheck(db);
   db.exec(EVENT_LOG_INDEX_DDL);
@@ -88,7 +88,7 @@ export function applyEventStoreSchema(db: BetterSqliteDatabase): void {
  * `EVENT_STORE_SCHEMA_INCOMPATIBLE`. If the table does not exist yet, this is
  * a no-op (applyEventStoreSchema will create it).
  */
-export function assertSchemaD9Compatible(db: BetterSqliteDatabase): void {
+export function assertSchemaD9Compatible(db: SqliteDatabase): void {
   const cols = db.prepare('PRAGMA table_info(event_log)').all() as {
     name: string;
   }[];
@@ -111,7 +111,7 @@ export function assertSchemaD9Compatible(db: BetterSqliteDatabase): void {
   }
 }
 
-function ensureEventLogActorKindCheck(db: BetterSqliteDatabase): void {
+function ensureEventLogActorKindCheck(db: SqliteDatabase): void {
   const table = db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='event_log'")
     .get() as { sql: string | null } | undefined;
@@ -124,7 +124,7 @@ function hasActorKindCheck(sql: string): boolean {
   return /actor_kind\s+IN\s*\(\s*'user'\s*,\s*'system'\s*,\s*'service'\s*\)/i.test(sql);
 }
 
-function assertNoInvalidActorKinds(db: BetterSqliteDatabase): void {
+function assertNoInvalidActorKinds(db: SqliteDatabase): void {
   const invalid = db
     .prepare(
       `SELECT event_id, actor_kind
@@ -141,7 +141,7 @@ function assertNoInvalidActorKinds(db: BetterSqliteDatabase): void {
   );
 }
 
-function rebuildEventLogWithActorKindCheck(db: BetterSqliteDatabase): void {
+function rebuildEventLogWithActorKindCheck(db: SqliteDatabase): void {
   const columns = EVENT_LOG_COLUMNS.join(', ');
   const rebuild = db.transaction(() => {
     db.exec('DROP TABLE IF EXISTS event_log_checked;');

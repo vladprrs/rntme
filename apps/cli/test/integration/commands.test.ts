@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { resolve } from 'node:path';

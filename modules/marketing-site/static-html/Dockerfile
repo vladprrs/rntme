@@ -1,25 +1,19 @@
 # Build from the repository root:
 #   docker build -f modules/marketing-site/static-html/Dockerfile -t ghcr.io/vladprrs/rntme-marketing-site-static:dev .
 
-FROM node:20-alpine AS builder
+FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /build
 
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+COPY . .
 
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
-COPY packages/contracts ./packages/contracts
-COPY modules/marketing-site ./modules/marketing-site
+RUN bun install --frozen-lockfile
+RUN bun run -F @rntme/marketing-site-static build
 
-RUN pnpm install --frozen-lockfile
-RUN pnpm -F @rntme/marketing-site-static run build
-RUN node -e "const fs=require('fs');const p=require('./package.json');delete p.devDependencies;fs.writeFileSync('package.json', JSON.stringify(p));"
-RUN pnpm --filter @rntme/marketing-site-static --prod deploy /out
+FROM oven/bun:1.3.13-alpine
+WORKDIR /srv/modules/marketing-site/static-html
 
-FROM node:20-alpine
-WORKDIR /srv
-
-COPY --from=builder /out ./
+COPY --from=builder /build /srv
 
 ENV NODE_ENV=production
-USER node
-CMD ["node", "dist/provisioner.entry.js"]
+USER bun
+CMD ["bun", "dist/provisioner.entry.js"]

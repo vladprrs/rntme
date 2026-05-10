@@ -1,9 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { mkdtempSync, cpSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { loadService } from '../../src/load/load-service.js';
 import { startService } from '../../src/start/start-service.js';
 import type { RunningService } from '../../src/types.js';
@@ -83,7 +83,7 @@ describe('D9 correlation E2E (HTTP → response → event_log)', () => {
 
     // Open a second read-only handle on the same sqlite file and assert CE
     // correlation columns on the persisted event_log rows.
-    const db = new Database(eventStorePath, { readonly: true });
+    const db = openSqliteDatabase({ filename: eventStorePath, readonly: true });
     try {
       const rows = db
         .prepare(
@@ -134,7 +134,7 @@ describe('D9 correlation E2E (HTTP → response → event_log)', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { commandId: string; correlationId: string };
     const headerCorr = res.headers.get('Correlation-Id');
-    expect(headerCorr).toBeTruthy();
+    if (headerCorr === null) throw new Error('missing Correlation-Id response header');
     expect(body.correlationId).toBe(headerCorr);
     // UUID v4 shape
     expect(body.correlationId).toMatch(
@@ -143,7 +143,7 @@ describe('D9 correlation E2E (HTTP → response → event_log)', () => {
     // And commandId is distinct from correlationId.
     expect(body.commandId).not.toBe(body.correlationId);
 
-    const db = new Database(eventStorePath, { readonly: true });
+    const db = openSqliteDatabase({ filename: eventStorePath, readonly: true });
     try {
       const rows = db
         .prepare(

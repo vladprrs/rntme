@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseStorageJson } from '../../src/validate/storage/parse.js';
 import { validateStorageJsonStructural } from '../../src/validate/storage/structural.js';
 

@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
-import { describe, expect, it } from 'vitest';
-import type { CanonicalBundle } from '@rntme/blueprint';
+import { describe, expect, it } from 'bun:test';
+import type { CanonicalBundle } from '../../src/index.js';
 
 describe('CanonicalBundle re-export', () => {
   it('is structurally compatible with version 2 bundles', () => {

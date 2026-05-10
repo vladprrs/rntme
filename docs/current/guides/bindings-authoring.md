@@ -380,7 +380,7 @@ One GET endpoint, no parameters, graph returns `rowset<OrderItem>`:
 
 Runnable examples plus final OpenAPI are in [`examples.md`](./examples.md).
 Executable script: [`../demo-openapi.mjs`](/packages/artifacts/bindings/demo-openapi.mjs)
-(`pnpm build && node demo-openapi.mjs`).
+(`bun run build && bun demo-openapi.mjs`).
 Canonical golden fixture: `test/golden/category-sales/artifact.json`
 (input) and `test/golden/category-sales/expected.openapi.json` (expected output).
 Full test suite: `test/unit/**/*.test.ts`.

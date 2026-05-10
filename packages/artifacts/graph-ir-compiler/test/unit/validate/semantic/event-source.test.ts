@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { resolveSources } from '../../../../src/validate/semantic/sources.js';
 import { resolveField } from '../../../../src/validate/semantic/fields.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';

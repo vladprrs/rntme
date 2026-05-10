@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 

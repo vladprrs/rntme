@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkParamContext } from '../../../../src/validate/semantic/param-context.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';

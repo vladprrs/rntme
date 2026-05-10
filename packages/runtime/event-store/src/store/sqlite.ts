@@ -1,6 +1,9 @@
 import { resolve } from 'node:path';
-import Database from 'better-sqlite3';
-import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
+import {
+  openSqliteDatabase,
+  type SqliteDatabase,
+  type SqliteRunResult,
+} from '@rntme/sqlite';
 import type { EventEnvelope } from '../types/envelope.js';
 import type { AppendRequest, AppendResult } from '../types/append.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../types/errors.js';
@@ -24,7 +27,7 @@ export type SqliteEventStoreOptions = Readonly<{
 const liveSqliteWriterKeys = new Set<string>();
 
 export class SqliteEventStore implements EventStore {
-  private readonly db: BetterSqliteDatabase;
+  private readonly db: SqliteDatabase;
   private readonly serviceName: string;
   private readonly writerKey: string | null;
   private closed = false;
@@ -37,9 +40,9 @@ export class SqliteEventStore implements EventStore {
     this.writerKey = sqliteWriterKey(options.filename);
     registerSqliteWriter(this.writerKey);
 
-    let db: BetterSqliteDatabase | null = null;
+    let db: SqliteDatabase | null = null;
     try {
-      db = new Database(options.filename);
+      db = openSqliteDatabase({ filename: options.filename });
       db.pragma('journal_mode = WAL');
       db.pragma(`busy_timeout = ${options.busyTimeoutMs ?? 5000}`);
       db.pragma('foreign_keys = ON');
@@ -67,7 +70,7 @@ export class SqliteEventStore implements EventStore {
   }
 
   /** Test / advanced use only: direct handle for fixtures or custom queries. */
-  rawDb(): BetterSqliteDatabase {
+  rawDb(): SqliteDatabase {
     return this.db;
   }
 
@@ -97,7 +100,7 @@ export class SqliteEventStore implements EventStore {
         for (let i = 0; i < req.events.length; i++) {
           const e = req.events[i]!;
           const version = current + i + 1;
-          let info: Database.RunResult;
+          let info: SqliteRunResult;
           try {
             info = insert.run({
               subject: req.subject,
@@ -174,13 +177,8 @@ export class SqliteEventStore implements EventStore {
             traceparent: e.traceparent,
           });
         } catch (err) {
-          const code = (err as Error & { code?: string }).code ?? '';
           const msg = err instanceof Error ? err.message : String(err);
-          if (
-            opts?.ignoreDuplicates &&
-            (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') &&
-            /event_id/.test(msg)
-          ) {
+          if (opts?.ignoreDuplicates && isUniqueConstraint(err) && /event_id/.test(msg)) {
             continue;
           }
           throw mapSqliteError(err, e.subject, undefined, e.rntVersion, e.id);
@@ -311,9 +309,8 @@ export function mapSqliteError(
   eventId?: string,
 ): Error {
   if (!(err instanceof Error)) return new Error(String(err));
-  const code = (err as Error & { code?: string }).code ?? '';
   const msg = err.message;
-  if (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') {
+  if (isUniqueConstraint(err)) {
     if (/event_id/.test(msg)) {
       return new DuplicateEventId(eventId ?? '<unknown>');
     }
@@ -322,6 +319,16 @@ export function mapSqliteError(
     }
   }
   return err;
+}
+
+function isUniqueConstraint(err: unknown): boolean {
+  const code = err instanceof Error ? ((err as Error & { code?: string }).code ?? '') : '';
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    code === 'SQLITE_CONSTRAINT' ||
+    /UNIQUE constraint failed/i.test(msg)
+  );
 }
 
 function sqliteWriterKey(filename: string): string | null {
@@ -344,7 +351,7 @@ function unregisterSqliteWriter(writerKey: string | null): void {
   liveSqliteWriterKeys.delete(writerKey);
 }
 
-function ensureServiceName(db: BetterSqliteDatabase, serviceName: string): void {
+function ensureServiceName(db: SqliteDatabase, serviceName: string): void {
   const table = db
     .prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'event_store_metadata'",

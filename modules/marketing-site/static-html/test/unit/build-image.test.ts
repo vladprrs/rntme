@@ -2,19 +2,19 @@ import { mkdtempSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { buildAndPushImage } from '../../src/build-image.js';
 
 describe('buildAndPushImage', () => {
   it('writes nginx static Dockerfile and invokes docker buildx push', async () => {
     const bundleDir = mkdtempSync(join(tmpdir(), 'mksite-build-'));
-    const run = vi.fn(async () => 0);
+    const run = mock(async () => 0);
 
     const result = await buildAndPushImage({
       bundleDir,
       imageRef: 'localhost:5000/site:abc1234',
       registry: { url: 'localhost:5000' },
-      log: vi.fn(),
+      log: mock(),
       run,
     });
 

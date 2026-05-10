@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { proto } from '../src/index.js';
 
 const id = proto.rntme.contracts.identity.v1;

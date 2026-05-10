@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { loadWorkerConfigFromEnv } from '../../src/env.js';
 
 describe('loadWorkerConfigFromEnv', () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { identityConformanceSuite } from '@rntme/conformance-identity';
 import { CLAIMED_RPCS } from '../../src/capabilities.js';
 import { auth0MockConformanceSuite } from '../../src/conformance.js';
@@ -11,7 +11,7 @@ describe('Auth0 mock conformance selection', () => {
     expect(Object.keys(auth0MockConformanceSuite.scenariosByRpc).sort()).toEqual([...CLAIMED_RPCS].sort());
   });
 
-  it.each(introspectSessionMockScenarios())('runs focused IntrospectSession mock scenario: $name', async (scenario) => {
+  it.each([...introspectSessionMockScenarios()])('runs focused IntrospectSession mock scenario: $name', async (scenario) => {
     await scenario.run();
   });
 });

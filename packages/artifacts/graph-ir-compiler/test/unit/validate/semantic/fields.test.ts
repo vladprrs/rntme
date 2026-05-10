@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { resolveField } from '../../../../src/validate/semantic/fields.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
 import { commercePdm as P } from '../../../fixtures/validated-commerce.js';

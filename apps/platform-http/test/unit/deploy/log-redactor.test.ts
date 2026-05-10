@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { redact } from '../../../src/deploy/log-redactor.js';
 
 describe('redact', () => {

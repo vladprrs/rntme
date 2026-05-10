@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { DEPLOY_CORE_ERROR_CODES, err, isErr, isOk, ok } from '../../src/index.js';
 
 describe('@rntme/deploy-core package surface', () => {

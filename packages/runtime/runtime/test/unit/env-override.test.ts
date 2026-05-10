@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { applyEnvOverrides } from '../../src/manifest/validate.js';
 import type { ValidatedManifest } from '../../src/manifest/types.js';
 

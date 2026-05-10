@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -37,12 +37,12 @@ async function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('createProjectionConsumer — rollback on failure', () => {
   it('throws in apply (NOT NULL violation) → ROLLBACK → no offset commit + no persisted rows', async () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
 
@@ -71,7 +71,7 @@ describe('createProjectionConsumer — rollback on failure', () => {
   });
 
   it('preserves the apply error when ROLLBACK also fails', async () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
 
@@ -87,7 +87,7 @@ describe('createProjectionConsumer — rollback on failure', () => {
               if (statementProp !== 'run') {
                 return Reflect.get(statementTarget, statementProp, statementReceiver);
               }
-              return (...args: unknown[]) => {
+              return (...args: Parameters<typeof statementTarget.run>) => {
                 statementTarget.run(...args);
                 throw rollbackError;
               };
@@ -95,7 +95,7 @@ describe('createProjectionConsumer — rollback on failure', () => {
           });
         };
       },
-    }) as Database.Database;
+    }) as SqliteDatabase;
 
     const kafka = createInMemoryKafkaConsumer();
     const errors: unknown[] = [];

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadBlueprint } from '../src/load/load-blueprint.js';

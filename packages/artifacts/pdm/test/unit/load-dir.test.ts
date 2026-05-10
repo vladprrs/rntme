@@ -1,6 +1,6 @@
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPdmDir } from '../../src/load/load-dir.js';

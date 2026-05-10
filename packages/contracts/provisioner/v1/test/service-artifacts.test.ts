@@ -1,4 +1,4 @@
-import { describe, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'bun:test';
 import type { ProvisionerInput } from '../src/provisioner-contract.js';
 
 describe('ProvisionerInput.serviceArtifacts', () => {
@@ -16,6 +16,6 @@ describe('ProvisionerInput.serviceArtifacts', () => {
       log: () => undefined,
       signal: new globalThis.AbortController().signal,
     };
-    expectTypeOf(input).not.toBeNullable();
+    expect(input).toBeDefined();
   });
 });

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /* eslint-env node */
 const { cpSync, existsSync } = require('node:fs');
 const { join } = require('node:path');

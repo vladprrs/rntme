@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
 import { runProjectVersionList } from '../../../../src/commands/project/version-list.js';
 import { runProjectVersionShow } from '../../../../src/commands/project/version-show.js';
+import { restoreGlobals, stubGlobal } from '../../../helpers/globals.js';
 
 const version = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -22,19 +23,18 @@ const version = {
 };
 
 describe('project version commands', () => {
-  const realFetch = globalThis.fetch;
-
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
+    restoreGlobals();
   });
 
   afterEach(() => {
-    globalThis.fetch = realFetch;
+    restoreGlobals();
   });
 
   it('lists project versions from the project-version endpoint', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ versions: [version], nextCursor: null }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ versions: [version], nextCursor: null }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectVersionList({ limit: 10 }, {
       org: 'acme',
@@ -50,8 +50,8 @@ describe('project version commands', () => {
   });
 
   it('shows a project version by sequence number', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ version }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ version }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectVersionShow({ seq: 3 }, {
       org: 'acme',

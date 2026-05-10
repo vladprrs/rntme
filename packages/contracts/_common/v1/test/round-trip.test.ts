@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { proto } from '../src/index.js';
 
 const { CanonicalRef, CommandContext, Name, ListRequest, Filter, Sort, ListResponseMeta, Metadata, FilterOperator, SortDirection } =

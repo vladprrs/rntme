@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Verifies that demo blueprint vendored modules match their source-of-truth in modules/<cat>/<vendor>/.
 // Compared files: module.json, package.json. dist/ is gitignored and not checked.
 
@@ -117,7 +117,7 @@ async function main() {
   for (const d of drift) {
     console.error(`  demo/${d.demo}: ${d.pkg} — ${d.reason}`);
   }
-  console.error('\nrun `pnpm vendor:sync` to update vendored copies.');
+  console.error('\nrun `bun run vendor:sync` to update vendored copies.');
   process.exit(1);
 }
 

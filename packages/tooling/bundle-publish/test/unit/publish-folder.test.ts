@@ -1,14 +1,14 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createS3ClientForTarget, publishFolder } from '../../src/publish-folder.js';
 
 describe('publishFolder', () => {
   it('uploads folder and returns S3Reference with content-addressable key', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pub-'));
     writeFileSync(join(dir, 'index.html'), '<!doctype html><h1>x</h1>');
-    const putSpy = vi.fn(async () => ({}));
+    const putSpy = mock(async () => ({}));
 
     const result = await publishFolder(dir, { kind: 's3', bucket: 'b' }, { keyPrefix: 'p' }, { client: { send: putSpy } });
 
@@ -19,11 +19,11 @@ describe('publishFolder', () => {
       expect(result.value.ref.sha256).toMatch(/^[0-9a-f]{64}$/);
       expect(result.value.bytes).toBeGreaterThan(0);
     }
-    expect(putSpy).toHaveBeenCalledOnce();
+    expect(putSpy).toHaveBeenCalledTimes(1);
   });
 
   it('returns BUNDLE_PUBLISH_FOLDER_MISSING for nonexistent folder', async () => {
-    const result = await publishFolder('/nonexistent/path', { kind: 's3', bucket: 'b' }, {}, { client: { send: vi.fn() } });
+    const result = await publishFolder('/nonexistent/path', { kind: 's3', bucket: 'b' }, {}, { client: { send: mock() } });
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors[0]?.code).toBe('BUNDLE_PUBLISH_FOLDER_MISSING');
@@ -33,7 +33,7 @@ describe('publishFolder', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pub-'));
     writeFileSync(join(dir, 'about.html'), '<!doctype html>');
 
-    const result = await publishFolder(dir, { kind: 's3', bucket: 'b' }, {}, { client: { send: vi.fn() } });
+    const result = await publishFolder(dir, { kind: 's3', bucket: 'b' }, {}, { client: { send: mock() } });
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors[0]?.code).toBe('BUNDLE_PUBLISH_NO_INDEX_HTML');

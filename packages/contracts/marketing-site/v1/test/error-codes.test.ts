@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { errorCodes, allErrorCodes } from '../src/error-codes.js';
 
 const PATTERN = /^MARKETING_SITE_(VALIDATE|PROVISION)_[A-Z0-9_]+$/;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { startPostgres, stopPostgres, type PgHandles } from './harness.js';
 import { integrationContainersAvailable } from './docker-available.js';
 import { randomUUID } from 'node:crypto';

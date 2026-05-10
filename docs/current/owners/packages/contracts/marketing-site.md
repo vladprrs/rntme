@@ -63,10 +63,10 @@ Provision-time codes are declared here so vendor modules can share the canonical
 
 ## Commands
 
-- `pnpm -F @rntme/contracts-marketing-site-v1 test`
-- `pnpm -F @rntme/contracts-marketing-site-v1 build`
-- `pnpm -F @rntme/contracts-marketing-site-v1 typecheck`
-- `pnpm -F @rntme/contracts-marketing-site-v1 lint`
+- `bun test`
+- `bun run build`
+- `bun run typecheck`
+- `bun run lint`
 
 ## Spec
 

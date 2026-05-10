@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { isOk } from '@rntme/platform-core';
 import { withTransaction } from '../../src/pg/tx.js';
 import { PgDeploymentRepo } from '../../src/repos/pg-deployment-repo.js';
@@ -357,11 +357,12 @@ d('PgDeploymentRepo', () => {
       step: 'plan',
       message: 'started',
     });
-    expect(Buffer.byteLength(firstPage.lines[1]?.message ?? '', 'utf8')).toBeLessThanOrEqual(
-      8 * 1024,
-    );
-    expect(firstPage.lines[1]?.message.endsWith('... (truncated)')).toBe(true);
-    expect(firstPage.lastLineId).toBe(firstPage.lines[1]?.id);
+    const truncatedLine = firstPage.lines[1];
+    expect(truncatedLine).toBeDefined();
+    if (!truncatedLine) throw new Error('expected truncated log line');
+    expect(Buffer.byteLength(truncatedLine.message, 'utf8')).toBeLessThanOrEqual(8 * 1024);
+    expect(truncatedLine.message.endsWith('... (truncated)')).toBe(true);
+    expect(firstPage.lastLineId).toBe(truncatedLine.id);
 
     const secondPage = await readLogs(deploymentId, firstPage.lastLineId, 10);
     expect(secondPage.lines).toHaveLength(1);
@@ -370,7 +371,10 @@ d('PgDeploymentRepo', () => {
       step: 'verify',
       message: 'failed',
     });
-    expect(secondPage.lastLineId).toBe(secondPage.lines[0]?.id);
+    const finalLine = secondPage.lines[0];
+    expect(finalLine).toBeDefined();
+    if (!finalLine) throw new Error('expected final log line');
+    expect(secondPage.lastLineId).toBe(finalLine.id);
 
     const emptyPage = await readLogs(deploymentId, secondPage.lastLineId, 10);
     expect(emptyPage.lines).toHaveLength(0);

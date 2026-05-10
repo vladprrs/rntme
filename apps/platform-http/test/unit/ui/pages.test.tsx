@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { LoginPage } from '../../../src/ui/pages/login.js';
 import { NoOrgPage } from '../../../src/ui/pages/no-org.js';
 import { ErrorPage } from '../../../src/ui/pages/error.js';

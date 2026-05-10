@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildOpenRouterRequest } from '../../src/completion-mapper.js';
 
 describe('buildOpenRouterRequest — text-only', () => {

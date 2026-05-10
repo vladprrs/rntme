@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /* eslint-disable no-console -- CLI entrypoint */
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';

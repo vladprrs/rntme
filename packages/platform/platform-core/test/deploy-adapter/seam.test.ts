@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createFakeDeployAdapter } from '../../src/deploy-adapter/fake.js';
 
 describe('internal deploy adapter seam', () => {

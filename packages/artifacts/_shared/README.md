@@ -9,5 +9,7 @@ Each consumer keeps its own `Layer` / `*ErrorCode` / `*Error` types and
 `ERROR_CODES` table; only the algebra is shared.
 
 Local commands:
-- `pnpm -F @rntme/artifact-shared test`
-- `pnpm -F @rntme/artifact-shared typecheck`
+- `bun test`
+- `bun run typecheck`
+- `bun run build`
+- `bun run lint`

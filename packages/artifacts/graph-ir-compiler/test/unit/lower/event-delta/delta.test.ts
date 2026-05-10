@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildDeltaArtifact } from '../../../../src/lower/sqlite/event-delta/delta.js';
 import type { DerivedTableSchema } from '../../../../src/types/projection.js';
 

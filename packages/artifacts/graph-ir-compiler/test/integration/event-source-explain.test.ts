@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { explain } from '../../src/index.js';
 import pdm from '../e2e/fixtures/commerce.pdm.json' with { type: 'json' };
 import qsm from '../e2e/fixtures/commerce.qsm.json' with { type: 'json' };

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { lowerToEventDelta } from '../../../../src/lower/sqlite/event-delta/lower.js';
 import { buildSemanticPlan } from '../../../../src/semantic-plan/build.js';
 import { resolveSources } from '../../../../src/validate/semantic/sources.js';

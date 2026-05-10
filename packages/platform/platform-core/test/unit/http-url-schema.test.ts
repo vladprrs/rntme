@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { HttpUrlSchema } from '@rntme/platform-core';
 
 describe('HttpUrlSchema', () => {

@@ -1,18 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import { Hono } from 'hono';
 import { openOrgScopedTx } from '../../../src/middleware/tx.js';
 
 function makePoolStub() {
   const queries: Array<{ sql: string; params: unknown[] | undefined }> = [];
-  const release = vi.fn();
+  const release = mock();
   const client = {
-    query: vi.fn(async (sql: string, params?: unknown[]) => {
+    query: mock(async (sql: string, params?: unknown[]) => {
       queries.push({ sql, params });
       return { rows: [] };
     }),
     release,
   };
-  const connect = vi.fn(async () => client);
+  const connect = mock(async () => client);
   return { pool: { connect } as never, client, queries, release };
 }
 

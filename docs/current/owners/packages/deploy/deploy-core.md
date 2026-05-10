@@ -204,6 +204,9 @@ On the platform executor path, composed project module aliases are mapped throug
 - `src/edge.ts` — route and middleware planning.
 - `src/config.ts` — target-neutral deployment config types.
 
+Run package gates from `packages/deploy/deploy-core` with `bun test`,
+`bun run typecheck`, `bun run build`, and `bun run lint`.
+
 ## Specs
 
 - `docs/history/specs/historical/2026-04-24-project-deployment-pipeline-design.md`

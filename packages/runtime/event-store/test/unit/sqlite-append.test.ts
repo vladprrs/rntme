@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect, afterEach } from 'bun:test';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { SqliteEventStore } from '../../src/store/sqlite.js';
 import { assertSchemaD9Compatible } from '../../src/store/schema.js';
 import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
@@ -21,7 +21,7 @@ describe('SqliteEventStore constructor', () => {
   });
 
   it('rejects pre-D9 schemas via assertSchemaD9Compatible', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     db.exec(
       `CREATE TABLE event_log (
         id INTEGER PRIMARY KEY,

@@ -1,11 +1,11 @@
 import type { Hono, Context } from 'hono';
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { EventStore, KafkaProducer, ActorRef } from '@rntme/event-store';
 import type { KafkaConsumer } from '@rntme/projection-consumer';
 import type { ValidatedService } from '../types.js';
 
-/** Narrow slice of better-sqlite3 used by event-store + projection-consumer + graph-ir-compiler. */
-export type DbHandle = BetterSqlite3.Database;
+/** Narrow SQLite handle used by event-store + projection-consumer + graph-ir-compiler. */
+export type DbHandle = SqliteDatabase;
 
 export type DbOpenOpts = {
   purpose: 'event-store' | 'qsm';

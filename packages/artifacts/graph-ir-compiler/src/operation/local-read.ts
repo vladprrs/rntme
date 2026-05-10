@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase, SqliteParams } from '@rntme/sqlite';
 import type { PdmResolver, ValidatedPdm } from '@rntme/pdm';
 import type { QsmResolver, ValidatedQsm } from '@rntme/qsm';
 import { runtimeError } from '../types/errors.js';
@@ -15,6 +15,7 @@ import type {
 import type { Expr } from '../types/authoring.js';
 
 type Row = Record<string, unknown>;
+type PositionalSqliteParams = Extract<SqliteParams, readonly unknown[]>;
 type RowsetMeta = {
   alias: string;
   projectionName: string | null;
@@ -24,7 +25,7 @@ type RowsetMeta = {
 export type RowsetMetas = Record<string, RowsetMeta>;
 
 type ReadEvalContext = {
-  db: Database.Database;
+  db: SqliteDatabase;
   pdm: ValidatedPdm;
   qsm: ValidatedQsm;
   pdmResolver: PdmResolver;
@@ -299,7 +300,7 @@ function readRelatedRow(
     .join(', ');
   const rows = ctx.db
     .prepare(`SELECT ${columns} FROM ${q(projection.table)} WHERE ${q(foreignField.column)} = ? LIMIT 1`)
-    .all(value) as Row[];
+    .all(...([value] as PositionalSqliteParams)) as Row[];
   return rows[0] ?? null;
 }
 
@@ -313,4 +314,3 @@ function compareValues(a: unknown, b: unknown, nulls: 'first' | 'last'): number 
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   return String(a).localeCompare(String(b));
 }
-

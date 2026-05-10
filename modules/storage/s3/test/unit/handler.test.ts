@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Database } from 'bun:sqlite';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { createHandler, type Handler } from '../../src/handler.js';
 import { createPendingStore, type DatabaseLike } from '../../src/pending-store.js';
 import { createRouteResolver } from '../../src/route-resolver.js';
@@ -27,14 +27,14 @@ beforeEach(() => {
   events.length = 0;
   presigns.length = 0;
   const s3 = {
-    presign: vi.fn((key: string) => {
+    presign: mock((key: string) => {
       const url = `https://example.com/${key}?sig=x`;
       presigns.push(url);
       return url;
     }),
-    exists: vi.fn(async () => true),
-    size: vi.fn(async () => 42),
-    deleteObject: vi.fn(async () => undefined),
+    exists: mock(async () => true),
+    size: mock(async () => 42),
+    deleteObject: mock(async () => undefined),
   };
   h = createHandler({
     storage: sj,
@@ -150,16 +150,16 @@ describe('handler.CommitUpload', () => {
   it('uses public presign URLs while keeping internal object operations', async () => {
     const calls: string[] = [];
     const s3 = {
-      presign: vi.fn((key: string) => `https://storage.example.test/${key}?sig=x`),
-      exists: vi.fn(async (key: string) => {
+      presign: mock((key: string) => `https://storage.example.test/${key}?sig=x`),
+      exists: mock(async (key: string) => {
         calls.push(`exists:${key}`);
         return true;
       }),
-      size: vi.fn(async (key: string) => {
+      size: mock(async (key: string) => {
         calls.push(`size:${key}`);
         return 42;
       }),
-      deleteObject: vi.fn(async (key: string) => {
+      deleteObject: mock(async (key: string) => {
         calls.push(`delete:${key}`);
       }),
     };

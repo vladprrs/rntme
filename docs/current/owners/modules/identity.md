@@ -7,7 +7,7 @@ This directory hosts vendor implementations of the Identity canonical contract `
 - A `module.json` manifest declaring `capabilities[]`.
 - Conformance scenarios passing under both mock-vendor and live-sandbox modes.
 
-The shared conformance suite lives at `modules/identity/conformance/` and is consumed by every vendor module via `pnpm test:conformance:mock` and `pnpm test:conformance:live`.
+The shared conformance suite lives at `modules/identity/conformance/` and is consumed by every vendor module via `bun run test:conformance:mock` and `bun run test:conformance:live`.
 
 ## Canonical contract
 

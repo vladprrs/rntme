@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { provisioner } from '../../src/provisioner.js';
 import { makeBundle } from './helpers.js';
 
@@ -9,8 +9,8 @@ describe('provisioner.provision', () => {
   it('returns LOCAL_PATH_IN_PROD when source is local in prod target', async () => {
     const result = await provisioner.provision({
       publicConfig: { source: { kind: 'local-path', path: '/tmp/x', sha256: 'a'.repeat(64) }, primaryDomain: 'x.example.com', ssl: 'auto' },
-      targetSecrets: { isProd: true, registry: { url: 'r' }, dokploy: { upsertDockerApp: vi.fn() } },
-      log: vi.fn(),
+      targetSecrets: { isProd: true, registry: { url: 'r' }, dokploy: { upsertDockerApp: mock() } },
+      log: mock(),
       signal: new AbortController().signal,
     });
 
@@ -26,8 +26,8 @@ describe('provisioner.provision', () => {
 
     const result = await provisioner.provision({
       publicConfig: { source: { kind: 'local-path', path, sha256: 'd'.repeat(64) }, primaryDomain: 'x.example.com', ssl: 'auto' },
-      targetSecrets: { isProd: false, registry: { url: 'localhost:5000', buildImage: vi.fn() }, dokploy: { upsertDockerApp: vi.fn() } },
-      log: vi.fn(),
+      targetSecrets: { isProd: false, registry: { url: 'localhost:5000', buildImage: mock() }, dokploy: { upsertDockerApp: mock() } },
+      log: mock(),
       signal: new AbortController().signal,
     });
 
@@ -40,13 +40,13 @@ describe('provisioner.provision', () => {
     const { bytes, sha256 } = await makeBundle({ 'index.html': '<h1>hi</h1>' });
     const path = join(dir, 'bundle.tar.gz');
     writeFileSync(path, bytes);
-    const buildImage = vi.fn(async () => ({ ok: true as const, value: { imageRef: 'localhost:5000/x-example-com:abc1234' } }));
-    const upsertDockerApp = vi.fn(async () => ({ appId: 'app-1' }));
+    const buildImage = mock(async () => ({ ok: true as const, value: { imageRef: 'localhost:5000/x-example-com:abc1234' } }));
+    const upsertDockerApp = mock(async () => ({ appId: 'app-1' }));
 
     const result = await provisioner.provision({
       publicConfig: { source: { kind: 'local-path', path, sha256 }, primaryDomain: 'x.example.com', ssl: 'auto' },
       targetSecrets: { isProd: false, registry: { url: 'localhost:5000', buildImage }, dokploy: { upsertDockerApp } },
-      log: vi.fn(),
+      log: mock(),
       signal: new AbortController().signal,
     });
 

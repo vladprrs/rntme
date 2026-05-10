@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseInitArtifact, validateInitStructural } from '../../src/index.js';
 
 function parsed(raw: unknown) {

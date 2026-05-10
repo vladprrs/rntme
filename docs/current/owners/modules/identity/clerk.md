@@ -30,8 +30,8 @@ Unsupported canonical RPCs are present on the handler object and return gRPC `UN
 Mock tests use fake adapters and do not need Clerk secrets or network access:
 
 ```sh
-pnpm -F @rntme/identity-clerk run test
-pnpm -F @rntme/identity-clerk run test:conformance:mock
+bun test
+bun run test:conformance:mock
 ```
 
 Live conformance is intentionally not wired until sandbox secrets are available. The module is structured so a live runner can provide `createClerkAdapter` with real Clerk environment variables.

@@ -1,9 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, mock } from 'bun:test';
+
+let currentAmo: unknown;
+const AmoMock = mock(() => currentAmo);
+
+mock.module('@shevernitskiy/amo', () => ({
+  Amo: AmoMock,
+}));
 
 describe('AmoCrm adapter', () => {
   afterEach(() => {
-    vi.doUnmock('@shevernitskiy/amo');
-    vi.resetModules();
+    AmoMock.mockClear();
+    currentAmo = undefined;
   });
 
   it('wraps SDK methods', async () => {
@@ -18,52 +25,49 @@ describe('AmoCrm adapter', () => {
 
     const mockAmo = {
       lead: {
-        getLeadById: vi.fn().mockResolvedValue(mockLead),
-        getLeads: vi.fn().mockResolvedValue({ _embedded: { items: [mockLead] } }),
-        addLeads: vi.fn().mockResolvedValue([mockLead]),
-        updateLeads: vi.fn().mockResolvedValue([mockLead]),
+        getLeadById: mock(async () => mockLead),
+        getLeads: mock(async () => ({ _embedded: { items: [mockLead] } })),
+        addLeads: mock(async () => [mockLead]),
+        updateLeads: mock(async () => [mockLead]),
       },
       contact: {
-        getContactById: vi.fn().mockResolvedValue(mockContact),
-        getContacts: vi.fn().mockResolvedValue({ _embedded: { items: [mockContact] } }),
-        addContacts: vi.fn().mockResolvedValue([mockContact]),
-        updateContacts: vi.fn().mockResolvedValue([mockContact]),
+        getContactById: mock(async () => mockContact),
+        getContacts: mock(async () => ({ _embedded: { items: [mockContact] } })),
+        addContacts: mock(async () => [mockContact]),
+        updateContacts: mock(async () => [mockContact]),
       },
       company: {
-        getCompanyById: vi.fn().mockResolvedValue(mockCompany),
-        getCompanies: vi.fn().mockResolvedValue({ _embedded: { items: [mockCompany] } }),
-        addCompanies: vi.fn().mockResolvedValue([mockCompany]),
-        updateCompanies: vi.fn().mockResolvedValue([mockCompany]),
+        getCompanyById: mock(async () => mockCompany),
+        getCompanies: mock(async () => ({ _embedded: { items: [mockCompany] } })),
+        addCompanies: mock(async () => [mockCompany]),
+        updateCompanies: mock(async () => [mockCompany]),
       },
       task: {
-        getTaskById: vi.fn().mockResolvedValue(mockTask),
-        getTasks: vi.fn().mockResolvedValue({ _embedded: { items: [mockTask] } }),
-        addTasks: vi.fn().mockResolvedValue([mockTask]),
+        getTaskById: mock(async () => mockTask),
+        getTasks: mock(async () => ({ _embedded: { items: [mockTask] } })),
+        addTasks: mock(async () => [mockTask]),
       },
       note: {
-        getNotesById: vi.fn().mockResolvedValue(mockNote),
-        getNotesByEntityType: vi.fn().mockResolvedValue({ _embedded: { items: [mockNote] } }),
-        addNotes: vi.fn().mockResolvedValue([mockNote]),
+        getNotesById: mock(async () => mockNote),
+        getNotesByEntityType: mock(async () => ({ _embedded: { items: [mockNote] } })),
+        addNotes: mock(async () => [mockNote]),
       },
       pipeline: {
-        getPipelines: vi.fn().mockResolvedValue([mockPipeline]),
+        getPipelines: mock(async () => [mockPipeline]),
       },
       custom_fields: {
-        getCustomFields: vi.fn().mockResolvedValue({ _embedded: { items: [mockCustomField] } }),
+        getCustomFields: mock(async () => ({ _embedded: { items: [mockCustomField] } })),
       },
       user: {
-        getUsers: vi.fn().mockResolvedValue({ _embedded: { items: [mockUser] } }),
+        getUsers: mock(async () => ({ _embedded: { items: [mockUser] } })),
       },
       link: {
-        addLinksByEntityId: vi.fn().mockResolvedValue({}),
-        deleteLinksByEntityId: vi.fn().mockResolvedValue(undefined),
+        addLinksByEntityId: mock(async () => ({})),
+        deleteLinksByEntityId: mock(async () => undefined),
       },
     };
 
-    vi.resetModules();
-    vi.doMock('@shevernitskiy/amo', () => ({
-      Amo: vi.fn().mockImplementation(() => mockAmo),
-    }));
+    currentAmo = mockAmo;
 
     const { createAmoCrmAdapter: createAdapter } = await import('../../src/adapter.js');
 
@@ -106,14 +110,11 @@ describe('AmoCrm adapter', () => {
   it('does not treat array SDK responses as records', async () => {
     const mockAmo = {
       lead: {
-        getLeadById: vi.fn().mockResolvedValue([]),
+        getLeadById: mock(async () => []),
       },
     };
 
-    vi.resetModules();
-    vi.doMock('@shevernitskiy/amo', () => ({
-      Amo: vi.fn().mockImplementation(() => mockAmo),
-    }));
+    currentAmo = mockAmo;
 
     const { createAmoCrmAdapter: createAdapter } = await import('../../src/adapter.js');
     const adapter = createAdapter({

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
 import { parseQsm, validateQsm } from '@rntme/qsm';
 import pdm from '../../e2e/fixtures/commerce.pdm.json' with { type: 'json' };

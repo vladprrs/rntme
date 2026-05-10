@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { ok, err, isOk, isErr, ERROR_CODES } from '../../../src/types/result.js';
 
 describe('Result', () => {

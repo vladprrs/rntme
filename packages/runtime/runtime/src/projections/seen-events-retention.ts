@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 
 export type SeenEventsRetentionOpts = {
   /**
@@ -48,7 +48,7 @@ function resolveRetentionDays(opts?: SeenEventsRetentionOpts): number {
  * process alive on its own.
  */
 export function startSeenEventsRetention(
-  db: Database.Database,
+  db: SqliteDatabase,
   opts?: SeenEventsRetentionOpts,
 ): () => void {
   const days = resolveRetentionDays(opts);

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkEmit } from '../../../../src/validate/semantic/emit.js';
 import { normalize } from '../../../../src/canonical/normalize.js';
 import { parseAuthoringSpec } from '../../../../src/parse/parse.js';

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseWorkflowArtifact, validateWorkflowStructural } from '../../src/index.js';
 
 function artifact(overrides: Record<string, unknown> = {}) {

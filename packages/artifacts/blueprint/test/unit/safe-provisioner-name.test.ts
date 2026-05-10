@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { safeProvisionerName } from '../../src/compose/safe-provisioner-name.js';
 
 describe('safeProvisionerName', () => {

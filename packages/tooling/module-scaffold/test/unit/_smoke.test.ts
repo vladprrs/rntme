@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { VERSION, exampleHandlers } from '../../src/index.js';
 import type { CommandExecutionContext } from '@rntme/contracts-handlers-v1';
 

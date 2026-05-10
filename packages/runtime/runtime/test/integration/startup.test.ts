@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { fileURLToPath } from 'node:url';
@@ -95,7 +95,7 @@ describe('startService', () => {
       headers: { 'content-type': 'application/json' },
       body,
       duplex: 'half',
-    } as Parameters<typeof fetch>[1] & { duplex: 'half' });
+    } as unknown as Parameters<typeof fetch>[1] & { duplex: 'half' });
 
     expect(res.status).toBe(413);
     expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });

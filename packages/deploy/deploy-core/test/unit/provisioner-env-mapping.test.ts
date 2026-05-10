@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { resolveEnvMappings } from '../../src/provisioner-env-mapping.js';
 import type { ProvisionerEnvMapping } from '@rntme/contracts-provisioner-v1';
 import type { ProvisionedModule } from '../../src/provision.js';

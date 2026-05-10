@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { errorToHttp } from '../../src/runtime/error-to-http.js';
 
 describe('errorToHttp', () => {

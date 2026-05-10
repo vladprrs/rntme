@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Context } from 'hono';
 import type { RedirectStatusCode } from 'hono/utils/http-status';
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { EventStore, ActorRef } from '@rntme/event-store';
 import type { BindingPlan } from '../startup/compile-plan.js';
 import type { OperationExecutor, OperationExecutorError } from '../operation-contract.js';
@@ -21,7 +21,7 @@ import type { IdempotencyCache } from '../idempotency/cache.js';
 export type OperationHandlerDeps = {
   operationExecutor: OperationExecutor;
   eventStore: EventStore | null;
-  qsmDb: BetterSqlite3.Database;
+  qsmDb: SqliteDatabase;
   now: () => string;
   nextId: () => string;
   actorFromRequest: (c: Context) => ActorRef | null;
@@ -175,7 +175,7 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
         operationName: plan.operationName,
         inputs: graphInputs,
         ctx: {
-          qsmDb: deps.qsmDb,
+            qsmDb: deps.qsmDb,
           eventStore: deps.eventStore,
           callClient: null,
           now: deps.now,

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { z } from 'zod';
 import {
   BINDINGS_HTTP_STARTUP_ERROR_CODES,

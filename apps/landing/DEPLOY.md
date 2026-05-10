@@ -7,7 +7,7 @@ Current deploy (2026-04-20):
 - **Application:** `rntme-landing` (`M5WfXaxcgKVHppiTldEbD`)
 - **Source:** GitHub `vladprrs/rntme`, branch `main`
 - **Build type:** `dockerfile` at `apps/landing/Dockerfile`, build context = repo root, target stage = `runtime`
-- **Watch paths:** `apps/landing/**`, `packages/**/package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` (auto-deploy on matching push)
+- **Watch paths:** `apps/landing/**`, `packages/**/package.json`, `bun.lock`, `package.json` (auto-deploy on matching push)
 - **Domain:** `rntme.com` (apex), Let's Encrypt, port 80
 - **Env/build args:** `TALLY_FORM_ID`, `GITHUB_URL`, `DOCS_URL`, `PLATFORM_URL`, `PLAUSIBLE_DOMAIN`, `DEMO_URL` (empty by default)
 
@@ -46,6 +46,6 @@ If the application needs to be re-created (e.g. destructive config edit):
 
 ## First-deploy gotchas (observed 2026-04-20)
 
-- pnpm install inside the build stage uses `--filter @rntme/landing...`; because the landing app currently has no workspace-package dependencies, the Dockerfile only needs the root workspace manifests plus `apps/landing/package.json`.
-- `node:20-alpine` is the build image; Astro 5 integrations (`@astrojs/react@^4`, `@astrojs/mdx@^4`) require Node ≥ 18.20 / 20.3 / 22. Node 20.x is fine; do NOT bump the base image to Node 18 without also pinning integration majors downward.
+- `bun install --frozen-lockfile` runs inside the build stage from the repo-root workspace context. `.dockerignore` keeps local installs and generated output out of the image context.
+- `oven/bun:1.3.13-alpine` is the build image; Astro 5 integrations (`@astrojs/react@^4`, `@astrojs/mdx@^4`) require a modern JS runtime compatible with Node ≥ 18.20 / 20.3 / 22 APIs.
 - Fontshare CDN is an external dependency. If fontshare.com is ever down, the landing still renders in the fallback stack (ui-sans-serif/system-ui). Self-hosting is an open P2 item.

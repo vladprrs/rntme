@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Hono } from 'hono';
 import { extractQuery, extractPath } from '../../src/runtime/extract.js';
 import type { HttpParameter } from '@rntme/bindings';

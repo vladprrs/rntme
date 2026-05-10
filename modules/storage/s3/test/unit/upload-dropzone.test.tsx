@@ -1,15 +1,16 @@
+import './dom-setup.js';
 import { render } from '@testing-library/react';
 import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 
-vi.mock('@rntme/contracts-client-runtime-v1', () => ({
+mock.module('@rntme/contracts-client-runtime-v1', () => ({
   useOperation: () => async () => ({
     fileId: 'file-1',
     presigned: { url: 'https://storage.example/upload', headers: {} },
   }),
 }));
 
-vi.mock('@uppy/react', () => ({
+mock.module('@uppy/react', () => ({
   Dashboard: () => <div data-testid="uppy-dashboard" />,
 }));
 

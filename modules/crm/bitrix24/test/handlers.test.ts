@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { proto } from '@rntme/contracts-crm-v1';
 import { createBitrix24CrmModule } from '../src/handlers.js';
 import type { Bitrix24Adapter } from '../src/adapter.js';
@@ -7,13 +7,13 @@ const crm = proto.rntme.contracts.crm.v1;
 
 function adapter(fixtures: Record<string, unknown>): Bitrix24Adapter {
   return {
-    call: vi.fn(async (method: string, params?: Record<string, unknown>) => {
+    call: mock(async (method: string, params?: Record<string, unknown>) => {
       const value = fixtures[method];
       if (method.endsWith('.get') && params?.id) return { ...((value as Record<string, unknown>) ?? {}), ID: String(params.id) };
       return value;
     }),
-    list: vi.fn(async (method: string) => (fixtures[method] as Record<string, unknown>[] | undefined) ?? []),
-    batch: vi.fn(async () => ({})),
+    list: mock(async (method: string) => (fixtures[method] as Record<string, unknown>[] | undefined) ?? []),
+    batch: mock(async () => ({})),
   };
 }
 

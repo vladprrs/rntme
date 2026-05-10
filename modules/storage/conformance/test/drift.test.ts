@@ -1,5 +1,5 @@
 import { proto } from '@rntme/contracts-storage-v1';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { STORAGE_CANONICAL_RPCS } from '../src/capabilities.js';
 import { storageConformanceSuite } from '../src/suite.js';
 

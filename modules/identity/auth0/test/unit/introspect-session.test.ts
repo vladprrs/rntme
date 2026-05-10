@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { JWTVerifyGetKey, KeyLike } from 'jose';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { SessionStatus } from '@rntme/contracts-identity-v1';

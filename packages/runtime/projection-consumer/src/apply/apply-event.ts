@@ -1,4 +1,4 @@
-import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { EventEnvelope } from '@rntme/event-store';
 import type {
   ApplyPlan,
@@ -29,7 +29,7 @@ import { bindValues, bindDerivedValue } from './bind.js';
  * single-element array `['skipped-no-handler']`.
  */
 export function applyEvent(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   plan: ApplyPlan,
   envelope: EventEnvelope,
 ): readonly ApplyResult[] {
@@ -44,7 +44,7 @@ export function applyEvent(
 }
 
 function applyOne(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   handler: CompiledHandler,
   envelope: EventEnvelope,
 ): ApplyResult {
@@ -55,7 +55,7 @@ function applyOne(
 }
 
 function applyMirror(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   handler: MirrorHandler,
   envelope: EventEnvelope,
 ): ApplyResult {
@@ -66,13 +66,13 @@ function applyMirror(
     return 'skipped-older-version';
   }
 
-  const params = bindValues(handler, envelope);
+  const params = asSqliteParams(bindValues(handler, envelope));
   const info = db.prepare(handler.sql).run(...params);
   return info.changes > 0 ? 'applied' : 'skipped-older-version';
 }
 
 function applyDerived(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   handler: DerivedHandler,
   envelope: EventEnvelope,
 ): ApplyResult {
@@ -80,7 +80,9 @@ function applyDerived(
   //    empty, but we bind positional params for safety in case a future
   //    lowering needs them.
   if (handler.filter) {
-    const filterParams = handler.filter.bindings.map((b) => bindDerivedValue(b, envelope));
+    const filterParams = asSqliteParams(
+      handler.filter.bindings.map((b) => bindDerivedValue(b, envelope)),
+    );
     const sql = `SELECT 1 AS ok WHERE ${handler.filter.sql}`;
     const row = db.prepare(sql).get(...filterParams) as { ok: number } | undefined;
     if (!row) return 'skipped-filter';
@@ -93,7 +95,9 @@ function applyDerived(
   if (seen) return 'skipped-seen-event';
 
   // 3. Delta UPSERT. Params are materialised from the ordered deltaBindings.
-  const deltaParams = handler.deltaBindings.map((b) => bindDerivedValue(b, envelope));
+  const deltaParams = asSqliteParams(
+    handler.deltaBindings.map((b) => bindDerivedValue(b, envelope)),
+  );
   db.prepare(handler.deltaSql).run(...deltaParams);
 
   // 4. Record the applied event so re-delivery short-circuits at step 2.
@@ -104,8 +108,14 @@ function applyDerived(
   return 'applied';
 }
 
+type ProjectionSqliteParam = string | bigint | Uint8Array | number | boolean | null;
+
+function asSqliteParams(values: readonly unknown[]): ProjectionSqliteParam[] {
+  return values as ProjectionSqliteParam[];
+}
+
 function selectCurrentVersion(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   handler: MirrorHandler,
   aggregateId: string,
 ): number | null {

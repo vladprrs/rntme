@@ -24,7 +24,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && vitest run",
+    "test": "bun run build && bun test",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
   },
@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
+    "@types/bun": "^1.2.14",
     "@types/node": "^20.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -46,7 +47,6 @@
     "eslint": "^9.10.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

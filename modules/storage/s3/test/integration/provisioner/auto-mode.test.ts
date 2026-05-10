@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { storageS3Provisioner } from '../../../src/provisioner/index.js';
 import { startMinio } from './minio.helper.js';
 

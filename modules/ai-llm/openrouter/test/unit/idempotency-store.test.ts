@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Buffer } from 'node:buffer';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { IdempotencyStore } from '../../src/idempotency-store.js';
 import { createIdempotencyStore } from '../../src/idempotency-store.js';
 

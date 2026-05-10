@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { createPdmResolver } from '@rntme/pdm';
 import { parseQsm, validateQsm } from '@rntme/qsm';
 import type { QsmArtifact, ValidatedQsm } from '@rntme/qsm';

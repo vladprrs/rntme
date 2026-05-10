@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { mapBitrix24Error } from '../src/errors.js';
 
 describe('Bitrix24 error mapping', () => {

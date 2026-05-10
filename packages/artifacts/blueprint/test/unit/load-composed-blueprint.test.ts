@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,7 @@ describe('loadComposedBlueprint', () => {
   });
 
   it('invokes validateBlueprintComposition exactly once per load', async () => {
-    const spy = vi.spyOn(compositionModule, 'validateBlueprintComposition');
+    const spy = spyOn(compositionModule, 'validateBlueprintComposition');
     try {
       const r = await loadComposedBlueprint(fixtureDir);
       expect(r.ok).toBe(true);

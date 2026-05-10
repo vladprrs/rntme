@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadComposedBlueprint } from '@rntme/blueprint';
+import { loadComposedBlueprint } from '../../../../packages/artifacts/blueprint/src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const blueprintRoot = join(here, '..');

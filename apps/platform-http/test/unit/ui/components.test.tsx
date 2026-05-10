@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { DataTable } from '../../../src/ui/components/table.js';
 import { EmptyState } from '../../../src/ui/components/empty-state.js';
 import { RelativeTime } from '../../../src/ui/components/relative-time.js';

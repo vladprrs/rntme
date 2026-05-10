@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import {
   DEPLOY_DOKPLOY_ERROR_CODES,
   err,

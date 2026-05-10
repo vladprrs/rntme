@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import pino from 'pino';
 import type { Pool } from 'pg';
 import type { BlobStore } from '@rntme/platform-core';
@@ -29,7 +29,7 @@ function buildDeps(): AppDeps {
     logger: pino({ level: 'silent' }),
     workos: {} as AppDeps['workos'],
     cookiePassword: 'x'.repeat(32),
-    pool: { query: vi.fn().mockResolvedValue({}) } as unknown as Pool,
+    pool: { query: mock().mockResolvedValue({}) } as unknown as Pool,
     blob: { presignedGet: async () => ({ ok: true as const, value: 'http://x' }) } as unknown as BlobStore,
     ids: new RandomIds(),
     enableBackgroundLoops: false,

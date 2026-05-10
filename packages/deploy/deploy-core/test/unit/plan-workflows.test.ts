@@ -1,5 +1,5 @@
 import type { ValidatedWorkflows } from '@rntme/workflows';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildProjectDeploymentPlan, type ComposedProjectInput } from '../../src/index.js';
 
 const workflows = {

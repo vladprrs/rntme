@@ -3,7 +3,7 @@
 Five examples, from minimal to kitchen sink, showing what
 `generateOpenApi(validateBindings(parseBindingArtifact(input), resolvers))`
 produces. All examples are reproduced by
-[`../demo-openapi.mjs`](/packages/artifacts/bindings/demo-openapi.mjs) (`node demo-openapi.mjs` after `pnpm build`).
+[`../demo-openapi.mjs`](/packages/artifacts/bindings/demo-openapi.mjs) (`bun demo-openapi.mjs` after `bun run build`).
 
 ## Pipeline
 

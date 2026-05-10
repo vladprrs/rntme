@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect } from 'bun:test';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { executeCompiled } from '../../../src/execute/execute.js';
 
 describe('executeCompiled', () => {
   it('throws RUNTIME_SQLITE_ERROR for malformed SQL', () => {
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     try {
       const compiled = { sql: 'SELECT FROM', paramOrder: [] };
       try {

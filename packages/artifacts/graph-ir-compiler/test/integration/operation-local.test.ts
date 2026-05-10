@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '@rntme/sqlite';
+import { describe, expect, it } from 'bun:test';
 import { SqliteEventStore } from '@rntme/event-store';
 import { compileOperation, executeOperation, type OperationRegistry } from '../../src/index.js';
 
@@ -147,7 +147,7 @@ describe('effect operation local execution', () => {
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) return;
 
-    const db = new Database(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     db.exec('CREATE TABLE inventory_items (sku TEXT PRIMARY KEY, quantity INTEGER NOT NULL)');
     db.prepare('INSERT INTO inventory_items (sku, quantity) VALUES (?, ?)').run('sku-ok', 5);
     db.prepare('INSERT INTO inventory_items (sku, quantity) VALUES (?, ?)').run('missing-stock', 0);

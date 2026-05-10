@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { suite as crmConformanceSuite } from '@rntme/conformance-crm';
 import moduleManifest from '../../module.json' with { type: 'json' };
 import { BITRIX24_SUPPORTED_RPCS } from '../../src/capabilities.js';

@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { InMemoryWebhookDedupeStore, createClerkWebhookReceiver, translateClerkWebhook } from '../src/webhooks.js';
 
 describe('Clerk webhook receiver', () => {
   it('verifies, translates, and dedupes claimed Clerk lifecycle events', async () => {
-    const verify = vi.fn(async () => ({
+    const verify = mock(async () => ({
       id: 'evt_1',
       type: 'user.created',
       data: {
@@ -26,7 +26,7 @@ describe('Clerk webhook receiver', () => {
     const first = await receiver.receive({ payload: '{}', headers });
     const second = await receiver.receive({ payload: '{}', headers });
 
-    expect(verify).toHaveBeenCalledOnce();
+    expect(verify).toHaveBeenCalledTimes(1);
     expect(first).toEqual([
       expect.objectContaining({
         id: 'evt_1',
@@ -39,10 +39,13 @@ describe('Clerk webhook receiver', () => {
   });
 
   it('dedupes repeated Svix delivery ids before verification even when event ids differ', async () => {
-    const verify = vi
-      .fn()
-      .mockResolvedValueOnce({ id: 'evt_first', type: 'user.created', data: { id: 'user_1' } })
-      .mockResolvedValueOnce({ id: 'evt_second', type: 'user.created', data: { id: 'user_1' } });
+    let verifyCalls = 0;
+    const verify = mock(async () => {
+      verifyCalls += 1;
+      return verifyCalls === 1
+        ? { id: 'evt_first', type: 'user.created', data: { id: 'user_1' } }
+        : { id: 'evt_second', type: 'user.created', data: { id: 'user_1' } };
+    });
     const receiver = createClerkWebhookReceiver({
       signingSecret: 'whsec_test',
       verify,
@@ -60,7 +63,7 @@ describe('Clerk webhook receiver', () => {
     const first = await receiver.receive(delivery);
     const second = await receiver.receive(delivery);
 
-    expect(verify).toHaveBeenCalledOnce();
+    expect(verify).toHaveBeenCalledTimes(1);
     expect(first).toHaveLength(1);
     expect(second).toEqual([]);
   });

@@ -70,7 +70,7 @@ if (isErrorCode(maybeCode)) {
 
 ## Where to look first
 
-- Adding a new RPC -> `proto/storage.proto` + regenerate via `pnpm proto:gen`, then update `test/service-shape.test.ts`.
+- Adding a new RPC -> `proto/storage.proto` + regenerate via `bun run proto:gen`, then update `test/service-shape.test.ts`.
 - Adding a new error code -> `error-codes.json`, then update the count assertion in `test/error-codes.test.ts`.
 - Wiring a vendor -> read `modules/storage/s3/` for the canonical implementation pattern.
 

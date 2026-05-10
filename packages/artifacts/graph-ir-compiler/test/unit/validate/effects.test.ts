@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { inferEffectSummary, validateOperationEffects } from '../../../src/validate/effects.js';
 import type { CanonicalGraph } from '../../../src/types/canonical.js';
 import type { OperationRegistry } from '../../../src/types/operation.js';

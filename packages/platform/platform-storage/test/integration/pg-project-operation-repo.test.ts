@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { withTransaction } from '../../src/pg/tx.js';
 import { PgProjectOperationRepo, PgDeploymentRepo } from '../../src/index.js';

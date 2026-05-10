@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import type { ComposedBlueprint } from '@rntme/blueprint';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
 import { ok, type DeploymentRepo, type DeployTargetRepo, type ProjectVersionRepo } from '@rntme/platform-core';
@@ -88,7 +88,7 @@ describe('runDeployment', () => {
   });
 
   it('adapts composed blueprints into deploy-core input with runtime artifact files', async () => {
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
@@ -162,7 +162,7 @@ describe('runDeployment', () => {
   });
 
   it('passes workflow artifacts into planning and records workflow resources', async () => {
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: {
@@ -189,7 +189,7 @@ describe('runDeployment', () => {
         diagnostics: { warnings: [] },
       }),
     );
-    const applyPlan = vi.fn(async () =>
+    const applyPlan = mock(async () =>
       ok({
         target: { kind: 'dokploy' as const, environmentId: 'env_default' },
         deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
@@ -281,7 +281,7 @@ describe('runDeployment', () => {
 
   it('materializes a stored workflow bundle through compose, plan, render, and apply', async () => {
     const demoBundle = orderFulfillmentDemoBundle();
-    const applyPlan = vi.fn(async (rendered: RenderedDokployPlan) =>
+    const applyPlan = mock(async (rendered: RenderedDokployPlan) =>
       ok(applyResultFromRendered(rendered)),
     );
     const { deps, deployments } = setup({
@@ -340,7 +340,7 @@ describe('runDeployment', () => {
 
   it('generates workflow gRPC proto registry for service task services', async () => {
     const demoBundle = orderFulfillmentDemoBundle();
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: {
@@ -418,7 +418,7 @@ describe('runDeployment', () => {
     const { deps, deployments } = setup({
       loadComposed: () => ({ ok: true, value: composedBlueprint() }),
       targetAuth: {},
-      planProject: vi.fn(() => ({
+      planProject: mock(() => ({
         ok: false as const,
         errors: [{
           code: 'DEPLOY_PLAN_TARGET_VAR_MISSING' as const,
@@ -447,7 +447,7 @@ describe('runDeployment', () => {
   });
 
   it('declares auth module manifests and proto files for mounted domain services', async () => {
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
@@ -484,7 +484,7 @@ describe('runDeployment', () => {
   });
 
   it('maps catalogManifest.moduleEdgeAuth into ComposedProjectInput.modules keyed by service slug', async () => {
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
@@ -512,7 +512,7 @@ describe('runDeployment', () => {
   });
 
   it('maps module edgeAuth when project package is a local alias for a canonical manifest name', async () => {
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
@@ -572,7 +572,7 @@ describe('runDeployment', () => {
 
   it('logs partial apply failure diagnostics before finalizing failed', async () => {
     const { deps, deployments } = setup({
-      applyPlan: vi.fn(async () => ({
+      applyPlan: mock(async () => ({
         ok: false,
         errors: [
           {
@@ -619,7 +619,7 @@ describe('runDeployment', () => {
   });
 
   it('derives a wildcard public app URL from org, project, and environment for legacy targets', async () => {
-    const renderPlan = vi.fn(() =>
+    const renderPlan = mock(() =>
       ok({
         target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' },
         targetProject: { mode: 'existing' as const, projectId: 'project-1' },
@@ -647,7 +647,7 @@ describe('runDeployment', () => {
   });
 
   it('skips provision phase when no module declares a provisioner block', async () => {
-    const runProv = vi.fn(async () => ok({ modules: [] }));
+    const runProv = mock(async () => ok({ modules: [] }));
     const { deps, deployments } = setup({ runProvisioners: runProv as never });
     await runDeployment('deployment-1', 'org-1', deps);
     expect(runProv).not.toHaveBeenCalled();
@@ -690,7 +690,7 @@ describe('runDeployment', () => {
       },
     };
 
-    const planProject = vi.fn(() =>
+    const planProject = mock(() =>
       ok({
         project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
         infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, workflowEngine: { kind: 'none' as const } },
@@ -701,7 +701,7 @@ describe('runDeployment', () => {
       }),
     );
 
-    const runProv = vi.fn(async () =>
+    const runProv = mock(async () =>
       ok({
         modules: [
           {
@@ -792,7 +792,7 @@ describe('runDeployment', () => {
       },
     };
 
-    const runProv = vi.fn(async () =>
+    const runProv = mock(async () =>
       ok({
         modules: [
           {
@@ -864,7 +864,7 @@ describe('runDeployment', () => {
       },
     };
 
-    const runProv = vi.fn(async () => ok({ modules: [] }));
+    const runProv = mock(async () => ok({ modules: [] }));
 
     const { deps, deployments } = setup({
       bundleFiles,
@@ -888,7 +888,7 @@ describe('runDeployment', () => {
 
   it('fails when a required target secret is missing', async () => {
     const { deps, deployments } = setup({
-      planProject: vi.fn(() =>
+      planProject: mock(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
           infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
@@ -915,7 +915,7 @@ describe('runDeployment', () => {
 
   it('fails when a required target secret has schema mismatch', async () => {
     const { deps, deployments } = setup({
-      planProject: vi.fn(() =>
+      planProject: mock(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
           infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
@@ -942,7 +942,7 @@ describe('runDeployment', () => {
 
   it('fails when a required target secret has invalid decrypted value', async () => {
     const { deps, deployments } = setup({
-      planProject: vi.fn(() =>
+      planProject: mock(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
           infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
@@ -1004,7 +1004,7 @@ describe('runDeployment', () => {
       },
     };
     const { deps, deployments } = setup({
-      applyPlan: vi.fn(async () => ok(baseApply)) as never,
+      applyPlan: mock(async () => ok(baseApply)) as never,
     });
 
     await runDeployment('deployment-1', 'org-1', deps);
@@ -1021,9 +1021,9 @@ describe('runDeployment', () => {
   });
 
   it('passes resolved target secrets to dokploy client factory when validation succeeds', async () => {
-    const dokployClientFactory = vi.fn(() => ({} as never));
+    const dokployClientFactory = mock(() => ({} as never));
     const { deps } = setup({
-      planProject: vi.fn(() =>
+      planProject: mock(() =>
         ok({
           project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const },
           infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } },
@@ -1071,8 +1071,8 @@ function setup(
   } = {},
 ) {
   const deployments = {
-    create: vi.fn(),
-    getById: vi.fn(async () =>
+    create: mock(),
+    getById: mock(async () =>
       ok({
         id: 'deployment-1',
         projectId: 'project-1',
@@ -1094,22 +1094,22 @@ function setup(
         lastHeartbeatAt: new Date(),
       }),
     ),
-    listByProject: vi.fn(),
-    transition: vi.fn(async () => ok(undefined)),
-    setRenderedDigest: vi.fn(async () => ok(undefined)),
-    setApplyResult: vi.fn(async () => ok(undefined)),
-    setProvisionResult: vi.fn(async () => undefined),
-    finalize: vi.fn(async () => ok(undefined)),
-    touchHeartbeat: vi.fn(async () => ok(undefined)),
-    appendLog: vi.fn(async () => ok(undefined)),
-    readLogs: vi.fn(),
-    findStaleRunning: vi.fn(),
+    listByProject: mock(),
+    transition: mock(async () => ok(undefined)),
+    setRenderedDigest: mock(async () => ok(undefined)),
+    setApplyResult: mock(async () => ok(undefined)),
+    setProvisionResult: mock(async () => undefined),
+    finalize: mock(async () => ok(undefined)),
+    touchHeartbeat: mock(async () => ok(undefined)),
+    appendLog: mock(async () => ok(undefined)),
+    readLogs: mock(),
+    findStaleRunning: mock(),
   };
   const projectVersions = {
-    create: vi.fn(),
-    findByDigest: vi.fn(),
-    getBySeq: vi.fn(),
-    getById: vi.fn(async () =>
+    create: mock(),
+    findByDigest: mock(),
+    getBySeq: mock(),
+    getById: mock(async () =>
       ok({
         id: 'version-1',
         orgId: 'org-1',
@@ -1123,18 +1123,18 @@ function setup(
         createdAt: new Date(),
       }),
     ),
-    listByProject: vi.fn(),
+    listByProject: mock(),
   };
   const deployTargets = {
-    create: vi.fn(),
-    update: vi.fn(),
-    rotateApiToken: vi.fn(),
-    setDefault: vi.fn(),
-    delete: vi.fn(),
-    list: vi.fn(),
-    getBySlug: vi.fn(),
-    getDefault: vi.fn(),
-    getWithSecretById: vi.fn(async () =>
+    create: mock(),
+    update: mock(),
+    rotateApiToken: mock(),
+    setDefault: mock(),
+    delete: mock(),
+    list: mock(),
+    getBySlug: mock(),
+    getDefault: mock(),
+    getWithSecretById: mock(async () =>
       ok({
         id: 'target-1',
         orgId: 'org-1',
@@ -1167,10 +1167,10 @@ function setup(
   };
   const deps: ExecutorDeps = {
     blob: {
-      putIfAbsent: vi.fn(),
-      presignedGet: vi.fn(),
-      getJson: vi.fn(),
-      getRaw: vi.fn(async () =>
+      putIfAbsent: mock(),
+      presignedGet: mock(),
+      getJson: mock(),
+      getRaw: mock(async () =>
         ok(
           gzipSync(
             Buffer.from(
@@ -1199,14 +1199,14 @@ function setup(
         projectVersions: projectVersions as unknown as ProjectVersionRepo,
         deployTargets: deployTargets as unknown as DeployTargetRepo,
         projectOperations: {
-          getByDeploymentId: vi.fn(async () => ok(null)),
-          finalize: vi.fn(async () => ok({} as never)),
+          getByDeploymentId: mock(async () => ok(null)),
+          finalize: mock(async () => ok({} as never)),
         } as never,
       }),
-    orgSlugFor: vi.fn(async () => 'acme'),
-    dokployClientFactory: overrides.dokployClientFactory ?? vi.fn(() => ({} as never)),
-    smoker: { verify: vi.fn(async () => overrides.verificationReport ?? { checks: [], ok: true, partialOk: false }) } as never,
-    logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+    orgSlugFor: mock(async () => 'acme'),
+    dokployClientFactory: overrides.dokployClientFactory ?? mock(() => ({} as never)),
+    smoker: { verify: mock(async () => overrides.verificationReport ?? { checks: [], ok: true, partialOk: false }) } as never,
+    logger: { error: mock(), warn: mock(), info: mock() },
     ...(overrides.useDefaultLoadComposed
       ? {}
       : {
@@ -1226,28 +1226,28 @@ function setup(
     ...(overrides.useDefaultPlanProject
       ? {}
       : {
-          planProject: overrides.planProject ?? vi.fn(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
+          planProject: overrides.planProject ?? mock(() => ok({ project: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, infrastructure: { eventBus: { kind: 'kafka' as const, mode: 'external' as const, brokers: ['redpanda:9092'] }, objectStorage: { kind: 'none' as const }, workflowEngine: { kind: 'none' as const } }, workloads: [], edge: { routes: [], middleware: [] }, requiredTargetSecrets: [], diagnostics: { warnings: [] } })) as never,
         }),
     ...(overrides.useDefaultRenderPlan
       ? {}
       : {
-          renderPlan: overrides.renderPlan ?? vi.fn(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
+          renderPlan: overrides.renderPlan ?? mock(() => ok({ target: { kind: 'dokploy' as const, endpoint: 'https://dokploy.example.test' }, targetProject: { mode: 'existing' as const, projectId: 'project-1' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, digest: 'sha256:rendered', warnings: [] })) as never,
         }),
-    applyPlan: overrides.applyPlan ?? vi.fn(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
+    applyPlan: overrides.applyPlan ?? mock(async () => ok({ target: { kind: 'dokploy' as const, environmentId: 'env_default' }, deployment: { orgSlug: 'acme', projectSlug: 'shop', environment: 'default' as const, mode: 'preview' as const }, resources: [{ logicalId: 'catalog', resourceKind: 'application' as const, workloadSlug: 'catalog', kind: 'domain-service' as const, targetResourceId: 'app_1', targetResourceName: 'catalog', action: 'created' as const }], urls: { projectUrl: 'https://app.example.test', publicRoutes: [], protectedRouteChecks: [] }, renderedPlanDigest: 'sha256:rendered', warnings: [], verificationHints: { healthUrl: 'https://app.example.test/health', publicRouteUrls: [] } })) as never,
     heartbeatMs: 10_000,
     ...(overrides.runProvisioners === undefined ? {} : { runProvisioners: overrides.runProvisioners }),
-    resolveProvisioner: vi.fn(async () => ({ provision: vi.fn() } as never)),
-    targetSecretsRepoFor: vi.fn(async () => ({
-      list: vi.fn(async () => overrides.targetSecrets?.list ?? []),
-      upsert: vi.fn(async () => undefined),
-      remove: vi.fn(async () => undefined),
-      getAllDecrypted: vi.fn(async () => overrides.targetSecrets?.decrypted ?? {}),
+    resolveProvisioner: mock(async () => ({ provision: mock() } as never)),
+    targetSecretsRepoFor: mock(async () => ({
+      list: mock(async () => overrides.targetSecrets?.list ?? []),
+      upsert: mock(async () => undefined),
+      remove: mock(async () => undefined),
+      getAllDecrypted: mock(async () => overrides.targetSecrets?.decrypted ?? {}),
     })),
     secretCipher: {
-      encrypt: vi.fn(() => ({ ciphertext: Buffer.from('ct'), nonce: Buffer.from('n'), keyVersion: 1 })),
-      decrypt: vi.fn(() => '{}'),
+      encrypt: mock(() => ({ ciphertext: Buffer.from('ct'), nonce: Buffer.from('n'), keyVersion: 1 })),
+      decrypt: mock(() => '{}'),
     },
-    lastSuccessfulProvisionOutputs: vi.fn(async () => ({})),
+    lastSuccessfulProvisionOutputs: mock(async () => ({})),
   };
   return { deps, deployments };
 }

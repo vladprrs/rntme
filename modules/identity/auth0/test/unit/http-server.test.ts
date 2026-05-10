@@ -1,6 +1,6 @@
 import { createServer } from 'node:net';
 import { SessionStatus } from '@rntme/contracts-identity-v1';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createIdentityAuth0HttpApp, createIdentityAuth0HttpServer } from '../../src/http-server.js';
 
 const audience = 'https://demo.example.com/api';
@@ -118,7 +118,7 @@ describe('createIdentityAuth0HttpApp', () => {
     expect(res.headers.get('X-Rntme-User-Sub')).toBe('auth0|alice');
     expect(res.headers.get('X-Rntme-User-Audience')).toBe(audience);
     expect(res.headers.get('X-Rntme-Session-Status')).toBe('ACTIVE');
-    expect(received).toEqual({ token: 'Bearer token-x', audience });
+    expect(received as unknown).toEqual({ token: 'Bearer token-x', audience });
   });
 
   it('fails closed when active session subject is missing', async () => {

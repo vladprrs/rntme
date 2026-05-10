@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, expect, it } from 'bun:test';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { createBindingsRouter } from '../../src/router.js';
 import type { OperationExecutor } from '../../src/operation-contract.js';
 
@@ -59,7 +59,7 @@ describe('operation routing', () => {
       } as never,
       pdm: { entities: {} } as never,
       qsm: { projections: {}, relations: {} } as never,
-      db: new Database(':memory:'),
+      db: openSqliteDatabase({ filename: ':memory:' }),
       eventStore: {} as never,
       operationExecutor: executor,
     }));
@@ -146,7 +146,7 @@ describe('operation routing', () => {
       } as never,
       pdm: { entities: {} } as never,
       qsm: { projections: {}, relations: {} } as never,
-      db: new Database(':memory:'),
+      db: openSqliteDatabase({ filename: ':memory:' }),
       eventStore: {} as never,
       operationExecutor: executor,
     }));

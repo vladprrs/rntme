@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import { applyEvent } from './apply/apply-event.js';
 import type { ApplyPlan } from './types/apply.js';
 import type { KafkaBatch, KafkaConsumer } from './types/consumer.js';
@@ -6,7 +6,7 @@ import type { KafkaBatch, KafkaConsumer } from './types/consumer.js';
 export type ProjectionConsumerOptions = Readonly<{
   kafka: KafkaConsumer;
   plan: ApplyPlan;
-  db: Database;
+  db: SqliteDatabase;
   onError?: (err: unknown, batch: KafkaBatch) => void;
 }>;
 
@@ -64,7 +64,7 @@ export function createProjectionConsumer(options: ProjectionConsumerOptions): Pr
   };
 }
 
-function rollbackAndPreserveOriginal(db: Database, err: unknown): unknown {
+function rollbackAndPreserveOriginal(db: SqliteDatabase, err: unknown): unknown {
   try {
     db.prepare('ROLLBACK').run();
   } catch (rollbackError) {

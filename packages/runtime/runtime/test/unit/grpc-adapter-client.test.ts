@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import * as grpc from '@grpc/grpc-js';
 import { statusToAdapterError } from '../../src/plugins/adapter-client/grpc-adapter-client.js';
 

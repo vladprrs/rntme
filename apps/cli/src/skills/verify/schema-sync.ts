@@ -45,7 +45,7 @@ export async function runSchemaSync(args: SchemaSyncArgs): Promise<SchemaSyncRes
     if (!existsSync(path)) {
       errors.push(
         `${ref.file}: references ${ref.pkg}.${ref.exportName}, but no snapshot at verify/snapshots/${expected}. ` +
-          `Run \`pnpm -F @rntme/cli gen:snapshots\` to regenerate.`,
+          `Run \`bun run -F @rntme/cli gen:snapshots\` to regenerate.`,
       );
     }
   }
@@ -84,7 +84,7 @@ async function verifySnapshotsMatchRuntime(): Promise<string[]> {
     if (live !== committed) {
       errors.push(
         `${p.file}: runtime schema does not match committed snapshot. ` +
-          `A @rntme/* schema changed — run \`pnpm -F @rntme/cli gen:snapshots\` ` +
+          `A @rntme/* schema changed — run \`bun run -F @rntme/cli gen:snapshots\` ` +
           `and review skill files that reference this schema.`,
       );
     }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Hono } from 'hono';
 import { toCloudEventWire, type EventEnvelope } from '@rntme/event-store';
 import type { DbDriver, EventBus, Surface, SurfaceContext } from './interfaces.js';

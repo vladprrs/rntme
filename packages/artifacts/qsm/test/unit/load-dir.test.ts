@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadQsmDir } from '../../src/load/load-dir.js';

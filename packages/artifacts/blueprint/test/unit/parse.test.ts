@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseProjectBlueprint } from '../../src/parse/parse.js';
 import { ServiceDescriptorSchema } from '../../src/parse/schema.js';
 

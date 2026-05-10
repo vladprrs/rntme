@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { Auth0ManagementAdapter, createAuth0Adapter, createManagementClient } from '../../src/adapter.js';
 
 describe('Auth0 management adapter', () => {
@@ -75,7 +75,7 @@ describe('Auth0 management adapter', () => {
   });
 
   it('uses Auth0 offset pagination parameters without mixing pagination styles', async () => {
-    const getAll = vi.fn(async () => ({ data: { users: [] } }));
+    const getAll = mock(async () => ({ data: { users: [] } }));
     const adapter = new Auth0ManagementAdapter({
       users: { getAll },
       organizations: {},
@@ -91,7 +91,7 @@ describe('Auth0 management adapter', () => {
   });
 
   it('omits undefined createUser connection while preserving caller-provided connection', async () => {
-    const create = vi.fn(async () => ({ data: { user_id: 'auth0|u1' } }));
+    const create = mock(async () => ({ data: { user_id: 'auth0|u1' } }));
     const adapter = new Auth0ManagementAdapter({
       users: { create },
       organizations: {},
@@ -105,8 +105,8 @@ describe('Auth0 management adapter', () => {
   });
 
   it('uses Auth0 getByName for slug-filtered organization lists', async () => {
-    const getAll = vi.fn(async () => ({ data: { organizations: [{ id: 'org_other', name: 'other' }] } }));
-    const getByName = vi.fn(async () => ({ data: { id: 'org_123', name: 'acme' } }));
+    const getAll = mock(async () => ({ data: { organizations: [{ id: 'org_other', name: 'other' }] } }));
+    const getByName = mock(async () => ({ data: { id: 'org_123', name: 'acme' } }));
     const adapter = new Auth0ManagementAdapter({
       users: {},
       organizations: { getAll, getByName },
@@ -120,8 +120,7 @@ describe('Auth0 management adapter', () => {
   });
 
   it('exhausts invitation pages before returning an email-filtered result', async () => {
-    const getInvitations = vi
-      .fn()
+    const getInvitations = mock()
       .mockResolvedValueOnce({
         data: {
           start: 0,
@@ -173,7 +172,7 @@ describe('Auth0 management adapter', () => {
   });
 
   it('uses only the dedicated invitation client id for organization invitations', async () => {
-    const createInvitation = vi.fn(async () => ({ data: { id: 'inv_123', organization_id: 'org_123' } }));
+    const createInvitation = mock(async () => ({ data: { id: 'inv_123', organization_id: 'org_123' } }));
     const adapter = new Auth0ManagementAdapter(
       {
         users: {},
@@ -194,7 +193,7 @@ describe('Auth0 management adapter', () => {
     const previous = process.env.AUTH0_INVITATION_CLIENT_ID;
     process.env.AUTH0_INVITATION_CLIENT_ID = 'env_login_app_123';
     try {
-      const createInvitation = vi.fn(async () => ({ data: { id: 'inv_123', organization_id: 'org_123' } }));
+      const createInvitation = mock(async () => ({ data: { id: 'inv_123', organization_id: 'org_123' } }));
       const adapter = new Auth0ManagementAdapter(
         {
           users: {},
@@ -218,8 +217,8 @@ describe('Auth0 management adapter', () => {
   });
 
   it('returns deleted sentinels for delete operations', async () => {
-    const deleteUser = vi.fn(async () => ({ data: undefined }));
-    const deleteOrganization = vi.fn(async () => ({ data: undefined }));
+    const deleteUser = mock(async () => ({ data: undefined }));
+    const deleteOrganization = mock(async () => ({ data: undefined }));
     const adapter = new Auth0ManagementAdapter({
       users: { delete: deleteUser },
       organizations: { delete: deleteOrganization },

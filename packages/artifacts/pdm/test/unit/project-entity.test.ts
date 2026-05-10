@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parsePdm } from '../../src/parse/parse.js';
 import { validatePdm } from '../../src/validate/index.js';
 

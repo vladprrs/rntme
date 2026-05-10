@@ -12,19 +12,64 @@ jobs:
       GITHUB_URL: https://github.com/vladprrs/rntme
       DOCS_URL: https://docs.rntme.com
       PLATFORM_URL: https://platform.rntme.com
+      # Skip platform-http e2e suites that boot Postgres via testcontainers.
+      # Docker is available on the runner, but pulling the postgres image plus
+      # ryuk warmup blows the 5-min testcontainers timeout. The suites already
+      # honour this flag via apps/platform-http/test/e2e/docker-available.ts.
+      SKIP_TESTCONTAINERS: '1'
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 9.12.0
-      - uses: actions/setup-node@v4
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run lint
+      - run: bun run depcruise
+      - run: bun run vendor:check
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: test
+            file: Dockerfile.test
+            tag: rntme-test-bun:ci
+          - name: platform-http
+            file: apps/platform-http/Dockerfile
+            tag: rntme-platform-http:ci
+          - name: landing
+            file: apps/landing/Dockerfile
+            tag: rntme-landing:ci
+          - name: runtime
+            file: packages/runtime/runtime/Dockerfile
+            tag: rntme-runtime:ci
+          - name: bpmn-worker
+            file: packages/runtime/bpmn-worker/Dockerfile
+            tag: rntme-bpmn-worker:ci
+          - name: identity-auth0
+            file: modules/identity/auth0/Dockerfile
+            tag: rntme-identity-auth0:ci
+          - name: storage-s3
+            file: modules/storage/s3/Dockerfile
+            tag: rntme-storage-s3:ci
+          - name: marketing-site-static
+            file: modules/marketing-site/static-html/Dockerfile
+            tag: rntme-marketing-site-static:ci
+          - name: ai-llm-openrouter
+            file: modules/ai-llm/openrouter/Dockerfile
+            tag: rntme-ai-llm-openrouter:ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.name }} image
+        uses: docker/build-push-action@v6
         with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -r run build
-      - run: pnpm -r run typecheck
-      - run: pnpm -r run test
-      - run: pnpm -r run lint
-      - run: pnpm depcruise
-      - run: pnpm vendor:check
+          context: .
+          file: ${{ matrix.file }}
+          tags: ${{ matrix.tag }}
+          push: false

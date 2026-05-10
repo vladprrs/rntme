@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, jest } from 'bun:test';
 import { withRetry } from '../../src/plugins/adapter-client/retry.js';
 import type { AdapterResult } from '../../src/plugins/adapter-client/types.js';
 
 describe('withRetry', () => {
   it('returns ok on first try when call succeeds', async () => {
-    const call = vi.fn(async (): Promise<AdapterResult> => ({ ok: true, value: 1 }));
+    const call = jest.fn(async (): Promise<AdapterResult> => ({ ok: true, value: 1 }));
     const out = await withRetry(call, { attempts: 3, backoffMs: 0, retryOn: 'transient' }, (): void => {});
     expect(out.ok).toBe(true);
     expect(call).toHaveBeenCalledTimes(1);
@@ -23,7 +23,7 @@ describe('withRetry', () => {
   });
 
   it('does not retry terminal errors', async () => {
-    const call = vi.fn(async (): Promise<AdapterResult> => ({
+    const call = jest.fn(async (): Promise<AdapterResult> => ({
       ok: false,
       errors: [{ code: 'EXTERNAL_VENDOR_DOMAIN', message: 'bad', httpStatus: 400 }],
     }));
@@ -33,7 +33,7 @@ describe('withRetry', () => {
   });
 
   it('respects retryOn: "never"', async () => {
-    const call = vi.fn(async (): Promise<AdapterResult> => ({
+    const call = jest.fn(async (): Promise<AdapterResult> => ({
       ok: false, errors: [{ code: 'EXTERNAL_MODULE_UNAVAILABLE', message: '', httpStatus: 503 }],
     }));
     const out = await withRetry(call, { attempts: 5, backoffMs: 0, retryOn: 'never' }, (): void => {});

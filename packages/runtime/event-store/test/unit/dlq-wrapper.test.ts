@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { SqliteEventStore } from '../../src/store/sqlite.js';
 import { createRelay } from '../../src/relay/loop.js';
 import type { KafkaMessage, KafkaProducer } from '../../src/kafka/producer.js';

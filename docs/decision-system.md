@@ -47,7 +47,7 @@ Eight filters. Each derives from one or more goals. Filters answer "why?" for an
 
 **F8 - Leverage existing standards and libraries** *(from G4 + G5)*. Before writing custom code, use what already exists. Two layers:
 - *External protocols/standards* (BPMN, CloudEvents, gRPC, OAuth, OpenTelemetry, JSON Schema, ...) for interfaces, exchange, and observability.
-- *Popular, current projects inside rntme code* - for example **Bun** (replaces pnpm + tsc + esbuild + test runner with one tool), **JSON-driven UI rendering** libraries (instead of a hand-written engine in ui-runtime), and so on.
+- *Popular, current projects inside rntme code* - for example **Bun** (covers package management, bundling, standalone test running, and runtime roles while retaining scoped `tsc` for typecheck and declaration emit), **JSON-driven UI rendering** libraries (instead of a hand-written engine in ui-runtime), and so on.
 
 Applicability criteria: maintained, broadly adopted, not abandonware. Custom code must justify itself against an existing solution. Hand-rolling a hashmap, parser, schema validator, DB client, differ, retry logic, or migration engine is a smell. Less custom code means easier onboarding, simpler security patching, and lower bus-factor risk.
 

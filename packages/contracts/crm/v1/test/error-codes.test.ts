@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { allErrorCodes, errorCodes } from '../src/error-codes.js';
 
 const PATTERN = /^CRM_(STRUCTURAL|REFERENCES|CONSISTENCY|VENDOR)_[A-Z0-9_]+$/;

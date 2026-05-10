@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { mapOpenRouterError } from '../../src/error-mapper.js';
 import { GrpcStatus } from '../../src/errors.js';
 

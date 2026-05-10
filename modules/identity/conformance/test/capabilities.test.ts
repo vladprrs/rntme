@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { allErrorCodes } from '@rntme/contracts-identity-v1';
 import {
   IDENTITY_CANONICAL_EVENTS,
@@ -10,7 +10,8 @@ import { identityConformanceSuite } from '../src/suite.js';
 
 describe('identity capability registry', () => {
   it('matches the suite RPC keys exactly', () => {
-    expect([...IDENTITY_CANONICAL_RPCS]).toEqual(Object.keys(identityConformanceSuite.scenariosByRpc));
+    const rpcs: string[] = [...IDENTITY_CANONICAL_RPCS];
+    expect(rpcs).toEqual(Object.keys(identityConformanceSuite.scenariosByRpc));
   });
 
   it('declares canonical capability fields needed by vendor modules', () => {
@@ -35,9 +36,8 @@ describe('identity capability registry', () => {
   });
 
   it('tracks all identity error codes for scenario coverage', () => {
-    expect(IDENTITY_SCENARIO_COVERAGE.errorCodes.map((entry) => entry.code).sort()).toEqual(
-      [...allErrorCodes].sort(),
-    );
+    const coveredCodes: string[] = IDENTITY_SCENARIO_COVERAGE.errorCodes.map((entry) => entry.code).sort();
+    expect(coveredCodes).toEqual([...allErrorCodes].sort());
   });
 
   it('maps coverage placeholders only to canonical RPCs', () => {

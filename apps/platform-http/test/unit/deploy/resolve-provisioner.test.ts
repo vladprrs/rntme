@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { buildResolveProvisioner } from '../../../src/app.js';
 
 describe('buildResolveProvisioner', () => {

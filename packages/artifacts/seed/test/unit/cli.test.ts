@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, cpSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,9 +32,12 @@ function thingCreated(overrides: Record<string, unknown> = {}) {
 }
 
 beforeAll(() => {
-  const r = spawnSync('pnpm', ['-F', '@rntme/seed', 'build'], { stdio: 'inherit' });
+  const r = spawnSync('bun', ['run', 'build'], {
+    cwd: join(__dirname, '../..'),
+    stdio: 'inherit',
+  });
   if (r.status !== 0) throw new Error('build failed');
-});
+}, 30000);
 
 describe('rntme-seed validate', () => {
   it('exits 0 on valid artifacts', () => {
@@ -42,7 +45,7 @@ describe('rntme-seed validate', () => {
       seedVersion: 1,
       events: [thingCreated()],
     });
-    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+    const r = spawnSync('bun', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
       encoding: 'utf8',
     });
     expect(r.status).toBe(0);
@@ -65,7 +68,7 @@ describe('rntme-seed validate', () => {
         },
       ],
     });
-    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+    const r = spawnSync('bun', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
       encoding: 'utf8',
     });
     expect(r.status).toBe(1);
@@ -75,7 +78,7 @@ describe('rntme-seed validate', () => {
   it('supports --json output', () => {
     const dir = scaffoldArtifacts({ seedVersion: 1, events: [{ bogus: true }] });
     const r = spawnSync(
-      'node',
+      'bun',
       [CLI, 'validate', dir, '--service-name', SERVICE_NAME, '--json'],
       { encoding: 'utf8' },
     );
@@ -87,7 +90,7 @@ describe('rntme-seed validate', () => {
   it('exits 0 when seed.json is absent', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-seed-empty-'));
     cpSync(join(__dirname, '../fixtures/minimal-pdm.json'), join(dir, 'pdm.json'));
-    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+    const r = spawnSync('bun', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
       encoding: 'utf8',
     });
     expect(r.status).toBe(0);
@@ -99,14 +102,14 @@ describe('rntme-seed validate', () => {
       join(dir, 'manifest.json'),
       JSON.stringify({ serviceName: 'from-manifest' }),
     );
-    const r = spawnSync('node', [CLI, 'validate', dir], { encoding: 'utf8' });
+    const r = spawnSync('bun', [CLI, 'validate', dir], { encoding: 'utf8' });
     expect(r.status).toBe(0);
   });
 
   it('prints PDM parse errors when pdm.json is invalid', () => {
     const dir = scaffoldArtifacts({ seedVersion: 1, events: [thingCreated()] });
     writeFileSync(join(dir, 'pdm.json'), JSON.stringify({}));
-    const r = spawnSync('node', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
+    const r = spawnSync('bun', [CLI, 'validate', dir, '--service-name', SERVICE_NAME], {
       encoding: 'utf8',
     });
     expect(r.status).toBe(1);
@@ -122,7 +125,7 @@ describe('rntme-seed apply', () => {
     });
     const storePath = join(dir, 'event-store.db');
     const r = spawnSync(
-      'node',
+      'bun',
       [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
       { encoding: 'utf8' },
     );
@@ -137,7 +140,7 @@ describe('rntme-seed apply', () => {
     });
     const storePath = join(dir, 'event-store.db');
     const r = spawnSync(
-      'node',
+      'bun',
       [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME, '--dry-run'],
       { encoding: 'utf8' },
     );
@@ -152,12 +155,12 @@ describe('rntme-seed apply', () => {
     });
     const storePath = join(dir, 'event-store.db');
     spawnSync(
-      'node',
+      'bun',
       [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
       { encoding: 'utf8' },
     );
     const r = spawnSync(
-      'node',
+      'bun',
       [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
       { encoding: 'utf8' },
     );
@@ -170,7 +173,7 @@ describe('rntme-seed apply', () => {
     writeFileSync(join(dir, 'pdm.json'), JSON.stringify({}));
     const storePath = join(dir, 'event-store.db');
     const r = spawnSync(
-      'node',
+      'bun',
       [CLI, 'apply', dir, '--event-store', storePath, '--service-name', SERVICE_NAME],
       { encoding: 'utf8' },
     );

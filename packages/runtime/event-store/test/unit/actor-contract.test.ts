@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ACTOR_REF_KINDS } from '../../src/types/actor.js';
 
 describe('ActorRef contract', () => {
@@ -16,7 +16,7 @@ describe('ActorRef contract', () => {
     const pdmKinds = actorKinds(pdmVariants);
 
     expect(eventStoreVariants).toEqual(pdmVariants);
-    expect(ACTOR_REF_KINDS).toEqual(pdmKinds);
+    expect([...ACTOR_REF_KINDS] as string[]).toEqual(pdmKinds);
   });
 });
 

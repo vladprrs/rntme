@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { resolveConfig } from '../../../src/config/resolve.js';
 
 const FIXED_BASE = 'https://platform.rntme.com';

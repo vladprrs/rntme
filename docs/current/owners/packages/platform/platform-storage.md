@@ -51,3 +51,6 @@ values. If the callback returns the platform `Result.err` shape
 (`{ ok: false, errors: [...] }`), the helper rolls back and returns that error
 result unchanged. Thrown exceptions also roll back before the exception is
 re-thrown to the caller.
+
+Run package gates from `packages/platform/platform-storage` with `bun test`,
+`bun run typecheck`, `bun run build`, and `bun run lint`.

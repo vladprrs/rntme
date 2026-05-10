@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Mirrors module.json + package.json (always) and dist/ (when present at source)
 // from modules/<cat>/<vendor>/ to demo/<bp>/node_modules/<pkg>/. dist/ is
 // gitignored at both ends; this script makes sure a vendored copy whose

@@ -18,8 +18,8 @@
         "source": {
           "kind": "s3",
           "bucket": "cv-extract",
-          "key": "landings/cv-extract/5b260246e14df59ee8b6aa4e5b2d405dea16d8dcde3cc1a22996d8eec1f2d854.tar.gz",
-          "sha256": "5b260246e14df59ee8b6aa4e5b2d405dea16d8dcde3cc1a22996d8eec1f2d854"
+          "key": "landings/cv-extract/69f0af5e1788582091a5bfbadb8b9aae6638ee15ddbc379c6dccd5cdf2dc9144.tar.gz",
+          "sha256": "69f0af5e1788582091a5bfbadb8b9aae6638ee15ddbc379c6dccd5cdf2dc9144"
         },
         "primaryDomain": "${MARKETING_DOMAIN}",
         "ssl": "auto"

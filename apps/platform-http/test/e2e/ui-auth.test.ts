@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { bootE2e, type E2eEnv } from './harness.js';
 import { e2eContainersAvailable } from './docker-available.js';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ok, err, isOk, isErr, type Result, type UiError } from '../../src/types/result.js';
 import { isRefElement, type ElementJson, type RefElement } from '../../src/types/source.js';
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { Hono } from 'hono';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import { InMemoryRateLimiter, PostgresRateLimiter, rateLimit } from '../../../src/middleware/rate-limit.js';
 
 describe('InMemoryRateLimiter', () => {
@@ -24,7 +24,7 @@ describe('InMemoryRateLimiter', () => {
 
 describe('PostgresRateLimiter', () => {
   it('uses the database count and hashes the limiter key', async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 1 }] });
+    const query = mock().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 1 }] });
     const limiter = new PostgresRateLimiter({ db: { query } as never, windowMs: 60_000, max: 2 });
 
     await expect(limiter.check('account-raw-id')).resolves.toBe(true);
@@ -38,14 +38,14 @@ describe('PostgresRateLimiter', () => {
   });
 
   it('rejects when the database count exceeds max', async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 3 }] });
+    const query = mock().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 3 }] });
     const limiter = new PostgresRateLimiter({ db: { query } as never, windowMs: 60_000, max: 2 });
 
     await expect(limiter.check('token-raw-id')).resolves.toBe(false);
   });
 
   it('returns 429 from middleware when the database limiter rejects', async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 3 }] });
+    const query = mock().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ count: 3 }] });
     const limiter = new PostgresRateLimiter({ db: { query } as never, windowMs: 60_000, max: 2 });
     const app = new Hono().use('*', rateLimit(limiter, () => 'account-raw-id')).get('/limited', (c) => c.json({ ok: true }));
 

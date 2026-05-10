@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { provision, tearDown } from '../../src/provisioner.js';
 
 const ENABLED = process.env.AUTH0_E2E === '1';

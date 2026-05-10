@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildDerivedTableSchema, type EventSourceColumnMeta } from '../../../../src/lower/sqlite/event-delta/table-schema.js';
 import type { RelOp } from '../../../../src/types/relational.js';
 

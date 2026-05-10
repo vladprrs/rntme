@@ -4,8 +4,8 @@ Marketing landing for `rntme.com`. See `docs/history/specs/historical/2026-04-20
 
 ## Dev
 
-    pnpm install
-    pnpm -F @rntme/landing dev
+    bun install
+    bun run dev
 
 Required env (see `src/env.ts`):
 
@@ -18,6 +18,12 @@ Required env (see `src/env.ts`):
 
 ## Build
 
-    pnpm -F @rntme/landing build
+    bun run build
+
+## Gates
+
+    bun test
+    bun run typecheck
+    bun run lint
 
 Output: `dist/`. The Dockerfile in this directory wraps the `dist/` in an nginx:alpine image.

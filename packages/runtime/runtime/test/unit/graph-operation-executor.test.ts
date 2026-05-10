@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, jest } from 'bun:test';
 import type {
   CompiledOperation,
   OperationExecutionContext,
@@ -8,7 +8,7 @@ import { GraphOperationExecutor } from '../../src/plugins/executors/graph-operat
 
 describe('GraphOperationExecutor', () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('executes a registered operation and returns its operation result', async () => {
@@ -21,7 +21,7 @@ describe('GraphOperationExecutor', () => {
         correlationId: 'corr-1',
       },
     };
-    const spy = vi.spyOn(compiler, 'executeOperation').mockResolvedValue(result);
+    const spy = jest.spyOn(compiler, 'executeOperation').mockResolvedValue(result);
     const compiled = { graphId: 'reserveStock' } as unknown as CompiledOperation;
     const ctx = {} as OperationExecutionContext;
     const executor = new GraphOperationExecutor({ reserveStock: compiled });
@@ -56,7 +56,7 @@ describe('GraphOperationExecutor', () => {
 
   it('maps thrown execution failures to OPERATION_EXECUTION_FAILED', async () => {
     const compiler = await import('@rntme/graph-ir-compiler');
-    vi.spyOn(compiler, 'executeOperation').mockRejectedValue(new Error('boom'));
+    jest.spyOn(compiler, 'executeOperation').mockRejectedValue(new Error('boom'));
     const executor = new GraphOperationExecutor({
       broken: { graphId: 'broken' } as unknown as CompiledOperation,
     });

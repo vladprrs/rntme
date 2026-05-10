@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { fieldToJsonSchema, shapeToJsonSchema, primitiveToJsonSchema } from '../../../src/openapi/shapes.js';
 import type { ResolvedShape } from '../../../src/types/resolvers.js';
 

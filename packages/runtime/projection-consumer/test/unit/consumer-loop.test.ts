@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -37,12 +37,12 @@ async function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('createProjectionConsumer — batch loop', () => {
   it('does not expose a raw database handle on the public consumer API', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
 
@@ -53,7 +53,7 @@ describe('createProjectionConsumer — batch loop', () => {
   });
 
   it('applies every message in the batch in one SQLite transaction and commits offsets after DB COMMIT', async () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
 
@@ -75,7 +75,7 @@ describe('createProjectionConsumer — batch loop', () => {
   });
 
   it('stop() resolves the loop cleanly and is idempotent', async () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const kafka = createInMemoryKafkaConsumer();
@@ -87,7 +87,7 @@ describe('createProjectionConsumer — batch loop', () => {
   });
 
   it('events for aggregates without mirror are committed but do not insert rows', async () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const kafka = createInMemoryKafkaConsumer();

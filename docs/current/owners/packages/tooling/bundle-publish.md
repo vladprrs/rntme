@@ -56,10 +56,10 @@ Errors return a local `Result` shape and are not thrown for expected publish fai
 
 ## Commands
 
-- `pnpm -F @rntme/bundle-publish test`
-- `pnpm -F @rntme/bundle-publish build`
-- `pnpm -F @rntme/bundle-publish typecheck`
-- `pnpm -F @rntme/bundle-publish lint`
+- `bun test`
+- `bun run build`
+- `bun run typecheck`
+- `bun run lint`
 
 ## Gotchas
 

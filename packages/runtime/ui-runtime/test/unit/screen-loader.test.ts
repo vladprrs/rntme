@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createScreenLoader } from '../../src/client/screen-loader.js';
 
 describe('createScreenLoader', () => {
   it('fetches and caches a screen', async () => {
     const mockScreen = { spec: { root: 'page', elements: {} } };
-    const fetchFn = vi.fn().mockResolvedValue({
+    const fetchFn = mock().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockScreen),
     });
@@ -22,7 +22,7 @@ describe('createScreenLoader', () => {
 
   it('fetches and caches a layout', async () => {
     const mockLayout = { spec: { root: 'shell', elements: {} } };
-    const fetchFn = vi.fn().mockResolvedValue({
+    const fetchFn = mock().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockLayout),
     });
@@ -34,7 +34,7 @@ describe('createScreenLoader', () => {
   });
 
   it('throws on non-ok response', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
+    const fetchFn = mock().mockResolvedValue({
       ok: false,
       status: 404,
     });

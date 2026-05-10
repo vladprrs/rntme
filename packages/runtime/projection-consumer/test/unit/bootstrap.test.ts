@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { parsePdm, validatePdm, createPdmResolver } from '@rntme/pdm';
 import { parseQsm, validateQsm, generateProjectionDdl } from '@rntme/qsm';
 import { bootstrapProjections } from '../../src/store/bootstrap.js';
@@ -10,7 +10,7 @@ import { bootstrapProjections } from '../../src/store/bootstrap.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
 
-let db: InstanceType<typeof Database> | undefined;
+let db: SqliteDatabase | undefined;
 
 afterEach(() => {
   db?.close();
@@ -34,7 +34,7 @@ function setup() {
 
 describe('bootstrapProjections', () => {
   it('creates one table per projection with the declared name', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { ddls } = setup();
     bootstrapProjections(db, ddls);
     const tables = db
@@ -44,7 +44,7 @@ describe('bootstrapProjections', () => {
   });
 
   it('projection table has all mirror columns plus idempotency', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { ddls } = setup();
     bootstrapProjections(db, ddls);
     const tableName = ddls[0]!.tableName;
@@ -71,7 +71,7 @@ describe('bootstrapProjections', () => {
   });
 
   it('creates declared indexes', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { ddls } = setup();
     bootstrapProjections(db, ddls);
     const idx = db
@@ -83,7 +83,7 @@ describe('bootstrapProjections', () => {
   });
 
   it('idempotent twice', () => {
-    const conn = new Database(':memory:');
+    const conn = openSqliteDatabase({ filename: ':memory:' });
     db = conn;
     const { ddls } = setup();
     bootstrapProjections(conn, ddls);

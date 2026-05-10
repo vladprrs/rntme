@@ -1,8 +1,8 @@
-// @vitest-environment happy-dom
+import '../setup-dom.js';
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { RegistryProvider, useOperation } from '../../src/hooks.js';
 import { createOperationRegistry } from '../../src/operation-registry.js';
 

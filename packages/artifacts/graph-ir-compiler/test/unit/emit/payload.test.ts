@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { evalExprAtRuntime, derivePayload } from '../../../src/emit/payload.js';
 import type { EmitPlan } from '../../../src/types/command.js';
 

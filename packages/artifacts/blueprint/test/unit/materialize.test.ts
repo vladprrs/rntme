@@ -1,9 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { rmSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, it, expect } from 'vitest';
-import { materializeBundle } from '@rntme/blueprint';
-import type { CanonicalBundle } from '@rntme/blueprint';
+import { describe, it, expect } from 'bun:test';
+import { materializeBundle, type CanonicalBundle } from '../../src/index.js';
 
 const baseBundle: CanonicalBundle = {
   version: 2,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { resolve } from '../../src/resolve/resolve.js';
 import { expand } from '../../src/expand/expand.js';

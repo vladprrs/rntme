@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { SqliteEventStore } from '@rntme/event-store';
 import type { EventEnvelope } from '@rntme/event-store';
 import { applySeed } from '../../src/apply.js';

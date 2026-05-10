@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { runMarketingSiteConformance } from '@rntme/conformance-marketing-site';
 import { provisioner } from '../src/provisioner.js';
 import { makeBundle } from './unit/helpers.js';

@@ -1,15 +1,15 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect, afterEach } from 'bun:test';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { bootstrapProjections } from '../../../src/store/bootstrap.js';
 import { applyEvent } from '../../../src/apply/apply-event.js';
 import type { ApplyPlan, DerivedHandler } from '../../../src/types/apply.js';
 import { makeEnvelope } from '../../fixtures/envelopes.js';
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
-function setupDb(): Database.Database {
-  const d = new Database(':memory:');
+function setupDb(): SqliteDatabase {
+  const d = openSqliteDatabase({ filename: ':memory:' });
   // Tiny self-contained projection table: count events per issue id.
   d.exec(`
     CREATE TABLE IF NOT EXISTS projection_issue_count (

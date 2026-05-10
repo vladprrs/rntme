@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { randomUUID, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { startPostgres, stopPostgres, resetSchema, type PgHandles } from './harness.js';

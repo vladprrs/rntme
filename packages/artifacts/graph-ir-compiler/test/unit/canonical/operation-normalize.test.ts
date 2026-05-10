@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { normalize } from '../../../src/canonical/normalize.js';
 import type { AuthoringSpecOutput } from '../../../src/parse/schema.js';
 

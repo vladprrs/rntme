@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -33,12 +33,12 @@ function setup() {
   return { plan, ddls };
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('applyEvent — INSERT (creation)', () => {
   it('inserts a new row into projection_issue for IssueReport', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
 

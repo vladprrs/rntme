@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { PgDeployTargetRepo } from '../../../src/repos/pg-deploy-target-repo.js';
 
 describe('PgDeployTargetRepo.getWithSecretById', () => {
   it('requires an RLS org context before returning secret-bearing rows', async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [{ org_id: '' }] });
+    const query = mock().mockResolvedValueOnce({ rows: [{ org_id: '' }] });
     const repo = new PgDeployTargetRepo({ query } as never);
 
     const result = await repo.getWithSecretById('target-1');
@@ -17,8 +17,7 @@ describe('PgDeployTargetRepo.getWithSecretById', () => {
   });
 
   it('queries by target id only after the RLS org context is present', async () => {
-    const query = vi
-      .fn()
+    const query = mock()
       .mockResolvedValueOnce({ rows: [{ org_id: '8d7bdbb5-9c8b-4773-b7b7-000000000001' }] })
       .mockResolvedValueOnce({ rows: [] });
     const repo = new PgDeployTargetRepo({ query } as never);

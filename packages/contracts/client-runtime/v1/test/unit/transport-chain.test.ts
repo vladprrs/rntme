@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createTransportChain } from '../../src/transport-chain.js';
 
 describe('TransportChain', () => {
   it('returns base fetch when no middleware registered', async () => {
-    const baseFetch = vi.fn(async () => new Response('ok'));
+    const baseFetch = mock(async () => new Response('ok'));
     const chain = createTransportChain(baseFetch);
     const r = await chain.fetch(new Request('https://x/y'));
     expect(await r.text()).toBe('ok');
@@ -11,7 +11,7 @@ describe('TransportChain', () => {
   });
 
   it('runs registered middleware around base fetch (single mw)', async () => {
-    const baseFetch = vi.fn(async (req: Request) => {
+    const baseFetch = mock(async (req: Request) => {
       expect(req.headers.get('authorization')).toBe('Bearer t');
       return new Response('ok');
     });
@@ -28,7 +28,7 @@ describe('TransportChain', () => {
 
   it('composes multiple middleware in registration order (later wraps earlier)', async () => {
     const trace: string[] = [];
-    const baseFetch = vi.fn(async () => {
+    const baseFetch = mock(async () => {
       trace.push('base');
       return new Response('ok');
     });

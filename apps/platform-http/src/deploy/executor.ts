@@ -1,6 +1,6 @@
 import type { Buffer } from 'node:buffer';
 import { clearInterval, setInterval } from 'node:timers';
-import { readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,6 @@ import {
 } from '@rntme/deploy-core';
 import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
 import { applyDokployPlan, isComposeTaskHealthy, renderDokployPlan } from '@rntme/deploy-dokploy';
-import { build, type Plugin } from 'esbuild';
 import {
   isOk,
   type BlobStore,
@@ -953,43 +952,43 @@ async function bundleVirtualEntrySource(
 ): Promise<Record<string, string>> {
   const workspaceRoot = findWorkspaceRoot();
   const outdir = join(rootDir, '.rntme-ui-build');
-  const result = await build({
-    stdin: {
-      contents: virtualEntrySource,
-      sourcefile: '__rntme_ui_entry.tsx',
-      resolveDir: workspaceRoot,
-      loader: 'tsx',
-    },
-    absWorkingDir: workspaceRoot,
-    bundle: true,
-    platform: 'browser',
-    format: 'esm',
-    target: 'es2022',
-    splitting: true,
-    sourcemap: false,
-    minify: true,
-    write: false,
-    outdir,
-    entryNames: 'main',
-    chunkNames: 'chunks/[name]-[hash]',
-    nodePaths: workspaceNodePaths(workspaceRoot),
-    loader: { '.css': 'empty' },
-    plugins: [workspacePackageResolver(workspaceRoot)],
-  });
+  await rm(outdir, { recursive: true, force: true });
+  await mkdir(outdir, { recursive: true });
+  const entrypoint = join(outdir, '__rntme_ui_entry.tsx');
+  await writeFile(entrypoint, virtualEntrySource);
 
-  const js = result.outputFiles.find((file) => file.path.endsWith('/main.js') || file.path.endsWith('\\main.js'));
+  const result = await Bun.build({
+    entrypoints: [entrypoint],
+    root: workspaceRoot,
+    target: 'browser',
+    format: 'esm',
+    splitting: true,
+    sourcemap: 'none',
+    minify: true,
+    outdir,
+    naming: { entry: 'main.js', chunk: 'chunks/[name]-[hash].[ext]' },
+    env: 'disable',
+    plugins: [workspacePackageResolver(workspaceRoot)],
+    throw: false,
+  });
+  if (!result.success) {
+    const logs = result.logs.map((log) => log.message).join('\n');
+    throw new Error(`DEPLOY_EXECUTOR_UI_BUNDLE_FAILED${logs === '' ? '' : `:${logs}`}`);
+  }
+
+  const js = result.outputs.find((file) => file.path.endsWith('/main.js') || file.path.endsWith('\\main.js'));
   if (js === undefined) throw new Error('DEPLOY_EXECUTOR_UI_BUNDLE_MISSING_MAIN_JS');
 
   const files: Record<string, string> = { 'ui-build/main.css': readUiRuntimeCss(workspaceRoot) };
-  for (const file of result.outputFiles) {
+  for (const file of result.outputs) {
     const rel = relative(outdir, file.path).split('\\').join('/');
     if (rel.startsWith('..') || rel === '') continue;
-    files[`ui-build/${rel}`] = file.text;
+    files[`ui-build/${rel}`] = await file.text();
   }
   return files;
 }
 
-function workspacePackageResolver(workspaceRoot: string): Plugin {
+function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
   const packageDirs = discoverWorkspacePackageDirs(workspaceRoot);
   return {
     name: 'rntme-workspace-package-resolver',
@@ -1010,6 +1009,14 @@ function workspacePackageResolver(workspaceRoot: string): Plugin {
         }
         return undefined;
       });
+      buildApi.onResolve({ filter: /\.css$/ }, (args) => ({
+        path: args.path,
+        namespace: 'rntme-empty-css',
+      }));
+      buildApi.onLoad({ filter: /.*/, namespace: 'rntme-empty-css' }, () => ({
+        contents: '',
+        loader: 'js',
+      }));
     },
   };
 }
@@ -1020,16 +1027,6 @@ function discoverWorkspacePackageDirs(workspaceRoot: string): Map<string, string
     collectPackageDirs(join(workspaceRoot, parent), dirs);
   }
   return dirs;
-}
-
-function workspaceNodePaths(workspaceRoot: string): string[] {
-  const packageDirs = discoverWorkspacePackageDirs(workspaceRoot);
-  const paths = [join(workspaceRoot, 'node_modules')];
-  for (const packageDir of packageDirs.values()) {
-    const nodeModules = join(packageDir, 'node_modules');
-    if (existsSync(nodeModules)) paths.push(nodeModules);
-  }
-  return paths;
 }
 
 function collectPackageDirs(dir: string, output: Map<string, string>): void {

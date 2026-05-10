@@ -63,3 +63,6 @@ operations require slug confirmation and block while active deployments exist.
 Storage is expected to enforce at most one live operation (`queued` or
 `running`) per project; repo implementations should surface that conflict as
 `PROJECT_OPERATION_INVALID_STATE`.
+
+Run package gates from `packages/platform/platform-core` with `bun test`,
+`bun run typecheck`, `bun run build`, and `bun run lint`.

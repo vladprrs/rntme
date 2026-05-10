@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildFilterArtifact, type EventSourceFilterColumn } from '../../../../src/lower/sqlite/event-delta/filter.js';
 import type { Expr } from '../../../../src/types/authoring.js';
 

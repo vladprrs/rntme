@@ -234,11 +234,11 @@ Applied by `securityHeaders()` middleware on UI responses:
 ## Development
 
 ```bash
-pnpm -F @rntme/platform-http test       # unit + e2e (testcontainers)
-pnpm -F @rntme/platform-http typecheck
-pnpm -F @rntme/platform-http lint
-pnpm -F @rntme/platform-http build      # tsc (includes TSX)
-pnpm -F @rntme/platform-http start      # runs dist/bin/server.js
+bun test           # unit + e2e (testcontainers)
+bun run typecheck
+bun run lint
+bun run build      # tsc (includes TSX)
+bun run start      # runs dist/bin/server.js
 ```
 
 ## Env vars

@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -32,12 +32,12 @@ function setup() {
   };
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('applyEvent — idempotency (spec §6.5)', () => {
   it('re-applying the same creation event is a no-op on the second call', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const env = makeEnvelope({
@@ -50,7 +50,7 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
   });
 
   it('re-applying an older update (lower version) is a no-op', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const lifecycle = issueLifecycle('1');
@@ -66,7 +66,7 @@ describe('applyEvent — idempotency (spec §6.5)', () => {
   });
 
   it('out-of-order delivery: higher version first, then lower → lower is skipped', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const lifecycle = issueLifecycle('1');

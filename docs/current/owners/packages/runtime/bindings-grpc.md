@@ -20,7 +20,7 @@ const handle = createGrpcServer({
   serviceName: 'PaymentsService',
   operationExecutor,
   eventStore,
-  qsmDb,
+  qsmDb, // SqliteDatabase from @rntme/sqlite
   serverCredentials: grpc.ServerCredentials.createInsecure(),
 });
 
@@ -58,6 +58,7 @@ Inbound `int64` request fields are converted to JavaScript numbers before the ex
 - No streaming RPCs.
 - No `grpc.health.v1.Health` surface yet.
 - Shape collection at boot currently reads binding output shapes; richer operation input shape registries remain future work.
+- `qsmDb` is the shared `SqliteDatabase` port from `@rntme/sqlite`.
 
 ## Specs
 

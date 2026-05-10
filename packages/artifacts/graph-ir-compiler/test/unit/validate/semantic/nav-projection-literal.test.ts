@@ -2,7 +2,7 @@
  * Regression tests for bug_008: collectDotNavPaths must not misclassify
  * non-path string values ($literal, $param, exists.relation) as dot-nav paths.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
 import { validateQsm } from '@rntme/qsm';
 import { validateSemantic } from '../../../../src/validate/semantic/index.js';

@@ -16,9 +16,9 @@ and `Mermaid` React components through `module.json#client.components`.
 ## Quick start
 
 ```bash
-pnpm -F @rntme/presentation-md-mermaid run build
-pnpm -F @rntme/presentation-md-mermaid run test
-pnpm -F @rntme/presentation-md-mermaid run typecheck
+bun run build
+bun test
+bun run typecheck
 ```
 
 ## Components

@@ -2,12 +2,12 @@
  * Unit tests for `startSeenEventsRetention` — the periodic DELETE sweep that
  * keeps the derived-projection idempotency side-table bounded in size.
  *
- * Uses an in-memory better-sqlite3 DB with the `seen_events` table created by
+ * Uses an in-memory Bun SQLite DB with the `seen_events` table created by
  * hand (same DDL as `@rntme/projection-consumer`'s `bootstrapProjections`) so
  * the test does not depend on spinning up a full runtime.
  */
-import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { startSeenEventsRetention } from '../../../src/projections/seen-events-retention.js';
 
 const CREATE_SEEN_EVENTS_SQL = `
@@ -25,24 +25,24 @@ function daysAgoIso(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
 
-function seedRows(db: Database.Database, rows: { id: string; days: number }[]): void {
+function seedRows(db: SqliteDatabase, rows: { id: string; days: number }[]): void {
   const stmt = db.prepare(
     'INSERT INTO seen_events (event_id, projection_id, applied_at) VALUES (?, ?, ?)',
   );
   for (const r of rows) stmt.run(r.id, 'p', daysAgoIso(r.days));
 }
 
-function countRows(db: Database.Database): number {
+function countRows(db: SqliteDatabase): number {
   const r = db.prepare('SELECT COUNT(*) AS n FROM seen_events').get() as { n: number };
   return r.n;
 }
 
 describe('startSeenEventsRetention', () => {
-  let db: Database.Database;
+  let db: SqliteDatabase;
 
   beforeEach(() => {
     delete process.env.RNTME_SEEN_EVENTS_RETENTION_DAYS;
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     db.exec(CREATE_SEEN_EVENTS_SQL);
   });
 
@@ -53,7 +53,7 @@ describe('startSeenEventsRetention', () => {
     } else {
       process.env.RNTME_SEEN_EVENTS_RETENTION_DAYS = ORIGINAL_ENV;
     }
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   it('runs an initial sweep on start and deletes rows older than retentionDays', () => {
@@ -81,7 +81,7 @@ describe('startSeenEventsRetention', () => {
   });
 
   it('returned dispose() clears the interval; no further sweeps fire', () => {
-    vi.useFakeTimers();
+    jest.useFakeTimers();
     const dispose = startSeenEventsRetention(db, {
       retentionDays: 1,
       intervalMs: 5_000,
@@ -96,7 +96,7 @@ describe('startSeenEventsRetention', () => {
     // next tick would delete it. Advance well past one interval and verify it
     // remains (i.e. no tick fired).
     seedRows(db, [{ id: 'stale', days: 10 }]);
-    vi.advanceTimersByTime(60_000);
+    jest.advanceTimersByTime(60_000);
     expect(countRows(db)).toBe(1);
   });
 

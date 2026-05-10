@@ -1,4 +1,4 @@
-import { expectTypeOf, test } from 'vitest';
+import { expectTypeOf, test } from 'bun:test';
 import type {
   CodeCommandHandler,
   CommandExecutionContext,

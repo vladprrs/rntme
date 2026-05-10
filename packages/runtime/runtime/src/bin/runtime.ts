@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { loadService } from '../load/load-service.js';
 import { startService } from '../start/start-service.js';
 

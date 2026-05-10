@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import * as React from 'react';
 import { createOperationRegistry, RegistryProvider } from '@rntme/contracts-client-runtime-v1';
 import { renderToStaticMarkup } from 'react-dom/server';

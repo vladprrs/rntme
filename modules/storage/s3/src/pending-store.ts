@@ -2,7 +2,7 @@ type DbRunResult = { changes: number; lastInsertRowid: number | bigint };
 
 type Stmt<P extends unknown[] = unknown[], R = unknown> = {
   run(...args: P): DbRunResult;
-  get(...args: P): R | undefined;
+  get(...args: P): R | undefined | null;
   all(...args: P): R[];
 };
 
@@ -147,7 +147,7 @@ export function createPendingStore(opts: { db: DatabaseLike; now?: () => number 
     insertPending(a) {
       if (a.idempotencyKey !== undefined) {
         const existing = sFindByIdem.get(a.routeId, a.entityId, a.idempotencyKey);
-        if (existing !== undefined) {
+        if (existing != null) {
           const f = rowToFile(existing);
           return { fileId: f.fileId, deduped: true, expiresAt: f.expiresAt, objectKey: f.objectKey };
         }
@@ -170,7 +170,7 @@ export function createPendingStore(opts: { db: DatabaseLike; now?: () => number 
     },
     findById(fileId) {
       const r = sFindById.get(fileId);
-      return r === undefined ? null : rowToFile(r);
+      return r == null ? null : rowToFile(r);
     },
     markCommitted(fileId, info) {
       sCommit.run(info.actualSize, info.sha256, now(), fileId);

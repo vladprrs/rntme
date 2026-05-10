@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { afterEach, describe, expect, it } from 'bun:test';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
 import {
   createQsmResolver,
@@ -15,7 +15,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures');
 
-let db: Database.Database | undefined;
+let db: SqliteDatabase | undefined;
 
 afterEach(() => {
   db?.close();
@@ -45,7 +45,7 @@ function validateFixture(rawQsm: unknown) {
   };
 }
 
-function bootstrapProjectionTables(conn: Database.Database, ddls: readonly ProjectionDdlSpec[]): void {
+function bootstrapProjectionTables(conn: SqliteDatabase, ddls: readonly ProjectionDdlSpec[]): void {
   for (const spec of ddls) {
     conn.exec(toIfNotExists(spec.createTableSql));
     for (const indexSql of spec.createIndexSql) {
@@ -60,31 +60,26 @@ function toIfNotExists(sql: string): string {
     .replace(/^CREATE INDEX(?!\s+IF NOT EXISTS)/i, 'CREATE INDEX IF NOT EXISTS');
 }
 
-function tableNames(conn: Database.Database): string[] {
-  const rows = conn
-    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
-    .all() as { name: string }[];
+function tableNames(conn: SqliteDatabase): string[] {
+  const rows = conn.prepare<[], { name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all();
   return rows.map((row) => row.name);
 }
 
-function indexNames(conn: Database.Database, tableName: string): string[] {
+function indexNames(conn: SqliteDatabase, tableName: string): string[] {
   const rows = conn
-    .prepare(
+    .prepare<[string], { name: string }>(
       `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_autoindex%' ORDER BY name`,
     )
-    .all(tableName) as { name: string }[];
+    .all(tableName);
   return rows.map((row) => row.name);
 }
 
-function tableInfo(conn: Database.Database, tableName: string): { name: string; pk: number }[] {
-  return conn.prepare(`PRAGMA table_info("${tableName.replace(/"/g, '""')}")`).all() as {
-    name: string;
-    pk: number;
-  }[];
+function tableInfo(conn: SqliteDatabase, tableName: string): { name: string; pk: number }[] {
+  return conn.prepare<[], { name: string; pk: number }>(`PRAGMA table_info("${tableName.replace(/"/g, '""')}")`).all();
 }
 
-function insertIssueRow(conn: Database.Database, tableName: string): void {
-  conn.prepare(
+function insertIssueRow(conn: SqliteDatabase, tableName: string): void {
+  conn.prepare<[number, number, number, null, null, string, string, string, number, string, null, string, number, string], never>(
     `INSERT INTO "${tableName.replace(/"/g, '""')}" (
       id,
       project_id,
@@ -124,7 +119,7 @@ describe('QSM DDL SQLite bootstrap integration', () => {
     const rawQsm = readFixture('issue-tracker.qsm.json');
     const { ddls, qsmResolver } = validateFixture(rawQsm);
     const ddl = ddls[0]!;
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
 
     bootstrapProjectionTables(db, ddls);
     bootstrapProjectionTables(db, ddls);
@@ -156,8 +151,10 @@ describe('QSM DDL SQLite bootstrap integration', () => {
     expect(mirror?.table).toBe(ddl.tableName);
     insertIssueRow(db, mirror!.table);
     const row = db
-      .prepare(`SELECT title, last_event_version FROM "${mirror!.table}" WHERE id = ?`)
-      .get(101) as { title: string; last_event_version: number };
+      .prepare<[number], { title: string; last_event_version: number }>(
+        `SELECT title, last_event_version FROM "${mirror!.table}" WHERE id = ?`,
+      )
+      .get(101);
     expect(row).toEqual({ title: 'Keep QSM DDL honest', last_event_version: 1 });
   });
 
@@ -185,7 +182,7 @@ describe('QSM DDL SQLite bootstrap integration', () => {
       relations: {},
     });
     const ddl = ddls[0]!;
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
 
     bootstrapProjectionTables(db, ddls);
 
@@ -194,10 +191,8 @@ describe('QSM DDL SQLite bootstrap integration', () => {
     expect(tableNames(db)).toContain('issues');
     expect(tableNames(db)).not.toContain('projection_issueview');
     insertIssueRow(db, 'issues');
-    const row = db.prepare(`SELECT status FROM "issues" WHERE id = ?`).get(101) as {
-      status: string;
-    };
-    expect(row.status).toBe('open');
+    const row = db.prepare<[number], { status: string }>(`SELECT status FROM "issues" WHERE id = ?`).get(101);
+    expect(row).toEqual({ status: 'open' });
   });
 
   it('boots composite-key mirror DDL as executable SQLite', () => {
@@ -214,7 +209,7 @@ describe('QSM DDL SQLite bootstrap integration', () => {
       relations: {},
     });
     const ddl = ddls[0]!;
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
 
     bootstrapProjectionTables(db, ddls);
 
@@ -226,7 +221,7 @@ describe('QSM DDL SQLite bootstrap integration', () => {
     expect(keyColumns).toEqual(['issue_id', 'user_id']);
     expect(indexNames(db, 'issue_assignments')).toContain('idx_issue_assignments_status');
 
-    db.prepare(
+    db.prepare<[number, number, string, string, string, number, string], never>(
       `INSERT INTO "issue_assignments" (
         issue_id,
         user_id,
@@ -238,8 +233,8 @@ describe('QSM DDL SQLite bootstrap integration', () => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(101, 12, 'owner', 'pending', 'evt-assignment', 1, '2026-05-04T00:00:02.000Z');
     const row = db
-      .prepare(`SELECT role FROM "issue_assignments" WHERE issue_id = ? AND user_id = ?`)
-      .get(101, 12) as { role: string };
-    expect(row.role).toBe('owner');
+      .prepare<[number, number], { role: string }>(`SELECT role FROM "issue_assignments" WHERE issue_id = ? AND user_id = ?`)
+      .get(101, 12);
+    expect(row).toEqual({ role: 'owner' });
   });
 });

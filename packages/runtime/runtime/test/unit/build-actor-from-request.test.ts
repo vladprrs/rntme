@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { Context } from 'hono';
 import type { ValidatedManifest } from '../../src/manifest/types.js';
 import {

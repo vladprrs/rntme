@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { deleteDokployResources } from '../../src/delete.js';
 import type { DokployClient } from '../../src/client.js';
 

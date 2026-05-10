@@ -1,4 +1,4 @@
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 
 const TTL_MS = 24 * 3600 * 1000;
 
@@ -23,7 +23,7 @@ export type CachedResponse = {
 };
 
 export class IdempotencyCache {
-  constructor(private readonly db: BetterSqlite3.Database) {
+  constructor(private readonly db: SqliteDatabase) {
     db.exec(DDL);
     try {
       db.exec(MIGRATE_ADD_HEADERS);

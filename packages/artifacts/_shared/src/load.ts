@@ -166,7 +166,9 @@ export async function loadArtifactDir<I, T, E>(
 
   let leafFileNames: string[];
   try {
-    leafFileNames = await readdir(leafDirPath);
+    // Sort so leafEntries assembly is deterministic across filesystems —
+    // readdir returns inode/hash order on ext4, which differs between hosts.
+    leafFileNames = (await readdir(leafDirPath)).sort();
   } catch (error) {
     return err([
       buildIoError({

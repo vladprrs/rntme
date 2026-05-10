@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { describe, expect, it, beforeAll, afterAll } from 'bun:test';
 import { createServer } from 'node:http';
 import { GenericContainer } from 'testcontainers';
 import { renderNginxConfig } from '../../src/nginx.js';
@@ -108,6 +108,7 @@ async function startRejectingIntrospectionServer(): Promise<{ port: number; stop
 }
 
 async function hasTestcontainersRuntime(): Promise<boolean> {
+  if (process.env['SKIP_TESTCONTAINERS'] === '1') return false;
   try {
     const container = await new GenericContainer('nginx:1.27-alpine').start();
     await container.stop();

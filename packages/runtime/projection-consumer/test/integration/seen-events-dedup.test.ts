@@ -1,11 +1,11 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect, afterEach } from 'bun:test';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { bootstrapProjections } from '../../src/store/bootstrap.js';
 import { applyEvent } from '../../src/apply/apply-event.js';
 import type { ApplyPlan, DerivedHandler } from '../../src/types/apply.js';
 import { makeEnvelope } from '../fixtures/envelopes.js';
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 /**
@@ -17,7 +17,7 @@ afterEach(() => { db?.close(); db = null; });
  */
 describe('seen_events dedup — integration (D5 Task 20)', () => {
   it('applying the same envelope twice yields count=1 and one seen_events row', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     // DDL: projection table + seen_events.
     db.exec(`
       CREATE TABLE projection_issue_count (
@@ -72,7 +72,7 @@ describe('seen_events dedup — integration (D5 Task 20)', () => {
   });
 
   it('applied_at in seen_events is an ISO timestamp', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     db.exec(`
       CREATE TABLE projection_issue_count (
         issue_id INTEGER PRIMARY KEY,

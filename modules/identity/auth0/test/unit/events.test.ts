@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { CLAIMED_EVENTS } from '../../src/capabilities.js';
 import { translateAuth0LogEvent } from '../../src/events.js';
 

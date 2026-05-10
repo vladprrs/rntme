@@ -13,6 +13,7 @@ export default [
       globals: {
         console: 'readonly',
         process: 'readonly',
+        Bun: 'readonly',
         URL: 'readonly',
         setTimeout: 'readonly',
         // Web/Fetch APIs available in Node 20+

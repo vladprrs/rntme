@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 describe.skipIf(process.env.MINIO_URL === undefined)('integration: MinIO publish', () => {
   it('is gated behind MINIO_URL', () => {

@@ -1,9 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runProjectPublish } from '../../../../src/commands/project/publish.js';
+import { restoreGlobals, stubGlobal } from '../../../helpers/globals.js';
 
 const projectVersion = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -33,7 +34,6 @@ function writeBlueprint(dir: string): void {
 }
 
 describe('runProjectPublish', () => {
-  const realFetch = globalThis.fetch;
   const realCwd = process.cwd();
   let tmp: string;
 
@@ -46,13 +46,13 @@ describe('runProjectPublish', () => {
   afterEach(() => {
     process.chdir(realCwd);
     rmSync(tmp, { recursive: true, force: true });
-    globalThis.fetch = realFetch;
-    vi.restoreAllMocks();
+    restoreGlobals();
+    mock.restore();
   });
 
   it('validates locally and uploads a canonical bundle with the project bundle content type', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ version: projectVersion }), { status: 201 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ version: projectVersion }), { status: 201 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectPublish({ dryRun: false }, {
       org: 'acme',
@@ -85,8 +85,8 @@ describe('runProjectPublish', () => {
   });
 
   it('does not call the API for --dry-run after local validation and bundling', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock();
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectPublish({ dryRun: true }, {
       org: 'acme',
@@ -101,8 +101,7 @@ describe('runProjectPublish', () => {
   });
 
   it('creates the project and retries publish when --create-project receives project 404', async () => {
-    const fetchMock = vi
-      .fn()
+    const fetchMock = mock()
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ error: { code: 'PLATFORM_TENANCY_PROJECT_NOT_FOUND', message: 'demo' } }), { status: 404 }),
       )
@@ -123,7 +122,7 @@ describe('runProjectPublish', () => {
         ),
       )
       .mockResolvedValueOnce(new Response(JSON.stringify({ version: projectVersion }), { status: 201 }));
-    vi.stubGlobal('fetch', fetchMock);
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectPublish({ createProject: true }, {
       org: 'acme',

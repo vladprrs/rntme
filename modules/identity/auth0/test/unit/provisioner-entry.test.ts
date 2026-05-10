@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENTRY_PATH = resolve(__dirname, '../../dist/provisioner.entry.js');

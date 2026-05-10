@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { statSync, readFileSync } from 'node:fs';
 import { samplePngPath, sampleMp3Path, samplePdfPath } from '../src/fixtures/media/index.js';
 

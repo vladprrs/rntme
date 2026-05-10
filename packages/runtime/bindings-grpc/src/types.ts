@@ -2,7 +2,7 @@ import type { Server, ServerCredentials } from '@grpc/grpc-js';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { ValidatedBindings, ResolvedShape } from '@rntme/bindings';
 import type { EventStore } from '@rntme/event-store';
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 
 export type GrpcServerOptions = {
   validated: ValidatedBindings;
@@ -11,7 +11,7 @@ export type GrpcServerOptions = {
   serviceName: string;
   operationExecutor: OperationExecutor;
   eventStore: EventStore;
-  qsmDb: BetterSqlite3.Database;
+  qsmDb: SqliteDatabase;
   serverCredentials?: ServerCredentials;
   now?: () => string;
   nextId?: () => string;

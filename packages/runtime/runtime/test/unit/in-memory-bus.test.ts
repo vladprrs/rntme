@@ -1,6 +1,6 @@
 import { toCloudEventWire, type EventEnvelope } from '@rntme/event-store';
 import type { ConsumedMessage } from '@rntme/projection-consumer';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { InMemoryBus } from '../../src/plugins/in-memory-bus.js';
 
 function envelope(overrides: Partial<EventEnvelope>): EventEnvelope {

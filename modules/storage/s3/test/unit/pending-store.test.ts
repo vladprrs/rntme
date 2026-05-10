@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { Database } from 'bun:sqlite';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
   createPendingStore,
   type DatabaseLike,

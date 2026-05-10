@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { ActorRef, EventStore } from '@rntme/event-store';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
@@ -57,7 +57,7 @@ export type CompiledOperation = Readonly<{
 }>;
 
 export type OperationExecutionContext = Readonly<{
-  qsmDb: Database.Database;
+  qsmDb: SqliteDatabase;
   eventStore: EventStore | null;
   callClient: OperationCallClient | null;
   now: () => string;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { isOk } from '@rntme/platform-core';
 import { FakeStore } from '@rntme/platform-core/testing';
 import { WorkOSAuthKitProvider } from '../../../src/auth/workos-provider.js';

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkTransitionLegal } from '../../../src/command-runtime/transition.js';
 import type { EmitPlan } from '../../../src/types/command.js';
 

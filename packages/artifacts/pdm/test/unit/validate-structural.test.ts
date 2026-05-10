@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { validateStructural } from '../../src/validate/structural.js';
 import { ERROR_CODES } from '../../src/types/result.js';
 import type { PdmArtifact } from '../../src/types/artifact.js';

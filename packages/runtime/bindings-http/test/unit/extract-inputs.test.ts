@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { extractInputs } from '../../src/runtime/extract-inputs.js';
 import type { InputFromMap } from '@rntme/bindings';
 

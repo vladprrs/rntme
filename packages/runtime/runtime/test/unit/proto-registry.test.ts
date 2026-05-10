@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { ProtoRegistry } from '../../src/plugins/adapter-client/proto-registry.js';
 import { mkdirSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

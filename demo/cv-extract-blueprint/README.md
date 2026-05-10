@@ -5,8 +5,8 @@ Demo project blueprint for CV extraction workflows.
 Current documentation: [docs/current/owners/demo/cv-extract-blueprint.md](../../docs/current/owners/demo/cv-extract-blueprint.md)
 
 Local commands:
-- `pnpm -F @rntme/demo-cv-extract-blueprint test` when the package defines a test script.
-- `pnpm -F @rntme/cli exec rntme bundle publish demo/cv-extract-blueprint/landing --target s3 --bucket cv-extract --key-prefix landings/cv-extract --print-json`
+- `bun test`
+- `bun run -F @rntme/cli build && bun apps/cli/dist/bin/cli.js bundle publish demo/cv-extract-blueprint/landing --target s3 --bucket cv-extract --key-prefix landings/cv-extract --print-json`
 
 Marketing landing:
 - `landing/` is a small static dogfood landing for the `marketing` service.

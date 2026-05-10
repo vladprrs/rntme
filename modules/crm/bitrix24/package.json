@@ -19,14 +19,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-crm-v1 run build && pnpm -F @rntme/conformance-crm run build",
-    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
-    "test": "pnpm run build:deps && vitest run",
-    "test:watch": "vitest",
+    "build": "bun run build:deps && tsc -p tsconfig.json",
+    "build:deps": "bun run -F @rntme/contracts-common-v1 build && bun run -F @rntme/contracts-crm-v1 build && bun run -F @rntme/conformance-crm build",
+    "typecheck": "bun run build:deps && tsc -p tsconfig.check.json --types bun",
+    "test": "bun run build:deps && bun test",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "test:conformance:mock": "vitest run test/integration/conformance-mock.test.ts",
-    "test:smoke:live": "pnpm run build:deps && vitest run test/live-smoke.test.ts"
+    "test:conformance:mock": "bun test test/integration/conformance-mock.test.ts",
+    "test:smoke:live": "bun run build:deps && bun test test/live-smoke.test.ts"
   },
   "dependencies": {
     "@bitrix24/b24jssdk": "1.0.5",
@@ -36,11 +35,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
+    "@types/bun": "^1.2.14",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

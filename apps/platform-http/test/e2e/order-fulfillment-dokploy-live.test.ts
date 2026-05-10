@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { deleteDokployResources, type DokployDeleteResource } from '@rntme/deploy-dokploy';
 import { isOk } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';

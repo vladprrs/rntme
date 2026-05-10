@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock, setSystemTime } from 'bun:test';
 import moduleManifest from '../module.json' with { type: 'json' };
 import { WORKOS_SUPPORTED_EVENTS } from '../src/capabilities.js';
 import { InMemoryWebhookDedupeStore, createWorkOSWebhookReceiver, translateWorkOSWebhook } from '../src/webhooks.js';
@@ -6,7 +6,7 @@ import type { WorkOSWebhookEvent } from '../src/types.js';
 
 describe('WorkOS webhook receiver', () => {
   it('verifies with workos-signature, translates, and dedupes claimed lifecycle events', async () => {
-    const constructEvent = vi.fn(async () => ({
+    const constructEvent = mock(async () => ({
       id: 'evt_1',
       event: 'user.created',
       data: { id: 'user_1', email: 'ada@example.com' },
@@ -21,7 +21,7 @@ describe('WorkOS webhook receiver', () => {
     const first = await receiver.receive({ payload: '{"id":"evt_1"}', headers });
     const second = await receiver.receive({ payload: '{"id":"evt_1"}', headers });
 
-    expect(constructEvent).toHaveBeenCalledOnce();
+    expect(constructEvent).toHaveBeenCalledTimes(1);
     expect(constructEvent).toHaveBeenCalledWith({
       payload: { id: 'evt_1' },
       sigHeader: 'sig',
@@ -53,8 +53,7 @@ describe('WorkOS webhook receiver', () => {
   });
 
   it('emits deletion timestamps from event creation time or current time fallback', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-01-02T00:00:00.000Z'));
+    setSystemTime(new Date('2024-01-02T00:00:00.000Z'));
     try {
       const userDeleted = translateWorkOSWebhook({
         id: 'evt_user_deleted',
@@ -93,7 +92,7 @@ describe('WorkOS webhook receiver', () => {
       expect(membershipDeleted?.data).not.toHaveProperty('vendor_raw');
       expect(membershipDeleted?.data).not.toHaveProperty('vendor_id');
     } finally {
-      vi.useRealTimers();
+      setSystemTime();
     }
   });
 

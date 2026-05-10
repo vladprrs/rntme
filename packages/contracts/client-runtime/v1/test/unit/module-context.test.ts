@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createLifecycleBus } from '../../src/lifecycle-bus.js';
 import { createModuleBootContext } from '../../src/module-context.js';
 import { createOperationRegistry } from '../../src/operation-registry.js';
@@ -7,7 +7,7 @@ import type { StateStore } from '@json-render/core';
 
 describe('createModuleBootContext', () => {
   it('exposes the host transport fetch chain', async () => {
-    const fetch = vi.fn(async () => new Response('ok'));
+    const fetch = mock(async () => new Response('ok'));
     const ctx = createModuleBootContext({
       moduleName: '@rntme/test',
       config: {},

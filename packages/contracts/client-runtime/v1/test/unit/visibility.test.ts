@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { evaluateVisible } from '../../src/visibility.js';
 
 const stateGet = (state: Record<string, unknown>) => (p: string) => state[p];

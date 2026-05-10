@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { AiLlmOpenRouterError, GrpcStatus, unimplemented } from '../../src/errors.js';
 
 describe('AiLlmOpenRouterError', () => {

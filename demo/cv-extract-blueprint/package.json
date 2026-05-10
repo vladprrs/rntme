@@ -4,15 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "pnpm -F @rntme/ai-llm-openrouter run build && pnpm -F @rntme/contracts-marketing-site-v1 run build && pnpm -F @rntme/bundle-publish run build && vitest run"
+    "test": "bun run -F @rntme/ai-llm-openrouter build && bun run -F @rntme/contracts-marketing-site-v1 build && bun run -F @rntme/bundle-publish build && bun test"
   },
   "devDependencies": {
     "@rntme/ai-llm-openrouter": "workspace:*",
     "@rntme/bundle-publish": "workspace:*",
     "@rntme/contracts-marketing-site-v1": "workspace:*",
     "@rntme/contracts-ai-llm-v1": "workspace:*",
+    "@types/bun": "^1.2.14",
     "@types/node": "^20.14.0",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

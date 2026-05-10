@@ -1,4 +1,4 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'bun:test';
 import * as api from '../../src/index.js';
 import type {
   BindingsRouterOptions,

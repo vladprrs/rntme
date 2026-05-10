@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseQsm } from '../../src/parse/parse.js';
 import { ERROR_CODES } from '../../src/types/result.js';
 

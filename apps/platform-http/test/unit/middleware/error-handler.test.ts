@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import { Hono } from 'hono';
 import { errorEnvelope, errorHandler, statusForCode } from '../../../src/middleware/error-handler.js';
 import { requestId } from '../../../src/middleware/request-id.js';
@@ -19,7 +19,7 @@ describe('error-handler helpers', () => {
     expect(e.error.code).toBe('PLATFORM_INTERNAL');
   });
   it('logs unhandled exceptions with request metadata and returns sanitized 500', async () => {
-    const logger = { error: vi.fn() };
+    const logger = { error: mock() };
     const cause = new Error('secret boom');
     const app = new Hono();
     app.use('*', requestId());

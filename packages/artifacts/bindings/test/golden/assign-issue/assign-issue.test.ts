@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const artifactJson = readFileSync(join(here, 'artifact.json'), 'utf8');
 
 describe('golden: assign-issue', () => {
-  it('parses, validates, and emits a stable OpenAPI document', async () => {
+  it('parses, validates, and emits a stable OpenAPI document', () => {
     const parsed = parseBindingArtifact(artifactJson);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
@@ -25,6 +25,6 @@ describe('golden: assign-issue', () => {
     if (!emitted.ok) return;
 
     const serialized = JSON.stringify(emitted.value, null, 2) + '\n';
-    await expect(serialized).toMatchFileSnapshot(join(here, 'expected.openapi.json'));
+    expect(serialized).toBe(readFileSync(join(here, 'expected.openapi.json'), 'utf8'));
   });
 });

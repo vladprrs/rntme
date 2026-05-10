@@ -50,7 +50,7 @@ Set one of:
 Then run the live smoke command:
 
 ```bash
-pnpm -F @rntme/crm-bitrix24 run test:smoke:live
+bun run test:smoke:live
 ```
 
 Without credentials the smoke test records a credential-blocked pass. With credentials it calls `ListContacts({ limit: 1 })` against the real portal through `@bitrix24/b24jssdk`.
@@ -59,12 +59,12 @@ The normal committed test suite uses mocked SDK responses and does not require n
 
 ## Commands
 
-- `pnpm -F @rntme/crm-bitrix24 run build`
-- `pnpm -F @rntme/crm-bitrix24 run test`
-- `pnpm -F @rntme/crm-bitrix24 run typecheck`
-- `pnpm -F @rntme/crm-bitrix24 run lint`
-- `pnpm -F @rntme/crm-bitrix24 run test:conformance:mock`
-- `pnpm -F @rntme/crm-bitrix24 run test:smoke:live`
+- `bun run build`
+- `bun test`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run test:conformance:mock`
+- `bun run test:smoke:live`
 
 ## Docs used
 

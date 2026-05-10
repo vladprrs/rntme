@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import * as tar from 'tar-stream';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildDeterministicTarGz } from '../../src/tar-deterministic.js';
 
 function makeFolder(): string {

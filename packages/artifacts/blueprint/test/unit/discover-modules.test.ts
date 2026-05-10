@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { discoverModules } from '../../src/compose/modules.js';
 
 /**

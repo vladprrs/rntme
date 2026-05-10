@@ -1,36 +1,39 @@
-import { describe, expect, it, vi } from 'vitest';
+import './dom-setup';
+import { describe, expect, it, mock } from 'bun:test';
 import type { CompiledScreen } from '@rntme/ui';
-import { createRegistry, type RuntimeBridge } from '../../src/client/registry.js';
+import type { RuntimeBridge } from '../../src/client/registry.js';
+
+const { createRegistry } = await import('../../src/client/registry.js');
 
 function createBridge(screen: CompiledScreen): RuntimeBridge & {
-  onNavigate: ReturnType<typeof vi.fn>;
-  fetchEndpoint: ReturnType<typeof vi.fn>;
-  fetchFn: ReturnType<typeof vi.fn>;
-  store: RuntimeBridge['store'] & { get: ReturnType<typeof vi.fn> };
+  onNavigate: ReturnType<typeof mock>;
+  fetchEndpoint: ReturnType<typeof mock>;
+  fetchFn: ReturnType<typeof mock>;
+  store: RuntimeBridge['store'] & { get: ReturnType<typeof mock> };
 } {
   return {
-    onNavigate: vi.fn(),
+    onNavigate: mock(),
     getScreen: () => screen,
     store: {
-      get: vi.fn((path: string) => {
+      get: mock((path: string) => {
         if (path === '/route/params/id') return 'n1';
         if (path === '/form/title') return 'Updated';
         return undefined;
       }),
-      set: vi.fn(),
-      update: vi.fn(),
+      set: mock(),
+      update: mock(),
       getSnapshot: () => ({}),
       subscribe: () => () => undefined,
     },
-    fetchEndpoint: vi.fn(async () => undefined),
-    fetchFn: vi.fn(async () => Response.json({ ok: true })) as unknown as ReturnType<typeof vi.fn>,
+    fetchEndpoint: mock(async () => undefined),
+    fetchFn: mock(async () => Response.json({ ok: true })) as unknown as ReturnType<typeof mock>,
   };
 }
 
 function actionHandlersFor(bridge: RuntimeBridge) {
   const { handlers } = createRegistry(bridge);
   return handlers(
-    () => vi.fn(),
+    () => mock(),
     () => ({}),
   );
 }

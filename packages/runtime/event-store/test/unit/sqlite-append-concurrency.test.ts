@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { SqliteEventStore, mapSqliteError } from '../../src/store/sqlite.js';
 import { ConcurrencyConflict, DuplicateEventId } from '../../src/types/errors.js';
 import { makeEvent, makeRequest } from '../fixtures/sample-events.js';
@@ -52,7 +52,7 @@ describe('SqliteEventStore.appendEvents — optimistic concurrency', () => {
     ).toThrow(ConcurrencyConflict);
     try {
       st.appendEvents([makeRequest('Issue-1', [makeEvent({ id: 'e3' })], 0)]);
-      expect.fail('expected throw');
+      throw new Error('expected throw');
     } catch (e) {
       expect(e).toBeInstanceOf(ConcurrencyConflict);
       expect((e as ConcurrencyConflict).actualVersion).toBe(1);

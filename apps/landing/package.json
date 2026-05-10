@@ -5,11 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "TALLY_FORM_ID=test GITHUB_URL=https://github.com/vladprrs/rntme DOCS_URL=https://docs.rntme.com PLATFORM_URL=https://platform.rntme.com astro build",
     "preview": "astro preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "astro check && tsc --noEmit",
+    "test": "bun test",
+    "typecheck": "TALLY_FORM_ID=test GITHUB_URL=https://github.com/vladprrs/rntme DOCS_URL=https://docs.rntme.com PLATFORM_URL=https://platform.rntme.com astro check && tsc --noEmit",
     "lint": "eslint \"src/**/*.{ts,tsx,astro}\""
   },
   "dependencies": {
@@ -21,13 +20,16 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
-    "@testing-library/jest-dom": "^6.5.0",
+    "@eslint/js": "^9.10.0",
     "@testing-library/react": "^16.1.0",
+    "@types/bun": "latest",
+    "@types/jsdom": "^21.1.7",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@vitest/ui": "^2.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
     "jsdom": "^25.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "typescript": "^5.6.0"
   }
 }

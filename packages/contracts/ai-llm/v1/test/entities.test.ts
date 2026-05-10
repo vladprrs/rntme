@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { proto } from '../src/index.js';
 
 const ns = proto.rntme.contracts.ai_llm.v1;

@@ -1,24 +1,18 @@
 # Build from the repository root:
 #   docker build -f modules/ai-llm/openrouter/Dockerfile -t ghcr.io/vladprrs/rntme-ai-llm-openrouter:dev .
 
-FROM node:20-alpine AS builder
+FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /build
 
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+COPY . .
 
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
-COPY packages/contracts ./packages/contracts
-COPY modules/ai-llm ./modules/ai-llm
+RUN bun install --frozen-lockfile
+RUN bun run -F @rntme/ai-llm-openrouter build:image
 
-RUN pnpm install --frozen-lockfile
-RUN pnpm -F @rntme/ai-llm-openrouter run build:image
-RUN node -e "const fs=require('fs');const p=require('./package.json');delete p.devDependencies;fs.writeFileSync('package.json', JSON.stringify(p));"
-RUN pnpm --filter @rntme/ai-llm-openrouter --prod deploy /out
+FROM oven/bun:1.3.13-alpine
+WORKDIR /srv/modules/ai-llm/openrouter
 
-FROM node:20-alpine
-WORKDIR /srv
-
-COPY --from=builder /out ./
+COPY --from=builder /build /srv
 
 ENV NODE_ENV=production \
     PORT=50051 \
@@ -27,6 +21,6 @@ ENV NODE_ENV=production \
     OPENROUTER_IDEMPOTENCY_PATH=/data/idempotency.sqlite
 
 VOLUME /data
-USER node
+USER bun
 EXPOSE 50051
-CMD ["node", "dist/bin/server.js"]
+CMD ["bun", "dist/bin/server.js"]

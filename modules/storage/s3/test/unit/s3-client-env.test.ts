@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { resolveS3OptionsFromEnv } from '../../src/s3-client.js';
 
 describe('resolveS3OptionsFromEnv', () => {

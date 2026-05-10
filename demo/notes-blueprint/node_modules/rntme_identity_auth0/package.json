@@ -33,16 +33,15 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && pnpm run build:provisioner",
-    "build:provisioner": "esbuild dist/provisioner.js --bundle --platform=node --format=esm --target=node20 --external:node:* --outfile=dist/provisioner.entry.js",
-    "build:image": "pnpm run build:deps && tsc -p tsconfig.json",
-    "build:deps": "pnpm -F @rntme/contracts-common-v1 run build && pnpm -F @rntme/contracts-identity-v1 run build && pnpm -F @rntme/conformance-identity run build && pnpm -F @rntme/contracts-provisioner-v1 run build && pnpm -F @rntme/contracts-client-runtime-v1 run build",
-    "start": "node dist/bin/server.js",
-    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
-    "test": "pnpm run build:deps && vitest run",
-    "test:watch": "vitest",
+    "build": "bun run build:deps && tsc -p tsconfig.json && tsc -p tsconfig.client.json && bun run build:provisioner",
+    "build:provisioner": "bun build dist/provisioner.js --target=node --format=esm --external=node:* --outfile=dist/provisioner.entry.js",
+    "build:image": "bun run build:deps && tsc -p tsconfig.json",
+    "build:deps": "bun run -F @rntme/contracts-common-v1 build && bun run -F @rntme/contracts-identity-v1 build && bun run -F @rntme/conformance-identity build && bun run -F @rntme/contracts-provisioner-v1 build && bun run -F @rntme/contracts-client-runtime-v1 build",
+    "start": "bun dist/bin/server.js",
+    "typecheck": "bun run build:deps && tsc -p tsconfig.check.json --types bun",
+    "test": "bun run build:deps && bun test",
     "lint": "eslint \"src/**/*.ts\" \"client/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\"",
-    "test:conformance:mock": "vitest run test/integration/conformance-mock.test.ts"
+    "test:conformance:mock": "bun run build:deps && bun test test/integration/conformance-mock.test.ts"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.1.3",
@@ -65,17 +64,17 @@
     "@json-render/core": "^0.17.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
+    "@types/bun": "^1.2.14",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
-    "esbuild": "^0.23.0",
     "eslint": "^9.10.0",
     "jsdom": "^25.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

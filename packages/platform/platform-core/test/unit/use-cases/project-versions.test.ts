@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import type {
   BlobStore,
   Ids,
@@ -23,13 +23,13 @@ function makeFakeRepos() {
   };
   const versions: ProjectVersion[] = [];
   const projectVersions: ProjectVersionRepo = {
-    findByDigest: vi.fn(async (_pid, d) =>
+    findByDigest: mock(async (_pid, d) =>
       ok(versions.find((v) => v.bundleDigest === d) ?? null),
     ),
-    getBySeq: vi.fn(async (_pid, s) => ok(versions.find((v) => v.seq === s) ?? null)),
-    getById: vi.fn(async (id) => ok(versions.find((v) => v.id === id) ?? null)),
-    listByProject: vi.fn(async () => ok(versions)),
-    create: vi.fn(async ({ row }) => {
+    getBySeq: mock(async (_pid, s) => ok(versions.find((v) => v.seq === s) ?? null)),
+    getById: mock(async (id) => ok(versions.find((v) => v.id === id) ?? null)),
+    listByProject: mock(async () => ok(versions)),
+    create: mock(async ({ row }) => {
       const v: ProjectVersion = {
         id: row.id,
         orgId: row.orgId,
@@ -47,19 +47,19 @@ function makeFakeRepos() {
     }),
   };
   const projects: ProjectRepo = {
-    create: vi.fn(),
-    findBySlug: vi.fn(async () => ok(project)),
-    findById: vi.fn(async () => ok(project)),
-    list: vi.fn(),
-    patch: vi.fn(),
-    setStatus: vi.fn(),
-    archive: vi.fn(),
+    create: mock(),
+    findBySlug: mock(async () => ok(project)),
+    findById: mock(async () => ok(project)),
+    list: mock(),
+    patch: mock(),
+    setStatus: mock(),
+    archive: mock(),
   };
   const blob: BlobStore = {
-    putIfAbsent: vi.fn(async () => ok(undefined)),
-    presignedGet: vi.fn(async () => ok('https://example.test/x')),
+    putIfAbsent: mock(async () => ok(undefined)),
+    presignedGet: mock(async () => ok('https://example.test/x')),
     getJson: async <T = unknown>() => ok({} as T),
-    getRaw: vi.fn(async () => ok(Buffer.from(''))),
+    getRaw: mock(async () => ok(Buffer.from(''))),
   };
   const ids: Ids = {
     uuid: () => '00000000-0000-0000-0000-000000000000',
@@ -97,7 +97,7 @@ describe('publishProjectVersion', () => {
     );
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.seq).toBe(1);
-    expect(fakes.blob.putIfAbsent).toHaveBeenCalledOnce();
+    expect(fakes.blob.putIfAbsent).toHaveBeenCalledTimes(1);
   });
 
   it('idempotent duplicate digest skips blob upload and returns existing row', async () => {
@@ -126,6 +126,6 @@ describe('publishProjectVersion', () => {
     const b = await publishProjectVersion(deps, input);
     expect(a.ok && b.ok).toBe(true);
     if (a.ok && b.ok) expect(a.value.id).toBe(b.value.id);
-    expect(fakes.blob.putIfAbsent).toHaveBeenCalledOnce();
+    expect(fakes.blob.putIfAbsent).toHaveBeenCalledTimes(1);
   });
 });
