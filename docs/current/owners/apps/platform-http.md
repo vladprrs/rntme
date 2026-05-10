@@ -55,6 +55,38 @@ UI mutations (`POST /:orgSlug/tokens`, `DELETE /:orgSlug/tokens/:id`, `POST /:or
 
 Deployment starts require an explicit `targetSlug` from both JSON API callers and the UI form. The platform records the deployment, schedules the same `runDeployment` executor used by UI-triggered deploys, and logs the selected project version, selected target, render digest, apply actions, and smoke results.
 
+## Deploy orchestration
+
+Deploy orchestration logic lives in `@rntme/deploy-runner`
+(`packages/deploy/deploy-runner`). The platform-http `executor.ts` is a
+thin DB-bound wrapper that:
+
+1. Resolves the deployment context, project version, and target via repos.
+2. Fetches and materializes the project-version bundle from blob storage.
+3. Loads the composed blueprint and converts it to `ComposedProjectInput`
+   via `toDeployCoreInput` (which still owns runtime-artifact assembly —
+   workflow gRPC services, runtime modules, UI assets — because those
+   helpers depend on `@rntme/bindings-grpc` and cannot move into
+   `deploy-runner`).
+4. Decrypts target secrets via `targetSecretsRepo.getAllDecrypted(target.id)`.
+5. Pre-validates each `requiredTargetSecrets` schema id against the platform
+   target_secrets summary (preserving the legacy
+   `DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH` error code).
+6. Calls `runDeployment` from `@rntme/deploy-runner` with hooks that
+   persist logs (`appendLog`), provision/apply/verify envelopes
+   (`repos.deployments.persistProvisionResult`, `persistApplyResult`,
+   `persistVerifyResult`), and the terminal status (`finalize`).
+7. Maps the smoke verification report to the right finalize status —
+   `succeeded` when `report.ok`, `succeeded_with_warnings` when
+   `report.partialOk`, `failed` otherwise.
+8. Owns the heartbeat loop (`setInterval` calling
+   `repos.deployments.touchHeartbeat`) and the bundle-directory cleanup.
+
+`@rntme/deploy-runner` itself never opens a database connection, never
+fetches blobs, never decrypts secrets, and never imports
+`@rntme/platform-core`. All side effects flow through hooks the caller
+provides.
+
 ## Error logging
 
 The global Hono `onError` handler logs unhandled exceptions before returning a
