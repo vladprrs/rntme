@@ -1,4 +1,6 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
+import type { DeploymentApplyResult } from '@rntme/deploy-dokploy';
+import { buildProjectDeploymentConfig } from './build-deploy-config.js';
 import { redact } from './redactor.js';
 import { stages, StageError } from './stages/index.js';
 import type { ComposeStageOutput, StageContext } from './stages/types.js';
@@ -11,6 +13,7 @@ import type {
   StageEvidence,
   StageName,
   TerminalResult,
+  VerificationReport,
 } from './types.js';
 
 type StageErrorInput = {
@@ -66,6 +69,15 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
         : { composed: inputs.composedBlueprint, bundleDir: inputs.bundleDir };
     await emitStageComplete(hooks, 'compose', Date.now() - composeStart);
 
+    // Build the deployment config once we have a project name. This drives
+    // the eventBus / object-storage planning logic and lets us emit the
+    // bus-mode log that platform-http surfaces in deployment timelines.
+    const config = buildProjectDeploymentConfig(inputs.target, inputs.orgSlug, inputs.configOverrides, {
+      projectSlug: composeOut.composed.name,
+      ...(inputs.publicDeployDomain === undefined ? {} : { publicDeployDomain: inputs.publicDeployDomain }),
+    });
+    await log({ level: 'info', step: 'plan', message: eventBusLogMessageFor(config.eventBus?.mode) });
+
     await emitStageBegin(hooks, 'provision');
     const provisionStart = Date.now();
     const provisionOut = await stages.provision(
@@ -80,6 +92,13 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
         resolveProvisioner: inputs.resolveProvisioner,
       },
     );
+    if (provisionOut.provisioned.size > 0) {
+      await log({
+        level: 'info',
+        step: 'provision',
+        message: `Provisioning ${provisionOut.provisioned.size} module(s)`,
+      });
+    }
     if (hooks.onProvisionResult !== undefined) {
       await hooks.onProvisionResult({
         publicByModule: provisionOut.publicByModule,
@@ -98,8 +117,13 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
     );
     await emitStageComplete(hooks, 'plan', Date.now() - planStart);
 
-    const resolvedRequiredSecrets = await validateRequiredSecrets(planOut.plan, inputs);
+    let resolvedRequiredSecrets: Readonly<Record<string, unknown>> = {};
+    if (planOut.plan.requiredTargetSecrets.length > 0) {
+      await log({ level: 'info', step: 'validate-secrets', message: 'Validating required target secrets' });
+      resolvedRequiredSecrets = await validateRequiredSecrets(planOut.plan, inputs);
+    }
 
+    await log({ level: 'info', step: 'render', message: 'Rendering Dokploy plan' });
     await emitStageBegin(hooks, 'render');
     const renderStart = Date.now();
     const renderOut = await stages.render(
@@ -118,27 +142,67 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
       message: `Rendered Dokploy plan digest ${renderOut.rendered.digest}`,
     });
 
+    await log({ level: 'info', step: 'apply', message: 'Applying Dokploy plan' });
     await emitStageBegin(hooks, 'apply');
-    const applyOut = await stages.apply(
-      {
-        ctx,
-        rendered: renderOut.rendered,
-        resolvedRequiredSecrets,
-        dokployClientFactory: inputs.dokployClientFactory,
-      },
-      inputs.applyPlan,
-    );
+    let applyOut;
+    try {
+      applyOut = await stages.apply(
+        {
+          ctx,
+          rendered: renderOut.rendered,
+          resolvedRequiredSecrets,
+          dokployClientFactory: inputs.dokployClientFactory,
+        },
+        inputs.applyPlan,
+      );
+    } catch (cause) {
+      if (cause instanceof StageError) {
+        await logApplyFailure(log, cause);
+        return await terminalFailure(hooks, {
+          errorCode: cause.code,
+          errorMessage: redact(cause.message),
+          errorTree: deployErrorsToPlatformError(asStageErrorInputArray(cause.cause), 'apply'),
+        });
+      }
+      throw cause;
+    }
     if (hooks.onApplyResult !== undefined) {
       await hooks.onApplyResult({ actions: applyOut.applied, durationMs: applyOut.durationMs });
     }
     await emitStageComplete(hooks, 'apply', applyOut.durationMs);
 
+    for (const resource of applyOut.applied.resources) {
+      await log({
+        level: 'info',
+        step: 'apply',
+        message: `${resource.resourceKind} ${
+          resource.workloadSlug ?? resource.infrastructureKind ?? resource.logicalId
+        } ${resource.action} target=${resource.targetResourceName}`,
+      });
+    }
+
+    await log({ level: 'info', step: 'verify', message: 'Running smoke verification' });
     await emitStageBegin(hooks, 'verify');
     const verifyStart = Date.now();
-    const verifyOut = await stages.verify(
-      { applied: applyOut.applied },
-      { ...(inputs.smoker === undefined ? {} : { smoker: inputs.smoker }) },
-    );
+    let verifyOut;
+    try {
+      verifyOut = await stages.verify(
+        { applied: applyOut.applied },
+        { ...(inputs.smoker === undefined ? {} : { smoker: inputs.smoker }) },
+      );
+    } catch (cause) {
+      if (cause instanceof StageError) {
+        const report = verificationReportFromCause(cause.cause);
+        if (report !== null && hooks.onVerifyResult !== undefined) {
+          await hooks.onVerifyResult({ report });
+        }
+        return await terminalFailure(hooks, {
+          errorCode: cause.code,
+          errorMessage: redact(cause.message),
+        });
+      }
+      throw cause;
+    }
     if (hooks.onVerifyResult !== undefined) {
       await hooks.onVerifyResult({ report: verifyOut.report });
     }
@@ -150,6 +214,9 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
       return await terminalFailure(hooks, {
         errorCode: cause.code,
         errorMessage: redact(cause.message),
+        ...(cause.cause === undefined
+          ? {}
+          : { errorTree: deployErrorsToPlatformError(asStageErrorInputArray(cause.cause), stageFromCode(cause.code)) }),
       });
     }
     return await terminalFailure(hooks, {
@@ -177,14 +244,23 @@ async function validateRequiredSecrets(
     if (inputs.parseTargetSecret !== undefined) {
       const parseResult = inputs.parseTargetSecret(ref.schema, decryptedValue);
       if (!parseResult.ok) {
+        // Parsers may return their own `DEPLOY_*` error codes (e.g.
+        // DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH); propagate verbatim
+        // so callers that wrap the parser to pre-validate schema-id matches
+        // see their own code. Otherwise default to the generic INVALID code.
         const firstCode = parseResult.errors[0]?.code;
         const errorCode =
           typeof firstCode === 'string' && firstCode.startsWith('DEPLOY_')
             ? firstCode
             : 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID';
+        const baseMessage = `target secret "${ref.secretRef}" failed validation: ${parseResult.errors
+          .map((e) => e.message)
+          .join('; ')}`;
         throw new StageError(
           errorCode,
-          parseResult.errors[0]?.message ?? `target secret "${ref.secretRef}" failed validation`,
+          errorCode === 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID'
+            ? baseMessage
+            : (parseResult.errors[0]?.message ?? baseMessage),
         );
       }
       validated[ref.secretRef] = parseResult.value;
@@ -193,6 +269,80 @@ async function validateRequiredSecrets(
     }
   }
   return validated;
+}
+
+function eventBusLogMessageFor(mode: string | undefined): string {
+  if (mode === 'provisioned') return 'Provisioning Redpanda event bus';
+  if (mode === 'in-memory') return 'Using in-memory event bus';
+  if (mode === 'external') return 'Using external Kafka/Redpanda event bus';
+  return 'Event bus mode unspecified';
+}
+
+type ApplyFailureCause = {
+  readonly cause?: unknown;
+  readonly partialFailure?: {
+    readonly failedStep?: {
+      readonly action?: string;
+      readonly resourceKind?: string;
+      readonly workloadSlug?: string;
+      readonly infrastructureKind?: string;
+      readonly resourceName?: string;
+    };
+  };
+  readonly message?: string;
+};
+
+async function logApplyFailure(
+  log: (line: SanitizedLogLine) => Promise<void>,
+  stageError: StageError,
+): Promise<void> {
+  const errors = asStageErrorInputArray(stageError.cause);
+  const first = errors[0] as (StageErrorInput & ApplyFailureCause) | undefined;
+  const failed = first?.partialFailure?.failedStep;
+  const cause = applyFailureCauseString(first?.cause);
+  const summary = errors.map((e) => `${e.code ?? 'UNKNOWN'}: ${e.message ?? ''}`).join('; ');
+  const detail =
+    failed === undefined
+      ? `${summary}${cause === undefined ? '' : `: ${cause}`}`
+      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${
+          failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''
+        }: ${first?.message ?? ''}${cause === undefined ? '' : `: ${cause}`}`;
+  await log({ level: 'error', step: 'apply', message: detail });
+}
+
+function applyFailureCauseString(cause: unknown): string | undefined {
+  if (cause === undefined || cause === null) return undefined;
+  if (cause instanceof Error) return redact(cause.message);
+  if (typeof cause === 'string') return redact(cause);
+  if (typeof cause === 'object' && 'message' in cause && typeof (cause as { message: unknown }).message === 'string') {
+    return redact((cause as { message: string }).message);
+  }
+  return redact(JSON.stringify(cause));
+}
+
+function verificationReportFromCause(cause: unknown): VerificationReport | null {
+  if (typeof cause !== 'object' || cause === null) return null;
+  const c = cause as { checks?: unknown; ok?: unknown; partialOk?: unknown };
+  if (Array.isArray(c.checks) && typeof c.ok === 'boolean' && typeof c.partialOk === 'boolean') {
+    return cause as VerificationReport;
+  }
+  return null;
+}
+
+function asStageErrorInputArray(cause: unknown): readonly StageErrorInput[] {
+  if (Array.isArray(cause)) {
+    return cause.filter((e): e is StageErrorInput => typeof e === 'object' && e !== null) as readonly StageErrorInput[];
+  }
+  return [];
+}
+
+function stageFromCode(code: string): 'plan' | 'render' | 'apply' | 'verify' | 'provision' {
+  if (code.startsWith('DEPLOY_PLAN_')) return 'plan';
+  if (code.startsWith('DEPLOY_RENDER_')) return 'render';
+  if (code.startsWith('DEPLOY_APPLY_')) return 'apply';
+  if (code.startsWith('DEPLOY_VERIFY_')) return 'verify';
+  if (code.startsWith('DEPLOY_PROVISION_')) return 'provision';
+  return 'plan';
 }
 
 async function emitStageBegin(hooks: DeploymentHooks, stage: StageName): Promise<void> {
@@ -259,3 +409,7 @@ function stageErrorToNode(e: StageErrorInput): RunnerErrorNode {
   }
   return node;
 }
+
+// Suppress unused import warning until DeploymentApplyResult is referenced
+// directly; for now it's only structurally observed via applyOut.
+type _UnusedDeploymentApplyResult = DeploymentApplyResult;

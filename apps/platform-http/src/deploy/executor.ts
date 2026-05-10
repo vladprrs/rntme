@@ -353,6 +353,13 @@ async function persistProvisionResultViaRepos(
   envelope: ProvisionResultEnvelope,
 ): Promise<void> {
   const { publicByModule, secretByModule, startedAt, finishedAt } = envelope;
+  // Skip the DB write when the runner reports a no-op provision (no
+  // discovered provisioner modules). The runner still fires the hook so
+  // unit tests can observe the lifecycle in order; the executor decides
+  // whether the empty envelope warrants a DeploymentProvisionResult row.
+  if (Object.keys(publicByModule).length === 0 && Object.keys(secretByModule).length === 0) {
+    return;
+  }
   const persistence: DeploymentProvisionResult = {
     modules: {} as DeploymentProvisionResult['modules'],
     startedAt,
