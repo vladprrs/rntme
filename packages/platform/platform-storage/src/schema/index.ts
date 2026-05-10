@@ -8,3 +8,4 @@ export * from './tokens.js';
 export * from './audit.js';
 export * from './rate-limit.js';
 export * from './project-operation.js';
+export * from './deploy-stage-state.js';
