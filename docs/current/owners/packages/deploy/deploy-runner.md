@@ -78,12 +78,36 @@ deploy.
 
 ## Invariants
 
-- The runner never reads secrets from disk and never writes them to disk.
-- The runner never opens a database connection.
-- The runner never imports `@rntme/platform-core` or any HTTP framework.
-- The runner never imports `@rntme/bindings-grpc` or any other
-  `packages/runtime/**` module (depcruise enforces this).
+The package has two layers with different invariants:
+
+**Pure layer (`src/stages/**`, `src/run-deployment.ts`, `src/build-deploy-config.ts`,
+`src/redactor.ts`, `src/smoke-verifier.ts`):**
+
+- Never reads secrets from disk and never writes them to disk.
+- Never opens a database connection.
+- Never imports `pg`, `drizzle-orm`, or any `@rntme/platform-storage` symbol.
+- Never imports any `packages/runtime/**` module (depcruise enforces this).
 - `onTerminal` is invoked exactly once per `runDeployment` call.
+
+**Platform-glue layer (`src/handlers/**`):**
+
+- Wraps `stages.*` for the BPMN orchestrated deploy path. Each handler
+  begins/succeeds/fails a `DeployStageState` row, reads prior stage rows for
+  inputs, spills large or sensitive payloads to the blob store, and persists
+  only keys + small digests in the row.
+- Imports `@rntme/platform-storage` repos (`createPgDeployStageStateRepo`,
+  `PgDeploymentRepo`, `PgDeployTargetRepo`, …), the `pg` pool, and
+  `drizzle-orm` for transaction binding. This is allowed.
+- Runs every database read or write inside `ctx.withOrgTx(orgId, fn)` so
+  Postgres RLS sees `app.org_id` set on the connection. Any handler that
+  bypasses `withOrgTx` will be silently rejected by RLS policies on
+  `deploy_stage_state`, `deployment`, `deploy_target`, and friends.
+- Uses `ctx.resolveProvisioner` (built once per worker process by
+  `buildResolveProvisioner`) to load provisioner entry files from the
+  materialized bundle's `assets/provisioners/<safe>.entry.js` path.
+- Owns no HTTP routing and no Operaton/Kafka client — the BPMN worker
+  resolves these handlers by `module + export` from `workflows.json` and
+  invokes them with `(input, processVariables)` envelopes.
 
 ## Testability injection
 

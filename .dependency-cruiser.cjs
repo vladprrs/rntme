@@ -41,6 +41,14 @@ module.exports = {
       to: { path: '^packages/runtime/' },
     },
     {
+      name: 'deploy-runner-stages-must-stay-pure',
+      severity: 'error',
+      comment:
+        'The pure stages layer (src/stages, run-deployment, build-deploy-config, redactor, smoke-verifier) must never open DB connections or import platform-storage. The handlers/ subdirectory is the platform-glue layer that may import these — see deploy-runner owner doc.',
+      from: { path: '^packages/deploy/deploy-runner/src/(stages/|run-deployment|build-deploy-config|redactor|smoke-verifier|dokploy-client-factory|stage-runner|run-teardowns|deploy-target-types|types|index)' },
+      to: { path: '^(packages/platform/platform-storage|node_modules/(pg|drizzle-orm))' },
+    },
+    {
       name: 'no-circular',
       severity: 'error',
       from: {},
