@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 
 RUN bun install --frozen-lockfile
-RUN bun run -F @rntme/platform-http build
+# Build all workspace packages in topological order; platform-http's tsc resolves
+# workspace dep types from each upstream package's emitted dist/.
+RUN bun run --filter "@rntme/*" build
 
 # stage 2 - runtime
 FROM oven/bun:1.3.13-slim AS runtime

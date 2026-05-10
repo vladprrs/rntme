@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 
 RUN bun install --frozen-lockfile
-RUN bun run -F @rntme/platform-http build
-RUN bun run -F @rntme/platform-storage build
+# Build all workspace packages in topological order so leaf builds (platform-http,
+# platform-storage) can resolve workspace deps' emitted .d.ts files.
+RUN bun run --filter "@rntme/*" build
 
 CMD ["bun", "run", "test"]

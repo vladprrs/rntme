@@ -5,7 +5,9 @@ COPY . .
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
-RUN bun run -F @rntme/bpmn-worker build
+# Build all workspace packages in topological order so bpmn-worker's tsc resolves
+# workspace dep types from each upstream package's emitted dist/.
+RUN bun run --filter "@rntme/*" build
 
 FROM oven/bun:1.3.13-alpine AS runtime
 WORKDIR /repo
