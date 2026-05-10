@@ -94,3 +94,31 @@ export type RunDeploymentInputs = {
   readonly hooks?: DeploymentHooks;
   readonly abortSignal?: AbortSignal;
 };
+
+// Structural mirror of platform-core's VerificationReport schema (deployment.ts lines 15-45).
+// Values from platform-core's z.infer<typeof verificationReportSchema> are structurally
+// compatible with these types — no conversion needed.
+
+export type WorkloadStatus =
+  | 'running'
+  | 'healthy'
+  | 'starting'
+  | 'failed'
+  | 'rejected'
+  | 'exited'
+  | 'unknown';
+
+export type VerificationCheck = {
+  readonly name: string;
+  readonly url: string;
+  readonly status: number | 'timeout' | 'error' | WorkloadStatus;
+  readonly latencyMs: number;
+  readonly ok: boolean;
+  readonly note?: string;
+};
+
+export type VerificationReport = {
+  readonly checks: VerificationCheck[];
+  readonly ok: boolean;
+  readonly partialOk: boolean;
+};
