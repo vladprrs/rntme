@@ -21,7 +21,6 @@ import type {
 } from '@rntme/deploy-core';
 import type { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
 import {
-  buildProjectDeploymentConfig,
   runDeployment as orchestrate,
   type ApplyResultEnvelope,
   type ParseTargetSecretResult,
@@ -213,14 +212,7 @@ export async function runDeployment(
 
     const target = await resolveTarget(deps, orgId, ctx.targetId);
     const orgSlug = await deps.orgSlugFor(orgId);
-    const deployProjectSlug = isComposedBlueprint(composed.value)
-      ? composed.value.project.name
-      : composed.value.name;
-    const config = buildProjectDeploymentConfig(target, orgSlug, ctx.configOverrides, {
-      projectSlug: deployProjectSlug,
-      ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
-    });
-    const deployInput = await toDeployCoreInput(composed.value, bundleDir, config);
+    const deployInput = await toDeployCoreInput(composed.value, bundleDir);
 
     // Resolve target secrets eagerly so the runner can validate required
     // secrets and so the schema-mismatch pre-check below has the listing.
@@ -248,14 +240,12 @@ export async function runDeployment(
     // Track the most recent verify report so we can surface it to finalize.
     let latestVerifyReport: VerificationReport | null = null;
 
-    // Schema-mismatch pre-check: We don't yet have the plan's
-    // `requiredTargetSecrets`, but we can preview them by inspecting the plan
-    // shape if needed. For now, do the schema-mismatch check inside the runner
-    // failure path: when the runner returns DEPLOY_EXECUTOR_TARGET_SECRET_*
-    // error code (it does for missing/invalid), check schema mismatch by hand
-    // before passing decrypted secrets through. To minimize behavioral drift,
-    // we wrap parseTargetSecret with a schema-mismatch guard sourced from the
-    // listing.
+    // The runner doesn't expose secretRef → schema metadata to its parser
+    // callback, so we wrap parseTargetSecret to do the schema-mismatch check
+    // here against the platform-http target_secrets summary listing. The
+    // wrapper preserves the legacy DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH
+    // error code by returning a DEPLOY_*-prefixed code, which the runner
+    // propagates verbatim.
     const parseTargetSecretWithSchemaCheck = (
       schemaId: string,
       value: unknown,
@@ -293,10 +283,10 @@ export async function runDeployment(
       priorProvisionOutputs: priorOutputs,
       resolveProvisioner: deps.resolveProvisioner,
       ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
-      // Option B: ignore the runner-supplied apiToken; the existing factory
-      // decrypts it from `target.apiTokenCiphertext` directly. Forward the
-      // resolved-target-secrets map so the factory can resolve manual-access
-      // secrets (e.g., redpanda console htpasswd).
+      // The runner's dokployClientFactory takes (apiToken, extras?) but the
+      // existing platform-http factory built via createDokployClientFactory
+      // already decrypts apiToken from target.apiTokenCiphertext internally.
+      // We close over `target` and ignore the runner-supplied apiToken.
       dokployClientFactory: (_apiToken, extras) =>
         deps.dokployClientFactory(target, extras),
       parseTargetSecret: parseTargetSecretWithSchemaCheck,
@@ -315,7 +305,7 @@ export async function runDeployment(
           if (result.ok) {
             if (latestVerifyReport?.partialOk === true) {
               await finalize(deps, deploymentId, orgId, 'succeeded_with_warnings', {
-                ...(latestVerifyReport === null ? {} : { verificationReport: latestVerifyReport }),
+                verificationReport: latestVerifyReport,
                 warnings: ['smoke verification completed with warnings'],
               });
             } else {
@@ -499,7 +489,6 @@ async function defaultLoadComposed(dir: string): Promise<ResultLike<LoadedDeploy
 async function toDeployCoreInput(
   value: LoadedDeployProject,
   rootDir: string,
-  _config: ProjectDeploymentConfig,
 ): Promise<ComposedProjectInput> {
   if (!isComposedBlueprint(value)) return value;
 
