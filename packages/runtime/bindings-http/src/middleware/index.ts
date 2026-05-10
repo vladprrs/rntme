@@ -4,3 +4,4 @@
 
 export { requestId } from './request-id.js';
 export { requestLogger, type RequestLoggerOptions } from './request-logger.js';
+export { errorHandler, type ErrorHandlerOptions } from './error-handler.js';
