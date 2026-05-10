@@ -227,12 +227,25 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
         if (inputs.parseTargetSecret !== undefined) {
           const parseResult = inputs.parseTargetSecret(ref.schema, decryptedValue);
           if (!parseResult.ok) {
+            // If the parser returns its own DEPLOY_* error code (e.g.,
+            // DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH), propagate it
+            // verbatim so callers can pre-validate schema-id matches by
+            // wrapping the parser. Otherwise default to the generic
+            // INVALID error code.
+            const firstCode = parseResult.errors[0]?.code;
+            const errorCode =
+              typeof firstCode === 'string' && firstCode.startsWith('DEPLOY_')
+                ? firstCode
+                : 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID';
+            const baseMessage = `target secret "${ref.secretRef}" failed validation: ${parseResult.errors
+              .map((e) => e.message)
+              .join('; ')}`;
             return await terminalFailure(hooks, {
-              errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
+              errorCode,
               errorMessage: redact(
-                `target secret "${ref.secretRef}" failed validation: ${parseResult.errors
-                  .map((e) => e.message)
-                  .join('; ')}`,
+                errorCode === 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID'
+                  ? baseMessage
+                  : (parseResult.errors[0]?.message ?? baseMessage),
               ),
             });
           }
