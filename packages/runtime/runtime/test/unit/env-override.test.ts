@@ -11,6 +11,16 @@ const base: ValidatedManifest = {
       port: 3000,
       bodyLimit: { enabled: true, maxBytes: 1_048_576 },
       rateLimit: { enabled: true, windowMs: 60_000, max: 600 },
+      cors: {
+        origins: [],
+        credentials: true,
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      },
+      securityHeaders: {
+        csp: null,
+        contentTypeOptions: 'nosniff',
+        referrerPolicy: 'strict-origin-when-cross-origin',
+      },
     },
   },
   persistence: { mode: 'ephemeral' },
@@ -65,5 +75,29 @@ describe('applyEnvOverrides', () => {
     const r = applyEnvOverrides(base, { RNTME_AUTH_HEADER_NAME: 'x-user' });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.auth.headerName).toBe('x-user');
+  });
+
+  it('overrides cors origins from RNTME_HTTP_CORS_ORIGINS and CSP from RNTME_HTTP_CSP', () => {
+    const out = applyEnvOverrides(base, {
+      RNTME_HTTP_CORS_ORIGINS: 'https://a.example, https://*.b.example',
+      RNTME_HTTP_CSP: "default-src 'self'",
+    });
+    if (!out.ok) throw new Error(JSON.stringify(out.errors));
+    expect(out.value.surface.http.cors.origins).toEqual([
+      'https://a.example',
+      'https://*.b.example',
+    ]);
+    expect(out.value.surface.http.securityHeaders.csp).toBe("default-src 'self'");
+  });
+
+  it('disables CSP when RNTME_HTTP_CSP is the empty string', () => {
+    const out = applyEnvOverrides(base, { RNTME_HTTP_CSP: '' });
+    if (!out.ok) throw new Error(JSON.stringify(out.errors));
+    expect(out.value.surface.http.securityHeaders.csp).toBeNull();
+  });
+
+  it('rejects RNTME_HTTP_CORS_ORIGINS that resolves to zero origins', () => {
+    const out = applyEnvOverrides(base, { RNTME_HTTP_CORS_ORIGINS: ' , ' });
+    expect(out.ok).toBe(false);
   });
 });

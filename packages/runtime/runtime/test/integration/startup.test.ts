@@ -73,7 +73,9 @@ describe('startService', () => {
     });
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('BODY_LIMIT_EXCEEDED');
+    expect(body.error.message).toBe('body exceeds 8 bytes');
   });
 
   it('rejects oversized streamed /api request bodies without content-length', async () => {
@@ -98,7 +100,9 @@ describe('startService', () => {
     } as unknown as Parameters<typeof fetch>[1] & { duplex: 'half' });
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toEqual({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: 8 });
+    const body2 = (await res.json()) as { error: { code: string; message: string } };
+    expect(body2.error.code).toBe('BODY_LIMIT_EXCEEDED');
+    expect(body2.error.message).toBe('body exceeds 8 bytes');
   });
 
   it('rate limits /api requests with 429 and limit headers', async () => {

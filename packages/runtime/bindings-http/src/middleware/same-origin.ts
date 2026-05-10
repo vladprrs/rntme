@@ -1,14 +1,12 @@
 import type { MiddlewareHandler } from 'hono';
 
-/**
- * Blocks non-GET requests whose Origin (preferred) or Referer does not start
- * with the provided base URL. Defence-in-depth alongside SameSite=Lax cookies.
- *
- * Intended for UI mutation routes only. API routes on /v1/* should not use this —
- * bearer tokens are their CSRF defence.
- */
-export function sameOriginOnly(baseUrl: string): MiddlewareHandler {
+export type SameOriginOptions = {
+  code?: string;
+};
+
+export function sameOriginOnly(baseUrl: string, opts: SameOriginOptions = {}): MiddlewareHandler {
   const base = baseUrl.replace(/\/$/, '');
+  const code = opts.code ?? 'CROSS_ORIGIN_BLOCKED';
   return async (c, next) => {
     if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') {
       return next();
@@ -19,7 +17,7 @@ export function sameOriginOnly(baseUrl: string): MiddlewareHandler {
       (origin !== undefined && origin === base) ||
       (referer !== undefined && referer.startsWith(base + '/'));
     if (!matches) {
-      return c.json({ error: { code: 'PLATFORM_AUTH_CSRF', message: 'cross-origin request blocked' } }, 403);
+      return c.json({ error: { code, message: 'cross-origin request blocked' } }, 403);
     }
     return next();
   };

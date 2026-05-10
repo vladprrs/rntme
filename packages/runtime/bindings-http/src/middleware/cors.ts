@@ -1,5 +1,13 @@
-import { cors } from 'hono/cors';
+import { cors as honoCors } from 'hono/cors';
 import type { MiddlewareHandler } from 'hono';
+
+const DEFAULT_ALLOW_HEADERS = ['Content-Type', 'Authorization', 'X-Request-ID'] as const;
+
+export type CorsOptions = {
+  origins: readonly string[];
+  credentials?: boolean;
+  allowHeaders?: readonly string[];
+};
 
 export function isAllowedOrigin(origin: string, allow: readonly string[]): boolean {
   for (const allowed of allow) {
@@ -10,17 +18,13 @@ export function isAllowedOrigin(origin: string, allow: readonly string[]): boole
   return false;
 }
 
-export function corsMiddleware(originsCsv: string): MiddlewareHandler {
-  const allow = originsCsv
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return cors({
-    origin: (origin) => {
-      return isAllowedOrigin(origin, allow) ? origin : null;
-    },
-    credentials: true,
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+export function cors(opts: CorsOptions): MiddlewareHandler {
+  const credentials = opts.credentials ?? true;
+  const allowHeaders = opts.allowHeaders ?? DEFAULT_ALLOW_HEADERS;
+  return honoCors({
+    origin: (origin) => (isAllowedOrigin(origin, opts.origins) ? origin : null),
+    credentials,
+    allowHeaders: [...allowHeaders],
   });
 }
 

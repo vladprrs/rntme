@@ -32,3 +32,5 @@ export { commandErrorBody, commandErrorStatus } from './errors.js';
 
 export { correlationMiddleware } from './runtime/correlation-middleware.js';
 export type { CorrelationCtx, CorrelationVariables } from './runtime/correlation-middleware.js';
+
+export * from './middleware/index.js';

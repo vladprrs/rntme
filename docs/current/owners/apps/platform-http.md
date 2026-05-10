@@ -263,6 +263,20 @@ Applied by `securityHeaders()` middleware on UI responses:
 - `X-Content-Type-Options: nosniff`.
 - `Referrer-Policy: strict-origin-when-cross-origin`.
 
+## File map (selected)
+
+```
+src/
+  app.ts                     Hono app + global middleware wiring
+  middleware/
+    auth.ts                  WorkOS AuthKit session + bearer-token resolution
+    tx.ts                    Per-request database transaction middleware
+  error-codes.ts             Platform-specific errorEnvelope / statusForCode helpers
+  postgres-rate-limiter.ts   PostgresRateLimiter (platform-specific; database-backed)
+```
+
+Generic HTTP middleware (request-id, logger, error-handler, cors, body-limit, rate-limit, security-headers, same-origin) is imported from `@rntme/bindings-http`. Platform-specific helpers (`PostgresRateLimiter`, `errorEnvelope`, `statusForCode`) live next to `app.ts` as `postgres-rate-limiter.ts` and `error-codes.ts`.
+
 ## Development
 
 ```bash

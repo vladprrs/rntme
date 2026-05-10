@@ -154,6 +154,7 @@ Contract suites for all three interfaces live in `src/plugins/contract-tests.ts`
 | `artifactDir` | `undefined` | Base directory for `manifest.modules[].protoPath` and TLS paths. Required for module wiring. |
 | `runtimeEnv` | `process.env` | Test/embed override for deploy env vars such as `RNTME_AUTH_*` and `RNTME_EVENT_BUS_*`. |
 | `shutdownTimeoutMs` | `5000` | Graceful HTTP shutdown budget before active connections are force-closed when Node exposes `closeAllConnections()`. |
+| `logger` | `pino()` minted at startup | Pino logger threaded into `HttpSurface` for the global request log and the error handler. |
 
 `startService` validates config before it starts buses, opens databases, applies
 seed, or mounts surfaces. Custom plugin objects must expose the required method
@@ -163,6 +164,8 @@ executor `execute`, adapter `call`), optional lifecycle hooks must be functions,
 positive integer, and `seedMode` cannot be paired with `skipSeed: true` because
 the mode would never be used. Invalid config fails with `RuntimeConfigError` and
 `code: "RUNTIME_CONFIG_INVALID"`.
+
+`RuntimeConfigValidationErrorCode` values: `RUNTIME_CONFIG_INVALID_OBJECT`, `RUNTIME_CONFIG_DB_DRIVER_INVALID`, `RUNTIME_CONFIG_EVENT_BUS_INVALID`, `RUNTIME_CONFIG_SURFACES_INVALID`, `RUNTIME_CONFIG_ACTOR_RESOLVER_INVALID`, `RUNTIME_CONFIG_ON_READY_INVALID`, `RUNTIME_CONFIG_SEED_MODE_INVALID`, `RUNTIME_CONFIG_SKIP_SEED_INVALID`, `RUNTIME_CONFIG_SEED_MODE_WITH_SKIP_SEED`, `RUNTIME_CONFIG_OPERATION_EXECUTOR_INVALID`, `RUNTIME_CONFIG_EXTERNAL_ADAPTER_CLIENT_INVALID`, `RUNTIME_CONFIG_ARTIFACT_DIR_INVALID`, `RUNTIME_CONFIG_RUNTIME_ENV_INVALID`, `RUNTIME_CONFIG_SHUTDOWN_TIMEOUT_INVALID`, `RUNTIME_CONFIG_LOGGER_INVALID`.
 
 ### Actor Header Validation
 
@@ -225,6 +228,12 @@ the bindings router with `413` and `{ "error": "REQUEST_BODY_TOO_LARGE" }`.
 Rate-limited requests return `429`, `Retry-After`, and `X-RateLimit-*`
 headers. The default limiter is in-memory and per-process; use it as a local
 safety gate, not as a distributed quota system.
+
+The same `surface.http` block also accepts `cors` (allowed origins, credentials,
+allow-headers) and `securityHeaders` (CSP, content-type-options, referrer-policy).
+Defaults: empty CORS allow-list (no `Access-Control-*` headers), no CSP, `nosniff`,
+`strict-origin-when-cross-origin`. `RNTME_HTTP_CORS_ORIGINS` (CSV) and
+`RNTME_HTTP_CSP` (literal value; empty string disables CSP) override the manifest.
 
 ### Module gRPC TLS
 
@@ -344,9 +353,9 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **Change startup order**: `src/start/start-service.ts` is the ordered orchestrator. Do not move seed before `bootstrapProjections` (DDL must exist first) or after `pipeline.start` (relay/consumer would observe a partially seeded log). Regression test: `test/integration/seed.test.ts`, `test/unit/wire-event-pipeline-order.test.ts`.
 - **Debug a failing `loadService`**: each step in `src/load/load-service.ts` returns a `ServiceError` with the layer-specific `details` array. Reproduce with `rntme-runtime validate <dir>` — emits `{ ok: false, errors: [...] }` JSON. Unit tests in `test/unit/load-service.errors.test.ts`.
 - **Add a manifest field**: edit `src/manifest/schema.ts` (Zod, `.strict()`), then `src/manifest/types.ts` (`ParsedManifest` + `ValidatedManifest` shapes), then fill defaults in `src/manifest/validate.ts` and optional env overrides in `applyEnvOverrides`. Add a parse error code to `ManifestErrorCode`. Tests: `test/unit/manifest-parse.test.ts`, `test/unit/manifest-validate.test.ts`, `test/unit/env-override.test.ts`.
-- **Tune `/api` ingress safety**: configure `surface.http.bodyLimit` and
-  `surface.http.rateLimit` in `manifest.json`. Tests:
-  `test/integration/startup.test.ts`.
+- **Tune `/api` ingress safety**: configure `surface.http.bodyLimit`,
+  `surface.http.rateLimit`, `surface.http.cors`, and `surface.http.securityHeaders`
+  in `manifest.json`. Tests: `test/integration/startup.test.ts`.
 - **Reproduce an end-to-end failure**: `test/fixtures/issue-tracker/` is a full artifact bundle (manifest, PDM, QSM, bindings, graphs, UI sources, seed). `test/e2e/issue-tracker.test.ts` boots it via `startService`; `test/e2e/validate-cli.test.ts` exercises the CLI.
 - **Check observability wiring**: `src/plugins/observability.ts` defines every `rntme_*` metric. `HttpSurface` calls `mountObservability` with `manifest.observability.health.path` and `manifest.observability.metrics.path`. Integration test: `test/integration/health-metrics.test.ts`.
 

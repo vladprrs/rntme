@@ -195,4 +195,21 @@ describe('parseManifest', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('accepts surface.http.cors and surface.http.securityHeaders', () => {
+    const raw = JSON.stringify({
+      rntmeVersion: '1.0',
+      service: { name: 's', version: '1' },
+      surface: {
+        http: {
+          cors: { origins: ['https://*.rntme.com'], credentials: true },
+          securityHeaders: { csp: "default-src 'self'", referrerPolicy: 'no-referrer' },
+        },
+      },
+    });
+    const parsed = parseManifest(raw);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    expect(parsed.value.surface?.http?.cors?.origins).toEqual(['https://*.rntme.com']);
+    expect(parsed.value.surface?.http?.securityHeaders?.csp).toBe("default-src 'self'");
+  });
 });

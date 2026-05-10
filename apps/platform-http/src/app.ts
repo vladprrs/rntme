@@ -7,12 +7,15 @@ import { safeProvisionerName } from '@rntme/blueprint';
 import type { Env } from './config/env.js';
 import { loadPlatformBlueprint } from './platform-runtime/load-platform-blueprint.js';
 import { createPlatformRuntimeApp } from './platform-runtime/create-platform-runtime-app.js';
-import { requestId } from './middleware/request-id.js';
-import { loggerMiddleware } from './middleware/logger.js';
-import { errorHandler } from './middleware/error-handler.js';
-import { corsMiddleware } from './middleware/cors.js';
-import { rateLimit, PostgresRateLimiter } from './middleware/rate-limit.js';
-import { bodyLimit } from './middleware/body-limit.js';
+import {
+  requestId,
+  requestLogger,
+  errorHandler,
+  cors,
+  rateLimit,
+  bodyLimit,
+} from '@rntme/bindings-http';
+import { PostgresRateLimiter } from './postgres-rate-limiter.js';
 import { requireAuth } from './middleware/auth.js';
 import { openOrgScopedTx } from './middleware/tx.js';
 import { authRoutes } from './routes/auth.js';
@@ -119,9 +122,11 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
   // work uniformly regardless of mode.
   if (deps.env.PLATFORM_RUNTIME_MODE === 'blueprint') {
     app.use('*', requestId());
-    app.use('*', loggerMiddleware(deps.logger));
-    app.onError(errorHandler(deps.logger));
-    app.use('*', corsMiddleware(deps.env.PLATFORM_CORS_ORIGINS));
+    app.use('*', requestLogger({ logger: deps.logger }));
+    app.onError(errorHandler({ logger: deps.logger, code: 'PLATFORM_INTERNAL' }));
+    app.use('*', cors({
+      origins: deps.env.PLATFORM_CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
+    }));
 
     const loaded = await loadPlatformBlueprint();
     if (!loaded.ok) {
@@ -205,9 +210,11 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
   });
 
   app.use('*', requestId());
-  app.use('*', loggerMiddleware(deps.logger));
-  app.onError(errorHandler(deps.logger));
-  app.use('*', corsMiddleware(deps.env.PLATFORM_CORS_ORIGINS));
+  app.use('*', requestLogger({ logger: deps.logger }));
+  app.onError(errorHandler({ logger: deps.logger, code: 'PLATFORM_INTERNAL' }));
+  app.use('*', cors({
+    origins: deps.env.PLATFORM_CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
+  }));
 
   // Pre-auth body-size guard (Errata §3.8): 10 MiB for publish-version POSTs,
   // 1 MiB for all other POSTs. Must run before auth so DoS protection does not
@@ -218,7 +225,7 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
     const isPublish = /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/versions\/?$/.test(url.pathname)
       || /\/v1\/orgs\/[^/]+\/projects\/[^/]+\/operations\/update\/?$/.test(url.pathname);
     const cap = isPublish ? 10 * 1024 * 1024 : 1 * 1024 * 1024;
-    return bodyLimit(cap)(c, next);
+    return bodyLimit(cap, { code: 'PLATFORM_PARSE_BODY_INVALID' })(c, next);
   });
 
   const apiTokenProvider = new ApiTokenProvider({
@@ -280,7 +287,7 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
   const rateLimiter = new PostgresRateLimiter({ db: deps.pool, windowMs: 60_000, max: 1000 });
   const authed = new Hono()
     .use('*', requireAuth([apiTokenProvider, workosProvider], { sessionCookieDomain: deps.env.PLATFORM_SESSION_COOKIE_DOMAIN }))
-    .use('*', rateLimit(rateLimiter, (c) => c.get('subject').tokenId ?? c.get('subject').account.id))
+    .use('*', rateLimit(rateLimiter, (c) => c.get('subject').tokenId ?? c.get('subject').account.id, { code: 'PLATFORM_RATE_LIMITED' }))
     .use('*', openOrgScopedTx(deps.pool));
 
   authed.get('/auth/me', (c) => {

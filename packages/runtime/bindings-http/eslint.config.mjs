@@ -19,6 +19,9 @@ export default [
         Response: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        BlobPart: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     plugins: {
