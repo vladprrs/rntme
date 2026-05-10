@@ -51,12 +51,13 @@ export function renderBpmnWorkerService(
   const rendered = renderBpmnWorker(plan, workload);
   if (!rendered.ok) return rendered;
   return ok({
-    name: 'bpmn-worker',
+    name: workload.slug,
     logicalId: rendered.value.logicalId,
     serviceClass: 'bpmn-worker',
     workloadKind: 'bpmn-worker',
     workloadSlug: rendered.value.workloadSlug ?? rendered.value.logicalId,
     image: rendered.value.image,
+    ...(rendered.value.command === undefined ? {} : { command: rendered.value.command }),
     env: rendered.value.env.map((entry) =>
       entry.name === 'RNTME_OPERATON_BASE_URL'
         ? { ...entry, value: 'http://operaton:8080' }
@@ -124,6 +125,7 @@ export function renderBpmnWorker(
     workloadSlug: workload.slug,
     name: workload.resourceName,
     image: workload.image,
+    command: workload.command,
     env: [
       ...workerEventBusEnv(plan.infrastructure.eventBus),
       {
