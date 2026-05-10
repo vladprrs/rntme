@@ -313,10 +313,16 @@ export async function runDeployment(
         },
         onTerminal: async (result) => {
           if (result.ok) {
-            const verificationReport = latestVerifyReport;
-            await finalize(deps, deploymentId, orgId, 'succeeded', {
-              ...(verificationReport === null ? {} : { verificationReport }),
-            });
+            if (latestVerifyReport?.partialOk === true) {
+              await finalize(deps, deploymentId, orgId, 'succeeded_with_warnings', {
+                ...(latestVerifyReport === null ? {} : { verificationReport: latestVerifyReport }),
+                warnings: ['smoke verification completed with warnings'],
+              });
+            } else {
+              await finalize(deps, deploymentId, orgId, 'succeeded', {
+                ...(latestVerifyReport === null ? {} : { verificationReport: latestVerifyReport }),
+              });
+            }
           } else {
             await finalize(deps, deploymentId, orgId, 'failed', {
               errorCode: result.errorCode,

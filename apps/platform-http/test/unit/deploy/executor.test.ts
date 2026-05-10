@@ -87,6 +87,28 @@ describe('runDeployment', () => {
     });
   });
 
+  it('finalizes as succeeded_with_warnings when smoke verification is partialOk', async () => {
+    const { deps, deployments } = setup({
+      verificationReport: {
+        checks: [{ name: 'ui', url: 'https://ui', status: 200, latencyMs: 5, ok: true }],
+        ok: false,
+        partialOk: true,
+      },
+    });
+
+    await runDeployment('deployment-1', 'org-1', deps);
+
+    expect(deployments.finalize).toHaveBeenCalledWith('deployment-1', {
+      status: 'succeeded_with_warnings',
+      verificationReport: {
+        checks: [{ name: 'ui', url: 'https://ui', status: 200, latencyMs: 5, ok: true }],
+        ok: false,
+        partialOk: true,
+      },
+      warnings: ['smoke verification completed with warnings'],
+    });
+  });
+
   it('adapts composed blueprints into deploy-core input with runtime artifact files', async () => {
     const planProject = mock(() =>
       ok({
