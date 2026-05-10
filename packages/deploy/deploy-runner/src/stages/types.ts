@@ -6,7 +6,11 @@ import type {
   ProvisionerOutput,
   ProvisionResultForVars,
 } from '@rntme/deploy-core';
-import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
+import type {
+  DeploymentApplyResult,
+  DokployClient,
+  RenderedDokployPlan,
+} from '@rntme/deploy-dokploy';
 import type { NormalizedDeployTarget, ResolvedTargetSecrets, VerificationReport } from '../types.js';
 
 export type StageContext = {
@@ -71,7 +75,7 @@ export type ApplyStageInput = {
   readonly dokployClientFactory: (
     apiToken: string,
     extras?: Readonly<Record<string, unknown>>,
-  ) => import('@rntme/deploy-dokploy').DokployClient;
+  ) => DokployClient;
 };
 
 export type ApplyStageOutput = {

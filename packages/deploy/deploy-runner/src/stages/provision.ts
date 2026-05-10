@@ -8,12 +8,16 @@ import {
   type ProvisionedModule,
 } from '@rntme/deploy-core';
 import { buildProjectDeploymentConfig } from '../build-deploy-config.js';
+import type { ResolveProvisioner } from '../types.js';
 import { StageError } from './compose.js';
 import type { ProvisionStageInput, ProvisionStageOutput } from './types.js';
 
 export async function provision(
   input: ProvisionStageInput,
-  overrides?: { readonly runProvisioners?: typeof runProvisioners; readonly resolveProvisioner?: import('../types.js').ResolveProvisioner },
+  overrides?: {
+    readonly runProvisioners?: typeof runProvisioners;
+    readonly resolveProvisioner?: ResolveProvisioner;
+  },
 ): Promise<ProvisionStageOutput> {
   const discovered = await discoverModules({ projectDir: input.bundleDir });
   const provModules: DiscoveredProvisionerModule[] = [];

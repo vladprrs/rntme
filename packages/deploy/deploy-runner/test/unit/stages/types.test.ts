@@ -15,6 +15,11 @@ import type {
 } from '../../../src/stages/types.js';
 
 describe('stage I/O types', () => {
+  it('compose input carries the bundle dir for the rest of the pipeline', () => {
+    const composeInput: ComposeStageInput = { bundleDir: '/tmp/bundle' };
+    expect(composeInput.bundleDir).toBe('/tmp/bundle');
+  });
+
   it('compose output is the input to provision and plan', () => {
     const compose: ComposeStageOutput = {} as ComposeStageOutput;
     const _provision: ProvisionStageInput['composed'] = compose.composed;
@@ -44,6 +49,14 @@ describe('stage I/O types', () => {
   it('apply output threads into verify input', () => {
     const apply: ApplyStageOutput = {} as ApplyStageOutput;
     const _verify: VerifyStageInput['applied'] = apply.applied;
+    expect(true).toBe(true);
+  });
+
+  it('verify output is the terminal stage shape (report + optional stackReport)', () => {
+    const verify: VerifyStageOutput = {} as VerifyStageOutput;
+    // Both fields are part of the public terminal shape; just touch them.
+    const _report: VerifyStageOutput['report'] = verify.report;
+    const _stackReport: VerifyStageOutput['stackReport'] = verify.stackReport;
     expect(true).toBe(true);
   });
 });
