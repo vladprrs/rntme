@@ -76,6 +76,21 @@ Default action JSON responses include the graph result object plus `eventIds`, `
 
 The default operation map produced by `buildDefaultGraphIrOperationMap` compiles operation graphs once at startup. Runtime hosts normally wrap it in `GraphOperationExecutor` from `@rntme/runtime`.
 
+## Generic HTTP middleware
+
+The following middleware are lifted out of `apps/platform-http` and shared with `@rntme/runtime`'s `HttpSurface`. They are also still consumed by `apps/platform-http` directly until that app is removed.
+
+| Export | Signature | Purpose |
+|---|---|---|
+| `requestId` | `() => MiddlewareHandler` | Echo or mint `X-Request-ID`; sets `c.var.requestId`. |
+| `requestLogger` | `(opts: { logger: pino.Logger }) => MiddlewareHandler` | Pino-logged request access log. |
+| `errorHandler` | `(opts?: ErrorHandlerOptions) => Hono ErrorHandler` | Generic 500 envelope; configurable `code` and `message`. |
+| `cors` | `(opts: CorsOptions) => MiddlewareHandler` | Wildcard-aware CORS using `isAllowedOrigin`. |
+| `bodyLimit` | `(maxBytes: number, opts?) => MiddlewareHandler` | 413 with configurable `code`. |
+| `rateLimit` / `InMemoryRateLimiter` / `RateLimitDecision` | function + class + type | Generic Hono adapter, per-process bucket limiter, and rich decision shape that drives `X-RateLimit-*` and `Retry-After` headers when emitted. |
+| `securityHeaders` | `(opts?: SecurityHeadersOptions) => MiddlewareHandler` | CSP / nosniff / referrer-policy with opt-outs via `null`. |
+| `sameOriginOnly` | `(baseUrl: string, opts?) => MiddlewareHandler` | Same-origin-or-allowed-Referer guard for non-GET methods. |
+
 ## Error Mapping
 
 | Status | Code | Cause |
