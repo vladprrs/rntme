@@ -78,7 +78,7 @@ describe('createApp', () => {
   // The assertion is correct as-written: in blueprint mode the legacy
   // scheduler must never fire, because the entire imperative branch in app.ts
   // is short-circuited at PLATFORM_RUNTIME_MODE === 'blueprint'.
-  it.skip('does not invoke legacy scheduleDeployment in PLATFORM_RUNTIME_MODE=blueprint', async () => {
+  it('does not invoke legacy scheduleDeployment in PLATFORM_RUNTIME_MODE=blueprint', async () => {
     let scheduled = 0;
     const deps = buildDeps();
     deps.env = parseEnv({ ...baseline, PLATFORM_RUNTIME_MODE: 'blueprint' });
