@@ -55,6 +55,20 @@ handlers from `@rntme/deploy-runner`). Because the project ships workflows,
 the deploy target MUST provide a workflow engine and event bus; otherwise
 deploy-core planning fails with `DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON`.
 
+### Operaton + Kafka requirement and `deploy-worker` container
+
+The deployed platform is no longer self-contained. It now depends on
+**Operaton** (BPMN engine) and **Kafka** (provisioned by the platform's
+event bus) being up and reachable, because deploy itself runs as a BPMN
+process. In addition to the default `bpmn-worker` container, the platform
+compose stack ships a **`deploy-worker`** container — a second
+`@rntme/bpmn-worker` instance running in poll mode
+(`rntme-bpmn-poll-worker`) and resolving the `runDeployment` BPMN's native
+task handlers from `@rntme/deploy-runner#stages.*`. Each stage runs as a
+native task in this worker; cross-stage state is persisted in
+`DeployStageState` rows so the orchestrator can restart or retry a single
+stage without re-running the whole deploy.
+
 The platform target file therefore needs to declare both:
 
 ```jsonc

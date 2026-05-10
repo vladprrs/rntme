@@ -54,6 +54,28 @@ service (`apps/platform-http`) and the rntme CLI direct-mode (planned).
 plan-stage variables can resolve `provision.*` paths. The `provision` stage
 is skipped when the composed input has no provisioner modules.
 
+## `stages.*` API (per-stage entry points)
+
+Each lifecycle stage is also exposed as a standalone, callable unit through
+the `stages` namespace. Every stage exports:
+
+- A pure `run(input): Promise<output>` (or `compose(input): Promise<output>`
+  in the case of the leading `compose` stage) that takes the stage's input
+  shape and returns its output shape. No hooks, no terminal mapping, no
+  cross-stage state.
+- A `handler` export that adapts `run` to the BPMN native-task contract
+  (`@rntme/bpmn-worker#nativeTasks`). The handler reads its inputs from the
+  process variables, returns the stage output as process variables, and
+  surfaces failures as `BPMN_WORKER_NATIVE_HANDLER_*` errors that the worker
+  reports loudly (no silent skip).
+
+The stages are wired by `runDeployment` for the in-process path **and** by
+the platform's `runDeployment` BPMN process for the orchestrated path.
+Holding state across stages (`stages.compose` → `stages.plan` → … →
+`stages.verify`) goes through `DeployStageState` rows so the orchestrator can
+restart, inspect, and retry a single stage without re-running the whole
+deploy.
+
 ## Invariants
 
 - The runner never reads secrets from disk and never writes them to disk.
