@@ -33,20 +33,28 @@ async function main(): Promise<void> {
   // Operaton's process-instance API periodically. The poll loop reads this map
   // each fetch; the interval below refreshes it from the engine.
   const definitionByProcessInstance = new Map<string, string>();
-  const refreshTimer = globalThis.setInterval(async () => {
+  async function refreshDefinitions(): Promise<void> {
     try {
       const list = await globalThis.fetch(`${config.operatonBaseUrl}/process-instance`, { method: 'GET' });
       if (!list.ok) return;
       const rows = (await list.json()) as Array<{ id: string; processDefinitionKey: string }>;
-      definitionByProcessInstance.clear();
+      const next = new Map<string, string>();
       for (const row of rows) {
         const def = manifest.definitions.find((d) => d.processId === row.processDefinitionKey);
-        if (def !== undefined) definitionByProcessInstance.set(row.id, def.id);
+        if (def !== undefined) next.set(row.id, def.id);
       }
+      // Atomic-ish swap: build then apply.
+      definitionByProcessInstance.clear();
+      for (const [k, v] of next) definitionByProcessInstance.set(k, v);
     } catch {
       // tolerate transient errors
     }
-  }, 1_000);
+  }
+
+  // Eager-prime once before the loop starts to avoid a cold-start race where
+  // tasks arriving in the first interval window fail with WORKFLOW_PROCESS_DEFINITION_UNKNOWN.
+  await refreshDefinitions();
+  const refreshTimer = globalThis.setInterval(refreshDefinitions, 1_000);
   refreshTimer.unref();
 
   const stop = new globalThis.AbortController();
