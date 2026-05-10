@@ -245,6 +245,18 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
     expect(isOk(stored)).toBe(true);
     if (isOk(stored)) expect(gunzipSync(stored.value).toString('utf8')).toBe(built.bytes);
   });
+
+  // TODO(Task 17): Implement assertion for the queueDeployment graph's Kafka envelope.
+  // queueDeployment.json emits with aggregate=Deployment, transition=queue, payload includes
+  // organizationId. The Deployment PDM's queue transition affects=['organizationId', ...],
+  // so the event-store's Kafka relay envelope `data.after.organizationId` is populated.
+  // Topic is `rntme.deployments.deployment` per defaultTopicOf (no version suffix).
+  // The runDeployment BPMN messageStart binds $event.data.after.organizationId -> orgId.
+  it.skip('queueDeployment emit produces a Kafka envelope containing organizationId for BPMN messageStart', async () => {
+    // Arrange: post to /v1/orgs/{org}/deployments with a valid version+target
+    // Act: capture the Kafka envelope produced by the queueDeployment graph
+    // Assert: envelope.data.after.organizationId is present
+  });
 });
 
 function buildBundle(root: string): { bytes: string; digest: string } {
