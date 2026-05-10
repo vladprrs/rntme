@@ -1,0 +1,72 @@
+{
+  "workflowVersion": 1,
+  "definitions": [
+    {
+      "id": "runDeployment",
+      "bpmnFile": "run-deployment.bpmn",
+      "processId": "runDeployment"
+    }
+  ],
+  "messageStarts": [
+    {
+      "id": "deploymentQueued",
+      "definition": "runDeployment",
+      "messageName": "DeploymentQueued",
+      "event": {
+        "service": "deployments",
+        "aggregateType": "Deployment",
+        "eventType": "queued"
+      },
+      "businessKey": "$event.rntAggregateId",
+      "variables": {
+        "deploymentId": "$event.rntAggregateId",
+        "orgId": "$event.data.after.organizationId"
+      }
+    }
+  ],
+  "serviceTasks": [],
+  "nativeTasks": [
+    {
+      "definition": "runDeployment",
+      "taskId": "compose",
+      "handler": { "module": "@rntme/deploy-runner", "export": "composeStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "composeResult"
+    },
+    {
+      "definition": "runDeployment",
+      "taskId": "plan",
+      "handler": { "module": "@rntme/deploy-runner", "export": "planStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "planResult"
+    },
+    {
+      "definition": "runDeployment",
+      "taskId": "provision",
+      "handler": { "module": "@rntme/deploy-runner", "export": "provisionStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "provisionResult"
+    },
+    {
+      "definition": "runDeployment",
+      "taskId": "render",
+      "handler": { "module": "@rntme/deploy-runner", "export": "renderStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "renderResult"
+    },
+    {
+      "definition": "runDeployment",
+      "taskId": "apply",
+      "handler": { "module": "@rntme/deploy-runner", "export": "applyStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "applyResult"
+    },
+    {
+      "definition": "runDeployment",
+      "taskId": "verify",
+      "handler": { "module": "@rntme/deploy-runner", "export": "verifyStageHandler" },
+      "input": { "deploymentId": "$process.deploymentId", "orgId": "$process.orgId" },
+      "resultVariable": "verifyResult"
+    }
+  ]
+}
