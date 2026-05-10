@@ -1,4 +1,5 @@
 import { loadComposedBlueprint } from '@rntme/blueprint';
+import { toDeployCoreInput } from '@rntme/deploy-bundle-input';
 import type { ComposeStageInput, ComposeStageOutput } from './types.js';
 
 export class StageError extends Error {
@@ -22,14 +23,6 @@ export async function compose(input: ComposeStageInput): Promise<ComposeStageOut
       result.errors,
     );
   }
-  // The platform-http path uses `toDeployCoreInput` (lifted into deploy-runner
-  // in a follow-up task). For now we return the raw ComposedBlueprint and the
-  // ComposeStageOutput type advertises ComposedProjectInput; downstream stages
-  // see the structural shape but the conversion isn't yet wired in. The double
-  // cast via `unknown` reflects that the runtime shape is intentionally a
-  // ComposedBlueprint here.
-  return {
-    composed: result.value as unknown as ComposeStageOutput['composed'],
-    bundleDir: input.bundleDir,
-  };
+  const composed = await toDeployCoreInput(result.value, input.bundleDir);
+  return { composed, bundleDir: input.bundleDir };
 }

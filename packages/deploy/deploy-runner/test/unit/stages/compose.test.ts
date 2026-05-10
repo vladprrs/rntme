@@ -5,35 +5,30 @@ import { join } from 'node:path';
 import { compose, StageError } from '../../../src/stages/compose.js';
 
 function writeMinimalBlueprint(dir: string): void {
-  // Minimum shape accepted by loadComposedBlueprint: project.json with at least
-  // one declared service, a pdm/ dir with pdm.json + entities/, and a matching
-  // services/<slug>/service.json. The compose stage today returns the
-  // ComposedBlueprint as-is (the toDeployCoreInput lift comes in a later task),
-  // so we assert against that shape here.
+  // Minimum shape accepted by loadComposedBlueprint AND the toDeployCoreInput
+  // lift: a project.json with one declared service of kind="integration" so
+  // the lift skips buildRuntimeArtifactFiles (which would require graphs +
+  // bindings + qsm directories per service).
   mkdirSync(join(dir, 'pdm', 'entities'), { recursive: true });
-  mkdirSync(join(dir, 'services', 'svc1'), { recursive: true });
+  mkdirSync(join(dir, 'services', 'mod-svc1'), { recursive: true });
   writeFileSync(
     join(dir, 'project.json'),
-    JSON.stringify({ name: 'demo', services: ['svc1'] }),
+    JSON.stringify({ name: 'demo', services: ['mod-svc1'] }),
   );
   writeFileSync(join(dir, 'pdm', 'pdm.json'), JSON.stringify({ version: '1' }));
-  writeFileSync(join(dir, 'services', 'svc1', 'service.json'), JSON.stringify({ kind: 'domain' }));
+  writeFileSync(join(dir, 'services', 'mod-svc1', 'service.json'), JSON.stringify({ kind: 'integration' }));
 }
 
 describe('stages.compose', () => {
-  it('loads a minimal materialized blueprint and returns the composed project', async () => {
+  it('loads a minimal materialized blueprint and returns ComposedProjectInput', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'compose-test-'));
     writeMinimalBlueprint(dir);
 
     const result = await compose({ bundleDir: dir });
 
-    // loadComposedBlueprint returns ComposedBlueprint, where the project name
-    // lives at `composed.project.name`. The ComposeStageOutput type currently
-    // casts this to ComposedProjectInput, but the runtime shape is the
-    // ComposedBlueprint. Future task 5 wires in toDeployCoreInput so
-    // composed.name will hold the string directly.
-    const composedAsBlueprint = result.composed as unknown as { project: { name: string } };
-    expect(composedAsBlueprint.project.name).toBe('demo');
+    expect(result.composed.name).toBe('demo');
+    expect(result.composed.services).toBeDefined();
+    expect(result.composed.services['mod-svc1']?.slug).toBe('mod-svc1');
     expect(result.bundleDir).toBe(dir);
   });
 

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@rntme/blueprint": "workspace:*",
+    "@rntme/deploy-bundle-input": "workspace:*",
     "@rntme/deploy-core": "workspace:*",
     "@rntme/deploy-dokploy": "workspace:*",
     "@rntme/platform-core": "workspace:*",
