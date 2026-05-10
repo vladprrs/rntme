@@ -11,9 +11,8 @@ import {
   parseTargetSecret,
   type CanonicalBundle,
 } from '@rntme/platform-core';
-import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';
+import { createDokployClientFactory, SmokeVerifier } from '@rntme/deploy-runner';
 import { runDeployment } from '../../src/deploy/executor.js';
-import { SmokeVerifier } from '../../src/deploy/smoke-verifier.js';
 import { resolveDeps } from '../../src/resolve-deps.js';
 import { createMockDokployApp } from '../fixtures/mock-dokploy.js';
 import { bootE2e, type E2eEnv } from './harness.js';

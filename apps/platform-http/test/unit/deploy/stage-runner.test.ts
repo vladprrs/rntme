@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { runStage } from '../../../src/deploy/stage-runner.js';
+import { runStage } from '@rntme/deploy-runner';
 
 describe('runStage', () => {
   it('returns the value when stage succeeds', async () => {

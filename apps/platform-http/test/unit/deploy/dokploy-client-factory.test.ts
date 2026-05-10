@@ -3,7 +3,7 @@ import { describe, expect, it, mock } from 'bun:test';
 import type { RenderedComposeServiceClass, RenderedDokployResource } from '@rntme/deploy-dokploy';
 import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
 import { parseTargetSecret } from '@rntme/platform-core';
-import { createDokployClientFactory } from '../../../src/deploy/dokploy-client-factory.js';
+import { createDokployClientFactory } from '@rntme/deploy-runner';
 import { createMockDokployApp } from '../../fixtures/mock-dokploy.js';
 
 describe('createDokployClientFactory', () => {

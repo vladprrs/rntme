@@ -12,7 +12,7 @@ import {
 } from '@rntme/platform-core';
 import type { ProvisionerContract } from '@rntme/deploy-core';
 import type { Logger } from 'pino';
-import type { DokployClientFactory } from './dokploy-client-factory.js';
+import type { DokployClientFactory } from '@rntme/deploy-runner';
 import { runTearDownsForDeployment } from './run-teardowns.js';
 
 export type ProjectDeleteExecutorDeps = {

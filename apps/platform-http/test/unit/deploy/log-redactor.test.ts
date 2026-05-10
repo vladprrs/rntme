@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { redact } from '../../../src/deploy/log-redactor.js';
+import { redact } from '@rntme/deploy-runner';
 
 describe('redact', () => {
   it('redacts common JSON secret fields while preserving key names', () => {

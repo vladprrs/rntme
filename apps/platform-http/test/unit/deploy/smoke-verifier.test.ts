@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { SmokeVerifier, type SmokeFetcher } from '../../../src/deploy/smoke-verifier.js';
+import { SmokeVerifier, type SmokeFetcher } from '@rntme/deploy-runner';
 
 const stubFetcher = (
   responses: Record<

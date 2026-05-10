@@ -14,7 +14,6 @@ import {
 import type {
   buildProjectDeploymentPlan,
   ComposedProjectInput,
-  ProjectDeploymentConfig,
   ProvisionerContract,
   ProvisionerOutput,
   runProvisioners,
@@ -23,9 +22,12 @@ import type { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy'
 import {
   runDeployment as orchestrate,
   type ApplyResultEnvelope,
+  type DokployClientFactory,
   type ParseTargetSecretResult,
   type ProvisionResultEnvelope,
   type RunDeploymentInputs,
+  type SmokeVerifier,
+  redact,
 } from '@rntme/deploy-runner';
 import {
   isOk,
@@ -45,9 +47,6 @@ import {
   parseTargetSecret,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
-import type { DokployClientFactory } from './dokploy-client-factory.js';
-import { redact } from './log-redactor.js';
-import type { SmokeVerifier } from './smoke-verifier.js';
 
 export { deployErrorsToPlatformError } from '@rntme/deploy-runner';
 
