@@ -15,3 +15,4 @@ export {
   type RateLimitOptions,
 } from './rate-limit.js';
 export { securityHeaders, type SecurityHeadersOptions } from './security-headers.js';
+export { sameOriginOnly, type SameOriginOptions } from './same-origin.js';
