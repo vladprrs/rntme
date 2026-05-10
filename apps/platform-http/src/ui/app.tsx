@@ -6,8 +6,7 @@ import type { Env } from '../config/env.js';
 import type { WorkOSClient } from '../auth/workos-client.js';
 import { requireAuth } from '../middleware/auth.js';
 import { openOrgScopedTx } from '../middleware/tx.js';
-import { sameOriginOnly } from '../middleware/same-origin.js';
-import { securityHeaders } from '../middleware/security-headers.js';
+import { sameOriginOnly, securityHeaders } from '@rntme/bindings-http';
 import { ApiTokenProvider } from '../auth/api-token-provider.js';
 import { WorkOSAuthKitProvider } from '../auth/workos-provider.js';
 import type {
@@ -78,7 +77,20 @@ export type UiDeps = {
 export function createUiApp(deps: UiDeps): Hono {
   const app = new Hono();
 
-  app.use('*', securityHeaders());
+  app.use(
+    '*',
+    securityHeaders({
+      csp: [
+        "default-src 'self'",
+        "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com",
+        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+        "connect-src 'self'",
+        "img-src 'self' data:",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join('; '),
+    }),
+  );
 
   // Public routes (no auth required).
   app.get('/login', (c) => {
@@ -87,7 +99,7 @@ export function createUiApp(deps: UiDeps): Hono {
   });
 
   // Logout: clear cookie + redirect to WorkOS logout. Same-origin CSRF guard.
-  app.post('/logout', sameOriginOnly(deps.env.PLATFORM_BASE_URL), async (c) => {
+  app.post('/logout', sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }), async (c) => {
     const sealed = getCookie(c, 'rntme_session');
     let url = deps.env.PLATFORM_BASE_URL;
     if (sealed) {
@@ -238,7 +250,7 @@ export function createUiApp(deps: UiDeps): Hono {
 
   authed.post(
     '/:orgSlug/tokens',
-    sameOriginOnly(deps.env.PLATFORM_BASE_URL),
+    sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }),
     async (c) => {
       const s = c.get('subject');
       if (s.org.slug !== c.req.param('orgSlug')) {
@@ -314,7 +326,7 @@ export function createUiApp(deps: UiDeps): Hono {
 
   authed.delete(
     '/:orgSlug/tokens/:id',
-    sameOriginOnly(deps.env.PLATFORM_BASE_URL),
+    sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }),
     async (c) => {
       const s = c.get('subject');
       if (s.org.slug !== c.req.param('orgSlug')) {
@@ -420,7 +432,7 @@ export function createUiApp(deps: UiDeps): Hono {
     );
   });
 
-  authed.post('/:orgSlug/projects/:projSlug/operations/update', sameOriginOnly(deps.env.PLATFORM_BASE_URL), async (c) => {
+  authed.post('/:orgSlug/projects/:projSlug/operations/update', sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }), async (c) => {
     const repos = resolveDeps(c.get('tx'));
     const s = c.get('subject');
     const projSlug = c.req.param('projSlug')!;
@@ -441,7 +453,7 @@ export function createUiApp(deps: UiDeps): Hono {
     return c.redirect(`/${s.org.slug}/projects/${projSlug}/operations/${result.value.operation.id}`, 303);
   });
 
-  authed.post('/:orgSlug/projects/:projSlug/operations/delete', sameOriginOnly(deps.env.PLATFORM_BASE_URL), async (c) => {
+  authed.post('/:orgSlug/projects/:projSlug/operations/delete', sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }), async (c) => {
     const repos = resolveDeps(c.get('tx'));
     const s = c.get('subject');
     const projSlug = c.req.param('projSlug')!;
@@ -564,7 +576,7 @@ export function createUiApp(deps: UiDeps): Hono {
     );
   });
 
-  authed.post('/:orgSlug/projects/:projSlug/deployments', sameOriginOnly(deps.env.PLATFORM_BASE_URL), async (c) => {
+  authed.post('/:orgSlug/projects/:projSlug/deployments', sameOriginOnly(deps.env.PLATFORM_BASE_URL, { code: 'PLATFORM_AUTH_CSRF' }), async (c) => {
     const repos = resolveDeps(c.get('tx'));
     const s = c.get('subject');
     const projSlug = c.req.param('projSlug')!;
