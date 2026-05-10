@@ -41,3 +41,23 @@ export type {
   ParseTargetSecretFn,
   ParseTargetSecretResult,
 } from './dokploy-client-factory.js';
+
+export {
+  buildProjectDeploymentConfig,
+  buildDokployTargetConfig,
+  derivePublicBaseUrl,
+} from './build-deploy-config.js';
+export type { PublicBaseUrlContext } from './build-deploy-config.js';
+export type {
+  EventBusConfig,
+  KafkaSecurity,
+  DeployTargetModules,
+  ModuleConfig,
+  DeployTargetWorkflows,
+  OperatonUiAccess,
+  DeployTargetStorage,
+  DeployTargetAuthConfig,
+  DeployTargetManualAccess,
+  PolicyValues,
+  DeployTargetForBuild,
+} from './deploy-target-types.js';
