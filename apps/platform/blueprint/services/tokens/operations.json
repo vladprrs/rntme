@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "operations": {
+    "IntrospectToken": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/introspect-token.ts",
+        "export": "introspectTokenHandler"
+      },
+      "input": {
+        "bearerToken": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "IntrospectTokenResult" },
+      "effect": "read",
+      "idempotency": "none"
+    }
+  }
+}
