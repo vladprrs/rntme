@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { SmokeVerifier, type SmokeFetcher } from '../../../src/deploy/smoke-verifier.js';
+import { SmokeVerifier, type SmokeFetcher } from '@rntme/deploy-runner';
 
 const ok401 = { status: 401, latencyMs: 1, body: '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}', contentType: 'application/json' };
 const ok200 = { status: 200, latencyMs: 1, contentType: 'text/plain' };

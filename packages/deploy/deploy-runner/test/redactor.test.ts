@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { redact } from '@rntme/deploy-runner';
+import { redact } from '../src/redactor.js';
 
 describe('redact', () => {
   it('redacts common JSON secret fields while preserving key names', () => {
@@ -30,6 +30,10 @@ describe('redact', () => {
 
   it('preserves existing password assignment redaction', () => {
     expect(redact('password=hunter2 next=visible')).toBe('password=*** next=visible');
+  });
+
+  it('passes through strings with no secrets', () => {
+    expect(redact('hello world')).toBe('hello world');
   });
 });
 
@@ -83,5 +87,13 @@ describe('redact — Operaton UI secrets', () => {
   it('does not redact non-secret URLs', () => {
     expect(redact('https://example.com/path?token=abc')).toBe('https://example.com/path?token=***');
     expect(redact('visit https://example.com for docs')).toBe('visit https://example.com for docs');
+  });
+});
+
+describe('redact — structural redaction', () => {
+  it('masks structural secretOutputs JSON values', () => {
+    const input = '{"secretOutputs":{"k":"v"},"keep":1}';
+    expect(redact(input)).toContain('"secretOutputs":"***"');
+    expect(redact(input)).toContain('"keep":1');
   });
 });

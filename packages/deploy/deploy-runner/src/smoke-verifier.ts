@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { clearTimeout, setTimeout } from 'node:timers';
-import type { VerificationReport } from '@rntme/platform-core';
+import type { VerificationReport } from './types.js';
 
 export type SmokeFetcher = (
   url: string,

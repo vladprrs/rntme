@@ -11,11 +11,40 @@ import type {
   RenderedSecretFileRef,
   RenderedEnvVar,
 } from '@rntme/deploy-dokploy';
-import { parseTargetSecret, type DeployTargetWithSecret, type SecretCipher } from '@rntme/platform-core';
+
+// Local structural mirror of EncryptedSecret from platform-core
+// (uses Buffer, matching the actual runtime shape)
+export type EncryptedSecret = {
+  readonly ciphertext: Buffer;
+  readonly nonce: Buffer;
+  readonly keyVersion: number;
+};
+
+// Structural mirror of SecretCipher from platform-core
+export interface SecretCipher {
+  encrypt(plaintext: string): EncryptedSecret;
+  decrypt(secret: EncryptedSecret): string;
+}
+
+// Minimal structural mirror of DeployTargetWithSecret — only fields accessed by this factory
+export type DokployTargetWithSecret = {
+  readonly apiTokenCiphertext: Buffer;
+  readonly apiTokenNonce: Buffer;
+  readonly apiTokenKeyVersion: number;
+  readonly dokployUrl: string;
+};
+
+// Result shape for parseTargetSecret — structurally compatible with platform-core's TargetSecretParseResult
+// (code is widened to string, which is assignable from the stricter literal union in platform-core)
+export type ParseTargetSecretResult =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly errors: readonly { readonly code: string; readonly message: string; readonly path?: readonly (string | number)[] }[] };
+
+export type ParseTargetSecretFn = (schemaId: string, value: unknown) => ParseTargetSecretResult;
 
 export type DokployResolvedTargetSecretMap = Readonly<Record<string, unknown>>;
 export type DokployClientFactory = (
-  target: DeployTargetWithSecret,
+  target: DokployTargetWithSecret,
   resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
 ) => DokployClient;
 type Sleep = (ms: number) => Promise<void>;
@@ -77,6 +106,7 @@ type DokployApiProject = {
 
 export function createDokployClientFactory(
   cipher: SecretCipher,
+  parseTargetSecretFn: ParseTargetSecretFn,
   httpFetch: typeof globalThis.fetch = globalThis.fetch,
   sleepFn: Sleep = sleep,
 ): DokployClientFactory {
@@ -174,7 +204,7 @@ export function createDokployClientFactory(
         resource: Extract<RenderedDokployResource, { kind: 'application' }>,
       ) => {
         const appName = resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63);
-        const envResolved = resolvedApplicationEnv(resource, resolvedTargetSecrets);
+        const envResolved = resolvedApplicationEnv(resource, resolvedTargetSecrets, parseTargetSecretFn);
         await request('POST', '/api/application.update', {
           applicationId,
           name: resource.name,
@@ -437,19 +467,20 @@ function isTransientDokployStartRace(cause: unknown): boolean {
   return /application\.start/.test(message) && /service .* not found/i.test(message);
 }
 
-function envBlock(resource: RenderedDokployResource, resolvedTargetSecrets?: DokployResolvedTargetSecretMap): string {
+function envBlock(resource: RenderedDokployResource, resolvedTargetSecrets?: DokployResolvedTargetSecretMap, parseTargetSecretFn?: ParseTargetSecretFn): string {
   if (resource.kind === 'compose') {
     return resource.env.map((e) => `${e.name}=${e.value}`).join('\n');
   }
-  return resolvedApplicationEnv(resource, resolvedTargetSecrets);
+  return resolvedApplicationEnv(resource, resolvedTargetSecrets, parseTargetSecretFn);
 }
 
 function resolvedApplicationEnv(
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+  parseTargetSecretFn?: ParseTargetSecretFn,
 ): string {
   return resource.env
-    .map((entry) => `${entry.name}=${resolveRenderedEnvValue(resource, entry, resolvedTargetSecrets)}`)
+    .map((entry) => `${entry.name}=${resolveRenderedEnvValue(resource, entry, resolvedTargetSecrets, parseTargetSecretFn)}`)
     .join('\n');
 }
 
@@ -457,6 +488,7 @@ function resolveRenderedEnvValue(
   resource: Extract<RenderedDokployResource, { kind: 'application' }>,
   envVar: RenderedEnvVar,
   resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+  parseTargetSecretFn?: ParseTargetSecretFn,
 ): string {
   const needsConsoleSecret =
     envVar.name === 'RNTME_CONSOLE_HTPASSWD_B64' &&
@@ -475,7 +507,11 @@ function resolveRenderedEnvValue(
     throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_MISSING');
   }
 
-  const parsed = parseTargetSecret('redpanda-console-basic-auth-v1', rawSecret);
+  if (parseTargetSecretFn === undefined) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_RESOLUTION_UNAVAILABLE');
+  }
+
+  const parsed = parseTargetSecretFn('redpanda-console-basic-auth-v1', rawSecret);
   if (!parsed.ok) {
     throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_VALIDATION_FAILED');
   }

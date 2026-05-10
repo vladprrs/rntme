@@ -47,7 +47,7 @@ where-to-look-first pointers.
 | Artifacts | `packages/artifacts/blueprint/README.md`, `packages/artifacts/pdm/README.md`, `packages/artifacts/qsm/README.md`, `packages/artifacts/workflows/README.md`, `packages/artifacts/graph-ir-compiler/README.md`, `packages/artifacts/bindings/README.md`, `packages/artifacts/ui/README.md`, `packages/artifacts/seed/README.md`, `packages/artifacts/init/README.md` |
 | Runtime | `packages/runtime/runtime/README.md`, `packages/runtime/event-store/README.md`, `packages/runtime/bindings-http/README.md`, `packages/runtime/bindings-grpc/README.md`, `packages/runtime/projection-consumer/README.md`, `packages/runtime/ui-runtime/README.md`, `packages/runtime/bpmn-worker/README.md` |
 | Contracts | `packages/contracts/module/v1/README.md`, `packages/contracts/provisioner/v1/README.md`, `packages/contracts/client-runtime/v1/README.md`, `packages/contracts/handlers/v1/README.md`, `packages/contracts/_common/v1/README.md`, `packages/contracts/identity/v1/README.md`, `packages/contracts/ai-llm/v1/README.md`, `packages/contracts/crm/v1/README.md`, `packages/contracts/analytics/v1/README.md`, `packages/contracts/storage/v1/README.md` |
-| Deploy/platform/tooling | `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, `packages/platform/platform-core/README.md`, `packages/platform/platform-storage/README.md`, `packages/tooling/module-scaffold/README.md` |
+| Deploy/platform/tooling | `packages/deploy/deploy-core/README.md`, `packages/deploy/deploy-dokploy/README.md`, `packages/deploy/deploy-runner/README.md`, `packages/platform/platform-core/README.md`, `packages/platform/platform-storage/README.md`, `packages/tooling/module-scaffold/README.md` |
 | Modules | `modules/identity/README.md`, `modules/ai-llm/README.md`, `modules/crm/README.md`, `modules/marketing-site/README.md`, `modules/storage/README.md`, plus each vendor module README under `modules/<category>/<vendor>/` |
 | Demos | `demo/notes-blueprint/README.md`, `demo/order-fulfillment-blueprint/README.md`, `demo/cv-extract-blueprint/README.md` |
 
@@ -119,6 +119,8 @@ for detailed package documentation.
   `packages/runtime/bpmn-worker/README.md`.
 - Deploy planning/apply: `packages/deploy/deploy-core/README.md` and
   `packages/deploy/deploy-dokploy/README.md`.
+- Deploy orchestrator (pure, used by both platform-http and the planned
+  CLI direct-mode): `packages/deploy/deploy-runner/README.md`.
 - CLI behavior: `apps/cli/README.md`.
 - Vendor module work: category README, vendor README, canonical contract
   README, conformance README.

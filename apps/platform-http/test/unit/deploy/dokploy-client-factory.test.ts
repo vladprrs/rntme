@@ -2,7 +2,8 @@ import { Buffer } from 'node:buffer';
 import { describe, expect, it, mock } from 'bun:test';
 import type { RenderedComposeServiceClass, RenderedDokployResource } from '@rntme/deploy-dokploy';
 import type { DeployTargetWithSecret, SecretCipher } from '@rntme/platform-core';
-import { createDokployClientFactory } from '../../../src/deploy/dokploy-client-factory.js';
+import { parseTargetSecret } from '@rntme/platform-core';
+import { createDokployClientFactory } from '@rntme/deploy-runner';
 import { createMockDokployApp } from '../../fixtures/mock-dokploy.js';
 
 describe('createDokployClientFactory', () => {
@@ -24,7 +25,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await client.ensureEnvironment({ mode: 'existing', projectId: 'project-1' }, 'production');
     await client.findApplicationByName('env-1', 'edge');
 
@@ -62,7 +63,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await expect(client.ensureEnvironment({ mode: 'existing', projectId: 'project-1' }, 'default')).resolves.toEqual({
       environmentId: 'env-1',
     });
@@ -84,7 +85,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await client.configureApplication('app-1', renderedEdgeResource());
     await client.deployApplication('app-1');
     await client.startApplication('app-1');
@@ -148,6 +149,7 @@ describe('createDokployClientFactory', () => {
 
     const client = createDokployClientFactory(
       cipher,
+      parseTargetSecret,
       fetcher as unknown as typeof globalThis.fetch,
       async (ms) => {
         sleeps.push(ms);
@@ -181,7 +183,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await client.configureApplication('app-1', renderedEdgeResource());
 
     expect(calls.some((call) => new URL(call.url).pathname === '/api/mounts.create')).toBe(false);
@@ -209,7 +211,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await client.configureApplication('app-1', renderedDomainResource());
 
     const buildTypeCall = calls.find((call) => new URL(call.url).pathname === '/api/application.saveBuildType');
@@ -252,7 +254,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await expect(client.createApplication('env-1', renderedEdgeResource())).resolves.toMatchObject({
       id: 'app-created',
       name: 'rntme-acme-notes-edge',
@@ -272,7 +274,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await expect(client.updateApplication('app-1', renderedEdgeResource())).resolves.toMatchObject({
       id: 'app-1',
       name: 'rntme-acme-notes-edge',
@@ -287,7 +289,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'dokploy-token-secret'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input, init) => {
       const url = String(input);
       calls.push({
         url,
@@ -345,7 +347,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'dokploy-token-secret'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input, init) => {
       const url = String(input);
       calls.push({
         url,
@@ -386,7 +388,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, asFetch(async (input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input, init) => {
       const url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url);
       return mockApp.app.request(url.href, init);
     }))(target());
@@ -421,7 +423,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await client.configureApplication('app-1', renderedEdgeResource());
 
     const paths = calls.map((call) => new URL(call.url).pathname);
@@ -456,7 +458,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target());
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target());
     await expect(client.inspectApplication?.('app-1')).resolves.toEqual({
       status: 'rejected',
       message: 'invalid mount config for type "bind": bind source path does not exist',
@@ -477,7 +479,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {
       'operaton-ui-basic-auth-v1': { htpasswd: 'admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/' },
     });
     const resource = renderedEdgeResource();
@@ -517,7 +519,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {
       'operaton-admin-user-v1': { id: 'demo', password: 'demo' },
     });
     const resource = renderedEdgeResource();
@@ -558,7 +560,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {
       'operaton-admin-user-v1': { id: 'demo', password: 'demo' },
     });
     await client.configureCompose('compose-1', {
@@ -596,7 +598,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {});
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {});
     const resource = renderedEdgeResource();
     const resourceWithSecret = {
       ...resource,
@@ -619,7 +621,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {
       'operaton-ui-basic-auth-v1': {},
     });
     const resource = renderedEdgeResource();
@@ -644,7 +646,7 @@ describe('createDokployClientFactory', () => {
       decrypt: mock(() => 'plain-token'),
     };
 
-    const client = createDokployClientFactory(cipher, fetcher as unknown as typeof globalThis.fetch)(target(), {});
+    const client = createDokployClientFactory(cipher, parseTargetSecret, fetcher as unknown as typeof globalThis.fetch)(target(), {});
     const resource = renderedEdgeResource();
     const resourceWithSecret = {
       ...resource,
@@ -667,7 +669,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (_input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (_input, init) => {
       const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
       calls.push({ path: new URL(String(_input)).pathname, body });
       return new globalThis.Response('{}', { status: 200 });
@@ -697,7 +699,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input, init) => {
       const url = new URL(String(input));
       const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
       calls.push({ path: url.pathname, body });
@@ -735,7 +737,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input, init) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input, init) => {
       const url = new URL(String(input));
       const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
       calls.push({ path: url.pathname, body });
@@ -770,7 +772,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input) => {
       const url = new URL(String(input));
       if (url.pathname === '/api/compose.loadServices') {
         return new globalThis.Response(
@@ -791,7 +793,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input) => {
       const url = new URL(String(input));
       if (url.pathname === '/api/compose.loadServices') {
         return new globalThis.Response(JSON.stringify([{ name: 'svc-catalog' }, { name: 'edge' }]), { status: 200 });
@@ -824,7 +826,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input) => {
       const url = new URL(String(input));
       calls.push({ path: url.pathname });
       if (url.pathname === '/api/project.all') {
@@ -881,7 +883,7 @@ describe('createDokployClientFactory', () => {
       encrypt: mock(),
       decrypt: mock(() => 'plain-token'),
     };
-    const client = createDokployClientFactory(cipher, asFetch(async (input) => {
+    const client = createDokployClientFactory(cipher, parseTargetSecret, asFetch(async (input) => {
       const url = new URL(String(input));
       if (url.pathname === '/api/project.all') {
         return new globalThis.Response(
@@ -919,7 +921,7 @@ describe('createDokployClientFactory', () => {
       }),
     };
 
-    expect(() => createDokployClientFactory(cipher, mock() as unknown as typeof globalThis.fetch)(target())).toThrow(
+    expect(() => createDokployClientFactory(cipher, parseTargetSecret, mock() as unknown as typeof globalThis.fetch)(target())).toThrow(
       /DEPLOY_TARGET_TOKEN_DECRYPT_FAILED/,
     );
   });

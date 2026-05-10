@@ -7,44 +7,37 @@ import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { emitProto } from '@rntme/bindings-grpc';
 import {
-  discoverModules,
   loadComposedBlueprint,
   materializeBundle,
   type ComposedBlueprint,
 } from '@rntme/blueprint';
 import type {
-  ComposedProjectInput,
-  DiscoveredModulesForVars,
-  DiscoveredProvisionerModule,
-  ProjectDeploymentConfig,
-  ProjectDeploymentPlan,
-  ProvisionedModule,
-  ProvisionerContract,
-  ProvisionerEnvMapping,
-  ProvisionerOutput,
-  ProvisionResultForVars,
-} from '@rntme/deploy-core';
-import {
-  applyVars,
   buildProjectDeploymentPlan,
-  resolveTargetVarsOnly,
+  ComposedProjectInput,
+  ProvisionerContract,
+  ProvisionerOutput,
   runProvisioners,
-  targetForVars,
 } from '@rntme/deploy-core';
-import type { DeploymentApplyResult, RenderedDokployPlan } from '@rntme/deploy-dokploy';
-import { applyDokployPlan, isComposeTaskHealthy, renderDokployPlan } from '@rntme/deploy-dokploy';
+import type { applyDokployPlan, renderDokployPlan } from '@rntme/deploy-dokploy';
+import {
+  runDeployment as orchestrate,
+  type ApplyResultEnvelope,
+  type DokployClientFactory,
+  type ParseTargetSecretResult,
+  type ProvisionResultEnvelope,
+  type RunDeploymentInputs,
+  type SmokeVerifier,
+  redact,
+} from '@rntme/deploy-runner';
 import {
   isOk,
   type BlobStore,
-  type DeployTarget,
   type DeployTargetRepo,
   type DeployTargetWithSecret,
   type DeploymentProvisionResult,
   type DeploymentRepo,
   type EncryptedSecret,
   type PlatformError,
-  type PlatformErrorNode,
-  type ErrorCode,
   type ProjectOperationRepo,
   type ProjectVersionRepo,
   type SecretCipher,
@@ -54,11 +47,8 @@ import {
   parseTargetSecret,
 } from '@rntme/platform-core';
 import type { Logger } from 'pino';
-import { buildDokployTargetConfig, buildProjectDeploymentConfig } from './build-deploy-config.js';
-import type { DokployClientFactory } from './dokploy-client-factory.js';
-import { redact } from './log-redactor.js';
-import type { SmokeVerifier } from './smoke-verifier.js';
-import { runStage } from './stage-runner.js';
+
+export { deployErrorsToPlatformError } from '@rntme/deploy-runner';
 
 type ResultLike<T, E = { readonly code: string; readonly message: string }> =
   | { readonly ok: true; readonly value: T }
@@ -209,9 +199,6 @@ export async function runDeployment(
     }
     const bundleDir = tmpDir;
 
-    const log = async (entry: { step: string; level: 'error'; code: string; message: string }) =>
-      appendLog(deps, deploymentId, orgId, 'error', entry.step, `${entry.code}: ${entry.message}`);
-
     await appendLog(deps, deploymentId, orgId, 'info', 'plan', 'Re-validating blueprint');
     const composed = await (deps.loadComposed ?? defaultLoadComposed)(bundleDir);
     if (!composed.ok) {
@@ -224,306 +211,192 @@ export async function runDeployment(
 
     const target = await resolveTarget(deps, orgId, ctx.targetId);
     const orgSlug = await deps.orgSlugFor(orgId);
-    const redactedTarget = redactTarget(target);
-    const deployProjectSlug = isComposedBlueprint(composed.value)
-      ? composed.value.project.name
-      : composed.value.name;
-    const config = buildProjectDeploymentConfig(redactedTarget, orgSlug, ctx.configOverrides, {
-      projectSlug: deployProjectSlug,
-      ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
-    });
-    const deployInput = await toDeployCoreInput(composed.value, bundleDir, config);
-    const materializedDir: string = bundleDir;
-    const provModules = await collectProvisionerModules(composed.value, materializedDir);
+    const deployInput = await toDeployCoreInput(composed.value, bundleDir);
 
-    // Bus mode log moved out of plan (was post-plan; now pre-provision).
-    const eventBusModeForLog =
-      config.eventBus === undefined ? 'unknown' :
-      config.eventBus.mode === 'provisioned' ? 'provisioned' :
-      config.eventBus.mode === 'in-memory' ? 'in-memory' : 'external';
-    const eventBusLogMessage =
-      eventBusModeForLog === 'provisioned' ? 'Provisioning Redpanda event bus' :
-      eventBusModeForLog === 'in-memory' ? 'Using in-memory event bus' :
-      eventBusModeForLog === 'external' ? 'Using external Kafka/Redpanda event bus' :
-      'Event bus mode unspecified';
-    await appendLog(deps, deploymentId, orgId, 'info', 'plan', eventBusLogMessage);
+    // Resolve target secrets eagerly so the runner can validate required
+    // secrets and so the schema-mismatch pre-check below has the listing.
+    const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
+    const decryptedTargetSecrets = await targetSecretsRepo.getAllDecrypted(target.id);
 
-    let provisioned: ReadonlyMap<string, ProvisionedModule> = new Map();
-    let provisionResultForPlan: ProvisionResultForVars | undefined;
-    let discoveredModulesForPlan: DiscoveredModulesForVars | undefined;
-    const needsProvisionerSecrets = provModules.length > 0;
-    const needsConsoleSecrets = config.manualAccess?.redpandaConsole?.enabled === true;
-    let decryptedTargetSecrets: Readonly<Record<string, unknown>> | undefined;
+    // Resolve API token plaintext for the runner. The runner's dokploy factory
+    // signature takes apiToken first, but our existing factory closure decrypts
+    // from the target ciphertext directly — pass empty string here and let the
+    // closure ignore it. (The runner's apiToken parameter is unused in our
+    // closure, see `dokployClientFactory` below.)
+    const apiToken = '';
 
-    if (needsProvisionerSecrets || needsConsoleSecrets) {
-      await appendLog(deps, deploymentId, orgId, 'info', 'provision', 'Resolving target secrets');
-      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
-      decryptedTargetSecrets = await targetSecretsRepo.getAllDecrypted(target.id);
-    }
+    // Pre-validate required-secret schema-IDs. The runner only checks for
+    // presence and parse validity (when parseTargetSecret is provided); it
+    // doesn't compare the stored schema-id against the required schema-id.
+    // Mirror the legacy behaviour by listing target secrets and validating
+    // the schema-id match before invoking the runner.
+    const listed = await targetSecretsRepo.list(target.id);
+    const listedByName = new Map(listed.map((s) => [s.name, s]));
 
-    if (needsConsoleSecrets) {
-      const urlHint = config.manualAccess?.redpandaConsole?.publicBaseUrl ?? 'unset';
-      const userHint = config.manualAccess?.redpandaConsole?.basicAuth.username ?? '';
-      await appendLog(
-        deps,
-        deploymentId,
-        orgId,
-        'info',
-        'provision',
-        `Redpanda Console manual validation access enabled url=${urlHint} user=${userHint}`,
-      );
-    }
+    // Resolve prior provision outputs.
+    const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
 
-    if (provModules.length > 0) {
-      // Build discoveredModules input for plan-time var validation.
-      // DiscoveredProvisionerModule has `manifest: ModuleManifest` directly
-      // (see packages/deploy/deploy-core/src/provision.ts).
-      const dm: Record<string, { producesNames: string[] }> = {};
-      for (const m of provModules) {
-        const names = m.manifest.provisioner?.produces.map((p) => p.name) ?? [];
-        dm[m.projectKey] = { producesNames: names };
-      }
-      discoveredModulesForPlan = dm;
+    // Track the most recent verify report so we can surface it to finalize.
+    let latestVerifyReport: VerificationReport | null = null;
 
-      const priorOutputs = await deps.lastSuccessfulProvisionOutputs(deploymentId);
-
-      // Substitute target.* vars into each module's publicConfig before
-      // handing it to the provisioner. provision.* placeholders cannot resolve
-      // pre-provision and remain as ${...} literals — provisioner inputs that
-      // depend on those fields would necessarily see them unresolved.
-      const targetVarsResult = resolveTargetVarsOnly(
-        composed.value.varsManifest ?? {},
-        targetForVars(config, target.slug),
-      );
-      if (!targetVarsResult.ok) {
-        await finalize(deps, deploymentId, orgId, 'failed', {
-          errorCode: targetVarsResult.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
-          errorMessage: redact(errorSummary(targetVarsResult.errors)),
-          errorTree: deployErrorsToPlatformError(targetVarsResult.errors, 'plan'),
-        });
-        return;
-      }
-      const targetVars = targetVarsResult.value;
-      const provModulesWithSubstitutedConfig: DiscoveredProvisionerModule[] = provModules.map((m) => ({
-        ...m,
-        publicConfig: applyVars(m.publicConfig, targetVars) as Record<string, unknown>,
-      }));
-
-      await appendLog(deps, deploymentId, orgId, 'info', 'provision', `Provisioning ${provModules.length} module(s)`);
-      const startedAt = new Date().toISOString();
-      const provisionResult = await runStage(
-        'provision',
-        async () =>
-          (deps.runProvisioners ?? runProvisioners)({
-            modules: provModulesWithSubstitutedConfig.map((m) => {
-              const prior = priorOutputs[m.projectKey];
-              return prior === undefined ? m : { ...m, priorOutputs: prior };
-            }),
-            resolvedTargetSecrets:
-              decryptedTargetSecrets === undefined
-                ? ({} as Readonly<Record<string, unknown>>)
-                : decryptedTargetSecrets,
-            projectDir: materializedDir,
-            resolveProvisioner: deps.resolveProvisioner,
-            log: (e) => void appendLog(deps, deploymentId, orgId, e.level, e.step, redact(e.message)),
-          }),
-        { log },
-      );
-      if (!provisionResult.ok) {
-        await finalize(deps, deploymentId, orgId, 'failed', {
-          errorCode: provisionResult.errors[0]?.code ?? 'DEPLOY_PROVISION_UNKNOWN',
-          errorMessage: redact(errorSummary(provisionResult.errors)),
-          errorTree: deployErrorsToPlatformError(provisionResult.errors, 'provision'),
-        });
-        return;
-      }
-      const finishedAt = new Date().toISOString();
-
-      const moduleMap = new Map<string, ProvisionedModule>();
-      const persistence: DeploymentProvisionResult = { modules: {}, startedAt, finishedAt };
-      const secretEnvelope: { modules: Record<string, { secretOutputs: Record<string, unknown>; provisionedAt: string }> } = { modules: {} };
-      const publicOutputsForPlan: Record<string, { publicOutputs: Record<string, unknown> }> = {};
-
-      for (const m of provisionResult.value.modules) {
-        moduleMap.set(m.projectKey, m);
-        publicOutputsForPlan[m.projectKey] = { publicOutputs: { ...m.publicOutputs } };
-        (persistence.modules as Record<string, { publicOutputs: Record<string, unknown>; provisionedAt: string }>)[m.projectKey] = {
-          publicOutputs: { ...m.publicOutputs },
-          provisionedAt: m.provisionedAt,
-        };
-        if (Object.keys(m.secretOutputs).length > 0) {
-          secretEnvelope.modules[m.projectKey] = {
-            secretOutputs: { ...m.secretOutputs },
-            provisionedAt: m.provisionedAt,
+    // The runner doesn't expose secretRef → schema metadata to its parser
+    // callback, so we wrap parseTargetSecret to do the schema-mismatch check
+    // here against the platform-http target_secrets summary listing. The
+    // wrapper preserves the legacy DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH
+    // error code by returning a DEPLOY_*-prefixed code, which the runner
+    // propagates verbatim.
+    const parseTargetSecretWithSchemaCheck = (
+      schemaId: string,
+      value: unknown,
+    ): ParseTargetSecretResult => {
+      // Find the listing entry by value lookup. The runner only calls this for
+      // values that exist in decryptedTargetSecrets (presence-checked first),
+      // so we map the value back to its name via the decrypted map.
+      const matchingName = Object.entries(decryptedTargetSecrets).find(
+        ([, v]) => v === value,
+      )?.[0];
+      if (matchingName !== undefined) {
+        const summary = listedByName.get(matchingName);
+        if (summary !== undefined && summary.schema !== schemaId) {
+          return {
+            ok: false,
+            errors: [
+              {
+                code: 'DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH',
+                message: `target secret "${matchingName}" has schema "${summary.schema}" but "${schemaId}" is required`,
+              },
+            ],
           };
         }
       }
-      provisioned = moduleMap;
-      provisionResultForPlan = { modules: publicOutputsForPlan };
+      return parseTargetSecret(schemaId, value);
+    };
 
-      const enc: EncryptedSecret | null =
-        Object.keys(secretEnvelope.modules).length > 0
-          ? deps.secretCipher.encrypt(JSON.stringify(secretEnvelope))
-          : null;
-
-      await deps.withOrgTx(orgId, (repos) =>
-        repos.deployments.setProvisionResult(deploymentId, persistence, enc),
-      );
-    }
-
-    // Plan now runs AFTER provision so vars can resolve provision.* paths.
-    const plan = await runStage(
-      'plan',
-      async () =>
-        (deps.planProject ?? buildProjectDeploymentPlan)(deployInput, config, {
-          ...(provisionResultForPlan ? { provisionResult: provisionResultForPlan } : {}),
-          ...(discoveredModulesForPlan ? { discoveredModules: discoveredModulesForPlan } : {}),
-        }),
-      { log },
-    );
-    if (!plan.ok) {
-      await finalize(deps, deploymentId, orgId, 'failed', {
-        errorCode: plan.errors[0]?.code ?? 'DEPLOY_PLAN_UNKNOWN',
-        errorMessage: redact(errorSummary(plan.errors)),
-        errorTree: deployErrorsToPlatformError(plan.errors, 'plan'),
-      });
-      return;
-    }
-
-    let resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined;
-    const requiredSecrets = plan.value.requiredTargetSecrets;
-    if (requiredSecrets.length > 0) {
-      await appendLog(deps, deploymentId, orgId, 'info', 'validate-secrets', 'Validating required target secrets');
-      const targetSecretsRepo = await deps.targetSecretsRepoFor(orgId);
-      const listed = await targetSecretsRepo.list(target.id);
-      const allDecrypted = await targetSecretsRepo.getAllDecrypted(target.id);
-      const listedByName = new Map(listed.map((s) => [s.name, s]));
-      const validated: Record<string, unknown> = {};
-
-      for (const ref of requiredSecrets) {
-        const summary = listedByName.get(ref.secretRef);
-        if (summary === undefined) {
-          await finalize(deps, deploymentId, orgId, 'failed', {
-            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_MISSING',
-            errorMessage: redact(`target secret "${ref.secretRef}" is required for ${ref.purpose} but not found on target`),
-          });
-          return;
-        }
-        if (summary.schema !== ref.schema) {
-          await finalize(deps, deploymentId, orgId, 'failed', {
-            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_SCHEMA_MISMATCH',
-            errorMessage: redact(`target secret "${ref.secretRef}" has schema "${summary.schema}" but "${ref.schema}" is required`),
-          });
-          return;
-        }
-        const decryptedValue = allDecrypted[ref.secretRef];
-        const parseResult = parseTargetSecret(ref.schema, decryptedValue);
-        if (!parseResult.ok) {
-          await finalize(deps, deploymentId, orgId, 'failed', {
-            errorCode: 'DEPLOY_EXECUTOR_TARGET_SECRET_INVALID',
-            errorMessage: redact(`target secret "${ref.secretRef}" failed validation: ${parseResult.errors.map((e) => e.message).join('; ')}`),
-          });
-          return;
-        }
-        validated[ref.secretRef] = parseResult.value;
-      }
-      resolvedTargetSecrets = validated;
-    }
-
-    const envMappings: Record<string, ProvisionerEnvMapping[string]> = {};
-    for (const m of provModules) {
-      try {
-        const moduleExports = (await import(m.packageName)) as { ENV_MAPPINGS?: ProvisionerEnvMapping };
-        if (moduleExports.ENV_MAPPINGS && typeof moduleExports.ENV_MAPPINGS === 'object') {
-          for (const [k, v] of Object.entries(moduleExports.ENV_MAPPINGS)) {
-            if (v !== undefined) envMappings[k] = v;
+    const inputs: RunDeploymentInputs = {
+      composedBlueprint: deployInput,
+      bundleDir,
+      target,
+      resolvedTargetSecrets: { apiToken, extras: decryptedTargetSecrets },
+      orgSlug,
+      configOverrides: ctx.configOverrides,
+      priorProvisionOutputs: priorOutputs,
+      resolveProvisioner: deps.resolveProvisioner,
+      ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
+      // The runner's dokployClientFactory takes (apiToken, extras?) but the
+      // existing platform-http factory built via createDokployClientFactory
+      // already decrypts apiToken from target.apiTokenCiphertext internally.
+      // We close over `target` and ignore the runner-supplied apiToken.
+      dokployClientFactory: (_apiToken, extras) =>
+        deps.dokployClientFactory(target, extras),
+      parseTargetSecret: parseTargetSecretWithSchemaCheck,
+      hooks: {
+        onLog: (line) =>
+          appendLog(deps, deploymentId, orgId, line.level, line.step, line.message),
+        onProvisionResult: (envelope) =>
+          persistProvisionResultViaRepos(deps, deploymentId, orgId, envelope),
+        onApplyResult: (envelope) =>
+          persistApplyResultViaRepos(deps, deploymentId, orgId, envelope),
+        onVerifyResult: (envelope) => {
+          const report = envelope.report as VerificationReport | null | undefined;
+          if (report !== null && report !== undefined) latestVerifyReport = report;
+        },
+        onTerminal: async (result) => {
+          if (result.ok) {
+            if (latestVerifyReport?.partialOk === true) {
+              await finalize(deps, deploymentId, orgId, 'succeeded_with_warnings', {
+                verificationReport: latestVerifyReport,
+                warnings: ['smoke verification completed with warnings'],
+              });
+            } else {
+              await finalize(deps, deploymentId, orgId, 'succeeded', {
+                ...(latestVerifyReport === null ? {} : { verificationReport: latestVerifyReport }),
+              });
+            }
+          } else {
+            await finalize(deps, deploymentId, orgId, 'failed', {
+              errorCode: result.errorCode,
+              errorMessage: result.errorMessage,
+              ...(result.errorTree === undefined
+                ? {}
+                : { errorTree: result.errorTree as PlatformError }),
+              ...(latestVerifyReport === null
+                ? {}
+                : { verificationReport: latestVerifyReport }),
+            });
           }
-        }
-      } catch {
-        // Modules opt out of env baking by not exporting ENV_MAPPINGS.
-      }
-    }
+        },
+      },
+      ...(deps.runProvisioners === undefined ? {} : { runProvisioners: deps.runProvisioners }),
+      ...(deps.planProject === undefined ? {} : { planProject: deps.planProject }),
+      ...(deps.renderPlan === undefined ? {} : { renderPlan: deps.renderPlan }),
+      ...(deps.applyPlan === undefined ? {} : { applyPlan: deps.applyPlan }),
+      smoker: deps.smoker,
+    };
 
-    await appendLog(deps, deploymentId, orgId, 'info', 'render', 'Rendering Dokploy plan');
-    const rendered = await runStage('render', async () => (deps.renderPlan ?? renderDokployPlan)(
-      plan.value as ProjectDeploymentPlan,
-      buildDokployTargetConfig(redactedTarget, ctx.configOverrides, {
-        orgSlug,
-        projectSlug: plan.value.project.projectSlug,
-        environment: plan.value.project.environment,
-        ...(deps.publicDeployDomain === undefined ? {} : { publicDeployDomain: deps.publicDeployDomain }),
-      }),
-      provisioned,
-      envMappings,
-    ), { log });
-    if (!rendered.ok) {
-      await finalize(deps, deploymentId, orgId, 'failed', {
-        errorCode: rendered.errors[0]?.code ?? 'DEPLOY_RENDER_DOKPLOY_UNKNOWN',
-        errorMessage: redact(errorSummary(rendered.errors)),
-        errorTree: deployErrorsToPlatformError(rendered.errors, 'render'),
-      });
-      return;
-    }
-    await deps.withOrgTx(orgId, (repos) =>
-      repos.deployments.setRenderedDigest(deploymentId, rendered.value.digest),
-    );
-    await appendLog(deps, deploymentId, orgId, 'info', 'render', `Rendered Dokploy plan digest ${rendered.value.digest}`);
-
-    await appendLog(deps, deploymentId, orgId, 'info', 'apply', 'Applying Dokploy plan');
-    const applied = await runStage('apply', async () => (deps.applyPlan ?? applyDokployPlan)(
-      rendered.value as RenderedDokployPlan,
-      deps.dokployClientFactory(target, resolvedTargetSecrets ?? decryptedTargetSecrets),
-    ), { log });
-    if (!applied.ok) {
-      await logApplyFailure(deps, deploymentId, orgId, applied.errors);
-      await finalize(deps, deploymentId, orgId, 'failed', {
-        errorCode: applied.errors[0]?.code ?? 'DEPLOY_APPLY_DOKPLOY_UNKNOWN',
-        errorMessage: redact(errorSummary(applied.errors)),
-        errorTree: deployErrorsToPlatformError(applied.errors, 'apply'),
-      });
-      return;
-    }
-    await deps.withOrgTx(orgId, (repos) =>
-      repos.deployments.setApplyResult(
-        deploymentId,
-        applied.value as unknown as Record<string, unknown>,
-      ),
-    );
-    for (const resource of applied.value.resources) {
-      await appendLog(
-        deps,
-        deploymentId,
-        orgId,
-        'info',
-        'apply',
-        `${resource.resourceKind} ${resource.workloadSlug ?? resource.infrastructureKind ?? resource.logicalId} ${resource.action} target=${resource.targetResourceName}`,
-      );
-    }
-
-    await appendLog(deps, deploymentId, orgId, 'info', 'verify', 'Running compose stack verification');
-    const stackVerification = verifyComposeStack(applied.value as DeploymentApplyResult);
-    if (stackVerification !== null && !stackVerification.ok) {
-      await finalize(deps, deploymentId, orgId, 'failed', {
-        errorCode: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
-        errorMessage: 'workload crash loop detected',
-        verificationReport: stackVerification,
-      });
-      return;
-    }
-
-    await appendLog(deps, deploymentId, orgId, 'info', 'verify', 'Running smoke verification');
-    const verification = await deps.smoker.verify(applied.value as DeploymentApplyResult);
-    await finalizeFromVerification(deps, deploymentId, orgId, verification);
+    await orchestrate(inputs);
   } catch (cause) {
     deps.logger.error({ deploymentId, cause }, 'deploy executor failed');
     await finalize(deps, deploymentId, orgId, 'failed', {
       errorCode: 'DEPLOY_EXECUTOR_UNCAUGHT',
       errorMessage: redact(cause instanceof Error ? cause.message : String(cause)),
-    });
+    }).catch(() => undefined);
   } finally {
     clearInterval(heartbeat);
     if (tmpDir) await rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+async function persistProvisionResultViaRepos(
+  deps: ExecutorDeps,
+  deploymentId: string,
+  orgId: string,
+  envelope: ProvisionResultEnvelope,
+): Promise<void> {
+  const { publicByModule, secretByModule, startedAt, finishedAt } = envelope;
+  const persistence: DeploymentProvisionResult = {
+    modules: {} as DeploymentProvisionResult['modules'],
+    startedAt,
+    finishedAt,
+  };
+  for (const [key, publicOutputs] of Object.entries(publicByModule)) {
+    (persistence.modules as Record<string, { publicOutputs: Record<string, unknown>; provisionedAt: string }>)[key] = {
+      publicOutputs: { ...publicOutputs },
+      provisionedAt: finishedAt,
+    };
+  }
+
+  const secretEnvelope = {
+    modules: Object.fromEntries(
+      Object.entries(secretByModule).map(([key, secrets]) => [
+        key,
+        { secretOutputs: { ...secrets }, provisionedAt: finishedAt },
+      ]),
+    ),
+  };
+  const enc: EncryptedSecret | null =
+    Object.keys(secretEnvelope.modules).length > 0
+      ? deps.secretCipher.encrypt(JSON.stringify(secretEnvelope))
+      : null;
+
+  await deps.withOrgTx(orgId, (repos) =>
+    repos.deployments.setProvisionResult(deploymentId, persistence, enc),
+  );
+}
+
+async function persistApplyResultViaRepos(
+  deps: ExecutorDeps,
+  deploymentId: string,
+  orgId: string,
+  envelope: ApplyResultEnvelope,
+): Promise<void> {
+  const actions = envelope.actions as { renderedPlanDigest?: string } & Record<string, unknown>;
+  const digest = typeof actions.renderedPlanDigest === 'string' ? actions.renderedPlanDigest : undefined;
+  await deps.withOrgTx(orgId, async (repos) => {
+    if (digest !== undefined) {
+      await repos.deployments.setRenderedDigest(deploymentId, digest);
+    }
+    await repos.deployments.setApplyResult(deploymentId, actions);
+  });
 }
 
 async function startAndResolveContext(
@@ -577,123 +450,6 @@ async function appendLog(
   });
 }
 
-type StageErrorInput = {
-  readonly code?: string;
-  readonly message?: string;
-  readonly path?: string;
-  readonly cause?: unknown;
-};
-
-export function deployErrorsToPlatformError(
-  errors: readonly StageErrorInput[],
-  stage: 'plan' | 'render' | 'apply' | 'verify' | 'provision',
-): PlatformError {
-  const nodes = errors.map(stageErrorToNode);
-  const flatMessage = errors
-    .map((e) => `${e.code ?? 'UNKNOWN'}: ${e.message ?? ''}`)
-    .join('; ');
-  const code: ErrorCode = 'PLATFORM_INTERNAL';
-  return {
-    code,
-    message: flatMessage || `deployment ${stage} failed`,
-    stage,
-    errors: nodes,
-  };
-}
-
-function stageErrorToNode(e: StageErrorInput): PlatformErrorNode {
-  const node: { -readonly [K in keyof PlatformErrorNode]: PlatformErrorNode[K] } = {
-    code: typeof e.code === 'string' ? e.code : 'UNKNOWN',
-    message: typeof e.message === 'string' ? e.message : JSON.stringify(e),
-  };
-  if (typeof e.path === 'string' && e.path.length > 0) node.path = e.path;
-  if (Array.isArray(e.cause)) {
-    const children = e.cause
-      .filter((c): c is StageErrorInput => typeof c === 'object' && c !== null)
-      .map(stageErrorToNode);
-    if (children.length > 0) node.cause = children;
-  }
-  return node;
-}
-
-async function logApplyFailure(
-  deps: ExecutorDeps,
-  deploymentId: string,
-  orgId: string,
-  errors: readonly { readonly code?: string; readonly message?: string; readonly cause?: unknown; readonly partialFailure?: unknown }[],
-): Promise<void> {
-  const first = errors[0];
-  const partial = first?.partialFailure as
-    | {
-        readonly failedStep?: {
-          readonly action?: string;
-          readonly resourceKind?: string;
-          readonly workloadSlug?: string;
-          readonly infrastructureKind?: string;
-          readonly resourceName?: string;
-        };
-      }
-    | undefined;
-  const failed = partial?.failedStep;
-  const cause = applyFailureCause(first?.cause);
-  const detail =
-    failed === undefined
-      ? `${errorSummary(errors)}${cause === undefined ? '' : `: ${cause}`}`
-      : `${failed.action ?? 'apply'} ${failed.resourceKind ?? 'resource'} ${failed.workloadSlug ?? failed.infrastructureKind ?? failed.resourceName ?? ''}: ${first?.message ?? ''}${cause === undefined ? '' : `: ${cause}`}`;
-  await appendLog(deps, deploymentId, orgId, 'error', 'apply', detail);
-}
-
-function applyFailureCause(cause: unknown): string | undefined {
-  if (cause === undefined || cause === null) return undefined;
-  if (cause instanceof Error) return redact(cause.message);
-  if (typeof cause === 'string') return redact(cause);
-  if (typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string') {
-    return redact(cause.message);
-  }
-  return redact(JSON.stringify(cause));
-}
-
-function verifyComposeStack(applyResult: DeploymentApplyResult): VerificationReport | null {
-  const stack = applyResult.verificationHints.stack;
-  if (stack === undefined) return null;
-  const checks = (stack.inspections ?? []).map((inspection) => {
-    return {
-      name: `workload ${inspection.serviceName}`,
-      url: `dokploy:compose/${stack.composeId}/${inspection.serviceName}`,
-      status: inspection.status,
-      latencyMs: 0,
-      ok: isComposeTaskHealthy(inspection),
-      note: inspection.message ?? `status=${inspection.status} failedCount=${inspection.failedCount}`,
-    };
-  });
-  if (checks.length === 0) return { checks: [], ok: true, partialOk: false };
-  return { checks, ok: checks.every((check) => check.ok), partialOk: false };
-}
-
-async function finalizeFromVerification(
-  deps: ExecutorDeps,
-  deploymentId: string,
-  orgId: string,
-  verificationReport: VerificationReport,
-): Promise<void> {
-  if (verificationReport.ok) {
-    await finalize(deps, deploymentId, orgId, 'succeeded', { verificationReport });
-    return;
-  }
-  if (verificationReport.partialOk) {
-    await finalize(deps, deploymentId, orgId, 'succeeded_with_warnings', {
-      verificationReport,
-      warnings: ['smoke verification completed with warnings'],
-    });
-    return;
-  }
-  await finalize(deps, deploymentId, orgId, 'failed', {
-    errorCode: 'DEPLOY_EXECUTOR_SMOKE_FAILED',
-    errorMessage: 'smoke verification failed',
-    verificationReport,
-  });
-}
-
 async function finalize(
   deps: ExecutorDeps,
   deploymentId: string,
@@ -732,7 +488,6 @@ async function defaultLoadComposed(dir: string): Promise<ResultLike<LoadedDeploy
 async function toDeployCoreInput(
   value: LoadedDeployProject,
   rootDir: string,
-  _config: ProjectDeploymentConfig,
 ): Promise<ComposedProjectInput> {
   if (!isComposedBlueprint(value)) return value;
 
@@ -1293,47 +1048,6 @@ function isComposedBlueprint(value: LoadedDeployProject): value is ComposedBluep
   );
 }
 
-function redactTarget(target: DeployTargetWithSecret): DeployTarget {
-  const {
-    apiTokenCiphertext: _ciphertext,
-    apiTokenNonce: _nonce,
-    apiTokenKeyVersion: _keyVersion,
-    ...rest
-  } = target;
-  return { ...rest, apiTokenRedacted: '***' };
-}
-
 function errorSummary(errors: readonly { readonly code?: string; readonly message?: string }[]): string {
   return errors.map((error) => `${error.code ?? 'UNKNOWN'}: ${error.message ?? ''}`).join('; ');
-}
-
-/**
- * Collect modules that declare a provisioner block from the composed project.
- * Only `ComposedBlueprint` values can have modules; `ComposedProjectInput` never does.
- * Returns an empty array when there are no provisioner-bearing modules (clean skip).
- */
-async function collectProvisionerModules(
-  composed: LoadedDeployProject,
-  tmpDir: string,
-): Promise<DiscoveredProvisionerModule[]> {
-  if (!isComposedBlueprint(composed)) return [];
-  const projectModules = composed.project.modules;
-  if (projectModules === undefined || Object.keys(projectModules).length === 0) return [];
-
-  // Re-use the discovery result from blueprint to get full module manifests
-  // (including provisioner blocks) without re-loading the project from scratch.
-  const discovered = await discoverModules({ projectDir: tmpDir });
-  if (!discovered.ok) return [];
-
-  const out: DiscoveredProvisionerModule[] = [];
-  for (const [_manifestName, info] of Object.entries(discovered.value)) {
-    if (!info.manifest.provisioner) continue;
-    out.push({
-      projectKey: info.projectKey,
-      packageName: info.manifest.name,
-      manifest: info.manifest,
-      publicConfig: info.publicConfig,
-    });
-  }
-  return out;
 }

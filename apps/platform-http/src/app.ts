@@ -29,8 +29,7 @@ import { auditRoutes } from './routes/audit.js';
 import { opsRoutes } from './routes/ops.js';
 import { runDeployment } from './deploy/executor.js';
 import { runProjectDeleteOperation } from './deploy/project-delete-executor.js';
-import { SmokeVerifier } from './deploy/smoke-verifier.js';
-import { createDokployClientFactory } from './deploy/dokploy-client-factory.js';
+import { SmokeVerifier, createDokployClientFactory } from '@rntme/deploy-runner';
 import { startOrphanDetectLoop } from './deploy/orphan-detect.js';
 import { createUiApp } from './ui/app.js';
 import { buildOpenApi } from './openapi.js';
@@ -39,6 +38,7 @@ import { WorkOSAuthKitProvider } from './auth/workos-provider.js';
 import type { WorkOSClient } from './auth/workos-client.js';
 import type pino from 'pino';
 import type { Pool } from 'pg';
+import { parseTargetSecret } from '@rntme/platform-core';
 import type {
   OrganizationRepo,
   AccountRepo,
@@ -164,7 +164,7 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
       const result = await deps.pool.query<{ slug: string }>(`SELECT slug FROM organization WHERE id=$1 LIMIT 1`, [orgId]);
       return result.rows[0]?.slug ?? '';
     },
-    dokployClientFactory: createDokployClientFactory(cipher),
+    dokployClientFactory: createDokployClientFactory(cipher, parseTargetSecret),
     smoker: new SmokeVerifier(),
     logger: deps.logger,
     publicDeployDomain: deps.env.PLATFORM_PUBLIC_DEPLOY_DOMAIN,
@@ -177,7 +177,7 @@ export async function createApp(deps: AppDeps): Promise<Hono> {
   };
   const projectDeleteExecutorDeps = {
     withOrgTx,
-    dokployClientFactory: createDokployClientFactory(cipher),
+    dokployClientFactory: createDokployClientFactory(cipher, parseTargetSecret),
     logger: deps.logger,
     blob: deps.blob,
     secretCipher: cipher,

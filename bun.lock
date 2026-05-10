@@ -78,11 +78,11 @@
         "@rntme/blueprint": "workspace:*",
         "@rntme/deploy-core": "workspace:*",
         "@rntme/deploy-dokploy": "workspace:*",
+        "@rntme/deploy-runner": "workspace:*",
         "@rntme/platform-core": "workspace:*",
         "@rntme/platform-storage": "workspace:*",
         "@rntme/ui-runtime": "workspace:*",
         "@workos-inc/node": "^7.32.0",
-        "esbuild": "^0.27.7",
         "hono": "^4.6.3",
         "pg": "^8.12.0",
         "pino": "^9.4.0",
@@ -906,6 +906,25 @@
         "eslint": "^9.10.0",
         "prettier": "^3.3.3",
         "testcontainers": "11",
+        "typescript": "^5.5.4",
+      },
+    },
+    "packages/deploy/deploy-runner": {
+      "name": "@rntme/deploy-runner",
+      "version": "0.0.0",
+      "dependencies": {
+        "@rntme/blueprint": "workspace:*",
+        "@rntme/deploy-core": "workspace:*",
+        "@rntme/deploy-dokploy": "workspace:*",
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.10.0",
+        "@types/bun": "latest",
+        "@types/node": "^20.14.0",
+        "@typescript-eslint/eslint-plugin": "^8.6.0",
+        "@typescript-eslint/parser": "^8.6.0",
+        "eslint": "^9.10.0",
+        "prettier": "^3.3.3",
         "typescript": "^5.5.4",
       },
     },
@@ -1846,6 +1865,8 @@
     "@rntme/deploy-core": ["@rntme/deploy-core@workspace:packages/deploy/deploy-core"],
 
     "@rntme/deploy-dokploy": ["@rntme/deploy-dokploy@workspace:packages/deploy/deploy-dokploy"],
+
+    "@rntme/deploy-runner": ["@rntme/deploy-runner@workspace:packages/deploy/deploy-runner"],
 
     "@rntme/event-store": ["@rntme/event-store@workspace:packages/runtime/event-store"],
 
