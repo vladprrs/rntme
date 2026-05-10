@@ -1,0 +1,20 @@
+{
+  "name": "@rntme/platform-blueprint",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Platform-as-blueprint authoring surface and native handler stubs for the rntme control plane.",
+  "scripts": {
+    "test": "bun test blueprint/test",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint --no-error-on-unmatched-pattern \"blueprint/services/**/*.ts\" \"blueprint/test/**/*.ts\""
+  },
+  "dependencies": {
+    "@rntme/platform-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.7.4",
+    "typescript": "^5.6.2"
+  }
+}
