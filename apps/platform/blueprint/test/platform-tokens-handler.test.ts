@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { ApiTokenProvider, isOk } from '@rntme/platform-core';
+import { ApiTokenProvider } from '@rntme/platform-core';
 import { FakeStore } from '@rntme/platform-core/testing';
 import { introspectTokenHandler } from '../services/tokens/handlers/introspect-token.js';
 

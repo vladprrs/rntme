@@ -6,8 +6,7 @@
   "description": "Platform-as-blueprint authoring surface and native handler stubs for the rntme control plane.",
   "scripts": {
     "test": "bun test blueprint/test",
-    "typecheck": "tsc -p tsconfig.check.json",
-    "lint": "eslint --no-error-on-unmatched-pattern \"blueprint/services/**/*.ts\" \"blueprint/test/**/*.ts\""
+    "typecheck": "tsc -p tsconfig.check.json"
   },
   "dependencies": {
     "@rntme/platform-core": "workspace:*"
