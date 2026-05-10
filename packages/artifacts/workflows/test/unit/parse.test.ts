@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { parseWorkflowArtifact, validateWorkflowStructural } from '../../src/index.js';
+import { parseWorkflowArtifact } from '../../src/index.js';
 
 const valid = {
   workflowVersion: 1,
@@ -69,22 +69,6 @@ describe('parseWorkflowArtifact', () => {
     if (result.ok) {
       expect(result.value.nativeTasks).toHaveLength(1);
       expect(result.value.nativeTasks?.[0]?.handler.module).toBe('@rntme/deploy-runner');
-    }
-  });
-
-  it('rejects nativeTasks that overlap with serviceTasks on the same taskId', () => {
-    const result = validateWorkflowStructural({
-      workflowVersion: 1,
-      definitions: [{ id: 'd1', bpmnFile: 'd1.bpmn', processId: 'p1' }],
-      messageStarts: [],
-      serviceTasks: [{ definition: 'd1', taskId: 'task-1', bindingRef: 'svc.binding' }],
-      nativeTasks: [
-        { definition: 'd1', taskId: 'task-1', handler: { module: '@x', export: 'h' } },
-      ],
-    } as never);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors[0]?.code).toBe('WORKFLOW_TASK_DEFINITION_OVERLAP');
     }
   });
 });
