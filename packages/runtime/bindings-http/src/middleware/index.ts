@@ -14,3 +14,4 @@ export {
   type RateLimitDecision,
   type RateLimitOptions,
 } from './rate-limit.js';
+export { securityHeaders, type SecurityHeadersOptions } from './security-headers.js';
