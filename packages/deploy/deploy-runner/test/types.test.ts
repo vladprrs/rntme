@@ -18,7 +18,17 @@ describe('public types', () => {
       kind: 'dokploy',
       displayName: 'Preview',
       dokployUrl: 'https://dokploy.example.com',
+      publicBaseUrl: null,
       dokployProjectId: 'proj-1',
+      dokployProjectName: null,
+      allowCreateProject: false,
+      eventBus: { kind: 'kafka', mode: 'external', brokers: ['redpanda:9092'] },
+      modules: {},
+      workflows: null,
+      storage: { mode: 'external' },
+      auth: {},
+      policyValues: {},
+      manualAccess: {},
     };
     expect(t.kind).toBe('dokploy');
   });

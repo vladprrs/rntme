@@ -1,9 +1,14 @@
-import type { ComposedBlueprint } from '@rntme/blueprint';
 import type {
   ComposedProjectInput,
   ProvisionerContract,
   ProvisionerOutput,
+  buildProjectDeploymentPlan,
+  runProvisioners,
 } from '@rntme/deploy-core';
+import type { applyDokployPlan, DokployClient, renderDokployPlan } from '@rntme/deploy-dokploy';
+import type { DeployTargetForBuild } from './deploy-target-types.js';
+import type { ParseTargetSecretFn } from './dokploy-client-factory.js';
+import type { SmokeVerifier } from './smoke-verifier.js';
 
 export type SanitizedLogLine = {
   readonly level: 'info' | 'warn' | 'error';
@@ -18,21 +23,15 @@ export type StageEvidence = {
   readonly durationMs: number;
 };
 
-export type NormalizedDeployTarget = {
-  readonly id: string;
-  readonly slug: string;
-  readonly kind: 'dokploy';
-  readonly displayName: string;
-  readonly publicBaseUrl?: string;
-  readonly dokployUrl: string;
-  readonly dokployProjectId: string;
-  readonly eventBus?: {
-    readonly mode: 'provisioned' | 'in-memory' | 'external';
-    readonly externalBootstrap?: string;
-  };
-  readonly workflowEngineImage?: string;
-  readonly workflowWorkerImage?: string;
-};
+/**
+ * Structural mirror of platform-core's `DeployTarget` covering all fields the
+ * orchestrator needs (modules, storage, workflows, auth, manualAccess, …).
+ *
+ * `NormalizedDeployTarget` is an alias for `DeployTargetForBuild` so callers
+ * can pass any platform-core `DeployTarget` value directly — TypeScript's
+ * structural subtyping makes any conforming value assignable here.
+ */
+export type NormalizedDeployTarget = DeployTargetForBuild;
 
 export type ResolvedTargetSecrets = {
   readonly apiToken: string;
@@ -71,6 +70,27 @@ export type DeploymentHooks = {
   readonly onTerminal?: (result: TerminalResult) => void | Promise<void>;
 };
 
+/**
+ * Structural mirror of platform-core's PlatformErrorNode (no platform-core dep).
+ */
+export type RunnerErrorNode = {
+  readonly code: string;
+  readonly message: string;
+  readonly path?: string;
+  readonly cause?: readonly RunnerErrorNode[];
+};
+
+/**
+ * Structural mirror of platform-core's PlatformError (no platform-core dep).
+ * Callers can cast/coerce this to platform-core's PlatformError as needed.
+ */
+export type RunnerError = {
+  readonly code: string;
+  readonly message: string;
+  readonly stage?: 'plan' | 'render' | 'apply' | 'verify' | 'provision';
+  readonly errors: readonly RunnerErrorNode[];
+};
+
 export type TerminalResult =
   | { readonly ok: true; readonly kind: 'succeeded' }
   | {
@@ -78,13 +98,22 @@ export type TerminalResult =
       readonly kind: 'failed';
       readonly errorCode: string;
       readonly errorMessage: string;
-      readonly errorTree?: unknown;
+      readonly errorTree?: RunnerError;
     };
 
 export type RunDeploymentInputs = {
-  readonly composedBlueprint: ComposedProjectInput | ComposedBlueprint;
+  /**
+   * Already converted to `ComposedProjectInput`. The conversion from
+   * `ComposedBlueprint` (including runtime artifact + workflow gRPC bundling)
+   * lives outside the runner because it depends on `@rntme/bindings-grpc`,
+   * which is forbidden inside `packages/deploy/**` by the layering policy.
+   */
+  readonly composedBlueprint: ComposedProjectInput;
+  /** Already-materialized bundle directory on disk. */
   readonly bundleDir: string;
+  /** Full structural target (including modules / storage / workflows / auth / …). */
   readonly target: NormalizedDeployTarget;
+  /** Pre-decrypted target secrets. The runner never decrypts. */
   readonly resolvedTargetSecrets: ResolvedTargetSecrets;
   readonly orgSlug: string;
   readonly configOverrides: Record<string, unknown>;
@@ -93,6 +122,28 @@ export type RunDeploymentInputs = {
   readonly publicDeployDomain?: string;
   readonly hooks?: DeploymentHooks;
   readonly abortSignal?: AbortSignal;
+  /**
+   * Build a Dokploy client from the (already decrypted) API token. The factory
+   * is provided by the caller so that secret-cipher concerns stay outside the
+   * runner. Resolved target secrets are forwarded for callers that need them
+   * (e.g., redpanda console htpasswd resolution).
+   */
+  readonly dokployClientFactory: (
+    apiToken: string,
+    resolvedTargetSecrets?: Readonly<Record<string, unknown>>,
+  ) => DokployClient;
+  /**
+   * Optional schema-aware target secret parser. When provided, the runner
+   * validates each `requiredTargetSecrets` entry against its schema. When
+   * omitted, the runner only checks for presence + schema-id match.
+   */
+  readonly parseTargetSecret?: ParseTargetSecretFn;
+  /** Override hooks for tests. Production callers leave these unset. */
+  readonly runProvisioners?: typeof runProvisioners;
+  readonly planProject?: typeof buildProjectDeploymentPlan;
+  readonly renderPlan?: typeof renderDokployPlan;
+  readonly applyPlan?: typeof applyDokployPlan;
+  readonly smoker?: SmokeVerifier;
 };
 
 // Structural mirror of platform-core's VerificationReport schema (deployment.ts lines 15-45).

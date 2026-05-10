@@ -4,6 +4,8 @@ export type {
   ResolveProvisioner,
   DeploymentHooks,
   RunDeploymentInputs,
+  RunnerError,
+  RunnerErrorNode,
   TerminalResult,
   StageName,
   StageEvidence,
@@ -64,3 +66,5 @@ export type {
 
 export { runTearDownsForDeployment } from './run-teardowns.js';
 export type { TearDownDeps, TearDownInput } from './run-teardowns.js';
+
+export { runDeployment, deployErrorsToPlatformError } from './run-deployment.js';
