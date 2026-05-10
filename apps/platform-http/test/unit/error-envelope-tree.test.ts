@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { errorEnvelope } from '../../src/middleware/error-handler.js';
+import { errorEnvelope } from '../../src/error-codes.js';
 import type { PlatformError } from '@rntme/platform-core';
 
 describe('errorEnvelope with structured errors[] tree', () => {
