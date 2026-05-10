@@ -78,6 +78,7 @@
         "@rntme/blueprint": "workspace:*",
         "@rntme/deploy-core": "workspace:*",
         "@rntme/deploy-dokploy": "workspace:*",
+        "@rntme/deploy-runner": "workspace:*",
         "@rntme/platform-core": "workspace:*",
         "@rntme/platform-storage": "workspace:*",
         "@rntme/ui-runtime": "workspace:*",

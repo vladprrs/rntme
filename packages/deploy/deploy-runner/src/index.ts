@@ -12,3 +12,5 @@ export type {
   ApplyResultEnvelope,
   VerifyResultEnvelope,
 } from './types.js';
+
+export { redact } from './redactor.js';

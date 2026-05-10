@@ -34,6 +34,7 @@
     "@rntme/bindings-grpc": "workspace:*",
     "@rntme/blueprint": "workspace:*",
     "@rntme/deploy-core": "workspace:*",
+    "@rntme/deploy-runner": "workspace:*",
     "@rntme/deploy-dokploy": "workspace:*",
     "@rntme/platform-core": "workspace:*",
     "@rntme/platform-storage": "workspace:*",
