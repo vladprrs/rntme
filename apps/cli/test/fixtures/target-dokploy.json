@@ -1,0 +1,13 @@
+{
+  "kind": "dokploy",
+  "displayName": "preview",
+  "config": {
+    "dokployUrl": "https://dokploy.example.com",
+    "dokployProjectId": "01HZTESTPROJECTID000000"
+  },
+  "secrets": {
+    "apiToken": { "source": "env", "name": "DOKPLOY_API_TOKEN" }
+  },
+  "eventBus": { "mode": "provisioned", "kind": "kafka", "provider": "redpanda" },
+  "publicBaseUrl": "https://preview.example.com"
+}
