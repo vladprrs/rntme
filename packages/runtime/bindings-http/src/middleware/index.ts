@@ -3,3 +3,4 @@
 // gathers them so callers do a single named import.
 
 export { requestId } from './request-id.js';
+export { requestLogger, type RequestLoggerOptions } from './request-logger.js';
