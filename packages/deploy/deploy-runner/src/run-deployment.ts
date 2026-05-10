@@ -351,7 +351,6 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
       if (hooks.onVerifyResult !== undefined) {
         await hooks.onVerifyResult({ report: stackVerification });
       }
-      await emitStageComplete(hooks, 'verify', Date.now() - verifyStart);
       return await terminalFailure(hooks, {
         errorCode: 'DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP',
         errorMessage: 'workload crash loop detected',
