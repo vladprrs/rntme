@@ -63,6 +63,10 @@ export type VerifyResultEnvelope = {
 export type DeploymentHooks = {
   readonly onLog?: (line: SanitizedLogLine) => void | Promise<void>;
   readonly onStageBegin?: (stage: StageName) => void | Promise<void>;
+  /**
+   * Called when a stage completes successfully. NOT called when a stage fails;
+   * stage failures are observable through onTerminal.
+   */
   readonly onStageComplete?: (stage: StageName, evidence: StageEvidence) => void | Promise<void>;
   readonly onProvisionResult?: (payload: ProvisionResultEnvelope) => void | Promise<void>;
   readonly onApplyResult?: (payload: ApplyResultEnvelope) => void | Promise<void>;
@@ -121,6 +125,11 @@ export type RunDeploymentInputs = {
   readonly resolveProvisioner: ResolveProvisioner;
   readonly publicDeployDomain?: string;
   readonly hooks?: DeploymentHooks;
+  /**
+   * Reserved for future use. Not yet propagated to stage operations
+   * (provisioner contracts, dokploy apply polling, smoke verify HTTP).
+   * Callers can pass a signal but cancellation is not guaranteed.
+   */
   readonly abortSignal?: AbortSignal;
   /**
    * Build a Dokploy client from the (already decrypted) API token. The factory
