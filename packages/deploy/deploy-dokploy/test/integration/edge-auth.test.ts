@@ -108,6 +108,7 @@ async function startRejectingIntrospectionServer(): Promise<{ port: number; stop
 }
 
 async function hasTestcontainersRuntime(): Promise<boolean> {
+  if (process.env['SKIP_TESTCONTAINERS'] === '1') return false;
   try {
     const container = await new GenericContainer('nginx:1.27-alpine').start();
     await container.stop();
