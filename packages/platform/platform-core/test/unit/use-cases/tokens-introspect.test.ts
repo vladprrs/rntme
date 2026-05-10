@@ -136,4 +136,78 @@ describe('introspectToken — error branches', () => {
     expect(isOk(r)).toBe(false);
     if (!isOk(r)) expect(r.errors[0]!.code).toBe('PLATFORM_AUTH_INVALID');
   });
+
+  it('returns PLATFORM_AUTH_TOKEN_REVOKED when the row is revoked', async () => {
+    const { store, plain } = await setup();
+    const hash = new Uint8Array(createHash('sha256').update(plain).digest());
+    const r = await introspectToken({
+      deps: {
+        repos: {
+          tokens: {
+            ...store.tokensRepo,
+            findByPrefix: async () =>
+              ({
+                ok: true,
+                value: {
+                  id: 'tid-1',
+                  orgId: 'org-1',
+                  accountId: 'acc-1',
+                  name: 'x',
+                  tokenHash: hash,
+                  prefix: plain.slice(0, 12),
+                  scopes: [],
+                  lastUsedAt: null,
+                  expiresAt: null,
+                  revokedAt: new Date(),
+                  createdAt: new Date(),
+                },
+              }) as never,
+          },
+          organizations: store.organizations,
+          accounts: store.accountsRepo,
+          memberships: store.membershipMirror,
+        },
+      },
+      input: { bearerToken: `Bearer ${plain}` },
+    });
+    expect(isOk(r)).toBe(false);
+    if (!isOk(r)) expect(r.errors[0]!.code).toBe('PLATFORM_AUTH_TOKEN_REVOKED');
+  });
+
+  it('returns PLATFORM_AUTH_TOKEN_EXPIRED when expiresAt is in the past', async () => {
+    const { store, plain } = await setup();
+    const hash = new Uint8Array(createHash('sha256').update(plain).digest());
+    const r = await introspectToken({
+      deps: {
+        repos: {
+          tokens: {
+            ...store.tokensRepo,
+            findByPrefix: async () =>
+              ({
+                ok: true,
+                value: {
+                  id: 'tid-1',
+                  orgId: 'org-1',
+                  accountId: 'acc-1',
+                  name: 'x',
+                  tokenHash: hash,
+                  prefix: plain.slice(0, 12),
+                  scopes: [],
+                  lastUsedAt: null,
+                  expiresAt: new Date(Date.now() - 1000),
+                  revokedAt: null,
+                  createdAt: new Date(),
+                },
+              }) as never,
+          },
+          organizations: store.organizations,
+          accounts: store.accountsRepo,
+          memberships: store.membershipMirror,
+        },
+      },
+      input: { bearerToken: `Bearer ${plain}` },
+    });
+    expect(isOk(r)).toBe(false);
+    if (!isOk(r)) expect(r.errors[0]!.code).toBe('PLATFORM_AUTH_TOKEN_EXPIRED');
+  });
 });
