@@ -6,7 +6,7 @@
  * `issue.project.name` previously resolved to alias "project", causing the second
  * join to be silently skipped and the column to resolve against the wrong table.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';

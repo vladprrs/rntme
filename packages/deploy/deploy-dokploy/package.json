@@ -18,8 +18,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun test",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint --no-error-on-unmatched-pattern \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write ."
@@ -30,13 +29,13 @@
   "devDependencies": {
     "@eslint/js": "^9.10.0",
     "@rntme/identity-auth0": "workspace:*",
+    "@types/bun": "latest",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
     "prettier": "^3.3.3",
     "testcontainers": "11",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

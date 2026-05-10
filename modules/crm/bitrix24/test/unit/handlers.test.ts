@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { proto } from '@rntme/contracts-crm-v1';
 import { createBitrix24CrmModule } from '../../src/handlers.js';
 import { GrpcStatus } from '../../src/errors.js';

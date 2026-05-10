@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createBitrix24CrmModule } from '../src/handlers.js';
 
 const hasWebhook = Boolean(process.env.BITRIX24_WEBHOOK_URL);

@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { ProjectionDdlSpec } from '@rntme/qsm';
 
 function toIfNotExists(sql: string): string {
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS seen_events (
 const SEEN_EVENTS_INDEX_SQL =
   'CREATE INDEX IF NOT EXISTS idx_seen_events_applied ON seen_events(applied_at)';
 
-export function bootstrapProjections(db: Database, ddls: readonly ProjectionDdlSpec[]): void {
+export function bootstrapProjections(db: SqliteDatabase, ddls: readonly ProjectionDdlSpec[]): void {
   for (const spec of ddls) {
     db.exec(toIfNotExists(spec.createTableSql));
     for (const indexSql of spec.createIndexSql) {

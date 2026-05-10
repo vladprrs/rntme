@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { compile, execute } from '../../src/index.js';
 import { makeDb, loadJson } from './helpers.js';
 

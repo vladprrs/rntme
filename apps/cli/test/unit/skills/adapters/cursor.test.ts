@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { cursorAdapter } from '../../../../src/skills/adapters/cursor.js';
 
 describe('cursorAdapter', () => {

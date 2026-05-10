@@ -8,7 +8,7 @@ This directory hosts vendor implementations of the AI/LLM canonical contract `@r
 - A `module.json` manifest declaring `capabilities[]` (vendors, rpcs, events, input_modalities, reasoning_visibility_supported, thread, async_job_types, agent_execution_mode).
 - Conformance scenarios passing under both mock-vendor and live-sandbox modes.
 
-The shared conformance suite lives at `modules/ai-llm/conformance/` and is consumed by every vendor module via `pnpm test:conformance:mock` and `pnpm test:conformance:live` (when the framework lands).
+The shared conformance suite lives at `modules/ai-llm/conformance/` and is consumed by every vendor module via `bun run test:conformance:mock` and `bun run test:conformance:live` (when the framework lands).
 
 ## Vendors landed here
 

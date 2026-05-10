@@ -47,7 +47,7 @@ RNTME_DOKPLOY_PUBLIC_DEPLOY_DOMAIN=preview.example.com \
 RNTME_E2E_RUNTIME_IMAGE=ghcr.io/vladprrs/rntme-runtime:e2e-bpmn-4e3f55d-json-1 \
 RNTME_E2E_BPMN_WORKER_IMAGE=ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1 \
 RNTME_E2E_OPERATON_IMAGE=operaton/operaton:2.1.0 \
-pnpm -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts
+bun run -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts
 ```
 
 The test deploys provisioned Redpanda, provisioned Operaton, the two demo

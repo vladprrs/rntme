@@ -1,8 +1,9 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, mock, spyOn, beforeEach, afterEach } from 'bun:test';
 import { runProjectDeploy } from '../../../../src/commands/project/deploy.js';
 import { runProjectDeploymentList } from '../../../../src/commands/project/deployment-list.js';
 import { runProjectDeploymentShow } from '../../../../src/commands/project/deployment-show.js';
 import { runProjectDeploymentWatch } from '../../../../src/commands/project/deployment-watch.js';
+import { restoreGlobals, stubGlobal } from '../../../helpers/globals.js';
 
 const deployment = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -36,19 +37,18 @@ const flags = {
 };
 
 describe('project deployment commands', () => {
-  const realFetch = globalThis.fetch;
-
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
+    restoreGlobals();
   });
 
   afterEach(() => {
-    globalThis.fetch = realFetch;
+    restoreGlobals();
   });
 
   it('starts a deployment with explicit version and target', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ deployment }), { status: 202 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ deployment }), { status: 202 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectDeploy({ version: 4, target: 'dokploy-rnt-364' }, flags);
 
@@ -65,8 +65,8 @@ describe('project deployment commands', () => {
   });
 
   it('lists deployments with a limit query string', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ deployments: [deployment] }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ deployments: [deployment] }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectDeploymentList({ limit: 25 }, flags);
 
@@ -78,8 +78,8 @@ describe('project deployment commands', () => {
   });
 
   it('shows one deployment by id', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ deployment }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ deployment }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectDeploymentShow({ deploymentId: deployment.id }, flags);
 
@@ -96,8 +96,7 @@ describe('project deployment commands', () => {
       errorMessage: 'smoke verification failed',
       finishedAt: '2026-05-02T12:01:00.000Z',
     };
-    const fetchMock = vi
-      .fn()
+    const fetchMock = mock()
       .mockResolvedValueOnce(new Response(JSON.stringify({ deployment: failed }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         lines: [
@@ -113,7 +112,7 @@ describe('project deployment commands', () => {
         ],
         lastLineId: 1,
       }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectDeploymentWatch(
       { deploymentId: deployment.id, pollIntervalMs: 1 },
@@ -138,8 +137,7 @@ describe('project deployment commands', () => {
       errorMessage: 'smoke verification failed',
       finishedAt: '2026-05-02T12:01:00.000Z',
     };
-    const fetchMock = vi
-      .fn()
+    const fetchMock = mock()
       .mockResolvedValueOnce(new Response(JSON.stringify({ deployment: failed }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         lines: [{
@@ -153,8 +151,8 @@ describe('project deployment commands', () => {
         }],
         lastLineId: 1,
       }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    stubGlobal('fetch', fetchMock);
+    const writeSpy = spyOn(process.stdout, 'write').mockReturnValue(true);
 
     const exit = await runProjectDeploymentWatch(
       { deploymentId: deployment.id, pollIntervalMs: 1 },

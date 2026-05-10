@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import * as grpc from '@grpc/grpc-js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { proto, SessionStatus, TokenType } from '@rntme/contracts-identity-v1';
 import { createIdentityAuth0GrpcServer } from '../../src/server.js';
 import type { Auth0IdentityModule } from '../../src/server.js';

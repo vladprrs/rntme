@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { generateOpenApi } from '../../../src/openapi/emit.js';
 import type { ValidatedBindings } from '../../../src/types/artifact.js';
 import type { GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';

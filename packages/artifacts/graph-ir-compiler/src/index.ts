@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import { executeCompiled, type ParamValues } from './execute/execute.js';
 import { err, ok, type Result } from './types/result.js';
 import type { ExplainOutput } from './explain/explain.js';
@@ -105,7 +105,7 @@ export function compile(
 export function execute(
   compiled: CompileResult,
   paramValues: ParamValues,
-  db: Database.Database,
+  db: SqliteDatabase,
 ): unknown[] {
   return executeCompiled(compiled, paramValues, db);
 }
@@ -118,7 +118,7 @@ export function run(
   rawPdm: unknown,
   rawQsm: unknown,
   paramValues: ParamValues,
-  db: Database.Database,
+  db: SqliteDatabase,
   options?: CompileOptions,
 ): unknown[] {
   const r = compile(rawSpec, rawPdm, rawQsm, options);

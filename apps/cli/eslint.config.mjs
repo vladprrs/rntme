@@ -18,6 +18,7 @@ export default [
         fetch: 'readonly',
         AbortController: 'readonly',
         Response: 'readonly',
+        RequestInfo: 'readonly',
         RequestInit: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',

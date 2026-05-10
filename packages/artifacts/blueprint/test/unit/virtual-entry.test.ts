@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { CatalogManifest } from '../../src/types/artifact.js';
 import { renderVirtualEntry } from '../../src/compose/virtual-entry.js';
 

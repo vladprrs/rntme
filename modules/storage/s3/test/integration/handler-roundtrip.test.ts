@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { CreateBucketCommand, DeleteObjectCommand, HeadObjectCommand, PutBucketCorsCommand, S3Client } from '@aws-sdk/client-s3';
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { createHandler } from '../../src/handler.js';
 import { createPendingStore, type DatabaseLike } from '../../src/pending-store.js';
 import { createRouteResolver } from '../../src/route-resolver.js';

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { RandomIds, SeededIds } from '../../src/ids.js';
 
 describe('Ids', () => {

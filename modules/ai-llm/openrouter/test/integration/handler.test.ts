@@ -1,6 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import type { Buffer } from 'node:buffer';
 import { createOpenRouterModule } from '../../src/handler.js';
+
+type FetchMock = ReturnType<typeof mock>;
+
+function asFetch(fetchMock: FetchMock): typeof globalThis.fetch {
+  return fetchMock as unknown as typeof globalThis.fetch;
+}
 
 function makeBus(): { events: { type: string; data: unknown }[]; emit: (type: string, data: unknown) => Promise<void> } {
   const events: { type: string; data: unknown }[] = [];
@@ -43,35 +49,34 @@ const sampleRequest = {
 
 describe('Complete RPC', () => {
   it('happy path emits Started + Finished, calls OR once, returns Completion', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
+    const fetchMock = mock().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
     const bus = makeBus();
     const { records, store } = makeStore();
-    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: fetchMock, store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
 
     const completion = (await mod.Complete!(sampleRequest)) as { ref: { canonical_id: string } };
     expect(completion.ref.canonical_id).toBe('idem-abc');
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(bus.events.map((e) => e.type)).toEqual(['CompletionStarted', 'CompletionFinished']);
     expect(records.has('idem-abc')).toBe(true);
   });
 
   it('idempotent — second call with same key returns cached, no second OR call', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
+    const fetchMock = mock().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
     const bus = makeBus();
     const { store } = makeStore();
-    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: fetchMock, store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
     await mod.Complete!(sampleRequest);
     await mod.Complete!(sampleRequest);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('OR 429 → AI_LLM_VENDOR_RATE_LIMITED + CompletionFailed', async () => {
-    const fetchMock = vi
-      .fn()
+    const fetchMock = mock()
       .mockResolvedValue({ ok: false, status: 429, json: async () => ({ error: { code: 'rate_limit', message: 'too many' } }), text: async () => '' });
     const bus = makeBus();
     const { store } = makeStore();
-    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: fetchMock, store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
     await expect(mod.Complete!(sampleRequest)).rejects.toMatchObject({ aiLlmCode: 'AI_LLM_VENDOR_RATE_LIMITED' });
     expect(bus.events.map((e) => e.type)).toEqual(['CompletionStarted', 'CompletionFailed']);
   });
@@ -79,20 +84,20 @@ describe('Complete RPC', () => {
 
 describe('GetCompletion RPC', () => {
   it('returns cached completion when found', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
+    const fetchMock = mock().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
     const bus = makeBus();
     const { store } = makeStore();
-    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: fetchMock, store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
     await mod.Complete!(sampleRequest);
     const got = (await mod.GetCompletion!({ canonicalId: 'idem-abc' })) as { ref: { canonical_id: string } };
     expect(got.ref.canonical_id).toBe('idem-abc');
   });
 
   it('returns COMPLETION_NOT_FOUND when missing', async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = mock();
     const bus = makeBus();
     const { store } = makeStore();
-    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: fetchMock, store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
     await expect(mod.GetCompletion!({ canonicalId: 'never' })).rejects.toMatchObject({ aiLlmCode: 'AI_LLM_REFERENCES_COMPLETION_NOT_FOUND' });
   });
 });

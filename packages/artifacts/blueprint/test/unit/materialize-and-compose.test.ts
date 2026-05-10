@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { materializeAndCompose, isOk } from '@rntme/blueprint';
-import type { CanonicalBundle } from '@rntme/blueprint';
+import { describe, it, expect } from 'bun:test';
+import { materializeAndCompose, isOk, type CanonicalBundle } from '../../src/index.js';
 
 const goodBundle: CanonicalBundle = {
   version: 2,

@@ -9,16 +9,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "bun test"
   },
   "dependencies": {
     "@rntme/artifact-shared": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "@types/node": "^20.14.0",
-    "vitest": "^2.1.1",
     "typescript": "^5.6.0"
   }
 }

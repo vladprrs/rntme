@@ -22,9 +22,9 @@ client contribution for Auth0 login in generated UIs.
 ## Quick start
 
 ```bash
-pnpm -F @rntme/identity-auth0 run build
-pnpm -F @rntme/identity-auth0 run test
-pnpm -F @rntme/identity-auth0 run test:conformance:mock
+bun run build
+bun test
+bun run test:conformance:mock
 ```
 
 Live Auth0 Management API use requires a tenant with Management API credentials and the scopes needed for users, organizations, members, roles, and invitations. `IntrospectSession` uses OIDC JWKS validation and does not require Management API credentials.
@@ -34,9 +34,9 @@ Live Auth0 Management API use requires a tenant with Management API credentials 
 This module ships its provisioner as a self-contained ESM bundle. The build
 chain is:
 
-1. `pnpm run build:deps` — workspace prerequisites.
+1. `bun run build:deps` — workspace prerequisites.
 2. `tsc -p tsconfig.json` — type-checked output to `dist/`.
-3. `pnpm run build:provisioner` — esbuild produces `dist/provisioner.entry.js`,
+3. `bun run build:provisioner` — Bun produces `dist/provisioner.entry.js`,
    inlining `./mgmt-client.js` and `./result-shim.js` and externalizing only
    `node:*` built-ins.
 

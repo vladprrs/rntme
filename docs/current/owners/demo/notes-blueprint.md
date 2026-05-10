@@ -45,10 +45,10 @@ planning can render nginx `auth_request` enforcement for `/api`.
 ## Local validation
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm --filter @rntme/blueprint... build
-pnpm --filter @rntme/blueprint exec node --input-type=module -e "import { loadComposedBlueprint } from '@rntme/blueprint'; \
-  const r = loadComposedBlueprint('../../../demo/notes-blueprint'); \
+bun install --frozen-lockfile
+bun run -F @rntme/blueprint build
+bun -e "import { loadComposedBlueprint } from './packages/artifacts/blueprint/src/index.js'; \
+  const r = loadComposedBlueprint('demo/notes-blueprint'); \
   if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } \
   console.log('OK:', r.value.project.services.join(','));"
 ```

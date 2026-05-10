@@ -1,6 +1,12 @@
-import { serve, type ServerType } from '@hono/node-server';
+import {
+  serve,
+  type Http2Bindings,
+  type HttpBindings,
+  type ServerType,
+} from '@hono/node-server';
 import { Hono } from 'hono';
-import { BetterSqliteDriver } from '../plugins/better-sqlite-driver.js';
+import { Socket } from 'node:net';
+import { BunSqliteDriver } from '../plugins/bun-sqlite-driver.js';
 import { InMemoryBus } from '../plugins/in-memory-bus.js';
 import { HttpSurface } from '../plugins/http-surface.js';
 import {
@@ -36,6 +42,8 @@ import {
 export type { RuntimeConfig } from './runtime-config.js';
 
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5000;
+type NodeServerEnv = HttpBindings | Http2Bindings;
+type NodeServerFetch = (request: Request, env: NodeServerEnv) => Promise<unknown> | unknown;
 
 export async function startService(
   service: ValidatedService,
@@ -46,7 +54,7 @@ export async function startService(
   const authEnv = parseRuntimeAuthEnv(runtimeEnv);
   const eventBusTopicPrefix = parseRuntimeEventBusTopicPrefixFromEnv(runtimeEnv);
   validateRuntimeAdapterConfig(service.manifest, runtimeConfig.artifactDir, authEnv);
-  const db: DbDriver = runtimeConfig.db ?? new BetterSqliteDriver();
+  const db: DbDriver = runtimeConfig.db ?? new BunSqliteDriver();
   const kafkaClientConfig = buildKafkaJsClientConfigFromEnv(
     runtimeEnv,
     service.manifest.service.name,
@@ -134,9 +142,14 @@ export async function startService(
   };
   for (const s of surfaces) await s.mount(app, ctx);
 
+  ensureSocketDestroySoonCompatibility();
   const listenPort = service.manifest.surface.http.port;
+  const fetchWithSocketCompatibility: NodeServerFetch = (request, env) => {
+    ensureIncomingSocketDestroySoonCompatibility(env);
+    return app.fetch(request, env);
+  };
   const server: ServerType = await new Promise((resolve) => {
-    const s = serve({ fetch: app.fetch, port: listenPort }, () => resolve(s));
+    const s = serve({ fetch: fetchWithSocketCompatibility, port: listenPort }, () => resolve(s));
   });
   const address = server.address();
   const port = typeof address === 'object' && address !== null ? address.port : listenPort;
@@ -168,6 +181,23 @@ export async function startService(
       if (bus.stop) await bus.stop();
     },
   };
+}
+
+function ensureSocketDestroySoonCompatibility(): void {
+  const socketPrototype = Socket.prototype as Socket & { destroySoon?: Socket['destroy'] };
+  socketPrototype.destroySoon ??= socketPrototype.destroy;
+}
+
+function ensureIncomingSocketDestroySoonCompatibility(env: NodeServerEnv): void {
+  const incoming = env.incoming as {
+    socket?: {
+      destroy?: () => void;
+      destroySoon?: () => void;
+    };
+  };
+  const socket = incoming.socket;
+  if (socket === undefined || socket.destroySoon !== undefined || socket.destroy === undefined) return;
+  socket.destroySoon = socket.destroy.bind(socket);
 }
 
 function eventTopicsForService(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { proto } from '@rntme/contracts-identity-v1';
 import { mapWorkOSInvitation, mapWorkOSMembership, mapWorkOSOrganization, mapWorkOSUser, toMetadata } from '../src/mappers.js';
 

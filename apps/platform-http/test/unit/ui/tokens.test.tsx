@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { TokenRow } from '../../../src/ui/fragments/token-row.js';
 import { TokensPage } from '../../../src/ui/pages/tokens.js';
 import type { TokenSummary } from '../../../src/ui/fragments/token-row.js';

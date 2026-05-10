@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { writeFileSync, mkdtempSync } from 'node:fs';

@@ -85,7 +85,7 @@ runtime cutover.
 ## Local commands
 
 ```bash
-pnpm -F @rntme/blueprint test -- ../../apps/platform/blueprint/test/platform-blueprint.test.ts
+bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test
 ```
 
 ## Invariants

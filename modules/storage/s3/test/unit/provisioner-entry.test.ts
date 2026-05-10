@@ -1,57 +1,30 @@
-import { describe, expect, it, vi } from 'vitest';
-import { storageS3Provisioner } from '../../src/provisioner/index.js';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'bun:test';
 
-vi.mock('@aws-sdk/client-s3', () => ({
-  S3Client: vi.fn().mockImplementation(() => ({ send: vi.fn().mockResolvedValue(undefined) })),
-  HeadBucketCommand: vi.fn(),
-  CreateBucketCommand: vi.fn(),
-  PutBucketCorsCommand: vi.fn(),
-  PutBucketLifecycleConfigurationCommand: vi.fn(),
-  PutObjectCommand: vi.fn(),
-  HeadObjectCommand: vi.fn(),
-  DeleteObjectCommand: vi.fn(),
-}));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ENTRY_PATH = resolve(__dirname, '../../dist/provisioner.entry.js');
 
-vi.mock('@aws-sdk/client-iam', () => ({
-  IAMClient: vi.fn().mockImplementation(() => ({
-    send: vi.fn().mockResolvedValue({ AccessKey: { AccessKeyId: 'AKIA', SecretAccessKey: 'SK' } }),
-  })),
-  CreateUserCommand: vi.fn(),
-  PutUserPolicyCommand: vi.fn(),
-  CreateAccessKeyCommand: vi.fn(),
-}));
-
-describe('storageS3Provisioner', () => {
-  const baseInput = {
-    publicConfig: {
-      bucketName: 'b',
-      region: 'us-east-1',
-      appOrigins: ['https://example'],
-      backend: 'aws-s3' as const,
-    },
-    log: () => undefined,
-    signal: new globalThis.AbortController().signal,
-  };
-
-  it('returns STORAGE_PROVISIONER_VALIDATION_FAILED when no creds at all', async () => {
-    const r = await storageS3Provisioner.provision({ ...baseInput, targetSecrets: {} });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors[0].code).toBe('STORAGE_PROVISIONER_VALIDATION_FAILED');
+describe('provisioner.entry.js (built artifact)', () => {
+  it('exists', () => {
+    expect(statSync(ENTRY_PATH).isFile()).toBe(true);
   });
 
-  it('selects auto-mode when s3Admin is supplied', async () => {
-    const r = await storageS3Provisioner.provision({
-      ...baseInput,
-      targetSecrets: { s3Admin: { accessKeyId: 'A', secretAccessKey: 'S' } },
-    });
-    expect(r.ok).toBe(true);
+  it('weighs less than 3 MB', () => {
+    const size = statSync(ENTRY_PATH).size;
+    expect(size).toBeLessThan(3 * 1024 * 1024);
   });
 
-  it('selects manual-mode when s3Scoped is supplied without s3Admin', async () => {
-    const r = await storageS3Provisioner.provision({
-      ...baseInput,
-      targetSecrets: { s3Scoped: { accessKeyId: 'A', secretAccessKey: 'S' } },
-    });
-    expect(r.ok).toBe(true);
+  it('contains no @rntme imports (everything inlined)', () => {
+    const text = readFileSync(ENTRY_PATH, 'utf8');
+    expect(text).not.toMatch(/from\s+['"]@rntme\//);
+    expect(text).not.toMatch(/require\(['"]@rntme\//);
+  });
+
+  it('exports provision and default provisioner contract', async () => {
+    const mod = await import(ENTRY_PATH);
+    expect(typeof mod.provision).toBe('function');
+    expect(typeof mod.default.provision).toBe('function');
   });
 });

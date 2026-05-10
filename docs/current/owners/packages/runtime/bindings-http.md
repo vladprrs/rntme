@@ -4,7 +4,7 @@ Hono sub-router that serves `ValidatedBindings` over HTTP. It compiles each boun
 
 ## Role In The System
 
-- Depends on: `@rntme/bindings`, `@rntme/graph-ir-compiler`, `@rntme/event-store`, `hono`, `zod`, `better-sqlite3`.
+- Depends on: `@rntme/bindings`, `@rntme/graph-ir-compiler`, `@rntme/event-store`, `@rntme/sqlite`, `hono`, `zod`.
 - Consumed by: `@rntme/runtime` through `HttpSurface`; embedders can mount `createBindingsRouter(...)` directly.
 - Pipeline: `ValidatedBindings` + graph/PDM/QSM runtime inputs -> `buildPlan` -> route handlers -> `OperationExecutor.execute(...)` -> JSON/redirect response.
 
@@ -32,7 +32,7 @@ src/
 
 ```ts
 import { Hono } from 'hono';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { createBindingsRouter } from '@rntme/bindings-http';
 import { SqliteEventStore } from '@rntme/event-store';
 
@@ -42,7 +42,7 @@ app.route('/api', createBindingsRouter({
   graphSpec,
   pdm,
   qsm,
-  db: new Database(':memory:'),
+  db: openSqliteDatabase({ filename: ':memory:' }),
   eventStore: new SqliteEventStore({ filename: ':memory:' }),
   operationExecutor,
   openApiDoc,
@@ -71,7 +71,7 @@ Default action JSON responses include the graph result object plus `eventIds`, `
 
 - `operationExecutor` is required whenever there is at least one binding.
 - `eventStore` is required when any action operation can emit local events.
-- `db` is the QSM/read-side SQLite handle and backs the idempotency cache.
+- `db` is the QSM/read-side `SqliteDatabase` handle from `@rntme/sqlite` and backs the idempotency cache.
 - `actorFromRequest`, `now`, and `nextId` have safe defaults and are injectable for tests.
 
 The default operation map produced by `buildDefaultGraphIrOperationMap` compiles operation graphs once at startup. Runtime hosts normally wrap it in `GraphOperationExecutor` from `@rntme/runtime`.

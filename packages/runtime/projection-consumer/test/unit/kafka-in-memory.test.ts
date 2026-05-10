@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import type { EventEnvelope } from '@rntme/event-store';
 import type { ConsumedMessage } from '../../src/types/consumer.js';
 import { createInMemoryKafkaConsumer } from '../../src/kafka/in-memory.js';

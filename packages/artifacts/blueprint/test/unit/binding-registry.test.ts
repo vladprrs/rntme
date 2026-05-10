@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildBindingRegistry, buildUiHttpMap, resolveProjectBindingRef } from '../../src/compose/binding-registry.js';
 
 describe('binding registry', () => {

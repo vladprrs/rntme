@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { validateStorageJson } from '../../src/validate/storage/index.js';
 
 const pdm = { entities: { ticket: {}, candidate: {} } };

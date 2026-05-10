@@ -1,8 +1,8 @@
 import { runDbDriverContract, runEventBusContract } from '../../src/plugins/contract-tests.js';
-import { BetterSqliteDriver } from '../../src/plugins/better-sqlite-driver.js';
+import { BunSqliteDriver } from '../../src/plugins/bun-sqlite-driver.js';
 import { InMemoryBus } from '../../src/plugins/in-memory-bus.js';
 
-runDbDriverContract(new BetterSqliteDriver());
+runDbDriverContract(new BunSqliteDriver());
 runEventBusContract(() => new InMemoryBus());
 
 import { runGrpcSurfaceContract } from '../../src/plugins/contract-tests.js';

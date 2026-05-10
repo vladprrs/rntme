@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { resolveVars, resolveTargetVarsOnly, applyVars } from '../../src/vars.js';
 
 const target = {

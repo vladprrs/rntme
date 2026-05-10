@@ -1,34 +1,35 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import "../test-setup";
+import { render } from "@testing-library/react";
+import { describe, expect, it, mock } from "bun:test";
 import { AhaReveal, revealSteps } from "./AhaReveal";
 
 describe("AhaReveal", () => {
   it("renders the blueprint JSON block", () => {
-    render(<AhaReveal />);
-    expect(screen.getByTestId("blueprint-json")).toBeInTheDocument();
+    const { getByTestId } = render(<AhaReveal />);
+    expect(getByTestId("blueprint-json")).toBeTruthy();
   });
 
   it("renders one panel per reveal step", () => {
-    render(<AhaReveal />);
+    const { getByTestId } = render(<AhaReveal />);
     for (const step of revealSteps) {
-      expect(screen.getByTestId(`panel-${step.id}`)).toBeInTheDocument();
+      expect(getByTestId(`panel-${step.id}`)).toBeTruthy();
     }
   });
 
   it("each step starts hidden (data-visible=false)", () => {
-    render(<AhaReveal />);
+    const { getByTestId } = render(<AhaReveal />);
     for (const step of revealSteps) {
-      expect(screen.getByTestId(`panel-${step.id}`)).toHaveAttribute("data-visible", "false");
+      expect(getByTestId(`panel-${step.id}`).getAttribute("data-visible")).toBe("false");
     }
   });
 
   it("registers an IntersectionObserver per step", () => {
-    const ObserverMock = vi.fn(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
+    const ObserverMock = mock(() => ({
+      observe: mock(),
+      unobserve: mock(),
+      disconnect: mock(),
     }));
-    vi.stubGlobal("IntersectionObserver", ObserverMock);
+    globalThis.IntersectionObserver = ObserverMock as unknown as typeof IntersectionObserver;
     render(<AhaReveal />);
     expect(ObserverMock).toHaveBeenCalledTimes(revealSteps.length);
   });

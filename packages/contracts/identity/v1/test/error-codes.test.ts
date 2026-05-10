@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { errorCodes, allErrorCodes } from '../src/error-codes.js';
 
 const PATTERN = /^IDENTITY_(STRUCTURAL|REFERENCES|CONSISTENCY|VENDOR|HTTP)_[A-Z0-9_]+$/;

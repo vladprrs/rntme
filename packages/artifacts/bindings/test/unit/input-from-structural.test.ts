@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateStructural } from '../../src/validate/structural.js';
 import { ERROR_CODES } from '../../src/types/result.js';
 import type { BindingArtifact } from '../../src/types/artifact.js';

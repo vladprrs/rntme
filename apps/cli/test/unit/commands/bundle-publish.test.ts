@@ -1,13 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { runBundlePublish } from '../../../src/commands/bundle/publish.js';
 
 describe('rntme bundle publish', () => {
   it('emits BundleSource JSON when --print-json is passed', async () => {
-    const fakePublish = vi.fn(async () => ({
+    const fakePublish = mock(async () => ({
       ok: true as const,
       value: { ref: { bucket: 'b', key: 'p/hash.tar.gz', sha256: 'h'.repeat(64) }, bytes: 100, durationMs: 1 },
     }));
-    const stdout = vi.fn();
+    const stdout = mock();
 
     const exit = await runBundlePublish(
       { folder: './x', target: { kind: 's3', bucket: 'b' }, printJson: true },
@@ -21,15 +21,15 @@ describe('rntme bundle publish', () => {
   });
 
   it('returns non-zero exit and readable error on failure', async () => {
-    const fakePublish = vi.fn(async () => ({
+    const fakePublish = mock(async () => ({
       ok: false as const,
       errors: [{ code: 'BUNDLE_PUBLISH_NO_INDEX_HTML' as const, message: 'index.html required' }],
     }));
-    const stderr = vi.fn();
+    const stderr = mock();
 
     const exit = await runBundlePublish(
       { folder: './x', target: { kind: 's3', bucket: 'b' }, printJson: false },
-      { publish: fakePublish, stdout: vi.fn(), stderr },
+      { publish: fakePublish, stdout: mock(), stderr },
     );
 
     expect(exit).toBe(1);

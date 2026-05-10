@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { lowerExpr } from '../../../../src/lower/sqlite/expr.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { Expr } from '../../../../src/types/authoring.js';

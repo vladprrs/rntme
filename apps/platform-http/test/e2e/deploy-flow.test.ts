@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, relative, sep } from 'node:path';
@@ -140,10 +140,13 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
     expect(scheduled).toContainEqual({ deploymentId: queuedJson.deployment.id, orgId: auth.orgId });
 
     const mockDokploy = createMockDokployApp();
-    const dokployClientFactory = createDokployClientFactory(env.deps.cipher!, async (input, init) => {
+    const dokployClientFactory = createDokployClientFactory(env.deps.cipher!, (async (
+      input: Parameters<typeof globalThis.fetch>[0],
+      init?: Parameters<typeof globalThis.fetch>[1],
+    ) => {
       const url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url);
       return mockDokploy.app.request(url.href, init);
-    });
+    }) as unknown as typeof globalThis.fetch);
 
     await runDeployment(queuedJson.deployment.id, auth.orgId, {
       blob: env.deps.blob,

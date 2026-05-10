@@ -76,6 +76,17 @@ Build:
 docker build -f packages/runtime/bpmn-worker/Dockerfile -t ghcr.io/<owner>/rntme-bpmn-worker:<tag> .
 ```
 
+## Development
+
+Run package gates from `packages/runtime/bpmn-worker`:
+
+```bash
+bun test
+bun run typecheck
+bun run build
+bun run lint
+```
+
 ## Specs
 
 - `../../../docs/history/specs/historical/2026-05-05-provisioned-bpmn-operaton-design.md`

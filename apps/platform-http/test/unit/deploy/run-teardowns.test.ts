@@ -1,13 +1,13 @@
 import { Buffer } from 'node:buffer';
 import { gzipSync } from 'node:zlib';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { ok, type BlobStore, type DeploymentWithProvision, type SecretCipher } from '@rntme/platform-core';
 
 import { runTearDownsForDeployment } from '../../../src/deploy/run-teardowns.js';
 
 describe('runTearDownsForDeployment', () => {
   it('rejects invalid stored bundles before materializing colliding JSON assets', async () => {
-    const resolveProvisioner = vi.fn();
+    const resolveProvisioner = mock();
     const result = await runTearDownsForDeployment({
       deployment: deploymentWithProvision(),
       projectVersion: { bundleBlobKey: 'bundle-key' },
@@ -32,8 +32,8 @@ describe('runTearDownsForDeployment', () => {
           },
         }),
         secretCipher: {
-          encrypt: vi.fn(() => ({ ciphertext: Buffer.alloc(0), nonce: Buffer.alloc(0), keyVersion: 1 })),
-          decrypt: vi.fn(() => '{"modules":{}}'),
+          encrypt: mock(() => ({ ciphertext: Buffer.alloc(0), nonce: Buffer.alloc(0), keyVersion: 1 })),
+          decrypt: mock(() => '{"modules":{}}'),
         } as SecretCipher,
         resolveProvisioner,
       },
@@ -50,10 +50,10 @@ describe('runTearDownsForDeployment', () => {
 
 function blobWithBundle(bundle: unknown): BlobStore {
   return {
-    getRaw: vi.fn(async () => ok(gzipSync(Buffer.from(JSON.stringify(bundle))))),
-    putIfAbsent: vi.fn(),
-    presignedGet: vi.fn(),
-    getJson: vi.fn(),
+    getRaw: mock(async () => ok(gzipSync(Buffer.from(JSON.stringify(bundle))))),
+    putIfAbsent: mock(),
+    presignedGet: mock(),
+    getJson: mock(),
   } as unknown as BlobStore;
 }
 

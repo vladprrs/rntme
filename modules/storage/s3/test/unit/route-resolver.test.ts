@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createRouteResolver } from '../../src/route-resolver.js';
 
 const sj = {

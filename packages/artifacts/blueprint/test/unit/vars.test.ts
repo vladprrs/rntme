@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { validateBlueprintStructural } from '../../src/validate/structural.js';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
 

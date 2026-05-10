@@ -2,14 +2,14 @@ import * as grpc from '@grpc/grpc-js';
 import type { ResolvedBinding, ValidatedBindings } from '@rntme/bindings';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { EventStore } from '@rntme/event-store';
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import { mapExecutorErrorToGrpcStatus } from './errors.js';
 import { bindingIdToRpcName, toSnakeCase } from '../emit/ids.js';
 
 export type HandlerDeps = {
   operationExecutor: OperationExecutor;
   eventStore: EventStore;
-  qsmDb: BetterSqlite3.Database;
+  qsmDb: SqliteDatabase;
   now: () => string;
   nextId: () => string;
 };

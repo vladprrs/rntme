@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { mapS3ErrorToStorageCode } from '../../src/error-mapper.js';
 
 describe('mapS3ErrorToStorageCode', () => {

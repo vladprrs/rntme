@@ -28,8 +28,8 @@ Unsupported canonical RPCs are present on the handler object and return gRPC `UN
 Mock tests use fake adapters and do not need WorkOS secrets or network access:
 
 ```sh
-pnpm -F @rntme/identity-workos run test
-pnpm -F @rntme/identity-workos run test:conformance:mock
+bun test
+bun run test:conformance:mock
 ```
 
 Live conformance is documented but not wired until a WorkOS sandbox and secrets are provided. A live runner should construct `createWorkOSAdapter({ apiKey: process.env.WORKOS_API_KEY })` and keep webhook tests isolated with `WORKOS_WEBHOOK_SECRET`.

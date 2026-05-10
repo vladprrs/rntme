@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ok, err, isOk, isErr, type Result } from '../src/index.js';
 
 type DemoError = { code: string; message: string };

@@ -15,10 +15,10 @@ Conformance scenarios for the CRM canonical contract `@rntme/contracts-crm-v1`. 
 ## Commands
 
 ```bash
-pnpm -F @rntme/conformance-crm run build
-pnpm -F @rntme/conformance-crm run typecheck
-pnpm -F @rntme/conformance-crm run test
-pnpm -F @rntme/conformance-crm run lint
+bun run build
+bun run typecheck
+bun test
+bun run lint
 ```
 
 ## Specs

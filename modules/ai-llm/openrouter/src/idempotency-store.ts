@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 
 export interface IdempotencyStore {
   get(key: string): Promise<Buffer | null>;
@@ -52,8 +52,8 @@ function createMemoryStore(ttlMs: number, now: () => number): IdempotencyStore {
 }
 
 function createSqliteStore(path: string, ttlMs: number, now: () => number): IdempotencyStore {
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
+  const db = new Database(path, { create: true });
+  db.exec('PRAGMA journal_mode = WAL');
   db.exec(`
     CREATE TABLE IF NOT EXISTS idempotency_records (
       idempotency_key TEXT PRIMARY KEY,
@@ -63,20 +63,20 @@ function createSqliteStore(path: string, ttlMs: number, now: () => number): Idem
     CREATE INDEX IF NOT EXISTS idx_created_at ON idempotency_records(created_at);
   `);
 
-  const stmtGet = db.prepare<[string, number]>(
+  const stmtGet = db.query<{ completion_proto: Uint8Array }, [string, number]>(
     `SELECT completion_proto FROM idempotency_records WHERE idempotency_key = ? AND created_at >= ?`,
   );
-  const stmtPut = db.prepare<[string, Buffer, number]>(
+  const stmtPut = db.query<unknown, [string, Buffer, number]>(
     `INSERT OR REPLACE INTO idempotency_records (idempotency_key, completion_proto, created_at) VALUES (?, ?, ?)`,
   );
-  const stmtEvict = db.prepare<[number]>(
+  const stmtEvict = db.query<unknown, [number]>(
     `DELETE FROM idempotency_records WHERE created_at < ?`,
   );
 
   return {
     async get(key) {
-      const row = stmtGet.get(key, now() - ttlMs) as { completion_proto?: Buffer } | undefined;
-      return row?.completion_proto ?? null;
+      const row = stmtGet.get(key, now() - ttlMs);
+      return row ? Buffer.from(row.completion_proto) : null;
     },
     async put(key, payload) {
       stmtPut.run(key, payload, now());

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { ProjectSchema, ApiTokenSchema, ScopeSchema, ProjectStatusSchema } from '../../../src/schemas/entities.js';
 
 describe('entity schemas', () => {

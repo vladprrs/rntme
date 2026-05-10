@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { loadComposedBlueprint } from '../../src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));

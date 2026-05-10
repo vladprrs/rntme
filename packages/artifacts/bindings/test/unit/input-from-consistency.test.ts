@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateConsistency } from '../../src/validate/consistency.js';
 import { ERROR_CODES } from '../../src/types/result.js';
 import type { BindingEntry, ResolvedBindings } from '../../src/types/artifact.js';

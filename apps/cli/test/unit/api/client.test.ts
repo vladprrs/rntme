@@ -1,16 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
 import { z } from 'zod';
 import { apiCall } from '../../../src/api/client.js';
+import { restoreGlobals, stubGlobal } from '../../helpers/globals.js';
 
 const OkSchema = z.object({ ok: z.boolean() });
 
 describe('apiCall', () => {
-  const realFetch = globalThis.fetch;
-  beforeEach(() => { vi.restoreAllMocks(); });
-  afterEach(() => { globalThis.fetch = realFetch; });
+  beforeEach(() => { mock.restore(); restoreGlobals(); });
+  afterEach(() => { restoreGlobals(); });
 
   it('200 → parsed response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
+    stubGlobal('fetch', mock().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
       status: 200, headers: { 'content-type': 'application/json' },
     })));
     const r = await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema });
@@ -19,7 +19,7 @@ describe('apiCall', () => {
   });
 
   it('2xx with bad shape → CLI_RESPONSE_PARSE_FAILED', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"bogus":1}', {
+    stubGlobal('fetch', mock().mockResolvedValue(new Response('{"bogus":1}', {
       status: 200, headers: { 'content-type': 'application/json' },
     })));
     const r = await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema });
@@ -28,7 +28,7 @@ describe('apiCall', () => {
   });
 
   it('4xx envelope → ApiError with platform code', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    stubGlobal('fetch', mock().mockResolvedValue(new Response(JSON.stringify({
       error: { code: 'PLATFORM_AUTH_INVALID', message: 'bad token' },
     }), { status: 401, headers: { 'content-type': 'application/json' } })));
     const r = await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: 'rntme_pat_aaaaaaaaaaaaaaaaaaaaaa', responseSchema: OkSchema });
@@ -43,7 +43,7 @@ describe('apiCall', () => {
   });
 
   it('non-JSON 5xx → PLATFORM_INTERNAL synthetic', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>500</html>', { status: 500 })));
+    stubGlobal('fetch', mock().mockResolvedValue(new Response('<html>500</html>', { status: 500 })));
     const r = await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema });
     expect(r.ok).toBe(false);
     if (!r.ok && r.error.kind === 'http') {
@@ -53,15 +53,15 @@ describe('apiCall', () => {
   });
 
   it('network error → NetworkError', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+    stubGlobal('fetch', mock().mockRejectedValue(new Error('ECONNREFUSED')));
     const r = await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.kind).toBe('network');
   });
 
   it('sends Authorization when token provided', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
     await apiCall({ method: 'GET', path: '/x', baseUrl: 'https://p', token: 'rntme_pat_aaaaaaaaaaaaaaaaaaaaaa', responseSchema: OkSchema });
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error('fetch was not called');
@@ -71,7 +71,7 @@ describe('apiCall', () => {
   });
 
   it('nested[] preserved from envelope', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    stubGlobal('fetch', mock().mockResolvedValue(new Response(JSON.stringify({
       error: {
         code: 'PLATFORM_VALIDATION_BUNDLE_FAILED',
         message: 'bundle validation failed',

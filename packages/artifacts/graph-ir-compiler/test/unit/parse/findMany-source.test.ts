@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { parseAuthoringSpec } from '../../../src/parse/parse.js';
 
 describe('parseAuthoringSpec — findMany source { eventType }', () => {

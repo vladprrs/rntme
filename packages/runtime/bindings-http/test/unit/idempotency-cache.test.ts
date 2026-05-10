@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import BetterSqlite3 from 'better-sqlite3';
+import { describe, it, expect } from 'bun:test';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { IdempotencyCache } from '../../src/idempotency/cache.js';
 
 describe('IdempotencyCache', () => {
   it('preserves headers across set/get', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     cache.set(
       'cmd.x',
@@ -20,7 +20,7 @@ describe('IdempotencyCache', () => {
   });
 
   it('returns undefined headers when none were stored', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     cache.set('cmd.y', 'key-2', { status: 200, body: '{"ok":true}' }, 1000);
     const hit = cache.get('cmd.y', 'key-2', 1500);
@@ -28,7 +28,7 @@ describe('IdempotencyCache', () => {
   });
 
   it('stores and retrieves a response by (operationName, key)', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     cache.set('createOrder', 'abc', { status: 200, body: '{"ok":true}' }, Date.now());
     const hit = cache.get('createOrder', 'abc', Date.now());
@@ -36,7 +36,7 @@ describe('IdempotencyCache', () => {
   });
 
   it('returns null for expired entries', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     cache.set('createOrder', 'abc', { status: 200, body: '{}' }, Date.now() - 25 * 3600 * 1000);
     const hit = cache.get('createOrder', 'abc', Date.now()); // TTL is 24h
@@ -44,7 +44,7 @@ describe('IdempotencyCache', () => {
   });
 
   it('removes expired entries during normal reads', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     const now = Date.now();
     cache.set('createOrder', 'abc', { status: 200, body: '{}' }, now - 25 * 3600 * 1000);
@@ -58,13 +58,13 @@ describe('IdempotencyCache', () => {
   });
 
   it('returns null for unknown key', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     expect(cache.get('createOrder', 'none', Date.now())).toBeNull();
   });
 
   it('overwrites on second set (same key)', () => {
-    const db = new BetterSqlite3(':memory:');
+    const db = openSqliteDatabase({ filename: ':memory:' });
     const cache = new IdempotencyCache(db);
     cache.set('createOrder', 'abc', { status: 200, body: 'v1' }, Date.now());
     cache.set('createOrder', 'abc', { status: 200, body: 'v2' }, Date.now());

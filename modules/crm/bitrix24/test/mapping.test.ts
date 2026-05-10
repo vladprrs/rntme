@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ContactStatus, DealStatus, StageSemantic } from '@rntme/contracts-crm-v1';
 import {
   mapBitrix24Activity,

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateReferences } from '../../../src/validate/references.js';
 import type { StructurallyValid } from '../../../src/types/artifact.js';
 import type { BindingResolvers, GraphSignature, ResolvedShape } from '../../../src/types/resolvers.js';

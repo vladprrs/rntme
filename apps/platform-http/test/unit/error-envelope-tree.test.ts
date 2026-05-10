@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { errorEnvelope } from '../../src/middleware/error-handler.js';
 import type { PlatformError } from '@rntme/platform-core';
 

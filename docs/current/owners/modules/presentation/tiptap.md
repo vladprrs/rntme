@@ -16,9 +16,9 @@ Tiptap rich-text editor UI module for generated rntme SPAs. It contributes a
 ## Quick start
 
 ```bash
-pnpm -F @rntme/presentation-tiptap run build
-pnpm -F @rntme/presentation-tiptap run test
-pnpm -F @rntme/presentation-tiptap run typecheck
+bun run build
+bun test
+bun run typecheck
 ```
 
 ## Browser component

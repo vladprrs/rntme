@@ -1,0 +1,30 @@
+{
+  "name": "@rntme/sqlite",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Shared SQLite port over bun:sqlite. The only allowed SQLite driver in rntme runtime/modules.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4"
+  }
+}

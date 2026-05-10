@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { toCloudEventWire, fromCloudEventWire } from '../../src/kafka/wire-codec.js';
 import { CloudEventDecodeError } from '../../src/kafka/wire-errors.js';
 import type { EventEnvelope } from '../../src/types/envelope.js';

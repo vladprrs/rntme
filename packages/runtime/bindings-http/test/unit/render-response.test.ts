@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { renderOkResponse, renderErrResponse } from '../../src/runtime/render-response.js';
 import type { ResponseShape } from '@rntme/bindings';
 

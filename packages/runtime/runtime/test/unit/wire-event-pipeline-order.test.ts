@@ -3,7 +3,7 @@
  * verifies `wireEventPipeline` is wired without asserting start order here.
  * Full start-order behavior is covered in the integration suite (Task 14).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { wireEventPipeline } from '../../src/start/wire-event-pipeline.js';
 
 describe('wireEventPipeline', () => {

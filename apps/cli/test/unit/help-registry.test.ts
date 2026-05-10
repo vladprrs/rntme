@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { lookupHelp, registerHelp } from '../../src/help/registry.js';
 
 describe('help registry', () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { proto } from '@rntme/contracts-identity-v1';
 import { GRPC_STATUS_UNIMPLEMENTED, createWorkOSIdentityModule } from '../src/index.js';
 import { GRPC_STATUS_INVALID_ARGUMENT } from '../src/errors.js';

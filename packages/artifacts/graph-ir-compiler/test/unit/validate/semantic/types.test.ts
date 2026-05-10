@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { inferExprType } from '../../../../src/validate/semantic/types.js';
 import type { Scope } from '../../../../src/validate/semantic/scope.js';
 import { commercePdm as P } from '../../../fixtures/validated-commerce.js';

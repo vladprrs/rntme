@@ -47,14 +47,14 @@ Plus the unconditional anti-conformance check (modules-monorepo §7.3): any RPC 
 
 ## Mock-vendor vs live-sandbox
 
-- `pnpm test:conformance:mock` (vendor module, after framework lands) — runs every scenario against the generic mock-vendor in `@rntme/conformance-framework`. No secrets, runs on every PR.
-- `pnpm test:conformance:live` — same suite, vendor sandbox credentials. Runs at release tag only.
+- `bun test:conformance:mock` (vendor module, after framework lands) — runs every scenario against the generic mock-vendor in `@rntme/conformance-framework`. No secrets, runs on every PR.
+- `bun test:conformance:live` — same suite, vendor sandbox credentials. Runs at release tag only.
 
 Both filter scenarios by the module's `capabilities[]`.
 
 ## Invariants & gotchas
 
-- **Drift test is mandatory CI.** Adding an RPC to `IdentityModule` without a matching `<RPC>.scenarios.ts` file fails `pnpm test`. This enforces modules-monorepo §7.2.
+- **Drift test is mandatory CI.** Adding an RPC to `IdentityModule` without a matching `<RPC>.scenarios.ts` file fails `bun test`. This enforces modules-monorepo §7.2.
 - **Suite shape is canonicalized as camelCase.** Identity exposes `contractVersion` and `scenariosByRpc`; `suite` is a non-breaking alias for template consumers, not a separate shape.
 - **Capability registry is the typed source of truth.** `IDENTITY_CANONICAL_RPCS`, `IDENTITY_CANONICAL_EVENTS`, and `IDENTITY_SCENARIO_COVERAGE` must move together when the contract changes.
 - **Scenarios are vendor-agnostic.** A scenario references canonical proto types and fixture seeds — never vendor-specific behavior. Vendor adapters in `modules/identity/<vendor>/test/conformance.test.ts` import this suite and feed it through the framework runner.

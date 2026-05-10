@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { canonicalize, sha256Hex, canonicalDigest } from '../../../src/validation/canonical-json.js';
 
 describe('canonicalize', () => {

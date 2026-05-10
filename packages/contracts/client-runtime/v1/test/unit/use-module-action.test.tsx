@@ -1,8 +1,8 @@
-// @vitest-environment happy-dom
+import '../setup-dom.js';
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { RegistryProvider, useModuleAction } from '../../src/hooks.js';
 import { createOperationRegistry } from '../../src/operation-registry.js';
 
@@ -12,7 +12,7 @@ import { createOperationRegistry } from '../../src/operation-registry.js';
 describe('useModuleAction', () => {
   it('returns an async callable that dispatches module operations with params', async () => {
     const registry = createOperationRegistry();
-    const handler = vi.fn();
+    const handler = mock();
     registry.registerModule('@rntme/test-module', 'save', handler);
 
     let save: ((params?: Record<string, unknown>) => Promise<void>) | undefined;

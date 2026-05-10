@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { StorageJson, StorageRoute } from '../../src/types/storage-json.js';
 import { validateStorageJsonConsistency } from '../../src/validate/storage/consistency.js';
 

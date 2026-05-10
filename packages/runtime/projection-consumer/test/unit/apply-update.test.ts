@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -32,12 +32,12 @@ function setup() {
   };
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('applyEvent — UPDATE (non-creation)', () => {
   it('sequential lifecycle drives projection through correct final state', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     for (const env of issueLifecycle('1')) {
@@ -54,7 +54,7 @@ describe('applyEvent — UPDATE (non-creation)', () => {
   });
 
   it('UPDATE does not touch columns absent from payload.after', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const { plan, ddls } = setup();
     bootstrapProjections(db, ddls);
     const lifecycle = issueLifecycle('1');

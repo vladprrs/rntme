@@ -46,14 +46,14 @@ The module exports:
 - repeat provisioning idempotency,
 - hash mismatch error code.
 
-Every new marketing-site vendor should consume this suite and keep vendor-specific integration tests gated so default `pnpm -r test` remains fast.
+Every new marketing-site vendor should consume this suite and keep vendor-specific integration tests gated so the default test suite remains fast.
 
 ## Commands
 
-- `pnpm -F @rntme/conformance-marketing-site test`
-- `pnpm -F @rntme/marketing-site-static test`
-- `pnpm -F @rntme/marketing-site-static build`
-- `INTEGRATION=1 pnpm -F @rntme/marketing-site-static test`
+- `bun run -F @rntme/conformance-marketing-site test`
+- `bun run -F @rntme/marketing-site-static test`
+- `bun run -F @rntme/marketing-site-static build`
+- `INTEGRATION=1 bun run -F @rntme/marketing-site-static test`
 
 ## Gotchas
 

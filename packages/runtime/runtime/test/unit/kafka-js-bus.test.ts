@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { toKafkaJsSubscriptionTopic } from '../../src/plugins/kafka-js-bus.js';
 
 describe('KafkaJsEventBus', () => {

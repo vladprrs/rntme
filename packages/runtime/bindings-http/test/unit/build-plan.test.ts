@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildPlan } from '../../src/startup/compile-plan.js';
 import { BindingsRuntimeError } from '../../src/errors.js';
 

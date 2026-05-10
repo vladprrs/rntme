@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import './dom-setup.js';
+import { render } from '@testing-library/react';
 import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 
-vi.mock('@rntme/contracts-client-runtime-v1', () => ({
+mock.module('@rntme/contracts-client-runtime-v1', () => ({
   useOperation: (moduleName: string, name: string) => {
     if (name === 'storage.list') {
       return async () => ({ files: [{ fileId: 'file-1', contentType: 'image/png', sizeBytes: 1 }] });
@@ -18,7 +19,7 @@ import { FileList } from '../../src/client/file-list.js';
 
 describe('<FileList>', () => {
   it('renders one item from the operation', async () => {
-    render(<FileList routeId="attachments" entityId="ticket-1" />);
-    expect(await screen.findByRole('button', { name: 'delete' })).not.toBeNull();
+    const view = render(<FileList routeId="attachments" entityId="ticket-1" />);
+    expect(await view.findByRole('button', { name: 'delete' })).not.toBeNull();
   });
 });

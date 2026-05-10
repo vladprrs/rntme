@@ -45,12 +45,12 @@ src/
     build-actor-from-request.ts         (entry) `buildActorFromRequest(manifest)` — header → ActorRef resolver.
   plugins/
     interfaces.ts                       (entry) DbDriver, DbHandle, DbOpenOpts, EventBus, Surface, SurfaceContext.
-    better-sqlite-driver.ts             (entry) `BetterSqliteDriver` — default DbDriver (SQLite via better-sqlite3).
+    bun-sqlite-driver.ts                (entry) `BunSqliteDriver` — default DbDriver (SQLite via `@rntme/sqlite`).
     in-memory-bus.ts                    (entry) `InMemoryBus` — default EventBus backed by InMemoryKafkaConsumer.
     kafka-js-bus.ts                     (entry) KafkaJS-backed EventBus used when RNTME_EVENT_BUS_BROKERS is set.
     http-surface.ts                     (entry) `HttpSurface` — default Surface mounting bindings at /api and UI at /.
     observability.ts                    (entry) createMetrics, mountObservability, Metrics, HealthProbe.
-    contract-tests.ts                   (test-only) Vitest contract suites for DbDriver, EventBus, Surface. Not re-exported from index.ts.
+    contract-tests.ts                   (test-only) bun:test contract suites for DbDriver, EventBus, Surface. Not re-exported from index.ts.
     executors/graph-operation-executor.ts
                                         Default OperationExecutor backed by compiled Graph IR operations.
 ```
@@ -63,7 +63,7 @@ src/
 import {
   loadService,
   startService,
-  BetterSqliteDriver,
+  BunSqliteDriver,
   InMemoryBus,
   HttpSurface,
   createMetrics,
@@ -76,7 +76,7 @@ if (!loaded.ok) {
 }
 
 const running = await startService(loaded.value, {
-  db: new BetterSqliteDriver(),
+  db: new BunSqliteDriver(),
   bus: new InMemoryBus(),
   onReady: ({ port }) => console.log(`listening on ${port}`),
 });
@@ -125,7 +125,7 @@ Domain-service executable command-handler files are no longer a runtime extensio
 
 | Interface | Default impl | Key methods |
 |---|---|---|
-| `DbDriver` | `BetterSqliteDriver` | `open(opts: { purpose: 'event-store' \| 'qsm'; path: string \| ':memory:' }): DbHandle` |
+| `DbDriver` | `BunSqliteDriver` | `open(opts: { purpose: 'event-store' \| 'qsm'; path: string \| ':memory:' }): DbHandle` |
 | `EventBus` | `InMemoryBus` | `producer(): KafkaProducer`, `consumer({ groupId, topic }): KafkaConsumer`, optional `start()`, `stop()` |
 | `Surface` | `HttpSurface` | `mount(app: Hono, ctx: SurfaceContext): void`, optional `listen()` |
 
@@ -136,13 +136,13 @@ that consumer.
 
 `SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`. Service identity metadata is exposed at `/service.json` so the UI shell owns `/` and SPA deep-link fallbacks.
 
-Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports vitest and must not be loaded in production processes).
+Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports `bun:test` and must not be loaded in production processes).
 
 ### `RuntimeConfig`
 
 | Field | Default | Purpose |
 |---|---|---|
-| `db` | `new BetterSqliteDriver()` | DbDriver for QSM (`event-store` is opened directly by `SqliteEventStore`). |
+| `db` | `new BunSqliteDriver()` | DbDriver for QSM (`event-store` is opened directly by `SqliteEventStore`). |
 | `bus` | `new InMemoryBus()` | EventBus used by relay/consumer. |
 | `surfaces` | `[new HttpSurface(...)]` | Surfaces mounted onto the internal Hono app. |
 | `actorFromRequest` | `buildActorFromRequest(manifest)` | Request → `ActorRef \| null`. |
@@ -317,8 +317,8 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - **`persistence.mode: 'persistent'` requires both paths.** `eventStorePath` and `qsmPath` are both required when mode is `persistent`; missing either yields `MANIFEST_MISSING_EVENT_STORE_PATH` / `MANIFEST_MISSING_QSM_PATH`. Ephemeral mode uses `:memory:` for both.
 - **Port 0 is honored.** The manifest schema allows `port: 0` (tests bind an ephemeral port); `startService` reads the actual bound port from `server.address()` and returns it in `RunningService.httpPort`.
 - **Health probe flips on `stop()`.** `probe` returns `{ ok: true }` while running and `{ ok: false, reason: 'pipeline stopped' }` after `stop()`; Hono returns 503 in the latter case. `test/integration/shutdown.test.ts` asserts `fetch(/health)` rejects once the listener closes.
-- **HTTP shutdown is bounded.** `RunningService.stop()` starts with graceful `server.close()`, closes idle HTTP connections when Node exposes `closeIdleConnections()`, and after `shutdownTimeoutMs` force-closes active HTTP connections with `closeAllConnections()` when available before continuing gRPC, projection, and bus teardown. `test/integration/shutdown.test.ts` covers a request handler that never resolves.
-- **`contract-tests.ts` is not re-exported from `index.ts`.** It imports vitest. Load it from test code only: `import { runDbDriverContract } from '@rntme/runtime/src/plugins/contract-tests.js'`.
+- **HTTP shutdown is bounded.** `RunningService.stop()` starts with graceful `server.close()`, closes idle HTTP connections when Node exposes `closeIdleConnections()`, and after `shutdownTimeoutMs` force-closes active HTTP connections with `closeAllConnections()` when available before continuing gRPC, projection, and bus teardown. Bun's Node socket shim does not expose `destroySoon`, so `startService` installs a local compatibility method before Hono's request cleanup runs. `test/integration/shutdown.test.ts` covers a request handler that never resolves.
+- **`contract-tests.ts` is not re-exported from `index.ts`.** It imports `bun:test`. Load it from test code only: `import { runDbDriverContract } from '@rntme/runtime/src/plugins/contract-tests.js'`.
 
 ## Operability
 
@@ -329,7 +329,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 - Single-process runtime. There is no clustering, leader election, or inter-process coordination. Scale-out is a future `@rntme/bus-kafka` + external Turso deployment.
 - No project-level runtime intake. Booting from `project.json` + project PDM + N services is validated/composed by `@rntme/blueprint`, but `@rntme/runtime` still starts one service at a time.
 - One `manifest.json` per process. Multi-service embedding means multiple `startService` calls, each with its own port.
-- SQLite-only default. `BetterSqliteDriver` is the only shipped DbDriver. Postgres is explicitly not a target — target dialect is SQLite forever, scale-out goes through Turso.
+- SQLite-only default. `BunSqliteDriver` is the only shipped DbDriver. Postgres is explicitly not a target — target dialect is SQLite forever, scale-out goes through Turso.
 - No hot reload. `loadService` runs once at boot; a manifest/artifact edit requires a restart.
 - No authentication beyond the header-based `ActorRef`. `manifest.auth.mode` is fixed at `'header'` in MVP.
 - No `commands: []` / `rows: []` seed sugar — see `docs/history/specs/historical/2026-04-15-runtime-seed-design.md` §1 non-goals.
@@ -338,7 +338,7 @@ Env overrides (`RNTME_PERSISTENCE_MODE`, `RNTME_EVENT_STORE_PATH`, `RNTME_QSM_PA
 
 ## Where to look first
 
-- **Add a new `DbDriver`** (e.g. `@rntme/db-turso`): implement `DbDriver` from `src/plugins/interfaces.ts`; use `BetterSqliteDriver` in `src/plugins/better-sqlite-driver.ts` as the pattern; run `runDbDriverContract` from `src/plugins/contract-tests.ts` to verify; inject via `RuntimeConfig.db`.
+- **Add a new `DbDriver`** (e.g. `@rntme/db-turso`): implement `DbDriver` from `src/plugins/interfaces.ts`; use `BunSqliteDriver` in `src/plugins/bun-sqlite-driver.ts` as the pattern; run `runDbDriverContract` from `src/plugins/contract-tests.ts` to verify; inject via `RuntimeConfig.db`.
 - **Add a new `EventBus`** (e.g. `@rntme/bus-kafka`): implement `EventBus` from `src/plugins/interfaces.ts`; use `InMemoryBus` as the pattern (wraps `createInMemoryKafkaConsumer` from `@rntme/projection-consumer`); run `runEventBusContract`; inject via `RuntimeConfig.bus`.
 - **Add a new `Surface`** (e.g. gRPC, WebSocket): implement `Surface` from `src/plugins/interfaces.ts`; use `HttpSurface` as the pattern; run `runSurfaceContract`; pass via `RuntimeConfig.surfaces` to replace or augment the default HTTP surface.
 - **Change startup order**: `src/start/start-service.ts` is the ordered orchestrator. Do not move seed before `bootstrapProjections` (DDL must exist first) or after `pipeline.start` (relay/consumer would observe a partially seeded log). Regression test: `test/integration/seed.test.ts`, `test/unit/wire-event-pipeline-order.test.ts`.

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import './dom-setup.js';
+import { beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
 import { createStateStore } from '@json-render/core';
 import {
   createLifecycleBus,
@@ -7,18 +8,18 @@ import {
   createTransportChain,
 } from '@rntme/contracts-client-runtime-v1';
 
-const auth0Mock = vi.hoisted(() => ({
-  isAuthenticated: vi.fn(async () => false),
-  handleRedirectCallback: vi.fn(async () => undefined),
-  getTokenSilently: vi.fn(async () => 'tok'),
-  getIdTokenClaims: vi.fn(async () => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
-  loginWithRedirect: vi.fn(async () => undefined),
-  logout: vi.fn(async () => undefined),
-}));
+const auth0Mock = {
+  isAuthenticated: mock(async () => false),
+  handleRedirectCallback: mock(async () => undefined),
+  getTokenSilently: mock(async () => 'tok'),
+  getIdTokenClaims: mock(async () => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
+  loginWithRedirect: mock(async () => undefined),
+  logout: mock(async () => undefined),
+};
 
-const Auth0ClientMock = vi.hoisted(() => vi.fn(() => auth0Mock));
+const Auth0ClientMock = mock(() => auth0Mock);
 
-vi.mock('@auth0/auth0-spa-js', () => ({
+mock.module('@auth0/auth0-spa-js', () => ({
   Auth0Client: Auth0ClientMock,
 }));
 
@@ -29,7 +30,9 @@ const cfg = {
   redirectUri: 'https://app.example.test/',
 };
 
-function makeCtx(baseFetch = vi.fn(async () => new Response('{}', { status: 200 }))) {
+function makeCtx(
+  baseFetch: typeof globalThis.fetch = mock(async () => new Response('{}', { status: 200 })) as unknown as typeof globalThis.fetch,
+) {
   const store = createStateStore({});
   const bus = createLifecycleBus();
   const chain = createTransportChain(baseFetch);
@@ -46,10 +49,19 @@ function makeCtx(baseFetch = vi.fn(async () => new Response('{}', { status: 200 
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  Auth0ClientMock.mockClear();
+  auth0Mock.isAuthenticated.mockClear();
+  auth0Mock.handleRedirectCallback.mockClear();
+  auth0Mock.getTokenSilently.mockClear();
+  auth0Mock.getIdTokenClaims.mockClear();
+  auth0Mock.loginWithRedirect.mockClear();
+  auth0Mock.logout.mockClear();
   auth0Mock.isAuthenticated.mockResolvedValue(false);
+  auth0Mock.handleRedirectCallback.mockResolvedValue(undefined);
   auth0Mock.getTokenSilently.mockResolvedValue('tok');
   auth0Mock.getIdTokenClaims.mockResolvedValue({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' });
+  auth0Mock.loginWithRedirect.mockResolvedValue(undefined);
+  auth0Mock.logout.mockResolvedValue(undefined);
   window.history.replaceState({}, '', '/');
 });
 
@@ -78,7 +90,7 @@ describe('boot', () => {
   it('handles redirect callback, stores user claims, and marks the session authed', async () => {
     auth0Mock.isAuthenticated.mockResolvedValue(true);
     window.history.replaceState({}, '', '/?code=abc&state=xyz');
-    const replaceState = vi.spyOn(window.history, 'replaceState');
+    const replaceState = spyOn(window.history, 'replaceState');
     const { ctx, store } = makeCtx();
     const { boot } = await import('../../client/index.js');
 
@@ -99,11 +111,11 @@ describe('boot', () => {
     auth0Mock.isAuthenticated.mockResolvedValue(true);
     let response = new Response('{}', { status: 200 });
     const sent: Request[] = [];
-    const baseFetch = vi.fn(async (req: Request) => {
+    const baseFetch = mock(async (req: Request) => {
       sent.push(req);
       return response;
     });
-    const { ctx, store, chain } = makeCtx(baseFetch);
+    const { ctx, store, chain } = makeCtx(baseFetch as unknown as typeof globalThis.fetch);
     const { boot } = await import('../../client/index.js');
 
     await boot(ctx);

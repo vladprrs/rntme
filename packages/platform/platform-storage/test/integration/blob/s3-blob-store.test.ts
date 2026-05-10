@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { S3BlobStore } from '../../../src/blob/s3-blob-store.js';
 import { isOk } from '@rntme/platform-core';

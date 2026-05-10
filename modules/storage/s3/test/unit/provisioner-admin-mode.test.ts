@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { provisionAuto } from '../../src/provisioner/admin-mode.js';
 
 const baseConfig = {
@@ -8,20 +8,20 @@ const baseConfig = {
   backend: 'aws-s3' as const,
 };
 
-const noopLog = vi.fn();
+const noopLog = mock();
 
 describe('provisionAuto', () => {
   it('creates bucket when HeadBucket says 404', async () => {
     const s3 = {
-      headBucket: vi.fn().mockRejectedValue({ $metadata: { httpStatusCode: 404 } }),
-      createBucket: vi.fn().mockResolvedValue(undefined),
-      putBucketCors: vi.fn().mockResolvedValue(undefined),
-      putBucketLifecycleConfiguration: vi.fn().mockResolvedValue(undefined),
+      headBucket: mock().mockRejectedValue({ $metadata: { httpStatusCode: 404 } }),
+      createBucket: mock().mockResolvedValue(undefined),
+      putBucketCors: mock().mockResolvedValue(undefined),
+      putBucketLifecycleConfiguration: mock().mockResolvedValue(undefined),
     };
     const iam = {
-      createUser: vi.fn().mockResolvedValue({ UserName: 'u' }),
-      putUserPolicy: vi.fn().mockResolvedValue(undefined),
-      createAccessKey: vi.fn().mockResolvedValue({
+      createUser: mock().mockResolvedValue({ UserName: 'u' }),
+      putUserPolicy: mock().mockResolvedValue(undefined),
+      createAccessKey: mock().mockResolvedValue({
         AccessKey: { AccessKeyId: 'AKIA', SecretAccessKey: 'SK' },
       }),
     };
@@ -41,15 +41,15 @@ describe('provisionAuto', () => {
 
   it('skips CreateBucket when HeadBucket says 200', async () => {
     const s3 = {
-      headBucket: vi.fn().mockResolvedValue(undefined),
-      createBucket: vi.fn(),
-      putBucketCors: vi.fn().mockResolvedValue(undefined),
-      putBucketLifecycleConfiguration: vi.fn().mockResolvedValue(undefined),
+      headBucket: mock().mockResolvedValue(undefined),
+      createBucket: mock(),
+      putBucketCors: mock().mockResolvedValue(undefined),
+      putBucketLifecycleConfiguration: mock().mockResolvedValue(undefined),
     };
     const iam = {
-      createUser: vi.fn().mockResolvedValue({}),
-      putUserPolicy: vi.fn().mockResolvedValue(undefined),
-      createAccessKey: vi.fn().mockResolvedValue({
+      createUser: mock().mockResolvedValue({}),
+      putUserPolicy: mock().mockResolvedValue(undefined),
+      createAccessKey: mock().mockResolvedValue({
         AccessKey: { AccessKeyId: 'AKIA', SecretAccessKey: 'SK' },
       }),
     };
@@ -67,9 +67,9 @@ describe('provisionAuto', () => {
 
   it('uses fallback credentials for R2 IAM step', async () => {
     const s3 = {
-      headBucket: vi.fn().mockResolvedValue(undefined),
-      putBucketCors: vi.fn().mockResolvedValue(undefined),
-      putBucketLifecycleConfiguration: vi.fn().mockResolvedValue(undefined),
+      headBucket: mock().mockResolvedValue(undefined),
+      putBucketCors: mock().mockResolvedValue(undefined),
+      putBucketLifecycleConfiguration: mock().mockResolvedValue(undefined),
     };
     const r = await provisionAuto({
       config: { ...baseConfig, backend: 'cloudflare-r2' },

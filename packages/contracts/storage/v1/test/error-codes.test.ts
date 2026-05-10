@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { errorCodes, isErrorCode, layerOf, type ErrorCode } from '../src/error-codes.js';
 
 const FORMAT = /^STORAGE_(STRUCTURAL|REFERENCES|CONSISTENCY|AUTH|VENDOR|PROVISIONER)_[A-Z0-9_]+$/;

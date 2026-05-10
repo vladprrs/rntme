@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { untarToDir } from '../../src/untar.js';
 import { makeBundle } from './helpers.js';
 

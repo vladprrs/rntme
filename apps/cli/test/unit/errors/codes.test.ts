@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { CLI_ERROR_CODES } from '../../../src/errors/codes.js';
 
 describe('CLI_ERROR_CODES registry', () => {
-  const expectedNew = [
+  const expectedNew: Array<(typeof CLI_ERROR_CODES)[number]> = [
     'CLI_INIT_ALREADY_INITIALIZED',
     'CLI_INIT_INVALID_SLUG',
     'CLI_VALIDATE_JSON_INVALID',
     'CLI_SKILLS_UNKNOWN_AGENT',
     'CLI_SKILLS_TARGET_NOT_WRITABLE',
-  ] as const;
+  ];
 
   it.each(expectedNew)('contains %s', (code) => {
     expect(CLI_ERROR_CODES).toContain(code);

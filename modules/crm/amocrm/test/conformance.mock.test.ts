@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { suite as crmConformanceSuite } from '@rntme/conformance-crm';
 import { proto } from '@rntme/contracts-crm-v1';
 import moduleManifest from '../module.json' with { type: 'json' };

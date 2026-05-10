@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'bun:test';
 import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
 import { Buffer } from 'node:buffer';

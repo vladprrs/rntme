@@ -8,7 +8,7 @@ This directory hosts vendor implementations of the CRM canonical contract `@rntm
 - A `module.json` manifest declaring `capabilities[]` (vendors, entities, rpcs, events, search_tiers, labeled_associations, bulk_operations.max_size, async_job_types, webhook_format, webhook_retry_policy).
 - Conformance scenarios passing under both mock-vendor and live-sandbox modes.
 
-The shared conformance suite lives at `modules/crm/conformance/` and is consumed by every vendor module via `pnpm test:conformance:mock` and `pnpm test:conformance:live` (when the framework lands).
+The shared conformance suite lives at `modules/crm/conformance/` and is consumed by every vendor module via `bun run test:conformance:mock` and `bun run test:conformance:live` (when the framework lands).
 
 ## Vendors landed here
 

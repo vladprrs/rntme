@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 const CANONICAL_RESPONSE_FORMATS = ['text', 'json_object', 'json_schema'] as const;
 

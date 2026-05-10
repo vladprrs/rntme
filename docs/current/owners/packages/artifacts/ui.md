@@ -237,7 +237,7 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 - Wire new HTTP entries → pass through `compile({ httpMap })`; no source change needed inside this package.
 - Debug a failing compile → start at `test/integration/compile.test.ts`, then per-phase unit tests under `test/unit/`: `resolve.test.ts`, `expand.test.ts`, `validate.test.ts`, `emit.test.ts`, `types.test.ts`. Parse-schema failures are covered by `resolve.test.ts`.
 - Reference the authoring-format shape for a new feature → `test/fixtures/minimal-app` (smallest valid app) and `test/fixtures/fragment-app` (one layout + one screen + one fragment).
-- Run tests → `pnpm -F @rntme/ui test` (vitest).
+- Run tests → `bun test` from `packages/artifacts/ui`.
 - Inspect a compiled artifact → `compile({...})`; `result.value` is a plain JSON-serializable `CompiledArtifact` (see `src/types/compiled.ts` for keys).
 - Add a new `UiErrorCode` → append to the union in `src/types/result.ts`, then update the error-code table in this README under **API → Error codes**.
 - Change the `$ref` prefix separator (`__`) → `src/expand/expand.ts`, constants in `inlineFragment`; note that `@rntme/ui-runtime` may depend on the separator — verify before changing.

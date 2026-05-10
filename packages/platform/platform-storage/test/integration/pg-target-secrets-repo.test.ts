@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import type { SecretCipher, TargetSecretRecord } from '@rntme/platform-core';
 import { withTransaction } from '../../src/pg/tx.js';
 import { PgDeployTargetRepo } from '../../src/repos/pg-deploy-target-repo.js';

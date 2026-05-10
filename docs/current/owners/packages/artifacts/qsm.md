@@ -217,10 +217,10 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 - **Entity-mirror table-name resolution.** `validate/cross-ref.ts` normalizes absent entity-mirror `proj.table` values to the PDM `entity.table`; `derive/ddl.ts`, `derive/handler.ts`, and `createQsmResolver` then read the same validated table name. An older fallback to `defaultTableName(projName)` (e.g. `projection_noteview`) created a table the queries never read and surfaced as `SQLITE_ERROR: no such table` at the first SELECT — root cause of PR4 in [`docs/history/plans/historical/2026-05-04-notes-500-fix-pr4.md`](/docs/history/plans/historical/2026-05-04-notes-500-fix-pr4.md). Explicit `proj.table` remains supported; the structural duplicate-table check still uses `defaultTableName` as a name-only stand-in before PDM context is available.
 - **SQLite DDL integration coverage.** `test/integration/ddl-bootstrap.test.ts`
   validates realistic PDM/QSM fixtures, applies generated projection DDL to an
-  in-memory SQLite database, and verifies table/index/resolver alignment for
-  explicit tables, omitted-table fallback, idempotency columns, and composite
-  keys. This is test-only coverage; applying DDL in production remains owned by
-  `@rntme/projection-consumer`.
+  in-memory SQLite database through the Bun-backed `@rntme/sqlite` port, and
+  verifies table/index/resolver alignment for explicit tables, omitted-table
+  fallback, idempotency columns, and composite keys. This is test-only coverage;
+  applying DDL in production remains owned by `@rntme/projection-consumer`.
 - `parseQsm` accepts both `unknown` (already-parsed JSON) and a JSON string — the string path runs `JSON.parse` first and surfaces SyntaxError as a parse-layer error. Source: `parse/parse.ts`.
 - `loadQsmDir(dir)` loads `qsm.json` plus every `projections/*.json` file and returns parse-layer `Result` errors. Expected absence uses `QSM_PARSE_DIR_INDEX_MISSING` (`path: "qsm.json"`) or `QSM_PARSE_DIR_PROJECTIONS_MISSING` (`path: "projections"`). Malformed JSON points to the exact file. Invalid composed projection shape is preserved as `QSM_PARSE_SCHEMA_VIOLATION` from `parseQsm`, with paths such as `projections.ProductCard.keys`; it is not wrapped as a directory-load error. Other filesystem failures use `QSM_PARSE_DIR_READ_FAILED` and should not include file contents or secrets in `cause`.
 - Both `projections` and `relations` default to `{}` at the schema level, so a QSM artifact with no relations is valid. The compiler will emit `NAV_NOT_ALLOWED` only when a graph attempts dot-nav through an undeclared relation. Source: `parse/schema.ts` `.default({})`; relations spec §3.
@@ -258,7 +258,7 @@ Feature gate: `QSM_BACKING_DERIVED_NOT_SUPPORTED`. Internal: `QSM_INTERNAL`.
 - "Investigate an entity-mirror duplicate or missing-state-machine error" → `validate/cross-ref.ts` (`mirrorsByEntity`, `entity-mirror` block); fixtures in `test/fixtures/issue-tracker.{pdm,qsm}.json`.
 - "Trace how a relation flows through compilation" → start at `createQsmResolver` (`src/resolvers/qsm-resolver.ts`), then read consumer code in `packages/artifacts/graph-ir-compiler/src/lower/sqlite/joins.ts` (relations spec §3).
 - "End-to-end smoke" → `test/smoke.test.ts` parses → validates → derives DDL + handlers against the issue-tracker fixtures.
-- "Verify generated DDL against real SQLite" → `test/integration/ddl-bootstrap.test.ts` boots emitted projection tables, checks indexes/idempotency columns, and asserts resolver table names match the physical tables.
+- "Verify generated DDL against real SQLite" → run `bun test` from `packages/artifacts/qsm`; `test/integration/ddl-bootstrap.test.ts` boots emitted projection tables through `@rntme/sqlite`, checks indexes/idempotency columns, and asserts resolver table names match the physical tables.
 - "Reproduce a relation B2 mismatch" → `test/unit/validate/relations-crossref.test.ts` covers each `QSM_XREF_RELATION_*` code (TO / LOCAL_KEY / FOREIGN_KEY / CARDINALITY mismatch, foreign-key-not-a-key, unknown source/target projection).
 - "Reproduce a relation key-shape rejection" → `test/unit/validate/relations-structural.test.ts` covers `QSM_RELATION_KEY_MALFORMED`, `QSM_RELATION_TO_MISSING`, `QSM_RELATION_KEY_MISSING`.
 - "Inspect realistic fixtures" → `test/fixtures/issue-tracker.pdm.json` and `test/fixtures/issue-tracker.qsm.json` are the canonical small artifacts shared across unit tests.

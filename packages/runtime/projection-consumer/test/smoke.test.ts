@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import {
   parsePdm, validatePdm, createPdmResolver, deriveEventTypes,
 } from '@rntme/pdm';
@@ -25,7 +25,7 @@ async function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('smoke: @rntme/projection-consumer end-to-end', () => {
@@ -53,7 +53,7 @@ describe('smoke: @rntme/projection-consumer end-to-end', () => {
     if (!qsm.ok) return;
 
     // Runtime: SQLite + DDL + plan
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     const ddls = generateProjectionDdl(qsm.value, pdmResolver);
     bootstrapProjections(db, ddls);
     const plan = compileApplyPlan({ pdm: pdmResolver, qsm: qsm.value, events });
@@ -101,7 +101,7 @@ describe('smoke: @rntme/projection-consumer end-to-end', () => {
     const qsm = validateQsm(qsmRaw.value, pdmResolver);
     if (!qsm.ok) return;
 
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     bootstrapProjections(db, generateProjectionDdl(qsm.value, pdmResolver));
     const plan = compileApplyPlan({ pdm: pdmResolver, qsm: qsm.value, events });
 

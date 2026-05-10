@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Hono } from 'hono';
 import { FakeStore } from '@rntme/platform-core/testing';
 import type { Pool } from 'pg';

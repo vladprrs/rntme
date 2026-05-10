@@ -8,7 +8,6 @@ Load and validate a declarative `seed.json` of event envelopes against the **PDM
   - `@rntme/event-store` — `EventEnvelope`, `EventStore`, `SqliteEventStore`, `ConcurrencyConflict`, and the new `appendRaw` method (see runtime-seed-design §6).
   - `@rntme/pdm` — `PdmResolver`, `EventTypeSpec`, `parsePdm`, `validatePdm`, `createPdmResolver`, `deriveEventTypes` (CLI loads `pdm.json` for context).
   - `zod` (v4) — structural parsing of the artifact in `schema.ts`.
-  - `better-sqlite3` (peer) — required only by the CLI and by hosts that pass a `SqliteEventStore`. Library types do not import it.
 - Consumed by:
   - `@rntme/runtime` — calls `loadSeed` during `loadService`, then `applySeed(... { mode: 'strict' })` in `startService` between `bootstrapProjections` and `relay.start()`.
   - `rntme-seed` CLI binary published from this package.
@@ -144,7 +143,7 @@ Types re-exported from `index.ts`: `SeedArtifact`, `SeedEventInput`, `ValidatedS
 
 ### CLI
 
-Binary `rntme-seed` (declared in `package.json` `bin`, built to `dist/bin/cli.js`; the `postbuild` script prepends a `#!/usr/bin/env node` shebang and `chmod 0755`s the file).
+Binary `rntme-seed` (declared in `package.json` `bin`, built to `dist/bin/cli.js`; the `postbuild` script normalizes a `#!/usr/bin/env bun` shebang and `chmod 0755`s the file).
 
 | Subcommand | Flags | Effect |
 | ---------- | ----- | ------ |
@@ -195,7 +194,7 @@ CLI exit codes:
 - "Add a new error code" → register in `src/types.ts` `SeedErrorCode` union; emit from the layer that detects it (`parse.ts` for syntax, `validate.ts` for semantic/invariants, `apply.ts` for I/O); add a row to the **Error codes** table above; add a negative-path unit test.
 - "Change apply-time behavior" → `src/apply.ts`. `mode === 'strict'` branch refuses non-empty stores; `mode === 'upsertByEventId'` reads existing IDs via `store.readRecordsFrom({ afterId: 0, limit: 1_000_000 })`. SQLite/`ConcurrencyConflict` mapping lives in `mapApplyError`.
 - "Change payload wrapping" → `src/wrap-payloads.ts`. `streamState` accumulates per-stream `{ ...currentState, ...after }`. Tests in `test/unit/wrap-payloads.test.ts` cover creation, non-creation, terminal transitions, multi-stream, pass-through, and field preservation.
-- "Change CLI flags or output" → `src/bin/cli.ts`. `runValidate`/`runApply` parse argv with `getFlag`; `resolveApplyMode` maps `--mode` to `ApplyMode`; `emitErrors` formats human and JSON output. CLI tests in `test/unit/cli.test.ts` `spawnSync` against the built `dist/bin/cli.js`.
+- "Change CLI flags or output" → `src/bin/cli.ts`. `runValidate`/`runApply` parse argv with `getFlag`; `resolveApplyMode` maps `--mode` to `ApplyMode`; `emitErrors` formats human and JSON output. CLI tests in `test/unit/cli.test.ts` use Bun to execute the built `dist/bin/cli.js`.
 - "Add a fixture for a new aggregate" → `test/fixtures/minimal-pdm.json` is the synthetic PDM used by `validate-*.test.ts`, `wrap-payloads.test.ts`, `load.test.ts`, and `cli.test.ts`. It declares one entity (`Thing`) with three transitions.
 - "Debug a failing seed fixture" → run `rntme-seed validate packages/artifacts/seed/test/fixtures`. Spec §11.4.
 - "Trace runtime integration" → `@rntme/runtime`'s `loadService` calls `loadSeed`; `startService` calls `applySeed` between `bootstrapProjections` and `pipeline.start()`. Spec §8.

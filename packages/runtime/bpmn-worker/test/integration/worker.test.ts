@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { WorkflowArtifact } from '@rntme/workflows';
 
 import { runBpmnWorker, runWorkflowEventOnce, type OperatonClient, type RntmeCommandClient } from '../../src/index.js';

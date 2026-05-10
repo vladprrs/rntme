@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, jest } from 'bun:test';
 import * as grpc from '@grpc/grpc-js';
 import * as protobuf from 'protobufjs';
-import BetterSqlite3 from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { SqliteEventStore } from '@rntme/event-store';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import { createGrpcServer } from '../../src/index.js';
@@ -18,7 +18,7 @@ afterEach(async () => {
 describe('createGrpcServer (integration)', () => {
   it('routes an action exposure to OperationExecutor and returns operation result', async () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
-    const qsmDb = new BetterSqlite3(':memory:');
+    const qsmDb = openSqliteDatabase({ filename: ':memory:' });
     const receivedInputs: Record<string, unknown>[] = [];
 
     const operationExecutor: OperationExecutor = {
@@ -81,7 +81,7 @@ describe('createGrpcServer (integration)', () => {
 
   it('passes supplied server credentials to bindAsync', async () => {
     const eventStore = new SqliteEventStore({ filename: ':memory:', serviceName: 'minimal' });
-    const qsmDb = new BetterSqlite3(':memory:');
+    const qsmDb = openSqliteDatabase({ filename: ':memory:' });
     const credentials = new TestServerCredentials();
 
     handle = createGrpcServer({
@@ -99,7 +99,7 @@ describe('createGrpcServer (integration)', () => {
       serverCredentials: credentials,
     });
 
-    const bindAsync = vi.spyOn(handle.server, 'bindAsync').mockImplementation((address, serverCredentials, callback) => {
+    const bindAsync = jest.spyOn(handle.server, 'bindAsync').mockImplementation((address, serverCredentials, callback) => {
       callback(null, 50051);
     });
 

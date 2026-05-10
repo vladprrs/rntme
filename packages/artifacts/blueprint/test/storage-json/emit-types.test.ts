@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { emitStorageRouteIdTypes } from '../../src/emit/storage-route-id-types.js';
 
 describe('emitStorageRouteIdTypes', () => {

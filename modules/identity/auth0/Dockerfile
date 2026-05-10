@@ -1,33 +1,27 @@
 # Build from the repository root:
 #   docker build -f modules/identity/auth0/Dockerfile -t ghcr.io/vladprrs/rntme-identity-auth0:dev .
 
-FROM node:20-alpine AS builder
+FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /build
 
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+COPY . .
 
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
-COPY packages/contracts ./packages/contracts
-COPY modules/identity ./modules/identity
-
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 # build:image skips tsconfig.client.json — the auth0 image runs only the gRPC
 # server, and the client TS imports @rntme/contracts-client-runtime-v1 which is
 # already copied via packages/contracts (consumed by the runtime image's
 # bundling step instead).
-RUN pnpm -F @rntme/identity-auth0 run build:image
-RUN node -e "const fs=require('fs');const p=require('./package.json');delete p.devDependencies;fs.writeFileSync('package.json', JSON.stringify(p));"
-RUN pnpm --filter @rntme/identity-auth0 --prod deploy /out
+RUN bun run -F @rntme/identity-auth0 build:image
 
-FROM node:20-alpine
-WORKDIR /srv
+FROM oven/bun:1.3.13-alpine
+WORKDIR /srv/modules/identity/auth0
 
-COPY --from=builder /out ./
+COPY --from=builder /build /srv
 
 ENV NODE_ENV=production \
     PORT=50051 \
     HTTP_PORT=50052
 
-USER node
+USER bun
 EXPOSE 50051 50052
-CMD ["node", "dist/bin/server.js"]
+CMD ["bun", "dist/bin/server.js"]

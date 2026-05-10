@@ -1,8 +1,9 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
 import { runProjectUpdateOperation } from '../../../../src/commands/project/update-operation.js';
 import { runProjectDeleteOperation } from '../../../../src/commands/project/delete-operation.js';
 import { runProjectOperationList } from '../../../../src/commands/project/operation-list.js';
 import { runProjectOperationShow } from '../../../../src/commands/project/operation-show.js';
+import { restoreGlobals, stubGlobal } from '../../../helpers/globals.js';
 
 const operation = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -57,19 +58,18 @@ const flags = {
 };
 
 describe('project operation commands', () => {
-  const realFetch = globalThis.fetch;
-
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
+    restoreGlobals();
   });
 
   afterEach(() => {
-    globalThis.fetch = realFetch;
+    restoreGlobals();
   });
 
   it('queues update operations with explicit version and target', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ operation, deployment }), { status: 202 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ operation, deployment }), { status: 202 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectUpdateOperation({ version: 4, target: 'dokploy-demos' }, flags);
 
@@ -82,8 +82,8 @@ describe('project operation commands', () => {
   });
 
   it('queues delete operations with confirmation', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ operation: { ...operation, kind: 'delete', targetId: null, projectVersionId: null, deploymentId: null } }), { status: 202 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ operation: { ...operation, kind: 'delete', targetId: null, projectVersionId: null, deploymentId: null } }), { status: 202 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectDeleteOperation({ confirm: 'notes-demo' }, flags);
 
@@ -93,8 +93,8 @@ describe('project operation commands', () => {
   });
 
   it('lists project operations', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ operations: [operation] }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ operations: [operation] }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectOperationList({ limit: 10 }, flags);
 
@@ -103,8 +103,8 @@ describe('project operation commands', () => {
   });
 
   it('shows one project operation', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ operation }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = mock().mockResolvedValue(new Response(JSON.stringify({ operation }), { status: 200 }));
+    stubGlobal('fetch', fetchMock);
 
     const exit = await runProjectOperationShow({ operationId: operation.id }, flags);
 

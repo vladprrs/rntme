@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { SmokeVerifier, type SmokeFetcher } from '../../../src/deploy/smoke-verifier.js';
 
 const ok401 = { status: 401, latencyMs: 1, body: '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}', contentType: 'application/json' };
@@ -6,7 +6,7 @@ const ok200 = { status: 200, latencyMs: 1, contentType: 'text/plain' };
 
 describe('SmokeVerifier real probes', () => {
   it('removes "not auto-checked in MVP" placeholder for public routes', async () => {
-    const fetcher = vi.fn(async () => ok200);
+    const fetcher = mock(async () => ok200);
     const v = new SmokeVerifier(fetcher as unknown as SmokeFetcher);
     const report = await v.verify({
       verificationHints: {

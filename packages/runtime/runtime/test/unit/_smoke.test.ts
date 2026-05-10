@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { VERSION } from '@rntme/runtime';
+import { describe, it, expect } from 'bun:test';
+import { VERSION } from '../../src/index.js';
 
 describe('@rntme/runtime', () => {
   it('exports a version string', () => {

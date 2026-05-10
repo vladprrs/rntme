@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { dokployLabels, dokployResourceName } from '../../src/names.js';
 
 describe('Dokploy names', () => {

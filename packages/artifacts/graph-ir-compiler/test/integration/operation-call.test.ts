@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '@rntme/sqlite';
+import { describe, expect, it } from 'bun:test';
 import {
   compileOperation,
   executeOperation,
@@ -83,7 +83,7 @@ describe('operation call nodes', () => {
       compiled.value,
       { customerId: 'cust-1' },
       {
-        qsmDb: new Database(':memory:'),
+        qsmDb: openSqliteDatabase({ filename: ':memory:' }),
         eventStore: null,
         callClient,
         now: () => '2026-05-06T00:00:00.000Z',

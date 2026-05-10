@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { CanonicalBundle } from '@rntme/platform-core';
 
 import { materializeAndCompose } from '../../../src/blueprint/load.js';

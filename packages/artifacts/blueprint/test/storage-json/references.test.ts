@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { StorageJson } from '../../src/types/storage-json.js';
 import { validateStorageJsonReferences } from '../../src/validate/storage/references.js';
 

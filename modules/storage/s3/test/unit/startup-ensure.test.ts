@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { ensureRustfsStorage } from '../../src/startup-ensure.js';
 
 const storage = {
@@ -20,19 +20,19 @@ describe('ensureRustfsStorage', () => {
   it('creates missing bucket and applies CORS and lifecycle', async () => {
     const calls: string[] = [];
     const client = {
-      headBucket: vi.fn(async () => {
+      headBucket: mock(async () => {
         calls.push('headBucket');
         const error = new Error('not found') as Error & { $metadata?: { httpStatusCode?: number } };
         error.$metadata = { httpStatusCode: 404 };
         throw error;
       }),
-      createBucket: vi.fn(async () => {
+      createBucket: mock(async () => {
         calls.push('createBucket');
       }),
-      putBucketCors: vi.fn(async () => {
+      putBucketCors: mock(async () => {
         calls.push('putBucketCors');
       }),
-      putBucketLifecycleConfiguration: vi.fn(async () => {
+      putBucketLifecycleConfiguration: mock(async () => {
         calls.push('putBucketLifecycleConfiguration');
       }),
     };

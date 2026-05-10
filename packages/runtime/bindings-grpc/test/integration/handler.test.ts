@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, jest } from 'bun:test';
 import { makeGrpcHandler, type HandlerDeps } from '../../src/server/handler.js';
 
 describe('makeGrpcHandler', () => {
   it('invokes the operation executor with entry.graph, not bindingId', async () => {
-    const execute = vi.fn().mockResolvedValue({
+    const execute = jest.fn().mockResolvedValue({
       ok: true,
       value: {
         value: { ok: true },
@@ -52,7 +52,7 @@ describe('makeGrpcHandler', () => {
   });
 
   it('converts snake_case proto fields to camelCase graph inputs', async () => {
-    const execute = vi.fn().mockResolvedValue({
+    const execute = jest.fn().mockResolvedValue({
       ok: true,
       value: {
         value: { ok: true },

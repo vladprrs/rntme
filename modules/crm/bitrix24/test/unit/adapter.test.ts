@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createBitrix24SdkAdapter } from '../../src/adapter.js';
 
 describe('Bitrix24 SDK adapter', () => {

@@ -1,0 +1,14 @@
+.git
+.clone
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+.rntme-ui-build
+**/.rntme-ui-build
+coverage
+**/coverage
+.env
+.DS_Store

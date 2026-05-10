@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ResolutionInputType } from '@rntme/contracts-identity-v1';
 import { createAuth0IdentityModule } from '../../src/handlers.js';
 import { GrpcStatus } from '../../src/errors.js';

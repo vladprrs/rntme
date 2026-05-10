@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateProjectionWhitelist } from '../../../../src/validate/semantic/projection-whitelist.js';
 import type { CanonicalGraph, CanonicalNode } from '../../../../src/types/canonical.js';
 

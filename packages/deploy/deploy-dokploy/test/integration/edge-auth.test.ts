@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { describe, expect, it, beforeAll, afterAll } from 'bun:test';
 import { createServer } from 'node:http';
 import { GenericContainer } from 'testcontainers';
 import { renderNginxConfig } from '../../src/nginx.js';

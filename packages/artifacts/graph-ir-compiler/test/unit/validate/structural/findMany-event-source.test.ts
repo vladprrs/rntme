@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateStructural } from '../../../../src/validate/structural/index.js';
 import { commercePdm, commerceQsm } from '../../../fixtures/validated-commerce.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { ResolvedShape, ValidatedBindings } from '@rntme/bindings';
 import { collectShapesFromService } from '../../src/start/build-grpc-surface.js';
 import type { ValidatedService } from '../../src/types.js';

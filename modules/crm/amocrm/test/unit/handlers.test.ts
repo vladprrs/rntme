@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { proto } from '@rntme/contracts-crm-v1';
 import {
   GRPC_STATUS_UNIMPLEMENTED,
@@ -11,35 +11,35 @@ const crm = proto.rntme.contracts.crm.v1;
 
 function adapter(overrides: Partial<AmoCrmAdapter> = {}): AmoCrmAdapter {
   const base = {
-    getContact: vi.fn().mockResolvedValue({ id: 123, name: 'Alice' }),
-    listContacts: vi.fn().mockResolvedValue({ data: [{ id: 123, name: 'Alice' }], totalCount: 1 }),
-    createContact: vi.fn().mockResolvedValue([{ id: 124, name: 'Bob' }]),
-    updateContact: vi.fn().mockResolvedValue([{ id: 123, name: 'Alice Updated', is_deleted: true }]),
+    getContact: mock(async () => ({ id: 123, name: 'Alice' })),
+    listContacts: mock(async () => ({ data: [{ id: 123, name: 'Alice' }], totalCount: 1 })),
+    createContact: mock(async () => [{ id: 124, name: 'Bob' }]),
+    updateContact: mock(async () => [{ id: 123, name: 'Alice Updated', is_deleted: true }]),
 
-    getCompany: vi.fn().mockResolvedValue({ id: 456, name: 'Acme' }),
-    listCompanies: vi.fn().mockResolvedValue({ data: [{ id: 456, name: 'Acme' }], totalCount: 1 }),
-    createCompany: vi.fn().mockResolvedValue([{ id: 457, name: 'Globex' }]),
-    updateCompany: vi.fn().mockResolvedValue([{ id: 456, name: 'Acme Updated' }]),
+    getCompany: mock(async () => ({ id: 456, name: 'Acme' })),
+    listCompanies: mock(async () => ({ data: [{ id: 456, name: 'Acme' }], totalCount: 1 })),
+    createCompany: mock(async () => [{ id: 457, name: 'Globex' }]),
+    updateCompany: mock(async () => [{ id: 456, name: 'Acme Updated' }]),
 
-    getLead: vi.fn().mockResolvedValue({ id: 789, name: 'Deal 1' }),
-    listLeads: vi.fn().mockResolvedValue({ data: [{ id: 789, name: 'Deal 1' }], totalCount: 1 }),
-    createLead: vi.fn().mockResolvedValue([{ id: 790, name: 'Deal 2' }]),
-    updateLead: vi.fn().mockResolvedValue([{ id: 789, name: 'Deal 1 Updated' }]),
+    getLead: mock(async () => ({ id: 789, name: 'Deal 1' })),
+    listLeads: mock(async () => ({ data: [{ id: 789, name: 'Deal 1' }], totalCount: 1 })),
+    createLead: mock(async () => [{ id: 790, name: 'Deal 2' }]),
+    updateLead: mock(async () => [{ id: 789, name: 'Deal 1 Updated' }]),
 
-    getTask: vi.fn().mockResolvedValue({ id: 100, text: 'Task 1' }),
-    listTasks: vi.fn().mockResolvedValue({ data: [{ id: 100, text: 'Task 1' }], totalCount: 1 }),
-    createTask: vi.fn().mockResolvedValue([{ id: 101, text: 'Task 2' }]),
+    getTask: mock(async () => ({ id: 100, text: 'Task 1' })),
+    listTasks: mock(async () => ({ data: [{ id: 100, text: 'Task 1' }], totalCount: 1 })),
+    createTask: mock(async () => [{ id: 101, text: 'Task 2' }]),
 
-    getNote: vi.fn().mockResolvedValue({ id: 200, text: 'Note 1' }),
-    listNotes: vi.fn().mockResolvedValue({ data: [{ id: 200, text: 'Note 1' }], totalCount: 1 }),
-    createNote: vi.fn().mockResolvedValue([{ id: 201, text: 'Note 2' }]),
+    getNote: mock(async () => ({ id: 200, text: 'Note 1' })),
+    listNotes: mock(async () => ({ data: [{ id: 200, text: 'Note 1' }], totalCount: 1 })),
+    createNote: mock(async () => [{ id: 201, text: 'Note 2' }]),
 
-    getPipelines: vi.fn().mockResolvedValue([{ id: 1, name: 'Pipeline 1', statuses: [] }]),
-    getCustomFields: vi.fn().mockResolvedValue({ data: [{ id: 1, name: 'Field 1', type: 'text' }], totalCount: 1 }),
-    getUsers: vi.fn().mockResolvedValue({ data: [{ id: 99, name: 'User 1' }], totalCount: 1 }),
+    getPipelines: mock(async () => [{ id: 1, name: 'Pipeline 1', statuses: [] }]),
+    getCustomFields: mock(async () => ({ data: [{ id: 1, name: 'Field 1', type: 'text' }], totalCount: 1 })),
+    getUsers: mock(async () => ({ data: [{ id: 99, name: 'User 1' }], totalCount: 1 })),
 
-    createAssociation: vi.fn().mockResolvedValue({}),
-    deleteAssociation: vi.fn().mockResolvedValue(undefined),
+    createAssociation: mock(async () => ({})),
+    deleteAssociation: mock(async () => undefined),
   } satisfies AmoCrmAdapter;
 
   return { ...base, ...overrides };
@@ -50,7 +50,7 @@ describe('amoCRM handlers', () => {
     const calls: unknown[] = [];
     const module = createAmoCrmModule({
       adapter: adapter({
-        createContact: vi.fn().mockImplementation(async (params) => {
+        createContact: mock(async (params) => {
           calls.push(params);
           return [{ id: 124, name: 'Bob', created_at: Math.floor(Date.now() / 1000), custom_fields_values: [{ field_code: 'EMAIL', values: [{ value: 'bob@example.com' }] }] }];
         }),
@@ -95,11 +95,14 @@ describe('amoCRM handlers', () => {
   });
 
   it('dedupes repeated CreateContact calls with the same idempotency key', async () => {
+    let createContactCalls = 0;
     const mockAdapter = adapter({
-      createContact: vi
-        .fn()
-        .mockResolvedValueOnce([{ id: 124, name: 'Bob' }])
-        .mockResolvedValueOnce([{ id: 125, name: 'Duplicate Bob' }]),
+      createContact: mock(async () => {
+        createContactCalls += 1;
+        return createContactCalls === 1
+          ? [{ id: 124, name: 'Bob' }]
+          : [{ id: 125, name: 'Duplicate Bob' }];
+      }),
     });
     const module = createAmoCrmModule({ adapter: mockAdapter });
     const request = crm.CreateContactRequest.create({
@@ -314,24 +317,30 @@ describe('amoCRM handlers', () => {
 
   it('maps adapter errors to canonical codes', async () => {
     const mockAdapter = adapter({
-      getContact: vi.fn().mockRejectedValue(Object.assign(new Error('Not found'), { status: 404 })),
+      getContact: mock(async () => {
+        throw Object.assign(new Error('Not found'), { status: 404 });
+      }),
     });
     const module = createAmoCrmModule({ adapter: mockAdapter });
 
+    let thrown: unknown;
     try {
       await module.GetContact(crm.GetContactRequest.create({ canonical_id: '999' }));
-      expect.fail('should throw');
     } catch (error) {
-      expect(isAmoCrmError(error)).toBe(true);
-      if (isAmoCrmError(error)) {
-        expect(error.canonicalCode).toBe('CRM_REFERENCES_CONTACT_NOT_FOUND');
-      }
+      thrown = error;
+    }
+
+    expect(isAmoCrmError(thrown)).toBe(true);
+    if (isAmoCrmError(thrown)) {
+      expect(thrown.canonicalCode).toBe('CRM_REFERENCES_CONTACT_NOT_FOUND');
     }
   });
 
   it('maps 403 adapter errors to a permission-denied canonical code', async () => {
     const mockAdapter = adapter({
-      getContact: vi.fn().mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403 })),
+      getContact: mock(async () => {
+        throw Object.assign(new Error('Forbidden'), { status: 403 });
+      }),
     });
     const module = createAmoCrmModule({ adapter: mockAdapter });
 

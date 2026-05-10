@@ -18,19 +18,18 @@ current-doc link before opening source files.
 
 ## Commands
 
-Node 20+, pnpm 9.12+. From the workspace root:
+Bun 1.1+. From the workspace root:
 
 | Command | Effect |
 | --- | --- |
-| `pnpm install --frozen-lockfile` | Install dependencies |
-| `pnpm -r run build` | Build every package |
-| `pnpm -r run typecheck` | Typecheck every package |
-| `pnpm -r run test` | Run package tests |
-| `pnpm -r run lint` | Lint source and tests |
-| `pnpm depcruise` | Run dependency-cruiser layering check |
-| `pnpm vendor:check` | Verify vendored module metadata in demos |
-| `pnpm -F @rntme/<pkg> test` | Run one package's tests |
-| `pnpm -F @rntme/<pkg> test:watch` | Watch one package |
+| `bun install --frozen-lockfile` | Install dependencies |
+| `bun run build` | Build every package |
+| `bun run typecheck` | Typecheck every package |
+| `bun run test` | Run package tests |
+| `bun run lint` | Lint source and tests |
+| `bun run depcruise` | Run dependency-cruiser layering check |
+| `bun run vendor:check` | Verify vendored module metadata in demos |
+| `bun run --filter @rntme/<pkg> test` | Run one package's tests |
 
 Specs, plans, reports, and ADRs are design/history artifacts. Use them for
 rationale, then verify current behavior against code/tests, `docs/current/**`,

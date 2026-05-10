@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validatePdm, parsePdm, createPdmResolver, type ValidatedPdm } from '@rntme/pdm';
 import { validateQsm, parseQsm, type ValidatedQsm } from '@rntme/qsm';
 import { parseAuthoringSpec, type AuthoringSpecOutput } from '@rntme/graph-ir-compiler';

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createOpenRouterModule, createIdempotencyStore } from '@rntme/ai-llm-openrouter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,12 +32,12 @@ const ORHappyResponse = {
 
 describe('cv-extract demo: openrouter module integration', () => {
   it('produces a structured Completion for the resume fixture', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = mock(async () => ({
       ok: true,
       status: 200,
       json: async () => ORHappyResponse,
       text: async () => '',
-    });
+    }));
     const store = createIdempotencyStore({ mode: 'memory', ttlMs: 24 * 3600_000 });
     const mod = createOpenRouterModule({
       apiKey: 'sk-test',
@@ -70,7 +70,7 @@ describe('cv-extract demo: openrouter module integration', () => {
     expect(json.full_name).toBe('Anna Example');
 
     // The OR client received a properly shaped request.
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.model).toBe('openai/gpt-4o');

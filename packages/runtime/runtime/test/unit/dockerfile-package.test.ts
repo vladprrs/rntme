@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 describe("runtime Docker package", () => {
   it("preserves the workspace package layout in the runtime image", async () => {
@@ -9,10 +9,10 @@ describe("runtime Docker package", () => {
       "utf8",
     );
 
-    expect(dockerfile).toContain("COPY --from=builder /build/node_modules ./node_modules");
-    expect(dockerfile).toContain("COPY --from=builder /build/packages ./packages");
+    expect(dockerfile).toContain("FROM oven/bun:1.3.13-alpine AS builder");
+    expect(dockerfile).toContain("COPY --from=builder /build /srv");
     expect(dockerfile).toContain(
-      'ENTRYPOINT ["node", "packages/runtime/runtime/dist/bin/runtime.js", "start"]',
+      'ENTRYPOINT ["bun", "packages/runtime/runtime/dist/bin/runtime.js", "start"]',
     );
   });
 

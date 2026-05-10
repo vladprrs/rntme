@@ -1,0 +1,10 @@
+[install]
+# rntme uses workspace:* protocol exclusively for internal packages.
+# Bun resolves these from the root workspaces array.
+
+[install.scopes]
+# No private registries.
+
+[test]
+# Match Vitest defaults that the codebase relies on.
+timeout = 15000

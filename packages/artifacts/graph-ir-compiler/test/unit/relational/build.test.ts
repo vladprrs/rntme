@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { buildRelational } from '../../../src/relational/build.js';
 import type { SemanticPlan } from '../../../src/types/semantic-plan.js';
 

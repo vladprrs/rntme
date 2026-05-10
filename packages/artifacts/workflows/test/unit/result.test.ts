@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { ERROR_CODES, err, isErr, isOk, ok } from '../../src/index.js';
 
 describe('workflow result helpers', () => {

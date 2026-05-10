@@ -168,7 +168,7 @@ Every `PdmError` carries `{ layer, code, message, path?, hint?, cause? }`. `caus
 - "What is the schema shape?" → `src/parse/schema.ts`; every Zod sub-schema is `.strict()`.
 - "How are the branded `StructurallyValidPdm` / `ValidatedPdm` types declared?" → `src/types/artifact.ts` (bottom of file).
 - "End-to-end pipeline example?" → `test/smoke.test.ts` exercises `parsePdm → validatePdm → deriveEventTypes → createPdmResolver` against `test/fixtures/issue-tracker-with-sm.pdm.json` (seven transitions, including the `reassign` self-loop).
-- "Run only this package's tests" → `pnpm --filter @rntme/pdm test`.
+- "Run only this package's tests" → `bun test` from `packages/artifacts/pdm`.
 
 ## Specs
 

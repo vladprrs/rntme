@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { analyticsV1Operations } from '../src/index.js';
 
 describe('contracts-analytics-v1', () => {

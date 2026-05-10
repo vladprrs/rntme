@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { applyDokployPlan } from '../../src/apply.js';
 import type {

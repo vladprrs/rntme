@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { resolveCoreComponent } from '../../src/compose/ui-core-components.js';
 
 describe('DataTable core component', () => {

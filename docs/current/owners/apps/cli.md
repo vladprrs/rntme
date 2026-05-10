@@ -9,7 +9,7 @@ The **rntme CLI** is a command-line interface for interacting with the rntme pla
 ```bash
 npm install -g @rntme/cli
 # or
-pnpm add -g @rntme/cli
+bun add -g @rntme/cli
 ```
 
 ### 2. Create a project blueprint

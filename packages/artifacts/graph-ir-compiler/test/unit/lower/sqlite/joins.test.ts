@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateStructural } from '@rntme/qsm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';

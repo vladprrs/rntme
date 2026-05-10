@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { successResponse } from '../../../src/openapi/responses.js';
 
 describe('successResponse', () => {

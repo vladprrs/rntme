@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Hono } from 'hono';
 import { renderHtml } from '../../../src/ui/render.js';
 

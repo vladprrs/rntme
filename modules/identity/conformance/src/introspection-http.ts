@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 
 export type IntrospectionHttpHarness = {
   /** Base URL of a running HTTP introspection server (e.g. http://localhost:50052). */

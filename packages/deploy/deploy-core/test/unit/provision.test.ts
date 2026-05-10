@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { runProvisioners, type DiscoveredProvisionerModule } from '../../src/provision.js';
 import type { ProvisionerContract } from '@rntme/contracts-provisioner-v1';
 import { ok, err } from '../../src/result.js';
@@ -189,7 +189,6 @@ describe('runProvisioners', () => {
   });
 
   it('times out when provision exceeds timeoutMs', async () => {
-    vi.useFakeTimers();
     const slow: ProvisionerContract = {
       async provision({ signal }) {
         await new Promise((resolve, reject) => {
@@ -199,15 +198,13 @@ describe('runProvisioners', () => {
       },
     };
     const promise = runProvisioners({
-      modules: [{ ...baseModule(), manifest: { ...baseModule().manifest, provisioner: { ...baseModule().manifest.provisioner!, timeoutMs: 50 } } }],
+      modules: [{ ...baseModule(), manifest: { ...baseModule().manifest, provisioner: { ...baseModule().manifest.provisioner!, timeoutMs: 1 } } }],
       resolvedTargetSecrets: { auth0Mgmt: {} },
       projectDir: '/tmp/test',
       resolveProvisioner: async (_pkg, _entry, _projectDir) => slow,
       log: () => undefined,
     });
-    await vi.advanceTimersByTimeAsync(60);
     const result = await promise;
-    vi.useRealTimers();
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors[0]?.code).toBe('DEPLOY_PROVISION_TIMEOUT');

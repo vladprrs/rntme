@@ -16,12 +16,12 @@ browser `boot(ctx)` hook, not backend RPC handlers.
 ## Quick start
 
 ```bash
-pnpm -F @rntme/analytics-google-analytics run build
-pnpm -F @rntme/analytics-google-analytics run test
-pnpm -F @rntme/analytics-google-analytics run typecheck
+bun run build
+bun test
+bun run typecheck
 ```
 
-`pnpm run build:deps` builds `@rntme/contracts-analytics-v1` and
+`bun run build:deps` builds `@rntme/contracts-analytics-v1` and
 `@rntme/contracts-client-runtime-v1` before this package compiles.
 
 ## Browser client

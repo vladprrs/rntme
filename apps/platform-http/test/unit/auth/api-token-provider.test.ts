@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { isOk } from '@rntme/platform-core';
 import { FakeStore } from '@rntme/platform-core/testing';

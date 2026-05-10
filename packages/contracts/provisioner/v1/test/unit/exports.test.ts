@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import * as contract from '../../src/index.js';
 
 describe('@rntme/contracts-provisioner-v1', () => {
@@ -9,7 +9,7 @@ describe('@rntme/contracts-provisioner-v1', () => {
   it('compiles a ProvisionerContract value against the runtime contract types', () => {
     // Runtime smoke test: the package is types-only, so the meaningful guarantee
     // is that a value satisfying ProvisionerContract typechecks. If the contract
-    // shape regresses, this file fails to compile (caught in `vitest run`).
+    // shape regresses, this file fails to compile (caught in `bun test`).
     const c: contract.ProvisionerContract<{ a: string }> = {
       async provision(input) {
         input.log({ step: 'noop', level: 'info', message: 'ok' });

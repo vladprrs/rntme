@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { lowerToSqlite } from '../../../../src/lower/sqlite/lower.js';
 import { emitSql } from '../../../../src/lower/sqlite/emit.js';
 import type { RelOp } from '../../../../src/types/relational.js';

@@ -1,4 +1,4 @@
-import { describe, expectTypeOf, it } from 'vitest';
+import { describe, expectTypeOf, it } from 'bun:test';
 import type {
   DeploymentFinalize,
   DeploymentRepo,
@@ -39,8 +39,12 @@ describe('DeploymentRepo', () => {
   });
 
   it('finalize status excludes non-terminal states', () => {
-    expectTypeOf<DeploymentFinalize['status']>().exclude<'queued' | 'running'>().toEqualTypeOf<
-      Exclude<DeploymentStatus, 'queued' | 'running'>
-    >();
+    const terminalOnly: Exclude<DeploymentStatus, 'queued' | 'running'> =
+      null as never as DeploymentFinalize['status'];
+    void terminalOnly;
+
+    // @ts-expect-error queued deployments are not valid finalize states.
+    const queued: DeploymentFinalize['status'] = 'queued';
+    void queued;
   });
 });

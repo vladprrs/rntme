@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildProjectDeploymentPlan } from '../../src/plan.js';
 import { planEdge } from '../../src/edge.js';
 import type { ComposedProjectInput } from '../../src/composed-project.js';

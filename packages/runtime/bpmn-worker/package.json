@@ -17,9 +17,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "postbuild": "node -e \"const f='dist/bin/worker.js';const fs=require('fs');if(!fs.existsSync(f))process.exit(0);const s=fs.readFileSync(f,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+s);fs.chmodSync(f,0o755);\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "postbuild": "bun -e \"const f='dist/bin/worker.js';const fs=require('fs');if(!fs.existsSync(f))process.exit(0);const s=fs.readFileSync(f,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env bun\\n'+s);fs.chmodSync(f,0o755);\"",
+    "test": "bun test",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
@@ -31,11 +30,12 @@
     "protobufjs": "^7.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/bun": "latest",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

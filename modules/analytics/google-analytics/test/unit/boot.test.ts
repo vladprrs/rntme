@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { boot } from '../../src/client.js';
 import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
 
@@ -8,7 +8,7 @@ function mockCtx(config: Record<string, unknown>): ModuleBootContext {
     config,
     state: {
       get: () => undefined,
-      set: vi.fn(),
+      set: mock(),
       subscribe: (path, h) => {
         const arr = subs.get(path) ?? [];
         arr.push(h);
@@ -16,9 +16,9 @@ function mockCtx(config: Record<string, unknown>): ModuleBootContext {
         return () => undefined;
       },
     },
-    transport: { use: vi.fn() },
-    on: vi.fn(() => () => undefined),
-    registerOperation: vi.fn(),
+    transport: { use: mock() },
+    on: mock(() => () => undefined),
+    registerOperation: mock(),
   };
 }
 

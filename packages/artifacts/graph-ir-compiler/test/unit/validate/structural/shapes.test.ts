@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkShapes } from '../../../../src/validate/structural/shapes.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 import { commercePdm as P, commerceQsm as Q } from '../../../fixtures/validated-commerce.js';

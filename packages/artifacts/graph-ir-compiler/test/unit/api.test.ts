@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { compile, explain, GraphIrCompileError, run } from '../../src/index.js';
 import { commercePdm as P, commerceQsm as Q } from '../fixtures/validated-commerce.js';
 

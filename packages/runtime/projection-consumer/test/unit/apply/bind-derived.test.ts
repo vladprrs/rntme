@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import type { DerivedColumnBinding } from '@rntme/graph-ir-compiler';
 import { bindDerivedValue } from '../../../src/apply/bind.js';
 import { makeEnvelope } from '../../fixtures/envelopes.js';

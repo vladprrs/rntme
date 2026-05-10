@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { FakeStore } from '../../../src/testing/fakes.js';
 import { isOk } from '../../../src/types/result.js';
 import {

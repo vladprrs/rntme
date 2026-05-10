@@ -1,7 +1,7 @@
-import '@testing-library/jest-dom/vitest';
+import '../dom-setup.js';
 import * as React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { RegistryProvider, createOperationRegistry } from '@rntme/contracts-client-runtime-v1';
 import { LoginScreen } from '../../../client/components/LoginScreen.js';
 
@@ -10,16 +10,16 @@ describe('LoginScreen', () => {
 
   it('renders a Sign in button that dispatches the Auth0 login operation', () => {
     const registry = createOperationRegistry();
-    const login = vi.fn();
+    const login = mock();
     registry.registerModule('@rntme/identity-auth0', 'login', login);
 
-    render(
+    const view = render(
       <RegistryProvider value={registry}>
         <LoginScreen />
       </RegistryProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.click(view.getByRole('button', { name: 'Sign in' }));
 
     expect(login).toHaveBeenCalledWith({});
   });

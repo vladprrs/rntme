@@ -8,7 +8,7 @@ Kafka-to-SQLite read-side runner: bootstraps entity-mirror DDL, compiles per-eve
   - [`@rntme/pdm`](/docs/current/owners/packages/artifacts/pdm.md) — `PdmResolver`, `EventTypeSpec`, `deriveEventTypes` (entity + field metadata, creation-transition detection).
   - [`@rntme/qsm`](/docs/current/owners/packages/artifacts/qsm.md) — `ValidatedQsm`, `deriveProjectionHandler`, `generateProjectionDdl`, `ProjectionDdlSpec` (entity-mirror table layout + per-event handler specs).
   - [`@rntme/event-store`](/docs/current/owners/packages/runtime/event-store.md) — `EventEnvelope` shape (relay output is the consumer input).
-  - `better-sqlite3` — sole runtime DB driver (peer; SQLite-only target).
+  - [`@rntme/sqlite`](/docs/current/owners/packages/runtime/sqlite.md) — sole runtime DB driver port (SQLite-only target).
 - Consumed by:
   - [`@rntme/runtime`](/docs/current/owners/packages/runtime/runtime.md) — wires the consumer into the demo runtime.
   - project/demo service runtimes that need QSM read models.
@@ -38,7 +38,7 @@ src/
 ## Quick start
 
 ```ts
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { createPdmResolver, deriveEventTypes } from '@rntme/pdm';
 import { generateProjectionDdl } from '@rntme/qsm';
 import {
@@ -53,7 +53,7 @@ const pdm    = createPdmResolver(validatedPdm);
 const events = deriveEventTypes(validatedPdm);
 const ddls   = generateProjectionDdl(validatedQsm, pdm);
 
-const db = new Database(':memory:');
+const db = openSqliteDatabase({ filename: ':memory:' });
 db.pragma('foreign_keys = ON');
 bootstrapProjections(db, ddls);
 
@@ -72,9 +72,9 @@ await consumer.stop();
 | Export | Signature | Purpose |
 | --- | --- | --- |
 | `VERSION` | `string` | Package version constant (`'0.0.0'`). |
-| `bootstrapProjections` | `(db: Database, ddls: readonly ProjectionDdlSpec[]) => void` | Idempotent DDL bootstrap. Rewrites `CREATE TABLE` / `CREATE INDEX` to their `IF NOT EXISTS` form before `db.exec`. |
+| `bootstrapProjections` | `(db: SqliteDatabase, ddls: readonly ProjectionDdlSpec[]) => void` | Idempotent DDL bootstrap. Rewrites `CREATE TABLE` / `CREATE INDEX` to their `IF NOT EXISTS` form before `db.exec`. |
 | `compileApplyPlan` | `(input: { pdm: PdmResolver; qsm: ValidatedQsm; events: readonly EventTypeSpec[] }) => ApplyPlan` | Pure compile: `eventType → CompiledHandler` map plus `aggregateType → tableName` index. Throws `ApplyCompileError`. |
-| `applyEvent` | `(db: Database, plan: ApplyPlan, envelope: EventEnvelope) => ApplyResult` | One envelope, one transaction step. Pre-checks `last_event_version`, then runs the compiled SQL. |
+| `applyEvent` | `(db: SqliteDatabase, plan: ApplyPlan, envelope: EventEnvelope) => ApplyResult` | One envelope, one transaction step. Pre-checks `last_event_version`, then runs the compiled SQL. |
 | `bindValues` | `(handler: CompiledHandler, envelope: EventEnvelope) => unknown[]` | Materialise `CompiledHandler.bindings` to positional SQL params. Exposed for adapters that bypass `applyEvent`. |
 | `createProjectionConsumer` | `(options: ProjectionConsumerOptions) => ProjectionConsumer` | Construct the batch loop. Returns `{ start, stop }`; the loop is single-flight (re-`start` after `start` is a no-op). |
 | `createInMemoryKafkaConsumer` | `(options?: { topicOf?; pollIntervalMs? }) => InMemoryKafkaConsumer` | Test/demo adapter. Exposes `produce(envelope)`, `committed`, and `stop()`. |
@@ -86,7 +86,7 @@ await consumer.stop();
 type ProjectionConsumerOptions = Readonly<{
   kafka: KafkaConsumer;                 // adapter from src/types/consumer.ts
   plan:  ApplyPlan;                     // produced by compileApplyPlan
-  db:    Database;                      // better-sqlite3 instance, foreign_keys=ON recommended
+  db:    SqliteDatabase;                // @rntme/sqlite instance, foreign_keys=ON recommended
   onError?: (err: unknown, batch: KafkaBatch) => void; // optional; without it, a thrown apply rethrows out of the loop
 }>;
 type ProjectionConsumer = Readonly<{ start(): void; stop(): Promise<void> }>;

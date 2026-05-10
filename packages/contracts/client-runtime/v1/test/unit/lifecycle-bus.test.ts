@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { createLifecycleBus } from '../../src/lifecycle-bus.js';
 
 describe('LifecycleBus', () => {
   it('emits navigate to subscribers', () => {
     const bus = createLifecycleBus();
-    const handler = vi.fn();
+    const handler = mock();
     bus.on('navigate', handler);
     bus.emit('navigate', { path: '/x', params: { y: '1' } });
     expect(handler).toHaveBeenCalledWith({ path: '/x', params: { y: '1' } });
@@ -12,7 +12,7 @@ describe('LifecycleBus', () => {
 
   it('unsubscribes', () => {
     const bus = createLifecycleBus();
-    const handler = vi.fn();
+    const handler = mock();
     const off = bus.on('action:dispatched', handler);
     off();
     bus.emit('action:dispatched', { actionId: 'save', kind: 'command', params: {} });

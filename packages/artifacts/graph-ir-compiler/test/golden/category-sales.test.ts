@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,7 @@ describe('golden: category-sales', () => {
     const r = compile(spec, pdm, qsm);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    await expect(r.value.sql + '\n').toMatchFileSnapshot(join(here, 'category-sales', 'expected.sql'));
+    expect(r.value.sql + '\n').toBe(f('expected.sql'));
     expect(r.value.paramOrder).toEqual(JSON.parse(f('expected-params.json')));
   });
 });

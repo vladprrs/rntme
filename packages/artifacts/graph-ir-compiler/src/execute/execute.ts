@@ -1,7 +1,8 @@
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase, SqliteParams } from '@rntme/sqlite';
 import { runtimeError } from '../types/errors.js';
 
 export type ParamValues = Record<string, unknown>;
+type PositionalSqliteParams = Extract<SqliteParams, readonly unknown[]>;
 
 export type CompiledForExecute = {
   sql: string;
@@ -13,7 +14,7 @@ export type CompiledForExecute = {
 export function executeCompiled(
   compiled: CompiledForExecute,
   paramValues: ParamValues,
-  db: BetterSqlite3.Database,
+  db: SqliteDatabase,
 ): unknown[] {
   const optionalSet = compiled.optionalParams?.length ? new Set(compiled.optionalParams) : undefined;
   const defaults = compiled.paramDefaults ?? {};
@@ -34,7 +35,7 @@ export function executeCompiled(
   });
   try {
     const stmt = db.prepare(compiled.sql);
-    return stmt.all(...positional);
+    return stmt.all(...(positional as PositionalSqliteParams));
   } catch (e) {
     throw runtimeError('RUNTIME_SQLITE_ERROR', e instanceof Error ? e.message : 'sqlite error');
   }

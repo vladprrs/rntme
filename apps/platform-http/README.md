@@ -5,7 +5,10 @@ HTTP platform app for organizations, projects, deploy targets, and registry flow
 Current documentation: [docs/current/owners/apps/platform-http.md](../../docs/current/owners/apps/platform-http.md)
 
 Local commands:
-- `pnpm -F @rntme/platform-http test` when the package defines a test script.
+- `bun test`
+- `bun run typecheck`
+- `bun run build`
+- `bun run lint`
 
 Notes:
 - Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.

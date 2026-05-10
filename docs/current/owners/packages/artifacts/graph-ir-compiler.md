@@ -8,7 +8,7 @@ Graph IR (rc7) authoring JSON compiler. The current runtime path compiles a grap
   - [`@rntme/pdm`](/docs/current/owners/packages/artifacts/pdm.md) — entities, fields, state machines, derived event-type table.
   - [`@rntme/qsm`](/docs/current/owners/packages/artifacts/qsm.md) — projections (`entity-mirror` / derived) and `projections.relations` for dot-nav join planning.
   - [`@rntme/event-store`](/docs/current/owners/packages/runtime/event-store.md) — `EventStore`, `appendEvents`, `ConcurrencyConflict` for local emit execution.
-  - `better-sqlite3` (peer) — the `Database` handle passed to `execute(...)`.
+  - [`@rntme/sqlite`](/docs/current/owners/packages/runtime/sqlite.md) — the `SqliteDatabase` handle passed to `execute(...)`.
   - `zod` — authoring-spec schema in `parse/schema.ts`.
 - Consumed by:
   - [`@rntme/bindings-http`](/docs/current/owners/packages/runtime/bindings-http.md) — HTTP surface compiles each binding's graph as an operation and runs it per-request.
@@ -111,7 +111,7 @@ src/
 ### Operation path
 
 ```ts
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { compileOperation, executeOperation } from '@rntme/graph-ir-compiler';
 
 const compiled = compileOperation(specWithOneGraph, pdm, qsm, {
@@ -123,7 +123,7 @@ const compiled = compileOperation(specWithOneGraph, pdm, qsm, {
 if (!compiled.ok) throw new Error(JSON.stringify(compiled.errors));
 
 const result = await executeOperation(compiled.value, { orderId: 'o-1' }, {
-  qsmDb: new Database(':memory:'),
+  qsmDb: openSqliteDatabase({ filename: ':memory:' }),
   eventStore,
   callClient,
   now: () => new Date().toISOString(),
@@ -139,7 +139,7 @@ Operation graphs must contain a `result` node. Effects are inferred from local r
 ### Query path
 
 ```ts
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '@rntme/sqlite';
 import { compile, execute } from '@rntme/graph-ir-compiler';
 
 const spec = {
@@ -165,7 +165,7 @@ const spec = {
 const r = compile(spec, pdm, qsm);
 if (!r.ok) throw new Error(r.errors.map((e) => e.code).join(', '));
 
-const db = new Database('app.db');
+const db = openSqliteDatabase({ filename: 'app.db' });
 const rows = execute(r.value, { limit: 5 }, db);
 ```
 
@@ -289,10 +289,10 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 - **Event-store append errors propagate through operation execution.** Optimistic concurrency is enforced by the event store; callers map the resulting operation error at the HTTP/gRPC surface.
 - **`compile` validates structural rules before normalising.** Order matters: callers should not invoke layers individually unless they replicate the public entry point order.
 - **`explain(...)` returns partial artifacts on failure** so an agent diagnosing a broken stage can read every artifact produced before the failing stage. Use it instead of stepping the pipeline by hand.
-- **SQLite ≥ 3.30 is required** for `NULLS FIRST / NULLS LAST` emitted by `lower/sqlite/emit.ts`. `better-sqlite3` ≥ 11 ships a recent enough engine.
+- **SQLite ≥ 3.30 is required** for `NULLS FIRST / NULLS LAST` emitted by `lower/sqlite/emit.ts`. The Bun-backed `@rntme/sqlite` port is the supported handle.
 - **`map.into` / `reduce.into` must reference a shape declared in `spec.shapes`.** `STRUCT_UNKNOWN_SHAPE` is structural; `STRUCT_MAP_SHAPE_COVERAGE` / `STRUCT_REDUCE_SHAPE_COVERAGE` enforce that every shape field is produced exactly once. See `validate/structural/shapes.ts` and `validate/structural/map-reduce.ts`.
 - **Reduce changes scope.** `validateSemantic` (`validate/semantic/index.ts`) replaces the alias-based scope after a `reduce` node with a `shapeFields`-only scope (typed by the named output shape). Field-path expressions after a `reduce` resolve against the shape's field types, not the original entity columns.
-- **`group_array` lowers to `json_group_array`.** Aggregating a list-typed column requires SQLite's JSON1 extension (built into stock SQLite ≥ 3.38 and into `better-sqlite3`).
+- **`group_array` lowers to `json_group_array`.** Aggregating a list-typed column requires SQLite's JSON1 extension, which is available through Bun's SQLite engine.
 - **Path-qualified column lookup is alias-rooted.** `makeColumnOf` requires the first segment of any multi-segment path to match the scan alias (e.g. `customer.organization.name` only when the scan alias is `customer`); otherwise lowering throws. Multi-scan graphs are not yet supported.
 - **`signature.output.from` must be reachable from the DAG roots and refer to a node id.** `validate/structural/output-from.ts` rejects unreachable or unknown ids with `STRUCT_INVALID_OUTPUT_FROM`. Output cardinality (`row` vs `rowset`) is read off the type's prefix in `buildSemanticPlan`.
 - **`Filter` over an `Aggregate` lowers to `HAVING`, otherwise to `WHERE`.** `lowerToSqlite → toSelect/Filter` checks `rel.child.op === 'Aggregate'` and routes accordingly. Authors writing post-aggregate predicates must place the `filter` node after the `reduce` node.
@@ -337,14 +337,14 @@ Every code is exported via `ERROR_CODES` and listed in `src/types/result.ts`. Co
 | Add a new emit rule | Edit `src/validate/semantic/emit.ts` (compile-time), `src/command-runtime/transition.ts` / `src/command-runtime/replay.ts` (shared state helpers), or `src/operation/execute.ts` (operation runtime). Test fixtures live in `test/unit/emit/` and `test/integration/operation-*.test.ts`. |
 | Add a new SQLite expression | Extend `SqlExpr` in `src/lower/sqlite/ast.ts`; handle the new `kind` in `src/lower/sqlite/emit.ts → expr()` and add a `lowerExpr` case in `src/lower/sqlite/expr.ts`. |
 | Verify SQL output | `test/golden/category-sales/` (full pipeline golden); `test/e2e/*.e2e.test.ts` runs `compile + execute` against `test/e2e/fixtures/*.sql` schemas. |
-| Reproduce a failing CI test | `pnpm -F @rntme/graph-ir-compiler test` or `pnpm -F @rntme/graph-ir-compiler test:watch`; vitest config in `vitest.config.ts`. |
+| Reproduce a failing CI test | `bun test` from `packages/artifacts/graph-ir-compiler`. |
 | Trace why an emit graph errors at compile-time | `src/validate/semantic/emit.ts → checkEmit` (payload coverage, type, aggregateId), then `src/validate/effects.ts` for operation effect and ownership checks. |
 | Trace a `STRUCT_*` rejection | `src/validate/structural/<rule>.ts`; orchestrated in `src/validate/structural/index.ts`. Each rule file is one ≤ 100-line function; tests at `test/unit/validate/structural/<rule>.test.ts` mirror the file. |
 | Trace a `SEM_*` rejection | `src/validate/semantic/<rule>.ts`; orchestrated in `src/validate/semantic/index.ts`. Type-inference lives in `validate/semantic/types.ts` (`inferExprType`); field resolution in `validate/semantic/fields.ts` (`resolveField`). |
 | Inspect compiled SQL for a graph | `import { explain } from '@rntme/graph-ir-compiler'; const r = explain(spec, pdm, qsm); r.value.sql; r.value.paramOrder;` — also returns `parsed`, `canonical`, `semanticPlan`, `relational`. |
 | Map an event-store envelope back to a transition | `src/emit/event-type.ts → deriveEventTypeName(aggregate, transition)` produces the envelope's `eventType`. To go the other way: walk PDM's derived event-type table (`@rntme/pdm → deriveEventTypes`) and match on `eventType`. |
 | Add a new aggregate function | (1) Add the function name to the `measureSpec` enum in `src/parse/schema.ts`. (2) Handle it in `src/lower/sqlite/lower.ts → measureToAggSql`. (3) Add a semantic-validator case in `src/validate/semantic/aggregate-phase.ts`. (4) Document in MVP spec. |
-| Wire the compiler into a new runtime | Use `compileOperation / executeOperation` and provide an `OperationRegistry`, `OperationCallClient`, one `better-sqlite3.Database` per QSM target, and one `EventStore` for local emits. |
+| Wire the compiler into a new runtime | Use `compileOperation / executeOperation` and provide an `OperationRegistry`, `OperationCallClient`, one `SqliteDatabase` from `@rntme/sqlite` per QSM target, and one `EventStore` for local emits. |
 | Find an example end-to-end operation | `test/integration/operation-*.test.ts` and runtime issue-tracker fixtures exercise reads, emits, branches, and calls through `compileOperation → executeOperation`. |
 | Find an example end-to-end query with JOINs | `test/e2e/join.e2e.test.ts` and `test/e2e/category-sales.e2e.test.ts` (latter is also the golden-test source for the SQL-emission pipeline). |
 | Diagnose a "missing required param" at runtime | `src/execute/execute.ts → executeCompiled`; the throw decorates the Error with `code: 'RUNTIME_MISSING_REQUIRED_PARAM'`. Check that the input mode for the param is `required` and that the caller is supplying the key in `paramValues`. |

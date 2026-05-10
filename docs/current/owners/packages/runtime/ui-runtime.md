@@ -1,6 +1,6 @@
 # @rntme/ui-runtime
 
-Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bundled React SPA that fetches screens lazily and renders them through `@json-render/react`.
+Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus a Bun-bundled React SPA that fetches screens lazily and renders them through `@json-render/react`.
 
 ## Role in the system
 
@@ -13,7 +13,7 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
   - `react`, `react-dom` — SPA rendering.
   - `@json-render/core`, `@json-render/react`, `@json-render/shadcn` — canonical Spec rendering, state store, shadcn component catalog (60+ components).
   - `zod` — action parameter schemas registered on the json-render catalog.
-  - `esbuild`, `@tailwindcss/cli` — build-time SPA bundling and Tailwind v4 CSS generation (dev-dependencies).
+  - `bun build`, `@tailwindcss/cli` — build-time SPA bundling and Tailwind v4 CSS generation.
 - Consumed by:
   - `@rntme/runtime` or an embedding Hono app that mounts the returned router and pairs it with HTTP bindings.
   - generated service runtimes that mount `createApp({ artifact })` at `/` and
@@ -28,7 +28,7 @@ Serves a compiled `@rntme/ui` artifact as a Hono sub-router plus an esbuild-bund
 ```
 packages/runtime/ui-runtime/src/
   index.ts                   (entry `.`)            Re-exports `createApp` and `CreateAppOptions` from server.
-  build.ts                   (CLI)                  esbuild bundles `build/main.js`; Tailwind v4 CLI emits `build/main.css`.
+  build.ts                   (CLI)                  Bun bundles `build/main.js`; Tailwind v4 CLI emits `build/main.css`.
   server/
     index.ts                 (entry `./server`)     `createApp({ artifact, assetsDir? })` -> Hono app.
     static-shell.ts          (internal)             `buildHtmlShell()` emits the SPA bootstrap HTML (`#root`, `/assets/main.{js,css}`).
@@ -71,10 +71,10 @@ Shell responses include a restrictive CSP that allows only same-origin script/st
 ### Client — build the SPA bundle
 
 ```bash
-pnpm -F @rntme/ui-runtime build        # runs `tsc -p tsconfig.json` then `tsx src/build.ts`
+bun run build                          # runs `tsc -p tsconfig.json` then `bun src/build.ts`
 # Output:
 #   dist/              TypeScript declarations + server JS
-#   build/main.js      esbuild bundle of client/entry.tsx (ESM, browser, es2022)
+#   build/main.js      Bun bundle of client/entry.tsx (ESM, browser)
 #   build/main.css     Tailwind v4 output scanning build/main.js for class names
 ```
 
@@ -146,16 +146,15 @@ registry, transport chain, visibility, router helpers) are exported by
 
 | Binary | Invocation | Effect |
 |---|---|---|
-| `build.ts` | `tsx src/build.ts` (run via `pnpm build:client`) | esbuild bundle of `client/entry.tsx` -> `build/main.js` (ESM, `target: es2022`, `.css` files loaded as `empty`), followed by `npx @tailwindcss/cli -i client/styles.css -o build/main.css --minify`. On Tailwind failure, writes a stub `main.css` and continues. |
+| `build.ts` | `bun src/build.ts` (run via `bun run build:client`) | Bun browser bundle of `client/entry.tsx` -> `build/main.js` (ESM, minified, linked source map), followed by `bunx --no-install tailwindcss -i client/styles.css -o build/main.css --minify`. On Tailwind failure, writes a stub `main.css` and continues. |
 
 ### Package scripts (`package.json`)
 
 | Script | Command | Effect |
 |---|---|---|
-| `build` | `tsc -p tsconfig.json && pnpm run build:client` | Emits server/client TypeScript to `dist/`, then bundles the SPA. |
-| `build:client` | `tsx src/build.ts` | Runs the esbuild + Tailwind pipeline described above. |
-| `test` | `vitest run` | Runs `test/unit/*.test.ts`. |
-| `test:watch` | `vitest` | Watch mode. |
+| `build` | `tsc -p tsconfig.json && bun run build:client` | Emits server/client TypeScript to `dist/`, then bundles the SPA. |
+| `build:client` | `bun src/build.ts` | Runs the Bun bundler + Tailwind pipeline described above. |
+| `test` | `bun test` | Runs `test/unit/*.test.ts`. |
 
 ## Boot lifecycle and resilience
 
@@ -267,7 +266,7 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - "Change route-matching precedence or add wildcard support" ->
   `packages/contracts/client-runtime/v1/src/router.ts` `matchRoute`; extend
   the contract package's `test/unit/router.test.ts`.
-- "Tune the esbuild or Tailwind build" -> `src/build.ts`; preserve the JS-before-CSS order.
+- "Tune the Bun or Tailwind build" -> `src/build.ts`; preserve the JS-before-CSS order.
 - "Debug a failing SPA deep link" -> confirm the server falls through to the shell (`app.get('/*', ...)`), then inspect `/route/status`, `/route/path`, and `/route/params` from `entry.tsx`; unmatched manifest paths render the runtime not-found screen without changing the URL.
 - "Debug a blank screen after navigation" -> first check for `#rntme-screen-error`,
   `#rntme-layout-error`, and `/runtime/renderErrors/<scope>`; then check that

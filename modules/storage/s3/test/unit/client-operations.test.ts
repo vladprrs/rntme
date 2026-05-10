@@ -1,21 +1,28 @@
 import type { ModuleBootContext } from '@rntme/contracts-client-runtime-v1';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { registerStorageOperations } from '../../src/client/operations.js';
 
-function createCtx(response: Response): ModuleBootContext & { handlers: Record<string, (params: Record<string, unknown>) => unknown> } {
+function createCtx(
+  response: Response,
+): ModuleBootContext & { handlers: Record<string, (params: Record<string, unknown>) => unknown>; requests: Request[] } {
   const handlers: Record<string, (params: Record<string, unknown>) => unknown> = {};
+  const requests: Request[] = [];
   return {
     config: {},
     state: { get: () => undefined, set: () => undefined, subscribe: () => () => undefined },
     transport: {
-      fetch: vi.fn(async () => response),
-      use: vi.fn(),
+      fetch: mock(async (request: Request) => {
+        requests.push(request);
+        return response;
+      }),
+      use: mock(),
     },
-    on: vi.fn(),
-    registerOperation: vi.fn((name, handler) => {
+    on: mock(),
+    registerOperation: mock((name, handler) => {
       handlers[name] = handler;
     }),
     handlers,
+    requests,
   };
 }
 
@@ -34,7 +41,7 @@ describe('registerStorageOperations', () => {
 
     expect(result).toEqual({ fileId: 'f', objectKey: 'k', presigned: { url: 'u', headers: {}, expiresAt: 't' } });
     expect(ctx.registerOperation).toHaveBeenCalledTimes(5);
-    const request = vi.mocked(ctx.transport.fetch).mock.calls[0][0];
+    const request = ctx.requests[0];
     expect(request.method).toBe('POST');
     expect(new URL(request.url).pathname).toBe('/storage/PrepareUpload');
   });

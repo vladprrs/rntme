@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { validateManifest } from '../../src/manifest/validate.js';
 import type { ParsedManifest } from '../../src/manifest/types.js';
 

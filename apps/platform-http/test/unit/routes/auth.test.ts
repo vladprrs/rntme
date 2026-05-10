@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import { Hono } from 'hono';
 import { FakeStore } from '@rntme/platform-core/testing';
 import { authRoutes } from '../../../src/routes/auth.js';
@@ -122,7 +122,7 @@ describe('/v1/auth/callback content-negotiation', () => {
     const workos = {
       userManagement: {
         getAuthorizationUrl: () => 'https://workos.test/start',
-        authenticateWithCode: vi.fn(async () => ({
+        authenticateWithCode: mock(async () => ({
           user: { id: 'u1', email: 'u@example.com', firstName: 'U', lastName: 'X' },
           organizationId: 'org_x',
           sealedSession: 'sealed',
@@ -237,7 +237,7 @@ describe('/v1/auth/callback content-negotiation', () => {
     );
     const r = await app.request('/v1/auth/callback?code=abc', { headers: { Accept: 'application/json' } });
     expect(r.status).toBe(200);
-    expect(refreshedWithOrgId).toBe('org_late');
+    expect(String(refreshedWithOrgId)).toBe('org_late');
     expect(r.headers.get('set-cookie')).toMatch(/rntme_session=refreshed_sealed/);
     expect(orgUpserts).toHaveLength(1);
     expect(orgUpserts[0]!.workosOrganizationId).toBe('org_late');
@@ -288,7 +288,7 @@ describe('/v1/auth/callback content-negotiation', () => {
       const workos = {
         userManagement: {
           getAuthorizationUrl: () => 'https://workos.test/start',
-          authenticateWithCode: vi.fn(async () => { throw new Error('bad code'); }),
+          authenticateWithCode: mock(async () => { throw new Error('bad code'); }),
           loadSealedSession: () => ({
             authenticate: async () => ({ authenticated: false }),
             getLogoutUrl: async () => 'https://workos.test/logout',
@@ -327,7 +327,7 @@ describe('/v1/auth/logout content-negotiation', () => {
     const workos = {
       userManagement: {
         getAuthorizationUrl: () => 'https://workos.test/start',
-        authenticateWithCode: vi.fn(async () => ({
+        authenticateWithCode: mock(async () => ({
           user: { id: 'u1', email: 'u@example.com', firstName: 'U', lastName: 'X' },
           organizationId: 'org_x',
           sealedSession: 'sealed',

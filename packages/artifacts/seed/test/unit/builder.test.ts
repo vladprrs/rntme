@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { seedBuilder } from '../../src/builder.js';
 
 describe('seedBuilder', () => {

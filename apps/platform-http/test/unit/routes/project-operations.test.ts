@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { projectOperationRoutes } from '../../../src/routes/project-operations.js';
 import { Hono } from 'hono';
 import type { AuthSubject } from '@rntme/platform-core';
@@ -50,7 +50,7 @@ describe('projectOperationRoutes', () => {
   });
 
   it('queues update and schedules the linked deployment', async () => {
-    const scheduleDeployment = vi.fn();
+    const scheduleDeployment = mock();
     const store = new FakeStore();
     const ids = new SeededIds(['project-1', 'target-1', 'version-1', 'operation-1', 'deployment-1']);
     const org = await store.seedOrg({ slug: 'acme', workosOrganizationId: 'org_1', displayName: 'Acme' });

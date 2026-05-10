@@ -1,13 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect, afterEach } from 'bun:test';
+import { openSqliteDatabase, type SqliteDatabase } from '@rntme/sqlite';
 import { bootstrapProjections } from '../../../src/store/bootstrap.js';
 
-let db: Database.Database | null = null;
+let db: SqliteDatabase | null = null;
 afterEach(() => { db?.close(); db = null; });
 
 describe('bootstrapProjections — seen_events DDL (D5 Task 18)', () => {
   it('creates the seen_events table even with no projection DDLs', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     bootstrapProjections(db, []);
     const rows = db
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'seen_events'`)
@@ -16,7 +16,7 @@ describe('bootstrapProjections — seen_events DDL (D5 Task 18)', () => {
   });
 
   it('seen_events has (event_id, projection_id) composite primary key with applied_at column', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     bootstrapProjections(db, []);
     const cols = db.prepare('PRAGMA table_info(seen_events)').all() as Array<{
       name: string;
@@ -33,7 +33,7 @@ describe('bootstrapProjections — seen_events DDL (D5 Task 18)', () => {
   });
 
   it('creates idx_seen_events_applied index on applied_at', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     bootstrapProjections(db, []);
     const idx = db
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'seen_events'`)
@@ -42,7 +42,7 @@ describe('bootstrapProjections — seen_events DDL (D5 Task 18)', () => {
   });
 
   it('is idempotent — bootstrapping twice does not throw', () => {
-    db = new Database(':memory:');
+    db = openSqliteDatabase({ filename: ':memory:' });
     bootstrapProjections(db, []);
     expect(() => bootstrapProjections(db!, [])).not.toThrow();
   });

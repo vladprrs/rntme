@@ -1,4 +1,4 @@
-import { describe, it, expectTypeOf } from 'vitest';
+import { describe, it, expectTypeOf } from 'bun:test';
 import type { PlatformError, PlatformErrorNode } from '@rntme/platform-core';
 
 describe('PlatformErrorNode', () => {

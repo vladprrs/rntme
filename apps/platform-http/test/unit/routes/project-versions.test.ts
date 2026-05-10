@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { Hono } from 'hono';
 import type { AuthSubject, BlobStore } from '@rntme/platform-core';
 import { FakeStore, SeededIds, createProject, isOk } from '@rntme/platform-core';

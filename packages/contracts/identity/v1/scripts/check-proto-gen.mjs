@@ -30,7 +30,7 @@ try {
 
   if (changed.length > 0) {
     console.error(`Generated proto files are out of date: ${changed.join(', ')}`);
-    console.error('Run `pnpm -F @rntme/contracts-identity-v1 proto:gen` and commit the generated output.');
+    console.error('Run `bun --cwd packages/contracts/identity/v1 run proto:gen` and commit the generated output.');
     process.exitCode = 1;
   }
 } finally {

@@ -68,10 +68,10 @@ const events = await receiver.receive({
 ## Testing
 
 ```bash
-pnpm test
-pnpm test:conformance:mock
-pnpm run typecheck
-pnpm run lint
+bun test
+bun run test:conformance:mock
+bun run typecheck
+bun run lint
 ```
 
 ## License

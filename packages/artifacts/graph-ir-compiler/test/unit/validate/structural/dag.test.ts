@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkDag } from '../../../../src/validate/structural/dag.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { err, type PlatformError, type Result } from '@rntme/platform-core';
 import type { Pool, PoolClient, QueryResult } from 'pg';
 import { withTransaction } from '../../../src/pg/tx.js';

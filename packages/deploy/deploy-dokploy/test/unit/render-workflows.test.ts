@@ -1,5 +1,5 @@
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { renderDokployPlan } from '../../src/index.js';
 
 const plan: ProjectDeploymentPlan = {

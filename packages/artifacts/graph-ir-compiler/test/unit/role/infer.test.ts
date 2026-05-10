@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { inferRole } from '../../../src/role/infer.js';
 import type { CanonicalGraph } from '../../../src/types/canonical.js';
 

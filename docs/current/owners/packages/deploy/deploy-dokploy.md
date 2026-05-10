@@ -228,6 +228,9 @@ successful.
 - `src/apply.ts` — idempotent apply flow through an injected client.
 - `src/client.ts` — narrow Dokploy client seam.
 
+Run package gates from `packages/deploy/deploy-dokploy` with `bun test`,
+`bun run typecheck`, `bun run build`, and `bun run lint`.
+
 ## Auth and external event bus rendering
 
 Domain-service workloads always receive `RNTME_EVENT_BUS_BROKERS` and

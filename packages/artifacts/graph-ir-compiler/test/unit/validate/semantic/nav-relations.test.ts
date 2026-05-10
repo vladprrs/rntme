@@ -3,7 +3,7 @@
  * against QSM.relations and emits NAV_NOT_ALLOWED / NAV_FAN_OUT_NOT_ALLOWED
  * via the Result pipeline instead of throwing raw errors.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { createPdmResolver, parsePdm, validatePdm } from '@rntme/pdm';
 import { validateQsm } from '@rntme/qsm';
 import { validateSemantic } from '../../../../src/validate/semantic/index.js';

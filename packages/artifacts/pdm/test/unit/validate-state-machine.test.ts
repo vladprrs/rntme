@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { validateStateMachine } from '../../src/validate/state-machine.js';
 import { ERROR_CODES } from '../../src/types/result.js';
 import type { StructurallyValidPdm } from '../../src/types/artifact.js';

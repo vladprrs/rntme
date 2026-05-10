@@ -43,7 +43,7 @@ cp -r packages/tooling/module-scaffold modules/<category>/<vendor>
 #       @rntme/contracts-client-runtime-v1 (only if shipping a `client` block)
 #       to your dependencies.
 #   5. Author module.json validated by parseModuleManifest from @rntme/contracts-module-v1.
-#   6. Run `pnpm install` at the repo root.
+#   6. Run `bun install` at the repo root.
 #   7. Expose real vendor capabilities through the category's canonical contract service.
 ```
 
@@ -127,6 +127,9 @@ this package.
   operation registry in `packages/runtime/runtime`.
 - **What's the contract drift gate?** →
   `packages/contracts/handlers/v1/test/unit/runtime-compat.test.ts`.
+
+Run package gates from `packages/tooling/module-scaffold` with `bun test`,
+`bun run typecheck`, `bun run build`, and `bun run lint`.
 
 ## Specs
 

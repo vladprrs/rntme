@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 type MigrationJournal = {
   readonly entries: readonly { readonly tag: string }[];

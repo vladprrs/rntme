@@ -18,13 +18,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run build:deps && tsc -p tsconfig.json",
-    "test": "pnpm run build:deps && vitest run",
-    "test:watch": "vitest",
-    "test:conformance:mock": "pnpm run build:deps && vitest run test/conformance.mock.test.ts",
-    "typecheck": "pnpm run build:deps && tsc -p tsconfig.check.json",
+    "build": "bun run build:deps && tsc -p tsconfig.json",
+    "test": "bun run build:deps && bun test",
+    "test:conformance:mock": "bun run build:deps && bun test test/conformance.mock.test.ts",
+    "typecheck": "bun run build:deps && tsc -p tsconfig.check.json --types bun",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "build:deps": "pnpm --dir ../../../packages/contracts/_common/v1 run build && pnpm --dir ../../../packages/contracts/crm/v1 run build && pnpm --dir ../conformance run build"
+    "build:deps": "bun run --cwd ../../../packages/contracts/_common/v1 build && bun run --cwd ../../../packages/contracts/crm/v1 build && bun run --cwd ../conformance build"
   },
   "dependencies": {
     "@shevernitskiy/amo": "^0.2.15",
@@ -34,11 +33,11 @@
   "devDependencies": {
     "@eslint/js": "^9.10.0",
     "@rntme/conformance-crm": "workspace:*",
+    "@types/bun": "^1.2.14",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "eslint": "^9.10.0",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

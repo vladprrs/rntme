@@ -4,6 +4,11 @@ Per-RPC scenario stubs and capability constants for the Storage canonical contra
 
 The runner does not exist yet. Scenarios ship as `status: 'pending'` stubs until the category framework lands.
 
+## Local commands
+
+- `bun test`
+- `bun run build`
+
 ## File map
 
 ```text

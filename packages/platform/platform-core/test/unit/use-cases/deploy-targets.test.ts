@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import type {
   DeployTarget,
   DeployTargetRepo,
@@ -119,7 +119,7 @@ describe('deploy target use-cases', () => {
 
   it('returns an error before touching the repo when encryption fails', async () => {
     const { deps, repo } = setup({
-      cipher: { encrypt: vi.fn(() => { throw new Error('boom'); }), decrypt: vi.fn() },
+      cipher: { encrypt: mock(() => { throw new Error('boom'); }), decrypt: mock() },
     });
 
     const result = await createDeployTarget(deps, {
@@ -246,25 +246,25 @@ describe('deploy target use-cases', () => {
 function setup(overrides: { cipher?: SecretCipher; createResult?: ReturnType<typeof ok<DeployTarget>> | ReturnType<typeof err<PlatformError>> } = {}) {
   const target = deployTarget();
   const repo: DeployTargetRepo = {
-    create: vi.fn(async () => overrides.createResult ?? ok(target)),
-    update: vi.fn(async () => ok(target)),
-    rotateApiToken: vi.fn(async () => ok(target)),
-    setDefault: vi.fn(async () => ok(target)),
-    delete: vi.fn(async () => ok(undefined)),
-    list: vi.fn(async () => ok([target])),
-    getBySlug: vi.fn(async () => ok(target)),
-    getDefault: vi.fn(async () => ok(target)),
-    getWithSecretById: vi.fn(async () => ok(null)),
+    create: mock(async () => overrides.createResult ?? ok(target)),
+    update: mock(async () => ok(target)),
+    rotateApiToken: mock(async () => ok(target)),
+    setDefault: mock(async () => ok(target)),
+    delete: mock(async () => ok(undefined)),
+    list: mock(async () => ok([target])),
+    getBySlug: mock(async () => ok(target)),
+    getDefault: mock(async () => ok(target)),
+    getWithSecretById: mock(async () => ok(null)),
   };
   const cipher =
     overrides.cipher ??
     ({
-      encrypt: vi.fn(() => ({
+      encrypt: mock(() => ({
         ciphertext: Buffer.from('ciphertext'),
         nonce: Buffer.from('nonce'),
         keyVersion: 7,
       })),
-      decrypt: vi.fn(),
+      decrypt: mock(),
     } satisfies SecretCipher);
   return {
     repo,

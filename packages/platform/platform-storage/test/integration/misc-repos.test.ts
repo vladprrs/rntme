@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { isOk } from '@rntme/platform-core';
 import { startPostgres, stopPostgres, resetSchema } from './harness.js';
 import { PgOrganizationRepo } from '../../src/repos/pg-org-repo.js';

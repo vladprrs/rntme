@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import pino from 'pino';
 import { RandomIds } from '@rntme/platform-core';
 import { parseEnv } from '../../../src/config/env.js';

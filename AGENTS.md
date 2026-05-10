@@ -57,15 +57,14 @@ From the workspace root:
 
 | Command | Effect |
 | --- | --- |
-| `pnpm install --frozen-lockfile` | install deps |
-| `pnpm -r run build` | build every package |
-| `pnpm -r run typecheck` | typecheck every package |
-| `pnpm -r run test` | run package tests |
-| `pnpm -r run lint` | lint source and tests |
-| `pnpm depcruise` | enforce package layering |
-| `pnpm vendor:check` | verify vendored module metadata in demos |
-| `pnpm -F @rntme/<pkg> test` | run one package's tests |
-| `pnpm -F @rntme/<pkg> test:watch` | watch one package |
+| `bun install --frozen-lockfile` | install deps |
+| `bun run build` | build every package |
+| `bun run typecheck` | typecheck every package |
+| `bun run test` | run package tests |
+| `bun run lint` | lint source and tests |
+| `bun run depcruise` | enforce package layering |
+| `bun run vendor:check` | verify vendored module metadata in demos |
+| `bun run --filter @rntme/<pkg> test` | run one package's tests |
 
 CI runs build, typecheck, test, lint, depcruise, and vendor check.
 

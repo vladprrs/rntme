@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import './dom-setup';
+import { describe, expect, it, mock } from 'bun:test';
 import { createDriver, type DriverOptions } from '../../src/client/driver.js';
 
 function mockFetch(response: unknown) {
-  return vi.fn().mockResolvedValue({
+  return mock().mockResolvedValue({
     ok: true,
     json: () => Promise.resolve(response),
   });
@@ -11,12 +12,12 @@ function mockFetch(response: unknown) {
 describe('createDriver', () => {
   it('fetches data for a screen on enterScreen', async () => {
     const fetchFn = mockFetch([{ id: 1, title: 'Issue 1' }]);
-    const onStateChange = vi.fn();
+    const onStateChange = mock();
 
     const driver = createDriver({
       fetchFn: fetchFn as unknown as typeof fetch,
       onStateChange,
-      onNavigate: vi.fn(),
+      onNavigate: mock(),
     });
 
     await driver.enterScreen({
@@ -39,12 +40,12 @@ describe('createDriver', () => {
 
   it('sets status to pending then ok on successful fetch', async () => {
     const fetchFn = mockFetch({ result: 'ok' });
-    const onStateChange = vi.fn();
+    const onStateChange = mock();
 
     const driver = createDriver({
       fetchFn: fetchFn as unknown as typeof fetch,
       onStateChange,
-      onNavigate: vi.fn(),
+      onNavigate: mock(),
     });
 
     await driver.enterScreen({
@@ -65,16 +66,16 @@ describe('createDriver', () => {
   });
 
   it('sets status to error on failed fetch', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
+    const fetchFn = mock().mockResolvedValue({
       ok: false,
       status: 404,
     });
-    const onStateChange = vi.fn();
+    const onStateChange = mock();
 
     const driver = createDriver({
       fetchFn: fetchFn as unknown as typeof fetch,
       onStateChange,
-      onNavigate: vi.fn(),
+      onNavigate: mock(),
     });
 
     await driver.enterScreen({
@@ -93,10 +94,10 @@ describe('createDriver', () => {
   });
 
   it('dispatches navigation action', () => {
-    const onNavigate = vi.fn();
+    const onNavigate = mock();
     const driver = createDriver({
-      fetchFn: vi.fn() as unknown as typeof fetch,
-      onStateChange: vi.fn(),
+      fetchFn: mock() as unknown as typeof fetch,
+      onStateChange: mock(),
       onNavigate,
     });
 
@@ -109,11 +110,11 @@ describe('createDriver', () => {
   });
 
   it('dispatches navigation action with paramsFromState', () => {
-    const onNavigate = vi.fn();
-    const stateGetter = vi.fn().mockReturnValue('99');
+    const onNavigate = mock();
+    const stateGetter = mock().mockReturnValue('99');
     const driver = createDriver({
-      fetchFn: vi.fn() as unknown as typeof fetch,
-      onStateChange: vi.fn(),
+      fetchFn: mock() as unknown as typeof fetch,
+      onStateChange: mock(),
       onNavigate,
     });
 
@@ -132,12 +133,12 @@ describe('createDriver', () => {
 
   it('dispatches command action and navigates on success', async () => {
     const fetchFn = mockFetch({ ok: true });
-    const onNavigate = vi.fn();
-    const stateGetter = vi.fn().mockReturnValue('new title');
+    const onNavigate = mock();
+    const stateGetter = mock().mockReturnValue('new title');
 
     const driver = createDriver({
       fetchFn: fetchFn as unknown as typeof fetch,
-      onStateChange: vi.fn(),
+      onStateChange: mock(),
       onNavigate,
     });
 
@@ -158,12 +159,12 @@ describe('createDriver', () => {
 
   it('handles no data on screen gracefully', async () => {
     const fetchFn = mockFetch({});
-    const onStateChange = vi.fn();
+    const onStateChange = mock();
 
     const driver = createDriver({
       fetchFn: fetchFn as unknown as typeof fetch,
       onStateChange,
-      onNavigate: vi.fn(),
+      onNavigate: mock(),
     });
 
     await driver.enterScreen({});
@@ -177,12 +178,12 @@ describe('driver — module-action dispatch', () => {
   it('dispatches component-bound op via target', async () => {
     const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const reg = createOperationRegistry();
-    const handler = vi.fn();
+    const handler = mock();
     reg.registerComponent('editor', { toggleBold: handler });
     const driver = createDriver({
-      fetchFn: vi.fn() as unknown as typeof fetch,
-      onStateChange: vi.fn(),
-      onNavigate: vi.fn(),
+      fetchFn: mock() as unknown as typeof fetch,
+      onStateChange: mock(),
+      onNavigate: mock(),
       operationRegistry: reg,
     });
     await driver.dispatchAction(
@@ -195,12 +196,12 @@ describe('driver — module-action dispatch', () => {
   it('dispatches module-level op via module', async () => {
     const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const reg = createOperationRegistry();
-    const handler = vi.fn();
+    const handler = mock();
     reg.registerModule('@rntme/x', 'track', handler);
     const driver = createDriver({
-      fetchFn: vi.fn() as unknown as typeof fetch,
-      onStateChange: vi.fn(),
-      onNavigate: vi.fn(),
+      fetchFn: mock() as unknown as typeof fetch,
+      onStateChange: mock(),
+      onNavigate: mock(),
       operationRegistry: reg,
     });
     await driver.dispatchAction(
@@ -216,7 +217,7 @@ describe('registry — module-action dispatch', () => {
     const { createRegistry } = await import('../../src/client/registry.js');
     const { createOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
     const operationRegistry = createOperationRegistry();
-    const handler = vi.fn();
+    const handler = mock();
     operationRegistry.registerModule('@rntme/analytics-google-analytics', 'track', handler);
 
     const screen = {
@@ -231,21 +232,21 @@ describe('registry — module-action dispatch', () => {
     } as const;
 
     const { handlers } = createRegistry({
-      onNavigate: vi.fn(),
+      onNavigate: mock(),
       getScreen: () => screen,
       store: {
-        get: vi.fn(),
-        set: vi.fn(),
-        update: vi.fn(),
+        get: mock(),
+        set: mock(),
+        update: mock(),
         getSnapshot: () => ({}),
         subscribe: () => () => undefined,
       },
-      fetchEndpoint: vi.fn(),
-      fetchFn: vi.fn() as unknown as typeof fetch,
+      fetchEndpoint: mock(),
+      fetchFn: mock() as unknown as typeof fetch,
       operationRegistry,
     });
     const actionHandlers = handlers(
-      () => vi.fn(),
+      () => mock(),
       () => ({}),
     );
 

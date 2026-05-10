@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { GrpcStatus, IdentityModuleError, mapAuth0Error, unimplemented } from '../../src/errors.js';
 
 describe('Auth0 error mapping', () => {

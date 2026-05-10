@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { ok, err, isOk, isErr, ERROR_CODES } from '../../../src/types/result.js';
 
 describe('result', () => {
@@ -20,7 +20,7 @@ describe('result', () => {
   });
 
   it('ERROR_CODES contains every documented code', () => {
-    const expected = [
+    const expected: Array<keyof typeof ERROR_CODES> = [
       'BINDINGS_PARSE_SCHEMA_VIOLATION',
       'BINDINGS_DUPLICATE_BINDING_ID',
       'BINDINGS_DUPLICATE_METHOD_PATH',
@@ -44,7 +44,7 @@ describe('result', () => {
       'BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN',
     ];
     for (const code of expected) {
-      expect(ERROR_CODES[code as keyof typeof ERROR_CODES]).toBe(code);
+      expect(ERROR_CODES[code]).toBe(code);
     }
   });
 

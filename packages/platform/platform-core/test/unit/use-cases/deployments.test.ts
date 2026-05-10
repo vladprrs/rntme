@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import type {
   DeployTarget,
   DeployTargetRepo,
@@ -74,22 +74,22 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
   const target = overrides.target === undefined ? deployTarget() : overrides.target;
   const defaultTarget = overrides.defaultTarget === undefined ? deployTarget() : overrides.defaultTarget;
   const projectVersions: ProjectVersionRepo = {
-    create: vi.fn(),
-    findByDigest: vi.fn(),
-    getBySeq: vi.fn(async () => ok(version)),
-    getById: vi.fn(),
-    listByProject: vi.fn(),
+    create: mock(),
+    findByDigest: mock(),
+    getBySeq: mock(async () => ok(version)),
+    getById: mock(),
+    listByProject: mock(),
   };
   const deployTargets: DeployTargetRepo = {
-    create: vi.fn(),
-    update: vi.fn(),
-    rotateApiToken: vi.fn(),
-    setDefault: vi.fn(),
-    delete: vi.fn(),
-    list: vi.fn(),
-    getBySlug: vi.fn(async () => ok(target)),
-    getDefault: vi.fn(async () => ok(defaultTarget)),
-    getWithSecretById: vi.fn(),
+    create: mock(),
+    update: mock(),
+    rotateApiToken: mock(),
+    setDefault: mock(),
+    delete: mock(),
+    list: mock(),
+    getBySlug: mock(async () => ok(target)),
+    getDefault: mock(async () => ok(defaultTarget)),
+    getWithSecretById: mock(),
   };
   const project: Project = {
     id: '33333333-3333-4333-8333-333333333333',
@@ -102,32 +102,32 @@ function setup(overrides: { version?: ProjectVersion | null; target?: DeployTarg
     updatedAt: new Date('2026-01-01T00:00:00Z'),
   };
   const projects: ProjectRepo = {
-    create: vi.fn(),
-    findBySlug: vi.fn(async () => ok(project)),
-    findById: vi.fn(async () => ok(project)),
-    list: vi.fn(),
-    patch: vi.fn(),
-    setStatus: vi.fn(),
-    archive: vi.fn(),
+    create: mock(),
+    findBySlug: mock(async () => ok(project)),
+    findById: mock(async () => ok(project)),
+    list: mock(),
+    patch: mock(),
+    setStatus: mock(),
+    archive: mock(),
   };
   const deployment = queuedDeployment();
   const deployments: DeploymentRepo = {
-    create: vi.fn(async () => ok(deployment)),
-    getById: vi.fn(),
-    listByProject: vi.fn(),
-    transition: vi.fn(),
-    setRenderedDigest: vi.fn(),
-    setApplyResult: vi.fn(),
-    setProvisionResult: vi.fn(async () => undefined),
-    finalize: vi.fn(),
-    touchHeartbeat: vi.fn(),
-    appendLog: vi.fn(),
-    readLogs: vi.fn(),
-    findStaleRunning: vi.fn(),
-    hasActiveForProject: vi.fn(),
-    hasActiveForProjectTarget: vi.fn(),
-    listAppliedResourcesByProject: vi.fn(),
-    findLastSuccessfulForProjectTarget: vi.fn(),
+    create: mock(async () => ok(deployment)),
+    getById: mock(),
+    listByProject: mock(),
+    transition: mock(),
+    setRenderedDigest: mock(),
+    setApplyResult: mock(),
+    setProvisionResult: mock(async () => undefined),
+    finalize: mock(),
+    touchHeartbeat: mock(),
+    appendLog: mock(),
+    readLogs: mock(),
+    findStaleRunning: mock(),
+    hasActiveForProject: mock(),
+    hasActiveForProjectTarget: mock(),
+    listAppliedResourcesByProject: mock(),
+    findLastSuccessfulForProjectTarget: mock(),
   };
   return {
     deployments,

@@ -1,4 +1,4 @@
-import { describe, it, expectTypeOf } from 'vitest';
+import { describe, it, expectTypeOf } from 'bun:test';
 import type { ValidatedPublishBundle, ValidatedSlug } from '../../../src/types/brands.js';
 
 describe('brand types', () => {

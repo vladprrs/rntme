@@ -1,5 +1,5 @@
 import type { ModuleManifest } from '@rntme/contracts-module-v1';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { buildCatalog } from '../../src/compose/catalog.js';
 import type { DiscoveredModule } from '../../src/compose/modules.js';
 

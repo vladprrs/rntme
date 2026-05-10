@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { checkCommandShape } from '../../../../src/validate/structural/command-shape.js';
 import type { AuthoringSpecOutput } from '../../../../src/parse/schema.js';
 

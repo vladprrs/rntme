@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createOperatonRestClient } from '../../src/operaton-rest.js';
 
 describe('createOperatonRestClient', () => {
@@ -8,10 +8,10 @@ describe('createOperatonRestClient', () => {
       baseUrl: 'http://operaton:8080/engine-rest',
       workerId: 'worker-1',
       topics: ['reserveStock'],
-      fetch: async (url, init) => {
+      fetch: asFetch(async (url, init) => {
         calls.push({ url: String(url), method: init?.method });
         return new globalThis.Response('{}', { status: 200 });
-      },
+      }),
     });
 
     await client.deployDefinitions({ 'order-fulfillment.bpmn': '<definitions />' });
@@ -25,14 +25,14 @@ describe('createOperatonRestClient', () => {
       workerId: 'worker-1',
       topics: ['reserveStock'],
       requestTimeoutMs: 1,
-      fetch: async (_url, init) => {
+      fetch: asFetch(async (_url, init) => {
         expect(init?.signal).toBeInstanceOf(globalThis.AbortSignal);
         return new Promise((_, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(init.signal?.reason);
           });
         });
-      },
+      }),
     });
 
     await expect(client.deployDefinitions({ 'order-fulfillment.bpmn': '<definitions />' }))
@@ -46,10 +46,10 @@ describe('createOperatonRestClient', () => {
       baseUrl: 'http://operaton:8080/engine-rest',
       workerId: 'worker-1',
       topics: ['reserveStock'],
-      fetch: async (_url, init) => {
+      fetch: asFetch(async (_url, init) => {
         bodies.push(JSON.parse(String(init?.body)));
         return new globalThis.Response(JSON.stringify([{ processInstance: { id: 'proc_1' } }]), { status: 200 });
-      },
+      }),
     });
 
     const result = await client.startProcess({
@@ -77,7 +77,7 @@ describe('createOperatonRestClient', () => {
       baseUrl: 'http://operaton:8080/engine-rest',
       workerId: 'worker-1',
       topics: ['reserveStock'],
-      fetch: async (url, init) => {
+      fetch: asFetch(async (url, init) => {
         calls.push({ url: String(url), body: init?.body === undefined ? null : JSON.parse(String(init.body)) });
         if (String(url).endsWith('/external-task/fetchAndLock')) {
           return new globalThis.Response(JSON.stringify([
@@ -91,7 +91,7 @@ describe('createOperatonRestClient', () => {
           ]), { status: 200 });
         }
         return new globalThis.Response('{}', { status: 200 });
-      },
+      }),
     });
 
     expect(await client.fetchAndLock()).toEqual([
@@ -118,7 +118,7 @@ describe('createOperatonRestClient', () => {
       baseUrl: 'http://operaton:8080/engine-rest',
       workerId: 'worker-1',
       topics: ['confirmOrder'],
-      fetch: async () => new globalThis.Response(JSON.stringify([
+      fetch: asFetch(async () => new globalThis.Response(JSON.stringify([
         {
           id: 'task_2',
           activityId: 'confirmOrder',
@@ -131,7 +131,7 @@ describe('createOperatonRestClient', () => {
             },
           },
         },
-      ]), { status: 200 }),
+      ]), { status: 200 })),
     });
 
     await expect(client.fetchAndLock()).resolves.toEqual([
@@ -147,3 +147,12 @@ describe('createOperatonRestClient', () => {
     ]);
   });
 });
+
+type TestFetch = (
+  url: Parameters<typeof globalThis.fetch>[0],
+  init?: Parameters<typeof globalThis.fetch>[1],
+) => Promise<globalThis.Response>;
+
+function asFetch(fetch: TestFetch): typeof globalThis.fetch {
+  return fetch as typeof globalThis.fetch;
+}

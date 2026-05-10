@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { IdentityModule } from '@rntme/contracts-identity-v1';
 import { identityConformanceSuite } from '../src/suite.js';
 import { readdirSync } from 'node:fs';

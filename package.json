@@ -5,17 +5,27 @@
   "description": "rntme — an open, validated runtime for AI-generated business apps.",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "bun": ">=1.1.0"
   },
-  "packageManager": "pnpm@9.12.0",
+  "workspaces": [
+    "packages/artifacts/*",
+    "packages/runtime/*",
+    "packages/platform/*",
+    "packages/deploy/*",
+    "packages/tooling/*",
+    "packages/contracts/*/v*",
+    "apps/*",
+    "modules/*/*",
+    "demo/*"
+  ],
   "scripts": {
-    "build": "pnpm -r run build",
-    "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
-    "vendor:check": "node scripts/vendor-check.mjs",
-    "vendor:sync": "node scripts/vendor-sync.mjs",
-    "depcruise": "depcruise --config .dependency-cruiser.cjs packages modules"
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "bun run --filter '*' lint",
+    "vendor:check": "bun run scripts/vendor-check.mjs",
+    "vendor:sync": "bun run scripts/vendor-sync.mjs",
+    "depcruise": "bunx depcruise --config .dependency-cruiser.cjs packages modules"
   },
   "devDependencies": {
     "@rntme/seed": "workspace:*",

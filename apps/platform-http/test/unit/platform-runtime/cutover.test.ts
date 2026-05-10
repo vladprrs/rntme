@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { loadPlatformBlueprint } from '../../../src/platform-runtime/load-platform-blueprint.js';
 import { createPlatformRuntimeApp } from '../../../src/platform-runtime/create-platform-runtime-app.js';
 

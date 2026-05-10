@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createPdmResolver } from '../../src/resolvers/pdm-resolver.js';
 import { validatePdm } from '../../src/validate/index.js';
 import type { PdmArtifact, ValidatedPdm } from '../../src/types/artifact.js';

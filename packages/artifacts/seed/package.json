@@ -18,9 +18,8 @@
   "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "postbuild": "node -e \"const f='dist/bin/cli.js';const s=require('fs').readFileSync(f,'utf8');if(!s.startsWith('#!'))require('fs').writeFileSync(f,'#!/usr/bin/env node\\n'+s);require('fs').chmodSync(f,0o755);\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "postbuild": "bun -e \"const f='dist/bin/cli.js';const fs=require('fs');const s=fs.readFileSync(f,'utf8').replace(/^#!.*\\n/,'');fs.writeFileSync(f,'#!/usr/bin/env bun\\n'+s);fs.chmodSync(f,0o755);\"",
+    "test": "bun test",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write ."
@@ -31,18 +30,14 @@
     "@rntme/pdm": "workspace:*",
     "zod": "^4.0.0"
   },
-  "peerDependencies": {
-    "better-sqlite3": "^11.0.0"
-  },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
+    "@eslint/js": "^9.10.0",
+    "@types/bun": "latest",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
-    "better-sqlite3": "^11.0.0",
     "eslint": "^9.10.0",
     "prettier": "^3.3.3",
-    "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "typescript": "^5.5.4"
   }
 }

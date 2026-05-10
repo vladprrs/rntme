@@ -1,19 +1,27 @@
-// @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import './dom-setup';
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { act } from 'react';
 import type { CompiledManifest, CompiledScreen } from '@rntme/ui';
+import type { MountUiRuntimeOptions, MountUiRuntimeResult } from '../../src/client/entry.js';
 
-const render = vi.fn();
 const requestPath = (input: RequestInfo | URL): string => {
   if (input instanceof Request) return new URL(input.url).pathname;
   return String(input);
 };
 
-vi.mock('react-dom/client', () => ({
-  createRoot: vi.fn(() => ({
-    render,
-    unmount: vi.fn()
-  }))
-}));
+type RuntimeStoreProbe = {
+  get: (path: string) => unknown;
+};
+
+async function mountRuntime(opts: MountUiRuntimeOptions): Promise<MountUiRuntimeResult> {
+  const { mountUiRuntime } = await import('../../src/client/entry.js');
+  let result: MountUiRuntimeResult | undefined;
+  await act(async () => {
+    result = await mountUiRuntime(opts);
+  });
+  if (!result) throw new Error('expected runtime to mount');
+  return result;
+}
 
 const manifest: CompiledManifest = {
   version: '2.0',
@@ -40,7 +48,7 @@ const screen: CompiledScreen = {
 };
 
 function makeTransport() {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return mock(async (input: RequestInfo | URL) => {
     const url = requestPath(input);
     if (url === '/_manifest.json') return Response.json(manifest);
     if (url === '/_layouts/main.json') return Response.json(layout);
@@ -50,13 +58,12 @@ function makeTransport() {
 }
 
 describe('mountUiRuntime boot resilience', () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
     document.body.innerHTML = '<div id="root"></div>';
     window.history.replaceState({}, '', '/');
-    render.mockClear();
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -64,9 +71,8 @@ describe('mountUiRuntime boot resilience', () => {
   });
 
   it('still calls createRoot when a module boot throws', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),
@@ -80,15 +86,14 @@ describe('mountUiRuntime boot resilience', () => {
       ]
     });
 
-    expect(render).toHaveBeenCalled();
+    expect(document.querySelector('#rntme-app')).not.toBeNull();
   });
 
   it('sets /auth/status to anon when an identity module fails before setting it', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
     let observedStatus: unknown;
     let observedUser: unknown;
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),
@@ -115,9 +120,9 @@ describe('mountUiRuntime boot resilience', () => {
   });
 
   it('records module boot errors in runtime state after mount', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
+    let store: RuntimeStoreProbe | undefined;
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),
@@ -127,18 +132,17 @@ describe('mountUiRuntime boot resilience', () => {
           boot: async () => {
             throw new Error('boot exploded');
           }
+        },
+        {
+          name: 'probe',
+          boot: (ctx) => {
+            store = ctx.state;
+          },
         }
       ]
     });
 
-    const app = render.mock.calls.at(-1)?.[0] as {
-      props: {
-        store: {
-          get: (path: string) => unknown;
-        };
-      };
-    };
-    const bootErrors = app.props.store.get('/runtime/bootErrors') as Array<{
+    const bootErrors = store?.get('/runtime/bootErrors') as Array<{
       moduleName: string;
       cause: unknown;
     }>;
@@ -149,10 +153,9 @@ describe('mountUiRuntime boot resilience', () => {
   });
 
   it('does not overwrite /auth/status when identity module set it before throwing', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
     let observedStatus: unknown;
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),
@@ -178,10 +181,9 @@ describe('mountUiRuntime boot resilience', () => {
   });
 
   it('does not touch /auth/status when a non-identity module fails', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
     let observedStatus: unknown;
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),
@@ -205,10 +207,9 @@ describe('mountUiRuntime boot resilience', () => {
   });
 
   it('continues to boot remaining modules when one times out', async () => {
-    const { mountUiRuntime } = await import('../../src/client/entry.js');
     let secondBooted = false;
 
-    await mountUiRuntime({
+    await mountRuntime({
       manifestUrl: '/_manifest.json',
       target: document.querySelector<HTMLElement>('#root')!,
       transport: makeTransport(),

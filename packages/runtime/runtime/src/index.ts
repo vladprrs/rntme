@@ -45,7 +45,7 @@ export type {
   Surface,
   SurfaceContext,
 } from './plugins/interfaces.js';
-export { BetterSqliteDriver } from './plugins/better-sqlite-driver.js';
+export { BunSqliteDriver } from './plugins/bun-sqlite-driver.js';
 export { InMemoryBus } from './plugins/in-memory-bus.js';
 export { KafkaJsEventBus } from './plugins/kafka-js-bus.js';
 export { HttpSurface } from './plugins/http-surface.js';
@@ -63,5 +63,5 @@ export * from './plugins/executors/index.js';
 export * from './plugins/adapter-client/index.js';
 
 // contract-tests intentionally NOT re-exported from the main entry point
-// (they import vitest which must not load in non-test processes).
+// (they import bun:test which must not load in non-test processes).
 // Import directly from '@rntme/runtime/src/plugins/contract-tests.js' in test files.

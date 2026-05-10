@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { buildBindToMap, remapToGraphInputs } from '../../src/runtime/remap.js';
 import type { HttpParameter } from '@rntme/bindings';
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { claudeCodeAdapter } from '../../../../src/skills/adapters/claude-code.js';
 
 describe('claudeCodeAdapter', () => {

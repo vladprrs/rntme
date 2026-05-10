@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import type BetterSqlite3 from 'better-sqlite3';
+import type { SqliteDatabase } from '@rntme/sqlite';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { EventStore, ActorRef } from '@rntme/event-store';
 import type { OperationExecutor } from './operation-contract.js';
@@ -15,7 +15,7 @@ import { missingRuntimeDependencyError } from './errors.js';
 
 export type BindingsRouterOptions = BindingsGraphRuntimeInputs & {
   validated: ValidatedBindings;
-  db: BetterSqlite3.Database;
+  db: SqliteDatabase;
   openApiDoc?: OpenApiDoc;
   onError?: (err: unknown, ctx: Context) => void;
   /** Required when at least one action operation can append local events. */

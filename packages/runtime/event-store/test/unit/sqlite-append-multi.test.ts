@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { SqliteEventStore } from '../../src/store/sqlite.js';
 import { DuplicateEventId } from '../../src/types/errors.js';
 import { makeEvent, makeRequest } from '../fixtures/sample-events.js';

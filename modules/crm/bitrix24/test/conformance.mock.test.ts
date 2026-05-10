@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { suite as crmConformanceSuite } from '@rntme/conformance-crm';
 import { proto } from '@rntme/contracts-crm-v1';
 import moduleManifest from '../module.json' with { type: 'json' };
@@ -10,7 +10,7 @@ const ALL_CANONICAL_RPCS = Object.keys(crmConformanceSuite.scenarios);
 
 function fakeAdapter(): Bitrix24Adapter {
   return {
-  call: vi.fn(async (method, params) => {
+  call: mock(async (method, params) => {
     if (method.endsWith('.get') && params?.id) {
       const entity = method.split('.')[1] ?? 'contact';
       return defaultRecord(entity, String(params.id));
@@ -29,7 +29,7 @@ function fakeAdapter(): Bitrix24Adapter {
     };
     return defaults[method] ?? true;
   }),
-  list: vi.fn(async (method) => {
+  list: mock(async (method) => {
     const defaults: Record<string, Record<string, unknown>[]> = {
       'crm.contact.list': [{ ID: '1', NAME: 'Ada' }],
       'crm.company.list': [{ ID: '2', TITLE: 'Acme' }],
@@ -42,7 +42,7 @@ function fakeAdapter(): Bitrix24Adapter {
     };
     return defaults[method] ?? [];
   }),
-  batch: vi.fn(async () => ({})),
+  batch: mock(async () => ({})),
   };
 }
 
@@ -141,7 +141,7 @@ function requestFor(rpc: string): unknown {
 
 describe('Bitrix24 CRM conformance wiring', () => {
   it('claims only RPCs present in the shared CRM conformance suite', () => {
-    expect(moduleManifest.capabilities.rpcs).toEqual(BITRIX24_SUPPORTED_RPCS);
+    expect(moduleManifest.capabilities.rpcs).toEqual([...BITRIX24_SUPPORTED_RPCS]);
     for (const rpc of moduleManifest.capabilities.rpcs) {
       expect(ALL_CANONICAL_RPCS).toContain(rpc);
     }

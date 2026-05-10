@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import {
   AI_LLM_AGENT_EXECUTION_MODES,
   AI_LLM_ASYNC_JOB_TYPES,
