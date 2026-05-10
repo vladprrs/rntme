@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { validateManifest } from '../../src/manifest/validate.js';
+import { parseManifest } from '../../src/manifest/parse.js';
 import type { ParsedManifest } from '../../src/manifest/types.js';
 
 const RUNTIME_VERSION = { major: 1, minor: 0, patch: 0 };
@@ -134,5 +135,25 @@ describe('validateManifest', () => {
         ]),
       );
     }
+  });
+
+  it('fills CORS and security-header defaults when manifest omits them', () => {
+    const parsed = parseManifest(JSON.stringify({
+      rntmeVersion: '1.0',
+      service: { name: 's', version: '1' },
+    }));
+    if (!parsed.ok) throw new Error('parse failed');
+    const v = validateManifest(parsed.value, { major: 1, minor: 0, patch: 0 });
+    if (!v.ok) throw new Error(JSON.stringify(v.errors));
+    expect(v.value.surface.http.cors).toEqual({
+      origins: [],
+      credentials: true,
+      allowHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    });
+    expect(v.value.surface.http.securityHeaders).toEqual({
+      csp: null,
+      contentTypeOptions: 'nosniff',
+      referrerPolicy: 'strict-origin-when-cross-origin',
+    });
   });
 });

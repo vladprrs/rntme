@@ -15,6 +15,22 @@ const HttpRateLimitSchema = z
   })
   .strict();
 
+const HttpCorsSchema = z
+  .object({
+    origins: z.array(z.string().min(1)).optional(),
+    credentials: z.boolean().optional(),
+    allowHeaders: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
+const HttpSecurityHeadersSchema = z
+  .object({
+    csp: z.union([z.string(), z.null()]).optional(),
+    contentTypeOptions: z.union([z.string(), z.null()]).optional(),
+    referrerPolicy: z.union([z.string(), z.null()]).optional(),
+  })
+  .strict();
+
 const ModuleGrpcTlsSchema = z
   .object({
     rootCertPath: z.string().min(1).optional(),
@@ -38,6 +54,8 @@ export const ManifestSchema = z
             port: z.number().int().min(0).max(65535).optional(),
             bodyLimit: HttpBodyLimitSchema.optional(),
             rateLimit: HttpRateLimitSchema.optional(),
+            cors: HttpCorsSchema.optional(),
+            securityHeaders: HttpSecurityHeadersSchema.optional(),
           })
           .strict()
           .optional(),

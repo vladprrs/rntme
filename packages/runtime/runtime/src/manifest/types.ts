@@ -5,6 +5,26 @@ export type HttpBodyLimitConfig = { enabled?: boolean; maxBytes?: number };
 export type HttpRateLimitConfig = { enabled?: boolean; windowMs?: number; max?: number };
 export type ValidatedHttpBodyLimitConfig = { enabled: boolean; maxBytes: number };
 export type ValidatedHttpRateLimitConfig = { enabled: boolean; windowMs: number; max: number };
+export type HttpCorsConfig = {
+  origins?: string[];
+  credentials?: boolean;
+  allowHeaders?: string[];
+};
+export type ValidatedHttpCorsConfig = {
+  origins: string[];
+  credentials: boolean;
+  allowHeaders: string[];
+};
+export type HttpSecurityHeadersConfig = {
+  csp?: string | null;
+  contentTypeOptions?: string | null;
+  referrerPolicy?: string | null;
+};
+export type ValidatedHttpSecurityHeadersConfig = {
+  csp: string | null;
+  contentTypeOptions: string | null;
+  referrerPolicy: string | null;
+};
 export type ModuleGrpcTlsConfig = {
   rootCertPath?: string;
   privateKeyPath?: string;
@@ -25,6 +45,8 @@ export type ParsedManifest = {
       port?: number;
       bodyLimit?: HttpBodyLimitConfig;
       rateLimit?: HttpRateLimitConfig;
+      cors?: HttpCorsConfig;
+      securityHeaders?: HttpSecurityHeadersConfig;
     };
     grpc?: { enabled?: boolean; port?: number };
   };
@@ -52,6 +74,8 @@ export type ValidatedManifest = {
       port: number;
       bodyLimit: ValidatedHttpBodyLimitConfig;
       rateLimit: ValidatedHttpRateLimitConfig;
+      cors: ValidatedHttpCorsConfig;
+      securityHeaders: ValidatedHttpSecurityHeadersConfig;
     };
     grpc?: { enabled: boolean; port: number } | undefined;
   };

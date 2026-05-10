@@ -117,6 +117,21 @@ export function validateManifest(
           windowMs: parsed.surface?.http?.rateLimit?.windowMs ?? 60_000,
           max: parsed.surface?.http?.rateLimit?.max ?? 600,
         },
+        cors: {
+          origins: parsed.surface?.http?.cors?.origins ?? [],
+          credentials: parsed.surface?.http?.cors?.credentials ?? true,
+          allowHeaders: parsed.surface?.http?.cors?.allowHeaders ?? [
+            'Content-Type',
+            'Authorization',
+            'X-Request-ID',
+          ],
+        },
+        securityHeaders: {
+          csp: parsed.surface?.http?.securityHeaders?.csp ?? null,
+          contentTypeOptions: parsed.surface?.http?.securityHeaders?.contentTypeOptions ?? 'nosniff',
+          referrerPolicy:
+            parsed.surface?.http?.securityHeaders?.referrerPolicy ?? 'strict-origin-when-cross-origin',
+        },
       },
       grpc:
         parsed.surface?.grpc !== undefined
@@ -208,13 +223,36 @@ export function applyEnvOverrides(
     actorKind: v.auth.actorKind,
   };
 
+  let cors = v.surface.http.cors;
+  if (env.RNTME_HTTP_CORS_ORIGINS !== undefined) {
+    const origins = env.RNTME_HTTP_CORS_ORIGINS
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (origins.length === 0) {
+      errors.push({
+        code: 'MANIFEST_INVALID_TYPE',
+        path: 'surface.http.cors.origins (from RNTME_HTTP_CORS_ORIGINS)',
+        message: 'RNTME_HTTP_CORS_ORIGINS must list at least one origin',
+      });
+    } else {
+      cors = { ...cors, origins };
+    }
+  }
+
+  let securityHeaders = v.surface.http.securityHeaders;
+  if (env.RNTME_HTTP_CSP !== undefined) {
+    const csp = env.RNTME_HTTP_CSP === '' ? null : env.RNTME_HTTP_CSP;
+    securityHeaders = { ...securityHeaders, csp };
+  }
+
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
     value: {
       ...v,
       surface: {
-        http: { ...v.surface.http, port },
+        http: { ...v.surface.http, port, cors, securityHeaders },
         grpc: v.surface.grpc,
       },
       persistence,
