@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { deleteDokployResources, type DokployDeleteResource } from '@rntme/deploy-dokploy';
-import { isOk } from '@rntme/platform-core';
+import { isOk, parseTargetSecret } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';
 import { runDeployment } from '../../src/deploy/executor.js';
 import { defaultSmokeFetcher, SmokeVerifier, type SmokeFetcher } from '../../src/deploy/smoke-verifier.js';
@@ -186,7 +186,7 @@ function deploymentDeps(
       }
     },
     orgSlugFor: async () => orgSlug,
-    dokployClientFactory: createDokployClientFactory(env.deps.cipher!),
+    dokployClientFactory: createDokployClientFactory(env.deps.cipher!, parseTargetSecret),
     smoker: new SmokeVerifier((url, opts) => fetchSmoke(url, opts, smokeDeadlineMs)),
     logger: env.deps.logger,
     publicDeployDomain,
@@ -281,7 +281,7 @@ async function cleanupDeploymentResources(env: E2eEnv, orgId: string, deployment
   if (targetAndResources === null || targetAndResources.resources.length === 0) return;
   const result = await deleteDokployResources(
     targetAndResources.resources,
-    createDokployClientFactory(env.deps.cipher!)(targetAndResources.target),
+    createDokployClientFactory(env.deps.cipher!, parseTargetSecret)(targetAndResources.target),
   );
   if (!result.ok) throw new Error(`DOKPLOY_E2E_CLEANUP_FAILED: ${JSON.stringify(result.errors)}`);
 }

@@ -1,0 +1,810 @@
+import { createHash } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
+import type {
+  DokployApplication,
+  DokployClient,
+  DokployCompose,
+  DokployComposeTaskInspection,
+  DokployProjectRef,
+  RenderedComposeServiceClass,
+  RenderedDokployResource,
+  RenderedSecretFileRef,
+  RenderedEnvVar,
+} from '@rntme/deploy-dokploy';
+
+// Local structural mirror of EncryptedSecret from platform-core
+// (uses Buffer, matching the actual runtime shape)
+export type EncryptedSecret = {
+  readonly ciphertext: Buffer;
+  readonly nonce: Buffer;
+  readonly keyVersion: number;
+};
+
+// Structural mirror of SecretCipher from platform-core
+export interface SecretCipher {
+  encrypt(plaintext: string): EncryptedSecret;
+  decrypt(secret: EncryptedSecret): string;
+}
+
+// Minimal structural mirror of DeployTargetWithSecret — only fields accessed by this factory
+export type DokployTargetWithSecret = {
+  readonly apiTokenCiphertext: Buffer;
+  readonly apiTokenNonce: Buffer;
+  readonly apiTokenKeyVersion: number;
+  readonly dokployUrl: string;
+};
+
+// Result shape for parseTargetSecret — structurally compatible with platform-core's TargetSecretParseResult
+// (code is widened to string, which is assignable from the stricter literal union in platform-core)
+export type ParseTargetSecretResult =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly errors: readonly { readonly code: string; readonly message: string; readonly path?: readonly (string | number)[] }[] };
+
+export type ParseTargetSecretFn = (schemaId: string, value: unknown) => ParseTargetSecretResult;
+
+export type DokployResolvedTargetSecretMap = Readonly<Record<string, unknown>>;
+export type DokployClientFactory = (
+  target: DokployTargetWithSecret,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+) => DokployClient;
+type Sleep = (ms: number) => Promise<void>;
+
+type DokployApiApplicationSummary = {
+  applicationId: string;
+  name: string;
+};
+
+type DokployApiApplication = DokployApiApplicationSummary & {
+  appName?: string;
+  dockerImage?: string;
+  env?: string;
+  command?: string | null;
+  args?: string[] | null;
+  applicationStatus?: string;
+  lastDeploymentStatus?: string;
+  statusMessage?: string;
+};
+
+type DokployApiComposeSummary = {
+  composeId: string;
+  name: string;
+};
+
+type DokployApiCompose = DokployApiComposeSummary & {
+  appName?: string;
+  composeFile?: string;
+  env?: string;
+};
+
+type DokployApiDomain = {
+  domainId: string;
+  host: string;
+};
+
+type DokployApiMount = {
+  mountId: string;
+  mountPath?: string;
+  filePath?: string;
+};
+
+type DokployApiEnvironment = {
+  environmentId: string;
+  name: string;
+  applications?: readonly DokployApiApplicationSummary[];
+  // Dokploy's project.all payload nests composes under the singular key
+  // `compose` (not `composes`). Both shapes are tolerated so that future
+  // server changes don't silently strand the cleanup pass.
+  composes?: readonly DokployApiComposeSummary[];
+  compose?: readonly DokployApiComposeSummary[];
+};
+
+type DokployApiProject = {
+  projectId: string;
+  name: string;
+  environments?: readonly DokployApiEnvironment[];
+};
+
+export function createDokployClientFactory(
+  cipher: SecretCipher,
+  parseTargetSecretFn: ParseTargetSecretFn,
+  httpFetch: typeof globalThis.fetch = globalThis.fetch,
+  sleepFn: Sleep = sleep,
+): DokployClientFactory {
+  return (target, resolvedTargetSecrets) => {
+    let token: string;
+    try {
+      token = cipher.decrypt({
+        ciphertext: target.apiTokenCiphertext,
+        nonce: target.apiTokenNonce,
+        keyVersion: target.apiTokenKeyVersion,
+      });
+    } catch {
+      throw new Error('DEPLOY_TARGET_TOKEN_DECRYPT_FAILED');
+    }
+
+    const baseUrl = normalizeDokployBaseUrl(target.dokployUrl);
+    const request = async <T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> => {
+      const url = method === 'GET' && body ? `${baseUrl}${path}?${new URLSearchParams(body as Record<string, string>)}` : `${baseUrl}${path}`;
+      const response = await httpFetch(url, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': token,
+        },
+        ...(method === 'POST' && body ? { body: JSON.stringify(body) } : {}),
+      });
+      if (!response.ok) {
+        throw new Error(`Dokploy request failed: ${response.status} ${await response.text()}`);
+      }
+      const text = await response.text();
+      if (text.trim() === '') return {} as T;
+      return JSON.parse(text) as T;
+    };
+
+    return {
+      ensureEnvironment: async (ref: DokployProjectRef, environmentName: string) => {
+        const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+        let project =
+          ref.mode === 'create'
+            ? projects.find((p) => p.name === ref.projectName)
+            : projects.find((p) => p.projectId === ref.projectId);
+        if (!project) {
+          if (ref.mode !== 'create') throw new Error(`Project ${ref.projectId} not found`);
+          project = await request<DokployApiProject>('POST', '/api/project.create', { name: ref.projectName });
+        }
+        let environment = project.environments?.find((e) => e.name === environmentName);
+        if (!environment) {
+          environment = await request<DokployApiEnvironment>('POST', '/api/environment.create', {
+            projectId: project.projectId,
+            name: environmentName,
+          });
+        }
+        return { environmentId: environment.environmentId };
+      },
+      findApplicationByName: async (environmentId: string, name: string) => {
+        return findApplicationByName(request, environmentId, name);
+      },
+      createApplication: async (
+        environmentId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
+        const app = await request<DokployApiApplication>('POST', '/api/application.create', {
+          environmentId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: `Managed by rntme-cli`,
+        });
+        if (app.applicationId === undefined || app.applicationId === '') {
+          const created = await findApplicationByName(request, environmentId, resource.name);
+          if (created === null) throw new Error(`Dokploy application ${resource.name} not found after create`);
+          return created;
+        }
+        return toDokployApplication(app);
+      },
+      updateApplication: async (
+        applicationId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
+        const app = await request<DokployApiApplication | boolean>('POST', '/api/application.update', {
+          applicationId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: `Managed by rntme-cli`,
+          ...(resource.command !== undefined ? { command: resource.command } : {}),
+          ...(resource.args !== undefined ? { args: [...resource.args] } : {}),
+        });
+        if (typeof app !== 'object' || app === null || app.applicationId === undefined || app.applicationId === '') {
+          const updated = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId });
+          return toDokployApplication(updated);
+        }
+        return toDokployApplication(app);
+      },
+      configureApplication: async (
+        applicationId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+      ) => {
+        const appName = resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63);
+        const envResolved = resolvedApplicationEnv(resource, resolvedTargetSecrets, parseTargetSecretFn);
+        await request('POST', '/api/application.update', {
+          applicationId,
+          name: resource.name,
+          appName,
+          description: `Managed by rntme-cli`,
+          env: envResolved,
+          ...(resource.command !== undefined ? { command: resource.command } : {}),
+          ...(resource.args !== undefined ? { args: [...resource.args] } : {}),
+        });
+        await request('POST', '/api/application.saveEnvironment', {
+          applicationId,
+          env: envResolved,
+          buildArgs: '',
+          buildSecrets: '',
+          createEnvFile: true,
+        });
+        if (resource.build !== undefined) {
+          await request('POST', '/api/application.saveBuildType', {
+            applicationId,
+            buildType: 'dockerfile',
+            dockerfile: 'Dockerfile',
+            dockerContextPath: '.',
+            dockerBuildStage: null,
+            herokuVersion: null,
+            railpackVersion: null,
+          });
+        } else {
+          await request('POST', '/api/application.saveDockerProvider', {
+            applicationId,
+            dockerImage: resource.image,
+            username: '',
+            password: '',
+            registryUrl: '',
+          });
+        }
+        await configureFileMounts(
+          request,
+          'application',
+          applicationId,
+          resource.files,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
+        if (resource.ingress !== undefined) {
+          const domainsResponse = await request<unknown>('GET', '/api/domain.byApplicationId', {
+            applicationId,
+          });
+          const domains = Array.isArray(domainsResponse) ? (domainsResponse as DokployApiDomain[]) : [];
+          const host = new URL(resource.ingress.publicBaseUrl).host;
+          const domain = domains.find((d) => d.host === host);
+          const body = {
+            host,
+            path: '/',
+            port: resource.ingress.containerPort,
+            https: new URL(resource.ingress.publicBaseUrl).protocol === 'https:',
+            certificateType: 'letsencrypt',
+          };
+          if (domain === undefined) {
+            await request('POST', '/api/domain.create', {
+              ...body,
+              applicationId,
+            });
+          } else {
+            await request('POST', '/api/domain.update', {
+              ...body,
+              domainId: domain.domainId,
+            });
+          }
+        }
+      },
+      deployApplication: async (applicationId: string) => {
+        await request('POST', '/api/application.deploy', { applicationId });
+      },
+      startApplication: async (applicationId: string) => {
+        await startApplicationWithRetry(request, applicationId, sleepFn);
+      },
+      inspectApplication: async (applicationId: string) => {
+        const app = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId });
+        const status = normalizeApplicationStatus(app.applicationStatus ?? app.lastDeploymentStatus);
+        return {
+          status,
+          ...(app.statusMessage === undefined ? {} : { message: app.statusMessage }),
+        };
+      },
+      findComposeByName: async (environmentId: string, name: string) => {
+        return findComposeByName(request, environmentId, name);
+      },
+      createCompose: async (
+        environmentId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        const compose = await request<DokployApiCompose>('POST', '/api/compose.create', {
+          environmentId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        if (compose.composeId === undefined || compose.composeId === '') {
+          const created = await findComposeByName(request, environmentId, resource.name);
+          if (created === null) throw new Error(`Dokploy compose ${resource.name} not found after create`);
+          return created;
+        }
+        return toDokployCompose(compose, resource);
+      },
+      updateCompose: async (
+        composeId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        const compose = await request<DokployApiCompose | boolean>('POST', '/api/compose.update', {
+          composeId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          sourceType: 'raw',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        if (typeof compose !== 'object' || compose === null || compose.composeId === undefined || compose.composeId === '') {
+          const updated = await request<DokployApiCompose>('GET', '/api/compose.one', { composeId });
+          return toDokployCompose(updated, resource);
+        }
+        return toDokployCompose(compose, resource);
+      },
+      configureCompose: async (
+        composeId: string,
+        resource: Extract<RenderedDokployResource, { kind: 'compose' }>,
+      ) => {
+        await request('POST', '/api/compose.update', {
+          composeId,
+          name: resource.name,
+          appName: resource.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 63),
+          description: 'Managed by rntme-cli',
+          sourceType: 'raw',
+          composeType: 'docker-compose',
+          composeFile: resource.composeFile,
+        });
+        await request('POST', '/api/compose.saveEnvironment', {
+          composeId,
+          env: envBlock(resource),
+        });
+        await configureFileMounts(
+          request,
+          'compose',
+          composeId,
+          undefined,
+          resource.secretFiles,
+          resolvedTargetSecrets,
+        );
+      },
+      deployCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.deploy', { composeId });
+      },
+      configureComposeDomains: async (composeId, domains) => {
+        const existingResponse = await request<unknown>('GET', '/api/domain.byComposeId', { composeId });
+        const existing = Array.isArray(existingResponse) ? (existingResponse as DokployApiDomain[]) : [];
+        for (const domain of domains) {
+          const current = existing.find((item) => item.host === domain.host);
+          const body = {
+            composeId,
+            host: domain.host,
+            path: domain.path,
+            serviceName: domain.serviceName,
+            port: domain.containerPort,
+            https: domain.https,
+            certificateType: 'letsencrypt',
+          };
+          if (current === undefined) {
+            await request('POST', '/api/domain.create', body);
+          } else {
+            await request('POST', '/api/domain.update', { ...body, domainId: current.domainId });
+          }
+        }
+      },
+      startCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.start', { composeId });
+      },
+      loadComposeServices: async (composeId: string) => {
+        const response = await request<unknown>('GET', '/api/compose.loadServices', { composeId });
+        const rows = Array.isArray(response) ? response : [];
+        return rows
+          .map((row) => normalizeComposeService(row))
+          .filter((row): row is NonNullable<ReturnType<typeof normalizeComposeService>> => row !== null);
+      },
+      inspectComposeTasks: async (composeId: string, services) => {
+        const response = await request<unknown>('GET', '/api/compose.inspectTasks', { composeId });
+        return normalizeComposeTaskInspections(response, services);
+      },
+      deleteApplication: async (applicationId: string) => {
+        await request('POST', '/api/application.delete', { applicationId });
+      },
+      deleteCompose: async (composeId: string) => {
+        await request('POST', '/api/compose.delete', { composeId });
+      },
+      // Dokploy exposes neither `/api/application.all` nor `/api/compose.all`,
+      // so cleanup discovery walks `/api/project.all` and filters by the
+      // target `environmentId`. The list payload has no labels — list-side
+      // filtering must rely on the resource name prefix.
+      listApplications: async (environmentId: string) => {
+        const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+        const result: { id: string; name: string }[] = [];
+        for (const p of projects) {
+          for (const e of p.environments ?? []) {
+            if (e.environmentId !== environmentId) continue;
+            for (const app of environmentApplications(e)) {
+              if (typeof app.applicationId !== 'string' || app.applicationId === '') continue;
+              if (typeof app.name !== 'string' || app.name === '') continue;
+              result.push({ id: app.applicationId, name: app.name });
+            }
+          }
+        }
+        return result;
+      },
+      listComposes: async (environmentId: string) => {
+        const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+        const result: { id: string; name: string }[] = [];
+        for (const p of projects) {
+          for (const e of p.environments ?? []) {
+            if (e.environmentId !== environmentId) continue;
+            for (const compose of environmentComposes(e)) {
+              if (typeof compose.composeId !== 'string' || compose.composeId === '') continue;
+              if (typeof compose.name !== 'string' || compose.name === '') continue;
+              result.push({ id: compose.composeId, name: compose.name });
+            }
+          }
+        }
+        return result;
+      },
+    };
+  };
+}
+
+const START_APPLICATION_RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 16_000, 30_000, 30_000] as const;
+
+async function startApplicationWithRetry(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  applicationId: string,
+  sleepFn: Sleep,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await request('POST', '/api/application.start', { applicationId });
+      return;
+    } catch (cause) {
+      const delay = START_APPLICATION_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isTransientDokployStartRace(cause)) throw cause;
+      await sleepFn(delay);
+    }
+  }
+}
+
+function isTransientDokployStartRace(cause: unknown): boolean {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string'
+        ? cause.message
+        : String(cause);
+  return /application\.start/.test(message) && /service .* not found/i.test(message);
+}
+
+function envBlock(resource: RenderedDokployResource, resolvedTargetSecrets?: DokployResolvedTargetSecretMap, parseTargetSecretFn?: ParseTargetSecretFn): string {
+  if (resource.kind === 'compose') {
+    return resource.env.map((e) => `${e.name}=${e.value}`).join('\n');
+  }
+  return resolvedApplicationEnv(resource, resolvedTargetSecrets, parseTargetSecretFn);
+}
+
+function resolvedApplicationEnv(
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+  parseTargetSecretFn?: ParseTargetSecretFn,
+): string {
+  return resource.env
+    .map((entry) => `${entry.name}=${resolveRenderedEnvValue(resource, entry, resolvedTargetSecrets, parseTargetSecretFn)}`)
+    .join('\n');
+}
+
+function resolveRenderedEnvValue(
+  resource: Extract<RenderedDokployResource, { kind: 'application' }>,
+  envVar: RenderedEnvVar,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+  parseTargetSecretFn?: ParseTargetSecretFn,
+): string {
+  const needsConsoleSecret =
+    envVar.name === 'RNTME_CONSOLE_HTPASSWD_B64' &&
+    envVar.secret === true &&
+    resource.infrastructureKind === 'redpanda-console-proxy';
+
+  if (!needsConsoleSecret) return envVar.value;
+
+  const hints = resource.secretResolutionHints?.redpandaConsoleHtpasswd;
+  if (hints === undefined || resolvedTargetSecrets === undefined) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_RESOLUTION_UNAVAILABLE');
+  }
+
+  const rawSecret = resolvedTargetSecrets[hints.secretRef];
+  if (rawSecret === undefined || rawSecret === null) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_MISSING');
+  }
+
+  if (parseTargetSecretFn === undefined) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_RESOLUTION_UNAVAILABLE');
+  }
+
+  const parsed = parseTargetSecretFn('redpanda-console-basic-auth-v1', rawSecret);
+  if (!parsed.ok) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_SECRET_VALIDATION_FAILED');
+  }
+
+  const v = parsed.value as { username: string; htpasswdB64: string };
+  if (v.username !== hints.expectedUsername) {
+    throw new Error('DEPLOY_DOKPLOY_CONSOLE_HTPASSWD_USERNAME_MISMATCH');
+  }
+
+  return v.htpasswdB64;
+}
+
+async function findApplicationByName(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  environmentId: string,
+  name: string,
+): Promise<DokployApplication | null> {
+  const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+  for (const p of projects) {
+    for (const e of p.environments || []) {
+      if (e.environmentId === environmentId) {
+        const app = e.applications?.find((a) => a.name === name);
+        if (app) {
+          const details = await request<DokployApiApplication>('GET', '/api/application.one', { applicationId: app.applicationId });
+          return toDokployApplication(details);
+        }
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+async function findComposeByName(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  environmentId: string,
+  name: string,
+): Promise<DokployCompose | null> {
+  const projects = await request<DokployApiProject[]>('GET', '/api/project.all');
+  for (const p of projects) {
+    for (const e of p.environments || []) {
+      if (e.environmentId === environmentId) {
+        const composes = environmentComposes(e);
+        const compose = composes.find((c) => c.name === name);
+        if (compose) {
+          const details = await request<DokployApiCompose>('GET', '/api/compose.one', { composeId: compose.composeId });
+          return toDokployCompose(details);
+        }
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function environmentApplications(
+  environment: DokployApiEnvironment,
+): readonly DokployApiApplicationSummary[] {
+  return environment.applications ?? [];
+}
+
+function environmentComposes(
+  environment: DokployApiEnvironment,
+): readonly DokployApiComposeSummary[] {
+  // Dokploy currently returns `compose` (singular). Fall back to `composes`
+  // for forward compatibility with future API renames.
+  return environment.compose ?? environment.composes ?? [];
+}
+
+async function configureFileMounts(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  serviceType: 'application' | 'compose',
+  serviceId: string,
+  files: Readonly<Record<string, string>> | undefined,
+  secretFiles: Readonly<Record<string, RenderedSecretFileRef>> | undefined,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
+): Promise<void> {
+  const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
+    serviceType,
+    serviceId,
+  });
+  const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
+
+  const allMounts: Array<{ path: string; content: string }> = [];
+
+  if (files !== undefined) {
+    for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+      allMounts.push({ path, content });
+    }
+  }
+
+  if (secretFiles !== undefined) {
+    for (const [path, ref] of Object.entries(secretFiles).sort(([a], [b]) => a.localeCompare(b))) {
+      const content = resolveSecretFileContent(ref, resolvedTargetSecrets);
+      allMounts.push({ path, content });
+    }
+  }
+
+  for (const { path, content } of allMounts) {
+    const matches = mounts.filter((mount) => mount.mountPath === path);
+    const existing = matches[0];
+    const body = {
+      type: 'file',
+      serviceType,
+      serviceId,
+      mountPath: path,
+      filePath: dokployFilePath(serviceId, path),
+      content,
+    };
+    if (existing === undefined) {
+      await request('POST', '/api/mounts.create', body);
+    } else {
+      await request('POST', '/api/mounts.update', {
+        ...body,
+        mountId: existing.mountId,
+        ...(serviceType === 'application' ? { applicationId: serviceId } : { composeId: serviceId }),
+      });
+      for (const duplicate of matches.slice(1)) {
+        await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
+      }
+    }
+  }
+}
+
+function resolveSecretFileContent(
+  ref: RenderedSecretFileRef,
+  resolvedTargetSecrets: Readonly<Record<string, unknown>> | undefined,
+): string {
+  if (resolvedTargetSecrets === undefined) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+  const secret = resolvedTargetSecrets[ref.secretRef];
+  if (secret === undefined || typeof secret !== 'object' || secret === null) {
+    throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+  }
+
+  if (ref.schema === 'operaton-ui-basic-auth-v1' && ref.field === 'htpasswd') {
+    const htpasswd = (secret as Record<string, unknown>).htpasswd;
+    if (typeof htpasswd !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return htpasswd;
+  }
+
+  if (ref.schema === 'operaton-admin-user-v1' && ref.field === 'applicationYaml') {
+    const id = (secret as Record<string, unknown>).id;
+    const password = (secret as Record<string, unknown>).password;
+    if (typeof id !== 'string' || typeof password !== 'string') {
+      throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+    }
+    return `operaton:\n  bpm:\n    admin-user:\n      id: "${escapeYamlString(id)}"\n      password: "${escapeYamlString(password)}"\n`;
+  }
+
+  throw new Error('DEPLOY_TARGET_SECRET_REF_UNRESOLVED');
+}
+
+function escapeYamlString(value: string): string {
+  return value.replace(/"/g, '\\"');
+}
+
+function dokployFilePath(applicationId: string, mountPath: string): string {
+  const digest = createHash('sha256').update(`${applicationId}:${mountPath}`).digest('hex').slice(0, 16);
+  const safeName = mountPath
+    .split('/')
+    .filter(Boolean)
+    .join('_')
+    .replace(/[^A-Za-z0-9._-]/g, '_');
+  return `/etc/dokploy/rntme/${applicationId}/${digest}-${safeName || 'file'}`;
+}
+
+function toDokployApplication(details: DokployApiApplication): DokployApplication {
+  return {
+    id: details.applicationId,
+    name: details.name,
+    ...(details.appName ? { appName: details.appName } : {}),
+    ...(details.dockerImage ? { image: details.dockerImage } : {}),
+    ...(details.command !== undefined && details.command !== null && details.command !== ''
+      ? { command: details.command }
+      : {}),
+    ...(details.args !== undefined && details.args !== null && details.args.length > 0
+      ? { args: details.args }
+      : {}),
+    env: parseEnvBlock(details.env),
+  };
+}
+
+function toDokployCompose(
+  details: DokployApiCompose,
+  rendered?: Extract<RenderedDokployResource, { kind: 'compose' }>,
+): DokployCompose {
+  return {
+    id: details.composeId,
+    name: details.name,
+    ...(details.appName ? { appName: details.appName } : {}),
+    ...(details.composeFile ? { composeFile: details.composeFile } : {}),
+    ...(rendered === undefined ? {} : { image: rendered.image, labels: rendered.labels }),
+    env: parseEnvBlock(details.env),
+  };
+}
+
+function parseEnvBlock(input: string | undefined): NonNullable<DokployApplication['env']> {
+  return input
+    ? input.split('\n').filter(Boolean).map((line) => {
+      const [name = '', ...rest] = line.split('=');
+      return { name, value: rest.join('='), secret: false };
+    })
+    : [];
+}
+
+export function normalizeDokployBaseUrl(input: string): string {
+  const trimmed = input.replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed.slice(0, -4) : trimmed;
+}
+
+function normalizeApplicationStatus(status: string | undefined): 'running' | 'done' | 'failed' | 'rejected' | 'unknown' {
+  if (status === 'running' || status === 'done' || status === 'failed' || status === 'rejected') return status;
+  if (status === 'error') return 'failed';
+  return 'unknown';
+}
+
+function normalizeComposeService(
+  input: unknown,
+): { name: string; serviceClass: RenderedComposeServiceClass } | null {
+  if (typeof input !== 'object' || input === null) return null;
+  const raw = input as Record<string, unknown>;
+  const name = typeof raw.name === 'string'
+    ? raw.name
+    : typeof raw.serviceName === 'string'
+      ? raw.serviceName
+      : '';
+  if (name === '') return null;
+  return { name, serviceClass: serviceClassFromName(name) };
+}
+
+function serviceClassFromName(name: string): RenderedComposeServiceClass {
+  if (name === 'edge') return 'edge-gateway';
+  if (name === 'bpmn-worker') return 'bpmn-worker';
+  if (name === 'redpanda') return 'event-bus';
+  if (name === 'operaton') return 'workflow-engine';
+  if (name === 'rustfs') return 'object-storage';
+  if (name.startsWith('mod-')) return 'integration-module';
+  if (
+    name === 'redpanda-console' ||
+    name === 'operaton-ui-gateway' ||
+    name.endsWith('-public') ||
+    name.endsWith('-proxy')
+  ) {
+    return 'infrastructure-proxy';
+  }
+  return 'domain-service';
+}
+
+function normalizeComposeTaskInspections(
+  input: unknown,
+  services: readonly { name: string; serviceClass: RenderedComposeServiceClass }[],
+): readonly DokployComposeTaskInspection[] {
+  const rows = Array.isArray(input) ? input : [];
+  const byName = new Map<string, DokployComposeTaskInspection>();
+  for (const row of rows) {
+    if (typeof row !== 'object' || row === null) continue;
+    const raw = row as Record<string, unknown>;
+    const serviceName = typeof raw.serviceName === 'string'
+      ? raw.serviceName
+      : typeof raw.name === 'string'
+        ? raw.name
+        : '';
+    if (serviceName === '') continue;
+    const status = normalizeTaskStatus(raw.status);
+    byName.set(serviceName, {
+      serviceName,
+      status,
+      failedCount: typeof raw.failedCount === 'number' ? raw.failedCount : status === 'running' ? 0 : 1,
+      ...(typeof raw.message === 'string' ? { message: raw.message } : {}),
+    });
+  }
+  return services.map((service) => byName.get(service.name) ?? {
+    serviceName: service.name,
+    status: 'unknown',
+    failedCount: 0,
+  });
+}
+
+function normalizeTaskStatus(input: unknown): DokployComposeTaskInspection['status'] {
+  const value = typeof input === 'string' ? input.toLowerCase() : '';
+  if (
+    value === 'running' ||
+    value === 'healthy' ||
+    value === 'starting' ||
+    value === 'failed' ||
+    value === 'rejected' ||
+    value === 'exited'
+  ) {
+    return value;
+  }
+  return 'unknown';
+}

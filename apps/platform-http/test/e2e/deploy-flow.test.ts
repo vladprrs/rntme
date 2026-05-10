@@ -8,6 +8,7 @@ import {
   canonicalBundleDigest,
   canonicalize,
   isOk,
+  parseTargetSecret,
   type CanonicalBundle,
 } from '@rntme/platform-core';
 import { createDokployClientFactory } from '../../src/deploy/dokploy-client-factory.js';
@@ -140,7 +141,7 @@ describe.skipIf(!e2eContainersAvailable())('deploy flow', () => {
     expect(scheduled).toContainEqual({ deploymentId: queuedJson.deployment.id, orgId: auth.orgId });
 
     const mockDokploy = createMockDokployApp();
-    const dokployClientFactory = createDokployClientFactory(env.deps.cipher!, (async (
+    const dokployClientFactory = createDokployClientFactory(env.deps.cipher!, parseTargetSecret, (async (
       input: Parameters<typeof globalThis.fetch>[0],
       init?: Parameters<typeof globalThis.fetch>[1],
     ) => {

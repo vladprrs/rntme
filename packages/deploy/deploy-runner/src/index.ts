@@ -27,3 +27,17 @@ export type {
   ProtectedRouteSpec,
   VerificationHints,
 } from './smoke-verifier.js';
+
+export {
+  createDokployClientFactory,
+  normalizeDokployBaseUrl,
+} from './dokploy-client-factory.js';
+export type {
+  DokployClientFactory,
+  DokployResolvedTargetSecretMap,
+  DokployTargetWithSecret,
+  SecretCipher,
+  EncryptedSecret,
+  ParseTargetSecretFn,
+  ParseTargetSecretResult,
+} from './dokploy-client-factory.js';
