@@ -18,7 +18,7 @@
   "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "postbuild": "bun -e \"const f='dist/bin/cli.js';const fs=require('fs');if(!fs.existsSync(f))process.exit(0);const s=fs.readFileSync(f,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env bun\\n'+s);fs.chmodSync(f,0o755);\" && bun scripts/copy-skills-assets.cjs",
+    "postbuild": "bun -e \"const f='dist/bin/cli.js';const fs=require('fs');if(!fs.existsSync(f))process.exit(0);const s=fs.readFileSync(f,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env bun\\n'+s);fs.chmodSync(f,0o755);\" && bun scripts/copy-skills-assets.cjs && bun scripts/copy-platform-blueprint.cjs",
     "test": "bun run --cwd ../.. vendor:sync && bun test test/unit test/integration",
     "test:e2e": "bun test test/e2e",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -43,8 +43,12 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@rntme/bindings-grpc": "workspace:*",
     "@rntme/blueprint": "workspace:*",
     "@rntme/bundle-publish": "workspace:*",
+    "@rntme/deploy-core": "workspace:*",
+    "@rntme/deploy-dokploy": "workspace:*",
+    "@rntme/deploy-runner": "workspace:*",
     "@rntme/platform-core": "workspace:*",
     "@truestamp/canonify": "^1.0.0",
     "zod": "^4.0.0"
