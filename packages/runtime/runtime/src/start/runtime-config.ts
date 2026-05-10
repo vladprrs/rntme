@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import type pino from 'pino';
 import type { ActorRef } from '@rntme/event-store';
 import type { ApplyMode } from '@rntme/seed';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
@@ -18,6 +19,7 @@ export type RuntimeConfig = {
   artifactDir?: string;
   runtimeEnv?: Record<string, string | undefined>;
   shutdownTimeoutMs?: number;
+  logger?: pino.Logger;
 };
 
 export type RuntimeConfigValidationErrorCode =
@@ -34,7 +36,8 @@ export type RuntimeConfigValidationErrorCode =
   | 'RUNTIME_CONFIG_EXTERNAL_ADAPTER_CLIENT_INVALID'
   | 'RUNTIME_CONFIG_ARTIFACT_DIR_INVALID'
   | 'RUNTIME_CONFIG_RUNTIME_ENV_INVALID'
-  | 'RUNTIME_CONFIG_SHUTDOWN_TIMEOUT_INVALID';
+  | 'RUNTIME_CONFIG_SHUTDOWN_TIMEOUT_INVALID'
+  | 'RUNTIME_CONFIG_LOGGER_INVALID';
 
 export type RuntimeConfigValidationError = {
   readonly code: RuntimeConfigValidationErrorCode;
@@ -81,6 +84,7 @@ export function validateRuntimeConfig(config: unknown): RuntimeConfigValidationR
   validateArtifactDir(config, errors);
   validateRuntimeEnv(config, errors);
   validateShutdownTimeout(config, errors);
+  validateLogger(config, errors);
 
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: config as Partial<RuntimeConfig> };
@@ -254,6 +258,25 @@ function validateShutdownTimeout(
       code: 'RUNTIME_CONFIG_SHUTDOWN_TIMEOUT_INVALID',
       path: 'shutdownTimeoutMs',
       message: 'shutdownTimeoutMs must be a positive integer number of milliseconds',
+    });
+  }
+}
+
+function validateLogger(
+  config: Record<string, unknown>,
+  errors: RuntimeConfigValidationError[],
+): void {
+  const logger = config.logger;
+  if (logger === undefined) return;
+  if (
+    !isRecord(logger) ||
+    typeof logger.info !== 'function' ||
+    typeof logger.error !== 'function'
+  ) {
+    errors.push({
+      code: 'RUNTIME_CONFIG_LOGGER_INVALID',
+      path: 'logger',
+      message: 'logger must expose info(obj, msg) and error(obj, msg) methods',
     });
   }
 }

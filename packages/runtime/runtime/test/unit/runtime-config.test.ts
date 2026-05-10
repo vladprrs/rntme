@@ -58,6 +58,25 @@ describe('validateRuntimeConfig', () => {
     expect(validateRuntimeConfig({ shutdownTimeoutMs: 50 })).toMatchObject({ ok: true });
   });
 
+  it('accepts a pino-shaped logger', () => {
+    const logger = { info: () => undefined, error: () => undefined };
+    expect(validateRuntimeConfig({ logger })).toMatchObject({ ok: true });
+  });
+
+  it('rejects a logger missing info and error methods', () => {
+    const result = validateRuntimeConfig({ logger: { warn: () => undefined } });
+
+    expect(result).toMatchObject({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: 'RUNTIME_CONFIG_LOGGER_INVALID',
+          path: 'logger',
+        }),
+      ],
+    });
+  });
+
   it('accepts valid custom runtime plugin shapes', () => {
     const config = {
       db: { open: () => ({}) },
