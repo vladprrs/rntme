@@ -14,3 +14,6 @@ export type {
 } from './types.js';
 
 export { redact } from './redactor.js';
+
+export { runStage } from './stage-runner.js';
+export type { StageLog, StageResult } from './stage-runner.js';
