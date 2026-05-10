@@ -61,3 +61,6 @@ export type {
   PolicyValues,
   DeployTargetForBuild,
 } from './deploy-target-types.js';
+
+export { runTearDownsForDeployment } from './run-teardowns.js';
+export type { TearDownDeps, TearDownInput } from './run-teardowns.js';
