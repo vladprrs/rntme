@@ -12,6 +12,11 @@ jobs:
       GITHUB_URL: https://github.com/vladprrs/rntme
       DOCS_URL: https://docs.rntme.com
       PLATFORM_URL: https://platform.rntme.com
+      # Skip platform-http e2e suites that boot Postgres via testcontainers.
+      # Docker is available on the runner, but pulling the postgres image plus
+      # ryuk warmup blows the 5-min testcontainers timeout. The suites already
+      # honour this flag via apps/platform-http/test/e2e/docker-available.ts.
+      SKIP_TESTCONTAINERS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
