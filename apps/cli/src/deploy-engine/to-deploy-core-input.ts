@@ -1,0 +1,598 @@
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { emitProto } from '@rntme/bindings-grpc';
+import type { ComposedBlueprint } from '@rntme/blueprint';
+import type { ComposedProjectInput } from '@rntme/deploy-core';
+
+type LoadedDeployProject = ComposedProjectInput | ComposedBlueprint;
+
+const IDENTITY_INTROSPECTION_PROTO = `syntax = "proto3";
+package rntme.contracts.identity.v1;
+
+message IntrospectSessionRequest {
+  string token = 1;
+  string audience = 2;
+}
+
+message Session {
+  string session_id = 2;
+  string user_id = 3;
+  string organization_id = 4;
+  int32 token_type = 5;
+  repeated string roles = 6;
+  repeated string permissions = 7;
+  repeated string verified_factors = 8;
+  int32 status = 9;
+  string ip_address = 10;
+  string user_agent = 11;
+}
+
+service IdentityModule {
+  rpc IntrospectSession(IntrospectSessionRequest) returns (Session);
+}
+`;
+
+export async function toDeployCoreInput(
+  value: LoadedDeployProject,
+  rootDir: string,
+): Promise<ComposedProjectInput> {
+  if (!isComposedBlueprint(value)) return value;
+
+  const uiBuildFiles =
+    value.virtualEntrySource === null || value.virtualEntrySource === undefined
+      ? {}
+      : await bundleVirtualEntrySource(value.virtualEntrySource, rootDir);
+
+  // Build modules map: service slug → { edgeAuth }. catalogManifest is keyed by
+  // the resolved module manifest name (for example "@rntme/identity-auth0"),
+  // while project.modules may use a local package alias such as
+  // "rntme_identity_auth0". categoryToModule bridges the project role key to
+  // the canonical manifest name used by the catalog.
+  const catalogManifest = value.catalogManifest;
+  const moduleEdgeAuth = catalogManifest?.moduleEdgeAuth ?? {};
+  const modules: Record<string, { edgeAuth: (typeof moduleEdgeAuth)[string] | null; packageName?: string }> = {};
+  for (const [projectKey, moduleRef] of Object.entries(value.project.modules ?? {})) {
+    const manifestName = catalogManifest?.categoryToModule[projectKey] ?? moduleRef.package;
+    const edgeAuth = moduleEdgeAuth[manifestName] ?? moduleEdgeAuth[moduleRef.package] ?? null;
+    const slugs = new Set([manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
+    for (const slug of slugs) {
+      modules[slug] = { edgeAuth, packageName: manifestName };
+    }
+  }
+
+  const workflowFiles =
+    value.workflows === null || value.workflows === undefined
+      ? undefined
+      : await readWorkflowDefinitionFiles(value.workflows, rootDir);
+  const workflowGrpcServices = workflowGrpcServicesForProject(value);
+
+  return {
+    name: value.project.name,
+    publicConfigJson: value.publicConfigJson ?? null,
+    varsManifest: value.varsManifest,
+    services: Object.fromEntries(
+      await Promise.all(
+        value.project.services.map(async (slug) => [
+          slug,
+          {
+            slug,
+            kind: value.services[slug]?.kind ?? 'domain',
+            ...(value.services[slug]?.kind === 'domain'
+              ? { runtimeFiles: await buildRuntimeArtifactFiles(value, rootDir, slug, uiBuildFiles) }
+              : {}),
+          },
+        ]),
+      ),
+    ),
+    ...(value.project.routes === undefined ? {} : { routes: value.project.routes }),
+    ...(value.project.middleware === undefined ? {} : { middleware: value.project.middleware }),
+    ...(value.project.mounts === undefined ? {} : { mounts: value.project.mounts }),
+    ...(Object.keys(modules).length > 0 ? { modules } : {}),
+    ...(value.workflows === undefined ? {} : { workflows: value.workflows }),
+    ...(workflowFiles === undefined ? {} : { workflowFiles }),
+    ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
+  };
+}
+
+type WorkflowGrpcServiceRegistry = NonNullable<ComposedProjectInput['workflowGrpcServices']>;
+type GrpcShapeRegistry = Parameters<typeof emitProto>[1];
+type GrpcResolvedShape = GrpcShapeRegistry[string];
+
+function workflowGrpcServicesForProject(project: ComposedBlueprint): WorkflowGrpcServiceRegistry {
+  if (project.workflows === null || project.workflows === undefined) return {};
+  const serviceSlugs = new Set(
+    project.workflows.serviceTasks
+      .map((task) => task.bindingRef.split('.')[0] ?? '')
+      .filter((slug) => slug.length > 0),
+  );
+  const out: Record<string, WorkflowGrpcServiceRegistry[string]> = {};
+  for (const serviceSlug of [...serviceSlugs].sort()) {
+    const service = project.services[serviceSlug];
+    if (service?.bindings === null || service?.bindings === undefined || service.graphSpec === null) continue;
+    const packageName = grpcPackageNameForService(serviceSlug);
+    const serviceName = grpcServiceNameForService(serviceSlug);
+    out[serviceSlug] = {
+      packageName,
+      serviceName,
+      protoSource: emitProto(service.bindings, collectGrpcShapesFromService(service), { packageName, serviceName }),
+    };
+  }
+  return out;
+}
+
+function grpcPackageNameForService(serviceSlug: string): string {
+  return `rntme.${serviceSlug.trim().toLowerCase().replace(/-/g, '_')}.v1`;
+}
+
+function grpcServiceNameForService(serviceSlug: string): string {
+  return `${serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join('')}Service`;
+}
+
+function collectGrpcShapesFromService(service: ComposedBlueprint['services'][string]): GrpcShapeRegistry {
+  const acc: Record<string, GrpcResolvedShape> = {};
+  const addCustomShape = (shapeName: string): void => {
+    if (acc[shapeName] !== undefined) return;
+    const custom = service.graphSpec?.shapes[shapeName];
+    if (custom === undefined) return;
+    acc[shapeName] = {
+      name: shapeName,
+      origin: 'custom',
+      fields: Object.fromEntries(
+        Object.entries(custom.fields).map(([fieldName, field]) => [
+          fieldName,
+          {
+            type: { kind: 'scalar', primitive: field.type },
+            nullable: field.nullable,
+          },
+        ]),
+      ),
+    } as GrpcResolvedShape;
+  };
+
+  for (const resolved of Object.values(service.bindings?.resolved ?? {})) {
+    acc[resolved.outputShape.name] = resolved.outputShape as GrpcResolvedShape;
+    for (const input of Object.values(resolved.signature.inputs)) {
+      if (input.type.kind === 'row' || input.type.kind === 'rowset') {
+        addCustomShape(input.type.shape);
+      }
+    }
+  }
+  return acc;
+}
+
+async function readWorkflowDefinitionFiles(
+  workflows: NonNullable<ComposedBlueprint['workflows']>,
+  rootDir: string,
+): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const definition of workflows.definitions) {
+    if (Object.hasOwn(files, definition.bpmnFile)) continue;
+    const path = workflowDefinitionPath(rootDir, definition.bpmnFile);
+    try {
+      files[definition.bpmnFile] = await readFile(path, 'utf8');
+    } catch (cause) {
+      if (errorCode(cause) === 'ENOENT') {
+        throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_NOT_FOUND: workflows/${definition.bpmnFile}`);
+      }
+      throw cause;
+    }
+  }
+  return files;
+}
+
+function workflowDefinitionPath(rootDir: string, relativePath: string): string {
+  if (!isSafeWorkflowFilePath(relativePath)) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  const workflowRoot = join(rootDir, 'workflows');
+  const filePath = join(workflowRoot, relativePath);
+  const backToRoot = relative(workflowRoot, filePath).split('\\').join('/');
+  if (backToRoot === '..' || backToRoot.startsWith('../')) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
+  }
+  return filePath;
+}
+
+function isSafeWorkflowFilePath(path: string): boolean {
+  if (path === '') return false;
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
+  return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+}
+
+async function buildRuntimeArtifactFiles(
+  project: ComposedBlueprint,
+  rootDir: string,
+  serviceSlug: string,
+  uiBuildFiles: Record<string, string>,
+): Promise<Record<string, string>> {
+  const service = project.services[serviceSlug];
+  if (service === undefined) throw new Error(`DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_NOT_FOUND:${serviceSlug}`);
+  if (service.graphSpec === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_GRAPHS_NOT_FOUND:${serviceSlug}`);
+  if (service.qsmValidated === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_QSM_NOT_FOUND:${serviceSlug}`);
+  if (service.bindings === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_BINDINGS_NOT_FOUND:${serviceSlug}`);
+
+  const files: Record<string, string> = {};
+  const modules = runtimeModulesForService(project, serviceSlug);
+  addJsonFile(files, 'manifest.json', {
+    rntmeVersion: '1.0',
+    service: { name: serviceSlug, version: '1.0.0' },
+    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
+    seed: { enabled: service.seed !== null, path: 'seed.json' },
+    modules,
+  });
+  for (const module of modules) {
+    files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
+  }
+  addJsonFile(files, 'pdm.json', project.pdm);
+  addJsonFile(files, 'qsm.json', service.qsmValidated);
+  addJsonFile(files, 'bindings.json', service.bindings.artifact);
+  addJsonFile(files, 'shapes.json', service.graphSpec.shapes);
+
+  for (const [graphId, graph] of Object.entries(service.graphSpec.graphs)) {
+    addJsonFile(files, `graphs/${graphId}.json`, graph);
+  }
+
+  const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
+  Object.assign(files, uiBuildFiles);
+  if (service.seed !== null) {
+    await addOptionalTextFile(files, rootDir, `services/${serviceSlug}/seed/seed.json`, 'seed.json');
+  }
+
+  return files;
+}
+
+async function bundleVirtualEntrySource(
+  virtualEntrySource: string,
+  rootDir: string,
+): Promise<Record<string, string>> {
+  const workspaceRoot = findWorkspaceRoot();
+  const outdir = join(rootDir, '.rntme-ui-build');
+  await rm(outdir, { recursive: true, force: true });
+  await mkdir(outdir, { recursive: true });
+  const entrypoint = join(outdir, '__rntme_ui_entry.tsx');
+  await writeFile(entrypoint, virtualEntrySource);
+
+  const result = await Bun.build({
+    entrypoints: [entrypoint],
+    root: workspaceRoot,
+    target: 'browser',
+    format: 'esm',
+    splitting: true,
+    sourcemap: 'none',
+    minify: true,
+    outdir,
+    naming: { entry: 'main.js', chunk: 'chunks/[name]-[hash].[ext]' },
+    env: 'disable',
+    plugins: [workspacePackageResolver(workspaceRoot)],
+    throw: false,
+  });
+  if (!result.success) {
+    const logs = result.logs.map((log) => log.message).join('\n');
+    throw new Error(`DEPLOY_EXECUTOR_UI_BUNDLE_FAILED${logs === '' ? '' : `:${logs}`}`);
+  }
+
+  const js = result.outputs.find((file) => file.path.endsWith('/main.js') || file.path.endsWith('\\main.js'));
+  if (js === undefined) throw new Error('DEPLOY_EXECUTOR_UI_BUNDLE_MISSING_MAIN_JS');
+
+  const files: Record<string, string> = { 'ui-build/main.css': readUiRuntimeCss(workspaceRoot) };
+  for (const file of result.outputs) {
+    const rel = relative(outdir, file.path).split('\\').join('/');
+    if (rel.startsWith('..') || rel === '') continue;
+    files[`ui-build/${rel}`] = await file.text();
+  }
+  return files;
+}
+
+function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
+  const packageDirs = discoverWorkspacePackageDirs(workspaceRoot);
+  return {
+    name: 'rntme-workspace-package-resolver',
+    setup(buildApi) {
+      buildApi.onResolve({ filter: /^@rntme\// }, (args) => {
+        const packageName = packageNameFromImport(args.path);
+        const packageDir = packageDirs.get(packageName);
+        if (packageDir === undefined) return undefined;
+        const subpath = args.path.slice(packageName.length);
+        return { path: resolveWorkspaceExport(packageDir, subpath.length === 0 ? '.' : `.${subpath}`) };
+      });
+      buildApi.onResolve({ filter: /^\..*\.js$/ }, (args) => {
+        const jsPath = join(args.resolveDir, args.path);
+        if (existsSync(jsPath)) return undefined;
+        const withoutJs = jsPath.slice(0, -'.js'.length);
+        for (const candidate of [`${withoutJs}.ts`, `${withoutJs}.tsx`]) {
+          if (existsSync(candidate)) return { path: candidate };
+        }
+        return undefined;
+      });
+      buildApi.onResolve({ filter: /\.css$/ }, (args) => ({
+        path: args.path,
+        namespace: 'rntme-empty-css',
+      }));
+      buildApi.onLoad({ filter: /.*/, namespace: 'rntme-empty-css' }, () => ({
+        contents: '',
+        loader: 'js',
+      }));
+    },
+  };
+}
+
+function discoverWorkspacePackageDirs(workspaceRoot: string): Map<string, string> {
+  const dirs = new Map<string, string>();
+  for (const parent of ['packages', 'modules']) {
+    collectPackageDirs(join(workspaceRoot, parent), dirs);
+  }
+  return dirs;
+}
+
+function collectPackageDirs(dir: string, output: Map<string, string>): void {
+  if (!existsSync(dir)) return;
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const path = join(dir, entry.name);
+    const packageJsonPath = join(path, 'package.json');
+    if (existsSync(packageJsonPath)) {
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { name?: unknown };
+      if (typeof pkg.name === 'string') output.set(pkg.name, path);
+      continue;
+    }
+    collectPackageDirs(path, output);
+  }
+}
+
+function packageNameFromImport(value: string): string {
+  const [scope, name] = value.split('/');
+  return `${scope}/${name}`;
+}
+
+function resolveWorkspaceExport(packageDir: string, subpath: string): string {
+  const packageJsonPath = join(packageDir, 'package.json');
+  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+    exports?: unknown;
+    main?: unknown;
+  };
+  const target = exportTargetForSubpath(pkg.exports, subpath) ?? (subpath === '.' ? pkg.main : undefined);
+  if (typeof target === 'string') return resolveWorkspaceTarget(packageDir, target);
+  return join(packageDir, subpath === '.' ? 'index.js' : subpath.slice(2));
+}
+
+function resolveWorkspaceTarget(packageDir: string, target: string): string {
+  const normalized = target.replace(/^\.\//, '');
+  const direct = join(packageDir, normalized);
+  if (existsSync(direct)) return direct;
+
+  for (const candidate of sourceFallbacks(packageDir, normalized)) {
+    if (existsSync(candidate)) return candidate;
+  }
+
+  return direct;
+}
+
+function sourceFallbacks(packageDir: string, normalized: string): string[] {
+  const withoutJs = normalized.endsWith('.js') ? normalized.slice(0, -'.js'.length) : normalized;
+  const candidates: string[] = [];
+
+  if (withoutJs.startsWith('dist/client/')) {
+    const rest = withoutJs.slice('dist/client/'.length);
+    candidates.push(join(packageDir, 'client', `${rest}.ts`));
+    candidates.push(join(packageDir, 'client', `${rest}.tsx`));
+    candidates.push(join(packageDir, 'src', 'client', `${rest}.ts`));
+    candidates.push(join(packageDir, 'src', 'client', `${rest}.tsx`));
+  }
+
+  if (withoutJs.startsWith('dist/')) {
+    const rest = withoutJs.slice('dist/'.length);
+    candidates.push(join(packageDir, 'src', `${rest}.ts`));
+    candidates.push(join(packageDir, 'src', `${rest}.tsx`));
+  }
+
+  return candidates;
+}
+
+function exportTargetForSubpath(exportsField: unknown, subpath: string): string | undefined {
+  if (typeof exportsField === 'string' && subpath === '.') return exportsField;
+  if (typeof exportsField !== 'object' || exportsField === null) return undefined;
+  const exportsMap = exportsField as Record<string, unknown>;
+  const value = exportsMap[subpath];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null) {
+    const conditionMap = value as Record<string, unknown>;
+    if (typeof conditionMap.import === 'string') return conditionMap.import;
+    if (typeof conditionMap.default === 'string') return conditionMap.default;
+  }
+  return undefined;
+}
+
+function findWorkspaceRoot(): string {
+  for (const start of [process.cwd(), dirname(fileURLToPath(import.meta.url))]) {
+    let current = start;
+    while (true) {
+      if (
+        (existsSync(join(current, 'packages', 'runtime', 'ui-runtime', 'package.json')) ||
+          existsSync(join(current, 'packages', 'ui-runtime', 'package.json'))) &&
+        existsSync(join(current, 'modules'))
+      ) {
+        return current;
+      }
+      const parent = dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
+  return process.cwd();
+}
+
+export function readUiRuntimeCss(workspaceRoot: string): string {
+  for (const cssPath of [
+    join(workspaceRoot, 'packages', 'runtime', 'ui-runtime', 'build', 'main.css'),
+    join(workspaceRoot, 'packages', 'ui-runtime', 'build', 'main.css'),
+  ]) {
+    if (existsSync(cssPath)) return readFileSync(cssPath, 'utf8');
+  }
+  return '/* rntme ui runtime styles unavailable at deploy bundle time */\n';
+}
+
+function runtimeModulesForService(
+  project: ComposedBlueprint,
+  serviceSlug: string,
+): Array<{ name: string; grpc: { address: string }; protoPath: string }> {
+  const slugs = new Set<string>();
+  for (const [middlewareName, declaration] of Object.entries(project.project.middleware ?? {})) {
+    if (declaration.kind !== 'auth' || declaration.moduleSlug === undefined) continue;
+    if (!middlewareAppliesToService(project.project, middlewareName, serviceSlug)) continue;
+    slugs.add(declaration.moduleSlug);
+  }
+  return [...slugs].sort().map((slug) => ({
+    name: slug,
+    grpc: { address: `${slug}:50051` },
+    protoPath: `${slug}.proto`,
+  }));
+}
+
+function middlewareAppliesToService(
+  project: ComposedBlueprint['project'],
+  middlewareName: string,
+  serviceSlug: string,
+): boolean {
+  for (const mount of project.mounts ?? []) {
+    if (!mount.use.includes(middlewareName)) continue;
+    if (serviceForMountTarget(project, mount.target) === serviceSlug) return true;
+  }
+  return false;
+}
+
+function serviceForMountTarget(project: ComposedBlueprint['project'], target: string): string | undefined {
+  if (target.startsWith('http:')) return project.routes?.http?.[target.slice('http:'.length)];
+  if (target.startsWith('ui:')) return project.routes?.ui?.[target.slice('ui:'.length)];
+  return undefined;
+}
+
+function addDefaultUiFiles(files: Record<string, string>, serviceSlug: string): void {
+  const title = serviceSlug
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join(' ') || 'Service';
+  addJsonFile(files, 'ui/manifest.json', {
+    version: '2.0',
+    pdmRef: `${serviceSlug}.domain.v1`,
+    qsmRef: `${serviceSlug}.read.v1`,
+    graphSpecRef: `${serviceSlug}.graphs.v1`,
+    bindingsRef: `${serviceSlug}.bindings.v1`,
+    metadata: { title },
+    layouts: { main: 'layouts/main' },
+    routes: {
+      '/': {
+        layout: 'main',
+        screen: 'screens/home',
+      },
+    },
+  });
+  addJsonFile(files, 'ui/layouts/main.screen.json', {});
+  addJsonFile(files, 'ui/layouts/main.spec.json', {
+    root: 'shell',
+    elements: {
+      shell: {
+        type: 'Stack',
+        props: { direction: 'vertical' },
+        children: ['header'],
+      },
+      header: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+      },
+    },
+  });
+  addJsonFile(files, 'ui/screens/home.screen.json', {
+    metadata: { title },
+  });
+  addJsonFile(files, 'ui/screens/home.spec.json', {
+    root: 'page',
+    elements: {
+      page: {
+        type: 'Heading',
+        props: { level: 1, text: title },
+        children: [],
+      },
+    },
+  });
+}
+
+async function addOptionalDirectoryFiles(
+  files: Record<string, string>,
+  rootDir: string,
+  sourceRel: string,
+  targetRel: string,
+): Promise<boolean> {
+  const sourceRoot = join(rootDir, sourceRel);
+  try {
+    await addDirectoryFilesFrom(files, sourceRoot, sourceRoot, targetRel);
+    return true;
+  } catch (cause) {
+    if (errorCode(cause) === 'ENOENT') return false;
+    throw cause;
+  }
+}
+
+async function addDirectoryFilesFrom(
+  files: Record<string, string>,
+  sourceRoot: string,
+  currentDir: string,
+  targetRel: string,
+): Promise<void> {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      await addDirectoryFilesFrom(files, sourceRoot, sourcePath, targetRel);
+      continue;
+    }
+    if (entry.isFile()) {
+      files[join(targetRel, relative(sourceRoot, sourcePath))] = await readFile(sourcePath, 'utf8');
+    }
+  }
+}
+
+async function addOptionalTextFile(
+  files: Record<string, string>,
+  rootDir: string,
+  sourceRel: string,
+  targetRel: string,
+): Promise<void> {
+  try {
+    files[targetRel] = await readFile(join(rootDir, sourceRel), 'utf8');
+  } catch (cause) {
+    if (errorCode(cause) === 'ENOENT') return;
+    throw cause;
+  }
+}
+
+function addJsonFile(files: Record<string, string>, targetRel: string, value: unknown): void {
+  files[targetRel] = `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function errorCode(cause: unknown): string | undefined {
+  if (typeof cause !== 'object' || cause === null || !('code' in cause)) return undefined;
+  const code = (cause as { readonly code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+function isComposedBlueprint(value: LoadedDeployProject): value is ComposedBlueprint {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'project' in value &&
+    'pdm' in value &&
+    'routing' in value &&
+    'bindingRegistry' in value
+  );
+}

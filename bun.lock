@@ -16,8 +16,12 @@
         "rntme": "./dist/bin/cli.js",
       },
       "dependencies": {
+        "@rntme/bindings-grpc": "workspace:*",
         "@rntme/blueprint": "workspace:*",
         "@rntme/bundle-publish": "workspace:*",
+        "@rntme/deploy-core": "workspace:*",
+        "@rntme/deploy-dokploy": "workspace:*",
+        "@rntme/deploy-runner": "workspace:*",
         "@rntme/platform-core": "workspace:*",
         "@truestamp/canonify": "^1.0.0",
         "zod": "^4.0.0",
