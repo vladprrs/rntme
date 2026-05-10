@@ -85,3 +85,19 @@ export type {
   VerifyStageInput,
   VerifyStageOutput,
 } from './stages/types.js';
+
+export {
+  composeStageHandler,
+  provisionStageHandler,
+  planStageHandler,
+  renderStageHandler,
+  applyStageHandler,
+  verifyStageHandler,
+  getPlatformHandlerContext,
+  _setHandlerContextForTest,
+} from './handlers/index.js';
+export type {
+  StageHandlerInput,
+  StageHandlerResult,
+  HandlerContext,
+} from './handlers/index.js';
