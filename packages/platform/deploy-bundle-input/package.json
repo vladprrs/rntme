@@ -1,0 +1,38 @@
+{
+  "name": "@rntme/deploy-bundle-input",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Lifts a materialized blueprint bundle into a deploy-core ComposedProjectInput. Shared by the CLI direct-mode path and the platform's BPMN compose handler.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint --no-error-on-unmatched-pattern \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@rntme/bindings-grpc": "workspace:*",
+    "@rntme/blueprint": "workspace:*",
+    "@rntme/deploy-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/bun": "latest",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

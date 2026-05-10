@@ -46,6 +46,7 @@
     "@rntme/bindings-grpc": "workspace:*",
     "@rntme/blueprint": "workspace:*",
     "@rntme/bundle-publish": "workspace:*",
+    "@rntme/deploy-bundle-input": "workspace:*",
     "@rntme/deploy-core": "workspace:*",
     "@rntme/deploy-dokploy": "workspace:*",
     "@rntme/deploy-runner": "workspace:*",

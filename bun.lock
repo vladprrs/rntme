@@ -19,6 +19,7 @@
         "@rntme/bindings-grpc": "workspace:*",
         "@rntme/blueprint": "workspace:*",
         "@rntme/bundle-publish": "workspace:*",
+        "@rntme/deploy-bundle-input": "workspace:*",
         "@rntme/deploy-core": "workspace:*",
         "@rntme/deploy-dokploy": "workspace:*",
         "@rntme/deploy-runner": "workspace:*",
@@ -918,6 +919,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@rntme/blueprint": "workspace:*",
+        "@rntme/deploy-bundle-input": "workspace:*",
         "@rntme/deploy-core": "workspace:*",
         "@rntme/deploy-dokploy": "workspace:*",
         "@rntme/platform-core": "workspace:*",
@@ -930,6 +932,25 @@
         "@types/bun": "latest",
         "@types/node": "^20.14.0",
         "@types/pg": "^8.11.6",
+        "@typescript-eslint/eslint-plugin": "^8.6.0",
+        "@typescript-eslint/parser": "^8.6.0",
+        "eslint": "^9.10.0",
+        "prettier": "^3.3.3",
+        "typescript": "^5.5.4",
+      },
+    },
+    "packages/platform/deploy-bundle-input": {
+      "name": "@rntme/deploy-bundle-input",
+      "version": "0.0.0",
+      "dependencies": {
+        "@rntme/bindings-grpc": "workspace:*",
+        "@rntme/blueprint": "workspace:*",
+        "@rntme/deploy-core": "workspace:*",
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.10.0",
+        "@types/bun": "latest",
+        "@types/node": "^20.14.0",
         "@typescript-eslint/eslint-plugin": "^8.6.0",
         "@typescript-eslint/parser": "^8.6.0",
         "eslint": "^9.10.0",
@@ -1870,6 +1891,8 @@
     "@rntme/crm-bitrix24": ["@rntme/crm-bitrix24@workspace:modules/crm/bitrix24"],
 
     "@rntme/demo-cv-extract-blueprint": ["@rntme/demo-cv-extract-blueprint@workspace:demo/cv-extract-blueprint"],
+
+    "@rntme/deploy-bundle-input": ["@rntme/deploy-bundle-input@workspace:packages/platform/deploy-bundle-input"],
 
     "@rntme/deploy-core": ["@rntme/deploy-core@workspace:packages/deploy/deploy-core"],
 
