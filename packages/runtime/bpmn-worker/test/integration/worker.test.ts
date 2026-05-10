@@ -381,6 +381,7 @@ function createManifest(overrides: Partial<WorkflowArtifact> = {}): WorkflowArti
         resultVariable: 'reservation',
       },
     ],
+    nativeTasks: [],
     ...overrides,
   };
 }

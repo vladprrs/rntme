@@ -50,11 +50,29 @@ const serviceTaskSchema = z
   })
   .strict();
 
+const handlerRefSchema = z
+  .object({
+    module: nonEmptyString,
+    export: nonEmptyString,
+  })
+  .strict();
+
+const nativeTaskSchema = z
+  .object({
+    definition: nonEmptyString,
+    taskId: nonEmptyString,
+    handler: handlerRefSchema,
+    input: z.record(nonEmptyString, workflowMappingValueSchema).optional(),
+    resultVariable: nonEmptyString.optional(),
+  })
+  .strict();
+
 export const WorkflowArtifactSchema = z
   .object({
     workflowVersion: z.literal(1),
     definitions: z.array(definitionSchema),
     messageStarts: z.array(messageStartSchema).default([]),
     serviceTasks: z.array(serviceTaskSchema).default([]),
+    nativeTasks: z.array(nativeTaskSchema).default([]),
   })
   .strict();

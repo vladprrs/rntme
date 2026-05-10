@@ -37,11 +37,25 @@ export type WorkflowServiceTask = {
   readonly resultVariable?: string;
 };
 
+export type NativeTaskHandlerRef = {
+  readonly module: string;
+  readonly export: string;
+};
+
+export type NativeTaskMapping = {
+  readonly definition: string;
+  readonly taskId: string;
+  readonly handler: NativeTaskHandlerRef;
+  readonly input?: Readonly<Record<string, WorkflowMappingValue>>;
+  readonly resultVariable?: string;
+};
+
 export type WorkflowArtifact = {
   readonly workflowVersion: WorkflowVersion;
   readonly definitions: readonly WorkflowDefinition[];
   readonly messageStarts: readonly WorkflowMessageStart[];
   readonly serviceTasks: readonly WorkflowServiceTask[];
+  readonly nativeTasks: readonly NativeTaskMapping[];
 };
 
 declare const StructurallyValidBrand: unique symbol;
