@@ -1,5 +1,6 @@
 import { redact } from '../redactor.js';
-import type { DeployStage, DeployStageStateRepo } from '@rntme/platform-storage';
+import type { DeployStage } from '@rntme/platform-storage';
+import type { HandlerContext } from './platform-context.js';
 import type { StageHandlerResult } from './types.js';
 
 export function errorCode(cause: unknown, fallback: string): string {
@@ -17,8 +18,13 @@ export function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
+/**
+ * Records a stage failure inside a fresh withOrgTx so RLS sees `app.org_id`.
+ * Returns the failure result. Each handler's catch block calls this.
+ */
 export async function failStage(
-  repo: DeployStageStateRepo,
+  ctx: HandlerContext,
+  orgId: string,
   deploymentId: string,
   stage: DeployStage,
   cause: unknown,
@@ -26,6 +32,8 @@ export async function failStage(
 ): Promise<StageHandlerResult> {
   const code = errorCode(cause, fallbackCode);
   const message = redact(errorMessage(cause));
-  await repo.fail({ deploymentId, stage, errorCode: code, errorMessage: message });
+  await ctx.withOrgTx(orgId, (repos) =>
+    repos.stageState.fail({ deploymentId, stage, errorCode: code, errorMessage: message }),
+  );
   return { stage, status: 'failed', errorCode: code, errorMessage: message };
 }

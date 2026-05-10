@@ -2,8 +2,8 @@ import { gunzipSync } from 'node:zlib';
 import { isOk, parseCanonicalBundle } from '@rntme/platform-core';
 import { materializeBundle } from '@rntme/blueprint';
 import { compose } from '../stages/compose.js';
-import { redact } from '../redactor.js';
 import { getPlatformHandlerContext } from './platform-context.js';
+import { failStage } from './handler-shared.js';
 import type { StageHandlerInput, StageHandlerResult } from './types.js';
 
 /**
@@ -18,27 +18,29 @@ export async function composeStageHandler(
 ): Promise<StageHandlerResult> {
   const ctx = getPlatformHandlerContext();
   const stageStateId = `${input.deploymentId}-compose`;
-  const repo = ctx.stageStateRepoFor(input.orgId);
-  await repo.begin({
-    id: stageStateId,
-    deploymentId: input.deploymentId,
-    orgId: input.orgId,
-    stage: 'compose',
-  });
+
+  await ctx.withOrgTx(input.orgId, (repos) =>
+    repos.stageState.begin({
+      id: stageStateId,
+      deploymentId: input.deploymentId,
+      orgId: input.orgId,
+      stage: 'compose',
+    }),
+  );
 
   try {
-    const deployment = await ctx.deploymentRepoFor(input.orgId).getById(input.deploymentId);
-    if (!isOk(deployment) || deployment.value === null) {
-      throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
-    }
-    const projectVersion = await ctx
-      .projectVersionRepoFor(input.orgId)
-      .getById(deployment.value.projectVersionId);
-    if (!isOk(projectVersion) || projectVersion.value === null) {
-      throw new Error('DEPLOY_HANDLER_PROJECT_VERSION_MISSING');
-    }
+    const blobKey = await ctx.withOrgTx(input.orgId, async (repos) => {
+      const deployment = await repos.deployment.getById(input.deploymentId);
+      if (!isOk(deployment) || deployment.value === null) {
+        throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
+      }
+      const projectVersion = await repos.projectVersion.getById(deployment.value.projectVersionId);
+      if (!isOk(projectVersion) || projectVersion.value === null) {
+        throw new Error('DEPLOY_HANDLER_PROJECT_VERSION_MISSING');
+      }
+      return projectVersion.value.bundleBlobKey;
+    });
 
-    const blobKey = projectVersion.value.bundleBlobKey;
     const raw = await ctx.blob.getRaw(blobKey);
     if (!isOk(raw)) {
       throw new Error(
@@ -58,11 +60,13 @@ export async function composeStageHandler(
     const result = await compose({ bundleDir });
 
     const projectName = extractProjectName(result.composed);
-    await repo.succeed({
-      deploymentId: input.deploymentId,
-      stage: 'compose',
-      publicStateJson: JSON.stringify({ bundleDir, projectName }),
-    });
+    await ctx.withOrgTx(input.orgId, (repos) =>
+      repos.stageState.succeed({
+        deploymentId: input.deploymentId,
+        stage: 'compose',
+        publicStateJson: JSON.stringify({ bundleDir, projectName }),
+      }),
+    );
 
     return {
       stage: 'compose',
@@ -70,15 +74,7 @@ export async function composeStageHandler(
       publicSummary: { projectName },
     };
   } catch (cause) {
-    const code = errorCode(cause, 'DEPLOY_COMPOSE_FAILED');
-    const message = redact(errorMessage(cause));
-    await repo.fail({
-      deploymentId: input.deploymentId,
-      stage: 'compose',
-      errorCode: code,
-      errorMessage: message,
-    });
-    return { stage: 'compose', status: 'failed', errorCode: code, errorMessage: message };
+    return failStage(ctx, input.orgId, input.deploymentId, 'compose', cause, 'DEPLOY_COMPOSE_FAILED');
   }
 }
 
@@ -92,19 +88,4 @@ function extractProjectName(composed: unknown): string {
     if (typeof o.project?.name === 'string') return o.project.name;
   }
   return '';
-}
-
-function errorCode(cause: unknown, fallback: string): string {
-  if (
-    cause instanceof Error &&
-    'code' in cause &&
-    typeof (cause as Error & { code: string }).code === 'string'
-  ) {
-    return (cause as Error & { code: string }).code;
-  }
-  return fallback;
-}
-
-function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

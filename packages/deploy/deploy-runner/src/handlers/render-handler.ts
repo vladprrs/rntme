@@ -15,48 +15,59 @@ export async function renderStageHandler(
   input: StageHandlerInput,
 ): Promise<StageHandlerResult> {
   const ctx = getPlatformHandlerContext();
-  const repo = ctx.stageStateRepoFor(input.orgId);
-  await repo.begin({
-    id: `${input.deploymentId}-render`,
-    deploymentId: input.deploymentId,
-    orgId: input.orgId,
-    stage: 'render',
-  });
+  await ctx.withOrgTx(input.orgId, (repos) =>
+    repos.stageState.begin({
+      id: `${input.deploymentId}-render`,
+      deploymentId: input.deploymentId,
+      orgId: input.orgId,
+      stage: 'render',
+    }),
+  );
 
   try {
-    const composeRow = await repo.read({ deploymentId: input.deploymentId, stage: 'compose' });
-    const provRow = await repo.read({ deploymentId: input.deploymentId, stage: 'provision' });
-    const planRow = await repo.read({ deploymentId: input.deploymentId, stage: 'plan' });
-    if (
-      composeRow === null ||
-      composeRow.publicStateJson === null ||
-      provRow === null ||
-      provRow.publicStateJson === null ||
-      planRow === null ||
-      planRow.publicStateJson === null
-    ) {
-      throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
-    }
-    const composeState = JSON.parse(composeRow.publicStateJson) as { bundleDir: string };
-    const planState = JSON.parse(planRow.publicStateJson) as { planBlobKey: string };
-    const provState = JSON.parse(provRow.publicStateJson) as {
-      publicByModule: Record<string, Record<string, unknown>>;
-    };
+    const { composeState, planState, provState, provSecretBlobKey, deployment, target } = await ctx.withOrgTx(
+      input.orgId,
+      async (repos) => {
+        const composeRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'compose' });
+        const provRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'provision' });
+        const planRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'plan' });
+        if (
+          composeRow === null ||
+          composeRow.publicStateJson === null ||
+          provRow === null ||
+          provRow.publicStateJson === null ||
+          planRow === null ||
+          planRow.publicStateJson === null
+        ) {
+          throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
+        }
+        const composeState = JSON.parse(composeRow.publicStateJson) as { bundleDir: string };
+        const planState = JSON.parse(planRow.publicStateJson) as { planBlobKey: string };
+        const provState = JSON.parse(provRow.publicStateJson) as {
+          publicByModule: Record<string, Record<string, unknown>>;
+        };
 
-    const deploymentResult = await ctx
-      .deploymentRepoFor(input.orgId)
-      .getById(input.deploymentId);
-    if (!isOk(deploymentResult) || deploymentResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
-    }
-    const deployment = deploymentResult.value;
-    const targetResult = await ctx
-      .deployTargetRepoFor(input.orgId)
-      .getWithSecretById(deployment.targetId);
-    if (!isOk(targetResult) || targetResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
-    }
-    const target = targetResult.value;
+        const deploymentResult = await repos.deployment.getById(input.deploymentId);
+        if (!isOk(deploymentResult) || deploymentResult.value === null) {
+          throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
+        }
+        const deployment = deploymentResult.value;
+        const targetResult = await repos.deployTarget.getWithSecretById(deployment.targetId);
+        if (!isOk(targetResult) || targetResult.value === null) {
+          throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
+        }
+        const target = targetResult.value;
+
+        return {
+          composeState,
+          planState,
+          provState,
+          provSecretBlobKey: provRow.secretBlobKey,
+          deployment,
+          target,
+        };
+      },
+    );
 
     const planRaw = await ctx.blob.getRaw(planState.planBlobKey);
     if (!isOk(planRaw)) {
@@ -67,8 +78,8 @@ export async function renderStageHandler(
     const projectPlan = JSON.parse(planRaw.value.toString('utf8')) as ProjectDeploymentPlan;
 
     let secretByModule: Record<string, Record<string, unknown>> = {};
-    if (provRow.secretBlobKey !== null) {
-      const secretRaw = await ctx.blob.getRaw(provRow.secretBlobKey);
+    if (provSecretBlobKey !== null) {
+      const secretRaw = await ctx.blob.getRaw(provSecretBlobKey);
       if (!isOk(secretRaw)) {
         throw new Error(
           `DEPLOY_HANDLER_PROVISION_SECRETS_FETCH_FAILED: ${secretRaw.errors[0]?.message ?? ''}`,
@@ -121,11 +132,13 @@ export async function renderStageHandler(
       );
     }
 
-    await repo.succeed({
-      deploymentId: input.deploymentId,
-      stage: 'render',
-      publicStateJson: JSON.stringify({ renderBlobKey, digest: out.rendered.digest }),
-    });
+    await ctx.withOrgTx(input.orgId, (repos) =>
+      repos.stageState.succeed({
+        deploymentId: input.deploymentId,
+        stage: 'render',
+        publicStateJson: JSON.stringify({ renderBlobKey, digest: out.rendered.digest }),
+      }),
+    );
 
     return {
       stage: 'render',
@@ -133,6 +146,6 @@ export async function renderStageHandler(
       publicSummary: { digest: out.rendered.digest },
     };
   } catch (cause) {
-    return failStage(repo, input.deploymentId, 'render', cause, 'DEPLOY_RENDER_FAILED');
+    return failStage(ctx, input.orgId, input.deploymentId, 'render', cause, 'DEPLOY_RENDER_FAILED');
   }
 }

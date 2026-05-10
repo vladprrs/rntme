@@ -1,10 +1,11 @@
 import { mock } from 'bun:test';
-import type { HandlerContext } from '../../../src/handlers/platform-context.js';
+import type { HandlerContext, TxRepos } from '../../../src/handlers/platform-context.js';
 
 /**
  * Build a minimal HandlerContext suitable for unit-testing handler
- * orchestration. Each repo factory returns a fresh in-memory stub. Tests can
- * override individual fields by passing `overrides`.
+ * orchestration. Each repo factory returns a fresh in-memory stub; `withOrgTx`
+ * runs the function with the same stub repos. Tests can override individual
+ * fields by passing `overrides`.
  */
 export function makeMockHandlerContext(overrides: Partial<HandlerContext> = {}): {
   ctx: HandlerContext;
@@ -22,6 +23,14 @@ export function makeMockHandlerContext(overrides: Partial<HandlerContext> = {}):
   const projectVersionRepo = makeProjectVersionRepo();
   const blob = makeBlobStore();
 
+  const txRepos: TxRepos = {
+    stageState: stageRepo as unknown as TxRepos['stageState'],
+    deployment: deploymentRepo as unknown as TxRepos['deployment'],
+    deployTarget: deployTargetRepo as unknown as TxRepos['deployTarget'],
+    targetSecrets: targetSecretsRepo as unknown as TxRepos['targetSecrets'],
+    projectVersion: projectVersionRepo as unknown as TxRepos['projectVersion'],
+  };
+
   const ctx = {
     pool: {} as never,
     db: {} as never,
@@ -33,6 +42,10 @@ export function makeMockHandlerContext(overrides: Partial<HandlerContext> = {}):
     targetSecretsRepoFor: () => targetSecretsRepo,
     projectVersionRepoFor: () => projectVersionRepo,
     dokployClientFactoryFor: () => ({}) as never,
+    withOrgTx: mock(async <T,>(_orgId: string, fn: (repos: TxRepos) => Promise<T>) => fn(txRepos)),
+    resolveProvisioner: mock(async () => {
+      throw new Error('TEST_RESOLVE_PROVISIONER_NOT_STUBBED');
+    }),
     ...overrides,
   } as unknown as HandlerContext;
 

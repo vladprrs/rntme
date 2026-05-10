@@ -15,29 +15,49 @@ export async function applyStageHandler(
   input: StageHandlerInput,
 ): Promise<StageHandlerResult> {
   const ctx = getPlatformHandlerContext();
-  const repo = ctx.stageStateRepoFor(input.orgId);
-  await repo.begin({
-    id: `${input.deploymentId}-apply`,
-    deploymentId: input.deploymentId,
-    orgId: input.orgId,
-    stage: 'apply',
-  });
+  await ctx.withOrgTx(input.orgId, (repos) =>
+    repos.stageState.begin({
+      id: `${input.deploymentId}-apply`,
+      deploymentId: input.deploymentId,
+      orgId: input.orgId,
+      stage: 'apply',
+    }),
+  );
 
   try {
-    const renderRow = await repo.read({ deploymentId: input.deploymentId, stage: 'render' });
-    const planRow = await repo.read({ deploymentId: input.deploymentId, stage: 'plan' });
-    if (
-      renderRow === null ||
-      renderRow.publicStateJson === null ||
-      planRow === null ||
-      planRow.publicStateJson === null
-    ) {
-      throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
-    }
-    const renderState = JSON.parse(renderRow.publicStateJson) as { renderBlobKey: string };
-    const planState = JSON.parse(planRow.publicStateJson) as {
-      requiredTargetSecrets: readonly { secretRef: string; schema: string; purpose: string }[];
-    };
+    const { renderState, planState, deployment, target, decrypted } = await ctx.withOrgTx(
+      input.orgId,
+      async (repos) => {
+        const renderRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'render' });
+        const planRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'plan' });
+        if (
+          renderRow === null ||
+          renderRow.publicStateJson === null ||
+          planRow === null ||
+          planRow.publicStateJson === null
+        ) {
+          throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
+        }
+        const renderState = JSON.parse(renderRow.publicStateJson) as { renderBlobKey: string };
+        const planState = JSON.parse(planRow.publicStateJson) as {
+          requiredTargetSecrets: readonly { secretRef: string; schema: string; purpose: string }[];
+        };
+
+        const deploymentResult = await repos.deployment.getById(input.deploymentId);
+        if (!isOk(deploymentResult) || deploymentResult.value === null) {
+          throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
+        }
+        const deployment = deploymentResult.value;
+        const targetResult = await repos.deployTarget.getWithSecretById(deployment.targetId);
+        if (!isOk(targetResult) || targetResult.value === null) {
+          throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
+        }
+        const target = targetResult.value;
+
+        const decrypted = await repos.targetSecrets.getAllDecrypted(target.id);
+        return { renderState, planState, deployment, target, decrypted };
+      },
+    );
 
     const renderedRaw = await ctx.blob.getRaw(renderState.renderBlobKey);
     if (!isOk(renderedRaw)) {
@@ -46,25 +66,6 @@ export async function applyStageHandler(
       );
     }
     const rendered = JSON.parse(renderedRaw.value.toString('utf8')) as RenderedDokployPlan;
-
-    const deploymentResult = await ctx
-      .deploymentRepoFor(input.orgId)
-      .getById(input.deploymentId);
-    if (!isOk(deploymentResult) || deploymentResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
-    }
-    const deployment = deploymentResult.value;
-    const targetResult = await ctx
-      .deployTargetRepoFor(input.orgId)
-      .getWithSecretById(deployment.targetId);
-    if (!isOk(targetResult) || targetResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
-    }
-    const target = targetResult.value;
-
-    const decrypted = await ctx
-      .targetSecretsRepoFor(input.orgId)
-      .getAllDecrypted(target.id);
 
     const resolvedRequiredSecrets: Record<string, unknown> = {};
     for (const ref of planState.requiredTargetSecrets) {
@@ -106,11 +107,13 @@ export async function applyStageHandler(
       );
     }
 
-    await repo.succeed({
-      deploymentId: input.deploymentId,
-      stage: 'apply',
-      publicStateJson: JSON.stringify({ applyBlobKey, durationMs: out.durationMs }),
-    });
+    await ctx.withOrgTx(input.orgId, (repos) =>
+      repos.stageState.succeed({
+        deploymentId: input.deploymentId,
+        stage: 'apply',
+        publicStateJson: JSON.stringify({ applyBlobKey, durationMs: out.durationMs }),
+      }),
+    );
 
     return {
       stage: 'apply',
@@ -118,6 +121,6 @@ export async function applyStageHandler(
       publicSummary: { durationMs: out.durationMs },
     };
   } catch (cause) {
-    return failStage(repo, input.deploymentId, 'apply', cause, 'DEPLOY_APPLY_FAILED');
+    return failStage(ctx, input.orgId, input.deploymentId, 'apply', cause, 'DEPLOY_APPLY_FAILED');
   }
 }

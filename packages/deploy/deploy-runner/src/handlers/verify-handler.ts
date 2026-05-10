@@ -18,20 +18,23 @@ export async function verifyStageHandler(
   input: StageHandlerInput,
 ): Promise<StageHandlerResult> {
   const ctx = getPlatformHandlerContext();
-  const repo = ctx.stageStateRepoFor(input.orgId);
-  await repo.begin({
-    id: `${input.deploymentId}-verify`,
-    deploymentId: input.deploymentId,
-    orgId: input.orgId,
-    stage: 'verify',
-  });
+  await ctx.withOrgTx(input.orgId, (repos) =>
+    repos.stageState.begin({
+      id: `${input.deploymentId}-verify`,
+      deploymentId: input.deploymentId,
+      orgId: input.orgId,
+      stage: 'verify',
+    }),
+  );
 
   try {
-    const applyRow = await repo.read({ deploymentId: input.deploymentId, stage: 'apply' });
-    if (applyRow === null || applyRow.publicStateJson === null) {
-      throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
-    }
-    const applyState = JSON.parse(applyRow.publicStateJson) as { applyBlobKey: string };
+    const applyState = await ctx.withOrgTx(input.orgId, async (repos) => {
+      const applyRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'apply' });
+      if (applyRow === null || applyRow.publicStateJson === null) {
+        throw new Error('DEPLOY_HANDLER_PRIOR_STATE_MISSING');
+      }
+      return JSON.parse(applyRow.publicStateJson) as { applyBlobKey: string };
+    });
 
     const appliedRaw = await ctx.blob.getRaw(applyState.applyBlobKey);
     if (!isOk(appliedRaw)) {
@@ -43,15 +46,17 @@ export async function verifyStageHandler(
 
     const out = await verifyStage({ applied });
 
-    await repo.succeed({
-      deploymentId: input.deploymentId,
-      stage: 'verify',
-      publicStateJson: JSON.stringify({
-        ok: out.report.ok,
-        partialOk: out.report.partialOk,
-        checkCount: out.report.checks.length,
+    await ctx.withOrgTx(input.orgId, (repos) =>
+      repos.stageState.succeed({
+        deploymentId: input.deploymentId,
+        stage: 'verify',
+        publicStateJson: JSON.stringify({
+          ok: out.report.ok,
+          partialOk: out.report.partialOk,
+          checkCount: out.report.checks.length,
+        }),
       }),
-    });
+    );
 
     return {
       stage: 'verify',
@@ -63,6 +68,6 @@ export async function verifyStageHandler(
       },
     };
   } catch (cause) {
-    return failStage(repo, input.deploymentId, 'verify', cause, 'DEPLOY_VERIFY_FAILED');
+    return failStage(ctx, input.orgId, input.deploymentId, 'verify', cause, 'DEPLOY_VERIFY_FAILED');
   }
 }

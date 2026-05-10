@@ -16,40 +16,38 @@ export async function provisionStageHandler(
   input: StageHandlerInput,
 ): Promise<StageHandlerResult> {
   const ctx = getPlatformHandlerContext();
-  const repo = ctx.stageStateRepoFor(input.orgId);
-  await repo.begin({
-    id: `${input.deploymentId}-provision`,
-    deploymentId: input.deploymentId,
-    orgId: input.orgId,
-    stage: 'provision',
-  });
+  await ctx.withOrgTx(input.orgId, (repos) =>
+    repos.stageState.begin({
+      id: `${input.deploymentId}-provision`,
+      deploymentId: input.deploymentId,
+      orgId: input.orgId,
+      stage: 'provision',
+    }),
+  );
 
   try {
-    const composeRow = await repo.read({ deploymentId: input.deploymentId, stage: 'compose' });
-    if (composeRow === null || composeRow.publicStateJson === null) {
-      throw new Error('DEPLOY_HANDLER_COMPOSE_STATE_MISSING');
-    }
-    const composeState = JSON.parse(composeRow.publicStateJson) as { bundleDir: string };
+    const { composeState, deployment, target, decrypted } = await ctx.withOrgTx(input.orgId, async (repos) => {
+      const composeRow = await repos.stageState.read({ deploymentId: input.deploymentId, stage: 'compose' });
+      if (composeRow === null || composeRow.publicStateJson === null) {
+        throw new Error('DEPLOY_HANDLER_COMPOSE_STATE_MISSING');
+      }
+      const composeState = JSON.parse(composeRow.publicStateJson) as { bundleDir: string };
 
-    const deploymentResult = await ctx
-      .deploymentRepoFor(input.orgId)
-      .getById(input.deploymentId);
-    if (!isOk(deploymentResult) || deploymentResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
-    }
-    const deployment = deploymentResult.value;
+      const deploymentResult = await repos.deployment.getById(input.deploymentId);
+      if (!isOk(deploymentResult) || deploymentResult.value === null) {
+        throw new Error('DEPLOY_HANDLER_DEPLOYMENT_MISSING');
+      }
+      const deployment = deploymentResult.value;
 
-    const targetResult = await ctx
-      .deployTargetRepoFor(input.orgId)
-      .getWithSecretById(deployment.targetId);
-    if (!isOk(targetResult) || targetResult.value === null) {
-      throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
-    }
-    const target = targetResult.value;
+      const targetResult = await repos.deployTarget.getWithSecretById(deployment.targetId);
+      if (!isOk(targetResult) || targetResult.value === null) {
+        throw new Error('DEPLOY_HANDLER_TARGET_MISSING');
+      }
+      const target = targetResult.value;
 
-    const decrypted = await ctx
-      .targetSecretsRepoFor(input.orgId)
-      .getAllDecrypted(target.id);
+      const decrypted = await repos.targetSecrets.getAllDecrypted(target.id);
+      return { composeState, deployment, target, decrypted };
+    });
 
     // Re-load composed blueprint from disk (cheap; the bundleDir is materialized
     // and persisted by the compose handler). Avoids serializing a large object
@@ -75,9 +73,7 @@ export async function provisionStageHandler(
         priorProvisionOutputs: {},
       },
       {
-        resolveProvisioner: () => {
-          throw new Error('DEPLOY_HANDLER_PROVISIONER_RESOLVER_MISSING');
-        },
+        resolveProvisioner: ctx.resolveProvisioner,
       },
     );
 
@@ -92,18 +88,20 @@ export async function provisionStageHandler(
       );
     }
 
-    await repo.succeed({
-      deploymentId: input.deploymentId,
-      stage: 'provision',
-      publicStateJson: JSON.stringify({
-        publicByModule: out.publicByModule,
-        provisionResultForPlan: out.provisionResultForPlan,
-        discoveredModulesForPlan: out.discoveredModulesForPlan,
-        startedAt: out.startedAt,
-        finishedAt: out.finishedAt,
+    await ctx.withOrgTx(input.orgId, (repos) =>
+      repos.stageState.succeed({
+        deploymentId: input.deploymentId,
+        stage: 'provision',
+        publicStateJson: JSON.stringify({
+          publicByModule: out.publicByModule,
+          provisionResultForPlan: out.provisionResultForPlan,
+          discoveredModulesForPlan: out.discoveredModulesForPlan,
+          startedAt: out.startedAt,
+          finishedAt: out.finishedAt,
+        }),
+        secretBlobKey,
       }),
-      secretBlobKey,
-    });
+    );
 
     return {
       stage: 'provision',
@@ -111,6 +109,6 @@ export async function provisionStageHandler(
       publicSummary: { moduleCount: out.provisioned.size },
     };
   } catch (cause) {
-    return failStage(repo, input.deploymentId, 'provision', cause, 'DEPLOY_PROVISION_FAILED');
+    return failStage(ctx, input.orgId, input.deploymentId, 'provision', cause, 'DEPLOY_PROVISION_FAILED');
   }
 }

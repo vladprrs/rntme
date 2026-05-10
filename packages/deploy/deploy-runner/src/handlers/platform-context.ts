@@ -1,4 +1,7 @@
-import { Pool } from 'pg';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { Pool, type PoolClient } from 'pg';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   AesGcmSecretCipher,
@@ -19,9 +22,26 @@ import type {
   SecretCipher,
   TargetSecretsRepo,
 } from '@rntme/platform-core';
+import { safeProvisionerName } from '@rntme/blueprint';
+import { parseTargetSecret } from '@rntme/platform-core';
+import type { ProvisionerContract } from '@rntme/deploy-core';
 import { createDokployClientFactory } from '../dokploy-client-factory.js';
 import type { DokployClient } from '@rntme/deploy-dokploy';
-import { parseTargetSecret } from '@rntme/platform-core';
+import type { ResolveProvisioner } from '../types.js';
+
+/**
+ * Repos resolved against a single transaction client. Every BPMN-task handler
+ * runs its DB reads/writes inside `withOrgTx` so RLS sees `app.org_id` set on
+ * the connection. Per-call repo factories on `HandlerContext` itself are kept
+ * only for tests that don't exercise the tx wrapper.
+ */
+export type TxRepos = {
+  readonly stageState: DeployStageStateRepo;
+  readonly deployment: DeploymentRepo;
+  readonly deployTarget: DeployTargetRepo;
+  readonly targetSecrets: TargetSecretsRepo;
+  readonly projectVersion: ProjectVersionRepo;
+};
 
 /**
  * Platform-side context every stage handler needs: a Postgres pool, the blob
@@ -46,6 +66,20 @@ export type HandlerContext = {
     target: DeployTargetWithSecret,
     extras?: Readonly<Record<string, unknown>>,
   ) => DokployClient;
+  /**
+   * Run `fn` inside a Postgres transaction with `app.org_id` set so RLS
+   * policies on `deploy_stage_state`, `deployment`, `deploy_target`, and
+   * friends accept reads/writes for `orgId`. Mirrors the `withOrgTx` wrapper
+   * platform-http uses on its request path.
+   */
+  readonly withOrgTx: <T>(orgId: string, fn: (repos: TxRepos) => Promise<T>) => Promise<T>;
+  /**
+   * Resolves a provisioner package by reading its compiled entry from the
+   * materialized bundle (`<projectDir>/assets/provisioners/<safe>.entry.js`).
+   * Identical to platform-http's resolver — provisioner module packages are
+   * not deps of the worker process; they ship inside the bundle.
+   */
+  readonly resolveProvisioner: ResolveProvisioner;
 };
 
 let cached: HandlerContext | undefined;
@@ -70,17 +104,37 @@ export function getPlatformHandlerContext(): HandlerContext {
     secretAccessKey: blobSecretAccessKey,
   });
 
-  // The platform-storage class-based repos accept any `PgQueryable`, so the
-  // shared pool is fine for handlers — RLS context is set per-call by the
-  // platform's withOrgTx wrapper in app.ts; the BPMN worker runs each handler
-  // outside that wrapper today and falls back to the pool's default RLS rules.
-  // (Task 17 smoke will reveal whether per-call RLS context is required for
-  // the handler path; if so, we wrap each handler in a connect/BEGIN/SET-LOCAL
-  // dance similar to app.ts withOrgTx in a follow-up.)
   const dokployClientFactory = createDokployClientFactory(
     cipher,
     parseTargetSecret as unknown as Parameters<typeof createDokployClientFactory>[1],
   );
+
+  const reposForClient = (client: PoolClient): TxRepos => ({
+    stageState: createPgDeployStageStateRepo({ db: drizzle(client) }),
+    deployment: new PgDeploymentRepo(client),
+    deployTarget: new PgDeployTargetRepo(client),
+    targetSecrets: createPgTargetSecretsRepo({ db: client, cipher }),
+    projectVersion: new PgProjectVersionRepo(client),
+  });
+
+  const withOrgTx = async <T>(
+    orgId: string,
+    fn: (repos: TxRepos) => Promise<T>,
+  ): Promise<T> => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.org_id', $1, true)`, [orgId]);
+      const result = await fn(reposForClient(client));
+      await client.query('COMMIT');
+      return result;
+    } catch (cause) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw cause;
+    } finally {
+      client.release();
+    }
+  };
 
   cached = {
     pool,
@@ -93,8 +147,38 @@ export function getPlatformHandlerContext(): HandlerContext {
     targetSecretsRepoFor: (_orgId) => createPgTargetSecretsRepo({ db: pool, cipher }),
     projectVersionRepoFor: (_orgId) => new PgProjectVersionRepo(pool),
     dokployClientFactoryFor: (target, extras) => dokployClientFactory(target, extras),
+    withOrgTx,
+    resolveProvisioner: buildResolveProvisioner(),
   };
   return cached;
+}
+
+/**
+ * Loads provisioner entry files from the materialized bundle tmpDir rather
+ * than from the worker's own node_modules (which do not contain module
+ * packages). Convention: `<projectDir>/assets/provisioners/<safe>.entry.js`
+ * where `safe = safeProvisionerName(packageName)`.
+ */
+export function buildResolveProvisioner(): ResolveProvisioner {
+  return async (packageName, _entry, projectDir) => {
+    const safe = safeProvisionerName(packageName);
+    const relPath = `assets/provisioners/${safe}.entry.js`;
+    const absPath = join(projectDir, relPath);
+    if (!existsSync(absPath)) {
+      throw new Error(
+        `DEPLOY_PROVISION_BUNDLE_ASSET_MISSING: module "${packageName}" expected ${relPath} in materialized bundle`,
+      );
+    }
+    let pkg: { provision?: unknown; tearDown?: unknown };
+    try {
+      pkg = (await import(pathToFileURL(absPath).href)) as { provision?: unknown; tearDown?: unknown };
+    } catch (cause) {
+      throw new Error(
+        `DEPLOY_PROVISION_ENTRY_LOAD_FAILED: module "${packageName}" failed to import: ${(cause as Error).message}`,
+      );
+    }
+    return pkg as ProvisionerContract;
+  };
 }
 
 /** Test-only: inject a mock context (or clear it). */
