@@ -14,15 +14,34 @@ afterEach(async () => {
 });
 
 describe('runDeployment', () => {
-  it('emits stage hooks in order plan → provision → render → apply → verify', async () => {
-    // No provisioner modules in the fixture, so 'provision' is skipped.
+  it('emits stage hooks in order compose → provision → plan → render → apply → verify', async () => {
+    // The fixture has no provisioner modules so the provision stage runs
+    // as a no-op, but it still emits its begin/complete hooks.
     const stages: StageName[] = [];
     const inputs = makeRunDeploymentInputsFromExecutorFixture({
       hooks: { onStageBegin: (s) => void stages.push(s) },
     });
     const result = await runDeployment(inputs);
     expect(result.ok).toBe(true);
-    expect(stages).toEqual(['plan', 'render', 'apply', 'verify']);
+    expect(stages).toEqual(['compose', 'provision', 'plan', 'render', 'apply', 'verify']);
+  });
+
+  it('emits onProvisionResult → onApplyResult → onVerifyResult → onTerminal in order', async () => {
+    const calls: string[] = [];
+    const inputs = makeRunDeploymentInputsFromExecutorFixture({
+      hooks: {
+        onProvisionResult: () => void calls.push('provision'),
+        onApplyResult: () => void calls.push('apply'),
+        onVerifyResult: () => void calls.push('verify'),
+        onTerminal: (r) => {
+          calls.push('terminal');
+          expect(r).toEqual({ ok: true, kind: 'succeeded' });
+        },
+      },
+    });
+    const result = await runDeployment(inputs);
+    expect(result).toEqual({ ok: true, kind: 'succeeded' });
+    expect(calls).toEqual(['provision', 'apply', 'verify', 'terminal']);
   });
 
   it('emits onTerminal exactly once with kind succeeded on success', async () => {

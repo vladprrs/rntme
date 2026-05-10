@@ -68,3 +68,20 @@ export { runTearDownsForDeployment } from './run-teardowns.js';
 export type { TearDownDeps, TearDownInput } from './run-teardowns.js';
 
 export { runDeployment, deployErrorsToPlatformError } from './run-deployment.js';
+
+export { stages, StageError } from './stages/index.js';
+export type {
+  StageContext,
+  ComposeStageInput,
+  ComposeStageOutput,
+  ProvisionStageInput,
+  ProvisionStageOutput,
+  PlanStageInput,
+  PlanStageOutput,
+  RenderStageInput,
+  RenderStageOutput,
+  ApplyStageInput,
+  ApplyStageOutput,
+  VerifyStageInput,
+  VerifyStageOutput,
+} from './stages/types.js';
