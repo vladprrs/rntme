@@ -73,5 +73,11 @@ export const ProjectBlueprintSchema = z
           .strict(),
       )
       .optional(),
+    workflows: z
+      .object({
+        manifest: nonEmptyString,
+      })
+      .strict()
+      .optional(),
   })
   .strict();

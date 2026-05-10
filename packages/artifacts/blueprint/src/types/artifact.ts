@@ -58,6 +58,10 @@ export type CatalogManifest = {
   readonly moduleEdgeAuth: Readonly<Record<string, EdgeAuthDescriptor | null>>;
 };
 
+export type ProjectWorkflowsDecl = {
+  readonly manifest: string;
+};
+
 export type ProjectBlueprint = {
   name: string;
   services: readonly string[];
@@ -66,6 +70,7 @@ export type ProjectBlueprint = {
   mounts?: readonly MountDecl[];
   modules?: Readonly<Record<string, ModuleProjectRef>>;
   vars?: Readonly<Record<string, { from: string; required: boolean }>>;
+  workflows?: ProjectWorkflowsDecl;
 };
 
 export type ServiceDescriptor = {

@@ -46,6 +46,32 @@ execution evidence. The first implementation uses an internal adapter seam to
 call the existing Dokploy deploy path. A public deploy-adapter module contract
 is intentionally deferred.
 
+## Workflows
+
+The platform blueprint declares a project-level `workflows` section
+pointing at `services/deployments/workflows/workflows.json`. The deployments
+service owns the only workflow today (`runDeployment` BPMN with native task
+handlers from `@rntme/deploy-runner`). Because the project ships workflows,
+the deploy target MUST provide a workflow engine and event bus; otherwise
+deploy-core planning fails with `DEPLOY_PLAN_WORKFLOWS_REQUIRE_OPERATON`.
+
+The platform target file therefore needs to declare both:
+
+```jsonc
+{
+  "kind": "dokploy",
+  // ...
+  "workflows": {
+    "engine": {
+      "kind": "operaton",
+      "mode": "provisioned",
+      "image": "ghcr.io/operaton/operaton:latest"
+    }
+  },
+  "eventBus": { "mode": "provisioned" }
+}
+```
+
 ## Runtime cutover
 
 The active platform runtime is hosted through `apps/platform-http` blueprint
