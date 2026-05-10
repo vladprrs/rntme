@@ -33,6 +33,9 @@ import { runTargetCreate } from '../commands/target/create.js';
 import type { CommonFlags } from '../commands/harness.js';
 import { registerHelp, lookupHelp } from '../help/registry.js';
 import type { PublishTarget } from '@rntme/bundle-publish';
+import { runDirectDeploy } from '../commands/deploy.js';
+import { runPlatformUp } from '../commands/platform/up.js';
+import { runPlatformDown } from '../commands/platform/down.js';
 
 registerHelp(['project', 'deploy'], `Usage: rntme project deploy --org <slug> --project <slug> --version <seq> --target <target-slug>
   [--runtime-image <ref>] [--config-overrides <path.json>] [--wait] [--timeout <sec>]
@@ -60,6 +63,20 @@ registerHelp(['target', 'show'], `Usage: rntme target show <slug> [--org <slug>]
 registerHelp(['target', 'create'], `Usage: rntme target create <slug> --kind dokploy --display-name <name> --dokploy-url <url> --api-token <token> (--dokploy-project-id <id> | --dokploy-project-name <name> --allow-create-project) [--event-bus-mode provisioned] [--workflow-engine-image <ref>] [--workflow-worker-image <ref>] [--org <slug>]`);
 registerHelp(['target', 'set-config'], `Usage: rntme target set-config <slug> --from <path> [--org <slug>]`);
 
+registerHelp(['deploy'], `Usage: rntme deploy <blueprint-dir> --target <file>
+  [--name <suffix>] [--dry-run] [--json] [--log-file <path>]
+
+Deploys a blueprint directly without the platform server. Reads target config from a JSON file.`);
+
+registerHelp(['platform', 'up'], `Usage: rntme platform up --target <file>
+  [--name <suffix>] [--dry-run] [--json] [--log-file <path>]
+
+Deploys the bundled rntme-platform blueprint to the given target.`);
+
+registerHelp(['platform', 'down'], `Usage: rntme platform down --target <file> [--json]
+
+Tears down the rntme-platform stack on the given target.`);
+
 const USAGE = `Usage: rntme [options] <command> [subcommand] [args...]
 
 Commands:
@@ -70,6 +87,10 @@ Commands:
   init <slug>             Scaffold a project blueprint in cwd
   skills install --agent  Install skill pack for the chosen agent
   bundle publish          Publish a static folder as a sha256-pinned S3 bundle
+
+  deploy <blueprint-dir>  Deploy any blueprint directly (no platform required)
+  platform up             Bootstrap rntme-platform onto a target
+  platform down           Tear down rntme-platform on a target
 
   project create <slug>   Create a new project
   project list            List projects in the org
@@ -209,6 +230,8 @@ export async function main(argv: string[]): Promise<number> {
         wait: { type: 'boolean' },
         timeout: { type: 'string' },
         confirm: { type: 'string' },
+        'log-file': { type: 'string' },
+        name: { type: 'string' },
       },
       allowPositionals: true,
       strict: false,
@@ -309,6 +332,68 @@ export async function main(argv: string[]): Promise<number> {
           printJson: asBool(values['print-json']) === true,
         },
       );
+    }
+
+    // -------------------------------------------------------------------------
+    // deploy (direct mode)
+    // -------------------------------------------------------------------------
+    case 'deploy': {
+      const blueprintDir = positionals[1];
+      const targetPath = asString(values['target']);
+      if (!blueprintDir || !targetPath) {
+        process.stderr.write('Usage: rntme deploy <blueprint-dir> --target <file>\n');
+        return 1;
+      }
+      const dArgs: Parameters<typeof runDirectDeploy>[0] = { blueprintDir, targetPath };
+      setIfDefined(dArgs, 'name', asString(values['name']));
+      setIfDefined(dArgs, 'dryRun', asBool(values['dry-run']));
+      setIfDefined(dArgs, 'json', asBool(values['json']));
+      setIfDefined(dArgs, 'quiet', asBool(values['quiet']));
+      setIfDefined(dArgs, 'logFile', asString(values['log-file']));
+      return runDirectDeploy(dArgs);
+    }
+
+    // -------------------------------------------------------------------------
+    // platform (direct mode)
+    // -------------------------------------------------------------------------
+    case 'platform': {
+      const sub = positionals[1];
+      if (!sub) {
+        process.stderr.write('Usage: rntme platform <up|down> ...\n');
+        return 1;
+      }
+      switch (sub) {
+        case 'up': {
+          const targetPath = asString(values['target']);
+          if (!targetPath) {
+            process.stderr.write('Usage: rntme platform up --target <file>\n');
+            return 1;
+          }
+          const upArgs: Parameters<typeof runPlatformUp>[0] = { targetPath };
+          setIfDefined(upArgs, 'name', asString(values['name']));
+          setIfDefined(upArgs, 'dryRun', asBool(values['dry-run']));
+          setIfDefined(upArgs, 'json', asBool(values['json']));
+          setIfDefined(upArgs, 'quiet', asBool(values['quiet']));
+          setIfDefined(upArgs, 'logFile', asString(values['log-file']));
+          return runPlatformUp(upArgs);
+        }
+        case 'down': {
+          const targetPath = asString(values['target']);
+          if (!targetPath) {
+            process.stderr.write('Usage: rntme platform down --target <file>\n');
+            return 1;
+          }
+          const downArgs: Parameters<typeof runPlatformDown>[0] = { targetPath };
+          setIfDefined(downArgs, 'json', asBool(values['json']));
+          setIfDefined(downArgs, 'quiet', asBool(values['quiet']));
+          return runPlatformDown(downArgs);
+        }
+        default: {
+          process.stderr.write(`Unknown platform subcommand: ${sub}\n`);
+          process.stderr.write('Usage: rntme platform <up|down> ...\n');
+          return 2;
+        }
+      }
     }
 
     // -------------------------------------------------------------------------
