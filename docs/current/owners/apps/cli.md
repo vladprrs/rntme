@@ -259,6 +259,31 @@ drops the leading `@` from the package name and replaces `/` with `__`.
 Total `assets` size is capped at 10 MiB. CLI publish returns
 `CLI_BUNDLE_ASSETS_TOO_LARGE` if exceeded.
 
+## Architecture: Direct-mode Deploy Engine
+
+The direct-mode deployment system (`rntme deploy <bp> --target <file>`) and platform-bootstrap commands (`rntme platform up/down`) rely on a localized deploy engine in `src/deploy-engine/` that operates without a running platform server. This layer orchestrates blueprint loading, secret resolution, and deployment via the Dokploy API.
+
+### Deploy Engine Module Layout
+
+`src/deploy-engine/` contains the following modules:
+
+- **`target-schema.ts` / `load-target.ts`** — Zod schema and loader for target JSON files. Validates the target shape and resolves file paths.
+- **`load-secrets.ts`** — Environment-variable secret resolver. Reads secret references (e.g., `{ "source": "env", "name": "DOKPLOY_API_TOKEN" }`) and injects them into the deploy context.
+- **`to-deploy-core-input.ts`** — Converts `ComposedBlueprint` to `ComposedProjectInput` for the deployment engine. Intentionally duplicated from `apps/platform-http`; plan 6 will centralize this logic.
+- **`load-blueprint.ts`** — Composes a project blueprint directory and converts it to deployment input via `to-deploy-core-input.ts`.
+- **`dokploy-client.ts`** — Plain-token Dokploy client builder. Wraps `createDokployClientFactory` with a stub cipher for in-process token handling.
+- **`resolve-provisioner.ts`** — Provisioner resolver using `createRequire` to dynamically load vendor modules at runtime for direct-mode deployments.
+- **`locate-platform-blueprint.ts`** — Locates the bundled `dist/platform-blueprint/` directory. Falls back to `apps/platform/blueprint/` when running unbuilt from source.
+- **`run.ts` / `report.ts`** — Orchestrates `runDeployment` from `@rntme/deploy-runner` with stdout and JSONL logging hooks. Renders human-readable and machine-readable deployment reports.
+
+### Platform Blueprint Bundling
+
+`dist/platform-blueprint/` is the bundled rntme-platform blueprint used for platform-bootstrap deployments. It is created by the postbuild step in `apps/cli/scripts/copy-platform-blueprint.cjs`, which copies `apps/platform/blueprint/` into the dist directory.
+
+**Runtime resolution:** `locatePlatformBlueprint()` returns the path to `dist/platform-blueprint/` at runtime. When running unbuilt from source (e.g., in development), it falls back to `apps/platform/blueprint/` to enable testing without a build step.
+
+**Lifecycle:** The bundled blueprint is created only when the CLI package is built; unbuilt development setups use the source blueprint directly. This ensures platform-bootstrap (`rntme platform up/down`) works in both bundled and development environments.
+
 ## Error Codes
 
 Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.ts](src/errors/exit.ts).
@@ -283,6 +308,14 @@ Error codes follow the format `CLI_<LAYER>_<KIND>`. Exit code mapping per [exit.
 - `CLI_NETWORK_TIMEOUT` — Network request timed out (exit 9)
 - `CLI_USAGE` — Incorrect command usage (exit 2)
 - `CLI_BUNDLE_ASSETS_TOO_LARGE` — bundle `assets` section exceeds the 10 MiB cap (exit 6)
+
+### Direct-mode Deploy Layer
+
+- `CLI_DEPLOY_TARGET_FILE_INVALID` — target JSON file is malformed or does not conform to schema (exit 2)
+- `CLI_DEPLOY_SECRET_MISSING` — a secret reference could not be resolved from the environment (exit 2)
+- `CLI_DEPLOY_BLUEPRINT_INVALID` — blueprint composition or validation failed (exit 6)
+- `CLI_DEPLOY_PLATFORM_BLUEPRINT_NOT_BUNDLED` — platform blueprint distribution not found (direct-mode and platform-bootstrap only; exit 1)
+- `CLI_DEPLOY_TEARDOWN_FAILED` — platform teardown (rntme platform down) encountered an error during resource deletion (exit 1)
 
 ## See Also
 
