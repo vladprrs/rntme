@@ -22,6 +22,6 @@ export {
   type DeployStageStatus,
   type DeployStageStateRepo,
   type DeployStageStateRow,
-} from './repos/deploy-stage-state.js';
+} from './repos/pg-deploy-stage-state-repo.js';
 export * from './secret/aes-gcm-cipher.js';
 export * from './blob/s3-blob-store.js';

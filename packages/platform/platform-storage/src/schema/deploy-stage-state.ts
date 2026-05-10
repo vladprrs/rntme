@@ -1,11 +1,11 @@
-import { pgTable, text, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uniqueIndex, index, uuid } from 'drizzle-orm/pg-core';
 
 export const deployStageState = pgTable(
   'deploy_stage_state',
   {
-    id: text('id').primaryKey(),
-    deploymentId: text('deployment_id').notNull(),
-    organizationId: text('organization_id').notNull(),
+    id: uuid('id').primaryKey(),
+    deploymentId: uuid('deployment_id').notNull(),
+    orgId: uuid('org_id').notNull(),
     stage: text('stage').notNull(),
     status: text('status').notNull(),
     publicStateJson: text('public_state_json'),
@@ -17,6 +17,6 @@ export const deployStageState = pgTable(
   },
   (table) => [
     uniqueIndex('deploy_stage_state_dep_stage_idx').on(table.deploymentId, table.stage),
-    index('deploy_stage_state_org_idx').on(table.organizationId, table.deploymentId),
+    index('deploy_stage_state_org_idx').on(table.orgId, table.deploymentId),
   ],
 );

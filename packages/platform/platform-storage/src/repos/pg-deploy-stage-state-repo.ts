@@ -8,7 +8,7 @@ export type DeployStageStatus = 'running' | 'succeeded' | 'failed';
 export type DeployStageStateRow = {
   readonly id: string;
   readonly deploymentId: string;
-  readonly organizationId: string;
+  readonly orgId: string;
   readonly stage: DeployStage;
   readonly status: DeployStageStatus;
   readonly publicStateJson: string | null;
@@ -23,7 +23,7 @@ export type DeployStageStateRepo = {
   readonly begin: (input: {
     readonly id: string;
     readonly deploymentId: string;
-    readonly organizationId: string;
+    readonly orgId: string;
     readonly stage: DeployStage;
   }) => Promise<void>;
   readonly succeed: (input: {
@@ -51,7 +51,7 @@ export function createPgDeployStageStateRepo(deps: { readonly db: NodePgDatabase
       await deps.db.insert(deployStageState).values({
         id: input.id,
         deploymentId: input.deploymentId,
-        organizationId: input.organizationId,
+        orgId: input.orgId,
         stage: input.stage,
         status: 'running',
       });

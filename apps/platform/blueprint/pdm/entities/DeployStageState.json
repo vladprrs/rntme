@@ -5,7 +5,7 @@
   "fields": {
     "id": { "type": "string", "nullable": false, "column": "id" },
     "deploymentId": { "type": "string", "nullable": false, "column": "deployment_id" },
-    "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "orgId": { "type": "string", "nullable": false, "column": "org_id" },
     "stage": { "type": "string", "nullable": false, "column": "stage" },
     "status": { "type": "string", "nullable": false, "column": "status" },
     "publicStateJson": { "type": "string", "nullable": true, "column": "public_state_json" },
@@ -21,7 +21,7 @@
     "initial": null,
     "states": ["running", "succeeded", "failed"],
     "transitions": {
-      "begin": { "from": null, "to": "running", "affects": ["deploymentId", "organizationId", "stage", "startedAt"] },
+      "begin": { "from": null, "to": "running", "affects": ["deploymentId", "orgId", "stage", "startedAt"] },
       "succeed": { "from": "running", "to": "succeeded", "affects": ["finishedAt", "publicStateJson", "secretBlobKey"] },
       "fail": { "from": "running", "to": "failed", "affects": ["finishedAt", "errorCode", "errorMessage"] }
     }
