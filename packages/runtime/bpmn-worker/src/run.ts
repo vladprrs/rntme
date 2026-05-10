@@ -8,6 +8,9 @@ import type { OperatonClient } from './operaton.js';
 import type { LoadedWorkerManifest, PlannedWorkflowSubscriptionInput, WorkflowEventConsumer } from './types.js';
 import { runWorkflowEventOnce } from './worker.js';
 
+export { runPollOnce, runPollLoop } from './poll-loop.js';
+export type { RunPollOnceInput, RunPollLoopInput } from './poll-loop.js';
+
 export async function runBpmnWorker(input: {
   readonly manifest: LoadedWorkerManifest;
   readonly subscriptions: readonly PlannedWorkflowSubscriptionInput[];
