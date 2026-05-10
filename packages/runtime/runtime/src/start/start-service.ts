@@ -130,6 +130,7 @@ export async function startService(
         metrics,
         healthProbe: probe,
         operationExecutor,
+        ...(runtimeConfig.logger ? { logger: runtimeConfig.logger } : {}),
       }),
     ];
 

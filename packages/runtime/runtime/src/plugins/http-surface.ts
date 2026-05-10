@@ -1,17 +1,22 @@
-import type { Hono, MiddlewareHandler } from 'hono';
+import type { Hono } from 'hono';
+import pino, { type Logger } from 'pino';
 import {
   createBindingsRouter,
   correlationMiddleware,
+  requestId,
+  requestLogger,
+  cors,
+  errorHandler,
+  securityHeaders,
+  bodyLimit,
+  rateLimit,
+  InMemoryRateLimiter,
   type CorrelationVariables,
 } from '@rntme/bindings-http';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import { createApp as createUiApp } from '@rntme/ui-runtime';
 import type { Surface, SurfaceContext } from './interfaces.js';
 import { mountObservability, type Metrics, type HealthProbe } from './observability.js';
-import type {
-  ValidatedHttpBodyLimitConfig,
-  ValidatedHttpRateLimitConfig,
-} from '../manifest/types.js';
 
 export type HttpSurfaceOptions = {
   healthPath: string;
@@ -19,6 +24,7 @@ export type HttpSurfaceOptions = {
   metrics: Metrics;
   healthProbe: HealthProbe;
   operationExecutor: OperationExecutor;
+  logger?: Logger;
 };
 
 export type { CorrelationVariables };
@@ -27,6 +33,31 @@ export class HttpSurface implements Surface {
   constructor(private readonly opts: HttpSurfaceOptions) {}
 
   async mount(app: Hono, ctx: SurfaceContext): Promise<void> {
+    const logger = this.opts.logger ?? pino({ level: 'info', name: ctx.service.manifest.service.name });
+    const httpCfg = ctx.service.manifest.surface.http;
+
+    app.use('*', requestId());
+    app.use('*', requestLogger({ logger }));
+    app.onError(errorHandler({ logger }));
+    if (httpCfg.cors.origins.length > 0) {
+      app.use(
+        '*',
+        cors({
+          origins: httpCfg.cors.origins,
+          credentials: httpCfg.cors.credentials,
+          allowHeaders: httpCfg.cors.allowHeaders,
+        }),
+      );
+    }
+    app.use(
+      '*',
+      securityHeaders({
+        ...(httpCfg.securityHeaders.csp === null ? {} : { csp: httpCfg.securityHeaders.csp }),
+        contentTypeOptions: httpCfg.securityHeaders.contentTypeOptions,
+        referrerPolicy: httpCfg.securityHeaders.referrerPolicy,
+      }),
+    );
+
     const routerOpts: Parameters<typeof createBindingsRouter>[0] = {
       validated: ctx.service.bindings,
       graphSpec: ctx.service.graphSpec,
@@ -39,7 +70,6 @@ export class HttpSurface implements Surface {
       operationExecutor: this.opts.operationExecutor,
     };
     const router = createBindingsRouter(routerOpts);
-    const rateLimiter = createInMemoryRateLimiter(ctx.service.manifest.surface.http.rateLimit);
 
     app.get('/service.json', (c) =>
       c.json({
@@ -59,109 +89,22 @@ export class HttpSurface implements Surface {
       artifact: ctx.service.compiledUi,
       ...(ctx.service.uiAssetsDir === null ? {} : { assetsDir: ctx.service.uiAssetsDir }),
     });
-    app.use('/api/*', bodyLimitMiddleware(ctx.service.manifest.surface.http.bodyLimit));
-    app.use('/api/*', rateLimiter);
+
+    if (httpCfg.bodyLimit.enabled) {
+      app.use('/api/*', bodyLimit(httpCfg.bodyLimit.maxBytes));
+    }
+    if (httpCfg.rateLimit.enabled) {
+      const limiter = new InMemoryRateLimiter({
+        windowMs: httpCfg.rateLimit.windowMs,
+        max: httpCfg.rateLimit.max,
+      });
+      // Per-process bucket — Hono's Node adapter cannot expose a trusted peer
+      // address. The same conservative default the previous inline limiter used.
+      app.use('/api/*', rateLimit(limiter, () => 'process'));
+    }
     app.use('/api/*', correlationMiddleware());
     app.route('/api', router);
 
     app.route('/', uiApp);
   }
-}
-
-function bodyLimitMiddleware(config: ValidatedHttpBodyLimitConfig): MiddlewareHandler {
-  return async (c, next): Promise<Response | void> => {
-    if (!config.enabled) {
-      await next();
-      return;
-    }
-
-    const contentLength = c.req.header('content-length');
-    if (contentLength !== undefined) {
-      const n = Number(contentLength);
-      if (Number.isFinite(n) && n > config.maxBytes) {
-        return c.json({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: config.maxBytes }, 413);
-      }
-      if (Number.isFinite(n)) {
-        await next();
-        return;
-      }
-    }
-
-    const raw = c.req.raw.body;
-    if (raw !== null) {
-      const reader = raw.getReader();
-      const chunks: Uint8Array<ArrayBuffer>[] = [];
-      let total = 0;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > config.maxBytes) {
-          return c.json({ error: 'REQUEST_BODY_TOO_LARGE', maxBytes: config.maxBytes }, 413);
-        }
-        const chunk = new Uint8Array(value.byteLength);
-        chunk.set(value);
-        chunks.push(chunk);
-      }
-      const body = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) {
-        body.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      c.req.raw = new Request(c.req.url, {
-        method: c.req.method,
-        headers: c.req.raw.headers,
-        body,
-      });
-    }
-
-    await next();
-  };
-}
-
-type RateEntry = { count: number; resetAt: number };
-
-function createInMemoryRateLimiter(config: ValidatedHttpRateLimitConfig): MiddlewareHandler {
-  const buckets = new Map<string, RateEntry>();
-
-  return async (c, next): Promise<Response | void> => {
-    if (!config.enabled) {
-      await next();
-      return;
-    }
-
-    const now = Date.now();
-    for (const [bucketKey, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(bucketKey);
-    }
-    const key = rateLimitKey(c);
-    let entry = buckets.get(key);
-    if (entry === undefined || entry.resetAt <= now) {
-      entry = { count: 0, resetAt: now + config.windowMs };
-      buckets.set(key, entry);
-    }
-
-    entry.count += 1;
-    const remaining = Math.max(0, config.max - entry.count);
-    const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
-
-    c.header('X-RateLimit-Limit', String(config.max));
-    c.header('X-RateLimit-Remaining', String(remaining));
-    c.header('X-RateLimit-Reset', String(Math.ceil(entry.resetAt / 1000)));
-
-    if (entry.count > config.max) {
-      c.header('Retry-After', String(retryAfterSeconds));
-      return c.json({ error: 'RATE_LIMITED' }, 429);
-    }
-
-    await next();
-  };
-}
-
-function rateLimitKey(_c: Parameters<MiddlewareHandler>[0]): string {
-  // Hono's Node adapter does not expose a trustworthy peer address here.
-  // Use a conservative per-process bucket instead of trusting spoofable
-  // X-Forwarded-For / X-Real-IP headers.
-  return 'process';
 }
