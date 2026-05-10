@@ -19,6 +19,7 @@ export default [
         process: 'readonly',
         setTimeout: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {
