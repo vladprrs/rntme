@@ -185,17 +185,22 @@ async function workspacePackageDir(
   packageName: string,
   projectDir: string,
 ): Promise<string | null> {
-  const candidates = [
-    join(projectDir, '..', '..'),
-    join(projectDir, '..', '..', '..'),
-  ];
-  for (const root of candidates) {
-    const dir = join(root, ...workspacePackagePathSegments(packageName));
+  const segments = workspacePackagePathSegments(packageName);
+  // Walk up from projectDir until we hit the filesystem root, trying each
+  // ancestor as a workspace candidate. Some bundle layouts (e.g.
+  // `apps/cli/dist/platform-blueprint`) sit four levels below the workspace
+  // root; the previous two-and-three-up search missed them.
+  let current = resolve(projectDir);
+  for (let depth = 0; depth < 8; depth++) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+    const dir = join(current, ...segments);
     try {
       await readFile(join(dir, 'module.json'));
       return resolve(dir);
     } catch {
-      // Keep trying candidate roots.
+      // Keep walking up.
     }
   }
   return null;
@@ -204,6 +209,15 @@ async function workspacePackageDir(
 function workspacePackagePathSegments(packageName: string): string[] {
   if (packageName.startsWith('@rntme/identity-')) {
     return ['modules', 'identity', packageName.slice('@rntme/identity-'.length)];
+  }
+  // Project blueprints often reference vendor modules by a local snake-case
+  // alias such as `rntme_identity_auth0` instead of the canonical scoped
+  // package name `@rntme/identity-auth0`. Map `rntme_<category>_<vendor>` to
+  // the workspace module directory `modules/<category>/<vendor>` so blueprint
+  // composition resolves the same module whichever name the project uses.
+  const aliasMatch = /^rntme_([a-z0-9]+(?:-[a-z0-9]+)*)_([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(packageName);
+  if (aliasMatch !== null) {
+    return ['modules', aliasMatch[1] as string, aliasMatch[2] as string];
   }
   return ['node_modules', ...packageName.split('/')];
 }

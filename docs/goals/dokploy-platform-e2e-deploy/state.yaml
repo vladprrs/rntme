@@ -1,0 +1,288 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Dokploy platform e2e & deploy"
+  slug: "dokploy-platform-e2e-deploy"
+  kind: specific
+  tranche: "Подготовить и выполнить безопасные срезы для подтверждения: развертывание platform в Dokploy + e2e в целевом окружении + валидация логов/авторизации через MCP."
+  status: active
+  intake:
+    original_request: "Подготовить цель: провести успешный e2e тест с Dokploy после последних изменений, развернуть platform используя DOKPLOY_URL/DOKPLOY_API_KEY, валидировать через dokploy mcp и логирование, использовать AUTH0_* переменные для авторизации."
+    interpreted_outcome: "Получить проверяемый evidence-chain: успешный деплой platform в Dokploy и успешный e2e прогон с валидированной Auth0-авторизацией и журналами/логами через mcp."
+    input_shape: specific
+    audience: "разработчик и следующая сессия Codex"
+    authority: requested
+    proof_type: test
+    completion_proof: "Деплой платформы через Dokploy завершён без ошибок, e2e-ран запускается и завершается успешно в развёрнутом окружении, MCP подтверждает статус deployment и логи, и Auth0 credentials используются для выдачи/проверки токенов в ходе e2e. Без этого цель не считается выполненной."
+    likely_misfire: "Считать цель завершённой только по локальным юнит/интеграционным тестам или по ответу API без фактического развертывания, e2e в целевом окружении и проверки логов/авторизации."
+    blind_spots_considered:
+      - "Возможна недоступность Dokploy API/пула окружений в момент прогноза."
+      - "Секреты в `.env` могут быть частично неконсистентными (URL, audience, client id/secret), и ошибка будет выглядеть как e2e-фейл не на приложении."
+      - "Нужно явно разделять smoke и полноценный e2e; в первом срезе это должен быть минимальный безопасный путь к доказательству."
+      - "Иногда `dokploy mcp` может быть недоступен в окружении, и fallback должен быть явным с блокировкой задачи."
+    existing_plan_facts:
+      - "В `.env` уже заданы `DOKPLOY_URL` и `DOKPLOY_API_KEY`."
+      - "Есть `dokploy mcp` для валидации, проверки статуса и логов."
+      - "Есть `AUTH0_DOMAIN`, `AUTH0_MANAGEMENT_AUDIENCE`, `AUTH0_MANAGEMENT_CLIENT_ID`, `AUTH0_MANAGEMENT_CLIENT_SECRET` для авторизации."
+      - "Цель связана с последними локальными изменениями в репозитории."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: false
+  intake_misfire_must_be_audited: true
+
+agents:
+  scout: claude-opus-4-7
+  worker: claude-opus-4-7
+  judge: claude-opus-4-7
+
+active_task: T005
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: medium
+    objective: "Собрать текущее состояние для деплоя: доступность Dokploy API/проекта, состояние переменных окружения, и текущий baseline по e2e-пайплайну до разворачивания."
+    inputs:
+      - "docs/goals/dokploy-platform-e2e-deploy/goal.md"
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - ".env"
+      - "AGENTS.md"
+      - "apps/platform/README.md"
+      - "apps/cli/README.md"
+      - "apps/cli/src/deploy-engine/{target-schema,load-target,load-secrets,locate-platform-blueprint}.ts"
+      - "apps/cli/src/commands/{deploy.ts,platform/up.ts}"
+      - "apps/platform/blueprint/project.json"
+      - "packages/deploy/deploy-core/src/{vars.ts,workflows.ts}"
+      - "packages/runtime/runtime/{Dockerfile,Dockerfile.template,src/bin/runtime.ts}"
+      - "modules/identity/auth0/src/{provisioner.ts,adapter.ts,mgmt-client.ts}"
+      - "Dokploy REST: settings.health, project.all, project.one, environment.one, application.one"
+    constraints:
+      - "Read-only."
+      - "Не изменять implementation-файлы или переменные окружения."
+      - "Выявить только concrete evidence и риски провала e2e/deploy."
+    expected_output:
+      - "Текущая карта источников переменных и зависимостей от окружения."
+      - "Текущее состояние Dokploy-доступа (или явная ошибка доступа)."
+      - "Список обязательных шагов перед деплоем и e2e."
+      - "Рекомендуемый первый Worker-срез с явными границами allowed_files/verify/stop_if."
+    receipt:
+      summary: |
+        Dokploy API reachable. .env contains all expected secrets including
+        the four AUTH0_* keys (initial false-negative corrected). Platform
+        currently runs in Dokploy project `runtime` / env `production` as
+        app `platform-http-wfbviw` (status: error). Its dockerfile path
+        `apps/platform-http/Dockerfile` was deleted in PR #205 (commit
+        2e001d60), so the next auto-deploy will fail at build.
+
+        The platform blueprint now requires `workflows.manifest`,
+        identity-auth0 module, and target.auth.auth0.* vars. CLI direct-mode
+        target-schema/load-target/load-secrets do NOT support workflows,
+        auth.auth0, or auth0Mgmt secret extras — `rntme platform up` cannot
+        plan a deploy of the current blueprint without first extending
+        those three files.
+
+        No Operaton or Redpanda compose stacks exist in the target env.
+        No deploy-to-Dokploy + Auth0 e2e test exists; closest harness
+        (apps/platform-http/test/e2e/bpmn-deploy-flow.test.ts) was a
+        skipped placeholder deleted with apps/platform-http.
+
+        Recommended first Worker slice (Option A): extend CLI direct-mode
+        target schema and loaders to model workflows.engine, target.auth.auth0
+        and auth0Mgmt secret extras. Safer Option B (operations-only Dokploy
+        reconfig of the broken app) is described as a fallback.
+      file: "docs/goals/dokploy-platform-e2e-deploy/notes/T001-scout-receipt.md"
+
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Выбрать первый безопасный Worker-срез для первой фазы деплоя и e2e, с учётом рисков из T001."
+    inputs:
+      - "T001 receipt"
+      - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "operator decisions via AskUserQuestion"
+    constraints:
+      - "Read-only."
+      - "Не начинать внедрение без проверки evidence из T001."
+      - "Завести `allowed_files`, `verify`, `stop_if` для следующего Worker."
+    expected_output:
+      - "Decision: Option A (CLI direct-mode); deploy to rntme-platform/production after cleanup."
+      - "Worker sequence: T003 cleanup → T004 CLI extension → T005 platform up → T006 e2e."
+      - "T003 allowed_files / verify / stop_if defined."
+    receipt:
+      summary: |
+        Decision: Path A (extend CLI direct-mode) with cleanup-first.
+        Worker sequence: T003 delete runtime/production platform artefacts
+        (platform-http-wfbviw, rustfs-jyqt9f, postgres platform-pg-gzfrsm)
+        keeping the rntme-landing app untouched. T004 extends CLI direct-
+        mode schema/loader/secrets to support workflows + auth + auth0Mgmt
+        and authors the platform target file pointing at rntme-platform/
+        production (project wmiyt_0T7SKvS3sr6rzGK, env rvVDXwBImLyL739o1ZdPQ).
+        T005 builds the CLI and runs `rntme platform up`. T006 runs the
+        Auth0-backed e2e verification.
+      file: "docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md"
+
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Удалить platform-артефакты из Dokploy runtime/production (app platform-http-wfbviw, app rustfs-jyqt9f, postgres platform-pg-gzfrsm). Сохранить app-calculate-open-source-monitor-64rl9o (rntme.com лендинг) нетронутым."
+    allowed_files:
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/T003-cleanup-receipt.md"
+    verify:
+      - "application.one(Z7cvz89fO4ty8tkZYVMXs) → 404 / not-found."
+      - "application.one(SmDbaW5aLXpGComEj-O_j) → 404 / not-found."
+      - "postgres.one(xK9g1NniBWBjr67ciIDxB) → 404 / not-found."
+      - "application.one(M5WfXaxcgKVHppiTldEbD) → 200, applicationStatus 'done'."
+      - "project.one(RK4scgw5bryx2qolyzkSc) listing: applications==[landing], postgres==[]."
+    stop_if:
+      - "Любой delete вернул код, отличный от ok / уже-удалён."
+      - "applicationStatus лендинга изменился."
+      - "Dokploy API 401 — credentials отозваны / истекли."
+      - "DNS platform.rntme.com не резолвится перед началом (риск, что Traefik wildcard не покрывает host)."
+    receipt:
+      summary: |
+        Удалено через Dokploy MCP: application Z7cvz89fO4ty8tkZYVMXs
+        (platform-http-wfbviw), application SmDbaW5aLXpGComEj-O_j
+        (rustfs-jyqt9f), postgres xK9g1NniBWBjr67ciIDxB (platform-pg-gzfrsm).
+        Все три .one запроса теперь дают Resource not found. Лендинг
+        M5WfXaxcgKVHppiTldEbD остался в статусе 'done'. runtime/production
+        теперь содержит только лендинг, БД и compose списки пустые.
+        Замечен утечечный паттерн в MCP delete-ответах (полный env с
+        паролями); значения не записаны в receipt.
+      file: "docs/goals/dokploy-platform-e2e-deploy/notes/T003-cleanup-receipt.md"
+
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Расширить CLI direct-mode под платформенный target. Дополнить target-schema, load-target, load-secrets полями workflows.engine, target.auth.auth0.* и auth0Mgmt extras. Создать platform.target.json под rntme-platform/production. Добавить тесты."
+    allowed_files:
+      - "apps/cli/src/deploy-engine/target-schema.ts"
+      - "apps/cli/src/deploy-engine/load-target.ts"
+      - "apps/cli/src/deploy-engine/load-secrets.ts"
+      - "apps/cli/src/deploy-engine/types.ts"  # adjacent type alias, in same deploy-engine folder; documented in receipt
+      - "apps/cli/test/unit/deploy-engine/**"
+      - "apps/cli/test/fixtures/**"
+      - "docs/current/owners/apps/cli.md"
+      - "apps/cli/README.md"
+      - "platform.target.json"
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/T004-cli-extension-receipt.md"
+    verify:
+      - "bun run --filter @rntme/cli typecheck → exit 0"
+      - "bun run --filter @rntme/cli test → 180 pass / 2 skip / 0 fail"
+      - "bun run --filter @rntme/cli lint → exit 0"
+      - "bun run depcruise → no violations (818 modules)"
+      - "platform.target.json парсится load-target и эмитит NormalizedDeployTarget с workflows.engine, auth.auth0.{domain,audience,redirectUri}, extras.auth0Mgmt.{tenantDomain,mgmtClientId,mgmtClientSecret}."
+      - "Секреты из target.json берутся только из process.env, плейн-значения в файле отсутствуют."
+    stop_if:
+      - "deploy-runner / deploy-core требуют сопутствующих изменений (выйдет за allowed_files)."
+      - "Depcruise или layering ругается."
+      - "Не ясна форма extras.auth0Mgmt в @rntme/deploy-runner — нужен Judge feedback."
+    receipt:
+      summary: |
+        Расширены target-schema/load-target/load-secrets/types в
+        apps/cli/src/deploy-engine/: workflows.engine + worker, auth.auth0
+        (clientId по дефолту '', т.к. SPA client идёт из provisioner output),
+        secrets.extras принимают либо leaf SecretRef, либо nested
+        Record<string, SecretRef> для composite секретов (auth0Mgmt). Создан
+        apps/cli/test/fixtures/target-platform.json + два новых теста (5 кейсов
+        в load-target/load-secrets). Создан /platform.target.json в корне репо
+        с env-ref'ами без плейн-значений. Все gates green: typecheck/test/lint/
+        depcruise. types.ts тронут вне явного allowed_files — оправдано в
+        receipt (одна сигнатура в той же папке).
+      file: "docs/goals/dokploy-platform-e2e-deploy/notes/T004-cli-extension-receipt.md"
+
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: medium
+    objective: "Собрать CLI и выполнить `rntme platform up --target platform.target.json --log-file …` против rntme-platform/production. Получить deployment id, healthy resources, и сохранить логи."
+    allowed_files:
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/T005-platform-up-receipt.md"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/platform-up-*.log"
+    verify:
+      - "`rntme platform up …` завершился с exit code 0."
+      - "Dokploy environment.one(rvVDXwBImLyL739o1ZdPQ) показывает Operaton + Redpanda compose + platform runtime app(s) + postgres в done."
+      - "platform.rntme.com отвечает 200 на /healthz (или эквивалентный health endpoint)."
+      - "В логе не появилось значений из .env (имена секретов — ок, значения — нет)."
+    stop_if:
+      - "Plan rejects (DEPLOY_PLAN_*) — нужны правки T004."
+      - "Build/apply failed >2 раза подряд."
+      - "Health check не проходит за разумный timeout (>20 минут)."
+    receipt: null
+
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: medium
+    objective: "Прогнать минимальный e2e: получить Auth0 access token (через client_credentials с AUTH0_MANAGEMENT_*), выполнить запрос к protected endpoint на platform.rntme.com и проверить ответ + соответствующий лог через Dokploy MCP."
+    allowed_files:
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/T006-e2e-receipt.md"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/e2e-*.log"
+    verify:
+      - "POST https://${AUTH0_DOMAIN}/oauth/token → 200, access_token присутствует (значение не логируем)."
+      - "GET https://platform.rntme.com/api/<protected> с Authorization: Bearer <access_token> → 2xx."
+      - "Через Dokploy MCP подтверждена строка в логе runtime, соответствующая requestId этого запроса."
+      - "Повтор без токена → 401 (negative path)."
+    stop_if:
+      - "Auth0 token endpoint возвращает access_denied / unauthorized (см. memory auth0_spa_token_endpoint_auth_method)."
+      - "Endpoint возвращает 5xx — runtime/blueprint баг, не e2e-инфра."
+      - "MCP не показывает соответствующую строку лога — несоответствие наблюдаемости, нужен Judge."
+    receipt: null
+
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "Проаудировать текущую траекторию: есть ли доказанный full_outcome_complete, и что нужно дальше."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current dirty diff"
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+    constraints:
+      - "Не реализовывать." 
+      - "Не считать цель завершённой при наличии оставшихся необработанных обязательных Worker tasks."
+      - "Не считать завершённой без proof chain по deployment + logs + Auth0-backed e2e."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "missing_evidence"
+      - "next_task_if_not_complete"
+    receipt: null
+
+checks:
+  dirty_fingerprint: "T001-T004: docs/goals/dokploy-platform-e2e-deploy/{state.yaml,notes/T00{1,2,3,4}-*.md}; apps/cli/src/deploy-engine/{target-schema,load-target,load-secrets,types}.ts; apps/cli/test/{fixtures/target-platform.json,unit/deploy-engine/load-{target,secrets}.test.ts}; /platform.target.json"
+  last_verification:
+    result: t004-gates-green
+    task: T004
+    commands:
+      - "bun run --filter @rntme/cli typecheck → exit 0"
+      - "bun run --filter @rntme/cli test → 180 pass / 2 skip / 0 fail"
+      - "bun run --filter @rntme/cli lint → exit 0"
+      - "bun run depcruise → no violations (818 modules)"

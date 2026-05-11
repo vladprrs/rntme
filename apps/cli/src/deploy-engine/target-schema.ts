@@ -5,6 +5,39 @@ const SecretRefSchema = z.object({
   name: z.string().min(1),
 });
 
+const NestedSecretRefSchema = z.record(z.string().min(1), SecretRefSchema);
+
+const ExtraSecretRefSchema = z.union([SecretRefSchema, NestedSecretRefSchema]);
+
+const Auth0TargetAuthSchema = z.object({
+  clientId: z.string().min(1).optional(),
+  domain: z.string().min(1).optional(),
+  audience: z.string().min(1).optional(),
+  redirectUri: z.string().url().optional(),
+});
+
+const OperatonUiAccessSchema = z.object({
+  enabled: z.literal(true),
+  publicBaseUrl: z.string().url(),
+  auth: z.object({
+    kind: z.literal('basic'),
+    secretRef: z.string().min(1),
+  }),
+});
+
+const WorkflowsTargetSchema = z.object({
+  engine: z.object({
+    kind: z.literal('operaton'),
+    mode: z.literal('provisioned'),
+    image: z.string().min(1),
+    adminUserSecretRef: z.string().min(1).optional(),
+  }),
+  worker: z.object({
+    image: z.string().min(1),
+  }),
+  operatonUi: OperatonUiAccessSchema.optional(),
+});
+
 const DokployTargetFileSchema = z.object({
   kind: z.literal('dokploy'),
   displayName: z.string().min(1).max(120),
@@ -16,6 +49,7 @@ const DokployTargetFileSchema = z.object({
   }),
   secrets: z.object({
     apiToken: SecretRefSchema,
+    extras: z.record(z.string().min(1), ExtraSecretRefSchema).optional(),
   }),
   eventBus: z
     .object({
@@ -25,9 +59,16 @@ const DokployTargetFileSchema = z.object({
       brokers: z.array(z.string().min(1)).optional(),
     })
     .optional(),
+  workflows: WorkflowsTargetSchema.optional(),
+  auth: z
+    .object({
+      auth0: Auth0TargetAuthSchema.optional(),
+    })
+    .optional(),
   publicBaseUrl: z.string().url().optional(),
 });
 
 export const TargetFileSchema = z.discriminatedUnion('kind', [DokployTargetFileSchema]);
 export type TargetFile = z.infer<typeof TargetFileSchema>;
 export type SecretRef = z.infer<typeof SecretRefSchema>;
+export type ExtraSecretRef = z.infer<typeof ExtraSecretRefSchema>;

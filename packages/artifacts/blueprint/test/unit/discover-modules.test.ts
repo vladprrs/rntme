@@ -101,6 +101,45 @@ describe('discoverModules — provisioner block', () => {
     }
   });
 
+  it('resolves snake-case workspace aliases like rntme_<category>_<vendor>', async () => {
+    // Build a fake monorepo: project lives at projectDir/dist/blueprint,
+    // and the module is checked out at projectDir/modules/identity/auth0.
+    // workspacePackageDir's first candidate root is `<projectDir>/../..` so
+    // both files share the same top-level dir.
+    const root = mkdtempSync(join(tmpdir(), 'rntme-blueprint-alias-'));
+    const projectDir = join(root, 'dist', 'blueprint');
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, 'project.json'),
+      JSON.stringify({
+        name: 'demo',
+        modules: { identity: { package: 'rntme_identity_auth0' } },
+      }),
+      'utf-8',
+    );
+    const moduleDir = join(root, 'modules', 'identity', 'auth0');
+    mkdirSync(moduleDir, { recursive: true });
+    writeFileSync(
+      join(moduleDir, 'module.json'),
+      JSON.stringify({
+        name: '@rntme/identity-auth0',
+        version: '1.0.0',
+        category: 'identity',
+        vendor: 'auth0',
+        contract: 'identity/v1',
+        capabilities: { rpcs: ['GetUser'], events: [] },
+      }),
+      'utf-8',
+    );
+
+    const result = await discoverModules({ projectDir });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value['@rntme/identity-auth0']?.projectKey).toBe('identity');
+    }
+  });
+
   it('rejects parent-traversal provisioner entry', async () => {
     const projectDir = await mkTempProject({
       'project.json': JSON.stringify({

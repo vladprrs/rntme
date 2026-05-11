@@ -1,9 +1,12 @@
 import type { NormalizedDeployTarget } from '@rntme/deploy-runner';
-import type { SecretRef } from './target-schema.js';
+import type { ExtraSecretRef, SecretRef } from './target-schema.js';
 
 export type LoadedTarget = {
   readonly target: NormalizedDeployTarget;
-  readonly secretRefs: { readonly apiToken: SecretRef; readonly extras: Readonly<Record<string, SecretRef>> };
+  readonly secretRefs: {
+    readonly apiToken: SecretRef;
+    readonly extras: Readonly<Record<string, ExtraSecretRef>>;
+  };
 };
 
 export type LoadTargetDeps = {
