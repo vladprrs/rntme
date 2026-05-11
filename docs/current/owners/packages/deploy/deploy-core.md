@@ -8,10 +8,12 @@ Target-neutral project deployment planning for rntme.
 `ProjectDeploymentPlan`. It does not read raw blueprint folders, collect
 secrets, call Dokploy, or run browser verification.
 
-On the platform path, `@rntme/platform-http` fetches and revalidates an
-immutable project-version bundle, converts the saved deploy target into
-`ProjectDeploymentConfig`, and then calls this package before handing the plan
-to a target adapter.
+On the platform path, the `runDeployment` BPMN process invokes
+`@rntme/deploy-runner` stage handlers, which fetch and revalidate an
+immutable project-version bundle, convert the saved deploy target into
+`ProjectDeploymentConfig`, and then call this package before handing the plan
+to a target adapter. The CLI direct-deploy path drives the same runner stages
+without the BPMN orchestration.
 
 deploy-core consumes manifest types from `@rntme/contracts-module-v1`
 (`ModuleManifest`, `ProvisionerBlock`, etc.) and the provisioner runtime
@@ -234,8 +236,9 @@ Error codes live in `errors-provision.ts`. Vendor-side failures (e.g. an Auth0 5
 `resolveProvisioner(packageName: string, entry: string, projectDir: string) => Promise<ProvisionerContract>`
 
 Implementations should ignore `entry` at runtime in favor of a stable
-convention from `manifest.name` rooted at `projectDir`. The platform-http
-implementation uses
+convention from `manifest.name` rooted at `projectDir`. The
+`@rntme/deploy-runner` implementation
+(`src/handlers/platform-context.ts`) uses
 `<projectDir>/assets/provisioners/${safeProvisionerName(packageName)}.entry.js`.
 
 ## MVP limits

@@ -6,10 +6,10 @@
  * fixture has no provisioner modules — the runner skips the provision stage
  * and exercises plan → render → apply → verify only.
  *
- * The fixture is local to deploy-runner because the platform-http executor
- * test fixtures depend on `ExecutorDeps` (DB-bound) which is exactly what
- * the runner extraction removes. Cross-package reuse would re-introduce
- * the dependency the extraction is meant to break.
+ * The fixture is local to deploy-runner because the executor lives in this
+ * package and the fixture deliberately avoids `ExecutorDeps` (DB-bound)
+ * coupling. Cross-package reuse would re-introduce the dependency the
+ * runner extraction is meant to break.
  */
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

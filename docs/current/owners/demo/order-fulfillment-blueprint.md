@@ -34,27 +34,16 @@ inside Graph IR: SKU `missing-stock` follows the rejection path, appends
 "insufficient stock" }`; all other SKUs append `StockReserved` and return
 `{ reserved: true, reservationId }`.
 
-## Live Dokploy E2E
+## Live Dokploy deployment
 
-The real deploy acceptance test is:
+The demo is intended to be exercisable end-to-end against a real Dokploy
+instance — deploying provisioned Redpanda, provisioned Operaton, the two
+demo services, the BPMN worker, and the edge gateway, then creating one
+order that reaches `confirmed` and one that reaches `cancelled`. There is
+no automated test runner for this end-to-end flow today; the workflow is
+exercised manually via the CLI.
 
-```bash
-RNTME_DOKPLOY_E2E=1 \
-RNTME_DOKPLOY_URL=... \
-RNTME_DOKPLOY_API_TOKEN=... \
-RNTME_DOKPLOY_PROJECT_ID=... \
-RNTME_DOKPLOY_PUBLIC_DEPLOY_DOMAIN=preview.example.com \
-RNTME_E2E_RUNTIME_IMAGE=ghcr.io/vladprrs/rntme-runtime:e2e-bpmn-4e3f55d-json-1 \
-RNTME_E2E_BPMN_WORKER_IMAGE=ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1 \
-RNTME_E2E_OPERATON_IMAGE=operaton/operaton:2.1.0 \
-bun run -F @rntme/platform-http test -- test/e2e/order-fulfillment-dokploy-live.test.ts
-```
-
-The test deploys provisioned Redpanda, provisioned Operaton, the two demo
-services, the BPMN worker, and the edge gateway. It then creates one order
-that reaches `confirmed` and one order that reaches `cancelled`.
-
-The same target shape is created through the CLI with
+The required target shape is created through the CLI with
 `rntme target create ... --event-bus-mode provisioned --workflow-engine-image
 operaton/operaton:2.1.0 --workflow-worker-image
 ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1`.
