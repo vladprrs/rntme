@@ -64,3 +64,5 @@ export type {
   DeployAdapterSuccess,
 } from './deploy-adapter/seam.js';
 export { createFakeDeployAdapter } from './deploy-adapter/fake.js';
+
+export { ApiTokenProvider } from './auth/api-token-provider.js';

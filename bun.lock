@@ -69,6 +69,18 @@
         "typescript": "^5.6.0",
       },
     },
+    "apps/platform": {
+      "name": "@rntme/platform-blueprint",
+      "version": "0.0.0",
+      "dependencies": {
+        "@rntme/platform-core": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.1.14",
+        "@types/node": "^22.7.4",
+        "typescript": "^5.6.2",
+      },
+    },
     "apps/platform-http": {
       "name": "@rntme/platform-http",
       "version": "0.0.0",
@@ -1920,6 +1932,8 @@
     "@rntme/module-scaffold": ["@rntme/module-scaffold@workspace:packages/tooling/module-scaffold"],
 
     "@rntme/pdm": ["@rntme/pdm@workspace:packages/artifacts/pdm"],
+
+    "@rntme/platform-blueprint": ["@rntme/platform-blueprint@workspace:apps/platform"],
 
     "@rntme/platform-core": ["@rntme/platform-core@workspace:packages/platform/platform-core"],
 
@@ -4246,6 +4260,8 @@
     "@rntme/landing/react": ["react@18.3.1", "", { "dependencies": { "loose-envify": "1.4.0" } }, "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ=="],
 
     "@rntme/landing/react-dom": ["react-dom@18.3.1", "", { "dependencies": { "loose-envify": "1.4.0", "scheduler": "0.23.2" }, "peerDependencies": { "react": "18.3.1" } }, "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw=="],
+
+    "@rntme/platform-blueprint/@types/node": ["@types/node@22.19.18", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-9v00a+dn2yWVsYDEunWC4g/TcRKVq3r8N5FuZp7u0SGrPvdN9c2yXI9bBuf5Fl0hNCb+QTIePTn5pJs2pwBOQQ=="],
 
     "@rntme/platform-http/testcontainers": ["testcontainers@10.28.0", "", { "dependencies": { "@balena/dockerignore": "1.0.2", "@types/dockerode": "3.3.47", "archiver": "7.0.1", "async-lock": "1.4.1", "byline": "5.0.0", "debug": "4.4.3", "docker-compose": "0.24.8", "dockerode": "4.0.12", "get-port": "7.2.0", "proper-lockfile": "4.1.2", "properties-reader": "2.3.0", "ssh-remote-port-forward": "1.0.4", "tar-fs": "3.1.2", "tmp": "0.2.5", "undici": "5.29.0" } }, "sha512-1fKrRRCsgAQNkarjHCMKzBKXSJFmzNTiTbhb5E/j5hflRXChEtHvkefjaHlgkNUjfw92/Dq8LTgwQn6RDBFbMg=="],
 

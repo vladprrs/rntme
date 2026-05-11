@@ -7,7 +7,6 @@ import type { WorkOSClient } from '../auth/workos-client.js';
 import { requireAuth } from '../middleware/auth.js';
 import { openOrgScopedTx } from '../middleware/tx.js';
 import { sameOriginOnly, securityHeaders } from '@rntme/bindings-http';
-import { ApiTokenProvider } from '../auth/api-token-provider.js';
 import { WorkOSAuthKitProvider } from '../auth/workos-provider.js';
 import type {
   OrganizationRepo,
@@ -17,6 +16,7 @@ import type {
   Ids,
 } from '@rntme/platform-core';
 import {
+  ApiTokenProvider,
   getDeployment,
   getProjectVersion,
   isOk,

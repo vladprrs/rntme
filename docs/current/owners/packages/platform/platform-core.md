@@ -34,6 +34,26 @@ platform `deployments` service while Dokploy execution still lives in existing
 deploy packages. The seam returns sanitized status, logs, digest, evidence, and
 coded failure details. It is not a public deploy-adapter module contract.
 
+## Bearer-token introspection
+
+This package owns the algorithm and HTTP-middleware shim for
+`Authorization: Bearer rntme_pat_…` validation:
+
+- **`introspectToken({ deps, input })`** (`src/use-cases/tokens.ts`) — pure
+  function: bearer-prefix check + hash compare (`timingSafeEqual`) +
+  revocation/expiry check + membership lookup + `lastUsedAt` touch. Returns
+  `Result<AuthSubject, PlatformError>`. No HTTP awareness.
+- **`ApiTokenProvider`** (`src/auth/api-token-provider.ts`) — `IdentityProvider`
+  shim that adapts `introspectToken` to the `AuthContext`-based middleware
+  chain. Consumed today by `apps/platform-http`; the runtime auth chain will
+  consume the same shim once the platform blueprint is served by
+  `@rntme/runtime`.
+
+The matching native handler stub for the runtime cutover lives at
+`apps/platform/blueprint/services/tokens/handlers/introspect-token.ts`, and the
+`services/tokens.IntrospectToken` operation contract is declared in
+`apps/platform/blueprint/services/tokens/operations.json`.
+
 ## Target-secret schemas
 
 The platform owns the schema registry for deploy-target secrets. Two schemas are

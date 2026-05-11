@@ -39,6 +39,13 @@ This service exposes two surfaces on the same origin:
    - Otherwise — 302 to `/`.
 4. Authed `/` → `/{orgSlug}`. Session refresh is automatic through the WorkOS-backed provider; failed refresh clears the sealed cookie and returns the user to login.
 
+## Auth providers
+
+Two `IdentityProvider` implementations feed the auth middleware:
+
+- **WorkOS AuthKit** — local to this app at `src/auth/workos-client.ts` + `src/auth/workos-provider.ts`. Handles human sessions (sealed cookie, refresh).
+- **Bearer API tokens** (`Authorization: Bearer rntme_pat_…`) — owned by `@rntme/platform-core`: `src/use-cases/tokens.ts#introspectToken` (pure: prefix + hash compare + revocation/expiry + membership lookup + `lastUsedAt` touch) and the `ApiTokenProvider` shim at `src/auth/api-token-provider.ts` that adapts it to the `AuthContext`-based middleware chain. `apps/platform-http` only imports the shim — it no longer ships its own bearer-token provider.
+
 ## Session cookie
 
 - Name: `rntme_session`
@@ -268,8 +275,13 @@ Applied by `securityHeaders()` middleware on UI responses:
 ```
 src/
   app.ts                     Hono app + global middleware wiring
+  auth/
+    workos-client.ts         WorkOS AuthKit client wrapper
+    workos-provider.ts       IdentityProvider for sealed-cookie sessions
+                             (bearer-token introspection is imported from
+                              @rntme/platform-core — see Auth providers)
   middleware/
-    auth.ts                  WorkOS AuthKit session + bearer-token resolution
+    auth.ts                  Composes WorkOS + ApiTokenProvider into AuthContext
     tx.ts                    Per-request database transaction middleware
   error-codes.ts             Platform-specific errorEnvelope / statusForCode helpers
   postgres-rate-limiter.ts   PostgresRateLimiter (platform-specific; database-backed)

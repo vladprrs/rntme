@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { isOk } from '@rntme/platform-core';
-import { FakeStore } from '@rntme/platform-core/testing';
+import { isOk } from '../../../src/types/result.js';
+import { FakeStore } from '../../../src/testing/fakes.js';
 import { ApiTokenProvider } from '../../../src/auth/api-token-provider.js';
 
 async function setup() {

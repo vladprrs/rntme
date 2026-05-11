@@ -36,12 +36,11 @@ import { SmokeVerifier, createDokployClientFactory } from '@rntme/deploy-runner'
 import { startOrphanDetectLoop } from './deploy/orphan-detect.js';
 import { createUiApp } from './ui/app.js';
 import { buildOpenApi } from './openapi.js';
-import { ApiTokenProvider } from './auth/api-token-provider.js';
 import { WorkOSAuthKitProvider } from './auth/workos-provider.js';
 import type { WorkOSClient } from './auth/workos-client.js';
 import type pino from 'pino';
 import type { Pool } from 'pg';
-import { parseTargetSecret } from '@rntme/platform-core';
+import { ApiTokenProvider, parseTargetSecret } from '@rntme/platform-core';
 import type {
   OrganizationRepo,
   AccountRepo,
