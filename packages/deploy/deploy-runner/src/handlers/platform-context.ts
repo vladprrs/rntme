@@ -69,15 +69,15 @@ export type HandlerContext = {
   /**
    * Run `fn` inside a Postgres transaction with `app.org_id` set so RLS
    * policies on `deploy_stage_state`, `deployment`, `deploy_target`, and
-   * friends accept reads/writes for `orgId`. Mirrors the `withOrgTx` wrapper
-   * platform-http uses on its request path.
+   * friends accept reads/writes for `orgId`.
+   * Used on the runtime request path by the BPMN compose-handler.
    */
   readonly withOrgTx: <T>(orgId: string, fn: (repos: TxRepos) => Promise<T>) => Promise<T>;
   /**
    * Resolves a provisioner package by reading its compiled entry from the
    * materialized bundle (`<projectDir>/assets/provisioners/<safe>.entry.js`).
-   * Identical to platform-http's resolver — provisioner module packages are
-   * not deps of the worker process; they ship inside the bundle.
+   * Provisioner module packages are loaded from the materialized bundle's
+   * `assets/provisioners/<safe>.entry.js` path rather than node_modules.
    */
   readonly resolveProvisioner: ResolveProvisioner;
 };

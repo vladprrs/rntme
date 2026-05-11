@@ -113,9 +113,9 @@ export type RunDeploymentInputs = {
    * which is forbidden inside `packages/deploy/**` by the layering policy.
    *
    * Optional: when omitted the runner invokes the `compose` stage on
-   * `bundleDir` to load the blueprint. Existing callers (platform-http
-   * executor, CLI direct-mode) pre-convert via `toDeployCoreInput` and pass
-   * the result here, bypassing the on-disk load.
+   * `bundleDir` to load the blueprint. Existing callers (CLI direct-mode,
+   * BPMN compose-handler) materialise bundles to bundleDir; future callers
+   * may pass a pre-loaded ComposedBlueprint.
    */
   readonly composedBlueprint?: ComposedProjectInput;
   /** Already-materialized bundle directory on disk. */

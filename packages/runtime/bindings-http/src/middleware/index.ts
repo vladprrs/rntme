@@ -1,6 +1,5 @@
-// Generic Hono middleware shared between @rntme/runtime and consumers like
-// apps/platform-http. Each module is added in its own task; this barrel
-// gathers them so callers do a single named import.
+// Generic HTTP middleware exported as the canonical home for rntme runtime
+// services. Each module lives in its own file; this barrel exports them all.
 
 export { requestId } from './request-id.js';
 export { requestLogger, type RequestLoggerOptions } from './request-logger.js';

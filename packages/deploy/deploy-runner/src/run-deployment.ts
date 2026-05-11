@@ -32,7 +32,7 @@ type StageErrorInput = {
  * Each phase is a thin wrapper over the corresponding `stages.*` function,
  * which is also exported for the BPMN orchestration path that runs each
  * stage as an independent native task. Callers that already converted the
- * composed blueprint (platform-http executor, CLI direct-mode) pass
+ * composed blueprint (CLI direct-mode and BPMN compose-handler) pass
  * `composedBlueprint` and skip the on-disk compose load; new callers that
  * only have the bundleDir omit it.
  */
@@ -56,7 +56,7 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
     const composeStart = Date.now();
     // DEVIATION from spec: short-circuit if caller pre-loaded
     // `composedBlueprint`. The spec body always calls `stages.compose`, but
-    // existing callers (platform-http executor, CLI direct-mode) materialise
+    // existing callers (CLI direct-mode and BPMN compose-handler) materialise
     // a minimal bundleDir that lacks the pdm/entities directory
     // `loadComposedBlueprint` requires, and pre-convert through
     // `toDeployCoreInput`. Lifting `toDeployCoreInput` into deploy-runner is
@@ -71,7 +71,7 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
 
     // Build the deployment config once we have a project name. This drives
     // the eventBus / object-storage planning logic and lets us emit the
-    // bus-mode log that platform-http surfaces in deployment timelines.
+    // bus-mode log surfaced in deployment timelines by the caller.
     const config = buildProjectDeploymentConfig(inputs.target, inputs.orgSlug, inputs.configOverrides, {
       projectSlug: composeOut.composed.name,
       ...(inputs.publicDeployDomain === undefined ? {} : { publicDeployDomain: inputs.publicDeployDomain }),
