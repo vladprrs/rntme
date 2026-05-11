@@ -12,10 +12,9 @@ jobs:
       GITHUB_URL: https://github.com/vladprrs/rntme
       DOCS_URL: https://docs.rntme.com
       PLATFORM_URL: https://platform.rntme.com
-      # Skip platform-http e2e suites that boot Postgres via testcontainers.
-      # Docker is available on the runner, but pulling the postgres image plus
-      # ryuk warmup blows the 5-min testcontainers timeout. The suites already
-      # honour this flag via apps/platform-http/test/e2e/docker-available.ts.
+      # Skip e2e suites that boot containers via testcontainers. Docker is
+      # available on the runner, but the warmup blows the 5-min timeout.
+      # Suites honour this flag via their local docker-available helpers.
       SKIP_TESTCONTAINERS: '1'
     steps:
       - uses: actions/checkout@v4
@@ -39,9 +38,6 @@ jobs:
           - name: test
             file: Dockerfile.test
             tag: rntme-test-bun:ci
-          - name: platform-http
-            file: apps/platform-http/Dockerfile
-            tag: rntme-platform-http:ci
           - name: landing
             file: apps/landing/Dockerfile
             tag: rntme-landing:ci
