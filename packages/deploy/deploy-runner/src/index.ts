@@ -67,6 +67,9 @@ export type {
 export { runTearDownsForDeployment } from './run-teardowns.js';
 export type { TearDownDeps, TearDownInput } from './run-teardowns.js';
 
+export { runProjectDelete } from './project-delete.js';
+export type { ProjectDeleteExecutorDeps } from './project-delete.js';
+
 export { runDeployment, deployErrorsToPlatformError } from './run-deployment.js';
 
 export { stages, StageError } from './stages/index.js';
