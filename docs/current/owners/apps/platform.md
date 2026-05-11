@@ -8,7 +8,8 @@ of truth lives under `apps/platform/blueprint` and is loaded with
 
 - Depends on rntme artifact packages through validation and composition.
 - Consumed by future platform runtime cutover work.
-- Does not replace `apps/platform-http` until the cutover plan lands.
+- The platform is exclusively served by `@rntme/runtime` reading
+  `apps/platform/blueprint`. There is no separate launcher app.
 
 ## Blueprint layout
 
@@ -86,11 +87,14 @@ The platform target file therefore needs to declare both:
 }
 ```
 
-## Runtime cutover
+## Runtime
 
-The active platform runtime is hosted through `apps/platform-http` blueprint
-mode. The platform blueprint is the source of truth for domain API and UI
-surfaces. The old `/v1/*` Hono route ownership is not part of blueprint mode.
+The platform runtime is `@rntme/runtime` reading `apps/platform/blueprint`.
+The blueprint declares HTTP routes, UI mounts, BPMN workflows, and the
+identity-auth0 module configuration. There is no separate launcher app —
+production deploys ship the runtime image with the blueprint artifacts
+copied into `/srv/artifacts` via the `Dockerfile.template` in
+`packages/runtime/runtime/`.
 
 ## Identity
 
@@ -119,8 +123,7 @@ parity plan adds canonical session/edge introspection support.
 The platform UI is authored as `@rntme/ui` artifacts under
 `apps/platform/blueprint/services/app/ui`. The UI is a functional port of the
 legacy Hono JSX platform UI and reads/mutates state through platform blueprint
-bindings. `apps/platform-http/src/ui/**` remains legacy reference code until
-runtime cutover.
+bindings.
 
 ## Local commands
 
@@ -131,7 +134,7 @@ bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test
 ## Invariants
 
 - This app owns authoring artifacts only in the foundation slice.
-- `apps/platform-http` remains the active hosted platform until cutover.
+- The platform is the live runtime; `apps/platform-http` no longer exists.
 
 ## Where to look first
 
