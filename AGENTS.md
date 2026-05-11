@@ -43,7 +43,7 @@ where-to-look-first pointers.
 
 | Area | READMEs |
 | --- | --- |
-| Apps | `apps/cli/README.md`, `apps/platform-http/README.md`, `apps/platform/README.md`, `apps/landing/README.md` |
+| Apps | `apps/cli/README.md`, `apps/platform/README.md`, `apps/landing/README.md` |
 | Artifacts | `packages/artifacts/blueprint/README.md`, `packages/artifacts/pdm/README.md`, `packages/artifacts/qsm/README.md`, `packages/artifacts/workflows/README.md`, `packages/artifacts/graph-ir-compiler/README.md`, `packages/artifacts/bindings/README.md`, `packages/artifacts/ui/README.md`, `packages/artifacts/seed/README.md`, `packages/artifacts/init/README.md` |
 | Runtime | `packages/runtime/runtime/README.md`, `packages/runtime/event-store/README.md`, `packages/runtime/bindings-http/README.md`, `packages/runtime/bindings-grpc/README.md`, `packages/runtime/projection-consumer/README.md`, `packages/runtime/ui-runtime/README.md`, `packages/runtime/bpmn-worker/README.md` |
 | Contracts | `packages/contracts/module/v1/README.md`, `packages/contracts/provisioner/v1/README.md`, `packages/contracts/client-runtime/v1/README.md`, `packages/contracts/handlers/v1/README.md`, `packages/contracts/_common/v1/README.md`, `packages/contracts/identity/v1/README.md`, `packages/contracts/ai-llm/v1/README.md`, `packages/contracts/crm/v1/README.md`, `packages/contracts/analytics/v1/README.md`, `packages/contracts/storage/v1/README.md` |
@@ -119,8 +119,9 @@ for detailed package documentation.
   `packages/runtime/bpmn-worker/README.md`.
 - Deploy planning/apply: `packages/deploy/deploy-core/README.md` and
   `packages/deploy/deploy-dokploy/README.md`.
-- Deploy orchestrator (pure, used by both platform-http and the planned
-  CLI direct-mode): `packages/deploy/deploy-runner/README.md`.
+- Deploy orchestrator (pure, single home for deploy stage logic; consumed
+  by CLI direct-mode and the platform's BPMN process):
+  `packages/deploy/deploy-runner/README.md`.
 - CLI behavior: `apps/cli/README.md`.
 - Vendor module work: category README, vendor README, canonical contract
   README, conformance README.
