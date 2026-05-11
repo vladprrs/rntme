@@ -269,7 +269,7 @@ The direct-mode deployment system (`rntme deploy <bp> --target <file>`) and plat
 
 - **`target-schema.ts` / `load-target.ts`** — Zod schema and loader for target JSON files. Validates the target shape and resolves file paths.
 - **`load-secrets.ts`** — Environment-variable secret resolver. Reads secret references (e.g., `{ "source": "env", "name": "DOKPLOY_API_TOKEN" }`) and injects them into the deploy context.
-- **`to-deploy-core-input.ts`** — Converts `ComposedBlueprint` to `ComposedProjectInput` for the deployment engine. Intentionally duplicated from `apps/platform-http`; plan 6 will centralize this logic.
+- **`to-deploy-core-input.ts`** — Converts `ComposedBlueprint` to `ComposedProjectInput` for the deployment engine.
 - **`load-blueprint.ts`** — Composes a project blueprint directory and converts it to deployment input via `to-deploy-core-input.ts`.
 - **`dokploy-client.ts`** — Plain-token Dokploy client builder. Wraps `createDokployClientFactory` with a stub cipher for in-process token handling.
 - **`resolve-provisioner.ts`** — Provisioner resolver using `createRequire` to dynamically load vendor modules at runtime for direct-mode deployments.

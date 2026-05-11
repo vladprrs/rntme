@@ -78,7 +78,7 @@ The default operation map produced by `buildDefaultGraphIrOperationMap` compiles
 
 ## Generic HTTP middleware
 
-The following middleware are lifted out of `apps/platform-http` and shared with `@rntme/runtime`'s `HttpSurface`. They are also still consumed by `apps/platform-http` directly until that app is removed.
+The following middleware are the canonical home for HTTP request handling; they are consumed by `@rntme/runtime`'s `HttpSurface` and may be imported directly by any runtime service that needs them.
 
 | Export | Signature | Purpose |
 |---|---|---|

@@ -1,7 +1,8 @@
 # @rntme/deploy-runner
 
-Pure deploy orchestrator library used by both the platform `deployments`
-service (`apps/platform-http`) and the rntme CLI direct-mode (planned).
+Pure deploy orchestrator library — the single home for deploy stage logic.
+Consumed by the rntme CLI direct-mode and by the platform's `runDeployment`
+BPMN process (whose native task handlers resolve `@rntme/deploy-runner#stages.*`).
 
 ## Role in the system
 
@@ -33,6 +34,26 @@ service (`apps/platform-http`) and the rntme CLI direct-mode (planned).
   `DeployTargetAuthConfig`, `DeployTargetManualAccess`, `PolicyValues`,
   `VerificationReport`, `VerificationCheck`, `WorkloadStatus`).
 
+### `runProjectDelete`
+
+Sibling orchestrator for project-delete operations. Same DB-bound dependency
+shape as the historical platform-http executor: a `withOrgTx` callback that
+gives the function transactional access to `ProjectOperationRepo`,
+`ProjectRepo`, `DeploymentRepo`, `DeployTargetRepo`, and `ProjectVersionRepo`,
+plus a `DokployClientFactory`, a `BlobStore`, a `SecretCipher`, and a
+provisioner resolver. The function:
+
+1. Transitions the project-operation to `running` and starts a heartbeat.
+2. Reads applied resources grouped by deploy target.
+3. For each target, runs provisioner tearDown for the last successful
+   deployment, then deletes the Dokploy resources.
+4. Finalizes the operation as `succeeded` and sets the project status to
+   `decommissioned`, or `failed` with an aggregated error message.
+
+Used by future callers in `services/deployments` (BPMN handler) and in any
+direct-mode tooling that needs to dismantle a project's deployed resources.
+Wiring to a BPMN process is a follow-up plan.
+
 ## Hooks
 
 - `onLog(line)` — every sanitized log line. Messages are pre-redacted.
@@ -43,8 +64,8 @@ service (`apps/platform-http`) and the rntme CLI direct-mode (planned).
   caller is responsible for encrypting `secretByModule` before persistence.
 - `onApplyResult(envelope)` — apply actions and duration.
 - `onVerifyResult(envelope)` — smoke verification report. The caller maps
-  `report.partialOk === true` to its own status (e.g. platform-http maps it
-  to `succeeded_with_warnings`).
+  `report.partialOk === true` to its own status (e.g. a deployment row may
+  go to `succeeded_with_warnings`).
 - `onTerminal(result)` — exactly one terminal callback per `runDeployment`
   invocation. The same `TerminalResult` is also returned from the function.
 
@@ -118,11 +139,11 @@ leave them unset; defaults come from `@rntme/deploy-core`,
 
 ## Known consumers
 
-- `apps/platform-http/src/deploy/executor.ts` — production caller (DB-bound
-  wrapper with persistence hooks).
-- `apps/cli/...` — planned CLI direct-mode caller (separate plan).
-- `apps/platform/blueprint/services/deployments/workflows/handlers/` —
-  planned BPMN task handlers (separate plan).
+- `apps/cli/` — CLI direct-mode caller.
+- `apps/platform/blueprint/services/deployments/workflows/workflows.json` —
+  BPMN `nativeTasks` resolving the package's stage handler exports
+  (`composeStageHandler`, `planStageHandler`, …) for the platform's
+  `runDeployment` process.
 
 ## Where to look first
 

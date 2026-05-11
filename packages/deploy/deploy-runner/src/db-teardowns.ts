@@ -10,7 +10,7 @@ import type {
 } from '@rntme/platform-core';
 import { isOk, parseCanonicalBundle } from '@rntme/platform-core';
 import type { ProvisionerContract } from '@rntme/deploy-core';
-import { runTearDownsForDeployment as runnerRunTearDowns } from '@rntme/deploy-runner';
+import { runTearDownsForDeployment as runnerRunTearDowns } from './run-teardowns.js';
 
 export type TearDownDeps = {
   readonly blob: BlobStore;
@@ -23,15 +23,15 @@ export type TearDownDeps = {
 };
 
 /**
- * Platform-http adapter for runTearDownsForDeployment.
+ * DB-bound adapter around the pure `runTearDownsForDeployment` runner.
  *
- * Keeps the DB-bound signature (`deployment`, `projectVersion`, `deps`) so that
- * `project-delete-executor.ts` does not need to change. Internally it:
+ * Takes a `DeploymentWithProvision` row and the matching `ProjectVersion`
+ * (for the bundle blob key), then:
  *   1. Fetches the bundle blob.
  *   2. Decompresses and parses the canonical bundle.
  *   3. Materializes the bundle to a temp directory.
  *   4. Decrypts the secret envelope (if present).
- *   5. Delegates to the pure runner function in @rntme/deploy-runner.
+ *   5. Delegates to the pure runner in `./run-teardowns.ts`.
  *   6. Removes the temp directory in a finally block.
  */
 export async function runTearDownsForDeployment(input: {

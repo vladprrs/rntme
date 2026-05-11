@@ -12,8 +12,8 @@ import {
 } from '@rntme/platform-core';
 import type { ProvisionerContract } from '@rntme/deploy-core';
 import type { Logger } from 'pino';
-import type { DokployClientFactory } from '@rntme/deploy-runner';
-import { runTearDownsForDeployment } from './run-teardowns.js';
+import type { DokployClientFactory } from './dokploy-client-factory.js';
+import { runTearDownsForDeployment } from './db-teardowns.js';
 
 export type ProjectDeleteExecutorDeps = {
   readonly withOrgTx: <T>(orgId: string, fn: (repos: {
@@ -35,7 +35,7 @@ export type ProjectDeleteExecutorDeps = {
   ) => Promise<ProvisionerContract>;
 };
 
-export async function runProjectDeleteOperation(
+export async function runProjectDelete(
   operationId: string,
   orgId: string,
   deps: ProjectDeleteExecutorDeps,

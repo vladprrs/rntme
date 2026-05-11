@@ -8,9 +8,8 @@ Dokploy target adapter for rntme project deployments.
 resources and applies them through an injected Dokploy HTTP client. It does not
 load raw blueprints, store platform credentials, or run browser verification.
 
-On the platform path, deploy target credentials are decrypted inside
-`@rntme/platform-http`'s Dokploy client factory. This package receives only
-redacted target configuration and the injected client seam.
+The Dokploy client factory now lives in `@rntme/deploy-runner`. This package
+receives only normalized, deploy-target-shaped inputs.
 
 `endpoint` (Dokploy API base) and `publicBaseUrl` (browser-facing app origin)
 are validated at the start of `renderDokployPlan`. Invalid or empty values fail
