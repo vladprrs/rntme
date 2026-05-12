@@ -94,6 +94,24 @@ export function isRefElement(el: ElementJson | RefElement): el is RefElement {
   return '$ref' in el;
 }
 
+export type FragmentSourceKind = 'local' | 'external';
+
+export type ExternalFragment = {
+  readonly ref: string;
+  readonly source: 'external';
+  readonly spec: SpecJson;
+};
+
+export type ExternalFragmentResolverContext = {
+  readonly referrer: string | null;
+  readonly referrerSource: FragmentSourceKind;
+};
+
+export type ExternalFragmentResolver = (
+  ref: string,
+  context: ExternalFragmentResolverContext,
+) => import('./result.js').Result<ExternalFragment | null>;
+
 /**
  * Resolved source — after Phase 1 (Resolve), all files have been read
  * and assembled into this structure.
@@ -104,4 +122,5 @@ export type ResolvedSource = {
   layouts: Record<string, { spec: SpecJson; screen: ScreenDescriptor }>;
   screens: Record<string, { spec: SpecJson; screen: ScreenDescriptor }>;
   fragments: Map<string, SpecJson>;      // base path → parsed fragment spec
+  fragmentSources: Map<string, FragmentSourceKind>;
 };

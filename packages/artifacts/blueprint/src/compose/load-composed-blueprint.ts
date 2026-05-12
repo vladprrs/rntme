@@ -26,6 +26,7 @@ import { loadServiceMember } from './load-service-member.js';
 import { loadProjectWorkflows } from './project-workflows.js';
 import { loadProjectInit } from './project-init.js';
 import { buildModuleClientSurfaces, emptyUiAssetManifest } from './module-client-assets.js';
+import { createModulePresetExternalResolver } from './module-preset-resolver.js';
 
 export async function loadComposedBlueprint(
   dir: string,
@@ -148,6 +149,9 @@ export async function loadComposedBlueprint(
   });
   if (!init.ok) return init;
 
+  const externalFragmentResolver =
+    uiPresetExports.length === 0 ? undefined : createModulePresetExternalResolver({ presets: uiPresetExports });
+
   for (const [slug, service] of Object.entries(validatedServices)) {
     const compiledUi = compileServiceUi({
       rootDir: dir,
@@ -155,6 +159,7 @@ export async function loadComposedBlueprint(
       bindingRegistry,
       uiRoutePatterns: composedValidation.value.uiPathsByService[slug] ?? [],
       catalogManifest,
+      ...(externalFragmentResolver === undefined ? {} : { externalFragmentResolver }),
     });
     if (!compiledUi.ok) return compiledUi;
 

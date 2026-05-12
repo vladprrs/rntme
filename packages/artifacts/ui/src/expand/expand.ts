@@ -177,5 +177,6 @@ export function expand(resolved: ResolvedSource): Result<ExpandedSource> {
     layouts,
     screens,
     fragments: resolved.fragments,
+    fragmentSources: resolved.fragmentSources,
   });
 }

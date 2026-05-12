@@ -9,6 +9,8 @@ export type UiErrorCode =
   | 'FILE_NOT_FOUND'
   | 'CIRCULAR_REF'
   | 'DUPLICATE_SCREEN_KEY'
+  | 'EXTERNAL_REF_UNRESOLVED'
+  | 'EXTERNAL_REF_LOCAL_FORBIDDEN'
   // Expand phase
   | 'UNBOUND_PARAM'
   | 'UNKNOWN_PARAM'

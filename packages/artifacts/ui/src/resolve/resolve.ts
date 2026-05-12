@@ -13,6 +13,9 @@ import {
   type ScreenDescriptor,
   type SpecJson,
   type ResolvedSource,
+  type ExternalFragmentResolver,
+  type ExternalFragmentResolverContext,
+  type FragmentSourceKind,
 } from '../types/source.js';
 
 function readJson<T>(
@@ -61,6 +64,60 @@ function readPair(baseDir: string, basePath: string): Result<{ spec: SpecJson; s
   return ok({ spec: specResult.value, screen: screenResult.value });
 }
 
+export type ResolveOptions = {
+  readonly externalFragmentResolver?: ExternalFragmentResolver;
+};
+
+/**
+ * Resolve a single fragment ref — either local (file-based) or external (via resolver).
+ */
+function resolveFragmentRef(
+  baseDir: string,
+  refPath: string,
+  fragments: Map<string, SpecJson>,
+  fragmentSources: Map<string, FragmentSourceKind>,
+  errors: UiError[],
+  options: ResolveOptions,
+  context: ExternalFragmentResolverContext,
+): { refPath: string; spec: SpecJson; source: FragmentSourceKind } | null {
+  if (context.referrerSource === 'external' || refPath.startsWith('module:')) {
+    if (!options.externalFragmentResolver) {
+      errors.push({
+        code: refPath.startsWith('module:') ? 'EXTERNAL_REF_UNRESOLVED' : 'EXTERNAL_REF_LOCAL_FORBIDDEN',
+        message: `External fragment reference cannot be resolved: ${refPath}`,
+        path: refPath,
+      });
+      return null;
+    }
+    const resolved = options.externalFragmentResolver(refPath, context);
+    if (!resolved.ok) {
+      errors.push(...resolved.errors);
+      return null;
+    }
+    if (resolved.value === null) {
+      errors.push({
+        code: refPath.startsWith('module:') ? 'EXTERNAL_REF_UNRESOLVED' : 'EXTERNAL_REF_LOCAL_FORBIDDEN',
+        message: `External fragment reference cannot be resolved: ${refPath}`,
+        path: refPath,
+      });
+      return null;
+    }
+    return { refPath: resolved.value.ref, spec: resolved.value.spec, source: 'external' };
+  }
+
+  if (fragments.has(refPath)) {
+    return { refPath, spec: fragments.get(refPath)!, source: fragmentSources.get(refPath) ?? 'local' };
+  }
+
+  const filePath = join(baseDir, `${refPath}.spec.json`);
+  const fragResult = readJson<SpecJson>(filePath, SpecJsonSchema, 'SPEC_INVALID', 'spec file');
+  if (!fragResult.ok) {
+    errors.push(...fragResult.errors);
+    return null;
+  }
+  return { refPath, spec: fragResult.value, source: 'local' };
+}
+
 /**
  * Collect all fragment base-paths referenced (transitively) from a set of specs.
  * Detects cycles and returns them as errors.
@@ -69,41 +126,64 @@ function collectFragments(
   baseDir: string,
   specs: SpecJson[],
   fragments: Map<string, SpecJson>,
+  fragmentSources: Map<string, FragmentSourceKind>,
   visiting: Set<string>,
   errors: UiError[],
+  options: ResolveOptions,
+  context: ExternalFragmentResolverContext,
 ): void {
   for (const spec of specs) {
     for (const el of Object.values(spec.elements)) {
       if (!isRefElement(el)) continue;
-      const refPath = el.$ref;
+      const requestedRef = el.$ref;
 
-      if (visiting.has(refPath)) {
+      // Cycle detection: check before resolving to catch cross-boundary cycles.
+      // For local paths referenced from external context, the canonical key is the path itself.
+      if (visiting.has(requestedRef)) {
         errors.push({
           code: 'CIRCULAR_REF',
-          message: `Circular fragment reference: ${[...visiting, refPath].join(' \u2192 ')}`,
+          message: `Circular fragment reference: ${[...visiting, requestedRef].join(' → ')}`,
+          path: requestedRef,
+        });
+        return;
+      }
+
+      const resolved = resolveFragmentRef(baseDir, requestedRef, fragments, fragmentSources, errors, options, context);
+      if (resolved === null) continue;
+      const { refPath, spec: fragmentSpec, source } = resolved;
+
+      // Also check after resolution since the canonical refPath may differ (e.g. module: refs).
+      if (refPath !== requestedRef && visiting.has(refPath)) {
+        errors.push({
+          code: 'CIRCULAR_REF',
+          message: `Circular fragment reference: ${[...visiting, refPath].join(' → ')}`,
           path: refPath,
         });
         return;
       }
 
-      if (fragments.has(refPath)) continue;
-
-      const filePath = join(baseDir, `${refPath}.spec.json`);
-      const fragResult = readJson<SpecJson>(filePath, SpecJsonSchema, 'SPEC_INVALID', 'spec file');
-      if (!fragResult.ok) {
-        errors.push(...fragResult.errors);
-        continue;
+      if (!fragments.has(refPath)) {
+        fragments.set(refPath, fragmentSpec);
+        fragmentSources.set(refPath, source);
       }
 
-      fragments.set(refPath, fragResult.value);
       visiting.add(refPath);
-      collectFragments(baseDir, [fragResult.value], fragments, visiting, errors);
+      collectFragments(
+        baseDir,
+        [fragmentSpec],
+        fragments,
+        fragmentSources,
+        visiting,
+        errors,
+        options,
+        { referrer: refPath, referrerSource: source },
+      );
       visiting.delete(refPath);
     }
   }
 }
 
-export function resolve(baseDir: string): Result<ResolvedSource> {
+export function resolve(baseDir: string, options: ResolveOptions = {}): Result<ResolvedSource> {
   // 1. Read manifest
   const manifestResult = readJson<SourceManifest>(
     join(baseDir, 'manifest.json'),
@@ -144,15 +224,25 @@ export function resolve(baseDir: string): Result<ResolvedSource> {
 
   // 4. Collect fragments (transitively, with cycle detection)
   const fragments = new Map<string, SpecJson>();
+  const fragmentSources = new Map<string, FragmentSourceKind>();
   const allSpecs = [
     ...Object.values(layouts).map((l) => l.spec),
     ...Object.values(screens).map((s) => s.spec),
   ];
   const errors: UiError[] = [];
-  collectFragments(baseDir, allSpecs, fragments, new Set(), errors);
+  collectFragments(
+    baseDir,
+    allSpecs,
+    fragments,
+    fragmentSources,
+    new Set(),
+    errors,
+    options,
+    { referrer: null, referrerSource: 'local' },
+  );
   if (errors.length > 0) return err(errors);
 
-  return ok({ manifest, baseDir, layouts, screens, fragments });
+  return ok({ manifest, baseDir, layouts, screens, fragments, fragmentSources });
 }
 
 function formatZodIssues(issues: z.core.$ZodIssue[]): string {
