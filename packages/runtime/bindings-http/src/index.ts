@@ -3,7 +3,7 @@ export const VERSION = '0.0.0';
 export { createBindingsRouter } from './router.js';
 export type { BindingsRouterOptions } from './router.js';
 export { buildDefaultGraphIrOperationMap } from './startup/compile-plan.js';
-export type { BuildPlanResult, GraphIrOperationMap } from './startup/compile-plan.js';
+export type { BuildPlanOptions, BuildPlanResult, GraphIrOperationMap } from './startup/compile-plan.js';
 export type {
   OperationExecutor,
   OperationExecutorError,

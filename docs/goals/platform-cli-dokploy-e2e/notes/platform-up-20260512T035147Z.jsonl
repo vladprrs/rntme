@@ -1,0 +1,5 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Provisioning Redpanda event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"terminal","ok":false,"errorCode":"DEPLOY_PROVISION_ENTRY_LOAD_FAILED","errorMessage":"DEPLOY_PROVISION_ENTRY_LOAD_FAILED: ResolveMessage: Cannot find module '@rntme/identity-auth0/./dist/provisioner.entry.js' from '/home/coder/project/apps/cli/dist/platform-blueprint/package.json'"}

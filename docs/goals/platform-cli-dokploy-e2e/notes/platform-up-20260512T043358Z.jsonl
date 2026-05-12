@@ -1,0 +1,21 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Provisioning Redpanda event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"log","level":"info","step":"provision","message":"Provisioning 1 module(s)"}
+{"type":"provision-result","publicByModule":{"identity":{"spaClient":{"id":"AjOMyNUPyuJpkCf4RR8izh9z84wGHqXE","name":"rntme-platform"},"resourceServer":{"id":"6a016f0e49ae70022e03ce99","identifier":"https://platform.rntme.com/api"}}},"secretByModule":{"identity":{"m2mClients":[]}},"startedAt":"2026-05-12T04:33:59.102Z","finishedAt":"2026-05-12T04:34:00.150Z"}
+{"type":"stage-complete","stage":"provision","durationMs":1052}
+{"type":"stage-begin","stage":"plan"}
+{"type":"stage-complete","stage":"plan","durationMs":3}
+{"type":"log","level":"info","step":"render","message":"Rendering Dokploy plan"}
+{"type":"stage-begin","stage":"render"}
+{"type":"stage-complete","stage":"render","durationMs":40}
+{"type":"log","level":"info","step":"render","message":"Rendered Dokploy plan digest sha256:0d9792a8bed6c160a9575d132167294114b13f5676a4df87a55075a1b87d7832"}
+{"type":"log","level":"info","step":"apply","message":"Applying Dokploy plan"}
+{"type":"stage-begin","stage":"apply"}
+{"type":"apply-result","actions":{"target":{"kind":"dokploy","environmentId":"Ac5KIPWva9jzm7t-h4Af7"},"deployment":{"orgSlug":"direct-e2e-043358","projectSlug":"rntme-platform","environment":"default","mode":"preview"},"resources":[{"logicalId":"project-stack","resourceKind":"compose","infrastructureKind":"project-stack","targetResourceId":"riCO4dlj8EMRca0syDEzG","targetResourceName":"rntme-direct-e2e-043358-rntme-platform","action":"created","services":[{"name":"redpanda","serviceClass":"event-bus"},{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]}],"urls":{"projectUrl":"https://platform.rntme.com","uiUrl":"https://platform.rntme.com/","publicRoutes":[],"protectedRouteChecks":[]},"renderedPlanDigest":"sha256:0d9792a8bed6c160a9575d132167294114b13f5676a4df87a55075a1b87d7832","warnings":[],"verificationHints":{"healthUrl":"https://platform.rntme.com/health","configUrl":"https://platform.rntme.com/config.json","publicRouteUrls":[],"protectedRouteChecks":[],"stack":{"composeId":"riCO4dlj8EMRca0syDEzG","services":[{"name":"redpanda","serviceClass":"event-bus"},{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]},"uiUrl":"https://platform.rntme.com/"}},"durationMs":2033}
+{"type":"stage-complete","stage":"apply","durationMs":2033}
+{"type":"log","level":"info","step":"apply","message":"compose project-stack created target=rntme-direct-e2e-043358-rntme-platform"}
+{"type":"log","level":"info","step":"verify","message":"Running smoke verification"}
+{"type":"stage-begin","stage":"verify"}
+{"type":"verify-result","report":{"checks":[{"name":"edge-health","url":"https://platform.rntme.com/health","status":502,"latencyMs":159,"ok":false},{"name":"ui","url":"https://platform.rntme.com/","status":502,"latencyMs":43,"ok":false},{"name":"config-json","url":"https://platform.rntme.com/config.json","status":502,"latencyMs":43,"ok":false}],"ok":false,"partialOk":false}}

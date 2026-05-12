@@ -2,6 +2,7 @@ import {
   compileOperationFromValidated,
   parseAuthoringSpec,
   type CompiledOperation,
+  type OperationRegistry,
   type Result,
 } from '@rntme/graph-ir-compiler';
 import type {
@@ -30,7 +31,7 @@ function sliceSpec(spec: SingleGraphSpec, graphId: string): RuntimeGraphSpec {
   };
 }
 
-const emptyOperationRegistry = { resolve: () => null };
+const emptyOperationRegistry: OperationRegistry = { resolve: () => null };
 
 export function compileOperationForGraph(
   rawSpec: RuntimeGraphSpec,
@@ -38,11 +39,12 @@ export function compileOperationForGraph(
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
   exposure: 'read' | 'action',
+  registry: OperationRegistry = emptyOperationRegistry,
 ): Result<CompiledOperation> {
   const specR = parseAuthoringSpec(sliceSpec(rawSpec, graphId));
   if (!specR.ok) return specR;
   return compileOperationFromValidated(specR.value, pdm, qsm, {
-    registry: emptyOperationRegistry,
+    registry,
     serviceName: '',
     ownedAggregates: ownedAggregatesFromPdm(pdm),
     exposure,
@@ -86,28 +88,35 @@ export function buildDefaultGraphIrOperationMap(
   graphSpec: RuntimeGraphSpec,
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
+  registry: OperationRegistry = emptyOperationRegistry,
 ): CompilePlanResult<GraphIrOperationMap> {
   try {
-    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm).compiledOperations };
+    return { ok: true, value: buildPlan(validated, graphSpec, pdm, qsm, { registry }).compiledOperations };
   } catch (e) {
     if (e instanceof BindingsRuntimeError) return { ok: false, errors: [...e.errors] };
     throw e;
   }
 }
 
+export type BuildPlanOptions = {
+  readonly registry?: OperationRegistry;
+};
+
 export function buildPlan(
   validated: ValidatedBindings,
   graphSpec: RuntimeGraphSpec,
   pdm: ValidatedPdm,
   qsm: ValidatedQsm,
+  options: BuildPlanOptions = {},
 ): BuildPlanResult {
+  const registry = options.registry ?? emptyOperationRegistry;
   const graphIds = new Set(Object.values(validated.resolved).map((r) => r.entry.graph));
   const operationCache = new Map<string, CompiledOperation>();
   const errors: RuntimeErrorEntry[] = [];
 
   for (const graphId of graphIds) {
     const exposure = resolvedExposureForGraph(validated, graphId);
-    const r = compileOperationForGraph(graphSpec, graphId, pdm, qsm, exposure);
+    const r = compileOperationForGraph(graphSpec, graphId, pdm, qsm, exposure, registry);
     if (r.ok) operationCache.set(graphId, r.value);
     else for (const cause of r.errors) errors.push({ graphId, cause });
   }

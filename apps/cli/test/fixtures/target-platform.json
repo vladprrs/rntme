@@ -1,0 +1,51 @@
+{
+  "kind": "dokploy",
+  "displayName": "rntme-platform-prod",
+  "config": {
+    "dokployUrl": "https://dokploy.example.com",
+    "dokployProjectId": "wmiyt_0T7SKvS3sr6rzGK"
+  },
+  "secrets": {
+    "apiToken": { "source": "env", "name": "DOKPLOY_API_KEY" },
+    "extras": {
+      "auth0Mgmt": {
+        "tenantDomain": { "source": "env", "name": "AUTH0_DOMAIN" },
+        "mgmtClientId": { "source": "env", "name": "AUTH0_MANAGEMENT_CLIENT_ID" },
+        "mgmtClientSecret": { "source": "env", "name": "AUTH0_MANAGEMENT_CLIENT_SECRET" }
+      }
+    }
+  },
+  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" },
+  "workflows": {
+    "engine": {
+      "kind": "operaton",
+      "mode": "provisioned",
+      "image": "operaton/operaton:2.1.0"
+    },
+    "worker": {
+      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1"
+    }
+  },
+  "auth": {
+    "auth0": {
+      "domain": "demo-rntme.us.auth0.com",
+      "audience": "https://platform.rntme.com/api",
+      "redirectUri": "https://platform.rntme.com/auth/callback"
+    }
+  },
+  "modules": {
+    "identity-auth0": {
+      "image": "ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743",
+      "env": {
+        "AUTH0_DOMAIN": "demo-rntme.us.auth0.com"
+      }
+    }
+  },
+  "policyValues": {
+    "requestContext": {
+      "default": {}
+    }
+  },
+  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-pr108-27c70ad",
+  "publicBaseUrl": "https://platform.rntme.com"
+}

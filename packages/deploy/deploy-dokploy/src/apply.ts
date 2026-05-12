@@ -376,14 +376,6 @@ async function runComposeLifecycle(
     return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
   }
 
-  if (resource.infrastructureKind === 'project-stack' && client.startCompose !== undefined) {
-    try {
-      await client.startCompose(target.targetResourceId);
-    } catch (cause) {
-      return partialFailure(client, cause, resource, applied, createdForCleanup, 'deploy');
-    }
-  }
-
   const renderedSummaries = serviceSummaries(resource);
 
   let loadedSummaries: readonly DokployComposeServiceSummary[] | undefined;
@@ -392,7 +384,7 @@ async function runComposeLifecycle(
       const loaded = await client.loadComposeServices(target.targetResourceId);
       loadedSummaries = loaded.length > 0 ? loaded : undefined;
     } catch (cause) {
-      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+      void cause;
     }
   }
 
@@ -409,7 +401,7 @@ async function runComposeLifecycle(
       const interesting = inspected.filter((task) => !isComposeTaskHealthy(task));
       inspections = interesting.length > 0 ? inspected : undefined;
     } catch (cause) {
-      return partialFailure(client, cause, resource, applied, createdForCleanup, 'inspect');
+      void cause;
     }
   }
 
@@ -830,6 +822,9 @@ function resourceMatches(
   // so they must be treated as changed on every apply so the client boundary
   // can resolve the current secret values and mount them.
   if (resource.secretFiles !== undefined && Object.keys(resource.secretFiles).length > 0) {
+    return false;
+  }
+  if (resource.kind === 'compose' && resource.fileMounts !== undefined && resource.fileMounts.length > 0) {
     return false;
   }
 

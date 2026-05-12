@@ -19,6 +19,7 @@ const plan: ProjectDeploymentPlan = {
       runtimeFiles: {
         'manifest.json': '{"service":{"name":"catalog"}}',
         'graphs/listCatalog.json': '{"id":"listCatalog"}',
+        'ui-build/main.js': 'console.log("prebuilt ui")',
       },
       publicConfigJson: '{}',
       persistence: { mode: 'ephemeral' },
@@ -93,6 +94,19 @@ describe('renderDokployPlan', () => {
         '/srv/config.json': '{}',
       },
     });
+    expect(catalog?.volumes).toContainEqual({
+      source: '/etc/dokploy/compose/${APP_NAME}/files/svc-catalog/srv/artifacts/manifest.json',
+      target: '/srv/artifacts/manifest.json',
+      readOnly: true,
+    });
+    expect(stack.fileMounts).toContainEqual({
+      mountPath: '/__rntme_mounts/svc-catalog/srv/artifacts/manifest.json',
+      filePath: 'svc-catalog/srv/artifacts/manifest.json',
+      content: '{"service":{"name":"catalog"}}',
+    });
+    expect(catalog?.files).not.toHaveProperty('/srv/artifacts/ui-build/main.js');
+    expect(stack.composeFile).not.toContain('prebuilt ui');
+    expect(stack.composeFile).not.toContain('RNTME_FILE_');
     expect(catalog).not.toHaveProperty('build');
     expect(catalog?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
@@ -153,6 +167,62 @@ describe('renderDokployPlan', () => {
     });
     expect(stack.composeFile).toContain('  redpanda:\n');
     expect(stack.composeFile).toContain('    restart: unless-stopped\n');
+  });
+
+  it('downgrades binding exposure to legacy kind for known pre-exposure runtime images', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'domain-service'
+            ? {
+                ...workload,
+                runtime: { image: 'ghcr.io/vladprrs/rntme-runtime:runtime-pr108-27c70ad' },
+                runtimeFiles: {
+                  ...workload.runtimeFiles,
+                  'bindings.json': JSON.stringify({
+                    version: '1.0',
+                    graphSpecRef: 'catalog.graphs.v1',
+                    pdmRef: 'catalog.domain.v1',
+                    qsmRef: 'catalog.read.v1',
+                    bindings: {
+                      listCatalog: {
+                        exposure: 'read',
+                        graph: 'listCatalog',
+                        target: { engine: 'sqlite', dialect: 'sqlite' },
+                        http: { method: 'GET', path: '/catalog' },
+                      },
+                      createCatalog: {
+                        exposure: 'action',
+                        graph: 'createCatalog',
+                        target: { engine: 'sqlite', dialect: 'sqlite' },
+                        http: { method: 'POST', path: '/catalog' },
+                      },
+                    },
+                  }),
+                },
+              }
+            : workload,
+        ),
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const catalog = stack.services?.find((service) => service.name === 'svc-catalog');
+    const bindings = JSON.parse(catalog?.files?.['/srv/artifacts/bindings.json'] ?? '{}');
+    expect(bindings.bindings.listCatalog).toMatchObject({ kind: 'query' });
+    expect(bindings.bindings.createCatalog).toMatchObject({ kind: 'command' });
+    expect(bindings.bindings.listCatalog).not.toHaveProperty('exposure');
+    expect(bindings.bindings.createCatalog).not.toHaveProperty('exposure');
   });
 
   it('renders Redpanda Console as compose services with a public basic-auth proxy', () => {
@@ -218,8 +288,13 @@ describe('renderDokployPlan', () => {
       image: 'nginx:1.27-alpine',
       command: '/bin/sh',
       args: ['/docker-entrypoint-rntme.sh'],
-      env: [{ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true }],
     });
+    expect(proxyService?.volumes).toContainEqual({
+      source: '/etc/dokploy/compose/${APP_NAME}/files/redpanda-console-proxy/docker-entrypoint-rntme.sh',
+      target: '/docker-entrypoint-rntme.sh',
+      readOnly: true,
+    });
+    expect(proxyService?.env).toContainEqual({ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true });
     expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
     expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
     expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_pass http://redpanda-console:8080;');
@@ -945,6 +1020,9 @@ describe('renderDokployPlan', () => {
     expect(stack.composeFile).toContain('      max_attempts: 3\n');
     expect(stack.composeFile).toContain('      memory: 512M\n');
     expect(stack.composeFile).toContain('  edge:\n');
+    expect(stack.composeFile).toContain('    volumes:\n');
+    expect(stack.composeFile).toContain('/etc/dokploy/compose/${APP_NAME}/files/edge/etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro');
+    expect(stack.composeFile).not.toContain('RNTME_FILES_');
     expect(stack.composeFile).toContain('      memory: 128M\n');
     expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
   });

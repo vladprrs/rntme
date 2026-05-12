@@ -111,7 +111,14 @@ export type RenderedDokployComposeResource = {
   readonly domains?: readonly RenderedComposeDomain[];
   readonly env: readonly RenderedEnvVar[];
   readonly labels: Readonly<Record<string, string>>;
+  readonly fileMounts?: readonly RenderedDokployComposeFileMount[];
   readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
+};
+
+export type RenderedDokployComposeFileMount = {
+  readonly mountPath: string;
+  readonly filePath: string;
+  readonly content: string;
 };
 
 export type RenderedDokployResource =
@@ -420,21 +427,60 @@ function renderProjectStackResource(
     services.push(applicationResourceToComposeService(resource.value));
   }
 
+  const stackName = projectStackName(plan.project.orgSlug, plan.project.projectSlug);
+  const mounted = withComposeFileMounts(services);
+
   return ok({
     logicalId: 'project-stack',
     kind: 'compose',
     infrastructureKind: 'project-stack',
-    name: projectStackName(plan.project.orgSlug, plan.project.projectSlug),
+    name: stackName,
     image: 'docker-compose',
-    composeFile: renderComposeYaml(services),
-    services,
+    composeFile: renderComposeYaml(mounted.services),
+    services: mounted.services,
     domains,
     env: [],
     labels: {
       ...dokployLabels(plan.project.orgSlug, plan.project.projectSlug, plan.project.environment, 'project-stack'),
       'rntme.infrastructure': 'project-stack',
     },
+    ...(mounted.fileMounts.length === 0 ? {} : { fileMounts: mounted.fileMounts }),
   });
+}
+
+function withComposeFileMounts(
+  services: readonly RenderedComposeService[],
+): { readonly services: RenderedComposeService[]; readonly fileMounts: RenderedDokployComposeFileMount[] } {
+  const fileMounts: RenderedDokployComposeFileMount[] = [];
+  const nextServices = services.map((service) => {
+    if (service.files === undefined || Object.keys(service.files).length === 0) return service;
+    const volumes = [...(service.volumes ?? [])];
+    for (const [targetPath, content] of Object.entries(service.files).sort(([a], [b]) => a.localeCompare(b))) {
+      const filePath = composeFileMountPath(service.name, targetPath);
+      const source = `/etc/dokploy/compose/\${APP_NAME}/files/${filePath}`;
+      volumes.push({ source, target: targetPath, readOnly: true });
+      fileMounts.push({
+        mountPath: `/__rntme_mounts/${filePath}`,
+        filePath,
+        content,
+      });
+    }
+    return { ...service, volumes };
+  });
+  return { services: nextServices, fileMounts };
+}
+
+function composeFileMountPath(serviceName: string, targetPath: string): string {
+  return `${safeRelativeMountSegment(serviceName)}/${safeRelativeMountSegment(targetPath)}`;
+}
+
+function safeRelativeMountSegment(value: string): string {
+  return value
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+    .map((segment) => segment.replace(/[^A-Za-z0-9._-]/g, '_'))
+    .join('/');
 }
 
 function applicationResourceToComposeService(resource: RenderedDokployApplicationResource): RenderedComposeService {
@@ -678,7 +724,7 @@ function renderResource(
   if (workload.kind === 'domain-service') {
     const authMiddleware = authMiddlewareForWorkload(plan, workload);
     const files = {
-      ...runtimeFileMounts(workload.runtimeFiles),
+      ...runtimeFileMounts(workload.runtimeFiles, workload.runtime.image),
       '/srv/config.json': workload.publicConfigJson,
     };
 
@@ -746,10 +792,60 @@ function storageS3Env(
   ];
 }
 
-function runtimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
+function runtimeFileMounts(
+  files: Readonly<Record<string, string>>,
+  runtimeImage: string,
+): Readonly<Record<string, string>> {
   return Object.fromEntries(
-    sortedEntries(files).map(([path, content]) => [`/srv/artifacts/${path.replace(/^\/+/, '')}`, content]),
+    sortedEntries(files)
+      .filter(([path]) => !path.replace(/^\/+/, '').startsWith('ui-build/'))
+      .map(([path, content]) => [
+        `/srv/artifacts/${path.replace(/^\/+/, '')}`,
+        path.replace(/^\/+/, '') === 'bindings.json' && usesLegacyBindingKindRuntime(runtimeImage)
+          ? legacyBindingArtifact(content)
+          : content,
+      ]),
   );
+}
+
+function usesLegacyBindingKindRuntime(image: string): boolean {
+  const tag = image.split(':').at(-1) ?? '';
+  return (
+    /^runtime-pr108-/.test(tag) ||
+    /^runtime-rnt-364-/.test(tag) ||
+    [
+      'runtime-main-c1ffeac',
+      'runtime-main-d292116',
+      'runtime-main-8cdb3d5',
+      'runtime-main-6c1b560',
+      'runtime-pr4-d149be9',
+    ].includes(tag)
+  );
+}
+
+function legacyBindingArtifact(content: string): string {
+  try {
+    const artifact = JSON.parse(content) as unknown;
+    if (artifact === null || typeof artifact !== 'object' || Array.isArray(artifact)) return content;
+    const bindings = (artifact as { bindings?: unknown }).bindings;
+    if (bindings === null || typeof bindings !== 'object' || Array.isArray(bindings)) return content;
+    const nextBindings: Record<string, unknown> = {};
+    for (const [id, entry] of Object.entries(bindings)) {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        nextBindings[id] = entry;
+        continue;
+      }
+      const record = entry as Record<string, unknown>;
+      const { exposure, ...rest } = record;
+      nextBindings[id] = {
+        kind: exposure === 'action' ? 'command' : 'query',
+        ...rest,
+      };
+    }
+    return `${JSON.stringify({ ...(artifact as Record<string, unknown>), bindings: nextBindings }, null, 2)}\n`;
+  } catch {
+    return content;
+  }
 }
 
 function firstDomainPublicConfig(workloads: readonly DeploymentWorkload[]): string {

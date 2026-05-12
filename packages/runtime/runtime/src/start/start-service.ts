@@ -16,9 +16,12 @@ import {
 import type {
   DbDriver,
   EventBus,
+  ExternalAdapterClient,
 } from '../plugins/interfaces.js';
+import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../plugins/interfaces.js';
 import { GraphOperationExecutor } from '../plugins/executors/graph-operation-executor.js';
 import { buildDefaultGraphIrOperationMap } from '@rntme/bindings-http';
+import type { OperationCallClient, OperationRegistry, OperationTarget } from '@rntme/graph-ir-compiler';
 import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed } from '@rntme/seed';
 import { defaultTopicOf } from '@rntme/event-store';
@@ -53,7 +56,10 @@ export async function startService(
   const runtimeEnv = runtimeConfig.runtimeEnv ?? process.env;
   const authEnv = parseRuntimeAuthEnv(runtimeEnv);
   const eventBusTopicPrefix = parseRuntimeEventBusTopicPrefixFromEnv(runtimeEnv);
-  validateRuntimeAdapterConfig(service.manifest, runtimeConfig.artifactDir, authEnv);
+  const adapterClient =
+    runtimeConfig.externalAdapterClient ?? buildRuntimeAdapterClient(service.manifest, runtimeConfig.artifactDir, authEnv);
+  const operationRegistry = buildManifestOperationRegistry(service.manifest);
+  const operationCallClient = adapterClient === null ? null : toOperationCallClient(adapterClient);
   const db: DbDriver = runtimeConfig.db ?? new BunSqliteDriver();
   const kafkaClientConfig = buildKafkaJsClientConfigFromEnv(
     runtimeEnv,
@@ -102,6 +108,7 @@ export async function startService(
     service.graphSpec,
     service.pdm,
     service.qsm,
+    operationRegistry,
   );
   if (!defaultOperationMapResult.ok) {
     await pipeline.stop();
@@ -140,6 +147,8 @@ export async function startService(
     eventStore: pipeline.eventStore,
     qsmDb: pipeline.qsmDb,
     actorFromRequest,
+    operationRegistry,
+    operationCallClient,
   };
   for (const s of surfaces) await s.mount(app, ctx);
 
@@ -252,14 +261,13 @@ function closeHttpServer(server: ServerType, timeoutMs: number): Promise<void> {
   });
 }
 
-function validateRuntimeAdapterConfig(
+function buildRuntimeAdapterClient(
   manifest: ValidatedService['manifest'],
   artifactDir: string | undefined,
   authEnv: ReturnType<typeof parseRuntimeAuthEnv>,
-): void {
+): ExternalAdapterClient | null {
   if (authEnv === null) {
-    if (artifactDir !== undefined) buildAdapterClient(manifest, artifactDir);
-    return;
+    return artifactDir === undefined ? null : buildAdapterClient(manifest, artifactDir);
   }
 
   if (artifactDir === undefined) {
@@ -274,7 +282,64 @@ function validateRuntimeAdapterConfig(
       `auth module "${authEnv.moduleSlug}" is not declared in manifest.modules`,
     );
   }
-  buildAdapterClient(manifest, artifactDir, {
+  return buildAdapterClient(manifest, artifactDir, {
     [authEnv.moduleSlug]: authEnv.moduleEndpoint,
   });
+}
+
+function buildManifestOperationRegistry(manifest: ValidatedService['manifest']): OperationRegistry {
+  const moduleNames = new Set(manifest.modules.map((module) => module.name));
+  return {
+    resolve(target: OperationTarget) {
+      if (!('module' in target) || !moduleNames.has(target.module)) return null;
+      const effect = moduleOperationEffect(target.module, target.operation);
+      if (effect === null) return null;
+      return {
+        id: `${target.module}.${target.operation}`,
+        target,
+        effect,
+        idempotency: effect === 'action' ? 'optional' : 'none',
+        inputShape: `${target.operation}Request`,
+        outputShape: `${target.operation}Response`,
+      };
+    },
+  };
+}
+
+function moduleOperationEffect(moduleName: string, operation: string): 'read' | 'action' | null {
+  if (moduleName === 'identity-auth0' && operation === 'IntrospectSession') return 'read';
+  return null;
+}
+
+function toOperationCallClient(client: ExternalAdapterClient): OperationCallClient {
+  return {
+    async call(input) {
+      const target = input.target.target;
+      if (!('module' in target)) {
+        return {
+          ok: false,
+          error: {
+            code: 'EXTERNAL_SERVICE_CALL_UNSUPPORTED',
+            message: 'service-to-service call targets are not supported by the runtime adapter client',
+          },
+        };
+      }
+      const result = await client.call(target.module, target.operation, input.payload, {
+        idempotencyKey: input.idempotencyKey ?? '',
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+        retry: DEFAULT_RETRY,
+        correlationId: input.correlationId,
+      });
+      if (result.ok) return { ok: true, value: result.value };
+      const first = result.errors[0];
+      return {
+        ok: false,
+        error: {
+          code: first?.code ?? 'EXTERNAL_MODULE_INTERNAL',
+          message: first?.message ?? 'external module call failed',
+          detail: first?.detail,
+        },
+      };
+    },
+  };
 }

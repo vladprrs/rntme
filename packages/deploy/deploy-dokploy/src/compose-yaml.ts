@@ -5,16 +5,24 @@ export function renderComposeYaml(services: readonly RenderedComposeService[]): 
   for (const service of [...services].sort((a, b) => a.name.localeCompare(b.name))) {
     lines.push(`  ${service.name}:`);
     lines.push(`    image: ${yamlScalar(service.image)}`);
+    if (service.entrypoint !== undefined && service.entrypoint.length > 0) {
+      lines.push('    entrypoint:');
+      for (const item of service.entrypoint) lines.push(`      - ${yamlScalar(item)}`);
+    }
     if (service.command !== undefined) lines.push(`    command: ${yamlScalar(service.command)}`);
     if (service.args !== undefined && service.args.length > 0) {
       lines.push('    args:');
       for (const arg of service.args) lines.push(`      - ${yamlScalar(arg)}`);
     }
     lines.push(`    restart: ${service.restart.container}`);
-    if (service.env.length > 0) {
+    const literalEnv = service.literalEnv ?? {};
+    if (service.env.length > 0 || Object.keys(literalEnv).length > 0) {
       lines.push('    environment:');
       for (const env of [...service.env].sort((a, b) => a.name.localeCompare(b.name))) {
         lines.push(`      ${env.name}: ${yamlScalar(`\${${env.name}}`)}`);
+      }
+      for (const [name, value] of Object.entries(literalEnv).sort(([a], [b]) => a.localeCompare(b))) {
+        lines.push(`      ${name}: ${yamlScalar(value)}`);
       }
     }
     if (service.ports !== undefined && service.ports.length > 0) {

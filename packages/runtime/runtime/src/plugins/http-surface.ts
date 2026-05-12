@@ -68,6 +68,8 @@ export class HttpSurface implements Surface {
       actorFromRequest: ctx.actorFromRequest,
       openApiDoc: ctx.service.openApiDoc,
       operationExecutor: this.opts.operationExecutor,
+      operationRegistry: ctx.operationRegistry,
+      operationCallClient: ctx.operationCallClient,
     };
     const router = createBindingsRouter(routerOpts);
 
