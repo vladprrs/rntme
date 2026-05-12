@@ -3,7 +3,6 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
-import type { ComponentRenderProps } from '@json-render/react';
 
 /** Simulates a Renderer-level failure that is not swallowed by json-render per-element boundaries (see mock below). */
 const FORCE_RENDERER_THROW = '__RNTME_TEST_FORCE_RENDERER_THROW__';
@@ -13,7 +12,7 @@ const { createRegistry } = await import('../../src/client/registry.js');
 const { createRuntimeStateStore } = await import('../../src/client/state.js');
 const { createOperationRegistry, useOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
 
-function testRegistry(components: Record<string, React.ComponentType<ComponentRenderProps>>) {
+function testRegistry(components: Record<string, React.ComponentType<Record<string, unknown>>>) {
   return createRegistry({
     onNavigate: () => undefined,
     getScreen: () => null,
@@ -25,12 +24,12 @@ function testRegistry(components: Record<string, React.ComponentType<ComponentRe
       type,
       props: { text: { type: 'string' as const } },
     })),
-    reactByType: components as never,
+    reactByType: components,
   }).registry;
 }
 
-function SafeBlock({ element }: ComponentRenderProps) {
-  return React.createElement('div', null, String(element.props.text ?? 'ok'));
+function SafeBlock(props: { text?: unknown }) {
+  return React.createElement('div', null, String(props.text ?? 'ok'));
 }
 
 function ThrowingBlock() {
@@ -89,13 +88,13 @@ describe('AppShell module component bridge', () => {
     const operationRegistry = createOperationRegistry();
     const handler = mock();
 
-    function RichTextEditor({ element }: ComponentRenderProps) {
+    function RichTextEditor(props: Record<string, unknown>) {
       const registry = useOperationRegistry();
       React.useEffect(() => {
-        const elementId = element.props.__rntmeElementId;
+        const elementId = props.__rntmeElementId;
         if (typeof elementId !== 'string') return undefined;
         return registry.register(elementId, { toggleBold: handler });
-      }, [element, registry]);
+      }, [props, registry]);
       return React.createElement('div');
     }
 
@@ -194,6 +193,29 @@ describe('AppShell module component bridge', () => {
       identity: 'layout:main',
       message: 'Renderer failed',
     });
+  });
+
+  it('renders the screen inside a layout Slot', async () => {
+    const shell = mountShell({
+      layoutSpec: {
+        root: 'shell',
+        elements: {
+          shell: { type: 'Box', props: {}, children: ['slot'] },
+          slot: { type: 'Slot', props: {} },
+        },
+      },
+      layoutKey: 'layout:main',
+      screenSpec: {
+        root: 'page',
+        elements: {
+          page: { type: 'SafeBlock', props: { text: 'screen through slot' } },
+        },
+      },
+    });
+
+    await shell.render();
+
+    expect(shell.target.querySelector('#rntme-layout')?.textContent).toContain('screen through slot');
   });
 
   it('resets a failed screen boundary when screenKey changes', async () => {

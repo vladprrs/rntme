@@ -78,19 +78,21 @@ mock.module('@json-render/shadcn/catalog', () => ({
 
 mock.module('@json-render/shadcn', () => {
   function Stack({
-    element,
+    props,
+    children,
   }: {
-    element: { children?: string[]; props?: Record<string, unknown> };
+    props?: Record<string, unknown>;
+    children?: React.ReactNode;
   }) {
-    return React.createElement('div', null, element.props?.text ? String(element.props.text) : null);
+    return React.createElement('div', null, props?.text ? String(props.text) : children);
   }
 
   function Heading({
-    element,
+    props,
   }: {
-    element: { props?: Record<string, unknown> };
+    props?: Record<string, unknown>;
   }) {
-    return React.createElement('h1', null, String(element.props?.text ?? ''));
+    return React.createElement('h1', null, String(props?.text ?? ''));
   }
 
   return {
@@ -109,31 +111,51 @@ mock.module('@json-render/react', () => {
   }: {
     spec: {
       root: string;
-      elements: Record<string, { type: string; props?: Record<string, unknown> }>;
+      elements: Record<string, { type: string; props?: Record<string, unknown>; children?: string[] }>;
     };
-    registry: Record<string, React.ComponentType<{ element: { type: string; props?: Record<string, unknown> } }>>;
+    registry: Record<string, React.ComponentType<{
+      element: { type: string; props?: Record<string, unknown>; children?: string[] };
+      children?: React.ReactNode;
+    }>>;
   }) {
-    const root = spec.elements[spec.root];
-    if (!root) return null;
-    if (root.type === '__RNTME_TEST_FORCE_RENDERER_THROW__') {
-      const error = new Error('secret token 123');
-      error.name = 'SecretToken123 Error';
-      throw error;
+    const renderElement = (key: string): React.ReactNode => {
+      const element = spec.elements[key];
+      if (!element) return null;
+      if (element.type === '__RNTME_TEST_FORCE_RENDERER_THROW__') {
+        const error = new Error('secret token 123');
+        error.name = 'SecretToken123 Error';
+        throw error;
+      }
+      const Component = registry[element.type];
+      if (!Component) return null;
+      const children = element.children?.map((childKey) => renderElement(childKey));
+      return React.createElement(Component, { key, element, children });
     }
-    const Component = registry[root.type];
-    if (!Component) return null;
-    return React.createElement(Component, { element: root });
+
+    return React.createElement(React.Fragment, null, renderElement(spec.root));
   }
 
   function defineRegistry(
     _catalog: unknown,
     impl: {
-      components: Record<string, React.ComponentType<{ element: { type: string; props?: Record<string, unknown> } }>>;
+      components: Record<string, React.ComponentType<{
+        props?: Record<string, unknown>;
+        children?: React.ReactNode;
+      }>>;
       actions: Record<string, (params?: Record<string, unknown>) => Promise<void>>;
     },
   ) {
+    const registry: Record<string, React.ComponentType<{
+      element: { type: string; props?: Record<string, unknown> };
+      children?: React.ReactNode;
+    }>> = {};
+    for (const [type, Component] of Object.entries(impl.components)) {
+      registry[type] = ({ element, children }) =>
+        React.createElement(Component, { props: element.props ?? {}, children });
+    }
+
     return {
-      registry: impl.components,
+      registry,
       handlers: () => impl.actions,
     };
   }

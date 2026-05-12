@@ -231,6 +231,14 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 - **`paramsFromState` uses path-template substitution for navigation, JSON body params for commands** (`driver.ts`, `registry.ts`). Navigation actions replace `:name` in `navigateTo`; command actions inject remaining params into the JSON body after substituting `{name}` occurrences in the URL.
 - **Unknown browser paths render a client not-found state** (`entry.tsx`). The server still returns the HTML shell for unknown paths so deep links can hydrate, but after the manifest loads the client preserves `window.location.pathname`, renders a runtime-generated not-found screen without an app layout, and writes `/route/status = 'not_found'`, `/route/path`, and `/route/params = {}`. Matched routes write `/route/status = 'ok'`, `/route/path`, and `/route/params`.
 - **`registry.ts` pulls the shadcn catalog from `@json-render/shadcn`** and binds `navigate` and `dispatch` actions validated by zod (`z.object({ to: z.string() }).passthrough()` and `z.object({ name: z.string() })`). Additional custom actions belong in a fork of `createRegistry`.
+- **Runtime and module React components are authored as normal React
+  components** (`registry.ts`). `createRegistry` adapts them to
+  json-render's `{ props, children }` component-function contract before
+  passing them to `defineRegistry`; otherwise props and rendered children are
+  lost at runtime.
+- **`Slot` is patched into the flat registry returned by
+  `defineRegistry`** (`layout-manager.tsx`). Layout rendering depends on this
+  patch so the active screen is inserted at the compiled `Slot` element.
 - **Tailwind v4 scans `build/main.js`** (`client/styles.css` `@source` directive, `build.ts` ordering). CSS must be built after JS or shadcn class names will be pruned — `build.ts` enforces this order.
 - **`AppShell` returns a loading div until `screenSpec` is non-null** (`layout-manager.tsx`). No layout mounts before a screen is resolved, so layout-persistent state begins only after the first successful `enterRoute`.
 - **Renderer crashes fail locally** (`layout-manager.tsx`). Layout and screen

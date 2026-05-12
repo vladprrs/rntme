@@ -15,7 +15,9 @@
         "domain": "${AUTH0_DOMAIN}",
         "clientId": "${AUTH0_SPA_CLIENT_ID}",
         "audience": "${AUTH0_AUDIENCE}",
-        "redirectUri": "${AUTH0_REDIRECT_URI}"
+        "redirectUri": "${AUTH0_REDIRECT_URI}",
+        "postLoginRedirectPath": "/no-org",
+        "authenticatedRedirectPaths": ["/", "/login", "/auth/callback"]
       }
     }
   },

@@ -1,8 +1,23 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "deployments"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Deployments" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "panel"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Project · Deployments",
+        "title": "Deployments"
+      }
+    },
+    "panel": {
+      "type": "Panel",
+      "props": { "title": "All deployments", "subtitle": "Latest 100" },
+      "children": ["deployments"]
+    },
     "deployments": {
       "type": "DataTable",
       "props": {

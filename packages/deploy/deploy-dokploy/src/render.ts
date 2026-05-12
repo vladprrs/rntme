@@ -1,4 +1,6 @@
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
 import {
@@ -86,12 +88,14 @@ export type RenderedDokployApplicationResource = {
   readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
   readonly image: string;
+  readonly entrypoint?: readonly string[];
   readonly command?: string;
   readonly args?: readonly string[];
   readonly build?: RenderedDomainArtifactBuild;
   readonly ports?: readonly RenderedDokployPort[];
   readonly ingress?: RenderedDokployIngress;
   readonly env: readonly RenderedEnvVar[];
+  readonly literalEnv?: Readonly<Record<string, string>>;
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
   readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
@@ -142,6 +146,46 @@ export type RenderedDokployPlan = {
   readonly digest: string;
   readonly warnings: readonly string[];
 };
+
+const DOKPLOY_INLINE_FILE_CONTENT_MAX_BYTES = 650_000;
+const DOKPLOY_ARTIFACT_BUNDLE_PART_CHARS = 600_000;
+const RUNTIME_BOOTSTRAP_DIR = '/srv/rntme-bootstrap';
+const RUNTIME_BOOTSTRAP_START_SH = `#!/bin/sh
+set -eu
+ARTIFACTS_DIR="/tmp/rntme-artifacts"
+export RNTME_ARTIFACTS_DIR="$ARTIFACTS_DIR"
+ARCHIVE_JSON="/tmp/rntme-artifacts.json"
+rm -rf "$ARTIFACTS_DIR"
+mkdir -p "$ARTIFACTS_DIR"
+cat ${RUNTIME_BOOTSTRAP_DIR}/artifacts.json.gz.b64.part* | base64 -d | gzip -d > "$ARCHIVE_JSON"
+bun ${RUNTIME_BOOTSTRAP_DIR}/extract-artifacts.mjs "$ARTIFACTS_DIR" "$ARCHIVE_JSON"
+exec bun packages/runtime/runtime/dist/bin/runtime.js start "$ARTIFACTS_DIR"
+`;
+const RUNTIME_BOOTSTRAP_EXTRACT_MJS = `import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative } from 'node:path';
+
+const [artifactsDir, archiveJson] = process.argv.slice(2);
+if (!artifactsDir || !archiveJson) throw new Error('missing artifact bootstrap args');
+const files = JSON.parse(readFileSync(archiveJson, 'utf8'));
+if (typeof files !== 'object' || files === null || Array.isArray(files)) throw new Error('invalid artifact bundle');
+
+for (const [relPath, content] of Object.entries(files)) {
+  if (typeof content !== 'string') throw new Error('invalid artifact content');
+  if (
+    relPath === '' ||
+    relPath.includes('\\\\') ||
+    isAbsolute(relPath) ||
+    relPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
+  ) {
+    throw new Error('invalid artifact path');
+  }
+  const output = join(artifactsDir, relPath);
+  const inside = relative(artifactsDir, output);
+  if (inside.startsWith('..') || isAbsolute(inside)) throw new Error('invalid artifact path');
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, content, 'utf8');
+}
+`;
 
 export function renderDokployPlan(
   plan: ProjectDeploymentPlan,
@@ -455,8 +499,9 @@ function withComposeFileMounts(
   const nextServices = services.map((service) => {
     if (service.files === undefined || Object.keys(service.files).length === 0) return service;
     const volumes = [...(service.volumes ?? [])];
+    const fileMountsDigest = digest(Object.fromEntries(sortedEntries(service.files)));
     for (const [targetPath, content] of Object.entries(service.files).sort(([a], [b]) => a.localeCompare(b))) {
-      const filePath = composeFileMountPath(service.name, targetPath);
+      const filePath = contentAddressedComposeFileMountPath(service.name, targetPath, content);
       const source = `/etc/dokploy/compose/\${APP_NAME}/files/${filePath}`;
       volumes.push({ source, target: targetPath, readOnly: true });
       fileMounts.push({
@@ -465,13 +510,25 @@ function withComposeFileMounts(
         content,
       });
     }
-    return { ...service, volumes };
+    return {
+      ...service,
+      literalEnv: {
+        ...(service.literalEnv ?? {}),
+        RNTME_FILE_MOUNTS_DIGEST: fileMountsDigest,
+      },
+      volumes,
+    };
   });
   return { services: nextServices, fileMounts };
 }
 
 function composeFileMountPath(serviceName: string, targetPath: string): string {
   return `${safeRelativeMountSegment(serviceName)}/${safeRelativeMountSegment(targetPath)}`;
+}
+
+function contentAddressedComposeFileMountPath(serviceName: string, targetPath: string, content: string): string {
+  const contentDigest = createHash('sha256').update(content).digest('hex').slice(0, 16);
+  return `${composeFileMountPath(serviceName, targetPath)}.rntme-sha256-${contentDigest}`;
 }
 
 function safeRelativeMountSegment(value: string): string {
@@ -502,9 +559,11 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
     ...(resource.workloadKind !== undefined ? { workloadKind: resource.workloadKind } : {}),
     ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
     image: resource.image,
+    ...(resource.entrypoint !== undefined ? { entrypoint: resource.entrypoint } : {}),
     ...(resource.command !== undefined ? { command: resource.command } : {}),
     ...(resource.args !== undefined ? { args: resource.args } : {}),
     env: resource.env,
+    ...(resource.literalEnv !== undefined ? { literalEnv: resource.literalEnv } : {}),
     ...(resource.files !== undefined ? { files: resource.files } : {}),
     ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
     ...(ports !== undefined ? { ports } : {}),
@@ -723,8 +782,9 @@ function renderResource(
 
   if (workload.kind === 'domain-service') {
     const authMiddleware = authMiddlewareForWorkload(plan, workload);
+    const artifactMounts = runtimeArtifactMounts(workload.runtimeFiles, workload.runtime.image);
     const files = {
-      ...runtimeFileMounts(workload.runtimeFiles, workload.runtime.image),
+      ...artifactMounts.files,
       '/srv/config.json': workload.publicConfigJson,
     };
 
@@ -735,6 +795,7 @@ function renderResource(
       workloadSlug: workload.slug,
       name,
       image: workload.runtime.image,
+      ...(artifactMounts.entrypoint === undefined ? {} : { entrypoint: artifactMounts.entrypoint }),
       env: [
         ...eventBusEnv(plan.infrastructure.eventBus),
         {
@@ -760,6 +821,9 @@ function renderResource(
               },
             ]),
       ],
+      literalEnv: {
+        RNTME_RUNTIME_ARTIFACTS_DIGEST: artifactMounts.digest,
+      },
       labels,
       files,
     });
@@ -792,20 +856,67 @@ function storageS3Env(
   ];
 }
 
-function runtimeFileMounts(
+type RuntimeArtifactMounts = {
+  readonly files: Readonly<Record<string, string>>;
+  readonly entrypoint?: readonly string[];
+  readonly digest: string;
+};
+
+function runtimeArtifactMounts(
+  files: Readonly<Record<string, string>>,
+  runtimeImage: string,
+): RuntimeArtifactMounts {
+  const artifactFiles = runtimeArtifactFiles(files, runtimeImage);
+  const artifactDigest = runtimeArtifactDigest(artifactFiles);
+  if (requiresRuntimeArtifactBundle(artifactFiles)) {
+    return bundledRuntimeArtifactMounts(artifactFiles, artifactDigest);
+  }
+  return { files: runtimeFileMounts(artifactFiles), digest: artifactDigest };
+}
+
+function runtimeArtifactFiles(
   files: Readonly<Record<string, string>>,
   runtimeImage: string,
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
     sortedEntries(files)
-      .filter(([path]) => !path.replace(/^\/+/, '').startsWith('ui-build/'))
       .map(([path, content]) => [
-        `/srv/artifacts/${path.replace(/^\/+/, '')}`,
+        path.replace(/^\/+/, ''),
         path.replace(/^\/+/, '') === 'bindings.json' && usesLegacyBindingKindRuntime(runtimeImage)
           ? legacyBindingArtifact(content)
           : content,
       ]),
   );
+}
+
+function runtimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    sortedEntries(files).map(([path, content]) => [`/srv/artifacts/${path}`, content]),
+  );
+}
+
+function requiresRuntimeArtifactBundle(files: Readonly<Record<string, string>>): boolean {
+  return sortedEntries(files).some(([, content]) => Buffer.byteLength(content, 'utf8') > DOKPLOY_INLINE_FILE_CONTENT_MAX_BYTES);
+}
+
+function runtimeArtifactDigest(files: Readonly<Record<string, string>>): string {
+  return digest(Object.fromEntries(sortedEntries(files)));
+}
+
+function bundledRuntimeArtifactMounts(files: Readonly<Record<string, string>>, artifactDigest: string): RuntimeArtifactMounts {
+  const encoded = gzipSync(Buffer.from(JSON.stringify(files), 'utf8'), { level: 9 }).toString('base64');
+  const mountedFiles: Record<string, string> = {
+    [`${RUNTIME_BOOTSTRAP_DIR}/extract-artifacts.mjs`]: RUNTIME_BOOTSTRAP_EXTRACT_MJS,
+    [`${RUNTIME_BOOTSTRAP_DIR}/start.sh`]: RUNTIME_BOOTSTRAP_START_SH,
+  };
+  for (let offset = 0, index = 0; offset < encoded.length; offset += DOKPLOY_ARTIFACT_BUNDLE_PART_CHARS, index += 1) {
+    const suffix = String(index).padStart(3, '0');
+    mountedFiles[`${RUNTIME_BOOTSTRAP_DIR}/artifacts.json.gz.b64.part${suffix}`] = encoded.slice(
+      offset,
+      offset + DOKPLOY_ARTIFACT_BUNDLE_PART_CHARS,
+    );
+  }
+  return { files: mountedFiles, entrypoint: ['/bin/sh', `${RUNTIME_BOOTSTRAP_DIR}/start.sh`], digest: artifactDigest };
 }
 
 function usesLegacyBindingKindRuntime(image: string): boolean {

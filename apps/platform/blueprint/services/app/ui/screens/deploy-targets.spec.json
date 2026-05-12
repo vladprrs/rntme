@@ -1,13 +1,33 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "slug", "provider", "environment", "configJson", "create", "targets"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Deploy Targets" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "form", "list"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Organization · Deploy targets",
+        "title": "Deploy targets"
+      }
+    },
+    "form": {
+      "type": "Panel",
+      "props": { "title": "Add target" },
+      "children": ["slug", "provider", "environment", "configJson", "create"]
+    },
     "slug": { "type": "Input", "props": { "statePath": "/form/target/slug", "placeholder": "Target slug" } },
     "provider": { "type": "Input", "props": { "statePath": "/form/target/provider", "placeholder": "Provider (e.g. dokploy)" } },
     "environment": { "type": "Input", "props": { "statePath": "/form/target/environment", "placeholder": "Environment (e.g. production)" } },
     "configJson": { "type": "Input", "props": { "statePath": "/form/target/configJson", "placeholder": "{}" } },
     "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createDeployTarget" } } },
+    "list": {
+      "type": "Panel",
+      "props": { "title": "All targets" },
+      "children": ["targets"]
+    },
     "targets": {
       "type": "DataTable",
       "props": {

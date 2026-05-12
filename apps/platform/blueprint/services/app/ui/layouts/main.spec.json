@@ -2,17 +2,46 @@
   "root": "shell",
   "elements": {
     "shell": {
-      "type": "Card",
-      "props": { "className": "min-h-screen rounded-none border-0 shadow-none" },
-      "children": ["header", "content"]
+      "type": "Box",
+      "props": { "className": "rntme-app" },
+      "children": ["sidebar", "main"]
     },
-    "header": {
-      "type": "Heading",
-      "props": { "level": 1, "text": "rntme Platform" }
+    "sidebar": {
+      "type": "Sidebar",
+      "props": {
+        "brand": "rntme",
+        "version": "v0.3",
+        "contextLabel": "Platform",
+        "contextName": "rntme control plane",
+        "contextMeta": "Preview · v0.3.2",
+        "cliVersion": "0.3.2",
+        "items": [
+          { "label": "Dashboard", "href": "/", "section": "Project", "active": true },
+          { "label": "Projects", "href": "/", "section": "Project" },
+          { "label": "Deployments", "href": "/", "section": "Project" },
+          { "label": "Deploy targets", "href": "/", "section": "Project" },
+          { "label": "API tokens", "href": "/", "section": "Account" },
+          { "label": "Audit log", "href": "/", "section": "Account" }
+        ]
+      }
     },
-    "content": {
-      "type": "Slot",
-      "props": {}
-    }
+    "main": {
+      "type": "Box",
+      "props": { "className": "rntme-main" },
+      "children": ["topbar", "content"]
+    },
+    "topbar": {
+      "type": "Topbar",
+      "props": {
+        "crumbs": [
+          { "label": "platform" },
+          { "label": "dashboard", "current": true }
+        ],
+        "actions": [
+          { "label": "Docs", "variant": "ghost", "href": "#" }
+        ]
+      }
+    },
+    "content": { "type": "Slot", "props": {} }
   }
 }

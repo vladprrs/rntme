@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { Buffer } from 'node:buffer';
 import type { ProjectDeploymentPlan } from '@rntme/deploy-core';
 import { renderDokployPlan } from '../../src/render.js';
 
@@ -94,19 +95,27 @@ describe('renderDokployPlan', () => {
         '/srv/config.json': '{}',
       },
     });
-    expect(catalog?.volumes).toContainEqual({
-      source: '/etc/dokploy/compose/${APP_NAME}/files/svc-catalog/srv/artifacts/manifest.json',
-      target: '/srv/artifacts/manifest.json',
-      readOnly: true,
-    });
-    expect(stack.fileMounts).toContainEqual({
-      mountPath: '/__rntme_mounts/svc-catalog/srv/artifacts/manifest.json',
-      filePath: 'svc-catalog/srv/artifacts/manifest.json',
-      content: '{"service":{"name":"catalog"}}',
-    });
-    expect(catalog?.files).not.toHaveProperty('/srv/artifacts/ui-build/main.js');
-    expect(stack.composeFile).not.toContain('prebuilt ui');
-    expect(stack.composeFile).not.toContain('RNTME_FILE_');
+    const manifestVolume = catalog?.volumes?.find((volume) => volume.target === '/srv/artifacts/manifest.json');
+    expect(manifestVolume?.source).toMatch(
+      /^\/etc\/dokploy\/compose\/\$\{APP_NAME\}\/files\/svc-catalog\/srv\/artifacts\/manifest\.json\.rntme-sha256-[a-f0-9]{16}$/,
+    );
+    expect(manifestVolume?.readOnly).toBe(true);
+    const manifestMount = stack.fileMounts?.find((mount) =>
+      /^\/__rntme_mounts\/svc-catalog\/srv\/artifacts\/manifest\.json\.rntme-sha256-[a-f0-9]{16}$/.test(mount.mountPath),
+    );
+    expect(manifestMount?.filePath).toMatch(/^svc-catalog\/srv\/artifacts\/manifest\.json\.rntme-sha256-[a-f0-9]{16}$/);
+    expect(manifestMount?.content).toBe('{"service":{"name":"catalog"}}');
+    expect(catalog?.files?.['/srv/artifacts/ui-build/main.js']).toBe('console.log("prebuilt ui")');
+    const uiBuildMount = stack.fileMounts?.find((mount) =>
+      /^\/__rntme_mounts\/svc-catalog\/srv\/artifacts\/ui-build\/main\.js\.rntme-sha256-[a-f0-9]{16}$/.test(mount.mountPath),
+    );
+    expect(uiBuildMount?.filePath).toMatch(/^svc-catalog\/srv\/artifacts\/ui-build\/main\.js\.rntme-sha256-[a-f0-9]{16}$/);
+    expect(uiBuildMount?.content).toBe('console.log("prebuilt ui")');
+    expect(stack.composeFile).toContain('/srv/artifacts/ui-build/main.js');
+    expect(catalog?.literalEnv?.RNTME_FILE_MOUNTS_DIGEST).toMatch(/^sha256:/);
+    const edge = stack.services.find((service) => service.name === 'edge');
+    expect(edge?.literalEnv?.RNTME_FILE_MOUNTS_DIGEST).toMatch(/^sha256:/);
+    expect(stack.composeFile).toContain('RNTME_FILE_MOUNTS_DIGEST: sha256:');
     expect(catalog).not.toHaveProperty('build');
     expect(catalog?.env).toContainEqual({
       name: 'RNTME_EVENT_BUS_BROKERS',
@@ -120,6 +129,52 @@ describe('renderDokployPlan', () => {
     });
     expect(r.value.digest).toMatch(/^sha256:/);
     expect(JSON.stringify(r.value)).not.toContain('apiToken');
+  });
+
+  it('renders oversized runtime artifacts through chunked bootstrap mounts', () => {
+    const largeArtifact = 'x'.repeat(1_200_000);
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'domain-service'
+            ? {
+                ...workload,
+                runtimeFiles: {
+                  ...workload.runtimeFiles,
+                  'ui-build/chunks/large.js': largeArtifact,
+                },
+              }
+            : workload,
+        ),
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const catalog = stack.services.find((service) => service.name === 'svc-catalog');
+    expect(catalog?.entrypoint).toEqual(['/bin/sh', '/srv/rntme-bootstrap/start.sh']);
+    expect(catalog?.files?.['/srv/artifacts/ui-build/chunks/large.js']).toBeUndefined();
+    expect(catalog?.files?.['/srv/rntme-bootstrap/start.sh']).toBeDefined();
+    expect(catalog?.files?.['/srv/rntme-bootstrap/extract-artifacts.mjs']).toBeDefined();
+    expect(catalog?.files?.['/srv/rntme-bootstrap/start.sh']).toContain('ARTIFACTS_DIR="/tmp/rntme-artifacts"');
+    expect(catalog?.files?.['/srv/rntme-bootstrap/start.sh']).not.toContain('RNTME_ARTIFACTS_DIR:-');
+    expect(Object.keys(catalog?.files ?? {})).toContain('/srv/rntme-bootstrap/artifacts.json.gz.b64.part000');
+    expect(catalog?.literalEnv?.RNTME_RUNTIME_ARTIFACTS_DIGEST).toMatch(/^sha256:/);
+    expect(stack.composeFile).toContain('RNTME_RUNTIME_ARTIFACTS_DIGEST: sha256:');
+    expect(stack.composeFile).toContain('/srv/rntme-bootstrap/start.sh');
+    expect(stack.fileMounts?.some((mount) => mount.mountPath.includes('/srv/artifacts/ui-build/chunks/large.js'))).toBe(false);
+    for (const mount of stack.fileMounts ?? []) {
+      expect(Buffer.byteLength(mount.content, 'utf8')).toBeLessThan(700_000);
+    }
   });
 
   it('renders provisioned infra as services inside the project stack', () => {
@@ -289,11 +344,11 @@ describe('renderDokployPlan', () => {
       command: '/bin/sh',
       args: ['/docker-entrypoint-rntme.sh'],
     });
-    expect(proxyService?.volumes).toContainEqual({
-      source: '/etc/dokploy/compose/${APP_NAME}/files/redpanda-console-proxy/docker-entrypoint-rntme.sh',
-      target: '/docker-entrypoint-rntme.sh',
-      readOnly: true,
-    });
+    const proxyEntrypointVolume = proxyService?.volumes?.find((volume) => volume.target === '/docker-entrypoint-rntme.sh');
+    expect(proxyEntrypointVolume?.source).toMatch(
+      /^\/etc\/dokploy\/compose\/\$\{APP_NAME\}\/files\/redpanda-console-proxy\/docker-entrypoint-rntme\.sh\.rntme-sha256-[a-f0-9]{16}$/,
+    );
+    expect(proxyEntrypointVolume?.readOnly).toBe(true);
     expect(proxyService?.env).toContainEqual({ name: 'RNTME_CONSOLE_HTPASSWD_B64', value: 'console-basic-auth', secret: true });
     expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('auth_basic_user_file /etc/nginx/.htpasswd');
     expect(proxyService?.files?.['/etc/nginx/nginx.conf']).toContain('proxy_set_header Authorization "";');
@@ -1021,8 +1076,10 @@ describe('renderDokployPlan', () => {
     expect(stack.composeFile).toContain('      memory: 512M\n');
     expect(stack.composeFile).toContain('  edge:\n');
     expect(stack.composeFile).toContain('    volumes:\n');
-    expect(stack.composeFile).toContain('/etc/dokploy/compose/${APP_NAME}/files/edge/etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro');
-    expect(stack.composeFile).not.toContain('RNTME_FILES_');
+    expect(stack.composeFile).toMatch(
+      /\/etc\/dokploy\/compose\/\$\{APP_NAME\}\/files\/edge\/etc\/nginx\/nginx\.conf\.rntme-sha256-[a-f0-9]{16}:\/etc\/nginx\/nginx\.conf:ro/,
+    );
+    expect(stack.composeFile).toContain('RNTME_FILE_MOUNTS_DIGEST: sha256:');
     expect(stack.composeFile).toContain('      memory: 128M\n');
     expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
   });

@@ -62,7 +62,12 @@ canonical project bundle.
   already grants `refresh_token`). Handles redirect callbacks, writes
   `/auth/status` as `anon` or `authed`, writes `/auth/user` with `{ sub, email,
   name }`, registers a Bearer transport middleware through `ctx.transport.use`,
-  and registers `login` / `logout` operations.
+  and registers `login` / `logout` operations. When a redirect callback is
+  handled successfully, `boot` replaces the callback URL with same-origin
+  `appState.returnTo`, optional `postLoginRedirectPath`, or the callback path
+  without query parameters, in that order. If `authenticatedRedirectPaths` is
+  configured, an already-authenticated boot on one of those same-origin paths
+  is also moved to `postLoginRedirectPath`.
 - `LoginScreen` - anonymous branch component that dispatches the module-level
   `login` operation.
 - `UserBadge` - authenticated branch component that reads `/auth/user` and
@@ -76,8 +81,12 @@ bootstrap, while this contract package is the stable module-facing API.
 
 Required `project.json#modules.identity.publicConfig` keys are `domain`,
 `clientId`, `audience`, and `redirectUri`; optional `scope` defaults to
-`openid profile email`. The access token stays in the module-private `boot`
-closure and is never written to the json-render state store.
+`openid profile email`, optional `postLoginRedirectPath` gives projects with a
+dedicated callback route an authenticated landing path, and optional
+`authenticatedRedirectPaths` lists anonymous routes that should not remain
+visible once Auth0 already has a session. The access token stays in the
+module-private `boot` closure and is never written to the json-render state
+store.
 
 Project layouts must use `visible: { "$state": "/auth/status", ... }` gates
 around anonymous and authenticated branches. The Notes demo uses an anonymous

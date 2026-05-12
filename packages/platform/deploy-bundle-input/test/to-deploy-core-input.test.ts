@@ -48,6 +48,10 @@ describe('toDeployCoreInput', () => {
     expect(app?.runtimeFiles?.['bindings.json']).toContain('"projects.listProjects"');
     expect(app?.runtimeFiles?.['graphs/projects.listProjects.json']).toContain('"id": "projects.listProjects"');
     expect(app?.runtimeFiles?.['manifest.json']).toContain('"name": "identity-auth0"');
+    expect(Object.keys(app?.runtimeFiles ?? {}).some((path) => path.startsWith('ui-build/'))).toBe(true);
+    for (const slug of ['organizations', 'projects', 'tokens', 'audit', 'deployments']) {
+      expect(Object.keys(result.services[slug]?.runtimeFiles ?? {}).some((path) => path.startsWith('ui-build/'))).toBe(false);
+    }
     const qsm = JSON.parse(app?.runtimeFiles?.['qsm.json'] ?? '{}') as {
       projections?: Record<string, unknown>;
     };

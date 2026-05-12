@@ -89,6 +89,13 @@
           "type": "string",
           "required": true
         },
+        "postLoginRedirectPath": {
+          "type": "string"
+        },
+        "authenticatedRedirectPaths": {
+          "type": "string",
+          "array": true
+        },
         "scope": {
           "type": "string"
         }

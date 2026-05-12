@@ -125,6 +125,15 @@ The platform UI is authored as `@rntme/ui` artifacts under
 legacy Hono JSX platform UI and reads/mutates state through platform blueprint
 bindings.
 
+The platform UI routes `/`, `/login`, and `/auth/callback` to the login screen.
+The Auth0 callback path is present so the browser runtime can finish the SPA
+redirect flow without rendering the runtime not-found screen. The platform
+identity public config sets `postLoginRedirectPath: "/no-org"` so a successful
+SPA callback leaves the callback/login route before `ui-runtime` performs its
+first route match. It also lists `/`, `/login`, and `/auth/callback` in
+`authenticatedRedirectPaths` so an already-authenticated browser does not stay
+on the login screen after reload.
+
 ## Local commands
 
 ```bash
