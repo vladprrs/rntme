@@ -1,0 +1,970 @@
+version: 2
+
+goal:
+  title: "Platform CLI Dokploy E2E"
+  slug: "platform-cli-dokploy-e2e"
+  kind: specific
+  tranche: "Continue from the proven preview e2e to a canonical platform.rntme.com deploy, allowed cleanup, GitHub Projects sync through gh, and autonomous PR/merge finishing."
+  status: in_progress
+  intake:
+    original_request: "Plan a full e2e deploy test of apps/platform through apps/cli to Dokploy, solving problems sequentially under docs/decision-system.md."
+    interpreted_outcome: "A real CLI-driven Dokploy deployment of apps/platform is completed, verified, and documented through GoalBuddy receipts, with encountered blockers fixed or explicitly tracked."
+    input_shape: specific
+    audience: "repository owner / platform deploy maintainer"
+    authority: requested
+    proof_type: test
+    completion_proof: "Receipts show the exact CLI deploy command path, Dokploy target evidence, deployed platform smoke/health verification, and final Judge/PM audit with full_outcome_complete: true."
+    likely_misfire: "Stopping at a plan, local-only build/test success, or direct Dokploy action without proving apps/cli deploys apps/platform end to end."
+    blind_spots_considered:
+      - "Live Dokploy operations can mutate remote infrastructure; destructive actions need explicit task-level treatment."
+      - "Secrets must not be persisted in goal files, logs, commits, issues, or PRs."
+      - "The approved design spec is rationale; current docs/code/tests must be verified before implementation."
+      - "Failures should be classified against docs/decision-system.md rather than patched ad hoc."
+      - "Platform bootstrap/direct/client mode boundaries must stay consistent with the CLI universal deploy design."
+    existing_plan_facts:
+      - "Design context: docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "Decision authority: docs/decision-system.md"
+      - "Deploy subject: apps/platform"
+      - "Deploy entry point: apps/cli"
+      - "Deploy target: Dokploy"
+      - "Environment: .env supplies DOKPLOY_URL and DOKPLOY_API_KEY; do not copy secret values into board artifacts."
+      - "Requested behavior: do not block at first problem; solve discovered problems sequentially."
+    operator_followup_2026_05_12:
+      - "GitHub Projects sync may use gh; if ProjectV2 access is blocked by token scopes, use gh auth refresh or an equivalent GH_TOKEN/GITHUB_TOKEN refresh with project scopes."
+      - "Destructive Dokploy cleanup is allowed when needed for this goal, except resources/projects/apps named or owned by cv-cms, landing, or multica must not be touched."
+      - "Desired final platform URL is https://platform.rntme.com if feasible; prove the scenario works there unless a Judge records why the canonical domain is unsafe or unavailable."
+      - "Use superpowers:finishing-a-development-branch before final integration, then create the PR and merge it autonomously once required verification passes."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+
+agents:
+  scout: missing
+  worker: missing
+  judge: missing
+
+visual_board:
+  selected: github_projects
+  local:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy board docs/goals/platform-cli-dokploy-e2e"
+  github_projects:
+    status: blocked
+    url: "https://github.com/users/vladprrs/projects/3"
+    command: "npx goalbuddy extend github-projects"
+    missing:
+      - "GitHub token lacks read:project scope; live ProjectV2 sync could not read project metadata."
+
+active_task: T1003
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: medium
+    objective: "Map the current CLI/platform/deploy implementation and identify the exact safe e2e command path to deploy apps/platform to Dokploy."
+    inputs:
+      - "docs/decision-system.md"
+      - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "apps/cli/README.md and its current owner doc"
+      - "apps/platform/README.md and its current owner doc"
+      - "packages/deploy/deploy-runner/README.md and its current owner doc"
+      - "packages/deploy/deploy-dokploy/README.md and its current owner doc"
+      - "package.json scripts relevant to CLI/platform/deploy"
+      - ".env variable names only; never record secret values"
+    constraints:
+      - "Read-only."
+      - "Do not run the deploy yet."
+      - "Do not edit implementation files."
+      - "Do not print or persist DOKPLOY_API_KEY."
+      - "Treat specs as rationale, not current-state truth; verify current docs/code/tests."
+    expected_output:
+      - "Current implementation map with file-path evidence."
+      - "Exact proposed CLI command(s) for the first deploy attempt."
+      - "Required environment variables and whether they are present, without values."
+      - "Safety classification of remote Dokploy actions needed for the attempt."
+      - "Candidate verification commands and smoke checks."
+      - "Known likely blockers or missing pieces."
+      - "Recommended next Judge decision input."
+    receipt:
+      result: done
+      summary: |
+        Current implementation matches the approved CLI universal deploy path:
+        `apps/cli/src/bin/cli.ts` dispatches `rntme platform up --target <file>`
+        to `apps/cli/src/commands/platform/up.ts`, which locates
+        `apps/platform/blueprint` and delegates to direct deploy. Direct deploy
+        loads the target JSON, resolves env-ref secrets, composes the blueprint,
+        and calls `@rntme/deploy-runner` with a Dokploy client factory.
+
+        `platform.target.json` already exists at the repo root and contains only
+        env-var references. It targets Dokploy project `rntme-platform`,
+        production environment, with provisioned Redpanda event bus, provisioned
+        Operaton workflow engine, Auth0 target config, and nested `auth0Mgmt`
+        env refs. `.env` presence was checked by name only: `DOKPLOY_URL`,
+        `DOKPLOY_API_KEY`, `AUTH0_DOMAIN`,
+        `AUTH0_MANAGEMENT_CLIENT_ID`, and
+        `AUTH0_MANAGEMENT_CLIENT_SECRET` are present.
+
+        Dokploy read-only checks show `rntme-platform/production` is empty
+        (applications=[], compose=[], postgres=[]), while the old `runtime`
+        project contains only the landing app in `done` state. Existing prior
+        receipts under `docs/goals/dokploy-platform-e2e-deploy/` show the old
+        platform-http/rustfs/postgres resources were removed and the CLI target
+        support gates passed.
+      evidence:
+        - "CLI dispatch: apps/cli/src/bin/cli.ts platform up branch."
+        - "Platform wrapper: apps/cli/src/commands/platform/up.ts delegates to runDirectDeploy."
+        - "Direct runner: apps/cli/src/commands/deploy.ts resolves target, secrets, blueprint, and calls runDirectDeployment."
+        - "Target schema: apps/cli/src/deploy-engine/{target-schema,load-target,load-secrets}.ts supports workflows, auth.auth0, and nested extras."
+        - "Platform owner doc: apps/platform is served through @rntme/runtime from apps/platform/blueprint; no apps/platform-http."
+        - "Deploy-runner owner doc: runDeployment is consumed by CLI direct-mode."
+        - "Dokploy MCP project.one(wmiyt_0T7SKvS3sr6rzGK): production env empty."
+      proposed_cli_command: "set -a; . ./.env; set +a; bun run --filter @rntme/cli build && bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
+      safety: "Non-destructive create/update apply into an empty Dokploy environment; no direct Dokploy mutation except read-only inspection before the CLI attempt. Stop before any delete/remove operation."
+      likely_blockers:
+        - "The live deploy may expose missing deploy-runner/deploy-core support for the platform blueprint after the prior CLI schema extension."
+        - "Remote image pulls or Dokploy apply/verify can fail independently of local gates."
+        - "Smoke endpoint may not be /healthz; verify must inspect rendered smoke report and HTTP responses."
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Review Scout findings and approve the first safe e2e deploy attempt or choose the smallest prerequisite Worker fix."
+    inputs:
+      - "T001 receipt"
+      - "docs/decision-system.md"
+      - "Goal intake and non-negotiable constraints"
+    constraints:
+      - "Read-only."
+      - "Do not run deploy commands."
+      - "Reject approaches that bypass apps/cli as the e2e entry point."
+      - "Reject fixes that contradict current decision-system bets unless the conflict is surfaced for user decision."
+    expected_output:
+      - "Decision: deploy_attempt | prerequisite_fix | blocked_specific_task"
+      - "If deploy_attempt: exact command, env prerequisites, verify commands, stop_if conditions."
+      - "If prerequisite_fix: exact Worker objective, allowed_files, verify, stop_if."
+      - "If blocked_specific_task: missing requirement and next safe task that can still proceed."
+    receipt:
+      result: deploy_attempt
+      summary: |
+        Approved the first safe e2e deploy attempt through the required CLI
+        path. The target environment is empty and the command uses
+        `apps/cli` only; Dokploy MCP is reserved for read-only status/log
+        verification around the attempt. No architecture conflict with
+        `docs/decision-system.md`: this follows the CLI universal deploy front,
+        deploy-runner orchestration, platform-as-blueprint, and no
+        `apps/platform-http` bets.
+      command: "set -a; . ./.env; set +a; bun run --filter @rntme/cli build && bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
+      env_prerequisites:
+        - "DOKPLOY_URL present in .env; used by platform.target.json as non-secret endpoint material."
+        - "DOKPLOY_API_KEY present in .env; resolved as the Dokploy API secret."
+        - "AUTH0_DOMAIN, AUTH0_MANAGEMENT_CLIENT_ID, AUTH0_MANAGEMENT_CLIENT_SECRET present in .env; resolved for Auth0 provisioning."
+      verify:
+        - "CLI command exits 0 and prints deployment succeeded."
+        - "Log file exists under docs/goals/platform-cli-dokploy-e2e/notes/ and contains terminal ok without persisted secret values."
+        - "Dokploy read checks show resources created in rntme-platform/production and reaching done/running state."
+        - "HTTP smoke against https://platform.rntme.com/ or rendered smoke URL succeeds; protected API without token returns 401."
+      stop_if:
+        - "Any output would require recording secret values."
+        - "Need destructive Dokploy action."
+        - "Plan fails with DEPLOY_PLAN_* or render/apply/verify fails twice with the same unexplained error."
+        - "A decision-system goal conflict is discovered."
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: low
+    objective: "Execute the Judge-approved first safe action: either the first CLI-to-Dokploy deploy attempt or the smallest prerequisite implementation fix."
+    allowed_files:
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      - "docs/goals/platform-cli-dokploy-e2e/notes/platform-up-*.jsonl"
+    verify:
+      - "bun run --filter @rntme/cli build"
+      - "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+      - "Dokploy MCP read-only project/environment checks for rntme-platform/production."
+      - "HTTP smoke against deployed platform public URL."
+    stop_if:
+      - "Need files outside allowed_files for a code change."
+      - "Need to reveal or persist secret values."
+      - "Need destructive Dokploy action not approved by the active task."
+      - "CLI command path differs from the Judge-approved command in a way that changes scope."
+      - "Verification fails twice with the same unexplained failure."
+      - "A decision-system goal conflict is discovered."
+    receipt:
+      result: blocked_specific_task
+      summary: |
+        CLI build succeeded and copied `apps/platform/blueprint` into
+        `apps/cli/dist/platform-blueprint`. The first CLI deploy attempt did
+        not reach Dokploy apply; it failed locally while converting the
+        platform blueprint through `@rntme/deploy-bundle-input`.
+      commands:
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log> → exit 1"
+      failure:
+        code: "DEPLOY_EXECUTOR_SERVICE_GRAPHS_NOT_FOUND"
+        message: "DEPLOY_EXECUTOR_SERVICE_GRAPHS_NOT_FOUND:app"
+        location: "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts buildRuntimeArtifactFiles"
+      diagnosis: |
+        Root cause investigation shows `apps/platform/blueprint/services/app`
+        is a UI-only domain service. Blueprint composition accepts that shape
+        and compiles the UI against the project binding registry, but
+        `deploy-bundle-input` assumes every domain service has graphs, QSM, and
+        bindings before emitting runtime files. The relevant prior plan
+        `docs/superpowers/plans/2026-05-11-sustained-cutover-thin-platform.md`
+        already names this as Slice A.
+      log_file: "A log file was opened under docs/goals/platform-cli-dokploy-e2e/notes/, but the process failed before deploy-runner emitted JSONL events."
+  - id: T004
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Classify the first deploy/fix result and choose the next sequential problem-solving slice."
+    inputs:
+      - "T003 receipt"
+      - "Command output summaries with secrets redacted"
+      - "Any changed files or blocked conditions"
+    constraints:
+      - "Read-only."
+      - "Do not mark complete unless the full e2e deploy and smoke proof already exist."
+      - "Prefer the smallest next fix that moves the same e2e path forward."
+    expected_output:
+      - "Problem classification: implementation_bug | docs_gap | environment_issue | remote_target_issue | decision_conflict | complete_candidate"
+      - "Next Worker objective or final audit activation."
+      - "allowed_files, verify, and stop_if for the next Worker if not complete."
+    receipt:
+      result: prerequisite_fix
+      summary: |
+        Classified the failed CLI deploy as an implementation bug in
+        `@rntme/deploy-bundle-input`, not a remote Dokploy issue. Approved the
+        smallest prerequisite Worker slice: implement the UI-only domain
+        service behavior described in the existing sustained-cutover plan.
+        This aligns with the decision system because UI-only services are still
+        blueprint-authored artifacts and preserve the canonical CLI → deploy
+        runner path.
+      worker_objective: "Allow deploy-bundle-input to emit UI-only runtime files for domain services with UI but no graph/qsm/bindings, while throwing a new partial-artifacts error when only some of graph/qsm/bindings are present."
+      allowed_files:
+        - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+        - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+        - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      verify:
+        - "bun run --filter @rntme/deploy-bundle-input test"
+        - "bun run --filter @rntme/deploy-bundle-input typecheck"
+        - "bun run --filter @rntme/cli build"
+        - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+      stop_if:
+        - "Runtime needs a larger precompiled-UI contract change instead of deploy-bundle-input-only changes."
+        - "Any fix would bypass apps/cli or revive apps/platform-http."
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: low
+    objective: "Allow deploy-bundle-input to package UI-only domain services, then rerun the CLI platform deploy attempt."
+    allowed_files:
+      - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+      - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun run --filter @rntme/deploy-bundle-input test"
+      - "bun run --filter @rntme/deploy-bundle-input typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Need to reveal or persist secret values."
+      - "Need destructive Dokploy action not approved by the active task."
+      - "Verification fails twice with the same unexplained failure."
+      - "A decision-system goal conflict is discovered."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Implemented the UI-only domain service fix in
+        `@rntme/deploy-bundle-input`, with regression coverage against the
+        actual platform blueprint. Package tests/typecheck and builds passed.
+        Retrying the CLI deploy then passed `compose` and reached `provision`,
+        proving the previous `DEPLOY_EXECUTOR_SERVICE_GRAPHS_NOT_FOUND:app`
+        blocker is cleared.
+      changed_files:
+        - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+        - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+      verification:
+        - "bun run --filter @rntme/deploy-bundle-input test → 3 pass"
+        - "bun run --filter @rntme/deploy-bundle-input typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-bundle-input build → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up retry reached compose/provision, then failed on provisioner entry resolution."
+      next_blocker:
+        code: "DEPLOY_PROVISION_ENTRY_LOAD_FAILED"
+        message: "Cannot find module '@rntme/identity-auth0/./dist/provisioner.entry.js' from apps/cli/dist/platform-blueprint/package.json"
+        classification: "implementation_bug"
+        rationale: "The bundled platform blueprint excludes node_modules and provisioner entry files; `createCliResolveProvisioner` only resolves through package resolution from the bundle directory."
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Bundle platform module provisioner entries into the CLI dist and make direct-mode provisioner resolution prefer the bundled manifest before package resolution, then rerun the CLI platform deploy attempt."
+    allowed_files:
+      - "apps/cli/scripts/copy-platform-blueprint.cjs"
+      - "apps/cli/src/deploy-engine/resolve-provisioner.ts"
+      - "apps/cli/test/unit/deploy-engine/resolve-provisioner.test.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun run --filter @rntme/cli test -- resolve-provisioner.test.ts"
+      - "bun run --filter @rntme/cli typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+    stop_if:
+      - "Provisioner entry bundling requires changing module package build contracts."
+      - "Auth0 provisioning fails due remote credentials or tenant policy rather than local resolution."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Implemented bundled provisioner entry support for the platform
+        blueprint copied into CLI dist. The CLI build now writes
+        `.provisioners/manifest.json` and the Auth0 provisioner entry, and
+        direct-mode resolution checks that manifest before package resolution.
+        The retry passed compose and provision, then failed during deploy
+        planning because the CLI target loader still discarded integration
+        module image config and policy values.
+      changed_files:
+        - "apps/cli/scripts/copy-platform-blueprint.cjs"
+        - "apps/cli/src/deploy-engine/resolve-provisioner.ts"
+        - "apps/cli/test/unit/deploy-engine/resolve-provisioner.test.ts"
+      verification:
+        - "bun test apps/cli/test/unit/deploy-engine/resolve-provisioner.test.ts → 2 pass"
+        - "bun run --filter @rntme/cli typecheck → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up retry passed compose/provision, then failed during plan."
+      next_blocker:
+        code: "DEPLOY_PLAN_MISSING_MODULE_IMAGE / DEPLOY_PLAN_MISSING_POLICY_VALUE / DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING"
+        message: "identity-auth0 needs explicit image config; requestContext.default policy is missing; auth middleware cannot find the identity-auth0 workload."
+        classification: "implementation_bug"
+        rationale: "`apps/cli/src/deploy-engine/load-target.ts` validates workflow/auth fields but normalizes `modules` and `policyValues` to empty objects."
+  - id: T007
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: low
+    objective: "Allow CLI Dokploy target files to carry deploy module config and policy values, update the platform target with the required identity-auth0 image and requestContext policy, then rerun the CLI platform deploy attempt."
+    allowed_files:
+      - "apps/cli/src/deploy-engine/target-schema.ts"
+      - "apps/cli/src/deploy-engine/load-target.ts"
+      - "apps/cli/src/deploy-engine/types.ts"
+      - "apps/cli/src/commands/deploy.ts"
+      - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "apps/cli/test/fixtures/target-platform.json"
+      - "platform.target.json"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun test apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "bun run --filter @rntme/cli typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+    stop_if:
+      - "The selected identity-auth0 image tag is unavailable from GHCR."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Added CLI target support for integration module configs,
+        policyValues, and a direct-mode runtime image pin. Updated the
+        platform target to provide the identity-auth0 image, Auth0 domain env,
+        requestContext.default policy, and a known existing runtime image.
+        Retrying the CLI deploy passed compose, provision, plan, render, and
+        image pulling/start, then failed during post-start compose inspection
+        with Dokploy 404.
+      changed_files:
+        - "apps/cli/src/deploy-engine/target-schema.ts"
+        - "apps/cli/src/deploy-engine/load-target.ts"
+        - "apps/cli/src/deploy-engine/types.ts"
+        - "apps/cli/src/commands/deploy.ts"
+        - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+        - "apps/cli/test/fixtures/target-platform.json"
+        - "platform.target.json"
+      verification:
+        - "bun test apps/cli/test/unit/deploy-engine/load-target.test.ts → 4 pass"
+        - "bun run --filter @rntme/cli typecheck → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up retry passed compose/provision/plan/render and failed after Dokploy compose.start during inspect."
+      next_blocker:
+        code: "DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE"
+        message: "inspect compose project-stack failed with Dokploy 404 after compose.start"
+        classification: "implementation_bug"
+        rationale: "Project-stack service/task inspection is only a verification hint; treating an unavailable inspect endpoint as partial apply failure deletes the just-started compose and prevents the later smoke verification from running."
+  - id: T008
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Make project-stack compose service/task inspection best-effort after successful compose.start, then rerun the CLI platform deploy attempt."
+    allowed_files:
+      - "packages/deploy/deploy-dokploy/src/apply.ts"
+      - "packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun test packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      - "bun run --filter @rntme/deploy-dokploy typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file <goal-notes-log>"
+    stop_if:
+      - "Dokploy compose.start itself fails."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Made project-stack compose load/inspect calls best-effort after a
+        successful compose.start, preserving hard failure behavior for
+        compose.start itself and application task inspection. The retry then
+        failed at compose.start due stale remote Docker containers/networks
+        left by the previous failed inspect cleanup.
+      changed_files:
+        - "packages/deploy/deploy-dokploy/src/apply.ts"
+        - "packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      verification:
+        - "bun test packages/deploy/deploy-dokploy/test/unit/apply.test.ts → 43 pass"
+        - "bun run --filter @rntme/deploy-dokploy typecheck → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up retry failed at Dokploy compose.start with stale container/network name conflicts."
+      next_blocker:
+        code: "DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE"
+        message: "compose.start failed because stale remote Docker resources already use the generated compose project name."
+        classification: "remote_target_issue"
+        rationale: "The direct-mode --name suffix is parsed but unused; wiring it into the deploy naming context allows a non-destructive clean e2e retry under a distinct resource name."
+  - id: T009
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: low
+    objective: "Wire the direct-mode --name suffix into the deployment naming context so a non-destructive retry can avoid stale remote Docker resource names, then rerun platform up with a suffix."
+    allowed_files:
+      - "apps/cli/src/commands/deploy.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun run --filter @rntme/cli typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <suffix> --log-file <goal-notes-log>"
+    stop_if:
+      - "A distinct --name suffix still collides with remote Docker resources."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Wired direct-mode `--name` into the deployment naming context and
+        retried with a fresh suffix. The rendered resource name changed as
+        expected, proving the suffix is effective, but Dokploy still failed
+        at compose.start because compose.deploy had already created the same
+        Docker network/containers and compose.start invoked `docker compose up`
+        again.
+      changed_files:
+        - "apps/cli/src/commands/deploy.ts"
+      verification:
+        - "bun run --filter @rntme/cli typecheck → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up --name e2e-040503 rendered resource rntme-direct-e2e-040503-rntme-platform, then failed at compose.start with self-conflicting container/network names."
+      next_blocker:
+        code: "DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE"
+        message: "compose.start performs a second docker compose up after compose.deploy already created containers."
+        classification: "implementation_bug"
+        rationale: "For compose resources, deployCompose is the lifecycle action that applies and starts the compose stack; startCompose is redundant and can race/collide."
+  - id: T010
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Stop calling Dokploy compose.start after compose.deploy for project-stack resources, then rerun platform up with a fresh suffix."
+    allowed_files:
+      - "packages/deploy/deploy-dokploy/src/apply.ts"
+      - "packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun test packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      - "bun run --filter @rntme/deploy-dokploy typecheck"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <fresh-suffix> --log-file <goal-notes-log>"
+    stop_if:
+      - "compose.deploy alone does not start the project stack."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Removed the redundant compose.start call and rebuilt deploy-dokploy,
+        deploy-runner, and CLI dist before retrying. The CLI deploy then
+        completed apply and created a Dokploy compose, but smoke verification
+        returned 404 for /health, /, and /config.json.
+      changed_files:
+        - "packages/deploy/deploy-dokploy/src/apply.ts"
+        - "packages/deploy/deploy-dokploy/test/unit/apply.test.ts"
+      verification:
+        - "bun test packages/deploy/deploy-dokploy/test/unit/apply.test.ts → 43 pass"
+        - "bun run --filter @rntme/deploy-dokploy typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-dokploy build → exit 0"
+        - "bun run --filter @rntme/deploy-runner build → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up --name e2e-040647 reached apply success, then smoke failed with 404s."
+      next_blocker:
+        code: "DEPLOY_EXECUTOR_SMOKE_FAILED"
+        message: "edge-health, ui, and config-json checks returned 404."
+        classification: "implementation_bug"
+        rationale: "Dokploy compose inspection showed stock nginx with no mounted generated nginx config; compose-stack rendering drops service.files for edge and runtime artifact files."
+  - id: T011
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Render non-secret compose service files as Docker Compose configs mounted at their target paths so edge config and runtime artifacts exist in project-stack mode, then rerun platform up with a fresh suffix."
+    allowed_files:
+      - "packages/deploy/deploy-dokploy/src/compose-yaml.ts"
+      - "packages/deploy/deploy-dokploy/src/compose-model.ts"
+      - "packages/deploy/deploy-dokploy/src/index.ts"
+      - "packages/deploy/deploy-dokploy/src/render.ts"
+      - "packages/deploy/deploy-runner/src/dokploy-client-factory.ts"
+      - "packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun test packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+      - "bun run --filter @rntme/deploy-dokploy typecheck"
+      - "bun run --filter @rntme/deploy-dokploy build"
+      - "bun run --filter @rntme/deploy-runner build"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <fresh-suffix> --log-file <goal-notes-log>"
+    stop_if:
+      - "Docker Compose configs with inline content are not accepted by Dokploy's compose.start path."
+      - "Secret file material would need to be embedded in compose YAML."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Replaced compose-inline/bootstrap file delivery with Dokploy compose
+        file mounts plus explicit Docker Compose bind mounts. The source path
+        uses Dokploy's generated `${APP_NAME}` env because compose app names
+        receive a suffix at creation time. A fresh CLI deploy reached Dokploy
+        composeStatus=done with edge and most runtime services running; the
+        prior missing-file/EISDIR issue from wrong mount sources was resolved.
+      changed_files:
+        - "packages/deploy/deploy-dokploy/src/compose-model.ts"
+        - "packages/deploy/deploy-dokploy/src/compose-yaml.ts"
+        - "packages/deploy/deploy-dokploy/src/index.ts"
+        - "packages/deploy/deploy-dokploy/src/render.ts"
+        - "packages/deploy/deploy-runner/src/dokploy-client-factory.ts"
+        - "packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+      verification:
+        - "bun test packages/deploy/deploy-dokploy/test/unit/render.test.ts packages/deploy/deploy-dokploy/test/unit/apply.test.ts → 71 pass"
+        - "bun run --filter @rntme/deploy-dokploy typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-dokploy build → exit 0"
+        - "bun run --filter @rntme/deploy-runner typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-runner build → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up --name e2e-044427 reached apply success; Dokploy composeStatus=done and edge container running."
+      next_blocker:
+        code: "BINDINGS_PARSE_SCHEMA_VIOLATION"
+        message: "runtime image rejects binding artifact key exposure"
+        classification: "artifact_runtime_version_mismatch"
+        rationale: "Available GHCR runtime images are before the bindings kind→exposure change, while the current platform blueprint emits exposure-based bindings."
+  - id: T012
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Resolve the live runtime binding artifact compatibility blocker and the non-destructive event-bus deploy blocker without bypassing the CLI deploy path, then rerun platform up with a fresh suffix."
+    allowed_files:
+      - "apps/cli/src/deploy-engine/target-schema.ts"
+      - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "packages/deploy/deploy-runner/src/build-deploy-config.ts"
+      - "packages/deploy/deploy-runner/src/deploy-target-types.ts"
+      - "packages/deploy/deploy-dokploy/src/render.ts"
+      - "packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+      - "platform.target.json"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "bun test apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "bun test packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+      - "bun run --filter @rntme/deploy-dokploy typecheck"
+      - "bun run --filter @rntme/deploy-dokploy build"
+      - "bun run --filter @rntme/deploy-runner build"
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <fresh-suffix> --log-file <goal-notes-log>"
+    stop_if:
+      - "The fix would hide action/read semantics from a runtime image that needs them."
+      - "A current runtime image tag that supports exposure is found and should be used instead of artifact downgrade."
+      - "Using the in-memory event bus would require changing production defaults or removing Kafka support."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done_then_next_blocker
+      summary: |
+        Built fresh runtime and identity-auth0 images in GitHub Actions and
+        updated the platform target to use those tags. Added a narrow legacy
+        binding-artifact downgrade only for known pre-exposure runtime tags,
+        leaving current runtime tags on the exposure-based artifact shape.
+        Added CLI/deploy-runner support for an explicit in-memory event bus
+        target so the live e2e could avoid the remote host's Redpanda AIO
+        exhaustion without deleting stale Dokploy resources. A fresh CLI
+        deploy reached Dokploy apply successfully and created the project-stack
+        compose at `https://e2e-051047.platform.rntme.com`.
+      changed_files:
+        - "apps/cli/src/deploy-engine/target-schema.ts"
+        - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+        - "packages/deploy/deploy-runner/src/build-deploy-config.ts"
+        - "packages/deploy/deploy-runner/src/deploy-target-types.ts"
+        - "packages/deploy/deploy-dokploy/src/render.ts"
+        - "packages/deploy/deploy-dokploy/test/unit/render.test.ts"
+        - "platform.target.json"
+      verification:
+        - "bun test apps/cli/test/unit/deploy-engine/load-target.test.ts → 5 pass"
+        - "bun test packages/deploy/deploy-dokploy/test/unit/render.test.ts packages/deploy/deploy-dokploy/test/unit/apply.test.ts → 72 pass"
+        - "bun run --filter @rntme/deploy-dokploy typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-dokploy build → exit 0"
+        - "bun run --filter @rntme/deploy-runner build → exit 0"
+        - "bun run --filter @rntme/cli typecheck → exit 0"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up --name e2e-051058 reached Dokploy apply and created compose ZOdiBqWIW5uju8DtLqnEq; built-in smoke failed before Traefik settled."
+        - "Manual curl after settle: /health → 200 ok; /config.json → 200 with expected e2e-051047 Auth0 audience; / → 502."
+      next_blocker:
+        code: "GRAPH_CALL_TARGET_UNRESOLVED"
+        message: "runtime boot fails compiling platform graphs with identity-auth0.IntrospectSession call nodes"
+        classification: "runtime_call_registry_gap"
+        rationale: "Runtime bindings-http builds operation maps with an empty OperationRegistry, while platform graphs now contain module call nodes. The UI-host app also packages copied domain graphs with an empty QSM, so app boot cannot resolve source projections."
+  - id: T013
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Allow deployed runtime services to compile platform module call nodes and package UI-host QSM projections, then rerun platform up with a fresh suffix."
+    allowed_files:
+      - "packages/runtime/bindings-http/src/startup/compile-plan.ts"
+      - "packages/runtime/bindings-http/src/router.ts"
+      - "packages/runtime/bindings-http/src/runtime/operation-handler.ts"
+      - "packages/runtime/bindings-http/src/index.ts"
+      - "packages/runtime/bindings-http/test/unit/compile-plan-operation.test.ts"
+      - "packages/runtime/runtime/src/plugins/http-surface.ts"
+      - "packages/runtime/runtime/src/plugins/interfaces.ts"
+      - "packages/runtime/runtime/src/plugins/contract-tests.ts"
+      - "packages/runtime/runtime/src/start/start-service.ts"
+      - "packages/runtime/runtime/test/integration/startup.test.ts"
+      - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+      - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+      - "platform.target.json"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      - "docs/goals/platform-cli-dokploy-e2e/notes/platform-up-*.jsonl"
+    verify:
+      - "bun test packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+      - "bun test packages/runtime/bindings-http/test/unit/compile-plan-operation.test.ts"
+      - "bun test packages/runtime/runtime/test/integration/startup.test.ts"
+      - "bun run --filter @rntme/platform-deploy-bundle-input typecheck"
+      - "bun run --filter @rntme/bindings-http typecheck"
+      - "bun run --filter @rntme/bindings-http build"
+      - "bun run --filter @rntme/runtime typecheck"
+      - "bun run --filter @rntme/runtime build"
+      - "bun run --filter @rntme/cli build"
+      - "Build and publish a fresh runtime image if runtime package code changes are needed for live deploy."
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <fresh-suffix> --log-file <goal-notes-log>"
+    stop_if:
+      - "The fix would require bypassing graph validation or allowing unresolved call targets."
+      - "A module operation effect cannot be classified without a contract/source of truth."
+      - "The next failure requires destructive Dokploy cleanup not approved by this task."
+      - "Any output would require recording secret values."
+    receipt:
+      result: done
+      summary: |
+        Added runtime call-registry plumbing for declared module call nodes and
+        passed an operation call client through the bindings HTTP router into
+        Graph IR execution. The runtime registry deliberately classifies only
+        the known `identity-auth0.IntrospectSession` module operation as a read
+        call; unknown module operations remain unresolved instead of being
+        silently accepted. Updated UI-host deploy packaging so the app service
+        receives the QSM projections and module manifest entries required by
+        the copied domain graphs exposed to the UI.
+
+        Local Docker image publishing was blocked by the environment
+        (`operation not permitted` from both BuildKit and legacy builder), so a
+        temporary GitHub branch was pushed and the existing runtime image
+        workflow built `ghcr.io/vladprrs/rntme-runtime:runtime-e2e-8707e652-052054`.
+        The runtime manifest was verified in GHCR before deploy.
+      changed_files:
+        - "packages/runtime/bindings-http/src/startup/compile-plan.ts"
+        - "packages/runtime/bindings-http/src/router.ts"
+        - "packages/runtime/bindings-http/src/runtime/operation-handler.ts"
+        - "packages/runtime/bindings-http/src/index.ts"
+        - "packages/runtime/bindings-http/test/unit/compile-plan-operation.test.ts"
+        - "packages/runtime/runtime/src/plugins/http-surface.ts"
+        - "packages/runtime/runtime/src/plugins/interfaces.ts"
+        - "packages/runtime/runtime/src/plugins/contract-tests.ts"
+        - "packages/runtime/runtime/src/start/start-service.ts"
+        - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+        - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+        - "platform.target.json"
+      verification:
+        - "bun run --filter @rntme/deploy-bundle-input test → 3 pass"
+        - "bun run --filter @rntme/deploy-bundle-input typecheck → exit 0"
+        - "bun run --filter @rntme/deploy-bundle-input build → exit 0"
+        - "bun test packages/runtime/bindings-http/test/unit/compile-plan-operation.test.ts → 2 pass"
+        - "bun run --filter @rntme/bindings-http typecheck → exit 0"
+        - "bun run --filter @rntme/bindings-http build → exit 0"
+        - "bun test packages/runtime/runtime/test/integration/startup.test.ts → 13 pass"
+        - "bun run --filter @rntme/runtime typecheck → exit 0"
+        - "bun run --filter @rntme/runtime build → exit 0"
+        - "docker manifest inspect ghcr.io/vladprrs/rntme-runtime:runtime-e2e-8707e652-052054 → ok"
+        - "bun run --filter @rntme/cli build → exit 0"
+        - "CLI platform up --name e2e-053427 applied compose NeOnsT0DRLGndE3Ot7JMx; built-in immediate smoke failed before routing/readiness settled."
+        - "Manual smoke after readiness: https://e2e-053407.platform.rntme.com/health → 200 ok."
+        - "Manual smoke after readiness: https://e2e-053407.platform.rntme.com/config.json → 200 with expected e2e-053407 Auth0 audience/redirect."
+        - "Manual smoke after readiness: https://e2e-053407.platform.rntme.com/ → 200 UI shell."
+        - "Manual smoke after readiness: https://e2e-053407.platform.rntme.com/api/projects without credentials → 401 RUNTIME_AUTH_TOKEN_INVALID."
+      remote_artifacts:
+        - "Temporary branch: e2e/runtime-image-052046, final source commit ad4f8efe."
+        - "Runtime image workflow: https://github.com/vladprrs/rntme/actions/runs/25715094297."
+        - "Runtime image tag used for deploy: ghcr.io/vladprrs/rntme-runtime:runtime-e2e-8707e652-052054."
+        - "Live compose id: NeOnsT0DRLGndE3Ot7JMx."
+        - "Live smoke URL: https://e2e-053407.platform.rntme.com."
+  - id: T900
+    type: pm
+    assignee: PM
+    status: blocked
+    reasoning_hint: medium
+    objective: "If GitHub Projects sync is available, sync this GoalBuddy board to the selected project and record the external artifact link/status."
+    inputs:
+      - "https://github.com/users/vladprrs/projects/3"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    constraints:
+      - "Do not sync secrets."
+      - "Do not let GitHub sync failures block the deploy goal; block only this PM task and continue local board execution."
+    expected_output:
+      - "GitHub Projects sync status and link, or a blocked receipt with exact missing capability."
+    receipt:
+      result: blocked
+      summary: "Dry-run succeeded, but live sync to https://github.com/users/vladprrs/projects/3 failed because the current gh token lacks read:project scope for ProjectV2 GraphQL access."
+      evidence:
+        - "Dry-run planned 7 ProjectV2 task upserts."
+        - "gh auth status token scopes: gist, read:org, repo, workflow."
+      next_step: "Authorize gh or provide GITHUB_TOKEN/GH_TOKEN with ProjectV2 project scopes, then rerun the GoalBuddy github-projects sync script."
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether the full original e2e deploy outcome is complete."
+    inputs:
+      - "All done task receipts"
+      - "Last deploy command summary"
+      - "Last smoke/health verification"
+      - "Current unresolved blocked tasks"
+      - "Current dirty diff summary if code was changed"
+    constraints:
+      - "Read-only."
+      - "Reject completion if apps/cli was bypassed."
+      - "Reject completion if deployed platform smoke/health verification is missing."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if any secret value was persisted and not remediated."
+      - "Reject stopping only because a slice needs owner input, credentials, production access, destructive operations, or policy decisions."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Evidence mapping from receipts to original request."
+      - "Missing evidence or next task if not complete."
+    receipt:
+      result: complete
+      full_outcome_complete: true
+      summary: |
+        The original request is complete. A real `apps/cli`-driven
+        `platform up` deployed `apps/platform` to Dokploy, created the live
+        project-stack compose, and the deployed platform was smoke-verified
+        after remote routing/readiness settled. The implementation stayed on
+        the approved CLI/direct deploy path and did not use destructive remote
+        cleanup. Secret values were not recorded in the board; only env var
+        names, public URLs, non-secret image tags, and public Auth0 client
+        configuration from `/config.json` were recorded.
+      evidence:
+        - "CLI entrypoint used: bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name e2e-053427 --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T053427Z.jsonl."
+        - "Apply result created Dokploy compose NeOnsT0DRLGndE3Ot7JMx with services svc-organizations, svc-projects, svc-tokens, svc-audit, mod-identity-auth0, svc-deployments, svc-app, and edge."
+        - "Manual smoke passed: /health 200, /config.json 200, / 200 UI shell, /api/projects without credentials 401."
+        - "Known CLI verifier caveat: immediate built-in smoke failed because the route was not ready yet; repeated manual verification after readiness passed."
+      residual_risks:
+        - "Remote stale Dokploy stacks remain because destructive cleanup was not approved."
+        - "The e2e target uses an in-memory event bus to avoid the remote host Redpanda AIO exhaustion; this is intentionally preview/e2e only."
+        - "The temporary runtime image tag was built from commit 8707e652; the temporary branch was later amended to ad4f8efe for final source consistency, but the amend only affected local deploy-bundle packaging, not runtime image contents."
+  - id: T1000
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Plan the operator-approved continuation from proven preview e2e to canonical platform.rntme.com proof and autonomous integration."
+    inputs:
+      - "Operator follow-up answers recorded on 2026-05-12."
+      - "T999 completion audit and residual risks."
+      - "Current dirty diff and branch state."
+      - "Live Dokploy resources, with strict exclusions for cv-cms, landing, and multica."
+      - "GitHub auth state and project sync requirements."
+    constraints:
+      - "Read-only."
+      - "Do not perform cleanup, deploy, push, PR creation, or merge in this Judge task."
+      - "Respect the operator-approved destructive scope: cleanup is allowed for this goal, but never touch cv-cms, landing, or multica resources."
+      - "Prefer https://platform.rntme.com as the final smoke URL if feasible."
+      - "Keep apps/cli as the deploy entry point."
+    expected_output:
+      - "Decision: canonical_deploy_worker | cleanup_first_worker | github_sync_worker | finishing_worker | blocked_specific_task."
+      - "Exact next Worker objective with allowed_files, allowed remote actions, verify commands, and stop_if."
+      - "Whether platform.rntme.com can be targeted now or requires cleanup/routing changes first."
+      - "Whether gh can sync GitHub Projects with current auth or needs gh auth refresh/project scopes."
+    receipt:
+      result: canonical_deploy_worker
+      summary: |
+        Approved T1002 as the next Worker slice. The preview e2e is proven,
+        but the operator continuation requires proof at the canonical
+        `https://platform.rntme.com` URL before final integration. Current
+        read-only inspection shows `rntme-platform/production` is empty and
+        `rntme-platform/default` contains only goal-owned
+        `rntme-direct-e2e-*` composes from prior attempts. The protected
+        `cv-cms`, `landing`, and `multica` resources are in separate projects
+        and must remain untouched.
+      decision: "canonical_deploy_worker"
+      platform_rntme_com_feasibility: |
+        Feasible now by updating the target public/Auth0 URLs back to
+        `https://platform.rntme.com` and deploying through `apps/cli`. If the
+        unsuffixed canonical resource collides with stale goal-owned Docker
+        resources, T1002 may clean up only resources created by this goal and
+        retry. Do not change or delete resources in projects named/owned by
+        `cv-cms`, `landing`, or `multica`.
+      github_projects_status: |
+        Still blocked as a separate slice: `gh auth status` shows scopes
+        `gist`, `read:org`, `repo`, and `workflow`, but not ProjectV2 project
+        scopes. T1001 can retry `gh auth refresh` or use a provided token
+        without blocking the deploy proof.
+      next_task: T1002
+  - id: T1001
+    type: worker
+    assignee: Worker
+    status: blocked
+    reasoning_hint: medium
+    objective: "Use gh to unblock/sync the GoalBuddy board to GitHub Projects when token scopes allow it."
+    allowed_files:
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    allowed_remote_actions:
+      - "Run gh auth status."
+      - "Run gh auth refresh with project scopes if interactive/non-secret auth is available, or use provided GH_TOKEN/GITHUB_TOKEN."
+      - "Run the GoalBuddy GitHub Projects sync for https://github.com/users/vladprrs/projects/3."
+    verify:
+      - "gh auth status shows scopes sufficient for ProjectV2 access, or receipt records the exact missing scope."
+      - "GoalBuddy GitHub Projects sync succeeds, or receipt records the exact gh/GraphQL failure."
+    stop_if:
+      - "A secret token would need to be printed or persisted."
+      - "Interactive auth is required but unavailable in the execution environment."
+    receipt:
+      result: blocked
+      summary: |
+        GitHub Projects sync is still blocked and does not block the deploy
+        goal. `gh auth status` still shows scopes `gist`, `read:org`, `repo`,
+        and `workflow`, without ProjectV2 project scope. A non-interactive
+        `gh auth refresh -s project` requires `--hostname`; retrying with
+        `-h github.com` entered the browser/device flow and did not complete in
+        this environment. The bundled GoalBuddy sync script also currently
+        fails before any GitHub write because its lightweight parser rejects
+        block scalar YAML in this board's receipts.
+      verification:
+        - "gh auth status → missing ProjectV2 project scope."
+        - "gh auth refresh -s project → failed because --hostname is required non-interactively."
+        - "timeout 20 gh auth refresh -h github.com -s project → interactive device flow required; scopes unchanged."
+        - "sync-github-project.mjs --state docs/goals/platform-cli-dokploy-e2e/state.yaml --owner vladprrs --project-number 3 --dry-run --json → failed locally: block scalar YAML is not supported by the lightweight parser."
+      next_step: "Provide a refreshed GH_TOKEN/GITHUB_TOKEN with ProjectV2 scope and either normalize the board YAML for the current sync script or fix the GoalBuddy parser in a separate approved slice."
+  - id: T1002
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Deploy apps/platform through apps/cli to the canonical https://platform.rntme.com target and prove the scenario works there."
+    allowed_files:
+      - "platform.target.json"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      - "docs/goals/platform-cli-dokploy-e2e/notes/platform-up-*.jsonl"
+    allowed_remote_actions:
+      - "Read Dokploy projects/environments/resources/logs."
+      - "Create/update Dokploy resources required by the CLI deploy path."
+      - "Delete/cleanup stale Dokploy resources created by this goal when needed."
+      - "Do not touch any resource/project/app named or owned by cv-cms, landing, or multica."
+    verify:
+      - "bun run --filter @rntme/cli build"
+      - "set -a; . ./.env; set +a; bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --name <suffix-if-needed> --log-file <goal-notes-log>"
+      - "Smoke after readiness against https://platform.rntme.com/health returns 200."
+      - "Smoke after readiness against https://platform.rntme.com/config.json returns 200 with expected public config."
+      - "Smoke after readiness against https://platform.rntme.com/ returns 200 UI shell."
+      - "Protected API without credentials returns 401."
+    stop_if:
+      - "Canonical domain routing would overwrite or break cv-cms, landing, or multica."
+      - "A secret value would be printed or persisted."
+      - "The next fix needs code files outside allowed_files; create a new Judge-approved Worker slice."
+      - "A decision-system contradiction is discovered."
+    receipt:
+      result: done
+      summary: |
+        Deployed `apps/platform` through the compiled `apps/cli` direct path to
+        the canonical `https://platform.rntme.com` URL. The first canonical
+        apply created compose `2mG1RpL80Q7MTmYf67Ky4` but immediate smoke hit
+        stale/conflicting `platform.rntme.com` routes from earlier goal-owned
+        `rntme-direct-e2e-*` composes. Cleaned up only those goal-created
+        composes in the `rntme-platform/default` environment, leaving the
+        protected `cv-cms`, `landing`, and `multica` projects untouched. A
+        second CLI run updated the canonical compose and passed built-in smoke.
+      changed_files:
+        - "platform.target.json"
+        - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+        - "docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T061824Z.jsonl"
+        - "docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T062031Z.jsonl"
+      remote_actions:
+        - "Created/updated Dokploy compose `rntme-direct-rntme-platform` (`2mG1RpL80Q7MTmYf67Ky4`) in `rntme-platform/default` through `apps/cli`."
+        - "Deleted 16 stale goal-owned `rntme-direct-e2e-*` composes from `rntme-platform/default` with volumes."
+      verification:
+        - "bun run --filter @rntme/cli build → exit 0."
+        - "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T061824Z.jsonl → exit 10 after apply; immediate smoke 502 because stale routes still existed."
+        - "Goal-owned stale compose cleanup completed for 16 `rntme-direct-e2e-*` composes."
+        - "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T062031Z.jsonl → exit 0; built-in smoke health/ui/config all 200."
+        - "Manual post-run smoke: /health 200, /config.json 200 with `https://platform.rntme.com` audience/redirect, / 200 UI shell, /api/projects without credentials 401."
+      residual_risks:
+        - "The deploy still uses the explicit in-memory event bus target from the preview workaround; the runner warns this is non-durable and intended for preview/e2e deployments."
+  - id: T1003
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: high
+    objective: "Run the finishing workflow, create a PR, and merge autonomously once required verification passes."
+    allowed_files:
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    allowed_remote_actions:
+      - "Push the current branch."
+      - "Create a pull request."
+      - "Monitor required checks."
+      - "Merge the pull request when checks pass and no unhandled review/change request blocks it."
+    verify:
+      - "Use superpowers:finishing-a-development-branch."
+      - "Run required local verification before PR creation, at minimum targeted tests/typecheck/build touched by the branch or the repo-standard checks selected by Judge."
+      - "PR URL is recorded."
+      - "Merge commit or squash/rebase merge result is recorded."
+    stop_if:
+      - "Required verification fails."
+      - "The PR receives unresolved requested changes."
+      - "Merge requires a policy decision not already authorized."
+
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: pass
+    summary: "Preview live CLI deploy through apps/cli reached Dokploy apply; manual smoke after readiness passed for health, config, UI, and protected API auth rejection. Operator requested continuation to canonical platform.rntme.com, gh project sync, allowed cleanup, and autonomous PR/merge."
+    task: T999
+    commands: []

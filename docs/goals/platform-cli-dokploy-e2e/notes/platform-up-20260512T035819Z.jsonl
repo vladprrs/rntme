@@ -1,0 +1,16 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Provisioning Redpanda event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"log","level":"info","step":"provision","message":"Provisioning 1 module(s)"}
+{"type":"provision-result","publicByModule":{"identity":{"spaClient":{"id":"AjOMyNUPyuJpkCf4RR8izh9z84wGHqXE","name":"rntme-platform"},"resourceServer":{"id":"6a016f0e49ae70022e03ce99","identifier":"https://platform.rntme.com/api"}}},"secretByModule":{"identity":{"m2mClients":[]}},"startedAt":"2026-05-12T03:58:19.777Z","finishedAt":"2026-05-12T03:58:20.688Z"}
+{"type":"stage-complete","stage":"provision","durationMs":916}
+{"type":"stage-begin","stage":"plan"}
+{"type":"stage-complete","stage":"plan","durationMs":3}
+{"type":"log","level":"info","step":"render","message":"Rendering Dokploy plan"}
+{"type":"stage-begin","stage":"render"}
+{"type":"stage-complete","stage":"render","durationMs":74}
+{"type":"log","level":"info","step":"render","message":"Rendered Dokploy plan digest sha256:7b96601d6a42c12a169b00b20ffe72d683885ff7fe99f5eea5ebde86bb2a25ff"}
+{"type":"log","level":"info","step":"apply","message":"Applying Dokploy plan"}
+{"type":"stage-begin","stage":"apply"}
+{"type":"log","level":"error","step":"apply","message":"deploy compose project-stack: failed while applying resource \"rntme-direct-rntme-platform\": Dokploy request failed: 500 {\"message\":\"Command execution failed: Command failed: env -i PATH=\\\"$PATH\\\" docker compose -p rntme-direct-rntme-platform-rcynf1 -f docker-compose.yml up -d\\n Image docker.redpanda.com/redpandadata/redpanda:v24.3.6 Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image nginx:1.27-alpine Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743 Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Pulling \\n Image ghcr.io/vladprrs/rntme-runtime:latest Error manifest unknown\\n Image nginx:1.27-alpine Interrupted \\n Image ghcr.io/vladprrs/rntme-runtime:latest Interrupted \\n Image ghcr.io/vladprrs/rntme-runtime:latest Interrupted \\n Image ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743 Interrupted \\n Image ghcr.io/vladprrs/rntme-runtime:latest Interrupted \\n Image docker.redpanda.com/redpandadata/redpanda:v24.3.6 Interrupted \\n Image ghcr.io/vladprrs/rntme-runtime:latest Interrupted \\n Image ghcr.io/vladprrs/rntme-runtime:latest Interrupted \\nError response from daemon: manifest unknown\\n\",\"code\":\"INTERNAL_SERVER_ERROR\",\"data\":{\"code\":\"INTERNAL_SERVER_ERROR\",\"httpStatus\":500,\"path\":\"compose.start\",\"zodError\":null}}"}

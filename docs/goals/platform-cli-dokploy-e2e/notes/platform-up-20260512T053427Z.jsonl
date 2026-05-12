@@ -1,0 +1,21 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Using in-memory event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"log","level":"info","step":"provision","message":"Provisioning 1 module(s)"}
+{"type":"provision-result","publicByModule":{"identity":{"spaClient":{"id":"AjOMyNUPyuJpkCf4RR8izh9z84wGHqXE","name":"rntme-platform"},"resourceServer":{"id":"6a02bbe5146ca21c1a67295c","identifier":"https://e2e-053407.platform.rntme.com/api"}}},"secretByModule":{"identity":{"m2mClients":[]}},"startedAt":"2026-05-12T05:34:27.992Z","finishedAt":"2026-05-12T05:34:29.387Z"}
+{"type":"stage-complete","stage":"provision","durationMs":1401}
+{"type":"stage-begin","stage":"plan"}
+{"type":"stage-complete","stage":"plan","durationMs":3}
+{"type":"log","level":"info","step":"render","message":"Rendering Dokploy plan"}
+{"type":"stage-begin","stage":"render"}
+{"type":"stage-complete","stage":"render","durationMs":27}
+{"type":"log","level":"info","step":"render","message":"Rendered Dokploy plan digest sha256:49332be06323edfa1971bb813fb21fe8d951d8ea405222a429753f3b8d6c44f3"}
+{"type":"log","level":"info","step":"apply","message":"Applying Dokploy plan"}
+{"type":"stage-begin","stage":"apply"}
+{"type":"apply-result","actions":{"target":{"kind":"dokploy","environmentId":"Ac5KIPWva9jzm7t-h4Af7"},"deployment":{"orgSlug":"direct-e2e-053427","projectSlug":"rntme-platform","environment":"default","mode":"preview"},"resources":[{"logicalId":"project-stack","resourceKind":"compose","infrastructureKind":"project-stack","targetResourceId":"NeOnsT0DRLGndE3Ot7JMx","targetResourceName":"rntme-direct-e2e-053427-rntme-platform","action":"created","services":[{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]}],"urls":{"projectUrl":"https://e2e-053407.platform.rntme.com","uiUrl":"https://e2e-053407.platform.rntme.com/","publicRoutes":[],"protectedRouteChecks":[]},"renderedPlanDigest":"sha256:49332be06323edfa1971bb813fb21fe8d951d8ea405222a429753f3b8d6c44f3","warnings":["in-memory event bus is non-durable and intended only for preview/e2e deployments"],"verificationHints":{"healthUrl":"https://e2e-053407.platform.rntme.com/health","configUrl":"https://e2e-053407.platform.rntme.com/config.json","publicRouteUrls":[],"protectedRouteChecks":[],"stack":{"composeId":"NeOnsT0DRLGndE3Ot7JMx","services":[{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]},"uiUrl":"https://e2e-053407.platform.rntme.com/"}},"durationMs":15747}
+{"type":"stage-complete","stage":"apply","durationMs":15747}
+{"type":"log","level":"info","step":"apply","message":"compose project-stack created target=rntme-direct-e2e-053427-rntme-platform"}
+{"type":"log","level":"info","step":"verify","message":"Running smoke verification"}
+{"type":"stage-begin","stage":"verify"}
+{"type":"verify-result","report":{"checks":[{"name":"edge-health","url":"https://e2e-053407.platform.rntme.com/health","status":"error","latencyMs":96,"ok":false},{"name":"ui","url":"https://e2e-053407.platform.rntme.com/","status":"error","latencyMs":85,"ok":false},{"name":"config-json","url":"https://e2e-053407.platform.rntme.com/config.json","status":"error","latencyMs":83,"ok":false}],"ok":false,"partialOk":false}}

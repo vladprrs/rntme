@@ -1,0 +1,16 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Provisioning Redpanda event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"log","level":"info","step":"provision","message":"Provisioning 1 module(s)"}
+{"type":"provision-result","publicByModule":{"identity":{"spaClient":{"id":"AjOMyNUPyuJpkCf4RR8izh9z84wGHqXE","name":"rntme-platform"},"resourceServer":{"id":"6a016f0e49ae70022e03ce99","identifier":"https://platform.rntme.com/api"}}},"secretByModule":{"identity":{"m2mClients":[]}},"startedAt":"2026-05-12T04:08:49.816Z","finishedAt":"2026-05-12T04:08:50.814Z"}
+{"type":"stage-complete","stage":"provision","durationMs":1002}
+{"type":"stage-begin","stage":"plan"}
+{"type":"stage-complete","stage":"plan","durationMs":2}
+{"type":"log","level":"info","step":"render","message":"Rendering Dokploy plan"}
+{"type":"stage-begin","stage":"render"}
+{"type":"stage-complete","stage":"render","durationMs":168}
+{"type":"log","level":"info","step":"render","message":"Rendered Dokploy plan digest sha256:51edff1aa39ace3a3576c1ad4b7f9efd65bca90a3361e7e4728df78ce90ff035"}
+{"type":"log","level":"info","step":"apply","message":"Applying Dokploy plan"}
+{"type":"stage-begin","stage":"apply"}
+{"type":"log","level":"error","step":"apply","message":"create compose project-stack: failed while applying resource \"rntme-direct-e2e-040849-rntme-platform\": Dokploy request failed: 413 Body exceeded 1mb limit"}

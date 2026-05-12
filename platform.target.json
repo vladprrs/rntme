@@ -15,7 +15,7 @@
       }
     }
   },
-  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" },
+  "eventBus": { "kind": "in-memory" },
   "workflows": {
     "engine": {
       "kind": "operaton",
@@ -33,5 +33,19 @@
       "redirectUri": "https://platform.rntme.com/auth/callback"
     }
   },
+  "modules": {
+    "identity-auth0": {
+      "image": "ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-e2e-2e001d60-044928",
+      "env": {
+        "AUTH0_DOMAIN": "demo-rntme.us.auth0.com"
+      }
+    }
+  },
+  "policyValues": {
+    "requestContext": {
+      "default": {}
+    }
+  },
+  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-8707e652-052054",
   "publicBaseUrl": "https://platform.rntme.com"
 }

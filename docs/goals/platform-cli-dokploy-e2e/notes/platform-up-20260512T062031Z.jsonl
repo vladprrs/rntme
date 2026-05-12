@@ -1,0 +1,21 @@
+{"type":"stage-begin","stage":"compose"}
+{"type":"stage-complete","stage":"compose","durationMs":0}
+{"type":"log","level":"info","step":"plan","message":"Using in-memory event bus"}
+{"type":"stage-begin","stage":"provision"}
+{"type":"log","level":"info","step":"provision","message":"Provisioning 1 module(s)"}
+{"type":"provision-result","publicByModule":{"identity":{"spaClient":{"id":"AjOMyNUPyuJpkCf4RR8izh9z84wGHqXE","name":"rntme-platform"},"resourceServer":{"id":"6a016f0e49ae70022e03ce99","identifier":"https://platform.rntme.com/api"}}},"secretByModule":{"identity":{"m2mClients":[]}},"startedAt":"2026-05-12T06:20:32.384Z","finishedAt":"2026-05-12T06:20:33.260Z"}
+{"type":"stage-complete","stage":"provision","durationMs":881}
+{"type":"stage-begin","stage":"plan"}
+{"type":"stage-complete","stage":"plan","durationMs":2}
+{"type":"log","level":"info","step":"render","message":"Rendering Dokploy plan"}
+{"type":"stage-begin","stage":"render"}
+{"type":"stage-complete","stage":"render","durationMs":26}
+{"type":"log","level":"info","step":"render","message":"Rendered Dokploy plan digest sha256:1f072700a2a99888c0d4b0bc7b5a1be3e1b86b534581a11d0cb4c0a5f2377175"}
+{"type":"log","level":"info","step":"apply","message":"Applying Dokploy plan"}
+{"type":"stage-begin","stage":"apply"}
+{"type":"apply-result","actions":{"target":{"kind":"dokploy","environmentId":"Ac5KIPWva9jzm7t-h4Af7"},"deployment":{"orgSlug":"direct","projectSlug":"rntme-platform","environment":"default","mode":"preview"},"resources":[{"logicalId":"project-stack","resourceKind":"compose","infrastructureKind":"project-stack","targetResourceId":"2mG1RpL80Q7MTmYf67Ky4","targetResourceName":"rntme-direct-rntme-platform","action":"updated","services":[{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]}],"urls":{"projectUrl":"https://platform.rntme.com","uiUrl":"https://platform.rntme.com/","publicRoutes":[],"protectedRouteChecks":[]},"renderedPlanDigest":"sha256:1f072700a2a99888c0d4b0bc7b5a1be3e1b86b534581a11d0cb4c0a5f2377175","warnings":["in-memory event bus is non-durable and intended only for preview/e2e deployments"],"verificationHints":{"healthUrl":"https://platform.rntme.com/health","configUrl":"https://platform.rntme.com/config.json","publicRouteUrls":[],"protectedRouteChecks":[],"stack":{"composeId":"2mG1RpL80Q7MTmYf67Ky4","services":[{"name":"svc-organizations","serviceClass":"domain-service"},{"name":"svc-projects","serviceClass":"domain-service"},{"name":"svc-tokens","serviceClass":"domain-service"},{"name":"svc-audit","serviceClass":"domain-service"},{"name":"mod-identity-auth0","serviceClass":"integration-module"},{"name":"svc-deployments","serviceClass":"domain-service"},{"name":"svc-app","serviceClass":"domain-service"},{"name":"edge","serviceClass":"edge-gateway"}]},"uiUrl":"https://platform.rntme.com/"}},"durationMs":26369}
+{"type":"stage-complete","stage":"apply","durationMs":26369}
+{"type":"log","level":"info","step":"apply","message":"compose project-stack updated target=rntme-direct-rntme-platform"}
+{"type":"log","level":"info","step":"verify","message":"Running smoke verification"}
+{"type":"stage-begin","stage":"verify"}
+{"type":"verify-result","report":{"checks":[{"name":"edge-health","url":"https://platform.rntme.com/health","status":200,"latencyMs":138,"ok":true},{"name":"ui","url":"https://platform.rntme.com/","status":200,"latencyMs":43,"ok":true},{"name":"config-json","url":"https://platform.rntme.com/config.json","status":200,"latencyMs":41,"ok":true}],"ok":true,"partialOk":false}}
