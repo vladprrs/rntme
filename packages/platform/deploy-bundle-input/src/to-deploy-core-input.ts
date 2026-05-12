@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { emitProto } from '@rntme/bindings-grpc';
@@ -39,6 +40,8 @@ export async function toDeployCoreInput(
   rootDir: string,
 ): Promise<ComposedProjectInput> {
   if (!isComposedBlueprint(value)) return value;
+
+  assertRuntimeArtifactStates(value);
 
   const uiBuildFiles =
     value.virtualEntrySource === null || value.virtualEntrySource === undefined
@@ -80,7 +83,14 @@ export async function toDeployCoreInput(
             slug,
             kind: value.services[slug]?.kind ?? 'domain',
             ...(value.services[slug]?.kind === 'domain'
-              ? { runtimeFiles: await buildRuntimeArtifactFiles(value, rootDir, slug, uiBuildFiles) }
+              ? {
+                  runtimeFiles: await buildRuntimeArtifactFiles(
+                    value,
+                    rootDir,
+                    slug,
+                    serviceHostsUiRoute(value.project, slug) ? uiBuildFiles : {},
+                  ),
+                }
               : {}),
           },
         ]),
@@ -94,6 +104,19 @@ export async function toDeployCoreInput(
     ...(workflowFiles === undefined ? {} : { workflowFiles }),
     ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
   };
+}
+
+function assertRuntimeArtifactStates(project: ComposedBlueprint): void {
+  for (const serviceSlug of project.project.services) {
+    const service = project.services[serviceSlug];
+    if (service === undefined) throw new Error(`DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_NOT_FOUND:${serviceSlug}`);
+    const artifactState = domainArtifactState(service);
+    if (artifactState.kind === 'partial') {
+      throw new Error(
+        `DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_PARTIAL:${serviceSlug}:present=${artifactState.present.join(',')}:missing=${artifactState.missing.join(',')}`,
+      );
+    }
+  }
 }
 
 type WorkflowGrpcServiceRegistry = NonNullable<ComposedProjectInput['workflowGrpcServices']>;
@@ -455,6 +478,26 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
         }
         return undefined;
       });
+      buildApi.onResolve({ filter: /^[^./].*/ }, (args) => {
+        if (args.path.startsWith('@rntme/')) return undefined;
+        if (args.path.startsWith('node:') || args.path.startsWith('bun:')) return undefined;
+        const parents = [
+          ...(args.resolveDir === '' ? [] : [join(args.resolveDir, '__rntme_resolve_parent.js')]),
+          ...[...packageDirs.values()].map((packageDir) => join(packageDir, 'package.json')),
+        ];
+        for (const parent of parents) {
+          try {
+            return { path: createRequire(parent).resolve(args.path) };
+          } catch {
+            try {
+              return { path: Bun.resolveSync(args.path, parent) };
+            } catch {
+              // Try the next workspace package root.
+            }
+          }
+        }
+        return undefined;
+      });
       buildApi.onResolve({ filter: /\.css$/ }, (args) => ({
         path: args.path,
         namespace: 'rntme-empty-css',
@@ -616,6 +659,10 @@ function serviceForMountTarget(project: ComposedBlueprint['project'], target: st
   if (target.startsWith('http:')) return project.routes?.http?.[target.slice('http:'.length)];
   if (target.startsWith('ui:')) return project.routes?.ui?.[target.slice('ui:'.length)];
   return undefined;
+}
+
+function serviceHostsUiRoute(project: ComposedBlueprint['project'], serviceSlug: string): boolean {
+  return Object.values(project.routes?.ui ?? {}).includes(serviceSlug);
 }
 
 function addDefaultUiFiles(files: Record<string, string>, serviceSlug: string): void {

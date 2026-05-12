@@ -1,8 +1,23 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "events"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Audit Log" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "panel"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Organization · Audit",
+        "title": "Audit log"
+      }
+    },
+    "panel": {
+      "type": "Panel",
+      "props": { "title": "Events", "subtitle": "Append-only stream" },
+      "children": ["events"]
+    },
     "events": {
       "type": "DataTable",
       "props": {
@@ -10,7 +25,7 @@
         "columns": [
           { "key": "actorId", "label": "Actor" },
           { "key": "action", "label": "Action" },
-          { "key": "targetType", "label": "Target Type" },
+          { "key": "targetType", "label": "Target type" },
           { "key": "status", "label": "Status" },
           { "key": "createdAt", "label": "Time" }
         ]

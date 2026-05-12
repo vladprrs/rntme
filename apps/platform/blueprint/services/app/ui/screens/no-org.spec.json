@@ -1,8 +1,20 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "body"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "No organization" } },
-    "body": { "type": "Text", "props": { "text": "Your account is not linked to an organization." } }
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["empty"]
+    },
+    "empty": {
+      "type": "EmptyState",
+      "props": {
+        "eyebrow": "Account · Not provisioned",
+        "title": "Your account isn't linked to an organization yet.",
+        "body": "Ask an organization owner to invite you, or contact support to get provisioned. Once linked, the platform UI shows projects, deployments, tokens, and the audit log.",
+        "docsLabel": "Read provisioning docs",
+        "docsHref": "#"
+      }
+    }
   }
 }

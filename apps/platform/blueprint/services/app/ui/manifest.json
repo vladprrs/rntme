@@ -9,6 +9,8 @@
     "main": "layouts/main"
   },
   "routes": {
+    "/": { "layout": "main", "screen": "screens/login" },
+    "/auth/callback": { "layout": "main", "screen": "screens/login" },
     "/login": { "layout": "main", "screen": "screens/login" },
     "/no-org": { "layout": "main", "screen": "screens/no-org" },
     "/:orgId": { "layout": "main", "screen": "screens/org" },

@@ -86,6 +86,8 @@ treat first production cutover as forward-only.
 
 Application file mounts are idempotent by `mountPath`: apply lists existing mounts, updates the first matching mount, creates missing mounts, and removes duplicate stale mounts for the same target path. Generated `filePath` values use the platform convention `/etc/dokploy/rntme/<applicationId>/<digest>-<safe-name>` so Dokploy materializes real source files for Swarm bind mounts.
 
+Project-stack Compose file mounts are content-addressed by rendered file content (`*.rntme-sha256-<digest>`). Render also injects `RNTME_FILE_MOUNTS_DIGEST` into every Compose service that has generated files, so nginx configs, runtime bootstrap bundles, `/srv/config.json`, and other mounted files change the Docker Compose service spec and force container recreation instead of relying on in-place host-file updates.
+
 Application lifecycle is `configure -> deploy -> start -> inspect` when the injected client supports inspection. A rejected or failed application task is returned as `DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE`, which causes the platform deployment to finalize as failed.
 
 The project-stack Compose resource has its own post-apply lifecycle: `configure -> configure compose domains -> deploy -> start compose -> load compose services -> inspect compose tasks`. `configureComposeDomains` is called when the rendered resource carries `domains` (project-level edge route plus any infrastructure-proxy domains). `loadComposeServices` lets the platform match Dokploy's live service names back to the rendered service summaries; `inspectComposeTasks` then queries Swarm task state and only surfaces inspections when at least one task is not in a healthy running state. That filtered set is the signal the post-apply verification uses to fail the deployment with `DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks are observed. Each compose lifecycle step maps a thrown client error to a `partialFailure` with phase `configure`, `deploy`, or `inspect`, so operators can see which stage broke without losing the structured cleanup behavior.
@@ -276,6 +278,14 @@ For each `kind: "auth"` middleware in the plan, the renderer emits:
 Nginx itself does not validate JWTs. The module HTTP endpoint does (Auth0: JWKS verification; WorkOS/Clerk: API call). Provider-swap is therefore purely an image change — the rendered nginx config is parameterized by `moduleSlug`, `audience`, and `moduleIntrospectPort` only.
 
 Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Session` shape (defence in depth); edge sets `X-Rntme-User-Sub` / `X-Rntme-User-Audience` headers as advisory hints.
+
+## Runtime UI bundle mounts
+
+Domain-service runtime files include `ui-build/*` when `@rntme/deploy-bundle-input`
+bundles a project-specific SPA virtual entry. `deploy-dokploy` mounts those
+files under `/srv/artifacts/ui-build/*` like other runtime artifacts so
+`@rntme/runtime` serves the project bundle instead of the runtime image's
+default no-auth UI bundle.
 
 ### Edge auth invariants
 

@@ -9,6 +9,8 @@ type AuthConfig = {
   clientId: string;
   audience: string;
   redirectUri: string;
+  postLoginRedirectPath?: string;
+  authenticatedRedirectPaths?: string[];
   scope?: string;
 };
 
@@ -35,6 +37,8 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   });
 
   let token: string | null = null;
+  let postCallbackPath: string | null = null;
+  let callbackFallbackPath: string | null = null;
 
   ctx.transport.use(async (req, next) => {
     const headers = new Headers(req.headers);
@@ -50,8 +54,12 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
 
   const url = new URL(window.location.href);
   if (url.searchParams.has('code') && url.searchParams.has('state')) {
-    await client.handleRedirectCallback();
-    window.history.replaceState({}, '', url.pathname);
+    const result = await client.handleRedirectCallback();
+    callbackFallbackPath = url.pathname;
+    postCallbackPath =
+      normalizeLocalRedirectPath(readReturnTo(result)) ??
+      normalizeLocalRedirectPath(cfg.postLoginRedirectPath) ??
+      callbackFallbackPath;
   }
 
   let authed = false;
@@ -61,6 +69,8 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
       ctx.state.set('/auth/user', authUserFromClaims(await client.getIdTokenClaims()));
       ctx.state.set('/auth/status', 'authed');
       authed = true;
+      const redirectPath = postCallbackPath ?? authenticatedRedirectPath(cfg);
+      if (redirectPath) window.history.replaceState({}, '', redirectPath);
     } catch {
       // Cached session present but refresh failed (revoked / expired refresh
       // token). Fall through to anon — user will re-authenticate via login.
@@ -68,6 +78,7 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
     }
   }
   if (!authed) {
+    if (callbackFallbackPath) window.history.replaceState({}, '', callbackFallbackPath);
     ctx.state.set('/auth/status', 'anon');
     ctx.state.set('/auth/user', null);
   }
@@ -78,6 +89,36 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   ctx.registerOperation('logout', async () => {
     await client.logout({ logoutParams: { returnTo: cfg.redirectUri } });
   });
+}
+
+function readReturnTo(result: unknown): unknown {
+  if (!result || typeof result !== 'object') return undefined;
+  const appState = (result as { appState?: unknown }).appState;
+  if (!appState || typeof appState !== 'object') return undefined;
+  return (appState as { returnTo?: unknown }).returnTo;
+}
+
+function normalizeLocalRedirectPath(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function authenticatedRedirectPath(cfg: AuthConfig): string | null {
+  const target = normalizeLocalRedirectPath(cfg.postLoginRedirectPath);
+  if (!target || !Array.isArray(cfg.authenticatedRedirectPaths)) return null;
+
+  for (const raw of cfg.authenticatedRedirectPaths) {
+    const path = normalizeLocalRedirectPath(raw);
+    if (!path) continue;
+    if (new URL(path, window.location.origin).pathname === window.location.pathname) return target;
+  }
+  return null;
 }
 
 function authUserFromClaims(claims: unknown): AuthUser {

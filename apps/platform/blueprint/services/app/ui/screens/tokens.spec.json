@@ -1,12 +1,32 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "name", "prefix", "scopes", "create", "tokens"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "API Tokens" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "form", "list"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Organization · API tokens",
+        "title": "API tokens"
+      }
+    },
+    "form": {
+      "type": "Panel",
+      "props": { "title": "Issue token" },
+      "children": ["name", "prefix", "scopes", "create"]
+    },
     "name": { "type": "Input", "props": { "statePath": "/form/token/name", "placeholder": "Token name" } },
     "prefix": { "type": "Input", "props": { "statePath": "/form/token/prefix", "placeholder": "Token prefix" } },
     "scopes": { "type": "Input", "props": { "statePath": "/form/token/scopesJson", "placeholder": "[\"project:read\"]" } },
     "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createToken" } } },
+    "list": {
+      "type": "Panel",
+      "props": { "title": "All tokens" },
+      "children": ["tokens"]
+    },
     "tokens": {
       "type": "DataTable",
       "props": {

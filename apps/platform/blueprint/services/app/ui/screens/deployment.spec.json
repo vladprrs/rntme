@@ -1,8 +1,26 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "refresh", "deploymentTable", "logsTable"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Deployment" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "deploymentPanel", "logsPanel"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Deployment",
+        "title": "Deployment detail",
+        "actions": [
+          { "label": "Refresh", "variant": "secondary" }
+        ]
+      }
+    },
+    "deploymentPanel": {
+      "type": "Panel",
+      "props": { "title": "Record" },
+      "children": ["refresh", "deploymentTable"]
+    },
     "refresh": { "type": "Button", "props": { "label": "Refresh" }, "on": { "click": { "action": "refreshDeployment" } } },
     "deploymentTable": {
       "type": "DataTable",
@@ -15,6 +33,11 @@
           { "key": "projectVersionId", "label": "Version" }
         ]
       }
+    },
+    "logsPanel": {
+      "type": "Panel",
+      "props": { "title": "Logs", "subtitle": "Latest 200" },
+      "children": ["logsTable"]
     },
     "logsTable": {
       "type": "DataTable",

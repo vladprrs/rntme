@@ -1,9 +1,147 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "versions"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Versions" } },
-    "versions": {
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "summary", "dashGrid"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Project · Dashboard",
+        "title": "Project overview",
+        "meta": [
+          { "label": "Environment", "value": "Preview" },
+          { "label": "Blueprint", "value": "v0.3.2" },
+          { "label": "Published by", "value": "CLI" },
+          { "label": "Status", "value": "Ready", "status": "ready" }
+        ],
+        "actions": [
+          { "label": "View logs", "variant": "secondary" },
+          { "label": "Open API", "variant": "primary" }
+        ]
+      }
+    },
+    "summary": {
+      "type": "SummaryGrid",
+      "props": {
+        "items": [
+          { "label": "Versions", "value": "—" },
+          { "label": "Services", "value": 0 },
+          { "label": "Entities", "value": 0 },
+          { "label": "Schemas", "value": 0 },
+          { "label": "Graphs", "value": 0 },
+          { "label": "Endpoints", "value": 0 },
+          { "label": "UI components", "value": 0 }
+        ]
+      }
+    },
+    "dashGrid": {
+      "type": "DashGrid",
+      "props": {},
+      "children": ["servicesPanel", "sidePanel"]
+    },
+    "servicesPanel": {
+      "type": "ServicesPanel",
+      "props": {
+        "title": "Services",
+        "subtitle": "Authored as platform blueprint",
+        "services": [
+          {
+            "name": "organizations",
+            "status": "Ready",
+            "description": "Tenant identity, accounts, and memberships.",
+            "entities": 3,
+            "schemas": 2,
+            "graphs": 2,
+            "endpoints": 4
+          },
+          {
+            "name": "projects",
+            "status": "Ready",
+            "description": "Project and project-version lifecycle.",
+            "entities": 2,
+            "schemas": 2,
+            "graphs": 2,
+            "endpoints": 3
+          },
+          {
+            "name": "deployments",
+            "status": "Ready",
+            "description": "Deploy targets, deployments, log lines, project operations.",
+            "entities": 4,
+            "schemas": 3,
+            "graphs": 3,
+            "endpoints": 6
+          },
+          {
+            "name": "tokens",
+            "status": "Ready",
+            "description": "Machine tokens with prefix and scope metadata.",
+            "entities": 1,
+            "schemas": 1,
+            "graphs": 1,
+            "endpoints": 2
+          },
+          {
+            "name": "audit",
+            "status": "Ready",
+            "description": "Append-only inspectable audit stream.",
+            "entities": 1,
+            "schemas": 1,
+            "graphs": 1,
+            "endpoints": 1
+          }
+        ]
+      }
+    },
+    "sidePanel": {
+      "type": "Box",
+      "props": { "className": "rntme-side-stack" },
+      "children": ["deployPanel", "alertsPanel", "versionsPanel"]
+    },
+    "deployPanel": {
+      "type": "Panel",
+      "props": { "title": "Latest deployment", "subtitle": "Live" },
+      "children": ["deployTimeline"]
+    },
+    "deployTimeline": {
+      "type": "Timeline",
+      "props": {
+        "currentStep": 4,
+        "steps": [
+          { "label": "Queued", "time": "—" },
+          { "label": "Validating", "time": "—", "meta": "Artifacts parsed" },
+          { "label": "Building", "time": "—", "meta": "Services compiled" },
+          { "label": "Deploying", "time": "—", "meta": "Routes bound, seeds applied" },
+          { "label": "Ready", "time": "—", "meta": "All services serving traffic" }
+        ]
+      }
+    },
+    "alertsPanel": {
+      "type": "Panel",
+      "props": { "title": "Alerts" },
+      "children": ["alertsList"]
+    },
+    "alertsList": {
+      "type": "AlertList",
+      "props": {
+        "variant": "warn",
+        "items": [
+          {
+            "title": "No active warnings",
+            "message": "Runtime is healthy. Warnings appear here when a binding falls back to a default."
+          }
+        ]
+      }
+    },
+    "versionsPanel": {
+      "type": "Panel",
+      "props": { "title": "Versions", "subtitle": "Latest 100" },
+      "children": ["versionsTable"]
+    },
+    "versionsTable": {
       "type": "DataTable",
       "props": {
         "statePath": "/data/versions",

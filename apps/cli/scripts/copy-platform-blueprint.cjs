@@ -14,6 +14,7 @@ if (!existsSync(src)) {
   process.exit(1);
 }
 
+rmSync(dest, { recursive: true, force: true });
 cpSync(src, dest, {
   recursive: true,
   filter: (entry) => {

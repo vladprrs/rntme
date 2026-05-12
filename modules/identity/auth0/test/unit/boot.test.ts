@@ -91,6 +91,7 @@ describe('boot', () => {
     auth0Mock.isAuthenticated.mockResolvedValue(true);
     window.history.replaceState({}, '', '/?code=abc&state=xyz');
     const replaceState = spyOn(window.history, 'replaceState');
+    replaceState.mockClear();
     const { ctx, store } = makeCtx();
     const { boot } = await import('../../client/index.js');
 
@@ -105,6 +106,40 @@ describe('boot', () => {
       email: 'e@x',
       name: 'Eve',
     });
+  });
+
+  it('moves from callback route to configured post-login path after redirect callback', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    window.history.replaceState({}, '', '/auth/callback?code=abc&state=xyz');
+    const replaceState = spyOn(window.history, 'replaceState');
+    replaceState.mockClear();
+    const { ctx } = makeCtx();
+    ctx.config = { ...cfg, redirectUri: 'https://app.example.test/auth/callback', postLoginRedirectPath: '/no-org' };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.handleRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/no-org');
+  });
+
+  it('moves authenticated users away from configured anonymous routes without a fresh callback', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    window.history.replaceState({}, '', '/login');
+    const replaceState = spyOn(window.history, 'replaceState');
+    replaceState.mockClear();
+    const { ctx } = makeCtx();
+    ctx.config = {
+      ...cfg,
+      postLoginRedirectPath: '/no-org',
+      authenticatedRedirectPaths: ['/', '/login', '/auth/callback'],
+    };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.handleRedirectCallback).not.toHaveBeenCalled();
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/no-org');
   });
 
   it('injects Authorization without mutating the original request and clears auth state on 401', async () => {

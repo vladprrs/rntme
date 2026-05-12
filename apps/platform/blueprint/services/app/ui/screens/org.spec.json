@@ -1,8 +1,23 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "projects"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Projects" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "panel"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Organization · Projects",
+        "title": "Projects"
+      }
+    },
+    "panel": {
+      "type": "Panel",
+      "props": { "title": "All projects", "subtitle": "Latest 100" },
+      "children": ["projects"]
+    },
     "projects": {
       "type": "DataTable",
       "props": {

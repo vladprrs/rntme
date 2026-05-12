@@ -14,9 +14,19 @@ describe('platform UI artifact', () => {
 
     const ui = result.value.services.app?.compiledUi;
     expect(ui).toBeDefined();
+    expect(ui?.manifest.routes['/']).toMatchObject({ screen: 'login' });
+    expect(ui?.manifest.routes['/auth/callback']).toMatchObject({ screen: 'login' });
     expect(ui?.manifest.routes['/:orgId']).toMatchObject({ screen: 'org' });
     expect(ui?.manifest.routes['/:orgId/deployments/:deploymentId']).toMatchObject({ screen: 'deployment' });
     expect(ui?.screens.org?.data?.['/data/projects']?.path).toBe('/api/projects');
     expect(ui?.screens.deployment?.data?.['/data/logs']?.path).toBe('/api/deployments/{deploymentId}/logs');
+    expect(JSON.parse(result.value.publicConfigJson ?? '{}')).toMatchObject({
+      '@rntme/identity-auth0': {
+        postLoginRedirectPath: '/no-org',
+        authenticatedRedirectPaths: ['/', '/login', '/auth/callback'],
+      },
+    });
+    expect(result.value.virtualEntrySource).toContain("import('@rntme/identity-auth0/client')");
+    expect(result.value.virtualEntrySource).toContain("bootContract: 'identity'");
   });
 });

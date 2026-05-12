@@ -1,8 +1,23 @@
 {
   "root": "page",
   "elements": {
-    "page": { "type": "Card", "props": { "className": "space-y-4" }, "children": ["title", "login"] },
-    "title": { "type": "Heading", "props": { "level": 2, "text": "Sign in" } },
+    "page": {
+      "type": "PageContainer",
+      "props": {},
+      "children": ["header", "panel"]
+    },
+    "header": {
+      "type": "PageHeader",
+      "props": {
+        "eyebrow": "Platform · Access",
+        "title": "Sign in to rntme"
+      }
+    },
+    "panel": {
+      "type": "Panel",
+      "props": { "title": "Authenticate" },
+      "children": ["login"]
+    },
     "login": { "type": "LoginScreen", "props": {} }
   }
 }
