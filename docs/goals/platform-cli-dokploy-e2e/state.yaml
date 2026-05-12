@@ -5,7 +5,7 @@ goal:
   slug: "platform-cli-dokploy-e2e"
   kind: specific
   tranche: "Continue from the proven preview e2e to a canonical platform.rntme.com deploy, allowed cleanup, GitHub Projects sync through gh, and autonomous PR/merge finishing."
-  status: in_progress
+  status: complete
   intake:
     original_request: "Plan a full e2e deploy test of apps/platform through apps/cli to Dokploy, solving problems sequentially under docs/decision-system.md."
     interpreted_outcome: "A real CLI-driven Dokploy deployment of apps/platform is completed, verified, and documented through GoalBuddy receipts, with encountered blockers fixed or explicitly tracked."
@@ -66,7 +66,7 @@ visual_board:
     missing:
       - "GitHub token lacks read:project scope; live ProjectV2 sync could not read project metadata."
 
-active_task: T1003
+active_task: null
 
 tasks:
   - id: T001
@@ -941,7 +941,7 @@ tasks:
   - id: T1003
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: high
     objective: "Run the finishing workflow, create a PR, and merge autonomously once required verification passes."
     allowed_files:
@@ -960,11 +960,60 @@ tasks:
       - "Required verification fails."
       - "The PR receives unresolved requested changes."
       - "Merge requires a policy decision not already authorized."
+    receipt:
+      result: done
+      summary: |
+        Ran the finishing workflow, verified the branch locally, opened PR
+        #206, waited for all GitHub checks including CodeRabbit, and merged it
+        autonomously. `gh pr merge` completed the remote squash merge and
+        deleted the remote branch; its local fast-forward cleanup failed only
+        because the local checkout had the unsquashed commits.
+      verification:
+        - "superpowers:finishing-a-development-branch used before PR integration."
+        - "Local full gate passed: bun run build && bun run typecheck && bun run test && bun run lint && bun run depcruise && bun run vendor:check."
+        - "PR #206 created: https://github.com/vladprrs/rntme/pull/206."
+        - "GitHub checks passed: build-typecheck-test-lint, all docker-build matrix jobs, and CodeRabbit."
+        - "PR #206 merged at 2026-05-12T06:39:36Z with merge commit e5c3a5692f5c5106fee75fd4a290d51ce41188bd."
+  - id: T1004
+    type: judge
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Final completion audit for the platform CLI Dokploy E2E goal."
+    receipt:
+      result: complete
+      full_outcome_complete: true
+      summary: |
+        Full outcome is complete. The original request asked to plan and
+        execute a real `apps/platform` e2e deploy through `apps/cli` to
+        Dokploy, continue through discovered blockers under the decision
+        system, prove the deployed platform with smoke/health checks, then
+        continue to canonical `https://platform.rntme.com` proof and autonomous
+        PR/merge. The board receipts, command logs, live Dokploy state, smoke
+        checks, and merged PR evidence cover those requirements.
+      prompt_to_artifact_checklist:
+        - "Plan/full e2e board: docs/goals/platform-cli-dokploy-e2e/goal.md and state.yaml."
+        - "Use apps/cli entrypoint: CLI commands in T003/T005-T013/T1002 use `bun apps/cli/dist/bin/cli.js platform up`."
+        - "Deploy apps/platform to Dokploy: T1002 created/updated compose `rntme-direct-rntme-platform` (`2mG1RpL80Q7MTmYf67Ky4`) in Dokploy project `rntme-platform`."
+        - "Canonical URL proof: T1002 final CLI log `platform-up-20260512T062031Z.jsonl` reports health/ui/config smoke 200 for `https://platform.rntme.com`."
+        - "Protected API proof: T1002 manual smoke records `/api/projects` without credentials returned 401."
+        - "Sequential problem solving: T003-T013 receipts classify and fix each blocker before rerunning the deploy path."
+        - "Decision-system alignment: T002/T004/T1000 receipts reject bypassing apps/cli and preserve CLI universal deploy/deploy-runner/platform-as-blueprint decisions."
+        - "No secret persistence: staged diff was checked for DOKPLOY_API_KEY, AUTH0_MANAGEMENT_CLIENT_ID, and AUTH0_MANAGEMENT_CLIENT_SECRET values before commit."
+        - "GitHub Projects sync: T1001 records the specific non-blocking blockers: missing ProjectV2 scope and GoalBuddy sync parser limitation."
+        - "Integration: PR #206 was opened, all checks passed, and it was merged at commit e5c3a5692f5c5106fee75fd4a290d51ce41188bd."
+      residual_risks:
+        - "The canonical proof still uses the explicit in-memory event bus target; this was an accepted e2e workaround for the remote host Redpanda exhaustion and is recorded in T1002."
+        - "GitHub Projects sync remains blocked as a supporting board artifact, not as deploy proof."
 
 checks:
   dirty_fingerprint: unknown
   last_verification:
     result: pass
-    summary: "Preview live CLI deploy through apps/cli reached Dokploy apply; manual smoke after readiness passed for health, config, UI, and protected API auth rejection. Operator requested continuation to canonical platform.rntme.com, gh project sync, allowed cleanup, and autonomous PR/merge."
-    task: T999
-    commands: []
+    summary: "Canonical live CLI deploy through apps/cli passed built-in smoke at https://platform.rntme.com; PR #206 was created, all checks passed, and it was merged."
+    task: T1004
+    commands:
+      - "bun run build && bun run typecheck && bun run test && bun run lint && bun run depcruise && bun run vendor:check"
+      - "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file docs/goals/platform-cli-dokploy-e2e/notes/platform-up-20260512T062031Z.jsonl"
+      - "gh pr checks 206 --watch --interval 30"
+      - "gh pr merge 206 --squash --delete-branch"
