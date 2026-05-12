@@ -35,6 +35,70 @@ export type ModuleProjectRef = {
   readonly publicConfig?: Readonly<Record<string, unknown>>;
 };
 
+export type UiAssetManifest = {
+  readonly stylesheets: readonly UiStylesheetAsset[];
+  readonly fonts: readonly UiFontAsset[];
+  readonly icons: readonly UiImageAsset[];
+  readonly images: readonly UiImageAsset[];
+  readonly staticFiles: readonly UiStaticAsset[];
+  readonly preloads: readonly UiPreloadAsset[];
+};
+
+export type UiAssetBase = {
+  readonly id: string;
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly href: string;
+};
+
+export type UiStylesheetAsset = UiAssetBase & {
+  readonly order: number;
+  readonly media: string;
+  readonly scope: 'document';
+};
+
+export type UiFontAsset = UiAssetBase & {
+  readonly family: string;
+  readonly weight?: string;
+  readonly style?: string;
+  readonly preload: boolean;
+};
+
+export type UiImageAsset = UiAssetBase & {
+  readonly alt?: string;
+};
+
+export type UiStaticAsset = UiAssetBase;
+
+export type UiPreloadAsset = {
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly href: string;
+  readonly as: 'style' | 'font' | 'image' | 'fetch';
+  readonly type?: string;
+  readonly crossorigin?: 'anonymous' | 'use-credentials';
+};
+
+export type UiAssetSource = {
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly sourcePath: string;
+  readonly sourceRelativePath: string;
+  readonly runtimePath: string;
+  readonly href: string;
+};
+
+export type UiPresetExport = {
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly name: string;
+  readonly kind: 'fragment';
+  readonly path: string;
+  readonly description?: string;
+  readonly inputs: Readonly<Record<string, PropSchema>>;
+  readonly sourcePath: string;
+};
+
 /** Catalog union built from resolved UI modules (spec §10.1). */
 export type CatalogManifest = {
   readonly components: ReadonlyArray<{
@@ -164,4 +228,7 @@ export type ComposedBlueprint = {
   /** Deterministic virtual entry TypeScript source (spec §10.2). */
   virtualEntrySource?: string | null;
   varsManifest: Readonly<Record<string, { from: string; required: boolean }>>;
+  uiAssetManifest?: UiAssetManifest | null;
+  uiAssetSources?: readonly UiAssetSource[] | null;
+  uiPresetExports?: readonly UiPresetExport[] | null;
 };
