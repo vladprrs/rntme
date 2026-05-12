@@ -71,15 +71,101 @@ export const ClientConfigSchema = z
   })
   .strict();
 
+const SAFE_CLIENT_PATH_SEGMENT_RE = /^[A-Za-z0-9._-]+$/;
+
+export const ClientRelativePathSchema = z.string().min(1).superRefine((value, ctx) => {
+  if (
+    value.startsWith('/') ||
+    value.includes('\\') ||
+    /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) ||
+    value.split('/').some((segment) => segment === '' || segment === '.' || segment === '..' || !SAFE_CLIENT_PATH_SEGMENT_RE.test(segment))
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `MODULE_MANIFEST_CLIENT_PATH_UNSAFE: client asset/preset path "${value}" must be a relative path inside the module package`,
+    });
+  }
+});
+
+const ClientAssetIdSchema = z.string().min(1).regex(/^[A-Za-z0-9._-]+$/);
+
+export const ClientStylesheetAssetSchema = z
+  .object({
+    id: ClientAssetIdSchema,
+    path: ClientRelativePathSchema,
+    order: z.number().int().optional(),
+    media: z.string().min(1).optional(),
+    scope: z.literal('document').optional(),
+  })
+  .strict();
+
+export const ClientFontAssetSchema = z
+  .object({
+    id: ClientAssetIdSchema,
+    path: ClientRelativePathSchema,
+    family: z.string().min(1),
+    weight: z.string().min(1).optional(),
+    style: z.string().min(1).optional(),
+    preload: z.boolean().optional(),
+  })
+  .strict();
+
+export const ClientImageAssetSchema = z
+  .object({
+    id: ClientAssetIdSchema,
+    path: ClientRelativePathSchema,
+    alt: z.string().optional(),
+  })
+  .strict();
+
+export const ClientStaticFileAssetSchema = z
+  .object({
+    id: ClientAssetIdSchema,
+    path: ClientRelativePathSchema,
+  })
+  .strict();
+
+export const ClientPreloadAssetSchema = z
+  .object({
+    path: ClientRelativePathSchema,
+    as: z.enum(['style', 'font', 'image', 'fetch']),
+    type: z.string().min(1).optional(),
+    crossorigin: z.enum(['anonymous', 'use-credentials']).optional(),
+  })
+  .strict();
+
+export const ClientAssetsSchema = z
+  .object({
+    stylesheets: z.array(ClientStylesheetAssetSchema).optional(),
+    fonts: z.array(ClientFontAssetSchema).optional(),
+    icons: z.array(ClientImageAssetSchema).optional(),
+    images: z.array(ClientImageAssetSchema).optional(),
+    staticFiles: z.array(ClientStaticFileAssetSchema).optional(),
+    preloads: z.array(ClientPreloadAssetSchema).optional(),
+  })
+  .strict();
+
+export const ClientPresetSchema = z
+  .object({
+    name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+    kind: z.literal('fragment'),
+    path: ClientRelativePathSchema,
+    description: z.string().min(1).optional(),
+    inputs: z.record(PropSchemaSchema).default({}),
+  })
+  .strict();
+
 export const ClientBlockSchema = z
   .object({
-    entry: z.string().min(1),
+    entry: z.string().min(1).optional(),
     boot: z.boolean().optional(),
     bootTimeoutMs: z.number().int().positive().optional(),
     contract: z.enum(['identity', 'storage']).optional(),
     config: ClientConfigSchema.optional(),
     components: z.array(ComponentDeclarationSchema).optional(),
     operations: z.array(OperationDeclarationSchema).optional(),
+    assets: ClientAssetsSchema.optional(),
+    presets: z.array(ClientPresetSchema).optional(),
   })
   .strict();
 
@@ -154,7 +240,9 @@ export const ModuleManifestSchema = z
       !!value.client &&
       (!!value.client.boot ||
         (value.client.components?.length ?? 0) > 0 ||
-        (value.client.operations?.length ?? 0) > 0);
+        (value.client.operations?.length ?? 0) > 0 ||
+        totalClientAssetCount(value.client.assets) > 0 ||
+        (value.client.presets?.length ?? 0) > 0);
     if (!hasCapabilities && !hasClient) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -208,7 +296,69 @@ export const ModuleManifestSchema = z
         }
       }
     }
+
+    const hasExecutableClient =
+      !!value.client &&
+      (!!value.client.boot ||
+        (value.client.components?.length ?? 0) > 0 ||
+        (value.client.operations?.length ?? 0) > 0);
+    if (hasExecutableClient && !value.client?.entry) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['client', 'entry'],
+        message:
+          'MODULE_MANIFEST_CLIENT_ENTRY_REQUIRED: client.entry is required when boot, components, or operations are declared',
+      });
+    }
+
+    const assetIds = [
+      ...(value.client?.assets?.stylesheets ?? []).map((a) => a.id),
+      ...(value.client?.assets?.fonts ?? []).map((a) => a.id),
+      ...(value.client?.assets?.icons ?? []).map((a) => a.id),
+      ...(value.client?.assets?.images ?? []).map((a) => a.id),
+      ...(value.client?.assets?.staticFiles ?? []).map((a) => a.id),
+    ];
+    const dupAssetIds = assetIds.filter((id, i) => assetIds.indexOf(id) !== i);
+    if (dupAssetIds.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['client', 'assets'],
+        message: `MODULE_MANIFEST_DUPLICATE_CLIENT_ASSET: client asset ids must be unique (duplicates: ${[...new Set(dupAssetIds)].join(', ')})`,
+      });
+    }
+
+    const presetNames = (value.client?.presets ?? []).map((p) => p.name);
+    const dupPresetNames = presetNames.filter((name, i) => presetNames.indexOf(name) !== i);
+    if (dupPresetNames.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['client', 'presets'],
+        message: `MODULE_MANIFEST_DUPLICATE_PRESET_NAME: preset names must be unique (duplicates: ${[...new Set(dupPresetNames)].join(', ')})`,
+      });
+    }
+
+    const presetPaths = (value.client?.presets ?? []).map((p) => p.path);
+    const dupPresetPaths = presetPaths.filter((path, i) => presetPaths.indexOf(path) !== i);
+    if (dupPresetPaths.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['client', 'presets'],
+        message: `MODULE_MANIFEST_DUPLICATE_PRESET_PATH: preset paths must be unique (duplicates: ${[...new Set(dupPresetPaths)].join(', ')})`,
+      });
+    }
   });
+
+function totalClientAssetCount(assets: z.infer<typeof ClientAssetsSchema> | undefined): number {
+  if (!assets) return 0;
+  return (
+    (assets.stylesheets?.length ?? 0) +
+    (assets.fonts?.length ?? 0) +
+    (assets.icons?.length ?? 0) +
+    (assets.images?.length ?? 0) +
+    (assets.staticFiles?.length ?? 0) +
+    (assets.preloads?.length ?? 0)
+  );
+}
 
 export type ProvisionerProduces = z.infer<typeof ProvisionerProducesSchema>;
 export type ProvisionerRequires = z.infer<typeof ProvisionerRequiresSchema>;
@@ -220,6 +370,13 @@ export type PropSchema = z.infer<typeof PropSchemaSchema>;
 export type ComponentDeclaration = z.infer<typeof ComponentDeclarationSchema>;
 export type OperationDeclaration = z.infer<typeof OperationDeclarationSchema>;
 export type ClientBlock = z.infer<typeof ClientBlockSchema>;
+export type ClientAssets = z.infer<typeof ClientAssetsSchema>;
+export type ClientPreset = z.infer<typeof ClientPresetSchema>;
+export type ClientStylesheetAsset = z.infer<typeof ClientStylesheetAssetSchema>;
+export type ClientFontAsset = z.infer<typeof ClientFontAssetSchema>;
+export type ClientImageAsset = z.infer<typeof ClientImageAssetSchema>;
+export type ClientStaticFileAsset = z.infer<typeof ClientStaticFileAssetSchema>;
+export type ClientPreloadAsset = z.infer<typeof ClientPreloadAssetSchema>;
 export type ModuleManifest = z.infer<typeof ModuleManifestSchema>;
 
 export type ModuleManifestError = {

@@ -372,6 +372,160 @@ describe('ClientBlockSchema — contract field', () => {
   });
 });
 
+describe('ModuleManifestSchema - client assets and presets', () => {
+  it('accepts non-executable client assets and fragment presets', () => {
+    const parsed = parseModuleManifest({
+      name: '@rntme/platform-ui',
+      version: '0.0.0',
+      client: {
+        assets: {
+          stylesheets: [
+            {
+              id: 'platform-ui',
+              path: 'assets/platform-ui.css',
+              order: 100,
+              media: 'all',
+              scope: 'document',
+            },
+          ],
+          fonts: [
+            {
+              id: 'switzer-400',
+              path: 'assets/fonts/switzer-400.woff2',
+              family: 'Switzer',
+              weight: '400',
+              preload: true,
+            },
+          ],
+          icons: [{ id: 'logo-monogram', path: 'assets/logo-monogram.svg' }],
+          images: [],
+          staticFiles: [{ id: 'brand-json', path: 'assets/brand.json' }],
+          preloads: [{ path: 'assets/platform-ui.css', as: 'style' }],
+        },
+        presets: [
+          {
+            name: 'service-card',
+            kind: 'fragment',
+            path: 'fragments/service-card',
+            description: 'Platform service summary card.',
+            inputs: {
+              name: { type: 'string', required: true },
+              status: { type: 'string' },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.client?.assets?.stylesheets?.[0]?.id).toBe('platform-ui');
+      expect(parsed.value.client?.presets?.[0]?.kind).toBe('fragment');
+    }
+  });
+
+  it('requires client.entry only when executable client fields are declared', () => {
+    const assetOnly = parseModuleManifest({
+      name: '@rntme/assets-only',
+      version: '0.0.0',
+      client: {
+        assets: {
+          stylesheets: [{ id: 'theme', path: 'assets/theme.css' }],
+        },
+      },
+    });
+    expect(assetOnly.ok).toBe(true);
+
+    const executableWithoutEntry = parseModuleManifest({
+      name: '@rntme/broken-ui',
+      version: '0.0.0',
+      client: {
+        components: [{ type: 'Broken', props: {} }],
+      },
+    });
+    expect(executableWithoutEntry.ok).toBe(false);
+    if (!executableWithoutEntry.ok) {
+      expect(
+        executableWithoutEntry.errors.some((e) =>
+          e.message.includes('MODULE_MANIFEST_CLIENT_ENTRY_REQUIRED'),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects scripts under client.assets', () => {
+    const parsed = parseModuleManifest({
+      name: '@rntme/script-asset',
+      version: '0.0.0',
+      client: {
+        assets: {
+          scripts: [{ id: 'bad', path: 'assets/bad.js' }],
+        },
+      },
+    });
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((e) => e.path.includes('client.assets'))).toBe(true);
+    }
+  });
+
+  it('rejects unsafe asset and preset paths', () => {
+    const parsed = parseModuleManifest({
+      name: '@rntme/bad-paths',
+      version: '0.0.0',
+      client: {
+        assets: {
+          stylesheets: [{ id: 'escape', path: '../theme.css' }],
+          icons: [{ id: 'absolute', path: '/assets/logo.svg' }],
+        },
+        presets: [
+          {
+            name: 'bad-fragment',
+            kind: 'fragment',
+            path: 'fragments/../private',
+            inputs: {},
+          },
+        ],
+      },
+    });
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(
+        parsed.errors.filter((e) => e.message.includes('MODULE_MANIFEST_CLIENT_PATH_UNSAFE')).length,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('rejects duplicate client asset ids and preset names/paths', () => {
+    const parsed = parseModuleManifest({
+      name: '@rntme/duplicate-client-exports',
+      version: '0.0.0',
+      client: {
+        assets: {
+          stylesheets: [
+            { id: 'platform-ui', path: 'assets/a.css' },
+            { id: 'platform-ui', path: 'assets/b.css' },
+          ],
+        },
+        presets: [
+          { name: 'card', kind: 'fragment', path: 'fragments/card', inputs: {} },
+          { name: 'card', kind: 'fragment', path: 'fragments/card-2', inputs: {} },
+          { name: 'card-2', kind: 'fragment', path: 'fragments/card', inputs: {} },
+        ],
+      },
+    });
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((e) => e.message.includes('MODULE_MANIFEST_DUPLICATE_CLIENT_ASSET'))).toBe(true);
+      expect(parsed.errors.some((e) => e.message.includes('MODULE_MANIFEST_DUPLICATE_PRESET_NAME'))).toBe(true);
+      expect(parsed.errors.some((e) => e.message.includes('MODULE_MANIFEST_DUPLICATE_PRESET_PATH'))).toBe(true);
+    }
+  });
+});
+
 describe('capabilities.edgeAuth', () => {
   it('parses introspection-sidecar with full descriptor', () => {
     const result = parseModuleManifest({
