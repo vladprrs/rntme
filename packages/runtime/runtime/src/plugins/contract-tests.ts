@@ -99,6 +99,8 @@ export function runSurfaceContract(makeSurface: () => Surface): void {
         eventStore: {} as SurfaceContext['eventStore'],
         qsmDb: {} as SurfaceContext['qsmDb'],
         actorFromRequest: () => null,
+        operationRegistry: { resolve: () => null },
+        operationCallClient: null,
       } as SurfaceContext;
       expect(() => surface.mount(app, ctx)).not.toThrow();
     });

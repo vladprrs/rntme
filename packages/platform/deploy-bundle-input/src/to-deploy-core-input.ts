@@ -215,6 +215,16 @@ async function buildRuntimeArtifactFiles(
 ): Promise<Record<string, string>> {
   const service = project.services[serviceSlug];
   if (service === undefined) throw new Error(`DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_NOT_FOUND:${serviceSlug}`);
+  const artifactState = domainArtifactState(service);
+  if (artifactState.kind === 'partial') {
+    throw new Error(
+      `DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_PARTIAL:${serviceSlug}:present=${artifactState.present.join(',')}:missing=${artifactState.missing.join(',')}`,
+    );
+  }
+  if (artifactState.kind === 'ui-only') {
+    return buildUiHostRuntimeArtifactFiles(project, rootDir, serviceSlug, uiBuildFiles);
+  }
+
   if (service.graphSpec === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_GRAPHS_NOT_FOUND:${serviceSlug}`);
   if (service.qsmValidated === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_QSM_NOT_FOUND:${serviceSlug}`);
   if (service.bindings === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_BINDINGS_NOT_FOUND:${serviceSlug}`);
@@ -248,6 +258,138 @@ async function buildRuntimeArtifactFiles(
   }
 
   return files;
+}
+
+function domainArtifactState(service: ComposedBlueprint['services'][string]):
+  | { kind: 'full' }
+  | { kind: 'ui-only' }
+  | { kind: 'partial'; present: string[]; missing: string[] } {
+  const artifacts = [
+    ['graphSpec', service.graphSpec !== null],
+    ['qsm', service.qsmValidated !== null],
+    ['bindings', service.bindings !== null],
+  ] as const;
+  const present = artifacts.filter(([, isPresent]) => isPresent).map(([name]) => name);
+  const missing = artifacts.filter(([, isPresent]) => !isPresent).map(([name]) => name);
+  if (present.length === artifacts.length) return { kind: 'full' };
+  if (present.length === 0) return { kind: 'ui-only' };
+  return { kind: 'partial', present, missing };
+}
+
+async function buildUiHostRuntimeArtifactFiles(
+  project: ComposedBlueprint,
+  rootDir: string,
+  serviceSlug: string,
+  uiBuildFiles: Record<string, string>,
+): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  const modules = runtimeModulesForUiHost(project);
+  addJsonFile(files, 'manifest.json', {
+    rntmeVersion: '1.0',
+    service: { name: serviceSlug, version: '1.0.0' },
+    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: false, port: 50051 } },
+    seed: { enabled: false, path: 'seed.json' },
+    modules,
+  });
+  for (const module of modules) {
+    files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
+  }
+  addJsonFile(files, 'pdm.json', project.pdm);
+  addJsonFile(files, 'qsm.json', buildUiHostQsmArtifact(project));
+
+  const synthetic = buildUiHostBindingArtifacts(project);
+  addJsonFile(files, 'shapes.json', synthetic.shapes);
+  addJsonFile(files, 'bindings.json', synthetic.bindings);
+  for (const [graphId, graph] of Object.entries(synthetic.graphs)) {
+    addJsonFile(files, `graphs/${graphId}.json`, graph);
+  }
+
+  const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
+  if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
+  Object.assign(files, uiBuildFiles);
+  return files;
+}
+
+function buildUiHostBindingArtifacts(project: ComposedBlueprint): {
+  readonly shapes: Record<string, unknown>;
+  readonly graphs: Record<string, unknown>;
+  readonly bindings: Record<string, unknown>;
+} {
+  const shapes: Record<string, unknown> = {};
+  const graphs: Record<string, unknown> = {};
+  const bindings: Record<string, unknown> = {};
+
+  for (const entry of Object.values(project.bindingRegistry)) {
+    const sourceService = project.services[entry.service];
+    const sourceBindings = sourceService?.bindings;
+    const sourceGraphSpec = sourceService?.graphSpec;
+    if (sourceBindings === null || sourceBindings === undefined || sourceGraphSpec === null || sourceGraphSpec === undefined) {
+      continue;
+    }
+
+    Object.assign(shapes, sourceGraphSpec.shapes);
+    const sourceBinding = sourceBindings.artifact.bindings[entry.bindingId];
+    if (sourceBinding === undefined) continue;
+
+    const sourceGraph = sourceGraphSpec.graphs[sourceBinding.graph];
+    if (sourceGraph === undefined) continue;
+
+    const graphId = `${entry.service}.${sourceBinding.graph}`;
+    graphs[graphId] = { ...sourceGraph, id: graphId };
+    bindings[entry.qualifiedId] = {
+      ...sourceBinding,
+      graph: graphId,
+      http: {
+        ...sourceBinding.http,
+        method: entry.method,
+        path: pathForRuntimeHttpMap(entry.path),
+      },
+    };
+  }
+
+  return {
+    shapes,
+    graphs,
+    bindings: {
+      version: '1.0',
+      graphSpecRef: 'ui-host.graphs.v1',
+      pdmRef: 'ui-host.domain.v1',
+      qsmRef: 'ui-host.read.v1',
+      bindings,
+    },
+  };
+}
+
+function buildUiHostQsmArtifact(project: ComposedBlueprint): Record<string, unknown> {
+  const projections: Record<string, unknown> = {};
+  const relations: Record<string, unknown> = {};
+  const sourceServices = new Set(Object.values(project.bindingRegistry).map((entry) => entry.service));
+  for (const serviceSlug of [...sourceServices].sort()) {
+    const qsm = project.services[serviceSlug]?.qsmValidated;
+    if (qsm === null || qsm === undefined) continue;
+    Object.assign(projections, qsm.projections);
+    Object.assign(relations, qsm.relations);
+  }
+  return { projections, relations };
+}
+
+function runtimeModulesForUiHost(
+  project: ComposedBlueprint,
+): Array<{ name: string; grpc: { address: string }; protoPath: string }> {
+  const byName = new Map<string, { name: string; grpc: { address: string }; protoPath: string }>();
+  const sourceServices = new Set(Object.values(project.bindingRegistry).map((entry) => entry.service));
+  for (const serviceSlug of [...sourceServices].sort()) {
+    for (const module of runtimeModulesForService(project, serviceSlug)) {
+      byName.set(module.name, module);
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function pathForRuntimeHttpMap(projectPath: string): string {
+  if (projectPath === '/api') return '/';
+  if (projectPath.startsWith('/api/')) return projectPath.slice('/api'.length);
+  return projectPath;
 }
 
 async function bundleVirtualEntrySource(

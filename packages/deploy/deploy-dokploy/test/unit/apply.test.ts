@@ -123,7 +123,6 @@ describe('applyDokployPlan', () => {
       'configure-compose:compose_1:rntme-acme-commerce',
       'configure-compose-domains:compose_1:edge:8080',
       'deploy-compose:compose_1',
-      'start-compose:compose_1',
       'load-compose-services:compose_1',
       'inspect-compose-tasks:compose_1',
     ]);
@@ -670,6 +669,28 @@ describe('applyDokployPlan', () => {
         }),
       },
     ]);
+  });
+
+  it('treats project-stack compose service inspection as best-effort after start', async () => {
+    const client = new FakeDokployClient([], [], { failLoadComposeServices: true });
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    expect(client.deletedComposes).toEqual([]);
+    expect(client.lifecycleCalls).toContain('deploy-compose:compose_1');
+    expect(client.lifecycleCalls).toContain('load-compose-services:compose_1');
+  });
+
+  it('treats project-stack compose task inspection as best-effort after start', async () => {
+    const client = new FakeDokployClient([], [], { failInspectComposeTasks: true });
+
+    const r = await applyDokployPlan(projectStackRendered(), client);
+
+    expect(r.ok).toBe(true);
+    expect(client.deletedComposes).toEqual([]);
+    expect(client.lifecycleCalls).toContain('deploy-compose:compose_1');
+    expect(client.lifecycleCalls).toContain('inspect-compose-tasks:compose_1');
   });
 
   it('inspects applications after deploy before returning success', async () => {
@@ -1619,6 +1640,8 @@ type FakeFailures = {
   failConfigureFor?: string;
   failDeployFor?: string;
   failStartFor?: string;
+  failLoadComposeServices?: boolean;
+  failInspectComposeTasks?: boolean;
   failDeleteApplicationFor?: string;
   failDeleteComposeFor?: string;
   inspectStatus?: 'running' | 'done' | 'failed' | 'rejected' | 'unknown';
@@ -1821,6 +1844,7 @@ class FakeDokployClient implements DokployClient {
     composeId: string,
   ): Promise<readonly DokployComposeServiceSummary[]> {
     this.lifecycleCalls.push(`load-compose-services:${composeId}`);
+    if (this.failureModes.failLoadComposeServices === true) throw secretError('load compose services failed');
     const compose = [...this.composeResources.values()].find((value) => value.id === composeId);
     if (compose === undefined) return [];
     return this.composeStackServices.get(compose.name) ?? [];
@@ -1831,6 +1855,7 @@ class FakeDokployClient implements DokployClient {
     services: readonly DokployComposeServiceSummary[],
   ): Promise<readonly DokployComposeTaskInspection[]> {
     this.lifecycleCalls.push(`inspect-compose-tasks:${composeId}`);
+    if (this.failureModes.failInspectComposeTasks === true) throw secretError('inspect compose tasks failed');
     return services.map((service) => ({
       serviceName: service.name,
       status: 'running',

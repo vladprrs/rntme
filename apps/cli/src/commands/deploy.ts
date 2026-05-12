@@ -41,8 +41,8 @@ export async function runDirectDeploy(args: DirectDeployArgs): Promise<number> {
     bundleDir: blueprint.value.bundleDir,
     target: target.value.target,
     resolvedTargetSecrets: secrets.value,
-    orgSlug: 'direct',
-    configOverrides: args.dryRun ? { dryRun: true } : {},
+    orgSlug: directOrgSlug(args.name),
+    configOverrides: { ...target.value.configOverrides, ...(args.dryRun ? { dryRun: true } : {}) },
     priorProvisionOutputs: {},
     resolveProvisioner: createCliResolveProvisioner(),
     dokployClientFactory: (apiToken, extras) =>
@@ -59,6 +59,17 @@ export async function runDirectDeploy(args: DirectDeployArgs): Promise<number> {
     (result.ok ? process.stdout : process.stderr).write(out + '\n');
   }
   return result.ok ? 0 : 10;
+}
+
+function directOrgSlug(name: string | undefined): string {
+  if (name === undefined || name.trim() === '') return 'direct';
+  const suffix = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return suffix === '' ? 'direct' : `direct-${suffix}`;
 }
 
 function emitFailure(mode: OutputMode, error: { code: string; message: string }): number {

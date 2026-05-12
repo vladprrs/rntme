@@ -51,7 +51,11 @@ type ProvisionedEventBusConfig = {
   readonly topicPrefix?: string | undefined;
 };
 
-export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig;
+type InMemoryEventBusConfig = {
+  readonly kind: 'in-memory';
+};
+
+export type EventBusConfig = ExternalEventBusConfig | ProvisionedEventBusConfig | InMemoryEventBusConfig;
 
 // ---------------------------------------------------------------------------
 // PolicyValues

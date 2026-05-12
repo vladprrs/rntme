@@ -2,6 +2,7 @@ import type { Hono, Context } from 'hono';
 import type { SqliteDatabase } from '@rntme/sqlite';
 import type { EventStore, KafkaProducer, ActorRef } from '@rntme/event-store';
 import type { KafkaConsumer } from '@rntme/projection-consumer';
+import type { OperationCallClient, OperationRegistry } from '@rntme/graph-ir-compiler';
 import type { ValidatedService } from '../types.js';
 
 /** Narrow SQLite handle used by event-store + projection-consumer + graph-ir-compiler. */
@@ -29,6 +30,8 @@ export type SurfaceContext = {
   eventStore: EventStore;
   qsmDb: DbHandle;
   actorFromRequest: (c: Context) => ActorRef | null;
+  operationRegistry: OperationRegistry;
+  operationCallClient: OperationCallClient | null;
 };
 
 export interface Surface {

@@ -38,6 +38,15 @@ const WorkflowsTargetSchema = z.object({
   operatonUi: OperatonUiAccessSchema.optional(),
 });
 
+const ModuleConfigSchema = z.object({
+  image: z.string().min(1),
+  expose: z.boolean().optional(),
+  env: z.record(z.string().min(1), z.string()).optional(),
+  secretRefs: z.record(z.string().min(1), z.string().min(1)).optional(),
+});
+
+const PolicyValuesSchema = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
+
 const DokployTargetFileSchema = z.object({
   kind: z.literal('dokploy'),
   displayName: z.string().min(1).max(120),
@@ -52,12 +61,17 @@ const DokployTargetFileSchema = z.object({
     extras: z.record(z.string().min(1), ExtraSecretRefSchema).optional(),
   }),
   eventBus: z
-    .object({
-      kind: z.literal('kafka').default('kafka'),
-      mode: z.enum(['provisioned', 'external']),
-      provider: z.literal('redpanda').optional(),
-      brokers: z.array(z.string().min(1)).optional(),
-    })
+    .union([
+      z.object({
+        kind: z.literal('in-memory'),
+      }),
+      z.object({
+        kind: z.literal('kafka').default('kafka'),
+        mode: z.enum(['provisioned', 'external']),
+        provider: z.literal('redpanda').optional(),
+        brokers: z.array(z.string().min(1)).optional(),
+      }),
+    ])
     .optional(),
   workflows: WorkflowsTargetSchema.optional(),
   auth: z
@@ -65,6 +79,9 @@ const DokployTargetFileSchema = z.object({
       auth0: Auth0TargetAuthSchema.optional(),
     })
     .optional(),
+  modules: z.record(z.string().min(1), ModuleConfigSchema).optional(),
+  policyValues: PolicyValuesSchema.optional(),
+  runtimeImage: z.string().min(1).optional(),
   publicBaseUrl: z.string().url().optional(),
 });
 

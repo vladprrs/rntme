@@ -33,5 +33,19 @@
       "redirectUri": "https://platform.rntme.com/auth/callback"
     }
   },
+  "modules": {
+    "identity-auth0": {
+      "image": "ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743",
+      "env": {
+        "AUTH0_DOMAIN": "demo-rntme.us.auth0.com"
+      }
+    }
+  },
+  "policyValues": {
+    "requestContext": {
+      "default": {}
+    }
+  },
+  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-pr108-27c70ad",
   "publicBaseUrl": "https://platform.rntme.com"
 }

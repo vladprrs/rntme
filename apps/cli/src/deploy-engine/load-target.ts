@@ -50,6 +50,8 @@ export async function loadTargetFile(
   if (file.kind === 'dokploy') {
     const auth = buildAuthSection(file.auth);
     const workflows = buildWorkflowsSection(file.workflows);
+    const configOverrides: Record<string, unknown> = {};
+    if (file.runtimeImage !== undefined) configOverrides.runtimeImage = file.runtimeImage;
     return ok({
       target: {
         id: `direct-${slug}`,
@@ -62,13 +64,14 @@ export async function loadTargetFile(
         dokployProjectName: file.config.dokployProjectName ?? null,
         allowCreateProject: file.config.allowCreateProject ?? false,
         eventBus: file.eventBus ?? { kind: 'kafka', mode: 'external', brokers: ['localhost:9092'] },
-        modules: {},
+        modules: file.modules ?? {},
         workflows,
         storage: { mode: 'external' },
         auth,
-        policyValues: {},
+        policyValues: file.policyValues ?? {},
         manualAccess: {},
       } as never,
+      configOverrides,
       secretRefs: { apiToken: file.secrets.apiToken, extras: file.secrets.extras ?? {} },
     });
   }

@@ -7,6 +7,7 @@ import type {
   DokployComposeTaskInspection,
   DokployProjectRef,
   RenderedComposeServiceClass,
+  RenderedDokployComposeFileMount,
   RenderedDokployResource,
   RenderedSecretFileRef,
   RenderedEnvVar,
@@ -347,6 +348,7 @@ export function createDokployClientFactory(
           composeId,
           env: envBlock(resource),
         });
+        await configureComposeFileMounts(request, composeId, resource.fileMounts);
         await configureFileMounts(
           request,
           'compose',
@@ -632,6 +634,44 @@ async function configureFileMounts(
       for (const duplicate of matches.slice(1)) {
         await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
       }
+    }
+  }
+}
+
+async function configureComposeFileMounts(
+  request: <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>,
+  composeId: string,
+  fileMounts: readonly RenderedDokployComposeFileMount[] | undefined,
+): Promise<void> {
+  if (fileMounts === undefined || fileMounts.length === 0) return;
+  const mountsResponse = await request<unknown>('GET', '/api/mounts.listByServiceId', {
+    serviceType: 'compose',
+    serviceId: composeId,
+  });
+  const mounts = Array.isArray(mountsResponse) ? (mountsResponse as DokployApiMount[]) : [];
+
+  for (const mount of [...fileMounts].sort((a, b) => a.mountPath.localeCompare(b.mountPath))) {
+    const matches = mounts.filter((existing) => existing.mountPath === mount.mountPath);
+    const existing = matches[0];
+    const body = {
+      type: 'file',
+      serviceType: 'compose',
+      serviceId: composeId,
+      mountPath: mount.mountPath,
+      filePath: mount.filePath,
+      content: mount.content,
+    };
+    if (existing === undefined) {
+      await request('POST', '/api/mounts.create', body);
+      continue;
+    }
+    await request('POST', '/api/mounts.update', {
+      ...body,
+      mountId: existing.mountId,
+      composeId,
+    });
+    for (const duplicate of matches.slice(1)) {
+      await request('POST', '/api/mounts.remove', { mountId: duplicate.mountId });
     }
   }
 }

@@ -27,6 +27,7 @@ export { renderNginxConfig } from './nginx.js';
 export {
   renderDokployPlan,
   type RenderedDokployApplicationResource,
+  type RenderedDokployComposeFileMount,
   type RenderedDokployComposeResource,
   type RenderedDokployDeployment,
   type RenderedDokployPlan,

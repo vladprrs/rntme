@@ -4,6 +4,7 @@ import type { Context } from 'hono';
 import type { SqliteDatabase } from '@rntme/sqlite';
 import type { ValidatedBindings, OpenApiDoc } from '@rntme/bindings';
 import type { EventStore, ActorRef } from '@rntme/event-store';
+import type { OperationCallClient, OperationRegistry } from '@rntme/graph-ir-compiler';
 import type { OperationExecutor } from './operation-contract.js';
 import { buildPlan } from './startup/compile-plan.js';
 import { honoPath } from './startup/hono-path.js';
@@ -22,6 +23,9 @@ export type BindingsRouterOptions = BindingsGraphRuntimeInputs & {
   eventStore?: EventStore;
   /** Required for all operation bindings. */
   operationExecutor?: OperationExecutor;
+  /** Required by Graph IR call nodes during compile and execution. */
+  operationRegistry?: OperationRegistry;
+  operationCallClient?: OperationCallClient | null;
   /** Per-request actor extractor for action operations. Default: () => null. */
   actorFromRequest?: (c: Context) => ActorRef | null;
   /** Default: () => new Date().toISOString() */
@@ -32,7 +36,9 @@ export type BindingsRouterOptions = BindingsGraphRuntimeInputs & {
 };
 
 export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
-  const plan = buildPlan(opts.validated, opts.graphSpec, opts.pdm, opts.qsm);
+  const plan = buildPlan(opts.validated, opts.graphSpec, opts.pdm, opts.qsm, {
+    ...(opts.operationRegistry === undefined ? {} : { registry: opts.operationRegistry }),
+  });
   const app = new Hono();
 
   const planEntries = Object.values(plan.plans);
@@ -81,6 +87,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
             now,
             nextId,
             actorFromRequest,
+            callClient: opts.operationCallClient ?? null,
             onError: opts.onError,
             idempotencyCache: cache,
           }
@@ -91,6 +98,7 @@ export function createBindingsRouter(opts: BindingsRouterOptions): Hono {
             now,
             nextId,
             actorFromRequest,
+            callClient: opts.operationCallClient ?? null,
             idempotencyCache: cache,
           };
     if (bp.entry.http.method === 'GET') app.get(route, makeOperationHandler(bp, deps));

@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import type { RedirectStatusCode } from 'hono/utils/http-status';
 import type { SqliteDatabase } from '@rntme/sqlite';
 import type { EventStore, ActorRef } from '@rntme/event-store';
+import type { OperationCallClient } from '@rntme/graph-ir-compiler';
 import type { BindingPlan } from '../startup/compile-plan.js';
 import type { OperationExecutor, OperationExecutorError } from '../operation-contract.js';
 import { extractQuery, extractPath } from './extract.js';
@@ -24,6 +25,7 @@ export type OperationHandlerDeps = {
   qsmDb: SqliteDatabase;
   now: () => string;
   nextId: () => string;
+  callClient: OperationCallClient | null;
   actorFromRequest: (c: Context) => ActorRef | null;
   onError?: (err: unknown, ctx: Context) => void;
   idempotencyCache?: IdempotencyCache | undefined;
@@ -177,7 +179,7 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
         ctx: {
             qsmDb: deps.qsmDb,
           eventStore: deps.eventStore,
-          callClient: null,
+          callClient: deps.callClient,
           now: deps.now,
           nextId: deps.nextId,
           actor,

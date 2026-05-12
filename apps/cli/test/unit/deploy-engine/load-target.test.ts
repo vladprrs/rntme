@@ -35,6 +35,22 @@ describe('loadTargetFile', () => {
     if (!result.ok) expect(result.error.code).toBe('CLI_DEPLOY_TARGET_FILE_INVALID');
   });
 
+  it('parses an in-memory event bus target', async () => {
+    const result = await loadTargetFile(fixturePath, 'preview', {
+      readFile: async () => JSON.stringify({
+        kind: 'dokploy',
+        displayName: 'preview',
+        config: { dokployUrl: 'https://dokploy.example.com' },
+        secrets: { apiToken: { source: 'env', name: 'DOKPLOY_API_TOKEN' } },
+        eventBus: { kind: 'in-memory' },
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.target.eventBus).toEqual({ kind: 'in-memory' });
+  });
+
   it('parses workflows + auth + nested extras into a normalized platform target', async () => {
     const result = await loadTargetFile(platformFixturePath, 'rntme-platform-prod');
     expect(result.ok).toBe(true);
@@ -44,6 +60,8 @@ describe('loadTargetFile', () => {
       readonly workflows: { readonly engine: { readonly kind: string; readonly mode: string; readonly image: string } } | null;
       readonly eventBus: { readonly mode: string; readonly provider?: string };
       readonly publicBaseUrl: string | null;
+      readonly modules: Record<string, { readonly image: string; readonly env?: Record<string, string> }>;
+      readonly policyValues: Record<string, Record<string, unknown>>;
     };
     expect(t.workflows).not.toBeNull();
     expect(t.workflows?.engine.kind).toBe('operaton');
@@ -56,6 +74,14 @@ describe('loadTargetFile', () => {
     expect(t.eventBus.mode).toBe('provisioned');
     expect(t.eventBus.provider).toBe('redpanda');
     expect(t.publicBaseUrl).toBe('https://platform.rntme.com');
+    expect(t.modules['identity-auth0']).toEqual({
+      image: 'ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743',
+      env: { AUTH0_DOMAIN: 'demo-rntme.us.auth0.com' },
+    });
+    expect(t.policyValues.requestContext?.default).toEqual({});
+    expect(result.value.configOverrides.runtimeImage).toBe(
+      'ghcr.io/vladprrs/rntme-runtime:runtime-pr108-27c70ad',
+    );
 
     const extras = result.value.secretRefs.extras as Record<
       string,

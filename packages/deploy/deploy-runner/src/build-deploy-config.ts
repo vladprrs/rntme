@@ -53,6 +53,11 @@ export function buildProjectDeploymentConfig(
           kind: 'memory' as const,
           mode: 'in-memory' as const,
         }
+      : target.eventBus.kind === 'in-memory'
+      ? {
+          kind: 'memory' as const,
+          mode: 'in-memory' as const,
+        }
       : target.eventBus.mode === 'provisioned'
       ? {
           kind: target.eventBus.kind,
