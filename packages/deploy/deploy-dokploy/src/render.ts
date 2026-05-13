@@ -826,20 +826,27 @@ function renderResource(
           value: '/srv/artifacts',
           secret: false,
         },
-        ...(authMiddleware === undefined
-          ? []
-          : [
-              { name: 'RNTME_AUTH_PROVIDER', value: authMiddleware.provider, secret: false },
-              ...(authMiddleware.audience === undefined
-                ? []
-                : [{ name: 'RNTME_AUTH_AUDIENCE', value: authMiddleware.audience, secret: false }]),
-              { name: 'RNTME_AUTH_MODULE_SLUG', value: authMiddleware.moduleSlug, secret: false },
-              {
-                name: 'RNTME_AUTH_MODULE_ENDPOINT',
-                value: `mod-${authMiddleware.moduleSlug}:50051`,
-                secret: false,
-              },
-            ]),
+        ...(() => {
+          // Only the auth0 provider corresponds to in-service JWT verification;
+          // platform-tokens is edge-only and does not need RNTME_AUTH_* in
+          // runtime services. Emit RNTME_AUTH_* from the first auth0 provider
+          // (if any) to preserve the single-provider runtime contract.
+          if (authMiddleware === undefined) return [];
+          const authProvider = authMiddleware.providers.find((p) => p.provider === 'auth0');
+          if (authProvider === undefined) return [];
+          return [
+            { name: 'RNTME_AUTH_PROVIDER', value: 'auth0', secret: false },
+            ...(authProvider.audience === undefined
+              ? []
+              : [{ name: 'RNTME_AUTH_AUDIENCE', value: authProvider.audience, secret: false }]),
+            { name: 'RNTME_AUTH_MODULE_SLUG', value: authProvider.moduleSlug, secret: false },
+            {
+              name: 'RNTME_AUTH_MODULE_ENDPOINT',
+              value: `mod-${authProvider.moduleSlug}:50051`,
+              secret: false,
+            },
+          ];
+        })(),
       ],
       literalEnv: {
         RNTME_RUNTIME_ARTIFACTS_DIGEST: artifactMounts.digest,
