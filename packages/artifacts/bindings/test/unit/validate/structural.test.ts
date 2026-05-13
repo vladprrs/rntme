@@ -215,6 +215,50 @@ describe('validateStructural', () => {
     if (!r.ok) expect(r.errors.some((e) => e.code === 'BINDINGS_COMMAND_QUERY_PARAM_FORBIDDEN')).toBe(true);
   });
 
+  it('rejects response.onOk.headers with newline in header name', () => {
+    const bad = clone(base);
+    const primary = bad.bindings.primary;
+    if (!primary) throw new Error('missing primary');
+    primary.response = {
+      onOk: {
+        json: null,
+        headers: { 'X-Bad\nName': 'ok' },
+      },
+      onErr: { json: null },
+    };
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      const matched = r.errors.find(
+        (e) => e.code === ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_HEADER_UNSAFE,
+      );
+      expect(matched).toBeDefined();
+      expect(matched?.path).toBe('bindings.primary.response.onOk.headers.X-Bad\nName');
+    }
+  });
+
+  it('rejects response.onOk.headers with control char in static value', () => {
+    const bad = clone(base);
+    const primary = bad.bindings.primary;
+    if (!primary) throw new Error('missing primary');
+    primary.response = {
+      onOk: {
+        json: null,
+        headers: { 'X-Good-Name': 'has\x01ctrl' },
+      },
+      onErr: { json: null },
+    };
+    const r = validateStructural(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      const matched = r.errors.find(
+        (e) => e.code === ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_HEADER_UNSAFE,
+      );
+      expect(matched).toBeDefined();
+      expect(matched?.path).toBe('bindings.primary.response.onOk.headers.X-Good-Name');
+    }
+  });
+
   it('accepts action bindings with POST + path + body only', () => {
     const good = clone(base);
     good.bindings.primary!.exposure = 'action';

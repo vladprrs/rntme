@@ -78,6 +78,38 @@ describe('BindingArtifactSchema', () => {
     expect(BindingArtifactSchema.safeParse(bad).success).toBe(false);
   });
 
+  it('accepts json response status and headers', () => {
+    const r = BindingArtifactSchema.safeParse({
+      version: '1.0',
+      graphSpecRef: 'g',
+      pdmRef: 'p',
+      qsmRef: 'q',
+      bindings: {
+        introspectToken: {
+          exposure: 'read',
+          graph: 'IntrospectToken',
+          target: { engine: 'native', dialect: 'platform' },
+          http: { method: 'GET', path: '/introspect', parameters: [] },
+          response: {
+            onOk: {
+              json: null,
+              headers: {
+                'X-Rntme-User-Sub': '$result.subject.account.id',
+                'X-Rntme-User-Audience': 'urn:rntme:platform-tokens',
+                'X-Rntme-Session-Status': 'ACTIVE',
+              },
+            },
+            onErr: {
+              json: { code: '$error.code', message: '$error.message' },
+              status: 401,
+            },
+          },
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
   it('requires exposure and rejects legacy kind/pre', () => {
     const input = {
       version: '1.0',

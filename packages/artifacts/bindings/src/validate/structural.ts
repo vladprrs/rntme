@@ -1,4 +1,5 @@
 import type { BindingArtifact, BindingEntry, HttpParameter, StructurallyValid } from '../types/artifact.js';
+import type { ResponseBranch } from '../types/input-from.js';
 import { err, ok, ERROR_CODES, type Result, type BindingsError } from '../types/result.js';
 
 const PLACEHOLDER_RE = /\{([^{}]+)\}/g;
@@ -52,6 +53,47 @@ function originOf(url: string): string | null {
 
 function containsBareReference(tpl: string): boolean {
   return /(^|[^{])\$[a-zA-Z0-9_.-]+/.test(tpl);
+}
+
+function isSafeHeaderName(name: string): boolean {
+  return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name);
+}
+
+function isSafeStaticHeaderValue(value: unknown): boolean {
+  if (typeof value !== 'string') return true;
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code === 0x09) continue;
+    if (code < 0x20 || code === 0x7f) return false;
+  }
+  return true;
+}
+
+function checkResponseHeaders(
+  id: string,
+  branchName: 'onOk' | 'onErr',
+  branch: ResponseBranch,
+  errors: BindingsError[],
+): void {
+  const headers = branch.headers ?? {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (!isSafeHeaderName(name)) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_HEADER_UNSAFE,
+        message: `binding "${id}": response.${branchName}.headers has unsafe header name "${name}"`,
+        path: `bindings.${id}.response.${branchName}.headers.${name}`,
+      });
+    }
+    if (!isSafeStaticHeaderValue(value)) {
+      errors.push({
+        layer: 'structural',
+        code: ERROR_CODES.BINDINGS_STRUCTURAL_RESPONSE_HEADER_UNSAFE,
+        message: `binding "${id}": response.${branchName}.headers.${name} contains an unsafe static value`,
+        path: `bindings.${id}.response.${branchName}.headers.${name}`,
+      });
+    }
+  }
 }
 
 function checkBinding(
@@ -186,6 +228,9 @@ function checkBinding(
   }
 
   if (entry.response !== undefined) {
+    checkResponseHeaders(id, 'onOk', entry.response.onOk, errors);
+    checkResponseHeaders(id, 'onErr', entry.response.onErr, errors);
+
     const redirects = [
       ...redirectTemplateTargets((entry.response.onOk as { redirect?: unknown }).redirect),
       ...redirectTemplateTargets((entry.response.onErr as { redirect?: unknown }).redirect),

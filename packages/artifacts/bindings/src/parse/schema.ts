@@ -48,12 +48,31 @@ const RedirectSchema = z.union([
   }).strict(),
 ]);
 
-const ResponseBranchSchema = z.union([
-  z.object({ json: z.unknown() }).strict(),
-  z.object({ redirect: RedirectSchema, status: z.union([z.literal(302), z.literal(303)]).optional() }).strict(),
-]).refine((val) => 'json' in val || 'redirect' in val, {
-  message: 'Response branch must have either json or redirect',
-});
+const ResponseHeadersSchema = z.record(
+  z.string().min(1),
+  z.union([z.string(), z.number(), z.boolean(), z.record(z.string(), z.unknown())]),
+);
+
+const JsonResponseBranchSchema = z
+  .object({
+    json: z.unknown(),
+    status: z.number().int().min(100).max(599).optional(),
+    headers: ResponseHeadersSchema.optional(),
+  })
+  .strict();
+
+const RedirectResponseBranchSchema = z
+  .object({
+    redirect: RedirectSchema,
+    status: z.union([z.literal(302), z.literal(303)]).optional(),
+    headers: ResponseHeadersSchema.optional(),
+  })
+  .strict();
+
+const ResponseBranchSchema = z.union([JsonResponseBranchSchema, RedirectResponseBranchSchema]).refine(
+  (val) => 'json' in val || 'redirect' in val,
+  { message: 'Response branch must have either json or redirect' },
+);
 
 const ResponseShapeSchema = z.object({
   onOk: ResponseBranchSchema,

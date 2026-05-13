@@ -13,9 +13,21 @@ export type InputSource =
 
 export type InputFromMap = Record<string, InputSource>;
 
-export type ResponseBranch =
-  | { json: unknown }
-  | { redirect: ExpressionTemplate | { expr: ExpressionTemplate | ExpressionObject }; status?: 302 | 303 };
+export type ResponseHeaders = Record<string, ExpressionTemplate | ExpressionObject | string | number | boolean>;
+
+export type JsonResponseBranch = {
+  json: unknown;
+  status?: number;
+  headers?: ResponseHeaders;
+};
+
+export type RedirectResponseBranch = {
+  redirect: ExpressionTemplate | { expr: ExpressionTemplate | ExpressionObject };
+  status?: 302 | 303;
+  headers?: ResponseHeaders;
+};
+
+export type ResponseBranch = JsonResponseBranch | RedirectResponseBranch;
 
 export type ResponseShape = {
   onOk: ResponseBranch;
