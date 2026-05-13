@@ -172,6 +172,19 @@ describe('toDeployCoreInput', () => {
     expect(tokensBindings.bindings?.introspectToken?.http?.path).toBe('/api/tokens/introspect');
   });
 
+  it('converts platform blueprint without wiring tokens as a module proto', async () => {
+    const platformDir = join(repoRoot, 'apps', 'platform', 'blueprint');
+    const composed = await loadComposedBlueprint(platformDir);
+    expect(composed.ok, composed.ok ? '' : JSON.stringify(composed.errors, null, 2)).toBe(true);
+    if (!composed.ok) return;
+
+    const result = await toDeployCoreInput(composed.value, platformDir);
+    const projectsManifest = JSON.parse(result.services.projects?.runtimeFiles?.['manifest.json'] ?? '{}');
+    const moduleNames = (projectsManifest.modules ?? []).map((m: { name: string }) => m.name);
+    expect(moduleNames).toContain('identity-auth0');
+    expect(moduleNames).not.toContain('tokens');
+  });
+
   it('throws a partial-artifacts error when a domain service has only some runtime artifacts', async () => {
     const platformDir = join(repoRoot, 'apps', 'platform', 'blueprint');
     const composed = await loadComposedBlueprint(platformDir);

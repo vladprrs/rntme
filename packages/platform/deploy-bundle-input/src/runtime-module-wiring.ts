@@ -179,9 +179,14 @@ function authMiddlewareModuleSlugsForService(
 ): string[] {
   const slugs: string[] = [];
   for (const [middlewareName, declaration] of Object.entries(project.project.middleware ?? {})) {
-    if (declaration.kind !== 'auth' || declaration.moduleSlug === undefined) continue;
+    if (declaration.kind !== 'auth') continue;
     if (!middlewareAppliesToService(project, middlewareName, serviceSlug)) continue;
-    slugs.push(declaration.moduleSlug);
+    const providers = (declaration as { readonly providers?: readonly { readonly provider: string; readonly moduleSlug: string }[] }).providers;
+    if (providers === undefined) continue;
+    for (const provider of providers) {
+      if (provider.provider === 'platform-tokens') continue;
+      slugs.push(provider.moduleSlug);
+    }
   }
   return slugs;
 }

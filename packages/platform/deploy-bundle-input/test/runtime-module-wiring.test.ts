@@ -140,6 +140,102 @@ function makeCvExtractFixture(): ComposedBlueprint {
   } as ComposedBlueprint;
 }
 
+function makePlatformAuthFixture(input: {
+  readonly providers: readonly {
+    readonly provider: 'platform-tokens' | 'auth0';
+    readonly moduleSlug: string;
+    readonly audience?: string;
+    readonly introspectPath?: string;
+    readonly introspectPort?: number;
+  }[];
+}): ComposedBlueprint {
+  return {
+    project: {
+      name: 'platform',
+      services: ['projects', 'tokens', 'identity-auth0'],
+      routes: {
+        http: {
+          '/api/projects': 'projects',
+          '/api/tokens': 'tokens',
+        },
+      },
+      middleware: {
+        auth: { kind: 'auth', providers: input.providers as never },
+      },
+      mounts: [{ target: 'http:/api/projects', use: ['auth'] }],
+    },
+    pdm: {} as never,
+    services: {
+      projects: {
+        slug: 'projects',
+        kind: 'domain',
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: true,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: true,
+          hasStorage: false,
+          hasCommandHandlers: false,
+        },
+        qsm: null,
+        graphSpec: { version: '1.0-rc7', shapes: {}, graphs: {} },
+        qsmValidated: null,
+        bindings: null,
+        seed: null,
+        storage: null,
+        compiledUi: null,
+        eventTypes: [],
+      },
+      tokens: {
+        slug: 'tokens',
+        kind: 'domain',
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: true,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: true,
+          hasStorage: false,
+          hasCommandHandlers: false,
+        },
+        qsm: null,
+        graphSpec: null,
+        qsmValidated: null,
+        bindings: null,
+        seed: null,
+        storage: null,
+        compiledUi: null,
+        eventTypes: [],
+      },
+      'identity-auth0': {
+        slug: 'identity-auth0',
+        kind: 'integration-module',
+        artifacts: {
+          hasGraphs: false,
+          hasBindings: false,
+          hasUi: false,
+          hasSeed: false,
+          hasQsm: false,
+          hasStorage: false,
+          hasCommandHandlers: false,
+        },
+        qsm: null,
+        graphSpec: null,
+        qsmValidated: null,
+        bindings: null,
+        seed: null,
+        storage: null,
+        compiledUi: null,
+        eventTypes: [],
+      },
+    },
+    routing: { httpBaseByService: {}, uiPathsByService: {} },
+    bindingRegistry: {},
+    varsManifest: {},
+  } as ComposedBlueprint;
+}
+
 describe('collectGraphModuleTargets', () => {
   it('collects module names from every call node across every graph', () => {
     const fixture = makeCvExtractFixture();
@@ -242,7 +338,16 @@ describe('buildRuntimeModuleWiringForService (auth middleware path)', () => {
         services: ['app', 'organizations', 'identity-auth0'],
         routes: { ui: { '/': 'app' }, http: { '/api/organizations': 'organizations' } },
         middleware: {
-          auth: { kind: 'auth', provider: 'auth0', moduleSlug: 'identity-auth0' },
+          auth: {
+            kind: 'auth',
+            providers: [
+              {
+                provider: 'auth0',
+                audience: 'https://example.com/api',
+                moduleSlug: 'identity-auth0',
+              },
+            ],
+          },
         },
         mounts: [
           { target: 'http:/api/organizations', use: ['auth'] },
@@ -315,6 +420,33 @@ describe('buildRuntimeModuleWiringForService (auth middleware path)', () => {
     expect(wiring.files['protos/rntme/contracts/common/v1/common.proto']).toContain(
       'package rntme.contracts.common.v1',
     );
+  });
+
+  it('does not emit a proto module entry for platform-tokens auth providers', () => {
+    const fixture = makePlatformAuthFixture({
+      providers: [
+        {
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+          introspectPath: '/api/tokens/introspect',
+          introspectPort: 3000,
+        },
+        {
+          provider: 'auth0',
+          audience: 'https://platform.rntme.com/api',
+          moduleSlug: 'identity-auth0',
+        },
+      ],
+    });
+
+    const wiring = buildRuntimeModuleWiringForService(
+      fixture,
+      'projects',
+      buildServiceSlugByModuleKey(fixture),
+    );
+
+    expect(wiring.modules.map((m) => m.name)).toEqual(['identity-auth0']);
+    expect(wiring.files['protos/identity.proto']).toContain('service IdentityModule');
   });
 });
 
