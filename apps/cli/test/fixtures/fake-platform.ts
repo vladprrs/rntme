@@ -161,14 +161,14 @@ export function createFakePlatform(opts: FakePlatformOptions): FakePlatform {
 
         const assets = bundle.assets ?? {};
         const marketingAsset = Object.keys(assets).find(
-          (k) => k.startsWith('assets/project-folders/marketing/') && k.endsWith('.tar.gz'),
+          (k) => k.startsWith('assets/project-folders/marketing-site/') && k.endsWith('.tar.gz'),
         );
         if (!marketingAsset) {
           return HttpResponse.json(
             {
               error: {
                 code: 'FAKE_PLATFORM_MARKETING_ASSET_MISSING',
-                message: 'expected assets/project-folders/marketing/<sha>.tar.gz entry',
+                message: 'expected assets/project-folders/marketing-site/<sha>.tar.gz entry',
               },
             },
             { status: 400 },
@@ -199,7 +199,7 @@ export function createFakePlatform(opts: FakePlatformOptions): FakePlatform {
         assertedSummaryServices = true;
 
         const moduleKeys = Object.keys(projectJson?.modules ?? {});
-        const expectedModules = ['openrouter', 'storage', 'marketing'];
+        const expectedModules = ['openrouter', 'storage', 'marketing-site'];
         const moduleMismatch = expectedModules.some((m) => !moduleKeys.includes(m));
         if (moduleMismatch) {
           return HttpResponse.json(

@@ -43,7 +43,7 @@ describe('platform-client cv-extract: build -> publish -> deploy -> poll', () =>
       // asset and the expected project.json shape so the fake platform's
       // assertions can run.
       const marketingAssetKeys = Object.keys(built.value.bundle.assets).filter(
-        (k) => k.startsWith('assets/project-folders/marketing/') && k.endsWith('.tar.gz'),
+        (k) => k.startsWith('assets/project-folders/marketing-site/') && k.endsWith('.tar.gz'),
       );
       expect(marketingAssetKeys.length).toBe(1);
 
@@ -53,7 +53,7 @@ describe('platform-client cv-extract: build -> publish -> deploy -> poll', () =>
       };
       expect(projectJson.services).toEqual(['app', 'openrouter', 'storage-s3']);
       expect(Object.keys(projectJson.modules).sort()).toEqual(
-        ['marketing', 'openrouter', 'storage'].sort(),
+        ['marketing-site', 'openrouter', 'storage'].sort(),
       );
 
       // 2. POST raw bundle bytes to the platform publish endpoint.
