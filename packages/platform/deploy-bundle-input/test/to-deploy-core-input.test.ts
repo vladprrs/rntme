@@ -170,6 +170,20 @@ describe('toDeployCoreInput', () => {
       result.services.tokens?.runtimeFiles?.['bindings.json'] ?? '{}',
     ) as { bindings?: Record<string, { http?: { path?: string } }> };
     expect(tokensBindings.bindings?.introspectToken?.http?.path).toBe('/api/tokens/introspect');
+
+    // Native operation handlers (operations.json + handlers/*.ts) must ride
+    // along inside the runtime artifact bundle, otherwise the runtime cannot
+    // dispatch native bindings (T027a).
+    const tokensFiles = result.services.tokens?.runtimeFiles ?? {};
+    expect(tokensFiles['operations.json']).toBeDefined();
+    const tokensOps = JSON.parse(tokensFiles['operations.json'] ?? '{}') as {
+      operations?: Record<string, { handler?: { entry?: string } }>;
+    };
+    expect(tokensOps.operations?.IntrospectToken?.handler?.entry).toBe(
+      './handlers/introspect-token.ts',
+    );
+    expect(tokensFiles['handlers/introspect-token.ts']).toBeDefined();
+    expect(tokensFiles['handlers/introspect-token.ts']).toContain('introspectTokenHandler');
   });
 
   it('converts platform blueprint without wiring tokens as a module proto', async () => {

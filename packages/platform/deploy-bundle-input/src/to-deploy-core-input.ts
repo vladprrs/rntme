@@ -260,6 +260,8 @@ async function buildRuntimeArtifactFiles(
     addJsonFile(files, `graphs/${graphId}.json`, graph);
   }
 
+  await addNativeOperationFiles(files, rootDir, serviceSlug);
+
   const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
   if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   Object.assign(files, uiBuildFiles);
@@ -270,6 +272,63 @@ async function buildRuntimeArtifactFiles(
   }
 
   return files;
+}
+
+type ServiceOperationsJson = {
+  readonly version?: unknown;
+  readonly operations?: Record<
+    string,
+    {
+      readonly handler?: {
+        readonly kind?: unknown;
+        readonly entry?: unknown;
+        readonly export?: unknown;
+      };
+    }
+  >;
+};
+
+async function addNativeOperationFiles(
+  files: Record<string, string>,
+  rootDir: string,
+  serviceSlug: string,
+): Promise<void> {
+  const operationsPath = join(rootDir, 'services', serviceSlug, 'operations.json');
+  let operationsRaw: string;
+  try {
+    operationsRaw = await readFile(operationsPath, 'utf8');
+  } catch (cause) {
+    if (errorCode(cause) === 'ENOENT') return;
+    throw cause;
+  }
+  files['operations.json'] = operationsRaw;
+  const parsed = JSON.parse(operationsRaw) as ServiceOperationsJson;
+  const seenHandlers = new Set<string>();
+  for (const [operationName, op] of Object.entries(parsed.operations ?? {})) {
+    const handler = op?.handler;
+    if (handler === undefined || handler.kind !== 'native') continue;
+    if (typeof handler.entry !== 'string') {
+      throw new Error(
+        `DEPLOY_EXECUTOR_OPERATION_HANDLER_ENTRY_INVALID:${serviceSlug}:${operationName}`,
+      );
+    }
+    const entryBase = handler.entry.replace(/^\.\//, '');
+    const sourcePath = join(rootDir, 'services', serviceSlug, entryBase);
+    const baseName = entryBase.split('/').pop() ?? entryBase;
+    const targetKey = `handlers/${baseName}`;
+    if (seenHandlers.has(targetKey)) continue;
+    seenHandlers.add(targetKey);
+    try {
+      files[targetKey] = await readFile(sourcePath, 'utf8');
+    } catch (cause) {
+      if (errorCode(cause) === 'ENOENT') {
+        throw new Error(
+          `DEPLOY_EXECUTOR_OPERATION_HANDLER_NOT_FOUND:${serviceSlug}:${operationName}:${entryBase}`,
+        );
+      }
+      throw cause;
+    }
+  }
 }
 
 function domainArtifactState(service: ComposedBlueprint['services'][string]):
