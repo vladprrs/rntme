@@ -109,10 +109,33 @@ The following middleware are the canonical home for HTTP request handling; they 
 - `inputFrom` is additive. It must not duplicate `http.parameters[].bindTo`, and the handler merges both sources before execution.
 - Body parameters require a JSON object. Form bodies are only read through `inputFrom`.
 - Query/path/body Zod schemas are strict, so undeclared inputs fail before execution.
-- Idempotency cache is action-scoped and stores the rendered default/custom response for a client `Idempotency-Key`.
+- Idempotency cache is action-scoped and stores the rendered default/custom response — including configured response headers and status — for a client `Idempotency-Key`; replays re-emit the cached headers and body verbatim.
 - Correlation middleware can set `c.var.correlation`; when present, the operation handler uses that exact `commandId`/`correlationId` for events and default action response metadata.
 - Callback responses can redirect. Absolute redirect targets must match `allowedRedirectHosts`.
 - Module/service calls are Graph IR `call` nodes executed by the operation executor's call client.
+
+## Response rendering
+
+`renderResponse` honors `response.onOk` / `response.onErr` declared in the
+binding artifact:
+
+- `status` (when present) sets the JSON-mode HTTP status; redirects keep their
+  protocol-defined status codes.
+- `headers` entries are templated against binding outputs and emitted on the
+  response via `renderHeaders`. `invalidHeader` rejects any value that contains
+  CR/LF at render time so structural validation failures cannot be smuggled in
+  through a templated value.
+
+## Native operations
+
+Bindings that target a service-local native operation are dispatched without a
+compiled Graph IR plan. The default operation map produced by
+`buildDefaultGraphIrOperationMap` skips native entries — they have no graph to
+compile — and the runtime relies on
+`NativeOperationExecutor` (registered by `@rntme/runtime`) to dispatch via the
+operation registry. The Graph IR call client and operation map therefore only
+contain graph-backed entries; missing native handlers fail at runtime
+(`NATIVE_OPERATION_HANDLER_MISSING`), not at compile time.
 
 ## Where To Look First
 

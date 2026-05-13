@@ -119,11 +119,25 @@ copied into `/srv/artifacts` via the `Dockerfile.template` in
 
 ## Identity
 
-The platform blueprint uses `@rntme/identity-auth0` as its first identity
-provider through the canonical identity contract. Platform API mounts use the
-project `auth` middleware with Auth0 edge introspection. Graphs receive the
-`Authorization` header through binding `inputFrom.authorization` and call
-`identity-auth0.IntrospectSession` for canonical session data.
+The platform blueprint uses an ordered, multi-provider `auth` middleware on
+protected API routes. The middleware's `providers[]` list is:
+
+1. **`platform-tokens`** — validates CLI personal access tokens
+   (`Authorization: Bearer rntme_pat_*`) via HTTP introspection at
+   `/api/tokens/introspect`, served by the platform's `tokens` domain service.
+   The stable audience constant for this provider is
+   `urn:rntme:platform-tokens`. Tokens are looked up by their stored hash and
+   the response is shaped like a session document for downstream handlers.
+2. **`@rntme/identity-auth0`** — validates browser Auth0 JWTs through the
+   canonical identity-module HTTP introspection sidecar, the same path used
+   for browser SSO.
+
+nginx walks the providers in order and authorizes on the first 200. Graphs
+and native handlers receive the `Authorization` header through binding
+`inputFrom.authorization` and consult the upstream session via
+`IntrospectSession` (for module-backed providers) or the platform-tokens
+introspection result (for PATs). Edge nginx forwards `X-Rntme-User-Sub`,
+`X-Rntme-User-Audience`, and `X-Rntme-Session-Status` as advisory hints.
 
 WorkOS remains a legacy hosted-platform integration until a future provider
 parity plan adds canonical session/edge introspection support.

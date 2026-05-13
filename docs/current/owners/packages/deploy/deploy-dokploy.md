@@ -257,27 +257,55 @@ applications and use `deleteVolumes: true` for explicit project
 decommissioning. Missing resources are treated as warnings; real API failures
 are returned so callers can leave the project in `delete_failed` and retry.
 
-When `kind: "auth"` middleware is mounted on a domain-service route, render
+When a `kind: "auth"` middleware has at least one `auth0` provider, render
 adds `RNTME_AUTH_PROVIDER`, `RNTME_AUTH_AUDIENCE`, `RNTME_AUTH_MODULE_SLUG`,
-and `RNTME_AUTH_MODULE_ENDPOINT=<module-resource>:50051` to that domain
-service. It also generates public `/srv/config.json` with Auth0 `domain`,
-`clientId`, `audience`, and `redirectUri` from the composed blueprint
-`publicConfigJson` sidecar, keyed by module package name. The file must contain
-only public SPA values. The same sidecar is mounted into the edge gateway, and
-Nginx serves browser `GET /config.json` directly from that mounted file.
+and `RNTME_AUTH_MODULE_ENDPOINT=<module-resource>:50051` to the domain
+service. These env vars are derived from the auth0 provider entry only — if
+the middleware's `providers[]` does not contain an `auth0` provider (for
+example, a route protected only by `platform-tokens`), no `RNTME_AUTH_*` env
+is emitted. Render also generates public `/srv/config.json` with Auth0
+`domain`, `clientId`, `audience`, and `redirectUri` from the composed
+blueprint `publicConfigJson` sidecar, keyed by module package name. The file
+must contain only public SPA values. The same sidecar is mounted into the
+edge gateway, and Nginx serves browser `GET /config.json` directly from that
+mounted file.
 
 ### Edge auth rendering
 
-For each `kind: "auth"` middleware in the plan, the renderer emits:
+For each `kind: "auth"` middleware in the plan, the renderer walks the
+ordered `providers[]` and emits one upstream + one internal introspection
+location **per provider**, keyed by `(moduleSlug, providerIndex)`:
 
-1. An `upstream rntme_auth_<slug>__<audHash>` block pointing at `<module-resource>:<introspectPort>`. The audience hash (`first 8 hex chars of sha256(audience)`) lets a future project mount the same module image with different audiences without colliding.
-2. An internal `location = /_rntme_auth_<slug>__<audHash>` that forwards the `Authorization` header and a literal `X-Rntme-Audience` header to the module HTTP introspection endpoint. The location strips the request body (`proxy_pass_request_body off`) — `auth_request` never forwards body.
-3. On every route mounted with `kind: "auth"`: an `auth_request` directive, two `auth_request_set` lines capturing `X-Rntme-User-Sub` / `X-Rntme-User-Audience` from the introspection response, and an `error_page 401 = @rntme_auth_401_<slug>__<audHash>` so the 401 body is canonical JSON regardless of upstream.
-4. A named `location @rntme_auth_401_<slug>__<audHash>` returning `401 application/json` with body `{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}`.
+1. One `upstream rntme_auth_<slug>__p<index>` block per provider pointing at
+   `<module-resource>:<introspectPort>` (or, for `platform-tokens`, at the
+   domain-service runtime container on its declared introspect port). Adding
+   a `providerIndex` to the key lets multiple providers under the same
+   `moduleSlug` coexist on the same edge.
+2. An internal `location = /_rntme_auth_<slug>__p<index>` per provider that
+   forwards the `Authorization` header (and, for `auth0`, a literal
+   `X-Rntme-Audience` header) to the module's HTTP introspection endpoint at
+   the provider's `introspectPath`. The location strips the request body
+   (`proxy_pass_request_body off`).
+3. On every route mounted with `kind: "auth"`: a chain of `auth_request`
+   directives stepping through each provider. nginx authorizes the request
+   when a provider returns 200 and falls through to the next provider on 401
+   via `error_page 401 = @rntme_auth_<slug>__p<next>`. The final 401 lands at
+   `@rntme_auth_401_<slug>` so the canonical 401 body is emitted only after
+   every provider has rejected the request. `auth_request_set` captures
+   forwarded `X-Rntme-User-Sub`, `X-Rntme-User-Audience`, and
+   `X-Rntme-Session-Status` headers from the authorizing provider's response
+   for upstream handlers.
+4. A named `location @rntme_auth_401_<slug>` returning `401 application/json`
+   with body `{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}`.
 
-Nginx itself does not validate JWTs. The module HTTP endpoint does (Auth0: JWKS verification; WorkOS/Clerk: API call). Provider-swap is therefore purely an image change — the rendered nginx config is parameterized by `moduleSlug`, `audience`, and `moduleIntrospectPort` only.
+Nginx itself does not validate credentials. The provider HTTP endpoint does
+(Auth0: JWKS verification; `platform-tokens`: hashed-token compare in the
+`tokens` domain service; WorkOS/Clerk: API call). Provider-swap or
+add-provider is therefore purely a planning/render change — the nginx config
+is parameterized by `(moduleSlug, providerIndex, introspectPort,
+introspectPath, audience?)` only.
 
-Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Session` shape (defence in depth); edge sets `X-Rntme-User-Sub` / `X-Rntme-User-Audience` headers as advisory hints.
+Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Session` shape (defence in depth); edge sets `X-Rntme-User-Sub` / `X-Rntme-User-Audience` / `X-Rntme-Session-Status` headers as advisory hints.
 
 ## Marketing static-site rendering
 

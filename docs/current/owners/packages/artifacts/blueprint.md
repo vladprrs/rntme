@@ -90,20 +90,45 @@ The structural validator only enforces syntax. Module-existence and output-decla
 
 ## Auth and Operation Validation
 
-`project.json` supports typed auth middleware:
+`project.json` supports typed auth middleware. A middleware may declare an
+ordered `providers[]` list so a single mounted route accepts multiple credential
+families. nginx authorizes when the first provider returns 200 and falls
+through to the next provider only on 401:
 
 ```json
 {
   "middleware": {
     "auth": {
       "kind": "auth",
-      "provider": "auth0",
-      "audience": "https://notes-demo.rntme.com/api",
-      "moduleSlug": "identity-auth0"
+      "providers": [
+        {
+          "provider": "platform-tokens",
+          "moduleSlug": "platform-tokens",
+          "introspectPath": "/api/tokens/introspect",
+          "introspectPort": 3000
+        },
+        {
+          "provider": "auth0",
+          "audience": "https://notes-demo.rntme.com/api",
+          "moduleSlug": "identity-auth0"
+        }
+      ]
     }
   }
 }
 ```
+
+Provider rules enforced by `parseAuthMiddleware` and the structural validator:
+
+- `providers[]` is non-empty and ordered; first match (`200`) wins, `401`
+  falls through.
+- `auth0` providers require `audience` and `moduleSlug` (a project-wired
+  identity module).
+- `platform-tokens` providers require `moduleSlug`, `introspectPath`, and
+  `introspectPort` — they target a domain service (not a module image), so
+  no `audience` is required.
+- A narrowing type guard (`isAuthMiddlewareDecl`) separates auth decls from
+  other middleware kinds during composition.
 
 When auth middleware is mounted on a service route, protected graphs are expected to call the configured Identity module from Graph IR and bind request credentials through `inputFrom`. Blueprint composition rejects executable domain-service handler files (`services/<slug>/commands/handlers.mjs`) so service behavior stays in Graph IR operation artifacts instead of service-local code.
 

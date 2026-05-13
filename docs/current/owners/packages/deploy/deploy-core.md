@@ -173,32 +173,58 @@ missing.
 
 ### Edge auth
 
-`mounts: [...].use: ["auth"]` declares an `auth` middleware. Planning enforces:
+`mounts: [...].use: ["auth"]` declares an `auth` middleware with an ordered
+`providers[]` list. The planner walks each provider in order and emits one
+`EdgeAuthProvider` entry per provider on the resulting `EdgeMiddleware`. nginx
+authorizes when the first provider returns 200 and falls through to the next
+provider on 401 (see `@rntme/deploy-dokploy`).
 
-- The middleware decl provides `provider`, `audience`, `moduleSlug`.
-- An integration-module workload exists for `moduleSlug`.
-- The module's `module.json#capabilities.edgeAuth` is present and describes an HTTP introspection endpoint (today only `kind: "introspection-sidecar"` is supported).
-- For Auth0 modules, `AUTH0_DOMAIN` env is set on the workload.
+Per-provider planning enforces:
 
-If any of the above is missing, planning fails with one of:
+- The provider entry resolves to either a module-backed provider (`auth0`) or a
+  domain-service provider (`platform-tokens`).
+- For module-backed providers, an integration-module workload exists for
+  `moduleSlug` and its `module.json#capabilities.edgeAuth` declares an HTTP
+  introspection endpoint (today only `kind: "introspection-sidecar"` is
+  supported).
+- For Auth0 providers, `AUTH0_DOMAIN` env is set on the workload.
+- For `platform-tokens`, the provider supplies `moduleSlug`, `introspectPath`,
+  and `introspectPort`, and the planner reuses those values verbatim — there is
+  no module proto/sidecar to look up.
 
-- `DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE` — provider/audience/moduleSlug missing.
+Errors are indexed by provider position to keep nested causes actionable:
+
+- `DEPLOY_PLAN_AUTH_MIDDLEWARE_PROVIDERS_EMPTY` — `providers[]` is missing or empty.
+- `DEPLOY_PLAN_AUTH_PROVIDER_INCOMPLETE` (at `providers[i]`) — required fields missing.
 - `DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING` — no integration-module workload for `moduleSlug`.
 - `DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING` — module does not declare `capabilities.edgeAuth`.
-- `DEPLOY_PLAN_AUTH_MODULE_ENV_INCOMPLETE` — Auth0 module missing `AUTH0_DOMAIN`.
+- `DEPLOY_PLAN_AUTH_MODULE_ENV_INCOMPLETE` — Auth0 provider missing `AUTH0_DOMAIN`.
 
-The planned auth middleware carries `moduleIntrospectPort` (sourced from `capabilities.edgeAuth.port`) so the renderer can wire `auth_request` into the right port. Public SPA config comes from the composed project `publicConfigJson` sidecar, not from deployment auth settings.
+Each planned `EdgeAuthProvider` carries `moduleSlug`, the introspection port and
+path, and any forwarded headers (`X-Rntme-Audience` for Auth0 providers). Public
+SPA config still comes from the composed project `publicConfigJson` sidecar, not
+from deployment auth settings.
 
 ```json
 {
   "kind": "auth",
-  "provider": "auth0",
-  "audience": "https://notes.example.com/api",
-  "moduleSlug": "identity-auth0"
+  "providers": [
+    {
+      "provider": "platform-tokens",
+      "moduleSlug": "platform-tokens",
+      "introspectPath": "/api/tokens/introspect",
+      "introspectPort": 3000
+    },
+    {
+      "provider": "auth0",
+      "audience": "https://notes.example.com/api",
+      "moduleSlug": "identity-auth0"
+    }
+  ]
 }
 ```
 
-On the platform executor path, composed project module aliases are mapped through the catalog's canonical module manifest name before planning. For example, a project package alias `rntme_identity_auth0` with catalog category `identity -> @rntme/identity-auth0` still provides `modules["identity-auth0"].edgeAuth` to the planner. Blueprint composition rejects mounted auth middleware before deploy if the canonical module manifest lacks `capabilities.edgeAuth`.
+On the platform executor path, composed project module aliases are mapped through the catalog's canonical module manifest name before planning. For example, a project package alias `rntme_identity_auth0` with catalog category `identity -> @rntme/identity-auth0` still provides `modules["identity-auth0"].edgeAuth` to the planner. Blueprint composition rejects mounted auth middleware before deploy if the canonical module manifest lacks `capabilities.edgeAuth` for any module-backed provider.
 
 ## Where to look first
 

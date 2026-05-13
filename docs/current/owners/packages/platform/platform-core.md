@@ -55,6 +55,17 @@ The matching native handler stub for the runtime cutover lives at
 `services/tokens.IntrospectToken` operation contract is declared in
 `apps/platform/blueprint/services/tokens/operations.json`.
 
+### IntrospectToken handler error contract
+
+The native `IntrospectToken` handler throws plain `Error` instances carrying a
+typed `.code` property in the `PLATFORM_AUTH_*` family (for example
+`PLATFORM_AUTH_TOKEN_INVALID`, `PLATFORM_AUTH_TOKEN_REVOKED`,
+`PLATFORM_AUTH_TOKEN_EXPIRED`). `@rntme/runtime`'s `NativeOperationExecutor`
+preserves the `.code` value end-to-end so the HTTP error mapper returns the
+correct 401/403 status with the typed code instead of collapsing to
+`INTERNAL_ERROR`. Handlers MUST NOT log or echo bearer values; only the typed
+code and a static, user-safe message are appropriate for emission.
+
 ## Target-secret schemas
 
 The platform owns the schema registry for deploy-target secrets. Two schemas are

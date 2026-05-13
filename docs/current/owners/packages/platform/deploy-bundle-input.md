@@ -13,6 +13,25 @@ Used by CLI direct deploy and the platform BPMN compose handler. It reads runtim
 
 `moduleKey` propagation is the single rule that keeps blueprint module aliases, manifest module names, planner `target.modules.<key>` lookups, and graph IR `call` targets all aligned. The compose handler does not invent new keys.
 
+## Auth provider wiring exclusions
+
+Auth middleware `providers[]` entries are scanned for module references during
+runtime module wiring, but **non-module providers are skipped** from the manifest
+proto wiring. In particular, the `platform-tokens` provider targets a domain
+service (the platform `tokens` service) over HTTP introspection — it does not
+have a module image, a `module.json`, or a gRPC contract proto, so
+`runtime-module-wiring` excludes it from `manifest.modules[]` synthesis. Auth0
+and other module-backed providers are still wired normally.
+
+## Project route prefixes
+
+`buildDomainServiceBindingArtifacts` materializes project-route prefixes onto
+each domain service's `bindings.json` so the runtime container can serve
+bindings at the root path while the edge prefixes the project's route. The
+runtime artifact ships `surface.http.bindingBasePath: "/"`, and the rendered
+edge nginx is the single layer that translates the public project route into
+the in-container path.
+
 ## Where to look first
 
 - `src/to-deploy-core-input.ts` - conversion, UI bundling, workflow file reads, module static asset copying.

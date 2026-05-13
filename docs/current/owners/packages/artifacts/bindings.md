@@ -95,7 +95,9 @@ Each entry has:
 - `target`: currently `{ engine: "sqlite", dialect: "sqlite" }`; stored as an opaque target descriptor.
 - `http`: method, path, and parameter declarations.
 - Optional `inputFrom`: binds graph inputs from request headers, query, body, or form fields. Keys must not overlap `http.parameters[].bindTo`. Supported sources include `{ from: 'bodyBytes' }`, which feeds the raw request body as a `Uint8Array` into a graph input — used by `POST /api/projects/{projectId}/versions` to ingest `application/rntme-project-bundle+json` bytes without JSON parsing.
-- Optional `response`: callback/custom response rules. GET action bindings are allowed only when `response.onOk` or `response.onErr` redirects.
+- Optional `response`: callback/custom response rules. GET action bindings are allowed only when `response.onOk` or `response.onErr` redirects. Each branch may carry:
+  - `status` — JSON-mode HTTP status (integer 100..599), used for non-redirect responses.
+  - `headers` — record of `{ name: string }` entries; values are templated through binding outputs at runtime by `@rntme/bindings-http`. Header names are validated structurally: empty names, names containing CR/LF, or hop-by-hop / unsafe names (`set-cookie`, `transfer-encoding`, `connection`, etc.) fail with `BINDINGS_STRUCTURAL_RESPONSE_HEADER_UNSAFE`.
 
 Module/service calls are represented in Graph IR with `call` nodes, and their effects are included in the graph signature. A binding may also target a service-local native operation (handler implemented in the blueprint's `services/<svc>/handlers/*.ts` plus `operations.json`) — the bindings artifact treats it the same as a graph reference and the runtime dispatches through the compiled operation map.
 

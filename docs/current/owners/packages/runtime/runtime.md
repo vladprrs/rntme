@@ -207,6 +207,32 @@ present, `startService` creates all PDM-derived service event topics before the
 relay and projection consumer start. The KafkaJS bus implements this with the
 admin client and `waitForLeaders: true`.
 
+### HTTP binding base path
+
+`manifest.surface.http.bindingBasePath` selects where the bindings router
+mounts on the internal Hono app. Default is `/api`, used by stand-alone
+service runtimes. Project-routed deploys (where edge nginx prefixes each
+service with a project-scoped route) generate the runtime artifact with
+`bindingBasePath: "/"` so the in-container router serves at root and the edge
+prefix is the only routing layer. The compiled UI `httpMap` and any
+`/openapi.json` mount use the same base path.
+
+### Native operation executor
+
+`NativeOperationExecutor` runs operations declared in
+`services/<svc>/operations.json` whose implementation lives at
+`services/<svc>/handlers/*.ts`. The executor:
+
+- Dispatches by operation name from a registry built at startup.
+- Throws `NATIVE_OPERATION_HANDLER_MISSING` when a declared native operation
+  has no handler exported from the bundled handlers directory — a structural
+  bug, not user input.
+- Preserves typed handler errors: when a handler throws an `Error` carrying a
+  `.code` property in the `PLATFORM_AUTH_*` / domain-error family, the executor
+  surfaces that code unchanged to the HTTP error mapper instead of rewriting it
+  to a generic `INTERNAL_ERROR`. Graph IR operations continue to flow through
+  `GraphOperationExecutor`.
+
 ### HTTP ingress limits
 
 `manifest.surface.http` supports two defensive defaults for every `/api/*`
