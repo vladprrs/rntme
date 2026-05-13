@@ -6,20 +6,16 @@
   "contract": "marketing-site/v1",
   "capabilities": {
     "rpcs": [],
-    "events": [],
-    "hostedSurface": "static-site"
+    "events": []
   },
   "provisioner": {
     "entry": "./dist/provisioner.entry.js",
     "produces": [
       { "name": "url", "kind": "single", "secret": false },
-      { "name": "deployedSha256", "kind": "single", "secret": false }
+      { "name": "deployedSha256", "kind": "single", "secret": false },
+      { "name": "staticSite", "kind": "single", "secret": false }
     ],
-    "requires": [
-      { "name": "bundleStorage", "schema": "s3-credentials-v1" },
-      { "name": "registry", "schema": "registry-credentials-v1" },
-      { "name": "dokploy", "schema": "dokploy-api-v1" }
-    ],
+    "requires": [],
     "timeoutMs": 300000
   }
 }

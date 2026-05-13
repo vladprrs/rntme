@@ -1,27 +1,27 @@
-import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'bun:test';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it } from 'bun:test';
+import { buildDeterministicTarGz, hashBuffer } from '@rntme/bundle-publish';
 import { runMarketingSiteConformance } from '@rntme/conformance-marketing-site';
 import { provisioner } from '../src/provisioner.js';
-import { makeBundle } from './unit/helpers.js';
 
 describe('marketing-site-static conformance', () => {
   it('runs the conformance suite', async () => {
-    const upserts: Array<{ name: string; image: string; domain: string }> = [];
     await runMarketingSiteConformance(provisioner, {
       buildBundle: async (files) => {
-        const { bytes, sha256 } = await makeBundle(files);
-        return { bytes, sha256, bucket: 'test-bucket', key: `bundles/${sha256}.tar.gz` };
-      },
-      fakeRegistry: { url: 'localhost:5000' },
-      fakeDokploy: {
-        upsertDockerApp: async (cfg) => {
-          upserts.push(cfg);
-          return { appId: createHash('sha1').update(cfg.name).digest('hex').slice(0, 8) };
-        },
-        deleteApplication: async () => {},
+        const folder = mkdtempSync(join(tmpdir(), 'mksite-conf-'));
+        mkdirSync(folder, { recursive: true });
+        for (const [name, contents] of Object.entries(files)) {
+          writeFileSync(join(folder, name), contents);
+        }
+        const tarGz = await buildDeterministicTarGz(folder, [], 8 * 1024 * 1024);
+        const sha256 = hashBuffer(tarGz);
+        const tarDir = mkdtempSync(join(tmpdir(), 'mksite-conf-tar-'));
+        const localPath = join(tarDir, 'bundle.tar.gz');
+        writeFileSync(localPath, tarGz);
+        return { bytes: tarGz, sha256, localPath };
       },
     });
-
-    expect(upserts.length).toBeGreaterThan(0);
   });
 });

@@ -2,7 +2,11 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import type { DeploymentWorkload, ProjectDeploymentPlan } from '@rntme/deploy-core';
-import { resolveEnvMappings, type ProvisionerEnvMapping, type ProvisionedModule } from '@rntme/deploy-core';
+import {
+  resolveEnvMappings,
+  type ProvisionerEnvMapping,
+  type ProvisionedModule,
+} from '@rntme/deploy-core';
 import {
   infraRestartPolicy,
   proxyLimits,
@@ -83,7 +87,7 @@ export type RenderedDokployIngress = {
 export type RenderedDokployApplicationResource = {
   readonly logicalId: string;
   readonly kind: 'application';
-  readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy';
+  readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy' | 'static-site';
   readonly workloadSlug?: string;
   readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
@@ -234,6 +238,14 @@ export function renderDokployPlan(
   const stackResource = renderProjectStackResource(plan, nginxConfig.value, resolvedConfig.publicBaseUrl);
   if (!stackResource.ok) return stackResource;
   const resources: RenderedDokployResource[] = [stackResource.value];
+
+  // Provisioner-emitted static sites (marketing-site contract) become their
+  // own `application` resources. They live OUTSIDE the project compose stack
+  // because they have an independent public domain and are not part of the
+  // domain-service edge gateway routing tree.
+  for (const staticSite of renderStaticSiteApplications(plan, provisionedModules)) {
+    resources.push(staticSite);
+  }
 
   const envEntries = resolveEnvMappings(provisionedModules, envMappings);
   const resourcesWithProvisionedEnv: RenderedDokployResource[] = [];
@@ -556,7 +568,13 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
           : resource.workloadKind === 'infrastructure-proxy'
             ? 'infrastructure-proxy'
             : 'domain-service',
-    ...(resource.workloadKind !== undefined ? { workloadKind: resource.workloadKind } : {}),
+    // Static-site application resources never enter the project-stack
+    // compose (they are rendered as standalone Dokploy applications). The
+    // cast keeps RenderedComposeService's narrower workloadKind union
+    // intact while satisfying the widened application-side union.
+    ...(resource.workloadKind !== undefined && resource.workloadKind !== 'static-site'
+      ? { workloadKind: resource.workloadKind as Exclude<typeof resource.workloadKind, 'static-site'> }
+      : {}),
     ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
     image: resource.image,
     ...(resource.entrypoint !== undefined ? { entrypoint: resource.entrypoint } : {}),
@@ -1081,4 +1099,110 @@ function isAuthProtectedRoute(plan: ProjectDeploymentPlan, routeId: string): boo
 
 function assertNever(value: never): never {
   throw new Error(`unhandled workload kind: ${JSON.stringify(value)}`);
+}
+
+type StaticSiteV1Output = {
+  readonly kind: 'static-site-v1';
+  readonly primaryDomain: string;
+  readonly ssl: 'auto' | 'manual' | 'none';
+  readonly sha256: string;
+  readonly files: Readonly<Record<string, string>>;
+};
+
+function isStaticSiteV1(value: unknown): value is StaticSiteV1Output {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    v.kind === 'static-site-v1' &&
+    typeof v.primaryDomain === 'string' &&
+    (v.ssl === 'auto' || v.ssl === 'manual' || v.ssl === 'none') &&
+    typeof v.sha256 === 'string' &&
+    typeof v.files === 'object' &&
+    v.files !== null
+  );
+}
+
+/**
+ * Turn each provisioned marketing-site `staticSite` payload into a
+ * standalone nginx `application` resource. Files mount under
+ * `/usr/share/nginx/html` and a minimal nginx config serves them with a
+ * `try_files` fallback to `index.html`. Ingress targets the site's own
+ * `primaryDomain` — these resources are intentionally separate from the
+ * project compose stack so the static site lives at its own host.
+ */
+function renderStaticSiteApplications(
+  plan: ProjectDeploymentPlan,
+  provisionedModules: ReadonlyMap<string, ProvisionedModule>,
+): readonly RenderedDokployApplicationResource[] {
+  const out: RenderedDokployApplicationResource[] = [];
+  const entries = [...provisionedModules.entries()].sort(([a], [b]) => a.localeCompare(b));
+  for (const [moduleKey, mod] of entries) {
+    const staticSite = (mod.publicOutputs as Record<string, unknown>).staticSite;
+    if (!isStaticSiteV1(staticSite)) continue;
+    out.push(renderStaticSiteResource(plan, moduleKey, staticSite));
+  }
+  return out;
+}
+
+function renderStaticSiteResource(
+  plan: ProjectDeploymentPlan,
+  moduleKey: string,
+  staticSite: StaticSiteV1Output,
+): RenderedDokployApplicationResource {
+  const slug = `${moduleKey}-site`;
+  const name = dokployResourceName(plan.project.orgSlug, plan.project.projectSlug, slug);
+  const labels = dokployLabels(
+    plan.project.orgSlug,
+    plan.project.projectSlug,
+    plan.project.environment,
+    slug,
+  );
+  const files: Record<string, string> = {};
+  for (const [rel, content] of Object.entries(staticSite.files).sort(([a], [b]) => a.localeCompare(b))) {
+    files[`/usr/share/nginx/html/${rel}`] = content;
+  }
+  files['/etc/nginx/nginx.conf'] = staticSiteNginxConfig();
+  const scheme = staticSite.ssl === 'none' ? 'http' : 'https';
+  const publicBaseUrl = `${scheme}://${staticSite.primaryDomain}`;
+  return {
+    logicalId: slug,
+    kind: 'application',
+    workloadKind: 'static-site',
+    workloadSlug: slug,
+    name,
+    image: 'nginx:1.27-alpine',
+    env: [],
+    labels: {
+      ...labels,
+      'rntme.module': moduleKey,
+      'rntme.static-site.sha256': staticSite.sha256,
+    },
+    files,
+    ports: [{ containerPort: 8080, protocol: 'http' as const }],
+    ingress: {
+      publicBaseUrl,
+      containerPort: 8080,
+      healthPath: '/health' as const,
+      routes: [{ routeId: 'static-site:/', path: '/', url: `${publicBaseUrl}/` }],
+    },
+  };
+}
+
+function staticSiteNginxConfig(): string {
+  return [
+    'events {}',
+    'http {',
+    '  include /etc/nginx/mime.types;',
+    '  default_type application/octet-stream;',
+    '  server {',
+    '    listen 8080;',
+    '    root /usr/share/nginx/html;',
+    '    location = /health { return 200 "ok"; }',
+    '    location / {',
+    '      try_files $uri $uri/ /index.html;',
+    '    }',
+    '  }',
+    '}',
+    '',
+  ].join('\n');
 }

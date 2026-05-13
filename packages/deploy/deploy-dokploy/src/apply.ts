@@ -584,7 +584,8 @@ function resourceRank(resource: RenderedDokployResource): number {
   if (resource.kind === 'application' && resource.workloadKind === 'infrastructure-proxy') return 6;
   if (resource.kind === 'application' && resource.workloadKind === 'bpmn-worker') return 7;
   if (resource.kind === 'application' && resource.workloadKind === 'edge-gateway') return 8;
-  return 9;
+  if (resource.kind === 'application' && resource.workloadKind === 'static-site') return 9;
+  return 10;
 }
 
 function networkNameMap(
@@ -694,6 +695,11 @@ function resourceIdentifier(resource: RenderedDokployResource): Pick<
 function applyResourceAsPartialFailure(
   resource: DeploymentApplyResource,
 ): DokployPartialFailureResource {
+  // `kind` widened to include `'static-site'`, but the partial-failure
+  // payload schema doesn't carry that variant — drop the kind tag for
+  // static-site resources rather than coupling errors.ts to the new union.
+  const kind =
+    resource.kind === undefined || resource.kind === 'static-site' ? undefined : resource.kind;
   return {
     logicalId: resource.logicalId,
     resourceKind: resource.resourceKind,
@@ -701,7 +707,7 @@ function applyResourceAsPartialFailure(
     targetResourceName: resource.targetResourceName,
     action: resource.action,
     ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
-    ...(resource.kind !== undefined ? { kind: resource.kind } : {}),
+    ...(kind !== undefined ? { kind } : {}),
     ...(resource.infrastructureKind !== undefined ? { infrastructureKind: resource.infrastructureKind } : {}),
   };
 }

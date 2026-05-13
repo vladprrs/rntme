@@ -1569,6 +1569,51 @@ describe('applyDokployPlan', () => {
       expect(errors).not.toContain('env-secret');
     }
   });
+
+  it('creates a separate application for static-site resources after the project stack', async () => {
+    const client = new FakeDokployClient();
+    const stack = projectStackRendered();
+    const withStaticSite: RenderedDokployPlan = {
+      ...stack,
+      resources: [
+        ...stack.resources,
+        {
+          logicalId: 'marketing-site',
+          kind: 'application',
+          workloadKind: 'static-site',
+          workloadSlug: 'marketing-site',
+          name: 'rntme-acme-commerce-marketing-site',
+          image: 'nginx:1.27-alpine',
+          env: [],
+          labels: { 'rntme.workload': 'marketing-site' },
+          files: { '/usr/share/nginx/html/index.html': '<h1>hi</h1>' },
+          ports: [{ containerPort: 8080, protocol: 'http' as const }],
+          ingress: {
+            publicBaseUrl: 'https://mkt.example.com',
+            containerPort: 8080,
+            healthPath: '/health' as const,
+            routes: [{ routeId: 'static-site:/', path: '/', url: 'https://mkt.example.com/' }],
+          },
+        },
+      ],
+    };
+
+    const r = await applyDokployPlan(withStaticSite, client);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const staticSiteResource = r.value.resources.find((res) => res.kind === 'static-site');
+    expect(staticSiteResource).toBeDefined();
+    expect(staticSiteResource?.targetResourceName).toBe('rntme-acme-commerce-marketing-site');
+    expect(staticSiteResource?.action).toBe('created');
+    // Ordering: project stack is applied before the static-site application.
+    const stackIdx = r.value.resources.findIndex(
+      (res) => res.resourceKind === 'compose' && res.infrastructureKind === 'project-stack',
+    );
+    const staticIdx = r.value.resources.findIndex((res) => res.kind === 'static-site');
+    expect(stackIdx).toBeGreaterThanOrEqual(0);
+    expect(staticIdx).toBeGreaterThan(stackIdx);
+  });
 });
 
 function envFoldingPlan(): ProjectDeploymentPlan {

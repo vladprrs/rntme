@@ -6,7 +6,7 @@ export type DokployUpsertInput = {
   readonly imageRef: string;
   readonly primaryDomain: string;
   readonly ssl: 'auto' | 'manual' | 'none';
-  readonly client: TargetSecrets['dokploy'];
+  readonly client: NonNullable<TargetSecrets['dokploy']>;
 };
 
 export async function upsertDokployApp(

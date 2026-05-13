@@ -4,20 +4,20 @@ import { runIdempotency } from './scenarios/idempotency.js';
 import type { MarketingSiteV1Config } from '@rntme/contracts-marketing-site-v1';
 import type { ProvisionerContract, ProvisionerVendorError } from '@rntme/contracts-provisioner-v1';
 
+/**
+ * BuiltBundle describes a materialized project-folder asset on disk. The
+ * conformance suite no longer requires bucket/key — the canonical contract
+ * path is target-agnostic and consumes a local tar.gz path that the
+ * deploy-runner has already produced.
+ */
 export type BuiltBundle = {
-  bytes: Buffer;
-  sha256: string;
-  bucket: string;
-  key: string;
+  readonly bytes: Buffer;
+  readonly sha256: string;
+  readonly localPath: string;
 };
 
 export type ConformanceDeps = {
-  buildBundle: (files: Record<string, string>) => Promise<BuiltBundle> | BuiltBundle;
-  fakeRegistry: { url: string };
-  fakeDokploy: {
-    upsertDockerApp: (cfg: { name: string; image: string; domain: string; ssl: 'auto' | 'manual' | 'none' }) => Promise<{ appId: string }>;
-    deleteApplication?: (id: string) => Promise<void>;
-  };
+  readonly buildBundle: (files: Record<string, string>) => Promise<BuiltBundle> | BuiltBundle;
 };
 
 export type MarketingSiteProvisioner = ProvisionerContract<MarketingSiteV1Config>;

@@ -1387,6 +1387,78 @@ describe('renderDokployPlan — provisioner outputs', () => {
   });
 });
 
+describe('renderDokployPlan — static-site outputs', () => {
+  it('renders a marketing-site staticSite payload as its own nginx application resource', () => {
+    const provisioned = new Map([
+      [
+        'marketing',
+        {
+          projectKey: 'marketing',
+          packageName: '@rntme/marketing-site-static',
+          publicOutputs: {
+            url: { href: 'https://mkt.example.com' },
+            deployedSha256: { value: 'a'.repeat(64) },
+            staticSite: {
+              kind: 'static-site-v1',
+              primaryDomain: 'mkt.example.com',
+              ssl: 'auto',
+              sha256: 'a'.repeat(64),
+              files: {
+                'index.html': '<h1>cv extract</h1>',
+                'styles.css': 'body{color:#111}',
+              },
+            },
+          },
+          secretOutputs: {},
+          provisionedAt: '2026-05-13T00:00:00Z',
+        },
+      ],
+    ]);
+
+    const rendered = renderDokployPlan(plan, targetConfig(), provisioned, {});
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+
+    const staticSite = rendered.value.resources.find(
+      (r) => r.kind === 'application' && r.workloadKind === 'static-site',
+    );
+    expect(staticSite).toBeDefined();
+    if (staticSite === undefined || staticSite.kind !== 'application') return;
+    expect(staticSite.image).toBe('nginx:1.27-alpine');
+    expect(staticSite.workloadSlug).toBe('marketing-site');
+    expect(staticSite.files?.['/usr/share/nginx/html/index.html']).toContain('<h1>cv extract</h1>');
+    expect(staticSite.files?.['/usr/share/nginx/html/styles.css']).toContain('color:#111');
+    expect(staticSite.files?.['/etc/nginx/nginx.conf']).toContain('try_files');
+    expect(staticSite.ingress?.publicBaseUrl).toBe('https://mkt.example.com');
+    expect(staticSite.ingress?.routes[0]?.url).toBe('https://mkt.example.com/');
+    expect(staticSite.ports?.[0]?.containerPort).toBe(8080);
+    expect(staticSite.labels['rntme.module']).toBe('marketing');
+    expect(staticSite.labels['rntme.static-site.sha256']).toBe('a'.repeat(64));
+  });
+
+  it('omits the static-site resource when no provisioned module emits a staticSite output', () => {
+    const provisioned = new Map([
+      [
+        'other',
+        {
+          projectKey: 'other',
+          packageName: '@rntme/other',
+          publicOutputs: { url: { href: 'https://x' } },
+          secretOutputs: {},
+          provisionedAt: '2026-05-13T00:00:00Z',
+        },
+      ],
+    ]);
+    const rendered = renderDokployPlan(plan, targetConfig(), provisioned, {});
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+    const staticSite = rendered.value.resources.find(
+      (r) => r.kind === 'application' && r.workloadKind === 'static-site',
+    );
+    expect(staticSite).toBeUndefined();
+  });
+});
+
 function authProtectedPlan(): ProjectDeploymentPlan {
   return {
     project: { orgSlug: 'acme', projectSlug: 'commerce', environment: 'default', mode: 'preview' },

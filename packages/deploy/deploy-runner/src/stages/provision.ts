@@ -8,6 +8,7 @@ import {
   type ProvisionedModule,
 } from '@rntme/deploy-core';
 import { buildProjectDeploymentConfig } from '../build-deploy-config.js';
+import { materializeProjectFolderAssets } from '../project-assets.js';
 import type { ResolveProvisioner } from '../types.js';
 import { StageError } from './compose.js';
 import type { ProvisionStageInput, ProvisionStageOutput } from './types.js';
@@ -66,6 +67,26 @@ export async function provision(
     publicConfig: applyVars(m.publicConfig, targetVars) as Record<string, unknown>,
   }));
 
+  // Convert `project-folder` source declarations into the
+  // `materialized-project-asset` handshake shape before any vendor
+  // provisioner runs. This keeps the canonical contract source union closed
+  // and ensures provisioners receive a local tar.gz path with a verified
+  // sha256 rather than a bundle-side reference they would otherwise have to
+  // decode themselves.
+  const materialized = materializeProjectFolderAssets({
+    modules: provModulesWithSubstitutedConfig,
+    bundleDir: input.bundleDir,
+  });
+  if (materialized.errors.length > 0) {
+    const first = materialized.errors[0];
+    throw new StageError(
+      first?.code ?? 'DEPLOY_PROVISION_PROJECT_FOLDER_ASSET_INVALID',
+      materialized.errors.map((e) => `${e.code}: ${e.message}`).join('; '),
+      materialized.errors,
+    );
+  }
+  const provModulesReadyForProvisioner = materialized.modules;
+
   const startedAt = new Date().toISOString();
   const provisionRunner = overrides?.runProvisioners ?? runProvisioners;
   const resolveProvisioner =
@@ -75,7 +96,7 @@ export async function provision(
     });
 
   const provisionResult = await provisionRunner({
-    modules: provModulesWithSubstitutedConfig.map((m) => {
+    modules: provModulesReadyForProvisioner.map((m) => {
       const prior = input.priorProvisionOutputs[m.projectKey];
       return prior === undefined ? m : { ...m, priorOutputs: prior };
     }),
