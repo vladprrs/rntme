@@ -114,9 +114,13 @@ describe('buildProjectDeploymentPlan vars', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'auth0',
-            audience: '${AUD}',
-            moduleSlug: 'identity-auth0',
+            providers: [
+              {
+                provider: 'auth0',
+                audience: '${AUD}',
+                moduleSlug: 'identity-auth0',
+              },
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -143,7 +147,13 @@ describe('buildProjectDeploymentPlan vars', () => {
       expect(plan.value.edge.middleware).toContainEqual(
         expect.objectContaining({
           kind: 'auth',
-          audience: 'https://notes-demo.rntme.com/api',
+          providers: expect.arrayContaining([
+            expect.objectContaining({
+              provider: 'auth0',
+              audience: 'https://notes-demo.rntme.com/api',
+              moduleSlug: 'identity-auth0',
+            }),
+          ]),
         }),
       );
     }
