@@ -2,12 +2,12 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "deploymentPanel", "logsPanel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Deployment",
         "title": "Deployment detail",
@@ -17,13 +17,13 @@
       }
     },
     "deploymentPanel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Record" },
       "children": ["refresh", "deploymentTable"]
     },
     "refresh": { "type": "Button", "props": { "label": "Refresh" }, "on": { "click": { "action": "refreshDeployment" } } },
     "deploymentTable": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/deployment",
         "columns": [
@@ -35,12 +35,12 @@
       }
     },
     "logsPanel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Logs", "subtitle": "Latest 200" },
       "children": ["logsTable"]
     },
     "logsTable": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/logs",
         "columns": [

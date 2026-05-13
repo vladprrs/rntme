@@ -2,19 +2,19 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "panel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Platform · Access",
         "title": "Sign in to rntme"
       }
     },
     "panel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Authenticate" },
       "children": ["login"]
     },

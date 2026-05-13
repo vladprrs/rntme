@@ -2,24 +2,24 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "panel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Organization · Projects",
         "title": "Projects"
       }
     },
     "panel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "All projects", "subtitle": "Latest 100" },
       "children": ["projects"]
     },
     "projects": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/projects",
         "columns": [

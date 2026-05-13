@@ -2,24 +2,24 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "panel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Organization · Audit",
         "title": "Audit log"
       }
     },
     "panel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Events", "subtitle": "Append-only stream" },
       "children": ["events"]
     },
     "events": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/events",
         "columns": [

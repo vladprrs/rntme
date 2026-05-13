@@ -4,6 +4,9 @@ import type {
   CatalogManifest,
   ComposedBlueprint,
   CompositionService,
+  UiAssetManifest,
+  UiAssetSource,
+  UiPresetExport,
   ValidatedServiceMember,
 } from '../types/artifact.js';
 import { ok, type Result } from '../types/result.js';
@@ -22,6 +25,8 @@ import { discoverServiceArtifacts } from './discover-service-artifacts.js';
 import { loadServiceMember } from './load-service-member.js';
 import { loadProjectWorkflows } from './project-workflows.js';
 import { loadProjectInit } from './project-init.js';
+import { buildModuleClientSurfaces, emptyUiAssetManifest } from './module-client-assets.js';
+import { createModulePresetExternalResolver } from './module-preset-resolver.js';
 
 export async function loadComposedBlueprint(
   dir: string,
@@ -50,6 +55,9 @@ export async function loadComposedBlueprint(
   let publicConfigJson: string | null = null;
   let virtualEntrySource: string | null = null;
   let discoveredModulesValue: Record<string, DiscoveredModule> | null = null;
+  let uiAssetManifest: UiAssetManifest = emptyUiAssetManifest();
+  let uiAssetSources: readonly UiAssetSource[] = [];
+  let uiPresetExports: readonly UiPresetExport[] = [];
 
   if (hasModules) {
     const discovered = await discoverModules({ projectDir: dir });
@@ -70,6 +78,12 @@ export async function loadComposedBlueprint(
     publicConfigJson = buildPublicConfigSidecar(discovered.value);
     virtualEntrySource = virtualResult.value;
     discoveredModulesValue = discovered.value;
+
+    const clientSurfaces = buildModuleClientSurfaces(discovered.value);
+    if (!clientSurfaces.ok) return clientSurfaces;
+    uiAssetManifest = clientSurfaces.value.manifest;
+    uiAssetSources = clientSurfaces.value.sources;
+    uiPresetExports = clientSurfaces.value.presets;
   }
 
   const pdmResolver = createPdmResolver(loaded.value.pdm);
@@ -135,6 +149,9 @@ export async function loadComposedBlueprint(
   });
   if (!init.ok) return init;
 
+  const externalFragmentResolver =
+    uiPresetExports.length === 0 ? undefined : createModulePresetExternalResolver({ presets: uiPresetExports });
+
   for (const [slug, service] of Object.entries(validatedServices)) {
     const compiledUi = compileServiceUi({
       rootDir: dir,
@@ -142,6 +159,7 @@ export async function loadComposedBlueprint(
       bindingRegistry,
       uiRoutePatterns: composedValidation.value.uiPathsByService[slug] ?? [],
       catalogManifest,
+      ...(externalFragmentResolver === undefined ? {} : { externalFragmentResolver }),
     });
     if (!compiledUi.ok) return compiledUi;
 
@@ -163,6 +181,9 @@ export async function loadComposedBlueprint(
     publicConfigJson,
     virtualEntrySource,
     varsManifest: loaded.value.project.vars ?? {},
+    uiAssetManifest,
+    uiAssetSources,
+    uiPresetExports,
   });
 }
 

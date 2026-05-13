@@ -93,6 +93,90 @@ describe('loadComposedBlueprint', () => {
     );
   });
 
+  it('compiles module-qualified UI preset refs through project module keys', async () => {
+    const copied = copyFixture();
+    const projectPath = join(copied, 'project.json');
+    const project = JSON.parse(readFileSync(projectPath, 'utf8'));
+    project.modules = {
+      ...(project.modules ?? {}),
+      platformUi: { package: '@rntme/platform-ui' },
+    };
+    writeFileSync(projectPath, JSON.stringify(project, null, 2));
+
+    mkdirSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'fragments'), { recursive: true });
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'package.json'), JSON.stringify({
+      name: '@rntme/platform-ui',
+      exports: { './module.json': './module.json' },
+    }));
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'module.json'), JSON.stringify({
+      name: '@rntme/platform-ui',
+      version: '0.0.0',
+      client: {
+        presets: [
+          { name: 'service-card', kind: 'fragment', path: 'fragments/service-card', inputs: { name: { type: 'string', required: true } } },
+        ],
+      },
+    }));
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'fragments', 'service-card.spec.json'), JSON.stringify({
+      root: 'card',
+      elements: {
+        card: { type: 'Text', props: { text: { $param: 'name' } } },
+      },
+    }));
+
+    const specPath = join(copied, 'services', 'app', 'ui', 'screens', 'home.spec.json');
+    const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+    spec.elements.moduleCard = { $ref: 'module:platformUi/fragments/service-card', bind: { name: 'pricing' } };
+    spec.elements.page.children = [...spec.elements.page.children, 'moduleCard'];
+    writeFileSync(specPath, JSON.stringify(spec, null, 2));
+
+    const result = await loadComposedBlueprint(copied);
+
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
+    if (!result.ok) return;
+    const compiled = JSON.stringify(result.value.services.app?.compiledUi?.screens['home']?.spec);
+    expect(compiled).not.toContain('$ref');
+    expect(compiled).not.toContain('$param');
+    expect(compiled).toContain('pricing');
+  });
+
+  it('fails when UI references an unexported module preset path', async () => {
+    const copied = copyFixture();
+    const projectPath = join(copied, 'project.json');
+    const project = JSON.parse(readFileSync(projectPath, 'utf8'));
+    project.modules = {
+      ...(project.modules ?? {}),
+      platformUi: { package: '@rntme/platform-ui' },
+    };
+    writeFileSync(projectPath, JSON.stringify(project, null, 2));
+    mkdirSync(join(copied, 'node_modules', '@rntme', 'platform-ui'), { recursive: true });
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'package.json'), JSON.stringify({ name: '@rntme/platform-ui' }));
+    mkdirSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'styles'), { recursive: true });
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'styles', 'main.css'), '/* empty */');
+    writeFileSync(join(copied, 'node_modules', '@rntme', 'platform-ui', 'module.json'), JSON.stringify({
+      name: '@rntme/platform-ui',
+      version: '0.0.0',
+      client: {
+        presets: [],
+        assets: { stylesheets: [{ id: 'main', path: 'styles/main.css' }] },
+      },
+    }));
+
+    const specPath = join(copied, 'services', 'app', 'ui', 'screens', 'home.spec.json');
+    const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+    spec.elements.missing = { $ref: 'module:platformUi/fragments/missing', bind: {} };
+    spec.elements.page.children = [...spec.elements.page.children, 'missing'];
+    writeFileSync(specPath, JSON.stringify(spec, null, 2));
+
+    const result = await loadComposedBlueprint(copied);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const uiError = result.errors.find((error) => error.code === 'BLUEPRINT_SERVICE_UI_INVALID');
+      expect(uiError?.cause).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'EXTERNAL_REF_UNRESOLVED' })]));
+    }
+  });
+
   it('loads project-level init artifact during composition', async () => {
     const copied = copyFixture();
     mkdirSync(join(copied, 'init', 'files'), { recursive: true });

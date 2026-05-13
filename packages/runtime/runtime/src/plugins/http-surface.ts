@@ -90,6 +90,7 @@ export class HttpSurface implements Surface {
     const uiApp = createUiApp({
       artifact: ctx.service.compiledUi,
       ...(ctx.service.uiAssetsDir === null ? {} : { assetsDir: ctx.service.uiAssetsDir }),
+      ...(ctx.service.uiAssetManifest === null ? {} : { assetManifest: ctx.service.uiAssetManifest }),
     });
 
     if (httpCfg.bodyLimit.enabled) {

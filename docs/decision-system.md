@@ -107,6 +107,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **`marketing-site` as a module category** — products attach externally-authored HTML landings as a first-class blueprint service · F1, G4 · `locked-pending` · spec `2026-05-07-product-landings-marketing-site-module-design.md`
 - **`marketing-site-static` as first vendor** — HTML bundle pulled from S3, hosted via `nginx:alpine` · F8 · `locked-pending` · spec `2026-05-07-product-landings-marketing-site-module-design.md`
 - **Seed as module (not part of core)** · F1, G4 · `locked-pending` (implementation TBD)
+- **Module client surface owns product UI extension** - Product UI components, static browser assets, and reusable authoring fragments are contributed by module packages through `module.json#client.*`. `@rntme/ui-runtime` remains a generic host plus base catalog, and must not accumulate product-specific design systems. · G4, G5, F1, F2, F5, F6 · `locked-pending` · spec `docs/superpowers/specs/2026-05-12-module-client-ui-design-system-design.md`
 
 ### 3.6 Conventions
 

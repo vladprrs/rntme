@@ -1,5 +1,6 @@
 import { err, type Result } from './types/result.js';
 import type { CompiledArtifact } from './types/compiled.js';
+import type { ExternalFragmentResolver } from './types/source.js';
 import { resolve } from './resolve/resolve.js';
 import { expand } from './expand/expand.js';
 import { validate, type ValidateResolvers } from './validate/index.js';
@@ -10,10 +11,13 @@ export type CompileOptions = {
   sourceDir: string;
   httpMap: Record<string, HttpEntry>;
   resolvers: ValidateResolvers;
+  externalFragmentResolver?: ExternalFragmentResolver;
 };
 
 export function compile(opts: CompileOptions): Result<CompiledArtifact> {
-  const resolved = resolve(opts.sourceDir);
+  const resolved = resolve(opts.sourceDir, {
+    ...(opts.externalFragmentResolver === undefined ? {} : { externalFragmentResolver: opts.externalFragmentResolver }),
+  });
   if (!resolved.ok) return resolved;
 
   const expanded = expand(resolved.value);

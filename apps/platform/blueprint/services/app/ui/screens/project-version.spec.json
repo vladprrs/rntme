@@ -2,19 +2,19 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "panel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Project · Version",
         "title": "Queue deployment"
       }
     },
     "panel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Target" },
       "children": ["targetId", "queue"]
     },

@@ -2,19 +2,19 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "form", "list"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Organization · Deploy targets",
         "title": "Deploy targets"
       }
     },
     "form": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Add target" },
       "children": ["slug", "provider", "environment", "configJson", "create"]
     },
@@ -24,12 +24,12 @@
     "configJson": { "type": "Input", "props": { "statePath": "/form/target/configJson", "placeholder": "{}" } },
     "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createDeployTarget" } } },
     "list": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "All targets" },
       "children": ["targets"]
     },
     "targets": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/targets",
         "columns": [

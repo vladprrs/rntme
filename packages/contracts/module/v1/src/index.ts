@@ -11,7 +11,14 @@ export {
   parseModuleManifest,
 } from './manifest-shape.js';
 export type {
+  ClientAssets,
   ClientBlock,
+  ClientFontAsset,
+  ClientImageAsset,
+  ClientPreloadAsset,
+  ClientPreset,
+  ClientStaticFileAsset,
+  ClientStylesheetAsset,
   ComponentDeclaration,
   EdgeAuthDescriptor,
   ModuleCapabilities,

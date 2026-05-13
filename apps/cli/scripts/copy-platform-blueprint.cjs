@@ -26,6 +26,7 @@ cpSync(src, dest, {
   },
 });
 copyProvisionerEntries();
+copyPlatformUiModule();
 console.log(`copied ${src} → ${dest}`);
 
 function copyProvisionerEntries() {
@@ -76,9 +77,29 @@ function writeManifest(entries) {
   writeFileSync(join(provisionerDest, 'manifest.json'), `${JSON.stringify({ entries }, null, 2)}\n`);
 }
 
+function copyPlatformUiModule() {
+  const packageDirs = discoverWorkspacePackageDirs(repoRoot);
+  const source = packageDirs.get('@rntme/platform-ui');
+  if (source === undefined) {
+    throw new Error('workspace package not found for @rntme/platform-ui');
+  }
+  const target = join(dest, 'node_modules', '@rntme', 'platform-ui');
+  mkdirSync(join(dest, 'node_modules', '@rntme'), { recursive: true });
+  rmSync(target, { recursive: true, force: true });
+  cpSync(source, target, {
+    recursive: true,
+    filter: (entry) => {
+      const rel = entry.slice(source.length + 1);
+      if (rel === 'node_modules' || rel.startsWith('node_modules/')) return false;
+      if (rel === 'test' || rel.startsWith('test/')) return false;
+      return true;
+    },
+  });
+}
+
 function discoverWorkspacePackageDirs(workspaceRoot) {
   const dirs = new Map();
-  for (const parent of ['packages', 'modules']) {
+  for (const parent of ['packages', 'modules', 'apps']) {
     collectPackageDirs(join(workspaceRoot, parent), dirs);
   }
   return dirs;
@@ -88,13 +109,18 @@ function collectPackageDirs(dir, output) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    // Skip node_modules entirely — we only want workspace source packages.
+    if (entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
     const packageJsonPath = join(path, 'package.json');
     if (existsSync(packageJsonPath)) {
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
       if (typeof pkg.name === 'string') output.set(pkg.name, path);
-      continue;
+      // Continue recursing: nested workspace dirs (e.g. apps/platform/ui-module)
+      // may sit inside a directory that also has its own package.json.
+      collectPackageDirs(path, output);
+    } else {
+      collectPackageDirs(path, output);
     }
-    collectPackageDirs(path, output);
   }
 }

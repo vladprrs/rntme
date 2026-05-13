@@ -12,3 +12,4 @@ Local commands:
 
 Notes:
 - Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.
+- `client.assets` and `client.presets` are parsed here; file existence and module-qualified UI ref validation happen in `@rntme/blueprint`.

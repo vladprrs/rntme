@@ -207,6 +207,9 @@ async function workspacePackageDir(
 }
 
 function workspacePackagePathSegments(packageName: string): string[] {
+  if (packageName === '@rntme/platform-ui') {
+    return ['apps', 'platform', 'ui-module'];
+  }
   if (packageName.startsWith('@rntme/identity-')) {
     return ['modules', 'identity', packageName.slice('@rntme/identity-'.length)];
   }

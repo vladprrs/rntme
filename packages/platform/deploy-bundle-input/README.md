@@ -11,5 +11,4 @@ Used by:
 - `packages/deploy/deploy-runner/src/handlers/compose-handler.ts` — BPMN
   compose stage handler.
 
-Owner doc: see `docs/current/owners/packages/platform/deploy-bundle-input.md`
-(when written).
+Owner doc: [docs/current/owners/packages/platform/deploy-bundle-input.md](../../../docs/current/owners/packages/platform/deploy-bundle-input.md)

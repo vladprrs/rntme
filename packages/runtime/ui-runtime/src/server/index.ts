@@ -5,9 +5,63 @@ import { fileURLToPath } from 'node:url';
 import type { CompiledArtifact } from '@rntme/ui';
 import { buildHtmlShell } from './static-shell.js';
 
+export type UiRuntimeAssetManifest = {
+  readonly stylesheets: readonly UiRuntimeStylesheetAsset[];
+  readonly fonts: readonly UiRuntimeFontAsset[];
+  readonly icons: readonly UiRuntimeImageAsset[];
+  readonly images: readonly UiRuntimeImageAsset[];
+  readonly staticFiles: readonly UiRuntimeStaticAsset[];
+  readonly preloads: readonly UiRuntimePreloadAsset[];
+};
+
+export type UiRuntimeAssetBase = {
+  readonly id: string;
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly href: string;
+};
+
+export type UiRuntimeStylesheetAsset = UiRuntimeAssetBase & {
+  readonly order: number;
+  readonly media: string;
+  readonly scope: 'document';
+};
+
+export type UiRuntimeFontAsset = UiRuntimeAssetBase & {
+  readonly family: string;
+  readonly weight?: string;
+  readonly style?: string;
+  readonly preload: boolean;
+};
+
+export type UiRuntimeImageAsset = UiRuntimeAssetBase & {
+  readonly alt?: string;
+};
+
+export type UiRuntimeStaticAsset = UiRuntimeAssetBase;
+
+export type UiRuntimePreloadAsset = {
+  readonly moduleKey: string;
+  readonly moduleName: string;
+  readonly href: string;
+  readonly as: 'style' | 'font' | 'image' | 'fetch';
+  readonly type?: string;
+  readonly crossorigin?: 'anonymous' | 'use-credentials';
+};
+
+const EMPTY_ASSET_MANIFEST: UiRuntimeAssetManifest = {
+  stylesheets: [],
+  fonts: [],
+  icons: [],
+  images: [],
+  staticFiles: [],
+  preloads: [],
+};
+
 export type CreateAppOptions = {
   artifact: CompiledArtifact;
   assetsDir?: string;
+  assetManifest?: UiRuntimeAssetManifest;
 };
 
 const SHELL_SECURITY_HEADERS = {
@@ -24,8 +78,10 @@ export function createApp(opts: CreateAppOptions): Hono {
     opts.assetsDir ??
     join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'build');
 
+  const assetManifest = opts.assetManifest ?? EMPTY_ASSET_MANIFEST;
+
   const app = new Hono();
-  const shell = buildHtmlShell();
+  const shell = buildHtmlShell(assetManifest);
 
   // Serve compiled manifest
   app.get('/_manifest.json', (c) => c.json(opts.artifact.manifest));
@@ -48,8 +104,17 @@ export function createApp(opts: CreateAppOptions): Hono {
     return c.json(screen);
   });
 
-  // Static assets
+  // Serve asset manifest for inspection
+  app.get('/_ui-assets.json', (c) => c.json(assetManifest));
+
+  // Static assets — block traversal before Hono normalizes the path
   app.get('/assets/*', (c) => {
+    const rawUrl = c.req.raw.url;
+    const rawPath = rawUrl.includes('?') ? rawUrl.slice(0, rawUrl.indexOf('?')) : rawUrl;
+    const loweredPath = rawPath.toLowerCase();
+    if (loweredPath.includes('..') || loweredPath.includes('%2e%2e')) {
+      return c.notFound();
+    }
     const file = c.req.path.slice('/assets/'.length);
     const resolvedAssetsDir = resolve(assetsDir);
     const fp = resolve(resolvedAssetsDir, file);

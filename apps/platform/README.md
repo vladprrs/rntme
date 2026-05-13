@@ -6,6 +6,8 @@ Current documentation: [docs/current/owners/apps/platform.md](../../docs/current
 
 Local commands:
 - `bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test`
+- `bun test --cwd ui-module`
+- `bun run --cwd ui-module build`
 
 Notes:
 - Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.

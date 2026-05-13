@@ -2,12 +2,12 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["empty"]
     },
     "empty": {
-      "type": "EmptyState",
+      "type": "PlatformEmptyState",
       "props": {
         "eyebrow": "Account · Not provisioned",
         "title": "Your account isn't linked to an organization yet.",

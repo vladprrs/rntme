@@ -276,6 +276,8 @@ async function buildRuntimeArtifactFiles(
   const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
   if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   Object.assign(files, uiBuildFiles);
+  // Only emit UI module assets for the service that hosts the UI route.
+  if (Object.keys(uiBuildFiles).length > 0) await addUiModuleAssetFiles(files, project);
   if (service.seed !== null) {
     await addOptionalTextFile(files, rootDir, `services/${serviceSlug}/seed/seed.json`, 'seed.json');
   }
@@ -330,6 +332,8 @@ async function buildUiHostRuntimeArtifactFiles(
   const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
   if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   Object.assign(files, uiBuildFiles);
+  // Only emit UI module assets for the service that hosts the UI route.
+  if (Object.keys(uiBuildFiles).length > 0) await addUiModuleAssetFiles(files, project);
   return files;
 }
 
@@ -467,7 +471,12 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
         const packageDir = packageDirs.get(packageName);
         if (packageDir === undefined) return undefined;
         const subpath = args.path.slice(packageName.length);
-        return { path: resolveWorkspaceExport(packageDir, subpath.length === 0 ? '.' : `.${subpath}`) };
+        const resolved = resolveWorkspaceExport(packageDir, subpath.length === 0 ? '.' : `.${subpath}`);
+        // Only return the workspace resolution if the file actually exists.
+        // If the dist hasn't been built (e.g. an unbuilt module stub), fall
+        // through so the bundler can find it via node_modules instead.
+        if (!existsSync(resolved)) return undefined;
+        return { path: resolved };
       });
       buildApi.onResolve({ filter: /^\..*\.js$/ }, (args) => {
         const jsPath = join(args.resolveDir, args.path);
@@ -512,7 +521,7 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
 
 function discoverWorkspacePackageDirs(workspaceRoot: string): Map<string, string> {
   const dirs = new Map<string, string>();
-  for (const parent of ['packages', 'modules']) {
+  for (const parent of ['packages', 'modules', 'apps']) {
     collectPackageDirs(join(workspaceRoot, parent), dirs);
   }
   return dirs;
@@ -523,14 +532,19 @@ function collectPackageDirs(dir: string, output: Map<string, string>): void {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    // Skip node_modules entirely — we only want workspace source packages.
+    if (entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
     const packageJsonPath = join(path, 'package.json');
     if (existsSync(packageJsonPath)) {
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { name?: unknown };
       if (typeof pkg.name === 'string') output.set(pkg.name, path);
-      continue;
+      // Continue recursing: nested workspace dirs (e.g. apps/platform/ui-module)
+      // may sit inside a directory that also has its own package.json.
+      collectPackageDirs(path, output);
+    } else {
+      collectPackageDirs(path, output);
     }
-    collectPackageDirs(path, output);
   }
 }
 
@@ -762,6 +776,18 @@ async function addOptionalTextFile(
   } catch (cause) {
     if (errorCode(cause) === 'ENOENT') return;
     throw cause;
+  }
+}
+
+async function addUiModuleAssetFiles(
+  files: Record<string, string>,
+  project: ComposedBlueprint,
+): Promise<void> {
+  if (project.uiAssetManifest !== null && project.uiAssetManifest !== undefined) {
+    addJsonFile(files, 'ui-assets.json', project.uiAssetManifest);
+  }
+  for (const source of project.uiAssetSources ?? []) {
+    files[source.runtimePath] = readFileSync(source.sourcePath, 'utf8');
   }
 }
 

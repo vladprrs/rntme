@@ -1,0 +1,49 @@
+{
+  "name": "@rntme/platform-ui",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Platform-specific UI module for the rntme control plane.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./module.json": "./module.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "assets",
+    "fragments",
+    "module.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "bun run build && bun test",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\""
+  },
+  "peerDependencies": {
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/bun": "^1.2.14",
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.10.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "typescript": "^5.5.4"
+  }
+}

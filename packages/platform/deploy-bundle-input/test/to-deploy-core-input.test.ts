@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,5 +81,61 @@ describe('toDeployCoreInput', () => {
     await expect(toDeployCoreInput(broken, platformDir)).rejects.toThrow(
       /DEPLOY_EXECUTOR_SERVICE_ARTIFACTS_PARTIAL:app/,
     );
+  });
+
+  it('copies composed UI module assets into the UI host runtime files', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'deploy-bundle-ui-assets-'));
+    try {
+      // Create a tiny CSS source file in the tmp dir
+      const cssSourceDir = join(tmp, 'assets');
+      mkdirSync(cssSourceDir, { recursive: true });
+      const cssSourcePath = join(cssSourceDir, 'platform-ui.css');
+      writeFileSync(cssSourcePath, ':root { --color: #fff; }\n');
+
+      const platformDir = join(repoRoot, 'apps', 'platform', 'blueprint');
+      const composed = await loadComposedBlueprint(platformDir);
+      expect(composed.ok, composed.ok ? '' : JSON.stringify((composed as { errors?: unknown }).errors, null, 2)).toBe(true);
+      if (!composed.ok) return;
+
+      const withAsset = {
+        ...composed.value,
+        uiAssetManifest: {
+          stylesheets: [
+            {
+              id: 'platform-ui',
+              moduleKey: 'platformUi',
+              moduleName: '@rntme/platform-ui',
+              href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+              order: 100,
+              media: 'all',
+              scope: 'document' as const,
+            },
+          ],
+          fonts: [],
+          icons: [],
+          images: [],
+          staticFiles: [],
+          preloads: [],
+        },
+        uiAssetSources: [
+          {
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            sourcePath: cssSourcePath,
+            sourceRelativePath: 'assets/platform-ui.css',
+            runtimePath: 'ui-build/modules/platformUi/stylesheets/platform-ui.css',
+            href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+          },
+        ],
+      };
+
+      const result = await toDeployCoreInput(withAsset, platformDir);
+      const app = result.services['app'];
+
+      expect(app?.runtimeFiles?.['ui-assets.json']).toContain('"platform-ui"');
+      expect(app?.runtimeFiles?.['ui-build/modules/platformUi/stylesheets/platform-ui.css']).toContain(':root');
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

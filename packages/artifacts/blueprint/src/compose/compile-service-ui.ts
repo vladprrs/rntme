@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { compile, type CompiledArtifact } from '@rntme/ui';
+import { compile, type CompiledArtifact, type ExternalFragmentResolver } from '@rntme/ui';
 import type { CatalogManifest, RoutedBindingEntry } from '../types/artifact.js';
 import {
   ERROR_CODES,
@@ -21,6 +21,7 @@ export function compileServiceUi(input: {
   bindingRegistry: Record<string, RoutedBindingEntry>;
   uiRoutePatterns: readonly string[];
   catalogManifest?: CatalogManifest | null;
+  externalFragmentResolver?: ExternalFragmentResolver;
 }): Result<CompiledArtifact | null> {
   const relPath = `services/${input.serviceSlug}/ui`;
   const sourceDir = join(input.rootDir, relPath);
@@ -34,6 +35,7 @@ export function compileServiceUi(input: {
     const compiled = compile({
       sourceDir,
       httpMap: buildUiHttpMap(input.bindingRegistry, input.serviceSlug),
+      ...(input.externalFragmentResolver === undefined ? {} : { externalFragmentResolver: input.externalFragmentResolver }),
       resolvers: {
         resolveBinding: (id) =>
           resolveProjectBindingRef(
