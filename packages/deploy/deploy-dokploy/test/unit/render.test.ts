@@ -1154,6 +1154,53 @@ describe('renderDokployPlan', () => {
     expect(stack.composeFile).toContain('networks:\n  dokploy-network:\n    external: true\n');
   });
 
+  it('changes the edge upstream digest when a routed service changes', () => {
+    const base = renderDokployPlan(plan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+    const changed = renderDokployPlan(
+      {
+        ...plan,
+        workloads: plan.workloads.map((workload) =>
+          workload.kind === 'domain-service'
+            ? {
+                ...workload,
+                runtimeFiles: {
+                  ...workload.runtimeFiles,
+                  'ui-build/main.js': 'console.log("changed ui")',
+                },
+              }
+            : workload,
+        ),
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(base.ok).toBe(true);
+    expect(changed.ok).toBe(true);
+    if (!base.ok || !changed.ok) return;
+    const baseStack = base.value.resources[0];
+    const changedStack = changed.value.resources[0];
+    expect(baseStack.kind).toBe('compose');
+    expect(changedStack.kind).toBe('compose');
+    if (baseStack.kind !== 'compose' || changedStack.kind !== 'compose') return;
+
+    const baseEdge = baseStack.services.find((service) => service.name === 'edge');
+    const changedEdge = changedStack.services.find((service) => service.name === 'edge');
+    expect(baseEdge?.literalEnv?.RNTME_EDGE_UPSTREAMS_DIGEST).toMatch(/^sha256:/);
+    expect(changedEdge?.literalEnv?.RNTME_EDGE_UPSTREAMS_DIGEST).toMatch(/^sha256:/);
+    expect(changedEdge?.literalEnv?.RNTME_EDGE_UPSTREAMS_DIGEST).not.toBe(
+      baseEdge?.literalEnv?.RNTME_EDGE_UPSTREAMS_DIGEST,
+    );
+    expect(changedStack.composeFile).toContain('RNTME_EDGE_UPSTREAMS_DIGEST: sha256:');
+  });
+
   it('folds service env entries up into the stack env so ${VAR} references resolve at deploy time', () => {
     // Compose YAML emits `<NAME>: ${<NAME>}` for every service env entry.
     // Those interpolations resolve against the stack-level env block

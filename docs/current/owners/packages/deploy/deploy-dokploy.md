@@ -98,6 +98,11 @@ Application file mounts are idempotent by `mountPath`: apply lists existing moun
 
 Project-stack Compose file mounts are content-addressed by rendered file content (`*.rntme-sha256-<digest>`). Render also injects `RNTME_FILE_MOUNTS_DIGEST` into every Compose service that has generated files, so nginx configs, runtime bootstrap bundles, `/srv/config.json`, and other mounted files change the Docker Compose service spec and force container recreation instead of relying on in-place host-file updates.
 
+The edge service also receives `RNTME_EDGE_UPSTREAMS_DIGEST`, derived from the
+rendered non-edge service specs. This intentionally restarts Nginx when
+upstream runtime services are recreated, because Nginx resolves Docker Compose
+service names at startup and can otherwise keep stale upstream IPs.
+
 Application lifecycle is `configure -> deploy -> start -> inspect` when the injected client supports inspection. A rejected or failed application task is returned as `DEPLOY_APPLY_DOKPLOY_PARTIAL_FAILURE`, which causes the platform deployment to finalize as failed.
 
 The project-stack Compose resource has its own post-apply lifecycle: `configure -> configure compose domains -> deploy -> start compose -> load compose services -> inspect compose tasks`. `configureComposeDomains` is called when the rendered resource carries `domains` (project-level edge route plus any infrastructure-proxy domains). `loadComposeServices` lets the platform match Dokploy's live service names back to the rendered service summaries; `inspectComposeTasks` then queries Swarm task state and only surfaces inspections when at least one task is not in a healthy running state. That filtered set is the signal the post-apply verification uses to fail the deployment with `DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks are observed. Each compose lifecycle step maps a thrown client error to a `partialFailure` with phase `configure`, `deploy`, or `inspect`, so operators can see which stage broke without losing the structured cleanup behavior.

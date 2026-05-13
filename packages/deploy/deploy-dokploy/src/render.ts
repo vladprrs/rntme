@@ -487,6 +487,7 @@ function renderProjectStackResource(
 
   const stackName = projectStackName(plan.project.orgSlug, plan.project.projectSlug);
   const mounted = withComposeFileMounts(services);
+  const restartAwareServices = withEdgeUpstreamsDigest(mounted.services);
 
   return ok({
     logicalId: 'project-stack',
@@ -494,8 +495,8 @@ function renderProjectStackResource(
     infrastructureKind: 'project-stack',
     name: stackName,
     image: 'docker-compose',
-    composeFile: renderComposeYaml(mounted.services),
-    services: mounted.services,
+    composeFile: renderComposeYaml(restartAwareServices),
+    services: restartAwareServices,
     domains,
     env: [],
     labels: {
@@ -534,6 +535,44 @@ function withComposeFileMounts(
     };
   });
   return { services: nextServices, fileMounts };
+}
+
+function withEdgeUpstreamsDigest(services: readonly RenderedComposeService[]): RenderedComposeService[] {
+  const upstreamDigest = digest(
+    services
+      .filter((service) => service.name !== 'edge')
+      .map((service) => ({
+        name: service.name,
+        serviceClass: service.serviceClass,
+        workloadKind: service.workloadKind,
+        workloadSlug: service.workloadSlug,
+        image: service.image,
+        user: service.user,
+        entrypoint: service.entrypoint,
+        command: service.command,
+        args: service.args,
+        env: [...service.env].sort((a, b) => a.name.localeCompare(b.name)),
+        literalEnv: Object.fromEntries(sortedEntries(service.literalEnv ?? {})),
+        ports: [...(service.ports ?? [])].sort((a, b) => a - b),
+        volumes: [...(service.volumes ?? [])].sort((a, b) =>
+          `${a.source}:${a.target}`.localeCompare(`${b.source}:${b.target}`),
+        ),
+        restart: service.restart,
+        resources: service.resources,
+      })),
+  );
+
+  return services.map((service) =>
+    service.name === 'edge'
+      ? {
+          ...service,
+          literalEnv: {
+            ...(service.literalEnv ?? {}),
+            RNTME_EDGE_UPSTREAMS_DIGEST: upstreamDigest,
+          },
+        }
+      : service,
+  );
 }
 
 function composeFileMountPath(serviceName: string, targetPath: string): string {
