@@ -64,7 +64,7 @@
       },
       "exposure": "read",
       "inputFrom": {
-        "bearerToken": { "from": "header", "name": "authorization", "required": true }
+        "bearerToken": { "from": "header", "name": "authorization", "required": false }
       },
       "response": {
         "onOk": {

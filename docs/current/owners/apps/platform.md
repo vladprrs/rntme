@@ -56,6 +56,7 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 
 | Binding | Native operation | Handler module / export |
 | --- | --- | --- |
+| `GET /api/tokens/introspect` | `IntrospectToken` | `services/tokens/handlers/introspect-token.ts` (`introspectTokenHandler`) — runtime-native PAT introspection entrypoint; missing or invalid bearer values throw typed `PLATFORM_AUTH_*` errors |
 | `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
 | `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
@@ -147,6 +148,10 @@ parity plan adds canonical session/edge introspection support.
 - The `${auth.audience}` placeholder in graph `IntrospectSession` calls is not
   yet resolved by any graph-IR pass — at runtime every session call will fail
   audience validation until a resolver is added.
+- The `tokens.IntrospectToken` native handler is executable under the runtime
+  `(inputs, ctx)` contract and returns typed 401 auth errors, but durable PAT
+  repository wiring and first-class token issuance are still required before
+  CLI PATs can authenticate successfully after a redeploy.
 - `organizations.listOrganizations` filters only by `status = active`. Once
   the session result is consumed it must scope by membership; today it would
   return every tenant's orgs to any authenticated caller.

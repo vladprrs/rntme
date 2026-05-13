@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T028  # T029 handler bundling landed (4be88849). All services now boot. PAT auth chain still 401 — likely PAT not in platform DB (ephemeral sqlite resets on each redeploy). Needs T030 PAT seed + retry.
+active_task: T033  # T032 local fix is verified; T033 publishes/redeploys it and checks live auth behavior.
 
 tasks:
   - id: T001
@@ -2222,7 +2222,7 @@ tasks:
   - id: T026
     type: pm
     assignee: PM
-    status: active
+    status: done
     reasoning_hint: medium
     objective: "Run full local verification for the multi-provider edge-auth solution before any push or redeploy."
     allowed_files:
@@ -2291,7 +2291,7 @@ tasks:
   - id: T027
     type: worker
     assignee: Worker
-    status: active
+    status: blocked
     reasoning_hint: high
     objective: "Push the verified provider-list solution, redeploy platform, resume T012 live phases 2-7, and record live proof."
     allowed_files:
@@ -2406,7 +2406,7 @@ tasks:
   - id: T028
     type: judge
     assignee: Judge
-    status: queued
+    status: done
     reasoning_hint: high
     objective: "Audit whether the resumed goal now satisfies the full original cv-extract live deployment and dashboard outcome."
     inputs:
@@ -2435,7 +2435,8 @@ tasks:
       - "dashboard access proof"
       - "missing evidence and next task if not complete"
     receipt:
-      result: not_complete
+      result: done
+      decision: not_complete
       full_outcome_complete: false
       summary: |
         Plan T014-T027a is fully implemented (16 plan tasks + 9 recovery commits, 23 commits
@@ -2527,6 +2528,330 @@ tasks:
         - f48b4155 fix(deploy-dokploy): dedup auth upstream blocks across chains
         - 8fc7d907 feat(runtime): load native operation handlers from artifact dir
         - 4be88849 feat(deploy-bundle): bundle native handlers with Bun.build for runtime
+
+  - id: T030
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: high
+    objective: "Pin down the live platform auth blocker before the next fix: prove whether the 401/500 is caused by an empty ephemeral token DB, handler/runtime failure, Auth0/JWT mismatch, route wiring, or deployment config drift."
+    inputs:
+      - "T028 not-complete receipt."
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/notes/T012-live-deploy.md"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+      - "docs/current/owners/packages/runtime/runtime.md"
+      - "Live platform https://platform.rntme.com"
+      - "Dokploy compose 2mG1RpL80Q7MTmYf67Ky4"
+      - ".env secret names only; do not print values."
+    constraints:
+      - "Read-only except for this task receipt and non-secret diagnostic notes/logs."
+      - "Do not print or persist secret values or bearer tokens."
+      - "Use subagent investigation when available and record model choice rationale."
+      - "Follow systematic debugging: reproduce, trace the failing boundary, compare working and failing paths, then recommend a single next Worker."
+    expected_output:
+      - "Live reproduction matrix for /api/tokens/health, /api/tokens/introspect, /api/projects, and any available Auth0 JWT path."
+      - "Code path and deployment-config evidence for token creation, token persistence, and ordered provider behavior."
+      - "Root-cause hypothesis with evidence, not guesswork."
+      - "Next Worker task with allowed_files or operational commands, verify commands, and stop_if conditions."
+    receipt:
+      result: done
+      summary: |
+        Live 401/500 root-cause scout completed. The remaining blocker is not
+        merely "PAT missing after redeploy": deployed domain services are
+        ephemeral, the current token graph cannot mint platform-core-valid PATs,
+        and the deployed native handlers are still exported as dependency-style
+        functions `(deps, input)` while @rntme/runtime calls native operations as
+        `(inputs, ctx)`. A local artifact reproduction using the actual
+        deploy-bundle output throws `TypeError: undefined is not an object
+        (evaluating 'deps.provider.authenticate')` when the runtime-style call
+        invokes the bundled `IntrospectToken` handler.
+      subagent_model_choice:
+        model_used: "Codex explorer"
+        rationale: "Read-only cross-file investigation over platform tokens, deploy persistence, and runtime native handler loading."
+      live_reproduction:
+        - "GET https://platform.rntme.com/health without auth -> 200."
+        - "GET https://platform.rntme.com/config.json without auth -> 200."
+        - "GET https://platform.rntme.com/ without auth -> 200."
+        - "GET https://platform.rntme.com/api/tokens/health without auth -> 500 nginx page. Cause: protected route auth_request receives a non-401/403 result from the platform-token provider path when Authorization is absent."
+        - "GET https://platform.rntme.com/api/tokens/introspect without auth -> 500 nginx page for the same auth_request reason."
+        - "GET https://platform.rntme.com/api/tokens/introspect with redacted PAT -> canonical 401."
+        - "GET https://platform.rntme.com/api/projects?organizationId=org_uZUWhpWgK54VWC2X with redacted PAT -> canonical 401."
+        - "Auth0 client_credentials for https://platform.rntme.com/api using available Management API client -> 403 access_denied, so no M2M platform JWT bootstrap path is currently available."
+      code_evidence:
+        - "apps/platform/blueprint/services/tokens/bindings/bindings.json defines createToken as POST /api/tokens, but it emits organizationId/name/prefix/scopesJson only; it does not mint plaintext, tokenHash, accountId, expiresAt, or lastUsedAt."
+        - "packages/platform/platform-core/src/use-cases/tokens.ts createToken is the real PAT issuer, but there is no blueprint binding/handler wired to that use-case."
+        - "apps/platform/blueprint/pdm/entities/ApiToken.json does not contain the fields platform-core introspection needs (tokenHash, accountId, expiresAt, lastUsedAt)."
+        - "packages/deploy/deploy-core/src/plan.ts hardcodes every domain-service workload to persistence: { mode: 'ephemeral' }."
+        - "packages/deploy/deploy-dokploy/src/render.ts emits RNTME_PERSISTENCE_MODE only; deployed svc-tokens has no RNTME_EVENT_STORE_PATH/RNTME_QSM_PATH and no writable DB volume."
+        - "Dokploy container config for svc-tokens confirms RNTME_PERSISTENCE_MODE=ephemeral, Volumes=null, and only read-only artifact/config bind mounts."
+        - "packages/runtime/runtime/src/bin/runtime.ts loadNativeHandlers imports the bundled export directly and packages/runtime/runtime/src/plugins/executors/native-operation-executor.ts calls it as (inputs, ctx)."
+        - "Actual bundled handler output still contains async function introspectTokenHandler(deps, input) and accesses deps.provider.authenticate."
+      local_discriminator:
+        cmd: "bun --eval local artifact reproduction with loadComposedBlueprint + toDeployCoreInput + loadNativeHandlers, then call IntrospectToken with runtime signature"
+        status: pass
+        observed: "TypeError: undefined is not an object (evaluating 'deps.provider.authenticate')"
+      root_cause_hypothesis: |
+        Root cause is a stack mismatch between platform-blueprint native handler
+        design and deployed runtime execution. Platform handlers were tested as
+        dependency-injected functions, but deployed runtime native operations
+        receive only operation inputs plus OperationExecutionContext. Even after
+        this is fixed, live PAT auth still needs a real issuer/seed and durable
+        service state because domain services are currently ephemeral and the
+        blueprint token model cannot represent secure platform-core PAT rows.
+      next_worker_candidate:
+        id: T032
+        objective: "Create a runtime-native platform handler contract slice: make bundled platform native handlers callable by @rntme/runtime with explicit runtime dependencies or refactor the token introspect handler to runtime-native form, with a failing artifact-level test that reproduces the current deps.provider crash."
+        allowed_files:
+          - "packages/runtime/runtime/src/bin/runtime.ts"
+          - "packages/runtime/runtime/src/plugins/executors/native-operation-executor.ts"
+          - "packages/runtime/runtime/test/**"
+          - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+          - "packages/platform/deploy-bundle-input/test/**"
+          - "apps/platform/blueprint/services/tokens/**"
+          - "apps/platform/blueprint/test/**"
+        verify:
+          - "bun run --filter @rntme/runtime test"
+          - "bun run --filter @rntme/deploy-bundle-input test"
+          - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+        stop_if:
+          - "The slice requires designing full platform storage/repository persistence rather than just making the native handler execution contract truthful."
+          - "The fix would bypass ordered edge auth or hardcode a secret bearer value."
+          - "Need files outside allowed_files."
+      spawned_tasks:
+        - T031
+
+  - id: T031
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Select the smallest safe implementation slice after T030: decide whether to repair native handler execution first, persistent domain-service storage first, or platform PAT issuance first."
+    inputs:
+      - "T030 receipt."
+      - "T028 not-complete audit receipt."
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/runtime/runtime.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+      - "docs/current/owners/packages/deploy/deploy-core.md"
+      - "docs/current/owners/packages/deploy/deploy-dokploy.md"
+    constraints:
+      - "Read-only."
+      - "Do not approve bypassing ordered edge auth, hardcoding secret token values, or removing edge auth from protected platform routes."
+      - "Prefer a slice that creates a failing test matching the live blocker before implementation."
+      - "If full platform storage is required, split it into a separate Worker after the native handler contract slice."
+    expected_output:
+      - "Decision."
+      - "Next Worker id/objective."
+      - "allowed_files."
+      - "verify."
+      - "stop_if."
+      - "Completion criteria for returning to T012 live phases."
+    receipt:
+      result: done
+      decision: "Repair native handler execution first."
+      summary: |
+        Judge subagent selected the native-handler contract slice as the next
+        smallest safe implementation. Durable token storage and PAT issuance are
+        real follow-up blockers, but they cannot be trusted or observed while the
+        deployed runtime calls dependency-style native handlers as `(inputs, ctx)`
+        and crashes on `deps.provider`.
+      subagent_model_choice:
+        model_used: "Codex default judge"
+        rationale: "High-reasoning read-only judgment over runtime native execution, platform auth, deploy edge auth, and persistence risk."
+      rationale: |
+        Storage and PAT issuance remain required later, but neither should be the
+        first fix because the deployed platform token introspection handler is
+        not executable under the runtime contract. The next Worker must first
+        add a red artifact/runtime regression matching the live `deps.provider`
+        crash, then make token introspection return typed platform auth 401
+        behavior under @rntme/runtime without bypassing ordered edge auth.
+      next_worker:
+        id: T032
+        objective: "Make platform token introspection runtime-native: add an artifact/runtime regression test that reproduces the bundled IntrospectToken deps.provider crash, then make the handler/load path return typed PLATFORM_AUTH_* 401 behavior under @rntme/runtime without hardcoded bearer values."
+      allowed_files:
+        - "packages/runtime/runtime/src/bin/runtime.ts"
+        - "packages/runtime/runtime/src/plugins/executors/native-operation-executor.ts"
+        - "packages/runtime/runtime/src/start/runtime-config.ts"
+        - "packages/runtime/runtime/src/start/start-service.ts"
+        - "packages/runtime/runtime/test/**"
+        - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+        - "packages/platform/deploy-bundle-input/test/**"
+        - "apps/platform/blueprint/services/tokens/**"
+        - "apps/platform/blueprint/test/**"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/current/owners/packages/runtime/runtime.md"
+        - "docs/current/owners/packages/platform/platform-core.md"
+      verify:
+        - "bun run --filter @rntme/runtime test"
+        - "bun run --filter @rntme/deploy-bundle-input test"
+        - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+        - "bun run depcruise"
+      stop_if:
+        - "Fix requires full durable platform storage/repository design; split that into the next Worker."
+        - "Fix requires @rntme/runtime to import platform-core, platform-storage, or app-specific platform code."
+        - "Fix would remove ordered edge auth from protected platform routes."
+        - "Fix would hardcode or commit a bearer token/PAT value."
+        - "Need files outside allowed_files."
+      completion_criteria_for_returning_to_T012_live_phases:
+        - "Artifact-level regression proves bundled IntrospectToken is called with the runtime contract and no longer throws deps.provider TypeError."
+        - "No-auth token introspection path yields typed 401/fallthrough behavior, not nginx 500."
+        - "Unknown/invalid PAT yields canonical 401 with PLATFORM_AUTH_* code."
+        - "Then queue storage/PAT issuance Workers as needed; resume T012 only after a real PAT can introspect 200 and GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X returns 200."
+
+  - id: T032
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: high
+    objective: "Make platform token introspection runtime-native: add an artifact/runtime regression test that reproduces the bundled IntrospectToken deps.provider crash, then make the handler/load path return typed PLATFORM_AUTH_* 401 behavior under @rntme/runtime without hardcoded bearer values."
+    inputs:
+      - "T030 Scout receipt."
+      - "T031 Judge receipt."
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/runtime/runtime.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+      - "apps/platform/blueprint/services/tokens/bindings/bindings.json"
+      - "apps/platform/blueprint/services/tokens/handlers/introspectToken.ts"
+      - "packages/runtime/runtime/src/plugins/executors/native-operation-executor.ts"
+      - "packages/runtime/runtime/src/bin/runtime.ts"
+      - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+    constraints:
+      - "Use TDD: write the failing artifact/runtime regression first and verify it fails for the deps.provider crash."
+      - "Do not bypass ordered edge auth."
+      - "Do not hardcode, print, or commit bearer token/PAT values."
+      - "Do not make @rntme/runtime import platform-core, platform-storage, or app-specific platform code."
+      - "Do not design full durable platform storage in this task; split that into the next Worker if required."
+      - "Keep edits within allowed_files unless PM records a stop_if split."
+      - "Document whether owner docs need updating; 'no docs need updating' is valid only with a reason."
+    allowed_files:
+      - "packages/runtime/runtime/src/bin/runtime.ts"
+      - "packages/runtime/runtime/src/plugins/executors/native-operation-executor.ts"
+      - "packages/runtime/runtime/src/start/runtime-config.ts"
+      - "packages/runtime/runtime/src/start/start-service.ts"
+      - "packages/runtime/runtime/test/**"
+      - "packages/platform/deploy-bundle-input/src/to-deploy-core-input.ts"
+      - "packages/platform/deploy-bundle-input/test/**"
+      - "apps/platform/blueprint/services/tokens/**"
+      - "apps/platform/blueprint/test/**"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/runtime/runtime.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+    verify:
+      - "bun run --filter @rntme/runtime test"
+      - "bun run --filter @rntme/deploy-bundle-input test"
+      - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+      - "bun run depcruise"
+    stop_if:
+      - "Fix requires full durable platform storage/repository design."
+      - "Fix requires @rntme/runtime to import platform-core, platform-storage, or app-specific platform code."
+      - "Fix would remove ordered edge auth from protected platform routes."
+      - "Fix would hardcode or commit a bearer token/PAT value."
+      - "Need files outside allowed_files."
+    expected_output:
+      - "Red test command and expected failing output."
+      - "Implementation summary."
+      - "Verification command output."
+      - "Docs touch evaluation."
+      - "Next blocker, if storage/PAT issuance remains."
+    receipt:
+      result: done
+      summary: |
+        Platform token introspection now supports the runtime-native `(inputs, ctx)`
+        call shape and no longer dereferences `deps.provider` when loaded from the
+        bundled artifact. The handler keeps the dependency-injected provider path
+        for platform-core unit coverage, but deployed runtime calls return typed
+        `PLATFORM_AUTH_MISSING` for absent/non-PAT auth and `PLATFORM_AUTH_INVALID`
+        for structurally valid but unknown PATs. The introspection binding now
+        treats the Authorization header as optional so missing auth reaches the
+        handler and renders the configured 401 `onErr` response instead of a 400
+        extraction error that nginx turns into 500.
+      subagent_execution:
+        worker_agent: "019e22c7-4291-7b71-9e97-d1e7b5e5e632"
+        status: "timed out and was closed"
+        recovery: |
+          The Worker modified the token handler before shutdown but did not
+          return a final report. PM inspected the diff, preserved the useful
+          partial work, removed the platform test's runtime-source import, added
+          the artifact-level bundled-handler regression, completed the binding
+          and operation contract change, and ran verification.
+      red_test_evidence:
+        - "First platform-blueprint focused run failed: operations.json still declared bearerToken required while the new contract expected defaulted/null."
+        - "First platform-blueprint focused run failed: the new missing-header binding assertion could not read the binding shape from bindingRegistry, proving the test needed to inspect the authoring binding artifact directly."
+        - "First platform-blueprint focused run failed: existing provider-path tests broke because the partial Worker change had removed the dependency-injected signature."
+        - "The new deploy-bundle artifact regression unexpectedly passed on its first run because the timed-out Worker had already changed the handler before PM closed the agent; PM did not revert that concurrent edit."
+      changed_files:
+        - "apps/platform/blueprint/services/tokens/bindings/bindings.json"
+        - "apps/platform/blueprint/services/tokens/handlers/introspect-token.ts"
+        - "apps/platform/blueprint/services/tokens/handlers/types.ts"
+        - "apps/platform/blueprint/services/tokens/operations.json"
+        - "apps/platform/blueprint/test/platform-blueprint.test.ts"
+        - "apps/platform/blueprint/test/platform-tokens-handler.test.ts"
+        - "packages/platform/deploy-bundle-input/test/to-deploy-core-input.test.ts"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/current/owners/packages/platform/platform-core.md"
+        - "docs/current/owners/packages/runtime/runtime.md"
+      verification:
+        - cmd: "bun run --filter @rntme/runtime test"
+          status: pass
+          notes: "185 pass / 0 fail"
+        - cmd: "bun run --filter @rntme/deploy-bundle-input test"
+          status: pass
+          notes: "19 pass / 0 fail"
+        - cmd: "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+          status: pass
+          notes: "35 pass / 0 fail"
+        - cmd: "bun run --filter @rntme/platform-blueprint typecheck"
+          status: pass
+        - cmd: "bun run --filter @rntme/deploy-bundle-input typecheck"
+          status: pass
+        - cmd: "bun run depcruise"
+          status: pass
+          notes: "825 modules, 1139 dependencies, 0 violations"
+        - cmd: "local artifact discriminator: load platform tokens runtimeFiles with loadNativeHandlers and invoke IntrospectToken using runtime signature"
+          status: pass
+          notes: "unknown PAT -> PLATFORM_AUTH_INVALID; missing auth -> PLATFORM_AUTH_MISSING; no deps.provider TypeError"
+      docs_touch:
+        decision_system: "No update; no strategic/convention change."
+        owner_docs: "Updated apps/platform native operations + known gap, platform-core token introspection contract, and runtime native handler signature docs."
+      remaining_blocker: |
+        This does not make live PATs authenticate. The deployed runtime-native
+        path still rejects every structurally valid PAT until the platform has
+        durable token repository wiring and a real token issuance/bootstrap path.
+        T033 must publish/redeploy this slice and prove the live 500/TypeError
+        symptom is gone before storage/PAT issuance work resumes.
+
+  - id: T033
+    type: worker
+    assignee: PM
+    status: active
+    reasoning_hint: medium
+    objective: "Publish and redeploy the T032 native-token-introspection slice, then verify live platform auth behavior no longer returns nginx 500 for missing/invalid PAT introspection."
+    inputs:
+      - "T032 receipt."
+      - "platform.target.json (dirty unrelated target state; preserve existing user change unless explicitly needed for deploy)."
+      - "Live platform https://platform.rntme.com"
+      - "Dokploy target for rntme-direct-rntme-platform-anfxkl."
+      - ".env secret names only; do not print values."
+    constraints:
+      - "Commit only T032 code/docs/test/goal-state changes; do not include unrelated platform.target.json or redeploy log files unless intentionally required."
+      - "Do not print or persist secret values or bearer tokens."
+      - "Do not bypass ordered edge auth or remove protected-route auth."
+      - "If CI/image build/redeploy fails, record the failing check/log pointer and stop for a recovery Worker."
+      - "If live no-auth /api/tokens/introspect still returns 500 after redeploy, inspect edge and svc-tokens logs before moving to PAT storage work."
+    expected_output:
+      - "Commit SHA and push status."
+      - "Runtime image/build identifier used for redeploy."
+      - "Dokploy redeploy status."
+      - "Live curl matrix: /health, /api/tokens/introspect no auth, /api/tokens/introspect unknown PAT, /api/projects unknown PAT."
+      - "Next active Worker for durable token storage/PAT issuance if T032 live behavior is fixed."
+    verify:
+      - "git show --stat --oneline HEAD"
+      - "Live https://platform.rntme.com/health -> 200"
+      - "Live /api/tokens/introspect without Authorization -> 401 or documented provider-fallback status, not nginx 500"
+      - "Live /api/tokens/introspect with redacted unknown PAT -> canonical 401 with typed auth body"
+      - "Live /api/projects?organizationId=org_uZUWhpWgK54VWC2X with redacted unknown PAT -> canonical 401 until valid PAT storage/issuance lands"
+    receipt: null
 
 checks:
   dirty_fingerprint: "platform.target.json + untracked redeploy logs and goal/notes (unrelated dirty preserved)"

@@ -221,7 +221,9 @@ prefix is the only routing layer. The compiled UI `httpMap` and any
 
 `NativeOperationExecutor` runs operations declared in
 `services/<svc>/operations.json` whose implementation lives at
-`services/<svc>/handlers/*.ts`. The executor:
+`services/<svc>/handlers/*.ts`. Runtime-native handlers are invoked as
+`(inputs, ctx)`, where `inputs` is the binding-remapped operation input object
+and `ctx` is the `OperationExecutionContext`. The executor:
 
 - Dispatches by operation name from a registry built at startup.
 - Throws `NATIVE_OPERATION_HANDLER_MISSING` when a declared native operation

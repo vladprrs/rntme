@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadComposedBlueprint } from '@rntme/blueprint';
 import { toDeployCoreInput } from '../src/to-deploy-core-input.js';
 
@@ -23,6 +23,15 @@ function makeMinimalComposed(): {
     publicConfigJson: null,
     varsManifest: {},
   };
+}
+
+async function captureError(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+    return null;
+  } catch (err) {
+    return err;
+  }
 }
 
 describe('toDeployCoreInput', () => {
@@ -188,6 +197,48 @@ describe('toDeployCoreInput', () => {
     // Bundle must inline workspace deps so the runtime can import the file
     // without traversing /srv/node_modules from the artifact mount.
     expect(introspectBundle).not.toMatch(/from\s+['"]@rntme\/platform-core['"]/);
+  });
+
+  it('bundles platform token introspection as a runtime-native handler with typed auth errors', async () => {
+    const platformDir = join(repoRoot, 'apps', 'platform', 'blueprint');
+    const composed = await loadComposedBlueprint(platformDir);
+    expect(composed.ok, composed.ok ? '' : JSON.stringify(composed.errors, null, 2)).toBe(true);
+    if (!composed.ok) return;
+
+    const result = await toDeployCoreInput(composed.value, platformDir);
+    const tokensFiles = result.services.tokens?.runtimeFiles ?? {};
+    const bundle = tokensFiles['handlers/introspect-token.js'];
+    expect(bundle).toBeDefined();
+    if (bundle === undefined) return;
+
+    const dir = mkdtempSync(join(tmpdir(), 'deploy-bundle-platform-token-handler-'));
+    try {
+      mkdirSync(join(dir, 'handlers'), { recursive: true });
+      const handlerPath = join(dir, 'handlers', 'introspect-token.js');
+      writeFileSync(handlerPath, bundle);
+      const mod = await import(`${pathToFileURL(handlerPath).href}?t=${Date.now()}`);
+      const handler = mod.introspectTokenHandler as (
+        inputs: Record<string, unknown>,
+        ctx: { correlation: { commandId: string; correlationId: string; traceparent: null } },
+      ) => Promise<unknown>;
+      const ctx = {
+        correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+      };
+
+      const unknownPatError = await captureError(
+        handler({ bearerToken: `Bearer rntme_pat_${'z'.repeat(22)}` }, ctx),
+      );
+      expect(unknownPatError).toBeInstanceOf(Error);
+      expect((unknownPatError as Error & { code?: string }).code).toBe('PLATFORM_AUTH_INVALID');
+      expect((unknownPatError as Error).message).not.toContain('deps.provider');
+
+      const missingError = await captureError(handler({}, ctx));
+      expect(missingError).toBeInstanceOf(Error);
+      expect((missingError as Error & { code?: string }).code).toBe('PLATFORM_AUTH_MISSING');
+      expect((missingError as Error).message).not.toContain('deps.provider');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('converts platform blueprint without wiring tokens as a module proto', async () => {

@@ -30,7 +30,31 @@ async function setup() {
   return { provider, plain };
 }
 
+async function captureError(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+    return null;
+  } catch (err) {
+    return err;
+  }
+}
+
 describe('introspectTokenHandler', () => {
+  it('returns a typed PLATFORM_AUTH_* error when invoked with the runtime-native call shape', async () => {
+    const thrown = await captureError(
+      introspectTokenHandler(
+        { bearerToken: `Bearer rntme_pat_${'z'.repeat(22)}` },
+        { correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null } } as never,
+      ),
+    );
+
+    expect(thrown).toBeInstanceOf(Error);
+    if (thrown instanceof Error) {
+      expect((thrown as Error & { code?: string }).code).toBe('PLATFORM_AUTH_INVALID');
+      expect(thrown.message).toBe('invalid token');
+    }
+  });
+
   it('returns active status for a valid PAT', async () => {
     const { provider, plain } = await setup();
     const out = await introspectTokenHandler(

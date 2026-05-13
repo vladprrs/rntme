@@ -55,12 +55,23 @@ describe('platform blueprint', () => {
     expect(parsed.operations).toBeDefined();
     expect(parsed.operations.IntrospectToken).toEqual({
       handler: { kind: 'native', entry: './handlers/introspect-token.ts', export: 'introspectTokenHandler' },
-      input: { bearerToken: { type: 'string', mode: 'required' } },
+      input: { bearerToken: { type: 'string', mode: 'defaulted', default: null } },
       output: { type: 'IntrospectTokenResult' },
       effect: 'read',
       idempotency: 'none',
     });
     const handlerPath = join(here, '../services/tokens/handlers/introspect-token.ts');
     expect(existsSync(handlerPath)).toBe(true);
+  });
+
+  it('lets token introspection map a missing Authorization header to a typed auth error', async () => {
+    const bindingsPath = join(here, '../services/tokens/bindings/bindings.json');
+    const raw = await readFile(bindingsPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    expect(parsed.bindings.introspectToken.inputFrom.bearerToken).toEqual({
+      from: 'header',
+      name: 'authorization',
+      required: false,
+    });
   });
 });

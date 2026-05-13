@@ -45,10 +45,11 @@ This package owns the algorithm and HTTP-middleware shim for
   `Result<AuthSubject, PlatformError>`. No HTTP awareness.
 - **`ApiTokenProvider`** (`src/auth/api-token-provider.ts`) — `IdentityProvider`
   shim that adapts `introspectToken` to the `AuthContext`-based middleware
-  chain. Intended consumer is the platform runtime's auth middleware once
-  bearer-token auth is wired into `@rntme/runtime`'s `HttpSurface`; today
-  only the `services/tokens.introspectToken` handler holds a reference
-  through its dependency type.
+  chain. The platform `services/tokens.IntrospectToken` native handler still
+  supports this dependency-injected path for provider-level tests. Deployed
+  runtime calls use the runtime-native `(inputs, ctx)` handler shape and
+  currently return typed missing/invalid PAT errors until durable PAT
+  repository wiring and token issuance are landed.
 
 The matching native handler stub for the runtime cutover lives at
 `apps/platform/blueprint/services/tokens/handlers/introspect-token.ts`, and the

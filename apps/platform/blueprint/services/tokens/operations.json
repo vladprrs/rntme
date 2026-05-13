@@ -8,7 +8,7 @@
         "export": "introspectTokenHandler"
       },
       "input": {
-        "bearerToken": { "type": "string", "mode": "required" }
+        "bearerToken": { "type": "string", "mode": "defaulted", "default": null }
       },
       "output": { "type": "IntrospectTokenResult" },
       "effect": "read",
