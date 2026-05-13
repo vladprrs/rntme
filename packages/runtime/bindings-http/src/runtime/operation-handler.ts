@@ -250,10 +250,14 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
           plan.operationName,
           clientKey,
           rendered.kind === 'json'
-            ? { status: rendered.status, body: JSON.stringify(rendered.body ?? null) }
-            : { status: rendered.status, body: '', headers: { Location: rendered.location } },
+            ? { status: rendered.status, body: JSON.stringify(rendered.body ?? null), headers: rendered.headers }
+            : { status: rendered.status, body: '', headers: { ...rendered.headers, Location: rendered.location } },
           Date.now(),
         );
+      }
+
+      for (const [name, value] of Object.entries(rendered.headers)) {
+        c.header(name, value);
       }
 
       if (rendered.kind === 'json') {

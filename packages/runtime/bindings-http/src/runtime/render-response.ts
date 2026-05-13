@@ -3,8 +3,8 @@ import { evaluateExpression, type ExpressionScope } from './expression.js';
 import { errorToHttp } from './error-to-http.js';
 
 export type RenderedResponse =
-  | { kind: 'json'; status: number; body: unknown }
-  | { kind: 'redirect'; status: 302 | 303; location: string };
+  | { kind: 'json'; status: number; body: unknown; headers: Record<string, string> }
+  | { kind: 'redirect'; status: 302 | 303; location: string; headers: Record<string, string> };
 
 export type RenderScope = {
   result: unknown;
@@ -35,13 +35,50 @@ function invalidRedirect(message: string): RenderedResponse {
     kind: 'json',
     status: 500,
     body: { code: 'BINDINGS_RUNTIME_INVALID_REDIRECT', message },
+    headers: {},
   };
 }
 
+function invalidHeader(): RenderedResponse {
+  return {
+    kind: 'json',
+    status: 500,
+    body: {
+      code: 'BINDINGS_RUNTIME_INVALID_RESPONSE_HEADER',
+      message: 'response header value is invalid',
+    },
+    headers: {},
+  };
+}
+
+const HEADER_NAME_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
+function renderHeaders(branch: ResponseBranch, scope: RenderScope): Record<string, string> | null {
+  const out: Record<string, string> = {};
+  const headers = branch.headers;
+  if (headers === undefined) return out;
+  for (const [name, raw] of Object.entries(headers)) {
+    if (!HEADER_NAME_RE.test(name)) return null;
+    const evaluated = evaluateExpression(raw, toExprScope(scope));
+    const value = evaluated === null || evaluated === undefined ? '' : String(evaluated);
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      if (code === 0x09) continue;
+      if (code < 0x20 || code === 0x7f) return null;
+    }
+    out[name] = value;
+  }
+  return out;
+}
+
 function renderBranch(branch: ResponseBranch, scope: RenderScope, defaultStatus: number): RenderedResponse {
+  const headers = renderHeaders(branch, scope);
+  if (headers === null) return invalidHeader();
+
   if ('json' in branch) {
     const body = evaluateExpression(branch.json, toExprScope(scope));
-    return { kind: 'json', status: defaultStatus, body };
+    const status = branch.status ?? defaultStatus;
+    return { kind: 'json', status, body, headers };
   }
   const locRaw = branch.redirect;
   let location: string;
@@ -59,7 +96,7 @@ function renderBranch(branch: ResponseBranch, scope: RenderScope, defaultStatus:
   if (location.length === 0) {
     return invalidRedirect('redirect template produced an empty Location');
   }
-  return { kind: 'redirect', status: branch.status ?? 302, location };
+  return { kind: 'redirect', status: branch.status ?? 302, location, headers };
 }
 
 function toExprScope(scope: RenderScope): ExpressionScope {

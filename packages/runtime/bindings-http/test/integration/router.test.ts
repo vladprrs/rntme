@@ -91,6 +91,70 @@ describe('createBindingsRouter', () => {
     expect(await res.json()).toMatchObject({ openapi: '3.1.0' });
   });
 
+  it('emits configured response headers and json status override', async () => {
+    const validatedWithHeaders = {
+      artifact: {} as never,
+      resolved: {
+        listThings: {
+          entry: {
+            exposure: 'read',
+            graph: 'listThings',
+            target: { engine: 'sqlite', dialect: 'sqlite' },
+            http: {
+              method: 'GET',
+              path: '/things',
+              parameters: [{ name: 'limit', in: 'query', bindTo: 'limit', required: false }],
+            },
+            response: {
+              onOk: {
+                json: null,
+                status: 204,
+                headers: {
+                  'X-Rntme-User-Sub': '$result.userId',
+                  'X-Rntme-User-Audience': 'urn:rntme:platform-tokens',
+                },
+              },
+              onErr: { json: { code: '$error.code' } },
+            },
+          },
+          signature: {
+            id: 'listThings',
+            inputs: { limit: { type: { kind: 'scalar', primitive: 'integer' }, mode: 'defaulted', default: 20 } },
+            output: { type: { kind: 'row', shape: 'ThingRow' }, from: 'out' },
+            effects: { localReads: true, localEmits: [], calls: [], waits: false },
+          },
+          outputShape: { name: 'ThingRow', origin: 'custom', fields: {} },
+        },
+      },
+    } as never;
+
+    const executor: OperationExecutor = {
+      async execute() {
+        return {
+          ok: true,
+          value: {
+            value: { userId: 'acct_1' },
+            metadata: { eventIds: [], commandId: 'cmd', correlationId: 'corr' },
+          },
+        };
+      },
+    };
+
+    const router = createBindingsRouter({
+      validated: validatedWithHeaders,
+      graphSpec,
+      pdm: { entities: {} } as never,
+      qsm: { projections: {}, relations: {} } as never,
+      db: openSqliteDatabase({ filename: ':memory:' }),
+      operationExecutor: executor,
+    });
+
+    const res = await router.request('/things?limit=5');
+    expect(res.status).toBe(204);
+    expect(res.headers.get('x-rntme-user-sub')).toBe('acct_1');
+    expect(res.headers.get('x-rntme-user-audience')).toBe('urn:rntme:platform-tokens');
+  });
+
   it('throws BindingsRuntimeError when compile fails at startup', () => {
     expect(() =>
       createBindingsRouter({

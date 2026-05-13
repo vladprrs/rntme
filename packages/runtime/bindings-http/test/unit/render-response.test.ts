@@ -13,6 +13,7 @@ describe('renderResponse', () => {
     if (r.kind === 'json') {
       expect(r.status).toBe(200);
       expect(r.body).toEqual({ status: 'active', userId: 'u-1' });
+      expect(r.headers).toEqual({});
     }
   });
 
@@ -88,6 +89,84 @@ describe('renderResponse', () => {
     expect(out.kind).toBe('redirect');
     if (out.kind === 'redirect') {
       expect(out.location).toBe('/next');
+    }
+  });
+
+  it('renders expression-derived response headers and json status override', () => {
+    const rendered = renderOkResponse(
+      {
+        onOk: {
+          json: null,
+          status: 204,
+          headers: {
+            'X-Rntme-User-Sub': '$result.subject.account.id',
+            'X-Rntme-User-Audience': 'urn:rntme:platform-tokens',
+            'X-Rntme-Session-Status': 'ACTIVE',
+          },
+        },
+        onErr: { json: { code: '$error.code' } },
+      },
+      { result: { subject: { account: { id: 'acct_1' } } }, error: null },
+    );
+
+    expect(rendered).toEqual({
+      kind: 'json',
+      status: 204,
+      body: null,
+      headers: {
+        'X-Rntme-User-Sub': 'acct_1',
+        'X-Rntme-User-Audience': 'urn:rntme:platform-tokens',
+        'X-Rntme-Session-Status': 'ACTIVE',
+      },
+    });
+  });
+
+  it('rejects header value with newline as invalid', () => {
+    const rendered = renderOkResponse(
+      {
+        onOk: {
+          json: { ok: true },
+          headers: {
+            'X-Rntme-Header': '$result.value',
+          },
+        },
+        onErr: { json: {} },
+      },
+      { result: { value: 'good\nbad' }, error: null },
+    );
+
+    expect(rendered).toEqual({
+      kind: 'json',
+      status: 500,
+      body: {
+        code: 'BINDINGS_RUNTIME_INVALID_RESPONSE_HEADER',
+        message: 'response header value is invalid',
+      },
+      headers: {},
+    });
+  });
+
+  it('rejects header name containing illegal characters', () => {
+    const rendered = renderOkResponse(
+      {
+        onOk: {
+          json: { ok: true },
+          headers: {
+            'Bad Header': 'value',
+          },
+        },
+        onErr: { json: {} },
+      },
+      { result: null, error: null },
+    );
+
+    expect(rendered.kind).toBe('json');
+    if (rendered.kind === 'json') {
+      expect(rendered.status).toBe(500);
+      expect(rendered.body).toEqual({
+        code: 'BINDINGS_RUNTIME_INVALID_RESPONSE_HEADER',
+        message: 'response header value is invalid',
+      });
     }
   });
 });
