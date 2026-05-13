@@ -41,6 +41,7 @@ import {
   assertValidRuntimeConfig,
   type RuntimeConfig,
 } from './runtime-config.js';
+import { runtimeModuleOperationEffect } from './runtime-module-operations.js';
 
 export type { RuntimeConfig } from './runtime-config.js';
 
@@ -292,7 +293,7 @@ function buildManifestOperationRegistry(manifest: ValidatedService['manifest']):
   return {
     resolve(target: OperationTarget) {
       if (!('module' in target) || !moduleNames.has(target.module)) return null;
-      const effect = moduleOperationEffect(target.module, target.operation);
+      const effect = runtimeModuleOperationEffect(target.module, target.operation);
       if (effect === null) return null;
       return {
         id: `${target.module}.${target.operation}`,
@@ -304,11 +305,6 @@ function buildManifestOperationRegistry(manifest: ValidatedService['manifest']):
       };
     },
   };
-}
-
-function moduleOperationEffect(moduleName: string, operation: string): 'read' | 'action' | null {
-  if (moduleName === 'identity-auth0' && operation === 'IntrospectSession') return 'read';
-  return null;
 }
 
 function toOperationCallClient(client: ExternalAdapterClient): OperationCallClient {

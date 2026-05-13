@@ -6,34 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { emitProto } from '@rntme/bindings-grpc';
 import type { ComposedBlueprint } from '@rntme/blueprint';
 import type { ComposedProjectInput } from '@rntme/deploy-core';
+import {
+  buildRuntimeModuleWiringForService,
+  buildRuntimeModuleWiringForUiHost,
+  buildServiceSlugByModuleKey,
+} from './runtime-module-wiring.js';
 
 type LoadedDeployProject = ComposedProjectInput | ComposedBlueprint;
-
-const IDENTITY_INTROSPECTION_PROTO = `syntax = "proto3";
-package rntme.contracts.identity.v1;
-
-message IntrospectSessionRequest {
-  string token = 1;
-  string audience = 2;
-}
-
-message Session {
-  string session_id = 2;
-  string user_id = 3;
-  string organization_id = 4;
-  int32 token_type = 5;
-  repeated string roles = 6;
-  repeated string permissions = 7;
-  repeated string verified_factors = 8;
-  int32 status = 9;
-  string ip_address = 10;
-  string user_agent = 11;
-}
-
-service IdentityModule {
-  rpc IntrospectSession(IntrospectSessionRequest) returns (Session);
-}
-`;
 
 export async function toDeployCoreInput(
   value: LoadedDeployProject,
@@ -256,17 +235,19 @@ async function buildRuntimeArtifactFiles(
   if (service.bindings === null) throw new Error(`DEPLOY_EXECUTOR_SERVICE_BINDINGS_NOT_FOUND:${serviceSlug}`);
 
   const files: Record<string, string> = {};
-  const modules = runtimeModulesForService(project, serviceSlug);
+  const wiring = buildRuntimeModuleWiringForService(
+    project,
+    serviceSlug,
+    buildServiceSlugByModuleKey(project),
+  );
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
     surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
-    modules,
+    modules: wiring.modules,
   });
-  for (const module of modules) {
-    files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
-  }
+  Object.assign(files, wiring.files);
   addJsonFile(files, 'pdm.json', project.pdm);
   addJsonFile(files, 'qsm.json', service.qsmValidated);
   addJsonFile(files, 'bindings.json', service.bindings.artifact);
@@ -311,17 +292,15 @@ async function buildUiHostRuntimeArtifactFiles(
   uiBuildFiles: Record<string, string>,
 ): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
-  const modules = runtimeModulesForUiHost(project);
+  const wiring = buildRuntimeModuleWiringForUiHost(project, buildServiceSlugByModuleKey(project));
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
     surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: false, port: 50051 } },
     seed: { enabled: false, path: 'seed.json' },
-    modules,
+    modules: wiring.modules,
   });
-  for (const module of modules) {
-    files[module.protoPath] = IDENTITY_INTROSPECTION_PROTO;
-  }
+  Object.assign(files, wiring.files);
   addJsonFile(files, 'pdm.json', project.pdm);
   addJsonFile(files, 'qsm.json', buildUiHostQsmArtifact(project));
 
@@ -401,19 +380,6 @@ function buildUiHostQsmArtifact(project: ComposedBlueprint): Record<string, unkn
     Object.assign(relations, qsm.relations);
   }
   return { projections, relations };
-}
-
-function runtimeModulesForUiHost(
-  project: ComposedBlueprint,
-): Array<{ name: string; grpc: { address: string }; protoPath: string }> {
-  const byName = new Map<string, { name: string; grpc: { address: string }; protoPath: string }>();
-  const sourceServices = new Set(Object.values(project.bindingRegistry).map((entry) => entry.service));
-  for (const serviceSlug of [...sourceServices].sort()) {
-    for (const module of runtimeModulesForService(project, serviceSlug)) {
-      byName.set(module.name, module);
-    }
-  }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function pathForRuntimeHttpMap(projectPath: string): string {
@@ -641,41 +607,6 @@ export function readUiRuntimeCss(workspaceRoot: string): string {
     if (existsSync(cssPath)) return readFileSync(cssPath, 'utf8');
   }
   return '/* rntme ui runtime styles unavailable at deploy bundle time */\n';
-}
-
-function runtimeModulesForService(
-  project: ComposedBlueprint,
-  serviceSlug: string,
-): Array<{ name: string; grpc: { address: string }; protoPath: string }> {
-  const slugs = new Set<string>();
-  for (const [middlewareName, declaration] of Object.entries(project.project.middleware ?? {})) {
-    if (declaration.kind !== 'auth' || declaration.moduleSlug === undefined) continue;
-    if (!middlewareAppliesToService(project.project, middlewareName, serviceSlug)) continue;
-    slugs.add(declaration.moduleSlug);
-  }
-  return [...slugs].sort().map((slug) => ({
-    name: slug,
-    grpc: { address: `${slug}:50051` },
-    protoPath: `${slug}.proto`,
-  }));
-}
-
-function middlewareAppliesToService(
-  project: ComposedBlueprint['project'],
-  middlewareName: string,
-  serviceSlug: string,
-): boolean {
-  for (const mount of project.mounts ?? []) {
-    if (!mount.use.includes(middlewareName)) continue;
-    if (serviceForMountTarget(project, mount.target) === serviceSlug) return true;
-  }
-  return false;
-}
-
-function serviceForMountTarget(project: ComposedBlueprint['project'], target: string): string | undefined {
-  if (target.startsWith('http:')) return project.routes?.http?.[target.slice('http:'.length)];
-  if (target.startsWith('ui:')) return project.routes?.ui?.[target.slice('ui:'.length)];
-  return undefined;
 }
 
 function serviceHostsUiRoute(project: ComposedBlueprint['project'], serviceSlug: string): boolean {

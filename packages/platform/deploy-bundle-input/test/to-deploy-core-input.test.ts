@@ -170,6 +170,153 @@ describe('toDeployCoreInput', () => {
     );
   });
 
+  it('emits cv-extract style runtime manifest modules + canonical proto artifacts for a domain app calling storage + openrouter', async () => {
+    // Inline fixture mirrors demo/cv-extract-blueprint: services=[app,
+    // openrouter, storage-s3], storage-s3 has moduleKey="storage", and the
+    // app graph calls both storage and openrouter modules. We assert that
+    // toDeployCoreInput emits the new manifest modules and the canonical
+    // proto artifacts at protos/ai_llm.proto, protos/storage.proto, and
+    // protos/rntme/contracts/common/v1/common.proto.
+    const appGraphSpec = {
+      version: '1.0-rc7',
+      shapes: {},
+      graphs: {
+        extractResume: {
+          id: 'extractResume',
+          signature: { inputs: {}, output: { type: 'row<Out>', from: 'out' } },
+          nodes: [
+            {
+              id: 'download',
+              type: 'call',
+              target: { module: 'storage', operation: 'GetDownloadUrl' },
+              input: {},
+              policy: {},
+            },
+            {
+              id: 'completion',
+              type: 'call',
+              target: { module: 'openrouter', operation: 'Complete' },
+              input: {},
+              policy: {},
+            },
+            { id: 'out', type: 'result', value: {} },
+          ],
+        },
+      },
+    };
+    const composed = {
+      project: {
+        name: 'cv-extract',
+        services: ['app', 'openrouter', 'storage-s3'],
+        modules: {
+          openrouter: { package: '@rntme/ai-llm-openrouter' },
+          storage: { package: '@rntme/storage-s3' },
+        },
+        routes: { ui: { '/': 'app' }, http: { '/api': 'app' } },
+      },
+      pdm: { entities: {} },
+      routing: { httpBaseByService: {}, uiPathsByService: {} },
+      bindingRegistry: {},
+      varsManifest: {},
+      publicConfigJson: null,
+      services: {
+        app: {
+          slug: 'app',
+          kind: 'domain',
+          artifacts: {
+            hasGraphs: true,
+            hasBindings: true,
+            hasUi: true,
+            hasSeed: false,
+            hasQsm: true,
+            hasStorage: false,
+            hasCommandHandlers: false,
+          },
+          qsm: null,
+          graphSpec: appGraphSpec,
+          qsmValidated: { projections: {}, relations: {} },
+          bindings: { artifact: { bindings: {} }, resolved: {} },
+          seed: null,
+          storage: null,
+          compiledUi: null,
+          eventTypes: [],
+        },
+        openrouter: {
+          slug: 'openrouter',
+          kind: 'integration-module',
+          moduleKey: 'openrouter',
+          artifacts: {
+            hasGraphs: false,
+            hasBindings: false,
+            hasUi: false,
+            hasSeed: false,
+            hasQsm: false,
+            hasStorage: false,
+            hasCommandHandlers: false,
+          },
+          qsm: null,
+          graphSpec: null,
+          qsmValidated: null,
+          bindings: null,
+          seed: null,
+          storage: null,
+          compiledUi: null,
+          eventTypes: [],
+        },
+        'storage-s3': {
+          slug: 'storage-s3',
+          kind: 'integration-module',
+          moduleKey: 'storage',
+          artifacts: {
+            hasGraphs: false,
+            hasBindings: false,
+            hasUi: false,
+            hasSeed: false,
+            hasQsm: false,
+            hasStorage: false,
+            hasCommandHandlers: false,
+          },
+          qsm: null,
+          graphSpec: null,
+          qsmValidated: null,
+          bindings: null,
+          seed: null,
+          storage: null,
+          compiledUi: null,
+          eventTypes: [],
+        },
+      },
+    };
+
+    const tmp = mkdtempSync(join(tmpdir(), 'deploy-bundle-cvextract-'));
+    try {
+      const result = await toDeployCoreInput(composed as never, tmp);
+      const app = result.services['app'];
+      expect(app?.kind).toBe('domain');
+
+      const manifest = JSON.parse(app?.runtimeFiles?.['manifest.json'] ?? '{}') as {
+        modules?: Array<{ name: string; grpc: { address: string }; protoPath: string }>;
+      };
+      expect(manifest.modules).toEqual([
+        { name: 'openrouter', grpc: { address: 'mod-openrouter:50051' }, protoPath: 'protos/ai_llm.proto' },
+        { name: 'storage', grpc: { address: 'mod-storage-s3:50051' }, protoPath: 'protos/storage.proto' },
+      ]);
+
+      expect(app?.runtimeFiles?.['protos/ai_llm.proto']).toContain('service AiLlmModule');
+      expect(app?.runtimeFiles?.['protos/ai_llm.proto']).toContain('rpc Complete(CreateCompletionRequest)');
+      expect(app?.runtimeFiles?.['protos/storage.proto']).toContain('service StorageModule');
+      expect(app?.runtimeFiles?.['protos/storage.proto']).toContain('rpc GetDownloadUrl');
+      expect(app?.runtimeFiles?.['protos/rntme/contracts/common/v1/common.proto']).toContain(
+        'package rntme.contracts.common.v1',
+      );
+      expect(app?.runtimeFiles?.['protos/rntme/contracts/common/v1/common.proto']).toContain(
+        'message CommandContext',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('copies composed UI module assets into the UI host runtime files', async () => {
     const tmp = mkdtempSync(join(tmpdir(), 'deploy-bundle-ui-assets-'));
     try {
