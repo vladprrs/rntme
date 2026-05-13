@@ -100,7 +100,7 @@ rntme-runtime start ./artifacts
 
 | Export | Signature | Purpose |
 |---|---|---|
-| `loadService` | `(dir: string) => RuntimeResult<ValidatedService, ServiceError[]>` | Reads and validates `manifest.json`, `pdm.json`, `qsm.json`, `shapes.json`, `graphs/*.json`, `bindings.json`, `ui/`, optional `seed.json`. |
+| `loadService` | `(dir: string) => RuntimeResult<ValidatedService, ServiceError[]>` | Reads and validates `manifest.json`, `pdm.json`, `qsm.json`, `shapes.json`, `graphs/*.json`, `bindings.json`, `ui/`, optional `seed.json`, and optional `ui-assets.json` (module static asset manifest produced by deploy-bundle-input). |
 | `startService` | `(service: ValidatedService, config?: Partial<RuntimeConfig>) => Promise<RunningService>` | Boots bus, event pipeline, optional seed, then HTTP. Returns `{ httpPort, stop }`. |
 | `buildActorFromRequest` | `(manifest: ValidatedManifest) => (c: Context) => ActorRef \| null` | Default header-based actor resolver. |
 | `parseManifest` | `(raw: string) => ManifestResult<ParsedManifest>` | Zod-strict JSON parse of the manifest. |
@@ -134,7 +134,7 @@ Domain-service executable command-handler files are no longer a runtime extensio
 `rntme.issue-tracker.*`; messages outside the requested pattern are not delivered to
 that consumer.
 
-`SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`. Service identity metadata is exposed at `/service.json` so the UI shell owns `/` and SPA deep-link fallbacks.
+`SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`. Service identity metadata is exposed at `/service.json` so the UI shell owns `/` and SPA deep-link fallbacks. When `loadService` finds a `ui-assets.json` in the artifact directory, `HttpSurface` passes it as `assetManifest` to `@rntme/ui-runtime`'s `createApp`, enabling the `/_ui-assets.json` endpoint and module-contributed static asset serving.
 
 Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports `bun:test` and must not be loaded in production processes).
 

@@ -123,6 +123,7 @@ The individual phases (`resolve`, `expand`, `validate`, `emit`) are exported as 
 | `ExpandedSource` | `expand/expand.ts` | Output of `expand` (specs are already `CompiledSpec` shape; no `$ref`/`$param`). |
 | `CompiledArtifact`, `CompiledManifest`, `CompiledScreen`, `CompiledSpec`, `CompiledElement`, `CompiledDataEndpoint`, `CompiledAction` | `types/compiled.ts` | Output shapes consumed by `@rntme/ui-runtime`. |
 | `CompileOptions` | `compile.ts` | `{ sourceDir, httpMap, resolvers }`. |
+| `externalFragmentResolver` | `CompileOptions` | Optional caller-supplied resolver for non-local fragment refs. `@rntme/ui` does not know module semantics; blueprint supplies the resolver for `module:<projectModuleKey>/<presetPath>`. |
 | `ValidateResolvers` | `validate/index.ts` | `{ resolveBinding, resolveComponent, resolveRoute, resolveOperation, resolveCategoryToModule, resolveStorageRoute? }`. `resolveBinding` may return optional `{ kind }` or `{ entry: { kind } }` metadata. |
 | `HttpEntry` | `emit/http-map.ts` | `{ method: 'GET' \| 'POST'; path: string }`. |
 
@@ -185,6 +186,8 @@ See `packages/artifacts/ui/test/fixtures/fragment-app/` for a full minimal examp
 
 ## Invariants & gotchas
 
+- External fragments are still compiled away. After `expand`, output contains no `$ref` or `$param` regardless of whether the source ref was local or external.
+- `@rntme/ui` remains module-agnostic. It only calls `externalFragmentResolver`; module key validation and exported preset checks live in `@rntme/blueprint`.
 - **Manifest version literal is `"2.0"`.** Both `SourceManifest.version` and `CompiledManifest.version` are the string literal `"2.0"`. Anything else must be rejected at parse time.
 - **File pair convention: `<base>.spec.json` + `<base>.screen.json`.** `resolve.readPair` joins `baseDir` with these suffixes. Screens and layouts each require both files; fragments require only `.spec.json`.
 - **Screen key is the last path segment of `route.screen`.** `resolve` and `emit` derive the compiled screen key via `route.screen.split('/').pop()!`. Two different screen base paths with the same trailing segment fail with `DUPLICATE_SCREEN_KEY`.

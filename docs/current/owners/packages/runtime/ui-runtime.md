@@ -117,7 +117,7 @@ void mountUiRuntime({
 | Export | Signature | Purpose |
 |---|---|---|
 | `createApp` | `(opts: CreateAppOptions) => Hono` | Builds the sub-router: HTML shell, JSON endpoints for manifest/layouts/screens, static asset server, SPA fallback. |
-| `CreateAppOptions` | `{ artifact: CompiledArtifact; assetsDir?: string }` | `artifact`: `@rntme/ui` compiler output. `assetsDir`: directory for `/assets/:file` (default `<package>/build`). |
+| `CreateAppOptions` | `{ artifact: CompiledArtifact; assetsDir?: string; assetManifest?: UiRuntimeAssetManifest }` | `assetManifest` is explicit composed metadata for module static assets. Runtime does not discover modules. |
 
 Routes mounted by `createApp`:
 
@@ -128,6 +128,7 @@ Routes mounted by `createApp`:
 | GET | `/_layouts/:name` | `artifact.layouts[name]` (strips trailing `.json`). 404 on miss. |
 | GET | `/_screens/:name` | `artifact.screens[name]` (strips trailing `.json`). 404 on miss. |
 | GET | `/assets/:file` | Reads `resolve(assetsDir, file)`; rejects paths escaping `assetsDir`. Sets `content-type` by extension (`.js`, `.css`, otherwise `application/octet-stream`). |
+| GET | `/_ui-assets.json` | The `assetManifest` passed to `createApp` (empty lists when omitted). |
 | GET | `/*` | Falls back to the HTML shell. |
 
 ### Client host bootstrap (`@rntme/ui-runtime`)
@@ -218,6 +219,7 @@ Default 10s; override per module via `module.json#client.bootTimeoutMs`. A timeo
 
 ## Invariants & gotchas
 
+- Runtime serves module static assets only because the host passes `assetManifest` and `assetsDir`. It does not read `project.json`, `module.json`, or `node_modules`.
 - **Screen and layout JSON are consumed verbatim** (spec §4, Rendering). The client passes `currentScreen.spec` and `currentLayout.spec` straight into json-render `<Renderer>`; this package does not re-validate or rewrite them.
 - **Routing is history-based, not hash-based** (`client/entry.tsx`). `hydrateApp` calls `window.history.pushState`/`replaceState` and listens to `popstate`. For this to function, the server must serve the HTML shell on every unknown path — the SPA fallback route in `createApp` does.
 - **HTML shell responses carry security headers** (`server/index.ts`). `/` and SPA fallback responses send a restrictive `Content-Security-Policy` with no inline script/style, same-origin `script-src`/`style-src`, and HTTPS `connect-src`/`frame-src`/`img-src` allowances for browser auth SDKs, plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Permissions-Policy: camera=(), microphone=(), geolocation=()`.

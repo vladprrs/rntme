@@ -28,6 +28,7 @@ Project-first blueprint parser/validator for rntme.
 - `loadBlueprint(dir)` — load `project.json`, the project `PDM`, and service registry metadata.
 - `loadComposedBlueprint(dir)` — load the Track A blueprint, validate project composition rules, load validated service members, build the project binding registry, and compile project-routed service UI.
   When `project.json` declares `modules`, compose also resolves each UI module (`module.json`), builds `catalogManifest`, validates `publicConfig`, checks `./client` exports, and fills `virtualEntrySource` + `publicConfigJson` on the composed result.
+  It also validates `module.json#client.assets` and `module.json#client.presets`, builds `uiAssetManifest`, records `uiAssetSources` for deploy materialization, and passes a module-preset resolver into service UI compilation for refs like `module:platformUi/fragments/service-card`.
   When `workflows/workflows.json` exists, compose parses and validates it with `@rntme/workflows` after the project binding registry is available, then attaches `workflows` to the composed result.
   When `init/init.json` exists, compose parses and validates it and attaches `init` to the composed result.
 - `loadServiceMember(...)` — load one service's QSM, graph specs, bindings, seed, and UI source against the shared project `PDM`.
@@ -68,6 +69,7 @@ The structural validator only enforces syntax. Module-existence and output-decla
 
 ## Where to look first
 
+- "Change module client assets/presets" -> `src/compose/module-client-assets.ts` and `src/compose/module-preset-resolver.ts`.
 - `src/load/load-blueprint.ts`
 - `src/validate/composition.ts`
 - `src/compose/load-service-member.ts`

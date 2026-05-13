@@ -12,3 +12,4 @@ Local commands:
 
 Notes:
 - Keep this file short. Update the current doc when public API, invariants, gotchas, local commands, or package navigation changes.
+- Module client assets and presets are documented in the owner doc.

@@ -125,6 +125,8 @@ The platform UI is authored as `@rntme/ui` artifacts under
 legacy Hono JSX platform UI and reads/mutates state through platform blueprint
 bindings.
 
+Platform product components, CSS tokens, logos, and exported reusable UI fragments live in `apps/platform/ui-module` as the `@rntme/platform-ui` module. `apps/platform/blueprint/project.json#modules.platformUi` wires that package into composition, and platform UI specs use `Platform*` component type names.
+
 The platform UI routes `/`, `/login`, and `/auth/callback` to the login screen.
 The Auth0 callback path is present so the browser runtime can finish the SPA
 redirect flow without rendering the runtime not-found screen. The platform
