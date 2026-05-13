@@ -15,11 +15,20 @@ const authMiddleware = z
   .object({
     kind: z.literal('auth'),
     provider: nonEmptyString,
-    audience: nonEmptyString,
+    audience: nonEmptyString.optional(),
     moduleSlug: nonEmptyString,
     policy: nonEmptyString.optional(),
+    introspectPath: z.string().startsWith('/').optional(),
+    introspectPort: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (decl) => decl.provider === 'platform-tokens' || typeof decl.audience === 'string',
+    {
+      message: 'audience is required unless provider is "platform-tokens"',
+      path: ['audience'],
+    },
+  );
 
 const moduleProjectRefSchema = z
   .object({

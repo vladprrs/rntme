@@ -56,3 +56,108 @@ describe('parseProjectBlueprint vars', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('parseProjectBlueprint auth middleware', () => {
+  it('accepts an auth middleware with audience and moduleSlug (auth0 shape)', () => {
+    const r = parseProjectBlueprint({
+      name: 'demo',
+      services: ['app', 'identity-auth0'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'auth0',
+          audience: 'https://demo.rntme.com/api',
+          moduleSlug: 'identity-auth0',
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts an auth middleware with introspectPath and introspectPort overrides', () => {
+    const r = parseProjectBlueprint({
+      name: 'platform',
+      services: ['app', 'tokens'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+          introspectPath: '/api/tokens/introspect',
+          introspectPort: 3000,
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.middleware?.auth).toMatchObject({
+        provider: 'platform-tokens',
+        moduleSlug: 'tokens',
+        introspectPath: '/api/tokens/introspect',
+        introspectPort: 3000,
+      });
+    }
+  });
+
+  it('rejects an auth middleware with introspectPath that does not start with "/"', () => {
+    const r = parseProjectBlueprint({
+      name: 'platform',
+      services: ['app', 'tokens'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+          introspectPath: 'api/tokens/introspect',
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects an auth middleware with non-positive introspectPort', () => {
+    const r = parseProjectBlueprint({
+      name: 'platform',
+      services: ['app', 'tokens'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+          introspectPort: 0,
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects an auth0 auth middleware that omits audience', () => {
+    const r = parseProjectBlueprint({
+      name: 'demo',
+      services: ['app', 'identity-auth0'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'auth0',
+          moduleSlug: 'identity-auth0',
+        },
+      },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('accepts a platform-tokens auth middleware that omits audience', () => {
+    const r = parseProjectBlueprint({
+      name: 'platform',
+      services: ['app', 'tokens'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+});

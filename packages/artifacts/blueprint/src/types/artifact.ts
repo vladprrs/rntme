@@ -22,6 +22,20 @@ export type MiddlewareDecl = {
   policy?: string;
   audience?: string;
   moduleSlug?: string;
+  /**
+   * Override for the introspection HTTP path nginx calls on the auth provider workload.
+   * Defaults to the module manifest's `capabilities.edgeAuth.path` (typically `/introspect`).
+   * Required when the auth provider is a domain service rather than an integration module
+   * (e.g. `provider: "platform-tokens"`), because runtime services mount bindings under the
+   * project route prefix and therefore expose the introspect operation at a different path.
+   */
+  introspectPath?: string;
+  /**
+   * Override for the introspection upstream port nginx connects to on the auth provider workload.
+   * Defaults to the module manifest's `capabilities.edgeAuth.port`. Required when the auth
+   * provider is a domain service rather than an integration module.
+   */
+  introspectPort?: number;
 };
 
 export type MountDecl = {

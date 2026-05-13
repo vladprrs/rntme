@@ -36,6 +36,8 @@ export type ProjectMiddlewareDecl = {
   readonly moduleSlug?: string;
   readonly policy?: string;
   readonly config?: unknown;
+  readonly introspectPath?: string;
+  readonly introspectPort?: number;
 };
 
 export type ProjectMountDecl = {
