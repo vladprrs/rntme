@@ -46,9 +46,19 @@ export type EdgeMiddleware =
       readonly name: string;
       readonly kind: 'auth';
       readonly provider: string;
-      readonly audience: string;
+      /**
+       * Required for module-backed providers (e.g. auth0). Optional for
+       * platform-tokens (the tokens service authenticates against the platform
+       * database without needing an OAuth audience).
+       */
+      readonly audience?: string;
       readonly moduleSlug: string;
       readonly moduleIntrospectPort: number;
+      /**
+       * Override for the introspect HTTP path nginx calls. Defaults to
+       * "/introspect" (the module-side edgeAuth convention) when absent.
+       */
+      readonly moduleIntrospectPath?: string;
       readonly policy?: string;
       readonly config?: unknown;
     };
@@ -199,11 +209,69 @@ function planMiddleware(
       const policy = decl.policy ?? 'default';
 
       if (decl.kind === 'auth') {
-        if (!isNonEmptyString(decl.provider) || !isNonEmptyString(decl.audience) || !isNonEmptyString(decl.moduleSlug)) {
+        const isPlatformTokens = decl.provider === 'platform-tokens';
+        if (
+          !isNonEmptyString(decl.provider) ||
+          !isNonEmptyString(decl.moduleSlug) ||
+          (!isPlatformTokens && !isNonEmptyString(decl.audience))
+        ) {
           errors.push({
             code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
-            message: `auth middleware "${middlewareName}" requires provider, audience, and moduleSlug`,
+            message: isPlatformTokens
+              ? `auth middleware "${middlewareName}" requires provider and moduleSlug`
+              : `auth middleware "${middlewareName}" requires provider, audience, and moduleSlug`,
             middleware: middlewareName,
+          });
+          continue;
+        }
+
+        // platform-tokens: provider is a domain service in this project. Resolve workload from
+        // the full workload set rather than only integration-module workloads. The edgeAuth
+        // contract on a module manifest does not apply; introspectPort/Path come from the
+        // middleware declaration itself (or fall back to defaults).
+        if (isPlatformTokens) {
+          const providerWorkload = workloads.find(
+            (w) => w.kind === 'domain-service' && w.serviceSlug === decl.moduleSlug,
+          );
+          if (providerWorkload === undefined) {
+            errors.push({
+              code: 'DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING',
+              message: `auth middleware "${middlewareName}" references missing domain-service workload "${decl.moduleSlug}"`,
+              middleware: middlewareName,
+              service: decl.moduleSlug,
+            });
+            continue;
+          }
+          if (decl.introspectPort === undefined) {
+            errors.push({
+              code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
+              message: `auth middleware "${middlewareName}" with provider="platform-tokens" requires introspectPort`,
+              middleware: middlewareName,
+              path: `middleware.${middlewareName}.introspectPort`,
+            });
+            continue;
+          }
+          if (decl.introspectPath === undefined) {
+            errors.push({
+              code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
+              message: `auth middleware "${middlewareName}" with provider="platform-tokens" requires introspectPath`,
+              middleware: middlewareName,
+              path: `middleware.${middlewareName}.introspectPath`,
+            });
+            continue;
+          }
+
+          planned.push({
+            mountTarget: mount.target,
+            name: middlewareName,
+            kind: decl.kind,
+            provider: applyVars(decl.provider, vars),
+            ...(isNonEmptyString(decl.audience) ? { audience: applyVars(decl.audience, vars) } : {}),
+            moduleSlug: applyVars(decl.moduleSlug, vars),
+            moduleIntrospectPort: decl.introspectPort,
+            moduleIntrospectPath: decl.introspectPath,
+            ...(decl.policy !== undefined ? { policy: applyVars(decl.policy, vars) } : {}),
+            ...(decl.config !== undefined ? { config: applyVars(decl.config, vars) } : {}),
           });
           continue;
         }
@@ -244,14 +312,17 @@ function planMiddleware(
           continue;
         }
 
+        // decl.audience is guaranteed non-empty by the earlier check for non-platform-tokens.
+        const audienceValue: string = decl.audience as string;
         planned.push({
           mountTarget: mount.target,
           name: middlewareName,
           kind: decl.kind,
           provider: applyVars(decl.provider, vars),
-          audience: applyVars(decl.audience, vars),
+          audience: applyVars(audienceValue, vars),
           moduleSlug: applyVars(decl.moduleSlug, vars),
-          moduleIntrospectPort: edgeAuth.port,
+          moduleIntrospectPort: decl.introspectPort ?? edgeAuth.port,
+          ...(decl.introspectPath !== undefined ? { moduleIntrospectPath: decl.introspectPath } : {}),
           ...(decl.policy !== undefined ? { policy: applyVars(decl.policy, vars) } : {}),
           ...(decl.config !== undefined ? { config: applyVars(decl.config, vars) } : {}),
         });

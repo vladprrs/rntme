@@ -404,6 +404,67 @@ describe('validateBlueprintComposition', () => {
     }
   });
 
+  it('accepts auth middleware with provider="platform-tokens" pointing at a domain service', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'platform',
+        services: ['app', 'tokens'],
+        routes: { http: { '/api/tokens': 'tokens', '/api/app': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'platform-tokens',
+            moduleSlug: 'tokens',
+            introspectPath: '/api/tokens/introspect',
+            introspectPort: 3000,
+          },
+        },
+        mounts: [{ target: 'http:/api/app', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        tokens: svc('tokens', 'domain', { hasBindings: true }),
+      },
+    });
+
+    expect(r.ok, r.ok ? '' : JSON.stringify(r.errors, null, 2)).toBe(true);
+  });
+
+  it('does not require an identity module when auth provider is platform-tokens', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'platform',
+        services: ['app', 'tokens'],
+        routes: { http: { '/api/tokens': 'tokens', '/api/app': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'platform-tokens',
+            moduleSlug: 'tokens',
+            introspectPath: '/api/tokens/introspect',
+            introspectPort: 3000,
+          },
+        },
+        mounts: [{ target: 'http:/api/app', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        tokens: svc('tokens', 'domain', { hasBindings: true }),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: [],
+        categoryToModule: {},
+        publicConfig: {},
+        moduleEdgeAuth: {},
+      },
+      discoveredModules: {},
+    });
+
+    expect(r.ok, r.ok ? '' : JSON.stringify(r.errors, null, 2)).toBe(true);
+  });
+
   it('rejects mounted auth middleware when the identity module lacks edgeAuth', () => {
     const input = {
       project: {

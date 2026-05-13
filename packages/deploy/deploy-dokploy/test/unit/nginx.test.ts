@@ -443,6 +443,42 @@ describe('auth middleware rendering', () => {
     expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
   });
 
+  it('renders introspect path from moduleIntrospectPath override (platform-tokens style)', () => {
+    const edge: EdgePlan = {
+      routes: [
+        {
+          id: 'http:/api/projects',
+          kind: 'http',
+          path: '/api/projects',
+          targetService: 'projects',
+          targetWorkload: 'projects',
+        },
+      ],
+      middleware: [
+        {
+          mountTarget: 'http:/api/projects',
+          name: 'auth',
+          kind: 'auth',
+          provider: 'platform-tokens',
+          moduleSlug: 'tokens',
+          moduleIntrospectPort: 3000,
+          moduleIntrospectPath: '/api/tokens/introspect',
+        },
+      ],
+    };
+
+    const rendered = renderNginxConfig(edge, {
+      projects: 'http://projects:3000',
+      tokens: 'http://tokens:3000',
+    });
+
+    expect(rendered).toMatch(/proxy_pass\s+http:\/\/rntme_auth_tokens__[0-9a-f]{8}\/api\/tokens\/introspect;/);
+    // platform-tokens has no audience → X-Rntme-Audience must not be emitted
+    expect(rendered).not.toContain('X-Rntme-Audience');
+    // and the upstream port comes from moduleIntrospectPort
+    expect(rendered).toMatch(/upstream rntme_auth_tokens__[0-9a-f]{8}\s*\{/);
+  });
+
   it('rejects audiences containing quote or control characters', () => {
     expect(() =>
       renderNginxConfig(

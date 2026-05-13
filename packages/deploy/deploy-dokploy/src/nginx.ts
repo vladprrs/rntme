@@ -9,6 +9,7 @@ type AuthBlock = {
   readonly audience: string;
   readonly upstream: string;
   readonly key: string; // <slug>__<audHash>
+  readonly introspectPath: string;
 };
 
 export function renderNginxConfig(
@@ -67,8 +68,11 @@ function buildAuthBlocks(
   const seen = new Map<string, AuthBlock>();
   for (const m of middlewares) {
     assertSafeSlug(m.moduleSlug);
-    assertSafeAudience(m.audience);
-    const audHash = sha256Hex8(m.audience);
+    const audience = m.audience ?? '';
+    if (audience !== '') assertSafeAudience(audience);
+    const introspectPath = m.moduleIntrospectPath ?? '/introspect';
+    assertSafeLocationPath(introspectPath);
+    const audHash = sha256Hex8(audience);
     const key = `${m.moduleSlug}__${audHash}`;
     if (seen.has(key)) continue;
     const upstreamUrl = upstreams[m.moduleSlug] ?? `http://${m.moduleSlug}:${m.moduleIntrospectPort}`;
@@ -77,26 +81,30 @@ function buildAuthBlocks(
     seen.set(key, {
       slug: m.moduleSlug,
       audHash,
-      audience: m.audience,
+      audience,
       upstream: upstreamHost,
       key,
+      introspectPath,
     });
   }
   return [...seen.values()];
 }
 
 function renderAuthInternalLocation(b: AuthBlock): string {
-  return [
+  const lines = [
     `    location = /_rntme_auth_${b.key} {`,
     '      internal;',
-    `      proxy_pass         http://rntme_auth_${b.key}/introspect;`,
+    `      proxy_pass         http://rntme_auth_${b.key}${b.introspectPath};`,
     '      proxy_pass_request_body off;',
     '      proxy_set_header   content-length     "";',
     '      proxy_set_header   Authorization      $http_authorization;',
-    `      proxy_set_header   X-Rntme-Audience   "${b.audience}";`,
-    '      proxy_intercept_errors on;',
-    '    }',
-  ].join('\n');
+  ];
+  if (b.audience !== '') {
+    lines.push(`      proxy_set_header   X-Rntme-Audience   "${b.audience}";`);
+  }
+  lines.push('      proxy_intercept_errors on;');
+  lines.push('    }');
+  return lines.join('\n');
 }
 
 function renderAuthNamed401Location(b: AuthBlock): string {
@@ -152,9 +160,10 @@ function renderLocation(
       );
     }
     if (m.kind === 'auth') {
-      const audHash = sha256Hex8(m.audience);
+      const audience = m.audience ?? '';
+      const audHash = sha256Hex8(audience);
       const key = `${m.moduleSlug}__${audHash}`;
-      lines.push(`      # auth middleware: provider=${commentValue(m.provider)}, audience=${commentValue(m.audience)}`);
+      lines.push(`      # auth middleware: provider=${commentValue(m.provider)}, audience=${commentValue(audience)}`);
       lines.push(`      auth_request          /_rntme_auth_${key};`);
       lines.push(`      auth_request_set      $rntme_user_sub      $upstream_http_x_rntme_user_sub;`);
       lines.push(`      auth_request_set      $rntme_user_audience $upstream_http_x_rntme_user_audience;`);

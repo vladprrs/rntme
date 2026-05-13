@@ -126,7 +126,7 @@ export function validateBlueprintComposition(input: {
       continue;
     }
 
-    if (!isIntegrationKind(provider.kind)) {
+    if (!isIntegrationKind(provider.kind) && !isPlatformTokensAuth(declaration)) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,
@@ -234,6 +234,9 @@ function checkAuthModuleVendors(
   const errors: BlueprintError[] = [];
   for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
     if (declaration.kind !== 'auth') continue;
+    // platform-tokens provider is satisfied by an in-project domain service, so it does not
+    // need an identity vendor module to be discovered or vendor-matched.
+    if (isPlatformTokensAuth(declaration)) continue;
     if (
       declaration.moduleSlug === undefined &&
       declaration.provider !== undefined &&
@@ -288,6 +291,9 @@ function checkAuthModuleEdgeAuth(
     if (declaration.kind !== 'auth') continue;
     if (declaration.moduleSlug === undefined) continue;
     if (!authMiddlewareIsMounted(project, middlewareName)) continue;
+    // platform-tokens provider authenticates via a domain service, not an identity module —
+    // the introspect path/port come from the middleware decl itself, not from a module manifest.
+    if (isPlatformTokensAuth(declaration)) continue;
 
     const canonicalModule = catalogManifest.categoryToModule.identity;
     if (canonicalModule === undefined) continue;
@@ -314,6 +320,10 @@ function authModuleSlugForComposition(declaration: MiddlewareDecl): string | und
     return declaration.moduleSlug ?? declaration.provider;
   }
   return declaration.provider;
+}
+
+function isPlatformTokensAuth(declaration: MiddlewareDecl): boolean {
+  return declaration.kind === 'auth' && declaration.provider === 'platform-tokens';
 }
 
 function collectRouteTargets(project: ProjectBlueprint): Set<string> {

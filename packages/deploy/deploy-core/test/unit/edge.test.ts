@@ -445,6 +445,121 @@ describe('planEdge — moduleIntrospectPort', () => {
     expect(auth.moduleIntrospectPort).toBe(50052);
   });
 
+  it('plans platform-tokens auth middleware backed by a domain-service workload', () => {
+    const result = planEdge(
+      {
+        name: 'p',
+        services: {
+          app: { slug: 'app', kind: 'domain' },
+          tokens: { slug: 'tokens', kind: 'domain' },
+        },
+        routes: { http: { '/api': 'app', '/api/tokens': 'tokens' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'platform-tokens',
+            moduleSlug: 'tokens',
+            introspectPath: '/api/tokens/introspect',
+            introspectPort: 3000,
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        eventBus: { kind: 'kafka', mode: 'external', brokers: ['k:9092'] },
+      },
+      [
+        { kind: 'domain-service', slug: 'app', serviceSlug: 'app', resourceName: 'r-app', runtime: { image: 'i' }, artifact: { source: 'composed-project', serviceSlug: 'app' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+        { kind: 'domain-service', slug: 'tokens', serviceSlug: 'tokens', resourceName: 'r-tokens', runtime: { image: 'i' }, artifact: { source: 'composed-project', serviceSlug: 'tokens' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+        { kind: 'edge-gateway', slug: 'edge', resourceName: 'r-edge', image: 'nginx:1.27-alpine' },
+      ],
+    );
+
+    expect(result.errors).toHaveLength(0);
+    const auth = result.edge.middleware.find((m) => m.kind === 'auth')!;
+    expect(auth).toMatchObject({
+      kind: 'auth',
+      provider: 'platform-tokens',
+      moduleSlug: 'tokens',
+      moduleIntrospectPort: 3000,
+      moduleIntrospectPath: '/api/tokens/introspect',
+    });
+    // platform-tokens does not require audience
+    expect((auth as { audience?: string }).audience).toBeUndefined();
+  });
+
+  it('rejects platform-tokens auth middleware that is missing introspectPath/Port', () => {
+    const result = planEdge(
+      {
+        name: 'p',
+        services: {
+          app: { slug: 'app', kind: 'domain' },
+          tokens: { slug: 'tokens', kind: 'domain' },
+        },
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'platform-tokens',
+            moduleSlug: 'tokens',
+            // intentionally missing introspectPath and introspectPort
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        eventBus: { kind: 'kafka', mode: 'external', brokers: ['k:9092'] },
+      },
+      [
+        { kind: 'domain-service', slug: 'app', serviceSlug: 'app', resourceName: 'r-app', runtime: { image: 'i' }, artifact: { source: 'composed-project', serviceSlug: 'app' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+        { kind: 'domain-service', slug: 'tokens', serviceSlug: 'tokens', resourceName: 'r-tokens', runtime: { image: 'i' }, artifact: { source: 'composed-project', serviceSlug: 'tokens' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+        { kind: 'edge-gateway', slug: 'edge', resourceName: 'r-edge', image: 'nginx:1.27-alpine' },
+      ],
+    );
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain('DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE');
+  });
+
+  it('rejects platform-tokens auth middleware whose moduleSlug is not a domain workload', () => {
+    const result = planEdge(
+      {
+        name: 'p',
+        services: { app: { slug: 'app', kind: 'domain' } },
+        routes: { http: { '/api': 'app' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            provider: 'platform-tokens',
+            moduleSlug: 'tokens',
+            introspectPath: '/api/tokens/introspect',
+            introspectPort: 3000,
+          },
+        },
+        mounts: [{ target: 'http:/api', use: ['auth'] }],
+      },
+      {
+        orgSlug: 'acme',
+        environment: 'default',
+        mode: 'preview',
+        eventBus: { kind: 'kafka', mode: 'external', brokers: ['k:9092'] },
+      },
+      [
+        { kind: 'domain-service', slug: 'app', serviceSlug: 'app', resourceName: 'r-app', runtime: { image: 'i' }, artifact: { source: 'composed-project', serviceSlug: 'app' }, runtimeFiles: {}, publicConfigJson: '{}', persistence: { mode: 'ephemeral' } },
+        { kind: 'edge-gateway', slug: 'edge', resourceName: 'r-edge', image: 'nginx:1.27-alpine' },
+      ],
+    );
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain('DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING');
+  });
+
   it('rejects auth middleware when module has no edgeAuth', () => {
     const result = planEdge(
       {
