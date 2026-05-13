@@ -49,7 +49,7 @@ const VERSION = '0.0.0';
  * code should compose URLs from these constants instead of hard-coding `/v1`
  * org-slug-nested paths. Legacy `/v1/...` paths still exist for endpoints not
  * yet ported to the platform blueprint (auth.me, tokens, project operations,
- * deploy-targets, project version show).
+ * project version show).
  */
 export const PLATFORM_API = {
   projects: '/api/projects',

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { apiCall } from './client.js';
+import { apiCall, PLATFORM_API } from './client.js';
 
 type TargetApiContext = { baseUrl: string; token: string | null; requestId?: string };
 
@@ -21,34 +21,77 @@ export const TargetResponseSchema = z.object({ target: TargetSchema });
 
 export type Target = z.infer<typeof TargetSchema>;
 
+/**
+ * Platform blueprint paths for deploy targets:
+ *
+ *   GET    /api/deployments/targets?organizationId=<id>
+ *   GET    /api/deployments/targets/{slug}
+ *   POST   /api/deployments/targets                    (body: { organizationId, ...body })
+ *   POST   /api/deployments/targets/{slug}/actions/update
+ *   POST   /api/deployments/targets/{slug}/actions/delete
+ *
+ * The bindings runtime only supports GET/POST, so update and delete use the
+ * `/actions/...` action-style POST endpoints rather than PUT/DELETE on the
+ * bare slug path.
+ */
+export const targetEndpointPaths = {
+  list: (): string => PLATFORM_API.deployTargets,
+  show: (slug: string): string => `${PLATFORM_API.deployTargets}/${encodeURIComponent(slug)}`,
+  create: (): string => PLATFORM_API.deployTargets,
+  update: (slug: string): string =>
+    `${PLATFORM_API.deployTargets}/${encodeURIComponent(slug)}/actions/update`,
+  delete: (slug: string): string =>
+    `${PLATFORM_API.deployTargets}/${encodeURIComponent(slug)}/actions/delete`,
+} as const;
+
 export const targetEndpoints = {
-  list: async (ctx: TargetApiContext, org: string) =>
-    apiCall({
+  list: async (ctx: TargetApiContext, organizationId: string) => {
+    const qs = new URLSearchParams();
+    qs.set('organizationId', organizationId);
+    return apiCall({
       method: 'GET',
-      path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets`,
+      path: `${targetEndpointPaths.list()}?${qs.toString()}`,
       responseSchema: TargetsResponseSchema,
       ...ctx,
-    }),
-  show: async (ctx: TargetApiContext, org: string, slug: string) =>
+    });
+  },
+  show: async (ctx: TargetApiContext, _organizationId: string, slug: string) =>
     apiCall({
       method: 'GET',
-      path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets/${encodeURIComponent(slug)}`,
+      path: targetEndpointPaths.show(slug),
       responseSchema: TargetResponseSchema,
       ...ctx,
     }),
-  create: async (ctx: TargetApiContext, org: string, body: Record<string, unknown>) =>
+  create: async (
+    ctx: TargetApiContext,
+    organizationId: string,
+    body: Record<string, unknown>,
+  ) =>
     apiCall({
       method: 'POST',
-      path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets`,
-      body,
+      path: targetEndpointPaths.create(),
+      body: { organizationId, ...body },
       responseSchema: TargetResponseSchema,
       ...ctx,
     }),
-  setConfig: async (ctx: TargetApiContext, org: string, slug: string, body: Record<string, unknown>) =>
+  setConfig: async (
+    ctx: TargetApiContext,
+    organizationId: string,
+    slug: string,
+    body: Record<string, unknown>,
+  ) =>
     apiCall({
-      method: 'PATCH',
-      path: `/v1/orgs/${encodeURIComponent(org)}/deploy-targets/${encodeURIComponent(slug)}`,
-      body,
+      method: 'POST',
+      path: targetEndpointPaths.update(slug),
+      body: { organizationId, ...body },
+      responseSchema: TargetResponseSchema,
+      ...ctx,
+    }),
+  delete: async (ctx: TargetApiContext, organizationId: string, slug: string) =>
+    apiCall({
+      method: 'POST',
+      path: targetEndpointPaths.delete(slug),
+      body: { organizationId },
       responseSchema: TargetResponseSchema,
       ...ctx,
     }),
