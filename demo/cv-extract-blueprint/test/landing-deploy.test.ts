@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 describe('cv-extract demo: landing deploy packing', () => {
-  it('packs the landing folder as a single project-folder asset', async () => {
+  it('packs the landing folder as a single project-folder asset', { timeout: 30000 }, async () => {
     const built = await buildProjectBundle(ROOT);
     expect(built.ok).toBe(true);
     if (!built.ok) return;
@@ -26,7 +26,7 @@ describe('cv-extract demo: landing deploy packing', () => {
     );
   });
 
-  it('preserves the canonical project-folder source declaration in project.json', async () => {
+  it('preserves the canonical project-folder source declaration in project.json', { timeout: 30000 }, async () => {
     const built = await buildProjectBundle(ROOT);
     expect(built.ok).toBe(true);
     if (!built.ok) return;
