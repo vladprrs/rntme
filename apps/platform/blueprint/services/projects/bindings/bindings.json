@@ -17,7 +17,9 @@
       },
       "exposure": "read",
       "inputFrom": {
-        "authorization": { "from": "header", "name": "authorization", "required": true }
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
       }
     },
     "createProject": {

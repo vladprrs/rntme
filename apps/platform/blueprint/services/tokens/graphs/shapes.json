@@ -3,10 +3,13 @@
     "fields": {
       "id": { "type": "string", "nullable": false },
       "organizationId": { "type": "string", "nullable": false },
+      "accountId": { "type": "string", "nullable": false },
       "name": { "type": "string", "nullable": false },
       "prefix": { "type": "string", "nullable": false },
       "scopesJson": { "type": "string", "nullable": false },
       "status": { "type": "string", "nullable": false },
+      "expiresAt": { "type": "datetime", "nullable": true },
+      "lastUsedAt": { "type": "datetime", "nullable": true },
       "createdAt": { "type": "datetime", "nullable": false },
       "revokedAt": { "type": "datetime", "nullable": true }
     }

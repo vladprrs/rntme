@@ -5,6 +5,7 @@ export function renderComposeYaml(services: readonly RenderedComposeService[]): 
   for (const service of [...services].sort((a, b) => a.name.localeCompare(b.name))) {
     lines.push(`  ${service.name}:`);
     lines.push(`    image: ${yamlScalar(service.image)}`);
+    if (service.user !== undefined) lines.push(`    user: ${yamlScalar(service.user)}`);
     if (service.entrypoint !== undefined && service.entrypoint.length > 0) {
       lines.push('    entrypoint:');
       for (const item of service.entrypoint) lines.push(`      - ${yamlScalar(item)}`);

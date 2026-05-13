@@ -181,11 +181,7 @@ describe('applyDokployPlan', () => {
       value: 'redpanda:9092',
       secret: false,
     });
-    expect(envByName.get('RNTME_PERSISTENCE_MODE')).toEqual({
-      name: 'RNTME_PERSISTENCE_MODE',
-      value: 'ephemeral',
-      secret: false,
-    });
+    expect(configured.resource.composeFile).toContain('RNTME_PERSISTENCE_MODE: ephemeral');
     // Every service env entry must have a corresponding stack env entry,
     // otherwise its `${VAR}` reference in the rendered YAML would resolve
     // to empty at deploy time.

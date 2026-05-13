@@ -92,6 +92,7 @@ export type RenderedDokployApplicationResource = {
   readonly infrastructureKind?: 'redpanda-console' | 'redpanda-console-proxy';
   readonly name: string;
   readonly image: string;
+  readonly user?: string;
   readonly entrypoint?: readonly string[];
   readonly command?: string;
   readonly args?: readonly string[];
@@ -103,6 +104,7 @@ export type RenderedDokployApplicationResource = {
   readonly labels: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
   readonly secretFiles?: Readonly<Record<string, RenderedSecretFileRef>>;
+  readonly volumes?: RenderedComposeService['volumes'];
   readonly secretResolutionHints?: {
     readonly redpandaConsoleHtpasswd?: { readonly secretRef: string; readonly expectedUsername: string };
   };
@@ -577,6 +579,7 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
       : {}),
     ...(resource.workloadSlug !== undefined ? { workloadSlug: resource.workloadSlug } : {}),
     image: resource.image,
+    ...(resource.user !== undefined ? { user: resource.user } : {}),
     ...(resource.entrypoint !== undefined ? { entrypoint: resource.entrypoint } : {}),
     ...(resource.command !== undefined ? { command: resource.command } : {}),
     ...(resource.args !== undefined ? { args: resource.args } : {}),
@@ -584,6 +587,7 @@ function applicationResourceToComposeService(resource: RenderedDokployApplicatio
     ...(resource.literalEnv !== undefined ? { literalEnv: resource.literalEnv } : {}),
     ...(resource.files !== undefined ? { files: resource.files } : {}),
     ...(resource.secretFiles !== undefined ? { secretFiles: resource.secretFiles } : {}),
+    ...(resource.volumes !== undefined ? { volumes: resource.volumes } : {}),
     ...(ports !== undefined ? { ports } : {}),
     restart: runtimeRestartPolicy(),
     resources:
@@ -816,11 +820,7 @@ function renderResource(
       ...(artifactMounts.entrypoint === undefined ? {} : { entrypoint: artifactMounts.entrypoint }),
       env: [
         ...eventBusEnv(plan.infrastructure.eventBus),
-        {
-          name: 'RNTME_PERSISTENCE_MODE',
-          value: workload.persistence.mode,
-          secret: false,
-        },
+        ...persistentRuntimeEnv(workload.persistence),
         {
           name: 'RNTME_ARTIFACTS_DIR',
           value: '/srv/artifacts',
@@ -850,13 +850,48 @@ function renderResource(
       ],
       literalEnv: {
         RNTME_RUNTIME_ARTIFACTS_DIGEST: artifactMounts.digest,
+        RNTME_PERSISTENCE_MODE: workload.persistence.mode,
       },
       labels,
       files,
+      ...persistentRuntimeUser(workload.persistence),
+      ...persistentRuntimeVolumes(workload.persistence),
     });
   }
 
   return assertNever(workload);
+}
+
+function persistentRuntimeEnv(
+  persistence: Extract<DeploymentWorkload, { kind: 'domain-service' }>['persistence'],
+): RenderedEnvVar[] {
+  if (persistence.mode !== 'persistent') return [];
+  return [
+    { name: 'RNTME_EVENT_STORE_PATH', value: persistence.eventStorePath, secret: false },
+    { name: 'RNTME_QSM_PATH', value: persistence.qsmPath, secret: false },
+  ];
+}
+
+function persistentRuntimeVolumes(
+  persistence: Extract<DeploymentWorkload, { kind: 'domain-service' }>['persistence'],
+): { volumes?: RenderedComposeService['volumes'] } {
+  if (persistence.mode !== 'persistent') return {};
+  return {
+    volumes: [
+      {
+        source: persistence.volumeName,
+        target: persistence.mountPath,
+        readOnly: false,
+      },
+    ],
+  };
+}
+
+function persistentRuntimeUser(
+  persistence: Extract<DeploymentWorkload, { kind: 'domain-service' }>['persistence'],
+): { user?: string } {
+  if (persistence.mode !== 'persistent') return {};
+  return { user: '0:0' };
 }
 
 function storageS3Env(

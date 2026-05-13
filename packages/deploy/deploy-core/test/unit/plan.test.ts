@@ -95,6 +95,43 @@ describe('buildProjectDeploymentPlan', () => {
     });
   });
 
+  it('plans a persistent SQLite store for domain services that request persistence', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...project,
+        services: {
+          ...project.services,
+          tokens: {
+            slug: 'tokens',
+            kind: 'domain',
+            runtimeFiles: { 'manifest.json': '{}' },
+            persistence: {
+              mode: 'persistent',
+              eventStorePath: '/srv/data/events.sqlite',
+              qsmPath: '/srv/data/qsm.sqlite',
+            },
+          } as never,
+        },
+      },
+      previewConfig,
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.workloads.find((w) => w.kind === 'domain-service' && w.slug === 'tokens')).toMatchObject({
+      persistence: {
+        mode: 'persistent',
+        volumeName: 'rntme-acme-commerce-tokens-data',
+        eventStorePath: '/srv/data/events.sqlite',
+        qsmPath: '/srv/data/qsm.sqlite',
+        mountPath: '/srv/data',
+      },
+    });
+    expect(r.value.workloads.find((w) => w.kind === 'domain-service' && w.slug === 'catalog')).toMatchObject({
+      persistence: { mode: 'ephemeral' },
+    });
+  });
+
   it('rejects production mode in the MVP', () => {
     const r = buildProjectDeploymentPlan(project, {
       ...previewConfig,

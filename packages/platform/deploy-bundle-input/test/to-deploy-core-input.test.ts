@@ -174,6 +174,11 @@ describe('toDeployCoreInput', () => {
       result.services.tokens?.runtimeFiles?.['manifest.json'] ?? '{}',
     ) as { surface?: { http?: { bindingBasePath?: string } } };
     expect(tokensManifest.surface?.http?.bindingBasePath).toBe('/');
+    expect(result.services.tokens?.persistence).toEqual({
+      mode: 'persistent',
+      eventStorePath: '/srv/data/events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    });
 
     const tokensBindings = JSON.parse(
       result.services.tokens?.runtimeFiles?.['bindings.json'] ?? '{}',

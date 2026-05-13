@@ -25,7 +25,9 @@
       "input": {
         "authorization": { "type": "string", "mode": "required" },
         "organizationId": { "type": "string", "mode": "required" },
-        "limit": { "type": "integer", "mode": "optional" }
+        "limit": { "type": "integer", "mode": "optional" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
       },
       "output": { "type": "ListOrgProjectsResult" },
       "effect": "read",

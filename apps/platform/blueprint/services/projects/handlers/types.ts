@@ -40,6 +40,10 @@ export type ListOrgProjectsHandlerInput = {
   readonly organizationId: string;
   /** Maximum number of projects to return; defaults to 100 if undefined. */
   readonly limit?: number;
+  /** Advisory edge-auth subject header forwarded by nginx after auth_request succeeds. */
+  readonly sessionSubject?: string | null;
+  /** Advisory edge-auth status header forwarded by nginx after auth_request succeeds. */
+  readonly sessionStatus?: string | null;
 };
 
 export type ListOrgProjectsHandlerDeps = {

@@ -1,6 +1,26 @@
 {
   "version": "1",
   "operations": {
+    "createToken": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/create-token.ts",
+        "export": "createTokenHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "name": { "type": "string", "mode": "required" },
+        "scopesJson": { "type": "string", "mode": "required" },
+        "expiresAt": { "type": "string", "mode": "optional" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "sessionAudience": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "CreateTokenResult" },
+      "effect": "write",
+      "idempotency": "none"
+    },
     "IntrospectToken": {
       "handler": {
         "kind": "native",

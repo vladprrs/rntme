@@ -5,10 +5,14 @@
   "fields": {
     "id": { "type": "string", "nullable": false, "column": "id" },
     "organizationId": { "type": "string", "nullable": false, "column": "organization_id" },
+    "accountId": { "type": "string", "nullable": false, "column": "account_id" },
     "name": { "type": "string", "nullable": false, "column": "name" },
     "prefix": { "type": "string", "nullable": false, "column": "prefix" },
+    "tokenHash": { "type": "string", "nullable": false, "column": "token_hash" },
     "scopesJson": { "type": "string", "nullable": false, "column": "scopes_json" },
     "status": { "type": "string", "nullable": false, "column": "status" },
+    "expiresAt": { "type": "datetime", "nullable": true, "column": "expires_at" },
+    "lastUsedAt": { "type": "datetime", "nullable": true, "column": "last_used_at" },
     "createdAt": { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" },
     "revokedAt": { "type": "datetime", "nullable": true, "column": "revoked_at" }
   },
@@ -18,7 +22,12 @@
     "initial": null,
     "states": ["active", "revoked"],
     "transitions": {
-      "create": { "from": null, "to": "active", "affects": ["organizationId", "name", "prefix", "scopesJson"] },
+      "create": {
+        "from": null,
+        "to": "active",
+        "affects": ["organizationId", "accountId", "name", "prefix", "tokenHash", "scopesJson", "expiresAt", "lastUsedAt", "revokedAt"]
+      },
+      "touchLastUsed": { "from": "active", "to": "active", "affects": ["lastUsedAt"] },
       "revoke": { "from": "active", "to": "revoked", "affects": ["revokedAt"] }
     }
   }

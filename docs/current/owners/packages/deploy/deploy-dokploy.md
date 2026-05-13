@@ -53,6 +53,16 @@ state before HTTP smoke verification and fails the deployment with
 `DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks
 are observed.
 
+Domain services whose deployment plan marks `persistence.mode: "persistent"`
+render as project-stack services with a writable named volume mounted at the
+planned path. The renderer also emits `RNTME_PERSISTENCE_MODE=persistent`,
+`RNTME_EVENT_STORE_PATH`, and `RNTME_QSM_PATH` so `@rntme/runtime` opens the
+mounted SQLite files. Persistent runtime services also render `user: "0:0"`
+so first-boot named volumes are writable with the current runtime image; remove
+that override only after the runtime image owns the mounted data directory for
+the non-root `bun` user. Ephemeral domain services continue to render only
+`RNTME_PERSISTENCE_MODE=ephemeral` and no writable state volume.
+
 After a successful project-stack apply, the apply pipeline lists existing
 applications and composes in the same Dokploy environment and removes legacy
 per-workload resources left over from the pre-stack topology. A candidate is

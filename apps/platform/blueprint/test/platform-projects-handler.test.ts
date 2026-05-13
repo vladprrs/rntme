@@ -2,6 +2,10 @@ import { describe, expect, it } from 'bun:test';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import {
+  openSqliteDatabase,
+  type SqliteDatabase,
+} from '../../../../packages/runtime/sqlite/src/index.js';
+import {
   ApiTokenProvider,
   canonicalize,
   canonicalDigest,
@@ -78,6 +82,24 @@ function makeBundleBytes(name = 'cv-extract'): { bytes: Uint8Array; digest: stri
   const bytes = Buffer.from(canonical, 'utf8');
   const digest = 'sha256:' + canonicalDigest(bundle);
   return { bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength), digest };
+}
+
+function createProjectsDb(): SqliteDatabase {
+  const db = openSqliteDatabase({ filename: ':memory:' });
+  db.exec(`
+    CREATE TABLE projects (
+      id TEXT NOT NULL PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_event_id TEXT NOT NULL,
+      last_event_version INTEGER NOT NULL,
+      applied_at TEXT NOT NULL
+    );
+  `);
+  return db;
 }
 
 describe('publishProjectBundleHandler', () => {
@@ -231,6 +253,63 @@ describe('publishProjectBundleHandler', () => {
 });
 
 describe('listOrgProjectsHandler', () => {
+  it('returns active projects when invoked with the runtime-native edge-authenticated call shape', async () => {
+    const db = createProjectsDb();
+    try {
+      db.prepare(`
+        INSERT INTO projects (
+          id,
+          organization_id,
+          slug,
+          display_name,
+          status,
+          created_at,
+          last_event_id,
+          last_event_version,
+          applied_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        'proj-runtime-1',
+        'org_uZUWhpWgK54VWC2X',
+        'cv-extract',
+        'CV Extract',
+        'active',
+        '2026-05-13T00:00:00.000Z',
+        'evt-1',
+        1,
+        '2026-05-13T00:00:00.000Z',
+      );
+
+      const out = await listOrgProjectsHandler(
+        {
+          authorization: 'Bearer redacted',
+          organizationId: 'org_uZUWhpWgK54VWC2X',
+          limit: 10,
+          sessionSubject: 'acct_1',
+          sessionStatus: 'ACTIVE',
+        } as never,
+        {
+          qsmDb: db,
+          correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+        } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.projects).toEqual([
+        expect.objectContaining({
+          id: 'proj-runtime-1',
+          orgId: 'org_uZUWhpWgK54VWC2X',
+          slug: 'cv-extract',
+          displayName: 'CV Extract',
+          status: 'active',
+        }),
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
   it('returns active projects for the authorized org', async () => {
     const ctx = await setup();
     const out = await listOrgProjectsHandler(

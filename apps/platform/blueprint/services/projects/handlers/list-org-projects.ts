@@ -5,6 +5,23 @@ import type {
   ListOrgProjectsHandlerOutput,
 } from './types.js';
 
+type RuntimeCtx = {
+  readonly qsmDb: {
+    readonly prepare: <P = unknown, R = unknown>(sql: string) => {
+      readonly all: (...args: unknown[]) => R[];
+    };
+  };
+};
+
+type ProjectRow = {
+  readonly id: string;
+  readonly organization_id: string;
+  readonly slug: string;
+  readonly display_name: string;
+  readonly status: string;
+  readonly created_at: string;
+};
+
 /**
  * Native handler for GET /api/projects?organizationId=<id|slug|workosId>.
  *
@@ -17,9 +34,15 @@ import type {
  * the dashboard surface needs.
  */
 export async function listOrgProjectsHandler(
-  deps: ListOrgProjectsHandlerDeps,
-  input: ListOrgProjectsHandlerInput,
+  depsOrInput: ListOrgProjectsHandlerDeps | ListOrgProjectsHandlerInput,
+  inputOrCtx: ListOrgProjectsHandlerInput | RuntimeCtx,
 ): Promise<ListOrgProjectsHandlerOutput> {
+  if (!isDeps(depsOrInput)) {
+    return listOrgProjectsRuntimeNative(depsOrInput, inputOrCtx as RuntimeCtx);
+  }
+
+  const deps = depsOrInput;
+  const input = inputOrCtx as ListOrgProjectsHandlerInput;
   const auth = await deps.provider.authenticate({
     authorizationHeader: input.authorization,
     cookieHeader: undefined,
@@ -64,4 +87,64 @@ export async function listOrgProjectsHandler(
     : 100;
   const projects = result.value.slice(0, limit);
   return { status: 'ok', projects };
+}
+
+function isDeps(value: unknown): value is ListOrgProjectsHandlerDeps {
+  if (value === null || typeof value !== 'object') return false;
+  const provider = (value as { provider?: { authenticate?: unknown } }).provider;
+  return provider !== undefined && typeof provider.authenticate === 'function';
+}
+
+function isRuntimeCtx(value: unknown): value is RuntimeCtx {
+  return value !== null
+    && typeof value === 'object'
+    && typeof (value as { qsmDb?: { prepare?: unknown } }).qsmDb?.prepare === 'function';
+}
+
+function listOrgProjectsRuntimeNative(
+  input: ListOrgProjectsHandlerInput,
+  ctx: RuntimeCtx,
+): ListOrgProjectsHandlerOutput {
+  if (input.sessionStatus !== 'ACTIVE' || typeof input.sessionSubject !== 'string') {
+    return {
+      status: 'error',
+      errors: [{ code: 'PLATFORM_AUTH_INVALID', message: 'active edge session is required' }],
+    };
+  }
+  if (!isRuntimeCtx(ctx)) {
+    return {
+      status: 'error',
+      errors: [{ code: 'PLATFORM_AUTH_INVALID', message: 'runtime project storage is not available' }],
+    };
+  }
+  const limit = typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0
+    ? Math.floor(input.limit)
+    : 100;
+  const rows = ctx.qsmDb.prepare<[string, number], ProjectRow>(`
+    SELECT
+      id,
+      organization_id,
+      slug,
+      display_name,
+      status,
+      created_at
+    FROM projects
+    WHERE organization_id = ? AND status = 'active'
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(input.organizationId, limit);
+
+  return {
+    status: 'ok',
+    projects: rows.map((row) => ({
+      id: row.id,
+      orgId: row.organization_id,
+      slug: row.slug,
+      displayName: row.display_name,
+      status: row.status as 'active',
+      archivedAt: null,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.created_at),
+    })),
+  };
 }

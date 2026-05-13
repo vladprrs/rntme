@@ -56,7 +56,9 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 
 | Binding | Native operation | Handler module / export |
 | --- | --- | --- |
+| `POST /api/tokens` | `createToken` | `services/tokens/handlers/create-token.ts` (`createTokenHandler`) — mints a `rntme_pat_*` value once, stores only its SHA-256 hash in the tokens service's persistent SQLite state, and records the token create event |
 | `GET /api/tokens/introspect` | `IntrospectToken` | `services/tokens/handlers/introspect-token.ts` (`introspectTokenHandler`) — runtime-native PAT introspection entrypoint; missing or invalid bearer values throw typed `PLATFORM_AUTH_*` errors |
+| `GET /api/projects` | `listProjects` | `services/projects/handlers/list-org-projects.ts` (`listOrgProjectsHandler`) — supports the runtime-native edge-authenticated call shape for dashboard and CLI proof paths |
 | `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
 | `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
@@ -118,6 +120,12 @@ production deploys ship the runtime image with the blueprint artifacts
 copied into `/srv/artifacts` via the `Dockerfile.template` in
 `packages/runtime/runtime/`.
 
+The platform `tokens` domain service is the first platform service that opts
+into persistent runtime SQLite. Deploy conversion marks only this service as
+persistent today, and Dokploy mounts `/srv/data` so the runtime uses
+`/srv/data/events.sqlite` and `/srv/data/qsm.sqlite` instead of ephemeral
+container-local databases.
+
 ## Identity
 
 The platform blueprint uses an ordered, multi-provider `auth` middleware on
@@ -127,8 +135,9 @@ protected API routes. The middleware's `providers[]` list is:
    (`Authorization: Bearer rntme_pat_*`) via HTTP introspection at
    `/api/tokens/introspect`, served by the platform's `tokens` domain service.
    The stable audience constant for this provider is
-   `urn:rntme:platform-tokens`. Tokens are looked up by their stored hash and
-   the response is shaped like a session document for downstream handlers.
+   `urn:rntme:platform-tokens`. Tokens are minted through
+   `POST /api/tokens`, looked up by their stored hash, and the response is
+   shaped like a session document for downstream handlers.
 2. **`@rntme/identity-auth0`** — validates browser Auth0 JWTs through the
    canonical identity-module HTTP introspection sidecar, the same path used
    for browser SSO.
@@ -143,15 +152,19 @@ introspection result (for PATs). Edge nginx forwards `X-Rntme-User-Sub`,
 WorkOS remains a legacy hosted-platform integration until a future provider
 parity plan adds canonical session/edge introspection support.
 
-### Known gaps (resolved in the runtime cutover slice)
+### Known gaps (remaining)
 
 - The `${auth.audience}` placeholder in graph `IntrospectSession` calls is not
   yet resolved by any graph-IR pass — at runtime every session call will fail
   audience validation until a resolver is added.
-- The `tokens.IntrospectToken` native handler is executable under the runtime
-  `(inputs, ctx)` contract and returns typed 401 auth errors, but durable PAT
-  repository wiring and first-class token issuance are still required before
-  CLI PATs can authenticate successfully after a redeploy.
+- Platform PAT issuance is now runtime-native and durable for the `tokens`
+  service, but safe bootstrap still requires an authenticated Auth0/browser
+  session to call `POST /api/tokens`. Do not seed PAT plaintexts into files or
+  bypass hashing.
+- Runtime-native platform handlers currently trust edge-forwarded session
+  headers as the bridge between nginx auth and service code. Full
+  account/org membership enforcement for these handlers is still a separate
+  platform membership slice.
 - `organizations.listOrganizations` filters only by `status = active`. Once
   the session result is consumed it must scope by membership; today it would
   return every tenant's orgs to any authenticated caller.

@@ -102,6 +102,27 @@ access, a persistent volume, and credential refs. The MVP does not add an
 infrastructure-before-provisioner phase; storage-s3 performs a startup ensure
 bridge for bucket/CORS/lifecycle.
 
+## Domain-service SQLite persistence
+
+Domain services are ephemeral by default. A `ComposedProjectInput` service may
+opt into runtime SQLite persistence with:
+
+```ts
+{
+  persistence: {
+    mode: 'persistent',
+    eventStorePath: '/srv/data/events.sqlite',
+    qsmPath: '/srv/data/qsm.sqlite'
+  }
+}
+```
+
+The planner turns that request into a deterministic writable volume named from
+`rntme-<org>-<project>-<service>-data`, mounted at `/srv/data`, and carries the
+explicit event-store/QSM paths into the workload. The current platform deploy
+conversion uses this only for the `rntme-platform` `tokens` service so platform
+PAT rows survive runtime image redeploys.
+
 ## BPMN workflow planning
 
 `ComposedProjectInput.workflows` carries the validated project-level

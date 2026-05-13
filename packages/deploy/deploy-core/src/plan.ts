@@ -40,7 +40,15 @@ export type DomainServiceWorkload = {
   readonly artifact: { readonly source: 'composed-project'; readonly serviceSlug: string };
   readonly runtimeFiles: Readonly<Record<string, string>>;
   readonly publicConfigJson: string;
-  readonly persistence: { readonly mode: 'ephemeral' };
+  readonly persistence:
+    | { readonly mode: 'ephemeral' }
+    | {
+        readonly mode: 'persistent';
+        readonly volumeName: string;
+        readonly mountPath: string;
+        readonly eventStorePath: string;
+        readonly qsmPath: string;
+      };
 };
 
 export type IntegrationModuleWorkload = {
@@ -357,7 +365,7 @@ function buildWorkloads(
         artifact: { source: 'composed-project', serviceSlug: service.slug },
         runtimeFiles: service.runtimeFiles ?? {},
         publicConfigJson,
-        persistence: { mode: 'ephemeral' },
+        persistence: planServicePersistence(config.orgSlug, project.name, service),
       });
       continue;
     }
@@ -400,6 +408,21 @@ function buildWorkloads(
   });
 
   return workloads;
+}
+
+function planServicePersistence(
+  orgSlug: string,
+  projectSlug: string,
+  service: { readonly slug: string; readonly persistence?: ComposedProjectInput['services'][string]['persistence'] },
+): DomainServiceWorkload['persistence'] {
+  if (service.persistence?.mode !== 'persistent') return { mode: 'ephemeral' };
+  return {
+    mode: 'persistent',
+    volumeName: `${resourceName(orgSlug, projectSlug, service.slug)}-data`,
+    mountPath: '/srv/data',
+    eventStorePath: service.persistence.eventStorePath,
+    qsmPath: service.persistence.qsmPath,
+  };
 }
 
 function planRedpandaConsoleAccess(

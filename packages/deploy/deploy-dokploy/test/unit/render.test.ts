@@ -131,6 +131,61 @@ describe('renderDokployPlan', () => {
     expect(JSON.stringify(r.value)).not.toContain('apiToken');
   });
 
+  it('renders persistent domain-service SQLite paths and a writable data volume', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: [
+          {
+            kind: 'domain-service',
+            slug: 'tokens',
+            serviceSlug: 'tokens',
+            resourceName: 'rntme-acme-commerce-tokens',
+            runtime: { image: 'rntme-runtime' },
+            artifact: { source: 'composed-project', serviceSlug: 'tokens' },
+            runtimeFiles: { 'manifest.json': '{"service":{"name":"tokens"}}' },
+            publicConfigJson: '{}',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-acme-commerce-tokens-data',
+              mountPath: '/srv/data',
+              eventStorePath: '/srv/data/events.sqlite',
+              qsmPath: '/srv/data/qsm.sqlite',
+            },
+          } as never,
+          ...plan.workloads.filter((w) => w.kind !== 'domain-service'),
+        ],
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const tokens = stack.services.find((service) => service.name === 'svc-tokens');
+    expect(tokens?.env).toEqual(
+      expect.arrayContaining([
+        { name: 'RNTME_EVENT_STORE_PATH', value: '/srv/data/events.sqlite', secret: false },
+        { name: 'RNTME_QSM_PATH', value: '/srv/data/qsm.sqlite', secret: false },
+      ]),
+    );
+    expect(tokens?.literalEnv?.RNTME_PERSISTENCE_MODE).toBe('persistent');
+    expect(tokens?.volumes).toContainEqual({
+      source: 'rntme-acme-commerce-tokens-data',
+      target: '/srv/data',
+      readOnly: false,
+    });
+    expect(tokens?.user).toBe('0:0');
+    expect(stack.composeFile).toContain('rntme-acme-commerce-tokens-data:/srv/data');
+    expect(stack.composeFile).toContain('    user: 0:0');
+  });
+
   it('renders oversized runtime artifacts through chunked bootstrap mounts', () => {
     const largeArtifact = 'x'.repeat(1_200_000);
     const r = renderDokployPlan(

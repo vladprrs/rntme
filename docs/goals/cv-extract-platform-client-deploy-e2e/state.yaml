@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T034  # T033 redeploy/reload fixed live missing/unknown auth 500/SPA fallback; T034 resumes durable PAT storage/issuance.
+active_task: T036  # T035 selected the non-bypass bootstrap path; T036 publishes/redeploys T034 before live PAT bootstrap.
 
 tasks:
   - id: T001
@@ -2912,7 +2912,7 @@ tasks:
   - id: T034
     type: worker
     assignee: Worker
-    status: active
+    status: blocked
     reasoning_hint: high
     objective: "Implement durable platform PAT storage/issuance so live platform API requests can authenticate with a real PAT and T012 can resume."
     inputs:
@@ -2971,6 +2971,144 @@ tasks:
       - "A safe PAT bootstrap requires an Auth0 browser/JWT flow that cannot be automated with available credentials."
       - "The implementation would require hardcoding a secret PAT or bypassing token hashing."
       - "The slice expands into general platform account/org membership repair unrelated to token durability/issuance."
+    receipt:
+      result: blocked_after_local_implementation
+      summary: |
+        Implemented the local durable platform PAT storage/issuance slice. The platform
+        `tokens` service can now mint a `rntme_pat_*` plaintext once, stores only the
+        SHA-256 hash in SQLite, appends token create/touch domain events, and
+        introspects valid PATs from the runtime-native QSM path. Deploy conversion marks
+        only the `rntme-platform` `tokens` domain service as persistent with
+        `/srv/data/events.sqlite` and `/srv/data/qsm.sqlite`; deploy-core plans a
+        deterministic data volume, and deploy-dokploy renders the writable volume plus
+        runtime env. Persistent runtime services render `user: "0:0"` to avoid first-boot
+        named-volume write failures with the current non-root runtime image.
+      implementation:
+        - "Added runtime-native `createToken` handler and shared SQLite token store helpers under `apps/platform/blueprint/services/tokens/handlers/`."
+        - "Expanded `ApiToken` PDM/QSM/shapes to carry accountId, tokenHash, expiresAt, lastUsedAt, and public view fields without exposing tokenHash."
+        - "Kept the existing platform-core `ApiTokenProvider` dependency-injected introspection path for provider-level tests."
+        - "Added runtime-native `GET /api/projects` fallback for the edge-authenticated dashboard proof path."
+        - "Added per-domain-service persistence through deploy-core and Dokploy rendering; deploy-bundle-input marks platform `tokens` persistent."
+        - "Updated owner docs for platform, platform-core, deploy-core, and deploy-dokploy."
+      verification:
+        - cmd: "bun run --filter @rntme/platform-core test"
+          result: pass
+          notes: "154 pass / 0 fail."
+        - cmd: "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+          result: pass
+          notes: "37 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-core test"
+          result: pass
+          notes: "108 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-dokploy test"
+          result: pass
+          notes: "136 pass / 13 skip / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-bundle-input test"
+          result: pass
+          notes: "19 pass / 0 fail."
+        - cmd: "bun run depcruise"
+          result: pass
+          notes: "no dependency violations found (825 modules, 1139 dependencies cruised)."
+        - cmd: "bun run --filter @rntme/deploy-core typecheck && bun run --filter @rntme/deploy-dokploy typecheck && bun run --filter @rntme/deploy-bundle-input typecheck"
+          result: pass
+          notes: "all exited 0."
+        - cmd: "git diff --check"
+          result: pass
+          notes: "no whitespace errors."
+        - cmd: "artifact/render discriminator for platform tokens"
+          result: pass
+          notes: "tokens persistence is persistent; native create/introspect handler files are bundled; rendered svc-tokens has /srv/data volume, RNTME_EVENT_STORE_PATH/RNTME_QSM_PATH, and user 0:0."
+      live_bootstrap_blocker:
+        stop_if_triggered: "A safe PAT bootstrap requires an Auth0 browser/JWT flow that cannot be automated with available credentials."
+        evidence:
+          - "Fresh Auth0 client_credentials request for audience https://platform.rntme.com/api with the available Management API client returned access_denied: client is not authorized to access that resource server and needs a client-grant."
+          - "Creating that Auth0 client grant is a tenant policy/security decision and was not done implicitly."
+          - "No user browser/Auth0 JWT is available in this environment."
+          - "Bypassing edge auth with forged internal headers or direct DB seeding was not used."
+        not_completed:
+          - "Live valid PAT -> GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X 200 proof is still pending."
+          - "T012 live cv-extract deploy/dashboard phases are still blocked behind a valid live platform PAT or browser JWT."
+      preserved_dirty:
+        - "platform.target.json runtimeImage change remains unrelated and unstaged by this task."
+        - "untracked redeploy logs and prior goal notes remain preserved."
+
+  - id: T035
+    type: judge
+    assignee: Judge
+    status: blocked
+    reasoning_hint: high
+    objective: "Choose the safe live bootstrap path after T034: interactive Auth0/browser JWT, explicit Auth0 client-grant authorization for M2M bootstrap, or another approved non-bypass path; then resume live PAT proof."
+    inputs:
+      - "T034 receipt."
+      - "Auth0 client_credentials access_denied evidence."
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/deploy/deploy-dokploy.md"
+    constraints:
+      - "Do not create Auth0 client grants or change tenant policy without explicit authorization."
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, or Dokploy secrets."
+      - "Do not bypass ordered edge auth with forged internal headers or direct DB seed unless the user explicitly approves that emergency path."
+      - "Preserve unrelated dirty files, especially platform.target.json and redeploy logs."
+    expected_output:
+      - "Selected bootstrap path and required authorization/input."
+      - "Whether the T034 code should be committed/redeployed before bootstrap."
+      - "Exact live verification commands for missing/unknown PAT 401 and valid PAT /api/projects 200."
+    verify:
+      - "No secret values printed or persisted."
+      - "Board updated with the selected next Worker or blocked reason."
+    stop_if:
+      - "The only available path requires a policy/security decision from the user."
+      - "The proposed path would bypass edge auth or persist a PAT plaintext."
+    receipt:
+      result: selected_safe_bootstrap_path_blocked_on_operator_input
+      summary: |
+        Selected the safe live bootstrap path after T034. The durable PAT
+        storage/issuance implementation should be committed, pushed, and redeployed
+        before attempting live bootstrap. After redeploy, mint a PAT only through a
+        real Auth0/browser JWT for the `vladprsib` account in
+        `org_uZUWhpWgK54VWC2X`, or through an explicitly authorized Auth0
+        client-grant path. Do not create client grants implicitly, forge internal
+        edge-auth headers, or seed plaintext/hash rows directly in the database.
+      selected_path:
+        - "Publish/redeploy T034 first because the current live platform cannot mint or persist durable PATs."
+        - "Preferred bootstrap input: a short-lived browser Auth0 JWT for `vladprsib` scoped to `https://platform.rntme.com/api`."
+        - "Alternative bootstrap input: explicit authorization to create/enable an Auth0 client grant for M2M bootstrap."
+        - "Disallowed without explicit emergency approval: forged `X-Rntme-*` headers or direct SQLite seed."
+      verification_commands:
+        - "Missing auth: curl -sS -o /tmp/t035-no-auth.json -w '%{http_code}\\n' 'https://platform.rntme.com/api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1' # expect 401"
+        - "Unknown PAT: curl -sS -o /tmp/t035-unknown-pat.json -w '%{http_code}\\n' -H 'Authorization: Bearer rntme_pat_t035_unknown_00000000000000000000000000000000' 'https://platform.rntme.com/api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1' # expect 401"
+        - "With supplied PLATFORM_BROWSER_JWT, POST /api/tokens, capture `.plaintext` only in an in-shell variable, verify the `rntme_pat_` prefix, then GET /api/projects with that PAT and expect 200; unset both token variables immediately."
+      blocker:
+        - "No browser Auth0 JWT is available in this environment."
+        - "The available Auth0 M2M client is not authorized for the platform API audience; enabling it requires explicit tenant-policy authorization."
+
+  - id: T036
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: high
+    objective: "Commit, push, and redeploy the T034 durable PAT implementation, then run fail-closed live auth checks without bypassing edge auth."
+    inputs:
+      - "T034 implementation and local verification."
+      - "T035 selected bootstrap path."
+      - "Existing platform.target.json for live redeploy; preserve its dirty state unless explicitly changing it."
+    constraints:
+      - "Stage only scoped T034/T035 implementation, docs, new handler files, and tracked goal-state changes."
+      - "Exclude platform.target.json, redeploy logs, generated UI build output, .clone worktrees, and untracked goal/plan notes unless explicitly required."
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, or Dokploy secrets."
+      - "Do not run valid-PAT bootstrap until a real browser JWT is supplied or a client grant is explicitly authorized."
+    expected_output:
+      - "Commit hash pushed to main."
+      - "Platform redeploy evidence for the T034 artifact/runtime path."
+      - "Live missing-auth and unknown-PAT `/api/projects` checks return 401, not 500 or SPA HTML."
+      - "Clear blocked reason for the valid-PAT 200 proof if no approved bootstrap credential is available."
+    verify:
+      - "Focused T034 tests/typechecks/depcruise/diff-check pass before commit."
+      - "Git status after commit preserves unrelated dirty/untracked files."
+      - "Live fail-closed checks use only public Authorization behavior and do not forge internal headers."
+    stop_if:
+      - "Push or redeploy requires credentials not available in this environment."
+      - "Live missing/unknown auth returns 500, 2xx, or SPA HTML."
+      - "The only valid-PAT path requires a policy/security decision from the user."
     receipt: null
 
 checks:

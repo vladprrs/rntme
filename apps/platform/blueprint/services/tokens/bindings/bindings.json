@@ -22,20 +22,23 @@
     },
     "createToken": {
       "graph": "createToken",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "POST",
         "path": "/",
         "parameters": [
           { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
           { "name": "name", "in": "body", "bindTo": "name", "required": true },
-          { "name": "prefix", "in": "body", "bindTo": "prefix", "required": true },
-          { "name": "scopesJson", "in": "body", "bindTo": "scopesJson", "required": true }
+          { "name": "scopesJson", "in": "body", "bindTo": "scopesJson", "required": true },
+          { "name": "expiresAt", "in": "body", "bindTo": "expiresAt", "required": false }
         ]
       },
       "exposure": "action",
       "inputFrom": {
-        "authorization": { "from": "header", "name": "authorization", "required": true }
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false },
+        "sessionAudience": { "from": "header", "name": "x-rntme-user-audience", "required": false }
       }
     },
     "revokeToken": {

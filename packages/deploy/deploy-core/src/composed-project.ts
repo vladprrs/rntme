@@ -16,6 +16,13 @@ export type ComposedProjectService = {
   readonly kind: ServiceKind;
   readonly moduleKey?: string;
   readonly runtimeFiles?: Readonly<Record<string, string>>;
+  readonly persistence?:
+    | { readonly mode: 'ephemeral' }
+    | {
+        readonly mode: 'persistent';
+        readonly eventStorePath: string;
+        readonly qsmPath: string;
+      };
 };
 
 export type WorkflowGrpcServiceConfig = {

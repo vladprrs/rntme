@@ -72,6 +72,7 @@ export async function toDeployCoreInput(
                     slug,
                     serviceHostsUiRoute(value.project, slug) ? uiBuildFiles : {},
                   ),
+                  ...platformServicePersistence(value.project.name, slug),
                 }
               : {}),
           },
@@ -85,6 +86,20 @@ export async function toDeployCoreInput(
     ...(value.workflows === undefined ? {} : { workflows: value.workflows }),
     ...(workflowFiles === undefined ? {} : { workflowFiles }),
     ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
+  };
+}
+
+function platformServicePersistence(
+  projectName: string,
+  serviceSlug: string,
+): { persistence?: { mode: 'persistent'; eventStorePath: string; qsmPath: string } } {
+  if (projectName !== 'rntme-platform' || serviceSlug !== 'tokens') return {};
+  return {
+    persistence: {
+      mode: 'persistent',
+      eventStorePath: '/srv/data/events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    },
   };
 }
 
@@ -333,11 +348,14 @@ async function bundleNativeHandler(
   serviceSlug: string,
   operationName: string,
 ): Promise<string> {
+  const workspaceRoot = findWorkspaceRoot();
   const result = await Bun.build({
     entrypoints: [entryPath],
+    root: workspaceRoot,
     target: 'bun',
     format: 'esm',
     external: ['node:*', 'fs', 'fs/promises', 'path', 'crypto', 'os', 'url', 'util', 'stream'],
+    plugins: [workspacePackageResolver(workspaceRoot)],
   });
   if (!result.success) {
     const messages = result.logs.map((l) => String(l)).join('\n');
@@ -573,7 +591,7 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
       });
       buildApi.onResolve({ filter: /^\..*\.js$/ }, (args) => {
         const jsPath = join(args.resolveDir, args.path);
-        if (existsSync(jsPath)) return undefined;
+        if (existsSync(jsPath)) return { path: jsPath };
         const withoutJs = jsPath.slice(0, -'.js'.length);
         for (const candidate of [`${withoutJs}.ts`, `${withoutJs}.tsx`]) {
           if (existsSync(candidate)) return { path: candidate };

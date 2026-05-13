@@ -3,5 +3,5 @@
   "source": { "entity": "ApiToken" },
   "keys": ["id"],
   "grain": ["id"],
-  "exposed": ["organizationId", "name", "prefix", "scopesJson", "status", "revokedAt"]
+  "exposed": ["organizationId", "accountId", "name", "prefix", "scopesJson", "status", "expiresAt", "lastUsedAt", "revokedAt"]
 }

@@ -39,6 +39,7 @@ export type RenderedComposeService = {
   readonly workloadKind?: DeploymentWorkload['kind'] | 'infrastructure-proxy';
   readonly workloadSlug?: string;
   readonly image: string;
+  readonly user?: string;
   readonly entrypoint?: readonly string[];
   readonly command?: string;
   readonly args?: readonly string[];
