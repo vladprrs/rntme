@@ -99,6 +99,16 @@ export function validateManifest(
     });
   }
 
+  const rawBindingBasePath = parsed.surface?.http?.bindingBasePath ?? '/api';
+  if (!isValidBindingBasePath(rawBindingBasePath)) {
+    errors.push({
+      code: 'MANIFEST_INVALID_BINDING_BASE_PATH',
+      path: 'surface.http.bindingBasePath',
+      message:
+        'surface.http.bindingBasePath must start with "/" and must not contain "?" or "#" or end with "/" (except the root "/")',
+    });
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
   const v: ValidatedManifest = {
@@ -108,6 +118,7 @@ export function validateManifest(
       http: {
         enabled: parsed.surface?.http?.enabled ?? true,
         port: parsed.surface?.http?.port ?? 3000,
+        bindingBasePath: rawBindingBasePath,
         bodyLimit: {
           enabled: parsed.surface?.http?.bodyLimit?.enabled ?? true,
           maxBytes: parsed.surface?.http?.bodyLimit?.maxBytes ?? 1_048_576,
@@ -264,4 +275,12 @@ export function applyEnvOverrides(
 
 function isActorKind(value: string): value is ActorRef['kind'] {
   return (ACTOR_KINDS as readonly string[]).includes(value);
+}
+
+function isValidBindingBasePath(value: string): boolean {
+  if (!value.startsWith('/')) return false;
+  if (value.includes('?') || value.includes('#')) return false;
+  if (value === '/') return true;
+  if (value.endsWith('/')) return false;
+  return true;
 }

@@ -74,4 +74,30 @@ describe('HttpSurface default-on middleware', () => {
     const ok = await fetch(`http://127.0.0.1:${running.httpPort}/api/openapi.json`);
     expect(ok.status).toBe(200);
   });
+
+  it('keeps body-limit middleware matching /api/* when bindingBasePath is "/"', async () => {
+    // Default bindingBasePath is /api, so /api/v1/issues triggers body-limit.
+    // When bindingBasePath flips to /, the runtime still hosts the same
+    // bindings under /api/v1/issues (because platform-routed binding paths
+    // already include the /api prefix). The body-limit middleware must
+    // continue to match /api/* regardless of where the router is mounted.
+    const dir = cloneFixture((m) => {
+      const surface = (m.surface = (m.surface as Record<string, unknown>) ?? {});
+      const http = (surface.http = (surface.http as Record<string, unknown>) ?? {});
+      http.bindingBasePath = '/';
+      http.bodyLimit = { enabled: true, maxBytes: 8 };
+    });
+    const loaded = loadService(dir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    running = await startService(loaded.value);
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'this body is too large' }),
+    });
+    expect(res.status).toBe(413);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('BODY_LIMIT_EXCEEDED');
+  });
 });

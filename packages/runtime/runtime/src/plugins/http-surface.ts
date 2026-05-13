@@ -106,7 +106,7 @@ export class HttpSurface implements Surface {
       app.use('/api/*', rateLimit(limiter, () => 'process'));
     }
     app.use('/api/*', correlationMiddleware());
-    app.route('/api', router);
+    app.route(httpCfg.bindingBasePath, router);
 
     app.route('/', uiApp);
   }

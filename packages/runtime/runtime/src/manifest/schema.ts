@@ -52,6 +52,7 @@ export const ManifestSchema = z
           .object({
             enabled: z.boolean().optional(),
             port: z.number().int().min(0).max(65535).optional(),
+            bindingBasePath: z.string().startsWith('/').optional(),
             bodyLimit: HttpBodyLimitSchema.optional(),
             rateLimit: HttpRateLimitSchema.optional(),
             cors: HttpCorsSchema.optional(),

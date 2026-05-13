@@ -243,14 +243,17 @@ async function buildRuntimeArtifactFiles(
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
-    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: true, port: 50051 } },
+    surface: {
+      http: { enabled: true, port: 3000, bindingBasePath: '/' },
+      grpc: { enabled: true, port: 50051 },
+    },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
     modules: wiring.modules,
   });
   Object.assign(files, wiring.files);
   addJsonFile(files, 'pdm.json', project.pdm);
   addJsonFile(files, 'qsm.json', service.qsmValidated);
-  addJsonFile(files, 'bindings.json', service.bindings.artifact);
+  addJsonFile(files, 'bindings.json', buildDomainServiceBindingArtifacts(project, serviceSlug));
   addJsonFile(files, 'shapes.json', service.graphSpec.shapes);
 
   for (const [graphId, graph] of Object.entries(service.graphSpec.graphs)) {
@@ -296,7 +299,10 @@ async function buildUiHostRuntimeArtifactFiles(
   addJsonFile(files, 'manifest.json', {
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
-    surface: { http: { enabled: true, port: 3000 }, grpc: { enabled: false, port: 50051 } },
+    surface: {
+      http: { enabled: true, port: 3000, bindingBasePath: '/' },
+      grpc: { enabled: false, port: 50051 },
+    },
     seed: { enabled: false, path: 'seed.json' },
     modules: wiring.modules,
   });
@@ -317,6 +323,43 @@ async function buildUiHostRuntimeArtifactFiles(
   // Only emit UI module assets for the service that hosts the UI route.
   if (Object.keys(uiBuildFiles).length > 0) await addUiModuleAssetFiles(files, project);
   return files;
+}
+
+function buildDomainServiceBindingArtifacts(
+  project: ComposedBlueprint,
+  serviceSlug: string,
+): unknown {
+  const service = project.services[serviceSlug];
+  const bindings = service?.bindings?.artifact;
+  if (bindings === undefined || bindings === null) {
+    throw new Error(`DEPLOY_EXECUTOR_SERVICE_BINDINGS_NOT_FOUND:${serviceSlug}`);
+  }
+  const routedEntries = Object.values(project.bindingRegistry).filter(
+    (entry) => entry.service === serviceSlug,
+  );
+  if (routedEntries.length === 0) return bindings;
+  const byBindingId = new Map(routedEntries.map((entry) => [entry.bindingId, entry]));
+  const sourceBindings = bindings.bindings as Record<string, { http?: Record<string, unknown> } & Record<string, unknown>>;
+  return {
+    ...bindings,
+    bindings: Object.fromEntries(
+      Object.entries(sourceBindings).map(([bindingId, binding]) => {
+        const routed = byBindingId.get(bindingId);
+        if (routed === undefined) return [bindingId, binding];
+        return [
+          bindingId,
+          {
+            ...binding,
+            http: {
+              ...(binding.http ?? {}),
+              method: routed.method,
+              path: routed.path,
+            },
+          },
+        ];
+      }),
+    ),
+  };
 }
 
 function buildUiHostBindingArtifacts(project: ComposedBlueprint): {

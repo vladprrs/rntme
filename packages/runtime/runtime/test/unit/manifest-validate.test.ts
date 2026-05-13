@@ -16,6 +16,7 @@ describe('validateManifest', () => {
     if (!r.ok) return;
     expect(r.value.surface.http.enabled).toBe(true);
     expect(r.value.surface.http.port).toBe(3000);
+    expect(r.value.surface.http.bindingBasePath).toBe('/api');
     expect(r.value.surface.http.bodyLimit).toEqual({ enabled: true, maxBytes: 1_048_576 });
     expect(r.value.surface.http.rateLimit).toEqual({ enabled: true, windowMs: 60_000, max: 600 });
     expect(r.value.persistence.mode).toBe('ephemeral');
@@ -24,6 +25,54 @@ describe('validateManifest', () => {
     expect(r.value.auth.actorKind).toBe('user');
     expect(r.value.observability.health.path).toBe('/health');
     expect(r.value.observability.metrics.path).toBe('/metrics');
+  });
+
+  it('accepts surface.http.bindingBasePath="/" as the project-routed default', () => {
+    const r = validateManifest(
+      { ...MIN, surface: { http: { bindingBasePath: '/' } } },
+      RUNTIME_VERSION,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.surface.http.bindingBasePath).toBe('/');
+  });
+
+  it('rejects surface.http.bindingBasePath without a leading slash', () => {
+    const r = validateManifest(
+      { ...MIN, surface: { http: { bindingBasePath: 'api' } } },
+      RUNTIME_VERSION,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'MANIFEST_INVALID_BINDING_BASE_PATH',
+            path: 'surface.http.bindingBasePath',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('rejects surface.http.bindingBasePath with a trailing slash (non-root)', () => {
+    const r = validateManifest(
+      { ...MIN, surface: { http: { bindingBasePath: '/api/' } } },
+      RUNTIME_VERSION,
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects surface.http.bindingBasePath containing query or fragment characters', () => {
+    const r1 = validateManifest(
+      { ...MIN, surface: { http: { bindingBasePath: '/api?x' } } },
+      RUNTIME_VERSION,
+    );
+    const r2 = validateManifest(
+      { ...MIN, surface: { http: { bindingBasePath: '/api#x' } } },
+      RUNTIME_VERSION,
+    );
+    expect(r1.ok).toBe(false);
+    expect(r2.ok).toBe(false);
   });
 
   it('parses rntmeVersion to triple', () => {

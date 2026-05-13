@@ -196,6 +196,29 @@ describe('parseManifest', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('accepts surface.http.bindingBasePath as an optional absolute path', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'svc', version: '1.0.0' },
+        surface: { http: { bindingBasePath: '/' } },
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.surface?.http?.bindingBasePath).toBe('/');
+  });
+
+  it('rejects surface.http.bindingBasePath without a leading slash', () => {
+    const r = parseManifest(
+      JSON.stringify({
+        rntmeVersion: '1.0',
+        service: { name: 'svc', version: '1.0.0' },
+        surface: { http: { bindingBasePath: 'api' } },
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
   it('accepts surface.http.cors and surface.http.securityHeaders', () => {
     const raw = JSON.stringify({
       rntmeVersion: '1.0',

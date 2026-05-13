@@ -144,6 +144,32 @@ describe('toDeployCoreInput', () => {
     };
     expect(qsm.projections?.ProjectView).toBeDefined();
     expect(qsm.projections?.OrganizationView).toBeDefined();
+
+    // Project-routed runtime artifacts: domain services mount the binding
+    // router at "/" because their binding paths already include the project
+    // route prefix (e.g. /api/projects, /api/tokens/introspect).
+    const projectsManifest = JSON.parse(
+      result.services.projects?.runtimeFiles?.['manifest.json'] ?? '{}',
+    ) as { surface?: { http?: { bindingBasePath?: string } } };
+    expect(projectsManifest.surface?.http?.bindingBasePath).toBe('/');
+
+    const projectsBindings = JSON.parse(
+      result.services.projects?.runtimeFiles?.['bindings.json'] ?? '{}',
+    ) as { bindings?: Record<string, { http?: { path?: string } }> };
+    expect(projectsBindings.bindings?.listProjects?.http?.path).toBe('/api/projects');
+    expect(projectsBindings.bindings?.publishProjectBundle?.http?.path).toBe(
+      '/api/projects/{projectId}/versions',
+    );
+
+    const tokensManifest = JSON.parse(
+      result.services.tokens?.runtimeFiles?.['manifest.json'] ?? '{}',
+    ) as { surface?: { http?: { bindingBasePath?: string } } };
+    expect(tokensManifest.surface?.http?.bindingBasePath).toBe('/');
+
+    const tokensBindings = JSON.parse(
+      result.services.tokens?.runtimeFiles?.['bindings.json'] ?? '{}',
+    ) as { bindings?: Record<string, { http?: { path?: string } }> };
+    expect(tokensBindings.bindings?.introspectToken?.http?.path).toBe('/api/tokens/introspect');
   });
 
   it('throws a partial-artifacts error when a domain service has only some runtime artifacts', async () => {

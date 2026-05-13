@@ -9,6 +9,7 @@ const base: ValidatedManifest = {
     http: {
       enabled: true,
       port: 3000,
+      bindingBasePath: '/api',
       bodyLimit: { enabled: true, maxBytes: 1_048_576 },
       rateLimit: { enabled: true, windowMs: 60_000, max: 600 },
       cors: {

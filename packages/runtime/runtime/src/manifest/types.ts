@@ -43,6 +43,7 @@ export type ParsedManifest = {
     http?: {
       enabled?: boolean;
       port?: number;
+      bindingBasePath?: string;
       bodyLimit?: HttpBodyLimitConfig;
       rateLimit?: HttpRateLimitConfig;
       cors?: HttpCorsConfig;
@@ -72,6 +73,7 @@ export type ValidatedManifest = {
     http: {
       enabled: boolean;
       port: number;
+      bindingBasePath: string;
       bodyLimit: ValidatedHttpBodyLimitConfig;
       rateLimit: ValidatedHttpRateLimitConfig;
       cors: ValidatedHttpCorsConfig;
@@ -104,6 +106,7 @@ export type ManifestErrorCode =
   | 'MANIFEST_MISSING_EVENT_STORE_PATH'
   | 'MANIFEST_MISSING_QSM_PATH'
   | 'MANIFEST_INVALID_ACTOR_KIND'
+  | 'MANIFEST_INVALID_BINDING_BASE_PATH'
   | 'RUNTIME_MANIFEST_DUPLICATE_MODULE_NAME';
 
 export type ManifestError = {
