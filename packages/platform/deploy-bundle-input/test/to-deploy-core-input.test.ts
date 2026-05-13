@@ -182,8 +182,12 @@ describe('toDeployCoreInput', () => {
     expect(tokensOps.operations?.IntrospectToken?.handler?.entry).toBe(
       './handlers/introspect-token.ts',
     );
-    expect(tokensFiles['handlers/introspect-token.ts']).toBeDefined();
-    expect(tokensFiles['handlers/introspect-token.ts']).toContain('introspectTokenHandler');
+    expect(tokensFiles['handlers/introspect-token.js']).toBeDefined();
+    const introspectBundle = tokensFiles['handlers/introspect-token.js'] ?? '';
+    expect(introspectBundle).toContain('introspectTokenHandler');
+    // Bundle must inline workspace deps so the runtime can import the file
+    // without traversing /srv/node_modules from the artifact mount.
+    expect(introspectBundle).not.toMatch(/from\s+['"]@rntme\/platform-core['"]/);
   });
 
   it('converts platform blueprint without wiring tokens as a module proto', async () => {

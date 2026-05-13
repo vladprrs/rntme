@@ -315,20 +315,42 @@ async function addNativeOperationFiles(
     const entryBase = handler.entry.replace(/^\.\//, '');
     const sourcePath = join(rootDir, 'services', serviceSlug, entryBase);
     const baseName = entryBase.split('/').pop() ?? entryBase;
-    const targetKey = `handlers/${baseName}`;
+    const bundledBaseName = baseName.replace(/\.ts$/, '.js');
+    const targetKey = `handlers/${bundledBaseName}`;
     if (seenHandlers.has(targetKey)) continue;
     seenHandlers.add(targetKey);
-    try {
-      files[targetKey] = await readFile(sourcePath, 'utf8');
-    } catch (cause) {
-      if (errorCode(cause) === 'ENOENT') {
-        throw new Error(
-          `DEPLOY_EXECUTOR_OPERATION_HANDLER_NOT_FOUND:${serviceSlug}:${operationName}:${entryBase}`,
-        );
-      }
-      throw cause;
+    if (!existsSync(sourcePath)) {
+      throw new Error(
+        `DEPLOY_EXECUTOR_OPERATION_HANDLER_NOT_FOUND:${serviceSlug}:${operationName}:${entryBase}`,
+      );
     }
+    files[targetKey] = await bundleNativeHandler(sourcePath, serviceSlug, operationName);
   }
+}
+
+async function bundleNativeHandler(
+  entryPath: string,
+  serviceSlug: string,
+  operationName: string,
+): Promise<string> {
+  const result = await Bun.build({
+    entrypoints: [entryPath],
+    target: 'bun',
+    format: 'esm',
+    external: ['node:*', 'fs', 'fs/promises', 'path', 'crypto', 'os', 'url', 'util', 'stream'],
+  });
+  if (!result.success) {
+    const messages = result.logs.map((l) => String(l)).join('\n');
+    throw new Error(
+      `DEPLOY_EXECUTOR_OPERATION_HANDLER_BUNDLE_FAILED:${serviceSlug}:${operationName}\n${messages}`,
+    );
+  }
+  if (result.outputs.length === 0) {
+    throw new Error(
+      `DEPLOY_EXECUTOR_OPERATION_HANDLER_BUNDLE_EMPTY:${serviceSlug}:${operationName}`,
+    );
+  }
+  return await result.outputs[0]!.text();
 }
 
 function domainArtifactState(service: ComposedBlueprint['services'][string]):
