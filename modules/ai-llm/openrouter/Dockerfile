@@ -20,6 +20,7 @@ ENV NODE_ENV=production \
     OPENROUTER_IDEMPOTENCY_MODE=sqlite \
     OPENROUTER_IDEMPOTENCY_PATH=/data/idempotency.sqlite
 
+RUN mkdir -p /data && chown -R bun:bun /data
 VOLUME /data
 USER bun
 EXPOSE 50051
