@@ -321,6 +321,30 @@ describe('ModuleManifestSchema — provisioner block', () => {
       expect(parsed.value.provisioner).toBeUndefined();
     }
   });
+
+  it('accepts a provisioner-only manifest with no capabilities and no client', () => {
+    const parsed = parseModuleManifest({
+      name: '@rntme/marketing-site-static',
+      version: '0.0.0',
+      provisioner: {
+        entry: './dist/provisioner.js',
+        produces: [{ name: 'site', kind: 'single', secret: false }],
+      },
+    });
+    expect(parsed.ok).toBe(true);
+  });
+
+  it('rejects a manifest with neither capabilities, client, nor provisioner (MODULE_MANIFEST_EMPTY mentions all three)', () => {
+    const parsed = parseModuleManifest({ name: '@rntme/empty-surfaces', version: '0.0.0' });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      const emptyErr = parsed.errors.find((e) => e.message.includes('MODULE_MANIFEST_EMPTY'));
+      expect(emptyErr).toBeDefined();
+      expect(emptyErr?.message).toContain('capabilities');
+      expect(emptyErr?.message).toContain('client');
+      expect(emptyErr?.message).toContain('provisioner');
+    }
+  });
 });
 
 describe('ClientBlockSchema — contract field', () => {

@@ -243,12 +243,13 @@ export const ModuleManifestSchema = z
         (value.client.operations?.length ?? 0) > 0 ||
         totalClientAssetCount(value.client.assets) > 0 ||
         (value.client.presets?.length ?? 0) > 0);
-    if (!hasCapabilities && !hasClient) {
+    const hasProvisioner = !!value.provisioner && value.provisioner.entry.length > 0;
+    if (!hasCapabilities && !hasClient && !hasProvisioner) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['<root>'],
         message:
-          'MODULE_MANIFEST_EMPTY: manifest must declare a non-empty `capabilities` or `client` surface',
+          'MODULE_MANIFEST_EMPTY: manifest must declare a non-empty `capabilities`, `client`, or `provisioner` surface',
       });
     }
     if ((value.category && !value.contract) || (!value.category && value.contract)) {
