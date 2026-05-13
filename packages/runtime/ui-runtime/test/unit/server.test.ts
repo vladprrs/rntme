@@ -109,4 +109,143 @@ describe('createApp', () => {
     const html = await res.text();
     expect(html).toContain('<div id="root">');
   });
+
+  it('serves the explicit UI asset manifest for inspection', async () => {
+    const app = createApp({
+      artifact: {
+        manifest: testManifest,
+        layouts: { main: testLayout },
+        screens: { home: testScreen },
+      },
+      assetsDir: '/tmp/nonexistent-assets',
+      assetManifest: {
+        stylesheets: [
+          {
+            id: 'platform-ui',
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+            order: 100,
+            media: 'all',
+            scope: 'document',
+          },
+        ],
+        fonts: [],
+        icons: [],
+        images: [],
+        staticFiles: [],
+        preloads: [
+          {
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+            as: 'style',
+          },
+        ],
+      },
+    });
+
+    const res = await app.request('/_ui-assets.json');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      stylesheets: [expect.objectContaining({ id: 'platform-ui' })],
+      preloads: [expect.objectContaining({ as: 'style' })],
+    });
+  });
+
+  it('emits deterministic preloads and stylesheets in the shell', async () => {
+    const app = createApp({
+      artifact: {
+        manifest: testManifest,
+        layouts: { main: testLayout },
+        screens: { home: testScreen },
+      },
+      assetsDir: '/tmp/nonexistent-assets',
+      assetManifest: {
+        stylesheets: [
+          {
+            id: 'late',
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/stylesheets/late.css',
+            order: 200,
+            media: 'print',
+            scope: 'document',
+          },
+          {
+            id: 'early',
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/stylesheets/early.css',
+            order: 10,
+            media: 'all',
+            scope: 'document',
+          },
+        ],
+        fonts: [
+          {
+            id: 'display',
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/fonts/display.woff2',
+            family: 'Display',
+            preload: true,
+          },
+        ],
+        icons: [],
+        images: [],
+        staticFiles: [],
+        preloads: [
+          { moduleKey: 'platformUi', moduleName: '@rntme/platform-ui', href: '/assets/modules/platformUi/stylesheets/late.css', as: 'style' },
+        ],
+      },
+    });
+
+    const html = await (await app.request('/')).text();
+
+    expect(html.indexOf('href="/assets/modules/platformUi/stylesheets/late.css" rel="preload"')).toBeLessThan(
+      html.indexOf('href="/assets/modules/platformUi/stylesheets/early.css" rel="stylesheet"'),
+    );
+    expect(html.indexOf('href="/assets/modules/platformUi/stylesheets/early.css" rel="stylesheet"')).toBeLessThan(
+      html.indexOf('href="/assets/modules/platformUi/stylesheets/late.css" rel="stylesheet"'),
+    );
+    expect(html).toContain('href="/assets/modules/platformUi/fonts/display.woff2" rel="preload" as="font"');
+    expect(html).toContain('<link rel="stylesheet" href="/assets/main.css">');
+  });
+
+  it('keeps asset serving sandboxed when module asset paths contain traversal attempts', async () => {
+    const assetsDir = mkdtempSync(join(tmpdir(), 'rntme-ui-assets-'));
+    const secretFile = join(assetsDir, '..', 'secret.txt');
+    try {
+      writeFileSync(join(assetsDir, 'main.css'), 'body{}');
+      writeFileSync(secretFile, 'secret-content');
+      const app = createApp({
+        artifact: {
+          manifest: testManifest,
+          layouts: { main: testLayout },
+          screens: { home: testScreen },
+        },
+        assetsDir,
+        assetManifest: {
+          stylesheets: [],
+          fonts: [],
+          icons: [],
+          images: [],
+          staticFiles: [],
+          preloads: [],
+        },
+      });
+
+      // URL-encode the dot-dot-slash so the URL API does not normalize it away
+      // before it reaches the Hono router; %2F separates segments so the path
+      // resolves outside assetsDir at the filesystem layer.
+      const res = await app.request('/assets/..%2Fsecret.txt');
+
+      expect(res.status).toBe(404);
+    } finally {
+      rmSync(assetsDir, { recursive: true, force: true });
+      try { rmSync(secretFile); } catch { /* ignore */ }
+    }
+  });
 });
