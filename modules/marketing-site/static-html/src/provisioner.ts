@@ -19,8 +19,15 @@ import type {
 
 export const provisioner: ProvisionerContract<MarketingSiteV1Config> = {
   async provision(input) {
-    const cfg = input.publicConfig as unknown as InternalMarketingConfig;
-    const targets = input.targetSecrets as TargetSecrets;
+    const cfg = input.publicConfig as unknown as InternalMarketingConfig | undefined;
+    const targets = (input.targetSecrets ?? {}) as TargetSecrets;
+
+    if (cfg === undefined || cfg === null || typeof cfg !== 'object' || cfg.source === undefined) {
+      return err({
+        code: 'MARKETING_SITE_PROVISION_PUBLIC_CONFIG_INVALID',
+        message: 'publicConfig.source is required',
+      });
+    }
 
     if (cfg.source.kind === 'materialized-project-asset') {
       return provisionFromMaterializedAsset(cfg, cfg.source);
@@ -223,3 +230,6 @@ async function readLocalBundle(path: string, expectedSha256: string) {
 export function appNameForDomain(domain: string): string {
   return domain.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
+
+export const provision = provisioner.provision;
+export const tearDown = provisioner.tearDown;
