@@ -26,6 +26,7 @@ cpSync(src, dest, {
   },
 });
 copyProvisionerEntries();
+copyPlatformUiModule();
 console.log(`copied ${src} → ${dest}`);
 
 function copyProvisionerEntries() {
@@ -76,9 +77,29 @@ function writeManifest(entries) {
   writeFileSync(join(provisionerDest, 'manifest.json'), `${JSON.stringify({ entries }, null, 2)}\n`);
 }
 
+function copyPlatformUiModule() {
+  const packageDirs = discoverWorkspacePackageDirs(repoRoot);
+  const source = packageDirs.get('@rntme/platform-ui');
+  if (source === undefined) {
+    throw new Error('workspace package not found for @rntme/platform-ui');
+  }
+  const target = join(dest, 'node_modules', '@rntme', 'platform-ui');
+  mkdirSync(join(dest, 'node_modules', '@rntme'), { recursive: true });
+  rmSync(target, { recursive: true, force: true });
+  cpSync(source, target, {
+    recursive: true,
+    filter: (entry) => {
+      const rel = entry.slice(source.length + 1);
+      if (rel === 'node_modules' || rel.startsWith('node_modules/')) return false;
+      if (rel === 'test' || rel.startsWith('test/')) return false;
+      return true;
+    },
+  });
+}
+
 function discoverWorkspacePackageDirs(workspaceRoot) {
   const dirs = new Map();
-  for (const parent of ['packages', 'modules']) {
+  for (const parent of ['packages', 'modules', 'apps']) {
     collectPackageDirs(join(workspaceRoot, parent), dirs);
   }
   return dirs;

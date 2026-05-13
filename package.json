@@ -15,6 +15,7 @@
     "packages/tooling/*",
     "packages/contracts/*/v*",
     "apps/*",
+    "apps/platform/ui-module",
     "modules/*/*",
     "demo/*"
   ],

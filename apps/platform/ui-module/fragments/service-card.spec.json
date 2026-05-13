@@ -1,0 +1,19 @@
+{
+  "root": "serviceCard",
+  "elements": {
+    "serviceCard": {
+      "type": "PlatformPanel",
+      "props": {
+        "title": { "$param": "name" },
+        "subtitle": { "$param": "status" }
+      },
+      "children": ["body"]
+    },
+    "body": {
+      "type": "Text",
+      "props": {
+        "text": { "$param": "description" }
+      }
+    }
+  }
+}

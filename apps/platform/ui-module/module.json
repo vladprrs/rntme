@@ -1,0 +1,56 @@
+{
+  "name": "@rntme/platform-ui",
+  "version": "0.0.0",
+  "description": "rntme platform product UI module.",
+  "client": {
+    "entry": "./dist/client.js",
+    "components": [
+      { "type": "PlatformPage", "props": {} },
+      { "type": "PlatformPageHeader", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "meta": { "type": "array" }, "actions": { "type": "array" } } },
+      { "type": "PlatformPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "flush": { "type": "boolean" } } },
+      { "type": "PlatformSidebar", "props": { "brand": { "type": "string" }, "version": { "type": "string" }, "contextLabel": { "type": "string" }, "contextName": { "type": "string" }, "contextMeta": { "type": "string" }, "items": { "type": "array" }, "cliVersion": { "type": "string" } } },
+      { "type": "PlatformTopbar", "props": { "crumbs": { "type": "array" }, "actions": { "type": "array" } } },
+      { "type": "PlatformSummaryGrid", "props": { "items": { "type": "array" } } },
+      { "type": "PlatformServicesPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "statePath": { "type": "string" }, "services": { "type": "array" } } },
+      { "type": "PlatformTimeline", "props": { "steps": { "type": "array" }, "currentStep": { "type": "number" }, "errored": { "type": "boolean" } } },
+      { "type": "PlatformAlertList", "props": { "variant": { "type": "string" }, "items": { "type": "array" } } },
+      { "type": "PlatformBanner", "props": { "variant": { "type": "string" }, "title": { "type": "string" }, "message": { "type": "string" }, "artifact": { "type": "string" }, "jsonPath": { "type": "string" }, "suggestedAction": { "type": "string" } } },
+      { "type": "PlatformEmptyState", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "body": { "type": "string" }, "command": { "type": "string" }, "docsLabel": { "type": "string" }, "docsHref": { "type": "string" } } },
+      { "type": "PlatformDataTable", "props": { "statePath": { "type": "string" }, "columns": { "type": "array" } } },
+      { "type": "PlatformBox", "props": { "className": { "type": "string" }, "as": { "type": "string" } } }
+    ],
+    "assets": {
+      "stylesheets": [
+        {
+          "id": "platform-ui",
+          "path": "assets/platform-ui.css",
+          "order": 100,
+          "media": "all",
+          "scope": "document"
+        }
+      ],
+      "icons": [
+        { "id": "logo-monogram", "path": "assets/logo-monogram.svg" },
+        { "id": "logo-wordmark", "path": "assets/logo-wordmark.svg" }
+      ],
+      "images": [],
+      "staticFiles": [],
+      "preloads": [
+        { "path": "assets/platform-ui.css", "as": "style" }
+      ]
+    },
+    "presets": [
+      {
+        "name": "service-card",
+        "kind": "fragment",
+        "path": "fragments/service-card",
+        "description": "Platform service summary card.",
+        "inputs": {
+          "name": { "type": "string", "required": true },
+          "status": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    ]
+  }
+}
