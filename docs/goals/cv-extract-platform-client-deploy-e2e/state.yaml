@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T033  # T032 local fix is verified; T033 publishes/redeploys it and checks live auth behavior.
+active_task: T034  # T033 redeploy/reload fixed live missing/unknown auth 500/SPA fallback; T034 resumes durable PAT storage/issuance.
 
 tasks:
   - id: T001
@@ -2824,7 +2824,7 @@ tasks:
   - id: T033
     type: worker
     assignee: PM
-    status: active
+    status: done
     reasoning_hint: medium
     objective: "Publish and redeploy the T032 native-token-introspection slice, then verify live platform auth behavior no longer returns nginx 500 for missing/invalid PAT introspection."
     inputs:
@@ -2851,6 +2851,126 @@ tasks:
       - "Live /api/tokens/introspect without Authorization -> 401 or documented provider-fallback status, not nginx 500"
       - "Live /api/tokens/introspect with redacted unknown PAT -> canonical 401 with typed auth body"
       - "Live /api/projects?organizationId=org_uZUWhpWgK54VWC2X with redacted unknown PAT -> canonical 401 until valid PAT storage/issuance lands"
+    receipt:
+      result: done
+      summary: |
+        T032 was published and redeployed to the live platform. The runtime image
+        build for commit 730fc7cd succeeded and the platform redeploy updated the
+        rntme-direct-rntme-platform project stack. Initial post-redeploy live API
+        probes still returned SPA HTML for `/api/*` because the long-running edge
+        nginx container had not reloaded its bind-mounted config. A targeted
+        restart of only the edge container forced nginx to read the current config;
+        after that, missing Authorization and unknown PAT requests returned the
+        canonical JSON 401 instead of nginx 500 or UI fallback HTML.
+      source_commit:
+        sha: "730fc7cd8e902da1667349c51dbf23cd0e4e31ed"
+        pushed: true
+        message: "fix(platform): make token introspection runtime-native"
+      runtime_image:
+        tag: "runtime-e2e-730fc7cd-193253"
+        runtime: "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-730fc7cd-193253"
+        bpmn_worker: "ghcr.io/vladprrs/rntme-bpmn-worker:runtime-e2e-730fc7cd-193253"
+        github_actions_run: "https://github.com/vladprrs/rntme/actions/runs/25821777950"
+        status: "completed/success"
+      redeploy:
+        failed_attempt_log: ".rntme-platform-redeploy-2026-05-13-T033.jsonl"
+        successful_attempt_log: ".rntme-platform-redeploy-2026-05-13-T033-retry1.jsonl"
+        rendered_plan_digest: "sha256:a30aefa08e519c11302cba899c9ecf9590387ec16c754c6fd9f3ede529e55d71"
+        compose_id: "2mG1RpL80Q7MTmYf67Ky4"
+        target_resource_name: "rntme-direct-rntme-platform"
+        smoke: "edge-health 200; ui 200; config-json 200"
+      edge_reload:
+        action: "docker_restartContainer"
+        container_id: "12cb7a719544"
+        reason: "nginx does not reload bind-mounted config changes without a process reload/restart; edge container had remained up while mounted files were updated."
+      live_matrix_after_edge_restart:
+        - "GET https://platform.rntme.com/health -> 200 text/plain"
+        - "GET https://platform.rntme.com/api/tokens/introspect without Authorization -> 401 application/json {code:RUNTIME_AUTH_TOKEN_INVALID,message:authentication required}"
+        - "GET https://platform.rntme.com/api/tokens/introspect with synthetic unknown PAT -> 401 application/json {code:RUNTIME_AUTH_TOKEN_INVALID,message:authentication required}"
+        - "GET https://platform.rntme.com/api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 with synthetic unknown PAT -> 401 application/json {code:RUNTIME_AUTH_TOKEN_INVALID,message:authentication required}"
+      verification:
+        - cmd: "bun test packages/runtime/runtime/test/integration/http-surface-default-middleware.test.ts"
+          status: pass
+          notes: "5 pass / 0 fail"
+        - cmd: "bun test packages/deploy/deploy-dokploy/test/integration/edge-auth.test.ts"
+          status: pass
+          notes: "0 fail; testcontainers unavailable locally so integration cases skipped"
+        - cmd: "bun run --filter @rntme/runtime typecheck"
+          status: pass
+        - cmd: "bun run --filter @rntme/deploy-dokploy typecheck"
+          status: pass
+      added_regression_coverage:
+        - "Runtime integration: when bindingBasePath is '/', /api binding routes beat the UI fallback."
+        - "Deploy-dokploy integration: provider chains return canonical 401 when every provider rejects a missing Authorization request."
+      remaining_blocker: |
+        Live auth is now failing closed correctly, but there is still no durable
+        platform PAT storage/issuance path. Unknown PATs must continue to return
+        401 until T034 gives the platform a real token repository and bootstrap
+        path that can mint a valid PAT for CLI/platform-client requests.
+      next_task: T034
+
+  - id: T034
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: high
+    objective: "Implement durable platform PAT storage/issuance so live platform API requests can authenticate with a real PAT and T012 can resume."
+    inputs:
+      - "T030 Scout receipt."
+      - "T031 Judge receipt."
+      - "T032 runtime-native token introspection receipt."
+      - "T033 redeploy/reload receipt."
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+      - "docs/current/owners/packages/deploy/deploy-core.md"
+      - "docs/current/owners/packages/deploy/deploy-dokploy.md"
+      - "docs/current/owners/packages/runtime/runtime.md"
+      - "apps/platform/blueprint/services/tokens/**"
+      - "packages/platform/platform-core/src/use-cases/tokens.ts"
+      - "packages/deploy/deploy-core/src/plan.ts"
+      - "packages/deploy/deploy-dokploy/src/render.ts"
+    constraints:
+      - "Use subagent-driven development and TDD."
+      - "Do not print, persist, or commit bearer tokens, PAT plaintext, Auth0 secrets, or Dokploy secrets."
+      - "Do not bypass ordered edge auth or remove protected-route auth."
+      - "Do not make @rntme/runtime import platform-core, platform-storage, or app-specific platform code."
+      - "Prefer a narrow slice that makes platform tokens durable and mintable through platform-owned APIs; split if this requires a broader persistence architecture decision."
+      - "Preserve unrelated dirty files, especially platform.target.json and redeploy logs."
+    allowed_files:
+      - "apps/platform/blueprint/services/tokens/**"
+      - "apps/platform/blueprint/services/projects/**"
+      - "apps/platform/blueprint/test/**"
+      - "packages/platform/platform-core/src/**"
+      - "packages/platform/platform-core/test/**"
+      - "packages/deploy/deploy-core/src/**"
+      - "packages/deploy/deploy-core/test/**"
+      - "packages/deploy/deploy-dokploy/src/**"
+      - "packages/deploy/deploy-dokploy/test/**"
+      - "packages/platform/deploy-bundle-input/src/**"
+      - "packages/platform/deploy-bundle-input/test/**"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/platform/platform-core.md"
+      - "docs/current/owners/packages/deploy/deploy-core.md"
+      - "docs/current/owners/packages/deploy/deploy-dokploy.md"
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+    expected_output:
+      - "Red tests proving PATs cannot survive/mint before the fix."
+      - "Implementation summary for durable token storage and issuance/bootstrap path."
+      - "Local verification output."
+      - "Live verification: valid PAT reaches GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X with 200; missing/unknown PAT still 401."
+      - "Next T012 phase to resume."
+    verify:
+      - "bun run --filter @rntme/platform-core test"
+      - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+      - "bun run --filter @rntme/deploy-core test"
+      - "bun run --filter @rntme/deploy-dokploy test"
+      - "bun run --filter @rntme/deploy-bundle-input test"
+      - "bun run depcruise"
+    stop_if:
+      - "Durable service persistence needs a new strategic database/dialect decision beyond SQLite/Turso; update docs/decision-system.md and split the work."
+      - "A safe PAT bootstrap requires an Auth0 browser/JWT flow that cannot be automated with available credentials."
+      - "The implementation would require hardcoding a secret PAT or bypassing token hashing."
+      - "The slice expands into general platform account/org membership repair unrelated to token durability/issuance."
     receipt: null
 
 checks:

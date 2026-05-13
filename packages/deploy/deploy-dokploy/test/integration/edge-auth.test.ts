@@ -155,6 +155,15 @@ describe.skipIf(!dockerAvailable)('edge auth provider chain', () => {
       sessionStatus: 'ACTIVE',
     });
   });
+
+  it('returns the canonical 401 when every provider rejects a request without Authorization', async () => {
+    const r = await globalThis.fetch(`${baseUrl}/api/projects`);
+    expect(r.status).toBe(401);
+    expect(r.headers.get('content-type')).toContain('application/json');
+    const body = await r.json();
+    expect(body).toEqual({ code: 'RUNTIME_AUTH_TOKEN_INVALID', message: 'authentication required' });
+    expect(body).not.toHaveProperty('reason');
+  });
 });
 
 function listenForTest(server: Server): Promise<{ port: number; stop: () => Promise<void> }> {
@@ -197,6 +206,11 @@ async function startRejectingIntrospectionServer(): Promise<{ port: number; stop
 async function startAcceptingIntrospectionServer(): Promise<{ port: number; stop: () => Promise<void> }> {
   const server = createServer((req, res) => {
     if (req.url === '/introspect' || req.url === '/api/tokens/introspect') {
+      if (req.headers.authorization !== 'Bearer auth0.token.here') {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ code: 'IDENTITY_CONSISTENCY_INVALID_TOKEN', message: 'MALFORMED' }));
+        return;
+      }
       res.writeHead(200, {
         'X-Rntme-User-Sub': 'acct_1',
         'X-Rntme-User-Audience': 'urn:rntme:platform-tokens',

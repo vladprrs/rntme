@@ -100,4 +100,28 @@ describe('HttpSurface default-on middleware', () => {
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('BODY_LIMIT_EXCEEDED');
   });
+
+  it('routes /api bindings before the UI fallback when bindingBasePath is "/"', async () => {
+    const dir = cloneFixture((m) => {
+      const surface = (m.surface = (m.surface as Record<string, unknown>) ?? {});
+      const http = (surface.http = (surface.http as Record<string, unknown>) ?? {});
+      http.bindingBasePath = '/';
+    });
+    const bindingsPath = join(dir, 'bindings.json');
+    const bindings = JSON.parse(readFileSync(bindingsPath, 'utf8')) as {
+      bindings: { listIssues: { http: { path: string } } };
+    };
+    bindings.bindings.listIssues.http.path = '/api/v1/issues';
+    writeFileSync(bindingsPath, JSON.stringify(bindings));
+
+    const loaded = loadService(dir);
+    if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors));
+    running = await startService(loaded.value);
+
+    const res = await fetch(`http://127.0.0.1:${running.httpPort}/api/v1/issues?limit=1`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
 });
