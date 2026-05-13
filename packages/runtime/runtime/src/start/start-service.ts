@@ -20,6 +20,7 @@ import type {
 } from '../plugins/interfaces.js';
 import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../plugins/interfaces.js';
 import { GraphOperationExecutor } from '../plugins/executors/graph-operation-executor.js';
+import { NativeOperationExecutor } from '../plugins/executors/native-operation-executor.js';
 import { buildDefaultGraphIrOperationMap } from '@rntme/bindings-http';
 import type { OperationCallClient, OperationRegistry, OperationTarget } from '@rntme/graph-ir-compiler';
 import type { RunningService, ValidatedService } from '../types.js';
@@ -118,8 +119,13 @@ export async function startService(
       `Failed to compile operation bindings: ${JSON.stringify(defaultOperationMapResult.errors)}`,
     );
   }
-  const operationExecutor =
+  const baseOperationExecutor =
     runtimeConfig.operationExecutor ?? new GraphOperationExecutor(defaultOperationMapResult.value);
+  const operationExecutor =
+    runtimeConfig.nativeOperationHandlers !== undefined
+    && Object.keys(runtimeConfig.nativeOperationHandlers).length > 0
+      ? new NativeOperationExecutor(runtimeConfig.nativeOperationHandlers, baseOperationExecutor)
+      : baseOperationExecutor;
 
   // Must run after wireEventPipeline creates the seen_events table.
   const stopSeenEventsRetention = startSeenEventsRetention(pipeline.qsmDb);

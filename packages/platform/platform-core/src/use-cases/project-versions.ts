@@ -4,10 +4,12 @@ import type { Ids } from '../ids.js';
 import type { ProjectRepo } from '../repos/project-repo.js';
 import type { ProjectVersionRepo } from '../repos/project-version-repo.js';
 import type {
+  CanonicalBundle,
   ProjectVersion,
   ProjectVersionSummary,
 } from '../schemas/project-version.js';
-import { isOk, ok, type PlatformError, type Result } from '../types/result.js';
+import { err, isOk, ok, type PlatformError, type Result } from '../types/result.js';
+import { parseCanonicalBundle } from '../validation/canonical-bundle.js';
 
 type Deps = {
   repos: {
@@ -88,4 +90,114 @@ export async function getProjectVersion(
   input: { projectId: string; seq: number },
 ): Promise<Result<ProjectVersion | null, PlatformError>> {
   return deps.repos.projectVersions.getBySeq(input.projectId, input.seq);
+}
+
+export type PublishProjectVersionFromBundleBytesInput = {
+  readonly orgId: string;
+  readonly projectId: string;
+  readonly accountId: string;
+  readonly tokenId: string | null;
+  readonly bundleBytes: Buffer;
+  /**
+   * Optional client-claimed digest. When provided, must match the server-computed
+   * digest of the canonical bytes; otherwise PROJECT_VERSION_DIGEST_MISMATCH.
+   */
+  readonly claimedDigest?: string;
+};
+
+export async function publishProjectVersionFromBundleBytes(
+  deps: Deps,
+  input: PublishProjectVersionFromBundleBytesInput,
+): Promise<Result<ProjectVersion, PlatformError>> {
+  const parsed = parseCanonicalBundle(input.bundleBytes);
+  if (!isOk(parsed)) return parsed;
+
+  if (parsed.value.bundle.version !== 2) {
+    return err([
+      {
+        code: 'PROJECT_VERSION_BUNDLE_UNSUPPORTED_VERSION',
+        message: `bundle.version must be 2; got ${String(parsed.value.bundle.version)}`,
+        stage: 'parse',
+      },
+    ]);
+  }
+
+  if (input.claimedDigest !== undefined && input.claimedDigest !== parsed.value.digest) {
+    return err([
+      {
+        code: 'PROJECT_VERSION_DIGEST_MISMATCH',
+        message: `claimed digest "${input.claimedDigest}" does not match server-computed "${parsed.value.digest}"`,
+        stage: 'parse',
+      },
+    ]);
+  }
+
+  const summary = summaryFromBundle(parsed.value.bundle);
+  if (!isOk(summary)) return summary;
+
+  return publishProjectVersion(deps, {
+    orgId: input.orgId,
+    projectId: input.projectId,
+    accountId: input.accountId,
+    tokenId: input.tokenId,
+    bundleBytes: input.bundleBytes,
+    bundleDigest: parsed.value.digest,
+    summary: summary.value,
+  });
+}
+
+function summaryFromBundle(
+  bundle: CanonicalBundle,
+): Result<ProjectVersionSummary, PlatformError> {
+  const projectFile = bundle.files['project.json'];
+  if (!isRecord(projectFile)) {
+    return err([
+      {
+        code: 'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
+        message: 'bundle files["project.json"] is missing or not an object',
+        stage: 'parse',
+      },
+    ]);
+  }
+
+  const name = projectFile.name;
+  if (typeof name !== 'string' || name.length === 0) {
+    return err([
+      {
+        code: 'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
+        message: 'project.json.name must be a non-empty string',
+        stage: 'parse',
+      },
+    ]);
+  }
+
+  const services = Array.isArray(projectFile.services)
+    ? projectFile.services.filter((s): s is string => typeof s === 'string')
+    : [];
+
+  const routesRaw = isRecord(projectFile.routes) ? projectFile.routes : {};
+  const uiRoutes = isRecord(routesRaw.ui) ? recordOfStrings(routesRaw.ui) : {};
+  const httpRoutes = isRecord(routesRaw.http) ? recordOfStrings(routesRaw.http) : {};
+  const middleware = isRecord(projectFile.middleware) ? { ...projectFile.middleware } : {};
+  const mounts = Array.isArray(projectFile.mounts) ? [...projectFile.mounts] : [];
+
+  return ok({
+    projectName: name,
+    services,
+    routes: { ui: uiRoutes, http: httpRoutes },
+    middleware,
+    mounts,
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function recordOfStrings(value: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
 }

@@ -68,6 +68,41 @@ describe('validateBindings', () => {
     if (!r.ok) expect(r.errors.every((e) => e.layer === 'references')).toBe(true);
   });
 
+  it('passes the full pipeline for a native-engine binding without consulting graph resolvers', () => {
+    const nativeArtifact: BindingArtifact = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        publishProjectBundle: {
+          exposure: 'action',
+          graph: 'publishProjectBundle',
+          target: { engine: 'native', dialect: 'platform' },
+          http: {
+            method: 'POST',
+            path: '/{projectId}/versions',
+            parameters: [
+              { name: 'projectId', in: 'path', bindTo: 'projectId', required: true },
+            ],
+          },
+          inputFrom: {
+            authorization: { from: 'header', name: 'authorization', required: true },
+            bodyBytes: { from: 'bodyBytes' },
+          },
+        },
+      },
+    };
+
+    const r = validateBindings(nativeArtifact, {
+      resolveGraphSignature: () => {
+        throw new Error('graph resolver must not be consulted for native bindings');
+      },
+      resolveShape: () => null,
+    });
+    expect(r.ok).toBe(true);
+  });
+
   it('fails at consistency layer', () => {
     const sig: GraphSignature = {
       ...goodSig,

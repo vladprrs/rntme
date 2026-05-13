@@ -108,6 +108,53 @@ describe('validateReferences', () => {
     }
   });
 
+  it('synthesizes a signature for native-engine bindings without resolver lookup', () => {
+    const nativeArtifact = {
+      version: '1.0',
+      graphSpecRef: 'x',
+      pdmRef: 'y',
+      qsmRef: 'z',
+      bindings: {
+        publishProjectBundle: {
+          exposure: 'action' as const,
+          graph: 'publishProjectBundle',
+          target: { engine: 'native', dialect: 'platform' },
+          http: {
+            method: 'POST' as const,
+            path: '/{projectId}/versions',
+            parameters: [
+              { name: 'projectId', in: 'path' as const, bindTo: 'projectId', required: true },
+            ],
+          },
+          inputFrom: {
+            authorization: { from: 'header', name: 'authorization', required: true },
+            bodyBytes: { from: 'bodyBytes' },
+          },
+        },
+      },
+    } as unknown as StructurallyValid;
+
+    const resolvers: BindingResolvers = {
+      resolveGraphSignature: (id) => {
+        throw new Error(`resolver must not be consulted for native graph "${id}"`);
+      },
+      resolveShape: () => null,
+    };
+
+    const r = validateReferences(nativeArtifact, resolvers);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const resolved = r.value.resolved.publishProjectBundle;
+      expect(resolved).toBeDefined();
+      expect(resolved?.signature.id).toBe('publishProjectBundle');
+      expect(resolved?.signature.inputs.projectId?.mode).toBe('required');
+      // inputFrom keys are synthesized as defaulted scalars
+      expect(resolved?.signature.inputs.authorization?.mode).toBe('defaulted');
+      expect(resolved?.signature.inputs.bodyBytes?.mode).toBe('defaulted');
+      expect(resolved?.outputShape.name).toBe('CommandResult');
+    }
+  });
+
   it('resolves reserved CommandResult shape without consulting resolver', () => {
     const cmdArtifact = {
       version: '1.0',

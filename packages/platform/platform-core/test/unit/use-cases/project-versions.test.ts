@@ -7,7 +7,11 @@ import type {
   ProjectVersion,
   ProjectVersionRepo,
 } from '../../../src/index.js';
-import { publishProjectVersion } from '../../../src/use-cases/project-versions.js';
+import {
+  publishProjectVersion,
+  publishProjectVersionFromBundleBytes,
+} from '../../../src/use-cases/project-versions.js';
+import { canonicalBundleDigest } from '../../../src/validation/canonical-bundle.js';
 import { ok } from '../../../src/types/result.js';
 
 function makeFakeRepos() {
@@ -127,5 +131,183 @@ describe('publishProjectVersion', () => {
     expect(a.ok && b.ok).toBe(true);
     if (a.ok && b.ok) expect(a.value.id).toBe(b.value.id);
     expect(fakes.blob.putIfAbsent).toHaveBeenCalledTimes(1);
+  });
+});
+
+function makeBundleBytes(overrides: Record<string, unknown> = {}): Buffer {
+  const bundle = {
+    version: 2,
+    files: {
+      'project.json': {
+        name: 'cv-extract',
+        services: ['intake', 'extract'],
+        routes: { ui: { '/': 'ui-app' }, http: { '/api': 'extract' } },
+        middleware: { logger: { level: 'info' } },
+        mounts: [{ target: '/api', use: ['extract'] }],
+      },
+    },
+    ...overrides,
+  };
+  return Buffer.from(JSON.stringify(bundle));
+}
+
+describe('publishProjectVersionFromBundleBytes', () => {
+  it('parses bundle, computes server digest, and publishes', async () => {
+    const fakes = makeFakeRepos();
+    const bytes = makeBundleBytes();
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+
+    const r = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.seq).toBe(1);
+      expect(r.value.summary.projectName).toBe('cv-extract');
+      expect(r.value.summary.services).toEqual(['intake', 'extract']);
+      expect(r.value.summary.routes.http).toEqual({ '/api': 'extract' });
+      // Digest must be deterministic / canonical
+      expect(r.value.bundleDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    }
+    expect(fakes.blob.putIfAbsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects claimedDigest that does not match server-computed digest', async () => {
+    const fakes = makeFakeRepos();
+    const bytes = makeBundleBytes();
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+
+    const r = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+      claimedDigest: 'sha256:' + '0'.repeat(64),
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_VERSION_DIGEST_MISMATCH');
+  });
+
+  it('rejects bundles with unsupported version (not 2)', async () => {
+    const fakes = makeFakeRepos();
+    const bytes = makeBundleBytes({ version: 1 });
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+
+    const r = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_VERSION_BUNDLE_UNSUPPORTED_VERSION');
+  });
+
+  it('returns parse error on malformed JSON', async () => {
+    const fakes = makeFakeRepos();
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+
+    const r = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: Buffer.from('not-json'),
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]?.code).toBe('PROJECT_VERSION_BUNDLE_PARSE_ERROR');
+  });
+
+  it('is idempotent when the same digest is published twice', async () => {
+    const fakes = makeFakeRepos();
+    const bytes = makeBundleBytes();
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+
+    const a = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+    });
+    const b = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+    });
+
+    expect(a.ok && b.ok).toBe(true);
+    if (a.ok && b.ok) {
+      expect(a.value.id).toBe(b.value.id);
+      expect(a.value.bundleDigest).toBe(b.value.bundleDigest);
+    }
+    expect(fakes.blob.putIfAbsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts claimedDigest when it matches server digest', async () => {
+    const fakes = makeFakeRepos();
+    const bytes = makeBundleBytes();
+    const deps = {
+      repos: { projects: fakes.projects, projectVersions: fakes.projectVersions },
+      blob: fakes.blob,
+      ids: fakes.ids,
+    };
+    // Parse and canonical-digest the same bundle
+    const expectedDigest = canonicalBundleDigest({
+      version: 2,
+      files: {
+        'project.json': {
+          name: 'cv-extract',
+          services: ['intake', 'extract'],
+          routes: { ui: { '/': 'ui-app' }, http: { '/api': 'extract' } },
+          middleware: { logger: { level: 'info' } },
+          mounts: [{ target: '/api', use: ['extract'] }],
+        },
+      },
+    });
+
+    const r = await publishProjectVersionFromBundleBytes(deps, {
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      accountId: 'acc-1',
+      tokenId: null,
+      bundleBytes: bytes,
+      claimedDigest: expectedDigest,
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.bundleDigest).toBe(expectedDigest);
   });
 });

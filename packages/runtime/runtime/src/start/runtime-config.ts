@@ -5,6 +5,7 @@ import type { ApplyMode } from '@rntme/seed';
 import type { OperationExecutor } from '@rntme/bindings-http/operation-contract';
 import type { DbDriver, EventBus, Surface } from '../plugins/interfaces.js';
 import type { ExternalAdapterClient } from '../plugins/adapter-client/index.js';
+import type { NativeOperationHandlerMap } from '../plugins/executors/native-operation-executor.js';
 
 export type RuntimeConfig = {
   db?: DbDriver;
@@ -15,6 +16,7 @@ export type RuntimeConfig = {
   seedMode?: ApplyMode;
   skipSeed?: boolean;
   operationExecutor?: OperationExecutor;
+  nativeOperationHandlers?: NativeOperationHandlerMap;
   externalAdapterClient?: ExternalAdapterClient;
   artifactDir?: string;
   runtimeEnv?: Record<string, string | undefined>;
@@ -33,6 +35,7 @@ export type RuntimeConfigValidationErrorCode =
   | 'RUNTIME_CONFIG_SKIP_SEED_INVALID'
   | 'RUNTIME_CONFIG_SEED_MODE_WITH_SKIP_SEED'
   | 'RUNTIME_CONFIG_OPERATION_EXECUTOR_INVALID'
+  | 'RUNTIME_CONFIG_NATIVE_OPERATION_HANDLERS_INVALID'
   | 'RUNTIME_CONFIG_EXTERNAL_ADAPTER_CLIENT_INVALID'
   | 'RUNTIME_CONFIG_ARTIFACT_DIR_INVALID'
   | 'RUNTIME_CONFIG_RUNTIME_ENV_INVALID'
@@ -80,6 +83,7 @@ export function validateRuntimeConfig(config: unknown): RuntimeConfigValidationR
   validateFunction(config, 'onReady', 'RUNTIME_CONFIG_ON_READY_INVALID', errors);
   validateSeedOptions(config, errors);
   validateExecutor(config, 'operationExecutor', 'RUNTIME_CONFIG_OPERATION_EXECUTOR_INVALID', errors);
+  validateNativeOperationHandlers(config, errors);
   validateExternalAdapterClient(config, errors);
   validateArtifactDir(config, errors);
   validateRuntimeEnv(config, errors);
@@ -191,6 +195,31 @@ function validateExecutor(
       path: field,
       message: `${field} must expose execute(input)`,
     });
+  }
+}
+
+function validateNativeOperationHandlers(
+  config: Record<string, unknown>,
+  errors: RuntimeConfigValidationError[],
+): void {
+  const handlers = config.nativeOperationHandlers;
+  if (handlers === undefined) return;
+  if (!isRecord(handlers)) {
+    errors.push({
+      code: 'RUNTIME_CONFIG_NATIVE_OPERATION_HANDLERS_INVALID',
+      path: 'nativeOperationHandlers',
+      message: 'nativeOperationHandlers must be a record of name -> function',
+    });
+    return;
+  }
+  for (const [name, fn] of Object.entries(handlers)) {
+    if (typeof fn !== 'function') {
+      errors.push({
+        code: 'RUNTIME_CONFIG_NATIVE_OPERATION_HANDLERS_INVALID',
+        path: `nativeOperationHandlers.${name}`,
+        message: `nativeOperationHandlers.${name} must be a function`,
+      });
+    }
   }
 }
 
