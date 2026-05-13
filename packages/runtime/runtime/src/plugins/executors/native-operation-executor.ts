@@ -48,10 +48,8 @@ export class NativeOperationExecutor implements OperationExecutor {
         },
       };
     } catch (err) {
-      const typedCode =
-        err instanceof Error && typeof (err as { code?: unknown }).code === 'string'
-          ? (err as { code: string }).code
-          : null;
+      const rawCode = err instanceof Error ? (err as Error & { code?: unknown }).code : undefined;
+      const typedCode = typeof rawCode === 'string' ? rawCode : null;
       return {
         ok: false,
         error: {
