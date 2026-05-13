@@ -17,23 +17,23 @@ describe('cv-extract demo: composition', () => {
     expect(project.services).toEqual(['app', 'openrouter', 'storage-s3']);
   });
 
-  it('project.json modules wire openrouter, storage, and marketing modules', () => {
+  it('project.json modules wire openrouter, storage, and marketing-site modules', () => {
     const project = readJson<{
       modules: Record<string, { package: string; publicConfig?: Record<string, unknown> }>;
     }>('project.json');
     expect(project.modules.openrouter?.package).toBe('@rntme/ai-llm-openrouter');
     expect(project.modules.storage?.package).toBe('@rntme/storage-s3');
-    expect(project.modules.marketing?.package).toBe('@rntme/marketing-site-static');
-    expect((project.modules.marketing?.publicConfig as { source: { kind: string } }).source.kind).toBe(
-      'project-folder',
-    );
+    expect(project.modules['marketing-site']?.package).toBe('@rntme/marketing-site-static');
+    expect(
+      (project.modules['marketing-site']?.publicConfig as { source: { kind: string } }).source.kind,
+    ).toBe('project-folder');
   });
 
-  it('MARKETING_DOMAIN var sources from target.modules.marketing.primaryDomain', () => {
+  it('MARKETING_DOMAIN var sources from target.modules.marketing-site.primaryDomain', () => {
     const project = readJson<{
       vars: Record<string, { from: string; required?: boolean }>;
     }>('project.json');
-    expect(project.vars.MARKETING_DOMAIN?.from).toBe('target.modules.marketing.primaryDomain');
+    expect(project.vars.MARKETING_DOMAIN?.from).toBe('target.modules.marketing-site.primaryDomain');
     expect(project.vars.MARKETING_DOMAIN?.required).toBe(true);
   });
 

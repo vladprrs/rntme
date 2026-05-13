@@ -2,7 +2,7 @@
   "name": "cv-extract",
   "services": ["app", "openrouter", "storage-s3"],
   "vars": {
-    "MARKETING_DOMAIN": { "from": "target.modules.marketing.primaryDomain", "required": true }
+    "MARKETING_DOMAIN": { "from": "target.modules.marketing-site.primaryDomain", "required": true }
   },
   "modules": {
     "openrouter": {
@@ -20,7 +20,7 @@
         "region": "us-east-1"
       }
     },
-    "marketing": {
+    "marketing-site": {
       "package": "@rntme/marketing-site-static",
       "publicConfig": {
         "source": {

@@ -22,7 +22,7 @@ describe('cv-extract demo: landing deploy packing', () => {
     );
     expect(projectFolderKeys).toHaveLength(1);
     expect(projectFolderKeys[0]).toMatch(
-      /^assets\/project-folders\/marketing\/[0-9a-f]{64}\.tar\.gz$/,
+      /^assets\/project-folders\/marketing-site\/[0-9a-f]{64}\.tar\.gz$/,
     );
   });
 
@@ -32,9 +32,9 @@ describe('cv-extract demo: landing deploy packing', () => {
     if (!built.ok) return;
 
     const projectJson = built.value.bundle.files['project.json'] as {
-      modules: { marketing: { publicConfig: { source: { kind: string; path: string } } } };
+      modules: { 'marketing-site': { publicConfig: { source: { kind: string; path: string } } } };
     };
-    expect(projectJson.modules.marketing.publicConfig.source).toEqual({
+    expect(projectJson.modules['marketing-site'].publicConfig.source).toEqual({
       kind: 'project-folder',
       path: 'landing',
     });

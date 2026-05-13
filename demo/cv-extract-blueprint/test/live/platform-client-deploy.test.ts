@@ -68,7 +68,7 @@ describe.skipIf(!ENABLED)('cv-extract live platform-client deploy smoke', () => 
           'storage-s3': {
             image: storageS3Image,
           },
-          marketing: {
+          'marketing-site': {
             primaryDomain: 'cv.example.com',
             ssl: 'auto',
           },
