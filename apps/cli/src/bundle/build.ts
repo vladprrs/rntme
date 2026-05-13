@@ -19,7 +19,7 @@ export type BuiltProjectBundle = {
   readonly size: number;
 };
 
-export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, CliError> {
+export async function buildProjectBundle(folder: string): Promise<Result<BuiltProjectBundle, CliError>> {
   const root = resolve(folder);
   const files = collectFiles(root);
   if (!files.ok) return files;
@@ -38,7 +38,7 @@ export function buildProjectBundle(folder: string): Result<BuiltProjectBundle, C
     }
   }
 
-  const assetsResult = collectBundleAssets(root, bundleFiles, files.value);
+  const assetsResult = await collectBundleAssets(root, bundleFiles, files.value);
   if (!assetsResult.ok) {
     const e = assetsResult.errors[0] ?? { code: 'CLI_VALIDATE_LOCAL_FAILED' as const, message: 'unknown asset collection error' };
     return err(cliError(

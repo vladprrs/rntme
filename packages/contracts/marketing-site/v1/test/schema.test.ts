@@ -64,4 +64,39 @@ describe('validateMarketingSiteConfig', () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.errors[0]?.code).toBe('MARKETING_SITE_VALIDATE_INVALID_SOURCE');
   });
+
+  it('accepts a project-folder source with a relative path', () => {
+    const out = validateMarketingSiteConfig({
+      source: { kind: 'project-folder', path: 'landing' },
+      primaryDomain: 'example.com',
+      ssl: 'auto',
+    });
+
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.value.source).toEqual({ kind: 'project-folder', path: 'landing' });
+    }
+  });
+
+  it('rejects an absolute project-folder path', () => {
+    const out = validateMarketingSiteConfig({
+      source: { kind: 'project-folder', path: '/etc/landing' },
+      primaryDomain: 'example.com',
+      ssl: 'auto',
+    });
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.errors[0]?.code).toBe('MARKETING_SITE_VALIDATE_INVALID_SOURCE');
+  });
+
+  it('rejects a project-folder path with .. traversal', () => {
+    const out = validateMarketingSiteConfig({
+      source: { kind: 'project-folder', path: '../outside' },
+      primaryDomain: 'example.com',
+      ssl: 'auto',
+    });
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.errors[0]?.code).toBe('MARKETING_SITE_VALIDATE_INVALID_SOURCE');
+  });
 });

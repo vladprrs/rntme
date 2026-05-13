@@ -4,26 +4,26 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildProjectBundle, canonicalBundleDigest } from '../../../src/bundle/build.js';
 
-function withTmp(fn: (dir: string) => void): void {
+async function withTmp(fn: (dir: string) => Promise<void> | void): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), 'rntme-bundle-'));
   try {
-    fn(dir);
+    await fn(dir);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
 describe('buildProjectBundle', () => {
-  it('builds a deterministic canonical project bundle from JSON files', () => {
-    withTmp((dir) => {
+  it('builds a deterministic canonical project bundle from JSON files', async () => {
+    await withTmp(async (dir) => {
       mkdirSync(join(dir, 'pdm'), { recursive: true });
       mkdirSync(join(dir, 'services', 'app', 'qsm'), { recursive: true });
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: ['app'], name: 'demo' }));
       writeFileSync(join(dir, 'pdm', 'pdm.json'), JSON.stringify({ version: '1' }));
       writeFileSync(join(dir, 'services', 'app', 'qsm', 'qsm.json'), JSON.stringify({ relations: {}, version: '1' }));
 
-      const first = buildProjectBundle(dir);
-      const second = buildProjectBundle(dir);
+      const first = await buildProjectBundle(dir);
+      const second = await buildProjectBundle(dir);
 
       expect(first.ok).toBe(true);
       expect(second.ok).toBe(true);
@@ -39,24 +39,24 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('rejects folders without root project.json', () => {
-    withTmp((dir) => {
+  it('rejects folders without root project.json', async () => {
+    await withTmp(async (dir) => {
       mkdirSync(join(dir, 'pdm'), { recursive: true });
       writeFileSync(join(dir, 'pdm', 'pdm.json'), '{}');
 
-      const result = buildProjectBundle(dir);
+      const result = await buildProjectBundle(dir);
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.error.code).toBe('CLI_CONFIG_MISSING');
     });
   });
 
-  it('ignores non-JSON support files inside the project folder', () => {
-    withTmp((dir) => {
+  it('ignores non-JSON support files inside the project folder', async () => {
+    await withTmp(async (dir) => {
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: [], name: 'demo' }));
       writeFileSync(join(dir, 'README.md'), '# demo');
 
-      const result = buildProjectBundle(dir);
+      const result = await buildProjectBundle(dir);
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
@@ -64,8 +64,8 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('emits workflow BPMN files as assets while keeping workflows.json in files', () => {
-    withTmp((dir) => {
+  it('emits workflow BPMN files as assets while keeping workflows.json in files', async () => {
+    await withTmp(async (dir) => {
       mkdirSync(join(dir, 'workflows'), { recursive: true });
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: [], name: 'demo' }));
       writeFileSync(join(dir, 'workflows', 'workflows.json'), JSON.stringify({
@@ -83,7 +83,7 @@ describe('buildProjectBundle', () => {
       const bpmn = '<bpmn:definitions><bpmn:process id="orderFulfillment" /></bpmn:definitions>';
       writeFileSync(join(dir, 'workflows', 'order-fulfillment.bpmn'), bpmn);
 
-      const result = buildProjectBundle(dir);
+      const result = await buildProjectBundle(dir);
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
@@ -97,14 +97,14 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('does not bundle service-local command handler modules', () => {
-    withTmp((dir) => {
+  it('does not bundle service-local command handler modules', async () => {
+    await withTmp(async (dir) => {
       mkdirSync(join(dir, 'services', 'inventory', 'commands'), { recursive: true });
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ services: ['inventory'], name: 'demo' }));
       const handlers = 'export const handlers = { reserveStock: async () => ({ ok: true }) };';
       writeFileSync(join(dir, 'services', 'inventory', 'commands', 'handlers.mjs'), handlers);
 
-      const result = buildProjectBundle(dir);
+      const result = await buildProjectBundle(dir);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -114,7 +114,7 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('emits version 2 bundles with assets when modules declare provisioner.entry', () => {
+  it('emits version 2 bundles with assets when modules declare provisioner.entry', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
     try {
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
@@ -127,7 +127,7 @@ describe('buildProjectBundle', () => {
       const js = 'export const provision = () => {};\nexport const tearDown = () => {};';
       writeFileSync(join(dir, 'node_modules/auth0/dist/provisioner.entry.js'), js);
 
-      const r = buildProjectBundle(dir);
+      const r = await buildProjectBundle(dir);
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.value.bundle.version).toBe(2);
@@ -139,8 +139,8 @@ describe('buildProjectBundle', () => {
     }
   });
 
-  it('ignores dependency JSON under node_modules except module manifests', () => {
-    withTmp((dir) => {
+  it('ignores dependency JSON under node_modules except module manifests', async () => {
+    await withTmp(async (dir) => {
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
       mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true });
       writeFileSync(join(dir, 'node_modules', 'dep', 'package.json'), '{ invalid json');
@@ -156,7 +156,7 @@ describe('buildProjectBundle', () => {
       mkdirSync(join(dir, 'node_modules', 'ordinary-dep'), { recursive: true });
       writeFileSync(join(dir, 'node_modules', 'ordinary-dep', 'package.json'), '{ invalid json');
 
-      const r = buildProjectBundle(dir);
+      const r = await buildProjectBundle(dir);
 
       expect(r.ok).toBe(true);
       if (!r.ok) return;
@@ -168,8 +168,8 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('normalizes bundled module capabilities for platform validator compatibility', () => {
-    withTmp((dir) => {
+  it('normalizes bundled module capabilities for platform validator compatibility', async () => {
+    await withTmp(async (dir) => {
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
       mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true });
       writeFileSync(join(dir, 'node_modules', 'dep', 'module.json'), JSON.stringify({
@@ -187,7 +187,7 @@ describe('buildProjectBundle', () => {
         },
       }));
 
-      const r = buildProjectBundle(dir);
+      const r = await buildProjectBundle(dir);
 
       expect(r.ok).toBe(true);
       if (!r.ok) return;
@@ -203,7 +203,7 @@ describe('buildProjectBundle', () => {
     });
   });
 
-  it('returns BLUEPRINT_PROVISIONER_ENTRY_MISSING from buildProjectBundle when entry absent', () => {
+  it('returns BLUEPRINT_PROVISIONER_ENTRY_MISSING from buildProjectBundle when entry absent', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'rntme-build-'));
     try {
       writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
@@ -212,11 +212,57 @@ describe('buildProjectBundle', () => {
         name: '@a/x', version: '1.0.0',
         provisioner: { entry: './dist/missing.js' },
       }));
-      const r = buildProjectBundle(dir);
+      const r = await buildProjectBundle(dir);
       expect(r.ok).toBe(false);
       if (!r.ok) {
         expect(r.error.message).toContain('BLUEPRINT_PROVISIONER_ENTRY_MISSING');
       }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('packs project-folder marketing source into assets/project-folders/<moduleKey>/<sha>.tar.gz', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rntme-build-pf-'));
+    try {
+      mkdirSync(join(dir, 'landing'), { recursive: true });
+      writeFileSync(join(dir, 'landing', 'index.html'), '<h1>hi</h1>');
+      writeFileSync(join(dir, 'landing', 'styles.css'), 'body{}');
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({
+        name: 'demo',
+        services: [],
+        modules: {
+          marketing: {
+            package: '@rntme/marketing-site-static',
+            publicConfig: {
+              source: { kind: 'project-folder', path: 'landing' },
+              primaryDomain: 'mkt.example.com',
+              ssl: 'auto',
+            },
+          },
+        },
+      }));
+
+      const r = await buildProjectBundle(dir);
+
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+
+      // project.json source must be preserved authored-as-declared
+      const projectJson = r.value.bundle.files['project.json'] as Record<string, unknown>;
+      const modules = projectJson.modules as Record<string, { publicConfig: { source: unknown } }>;
+      expect(modules.marketing?.publicConfig.source).toEqual({
+        kind: 'project-folder',
+        path: 'landing',
+      });
+
+      const projectFolderKeys = Object.keys(r.value.bundle.assets).filter((k) =>
+        k.startsWith('assets/project-folders/'),
+      );
+      expect(projectFolderKeys).toHaveLength(1);
+      expect(projectFolderKeys[0]).toMatch(
+        /^assets\/project-folders\/marketing\/[0-9a-f]{64}\.tar\.gz$/,
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

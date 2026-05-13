@@ -2,6 +2,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { safeProvisionerName } from '@rntme/blueprint';
+import { collectProjectFolderAssets } from './project-folder-assets.js';
 
 const MAX_ASSETS_BYTES = 10 * 1024 * 1024;
 
@@ -11,6 +12,8 @@ export type CollectAssetsError = Readonly<{
     | 'BLUEPRINT_PROVISIONER_ENTRY_MISSING'
     | 'BLUEPRINT_MODULE_CLIENT_ASSET_MISSING'
     | 'BLUEPRINT_MODULE_CLIENT_ASSET_SCRIPT_REJECTED'
+    | 'BLUEPRINT_PROJECT_FOLDER_ASSET_MISSING'
+    | 'BLUEPRINT_PROJECT_FOLDER_ASSET_INVALID'
     | 'CLI_BUNDLE_ASSETS_TOO_LARGE';
   message: string;
 }>;
@@ -22,11 +25,11 @@ export type CollectAssetsResult = CollectAssetsOk | CollectAssetsErr;
 type ProvisionerBlock = { entry?: unknown };
 type ManifestShape = { name?: unknown; provisioner?: unknown };
 
-export function collectBundleAssets(
+export async function collectBundleAssets(
   root: string,
   bundleFiles: Readonly<Record<string, unknown>>,
   projectFiles: readonly string[],
-): CollectAssetsResult {
+): Promise<CollectAssetsResult> {
   const out: Record<string, string> = {};
   const budget = { totalBytes: 0 };
 
@@ -41,6 +44,10 @@ export function collectBundleAssets(
 
   const commandHandlers = rejectCommandHandlerAssets(projectFiles);
   if (!commandHandlers.ok) return commandHandlers;
+
+  const projectFolders = await collectProjectFolderAssets(root, bundleFiles, budget, MAX_ASSETS_BYTES);
+  if (!projectFolders.ok) return projectFolders;
+  for (const [key, value] of Object.entries(projectFolders.value)) out[key] = value;
 
   return { ok: true, value: out };
 }

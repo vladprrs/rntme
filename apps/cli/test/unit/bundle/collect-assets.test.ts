@@ -60,13 +60,13 @@ describe('collectProvisionerAssets', () => {
     }
   });
 
-  it('collects workflow BPMN files under their project-relative asset paths', () => {
+  it('collects workflow BPMN files under their project-relative asset paths', async () => {
     const bpmn = '<bpmn:definitions><bpmn:process id="orderFulfillment" /></bpmn:definitions>';
     writeBpmn('workflows/order-fulfillment.bpmn', bpmn);
     writeBpmn('workflows/nested/retry.bpmn', '<bpmn:definitions />');
     writeBpmn('services/api/local.bpmn', '<bpmn:definitions />');
 
-    const r = collectBundleAssets(root, bundleFiles({
+    const r = await collectBundleAssets(root, bundleFiles({
       'project.json': { name: 'demo', services: [] },
       'workflows/workflows.json': {
         workflowVersion: 1,
@@ -155,7 +155,7 @@ describe('collectProvisionerAssets', () => {
     }
   });
 
-  it('collects declared module client assets under their package-relative paths', () => {
+  it('collects declared module client assets under their package-relative paths', async () => {
     writeManifest('node_modules/@rntme/platform-ui/module.json', {
       name: '@rntme/platform-ui',
       version: '0.0.0',
@@ -169,7 +169,7 @@ describe('collectProvisionerAssets', () => {
     writeJs('node_modules/@rntme/platform-ui/assets/platform-ui.css', '.platform{}');
     writeJs('node_modules/@rntme/platform-ui/assets/logo-monogram.svg', '<svg></svg>');
 
-    const result = collectBundleAssets(root, bundleFiles({
+    const result = await collectBundleAssets(root, bundleFiles({
       'project.json': {
         name: 'demo',
         services: [],

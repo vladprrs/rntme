@@ -2,10 +2,19 @@ import type { z } from 'zod';
 import { MarketingSiteV1ConfigSchema } from './schema.js';
 import type { MarketingSiteV1Config } from './types.js';
 
-export { BundleSourceSchema, MarketingSiteV1ConfigSchema } from './schema.js';
+export {
+  BundleSourceSchema,
+  MarketingSiteV1ConfigSchema,
+  ProjectFolderSourceSchema,
+} from './schema.js';
 export { allErrorCodes, errorCodes } from './error-codes.js';
 export type { MarketingSiteErrorCode, MarketingSiteErrorCodes } from './error-codes.js';
-export type { BundleSource, BundleSourceKind, MarketingSiteV1Config } from './types.js';
+export type {
+  BundleSource,
+  BundleSourceKind,
+  MarketingSiteV1Config,
+  ProjectFolderSource,
+} from './types.js';
 
 export type ValidationError = {
   code: MarketingSiteValidationErrorCode;

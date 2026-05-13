@@ -45,7 +45,7 @@ export async function runProjectPublish(args: ProjectPublishArgs, flags: CommonF
       if (!project) return err(cliError('CLI_CONFIG_MISSING', 'no project; use --project'));
 
       const folder = resolve(process.cwd(), args.folder ?? '.');
-      const built = buildProjectBundle(folder);
+      const built = await buildProjectBundle(folder);
       if (!isOk(built)) return built;
 
       const composed = await materializeAndCompose(built.value.bundle);
