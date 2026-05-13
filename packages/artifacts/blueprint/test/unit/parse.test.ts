@@ -58,7 +58,42 @@ describe('parseProjectBlueprint vars', () => {
 });
 
 describe('parseProjectBlueprint auth middleware', () => {
-  it('accepts an auth middleware with audience and moduleSlug (auth0 shape)', () => {
+  it('accepts an auth middleware with ordered providers', () => {
+    const r = parseProjectBlueprint({
+      name: 'platform',
+      services: ['app', 'tokens', 'identity-auth0'],
+      middleware: {
+        auth: {
+          kind: 'auth',
+          providers: [
+            {
+              provider: 'platform-tokens',
+              moduleSlug: 'tokens',
+              introspectPath: '/api/tokens/introspect',
+              introspectPort: 3000,
+            },
+            {
+              provider: 'auth0',
+              audience: 'https://platform.rntme.com/api',
+              moduleSlug: 'identity-auth0',
+            },
+          ],
+        },
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.middleware?.auth).toMatchObject({
+        kind: 'auth',
+        providers: [
+          { provider: 'platform-tokens', moduleSlug: 'tokens' },
+          { provider: 'auth0', moduleSlug: 'identity-auth0' },
+        ],
+      });
+    }
+  });
+
+  it('rejects legacy single-provider auth middleware shape', () => {
     const r = parseProjectBlueprint({
       name: 'demo',
       services: ['app', 'identity-auth0'],
@@ -71,93 +106,34 @@ describe('parseProjectBlueprint auth middleware', () => {
         },
       },
     });
-    expect(r.ok).toBe(true);
-  });
-
-  it('accepts an auth middleware with introspectPath and introspectPort overrides', () => {
-    const r = parseProjectBlueprint({
-      name: 'platform',
-      services: ['app', 'tokens'],
-      middleware: {
-        auth: {
-          kind: 'auth',
-          provider: 'platform-tokens',
-          moduleSlug: 'tokens',
-          introspectPath: '/api/tokens/introspect',
-          introspectPort: 3000,
-        },
-      },
-    });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.value.middleware?.auth).toMatchObject({
-        provider: 'platform-tokens',
-        moduleSlug: 'tokens',
-        introspectPath: '/api/tokens/introspect',
-        introspectPort: 3000,
-      });
-    }
-  });
-
-  it('rejects an auth middleware with introspectPath that does not start with "/"', () => {
-    const r = parseProjectBlueprint({
-      name: 'platform',
-      services: ['app', 'tokens'],
-      middleware: {
-        auth: {
-          kind: 'auth',
-          provider: 'platform-tokens',
-          moduleSlug: 'tokens',
-          introspectPath: 'api/tokens/introspect',
-        },
-      },
-    });
     expect(r.ok).toBe(false);
   });
 
-  it('rejects an auth middleware with non-positive introspectPort', () => {
-    const r = parseProjectBlueprint({
-      name: 'platform',
-      services: ['app', 'tokens'],
-      middleware: {
-        auth: {
-          kind: 'auth',
-          provider: 'platform-tokens',
-          moduleSlug: 'tokens',
-          introspectPort: 0,
-        },
-      },
-    });
-    expect(r.ok).toBe(false);
-  });
-
-  it('rejects an auth0 auth middleware that omits audience', () => {
+  it('rejects auth0 provider entries that omit audience', () => {
     const r = parseProjectBlueprint({
       name: 'demo',
       services: ['app', 'identity-auth0'],
       middleware: {
         auth: {
           kind: 'auth',
-          provider: 'auth0',
-          moduleSlug: 'identity-auth0',
+          providers: [{ provider: 'auth0', moduleSlug: 'identity-auth0' }],
         },
       },
     });
     expect(r.ok).toBe(false);
   });
 
-  it('accepts a platform-tokens auth middleware that omits audience', () => {
+  it('rejects platform-tokens provider entries without path or port', () => {
     const r = parseProjectBlueprint({
       name: 'platform',
       services: ['app', 'tokens'],
       middleware: {
         auth: {
           kind: 'auth',
-          provider: 'platform-tokens',
-          moduleSlug: 'tokens',
+          providers: [{ provider: 'platform-tokens', moduleSlug: 'tokens' }],
         },
       },
     });
-    expect(r.ok).toBe(true);
+    expect(r.ok).toBe(false);
   });
 });

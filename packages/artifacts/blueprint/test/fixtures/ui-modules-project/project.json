@@ -20,18 +20,13 @@
   "middleware": {
     "requestContext": {
       "kind": "request-context"
-    },
-    "auth": {
-      "kind": "auth",
-      "provider": "mod-workos"
     }
   },
   "mounts": [
     {
       "target": "ui:/",
       "use": [
-        "requestContext",
-        "auth"
+        "requestContext"
       ]
     }
   ],

@@ -158,9 +158,13 @@ describe('consistency vars', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'auth0',
-            audience: '${MISSING}',
-            moduleSlug: 'identity-auth0',
+            providers: [
+              {
+                provider: 'auth0',
+                audience: '${MISSING}',
+                moduleSlug: 'identity-auth0',
+              },
+            ],
           },
         },
         vars: {},
@@ -212,9 +216,13 @@ describe('consistency vars', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'auth0',
-            audience: '${AUD}',
-            moduleSlug: 'identity-auth0',
+            providers: [
+              {
+                provider: 'auth0',
+                audience: '${AUD}',
+                moduleSlug: 'identity-auth0',
+              },
+            ],
           },
         },
         vars: { AUD: { from: 'target.auth.auth0.audience', required: true } },

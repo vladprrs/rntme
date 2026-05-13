@@ -11,24 +11,31 @@ const genericMiddleware = z
   })
   .strict();
 
+const authProviderBase = z.object({
+  provider: nonEmptyString,
+  moduleSlug: nonEmptyString,
+}).strict();
+
+const auth0Provider = authProviderBase.extend({
+  provider: z.literal('auth0'),
+  audience: nonEmptyString,
+});
+
+const platformTokensProvider = authProviderBase.extend({
+  provider: z.literal('platform-tokens'),
+  introspectPath: z.string().startsWith('/'),
+  introspectPort: z.number().int().positive(),
+});
+
+const authProvider = z.union([auth0Provider, platformTokensProvider]);
+
 const authMiddleware = z
   .object({
     kind: z.literal('auth'),
-    provider: nonEmptyString,
-    audience: nonEmptyString.optional(),
-    moduleSlug: nonEmptyString,
+    providers: z.array(authProvider).min(1),
     policy: nonEmptyString.optional(),
-    introspectPath: z.string().startsWith('/').optional(),
-    introspectPort: z.number().int().positive().optional(),
   })
-  .strict()
-  .refine(
-    (decl) => decl.provider === 'platform-tokens' || typeof decl.audience === 'string',
-    {
-      message: 'audience is required unless provider is "platform-tokens"',
-      path: ['audience'],
-    },
-  );
+  .strict();
 
 const moduleProjectRefSchema = z
   .object({

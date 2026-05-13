@@ -7,6 +7,7 @@ import {
 } from '../types/result.js';
 import { extractPlaceholders } from '../types/vars.js';
 import type {
+  AuthProviderDecl,
   CatalogManifest,
   CompositionService,
   MiddlewareDecl,
@@ -110,30 +111,60 @@ export function validateBlueprintComposition(input: {
   }
 
   for (const [name, declaration] of Object.entries(input.project.middleware ?? {})) {
-    const providerSlug = authModuleSlugForComposition(declaration);
+    if (declaration.kind === 'auth') {
+      for (const [providerIndex, providerDecl] of declaration.providers.entries()) {
+        const providerSlug = providerDecl.moduleSlug;
+        const provider = input.services[providerSlug];
+        const providerPath = `project.middleware.${name}.providers.${providerIndex}.moduleSlug`;
+        if (provider === undefined) {
+          errors.push({
+            layer: 'composition',
+            code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE,
+            message: `middleware "${name}" provider[${providerIndex}] references unknown service "${providerSlug}"`,
+            path: providerPath,
+          });
+          continue;
+        }
+        if (isPlatformTokensProvider(providerDecl)) {
+          if (provider.kind !== 'domain') {
+            errors.push({
+              layer: 'composition',
+              code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,
+              message: `middleware "${name}" provider[${providerIndex}] "${providerSlug}" must be a domain service for platform-tokens`,
+              path: providerPath,
+            });
+          }
+          continue;
+        }
+        if (!isIntegrationKind(provider.kind)) {
+          errors.push({
+            layer: 'composition',
+            code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,
+            message: `middleware "${name}" provider[${providerIndex}] "${providerSlug}" must be an integration service`,
+            path: providerPath,
+          });
+        }
+      }
+      continue;
+    }
+    const providerSlug = declaration.provider;
     if (providerSlug === undefined) continue;
-
     const provider = input.services[providerSlug];
     if (provider === undefined) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE,
         message: `middleware "${name}" references unknown provider service "${providerSlug}"`,
-        path: declaration.kind === 'auth' && declaration.moduleSlug !== undefined
-          ? `project.middleware.${name}.moduleSlug`
-          : `project.middleware.${name}.provider`,
+        path: `project.middleware.${name}.provider`,
       });
       continue;
     }
-
-    if (!isIntegrationKind(provider.kind) && !isPlatformTokensAuth(declaration)) {
+    if (!isIntegrationKind(provider.kind)) {
       errors.push({
         layer: 'composition',
         code: ERROR_CODES.BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION,
         message: `middleware "${name}" provider "${providerSlug}" must be an integration service`,
-        path: declaration.kind === 'auth' && declaration.moduleSlug !== undefined
-          ? `project.middleware.${name}.moduleSlug`
-          : `project.middleware.${name}.provider`,
+        path: `project.middleware.${name}.provider`,
       });
     }
   }
@@ -225,7 +256,7 @@ function validateVars(project: ProjectBlueprint): BlueprintError[] {
 
 function checkAuthModuleVendors(
   project: ProjectBlueprint,
-  services: Record<string, CompositionServiceInput>,
+  _services: Record<string, CompositionServiceInput>,
   catalogManifest?: CatalogManifest | null,
   discoveredModules?: Record<string, DiscoveredModule> | null,
 ): BlueprintError[] {
@@ -233,48 +264,41 @@ function checkAuthModuleVendors(
 
   const errors: BlueprintError[] = [];
   for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
-    if (declaration.kind !== 'auth') continue;
-    // platform-tokens provider is satisfied by an in-project domain service, so it does not
-    // need an identity vendor module to be discovered or vendor-matched.
-    if (isPlatformTokensAuth(declaration)) continue;
-    if (
-      declaration.moduleSlug === undefined &&
-      declaration.provider !== undefined &&
-      services[declaration.provider] !== undefined
-    ) {
-      continue;
-    }
+    for (const [providerIndex, providerDecl] of authProvidersForComposition(declaration).entries()) {
+      // platform-tokens provider is satisfied by an in-project domain service, so it does not
+      // need an identity vendor module to be discovered or vendor-matched.
+      if (isPlatformTokensProvider(providerDecl)) continue;
 
-    const identityModule = catalogManifest?.categoryToModule.identity;
-    if (identityModule === undefined) {
-      errors.push({
-        layer: 'composition',
-        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
-        message: `auth middleware "${middlewareName}" requires a project.modules.identity module`,
-        path: `project.middleware.${middlewareName}`,
-      });
-      continue;
-    }
+      const identityModule = catalogManifest.categoryToModule.identity;
+      if (identityModule === undefined) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+          message: `auth middleware "${middlewareName}" provider[${providerIndex}] requires a project.modules.identity module`,
+          path: `project.middleware.${middlewareName}.providers.${providerIndex}`,
+        });
+        continue;
+      }
 
-    const discovered = discoveredModules?.[identityModule];
-    if (discovered === undefined) {
-      errors.push({
-        layer: 'composition',
-        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
-        message: `auth middleware "${middlewareName}" references identity module "${identityModule}" but it was not discovered`,
-        path: `project.middleware.${middlewareName}`,
-      });
-      continue;
-    }
+      const discovered = discoveredModules[identityModule];
+      if (discovered === undefined) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+          message: `auth middleware "${middlewareName}" provider[${providerIndex}] references identity module "${identityModule}" but it was not discovered`,
+          path: `project.middleware.${middlewareName}.providers.${providerIndex}`,
+        });
+        continue;
+      }
 
-    if (declaration.provider === undefined) continue;
-    if (discovered.manifest.vendor !== declaration.provider) {
-      errors.push({
-        layer: 'composition',
-        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
-        message: `auth middleware "${middlewareName}" provider "${declaration.provider}" must match identity module vendor "${discovered.manifest.vendor}"`,
-        path: `project.middleware.${middlewareName}.provider`,
-      });
+      if (discovered.manifest.vendor !== providerDecl.provider) {
+        errors.push({
+          layer: 'composition',
+          code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_MISMATCH,
+          message: `auth middleware "${middlewareName}" provider[${providerIndex}] "${providerDecl.provider}" must match identity module vendor "${discovered.manifest.vendor}"`,
+          path: `project.middleware.${middlewareName}.providers.${providerIndex}.provider`,
+        });
+      }
     }
   }
   return errors;
@@ -289,24 +313,26 @@ function checkAuthModuleEdgeAuth(
   const errors: BlueprintError[] = [];
   for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
     if (declaration.kind !== 'auth') continue;
-    if (declaration.moduleSlug === undefined) continue;
     if (!authMiddlewareIsMounted(project, middlewareName)) continue;
-    // platform-tokens provider authenticates via a domain service, not an identity module —
-    // the introspect path/port come from the middleware decl itself, not from a module manifest.
-    if (isPlatformTokensAuth(declaration)) continue;
 
-    const canonicalModule = catalogManifest.categoryToModule.identity;
-    if (canonicalModule === undefined) continue;
+    for (const [providerIndex, providerDecl] of declaration.providers.entries()) {
+      // platform-tokens provider authenticates via a domain service, not an identity module —
+      // the introspect path/port come from the provider decl itself, not from a module manifest.
+      if (isPlatformTokensProvider(providerDecl)) continue;
 
-    const edgeAuth = catalogManifest.moduleEdgeAuth[canonicalModule];
-    if (edgeAuth !== null && edgeAuth !== undefined) continue;
+      const canonicalModule = catalogManifest.categoryToModule.identity;
+      if (canonicalModule === undefined) continue;
 
-    errors.push({
-      layer: 'composition',
-      code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_EDGE_AUTH_MISSING,
-      message: `auth middleware "${middlewareName}" requires identity module "${canonicalModule}" to declare capabilities.edgeAuth`,
-      path: `project.middleware.${middlewareName} -> ${canonicalModule}/module.json#capabilities.edgeAuth`,
-    });
+      const edgeAuth = catalogManifest.moduleEdgeAuth[canonicalModule];
+      if (edgeAuth !== null && edgeAuth !== undefined) continue;
+
+      errors.push({
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_AUTH_MODULE_EDGE_AUTH_MISSING,
+        message: `auth middleware "${middlewareName}" provider[${providerIndex}] requires identity module "${canonicalModule}" to declare capabilities.edgeAuth`,
+        path: `project.middleware.${middlewareName} -> ${canonicalModule}/module.json#capabilities.edgeAuth`,
+      });
+    }
   }
   return errors;
 }
@@ -315,15 +341,12 @@ function authMiddlewareIsMounted(project: ProjectBlueprint, middlewareName: stri
   return (project.mounts ?? []).some((mount) => mount.use.includes(middlewareName));
 }
 
-function authModuleSlugForComposition(declaration: MiddlewareDecl): string | undefined {
-  if (declaration.kind === 'auth') {
-    return declaration.moduleSlug ?? declaration.provider;
-  }
-  return declaration.provider;
+function authProvidersForComposition(declaration: MiddlewareDecl): readonly AuthProviderDecl[] {
+  return declaration.kind === 'auth' ? declaration.providers : [];
 }
 
-function isPlatformTokensAuth(declaration: MiddlewareDecl): boolean {
-  return declaration.kind === 'auth' && declaration.provider === 'platform-tokens';
+function isPlatformTokensProvider(provider: AuthProviderDecl): boolean {
+  return provider.provider === 'platform-tokens';
 }
 
 function collectRouteTargets(project: ProjectBlueprint): Set<string> {

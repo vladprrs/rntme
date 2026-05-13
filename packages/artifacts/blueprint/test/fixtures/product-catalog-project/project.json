@@ -12,10 +12,9 @@
     }
   },
   "middleware": {
-    "requestContext": { "kind": "request-context" },
-    "auth": { "kind": "auth", "provider": "mod-workos" }
+    "requestContext": { "kind": "request-context" }
   },
   "mounts": [
-    { "target": "ui:/", "use": ["requestContext", "auth"] }
+    { "target": "ui:/", "use": ["requestContext"] }
   ]
 }

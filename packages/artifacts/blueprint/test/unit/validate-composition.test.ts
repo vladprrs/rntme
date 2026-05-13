@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { ModuleManifest } from '@rntme/contracts-module-v1';
 import { validateBlueprintComposition } from '../../src/validate/composition.js';
+import type { AuthProviderDecl } from '../../src/types/artifact.js';
 
 const expectErrorCodes = (
   r: ReturnType<typeof validateBlueprintComposition>,
@@ -45,6 +46,20 @@ const svc = (
 const moduleManifest = (name: string, vendor: string): ModuleManifest =>
   ({ name, vendor } as Partial<ModuleManifest> as ModuleManifest);
 
+// Helper: build an auth0-style provider entry without forcing callers to satisfy the
+// discriminated-union narrowing when the test wants to exercise composition with a
+// provider literal that isn't 'auth0' or 'platform-tokens' (e.g. unknown/clerk fixtures).
+const auth0Provider = (
+  moduleSlug: string,
+  audience: string,
+  providerLiteral: string = 'auth0',
+): AuthProviderDecl =>
+  ({
+    provider: providerLiteral,
+    audience,
+    moduleSlug,
+  } as unknown as AuthProviderDecl);
+
 describe('validateBlueprintComposition', () => {
   it('builds routing context for valid project routes + middleware mounts', () => {
     const r = validateBlueprintComposition({
@@ -57,7 +72,12 @@ describe('validateBlueprintComposition', () => {
         },
         middleware: {
           requestContext: { kind: 'request-context' },
-          auth: { kind: 'auth', provider: 'mod-workos' },
+          auth: {
+            kind: 'auth',
+            providers: [
+              auth0Provider('mod-workos', 'https://demo.rntme.com/api', 'workos'),
+            ],
+          },
         },
         mounts: [{ target: 'ui:/', use: ['requestContext', 'auth'] }],
       },
@@ -130,7 +150,10 @@ describe('validateBlueprintComposition', () => {
         name: 'bad-middleware',
         services: ['catalog'],
         middleware: {
-          auth: { kind: 'auth', provider: 'catalog' },
+          auth: {
+            kind: 'auth',
+            providers: [auth0Provider('catalog', 'https://x/api')],
+          },
         },
       },
       services: {
@@ -144,7 +167,8 @@ describe('validateBlueprintComposition', () => {
         r.errors.some(
           (e) =>
             e.code ===
-            'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION',
+            'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_NOT_INTEGRATION' &&
+            e.path === 'project.middleware.auth.providers.0.moduleSlug',
         ),
       ).toBe(true);
     }
@@ -204,9 +228,9 @@ describe('validateBlueprintComposition', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://notes-demo.rntme.com/api',
-            moduleSlug: 'identity-auth0',
+            providers: [
+              auth0Provider('identity-auth0', 'https://notes-demo.rntme.com/api'),
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -228,10 +252,10 @@ describe('validateBlueprintComposition', () => {
         routes: { http: { '/api': 'app' } },
         middleware: {
           auth: {
-            kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://notes-demo.rntme.com/api',
-            moduleSlug: 'identity-auth0',
+            kind: 'auth' as const,
+            providers: [
+              auth0Provider('identity-auth0', 'https://notes-demo.rntme.com/api'),
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -279,10 +303,10 @@ describe('validateBlueprintComposition', () => {
         routes: { http: { '/api': 'app' } },
         middleware: {
           auth: {
-            kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://notes-demo.rntme.com/api',
-            moduleSlug: 'identity-auth0',
+            kind: 'auth' as const,
+            providers: [
+              auth0Provider('identity-auth0', 'https://notes-demo.rntme.com/api'),
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -315,10 +339,14 @@ describe('validateBlueprintComposition', () => {
         routes: { http: { '/api': 'app' } },
         middleware: {
           auth: {
-            kind: 'auth',
-            provider: 'clerk',
-            audience: 'https://notes-demo.rntme.com/api',
-            moduleSlug: 'identity-auth0',
+            kind: 'auth' as const,
+            providers: [
+              auth0Provider(
+                'identity-auth0',
+                'https://notes-demo.rntme.com/api',
+                'clerk',
+              ),
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -357,7 +385,10 @@ describe('validateBlueprintComposition', () => {
         services: ['catalog'],
         routes: { http: { '/api/catalog': 'catalog' } },
         middleware: {
-          auth: { kind: 'auth', provider: 'missing-auth' },
+          auth: {
+            kind: 'auth',
+            providers: [auth0Provider('missing-auth', 'https://x/api')],
+          },
         },
         mounts: [{ target: 'http:/api/missing', use: ['auth', 'ghost'] }],
       },
@@ -371,6 +402,15 @@ describe('validateBlueprintComposition', () => {
       'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_TARGET',
       'BLUEPRINT_COMPOSE_MOUNT_UNKNOWN_MIDDLEWARE',
     ]);
+    if (!r.ok) {
+      expect(
+        r.errors.some(
+          (e) =>
+            e.code === 'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE' &&
+            e.path === 'project.middleware.auth.providers.0.moduleSlug',
+        ),
+      ).toBe(true);
+    }
   });
 
   it('returns multiple independent composition errors together', () => {
@@ -383,7 +423,10 @@ describe('validateBlueprintComposition', () => {
           ui: { '/': 'ghost' },
         },
         middleware: {
-          auth: { kind: 'auth', provider: 'ghost' },
+          auth: {
+            kind: 'auth',
+            providers: [auth0Provider('ghost', 'https://x/api')],
+          },
         },
         mounts: [{ target: 'http:/ghost', use: ['ghost'] }],
       },
@@ -413,10 +456,14 @@ describe('validateBlueprintComposition', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'platform-tokens',
-            moduleSlug: 'tokens',
-            introspectPath: '/api/tokens/introspect',
-            introspectPort: 3000,
+            providers: [
+              {
+                provider: 'platform-tokens',
+                moduleSlug: 'tokens',
+                introspectPath: '/api/tokens/introspect',
+                introspectPort: 3000,
+              },
+            ],
           },
         },
         mounts: [{ target: 'http:/api/app', use: ['auth'] }],
@@ -439,10 +486,14 @@ describe('validateBlueprintComposition', () => {
         middleware: {
           auth: {
             kind: 'auth',
-            provider: 'platform-tokens',
-            moduleSlug: 'tokens',
-            introspectPath: '/api/tokens/introspect',
-            introspectPort: 3000,
+            providers: [
+              {
+                provider: 'platform-tokens',
+                moduleSlug: 'tokens',
+                introspectPath: '/api/tokens/introspect',
+                introspectPort: 3000,
+              },
+            ],
           },
         },
         mounts: [{ target: 'http:/api/app', use: ['auth'] }],
@@ -473,10 +524,10 @@ describe('validateBlueprintComposition', () => {
         routes: { http: { '/api': 'app' } },
         middleware: {
           auth: {
-            kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://notes-demo.rntme.com/api',
-            moduleSlug: 'identity-auth0',
+            kind: 'auth' as const,
+            providers: [
+              auth0Provider('identity-auth0', 'https://notes-demo.rntme.com/api'),
+            ],
           },
         },
         mounts: [{ target: 'http:/api', use: ['auth'] }],
@@ -510,6 +561,106 @@ describe('validateBlueprintComposition', () => {
       expect(r.errors[0]).toMatchObject({
         path: 'project.middleware.auth -> @rntme/identity-auth0/module.json#capabilities.edgeAuth',
       });
+    }
+  });
+
+  it('accepts mixed platform-tokens and auth0 providers for one mounted auth middleware', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'platform',
+        services: ['app', 'tokens', 'identity-auth0'],
+        routes: { http: { '/api/app': 'app', '/api/tokens': 'tokens' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            providers: [
+              {
+                provider: 'platform-tokens',
+                moduleSlug: 'tokens',
+                introspectPath: '/api/tokens/introspect',
+                introspectPort: 3000,
+              },
+              {
+                provider: 'auth0',
+                audience: 'https://platform.rntme.com/api',
+                moduleSlug: 'identity-auth0',
+              },
+            ],
+          },
+        },
+        mounts: [{ target: 'http:/api/app', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        tokens: svc('tokens', 'domain', { hasBindings: true }),
+        'identity-auth0': svc('identity-auth0', 'integration-module'),
+      },
+      catalogManifest: {
+        components: [],
+        operations: [],
+        modulesWithBoot: [{ name: '@rntme/identity-auth0' }],
+        categoryToModule: { identity: '@rntme/identity-auth0' },
+        publicConfig: {},
+        moduleEdgeAuth: {
+          '@rntme/identity-auth0': {
+            kind: 'introspection-sidecar',
+            transport: 'http',
+            method: 'GET',
+            path: '/introspect',
+            port: 50052,
+          },
+        },
+      },
+      discoveredModules: {
+        '@rntme/identity-auth0': {
+          manifest: moduleManifest('@rntme/identity-auth0', 'auth0'),
+          packageDir: '/tmp/identity-auth0',
+          projectKey: 'identity',
+          publicConfig: {},
+        },
+      },
+    });
+
+    expect(r.ok, r.ok ? '' : JSON.stringify(r.errors, null, 2)).toBe(true);
+  });
+
+  it('reports the failing provider index when a provider references an unknown service', () => {
+    const r = validateBlueprintComposition({
+      project: {
+        name: 'platform',
+        services: ['app', 'tokens'],
+        routes: { http: { '/api/app': 'app', '/api/tokens': 'tokens' } },
+        middleware: {
+          auth: {
+            kind: 'auth',
+            providers: [
+              {
+                provider: 'platform-tokens',
+                moduleSlug: 'tokens',
+                introspectPath: '/api/tokens/introspect',
+                introspectPort: 3000,
+              },
+              auth0Provider('identity-missing', 'https://platform.rntme.com/api'),
+            ],
+          },
+        },
+        mounts: [{ target: 'http:/api/app', use: ['auth'] }],
+      },
+      services: {
+        app: svc('app', 'domain', { hasBindings: true }),
+        tokens: svc('tokens', 'domain', { hasBindings: true }),
+      },
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(
+        r.errors.some(
+          (e) =>
+            e.code === 'BLUEPRINT_COMPOSE_MIDDLEWARE_PROVIDER_UNKNOWN_SERVICE' &&
+            e.path === 'project.middleware.auth.providers.1.moduleSlug',
+        ),
+      ).toBe(true);
     }
   });
 
