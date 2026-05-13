@@ -2,7 +2,7 @@ import type { EdgeAuthDescriptor } from '@rntme/contracts-module-v1';
 import type { ValidatedWorkflows } from '@rntme/workflows';
 import type { VarsManifest } from './vars.js';
 
-export type ServiceKind = 'domain' | 'integration';
+export type ServiceKind = 'domain' | 'integration' | 'integration-module';
 
 export type { EdgeAuthDescriptor };
 
@@ -14,6 +14,7 @@ export type ComposedProjectModuleInfo = {
 export type ComposedProjectService = {
   readonly slug: string;
   readonly kind: ServiceKind;
+  readonly moduleKey?: string;
   readonly runtimeFiles?: Readonly<Record<string, string>>;
 };
 

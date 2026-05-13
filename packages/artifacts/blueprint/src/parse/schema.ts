@@ -31,6 +31,7 @@ const moduleProjectRefSchema = z
 export const ServiceDescriptorSchema = z
   .object({
     kind: z.enum(['domain', 'integration', 'integration-module']),
+    module: nonEmptyString.optional(),
   })
   .strict();
 

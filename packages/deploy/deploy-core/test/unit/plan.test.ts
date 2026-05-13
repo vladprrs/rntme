@@ -337,7 +337,7 @@ describe('buildProjectDeploymentPlan', () => {
         expect.objectContaining({
           code: 'DEPLOY_PLAN_MISSING_MODULE_IMAGE',
           service: 'mod-workos',
-          path: 'modules.mod-workos',
+          path: 'modules.mod-workos.image',
         }),
       );
     }
@@ -416,6 +416,122 @@ describe('buildProjectDeploymentPlan', () => {
         }),
       );
     }
+  });
+
+  it('reads integration package metadata from project.modules[moduleKey] when descriptor has a module alias', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...project,
+        services: {
+          ...project.services,
+          'storage-s3': { slug: 'storage-s3', kind: 'integration-module', moduleKey: 'storage' },
+        },
+        modules: {
+          storage: { packageName: '@rntme/storage-s3' },
+        },
+      },
+      {
+        ...previewConfig,
+        modules: {
+          ...previewConfig.modules,
+          'storage-s3': { image: 'ghcr.io/acme/storage-s3:1.0.0' },
+        },
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const workload = r.value.workloads.find(
+      (w) => w.kind === 'integration-module' && w.slug === 'storage-s3',
+    );
+    expect(workload).toMatchObject({
+      kind: 'integration-module',
+      image: 'ghcr.io/acme/storage-s3:1.0.0',
+      modulePackageName: '@rntme/storage-s3',
+    });
+  });
+
+  it('reports DEPLOY_PLAN_MISSING_MODULE_IMAGE per service slug when multiple integration services miss target images', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...project,
+        services: {
+          ...project.services,
+          'mod-openrouter': { slug: 'mod-openrouter', kind: 'integration' },
+          'storage-s3': { slug: 'storage-s3', kind: 'integration-module', moduleKey: 'storage' },
+        },
+      },
+      {
+        ...previewConfig,
+        modules: {},
+      },
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    const codes = r.errors
+      .filter((e) => e.code === 'DEPLOY_PLAN_MISSING_MODULE_IMAGE')
+      .map((e) => e.service)
+      .sort();
+    expect(codes).toContain('mod-openrouter');
+    expect(codes).toContain('storage-s3');
+  });
+
+  it('does not raise DEPLOY_PLAN_MISSING_MODULE_IMAGE when no service maps to the target.modules entry', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        name: 'commerce',
+        services: {
+          app: { slug: 'app', kind: 'domain', runtimeFiles: { 'manifest.json': '{}' } },
+        },
+        routes: { ui: { '/': 'app' } },
+        middleware: {},
+        mounts: [],
+      },
+      {
+        ...previewConfig,
+        modules: {
+          marketing: { primaryDomain: 'marketing.example.test' } as never,
+        },
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(
+      r.value.workloads.some(
+        (w) => w.kind === 'integration-module' && (w.slug === 'marketing' || w.slug === 'app'),
+      ),
+    ).toBe(false);
+  });
+
+  it('resolves a target.modules.<slug>.<facet> path through vars before planning', () => {
+    const r = buildProjectDeploymentPlan(
+      {
+        ...project,
+        publicConfigJson: '{"marketing":{"domain":"${MARKETING_DOMAIN}"}}',
+        varsManifest: {
+          MARKETING_DOMAIN: { from: 'target.modules.marketing.primaryDomain', required: true },
+        },
+      },
+      {
+        ...previewConfig,
+        modules: {
+          ...previewConfig.modules,
+          marketing: { primaryDomain: 'marketing.example.test' } as never,
+        },
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const appWorkload = r.value.workloads.find(
+      (w) => w.kind === 'domain-service' && w.slug === 'app',
+    );
+    expect(appWorkload).toBeDefined();
+    expect((appWorkload as { publicConfigJson: string }).publicConfigJson).toContain(
+      '"domain":"marketing.example.test"',
+    );
   });
 
   it('rejects incomplete SASL secret refs', () => {

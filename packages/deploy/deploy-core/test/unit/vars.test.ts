@@ -40,6 +40,20 @@ describe('resolveVars', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value).toEqual({});
   });
+
+  it('resolves an arbitrary target.modules.<slug>.<facet> path', () => {
+    const r = resolveVars(
+      { MARKETING_DOMAIN: { from: 'target.modules.marketing.primaryDomain', required: true } },
+      {
+        slug: 'demo',
+        modules: {
+          marketing: { primaryDomain: 'marketing.example.test' },
+        },
+      },
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toEqual({ MARKETING_DOMAIN: 'marketing.example.test' });
+  });
 });
 
 describe('resolveVars provision.* sources', () => {

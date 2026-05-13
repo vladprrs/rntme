@@ -362,13 +362,17 @@ function buildWorkloads(
       continue;
     }
 
+    const isIntegration = service.kind === 'integration' || service.kind === 'integration-module';
+    if (!isIntegration) continue;
+
+    const moduleKey = service.moduleKey ?? service.slug;
     const moduleConfig = config.modules?.[service.slug];
-    if (moduleConfig === undefined) {
+    if (moduleConfig?.image === undefined) {
       errors.push({
         code: 'DEPLOY_PLAN_MISSING_MODULE_IMAGE',
-        message: `integration module "${service.slug}" requires explicit image config`,
+        message: `integration module service "${service.slug}" requires target.modules.${service.slug}.image`,
         service: service.slug,
-        path: `modules.${service.slug}`,
+        path: `modules.${service.slug}.image`,
       });
       continue;
     }
@@ -382,9 +386,9 @@ function buildWorkloads(
       expose: moduleConfig.expose === true,
       env: moduleConfig.env ?? {},
       secretRefs: moduleConfig.secretRefs ?? {},
-      ...(project.modules?.[service.slug]?.packageName === undefined
+      ...(project.modules?.[moduleKey]?.packageName === undefined
         ? {}
-        : { modulePackageName: project.modules[service.slug]!.packageName }),
+        : { modulePackageName: project.modules[moduleKey]!.packageName }),
     });
   }
 

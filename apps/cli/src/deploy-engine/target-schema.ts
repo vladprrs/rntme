@@ -38,12 +38,14 @@ const WorkflowsTargetSchema = z.object({
   operatonUi: OperatonUiAccessSchema.optional(),
 });
 
-const ModuleConfigSchema = z.object({
-  image: z.string().min(1),
-  expose: z.boolean().optional(),
-  env: z.record(z.string().min(1), z.string()).optional(),
-  secretRefs: z.record(z.string().min(1), z.string().min(1)).optional(),
-});
+const ModuleConfigSchema = z
+  .object({
+    image: z.string().trim().min(1).optional(),
+    expose: z.boolean().optional(),
+    env: z.record(z.string().min(1), z.string()).optional(),
+    secretRefs: z.record(z.string().min(1), z.string().min(1)).optional(),
+  })
+  .catchall(z.unknown());
 
 const PolicyValuesSchema = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
 

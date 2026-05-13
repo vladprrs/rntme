@@ -140,6 +140,7 @@ export type ProjectBlueprint = {
 export type ServiceDescriptor = {
   slug: string;
   kind: ServiceKind;
+  moduleKey?: string;
 };
 
 export type LoadedBlueprint = {

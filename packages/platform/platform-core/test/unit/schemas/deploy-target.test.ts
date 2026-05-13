@@ -421,4 +421,55 @@ describe('CreateDeployTargetRequestSchema', () => {
     expect(RotateApiTokenRequestSchema.safeParse({}).success).toBe(false);
     expect(RotateApiTokenRequestSchema.safeParse({ apiToken: 'dkp_new' }).success).toBe(true);
   });
+
+  it('accepts target module config entries with arbitrary extra facet fields and no image', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-marketing',
+      displayName: 'Marketing',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      modules: {
+        marketing: {
+          primaryDomain: 'marketing.example.test',
+          ssl: { provider: 'letsencrypt' },
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    const marketing = r.data.modules.marketing as Record<string, unknown>;
+    expect(marketing.primaryDomain).toBe('marketing.example.test');
+    expect(marketing.ssl).toEqual({ provider: 'letsencrypt' });
+    expect(marketing.image).toBeUndefined();
+  });
+
+  it('accepts target module config entries with image present alongside extra fields', () => {
+    const r = CreateDeployTargetRequestSchema.safeParse({
+      slug: 'dokploy-storage',
+      displayName: 'Storage',
+      kind: 'dokploy',
+      dokployUrl: 'https://dok.example.test',
+      dokployProjectId: 'abc-123',
+      apiToken: 'dkp_supersecret',
+      eventBus: { kind: 'kafka', brokers: ['redpanda:9092'] },
+      modules: {
+        'storage-s3': {
+          image: 'ghcr.io/acme/storage-s3:1.0.0',
+          notes: 'pinned for compliance',
+        },
+      },
+      policyValues: {},
+      isDefault: false,
+    });
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    const storage = r.data.modules['storage-s3'] as Record<string, unknown>;
+    expect(storage.image).toBe('ghcr.io/acme/storage-s3:1.0.0');
+    expect(storage.notes).toBe('pinned for compliance');
+  });
 });

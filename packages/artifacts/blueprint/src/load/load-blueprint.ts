@@ -88,6 +88,7 @@ async function loadServiceDescriptor(
   return ok({
     slug,
     kind: parsedDescriptor.data.kind,
+    ...(parsedDescriptor.data.module === undefined ? {} : { moduleKey: parsedDescriptor.data.module }),
     qsm,
   });
 }

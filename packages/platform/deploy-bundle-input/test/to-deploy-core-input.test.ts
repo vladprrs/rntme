@@ -26,6 +26,93 @@ function makeMinimalComposed(): {
 }
 
 describe('toDeployCoreInput', () => {
+  it('propagates moduleKey from a ComposedBlueprint service descriptor', async () => {
+    const composed = {
+      project: { name: 'demo', services: ['storage-s3'] },
+      pdm: { entities: {} } as never,
+      routing: { httpBaseByService: {}, uiPathsByService: {} },
+      bindingRegistry: {},
+      services: {
+        'storage-s3': {
+          slug: 'storage-s3',
+          kind: 'integration-module' as const,
+          moduleKey: 'storage',
+          qsm: null,
+          artifacts: {
+            hasGraphs: false,
+            hasBindings: false,
+            hasUi: false,
+            hasSeed: false,
+            hasQsm: false,
+            hasStorage: false,
+            hasCommandHandlers: false,
+          },
+          graphSpec: null,
+          qsmValidated: null,
+          bindings: null,
+          seed: null,
+          storage: null,
+          compiledUi: null,
+          eventTypes: [],
+        } as never,
+      },
+      publicConfigJson: null,
+      varsManifest: {},
+    };
+    const tmp = mkdtempSync(join(tmpdir(), 'deploy-bundle-modulekey-'));
+    try {
+      const result = await toDeployCoreInput(composed as never, tmp);
+      expect(result.services['storage-s3']).toEqual({
+        slug: 'storage-s3',
+        kind: 'integration-module',
+        moduleKey: 'storage',
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('omits moduleKey when the descriptor has no module alias', async () => {
+    const composed = {
+      project: { name: 'demo', services: ['mod-workos'] },
+      pdm: { entities: {} } as never,
+      routing: { httpBaseByService: {}, uiPathsByService: {} },
+      bindingRegistry: {},
+      services: {
+        'mod-workos': {
+          slug: 'mod-workos',
+          kind: 'integration' as const,
+          qsm: null,
+          artifacts: {
+            hasGraphs: false,
+            hasBindings: false,
+            hasUi: false,
+            hasSeed: false,
+            hasQsm: false,
+            hasStorage: false,
+            hasCommandHandlers: false,
+          },
+          graphSpec: null,
+          qsmValidated: null,
+          bindings: null,
+          seed: null,
+          storage: null,
+          compiledUi: null,
+          eventTypes: [],
+        } as never,
+      },
+      publicConfigJson: null,
+      varsManifest: {},
+    };
+    const tmp = mkdtempSync(join(tmpdir(), 'deploy-bundle-modulekey-'));
+    try {
+      const result = await toDeployCoreInput(composed as never, tmp);
+      expect(result.services['mod-workos']).toEqual({ slug: 'mod-workos', kind: 'integration' });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('passes through ComposedProjectInput shape unchanged when input already matches', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'deploy-bundle-input-'));
     const input = makeMinimalComposed();

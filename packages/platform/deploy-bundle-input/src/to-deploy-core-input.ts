@@ -82,6 +82,9 @@ export async function toDeployCoreInput(
           {
             slug,
             kind: value.services[slug]?.kind ?? 'domain',
+            ...(value.services[slug]?.moduleKey === undefined
+              ? {}
+              : { moduleKey: value.services[slug]!.moduleKey }),
             ...(value.services[slug]?.kind === 'domain'
               ? {
                   runtimeFiles: await buildRuntimeArtifactFiles(

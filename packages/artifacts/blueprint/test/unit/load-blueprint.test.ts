@@ -88,6 +88,35 @@ describe('loadBlueprint', () => {
     }
   });
 
+  it('maps service.json.module to descriptor.moduleKey while keeping slug as directory name', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
+    const copied = join(temp, 'product-catalog-project');
+    cpSync(fixtureDir, copied, { recursive: true });
+    try {
+      // Create a new integration-module service whose slug differs from its module alias.
+      const { mkdirSync } = await import('node:fs');
+      mkdirSync(join(copied, 'services', 'storage-s3'), { recursive: true });
+      writeFileSync(
+        join(copied, 'services', 'storage-s3', 'service.json'),
+        JSON.stringify({ kind: 'integration-module', module: 'storage' }, null, 2),
+      );
+      const projectPath = join(copied, 'project.json');
+      const project = JSON.parse(await Bun.file(projectPath).text()) as { services: string[] };
+      project.services = [...project.services, 'storage-s3'];
+      writeFileSync(projectPath, JSON.stringify(project, null, 2));
+
+      const r = await loadBlueprint(copied);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.services['storage-s3']?.slug).toBe('storage-s3');
+      expect(r.value.services['storage-s3']?.moduleKey).toBe('storage');
+      // services without `module` should not have a moduleKey
+      expect(r.value.services['mod-workos']?.moduleKey).toBeUndefined();
+    } finally {
+      rmSync(temp, { recursive: true, force: true });
+    }
+  });
+
   it('preserves structured qsm load errors inside blueprint IO cause', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'rntme-blueprint-'));
     const copied = join(temp, 'product-catalog-project');

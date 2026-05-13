@@ -51,6 +51,31 @@ describe('loadTargetFile', () => {
     expect(result.value.target.eventBus).toEqual({ kind: 'in-memory' });
   });
 
+  it('accepts module entries with extra facet fields and no image (catchall)', async () => {
+    const result = await loadTargetFile(fixturePath, 'preview', {
+      readFile: async () =>
+        JSON.stringify({
+          kind: 'dokploy',
+          displayName: 'preview',
+          config: { dokployUrl: 'https://dokploy.example.com' },
+          secrets: { apiToken: { source: 'env', name: 'DOKPLOY_API_TOKEN' } },
+          eventBus: { kind: 'in-memory' },
+          modules: {
+            marketing: { primaryDomain: 'marketing.example.test' },
+            'storage-s3': { image: 'ghcr.io/acme/storage-s3:1.0.0', notes: 'pinned' },
+          },
+        }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const t = result.value.target as {
+      readonly modules: Record<string, Record<string, unknown>>;
+    };
+    expect(t.modules.marketing).toEqual({ primaryDomain: 'marketing.example.test' });
+    expect(t.modules['storage-s3']?.image).toBe('ghcr.io/acme/storage-s3:1.0.0');
+    expect(t.modules['storage-s3']?.notes).toBe('pinned');
+  });
+
   it('parses workflows + auth + nested extras into a normalized platform target', async () => {
     const result = await loadTargetFile(platformFixturePath, 'rntme-platform-prod');
     expect(result.ok).toBe(true);

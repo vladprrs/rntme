@@ -86,10 +86,11 @@ export type BpmnWorkerConfig = {
 };
 
 export type IntegrationModuleDeploymentConfig = {
-  readonly image: string;
+  readonly image?: string;
   readonly expose?: boolean;
   readonly env?: Readonly<Record<string, string>>;
   readonly secretRefs?: Readonly<Record<string, string>>;
+  readonly [key: string]: unknown;
 };
 
 export type RateLimitPolicyConfig = {

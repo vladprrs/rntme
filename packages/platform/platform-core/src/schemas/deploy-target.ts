@@ -47,12 +47,14 @@ export const PolicyValuesSchema = z.record(z.string(), z.record(z.string(), z.un
 export type PolicyValues = z.infer<typeof PolicyValuesSchema>;
 const PatchPolicyValuesSchema = z.record(z.string(), z.record(z.string(), z.unknown()));
 
-export const IntegrationModuleDeploymentConfigSchema = z.object({
-  image: z.string().min(1),
-  expose: z.boolean().optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  secretRefs: z.record(z.string(), z.string()).optional(),
-});
+export const IntegrationModuleDeploymentConfigSchema = z
+  .object({
+    image: z.string().trim().min(1).optional(),
+    expose: z.boolean().optional(),
+    env: z.record(z.string(), z.string()).optional(),
+    secretRefs: z.record(z.string(), z.string()).optional(),
+  })
+  .catchall(z.unknown());
 export type IntegrationModuleDeploymentConfig = z.infer<typeof IntegrationModuleDeploymentConfigSchema>;
 
 export const DeployTargetModulesSchema = z.record(z.string(), IntegrationModuleDeploymentConfigSchema).default({});

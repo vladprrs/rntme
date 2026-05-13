@@ -15,6 +15,25 @@ describe('parseProjectBlueprint', () => {
     const r = ServiceDescriptorSchema.safeParse({ kind: 'integration-module' });
     expect(r.success).toBe(true);
   });
+
+  it('parses integration-module service descriptors with a module alias', () => {
+    const r = ServiceDescriptorSchema.safeParse({
+      kind: 'integration-module',
+      module: 'storage',
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ kind: 'integration-module', module: 'storage' });
+  });
+
+  it('rejects an empty module alias', () => {
+    const r = ServiceDescriptorSchema.safeParse({ kind: 'integration-module', module: '' });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects unknown fields on service descriptors', () => {
+    const r = ServiceDescriptorSchema.safeParse({ kind: 'integration-module', extra: 'nope' });
+    expect(r.success).toBe(false);
+  });
 });
 
 describe('parseProjectBlueprint vars', () => {
