@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { loadService } from '../../src/load/load-service.js';
 
+function writeMinimalRuntimeService(dir: string): void {
+  cpSync(fixtureDir, dir, { recursive: true });
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, '..', 'fixtures', 'issue-tracker');
 
@@ -36,6 +40,40 @@ describe('loadService (happy path)', () => {
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.value.uiAssetsDir).toBe(join(tmp, 'ui-build'));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('loads optional ui-assets.json next to runtime artifacts', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'rntme-runtime-load-assets-'));
+    try {
+      writeMinimalRuntimeService(tmp);
+      writeFileSync(join(tmp, 'ui-assets.json'), JSON.stringify({
+        stylesheets: [
+          {
+            id: 'platform-ui',
+            moduleKey: 'platformUi',
+            moduleName: '@rntme/platform-ui',
+            href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+            order: 100,
+            media: 'all',
+            scope: 'document',
+          },
+        ],
+        fonts: [],
+        icons: [],
+        images: [],
+        staticFiles: [],
+        preloads: [],
+      }));
+
+      const result = loadService(tmp);
+
+      expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
+      if (result.ok) {
+        expect(result.value.uiAssetManifest?.stylesheets[0]?.id).toBe('platform-ui');
+      }
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

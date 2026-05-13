@@ -35,6 +35,7 @@ import { loadSeed, type ValidatedSeed } from '@rntme/seed';
 import { parseManifest } from '../manifest/parse.js';
 import { validateManifest, applyEnvOverrides } from '../manifest/validate.js';
 import type { GraphSpec, ServiceError, ValidatedService, RuntimeResult } from '../types.js';
+import type { UiRuntimeAssetManifest } from '@rntme/ui-runtime';
 import { readJsonFile, readTextFile, readGraphsDir } from './read-dir.js';
 import { crossValidateDerivedProjections } from '../projections/cross-validate.js';
 import {
@@ -290,6 +291,17 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
   const uiSourceDir = join(dir, 'ui');
   const uiBuildDir = join(dir, 'ui-build');
   const uiAssetsDir = existsSync(uiBuildDir) ? uiBuildDir : null;
+
+  let uiAssetManifest: UiRuntimeAssetManifest | null = null;
+  if (existsSync(join(dir, 'ui-assets.json'))) {
+    try {
+      uiAssetManifest = readJsonFile(dir, 'ui-assets.json') as UiRuntimeAssetManifest;
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : String(cause);
+      return { ok: false, errors: [{ code: 'UI_INVALID', details: [{ message: msg }] }] };
+    }
+  }
+
   if (!existsSync(uiSourceDir)) {
     return { ok: false, errors: [{ code: 'UI_INVALID', details: [{ message: 'ui/ source directory not found' }] }] };
   }
@@ -367,6 +379,7 @@ export function loadService(dir: string): RuntimeResult<ValidatedService, Servic
       bindings: validatedBindings,
       compiledUi,
       uiAssetsDir,
+      uiAssetManifest,
       graphSpec,
       openApiDoc: openapi.value,
       projectionApplyPlan,

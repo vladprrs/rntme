@@ -276,6 +276,7 @@ async function buildRuntimeArtifactFiles(
   const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
   if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   Object.assign(files, uiBuildFiles);
+  await addUiModuleAssetFiles(files, project);
   if (service.seed !== null) {
     await addOptionalTextFile(files, rootDir, `services/${serviceSlug}/seed/seed.json`, 'seed.json');
   }
@@ -330,6 +331,7 @@ async function buildUiHostRuntimeArtifactFiles(
   const hasServiceUi = await addOptionalDirectoryFiles(files, rootDir, `services/${serviceSlug}/ui`, 'ui');
   if (!hasServiceUi) addDefaultUiFiles(files, serviceSlug);
   Object.assign(files, uiBuildFiles);
+  await addUiModuleAssetFiles(files, project);
   return files;
 }
 
@@ -762,6 +764,18 @@ async function addOptionalTextFile(
   } catch (cause) {
     if (errorCode(cause) === 'ENOENT') return;
     throw cause;
+  }
+}
+
+async function addUiModuleAssetFiles(
+  files: Record<string, string>,
+  project: ComposedBlueprint,
+): Promise<void> {
+  if (project.uiAssetManifest !== null && project.uiAssetManifest !== undefined) {
+    addJsonFile(files, 'ui-assets.json', project.uiAssetManifest);
+  }
+  for (const source of project.uiAssetSources ?? []) {
+    files[source.runtimePath] = readFileSync(source.sourcePath, 'utf8');
   }
 }
 

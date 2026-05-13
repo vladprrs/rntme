@@ -154,4 +154,52 @@ describe('collectProvisionerAssets', () => {
       ]);
     }
   });
+
+  it('collects declared module client assets under their package-relative paths', () => {
+    writeManifest('node_modules/@rntme/platform-ui/module.json', {
+      name: '@rntme/platform-ui',
+      version: '0.0.0',
+      client: {
+        assets: {
+          stylesheets: [{ id: 'platform-ui', path: 'assets/platform-ui.css' }],
+          icons: [{ id: 'logo-monogram', path: 'assets/logo-monogram.svg' }],
+        },
+      },
+    });
+    writeJs('node_modules/@rntme/platform-ui/assets/platform-ui.css', '.platform{}');
+    writeJs('node_modules/@rntme/platform-ui/assets/logo-monogram.svg', '<svg></svg>');
+
+    const result = collectBundleAssets(root, bundleFiles({
+      'project.json': {
+        name: 'demo',
+        services: [],
+        modules: { platformUi: { package: '@rntme/platform-ui' } },
+      },
+      'node_modules/@rntme/platform-ui/module.json': {
+        name: '@rntme/platform-ui',
+        version: '0.0.0',
+        client: {
+          assets: {
+            stylesheets: [{ id: 'platform-ui', path: 'assets/platform-ui.css' }],
+            icons: [{ id: 'logo-monogram', path: 'assets/logo-monogram.svg' }],
+          },
+        },
+      },
+    }), [
+      'project.json',
+      'node_modules/@rntme/platform-ui/module.json',
+      'node_modules/@rntme/platform-ui/assets/platform-ui.css',
+      'node_modules/@rntme/platform-ui/assets/logo-monogram.svg',
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value['node_modules/@rntme/platform-ui/assets/platform-ui.css']).toBe(
+        Buffer.from('.platform{}').toString('base64'),
+      );
+      expect(result.value['node_modules/@rntme/platform-ui/assets/logo-monogram.svg']).toBe(
+        Buffer.from('<svg></svg>').toString('base64'),
+      );
+    }
+  });
 });

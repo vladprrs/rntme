@@ -6,6 +6,7 @@ import type { ApplyPlan } from '@rntme/projection-consumer';
 import type { SeedError, ValidatedSeed } from '@rntme/seed';
 import type { ValidatedManifest, ManifestError } from './manifest/types.js';
 import type { AuthoringSpecOutput } from '@rntme/graph-ir-compiler';
+import type { UiRuntimeAssetManifest } from '@rntme/ui-runtime';
 
 export type RuntimeOk<T> = { ok: true; value: T };
 export type RuntimeErr<E> = { ok: false; errors: E };
@@ -21,6 +22,7 @@ export type ValidatedService = {
   bindings: ValidatedBindings;
   compiledUi: CompiledArtifact;
   uiAssetsDir: string | null;
+  uiAssetManifest: UiRuntimeAssetManifest | null;
   graphSpec: GraphSpec;
   openApiDoc: OpenApiDoc;
   projectionApplyPlan: ApplyPlan;
