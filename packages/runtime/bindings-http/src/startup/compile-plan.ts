@@ -110,7 +110,11 @@ export function buildPlan(
   options: BuildPlanOptions = {},
 ): BuildPlanResult {
   const registry = options.registry ?? emptyOperationRegistry;
-  const graphIds = new Set(Object.values(validated.resolved).map((r) => r.entry.graph));
+  const graphIds = new Set(
+    Object.values(validated.resolved)
+      .filter((r) => r.entry.target.engine !== 'native')
+      .map((r) => r.entry.graph),
+  );
   const operationCache = new Map<string, CompiledOperation>();
   const errors: RuntimeErrorEntry[] = [];
 

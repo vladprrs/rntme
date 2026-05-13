@@ -86,6 +86,31 @@ describe('NativeOperationExecutor', () => {
     expect(fallback.calls[0]).toEqual(input);
   });
 
+  it('returns NATIVE_OPERATION_HANDLER_MISSING for declared native ops without a handler', async () => {
+    const fallback = new RecordingFallback({
+      ok: false,
+      error: { code: 'OPERATION_NOT_FOUND', message: 'should not be called' },
+    });
+    const executor = new NativeOperationExecutor(
+      {},
+      fallback,
+      new Set(['publishProjectBundle']),
+    );
+
+    const out = await executor.execute({
+      operationName: 'publishProjectBundle',
+      inputs: {},
+      ctx: makeCtx(),
+    });
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.error.code).toBe('NATIVE_OPERATION_HANDLER_MISSING');
+      expect(out.error.message).toContain('publishProjectBundle');
+    }
+    expect(fallback.calls).toEqual([]);
+  });
+
   it('maps thrown handler errors to OPERATION_EXECUTION_FAILED', async () => {
     const fallback = new RecordingFallback({
       ok: false,

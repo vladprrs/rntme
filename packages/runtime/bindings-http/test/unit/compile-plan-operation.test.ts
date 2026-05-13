@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { OperationRegistry } from '@rntme/graph-ir-compiler';
-import { buildPlan } from '../../src/startup/compile-plan.js';
+import { buildDefaultGraphIrOperationMap, buildPlan } from '../../src/startup/compile-plan.js';
 
 describe('operation compile plan', () => {
   it('compiles read/action exposures into operation plans', () => {
@@ -130,5 +130,41 @@ describe('operation compile plan', () => {
       id: 'identity-auth0.IntrospectSession',
       effect: 'read',
     });
+  });
+
+  it('does not compile Graph IR for native bindings', () => {
+    const result = buildDefaultGraphIrOperationMap(
+      {
+        artifact: {} as never,
+        resolved: {
+          publishProjectBundle: {
+            entry: {
+              exposure: 'action',
+              graph: 'publishProjectBundle',
+              target: { engine: 'native', dialect: 'platform' },
+              http: {
+                method: 'POST',
+                path: '/api/projects/{projectId}/versions',
+                parameters: [{ name: 'projectId', in: 'path', bindTo: 'projectId', required: true }],
+              },
+            },
+            signature: {
+              id: 'publishProjectBundle',
+              inputs: {
+                projectId: { type: { kind: 'scalar', primitive: 'string' }, mode: 'required' },
+              },
+              output: { type: { kind: 'row', shape: 'CommandResult' }, from: '__native__' },
+              effects: { localReads: false, localEmits: [], calls: [], waits: false },
+            },
+            outputShape: { name: 'CommandResult', origin: 'custom', fields: {} },
+          },
+        },
+      } as never,
+      { version: '1.0-rc7', shapes: {}, graphs: {} } as never,
+      { entities: {} } as never,
+      { projections: {}, relations: {} } as never,
+    );
+
+    expect(result).toEqual({ ok: true, value: {} });
   });
 });

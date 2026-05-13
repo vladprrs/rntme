@@ -16,10 +16,20 @@ export class NativeOperationExecutor implements OperationExecutor {
   constructor(
     private readonly handlers: NativeOperationHandlerMap,
     private readonly fallback: OperationExecutor,
+    private readonly nativeOperationNames: ReadonlySet<string> = new Set(Object.keys(handlers)),
   ) {}
 
   async execute(input: OperationExecutorInput): Promise<OperationExecutorOutput> {
     const handler = this.handlers[input.operationName];
+    if (handler === undefined && this.nativeOperationNames.has(input.operationName)) {
+      return {
+        ok: false,
+        error: {
+          code: 'NATIVE_OPERATION_HANDLER_MISSING',
+          message: `native operation handler "${input.operationName}" is not registered`,
+        },
+      };
+    }
     if (handler === undefined) {
       return this.fallback.execute(input);
     }

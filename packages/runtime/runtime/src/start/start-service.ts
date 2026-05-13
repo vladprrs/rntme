@@ -121,10 +121,18 @@ export async function startService(
   }
   const baseOperationExecutor =
     runtimeConfig.operationExecutor ?? new GraphOperationExecutor(defaultOperationMapResult.value);
+  const nativeOperationNames = new Set(
+    Object.values(service.bindings.resolved)
+      .filter((r) => r.entry.target.engine === 'native')
+      .map((r) => r.entry.graph),
+  );
   const operationExecutor =
-    runtimeConfig.nativeOperationHandlers !== undefined
-    && Object.keys(runtimeConfig.nativeOperationHandlers).length > 0
-      ? new NativeOperationExecutor(runtimeConfig.nativeOperationHandlers, baseOperationExecutor)
+    nativeOperationNames.size > 0
+      ? new NativeOperationExecutor(
+          runtimeConfig.nativeOperationHandlers ?? {},
+          baseOperationExecutor,
+          nativeOperationNames,
+        )
       : baseOperationExecutor;
 
   // Must run after wireEventPipeline creates the seen_events table.
