@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T036  # T035 selected the non-bypass bootstrap path; T036 publishes/redeploys T034 before live PAT bootstrap.
+active_task: T037  # T036 published/redeployed durable PAT support; live valid-PAT bootstrap is blocked on browser JWT or client-grant authorization.
 
 tasks:
   - id: T001
@@ -3084,7 +3084,7 @@ tasks:
   - id: T036
     type: worker
     assignee: Worker
-    status: active
+    status: completed
     reasoning_hint: high
     objective: "Commit, push, and redeploy the T034 durable PAT implementation, then run fail-closed live auth checks without bypassing edge auth."
     inputs:
@@ -3109,17 +3109,108 @@ tasks:
       - "Push or redeploy requires credentials not available in this environment."
       - "Live missing/unknown auth returns 500, 2xx, or SPA HTML."
       - "The only valid-PAT path requires a policy/security decision from the user."
+    receipt:
+      result: completed_valid_pat_bootstrap_blocked
+      summary: |
+        Committed and pushed the T034 durable PAT implementation, rebuilt the affected
+        local deploy packages and CLI, redeployed `rntme-platform`, and verified that
+        live `/api/projects` fails closed for missing auth and an unknown PAT. The
+        live valid-PAT 200 proof remains blocked because no `PLATFORM_BROWSER_JWT`
+        is present and the Auth0 M2M client grant has not been explicitly authorized.
+      commit:
+        sha: "792bf64d"
+        message: "feat(platform): persist runtime PATs"
+        pushed: "origin/main"
+      local_verification:
+        - cmd: "bun run --filter @rntme/platform-core test"
+          result: pass
+          notes: "154 pass / 0 fail."
+        - cmd: "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+          result: pass
+          notes: "37 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-core test"
+          result: pass
+          notes: "108 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-dokploy test"
+          result: pass
+          notes: "136 pass / 13 skip / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-bundle-input test"
+          result: pass
+          notes: "19 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-core typecheck; bun run --filter @rntme/deploy-dokploy typecheck; bun run --filter @rntme/deploy-bundle-input typecheck"
+          result: pass
+          notes: "all exited 0."
+        - cmd: "bun run depcruise"
+          result: pass
+          notes: "no dependency violations found (825 modules, 1139 dependencies cruised)."
+        - cmd: "git diff --cached --check"
+          result: pass
+          notes: "no staged whitespace errors before commit."
+      build_and_redeploy:
+        - cmd: "bun run --filter @rntme/deploy-core build; bun run --filter @rntme/deploy-dokploy build; bun run --filter @rntme/deploy-bundle-input build; bun run --filter @rntme/cli build"
+          result: pass
+          notes: "affected deploy packages and CLI rebuilt locally; CLI postbuild copied the platform blueprint."
+        - cmd: "./apps/cli/dist/bin/cli.js platform up --target ./platform.target.json --log-file .rntme-platform-redeploy-2026-05-13-T036.jsonl"
+          result: pass
+          notes: "rendered Dokploy plan digest sha256:74341df97b30ef00588bbba1f2073241dea86e70511e8d8d612b738917a553a4; compose project-stack updated target=rntme-direct-rntme-platform; smoke verification passed."
+      live_fail_closed_verification:
+        - cmd: "curl missing Authorization /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1"
+          result: pass
+          notes: "HTTP/2 401, content-type application/json, body {\"code\":\"RUNTIME_AUTH_TOKEN_INVALID\",\"message\":\"authentication required\"}."
+        - cmd: "curl unknown rntme_pat_* Authorization /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1"
+          result: pass
+          notes: "HTTP/2 401, content-type application/json, body {\"code\":\"RUNTIME_AUTH_TOKEN_INVALID\",\"message\":\"authentication required\"}."
+      preserved_dirty:
+        - "platform.target.json remains modified and uncommitted."
+        - "redeploy logs, .clone, generated platform UI build output, and untracked goal/plan notes remain uncommitted."
+      blocker:
+        - "PLATFORM_BROWSER_JWT is absent from the shell."
+        - "Do not create the Auth0 M2M client grant unless explicitly authorized."
+
+  - id: T037
+    type: worker
+    assignee: Worker
+    status: blocked
+    reasoning_hint: high
+    objective: "Bootstrap a real live platform PAT through an approved Auth0 path, verify valid-PAT `/api/projects` returns 200, then resume the cv-extract platform deploy/dashboard proof."
+    inputs:
+      - "T036 redeployed durable PAT support and live fail-closed auth proof."
+      - "Organization `org_uZUWhpWgK54VWC2X` and account `vladprsib`."
+    constraints:
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, or Dokploy secrets."
+      - "Use only a real browser Auth0 JWT supplied in-shell as `PLATFORM_BROWSER_JWT`, or an explicitly authorized Auth0 client-grant path."
+      - "Do not forge internal edge headers and do not seed the token database directly unless the user explicitly approves an emergency bypass."
+    expected_output:
+      - "A PAT minted by `POST /api/tokens` with plaintext captured only in an in-shell variable."
+      - "Valid PAT `GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1` returns 200."
+      - "Token variables unset immediately after verification."
+      - "T012 cv-extract publish/deploy/dashboard sequence resumes using the verified PAT."
+    verify:
+      - "No secret values printed or persisted."
+      - "Live valid-PAT check returns 200 JSON."
+      - "If client-grant path is authorized, record only authorization metadata and never the access token."
+    stop_if:
+      - "No browser JWT is supplied and no client-grant authorization is given."
+      - "Token minting returns non-2xx or a response without a `rntme_pat_` plaintext field."
+      - "Valid-PAT `/api/projects` returns 401/403/500 or SPA HTML."
     receipt: null
 
 checks:
   dirty_fingerprint: "platform.target.json + untracked redeploy logs and goal/notes (unrelated dirty preserved)"
   last_verification:
     result: pass
-    task: T026
+    task: T036
     commands:
-      - "bun run build"
-      - "bun run typecheck"
-      - "bun run test"
-      - "bun run lint"
+      - "bun run --filter @rntme/platform-core test"
+      - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+      - "bun run --filter @rntme/deploy-core test"
+      - "bun run --filter @rntme/deploy-dokploy test"
+      - "bun run --filter @rntme/deploy-bundle-input test"
+      - "bun run --filter @rntme/deploy-core typecheck"
+      - "bun run --filter @rntme/deploy-dokploy typecheck"
+      - "bun run --filter @rntme/deploy-bundle-input typecheck"
       - "bun run depcruise"
-      - "bun run vendor:check"
+      - "git diff --cached --check"
+      - "./apps/cli/dist/bin/cli.js platform up --target ./platform.target.json --log-file .rntme-platform-redeploy-2026-05-13-T036.jsonl"
+      - "curl missing Authorization /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
+      - "curl unknown PAT /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
