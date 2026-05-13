@@ -157,12 +157,12 @@ function cleanStorageConfig(input: DeployTargetForBuild['storage']): StorageConf
 }
 
 function cleanModuleConfig(input: DeployTargetForBuild['modules'][string]): IntegrationModuleDeploymentConfig {
-  return {
-    image: input.image,
-    ...(input.expose === undefined ? {} : { expose: input.expose }),
-    ...(input.env === undefined ? {} : { env: input.env }),
-    ...(input.secretRefs === undefined ? {} : { secretRefs: input.secretRefs }),
-  };
+  const out: Record<string, unknown> = { ...input };
+  if (input.image === undefined) delete out.image;
+  if (input.expose === undefined) delete out.expose;
+  if (input.env === undefined) delete out.env;
+  if (input.secretRefs === undefined) delete out.secretRefs;
+  return out as IntegrationModuleDeploymentConfig;
 }
 
 function cleanAuthConfig(input: DeployTargetForBuild['auth']): NonNullable<ProjectDeploymentConfig['auth']> {

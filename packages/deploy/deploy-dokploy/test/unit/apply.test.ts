@@ -275,8 +275,8 @@ describe('applyDokployPlan', () => {
       kind: 'compose',
       infrastructureKind: 'object-storage',
       name: 'rntme-acme-commerce-storage',
-      image: 'rustfs/rustfs:1.0.0',
-      composeFile: 'services:\n  rustfs:\n    image: rustfs/rustfs:1.0.0\n',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
+      composeFile: 'services:\n  rustfs:\n    image: rustfs/rustfs:1.0.0-beta.1\n',
       env: [],
       labels: { 'rntme.infrastructure': 'object-storage' },
     };
@@ -1593,6 +1593,12 @@ describe('applyDokployPlan', () => {
         },
       ],
     };
+    client.oldApplications = [
+      {
+        id: 'app_1',
+        name: 'rntme-acme-commerce-marketing-site',
+      },
+    ];
 
     const r = await applyDokployPlan(withStaticSite, client);
 
@@ -1609,6 +1615,7 @@ describe('applyDokployPlan', () => {
     const staticIdx = r.value.resources.findIndex((res) => res.kind === 'static-site');
     expect(stackIdx).toBeGreaterThanOrEqual(0);
     expect(staticIdx).toBeGreaterThan(stackIdx);
+    expect(client.deletedApplications).not.toContain(staticSiteResource?.targetResourceId);
   });
 });
 

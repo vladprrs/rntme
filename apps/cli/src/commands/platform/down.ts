@@ -33,12 +33,18 @@ export async function runPlatformDown(args: PlatformDownArgs): Promise<number> {
   const blueprint = await loadBlueprintForDeploy(located.value);
   if (!isOk(blueprint)) return emitFailure(mode, blueprint.error);
 
-  const teardown = await runTearDownsForDeployment({
-    bundleDir: blueprint.value.bundleDir,
-    priorProvisionPublic: {},
-    priorProvisionSecrets: {},
-    deps: { resolveProvisioner: createCliResolveProvisioner() },
-  });
+  const teardown = await (async () => {
+    try {
+      return await runTearDownsForDeployment({
+        bundleDir: blueprint.value.bundleDir,
+        priorProvisionPublic: {},
+        priorProvisionSecrets: {},
+        deps: { resolveProvisioner: createCliResolveProvisioner() },
+      });
+    } finally {
+      await blueprint.value.cleanup();
+    }
+  })();
 
   if (!teardown.ok) {
     const error = cliError(

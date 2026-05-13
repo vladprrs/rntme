@@ -103,7 +103,7 @@ describe('buildProjectDeploymentConfig', () => {
         storage: {
           mode: 'provisioned',
           provider: 'rustfs',
-          image: 'rustfs/rustfs:1.0.0',
+          image: 'rustfs/rustfs:1.0.0-beta.1',
           publicBaseUrl: 'https://storage.example.test',
           accessKeyRef: 'RUSTFS_ACCESS_KEY',
           secretKeyRef: 'RUSTFS_SECRET_KEY',
@@ -116,7 +116,7 @@ describe('buildProjectDeploymentConfig', () => {
     expect(config.storage).toEqual({
       mode: 'provisioned',
       provider: 'rustfs',
-      image: 'rustfs/rustfs:1.0.0',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
       publicBaseUrl: 'https://storage.example.test',
       accessKeyRef: 'RUSTFS_ACCESS_KEY',
       secretKeyRef: 'RUSTFS_SECRET_KEY',
@@ -176,6 +176,27 @@ describe('buildProjectDeploymentConfig', () => {
     expect(config.policies).toEqual({
       rateLimit: { edge: { requestsPerMinute: 60, burst: 10 } },
       timeout: { edge: { upstreamTimeoutMs: 1000 } },
+    });
+  });
+
+  it('preserves arbitrary target module facets used by vars resolution', () => {
+    const config = buildProjectDeploymentConfig(
+      {
+        ...target(),
+        modules: {
+          'marketing-site': {
+            primaryDomain: 'marketing.example.test',
+            ssl: 'auto',
+          } as never,
+        },
+      },
+      'acme',
+      {},
+    );
+
+    expect(config.modules?.['marketing-site']).toEqual({
+      primaryDomain: 'marketing.example.test',
+      ssl: 'auto',
     });
   });
 

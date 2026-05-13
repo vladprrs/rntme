@@ -60,6 +60,7 @@ export type IntegrationModuleWorkload = {
   readonly expose: boolean;
   readonly env: Readonly<Record<string, string>>;
   readonly secretRefs: Readonly<Record<string, string>>;
+  readonly runtimeFiles: Readonly<Record<string, string>>;
   readonly modulePackageName?: string;
 };
 
@@ -394,6 +395,7 @@ function buildWorkloads(
       expose: moduleConfig.expose === true,
       env: moduleConfig.env ?? {},
       secretRefs: moduleConfig.secretRefs ?? {},
+      runtimeFiles: service.runtimeFiles ?? {},
       ...(project.modules?.[moduleKey]?.packageName === undefined
         ? {}
         : { modulePackageName: project.modules[moduleKey]!.packageName }),

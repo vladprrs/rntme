@@ -14,7 +14,7 @@ export type ExternalEventBusSecurity =
     };
 
 export const DEFAULT_REDPANDA_IMAGE = 'docker.redpanda.com/redpandadata/redpanda:v24.3.6';
-export const DEFAULT_RUSTFS_IMAGE = 'rustfs/rustfs:1.0.0';
+export const DEFAULT_RUSTFS_IMAGE = 'rustfs/rustfs:1.0.0-beta.1';
 
 export const DEFAULT_REDPANDA_CONSOLE_IMAGE = 'docker.redpanda.com/redpandadata/console:v3.7.2';
 

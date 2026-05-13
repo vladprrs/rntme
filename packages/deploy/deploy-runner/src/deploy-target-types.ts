@@ -68,10 +68,11 @@ export type PolicyValues = Record<string, Record<string, unknown>>;
 // ---------------------------------------------------------------------------
 
 export type ModuleConfig = {
-  readonly image: string;
+  readonly image?: string | undefined;
   readonly expose?: boolean | undefined;
   readonly env?: Record<string, string> | undefined;
   readonly secretRefs?: Record<string, string> | undefined;
+  readonly [key: string]: unknown;
 };
 
 export type DeployTargetModules = Record<string, ModuleConfig>;

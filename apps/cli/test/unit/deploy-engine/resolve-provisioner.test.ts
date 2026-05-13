@@ -29,6 +29,32 @@ describe('createCliResolveProvisioner', () => {
     expect(typeof provisioner.provision).toBe('function');
   });
 
+  it('resolves manifest entry paths from the installed package root', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cli-resolveprov-'));
+    const packageDir = join(dir, 'node_modules', '@rntme', 'storage-s3');
+    mkdirSync(join(packageDir, 'dist'), { recursive: true });
+    writeFileSync(
+      join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: '@rntme/storage-s3',
+        type: 'module',
+        exports: {
+          './provisioner.entry': { import: './dist/provisioner.entry.js' },
+          './package.json': './package.json',
+        },
+      }),
+    );
+    writeFileSync(
+      join(packageDir, 'dist', 'provisioner.entry.js'),
+      'export default { provision: async () => ({ ok: true, value: { publicOutputs: {}, secretOutputs: {} } }) };\n',
+    );
+
+    const resolve = createCliResolveProvisioner();
+    const provisioner = await resolve('@rntme/storage-s3', './dist/provisioner.entry.js', dir);
+
+    expect(typeof provisioner.provision).toBe('function');
+  });
+
   it('throws when the provisioner package cannot be resolved from bundleDir', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cli-resolveprov-'));
     const resolve = createCliResolveProvisioner();

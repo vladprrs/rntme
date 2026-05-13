@@ -151,7 +151,7 @@ export async function runSmoke(opts: SmokeOptions): Promise<SmokeResult> {
   // 1. Prepare upload.
   const prepare = (await postJson(`${baseUrl}/api/files/prepare-upload`, {
     filename,
-    mediaType,
+    contentType: mediaType,
     declaredSize: samplePdfBytes.byteLength,
   })) as {
     uploadUrl: string;

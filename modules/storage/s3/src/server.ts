@@ -44,7 +44,7 @@ function serialize(type: ProtoType, value: object): Buffer {
 }
 
 function deserialize(type: ProtoType, bytes: Buffer): object {
-  return type.toObject(type.decode(bytes), { defaults: true });
+  return type.toObject(type.decode(bytes), { defaults: true, longs: Number });
 }
 
 function createServiceDefinition(): grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {

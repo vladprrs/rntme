@@ -35,6 +35,7 @@ const plan: ProjectDeploymentPlan = {
       env: {},
       secretRefs: {},
       modulePackageName: '@rntme/storage-s3',
+      runtimeFiles: { 'storage.json': '{"version":"1.0","routes":{}}' },
     },
     {
       kind: 'edge-gateway',
@@ -95,6 +96,10 @@ describe('renderDokployPlan', () => {
         '/srv/config.json': '{}',
       },
     });
+    const storage = stack.services.find((service) => service.name === 'mod-storage-s3');
+    expect(storage?.files?.['/srv/storage.json']).toBe('{"version":"1.0","routes":{}}');
+    expect(storage?.literalEnv?.RNTME_FILE_MOUNTS_DIGEST).toMatch(/^sha256:/);
+    expect(stack.composeFile).toContain('/srv/storage.json:ro');
     const manifestVolume = catalog?.volumes?.find((volume) => volume.target === '/srv/artifacts/manifest.json');
     expect(manifestVolume?.source).toMatch(
       /^\/etc\/dokploy\/compose\/\$\{APP_NAME\}\/files\/svc-catalog\/srv\/artifacts\/manifest\.json\.rntme-sha256-[a-f0-9]{16}$/,
@@ -439,7 +444,7 @@ describe('renderDokployPlan', () => {
             bucketName: 'rntme-acme-commerce-default-storage',
             region: 'us-east-1',
             forcePathStyle: true,
-            image: 'rustfs/rustfs:1.0.0',
+            image: 'rustfs/rustfs:1.0.0-beta.1',
             credentials: {
               accessKeyRef: 'RUSTFS_ACCESS_KEY',
               secretKeyRef: 'RUSTFS_SECRET_KEY',
@@ -468,7 +473,7 @@ describe('renderDokployPlan', () => {
     const rustfs = stack.services.find((service) => service.name === 'rustfs');
     expect(rustfs).toMatchObject({
       serviceClass: 'object-storage',
-      image: 'rustfs/rustfs:1.0.0',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
       command: 'server /data',
       env: [
         { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },

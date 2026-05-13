@@ -22,6 +22,30 @@ const stubFetcher = (
 };
 
 describe('SmokeVerifier', () => {
+  it('retries transient startup failures before failing smoke verification', async () => {
+    const statuses = [404, 200];
+    const calls: number[] = [];
+    const verifier = new SmokeVerifier(
+      async (_url, _opts) => {
+        const status = statuses.shift() ?? 200;
+        calls.push(status);
+        return { status, latencyMs: 1 };
+      },
+      { attempts: 3, delayMs: 0 },
+    );
+
+    const report = await verifier.verify({
+      verificationHints: {
+        healthUrl: 'https://edge.example/health',
+        publicRouteUrls: [],
+        protectedRouteChecks: [],
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(calls).toEqual([404, 200]);
+  });
+
   it('returns ok when health, UI, config, and protected API checks pass', async () => {
     const verifier = new SmokeVerifier(
       stubFetcher({
@@ -70,6 +94,7 @@ describe('SmokeVerifier', () => {
           contentType: 'application/json',
         },
       }),
+      { attempts: 1 },
     );
 
     const report = await verifier.verify({
@@ -99,6 +124,7 @@ describe('SmokeVerifier', () => {
         'https://edge.example/health': { status: 200 },
         'https://edge.example/config.json': { status: 200, body: 'not-json', contentType: 'application/json' },
       }),
+      { attempts: 1 },
     );
 
     const report = await verifier.verify({
@@ -121,6 +147,7 @@ describe('SmokeVerifier', () => {
         'https://edge.example/api/orders': { status: 404 },
         'https://edge.example/api/inventory': { status: 502 },
       }),
+      { attempts: 1 },
     );
 
     const report = await verifier.verify({
@@ -185,6 +212,7 @@ describe('SmokeVerifier', () => {
         'https://edge.example/health': { status: 200 },
         'https://edge.example/operaton/ui': { status: 200 },
       }),
+      { attempts: 1 },
     );
 
     const report = await verifier.verify({

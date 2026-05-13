@@ -136,7 +136,7 @@ d('PgDeployTargetRepo', () => {
           storageConfig: {
             mode: 'provisioned',
             provider: 'rustfs',
-            image: 'rustfs/rustfs:1.0.0',
+            image: 'rustfs/rustfs:1.0.0-beta.1',
             publicBaseUrl: 'https://storage-2.example.test',
             accessKeyRef: 'RUSTFS_ACCESS_KEY_2',
             secretKeyRef: 'RUSTFS_SECRET_KEY_2',
@@ -152,7 +152,7 @@ d('PgDeployTargetRepo', () => {
     expect(updated.value.storage).toEqual({
       mode: 'provisioned',
       provider: 'rustfs',
-      image: 'rustfs/rustfs:1.0.0',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
       publicBaseUrl: 'https://storage-2.example.test',
       accessKeyRef: 'RUSTFS_ACCESS_KEY_2',
       secretKeyRef: 'RUSTFS_SECRET_KEY_2',

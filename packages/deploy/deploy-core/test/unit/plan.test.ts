@@ -9,7 +9,7 @@ const project: ComposedProjectInput = {
   services: {
     catalog: { slug: 'catalog', kind: 'domain', runtimeFiles: { 'manifest.json': '{}' } },
     app: { slug: 'app', kind: 'domain', runtimeFiles: { 'manifest.json': '{}' } },
-    'mod-workos': { slug: 'mod-workos', kind: 'integration' },
+    'mod-workos': { slug: 'mod-workos', kind: 'integration', runtimeFiles: { 'storage.json': '{"routes":{}}' } },
   },
   routes: {
     ui: { '/': 'app' },
@@ -75,6 +75,7 @@ describe('buildProjectDeploymentPlan', () => {
       slug: 'mod-workos',
       image: 'ghcr.io/acme/mod-workos:2026-04-24',
       expose: false,
+      runtimeFiles: { 'storage.json': '{"routes":{}}' },
     });
   });
 
@@ -243,7 +244,7 @@ describe('buildProjectDeploymentPlan', () => {
       bucketName: 'rntme-acme-commerce-default-storage',
       region: 'us-east-1',
       forcePathStyle: true,
-      image: 'rustfs/rustfs:1.0.0',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
       credentials: {
         accessKeyRef: 'RUSTFS_ACCESS_KEY',
         secretKeyRef: 'RUSTFS_SECRET_KEY',

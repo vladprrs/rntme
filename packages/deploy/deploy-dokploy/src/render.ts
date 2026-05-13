@@ -813,6 +813,7 @@ function renderResource(
   }
 
   if (workload.kind === 'integration-module') {
+    const files = moduleRuntimeFileMounts(workload.runtimeFiles ?? {});
     return ok({
       logicalId: workload.slug,
       kind: 'application',
@@ -834,6 +835,7 @@ function renderResource(
         ...storageS3Env(plan, workload, publicAppBaseUrl),
       ],
       labels,
+      ...(Object.keys(files).length === 0 ? {} : { files }),
       ports: [
         { containerPort: 50051, protocol: 'http' as const },
         { containerPort: 50052, protocol: 'http' as const },
@@ -899,6 +901,12 @@ function renderResource(
   }
 
   return assertNever(workload);
+}
+
+function moduleRuntimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    sortedEntries(files).map(([path, content]) => [`/srv/${path.replace(/^\/+/, '')}`, content]),
+  );
 }
 
 function persistentRuntimeEnv(

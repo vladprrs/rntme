@@ -88,7 +88,7 @@ describe('loadTargetFile', () => {
           storage: {
             mode: 'provisioned',
             provider: 'rustfs',
-            image: 'rustfs/rustfs:1.0.0',
+            image: 'rustfs/rustfs:1.0.0-beta.1',
             publicBaseUrl: 'https://files.example.test',
             accessKeyRef: 'rustfs-access-key',
             secretKeyRef: 'rustfs-secret-key',
@@ -100,7 +100,7 @@ describe('loadTargetFile', () => {
     expect(result.value.target.storage).toEqual({
       mode: 'provisioned',
       provider: 'rustfs',
-      image: 'rustfs/rustfs:1.0.0',
+      image: 'rustfs/rustfs:1.0.0-beta.1',
       publicBaseUrl: 'https://files.example.test',
       accessKeyRef: 'rustfs-access-key',
       secretKeyRef: 'rustfs-secret-key',

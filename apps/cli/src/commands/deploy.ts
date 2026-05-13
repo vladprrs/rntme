@@ -36,21 +36,27 @@ export async function runDirectDeploy(args: DirectDeployArgs): Promise<number> {
   if (!isOk(blueprint)) return emitFailure(mode, blueprint.error);
 
   const logStream = args.logFile === undefined ? null : createWriteStream(args.logFile, { flags: 'a' });
-  const result = await runDirectDeployment({
-    composedBlueprint: blueprint.value.composedBlueprint,
-    bundleDir: blueprint.value.bundleDir,
-    target: target.value.target,
-    resolvedTargetSecrets: secrets.value,
-    orgSlug: directOrgSlug(args.name),
-    configOverrides: { ...target.value.configOverrides, ...(args.dryRun ? { dryRun: true } : {}) },
-    priorProvisionOutputs: {},
-    resolveProvisioner: createCliResolveProvisioner(),
-    dokployClientFactory: (apiToken, extras) =>
-      buildPlainTokenDokployClient(apiToken, target.value.target.dokployUrl, globalThis.fetch, extras),
-    stdout: process.stdout,
-    ...(logStream === null ? {} : { logFileWriter: (line: string) => { logStream.write(line); } }),
-  });
-  logStream?.end();
+  const result = await (async () => {
+    try {
+      return await runDirectDeployment({
+        composedBlueprint: blueprint.value.composedBlueprint,
+        bundleDir: blueprint.value.bundleDir,
+        target: target.value.target,
+        resolvedTargetSecrets: secrets.value,
+        orgSlug: directOrgSlug(args.name),
+        configOverrides: { ...target.value.configOverrides, ...(args.dryRun ? { dryRun: true } : {}) },
+        priorProvisionOutputs: {},
+        resolveProvisioner: createCliResolveProvisioner(),
+        dokployClientFactory: (apiToken, extras) =>
+          buildPlainTokenDokployClient(apiToken, target.value.target.dokployUrl, globalThis.fetch, extras),
+        stdout: process.stdout,
+        ...(logStream === null ? {} : { logFileWriter: (line: string) => { logStream.write(line); } }),
+      });
+    } finally {
+      logStream?.end();
+      await blueprint.value.cleanup();
+    }
+  })();
 
   if (!args.quiet) {
     const out = result.ok

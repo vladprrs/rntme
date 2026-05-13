@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { emitProto } from '@rntme/bindings-grpc';
 import type { ComposedBlueprint } from '@rntme/blueprint';
@@ -21,11 +21,12 @@ export async function toDeployCoreInput(
   if (!isComposedBlueprint(value)) return value;
 
   assertRuntimeArtifactStates(value);
+  const absoluteRootDir = resolve(rootDir);
 
   const uiBuildFiles =
     value.virtualEntrySource === null || value.virtualEntrySource === undefined
       ? {}
-      : await bundleVirtualEntrySource(value.virtualEntrySource, rootDir);
+      : await bundleVirtualEntrySource(value.virtualEntrySource, absoluteRootDir);
 
   // Build modules map: service slug → { edgeAuth }. catalogManifest is keyed by
   // the resolved module manifest name (for example "@rntme/identity-auth0"),
@@ -38,7 +39,7 @@ export async function toDeployCoreInput(
   for (const [projectKey, moduleRef] of Object.entries(value.project.modules ?? {})) {
     const manifestName = catalogManifest?.categoryToModule[projectKey] ?? moduleRef.package;
     const edgeAuth = moduleEdgeAuth[manifestName] ?? moduleEdgeAuth[moduleRef.package] ?? null;
-    const slugs = new Set([manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
+    const slugs = new Set([projectKey, manifestName.split('/').pop()!, moduleRef.package.split('/').pop()!]);
     for (const slug of slugs) {
       modules[slug] = { edgeAuth, packageName: manifestName };
     }
@@ -47,7 +48,7 @@ export async function toDeployCoreInput(
   const workflowFiles =
     value.workflows === null || value.workflows === undefined
       ? undefined
-      : await readWorkflowDefinitionFiles(value.workflows, rootDir);
+      : await readWorkflowDefinitionFiles(value.workflows, absoluteRootDir);
   const workflowGrpcServices = workflowGrpcServicesForProject(value);
 
   return {
@@ -68,12 +69,15 @@ export async function toDeployCoreInput(
               ? {
                   runtimeFiles: await buildRuntimeArtifactFiles(
                     value,
-                    rootDir,
+                    absoluteRootDir,
                     slug,
                     serviceHostsUiRoute(value.project, slug) ? uiBuildFiles : {},
                   ),
                   ...platformServicePersistence(value.project.name, slug),
                 }
+              : {}),
+            ...(value.services[slug]?.kind === 'integration-module'
+              ? integrationModuleRuntimeFiles(value, slug)
               : {}),
           },
         ]),
@@ -87,6 +91,36 @@ export async function toDeployCoreInput(
     ...(workflowFiles === undefined ? {} : { workflowFiles }),
     ...(Object.keys(workflowGrpcServices).length === 0 ? {} : { workflowGrpcServices }),
   };
+}
+
+function integrationModuleRuntimeFiles(
+  project: ComposedBlueprint,
+  serviceSlug: string,
+): { runtimeFiles?: Readonly<Record<string, string>> } {
+  const service = project.services[serviceSlug];
+  if (service === undefined) return {};
+  const moduleKey = service.moduleKey ?? serviceSlug;
+  if (moduleKey !== 'storage') return {};
+
+  const storage = mergedStorageJson(project);
+  if (storage === null) return {};
+  return { runtimeFiles: { 'storage.json': JSON.stringify(storage, null, 2) } };
+}
+
+function mergedStorageJson(project: ComposedBlueprint): { version: '1.0'; routes: Record<string, unknown> } | null {
+  const routes: Record<string, unknown> = {};
+  for (const service of Object.values(project.services)) {
+    if (service.kind !== 'domain' || service.storage === null) continue;
+    for (const [routeId, route] of Object.entries(service.storage.routes)) {
+      const existing = routes[routeId];
+      if (existing !== undefined && JSON.stringify(existing) !== JSON.stringify(route)) {
+        throw new Error(`DEPLOY_EXECUTOR_STORAGE_ROUTE_CONFLICT:${routeId}`);
+      }
+      routes[routeId] = route;
+    }
+  }
+  if (Object.keys(routes).length === 0) return null;
+  return { version: '1.0', routes };
 }
 
 function platformServicePersistence(
@@ -587,10 +621,10 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
         // If the dist hasn't been built (e.g. an unbuilt module stub), fall
         // through so the bundler can find it via node_modules instead.
         if (!existsSync(resolved)) return undefined;
-        return { path: resolved };
+        return { path: resolve(resolved) };
       });
       buildApi.onResolve({ filter: /^\..*\.js$/ }, (args) => {
-        const jsPath = join(args.resolveDir, args.path);
+        const jsPath = resolve(args.resolveDir, args.path);
         if (existsSync(jsPath)) return { path: jsPath };
         const withoutJs = jsPath.slice(0, -'.js'.length);
         for (const candidate of [`${withoutJs}.ts`, `${withoutJs}.tsx`]) {
@@ -600,17 +634,18 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
       });
       buildApi.onResolve({ filter: /^[^./].*/ }, (args) => {
         if (args.path.startsWith('@rntme/')) return undefined;
-        if (args.path.startsWith('node:') || args.path.startsWith('bun:')) return undefined;
+        if (args.path.endsWith('.css')) return undefined;
+        if (isUrlLikeSpecifier(args.path)) return undefined;
         const parents = [
-          ...(args.resolveDir === '' ? [] : [join(args.resolveDir, '__rntme_resolve_parent.js')]),
+          ...(args.resolveDir === '' ? [] : [resolve(args.resolveDir, '__rntme_resolve_parent.js')]),
           ...[...packageDirs.values()].map((packageDir) => join(packageDir, 'package.json')),
         ];
         for (const parent of parents) {
           try {
-            return { path: createRequire(parent).resolve(args.path) };
+            return { path: resolve(createRequire(parent).resolve(args.path)) };
           } catch {
             try {
-              return { path: Bun.resolveSync(args.path, parent) };
+              return { path: resolve(Bun.resolveSync(args.path, parent)) };
             } catch {
               // Try the next workspace package root.
             }
@@ -628,6 +663,10 @@ function workspacePackageResolver(workspaceRoot: string): Bun.BunPlugin {
       }));
     },
   };
+}
+
+function isUrlLikeSpecifier(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value);
 }
 
 function discoverWorkspacePackageDirs(workspaceRoot: string): Map<string, string> {

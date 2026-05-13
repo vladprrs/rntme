@@ -123,7 +123,7 @@ describe('CreateDeployTargetRequestSchema', () => {
       storage: {
         mode: 'provisioned',
         provider: 'rustfs',
-        image: 'rustfs/rustfs:1.0.0',
+        image: 'rustfs/rustfs:1.0.0-beta.1',
         publicBaseUrl: 'https://storage.example.test',
         accessKeyRef: 'RUSTFS_ACCESS_KEY',
         secretKeyRef: 'RUSTFS_SECRET_KEY',
@@ -136,7 +136,7 @@ describe('CreateDeployTargetRequestSchema', () => {
       expect(r.data.storage).toEqual({
         mode: 'provisioned',
         provider: 'rustfs',
-        image: 'rustfs/rustfs:1.0.0',
+        image: 'rustfs/rustfs:1.0.0-beta.1',
         publicBaseUrl: 'https://storage.example.test',
         accessKeyRef: 'RUSTFS_ACCESS_KEY',
         secretKeyRef: 'RUSTFS_SECRET_KEY',

@@ -23,10 +23,40 @@ export type VerificationHints = {
   readonly redpandaConsoleUrl?: string;
 };
 
+export type SmokeVerifierOptions = {
+  readonly attempts?: number;
+  readonly delayMs?: number;
+  readonly sleep?: (delayMs: number) => Promise<void>;
+};
+
 export class SmokeVerifier {
-  constructor(private readonly fetcher: SmokeFetcher = defaultSmokeFetcher) {}
+  private readonly attempts: number;
+  private readonly delayMs: number;
+  private readonly sleep: (delayMs: number) => Promise<void>;
+
+  constructor(
+    private readonly fetcher: SmokeFetcher = defaultSmokeFetcher,
+    options: SmokeVerifierOptions = {},
+  ) {
+    this.attempts = normalizedCount(options.attempts, 12);
+    this.delayMs = normalizedDelay(options.delayMs, 5_000);
+    this.sleep = options.sleep ?? defaultSmokeSleep;
+  }
 
   async verify(applyResult: { verificationHints: VerificationHints }): Promise<VerificationReport> {
+    let lastReport: VerificationReport | undefined;
+
+    for (let attempt = 1; attempt <= this.attempts; attempt += 1) {
+      const report = await this.verifyOnce(applyResult);
+      if (report.ok || report.partialOk) return report;
+      lastReport = report;
+      if (attempt < this.attempts && this.delayMs > 0) await this.sleep(this.delayMs);
+    }
+
+    return lastReport ?? { checks: [], ok: false, partialOk: false };
+  }
+
+  private async verifyOnce(applyResult: { verificationHints: VerificationHints }): Promise<VerificationReport> {
     const checks: VerificationReport['checks'] = [];
     const { verificationHints } = applyResult;
 
@@ -207,6 +237,24 @@ function isHtml(contentType: string | undefined): boolean {
 
 function isJson(contentType: string | undefined): boolean {
   return contentType?.toLowerCase().includes('application/json') === true;
+}
+
+async function defaultSmokeSleep(delayMs: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, delayMs);
+  });
+}
+
+function normalizedCount(value: number | undefined, fallback: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  const integer = Math.floor(value);
+  return integer > 0 ? integer : fallback;
+}
+
+function normalizedDelay(value: number | undefined, fallback: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  const integer = Math.floor(value);
+  return integer >= 0 ? integer : fallback;
 }
 
 function parsesJson(body: string): boolean {

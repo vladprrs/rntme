@@ -35,14 +35,7 @@ export async function provision(
   }
 
   if (provModules.length === 0) {
-    const now = new Date().toISOString();
-    return {
-      provisioned: new Map(),
-      publicByModule: {},
-      secretByModule: {},
-      startedAt: now,
-      finishedAt: now,
-    };
+    return emptyProvisionOutput();
   }
 
   const config = buildProjectDeploymentConfig(input.ctx.target, input.ctx.orgSlug, input.ctx.configOverrides, {
@@ -66,6 +59,10 @@ export async function provision(
     ...m,
     publicConfig: applyVars(m.publicConfig, targetVars) as Record<string, unknown>,
   }));
+  const provModulesToRun = provModulesWithSubstitutedConfig.filter(
+    (m) => !shouldSkipProvisionerForTargetStorage(m, input.ctx.target.storage),
+  );
+  if (provModulesToRun.length === 0) return emptyProvisionOutput();
 
   // Convert `project-folder` source declarations into the
   // `materialized-project-asset` handshake shape before any vendor
@@ -74,7 +71,7 @@ export async function provision(
   // sha256 rather than a bundle-side reference they would otherwise have to
   // decode themselves.
   const materialized = materializeProjectFolderAssets({
-    modules: provModulesWithSubstitutedConfig,
+    modules: provModulesToRun,
     bundleDir: input.bundleDir,
   });
   if (materialized.errors.length > 0) {
@@ -127,7 +124,7 @@ export async function provision(
   }
 
   const dm: Record<string, { producesNames: readonly string[] }> = {};
-  for (const m of provModules) {
+  for (const m of provModulesToRun) {
     dm[m.projectKey] = { producesNames: m.manifest.provisioner?.produces.map((p) => p.name) ?? [] };
   }
 
@@ -140,4 +137,26 @@ export async function provision(
     startedAt,
     finishedAt: new Date().toISOString(),
   };
+}
+
+function emptyProvisionOutput(): ProvisionStageOutput {
+  const now = new Date().toISOString();
+  return {
+    provisioned: new Map(),
+    publicByModule: {},
+    secretByModule: {},
+    startedAt: now,
+    finishedAt: now,
+  };
+}
+
+function shouldSkipProvisionerForTargetStorage(
+  mod: DiscoveredProvisionerModule,
+  storage: ProvisionStageInput['ctx']['target']['storage'],
+): boolean {
+  return (
+    mod.packageName === '@rntme/storage-s3' &&
+    storage.mode === 'provisioned' &&
+    storage.provider === 'rustfs'
+  );
 }

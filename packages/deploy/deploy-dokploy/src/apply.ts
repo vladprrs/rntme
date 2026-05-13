@@ -497,6 +497,8 @@ async function cleanupOldTopology(
   // slug through `normalizePart`. Cleanup must mirror that normalization or
   // a slug like `Acme_Corp` would silently miss every legacy resource.
   const expectedPrefix = `rntme-${normalizePart(rendered.deployment.orgSlug)}-${normalizePart(rendered.deployment.projectSlug)}-`;
+  const currentResourceIds = new Set(applied.map((resource) => resource.targetResourceId));
+  const currentResourceNames = new Set(applied.map((resource) => resource.targetResourceName));
 
   const warnings: string[] = [];
 
@@ -514,6 +516,7 @@ async function cleanupOldTopology(
       warnings.push(`failed to list legacy applications: ${describeCleanupError(cause)}`);
     }
     for (const app of applications) {
+      if (currentResourceIds.has(app.id) || currentResourceNames.has(app.name)) continue;
       if (!isCleanupCandidate(app.name, app.labels, stackName, expectedPrefix)) continue;
       try {
         await client.deleteApplication(app.id);
@@ -533,6 +536,7 @@ async function cleanupOldTopology(
       warnings.push(`failed to list legacy composes: ${describeCleanupError(cause)}`);
     }
     for (const compose of composes) {
+      if (currentResourceIds.has(compose.id) || currentResourceNames.has(compose.name)) continue;
       if (!isCleanupCandidate(compose.name, compose.labels, stackName, expectedPrefix)) continue;
       try {
         await client.deleteCompose(compose.id);

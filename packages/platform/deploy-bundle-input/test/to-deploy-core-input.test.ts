@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadComposedBlueprint } from '@rntme/blueprint';
 import { toDeployCoreInput } from '../src/to-deploy-core-input.js';
@@ -204,6 +204,19 @@ describe('toDeployCoreInput', () => {
     expect(introspectBundle).not.toMatch(/from\s+['"]@rntme\/platform-core['"]/);
   });
 
+  it('bundles cv-extract UI runtime files from a relative blueprint directory', async () => {
+    const cvDir = relative(process.cwd(), join(repoRoot, 'demo', 'cv-extract-blueprint'));
+    const composed = await loadComposedBlueprint(cvDir);
+    expect(composed.ok, composed.ok ? '' : JSON.stringify((composed as { errors?: unknown }).errors, null, 2)).toBe(true);
+    if (!composed.ok) return;
+
+    const result = await toDeployCoreInput(composed.value, cvDir);
+    const app = result.services['app'];
+
+    expect(app?.kind).toBe('domain');
+    expect(Object.keys(app?.runtimeFiles ?? {}).some((path) => path.startsWith('ui-build/'))).toBe(true);
+  });
+
   it('bundles platform token introspection as a runtime-native handler with typed auth errors', async () => {
     const platformDir = join(repoRoot, 'apps', 'platform', 'blueprint');
     const composed = await loadComposedBlueprint(platformDir);
@@ -350,7 +363,20 @@ describe('toDeployCoreInput', () => {
           qsmValidated: { projections: {}, relations: {} },
           bindings: { artifact: { bindings: {} }, resolved: {} },
           seed: null,
-          storage: null,
+          storage: {
+            version: '1.0',
+            routes: {
+              'resume-file': {
+                id: 'resume-file',
+                owner: { aggregate: 'Resume', association: 'file' },
+                maxSize: '20MB',
+                allowedTypes: ['application/pdf'],
+                maxCount: 1,
+                auth: { requireRole: null },
+                lifecycle: { expirePending: '15m', retainCommitted: '30d' },
+              },
+            },
+          },
           compiledUi: null,
           eventTypes: [],
         },
@@ -414,6 +440,8 @@ describe('toDeployCoreInput', () => {
         { name: 'openrouter', grpc: { address: 'mod-openrouter:50051' }, protoPath: 'protos/ai_llm.proto' },
         { name: 'storage', grpc: { address: 'mod-storage-s3:50051' }, protoPath: 'protos/storage.proto' },
       ]);
+      expect(result.modules?.storage?.packageName).toBe('@rntme/storage-s3');
+      expect(result.services['storage-s3']?.runtimeFiles?.['storage.json']).toContain('"resume-file"');
 
       expect(app?.runtimeFiles?.['protos/ai_llm.proto']).toContain('service AiLlmModule');
       expect(app?.runtimeFiles?.['protos/ai_llm.proto']).toContain('rpc Complete(CreateCompletionRequest)');

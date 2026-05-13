@@ -151,6 +151,11 @@ The package has two layers with different invariants:
 leave them unset; defaults come from `@rntme/deploy-core`,
 `@rntme/deploy-dokploy`, and a fresh `SmokeVerifier`.
 
+`SmokeVerifier` retries the full smoke-check set before returning a failed
+report. This covers deploy targets such as Dokploy where deploy/start API calls
+can return while routing is still converging. Tests may pass
+`SmokeVerifierOptions` (`attempts`, `delayMs`, `sleep`) to avoid real waits.
+
 ## Known consumers
 
 - `apps/cli/` — CLI direct-mode caller.
