@@ -102,10 +102,16 @@ describe('renderNginxConfig', () => {
           mountTarget: 'http:/api',
           name: 'auth',
           kind: 'auth',
-          provider: 'auth0',
-          audience: 'https://commerce.example.com/api',
-          moduleSlug: 'identity-auth0',
-          moduleIntrospectPort: 50052,
+          providers: [
+            {
+              index: 0,
+              provider: 'auth0',
+              audience: 'https://commerce.example.com/api',
+              moduleSlug: 'identity-auth0',
+              introspectPath: '/introspect',
+              introspectPort: 50052,
+            },
+          ],
         },
       ],
     };
@@ -115,7 +121,7 @@ describe('renderNginxConfig', () => {
       'identity-auth0': 'http://app-identity-auth0:50052',
     });
 
-    expect(rendered).toContain('# auth middleware: provider=auth0, audience=https://commerce.example.com/api');
+    expect(rendered).toContain('# auth middleware: chain=auth0(https://commerce.example.com/api)');
     expect(rendered).toContain('auth_request');
     expect(rendered).not.toContain('# - delegated to runtime via identity module RPC; edge does not validate JWT');
   });
@@ -318,21 +324,27 @@ describe('auth middleware rendering', () => {
           mountTarget: 'http:/api',
           name: 'auth',
           kind: 'auth',
-          provider: 'auth0',
-          audience: 'https://notes-demo.rntme.com/api',
-          moduleSlug: 'identity-auth0',
-          moduleIntrospectPort: 50052,
+          providers: [
+            {
+              index: 0,
+              provider: 'auth0',
+              audience: 'https://notes-demo.rntme.com/api',
+              moduleSlug: 'identity-auth0',
+              introspectPath: '/introspect',
+              introspectPort: 50052,
+            },
+          ],
         },
       ],
     };
   }
 
-  it('renders an upstream block per (slug, audience) pair', () => {
+  it('renders an upstream block per provider entry', () => {
     const rendered = renderNginxConfig(authEdge(), {
       app: 'http://rntme-acme-notes-app:3000',
       'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
     });
-    expect(rendered).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('upstream rntme_auth_identity-auth0__0 {');
     expect(rendered).toContain('server rntme-acme-notes-identity-auth0:50052;');
   });
 
@@ -341,9 +353,9 @@ describe('auth middleware rendering', () => {
       app: 'http://rntme-acme-notes-app:3000',
       'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
     });
-    expect(rendered).toMatch(/location = \/_rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('location = /_rntme_auth_chain_http_api__auth_0 {');
     expect(rendered).toContain('internal;');
-    expect(rendered).toMatch(/proxy_pass\s+http:\/\/rntme_auth_identity-auth0__[0-9a-f]{8}\/introspect;/);
+    expect(rendered).toContain('proxy_pass         http://rntme_auth_identity-auth0__0/introspect;');
     expect(rendered).toContain('proxy_set_header   X-Rntme-Audience   "https://notes-demo.rntme.com/api";');
     expect(rendered).toContain('proxy_pass_request_body off;');
   });
@@ -353,10 +365,10 @@ describe('auth middleware rendering', () => {
       app: 'http://rntme-acme-notes-app:3000',
       'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
     });
-    expect(rendered).toMatch(/auth_request\s+\/_rntme_auth_identity-auth0__[0-9a-f]{8};/);
+    expect(rendered).toContain('auth_request          /_rntme_auth_chain_http_api__auth_0;');
     expect(rendered).toContain('proxy_set_header      X-Rntme-User-Sub      $rntme_user_sub;');
     expect(rendered).toContain('proxy_set_header      X-Rntme-User-Audience $rntme_user_audience;');
-    expect(rendered).toMatch(/error_page 401\s+= @rntme_auth_401_identity-auth0__[0-9a-f]{8};/);
+    expect(rendered).toContain('error_page 401        = @rntme_auth_401_http_api__auth;');
   });
 
   it('renders a named 401 location returning JSON', () => {
@@ -364,7 +376,7 @@ describe('auth middleware rendering', () => {
       app: 'http://rntme-acme-notes-app:3000',
       'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
     });
-    expect(rendered).toMatch(/location @rntme_auth_401_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(rendered).toContain('location @rntme_auth_401_http_api__auth {');
     expect(rendered).toContain('default_type application/json;');
     expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
   });
@@ -385,10 +397,16 @@ describe('auth middleware rendering', () => {
           mountTarget: 'http:/api',
           name: 'auth',
           kind: 'auth',
-          provider: 'auth0',
-          audience: 'https://notes-demo.rntme.com/api',
-          moduleSlug: 'identity-auth0',
-          moduleIntrospectPort: 50052,
+          providers: [
+            {
+              index: 0,
+              provider: 'auth0',
+              audience: 'https://notes-demo.rntme.com/api',
+              moduleSlug: 'identity-auth0',
+              introspectPath: '/introspect',
+              introspectPort: 50052,
+            },
+          ],
         },
       ],
     };
@@ -443,7 +461,7 @@ describe('auth middleware rendering', () => {
     expect(rendered).toContain(`return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`);
   });
 
-  it('renders introspect path from moduleIntrospectPath override (platform-tokens style)', () => {
+  it('renders introspect path from introspectPath (platform-tokens style)', () => {
     const edge: EdgePlan = {
       routes: [
         {
@@ -459,10 +477,15 @@ describe('auth middleware rendering', () => {
           mountTarget: 'http:/api/projects',
           name: 'auth',
           kind: 'auth',
-          provider: 'platform-tokens',
-          moduleSlug: 'tokens',
-          moduleIntrospectPort: 3000,
-          moduleIntrospectPath: '/api/tokens/introspect',
+          providers: [
+            {
+              index: 0,
+              provider: 'platform-tokens',
+              moduleSlug: 'tokens',
+              introspectPort: 3000,
+              introspectPath: '/api/tokens/introspect',
+            },
+          ],
         },
       ],
     };
@@ -472,11 +495,11 @@ describe('auth middleware rendering', () => {
       tokens: 'http://tokens:3000',
     });
 
-    expect(rendered).toMatch(/proxy_pass\s+http:\/\/rntme_auth_tokens__[0-9a-f]{8}\/api\/tokens\/introspect;/);
+    expect(rendered).toContain('proxy_pass         http://rntme_auth_tokens__0/api/tokens/introspect;');
     // platform-tokens has no audience → X-Rntme-Audience must not be emitted
     expect(rendered).not.toContain('X-Rntme-Audience');
-    // and the upstream port comes from moduleIntrospectPort
-    expect(rendered).toMatch(/upstream rntme_auth_tokens__[0-9a-f]{8}\s*\{/);
+    // and the upstream block is named with the provider index
+    expect(rendered).toContain('upstream rntme_auth_tokens__0 {');
   });
 
   it('rejects audiences containing quote or control characters', () => {
@@ -497,15 +520,77 @@ describe('auth middleware rendering', () => {
               mountTarget: 'http:/api',
               name: 'auth',
               kind: 'auth',
-              provider: 'auth0',
-              audience: 'https://evil.com"; return 200; #',
-              moduleSlug: 'identity-auth0',
-              moduleIntrospectPort: 50052,
+              providers: [
+                {
+                  index: 0,
+                  provider: 'auth0',
+                  audience: 'https://evil.com"; return 200; #',
+                  moduleSlug: 'identity-auth0',
+                  introspectPath: '/introspect',
+                  introspectPort: 50052,
+                },
+              ],
             },
           ],
         },
         { app: 'http://app:3000', 'identity-auth0': 'http://identity-auth0:50052' },
       ),
     ).toThrow(TypeError);
+  });
+
+  it('renders a platform-tokens to auth0 auth_request chain', () => {
+    const edge: EdgePlan = {
+      routes: [
+        {
+          id: 'http:/api/projects',
+          kind: 'http',
+          path: '/api/projects',
+          targetService: 'projects',
+          targetWorkload: 'projects',
+        },
+      ],
+      middleware: [
+        {
+          mountTarget: 'http:/api/projects',
+          name: 'auth',
+          kind: 'auth',
+          providers: [
+            {
+              index: 0,
+              provider: 'platform-tokens',
+              moduleSlug: 'tokens',
+              introspectPath: '/api/tokens/introspect',
+              introspectPort: 3000,
+            },
+            {
+              index: 1,
+              provider: 'auth0',
+              audience: 'https://platform.rntme.com/api',
+              moduleSlug: 'identity-auth0',
+              introspectPath: '/introspect',
+              introspectPort: 50052,
+            },
+          ],
+        },
+      ],
+    };
+
+    const rendered = renderNginxConfig(edge, {
+      projects: 'http://projects:3000',
+      tokens: 'http://tokens:3000',
+      'identity-auth0': 'http://identity-auth0:50052',
+    });
+
+    expect(rendered).toContain('auth_request          /_rntme_auth_chain_http_api_projects__auth_0;');
+    expect(rendered).toContain('location = /_rntme_auth_chain_http_api_projects__auth_0');
+    expect(rendered).toContain('location = /_rntme_auth_chain_http_api_projects__auth_1');
+    expect(rendered).toContain('error_page 401 = /_rntme_auth_chain_http_api_projects__auth_1;');
+    expect(rendered).toContain('upstream rntme_auth_tokens__0 {');
+    expect(rendered).toContain('upstream rntme_auth_identity-auth0__1 {');
+    expect(rendered).toContain('proxy_pass         http://rntme_auth_tokens__0/api/tokens/introspect;');
+    expect(rendered).toContain('proxy_pass         http://rntme_auth_identity-auth0__1/introspect;');
+    expect(rendered).toContain('proxy_set_header   X-Rntme-Audience   "https://platform.rntme.com/api";');
+    expect(rendered).toContain('auth_request_set      $rntme_session_status $upstream_http_x_rntme_session_status;');
+    expect(rendered).toContain('proxy_set_header      X-Rntme-Session-Status $rntme_session_status;');
   });
 });

@@ -1,15 +1,23 @@
-import { createHash } from 'node:crypto';
 import type { EdgeMiddleware, EdgePlan, EdgeRoute } from '@rntme/deploy-core';
 
 type AuthMiddleware = Extract<EdgeMiddleware, { kind: 'auth' }>;
 
-type AuthBlock = {
-  readonly slug: string;
-  readonly audHash: string;
+type AuthProviderBlock = {
+  readonly chainKey: string;
+  readonly providerIndex: number;
+  readonly provider: string;
+  readonly moduleSlug: string;
   readonly audience: string;
   readonly upstream: string;
-  readonly key: string; // <slug>__<audHash>
+  readonly upstreamKey: string;
   readonly introspectPath: string;
+  readonly nextInternalPath: string | null;
+};
+
+type AuthChainBlock = {
+  readonly key: string;
+  readonly firstInternalPath: string;
+  readonly providers: readonly AuthProviderBlock[];
 };
 
 export function renderNginxConfig(
@@ -24,13 +32,15 @@ export function renderNginxConfig(
     });
 
   const authMiddlewares = edge.middleware.filter((m): m is AuthMiddleware => m.kind === 'auth');
-  const authBlocks = buildAuthBlocks(authMiddlewares, upstreams);
-  const upstreamLines = authBlocks.map(
-    (b) => `  upstream rntme_auth_${b.key} {\n    server ${b.upstream};\n  }`,
+  const authChains = buildAuthChains(authMiddlewares, upstreams);
+  const allProviderBlocks = authChains.flatMap((c) => c.providers);
+
+  const upstreamLines = allProviderBlocks.map(
+    (b) => `  upstream ${b.upstreamKey} {\n    server ${b.upstream};\n  }`,
   );
 
-  const internalLocations = authBlocks.map((b) => renderAuthInternalLocation(b));
-  const named401Locations = authBlocks.map((b) => renderAuthNamed401Location(b));
+  const internalLocations = allProviderBlocks.map((b) => renderAuthInternalLocation(b));
+  const named401Locations = authChains.map((c) => renderAuthNamed401Location(c));
 
   const locations = edge.routes.map((route) =>
     renderLocation(
@@ -61,40 +71,61 @@ export function renderNginxConfig(
   ].join('\n');
 }
 
-function buildAuthBlocks(
+function buildAuthChains(
   middlewares: readonly AuthMiddleware[],
   upstreams: Readonly<Record<string, string>>,
-): AuthBlock[] {
-  const seen = new Map<string, AuthBlock>();
+): AuthChainBlock[] {
+  const seen = new Map<string, AuthChainBlock>();
   for (const m of middlewares) {
-    assertSafeSlug(m.moduleSlug);
-    const audience = m.audience ?? '';
-    if (audience !== '') assertSafeAudience(audience);
-    const introspectPath = m.moduleIntrospectPath ?? '/introspect';
-    assertSafeLocationPath(introspectPath);
-    const audHash = sha256Hex8(audience);
-    const key = `${m.moduleSlug}__${audHash}`;
-    if (seen.has(key)) continue;
-    const upstreamUrl = upstreams[m.moduleSlug] ?? `http://${m.moduleSlug}:${m.moduleIntrospectPort}`;
-    const upstreamHost = stripScheme(upstreamUrl);
-    assertSafeUpstreamHost(upstreamHost);
-    seen.set(key, {
-      slug: m.moduleSlug,
-      audHash,
-      audience,
-      upstream: upstreamHost,
-      key,
-      introspectPath,
+    assertSafeMiddlewareName(m.name);
+    const chainKey = `${zoneName(m.mountTarget)}__${m.name}`;
+    if (seen.has(chainKey)) continue;
+    if (m.providers.length === 0) {
+      throw new TypeError(`auth middleware ${m.name} on ${m.mountTarget} has no providers`);
+    }
+
+    const providers: AuthProviderBlock[] = m.providers.map((p, i) => {
+      assertSafeSlug(p.moduleSlug);
+      const audience = p.audience ?? '';
+      if (audience !== '') assertSafeAudience(audience);
+      const introspectPath = p.introspectPath;
+      assertSafeLocationPath(introspectPath);
+      const upstreamUrl = upstreams[p.moduleSlug] ?? `http://${p.moduleSlug}:${p.introspectPort}`;
+      const upstreamHost = stripScheme(upstreamUrl);
+      assertSafeUpstreamHost(upstreamHost);
+      const upstreamKey = `rntme_auth_${p.moduleSlug}__${p.index}`;
+      const isLast = i === m.providers.length - 1;
+      const nextInternalPath = isLast
+        ? null
+        : `/_rntme_auth_chain_${chainKey}_${m.providers[i + 1]!.index}`;
+      return {
+        chainKey,
+        providerIndex: p.index,
+        provider: p.provider,
+        moduleSlug: p.moduleSlug,
+        audience,
+        upstream: upstreamHost,
+        upstreamKey,
+        introspectPath,
+        nextInternalPath,
+      };
+    });
+
+    const firstInternalPath = `/_rntme_auth_chain_${chainKey}_${providers[0]!.providerIndex}`;
+    seen.set(chainKey, {
+      key: chainKey,
+      firstInternalPath,
+      providers,
     });
   }
   return [...seen.values()];
 }
 
-function renderAuthInternalLocation(b: AuthBlock): string {
+function renderAuthInternalLocation(b: AuthProviderBlock): string {
   const lines = [
-    `    location = /_rntme_auth_${b.key} {`,
+    `    location = /_rntme_auth_chain_${b.chainKey}_${b.providerIndex} {`,
     '      internal;',
-    `      proxy_pass         http://rntme_auth_${b.key}${b.introspectPath};`,
+    `      proxy_pass         http://${b.upstreamKey}${b.introspectPath};`,
     '      proxy_pass_request_body off;',
     '      proxy_set_header   content-length     "";',
     '      proxy_set_header   Authorization      $http_authorization;',
@@ -103,13 +134,16 @@ function renderAuthInternalLocation(b: AuthBlock): string {
     lines.push(`      proxy_set_header   X-Rntme-Audience   "${b.audience}";`);
   }
   lines.push('      proxy_intercept_errors on;');
+  if (b.nextInternalPath !== null) {
+    lines.push(`      error_page 401 = ${b.nextInternalPath};`);
+  }
   lines.push('    }');
   return lines.join('\n');
 }
 
-function renderAuthNamed401Location(b: AuthBlock): string {
+function renderAuthNamed401Location(c: AuthChainBlock): string {
   return [
-    `    location @rntme_auth_401_${b.key} {`,
+    `    location @rntme_auth_401_${c.key} {`,
     '      default_type application/json;',
     `      return 401 '{"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}';`,
     '    }',
@@ -160,16 +194,22 @@ function renderLocation(
       );
     }
     if (m.kind === 'auth') {
-      const audience = m.audience ?? '';
-      const audHash = sha256Hex8(audience);
-      const key = `${m.moduleSlug}__${audHash}`;
-      lines.push(`      # auth middleware: provider=${commentValue(m.provider)}, audience=${commentValue(audience)}`);
-      lines.push(`      auth_request          /_rntme_auth_${key};`);
+      assertSafeMiddlewareName(m.name);
+      const chainKey = `${zoneName(m.mountTarget)}__${m.name}`;
+      const providerSummary = m.providers
+        .map((p) => `${commentValue(p.provider)}${p.audience ? `(${commentValue(p.audience)})` : ''}`)
+        .join(' -> ');
+      lines.push(`      # auth middleware: chain=${providerSummary}`);
+      lines.push(
+        `      auth_request          /_rntme_auth_chain_${chainKey}_${m.providers[0]!.index};`,
+      );
       lines.push(`      auth_request_set      $rntme_user_sub      $upstream_http_x_rntme_user_sub;`);
       lines.push(`      auth_request_set      $rntme_user_audience $upstream_http_x_rntme_user_audience;`);
-      lines.push(`      error_page 401        = @rntme_auth_401_${key};`);
+      lines.push(`      auth_request_set      $rntme_session_status $upstream_http_x_rntme_session_status;`);
+      lines.push(`      error_page 401        = @rntme_auth_401_${chainKey};`);
       lines.push(`      proxy_set_header      X-Rntme-User-Sub      $rntme_user_sub;`);
       lines.push(`      proxy_set_header      X-Rntme-User-Audience $rntme_user_audience;`);
+      lines.push(`      proxy_set_header      X-Rntme-Session-Status $rntme_session_status;`);
       lines.push(`      proxy_set_header      Authorization         $http_authorization;`);
     }
   }
@@ -191,10 +231,6 @@ function headerVariable(header: string): string {
 
 function commentValue(value: string): string {
   return value.replace(/[\r\n]/g, ' ').replace(/\*\//g, '* /');
-}
-
-function sha256Hex8(input: string): string {
-  return createHash('sha256').update(input).digest('hex').slice(0, 8);
 }
 
 function stripScheme(url: string): string {
@@ -245,6 +281,12 @@ function assertSafeUpstreamHost(host: string): void {
 function assertSafeSlug(slug: string): void {
   if (!/^[A-Za-z0-9-]+$/.test(slug)) {
     throw new TypeError(`unsafe slug for nginx upstream/location: ${slug}`);
+  }
+}
+
+function assertSafeMiddlewareName(name: string): void {
+  if (!/^[A-Za-z0-9]+$/.test(name)) {
+    throw new TypeError(`unsafe middleware name for nginx chain key: ${name}`);
   }
 }
 
