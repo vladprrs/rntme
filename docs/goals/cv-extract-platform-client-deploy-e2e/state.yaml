@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T038  # T037 live bootstrap is blocked on credentials; T038 adds browser-authenticated PAT issuance UI.
+active_task: T037  # Blocked on approved browser JWT or explicit Auth0 client-grant authorization; T038 safe adjacent UI is complete.
 
 tasks:
   - id: T001
@@ -3213,7 +3213,7 @@ tasks:
   - id: T038
     type: worker
     assignee: Worker
-    status: active
+    status: completed
     reasoning_hint: high
     objective: "Add a browser-authenticated platform PAT bootstrap UI that lets a logged-in Auth0 dashboard user mint and copy a one-time `rntme_pat_*` via `POST /api/tokens` without persisting plaintext."
     inputs:
@@ -3239,8 +3239,12 @@ tasks:
       - "apps/platform/blueprint/services/app/ui/screens/tokens.screen.json"
       - "apps/platform/blueprint/test/**"
       - "bun.lock"
+      - "packages/deploy/deploy-dokploy/src/compose-yaml.ts"
+      - "packages/deploy/deploy-dokploy/src/render.ts"
+      - "packages/deploy/deploy-dokploy/test/unit/render.test.ts"
       - "docs/current/owners/apps/platform.md"
       - "docs/current/owners/packages/runtime/ui-runtime.md"
+      - "docs/current/owners/packages/deploy/deploy-dokploy.md"
       - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
     expected_output:
       - "ui-runtime provides `TransportProvider` to module components."
@@ -3265,24 +3269,147 @@ tasks:
       - "The token issuer would need to store plaintext outside component-local state."
       - "The implementation needs forged edge headers, direct DB seed, disabled edge auth, or tenant policy changes."
       - "Token creation safety depends on broader membership redesign outside this slice."
-    receipt: null
+    receipt:
+      result: completed_live_ui_deployed_valid_pat_still_blocked
+      summary: |
+        Added the browser-authenticated PAT issuer to the platform tokens screen,
+        made ui-runtime provide transport context to module components, pushed the
+        implementation, built the runtime image, and redeployed the platform. The
+        redeploy uncovered two Dokploy compose renderer bugs: persistent service
+        named volumes were referenced without top-level declarations, and the edge
+        Nginx container was not recreated when upstream runtime services changed,
+        leaving stale Docker DNS. Both deploy fixes were committed, pushed, and
+        used for the final redeploy. The live platform now serves the tokens screen
+        from `svc-app` with `PlatformTokenIssuer`; missing auth and an unknown PAT
+        still fail closed with the canonical 401 JSON. The valid-PAT 200 proof
+        remains blocked by T037 credential policy.
+      commits:
+        - sha: "66e64829"
+          message: "feat(platform): add browser PAT issuer"
+          pushed: "origin/main"
+        - sha: "6953c583"
+          message: "fix(deploy): declare compose named volumes"
+          pushed: "origin/main"
+        - sha: "26b994a0"
+          message: "fix(deploy): restart edge on upstream changes"
+          pushed: "origin/main"
+      implementation:
+        - "ui-runtime `AppShell` now wraps module-rendered content with `TransportProvider` when a transport chain is present."
+        - "`@rntme/platform-ui` exports `PlatformTokenIssuer`, which uses `useTransport()` and the route org id from the runtime store to POST `/api/tokens`."
+        - "The tokens screen renders `PlatformTokenIssuer` and removed the stale prefix/create action path."
+        - "The one-time PAT plaintext remains in component-local React state after create; tests assert the fake plaintext is not written to the runtime store snapshot."
+        - "Deploy Dokploy render now emits top-level named volumes and gives edge `RNTME_EDGE_UPSTREAMS_DIGEST` so Nginx restarts when upstream service specs change."
+      local_verification:
+        - cmd: "bun install --frozen-lockfile"
+          result: pass
+        - cmd: "bun run --filter @rntme/ui-runtime test"
+          result: pass
+          notes: "51 pass / 0 fail."
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          result: pass
+          notes: "5 pass / 0 fail."
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          result: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          result: pass
+        - cmd: "bun run --filter @rntme/ui-runtime build"
+          result: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          result: pass
+        - cmd: "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+          result: pass
+          notes: "37 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/deploy-dokploy test"
+          result: pass
+          notes: "137 pass / 13 skip / 0 fail after deploy-render fixes."
+        - cmd: "bun run --filter @rntme/deploy-dokploy typecheck"
+          result: pass
+        - cmd: "bun run --filter @rntme/deploy-dokploy build"
+          result: pass
+        - cmd: "bun run --filter @rntme/deploy-dokploy lint"
+          result: pass
+        - cmd: "bun run depcruise"
+          result: pass
+          notes: "no dependency violations found (825 modules, 1139 dependencies cruised)."
+        - cmd: "git diff --check && git diff --cached --check"
+          result: pass
+      runtime_image:
+        workflow: "runtime-image.yml"
+        run_url: "https://github.com/vladprrs/rntme/actions/runs/25826616070"
+        result: pass
+        tag: "runtime-e2e-66e64829-210955"
+        images:
+          - "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-66e64829-210955"
+          - "ghcr.io/vladprrs/rntme-bpmn-worker:runtime-e2e-66e64829-210955"
+        note: "GitHub Actions emitted Node.js 20 action deprecation warnings for checkout/login/build-push; non-blocking."
+      redeploy:
+        - cmd: "./apps/cli/dist/bin/cli.js platform up --target /tmp/rntme-platform-target-T038.json --log-file .rntme-platform-redeploy-2026-05-13-T038.jsonl"
+          result: failed_dokploy_deploy
+          notes: "CLI render/apply smoke passed superficially, but Dokploy deployment errored: service `svc-tokens` referenced undefined volume `rntme-direct-rntme-platform-tokens-data`."
+        - cmd: "./apps/cli/dist/bin/cli.js platform up --target /tmp/rntme-platform-target-T038.json --log-file .rntme-platform-redeploy-2026-05-13-T038-retry1.jsonl"
+          result: partial_live_misroute
+          notes: "Digest sha256:f3fab8598a1aac2e8b20b9414a93d18ab45bcf212b7c38b6338e39ce06794217; Dokploy deployment K6SKHRyEeDq_CCnHfpoN4 finished done at 2026-05-13T21:34:43Z, but old edge Nginx routed UI requests to `svc-tokens` due stale upstream DNS."
+        - cmd: "./apps/cli/dist/bin/cli.js platform up --target /tmp/rntme-platform-target-T038.json --log-file .rntme-platform-redeploy-2026-05-13-T038-retry2.jsonl"
+          result: applied_then_cli_smoke_raced_edge_restart
+          notes: "Digest sha256:4887a8ab053731fc7e7c27dfa9529e28e3ed7e8235e4bd85e08eed3b711956b8; Dokploy deployment zsd6tQOgeNlB9g75T7PSI finished done at 2026-05-13T21:40:30Z; CLI smoke saw transient 502/timeout while edge restarted."
+      live_verification:
+        - check: "Dokploy containers"
+          result: pass
+          notes: "`edge` recreated as container ba99ab33e598; `svc-app` is container f29dfe8cacaa on image ghcr.io/vladprrs/rntme-runtime:runtime-e2e-66e64829-210955."
+        - check: "GET https://platform.rntme.com/health"
+          result: pass
+          notes: "200 text/plain body `ok` after the edge restart settled."
+        - check: "GET https://platform.rntme.com/_manifest.json"
+          result: pass
+          notes: "200; routeCount 12; includes `/:orgId/tokens` mapped to screen `tokens`."
+        - check: "GET https://platform.rntme.com/_screens/tokens.json"
+          result: pass
+          notes: "200; contains `PlatformTokenIssuer`; does not contain `Token prefix` or `createToken`."
+        - check: "GET https://platform.rntme.com/assets/main.js"
+          result: pass
+          notes: "200; bundle length 2604; contains `PlatformTokenIssuer`; does not contain stale prefix text."
+        - check: "GET https://platform.rntme.com/org_uZUWhpWgK54VWC2X/tokens"
+          result: pass
+          notes: "200 HTML shell."
+        - check: "Missing Authorization GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1"
+          result: pass
+          notes: "401 body {\"code\":\"RUNTIME_AUTH_TOKEN_INVALID\",\"message\":\"authentication required\"}."
+        - check: "Unknown fake PAT GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1"
+          result: pass
+          notes: "401 body {\"code\":\"RUNTIME_AUTH_TOKEN_INVALID\",\"message\":\"authentication required\"}."
+        - check: "App/service routing"
+          result: pass
+          notes: "`svc-app` logs show `/_manifest.json`, `/_screens/tokens.json`, `/assets/main.js`, and `/org_uZUWhpWgK54VWC2X/tokens`; `svc-tokens` only receives `/api/tokens/introspect` after edge recreation."
+      preserved_dirty:
+        - "platform.target.json remains modified and uncommitted."
+        - "Redeploy logs, .clone, generated platform UI build output, and untracked goal/plan notes remain uncommitted."
+      blocker:
+        - "T037 valid-PAT proof still needs a real browser Auth0 JWT or explicit Auth0 client-grant authorization."
 
 checks:
   dirty_fingerprint: "platform.target.json + untracked redeploy logs and goal/notes (unrelated dirty preserved)"
   last_verification:
     result: pass
-    task: T036
+    task: T038
     commands:
-      - "bun run --filter @rntme/platform-core test"
+      - "bun install --frozen-lockfile"
+      - "bun run --filter @rntme/ui-runtime test"
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --filter @rntme/ui-runtime build"
+      - "bun run --cwd apps/platform/ui-module build"
       - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
-      - "bun run --filter @rntme/deploy-core test"
       - "bun run --filter @rntme/deploy-dokploy test"
-      - "bun run --filter @rntme/deploy-bundle-input test"
-      - "bun run --filter @rntme/deploy-core typecheck"
       - "bun run --filter @rntme/deploy-dokploy typecheck"
-      - "bun run --filter @rntme/deploy-bundle-input typecheck"
+      - "bun run --filter @rntme/deploy-dokploy build"
+      - "bun run --filter @rntme/deploy-dokploy lint"
       - "bun run depcruise"
-      - "git diff --cached --check"
-      - "./apps/cli/dist/bin/cli.js platform up --target ./platform.target.json --log-file .rntme-platform-redeploy-2026-05-13-T036.jsonl"
+      - "git diff --check && git diff --cached --check"
+      - "GitHub Actions runtime-image.yml run 25826616070 -> runtime-e2e-66e64829-210955"
+      - "./apps/cli/dist/bin/cli.js platform up --target /tmp/rntme-platform-target-T038.json --log-file .rntme-platform-redeploy-2026-05-13-T038-retry2.jsonl"
+      - "curl /health -> 200 ok"
+      - "curl /_manifest.json -> 200 routeCount 12 includes /:orgId/tokens"
+      - "curl /_screens/tokens.json -> 200 contains PlatformTokenIssuer and omits stale prefix/create action"
       - "curl missing Authorization /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
       - "curl unknown PAT /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
