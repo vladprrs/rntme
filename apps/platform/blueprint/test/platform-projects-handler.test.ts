@@ -9,6 +9,7 @@ import {
   RandomIds,
 } from '@rntme/platform-core';
 import { publishProjectBundleHandler } from '../services/projects/handlers/publish-project-bundle.js';
+import { listOrgProjectsHandler } from '../services/projects/handlers/list-org-projects.js';
 
 async function setup(): Promise<{
   store: FakeStore;
@@ -226,5 +227,151 @@ describe('publishProjectBundleHandler', () => {
     expect(out.status).toBe('error');
     if (out.status !== 'error') return;
     expect(out.errors[0]?.code).toBe('PLATFORM_TENANCY_PROJECT_NOT_FOUND');
+  });
+});
+
+describe('listOrgProjectsHandler', () => {
+  it('returns active projects for the authorized org', async () => {
+    const ctx = await setup();
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: ctx.orgId,
+      },
+    );
+
+    expect(out.status).toBe('ok');
+    if (out.status !== 'ok') return;
+    expect(out.projects).toHaveLength(1);
+    expect(out.projects[0]?.id).toBe(ctx.projectId);
+    expect(out.projects[0]?.slug).toBe(ctx.projectSlug);
+    expect(out.projects[0]?.orgId).toBe(ctx.orgId);
+  });
+
+  it('accepts the org slug as organizationId', async () => {
+    const ctx = await setup();
+    const orgRow = await ctx.store.organizations.findById(ctx.orgId);
+    if (!orgRow.ok || !orgRow.value) throw new Error('seed org missing');
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: orgRow.value.slug,
+      },
+    );
+
+    expect(out.status).toBe('ok');
+    if (out.status !== 'ok') return;
+    expect(out.projects.map((p) => p.slug)).toContain(ctx.projectSlug);
+  });
+
+  it('accepts the WorkOS organization id as organizationId', async () => {
+    const ctx = await setup();
+    const orgRow = await ctx.store.organizations.findById(ctx.orgId);
+    if (!orgRow.ok || !orgRow.value) throw new Error('seed org missing');
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: orgRow.value.workosOrganizationId,
+      },
+    );
+
+    expect(out.status).toBe('ok');
+    if (out.status !== 'ok') return;
+    expect(out.projects.map((p) => p.slug)).toContain(ctx.projectSlug);
+  });
+
+  it('returns PLATFORM_AUTH_INVALID when authorization is missing or invalid', async () => {
+    const ctx = await setup();
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer rntme_pat_${'z'.repeat(22)}`,
+        organizationId: ctx.orgId,
+      },
+    );
+    expect(out.status).toBe('error');
+    if (out.status !== 'error') return;
+    expect(out.errors[0]?.code).toBe('PLATFORM_AUTH_INVALID');
+  });
+
+  it('returns PLATFORM_AUTH_FORBIDDEN when the org does not match the subject', async () => {
+    const ctx = await setup();
+    const otherOrg = await ctx.store.seedOrg({
+      slug: 'other',
+      workosOrganizationId: 'org_workos_other',
+      displayName: 'Other',
+    });
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: otherOrg.id,
+      },
+    );
+    expect(out.status).toBe('error');
+    if (out.status !== 'error') return;
+    expect(out.errors[0]?.code).toBe('PLATFORM_AUTH_FORBIDDEN');
+  });
+
+  it('returns PLATFORM_TENANCY_ORG_NOT_FOUND when organizationId does not resolve', async () => {
+    const ctx = await setup();
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: 'no-such-org-id',
+      },
+    );
+    expect(out.status).toBe('error');
+    if (out.status !== 'error') return;
+    expect(out.errors[0]?.code).toBe('PLATFORM_TENANCY_ORG_NOT_FOUND');
+  });
+
+  it('respects the limit parameter when supplied', async () => {
+    const ctx = await setup();
+    const second = await ctx.store.projects.create({
+      id: 'proj-2',
+      orgId: ctx.orgId,
+      slug: 'second-project',
+      displayName: 'Second',
+    });
+    if (!second.ok) throw new Error('failed to seed second project');
+
+    const out = await listOrgProjectsHandler(
+      {
+        provider: ctx.provider,
+        repos: { organizations: ctx.store.organizations, projects: ctx.store.projects },
+      },
+      {
+        authorization: `Bearer ${ctx.plain}`,
+        organizationId: ctx.orgId,
+        limit: 1,
+      },
+    );
+
+    expect(out.status).toBe('ok');
+    if (out.status !== 'ok') return;
+    expect(out.projects).toHaveLength(1);
   });
 });

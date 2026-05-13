@@ -15,6 +15,21 @@
       "output": { "type": "PublishProjectBundleResult" },
       "effect": "write",
       "idempotency": "digest"
+    },
+    "listProjects": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-org-projects.ts",
+        "export": "listOrgProjectsHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "limit": { "type": "integer", "mode": "optional" }
+      },
+      "output": { "type": "ListOrgProjectsResult" },
+      "effect": "read",
+      "idempotency": "none"
     }
   }
 }

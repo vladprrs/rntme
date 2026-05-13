@@ -6,7 +6,7 @@
   "bindings": {
     "listProjects": {
       "graph": "listProjects",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "GET",
         "path": "/",

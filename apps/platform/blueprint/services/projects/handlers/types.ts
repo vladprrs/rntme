@@ -2,7 +2,9 @@ import type {
   ApiTokenProvider,
   BlobStore,
   Ids,
+  OrganizationRepo,
   PlatformError,
+  Project,
   ProjectRepo,
   ProjectVersion,
   ProjectVersionRepo,
@@ -29,4 +31,25 @@ export type PublishProjectBundleHandlerDeps = {
 
 export type PublishProjectBundleHandlerOutput =
   | { readonly status: 'created'; readonly version: ProjectVersion }
+  | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
+
+export type ListOrgProjectsHandlerInput = {
+  /** Raw Authorization header value, with or without the "Bearer " prefix. */
+  readonly authorization: string;
+  /** Caller-supplied id, slug, or WorkOS org id (must match the authenticated org). */
+  readonly organizationId: string;
+  /** Maximum number of projects to return; defaults to 100 if undefined. */
+  readonly limit?: number;
+};
+
+export type ListOrgProjectsHandlerDeps = {
+  readonly provider: ApiTokenProvider;
+  readonly repos: {
+    readonly organizations: OrganizationRepo;
+    readonly projects: ProjectRepo;
+  };
+};
+
+export type ListOrgProjectsHandlerOutput =
+  | { readonly status: 'ok'; readonly projects: readonly Project[] }
   | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
