@@ -6,13 +6,25 @@
   "bindings": {
     "listDeployTargets": {
       "graph": "listDeployTargets",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "GET",
         "path": "/targets",
         "parameters": [
-          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
-          { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "getDeployTarget": {
+      "graph": "getDeployTarget",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/targets/{slug}",
+        "parameters": [
+          { "name": "slug", "in": "path", "bindTo": "slug", "required": true }
         ]
       },
       "exposure": "read",
@@ -20,16 +32,57 @@
     },
     "createDeployTarget": {
       "graph": "createDeployTarget",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "POST",
         "path": "/targets",
         "parameters": [
           { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
-          { "name": "slug", "in": "body", "bindTo": "slug", "required": true },
-          { "name": "provider", "in": "body", "bindTo": "provider", "required": true },
-          { "name": "environment", "in": "body", "bindTo": "environment", "required": true },
-          { "name": "configJson", "in": "body", "bindTo": "configJson", "required": true }
+          { "name": "body", "in": "body", "bindTo": "body", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "updateDeployTarget": {
+      "graph": "updateDeployTarget",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "POST",
+        "path": "/targets/{slug}/actions/update",
+        "parameters": [
+          { "name": "slug", "in": "path", "bindTo": "slug", "required": true },
+          { "name": "body", "in": "body", "bindTo": "body", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "deleteDeployTarget": {
+      "graph": "deleteDeployTarget",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "POST",
+        "path": "/targets/{slug}/actions/delete",
+        "parameters": [
+          { "name": "slug", "in": "path", "bindTo": "slug", "required": true }
+        ]
+      },
+      "exposure": "action",
+      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+    },
+    "startDeployment": {
+      "graph": "startDeployment",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "parameters": [
+          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
+          { "name": "projectId", "in": "body", "bindTo": "projectId", "required": true },
+          { "name": "projectVersionSeq", "in": "body", "bindTo": "projectVersionSeq", "required": true },
+          { "name": "targetSlug", "in": "body", "bindTo": "targetSlug", "required": true },
+          { "name": "configOverrides", "in": "body", "bindTo": "configOverrides", "required": false }
         ]
       },
       "exposure": "action",
@@ -40,7 +93,7 @@
       "target": { "engine": "sqlite", "dialect": "sqlite" },
       "http": {
         "method": "POST",
-        "path": "/",
+        "path": "/actions/queue",
         "parameters": [
           { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
           { "name": "projectId", "in": "body", "bindTo": "projectId", "required": true },

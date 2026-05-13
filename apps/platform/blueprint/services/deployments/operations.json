@@ -1,0 +1,95 @@
+{
+  "version": "1",
+  "operations": {
+    "startDeployment": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/start-deployment.ts",
+        "export": "startDeploymentHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "projectId": { "type": "string", "mode": "required" },
+        "projectVersionSeq": { "type": "integer", "mode": "required" },
+        "targetSlug": { "type": "string", "mode": "required" },
+        "configOverrides": { "type": "object", "mode": "optional" }
+      },
+      "output": { "type": "StartDeploymentResult" },
+      "effect": "write",
+      "idempotency": "none"
+    },
+    "listDeployTargets": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deploy-targets.ts",
+        "export": "listDeployTargetsHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "organizationId": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "ListDeployTargetsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "getDeployTarget": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deploy-targets.ts",
+        "export": "getDeployTargetHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "slug": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "GetDeployTargetResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "createDeployTarget": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deploy-targets.ts",
+        "export": "createDeployTargetHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "body": { "type": "object", "mode": "required" }
+      },
+      "output": { "type": "CreateDeployTargetResult" },
+      "effect": "write",
+      "idempotency": "slug"
+    },
+    "updateDeployTarget": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deploy-targets.ts",
+        "export": "updateDeployTargetHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "slug": { "type": "string", "mode": "required" },
+        "body": { "type": "object", "mode": "required" }
+      },
+      "output": { "type": "UpdateDeployTargetResult" },
+      "effect": "write",
+      "idempotency": "none"
+    },
+    "deleteDeployTarget": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deploy-targets.ts",
+        "export": "deleteDeployTargetHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "slug": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "DeleteDeployTargetResult" },
+      "effect": "write",
+      "idempotency": "none"
+    }
+  }
+}

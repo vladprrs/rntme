@@ -1,0 +1,20 @@
+{
+  "version": "1",
+  "operations": {
+    "publishProjectBundle": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/publish-project-bundle.ts",
+        "export": "publishProjectBundleHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "projectId": { "type": "string", "mode": "required" },
+        "bodyBytes": { "type": "bytes", "mode": "required" }
+      },
+      "output": { "type": "PublishProjectBundleResult" },
+      "effect": "write",
+      "idempotency": "digest"
+    }
+  }
+}

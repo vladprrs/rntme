@@ -13,7 +13,11 @@ describe('platform deployments service', () => {
     if (!result.ok) return;
 
     expect(result.value.services.deployments).toBeDefined();
-    expect(result.value.bindingRegistry['deployments.queueDeployment']?.path).toBe('/api/deployments');
+    expect(result.value.bindingRegistry['deployments.startDeployment']?.path).toBe('/api/deployments');
     expect(result.value.bindingRegistry['deployments.listDeployTargets']?.path).toBe('/api/deployments/targets');
+    expect(result.value.bindingRegistry['deployments.getDeployTarget']?.path).toBe('/api/deployments/targets/{slug}');
+    expect(result.value.bindingRegistry['deployments.createDeployTarget']?.path).toBe('/api/deployments/targets');
+    expect(result.value.bindingRegistry['deployments.updateDeployTarget']?.path).toBe('/api/deployments/targets/{slug}/actions/update');
+    expect(result.value.bindingRegistry['deployments.deleteDeployTarget']?.path).toBe('/api/deployments/targets/{slug}/actions/delete');
   });
 });

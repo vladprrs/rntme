@@ -53,23 +53,21 @@
         "authorization": { "from": "header", "name": "authorization", "required": true }
       }
     },
-    "publishProjectVersion": {
-      "graph": "publishProjectVersion",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+    "publishProjectBundle": {
+      "graph": "publishProjectBundle",
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "POST",
         "path": "/{projectId}/versions",
         "parameters": [
-          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true },
-          { "name": "sequence", "in": "body", "bindTo": "sequence", "required": true },
-          { "name": "bundleDigest", "in": "body", "bindTo": "bundleDigest", "required": true },
-          { "name": "bundleObjectKey", "in": "body", "bindTo": "bundleObjectKey", "required": true }
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
         ]
       },
-      "exposure": "action",
       "inputFrom": {
-        "authorization": { "from": "header", "name": "authorization", "required": true }
-      }
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "bodyBytes": { "from": "bodyBytes" }
+      },
+      "exposure": "action"
     }
   }
 }
