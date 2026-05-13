@@ -134,7 +134,7 @@ describe('loadComposedBlueprint', () => {
 
     expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
     if (!result.ok) return;
-    const compiled = JSON.stringify(result.value.services.app?.compiledUi?.screens.home.spec);
+    const compiled = JSON.stringify(result.value.services.app?.compiledUi?.screens['home']?.spec);
     expect(compiled).not.toContain('$ref');
     expect(compiled).not.toContain('$param');
     expect(compiled).toContain('pricing');

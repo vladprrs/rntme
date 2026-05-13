@@ -109,13 +109,18 @@ function collectPackageDirs(dir, output) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    // Skip node_modules entirely — we only want workspace source packages.
+    if (entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
     const packageJsonPath = join(path, 'package.json');
     if (existsSync(packageJsonPath)) {
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
       if (typeof pkg.name === 'string') output.set(pkg.name, path);
-      continue;
+      // Continue recursing: nested workspace dirs (e.g. apps/platform/ui-module)
+      // may sit inside a directory that also has its own package.json.
+      collectPackageDirs(path, output);
+    } else {
+      collectPackageDirs(path, output);
     }
-    collectPackageDirs(path, output);
   }
 }
