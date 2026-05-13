@@ -35,8 +35,14 @@ export function renderNginxConfig(
   const authChains = buildAuthChains(authMiddlewares, upstreams);
   const allProviderBlocks = authChains.flatMap((c) => c.providers);
 
-  const upstreamLines = allProviderBlocks.map(
-    (b) => `  upstream ${b.upstreamKey} {\n    server ${b.upstream};\n  }`,
+  const uniqueUpstreams = new Map<string, { key: string; upstream: string }>();
+  for (const b of allProviderBlocks) {
+    if (!uniqueUpstreams.has(b.upstreamKey)) {
+      uniqueUpstreams.set(b.upstreamKey, { key: b.upstreamKey, upstream: b.upstream });
+    }
+  }
+  const upstreamLines = [...uniqueUpstreams.values()].map(
+    (u) => `  upstream ${u.key} {\n    server ${u.upstream};\n  }`,
   );
 
   const internalLocations = allProviderBlocks.map((b) => renderAuthInternalLocation(b));
