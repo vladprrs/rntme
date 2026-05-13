@@ -4,6 +4,9 @@
       "id": { "type": "string", "nullable": false },
       "filename": { "type": "string", "nullable": false },
       "mediaType": { "type": "string", "nullable": false },
+      "fileId": { "type": "string", "nullable": false },
+      "objectKey": { "type": "string", "nullable": false },
+      "downloadUrl": { "type": "string", "nullable": false },
       "extractedJson": { "type": "string", "nullable": false },
       "status": { "type": "string", "nullable": false },
       "createdAt": { "type": "datetime", "nullable": false }
@@ -12,6 +15,19 @@
   "ResumeActionResult": {
     "fields": {
       "resumeId": { "type": "string", "nullable": false }
+    }
+  },
+  "PrepareUploadResult": {
+    "fields": {
+      "resumeId": { "type": "string", "nullable": false },
+      "fileId": { "type": "string", "nullable": false },
+      "objectKey": { "type": "string", "nullable": false },
+      "uploadUrl": { "type": "string", "nullable": false }
+    }
+  },
+  "CommitUploadResult": {
+    "fields": {
+      "fileId": { "type": "string", "nullable": false }
     }
   }
 }

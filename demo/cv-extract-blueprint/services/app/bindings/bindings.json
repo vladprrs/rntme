@@ -4,6 +4,32 @@
   "pdmRef": "../../../pdm",
   "qsmRef": "../qsm",
   "bindings": {
+    "prepareResumeFileUpload": {
+      "graph": "prepareResumeFileUpload",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/files/prepare-upload",
+        "parameters": [
+          { "name": "filename",     "in": "body", "bindTo": "filename",     "required": true },
+          { "name": "contentType",  "in": "body", "bindTo": "contentType",  "required": true },
+          { "name": "declaredSize", "in": "body", "bindTo": "declaredSize", "required": true }
+        ]
+      },
+      "exposure": "action"
+    },
+    "commitResumeFileUpload": {
+      "graph": "commitResumeFileUpload",
+      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "http": {
+        "method": "POST",
+        "path": "/files/commit-upload",
+        "parameters": [
+          { "name": "fileId", "in": "body", "bindTo": "fileId", "required": true }
+        ]
+      },
+      "exposure": "action"
+    },
     "extractResume": {
       "graph": "extractResume",
       "target": { "engine": "sqlite", "dialect": "sqlite" },
@@ -11,9 +37,11 @@
         "method": "POST",
         "path": "/resumes",
         "parameters": [
-          { "name": "filename",   "in": "body", "bindTo": "filename",   "required": true },
-          { "name": "mediaType",  "in": "body", "bindTo": "mediaType",  "required": true },
-          { "name": "fileBase64", "in": "body", "bindTo": "fileBase64", "required": true }
+          { "name": "resumeId",  "in": "body", "bindTo": "resumeId",  "required": true },
+          { "name": "filename",  "in": "body", "bindTo": "filename",  "required": true },
+          { "name": "mediaType", "in": "body", "bindTo": "mediaType", "required": true },
+          { "name": "fileId",    "in": "body", "bindTo": "fileId",    "required": true },
+          { "name": "objectKey", "in": "body", "bindTo": "objectKey", "required": true }
         ]
       },
       "exposure": "action"

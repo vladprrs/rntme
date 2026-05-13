@@ -3,5 +3,5 @@
   "source": { "entity": "Resume" },
   "keys": ["id"],
   "grain": ["id"],
-  "exposed": ["filename", "mediaType", "extractedJson", "status"]
+  "exposed": ["filename", "mediaType", "fileId", "objectKey", "downloadUrl", "extractedJson", "status"]
 }

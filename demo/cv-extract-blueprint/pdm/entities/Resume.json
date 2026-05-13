@@ -6,6 +6,9 @@
     "id":            { "type": "string",   "nullable": false, "column": "id" },
     "filename":      { "type": "string",   "nullable": false, "column": "filename" },
     "mediaType":     { "type": "string",   "nullable": false, "column": "media_type" },
+    "fileId":        { "type": "string",   "nullable": false, "column": "file_id" },
+    "objectKey":     { "type": "string",   "nullable": false, "column": "object_key" },
+    "downloadUrl":   { "type": "string",   "nullable": false, "column": "download_url" },
     "extractedJson": { "type": "string",   "nullable": false, "column": "extracted_json" },
     "status":        { "type": "string",   "nullable": false, "column": "status" },
     "createdAt":     { "type": "datetime", "nullable": false, "column": "created_at", "generated": "createdAt" }
@@ -19,7 +22,7 @@
       "complete": {
         "from": null,
         "to": "complete",
-        "affects": ["filename", "mediaType", "extractedJson"]
+        "affects": ["filename", "mediaType", "fileId", "objectKey", "downloadUrl", "extractedJson"]
       }
     }
   }

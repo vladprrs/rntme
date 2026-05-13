@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "routes": {
+    "resume-file": {
+      "owner": { "aggregate": "Resume", "association": "file" },
+      "maxSize": "20MB",
+      "allowedTypes": ["application/pdf"],
+      "maxCount": 1,
+      "auth": { "requireRole": null },
+      "lifecycle": { "expirePending": "15m", "retainCommitted": "30d" }
+    }
+  }
+}

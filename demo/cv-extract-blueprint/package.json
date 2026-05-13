@@ -4,13 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "bun run -F @rntme/ai-llm-openrouter build && bun run -F @rntme/contracts-marketing-site-v1 build && bun run -F @rntme/bundle-publish build && bun test"
+    "test": "bun run -F @rntme/ai-llm-openrouter build && bun run -F @rntme/contracts-marketing-site-v1 build && bun run -F @rntme/bundle-publish build && bun run -F @rntme/blueprint build && bun test"
   },
   "devDependencies": {
     "@rntme/ai-llm-openrouter": "workspace:*",
+    "@rntme/blueprint": "workspace:*",
     "@rntme/bundle-publish": "workspace:*",
     "@rntme/contracts-marketing-site-v1": "workspace:*",
     "@rntme/contracts-ai-llm-v1": "workspace:*",
+    "@rntme/marketing-site-static": "workspace:*",
+    "@rntme/storage-s3": "workspace:*",
     "@types/bun": "^1.2.14",
     "@types/node": "^20.14.0",
     "typescript": "^5.5.4"

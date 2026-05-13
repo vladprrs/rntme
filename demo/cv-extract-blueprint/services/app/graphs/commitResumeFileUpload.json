@@ -1,0 +1,33 @@
+{
+  "id": "commitResumeFileUpload",
+  "signature": {
+    "inputs": {
+      "fileId": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "row<CommitUploadResult>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "committed",
+      "type": "call",
+      "target": { "module": "storage", "operation": "CommitUpload" },
+      "input": {
+        "context": { "$literal": { "idempotencyKey": "" } },
+        "file_id": { "$param": "fileId" }
+      },
+      "policy": {
+        "timeoutMs": 5000,
+        "retry": { "attempts": 1, "retryOn": "transient" },
+        "idempotency": { "mode": "derive" },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "fileId": { "$ref": "committed.result.file.file_id" }
+      }
+    }
+  ]
+}

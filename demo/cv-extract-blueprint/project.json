@@ -1,25 +1,31 @@
 {
   "name": "cv-extract",
-  "services": ["app", "marketing"],
+  "services": ["app", "openrouter", "storage-s3"],
   "vars": {
-    "MARKETING_DOMAIN": { "from": "target.marketing.primaryDomain", "required": true }
+    "MARKETING_DOMAIN": { "from": "target.modules.marketing.primaryDomain", "required": true }
   },
   "modules": {
     "openrouter": {
       "package": "@rntme/ai-llm-openrouter",
       "publicConfig": {
         "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
-        "timeoutMs": 60000
+        "timeoutMs": 30000
+      }
+    },
+    "storage": {
+      "package": "@rntme/storage-s3",
+      "publicConfig": {
+        "backend": "rustfs",
+        "bucketName": "cv-extract-files",
+        "region": "us-east-1"
       }
     },
     "marketing": {
       "package": "@rntme/marketing-site-static",
       "publicConfig": {
         "source": {
-          "kind": "s3",
-          "bucket": "cv-extract",
-          "key": "landings/cv-extract/69f0af5e1788582091a5bfbadb8b9aae6638ee15ddbc379c6dccd5cdf2dc9144.tar.gz",
-          "sha256": "69f0af5e1788582091a5bfbadb8b9aae6638ee15ddbc379c6dccd5cdf2dc9144"
+          "kind": "project-folder",
+          "path": "landing"
         },
         "primaryDomain": "${MARKETING_DOMAIN}",
         "ssl": "auto"

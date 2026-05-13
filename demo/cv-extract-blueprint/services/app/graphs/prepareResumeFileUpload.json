@@ -1,0 +1,43 @@
+{
+  "id": "prepareResumeFileUpload",
+  "signature": {
+    "inputs": {
+      "filename":     { "type": "string",  "mode": "required" },
+      "contentType":  { "type": "string",  "mode": "required" },
+      "declaredSize": { "type": "integer", "mode": "required" }
+    },
+    "output": { "type": "row<PrepareUploadResult>", "from": "out" }
+  },
+  "nodes": [
+    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "prepared",
+      "type": "call",
+      "target": { "module": "storage", "operation": "PrepareUpload" },
+      "input": {
+        "context": { "$literal": { "idempotencyKey": "" } },
+        "route_id": { "$literal": "resume-file" },
+        "entity_id": { "$node": "newId" },
+        "filename": { "$param": "filename" },
+        "content_type": { "$param": "contentType" },
+        "declared_size": { "$param": "declaredSize" }
+      },
+      "policy": {
+        "timeoutMs": 5000,
+        "retry": { "attempts": 1, "retryOn": "transient" },
+        "idempotency": { "mode": "derive" },
+        "onError": "fail"
+      }
+    },
+    {
+      "id": "out",
+      "type": "result",
+      "value": {
+        "resumeId":  { "$node": "newId" },
+        "fileId":    { "$ref": "prepared.result.file_id" },
+        "objectKey": { "$ref": "prepared.result.object_key" },
+        "uploadUrl": { "$ref": "prepared.result.presigned.url" }
+      }
+    }
+  ]
+}

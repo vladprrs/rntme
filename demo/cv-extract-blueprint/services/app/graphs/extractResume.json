@@ -2,22 +2,37 @@
   "id": "extractResume",
   "signature": {
     "inputs": {
-      "filename":   { "type": "string", "mode": "required" },
-      "mediaType":  { "type": "string", "mode": "required" },
-      "fileBase64": { "type": "string", "mode": "required" }
+      "resumeId":  { "type": "string", "mode": "required" },
+      "filename":  { "type": "string", "mode": "required" },
+      "mediaType": { "type": "string", "mode": "required" },
+      "fileId":    { "type": "string", "mode": "required" },
+      "objectKey": { "type": "string", "mode": "required" }
     },
     "output": { "type": "row<ResumeActionResult>", "from": "out" }
   },
   "nodes": [
-    { "id": "newId", "type": "uuid", "config": {} },
+    {
+      "id": "download",
+      "type": "call",
+      "target": { "module": "storage", "operation": "GetDownloadUrl" },
+      "input": {
+        "context": { "$literal": { "idempotencyKey": "" } },
+        "file_id": { "$param": "fileId" },
+        "ttl_sec": { "$literal": 900 }
+      },
+      "policy": {
+        "timeoutMs": 5000,
+        "retry": { "attempts": 1, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
     {
       "id": "completion",
       "type": "call",
       "target": { "module": "openrouter", "operation": "Complete" },
       "input": {
-        "context": {
-          "$literal": { "idempotencyKey": "" }
-        },
+        "context": { "$literal": { "idempotencyKey": "" } },
         "model": { "$literal": "openrouter/deepseek/deepseek-v4-flash" },
         "messages": {
           "$literal": [
@@ -28,8 +43,8 @@
                   "type": 4,
                   "file": {
                     "filename": { "$param": "filename" },
-                    "mediaType": { "$param": "mediaType" },
-                    "base64Data": { "$param": "fileBase64" }
+                    "media_type": { "$param": "mediaType" },
+                    "url": { "$ref": "download.result.presigned.url" }
                   }
                 },
                 {
@@ -82,9 +97,9 @@
         }
       },
       "policy": {
-        "timeoutMs": 90000,
+        "timeoutMs": 30000,
         "retry":   { "attempts": 1, "retryOn": "transient" },
-        "idempotency": { "mode": "auto" },
+        "idempotency": { "mode": "derive" },
         "onError": "fail"
       }
     },
@@ -93,15 +108,22 @@
       "type": "emit",
       "config": {
         "aggregate": "Resume",
-        "aggregateId": { "$node": "newId" },
+        "aggregateId": { "$param": "resumeId" },
         "transition": "complete",
         "payload": {
           "filename":      { "$param": "filename" },
           "mediaType":     { "$param": "mediaType" },
+          "fileId":        { "$param": "fileId" },
+          "objectKey":     { "$param": "objectKey" },
+          "downloadUrl":   { "$ref": "download.result.presigned.url" },
           "extractedJson": { "$ref": "completion.result.content[0].text.text" }
         }
       }
     },
-    { "id": "out", "type": "result", "value": { "resumeId": { "$ref": "emit.aggregateId" } } }
+    {
+      "id": "out",
+      "type": "result",
+      "value": { "resumeId": { "$ref": "emit.aggregateId" } }
+    }
   ]
 }
