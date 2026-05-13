@@ -830,7 +830,9 @@ function renderResource(
           ? []
           : [
               { name: 'RNTME_AUTH_PROVIDER', value: authMiddleware.provider, secret: false },
-              { name: 'RNTME_AUTH_AUDIENCE', value: authMiddleware.audience, secret: false },
+              ...(authMiddleware.audience === undefined
+                ? []
+                : [{ name: 'RNTME_AUTH_AUDIENCE', value: authMiddleware.audience, secret: false }]),
               { name: 'RNTME_AUTH_MODULE_SLUG', value: authMiddleware.moduleSlug, secret: false },
               {
                 name: 'RNTME_AUTH_MODULE_ENDPOINT',
