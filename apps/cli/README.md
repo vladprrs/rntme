@@ -31,9 +31,20 @@ Direct-mode requires a target JSON file describing the Dokploy instance:
     "apiToken": { "source": "env", "name": "DOKPLOY_API_TOKEN" }
   },
   "eventBus": { "mode": "provisioned" },
+  "storage": {
+    "mode": "provisioned",
+    "provider": "rustfs",
+    "publicBaseUrl": "https://files.preview.example.com",
+    "accessKeyRef": "rustfs-access-key",
+    "secretKeyRef": "rustfs-secret-key"
+  },
   "publicBaseUrl": "https://preview.example.com"
 }
 ```
+
+Omit `storage` to use external/module-owned storage. Provisioned RustFS stores
+secret names in the target file; the values are resolved from `secrets.extras`
+at deploy time.
 
 Commands:
 

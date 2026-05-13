@@ -50,6 +50,7 @@ export async function loadTargetFile(
   if (file.kind === 'dokploy') {
     const auth = buildAuthSection(file.auth);
     const workflows = buildWorkflowsSection(file.workflows);
+    const storage = file.storage ?? { mode: 'external' };
     const configOverrides: Record<string, unknown> = {};
     if (file.runtimeImage !== undefined) configOverrides.runtimeImage = file.runtimeImage;
     return ok({
@@ -66,7 +67,7 @@ export async function loadTargetFile(
         eventBus: file.eventBus ?? { kind: 'kafka', mode: 'external', brokers: ['localhost:9092'] },
         modules: file.modules ?? {},
         workflows,
-        storage: { mode: 'external' },
+        storage,
         auth,
         policyValues: file.policyValues ?? {},
         manualAccess: {},

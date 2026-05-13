@@ -1,6 +1,6 @@
 # @rntme/cli
 
-The **rntme CLI** is a command-line interface for interacting with the rntme platform. It provides tools for authentication, publishing project blueprint versions, managing projects, and token management. Deploy operations (planning, rendering, applying) are server-side and triggered through the platform control plane.
+The **rntme CLI** is a command-line interface for interacting with the rntme platform. It provides tools for authentication, publishing project blueprint versions, managing projects, and token management. Platform-client deploy operations are server-side and triggered through the platform control plane; direct-mode deploy (`rntme deploy <bp> --target <file>`) runs the same deploy-runner stages locally without a running platform server.
 
 ## Quick Start
 
@@ -92,7 +92,10 @@ rntme project deploy --org my-org --project my-project --version 4 --target dokp
 rntme project deployment watch --org my-org --project my-project <deployment-id>
 ```
 
-The CLI never calls Dokploy directly and never reads deploy target secrets.
+Platform-client deploy commands never call Dokploy directly and never read
+deploy target secrets. Direct-mode deploy commands read target JSON files,
+resolve environment-backed secret references in-process, and call Dokploy
+through the deploy-runner adapter.
 
 ### Deploying a workflow-enabled blueprint
 
@@ -261,7 +264,23 @@ Total `assets` size is capped at 10 MiB. CLI publish returns
 
 ## Architecture: Direct-mode Deploy Engine
 
-The direct-mode deployment system (`rntme deploy <bp> --target <file>`) and platform-bootstrap commands (`rntme platform up/down`) rely on a localized deploy engine in `src/deploy-engine/` that operates without a running platform server. This layer orchestrates blueprint loading, secret resolution, and deployment via the Dokploy API.
+The direct-mode deployment system (`rntme deploy <bp> --target <file>`) and platform-bootstrap commands (`rntme platform up/down`) rely on a localized deploy engine in `src/deploy-engine/` that operates without a running platform server. This layer orchestrates blueprint loading, secret resolution, and deployment via the Dokploy API. Target files may omit `storage` for external/module-owned storage or set provisioned RustFS storage:
+
+```json
+{
+  "storage": {
+    "mode": "provisioned",
+    "provider": "rustfs",
+    "publicBaseUrl": "https://files.example.com",
+    "accessKeyRef": "rustfs-access-key",
+    "secretKeyRef": "rustfs-secret-key"
+  }
+}
+```
+
+The `accessKeyRef` and `secretKeyRef` fields are secret names. Direct-mode
+resolves their values from `secrets.extras` and passes them only to the apply
+stage.
 
 ### Deploy Engine Module Layout
 

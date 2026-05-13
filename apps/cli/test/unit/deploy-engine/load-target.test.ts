@@ -76,6 +76,37 @@ describe('loadTargetFile', () => {
     expect(t.modules['storage-s3']?.notes).toBe('pinned');
   });
 
+  it('parses provisioned RustFS storage into the normalized direct target', async () => {
+    const result = await loadTargetFile(fixturePath, 'preview', {
+      readFile: async () =>
+        JSON.stringify({
+          kind: 'dokploy',
+          displayName: 'preview',
+          config: { dokployUrl: 'https://dokploy.example.com' },
+          secrets: { apiToken: { source: 'env', name: 'DOKPLOY_API_TOKEN' } },
+          eventBus: { kind: 'in-memory' },
+          storage: {
+            mode: 'provisioned',
+            provider: 'rustfs',
+            image: 'rustfs/rustfs:1.0.0',
+            publicBaseUrl: 'https://files.example.test',
+            accessKeyRef: 'rustfs-access-key',
+            secretKeyRef: 'rustfs-secret-key',
+          },
+        }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.target.storage).toEqual({
+      mode: 'provisioned',
+      provider: 'rustfs',
+      image: 'rustfs/rustfs:1.0.0',
+      publicBaseUrl: 'https://files.example.test',
+      accessKeyRef: 'rustfs-access-key',
+      secretKeyRef: 'rustfs-secret-key',
+    });
+  });
+
   it('parses workflows + auth + nested extras into a normalized platform target', async () => {
     const result = await loadTargetFile(platformFixturePath, 'rntme-platform-prod');
     expect(result.ok).toBe(true);

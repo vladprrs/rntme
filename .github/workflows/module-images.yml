@@ -1,0 +1,45 @@
+name: module images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: GHCR image tag to publish
+        required: true
+        type: string
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ai-llm-openrouter
+            file: modules/ai-llm/openrouter/Dockerfile
+            image: ghcr.io/vladprrs/rntme-ai-llm-openrouter
+          - name: storage-s3
+            file: modules/storage/s3/Dockerfile
+            image: ghcr.io/vladprrs/rntme-storage-s3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.name }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          tags: |
+            ${{ matrix.image }}:${{ inputs.tag }}
+            ${{ matrix.image }}:${{ github.sha }}

@@ -38,6 +38,20 @@ const WorkflowsTargetSchema = z.object({
   operatonUi: OperatonUiAccessSchema.optional(),
 });
 
+const StorageTargetSchema = z.union([
+  z.object({
+    mode: z.literal('external'),
+  }),
+  z.object({
+    mode: z.literal('provisioned'),
+    provider: z.literal('rustfs'),
+    image: z.string().min(1).optional(),
+    publicBaseUrl: z.string().url(),
+    accessKeyRef: z.string().min(1),
+    secretKeyRef: z.string().min(1),
+  }),
+]);
+
 const ModuleConfigSchema = z
   .object({
     image: z.string().trim().min(1).optional(),
@@ -76,6 +90,7 @@ const DokployTargetFileSchema = z.object({
     ])
     .optional(),
   workflows: WorkflowsTargetSchema.optional(),
+  storage: StorageTargetSchema.optional(),
   auth: z
     .object({
       auth0: Auth0TargetAuthSchema.optional(),
