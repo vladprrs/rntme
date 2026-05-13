@@ -8,6 +8,8 @@ import {
   type OperationRegistry,
   RegistryProvider,
   StoreProvider,
+  TransportProvider,
+  type TransportChain,
 } from '@rntme/contracts-client-runtime-v1';
 import { RendererErrorBoundary } from './renderer-error-boundary.js';
 
@@ -17,6 +19,7 @@ export type AppShellProps = {
   registry: ComponentRegistry;
   actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<void>>;
   store: StateStore;
+  transportChain?: TransportChain;
   operationRegistry?: OperationRegistry;
   layoutKey?: string | undefined;
   screenKey?: string | undefined;
@@ -80,6 +83,7 @@ export function AppShell({
   registry,
   actionHandlers,
   store,
+  transportChain,
   operationRegistry,
   layoutKey = layoutSpec ? 'layout:default' : 'layout:none',
   screenKey = 'screen:default',
@@ -152,11 +156,21 @@ export function AppShell({
     content = React.createElement('div', { id: 'rntme-app' }, screenElement);
   }
 
-  const runtimeContext = operationRegistry
-    ? React.createElement(StoreProvider, { value: store },
-        React.createElement(RegistryProvider, { value: operationRegistry }, content),
-      )
-    : content;
+  const runtimeContext = React.createElement(
+    StoreProvider,
+    { value: store },
+    transportChain
+      ? React.createElement(
+          TransportProvider,
+          { value: transportChain },
+          operationRegistry
+            ? React.createElement(RegistryProvider, { value: operationRegistry }, content)
+            : content,
+        )
+      : operationRegistry
+        ? React.createElement(RegistryProvider, { value: operationRegistry }, content)
+        : content,
+  );
 
   return React.createElement(
     StateProvider, { store, children: null } as React.ComponentProps<typeof StateProvider>,

@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T037  # T036 published/redeployed durable PAT support; live valid-PAT bootstrap is blocked on browser JWT or client-grant authorization.
+active_task: T038  # T037 live bootstrap is blocked on credentials; T038 adds browser-authenticated PAT issuance UI.
 
 tasks:
   - id: T001
@@ -3193,6 +3193,78 @@ tasks:
       - "No browser JWT is supplied and no client-grant authorization is given."
       - "Token minting returns non-2xx or a response without a `rntme_pat_` plaintext field."
       - "Valid-PAT `/api/projects` returns 401/403/500 or SPA HTML."
+    receipt:
+      result: blocked_safe_adjacent_work_remains
+      summary: |
+        Live valid-PAT bootstrap remains blocked because no `PLATFORM_BROWSER_JWT`
+        is present in the shell and no Auth0 M2M client grant has been explicitly
+        authorized. The deployed platform still fails closed for missing auth and
+        unknown PATs, so the remaining credential path must use a real browser
+        Auth0 session or an approved client-grant path. A safe adjacent local
+        slice remains: expose browser-authenticated token issuance in the platform
+        dashboard so an Auth0-logged-in user can mint and copy the one-time PAT
+        through the deployed ordered edge-auth path without plaintext persistence.
+      blocker:
+        - "PLATFORM_BROWSER_JWT is absent."
+        - "Auth0 M2M client grant is a tenant-policy decision and has not been authorized."
+        - "No forged edge headers, direct DB seed, or plaintext PAT persistence path was used."
+      next_active_task: T038
+
+  - id: T038
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: high
+    objective: "Add a browser-authenticated platform PAT bootstrap UI that lets a logged-in Auth0 dashboard user mint and copy a one-time `rntme_pat_*` via `POST /api/tokens` without persisting plaintext."
+    inputs:
+      - "T037 blocker receipt."
+      - "Judge/Scout recommendation for browser PAT bootstrap UI."
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/runtime/ui-runtime.md"
+    constraints:
+      - "Use the existing Auth0 browser transport and ordered edge auth; do not forge `X-Rntme-*` headers."
+      - "Show plaintext only in component-local browser state after creation; do not write it to global route/data state, logs, docs, receipts, localStorage, or sessionStorage."
+      - "Do not require Auth0 tenant-policy changes or M2M client grants."
+      - "Keep the slice scoped to UI/runtime provider wiring and the platform tokens screen."
+    allowed_files:
+      - "packages/runtime/ui-runtime/src/client/entry.tsx"
+      - "packages/runtime/ui-runtime/src/client/layout-manager.tsx"
+      - "packages/runtime/ui-runtime/test/unit/**"
+      - "apps/platform/ui-module/src/**"
+      - "apps/platform/ui-module/test/**"
+      - "apps/platform/ui-module/package.json"
+      - "apps/platform/ui-module/module.json"
+      - "apps/platform/ui-module/assets/platform-ui.css"
+      - "apps/platform/blueprint/services/app/ui/screens/tokens.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/tokens.screen.json"
+      - "apps/platform/blueprint/test/**"
+      - "bun.lock"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/runtime/ui-runtime.md"
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+    expected_output:
+      - "ui-runtime provides `TransportProvider` to module components."
+      - "`@rntme/platform-ui` exports a token issuer component that posts to `/api/tokens` using `useTransport()` and route org id from `useStateStore()`."
+      - "The tokens screen removes the stale prefix input and renders the browser PAT issuer."
+      - "One-time plaintext is visible only after create and never persisted by runtime state."
+    verify:
+      - "bun run --filter @rntme/ui-runtime test"
+      - "bun run --filter @rntme/ui-runtime build"
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
+      - "git diff --check"
+    docs_touch:
+      decision_system: "No; the slice follows the existing ordered-provider edge-auth decision."
+      platform_owner: "Yes; document browser PAT bootstrap and one-time plaintext handling."
+      ui_runtime_owner: "Yes; document module component transport provider availability."
+      cli_owner: "No; no CLI behavior changes in this slice."
+    stop_if:
+      - "The Auth0 browser transport is not available to module components after provider wiring."
+      - "The token issuer would need to store plaintext outside component-local state."
+      - "The implementation needs forged edge headers, direct DB seed, disabled edge auth, or tenant policy changes."
+      - "Token creation safety depends on broader membership redesign outside this slice."
     receipt: null
 
 checks:

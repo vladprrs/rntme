@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useStateStore, useTransport } from '@rntme/contracts-client-runtime-v1';
 
 type StatusVariant = 'ready' | 'building' | 'warn' | 'error' | 'queued' | 'canceled';
 
@@ -113,6 +114,127 @@ type TimelineStep = {
 
 export function PlatformDataTable(props: { statePath?: string; columns?: ReadonlyArray<{ key: string; label: string }> }) {
   return React.createElement('div', { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' });
+}
+
+export function PlatformTokenIssuer(props: {
+  defaultName?: string;
+  defaultScopesJson?: string;
+  orgStatePath?: string;
+}) {
+  const transport = useTransport();
+  const store = useStateStore();
+  const orgStatePath = props.orgStatePath ?? '/route/params/orgId';
+  const organizationId = store.get(orgStatePath);
+  const [name, setName] = React.useState(props.defaultName ?? 'cv-extract-deploy');
+  const [scopesJson, setScopesJson] = React.useState(
+    props.defaultScopesJson
+      ?? '["project:read","project:write","version:publish","deploy:execute","deploy:target:manage"]',
+  );
+  const [expiresAt, setExpiresAt] = React.useState('');
+  const [plaintext, setPlaintext] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setPlaintext(null);
+    setError(null);
+    try {
+      if (typeof organizationId !== 'string' || organizationId.length === 0) {
+        setError('Organization route is missing.');
+        return;
+      }
+      const parsedScopes = JSON.parse(scopesJson) as unknown;
+      if (!Array.isArray(parsedScopes) || !parsedScopes.every((scope) => typeof scope === 'string')) {
+        setError('Scopes must be a JSON array of strings.');
+        return;
+      }
+      const body: Record<string, unknown> = {
+        organizationId,
+        name,
+        scopesJson: JSON.stringify(parsedScopes),
+      };
+      if (expiresAt.trim().length > 0) body.expiresAt = expiresAt.trim();
+      const url = new globalThis.URL('/api/tokens', window.location.href).toString();
+      const response = await transport(new globalThis.Request(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }));
+      if (!response.ok) {
+        setError(`Token creation failed with HTTP ${response.status}.`);
+        return;
+      }
+      const payload = (await response.json()) as { plaintext?: unknown };
+      if (typeof payload.plaintext !== 'string' || !payload.plaintext.startsWith('rntme_pat_')) {
+        setError('Token response did not include a PAT plaintext.');
+        return;
+      }
+      setPlaintext(payload.plaintext);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return React.createElement(
+    'section',
+    { className: 'rntme-token-issuer' },
+    React.createElement(
+      'form',
+      { className: 'rntme-token-form', onSubmit: submit },
+      React.createElement(
+        'label',
+        null,
+        React.createElement('span', null, 'Token name'),
+        React.createElement('input', {
+          value: name,
+          onChange: (event: React.ChangeEvent) =>
+            setName((event.currentTarget as unknown as { value: string }).value),
+          required: true,
+        }),
+      ),
+      React.createElement(
+        'label',
+        null,
+        React.createElement('span', null, 'Scopes'),
+        React.createElement('textarea', {
+          value: scopesJson,
+          onChange: (event: React.ChangeEvent) =>
+            setScopesJson((event.currentTarget as unknown as { value: string }).value),
+          rows: 3,
+          required: true,
+        }),
+      ),
+      React.createElement(
+        'label',
+        null,
+        React.createElement('span', null, 'Expires at'),
+        React.createElement('input', {
+          value: expiresAt,
+          onChange: (event: React.ChangeEvent) =>
+            setExpiresAt((event.currentTarget as unknown as { value: string }).value),
+          placeholder: 'Optional ISO timestamp',
+        }),
+      ),
+      React.createElement(
+        'button',
+        { type: 'submit', className: 'rntme-btn is-primary', disabled: busy },
+        busy ? 'Creating...' : 'Create token',
+      ),
+    ),
+    error ? React.createElement('div', { className: 'rntme-token-error', role: 'alert' }, error) : null,
+    plaintext
+      ? React.createElement(
+          'div',
+          { className: 'rntme-token-result', role: 'status' },
+          React.createElement('span', null, 'Save this token now. It will not be shown again.'),
+          React.createElement('code', null, plaintext),
+        )
+      : null,
+  );
 }
 
 export function PlatformPageHeader(props: {

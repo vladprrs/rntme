@@ -10,7 +10,7 @@ const FORCE_RENDERER_THROW = '__RNTME_TEST_FORCE_RENDERER_THROW__';
 const { AppShell } = await import('../../src/client/layout-manager.js');
 const { createRegistry } = await import('../../src/client/registry.js');
 const { createRuntimeStateStore } = await import('../../src/client/state.js');
-const { createOperationRegistry, useOperationRegistry } = await import('@rntme/contracts-client-runtime-v1');
+const { createOperationRegistry, createTransportChain, useOperationRegistry, useTransport } = await import('@rntme/contracts-client-runtime-v1');
 
 function testRegistry(components: Record<string, React.ComponentType<Record<string, unknown>>>) {
   return createRegistry({
@@ -123,6 +123,38 @@ describe('AppShell module component bridge', () => {
     await operationRegistry.lookupComponent('editor', 'toggleBold')?.({});
 
     expect(handler).toHaveBeenCalledWith({});
+  });
+
+  it('provides the runtime transport chain to module components', async () => {
+    const requests: string[] = [];
+    const transportChain = createTransportChain(async (req) => {
+      requests.push(new URL(req.url).pathname);
+      return Response.json({ ok: true });
+    });
+
+    function TransportProbe() {
+      const transport = useTransport();
+      React.useEffect(() => {
+        void transport(new Request('https://ui-runtime.test/api/tokens'));
+      }, [transport]);
+      return React.createElement('div', null, 'transport ready');
+    }
+
+    const shell = mountShell({
+      registry: testRegistry({ TransportProbe }),
+      screenSpec: {
+        root: 'probe',
+        elements: {
+          probe: { type: 'TransportProbe', props: {} },
+        },
+      },
+      transportChain,
+    } as never);
+
+    await shell.render();
+
+    expect(shell.target.textContent).toContain('transport ready');
+    expect(requests).toEqual(['/api/tokens']);
   });
 
   it('renders a sanitized screen fallback without unmounting the app shell', async () => {

@@ -303,6 +303,7 @@ export async function mountUiRuntime(opts: MountUiRuntimeOptions): Promise<Mount
         registry,
         actionHandlers,
         store,
+        transportChain: chain,
         operationRegistry,
         layoutKey: currentLayoutKey,
         screenKey: currentScreenKey,

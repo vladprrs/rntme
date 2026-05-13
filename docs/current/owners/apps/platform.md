@@ -189,6 +189,14 @@ first route match. It also lists `/`, `/login`, and `/auth/callback` in
 `authenticatedRedirectPaths` so an already-authenticated browser does not stay
 on the login screen after reload.
 
+The `/:orgId/tokens` screen includes `PlatformTokenIssuer`, a platform UI
+module component that uses the browser Auth0 transport to call
+`POST /api/tokens`. The PAT plaintext is rendered only in component-local
+browser state after a successful create response; it is not written to the
+runtime store, docs, logs, localStorage, or sessionStorage. This is the safe
+bootstrap path for operators who can sign in through the browser but should not
+seed tokens directly.
+
 ## Local commands
 
 ```bash

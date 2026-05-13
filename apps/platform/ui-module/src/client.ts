@@ -11,5 +11,6 @@ export {
   PlatformSidebar,
   PlatformSummaryGrid,
   PlatformTimeline,
+  PlatformTokenIssuer,
   PlatformTopbar,
 } from './components.js';

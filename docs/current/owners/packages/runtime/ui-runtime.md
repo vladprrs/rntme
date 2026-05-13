@@ -143,6 +143,15 @@ Contract-level module APIs (`ModuleBootContext`, hooks/providers, operation
 registry, transport chain, visibility, router helpers) are exported by
 `@rntme/contracts-client-runtime-v1`.
 
+`AppShell` provides `StoreProvider`, `RegistryProvider`, and `TransportProvider`
+to module components rendered through the compiled UI artifact. Module
+components can therefore use `useStateStore()` for runtime state, `useOperation`
+or `useModuleAction()` for registered operations, and `useTransport()` for the
+same middleware-aware fetch path used by screen data and command actions. The
+transport provider carries the runtime `TransportChain`, so identity modules
+that attach browser Authorization headers during boot also affect module
+component fetches.
+
 ### CLI
 
 | Binary | Invocation | Effect |

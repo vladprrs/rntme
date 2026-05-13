@@ -16,12 +16,15 @@
     "form": {
       "type": "PlatformPanel",
       "props": { "title": "Issue token" },
-      "children": ["name", "prefix", "scopes", "create"]
+      "children": ["issuer"]
     },
-    "name": { "type": "Input", "props": { "statePath": "/form/token/name", "placeholder": "Token name" } },
-    "prefix": { "type": "Input", "props": { "statePath": "/form/token/prefix", "placeholder": "Token prefix" } },
-    "scopes": { "type": "Input", "props": { "statePath": "/form/token/scopesJson", "placeholder": "[\"project:read\"]" } },
-    "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createToken" } } },
+    "issuer": {
+      "type": "PlatformTokenIssuer",
+      "props": {
+        "defaultName": "cv-extract-deploy",
+        "defaultScopesJson": "[\"project:read\",\"project:write\",\"version:publish\",\"deploy:execute\",\"deploy:target:manage\"]"
+      }
+    },
     "list": {
       "type": "PlatformPanel",
       "props": { "title": "All tokens" },

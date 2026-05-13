@@ -17,6 +17,7 @@
       { "type": "PlatformBanner", "props": { "variant": { "type": "string" }, "title": { "type": "string" }, "message": { "type": "string" }, "artifact": { "type": "string" }, "jsonPath": { "type": "string" }, "suggestedAction": { "type": "string" } } },
       { "type": "PlatformEmptyState", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "body": { "type": "string" }, "command": { "type": "string" }, "docsLabel": { "type": "string" }, "docsHref": { "type": "string" } } },
       { "type": "PlatformDataTable", "props": { "statePath": { "type": "string" }, "columns": { "type": "array" } } },
+      { "type": "PlatformTokenIssuer", "props": { "defaultName": { "type": "string" }, "defaultScopesJson": { "type": "string" }, "orgStatePath": { "type": "string" } } },
       { "type": "PlatformBox", "props": { "className": { "type": "string" }, "as": { "type": "string" } } }
     ],
     "assets": {

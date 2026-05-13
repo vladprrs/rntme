@@ -8,20 +8,6 @@
     }
   },
   "actions": {
-    "createToken": {
-      "kind": "command",
-      "binding": "tokens.createToken",
-      "paramsFromState": {
-        "organizationId": "/route/params/orgId",
-        "name": "/form/token/name",
-        "prefix": "/form/token/prefix",
-        "scopesJson": "/form/token/scopesJson"
-      },
-      "onSuccess": {
-        "refetchData": ["/data/tokens"],
-        "clearFormState": ["/form/token"]
-      }
-    },
     "revokeToken": {
       "kind": "command",
       "binding": "tokens.revokeToken",
