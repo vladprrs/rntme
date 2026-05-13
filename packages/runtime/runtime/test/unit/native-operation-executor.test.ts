@@ -111,7 +111,7 @@ describe('NativeOperationExecutor', () => {
     expect(fallback.calls).toEqual([]);
   });
 
-  it('maps thrown handler errors to OPERATION_EXECUTION_FAILED', async () => {
+  it('maps untyped thrown handler errors to OPERATION_EXECUTION_FAILED', async () => {
     const fallback = new RecordingFallback({
       ok: false,
       error: { code: 'OPERATION_NOT_FOUND', message: 'unused' },
@@ -135,6 +135,35 @@ describe('NativeOperationExecutor', () => {
     if (!out.ok) {
       expect(out.error.code).toBe('OPERATION_EXECUTION_FAILED');
       expect(out.error.message).toBe('handler exploded');
+      expect(out.error.detail).toEqual({ name: 'Error' });
+    }
+    expect(fallback.calls).toEqual([]);
+  });
+
+  it('preserves a typed string `.code` on thrown Error and surfaces it as error.code', async () => {
+    const fallback = new RecordingFallback({
+      ok: false,
+      error: { code: 'OPERATION_NOT_FOUND', message: 'unused' },
+    });
+    const executor = new NativeOperationExecutor(
+      {
+        boom: () => {
+          throw Object.assign(new Error('invalid token'), { code: 'PLATFORM_AUTH_INVALID' });
+        },
+      },
+      fallback,
+    );
+
+    const out = await executor.execute({
+      operationName: 'boom',
+      inputs: {},
+      ctx: makeCtx(),
+    });
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.error.code).toBe('PLATFORM_AUTH_INVALID');
+      expect(out.error.message).toBe('invalid token');
       expect(out.error.detail).toEqual({ name: 'Error' });
     }
     expect(fallback.calls).toEqual([]);

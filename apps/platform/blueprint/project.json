@@ -43,10 +43,19 @@
     "requestContext": { "kind": "request-context" },
     "auth": {
       "kind": "auth",
-      "provider": "platform-tokens",
-      "moduleSlug": "tokens",
-      "introspectPath": "/api/tokens/introspect",
-      "introspectPort": 3000
+      "providers": [
+        {
+          "provider": "platform-tokens",
+          "moduleSlug": "tokens",
+          "introspectPath": "/api/tokens/introspect",
+          "introspectPort": 3000
+        },
+        {
+          "provider": "auth0",
+          "audience": "${AUTH0_AUDIENCE}",
+          "moduleSlug": "identity-auth0"
+        }
+      ]
     }
   },
   "mounts": [

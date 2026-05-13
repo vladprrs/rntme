@@ -39,19 +39,28 @@ describe('introspectTokenHandler', () => {
     );
     expect(out.status).toBe('active');
     if (out.status === 'active') {
+      expect(out.subject.account.id).toBeDefined();
       expect(out.subject.tokenId).toBe('tid-1');
     }
   });
 
-  it('returns inactive status for an unknown PAT', async () => {
+  it('throws PLATFORM_AUTH_* with typed code for an unknown PAT', async () => {
     const { provider } = await setup();
-    const out = await introspectTokenHandler(
-      { provider },
-      { bearerToken: `Bearer rntme_pat_${'z'.repeat(22)}` },
-    );
-    expect(out.status).toBe('inactive');
-    if (out.status === 'inactive') {
-      expect(out.code).toBe('PLATFORM_AUTH_INVALID');
+    let thrown: unknown = null;
+    try {
+      await introspectTokenHandler(
+        { provider },
+        { bearerToken: `Bearer rntme_pat_${'z'.repeat(22)}` },
+      );
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    if (thrown instanceof Error) {
+      const code = (thrown as Error & { code?: string }).code;
+      expect(typeof code).toBe('string');
+      expect(code?.startsWith('PLATFORM_AUTH_')).toBe(true);
+      expect(code).toBe('PLATFORM_AUTH_INVALID');
     }
   });
 });

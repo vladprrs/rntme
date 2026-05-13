@@ -53,6 +53,33 @@
       "inputFrom": {
         "authorization": { "from": "header", "name": "authorization", "required": true }
       }
+    },
+    "introspectToken": {
+      "graph": "IntrospectToken",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/introspect",
+        "parameters": []
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "bearerToken": { "from": "header", "name": "authorization", "required": true }
+      },
+      "response": {
+        "onOk": {
+          "json": null,
+          "headers": {
+            "X-Rntme-User-Sub": "$result.subject.account.id",
+            "X-Rntme-User-Audience": "urn:rntme:platform-tokens",
+            "X-Rntme-Session-Status": "ACTIVE"
+          }
+        },
+        "onErr": {
+          "json": { "code": "$error.code", "message": "$error.message" },
+          "status": 401
+        }
+      }
     }
   }
 }

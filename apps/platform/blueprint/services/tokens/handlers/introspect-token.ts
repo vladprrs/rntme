@@ -16,6 +16,8 @@ export async function introspectTokenHandler(
   if (isOk(r)) {
     return { status: 'active', subject: r.value };
   }
-  const first = r.errors[0] ?? { code: 'PLATFORM_AUTH_INVALID', message: 'unknown' };
-  return { status: 'inactive', code: first.code, reason: first.message };
+  const first = r.errors[0] ?? { code: 'PLATFORM_AUTH_INVALID', message: 'invalid token' };
+  const error = new Error(first.message);
+  (error as Error & { code?: string }).code = first.code;
+  throw error;
 }
