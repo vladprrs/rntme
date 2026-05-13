@@ -2,7 +2,8 @@ import type { RenderedComposeService } from './compose-model.js';
 
 export function renderComposeYaml(services: readonly RenderedComposeService[]): string {
   const lines: string[] = ['services:'];
-  for (const service of [...services].sort((a, b) => a.name.localeCompare(b.name))) {
+  const sortedServices = [...services].sort((a, b) => a.name.localeCompare(b.name));
+  for (const service of sortedServices) {
     lines.push(`  ${service.name}:`);
     lines.push(`    image: ${yamlScalar(service.image)}`);
     if (service.user !== undefined) lines.push(`    user: ${yamlScalar(service.user)}`);
@@ -58,8 +59,27 @@ export function renderComposeYaml(services: readonly RenderedComposeService[]): 
   lines.push('networks:');
   lines.push('  dokploy-network:');
   lines.push('    external: true');
+  const namedVolumes = collectNamedVolumeSources(sortedServices);
+  if (namedVolumes.length > 0) {
+    lines.push('volumes:');
+    for (const volumeName of namedVolumes) lines.push(`  ${yamlScalar(volumeName)}: {}`);
+  }
   lines.push('');
   return lines.join('\n');
+}
+
+function collectNamedVolumeSources(services: readonly RenderedComposeService[]): string[] {
+  const names = new Set<string>();
+  for (const service of services) {
+    for (const volume of service.volumes ?? []) {
+      if (isNamedVolumeSource(volume.source)) names.add(volume.source);
+    }
+  }
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+function isNamedVolumeSource(source: string): boolean {
+  return !(source.startsWith('/') || source.startsWith('./') || source.startsWith('../') || source.startsWith('~'));
 }
 
 function yamlScalar(value: string): string {

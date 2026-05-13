@@ -183,6 +183,7 @@ describe('renderDokployPlan', () => {
     });
     expect(tokens?.user).toBe('0:0');
     expect(stack.composeFile).toContain('rntme-acme-commerce-tokens-data:/srv/data');
+    expect(stack.composeFile).toContain('volumes:\n  rntme-acme-commerce-tokens-data: {}\n');
     expect(stack.composeFile).toContain('    user: 0:0');
   });
 
