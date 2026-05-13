@@ -837,9 +837,16 @@ describe('renderDokployPlan', () => {
             mountTarget: 'http:/api',
             name: 'auth',
             kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://commerce.example.com/api',
-            moduleSlug: 'identity-auth0',
+            providers: [
+              {
+                index: 0,
+                provider: 'auth0',
+                audience: 'https://commerce.example.com/api',
+                moduleSlug: 'identity-auth0',
+                introspectPath: '/introspect',
+                introspectPort: 50052,
+              },
+            ],
           },
         ],
       },
@@ -908,7 +915,7 @@ describe('renderDokployPlan', () => {
     if (stack.kind !== 'compose') return;
     const edge = stack.services.find((service) => service.workloadKind === 'edge-gateway');
     const nginx = edge?.files?.['/etc/nginx/nginx.conf'] ?? '';
-    expect(nginx).toMatch(/upstream rntme_auth_identity-auth0__[0-9a-f]{8}\s*\{/);
+    expect(nginx).toMatch(/upstream rntme_auth_identity-auth0__0\s*\{/);
     expect(nginx).toContain('server mod-identity-auth0:50052;');
     expect(nginx).not.toContain('server mod-identity-auth0:3000;');
   });
@@ -971,9 +978,16 @@ describe('renderDokployPlan', () => {
             mountTarget: 'http:/api',
             name: 'auth',
             kind: 'auth',
-            provider: 'auth0',
-            audience: 'https://commerce.example.com/api',
-            moduleSlug: rawModuleSlug,
+            providers: [
+              {
+                index: 0,
+                provider: 'auth0',
+                audience: 'https://commerce.example.com/api',
+                moduleSlug: rawModuleSlug,
+                introspectPath: '/introspect',
+                introspectPort: 50052,
+              },
+            ],
           },
         ],
       },
@@ -1504,10 +1518,16 @@ function authProtectedPlan(): ProjectDeploymentPlan {
           mountTarget: 'http:/api',
           name: 'auth',
           kind: 'auth',
-          provider: 'auth0',
-          audience: 'https://commerce.example.com/api',
-          moduleSlug: 'identity-auth0',
-          moduleIntrospectPort: 50052,
+          providers: [
+            {
+              index: 0,
+              provider: 'auth0',
+              audience: 'https://commerce.example.com/api',
+              moduleSlug: 'identity-auth0',
+              introspectPath: '/introspect',
+              introspectPort: 50052,
+            },
+          ],
         },
       ],
     },
