@@ -72,7 +72,7 @@ Reads from the idempotency store keyed by `canonical_id` (the original request's
 - **Idempotency persistence.** Default mode is SQLite via Bun's built-in SQLite driver at `/data/idempotency.sqlite`. The container declares `VOLUME /data`; mount a volume for cross-redeploy persistence. In-memory mode (`OPENROUTER_IDEMPOTENCY_MODE=memory`) is for development only; restart loses everything and re-issues OR calls.
 - **No retries.** The module does not retry on 5xx or rate-limit errors. The runtime/policy layer is responsible for retry semantics. (This matches the contract's `policy.retry` on `call` graph nodes.)
 - **`vendor_raw.cost_usd`.** OpenRouter returns `usage.cost` in dollars; this lands in `Completion.vendor_raw.cost_usd`. First-class cost tracking is a backlog item on the contract side.
-- **PDF/image inputs are inline.** Contract supports `vendor_file_id`, but OR has no Files-API equivalent; we reject FILE blocks with neither `url` nor `base64_data`. URL-based file inputs will become useful when an S3-style file storage module lands (separate brainstorm).
+- **PDF/image inputs may be URL-backed or inline.** Contract supports `vendor_file_id`, but OR has no Files-API equivalent; we reject FILE blocks with neither `url` nor `base64_data`.
 
 ## Out of scope
 

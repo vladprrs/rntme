@@ -32,66 +32,176 @@
       "type": "call",
       "target": { "module": "openrouter", "operation": "Complete" },
       "input": {
-        "context": { "$literal": { "idempotencyKey": "" } },
-        "model": { "$literal": "openrouter/deepseek/deepseek-v4-flash" },
-        "messages": {
-          "$literal": [
-            {
-              "role": "user",
-              "content": [
-                {
-                  "type": 4,
-                  "file": {
-                    "filename": { "$param": "filename" },
-                    "media_type": { "$param": "mediaType" },
-                    "url": { "$ref": "download.result.presigned.url" }
-                  }
-                },
-                {
-                  "type": 1,
-                  "text": { "text": "Extract the candidate's information from the attached resume PDF as a JSON object matching the provided schema. Output ONLY the JSON; no preamble." }
-                }
-              ]
-            }
-          ]
+        "context": {
+          "idempotency_key": {
+            "concat": [
+              { "$literal": "cv-extract-demo-complete:" },
+              { "$param": "resumeId" }
+            ]
+          }
         },
+        "model": { "$literal": "openrouter/deepseek/deepseek-v4-flash" },
+        "messages": [
+          {
+            "role": { "$literal": "user" },
+            "content": [
+              {
+                "type": { "$literal": 4 },
+                "file": {
+                  "filename": { "$param": "filename" },
+                  "media_type": { "$param": "mediaType" },
+                  "url": { "$ref": "download.result.presigned.url" }
+                }
+              },
+              {
+                "type": { "$literal": 1 },
+                "text": {
+                  "text": { "$literal": "Extract the candidate's information from the attached resume PDF as a JSON object matching the provided schema. Output ONLY the JSON; no preamble." }
+                }
+              }
+            ]
+          }
+        ],
         "sampling": {
-          "$literal": {
-            "responseFormat": "json_schema",
-            "responseSchema": {
-              "type": "object",
-              "additionalProperties": false,
+          "response_format": { "$literal": "json_schema" },
+          "response_schema": {
+            "fields": {
+              "type": { "stringValue": { "$literal": "object" } },
+              "additionalProperties": { "boolValue": { "$literal": false } },
               "properties": {
-                "full_name": { "type": "string" },
-                "experience": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "company":    { "type": "string" },
-                      "title":      { "type": "string" },
-                      "start_date": { "type": "string" },
-                      "end_date":   { "type": "string" }
+                "structValue": {
+                  "fields": {
+                    "full_name": {
+                      "structValue": {
+                        "fields": {
+                          "type": { "stringValue": { "$literal": "string" } }
+                        }
+                      }
                     },
-                    "required": ["company", "title"]
-                  }
-                },
-                "education": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "institution": { "type": "string" },
-                      "degree":      { "type": "string" },
-                      "year":        { "type": "string" }
+                    "experience": {
+                      "structValue": {
+                        "fields": {
+                          "type": { "stringValue": { "$literal": "array" } },
+                          "items": {
+                            "structValue": {
+                              "fields": {
+                                "type": { "stringValue": { "$literal": "object" } },
+                                "additionalProperties": { "boolValue": { "$literal": false } },
+                                "properties": {
+                                  "structValue": {
+                                    "fields": {
+                                      "company": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      },
+                                      "title": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      },
+                                      "start_date": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      },
+                                      "end_date": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "required": {
+                                  "listValue": {
+                                    "values": [
+                                      { "stringValue": { "$literal": "company" } },
+                                      { "stringValue": { "$literal": "title" } }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "education": {
+                      "structValue": {
+                        "fields": {
+                          "type": { "stringValue": { "$literal": "array" } },
+                          "items": {
+                            "structValue": {
+                              "fields": {
+                                "type": { "stringValue": { "$literal": "object" } },
+                                "additionalProperties": { "boolValue": { "$literal": false } },
+                                "properties": {
+                                  "structValue": {
+                                    "fields": {
+                                      "institution": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      },
+                                      "degree": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      },
+                                      "year": {
+                                        "structValue": {
+                                          "fields": {
+                                            "type": { "stringValue": { "$literal": "string" } }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "skills": {
+                      "structValue": {
+                        "fields": {
+                          "type": { "stringValue": { "$literal": "array" } },
+                          "items": {
+                            "structValue": {
+                              "fields": {
+                                "type": { "stringValue": { "$literal": "string" } }
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
-                },
-                "skills": { "type": "array", "items": { "type": "string" } }
+                }
               },
-              "required": ["full_name", "experience"]
+              "required": {
+                "listValue": {
+                  "values": [
+                    { "stringValue": { "$literal": "full_name" } },
+                    { "stringValue": { "$literal": "experience" } }
+                  ]
+                }
+              }
             }
           }
         }

@@ -23,7 +23,7 @@ demo/cv-extract-blueprint/
 │   │   ├── qsm.json
 │   │   └── projections/ResumeView.json   entity-mirror of Resume
 │   ├── graphs/
-│   │   ├── extractResume.json         uuid → call openrouter.Complete → emit
+│   │   ├── extractResume.json         storage.GetDownloadUrl → openrouter.Complete → emit
 │   │   └── getResume.json             findMany ResumeView, filter by id
 │   ├── bindings/bindings.json         POST /resumes, GET /resumes/{id}
 │   ├── seed/seed.json                 empty
@@ -61,10 +61,10 @@ Paste the printed `BundleSource` into `project.json#modules.marketing.publicConf
 
 ## How it works
 
-1. UI: file picker reads the PDF, base64-encodes in-browser, POSTs `{filename, mediaType, fileBase64}` to `/resumes`.
+1. UI: file picker prepares a storage upload, uploads the PDF through the returned presigned URL, commits the file, then POSTs the file references to `/resumes`.
 2. Runtime: `extractResume` graph fires.
-   - `uuid` node → resume_id.
-   - `call` node → OpenRouter module's `Complete` RPC with the PDF as a `FILE` content block, a fixed text prompt, `response_format=json_schema`, and an embedded JSON Schema for {full_name, experience, education, skills}.
+   - `call` node → storage module's `GetDownloadUrl` RPC returns a short-lived URL for the committed PDF.
+   - `call` node → OpenRouter module's `Complete` RPC with the PDF as a URL-backed `FILE` content block, a fixed text prompt, `response_format=json_schema`, and an embedded JSON Schema for {full_name, experience, education, skills}.
    - `emit` node → `Resume.complete` transition with `extractedJson` populated from the OR response.
    - `result` returns `resumeId`.
 3. Projection `ResumeView` mirrors the entity row.
@@ -82,7 +82,7 @@ If OpenRouter fails, the graph fails (graph node `policy.onError: "fail"`). The 
 - Marketing landing bundle references an S3 object by sha256; re-publishing the landing requires updating the source key and hash together.
 - Model is hard-coded to `openrouter/deepseek/deepseek-v4-flash` in the graph. Changing it requires editing the literal in `extractResume.json`.
 - `extractedJson` is a string (`TEXT` column). Parse on the client; we do not validate the JSON shape server-side.
-- File payload is inline base64 in the `ResumeUploaded`-equivalent event payload (well, in `ResumeComplete` here). Up to ~10MB is fine; larger needs the future S3 file-storage module (separate brainstorm).
+- File bytes live in the storage module. `Resume.complete` records file references, the download URL used for extraction, and the extracted JSON; it does not inline PDF base64.
 
 ## Specs
 

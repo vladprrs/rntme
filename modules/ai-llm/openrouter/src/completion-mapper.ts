@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { AiLlmOpenRouterError, GrpcStatus } from './errors.js';
 
 const VENDOR_PREFIX = 'openrouter';
@@ -17,9 +18,12 @@ interface ProtoCompletionRequest {
   messages?: ProtoMessage[];
   tools?: ProtoToolDefinition[];
   toolChoice?: string;
+  tool_choice?: string;
   sampling?: ProtoSamplingParams;
   reasoningEffort?: number;
+  reasoning_effort?: number;
   reasoningVisibility?: number;
+  reasoning_visibility?: number;
   metadata?: Record<string, unknown>;
 }
 
@@ -31,31 +35,56 @@ interface ProtoMessage {
 interface ProtoContentBlock {
   type?: number;
   text?: { text?: string };
-  image?: { url?: string; base64Data?: string; mediaType?: string };
-  file?: { url?: string; base64Data?: string; vendorFileId?: string; mediaType?: string; filename?: string };
-  toolUse?: { id?: string; name?: string; arguments?: unknown };
-  toolResult?: { toolCallId?: string; output?: unknown; isError?: boolean };
+  image?: { url?: string; base64Data?: string | Uint8Array; base64_data?: string | Uint8Array; mediaType?: string; media_type?: string };
+  file?: { url?: string; base64Data?: string | Uint8Array; base64_data?: string | Uint8Array; vendorFileId?: string; vendor_file_id?: string; mediaType?: string; media_type?: string; filename?: string };
+  toolUse?: ProtoToolCallBlock;
+  tool_use?: ProtoToolCallBlock;
+  toolResult?: ProtoToolResultBlock;
+  tool_result?: ProtoToolResultBlock;
   thinking?: { text?: string; redacted?: boolean };
 }
 
 interface ProtoSamplingParams {
   temperature?: number;
   topP?: number;
+  top_p?: number;
   topK?: number;
+  top_k?: number;
   maxTokens?: number;
+  max_tokens?: number;
   frequencyPenalty?: number;
+  frequency_penalty?: number;
   presencePenalty?: number;
+  presence_penalty?: number;
   stopSequences?: string[];
+  stop_sequences?: string[];
   seed?: number;
   responseFormat?: string;
+  response_format?: string;
   responseSchema?: unknown;
+  response_schema?: unknown;
 }
 
 interface ProtoToolDefinition {
   name?: string;
   description?: string;
   inputSchema?: unknown;
+  input_schema?: unknown;
   strict?: boolean;
+}
+
+interface ProtoToolCallBlock {
+  id?: string;
+  name?: string;
+  arguments?: unknown;
+}
+
+interface ProtoToolResultBlock {
+  toolCallId?: string;
+  tool_call_id?: string;
+  output?: unknown;
+  isError?: boolean;
+  is_error?: boolean;
 }
 
 export interface OrChatCompletionRequest {
@@ -94,21 +123,74 @@ function stripVendorPrefix(model: string): string {
   return model.slice(VENDOR_PREFIX.length + 1);
 }
 
+function firstDefined<T>(...values: Array<T | undefined>): T | undefined {
+  return values.find((value) => value !== undefined);
+}
+
+function toBase64String(value: string | Uint8Array | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string') return value;
+  return Buffer.from(value).toString('base64');
+}
+
+function protoStructToJson(value: unknown): unknown {
+  if (!isProtoStruct(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value.fields).map(([key, protoValue]) => [key, protoValueToJson(protoValue)]),
+  );
+}
+
+function isProtoStruct(value: unknown): value is { fields: Record<string, Record<string, unknown>> } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'fields' in value &&
+    (value as { fields?: unknown }).fields !== null &&
+    typeof (value as { fields?: unknown }).fields === 'object' &&
+    !Array.isArray((value as { fields?: unknown }).fields)
+  );
+}
+
+function protoValueToJson(value: Record<string, unknown>): unknown {
+  if ('stringValue' in value) return value.stringValue;
+  if ('string_value' in value) return value.string_value;
+  if ('numberValue' in value) return value.numberValue;
+  if ('number_value' in value) return value.number_value;
+  if ('boolValue' in value) return value.boolValue;
+  if ('bool_value' in value) return value.bool_value;
+  if ('nullValue' in value || 'null_value' in value) return null;
+  const structValue = firstDefined(value.structValue, value.struct_value);
+  if (isProtoStruct(structValue)) return protoStructToJson(structValue);
+  const listValue = firstDefined(value.listValue, value.list_value) as { values?: unknown[] } | undefined;
+  if (listValue && Array.isArray(listValue.values)) {
+    return listValue.values.map((item) =>
+      item !== null && typeof item === 'object'
+        ? protoValueToJson(item as Record<string, unknown>)
+        : item,
+    );
+  }
+  return null;
+}
+
 function blockToOrPart(block: ProtoContentBlock): unknown {
   switch (block.type) {
     case ContentBlockType.TEXT:
       return { type: 'text', text: block.text?.text ?? '' };
     case ContentBlockType.IMAGE: {
       const img = block.image ?? {};
-      const url = img.base64Data ? `data:${img.mediaType ?? 'image/png'};base64,${img.base64Data}` : img.url;
+      const base64Data = toBase64String(firstDefined(img.base64Data, img.base64_data));
+      const mediaType = firstDefined(img.mediaType, img.media_type) ?? 'image/png';
+      const url = base64Data ? `data:${mediaType};base64,${base64Data}` : img.url;
       if (!url) throw new AiLlmOpenRouterError('image block has no url or base64Data', GrpcStatus.INVALID_ARGUMENT, 'AI_LLM_STRUCTURAL_INVALID_MEDIA_REFERENCE');
       return { type: 'image_url', image_url: { url } };
     }
     case ContentBlockType.FILE: {
       const f = block.file ?? {};
+      const base64Data = toBase64String(firstDefined(f.base64Data, f.base64_data));
+      const mediaType = firstDefined(f.mediaType, f.media_type) ?? 'application/octet-stream';
       const fileData =
-        f.base64Data !== undefined
-          ? `data:${f.mediaType ?? 'application/octet-stream'};base64,${f.base64Data}`
+        base64Data !== undefined
+          ? `data:${mediaType};base64,${base64Data}`
           : f.url;
       if (!fileData)
         throw new AiLlmOpenRouterError(
@@ -139,15 +221,21 @@ function messageToOr(msg: ProtoMessage): { role: string; content: unknown; tool_
   const blocks = msg.content ?? [];
 
   const toolCalls = blocks
-    .filter((b) => b.type === ContentBlockType.TOOL_USE && b.toolUse !== undefined)
-    .map((b) => ({
-      id: b.toolUse!.id ?? '',
-      type: 'function',
-      function: { name: b.toolUse!.name ?? '', arguments: JSON.stringify(b.toolUse!.arguments ?? {}) },
-    }));
+    .filter((b) => b.type === ContentBlockType.TOOL_USE && firstDefined(b.toolUse, b.tool_use) !== undefined)
+    .map((b) => {
+      const toolUse = firstDefined(b.toolUse, b.tool_use)!;
+      return {
+        id: toolUse.id ?? '',
+        type: 'function',
+        function: { name: toolUse.name ?? '', arguments: JSON.stringify(toolUse.arguments ?? {}) },
+      };
+    });
 
   if (role === 'tool') {
-    const tr = blocks.find((b) => b.type === ContentBlockType.TOOL_RESULT)?.toolResult;
+    const tr = firstDefined(
+      blocks.find((b) => b.type === ContentBlockType.TOOL_RESULT)?.toolResult,
+      blocks.find((b) => b.type === ContentBlockType.TOOL_RESULT)?.tool_result,
+    );
     return { role: 'tool', content: JSON.stringify(tr?.output ?? null) };
   }
 
@@ -172,22 +260,29 @@ export function buildOpenRouterRequest(proto: ProtoCompletionRequest): OrChatCom
   const s = proto.sampling;
   if (s) {
     if (s.temperature !== undefined) result.temperature = s.temperature;
-    if (s.topP !== undefined) result.top_p = s.topP;
-    if (s.maxTokens !== undefined) result.max_tokens = s.maxTokens;
-    if (s.frequencyPenalty !== undefined) result.frequency_penalty = s.frequencyPenalty;
-    if (s.presencePenalty !== undefined) result.presence_penalty = s.presencePenalty;
-    if (s.stopSequences && s.stopSequences.length > 0) result.stop = s.stopSequences;
+    const topP = firstDefined(s.topP, s.top_p);
+    if (topP !== undefined) result.top_p = topP;
+    const maxTokens = firstDefined(s.maxTokens, s.max_tokens);
+    if (maxTokens !== undefined) result.max_tokens = maxTokens;
+    const frequencyPenalty = firstDefined(s.frequencyPenalty, s.frequency_penalty);
+    if (frequencyPenalty !== undefined) result.frequency_penalty = frequencyPenalty;
+    const presencePenalty = firstDefined(s.presencePenalty, s.presence_penalty);
+    if (presencePenalty !== undefined) result.presence_penalty = presencePenalty;
+    const stopSequences = firstDefined(s.stopSequences, s.stop_sequences);
+    if (stopSequences && stopSequences.length > 0) result.stop = stopSequences;
     if (s.seed !== undefined) result.seed = s.seed;
-    if (s.responseFormat === 'json_schema') {
-      if (s.responseSchema === undefined) {
+    const responseFormat = firstDefined(s.responseFormat, s.response_format);
+    const responseSchema = firstDefined(s.responseSchema, s.response_schema);
+    if (responseFormat === 'json_schema') {
+      if (responseSchema === undefined) {
         throw new AiLlmOpenRouterError(
           'response_format=json_schema requires response_schema',
           GrpcStatus.INVALID_ARGUMENT,
           'AI_LLM_STRUCTURAL_INVALID_SAMPLING_PARAMS',
         );
       }
-      result.response_format = { type: 'json_schema', json_schema: { name: 'schema', schema: s.responseSchema, strict: true } };
-    } else if (s.responseFormat === 'json_object') {
+      result.response_format = { type: 'json_schema', json_schema: { name: 'schema', schema: protoStructToJson(responseSchema), strict: true } };
+    } else if (responseFormat === 'json_object') {
       result.response_format = { type: 'json_object' };
     }
   }
@@ -198,14 +293,16 @@ export function buildOpenRouterRequest(proto: ProtoCompletionRequest): OrChatCom
       function: {
         name: t.name ?? '',
         description: t.description ?? '',
-        parameters: t.inputSchema ?? { type: 'object', properties: {} },
+        parameters: protoStructToJson(firstDefined(t.inputSchema, t.input_schema)) ?? { type: 'object', properties: {} },
       },
     }));
-    if (proto.toolChoice) result.tool_choice = proto.toolChoice;
+    const toolChoice = firstDefined(proto.toolChoice, proto.tool_choice);
+    if (toolChoice) result.tool_choice = toolChoice;
   }
 
-  if (proto.reasoningEffort !== undefined) {
-    const effort = ReasoningEffortMap[proto.reasoningEffort];
+  const reasoningEffort = firstDefined(proto.reasoningEffort, proto.reasoning_effort);
+  if (reasoningEffort !== undefined) {
+    const effort = ReasoningEffortMap[reasoningEffort];
     if (effort) result.reasoning = { effort };
   }
 

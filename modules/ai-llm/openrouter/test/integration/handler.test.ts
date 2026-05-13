@@ -61,6 +61,22 @@ describe('Complete RPC', () => {
     expect(records.has('idem-abc')).toBe(true);
   });
 
+  it('accepts snake_case CommandContext from gRPC deserialization', async () => {
+    const fetchMock = mock().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
+    const bus = makeBus();
+    const { records, store } = makeStore();
+    const mod = createOpenRouterModule({ apiKey: 'sk', baseUrl: 'https://or', fetch: asFetch(fetchMock), store, bus, now: () => Date.parse('2026-05-06T10:00:00Z') });
+
+    const completion = (await mod.Complete!({
+      ...sampleRequest,
+      context: { idempotency_key: 'idem-snake', correlation_id: 'corr-snake' },
+    })) as { ref: { canonical_id: string } };
+
+    expect(completion.ref.canonical_id).toBe('idem-snake');
+    expect(bus.events[0]?.data).toMatchObject({ correlationId: 'corr-snake' });
+    expect(records.has('idem-snake')).toBe(true);
+  });
+
   it('idempotent — second call with same key returns cached, no second OR call', async () => {
     const fetchMock = mock().mockResolvedValue({ ok: true, status: 200, json: async () => happyOrResponse, text: async () => '' });
     const bus = makeBus();

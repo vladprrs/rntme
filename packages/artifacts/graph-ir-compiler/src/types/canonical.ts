@@ -88,7 +88,7 @@ export type CanonicalCall = {
   id: string;
   scope: ScopeId;
   target: OperationTarget;
-  input: Record<string, Expr>;
+  input: Record<string, unknown>;
   policy: CallPolicy;
 };
 
@@ -103,7 +103,7 @@ export type CanonicalResult = {
   kind: 'result';
   id: string;
   scope: ScopeId;
-  value: Record<string, Expr> | Expr;
+  value: unknown;
 };
 
 export type CanonicalNode =

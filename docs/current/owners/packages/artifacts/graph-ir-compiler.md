@@ -175,6 +175,8 @@ const rows = execute(r.value, { limit: 5 }, db);
 
 The operation path uses `call` nodes plus `$ref` expressions, for example `{ "$ref": "session.result.user_id" }`. New binding-driven module or service calls belong in graph operation nodes, not binding-side prefetch metadata.
 
+Call-node `input` values may be nested composite JSON templates. Use `$param`, `$ref`, `$node`, and operators at any depth inside objects or arrays; wrap literal strings in `$literal` so they are not interpreted as field/output paths. `$literal` itself remains an escape hatch for raw values and is not recursively evaluated.
+
 ## API
 
 ### Top-level functions

@@ -25,6 +25,13 @@ export interface CreateOpenRouterModuleOptions {
 
 type Handler = (req: object) => Promise<object>;
 
+type CommandContextInput = {
+  idempotencyKey?: string;
+  idempotency_key?: string;
+  correlationId?: string;
+  correlation_id?: string;
+};
+
 export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Partial<Record<string, Handler>> {
   const clientOpts: { apiKey: string; baseUrl: string; fetch?: typeof globalThis.fetch; httpReferer?: string; xTitle?: string } = {
     apiKey: opts.apiKey,
@@ -36,8 +43,9 @@ export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Par
   const client = new OpenRouterClient(clientOpts);
 
   async function Complete(req: object): Promise<object> {
-    const r = req as { context?: { idempotencyKey?: string; correlationId?: string }; model?: string };
-    const idempotencyKey = r.context?.idempotencyKey;
+    const r = req as { context?: CommandContextInput; model?: string };
+    const context = normalizeCommandContext(r.context);
+    const idempotencyKey = context.idempotencyKey;
     if (!idempotencyKey || idempotencyKey.length === 0) {
       throw new AiLlmOpenRouterError(
         'idempotency_key is required',
@@ -60,7 +68,7 @@ export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Par
 
     await opts.bus.emit('CompletionStarted', {
       canonicalId: idempotencyKey,
-      correlationId: r.context?.correlationId,
+      correlationId: context.correlationId,
     });
 
     let orResponse: unknown;
@@ -150,4 +158,16 @@ export function createOpenRouterModule(opts: CreateOpenRouterModuleOptions): Par
     };
   }
   return module;
+}
+
+function normalizeCommandContext(context: CommandContextInput | undefined): {
+  idempotencyKey?: string;
+  correlationId?: string;
+} {
+  const normalized: { idempotencyKey?: string; correlationId?: string } = {};
+  const idempotencyKey = context?.idempotencyKey ?? context?.idempotency_key;
+  const correlationId = context?.correlationId ?? context?.correlation_id;
+  if (idempotencyKey !== undefined) normalized.idempotencyKey = idempotencyKey;
+  if (correlationId !== undefined) normalized.correlationId = correlationId;
+  return normalized;
 }

@@ -20,6 +20,35 @@ const inputDecl = z.object({
 const fieldDecl = z.object({ type: primitiveType, nullable: z.boolean() });
 const namedShape = z.object({ fields: z.record(z.string(), fieldDecl) }).strict();
 
+const reservedExprKeys = new Set([
+  '$literal',
+  '$param',
+  '$ref',
+  '$node',
+  '$list',
+  'between',
+  'case',
+  'exists',
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'add',
+  'sub',
+  'mul',
+  'div',
+  'and',
+  'or',
+  'not',
+  'is_null',
+  'like',
+  'in',
+  'concat',
+  'coalesce',
+]);
+
 const expr: z.ZodType<unknown> = z.lazy(() =>
   z.union([
     z.string(),
@@ -45,7 +74,29 @@ const expr: z.ZodType<unknown> = z.lazy(() =>
     z
       .object({ exists: z.object({ relation: z.string(), where: expr.optional() }).strict() })
       .strict(),
-    z.record(z.string(), z.array(expr)),
+    z.record(z.string(), z.array(expr)).superRefine((value, ctx) => {
+      for (const key of Object.keys(value)) {
+        if (key.startsWith('$')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `reserved expression key "${key}" cannot be used as an operator record`,
+            path: [key],
+          });
+        }
+      }
+    }),
+    z.array(expr),
+    z.record(z.string(), expr).superRefine((value, ctx) => {
+      for (const key of Object.keys(value)) {
+        if (reservedExprKeys.has(key)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `reserved expression key "${key}" cannot be used in a composite object`,
+            path: [key],
+          });
+        }
+      }
+    }),
   ]),
 );
 

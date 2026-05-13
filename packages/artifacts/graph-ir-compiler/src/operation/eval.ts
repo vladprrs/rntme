@@ -62,14 +62,41 @@ export function evalOperationExpr(
 }
 
 export function evalObjectExpr(
-  value: Record<string, Expr> | Expr,
+  value: unknown,
   params: Record<string, unknown>,
   outputs: NodeOutputs,
 ): unknown {
-  if (value !== null && typeof value === 'object' && !Array.isArray(value) && !isExprObject(value)) {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    !isExprObject(value as Record<string, unknown>)
+  ) {
     const out: Record<string, unknown> = {};
-    for (const [key, expr] of Object.entries(value as Record<string, Expr>)) {
-      out[key] = evalOperationExpr(expr, params, outputs);
+    for (const [key, expr] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = evalTemplateValue(expr, params, outputs);
+    }
+    return out;
+  }
+  return evalTemplateValue(value, params, outputs);
+}
+
+function evalTemplateValue(
+  value: unknown,
+  params: Record<string, unknown>,
+  outputs: NodeOutputs,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => evalTemplateValue(item, params, outputs));
+  }
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    !isExprObject(value as Record<string, unknown>)
+  ) {
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = evalTemplateValue(child, params, outputs);
     }
     return out;
   }

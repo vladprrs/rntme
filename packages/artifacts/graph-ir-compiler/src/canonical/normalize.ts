@@ -120,7 +120,7 @@ export function normalize(
             id: n.id,
             scope,
             target: n.target,
-            input: n.input as Record<string, Expr>,
+            input: n.input as Record<string, unknown>,
             policy: n.policy as CallPolicy,
           };
         case 'branch':
@@ -135,7 +135,7 @@ export function normalize(
             kind: 'result',
             id: n.id,
             scope,
-            value: n.value as Record<string, Expr> | Expr,
+            value: n.value,
           };
         default:
           throw internalError('canonical', `unsupported node type in canonical normalize: ${(n as { type: string }).type}`);

@@ -93,6 +93,31 @@ describe('buildOpenRouterRequest — image and file content blocks', () => {
       file: { filename: 'r.pdf', file_data: 'data:application/pdf;base64,JVBERi0=' },
     }]);
   });
+
+  it('maps snake_case FILE url objects from gRPC deserialization', () => {
+    const req = buildOpenRouterRequest({
+      model: 'openrouter/openai/gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 4 /* FILE */,
+              file: {
+                url: 'https://files.example/resume.pdf',
+                media_type: 'application/pdf',
+                filename: 'r.pdf',
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(req.messages[0]!.content).toEqual([{
+      type: 'file',
+      file: { filename: 'r.pdf', file_data: 'https://files.example/resume.pdf' },
+    }]);
+  });
 });
 
 describe('buildOpenRouterRequest — sampling and response format', () => {
@@ -117,6 +142,70 @@ describe('buildOpenRouterRequest — sampling and response format', () => {
     expect(req.response_format).toEqual({
       type: 'json_schema',
       json_schema: { name: 'schema', schema, strict: true },
+    });
+  });
+
+  it('maps snake_case sampling objects from gRPC deserialization', () => {
+    const schema = { type: 'object', properties: { x: { type: 'string' } } };
+    const req = buildOpenRouterRequest({
+      model: 'openrouter/openai/gpt-4o',
+      messages: [{ role: 'user', content: [{ type: 1, text: { text: 'x' } }] }],
+      sampling: {
+        response_format: 'json_schema',
+        response_schema: schema,
+        max_tokens: 512,
+        top_p: 0.8,
+      },
+    });
+    expect(req.max_tokens).toBe(512);
+    expect(req.top_p).toBe(0.8);
+    expect(req.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { name: 'schema', schema, strict: true },
+    });
+  });
+
+  it('maps protobuf Struct response_schema to plain JSON schema', () => {
+    const protoSchema = {
+      fields: {
+        type: { stringValue: 'object' },
+        additionalProperties: { boolValue: false },
+        required: { listValue: { values: [{ stringValue: 'full_name' }] } },
+        properties: {
+          structValue: {
+            fields: {
+              full_name: {
+                structValue: {
+                  fields: {
+                    type: { stringValue: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const req = buildOpenRouterRequest({
+      model: 'openrouter/openai/gpt-4o',
+      messages: [{ role: 'user', content: [{ type: 1, text: { text: 'x' } }] }],
+      sampling: {
+        response_format: 'json_schema',
+        response_schema: protoSchema,
+      },
+    });
+    expect(req.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: {
+        name: 'schema',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['full_name'],
+          properties: { full_name: { type: 'string' } },
+        },
+        strict: true,
+      },
     });
   });
 

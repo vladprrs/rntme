@@ -192,9 +192,22 @@ describe('cv-extract demo: composition', () => {
 
     const completion = g.nodes[completionIdx]!;
     expect(completion.target).toEqual({ module: 'openrouter', operation: 'Complete' });
+    expect(completion.input?.context).toEqual({
+      idempotency_key: {
+        concat: [
+          { $literal: 'cv-extract-demo-complete:' },
+          { $param: 'resumeId' },
+        ],
+      },
+    });
+    expect((completion.input?.sampling as { response_format?: unknown })?.response_format)
+      .toEqual({ $literal: 'json_schema' });
+    expect(
+      (completion.input?.sampling as { response_schema?: { fields?: unknown } })?.response_schema?.fields,
+    ).toBeDefined();
 
     // The OpenRouter call must NOT carry base64 file data — the file block uses url=$ref.
-    const messages = (completion.input?.messages as { $literal?: unknown })?.$literal as unknown;
+    const messages = completion.input?.messages as unknown;
     const serialized = JSON.stringify(messages);
     expect(serialized).not.toContain('base64Data');
     expect(serialized).not.toContain('base64_data');
