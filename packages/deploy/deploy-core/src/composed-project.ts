@@ -29,16 +29,34 @@ export type ProjectRouteMap = {
   readonly http?: Readonly<Record<string, string>>;
 };
 
-export type ProjectMiddlewareDecl = {
-  readonly kind: string;
-  readonly provider?: string;
-  readonly audience?: string;
-  readonly moduleSlug?: string;
+export type ProjectAuthProviderDecl =
+  | {
+      readonly provider: 'auth0';
+      readonly audience: string;
+      readonly moduleSlug: string;
+    }
+  | {
+      readonly provider: 'platform-tokens';
+      readonly moduleSlug: string;
+      readonly introspectPath: string;
+      readonly introspectPort: number;
+    };
+
+export type ProjectAuthMiddlewareDecl = {
+  readonly kind: 'auth';
+  readonly providers: readonly ProjectAuthProviderDecl[];
   readonly policy?: string;
   readonly config?: unknown;
-  readonly introspectPath?: string;
-  readonly introspectPort?: number;
 };
+
+export type ProjectGenericMiddlewareDecl = {
+  readonly kind: string;
+  readonly provider?: string;
+  readonly policy?: string;
+  readonly config?: unknown;
+};
+
+export type ProjectMiddlewareDecl = ProjectAuthMiddlewareDecl | ProjectGenericMiddlewareDecl;
 
 export type ProjectMountDecl = {
   readonly target: string;

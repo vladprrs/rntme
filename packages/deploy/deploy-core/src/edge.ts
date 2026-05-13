@@ -1,4 +1,4 @@
-import type { ComposedProjectInput } from './composed-project.js';
+import type { ComposedProjectInput, ProjectAuthMiddlewareDecl } from './composed-project.js';
 import type { DeploymentPolicyConfig, ProjectDeploymentConfig } from './config.js';
 import type { DeploymentPlanError } from './errors.js';
 import type { DeploymentWorkload, DomainServiceWorkload, IntegrationModuleWorkload } from './plan.js';
@@ -10,6 +10,15 @@ export type EdgeRoute = {
   readonly path: string;
   readonly targetService: string;
   readonly targetWorkload: string;
+};
+
+export type EdgeAuthProvider = {
+  readonly index: number;
+  readonly provider: string;
+  readonly moduleSlug: string;
+  readonly introspectPath: string;
+  readonly introspectPort: number;
+  readonly audience?: string;
 };
 
 export type EdgeMiddleware =
@@ -45,20 +54,7 @@ export type EdgeMiddleware =
       readonly mountTarget: string;
       readonly name: string;
       readonly kind: 'auth';
-      readonly provider: string;
-      /**
-       * Required for module-backed providers (e.g. auth0). Optional for
-       * platform-tokens (the tokens service authenticates against the platform
-       * database without needing an OAuth audience).
-       */
-      readonly audience?: string;
-      readonly moduleSlug: string;
-      readonly moduleIntrospectPort: number;
-      /**
-       * Override for the introspect HTTP path nginx calls. Defaults to
-       * "/introspect" (the module-side edgeAuth convention) when absent.
-       */
-      readonly moduleIntrospectPath?: string;
+      readonly providers: readonly EdgeAuthProvider[];
       readonly policy?: string;
       readonly config?: unknown;
     };
@@ -167,9 +163,9 @@ function planMiddleware(
 ): EdgeMiddleware[] {
   const planned: EdgeMiddleware[] = [];
   const declarations = project.middleware ?? {};
-  const integrationWorkloads = new Map(
+  const integrationWorkloads = new Map<string, IntegrationModuleWorkload>(
     workloads
-      .filter((workload) => workload.kind === 'integration-module')
+      .filter((workload): workload is IntegrationModuleWorkload => workload.kind === 'integration-module')
       .map((workload) => [workload.slug, workload]),
   );
 
@@ -209,120 +205,24 @@ function planMiddleware(
       const policy = decl.policy ?? 'default';
 
       if (decl.kind === 'auth') {
-        const isPlatformTokens = decl.provider === 'platform-tokens';
-        if (
-          !isNonEmptyString(decl.provider) ||
-          !isNonEmptyString(decl.moduleSlug) ||
-          (!isPlatformTokens && !isNonEmptyString(decl.audience))
-        ) {
-          errors.push({
-            code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
-            message: isPlatformTokens
-              ? `auth middleware "${middlewareName}" requires provider and moduleSlug`
-              : `auth middleware "${middlewareName}" requires provider, audience, and moduleSlug`,
-            middleware: middlewareName,
-          });
+        const authDecl = decl as ProjectAuthMiddlewareDecl;
+        const plannedProviders = planAuthProviders(
+          middlewareName,
+          authDecl,
+          project,
+          workloads,
+          integrationWorkloads,
+          errors,
+          vars,
+        );
+        if (plannedProviders === null) {
           continue;
         }
-
-        // platform-tokens: provider is a domain service in this project. Resolve workload from
-        // the full workload set rather than only integration-module workloads. The edgeAuth
-        // contract on a module manifest does not apply; introspectPort/Path come from the
-        // middleware declaration itself (or fall back to defaults).
-        if (isPlatformTokens) {
-          const providerWorkload = workloads.find(
-            (w) => w.kind === 'domain-service' && w.serviceSlug === decl.moduleSlug,
-          );
-          if (providerWorkload === undefined) {
-            errors.push({
-              code: 'DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING',
-              message: `auth middleware "${middlewareName}" references missing domain-service workload "${decl.moduleSlug}"`,
-              middleware: middlewareName,
-              service: decl.moduleSlug,
-            });
-            continue;
-          }
-          if (decl.introspectPort === undefined) {
-            errors.push({
-              code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
-              message: `auth middleware "${middlewareName}" with provider="platform-tokens" requires introspectPort`,
-              middleware: middlewareName,
-              path: `middleware.${middlewareName}.introspectPort`,
-            });
-            continue;
-          }
-          if (decl.introspectPath === undefined) {
-            errors.push({
-              code: 'DEPLOY_PLAN_AUTH_MIDDLEWARE_INCOMPLETE',
-              message: `auth middleware "${middlewareName}" with provider="platform-tokens" requires introspectPath`,
-              middleware: middlewareName,
-              path: `middleware.${middlewareName}.introspectPath`,
-            });
-            continue;
-          }
-
-          planned.push({
-            mountTarget: mount.target,
-            name: middlewareName,
-            kind: decl.kind,
-            provider: applyVars(decl.provider, vars),
-            ...(isNonEmptyString(decl.audience) ? { audience: applyVars(decl.audience, vars) } : {}),
-            moduleSlug: applyVars(decl.moduleSlug, vars),
-            moduleIntrospectPort: decl.introspectPort,
-            moduleIntrospectPath: decl.introspectPath,
-            ...(decl.policy !== undefined ? { policy: applyVars(decl.policy, vars) } : {}),
-            ...(decl.config !== undefined ? { config: applyVars(decl.config, vars) } : {}),
-          });
-          continue;
-        }
-
-        const moduleWorkload = integrationWorkloads.get(decl.moduleSlug);
-        if (moduleWorkload === undefined) {
-          errors.push({
-            code: 'DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING',
-            message: `auth middleware "${middlewareName}" references missing integration module workload "${decl.moduleSlug}"`,
-            middleware: middlewareName,
-            service: decl.moduleSlug,
-          });
-          continue;
-        }
-
-        if (decl.provider === 'auth0') {
-          if (!isNonEmptyString(moduleWorkload.env.AUTH0_DOMAIN)) {
-            errors.push({
-              code: 'DEPLOY_PLAN_AUTH_MODULE_ENV_INCOMPLETE',
-              message: `auth module workload "${decl.moduleSlug}" missing AUTH0_DOMAIN env`,
-              service: decl.moduleSlug,
-              path: `modules.${decl.moduleSlug}.env.AUTH0_DOMAIN`,
-            });
-            continue;
-          }
-        }
-
-        const moduleInfo = project.modules?.[decl.moduleSlug];
-        const edgeAuth = moduleInfo?.edgeAuth;
-        if (edgeAuth === null || edgeAuth === undefined) {
-          errors.push({
-            code: 'DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING',
-            message: `auth middleware "${middlewareName}" requires module "${decl.moduleSlug}" to declare capabilities.edgeAuth`,
-            middleware: middlewareName,
-            moduleSlug: decl.moduleSlug,
-            path: `modules.${decl.moduleSlug}.capabilities.edgeAuth`,
-          });
-          continue;
-        }
-
-        // decl.audience is guaranteed non-empty by the earlier check for non-platform-tokens.
-        const audienceValue: string = decl.audience as string;
         planned.push({
           mountTarget: mount.target,
           name: middlewareName,
           kind: decl.kind,
-          provider: applyVars(decl.provider, vars),
-          audience: applyVars(audienceValue, vars),
-          moduleSlug: applyVars(decl.moduleSlug, vars),
-          moduleIntrospectPort: decl.introspectPort ?? edgeAuth.port,
-          ...(decl.introspectPath !== undefined ? { moduleIntrospectPath: decl.introspectPath } : {}),
+          providers: plannedProviders,
           ...(decl.policy !== undefined ? { policy: applyVars(decl.policy, vars) } : {}),
           ...(decl.config !== undefined ? { config: applyVars(decl.config, vars) } : {}),
         });
@@ -439,4 +339,85 @@ function policyTable<K extends SupportedMiddlewareKind>(
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
+}
+
+function planAuthProviders(
+  middlewareName: string,
+  decl: ProjectAuthMiddlewareDecl,
+  project: ComposedProjectInput,
+  workloads: readonly DeploymentWorkload[],
+  integrationWorkloads: ReadonlyMap<string, IntegrationModuleWorkload>,
+  errors: DeploymentPlanError[],
+  vars: ResolvedVars,
+): EdgeAuthProvider[] | null {
+  const planned: EdgeAuthProvider[] = [];
+  const errorCountBefore = errors.length;
+  for (const [index, providerDecl] of decl.providers.entries()) {
+    const pathBase = `middleware.${middlewareName}.providers.${index}`;
+    if (providerDecl.provider === 'platform-tokens') {
+      const providerWorkload = workloads.find(
+        (w) => w.kind === 'domain-service' && w.serviceSlug === providerDecl.moduleSlug,
+      );
+      if (providerWorkload === undefined) {
+        errors.push({
+          code: 'DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING',
+          message: `auth middleware "${middlewareName}" provider[${index}] references missing domain-service workload "${providerDecl.moduleSlug}"`,
+          middleware: middlewareName,
+          service: providerDecl.moduleSlug,
+          path: `${pathBase}.moduleSlug`,
+        });
+        continue;
+      }
+      planned.push({
+        index,
+        provider: providerDecl.provider,
+        moduleSlug: applyVars(providerDecl.moduleSlug, vars),
+        introspectPath: applyVars(providerDecl.introspectPath, vars),
+        introspectPort: providerDecl.introspectPort,
+      });
+      continue;
+    }
+
+    const moduleWorkload = integrationWorkloads.get(providerDecl.moduleSlug);
+    if (moduleWorkload === undefined) {
+      errors.push({
+        code: 'DEPLOY_PLAN_AUTH_MODULE_WORKLOAD_MISSING',
+        message: `auth middleware "${middlewareName}" provider[${index}] references missing integration module workload "${providerDecl.moduleSlug}"`,
+        middleware: middlewareName,
+        service: providerDecl.moduleSlug,
+        path: `${pathBase}.moduleSlug`,
+      });
+      continue;
+    }
+    if (providerDecl.provider === 'auth0' && !isNonEmptyString(moduleWorkload.env.AUTH0_DOMAIN)) {
+      errors.push({
+        code: 'DEPLOY_PLAN_AUTH_MODULE_ENV_INCOMPLETE',
+        message: `auth module workload "${providerDecl.moduleSlug}" missing AUTH0_DOMAIN env`,
+        service: providerDecl.moduleSlug,
+        path: `modules.${providerDecl.moduleSlug}.env.AUTH0_DOMAIN`,
+      });
+      continue;
+    }
+    const moduleInfo = project.modules?.[providerDecl.moduleSlug];
+    const edgeAuth = moduleInfo?.edgeAuth;
+    if (edgeAuth === null || edgeAuth === undefined) {
+      errors.push({
+        code: 'DEPLOY_PLAN_AUTH_MODULE_HTTP_INTROSPECT_MISSING',
+        message: `auth middleware "${middlewareName}" provider[${index}] requires module "${providerDecl.moduleSlug}" to declare capabilities.edgeAuth`,
+        middleware: middlewareName,
+        moduleSlug: providerDecl.moduleSlug,
+        path: `middleware.${middlewareName}.providers.${index}.moduleSlug`,
+      });
+      continue;
+    }
+    planned.push({
+      index,
+      provider: providerDecl.provider,
+      audience: applyVars(providerDecl.audience, vars),
+      moduleSlug: applyVars(providerDecl.moduleSlug, vars),
+      introspectPath: edgeAuth.path,
+      introspectPort: edgeAuth.port,
+    });
+  }
+  return errors.length === errorCountBefore ? planned : null;
 }
