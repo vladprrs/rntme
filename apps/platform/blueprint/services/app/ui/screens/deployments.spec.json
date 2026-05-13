@@ -2,24 +2,24 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "panel"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Project · Deployments",
         "title": "Deployments"
       }
     },
     "panel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "All deployments", "subtitle": "Latest 100" },
       "children": ["deployments"]
     },
     "deployments": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/deployments",
         "columns": [

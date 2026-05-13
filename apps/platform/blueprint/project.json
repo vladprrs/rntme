@@ -19,6 +19,9 @@
         "postLoginRedirectPath": "/no-org",
         "authenticatedRedirectPaths": ["/", "/login", "/auth/callback"]
       }
+    },
+    "platformUi": {
+      "package": "@rntme/platform-ui"
     }
   },
   "routes": {

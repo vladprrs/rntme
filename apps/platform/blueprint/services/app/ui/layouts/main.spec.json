@@ -2,12 +2,12 @@
   "root": "shell",
   "elements": {
     "shell": {
-      "type": "Box",
+      "type": "PlatformBox",
       "props": { "className": "rntme-app" },
       "children": ["sidebar", "main"]
     },
     "sidebar": {
-      "type": "Sidebar",
+      "type": "PlatformSidebar",
       "props": {
         "brand": "rntme",
         "version": "v0.3",
@@ -26,12 +26,12 @@
       }
     },
     "main": {
-      "type": "Box",
+      "type": "PlatformBox",
       "props": { "className": "rntme-main" },
       "children": ["topbar", "content"]
     },
     "topbar": {
-      "type": "Topbar",
+      "type": "PlatformTopbar",
       "props": {
         "crumbs": [
           { "label": "platform" },

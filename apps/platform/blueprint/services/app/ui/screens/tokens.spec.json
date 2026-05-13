@@ -2,19 +2,19 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "form", "list"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Organization · API tokens",
         "title": "API tokens"
       }
     },
     "form": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Issue token" },
       "children": ["name", "prefix", "scopes", "create"]
     },
@@ -23,12 +23,12 @@
     "scopes": { "type": "Input", "props": { "statePath": "/form/token/scopesJson", "placeholder": "[\"project:read\"]" } },
     "create": { "type": "Button", "props": { "label": "Create" }, "on": { "click": { "action": "createToken" } } },
     "list": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "All tokens" },
       "children": ["tokens"]
     },
     "tokens": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/tokens",
         "columns": [

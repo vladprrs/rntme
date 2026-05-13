@@ -3,8 +3,8 @@ import { describe, expect, it } from 'bun:test';
 
 const { createRegistry } = await import('../../src/client/registry.js');
 
-describe('DataTable runtime primitive', () => {
-  it('registers DataTable in the runtime catalog', () => {
+describe('Table runtime primitive', () => {
+  it('registers Table in the runtime catalog without platform DataTable', () => {
     const bridge = {
       onNavigate: () => undefined,
       getScreen: () => null,
@@ -13,6 +13,8 @@ describe('DataTable runtime primitive', () => {
       fetchFn: fetch,
     };
     const { catalog } = createRegistry(bridge as never);
-    expect(catalog.data.components.DataTable).toBeDefined();
+    expect(catalog.data.components.Table).toBeDefined();
+    expect(catalog.data.components.DataTable).toBeUndefined();
+    expect(catalog.data.components.PlatformDataTable).toBeUndefined();
   });
 });

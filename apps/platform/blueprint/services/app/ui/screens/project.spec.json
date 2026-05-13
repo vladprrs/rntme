@@ -2,12 +2,12 @@
   "root": "page",
   "elements": {
     "page": {
-      "type": "PageContainer",
+      "type": "PlatformPage",
       "props": {},
       "children": ["header", "summary", "dashGrid"]
     },
     "header": {
-      "type": "PageHeader",
+      "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Project · Dashboard",
         "title": "Project overview",
@@ -24,7 +24,7 @@
       }
     },
     "summary": {
-      "type": "SummaryGrid",
+      "type": "PlatformSummaryGrid",
       "props": {
         "items": [
           { "label": "Versions", "value": "—" },
@@ -38,12 +38,12 @@
       }
     },
     "dashGrid": {
-      "type": "DashGrid",
-      "props": {},
+      "type": "PlatformBox",
+      "props": { "className": "rntme-dash-grid" },
       "children": ["servicesPanel", "sidePanel"]
     },
     "servicesPanel": {
-      "type": "ServicesPanel",
+      "type": "PlatformServicesPanel",
       "props": {
         "title": "Services",
         "subtitle": "Authored as platform blueprint",
@@ -97,17 +97,17 @@
       }
     },
     "sidePanel": {
-      "type": "Box",
+      "type": "PlatformBox",
       "props": { "className": "rntme-side-stack" },
       "children": ["deployPanel", "alertsPanel", "versionsPanel"]
     },
     "deployPanel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Latest deployment", "subtitle": "Live" },
       "children": ["deployTimeline"]
     },
     "deployTimeline": {
-      "type": "Timeline",
+      "type": "PlatformTimeline",
       "props": {
         "currentStep": 4,
         "steps": [
@@ -120,12 +120,12 @@
       }
     },
     "alertsPanel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Alerts" },
       "children": ["alertsList"]
     },
     "alertsList": {
-      "type": "AlertList",
+      "type": "PlatformAlertList",
       "props": {
         "variant": "warn",
         "items": [
@@ -137,12 +137,12 @@
       }
     },
     "versionsPanel": {
-      "type": "Panel",
+      "type": "PlatformPanel",
       "props": { "title": "Versions", "subtitle": "Latest 100" },
       "children": ["versionsTable"]
     },
     "versionsTable": {
-      "type": "DataTable",
+      "type": "PlatformDataTable",
       "props": {
         "statePath": "/data/versions",
         "columns": [

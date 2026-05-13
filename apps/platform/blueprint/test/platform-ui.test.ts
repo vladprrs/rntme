@@ -28,5 +28,14 @@ describe('platform UI artifact', () => {
     });
     expect(result.value.virtualEntrySource).toContain("import('@rntme/identity-auth0/client')");
     expect(result.value.virtualEntrySource).toContain("bootContract: 'identity'");
+    expect(result.value.catalogManifest?.components.map((c) => c.type)).toEqual(
+      expect.arrayContaining(['PlatformPageHeader', 'PlatformDataTable', 'PlatformSidebar']),
+    );
+    expect(result.value.uiAssetManifest?.stylesheets[0]).toMatchObject({
+      id: 'platform-ui',
+      moduleKey: 'platformUi',
+      href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
+    });
+    expect(result.value.virtualEntrySource).toContain("import('@rntme/platform-ui/client')");
   });
 });
