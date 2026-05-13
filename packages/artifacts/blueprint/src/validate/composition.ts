@@ -6,15 +6,16 @@ import {
   type Result,
 } from '../types/result.js';
 import { extractPlaceholders } from '../types/vars.js';
-import type {
-  AuthProviderDecl,
-  CatalogManifest,
-  CompositionService,
-  MiddlewareDecl,
-  ProjectBlueprint,
-  ProjectRoutingContext,
-  ServiceKind,
-  ServiceGraphSpec,
+import {
+  isAuthMiddlewareDecl,
+  type AuthProviderDecl,
+  type CatalogManifest,
+  type CompositionService,
+  type MiddlewareDecl,
+  type ProjectBlueprint,
+  type ProjectRoutingContext,
+  type ServiceKind,
+  type ServiceGraphSpec,
 } from '../types/artifact.js';
 import type { ValidatedBindings } from '@rntme/bindings';
 import type { DiscoveredModule } from '../compose/modules.js';
@@ -111,7 +112,7 @@ export function validateBlueprintComposition(input: {
   }
 
   for (const [name, declaration] of Object.entries(input.project.middleware ?? {})) {
-    if (declaration.kind === 'auth') {
+    if (isAuthMiddlewareDecl(declaration)) {
       for (const [providerIndex, providerDecl] of declaration.providers.entries()) {
         const providerSlug = providerDecl.moduleSlug;
         const provider = input.services[providerSlug];
@@ -312,7 +313,7 @@ function checkAuthModuleEdgeAuth(
 
   const errors: BlueprintError[] = [];
   for (const [middlewareName, declaration] of Object.entries(project.middleware ?? {})) {
-    if (declaration.kind !== 'auth') continue;
+    if (!isAuthMiddlewareDecl(declaration)) continue;
     if (!authMiddlewareIsMounted(project, middlewareName)) continue;
 
     for (const [providerIndex, providerDecl] of declaration.providers.entries()) {
@@ -342,7 +343,7 @@ function authMiddlewareIsMounted(project: ProjectBlueprint, middlewareName: stri
 }
 
 function authProvidersForComposition(declaration: MiddlewareDecl): readonly AuthProviderDecl[] {
-  return declaration.kind === 'auth' ? declaration.providers : [];
+  return isAuthMiddlewareDecl(declaration) ? declaration.providers : [];
 }
 
 function isPlatformTokensProvider(provider: AuthProviderDecl): boolean {

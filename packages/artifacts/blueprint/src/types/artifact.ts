@@ -29,17 +29,23 @@ export type AuthProviderDecl =
       readonly introspectPort: number;
     };
 
-export type MiddlewareDecl =
-  | {
-      readonly kind: 'auth';
-      readonly providers: readonly AuthProviderDecl[];
-      readonly policy?: string;
-    }
-  | {
-      readonly kind: string;
-      readonly provider?: string;
-      readonly policy?: string;
-    };
+export type AuthMiddlewareDecl = {
+  readonly kind: 'auth';
+  readonly providers: readonly AuthProviderDecl[];
+  readonly policy?: string;
+};
+
+export type GenericMiddlewareDecl = {
+  readonly kind: string;
+  readonly provider?: string;
+  readonly policy?: string;
+};
+
+export type MiddlewareDecl = AuthMiddlewareDecl | GenericMiddlewareDecl;
+
+export function isAuthMiddlewareDecl(decl: MiddlewareDecl): decl is AuthMiddlewareDecl {
+  return decl.kind === 'auth' && 'providers' in decl;
+}
 
 export type MountDecl = {
   target: string;
