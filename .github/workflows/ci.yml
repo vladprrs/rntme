@@ -4,6 +4,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_live_cv_extract_smoke:
+        description: 'Run the gated cv-extract live deploy smoke (requires live secrets in env)'
+        required: false
+        default: 'false'
 jobs:
   build-typecheck-test-lint:
     runs-on: ubuntu-latest
@@ -69,3 +75,32 @@ jobs:
           file: ${{ matrix.file }}
           tags: ${{ matrix.tag }}
           push: false
+
+  cv-extract-live-smoke:
+    # Gated manual-dispatch job for the cv-extract live deploy smoke test.
+    # Disabled on push/pull_request: only runs when the workflow is dispatched
+    # manually AND the dispatcher opts in via `run_live_cv_extract_smoke=true`.
+    # The test itself self-gates on RNTME_LIVE_DEPLOY and the other env vars,
+    # so when secrets are absent it skips cleanly.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_live_cv_extract_smoke == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      # All values come from repository/environment secrets. They are NOT
+      # hardcoded here. The test skips cleanly when any of them is unset.
+      RNTME_LIVE_DEPLOY: ${{ secrets.RNTME_LIVE_DEPLOY }}
+      RNTME_PLATFORM_URL: ${{ secrets.RNTME_PLATFORM_URL }}
+      RNTME_PLATFORM_TOKEN: ${{ secrets.RNTME_PLATFORM_TOKEN }}
+      RNTME_ORG: ${{ secrets.RNTME_ORG }}
+      RNTME_PROJECT: ${{ secrets.RNTME_PROJECT }}
+      RNTME_TARGET: ${{ secrets.RNTME_TARGET }}
+      RNTME_CV_BASE_URL: ${{ secrets.RNTME_CV_BASE_URL }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      RNTME_OPENROUTER_IMAGE: ${{ secrets.RNTME_OPENROUTER_IMAGE }}
+      RNTME_STORAGE_S3_IMAGE: ${{ secrets.RNTME_STORAGE_S3_IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter @rntme/demo-cv-extract-blueprint test:live

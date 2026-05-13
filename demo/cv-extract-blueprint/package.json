@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "bun run -F @rntme/ai-llm-openrouter build && bun run -F @rntme/contracts-marketing-site-v1 build && bun run -F @rntme/bundle-publish build && bun run -F @rntme/blueprint build && bun test"
+    "test": "bun run -F @rntme/ai-llm-openrouter build && bun run -F @rntme/contracts-marketing-site-v1 build && bun run -F @rntme/bundle-publish build && bun run -F @rntme/blueprint build && bun test",
+    "test:live": "bun test test/live/platform-client-deploy.test.ts",
+    "smoke": "bun run scripts/smoke-cv-extract.ts"
   },
   "devDependencies": {
     "@rntme/ai-llm-openrouter": "workspace:*",
