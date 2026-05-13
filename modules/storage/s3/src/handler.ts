@@ -26,6 +26,49 @@ function tsFromMs(ms: number | null | undefined): ProtoTimestamp | undefined {
   return { seconds: Math.floor(ms / 1000), nanos: (ms % 1000) * 1_000_000 };
 }
 
+function int64ToNumber(value: unknown, field: string): number {
+  if (typeof value === 'number') return checkedInt64Number(value, field);
+  if (typeof value === 'bigint') return checkedInt64Number(Number(value), field);
+  if (typeof value === 'string' && value.trim() !== '') return checkedInt64Number(Number(value), field);
+  if (value !== null && typeof value === 'object') {
+    const withToNumber = value as { toNumber?: unknown };
+    if (typeof withToNumber.toNumber === 'function') {
+      return checkedInt64Number(withToNumber.toNumber(), field);
+    }
+
+    const bits = value as { low?: unknown; high?: unknown; unsigned?: unknown };
+    if (typeof bits.low === 'number' && typeof bits.high === 'number') {
+      const low = bits.low >>> 0;
+      const high = bits.unsigned === true ? bits.high >>> 0 : bits.high | 0;
+      return checkedInt64Number(high * 0x1_0000_0000 + low, field);
+    }
+  }
+
+  throw new TypeError(`${field} must be an int64-compatible value`);
+}
+
+function checkedInt64Number(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${field} must be a non-negative safe integer`);
+  }
+  return value;
+}
+
+function stringField(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function normalizeContext(value: unknown): RequestContext {
+  const raw = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    idempotency_key: stringField(raw.idempotency_key ?? raw.idempotencyKey),
+    correlation_id: stringField(raw.correlation_id ?? raw.correlationId),
+    ...(raw.actor_user_id !== undefined || raw.actorUserId !== undefined
+      ? { actor_user_id: stringField(raw.actor_user_id ?? raw.actorUserId) }
+      : {}),
+  };
+}
+
 function fileToProto(row: FileRow): Record<string, unknown> {
   return {
     file_id: row.fileId,
@@ -133,10 +176,12 @@ export function createHandler(deps: HandlerDeps): Handler {
 
   return {
     async PrepareUpload(req) {
+      const context = normalizeContext(req.context);
+      const declaredSize = int64ToNumber(req.declared_size, 'declared_size');
       const currentCount = deps.pendingStore.countCommitted(req.route_id, req.entity_id);
       const allowed = deps.routeResolver.checkUploadAllowed(req.route_id, {
         contentType: req.content_type,
-        declaredSize: req.declared_size,
+        declaredSize,
         currentCount,
       });
       if (allowed.ok !== true) {
@@ -149,12 +194,12 @@ export function createHandler(deps: HandlerDeps): Handler {
         fileId,
         routeId: req.route_id,
         entityId: req.entity_id,
-        ownerPrincipal: req.context.actor_user_id ?? '',
+        ownerPrincipal: context.actor_user_id ?? '',
         contentType: req.content_type,
-        declaredSize: req.declared_size,
+        declaredSize,
         objectKey,
         ttlMs: allowed.route.lifecycle.expirePendingMs,
-        idempotencyKey: req.context.idempotency_key,
+        idempotencyKey: context.idempotency_key,
       });
 
       const presigned = await makePresign(
@@ -172,14 +217,14 @@ export function createHandler(deps: HandlerDeps): Handler {
             file_id: insert.fileId,
             route_id: req.route_id,
             entity_id: req.entity_id,
-            owner_principal_id: req.context.actor_user_id ?? '',
+            owner_principal_id: context.actor_user_id ?? '',
             content_type: req.content_type,
-            declared_size: req.declared_size,
+            declared_size: declaredSize,
             expires_at: tsFromMs(insert.expiresAt),
           },
           extensions: {
-            correlation_id: req.context.correlation_id,
-            idempotency_key: req.context.idempotency_key,
+            correlation_id: context.correlation_id,
+            idempotency_key: context.idempotency_key,
           },
         });
       }

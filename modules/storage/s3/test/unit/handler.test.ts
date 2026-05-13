@@ -70,6 +70,20 @@ describe('handler.PrepareUpload', () => {
     expect(events.map((e) => e.type)).toEqual(['FileUploadInitiated']);
   });
 
+  it('normalizes protobuf Long-like declared_size values before SQLite binding', async () => {
+    const r = await h.PrepareUpload({
+      context: { idempotency_key: 'k', correlation_id: 'c', actor_user_id: 'u' },
+      route_id: 'img',
+      entity_id: 'e',
+      filename: 'x.png',
+      content_type: 'image/png',
+      declared_size: { low: 100, high: 0, unsigned: false } as never,
+    });
+
+    expect(r.file_id).toBe('fixed-uuid');
+    expect(events[0]?.payload).toMatchObject({ declared_size: 100 });
+  });
+
   it('idempotency: same key returns same file_id, no duplicate event', async () => {
     const context = { idempotency_key: 'idem', correlation_id: 'c', actor_user_id: 'u' };
     const a = await h.PrepareUpload({
