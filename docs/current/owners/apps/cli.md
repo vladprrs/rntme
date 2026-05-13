@@ -337,11 +337,16 @@ those operations.
 | `project create` | `POST /api/projects` |
 | `project list` | `GET /api/projects` |
 | `project version list` | `GET /api/projects/{projectId}/versions` |
-| `project publish` (bundle upload) | `POST /api/projects/{projectId}/versions` |
-| `project deploy` (start) | `POST /api/deployments` |
+| `project publish` (bundle upload) | `POST /api/projects/{projectId}/versions` with `application/rntme-project-bundle+json` bytes |
+| `project deploy` (start) | `POST /api/deployments` with `projectVersionSeq` and `targetSlug` |
 | `project deployment list` | `GET /api/deployments` |
 | `project deployment show` | `GET /api/deployments/{deploymentId}` |
 | `project deployment watch` (logs) | `GET /api/deployments/{deploymentId}/logs` |
+| `target list` / `target show` / `target create` | `/api/deployments/targets` (GET / GET `{slug}` / POST) |
+| `target set-config` (update) | `POST /api/deployments/targets/{slug}/actions/update` |
+| `target delete` | `POST /api/deployments/targets/{slug}/actions/delete` |
+
+Deploy-target update/delete are exposed as `POST /actions/update` and `POST /actions/delete` sub-routes (rather than `PUT`/`DELETE`) because the bindings HTTP runtime is GET/POST-only.
 
 These endpoints route through the platform blueprint generated bindings when
 `PLATFORM_RUNTIME_MODE=blueprint` is active. The default mode is `legacy`; the

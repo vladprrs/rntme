@@ -94,10 +94,10 @@ Each entry has:
 - `graph`: graph id in the referenced Graph IR artifact.
 - `target`: currently `{ engine: "sqlite", dialect: "sqlite" }`; stored as an opaque target descriptor.
 - `http`: method, path, and parameter declarations.
-- Optional `inputFrom`: binds graph inputs from request headers, query, body, or form fields. Keys must not overlap `http.parameters[].bindTo`.
+- Optional `inputFrom`: binds graph inputs from request headers, query, body, or form fields. Keys must not overlap `http.parameters[].bindTo`. Supported sources include `{ from: 'bodyBytes' }`, which feeds the raw request body as a `Uint8Array` into a graph input — used by `POST /api/projects/{projectId}/versions` to ingest `application/rntme-project-bundle+json` bytes without JSON parsing.
 - Optional `response`: callback/custom response rules. GET action bindings are allowed only when `response.onOk` or `response.onErr` redirects.
 
-Module/service calls are represented in Graph IR with `call` nodes, and their effects are included in the graph signature.
+Module/service calls are represented in Graph IR with `call` nodes, and their effects are included in the graph signature. A binding may also target a service-local native operation (handler implemented in the blueprint's `services/<svc>/handlers/*.ts` plus `operations.json`) — the bindings artifact treats it the same as a graph reference and the runtime dispatches through the compiled operation map.
 
 ## Validation Invariants
 

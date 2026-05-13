@@ -58,6 +58,16 @@ Project-first blueprint parser/validator for rntme.
 
 Blueprint imports the manifest schema from `@rntme/contracts-module-v1` (`ModuleManifestSchema`, `parseModuleManifest`, all manifest types). A `provisioner` block on the manifest is surfaced through `DiscoveredModule.manifest.provisioner`. Discovery validates that `entry` is a relative path inside the module package; absolute or parent-traversal entries fail with `BLUEPRINT_MODULE_PROVISIONER_BAD_ENTRY`.
 
+### `kind: "integration-module"` services
+
+A `services/<slug>/service.json` may declare `{ "kind": "integration-module", "module": "<alias>" }` to bind a service slot to a module under a project alias. The alias must match a `project.json#modules.<alias>` entry; structural validation rejects empty or missing aliases. The chosen alias becomes the canonical `moduleKey` and is propagated end-to-end:
+
+- `@rntme/deploy-core` planning emits the workload with `kind: 'integration-module'`, `moduleKey: <alias>`, and looks up the image at `target.modules.<alias>.image`.
+- `@rntme/deploy-bundle-input` emits the matching `manifest.modules[]` entry with gRPC address `mod-<serviceSlug>:50051`.
+- Graph IR `call` nodes referencing the alias resolve to the same manifest entry at runtime.
+
+A `service.json` `kind: "integration-module"` with an alias missing from `project.json#modules` is rejected during composition; do not invent a different module key inside the service folder.
+
 ## Var sources
 
 Blueprint `project.json#vars[].from` accepts two source roots, validated structurally here and resolved by `@rntme/deploy-core`:

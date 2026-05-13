@@ -241,6 +241,18 @@ convention from `manifest.name` rooted at `projectDir`. The
 (`src/handlers/platform-context.ts`) uses
 `<projectDir>/assets/provisioners/${safeProvisionerName(packageName)}.entry.js`.
 
+## Integration module images
+
+Integration-module services (`service.kind === 'integration-module'`) must
+have an image declared at `target.modules.<moduleSlug>.image` in the deploy
+target config (e.g., `target.modules.storage-s3.image` for the
+`@rntme/storage-s3` workload). Planning maps the service's
+`moduleKey`/slug to that entry and fails with
+`DEPLOY_PLAN_MISSING_MODULE_IMAGE` (per offending service slug) when no
+matching image is configured. The marketing module facet is exempt because
+its workload is rendered as a static-site by the target adapter, not as a
+runnable integration-module image.
+
 ## MVP limits
 
 - Only `mode: "preview"` is supported.

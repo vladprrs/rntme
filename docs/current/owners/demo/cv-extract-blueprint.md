@@ -1,6 +1,12 @@
 # `demo/cv-extract-blueprint/` — Resume extraction demo
 
-Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter` and dogfoods the `marketing-site` module. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON. The same blueprint also declares a `marketing` service backed by `@rntme/marketing-site-static`.
+Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter` and dogfoods the `marketing-site` module. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON. The same blueprint also declares a `marketing` module facet backed by `@rntme/marketing-site-static`.
+
+## Project shape
+
+- `project.services` lists `app`, `openrouter`, and `storage-s3`.
+- `project.modules.storage` uses `@rntme/storage-s3`; the deploy workload image lives at `target.modules.storage-s3.image`.
+- `project.modules.marketing` is a hosted module facet, not a service; the marketing landing source is packed as a canonical bundle asset via `publicConfig.source.kind = "project-folder"` and hosted by the deploy target adapter.
 
 ## File map
 

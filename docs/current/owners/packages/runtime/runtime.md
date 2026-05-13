@@ -235,6 +235,10 @@ Defaults: empty CORS allow-list (no `Access-Control-*` headers), no CSP, `nosnif
 `strict-origin-when-cross-origin`. `RNTME_HTTP_CORS_ORIGINS` (CSV) and
 `RNTME_HTTP_CSP` (literal value; empty string disables CSP) override the manifest.
 
+### Manifest module wiring
+
+`manifest.modules[]` is populated by `@rntme/deploy-bundle-input`, which scans every graph `call` node's `target.module` reference and emits one manifest module entry per referenced module. Each entry receives the canonical contract proto source from `@rntme/contracts-<category>-v1/proto/...` (resolved through `packages/platform/deploy-bundle-input/src/contract-protos.ts`), and the gRPC address follows the convention `mod-<serviceSlug>:50051` so the runtime can dial the integration-module workload rendered by `@rntme/deploy-dokploy`. Module-side artifact files (proto + any sidecars) are placed under the bundled artifact directory next to `manifest.json`.
+
 ### Module gRPC TLS
 
 `manifest.modules[]` declares external platform modules that Graph IR `call` nodes can invoke:

@@ -25,6 +25,7 @@ import {
 
 `BundleSource` is a discriminated union:
 
+- `project-folder` - `{ kind, path }` — canonical default; the folder is packed as a canonical project-version bundle asset at `assets/project-folders/<moduleKey>/<sha256>.tar.gz`. The deploy-runner stage `materializeProjectFolderAssets` rewrites this to a local file path + sha256 before the vendor provisioner runs, so the contract source union stays target-agnostic.
 - `s3` - `{ kind, bucket, key, sha256, endpoint?, region? }`
 - `local-path` - `{ kind, path, sha256 }`
 

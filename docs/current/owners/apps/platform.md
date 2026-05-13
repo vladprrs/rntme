@@ -47,6 +47,27 @@ execution evidence. The first implementation uses an internal adapter seam to
 call the existing Dokploy deploy path. A public deploy-adapter module contract
 is intentionally deferred.
 
+## Native operations
+
+Several platform-blueprint bindings dispatch to TypeScript native operation
+handlers declared in `services/<svc>/operations.json` and implemented under
+`services/<svc>/handlers/*.ts`. These are referenced by bindings the same way
+graphs are, so the runtime's compiled operation map covers both kinds.
+
+| Binding | Native operation | Handler module / export |
+| --- | --- | --- |
+| `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
+| `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
+| `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
+| `GET /api/deployments/targets/{slug}` | `getDeployTarget` | `services/deployments/handlers/deploy-targets.ts` |
+| `POST /api/deployments/targets` | `createDeployTarget` | `services/deployments/handlers/deploy-targets.ts` (`createDeployTargetHandler`) |
+| `POST /api/deployments/targets/{slug}/actions/update` | `updateDeployTarget` | `services/deployments/handlers/deploy-targets.ts` (`updateDeployTargetHandler`) |
+| `POST /api/deployments/targets/{slug}/actions/delete` | `deleteDeployTarget` | `services/deployments/handlers/deploy-targets.ts` (`deleteDeployTargetHandler`) |
+
+`update` and `delete` are exposed as `POST /actions/update` and
+`POST /actions/delete` sub-routes (rather than `PUT`/`DELETE`) because the
+bindings HTTP runtime is GET/POST-only.
+
 ## Workflows
 
 The platform blueprint declares a project-level `workflows` section

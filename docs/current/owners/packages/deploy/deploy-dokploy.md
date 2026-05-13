@@ -279,6 +279,17 @@ Nginx itself does not validate JWTs. The module HTTP endpoint does (Auth0: JWKS 
 
 Runtime continues to call gRPC `IntrospectSession` itself for the canonical `Session` shape (defence in depth); edge sets `X-Rntme-User-Sub` / `X-Rntme-User-Audience` headers as advisory hints.
 
+## Marketing static-site rendering
+
+When the plan contains a marketing static-site workload (sourced from a
+`@rntme/marketing-site-static` module facet), render emits a project-stack
+Compose service of `workloadKind: 'static-site'` running
+`nginx:1.27-alpine`. The bundle bytes are mounted into the service as
+content-addressed files and the workload binds to
+`publicConfig.primaryDomain` through a Compose-level domain entry on the
+project-stack. The marketing module itself never builds an image, pushes to
+a registry, or talks to Dokploy — hosting is owned by this adapter.
+
 ## Runtime UI bundle mounts
 
 Domain-service runtime files include `ui-build/*` when `@rntme/deploy-bundle-input`

@@ -75,6 +75,20 @@ Wiring to a BPMN process is a follow-up plan.
 plan-stage variables can resolve `provision.*` paths. The `provision` stage
 is skipped when the composed input has no provisioner modules.
 
+### `materializeProjectFolderAssets`
+
+The provision stage calls `materializeProjectFolderAssets`
+(`src/project-assets.ts`) before invoking any vendor provisioner. It walks
+discovered modules whose `publicConfig.source.kind === "project-folder"`,
+locates the matching tar.gz at
+`<bundleDir>/assets/project-folders/<moduleKey>/<sha256>.tar.gz`, and
+rewrites the module's `publicConfig.source` to a local file path + sha256
+shape. Missing or malformed asset paths fail the stage with
+`DEPLOY_PROVISION_PROJECT_FOLDER_ASSET_MISSING` /
+`DEPLOY_PROVISION_PROJECT_FOLDER_ASSET_INVALID`. The vendor provisioner
+therefore never sees the bundle-side `project-folder` shape and never needs
+bundle storage credentials.
+
 ## `stages.*` API (per-stage entry points)
 
 Each lifecycle stage is also exposed as a standalone, callable unit through

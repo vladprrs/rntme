@@ -11,18 +11,19 @@ Marketing-site modules implement `@rntme/contracts-marketing-site-v1`: a deploy-
 
 ## Current Vendors
 
-- `@rntme/marketing-site-static` (`modules/marketing-site/static-html/`) hosts a sha256-pinned tar+gzip HTML bundle via `nginx:alpine`.
+- `@rntme/marketing-site-static` (`modules/marketing-site/static-html/`) hosts a sha256-pinned static HTML bundle. Hosting is performed by the deploy target adapter; the module authoring config does not reference target-owned bundle storage, registry, or Dokploy credentials.
+
+## Source kinds
+
+`publicConfig.source` is one of:
+
+- `{ kind: "project-folder", path }` — the canonical default. `@rntme/blueprint` packs the folder into `assets/project-folders/<moduleKey>/<sha256>.tar.gz` inside the project-version bundle, and `@rntme/deploy-runner`'s `materializeProjectFolderAssets` rewrites the provisioner input to a local file path + sha256 before the vendor provisioner runs.
+- `{ kind: "s3", bucket, key, sha256, endpoint?, region? }` — externally-published S3 bundle (used by `rntme bundle publish`).
+- `{ kind: "local-path", path, sha256 }` — non-production only.
 
 ## Static HTML Deploy Semantics
 
-The provisioner:
-
-1. Reads an immutable bundle source from `publicConfig.source`.
-2. Fetches from S3 or reads a local bundle path in non-production targets.
-3. Verifies sha256 before unpacking.
-4. Untars into a scratch directory and requires root `index.html`.
-5. Builds and pushes an `nginx:alpine` image containing the bundle.
-6. Calls an injected Dokploy-shaped client to upsert a Docker app bound to `primaryDomain`.
+The vendor module validates `publicConfig.source` and exposes the resolved bundle bytes and `primaryDomain` to the deploy target adapter. Image build, registry push, and Docker app binding are owned by the deploy target adapter (see `@rntme/deploy-dokploy`), which renders the static-site workload as `nginx:1.27-alpine` inside the project-stack Compose resource.
 
 The module exports:
 
@@ -33,10 +34,10 @@ The module exports:
 ## Invariants
 
 - No RPC surface in v1.
-- Every deploy source is pinned by sha256 and verified before image build.
+- Every deploy source is pinned by sha256 and verified before hosting.
 - `local-path` sources are forbidden when `targetSecrets.isProd === true`.
 - Module code may import contracts and external libraries, but not implementation packages under `packages/**`.
-- Docker image build requires `docker buildx` unless tests inject a fake build function through target secrets.
+- The marketing module never reads bundle storage credentials, image registries, or Dokploy tokens; static-site hosting (image build, registry push, ingress) lives in the deploy target adapter.
 
 ## Conformance
 
