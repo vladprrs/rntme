@@ -36,7 +36,7 @@ export function extractInputs(map: InputFromMap, req: RequestSource): ExtractRes
   return { ok: true, values };
 }
 
-function extractSingle(src: { from: 'body'; path?: string } | { from: 'query'; name: string } | { from: 'header'; name: string } | { from: 'form'; name: string }, req: RequestSource): { ok: true; value: unknown } | { ok: false } {
+function extractSingle(src: { from: 'body'; path?: string } | { from: 'bodyBytes' } | { from: 'query'; name: string } | { from: 'header'; name: string } | { from: 'form'; name: string }, req: RequestSource): { ok: true; value: unknown } | { ok: false } {
   switch (src.from) {
     case 'query': {
       const v = req.query.get(src.name);
@@ -58,6 +58,12 @@ function extractSingle(src: { from: 'body'; path?: string } | { from: 'query'; n
       if (req.body === null) return { ok: false };
       if (src.path === undefined) return { ok: true, value: req.body };
       return walkPath(req.body, src.path);
+    }
+    case 'bodyBytes': {
+      // Raw byte bodies are precomputed by the HTTP operation handler and
+      // merged into graph inputs after extractInputs; extractInputs is never
+      // called with a bodyBytes entry. The case exists for type exhaustiveness.
+      return { ok: false };
     }
   }
 }

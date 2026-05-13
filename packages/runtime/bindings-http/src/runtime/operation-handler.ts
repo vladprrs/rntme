@@ -105,6 +105,19 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
   const declaredQueryParams = plan.entry.http.parameters.filter((p) => p.in === 'query');
   const hasBody = plan.bodyParamNames.length > 0;
   const hasInputFrom = plan.inputFrom !== null;
+  const bodyBytesKeys: string[] =
+    plan.inputFrom === null
+      ? []
+      : Object.entries(plan.inputFrom)
+          .filter(([, src]) => src.from === 'bodyBytes')
+          .map(([key]) => key);
+  const hasBodyBytes = bodyBytesKeys.length > 0;
+  const nonByteInputFrom =
+    plan.inputFrom === null
+      ? null
+      : Object.fromEntries(
+          Object.entries(plan.inputFrom).filter(([, src]) => src.from !== 'bodyBytes'),
+        );
 
   return async (c: Context): Promise<Response> => {
     let graphInputs: Record<string, unknown> = {};
@@ -122,7 +135,11 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
     queryData = queryParsed.data as Record<string, unknown>;
 
     let parsedJsonBody: Record<string, unknown> | null = null;
-    if (hasBody) {
+    let rawBodyBytes: Uint8Array | null = null;
+    if (hasBodyBytes && plan.entry.http.method === 'POST') {
+      const buf = await c.req.arrayBuffer();
+      rawBodyBytes = new Uint8Array(buf);
+    } else if (hasBody) {
       let rawBody: unknown;
       try {
         rawBody = await c.req.json();
@@ -160,11 +177,16 @@ export function makeOperationHandler(plan: BindingPlan, deps: OperationHandlerDe
         body: parsedJsonBody,
         form: Object.keys(formValues).length > 0 ? formValues as Record<string, string> : null,
       };
-      const extracted = extractInputs(plan.inputFrom!, request);
+      const extracted = extractInputs(nonByteInputFrom!, request);
       if (!extracted.ok) {
         return c.json({ code: extracted.error.code, message: extracted.error.message }, 400);
       }
       graphInputs = { ...graphInputs, ...extracted.values };
+      if (hasBodyBytes && rawBodyBytes !== null) {
+        for (const key of bodyBytesKeys) {
+          graphInputs[key] = rawBodyBytes;
+        }
+      }
       queryData = { ...Object.fromEntries(searchParams.entries()), ...queryData };
     }
 

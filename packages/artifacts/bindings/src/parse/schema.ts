@@ -34,6 +34,7 @@ const httpSchema = z
 
 const InputSourceSchema = z.discriminatedUnion('from', [
   z.object({ from: z.literal('body'), path: z.string().min(1).optional() }).strict(),
+  z.object({ from: z.literal('bodyBytes') }).strict(),
   z.object({ from: z.literal('query'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
   z.object({ from: z.literal('header'), name: z.string().min(1), required: z.boolean().optional() }).strict(),
   z.object({ from: z.literal('form'), name: z.string().min(1), required: z.boolean().optional() }).strict(),

@@ -6,6 +6,7 @@ export type ExpressionObject = Record<string, unknown>;
 
 export type InputSource =
   | { from: 'body'; path?: string }                          // JSON body, optional dot-path for nested values
+  | { from: 'bodyBytes' }                                    // Raw request body bytes (Uint8Array)
   | { from: 'query'; name: string; required?: boolean }
   | { from: 'header'; name: string; required?: boolean }
   | { from: 'form'; name: string; required?: boolean };      // application/x-www-form-urlencoded
