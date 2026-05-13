@@ -101,7 +101,8 @@ describe('loadBlueprint', () => {
         JSON.stringify({ kind: 'integration-module', module: 'storage' }, null, 2),
       );
       const projectPath = join(copied, 'project.json');
-      const project = JSON.parse(await Bun.file(projectPath).text()) as { services: string[] };
+      const { readFileSync } = await import('node:fs');
+      const project = JSON.parse(readFileSync(projectPath, 'utf8')) as { services: string[] };
       project.services = [...project.services, 'storage-s3'];
       writeFileSync(projectPath, JSON.stringify(project, null, 2));
 
