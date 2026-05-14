@@ -8,9 +8,7 @@ export async function apply(
 ): Promise<ApplyStageOutput> {
   const dokployClient = input.dokployClientFactory(
     input.ctx.resolvedTargetSecrets.apiToken,
-    Object.keys(input.resolvedRequiredSecrets).length > 0
-      ? input.resolvedRequiredSecrets
-      : input.ctx.resolvedTargetSecrets.extras,
+    { ...input.ctx.resolvedTargetSecrets.extras, ...input.resolvedRequiredSecrets },
   );
   const start = Date.now();
   const applier = override ?? applyDokployPlan;

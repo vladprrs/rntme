@@ -346,7 +346,7 @@ export function createDokployClientFactory(
         });
         await request('POST', '/api/compose.saveEnvironment', {
           composeId,
-          env: envBlock(resource),
+          env: envBlock(resource, resolvedTargetSecrets, parseTargetSecretFn),
         });
         await configureComposeFileMounts(request, composeId, resource.fileMounts);
         await configureFileMounts(
@@ -471,7 +471,9 @@ function isTransientDokployStartRace(cause: unknown): boolean {
 
 function envBlock(resource: RenderedDokployResource, resolvedTargetSecrets?: DokployResolvedTargetSecretMap, parseTargetSecretFn?: ParseTargetSecretFn): string {
   if (resource.kind === 'compose') {
-    return resource.env.map((e) => `${e.name}=${e.value}`).join('\n');
+    return resource.env
+      .map((entry) => `${entry.name}=${resolveEnvSecretRef(entry, resolvedTargetSecrets)}`)
+      .join('\n');
   }
   return resolvedApplicationEnv(resource, resolvedTargetSecrets, parseTargetSecretFn);
 }
@@ -497,7 +499,7 @@ function resolveRenderedEnvValue(
     envVar.secret === true &&
     resource.infrastructureKind === 'redpanda-console-proxy';
 
-  if (!needsConsoleSecret) return envVar.value;
+  if (!needsConsoleSecret) return resolveEnvSecretRef(envVar, resolvedTargetSecrets);
 
   const hints = resource.secretResolutionHints?.redpandaConsoleHtpasswd;
   if (hints === undefined || resolvedTargetSecrets === undefined) {
@@ -524,6 +526,19 @@ function resolveRenderedEnvValue(
   }
 
   return v.htpasswdB64;
+}
+
+function resolveEnvSecretRef(
+  envVar: RenderedEnvVar,
+  resolvedTargetSecrets?: DokployResolvedTargetSecretMap,
+): string {
+  if (envVar.secret !== true || resolvedTargetSecrets === undefined) return envVar.value;
+  if (!Object.prototype.hasOwnProperty.call(resolvedTargetSecrets, envVar.value)) return envVar.value;
+
+  const value = resolvedTargetSecrets[envVar.value];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  throw new Error('DEPLOY_DOKPLOY_SECRET_ENV_VALUE_UNSUPPORTED');
 }
 
 async function findApplicationByName(

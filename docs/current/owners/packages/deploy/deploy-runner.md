@@ -15,6 +15,13 @@ BPMN process (whose native task handlers resolve `@rntme/deploy-runner#stages.*`
 - Owns no HTTP, DB, BPMN, Operaton, filesystem state, or platform-specific
   types.
 
+During apply, the Dokploy client factory resolves rendered env entries whose
+secret value matches a resolved target-secret key before calling Dokploy
+environment APIs. Secret env values that do not match a target-secret key are
+left as rendered literals, which preserves provisioner-emitted secret envs.
+Validated required target secrets are merged over the full target-secret map
+instead of replacing it, so unrelated module env refs remain available.
+
 ## Public API
 
 - `runDeployment(inputs: RunDeploymentInputs): Promise<TerminalResult>` —
