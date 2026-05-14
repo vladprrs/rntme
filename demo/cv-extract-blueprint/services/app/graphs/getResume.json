@@ -8,18 +8,13 @@
   },
   "nodes": [
     {
-      "id": "all",
-      "type": "findMany",
-      "config": { "source": { "projection": "ResumeView" } }
-    },
-    {
-      "id": "filtered",
-      "type": "filter",
+      "id": "resume",
+      "type": "findOne",
       "config": {
-        "input": "all",
-        "expr": { "eq": ["resumeView.id", { "$param": "id" }] }
+        "source": { "projection": "ResumeView" },
+        "where": { "eq": ["resumeView.id", { "$param": "id" }] }
       }
     },
-    { "id": "out", "type": "result", "value": { "$ref": "filtered" } }
+    { "id": "out", "type": "result", "value": { "$ref": "resume" } }
   ]
 }

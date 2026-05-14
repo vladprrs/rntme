@@ -1,12 +1,12 @@
 # `demo/cv-extract-blueprint/` — Resume extraction demo
 
-Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter` and dogfoods the `marketing-site` module. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON. The same blueprint also declares a `marketing` module facet backed by `@rntme/marketing-site-static`.
+Minimal-surface blueprint that exercises `@rntme/ai-llm-openrouter` and dogfoods the `marketing-site` module. A user uploads a PDF resume; the system feeds it to OpenRouter (default `openrouter/deepseek/deepseek-v4-flash`) with a JSON-schema-pinned prompt; the user sees the extracted work-experience JSON. The same blueprint also declares a `marketing-site` module facet backed by `@rntme/marketing-site-static`.
 
 ## Project shape
 
 - `project.services` lists `app`, `openrouter`, and `storage-s3`.
 - `project.modules.storage` uses `@rntme/storage-s3`; the deploy workload image lives at `target.modules.storage-s3.image`.
-- `project.modules.marketing` is a hosted module facet, not a service; the marketing landing source is packed as a canonical bundle asset via `publicConfig.source.kind = "project-folder"` and hosted by the deploy target adapter.
+- `project.modules.marketing-site` is a hosted module facet, not a service; the marketing landing source is packed as a canonical bundle asset via `publicConfig.source.kind = "project-folder"` and hosted by the deploy target adapter.
 
 ## File map
 
@@ -23,8 +23,8 @@ demo/cv-extract-blueprint/
 │   │   ├── qsm.json
 │   │   └── projections/ResumeView.json   entity-mirror of Resume
 │   ├── graphs/
-│   │   ├── extractResume.json         storage.GetDownloadUrl → openrouter.Complete → emit
-│   │   └── getResume.json             findMany ResumeView, filter by id
+│   │   ├── extractResume.json         storage.GetDownloadUrl -> openrouter.Complete -> emit
+│   │   └── getResume.json             findOne ResumeView by exposed id
 │   ├── bindings/bindings.json         POST /resumes, GET /resumes/{id}
 │   ├── seed/seed.json                 empty
 │   └── ui/                            single screen: file picker + result
@@ -44,7 +44,7 @@ export OPENROUTER_API_KEY="${OPENROUTER:-sk-or-...}"
 
 Then deploy or run the blueprint via the standard rntme runtime tooling. The home screen at `/` accepts a PDF (≤10MB), POSTs to `/resumes`, and renders the extracted JSON on response.
 
-The marketing landing is attached as a separate `marketing` service and not routed through the app's `/` route. Deploy targets provide `MARKETING_DOMAIN`, which fills `modules.marketing.publicConfig.primaryDomain`.
+The marketing landing is attached through the `marketing-site` module and not routed through the app's `/` route. Deploy targets provide `MARKETING_DOMAIN`, which fills `modules.marketing-site.publicConfig.primaryDomain`.
 
 To publish a new landing bundle:
 
@@ -57,7 +57,7 @@ AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=testtest \
   --print-json
 ```
 
-Paste the printed `BundleSource` into `project.json#modules.marketing.publicConfig.source`.
+Paste the printed `BundleSource` into `project.json#modules.marketing-site.publicConfig.source`.
 
 ## How it works
 
@@ -67,7 +67,7 @@ Paste the printed `BundleSource` into `project.json#modules.marketing.publicConf
    - `call` node → OpenRouter module's `Complete` RPC with the PDF as a URL-backed `FILE` content block, a fixed text prompt, `response_format=json_schema`, and an embedded JSON Schema for {full_name, experience, education, skills}.
    - `emit` node → `Resume.complete` transition with `extractedJson` populated from the OR response.
    - `result` returns `resumeId`.
-3. Projection `ResumeView` mirrors the entity row.
+3. Projection `ResumeView` mirrors the entity row and exposes `id`, which `GET /resumes/{id}` uses for the single-row lookup.
 4. UI receives `resumeId` and renders the response inline.
 
 The POST is **synchronous** — the HTTP request blocks for the duration of the OR call (~10–30s for a typical 1MB PDF + gpt-4o). If proxy timeouts in production cut this short, switch to async polling (backlog item 12 in the design spec).

@@ -104,10 +104,10 @@ describe('cv-extract demo: composition', () => {
     );
   });
 
-  it('ResumeView projection exposes fileId, objectKey, downloadUrl', () => {
+  it('ResumeView projection exposes id, fileId, objectKey, downloadUrl', () => {
     const view = readJson<{ exposed: string[] }>('services/app/qsm/projections/ResumeView.json');
     expect(view.exposed).toEqual(
-      expect.arrayContaining(['fileId', 'objectKey', 'downloadUrl']),
+      expect.arrayContaining(['id', 'fileId', 'objectKey', 'downloadUrl']),
     );
   });
 
@@ -239,6 +239,22 @@ describe('cv-extract demo: composition', () => {
 
     expect(b.bindings.getResume?.http).toMatchObject({ method: 'GET', path: '/resumes/{id}' });
     expect(b.bindings.getResume?.exposure).toBe('read');
+  });
+
+  it('getResume uses a single-row lookup by ResumeView.id', () => {
+    const g = readJson<{
+      nodes: Array<{ id: string; type: string; config?: Record<string, unknown>; value?: unknown }>;
+    }>('services/app/graphs/getResume.json');
+
+    const resume = g.nodes.find((n) => n.id === 'resume');
+    expect(resume?.type).toBe('findOne');
+    expect(resume?.config).toEqual({
+      source: { projection: 'ResumeView' },
+      where: { eq: ['resumeView.id', { $param: 'id' }] },
+    });
+
+    const out = g.nodes.find((n) => n.id === 'out');
+    expect(out?.value).toEqual({ $ref: 'resume' });
   });
 
   it('loadBlueprint (parse + structural) accepts the blueprint and surfaces moduleKey for storage-s3', async () => {
