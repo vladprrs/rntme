@@ -1,0 +1,34 @@
+T012 Dashboard proof — NOT OBTAINED
+
+Reason: BLOCKED at Phase 1.4 by architectural gap between the platform
+edge (Auth0 JWT introspection only) and the CLI/native handlers (PAT
+introspection). See notes/T012-live-deploy.md for full root-cause
+analysis.
+
+Transcripts of the closest probes against the live dashboard endpoint:
+
+Request:
+  GET https://platform.rntme.com/api/projects?organizationId=org_uZUWhpWgK54VWC2X
+  Authorization: Bearer rntme_pat_<redacted>
+
+Response:
+  HTTP/2 401
+  content-type: application/json
+
+  {"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}
+
+Request:
+  GET https://platform.rntme.com/api/projects?organizationId=test
+  (no Authorization header)
+
+Response:
+  HTTP/2 401
+  content-type: application/json
+
+  {"code":"RUNTIME_AUTH_TOKEN_INVALID","message":"authentication required"}
+
+The 401-not-404 outcome proves the new `listProjects` route IS bound on
+the platform (the redeploy carried in commit 37fb2128 + 9fe8e119
+landed). What is missing is a way for a PAT-bearing CLI request to pass
+through the Auth0-JWT-only edge auth_request middleware and reach the
+self-authenticating native handler.
