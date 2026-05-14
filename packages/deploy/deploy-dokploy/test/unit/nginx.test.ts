@@ -81,6 +81,7 @@ describe('renderNginxConfig', () => {
     });
 
     expect(rendered).toContain('client_max_body_size 10m;');
+    expect(rendered).toContain('proxy_request_buffering off;');
     expect(rendered).toContain('proxy_connect_timeout 3s;');
     expect(rendered).toContain('proxy_read_timeout 3s;');
     expect(rendered).toContain('proxy_send_timeout 3s;');
@@ -266,6 +267,7 @@ describe('renderNginxConfig', () => {
       '      proxy_set_header x-request-id $request_id;',
       '      proxy_set_header x-correlation-id $http_x_correlation_id;',
       '      client_max_body_size 1m;',
+      '      proxy_request_buffering off;',
       '      proxy_set_header Host $host;',
       '      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
       '      proxy_pass http://app:3000;',
@@ -357,6 +359,17 @@ describe('auth middleware rendering', () => {
     expect(rendered).toContain('internal;');
     expect(rendered).toContain('proxy_pass         http://rntme_auth_identity-auth0__0/introspect;');
     expect(rendered).toContain('proxy_set_header   X-Rntme-Audience   "https://notes-demo.rntme.com/api";');
+    expect(rendered).toContain('proxy_pass_request_body off;');
+  });
+
+  it('does not let auth subrequests inherit Nginx default body size limits', () => {
+    const rendered = renderNginxConfig(authEdge(), {
+      app: 'http://rntme-acme-notes-app:3000',
+      'identity-auth0': 'http://rntme-acme-notes-identity-auth0:50052',
+    });
+
+    expect(rendered).toContain('location = /_rntme_auth_chain_http_api__auth_0 {');
+    expect(rendered).toContain('client_max_body_size 0;');
     expect(rendered).toContain('proxy_pass_request_body off;');
   });
 

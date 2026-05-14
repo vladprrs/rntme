@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
+    "@rntme/deploy-runner": "workspace:*",
     "@rntme/event-store": "workspace:*",
     "@rntme/workflows": "workspace:*",
     "kafkajs": "^2.2.4",

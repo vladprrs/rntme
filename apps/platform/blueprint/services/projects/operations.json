@@ -10,7 +10,9 @@
       "input": {
         "authorization": { "type": "string", "mode": "required" },
         "projectId": { "type": "string", "mode": "required" },
-        "bodyBytes": { "type": "bytes", "mode": "required" }
+        "bodyBytes": { "type": "bytes", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
       },
       "output": { "type": "PublishProjectBundleResult" },
       "effect": "write",

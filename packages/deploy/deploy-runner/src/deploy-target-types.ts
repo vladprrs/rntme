@@ -77,6 +77,13 @@ export type ModuleConfig = {
 
 export type DeployTargetModules = Record<string, ModuleConfig>;
 
+export type DomainServiceConfig = {
+  readonly env?: Record<string, string> | undefined;
+  readonly secretRefs?: Record<string, string> | undefined;
+};
+
+export type DeployTargetServices = Record<string, DomainServiceConfig>;
+
 // ---------------------------------------------------------------------------
 // Workflows
 // ---------------------------------------------------------------------------
@@ -173,6 +180,7 @@ export type DeployTargetForBuild = {
   readonly dokployProjectName: string | null;
   readonly allowCreateProject: boolean;
   readonly eventBus: EventBusConfig;
+  readonly services?: DeployTargetServices | undefined;
   readonly modules: DeployTargetModules;
   readonly workflows: DeployTargetWorkflows;
   readonly storage: DeployTargetStorage;

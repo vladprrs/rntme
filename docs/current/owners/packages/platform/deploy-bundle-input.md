@@ -32,6 +32,14 @@ runtime artifact ships `surface.http.bindingBasePath: "/"`, and the rendered
 edge nginx is the single layer that translates the public project route into
 the in-container path.
 
+## Runtime body limits
+
+Domain services whose resolved bindings use `inputFrom.*.from: "bodyBytes"` get
+`surface.http.bodyLimit.maxBytes: 10485760` in their synthesized runtime
+manifest. This keeps raw artifact upload endpoints such as platform project
+bundle publish above the runtime default 1 MiB API body limit without changing
+ordinary JSON endpoints.
+
 ## Where to look first
 
 - `src/to-deploy-core-input.ts` - conversion, UI bundling, workflow file reads, module static asset copying.

@@ -200,6 +200,25 @@ describe('buildProjectDeploymentConfig', () => {
     });
   });
 
+  it('maps deploy target domain service env and secretRefs', () => {
+    const config = buildProjectDeploymentConfig({
+      ...target(),
+      services: {
+        deployments: {
+          env: { FEATURE_FLAG: 'enabled' },
+          secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+        },
+      },
+    }, 'acme', {});
+
+    expect(config.services).toEqual({
+      deployments: {
+        env: { FEATURE_FLAG: 'enabled' },
+        secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+      },
+    });
+  });
+
   it('passes operatonUi and adminUserSecretRef through to deploy-core', () => {
     const config = buildProjectDeploymentConfig(
       {

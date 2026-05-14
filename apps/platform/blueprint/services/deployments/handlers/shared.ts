@@ -6,6 +6,15 @@ import type {
   PlatformError,
 } from '@rntme/platform-core';
 
+export type RuntimeSessionInput = {
+  readonly sessionSubject?: string | null;
+  readonly sessionStatus?: string | null;
+};
+
+export type RuntimeSessionResult =
+  | { readonly status: 'ok'; readonly accountId: string }
+  | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
+
 export type ResolveAuthorizedOrgInput = {
   readonly provider: ApiTokenProvider;
   readonly organizations: OrganizationRepo;
@@ -59,4 +68,14 @@ export async function resolveAuthorizedOrg(
     };
   }
   return { status: 'ok', subject, orgId: resolved.id };
+}
+
+export function requireActiveRuntimeSession(input: RuntimeSessionInput): RuntimeSessionResult {
+  if (input.sessionStatus !== 'ACTIVE' || typeof input.sessionSubject !== 'string') {
+    return {
+      status: 'error',
+      errors: [{ code: 'PLATFORM_AUTH_INVALID', message: 'active edge session is required' }],
+    };
+  }
+  return { status: 'ok', accountId: input.sessionSubject };
 }

@@ -131,6 +131,7 @@ function renderAuthInternalLocation(b: AuthProviderBlock): string {
   const lines = [
     `    location = /_rntme_auth_chain_${b.chainKey}_${b.providerIndex} {`,
     '      internal;',
+    '      client_max_body_size 0;',
     `      proxy_pass         http://${b.upstreamKey}${b.introspectPath};`,
     '      proxy_pass_request_body off;',
     '      proxy_set_header   content-length     "";',
@@ -182,6 +183,7 @@ function renderLocation(
     if (m.kind === 'body-limit') {
       assertSafeBodyLimit(m.config.maxBodySize);
       lines.push(`      client_max_body_size ${m.config.maxBodySize};`);
+      lines.push('      proxy_request_buffering off;');
     }
     if (m.kind === 'timeout') {
       const seconds = Math.ceil(m.config.upstreamTimeoutMs / 1000);

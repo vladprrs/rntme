@@ -41,6 +41,13 @@
       }
     }
   },
+  "services": {
+    "deployments": {
+      "secretRefs": {
+        "PLATFORM_SECRET_ENCRYPTION_KEY": "platform-secret-encryption-key"
+      }
+    }
+  },
   "policyValues": {
     "requestContext": {
       "default": {}

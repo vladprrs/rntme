@@ -83,6 +83,7 @@ export function buildProjectDeploymentConfig(
     mode: 'preview',
     eventBus,
     storage: cleanStorageConfig(target.storage),
+    ...(target.services === undefined ? {} : { services: cleanServicesConfig(target.services) }),
     modules,
     policies: {
       ...(target.policyValues as DeploymentPolicyConfig),
@@ -93,6 +94,18 @@ export function buildProjectDeploymentConfig(
     ...(overrides.runtimeImage ? { runtimeImage: overrides.runtimeImage } : {}),
     ...(manualAccess === undefined ? {} : { manualAccess }),
   };
+}
+
+function cleanServicesConfig(input: NonNullable<DeployTargetForBuild['services']>): NonNullable<ProjectDeploymentConfig['services']> {
+  return Object.fromEntries(
+    Object.entries(input).map(([slug, service]) => [
+      slug,
+      {
+        ...(service.env === undefined ? {} : { env: service.env }),
+        ...(service.secretRefs === undefined ? {} : { secretRefs: service.secretRefs }),
+      },
+    ]),
+  );
 }
 
 function buildManualAccessDeployConfig(

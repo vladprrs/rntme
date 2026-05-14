@@ -757,6 +757,42 @@ describe('renderDokployPlan', () => {
     ]);
   });
 
+  it('renders domain service env and secret refs', () => {
+    const domainPlan: ProjectDeploymentPlan = {
+      ...plan,
+      workloads: plan.workloads.map((workload) =>
+        workload.kind === 'domain-service' && workload.slug === 'catalog'
+          ? {
+              ...workload,
+              env: { Z_VAR: 'z', A_VAR: 'a' },
+              secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+            }
+          : workload,
+      ),
+    };
+
+    const r = renderDokployPlan(domainPlan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const domainService = stack.services.find((service) => service.name === 'svc-catalog');
+    expect(domainService?.env).toContainEqual({ name: 'A_VAR', value: 'a', secret: false });
+    expect(domainService?.env).toContainEqual({ name: 'Z_VAR', value: 'z', secret: false });
+    expect(domainService?.env).toContainEqual({
+      name: 'PLATFORM_SECRET_ENCRYPTION_KEY',
+      value: 'platform-secret-encryption-key',
+      secret: true,
+    });
+  });
+
   it('exposes ports 50051 and 50052 on integration-module workloads', () => {
     const integrationPlan: ProjectDeploymentPlan = {
       ...plan,

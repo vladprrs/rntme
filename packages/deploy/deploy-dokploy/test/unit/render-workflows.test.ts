@@ -182,10 +182,15 @@ describe('workflow rendering', () => {
     });
     // The redpanda compose service command seeds workflow message-start topics
     // referenced by BPMN worker subscriptions.
-    expect(redpanda?.command).toContain('rntme.acme.orders.order');
+    expect(redpanda?.entrypoint?.slice(0, 2)).toEqual(['/bin/sh', '-c']);
+    expect(redpanda?.entrypoint?.[2]).toStartWith('rpk redpanda start ');
+    expect(redpanda?.command).toBeUndefined();
+    expect(redpanda?.entrypoint?.[2]).toContain('rntme.acme.orders.order');
+    expect(stack.composeFile).toContain('    entrypoint:\n      - /bin/sh\n      - -c\n      - ');
 
     const worker = stack.services.find((service) => service.name === 'bpmn-worker');
     expect(worker?.serviceClass).toBe('bpmn-worker');
+    expect(worker?.command).toBe('packages/runtime/bpmn-worker/dist/bin/worker.js');
     expect(worker?.env).toContainEqual({
       name: 'RNTME_OPERATON_BASE_URL',
       value: 'http://operaton:8080',
@@ -221,6 +226,41 @@ describe('workflow rendering', () => {
       secret: false,
     });
     expect(worker?.files?.['/srv/workflows/workflows.json']).toBe('{"workflowVersion":1}');
+  });
+
+  it('renders deploy poll worker with the image-local poll bin path', () => {
+    const result = renderDokployPlan(
+      {
+        ...plan,
+        workloads: [
+          ...plan.workloads.filter((workload) => workload.kind !== 'bpmn-worker'),
+          {
+            kind: 'bpmn-worker',
+            slug: 'deploy-worker',
+            resourceName: 'rntme-acme-order-fulfillment-deploy-worker',
+            image: 'ghcr.io/acme/bpmn-worker:v1',
+            command: 'rntme-bpmn-poll-worker',
+            workflowManifestPath: '/srv/workflows/workflows.json',
+            workflowFiles: {
+              'workflows.json': '{"workflowVersion":1}',
+            },
+            subscriptions: [],
+            grpcServices: {},
+            serviceTasks: [],
+          },
+        ],
+      },
+      targetConfig(),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stack = result.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+
+    const worker = stack.services.find((service) => service.name === 'deploy-worker');
+    expect(worker?.command).toBe('packages/runtime/bpmn-worker/dist/bin/poll.js');
   });
 
   it('renders workflow service endpoints with normalized compose service names', () => {

@@ -61,6 +61,7 @@ export type {
   DeployTargetAuthConfig,
   DeployTargetManualAccess,
   PolicyValues,
+  DeployTargetServices,
   DeployTargetForBuild,
 } from './deploy-target-types.js';
 

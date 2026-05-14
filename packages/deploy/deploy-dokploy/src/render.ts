@@ -674,7 +674,7 @@ function renderRedpandaService(plan: ProjectDeploymentPlan): RenderedComposeServ
     logicalId: 'event-bus',
     serviceClass: 'event-bus',
     image: eventBus.image,
-    command: redpandaCommand(eventBus, workflowMessageStartTopics(plan)),
+    entrypoint: ['/bin/sh', '-c', redpandaCommand(eventBus, workflowMessageStartTopics(plan))],
     env: [],
     ports: [9092],
     restart: infraRestartPolicy(),
@@ -734,15 +734,13 @@ function redpandaCommand(
     'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
     '--advertise-kafka-addr=internal://redpanda:9092',
   ].join(' ');
-  if (seedTopics.length === 0) return startArgs;
-  return shellSingleQuote(
-    [
-      `rpk ${startArgs} & pid=$$!`,
-      'until rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1; do sleep 1; done',
-      `rpk topic create --brokers redpanda:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
-      'wait "$$pid"',
-    ].join('; '),
-  );
+  if (seedTopics.length === 0) return `rpk ${startArgs}`;
+  return [
+    `rpk ${startArgs} & pid=$$!`,
+    'until rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1; do sleep 1; done',
+    `rpk topic create --brokers redpanda:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
+    'wait "$$pid"',
+  ].join('; ');
 }
 
 function rustfsProxyNginxConfig(upstream: string): string {
@@ -862,6 +860,8 @@ function renderResource(
       env: [
         ...eventBusEnv(plan.infrastructure.eventBus),
         ...persistentRuntimeEnv(workload.persistence),
+        ...literalEnvFromRecord(workload.env ?? {}),
+        ...secretEnvFromRecord(workload.secretRefs ?? {}),
         {
           name: 'RNTME_ARTIFACTS_DIR',
           value: '/srv/artifacts',
@@ -901,6 +901,14 @@ function renderResource(
   }
 
   return assertNever(workload);
+}
+
+function literalEnvFromRecord(env: Readonly<Record<string, string>>): RenderedEnvVar[] {
+  return sortedEntries(env).map(([name, value]) => ({ name, value, secret: false }));
+}
+
+function secretEnvFromRecord(secretRefs: Readonly<Record<string, string>>): RenderedEnvVar[] {
+  return sortedEntries(secretRefs).map(([name, value]) => ({ name, value, secret: true }));
 }
 
 function moduleRuntimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {

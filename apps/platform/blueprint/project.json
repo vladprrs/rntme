@@ -41,6 +41,7 @@
   },
   "middleware": {
     "requestContext": { "kind": "request-context" },
+    "projectBundleBodyLimit": { "kind": "body-limit", "policy": "projectBundle" },
     "auth": {
       "kind": "auth",
       "providers": [
@@ -60,7 +61,7 @@
   },
   "mounts": [
     { "target": "http:/api/organizations", "use": ["requestContext", "auth"] },
-    { "target": "http:/api/projects", "use": ["requestContext", "auth"] },
+    { "target": "http:/api/projects", "use": ["requestContext", "projectBundleBodyLimit", "auth"] },
     { "target": "http:/api/tokens", "use": ["requestContext", "auth"] },
     { "target": "http:/api/audit", "use": ["requestContext", "auth"] },
     { "target": "http:/api/deployments", "use": ["requestContext", "auth"] },

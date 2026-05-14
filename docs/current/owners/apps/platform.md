@@ -71,6 +71,12 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 `POST /actions/delete` sub-routes (rather than `PUT`/`DELETE`) because the
 bindings HTTP runtime is GET/POST-only.
 
+The `/api/projects` edge route mounts `projectBundleBodyLimit`
+(`kind: "body-limit"`, policy `projectBundle`) because project bundle publish
+streams raw artifact bytes through that route. Platform deploy targets must
+provide `policyValues.bodyLimit.projectBundle.maxBodySize` large enough for the
+expected bundle size; the production bootstrap target currently uses `10m`.
+
 ## Workflows
 
 The platform blueprint declares a project-level `workflows` section
@@ -107,7 +113,7 @@ The platform target file therefore needs to declare both:
       "image": "ghcr.io/operaton/operaton:latest"
     }
   },
-  "eventBus": { "mode": "provisioned" }
+  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" }
 }
 ```
 

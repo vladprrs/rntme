@@ -23,8 +23,12 @@ describe("runtime Docker package", () => {
     );
 
     expect(dockerfile).toContain(
+      "NODE_PATH=/srv/apps/platform/node_modules:/srv/packages/runtime/runtime/node_modules:/srv/apps/cli/node_modules:/srv/node_modules",
+    );
+    expect(dockerfile).toContain(
       "await import('/srv/packages/runtime/runtime/dist/load/load-service.js')",
     );
-    expect(dockerfile).toContain("fs.access('/srv/packages/runtime/runtime/assets/protos/identity-auth0.proto')");
+    expect(dockerfile).toContain("await access('/srv/packages/runtime/runtime/assets/protos/identity-auth0.proto')");
+    expect(dockerfile).toContain("await import('@rntme/blueprint'); await import('@rntme/deploy-runner');");
   });
 });

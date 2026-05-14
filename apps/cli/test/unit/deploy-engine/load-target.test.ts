@@ -116,6 +116,7 @@ describe('loadTargetFile', () => {
       readonly workflows: { readonly engine: { readonly kind: string; readonly mode: string; readonly image: string } } | null;
       readonly eventBus: { readonly mode: string; readonly provider?: string };
       readonly publicBaseUrl: string | null;
+      readonly services?: Record<string, { readonly secretRefs?: Record<string, string> }>;
       readonly modules: Record<string, { readonly image: string; readonly env?: Record<string, string> }>;
       readonly policyValues: Record<string, Record<string, unknown>>;
     };
@@ -133,6 +134,9 @@ describe('loadTargetFile', () => {
     expect(t.modules['identity-auth0']).toEqual({
       image: 'ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-rnt-364-36d8743',
       env: { AUTH0_DOMAIN: 'demo-rntme.us.auth0.com' },
+    });
+    expect(t.services?.deployments?.secretRefs).toEqual({
+      PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key',
     });
     expect(t.policyValues.requestContext?.default).toEqual({});
     expect(result.value.configOverrides.runtimeImage).toBe(

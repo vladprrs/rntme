@@ -258,6 +258,18 @@ Domain-service workloads always receive `RNTME_EVENT_BUS_BROKERS` and
 - `RNTME_EVENT_BUS_PASSWORD` with `secret: true`
 - optional `RNTME_EVENT_BUS_TOPIC_PREFIX`
 
+## Body-limit routes
+
+`kind: "body-limit"` middleware renders both `client_max_body_size <value>` and
+`proxy_request_buffering off` on the location. Upload routes should stream large
+request bodies to the upstream service instead of depending on Nginx client-body
+temp-file buffering.
+
+Generated `auth_request` internal locations set `client_max_body_size 0` while
+also using `proxy_pass_request_body off`. The protected route owns the real body
+limit; the auth subrequest must not inherit Nginx's 1 MiB default and turn large
+authorized uploads into edge-generated 500 responses.
+
 The runtime applies its own KafkaJS connection-timeout default for external
 brokers. Targets that need a non-default handshake budget can provide
 `RNTME_EVENT_BUS_CONNECTION_TIMEOUT_MS` as an additional service env var.

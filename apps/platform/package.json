@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.check.json"
   },
   "dependencies": {
+    "@rntme/blueprint": "workspace:*",
+    "@rntme/deploy-runner": "workspace:*",
     "@rntme/platform-core": "workspace:*"
   },
   "devDependencies": {

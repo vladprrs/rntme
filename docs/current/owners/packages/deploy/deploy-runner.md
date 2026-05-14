@@ -14,6 +14,8 @@ BPMN process (whose native task handlers resolve `@rntme/deploy-runner#stages.*`
   wants.
 - Owns no HTTP, DB, BPMN, Operaton, filesystem state, or platform-specific
   types.
+- When `configOverrides.dryRun === true`, the runner stops after render,
+  emits a dry-run log line, and skips Dokploy apply plus smoke verification.
 
 During apply, the Dokploy client factory resolves rendered env entries whose
 secret value matches a resolved target-secret key before calling Dokploy

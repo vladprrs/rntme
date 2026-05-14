@@ -133,6 +133,25 @@ describe('buildProjectDeploymentPlan', () => {
     });
   });
 
+  it('passes domain service env and secretRefs from deployment config', () => {
+    const r = buildProjectDeploymentPlan(project, {
+      ...previewConfig,
+      services: {
+        catalog: {
+          env: { FEATURE_FLAG: 'enabled' },
+          secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+        },
+      },
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.workloads.find((w) => w.kind === 'domain-service' && w.slug === 'catalog')).toMatchObject({
+      env: { FEATURE_FLAG: 'enabled' },
+      secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+    });
+  });
+
   it('rejects production mode in the MVP', () => {
     const r = buildProjectDeploymentPlan(project, {
       ...previewConfig,

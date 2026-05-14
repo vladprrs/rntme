@@ -133,6 +133,9 @@ export async function loadComposedBlueprint(
 
   const workflows = loadProjectWorkflows({
     rootDir: dir,
+    ...(loaded.value.project.workflows?.manifest === undefined
+      ? {}
+      : { manifestPath: loaded.value.project.workflows.manifest }),
     services: validatedServices,
     bindingRegistry,
   });

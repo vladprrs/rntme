@@ -46,6 +46,22 @@ describe('platform blueprint', () => {
     expect(result.value.bindingRegistry['tokens.introspectToken']?.path).toBe('/api/tokens/introspect');
   });
 
+  it('mounts an edge body limit for project bundle publishing', async () => {
+    const result = await loadComposedBlueprint(join(here, '..'));
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.project.middleware?.projectBundleBodyLimit).toEqual({
+      kind: 'body-limit',
+      policy: 'projectBundle',
+    });
+    expect(result.value.project.mounts?.find((mount) => mount.target === 'http:/api/projects')?.use).toEqual([
+      'requestContext',
+      'projectBundleBodyLimit',
+      'auth',
+    ]);
+  });
+
   it('declares IntrospectToken as a service operation in services/tokens/operations.json', async () => {
     const manifestPath = join(here, '../services/tokens/operations.json');
     expect(existsSync(manifestPath)).toBe(true);

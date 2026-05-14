@@ -9,6 +9,8 @@
       },
       "input": {
         "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
         "organizationId": { "type": "string", "mode": "required" },
         "projectId": { "type": "string", "mode": "required" },
         "projectVersionSeq": { "type": "integer", "mode": "required" },
@@ -27,6 +29,8 @@
       },
       "input": {
         "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
         "organizationId": { "type": "string", "mode": "required" }
       },
       "output": { "type": "ListDeployTargetsResult" },
@@ -47,6 +51,58 @@
       "effect": "read",
       "idempotency": "none"
     },
+    "listDeployments": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deployments.ts",
+        "export": "listDeploymentsHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "projectId": { "type": "string", "mode": "required" },
+        "limit": { "type": "integer", "mode": "optional" }
+      },
+      "output": { "type": "ListDeploymentsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "getDeployment": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deployments.ts",
+        "export": "getDeploymentHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "id": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "GetDeploymentResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "readDeploymentLogs": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deployments.ts",
+        "export": "readDeploymentLogsHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "deploymentId": { "type": "string", "mode": "required" },
+        "sinceLineId": { "type": "integer", "mode": "optional" },
+        "limit": { "type": "integer", "mode": "optional" }
+      },
+      "output": { "type": "ReadDeploymentLogsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
     "createDeployTarget": {
       "handler": {
         "kind": "native",
@@ -55,6 +111,8 @@
       },
       "input": {
         "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
         "organizationId": { "type": "string", "mode": "required" },
         "body": { "type": "object", "mode": "required" }
       },
@@ -70,6 +128,9 @@
       },
       "input": {
         "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "organizationId": { "type": "string", "mode": "optional" },
         "slug": { "type": "string", "mode": "required" },
         "body": { "type": "object", "mode": "required" }
       },

@@ -14,6 +14,8 @@ import {
 
 type LoadedDeployProject = ComposedProjectInput | ComposedBlueprint;
 
+const BODY_BYTES_HTTP_BODY_LIMIT_MAX_BYTES = 10 * 1024 * 1024;
+
 export async function toDeployCoreInput(
   value: LoadedDeployProject,
   rootDir: string,
@@ -48,7 +50,11 @@ export async function toDeployCoreInput(
   const workflowFiles =
     value.workflows === null || value.workflows === undefined
       ? undefined
-      : await readWorkflowDefinitionFiles(value.workflows, absoluteRootDir);
+      : await readWorkflowDefinitionFiles(
+          value.workflows,
+          absoluteRootDir,
+          value.project.workflows?.manifest,
+        );
   const workflowGrpcServices = workflowGrpcServicesForProject(value);
 
   return {
@@ -127,7 +133,7 @@ function platformServicePersistence(
   projectName: string,
   serviceSlug: string,
 ): { persistence?: { mode: 'persistent'; eventStorePath: string; qsmPath: string } } {
-  if (projectName !== 'rntme-platform' || serviceSlug !== 'tokens') return {};
+  if (projectName !== 'rntme-platform' || !['tokens', 'deployments'].includes(serviceSlug)) return {};
   return {
     persistence: {
       mode: 'persistent',
@@ -223,11 +229,13 @@ function collectGrpcShapesFromService(service: ComposedBlueprint['services'][str
 async function readWorkflowDefinitionFiles(
   workflows: NonNullable<ComposedBlueprint['workflows']>,
   rootDir: string,
+  manifestPath: string | undefined,
 ): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
+  const workflowRoot = workflowDefinitionRoot(rootDir, manifestPath);
   for (const definition of workflows.definitions) {
     if (Object.hasOwn(files, definition.bpmnFile)) continue;
-    const path = workflowDefinitionPath(rootDir, definition.bpmnFile);
+    const path = workflowDefinitionPath(workflowRoot, definition.bpmnFile);
     try {
       files[definition.bpmnFile] = await readFile(path, 'utf8');
     } catch (cause) {
@@ -240,11 +248,18 @@ async function readWorkflowDefinitionFiles(
   return files;
 }
 
-function workflowDefinitionPath(rootDir: string, relativePath: string): string {
+function workflowDefinitionRoot(rootDir: string, manifestPath: string | undefined): string {
+  const relManifest = manifestPath ?? 'workflows/workflows.json';
+  if (!isSafeWorkflowFilePath(relManifest)) {
+    throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_MANIFEST_PATH_INVALID: ${relManifest}`);
+  }
+  return join(rootDir, dirname(relManifest));
+}
+
+function workflowDefinitionPath(workflowRoot: string, relativePath: string): string {
   if (!isSafeWorkflowFilePath(relativePath)) {
     throw new Error(`DEPLOY_EXECUTOR_WORKFLOW_FILE_PATH_INVALID: workflows/${relativePath}`);
   }
-  const workflowRoot = join(rootDir, 'workflows');
   const filePath = join(workflowRoot, relativePath);
   const backToRoot = relative(workflowRoot, filePath).split('\\').join('/');
   if (backToRoot === '..' || backToRoot.startsWith('../')) {
@@ -293,7 +308,7 @@ async function buildRuntimeArtifactFiles(
     rntmeVersion: '1.0',
     service: { name: serviceSlug, version: '1.0.0' },
     surface: {
-      http: { enabled: true, port: 3000, bindingBasePath: '/' },
+      http: runtimeHttpSurfaceForService(service),
       grpc: { enabled: true, port: 50051 },
     },
     seed: { enabled: service.seed !== null, path: 'seed.json' },
@@ -321,6 +336,28 @@ async function buildRuntimeArtifactFiles(
   }
 
   return files;
+}
+
+function runtimeHttpSurfaceForService(
+  service: ComposedBlueprint['services'][string],
+): { enabled: true; port: 3000; bindingBasePath: '/'; bodyLimit?: { enabled: true; maxBytes: number } } {
+  return {
+    enabled: true,
+    port: 3000,
+    bindingBasePath: '/',
+    ...(serviceAcceptsRawBodyBytes(service)
+      ? { bodyLimit: { enabled: true, maxBytes: BODY_BYTES_HTTP_BODY_LIMIT_MAX_BYTES } }
+      : {}),
+  };
+}
+
+function serviceAcceptsRawBodyBytes(service: ComposedBlueprint['services'][string]): boolean {
+  for (const resolved of Object.values(service.bindings?.resolved ?? {})) {
+    for (const inputSource of Object.values(resolved.entry.inputFrom ?? {})) {
+      if (inputSource.from === 'bodyBytes') return true;
+    }
+  }
+  return false;
 }
 
 type ServiceOperationsJson = {
