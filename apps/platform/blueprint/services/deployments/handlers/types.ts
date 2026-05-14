@@ -96,6 +96,45 @@ export type ReadDeploymentLogsOutput =
   | { readonly status: 'ok'; readonly lines: readonly DeploymentLogLine[]; readonly lastLineId: number }
   | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
 
+// --- deploy-stage reads ---
+
+/**
+ * One persisted `deploy_stage_state` row for the dashboard timeline panel.
+ *
+ * `stage` is the runtime BPMN stage id (`compose` | `provision` | `plan` |
+ * `render` | `apply` | `verify`); `status` is the entity state-machine value
+ * (`running` | `succeeded` | `failed`). The UI maps these onto the five-step
+ * Queued -> Validating -> Building -> Deploying -> Ready timeline.
+ */
+export type DeployStageRow = {
+  readonly id: string;
+  readonly deploymentId: string;
+  readonly orgId: string;
+  readonly stage: string;
+  readonly status: string;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+};
+
+export type ListDeployStagesInput = {
+  readonly authorization: string;
+  readonly sessionSubject?: string | null;
+  readonly sessionStatus?: string | null;
+  readonly organizationId: string;
+  readonly projectId: string;
+};
+
+export type ListDeployStagesOutput =
+  | {
+      readonly status: 'ok';
+      /** `null` when the project has no deployment yet. */
+      readonly deploymentId: string | null;
+      readonly stages: readonly DeployStageRow[];
+    }
+  | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
+
 // --- deploy-target CRUD ---
 
 export type DeployTargetCrudDeps = {

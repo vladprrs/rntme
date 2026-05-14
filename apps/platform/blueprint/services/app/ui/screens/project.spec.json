@@ -62,7 +62,18 @@
     "sidePanel": {
       "type": "PlatformBox",
       "props": { "className": "rntme-side-stack" },
-      "children": ["deployPanel", "alertsPanel", "versionsPanel"]
+      "children": ["deployStatusPanel", "deployPanel", "alertsPanel", "versionsPanel"]
+    },
+    "deployStatusPanel": {
+      "type": "PlatformPanel",
+      "props": { "title": "Deployment status", "subtitle": "Latest deployment" },
+      "children": ["deployStatusTimeline"]
+    },
+    "deployStatusTimeline": {
+      "type": "PlatformTimeline",
+      "props": {
+        "statePath": "/data/deploy-status"
+      }
     },
     "deployPanel": {
       "type": "PlatformPanel",

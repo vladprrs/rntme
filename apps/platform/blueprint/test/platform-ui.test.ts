@@ -75,6 +75,11 @@ describe('platform UI artifact', () => {
       type: 'PlatformDataTable',
       props: { statePath: '/data/deployments' },
     });
+    expect(ui?.screens.project?.data?.['/data/deploy-status']?.path).toBe('/api/deployments/stages');
+    expect(ui?.screens.project?.spec.elements.deployStatusTimeline).toMatchObject({
+      type: 'PlatformTimeline',
+      props: { statePath: '/data/deploy-status' },
+    });
     expect(ui?.screens['data-model']?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
     expect(ui?.screens['data-model']?.data?.['/data/entities']?.path).toBe('/api/projects/{projectId}/artifacts');
     expect(ui?.screens['data-model']?.spec.elements.entitiesTable).toMatchObject({

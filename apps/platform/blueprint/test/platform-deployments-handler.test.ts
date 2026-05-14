@@ -26,6 +26,7 @@ import {
 } from '../services/deployments/handlers/deploy-targets.js';
 import {
   getDeploymentHandler,
+  listDeployStagesHandler,
   readDeploymentLogsHandler,
 } from '../services/deployments/handlers/deployments.js';
 import {
@@ -207,6 +208,22 @@ function createDeploymentsRuntimeDb(): SqliteDatabase {
       message TEXT NOT NULL,
       created_at TEXT NOT NULL,
       status TEXT NOT NULL,
+      last_event_id TEXT NOT NULL,
+      last_event_version INTEGER NOT NULL,
+      applied_at TEXT NOT NULL
+    );
+    CREATE TABLE deploy_stage_state (
+      id TEXT NOT NULL PRIMARY KEY,
+      deployment_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      stage TEXT NOT NULL,
+      status TEXT NOT NULL,
+      public_state_json TEXT,
+      secret_blob_key TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
       last_event_id TEXT NOT NULL,
       last_event_version INTEGER NOT NULL,
       applied_at TEXT NOT NULL
@@ -1057,6 +1074,137 @@ describe('startDeploymentHandler', () => {
         },
       ]);
       expect(out.lastLineId).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('lists deploy-stage rows for the latest deployment of a project', () => {
+    const db = createDeploymentsRuntimeDb();
+    try {
+      const insertDeployment = db.prepare(`
+        INSERT INTO deployments (
+          id, organization_id, project_id, project_version_id, target_id,
+          status, result_json, created_at, started_at, finished_at,
+          last_event_id, last_event_version, applied_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      insertDeployment.run(
+        'dep-old', 'org-1', 'proj-1', 'pv-1', 'tgt-1',
+        'succeeded', null, '2026-05-13T00:00:00.000Z', null, null,
+        'evt-d0', 1, '2026-05-13T00:00:00.000Z',
+      );
+      insertDeployment.run(
+        'dep-latest', 'org-1', 'proj-1', 'pv-2', 'tgt-1',
+        'running', null, '2026-05-14T00:00:00.000Z', null, null,
+        'evt-d1', 1, '2026-05-14T00:00:00.000Z',
+      );
+
+      const insertStage = db.prepare(`
+        INSERT INTO deploy_stage_state (
+          id, deployment_id, org_id, stage, status,
+          public_state_json, secret_blob_key, error_code, error_message,
+          started_at, finished_at, last_event_id, last_event_version, applied_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      // Stage rows for the superseded deployment must not leak into the result.
+      insertStage.run(
+        'stg-old', 'dep-old', 'org-1', 'compose', 'succeeded',
+        null, null, null, null,
+        '2026-05-13T00:00:01.000Z', '2026-05-13T00:00:02.000Z', 'evt-s0', 1, '2026-05-13T00:00:02.000Z',
+      );
+      insertStage.run(
+        'stg-compose', 'dep-latest', 'org-1', 'compose', 'succeeded',
+        null, null, null, null,
+        '2026-05-14T00:00:01.000Z', '2026-05-14T00:00:03.000Z', 'evt-s1', 1, '2026-05-14T00:00:03.000Z',
+      );
+      insertStage.run(
+        'stg-provision', 'dep-latest', 'org-1', 'provision', 'running',
+        null, null, null, null,
+        '2026-05-14T00:00:04.000Z', null, 'evt-s2', 1, '2026-05-14T00:00:04.000Z',
+      );
+
+      const out = listDeployStagesHandler(
+        {
+          authorization: 'Bearer redacted',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+          organizationId: 'org-1',
+          projectId: 'proj-1',
+        } as never,
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.deploymentId).toBe('dep-latest');
+      expect(out.stages).toEqual([
+        {
+          id: 'stg-compose',
+          deploymentId: 'dep-latest',
+          orgId: 'org-1',
+          stage: 'compose',
+          status: 'succeeded',
+          errorCode: null,
+          errorMessage: null,
+          startedAt: '2026-05-14T00:00:01.000Z',
+          finishedAt: '2026-05-14T00:00:03.000Z',
+        },
+        {
+          id: 'stg-provision',
+          deploymentId: 'dep-latest',
+          orgId: 'org-1',
+          stage: 'provision',
+          status: 'running',
+          errorCode: null,
+          errorMessage: null,
+          startedAt: '2026-05-14T00:00:04.000Z',
+          finishedAt: null,
+        },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns deploymentId null and no stages when the project has no deployment', () => {
+    const db = createDeploymentsRuntimeDb();
+    try {
+      const out = listDeployStagesHandler(
+        {
+          authorization: 'Bearer redacted',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+          organizationId: 'org-1',
+          projectId: 'proj-empty',
+        } as never,
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.deploymentId).toBeNull();
+      expect(out.stages).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('rejects deploy-stage reads without an active runtime session', () => {
+    const db = createDeploymentsRuntimeDb();
+    try {
+      const out = listDeployStagesHandler(
+        {
+          authorization: 'Bearer redacted',
+          organizationId: 'org-1',
+          projectId: 'proj-1',
+        } as never,
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PLATFORM_AUTH_INVALID');
     } finally {
       db.close();
     }

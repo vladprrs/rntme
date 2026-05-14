@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "DeployStageState" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["deploymentId", "orgId", "stage", "status", "errorCode", "errorMessage", "startedAt", "finishedAt"]
+}

@@ -1,8 +1,11 @@
 import type { Deployment, DeploymentLogLine, PlatformError } from '@rntme/platform-core';
 import { requireActiveRuntimeSession } from './shared.js';
 import type {
+  DeployStageRow,
   GetDeploymentInput,
   GetDeploymentOutput,
+  ListDeployStagesInput,
+  ListDeployStagesOutput,
   ListDeploymentsInput,
   ListDeploymentsOutput,
   ReadDeploymentLogsInput,
@@ -41,6 +44,18 @@ type DeploymentLogRow = {
   readonly level: string;
   readonly stage: string;
   readonly message: string;
+};
+
+type DeployStageStateRow = {
+  readonly id: string;
+  readonly deployment_id: string;
+  readonly org_id: string;
+  readonly stage: string;
+  readonly status: string;
+  readonly error_code: string | null;
+  readonly error_message: string | null;
+  readonly started_at: string | null;
+  readonly finished_at: string | null;
 };
 
 export function listDeploymentsHandler(
@@ -105,6 +120,66 @@ export function readDeploymentLogsHandler(
     status: 'ok',
     lines,
     lastLineId: lines.reduce((max, line) => Math.max(max, line.id), sinceLineId),
+  };
+}
+
+/**
+ * Returns the persisted `deploy_stage_state` rows for the project's most
+ * recent deployment, powering the dashboard deployment-status timeline.
+ *
+ * The "latest deployment" is selected by a `created_at DESC` subquery over
+ * `deployments` scoped to the authenticated org + project; stage rows are then
+ * read for that single deployment id. Returns `deploymentId: null` with an
+ * empty `stages` list when the project has never been deployed.
+ */
+export function listDeployStagesHandler(
+  input: ListDeployStagesInput,
+  ctx: RuntimeCtx,
+): ListDeployStagesOutput {
+  const ready = requireRuntime(input, ctx);
+  if (ready.status === 'error') return ready.output;
+
+  const rows = ctx.qsmDb.prepare<[string, string], DeployStageStateRow>(`
+    SELECT
+      s.id,
+      s.deployment_id,
+      s.org_id,
+      s.stage,
+      s.status,
+      s.error_code,
+      s.error_message,
+      s.started_at,
+      s.finished_at
+    FROM deploy_stage_state s
+    WHERE s.deployment_id = (
+      SELECT d.id
+      FROM deployments d
+      WHERE d.organization_id = ? AND d.project_id = ?
+      ORDER BY d.created_at DESC
+      LIMIT 1
+    )
+    ORDER BY s.started_at ASC
+  `).all(input.organizationId, input.projectId);
+
+  const stages = rows.map(rowToDeployStage);
+  return {
+    status: 'ok',
+    deploymentId: stages.length > 0 ? stages[0]!.deploymentId : null,
+    stages,
+  };
+}
+
+function rowToDeployStage(row: DeployStageStateRow): DeployStageRow {
+  return {
+    id: row.id,
+    deploymentId: row.deployment_id,
+    orgId: row.org_id,
+    stage: row.stage,
+    status: row.status,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
   };
 }
 

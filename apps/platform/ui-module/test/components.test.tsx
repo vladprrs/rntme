@@ -11,6 +11,7 @@ import {
   PlatformServicesPanel,
   PlatformSidebar,
   PlatformSummaryGrid,
+  PlatformTimeline,
   PlatformTokenIssuer,
 } from '../src/client.js';
 import {
@@ -375,6 +376,103 @@ describe('@rntme/platform-ui components', () => {
 
     expect(html).toContain('Versions');
     expect(html).toContain('—');
+  });
+
+  it('renders the deployment timeline from a listDeployStages statePath', () => {
+    const store = createTestStore({
+      data: {
+        'deploy-status': {
+          status: 'ok',
+          deploymentId: 'dep-1',
+          stages: [
+            {
+              stage: 'compose',
+              status: 'succeeded',
+              startedAt: '2026-05-14T14:32:06.000Z',
+              finishedAt: '2026-05-14T14:32:08.000Z',
+            },
+            {
+              stage: 'provision',
+              status: 'running',
+              startedAt: '2026-05-14T14:32:18.000Z',
+            },
+          ],
+        },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformTimeline, { statePath: '/data/deploy-status' }),
+      store,
+    );
+
+    // All five UX steps render in order.
+    expect(html).toContain('Queued');
+    expect(html).toContain('Validating');
+    expect(html).toContain('Building');
+    expect(html).toContain('Deploying');
+    expect(html).toContain('Ready');
+    // Queued is done (a stage row exists), Validating done (compose succeeded),
+    // Building is current (provision running), Deploying/Ready still pending.
+    expect(html).toContain('rntme-timeline-step is-done');
+    expect(html).toContain('rntme-timeline-step is-current');
+    expect(html).toContain('rntme-timeline-step is-pending');
+    expect(html).toContain('14:32:08');
+  });
+
+  it('flags the deployment timeline as errored when a stage failed', () => {
+    const store = createTestStore({
+      data: {
+        'deploy-status': {
+          status: 'ok',
+          deploymentId: 'dep-2',
+          stages: [
+            { stage: 'compose', status: 'succeeded', finishedAt: '2026-05-14T14:32:08.000Z' },
+            {
+              stage: 'apply',
+              status: 'failed',
+              errorCode: 'APPLY_FAILED',
+              errorMessage: 'Dokploy apply rejected the plan',
+              startedAt: '2026-05-14T14:33:00.000Z',
+              finishedAt: '2026-05-14T14:33:10.000Z',
+            },
+          ],
+        },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformTimeline, { statePath: '/data/deploy-status' }),
+      store,
+    );
+
+    expect(html).toContain('rntme-timeline-step is-error');
+    expect(html).toContain('Dokploy apply rejected the plan');
+  });
+
+  it('renders the deployment timeline pending when the statePath is empty without throwing', () => {
+    const store = createTestStore({ data: { 'deploy-status': { status: 'ok', deploymentId: null, stages: [] } } });
+    const html = renderWithStore(
+      React.createElement(PlatformTimeline, { statePath: '/data/deploy-status' }),
+      store,
+    );
+
+    expect(html).toContain('rntme-timeline');
+    expect(html).toContain('Queued');
+    expect(html).not.toContain('is-done');
+    expect(html).not.toContain('is-error');
+  });
+
+  it('renders the deployment timeline from literal props.steps when no statePath is given', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformTimeline, {
+        steps: [{ label: 'Queued', state: 'done' }, { label: 'Ready', state: 'pending' }],
+      }),
+      store,
+    );
+
+    expect(html).toContain('Queued');
+    expect(html).toContain('Ready');
+    expect(html).toContain('rntme-timeline-step is-done');
   });
 
   it('declares the PlatformSummaryGrid statePath prop in module.json', async () => {

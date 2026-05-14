@@ -67,6 +67,7 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 | `GET /api/projects/{projectId}/ui-components` | `listProjectUiComponents` | `services/projects/handlers/list-project-ui-components.ts` (`listProjectUiComponentsHandler`) — flattens the bundle's UI component `*.spec.json` artifacts |
 | `GET /api/projects/{projectId}/graphs` | `listProjectGraphs` | `services/projects/handlers/list-project-graphs.ts` (`listProjectGraphsHandler`) — flattens the bundle's `*/graphs/*.json` artifacts into `{service,graph,nodeCount}` rows |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
+| `GET /api/deployments/stages` | `listDeployStages` | `services/deployments/handlers/deployments.ts` (`listDeployStagesHandler`) — returns the persisted `deploy_stage_state` rows for the project's latest deployment (selected by a `created_at DESC` subquery over `deployments`), powering the dashboard deployment-status timeline; `deploymentId` is `null` when the project has never been deployed |
 | `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
 | `GET /api/deployments/targets/{slug}` | `getDeployTarget` | `services/deployments/handlers/deploy-targets.ts` |
 | `POST /api/deployments/targets` | `createDeployTarget` | `services/deployments/handlers/deploy-targets.ts` (`createDeployTargetHandler`) |
@@ -105,6 +106,15 @@ task handlers from `@rntme/deploy-runner#stages.*`. Each stage runs as a
 native task in this worker; cross-stage state is persisted in
 `DeployStageState` rows so the orchestrator can restart or retry a single
 stage without re-running the whole deploy.
+
+The deployments service exposes those rows read-only through the
+`DeployStageStateView` QSM projection (entity-mirror over `deploy_stage_state`,
+exposing `stage`, `status`, `errorCode`, `errorMessage`, `startedAt`,
+`finishedAt`) and the `readDeployStages` read graph, bound at
+`GET /api/deployments/stages` via the `listDeployStages` native operation. The
+runtime BPMN stages (`compose`, `provision`, `plan`, `render`, `apply`,
+`verify`) are not surfaced one-for-one to the UI; the dashboard collapses them
+onto five timeline steps (see UI section below).
 
 The platform target file therefore needs to declare both:
 
@@ -219,12 +229,36 @@ path — read live published-bundle data through the `listProjectServices`,
 The explorers render as definition-inspection (artifact lists + JSON bodies /
 node-edge tables) with the existing `Platform*` component set; no interactive
 graph-canvas dependency is used (see `docs/decision-system.md` §3.6).
-`PlatformPageHeader` and `PlatformSummaryGrid` accept an optional `statePath`
-so screen specs bind them to live data while remaining backward-compatible
-with static-prop callers. `PlatformPageHeader` actions and `PlatformDataTable`
-columns also accept `hrefTemplate` route templates; templates can reference
-route params and, for table links, row fields (for example
-`/{orgId}/projects/{id}`).
+`PlatformPageHeader`, `PlatformSummaryGrid`, `PlatformServicesPanel`, and
+`PlatformTimeline` accept an optional `statePath` so screen specs bind them to
+live data while remaining backward-compatible with static-prop callers.
+`PlatformPageHeader` actions and `PlatformDataTable` columns also accept
+`hrefTemplate` route templates; templates can reference route params and, for
+table links, row fields (for example `/{orgId}/projects/{id}`).
+
+The project dashboard's deployment-status panel (`deployStatusTimeline` in
+`project.spec.json`) wires `PlatformTimeline` to `/data/deploy-status`, bound to
+`deployments.listDeployStages`. When `statePath` is set, `PlatformTimeline`
+folds the fetched `deploy_stage_state` rows onto five ordered UX steps —
+**Queued → Validating → Building → Deploying → Ready** — using this fixed
+stage-to-step mapping:
+
+| Step | Backing runtime stage(s) |
+| --- | --- |
+| Queued | synthetic — `done` as soon as any stage row exists |
+| Validating | `compose` |
+| Building | `provision` + `plan` + `render` |
+| Deploying | `apply` |
+| Ready | `verify` |
+
+A step is `error` if any backing stage `failed` (and the timeline as a whole is
+flagged errored), `done` when every expected backing stage `succeeded`,
+`current` while any backing stage is `running`, and `pending` when no backing
+stage row exists yet. A failed step also surfaces the stage `errorMessage`
+(falling back to `errorCode`) as its meta line. Without a `statePath`,
+`PlatformTimeline` still renders the literal `steps`/`currentStep`/`errored`
+props unchanged. This is refetch-on-mount/params only — there is no live
+deployment-event push into the panel.
 
 The `/:orgId/tokens` screen includes `PlatformTokenIssuer`, a platform UI
 module component that uses the browser Auth0 transport to call

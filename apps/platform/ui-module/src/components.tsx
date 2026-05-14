@@ -24,6 +24,7 @@ const STATUS_GLYPH: Record<StatusVariant, string> = {
  * (`/api/projects/{id}/versions`), others wrap the rows in a status envelope
  * (`/api/projects` -> `{ status, projects }`, `/api/deployments` ->
  * `{ status, deployments }`, `/api/deployments/targets` -> `{ status, targets }`,
+ * `/api/deployments/stages` -> `{ status, deploymentId, stages }`,
  * `/api/tokens` -> `{ tokens }`, `/api/audit` -> `{ events }`). This unwraps the
  * common shapes so `statePath`-driven components render regardless.
  */
@@ -40,6 +41,7 @@ function rowsFromState(value: unknown): Array<Record<string, unknown>> {
       'events',
       'versions',
       'logs',
+      'stages',
       'items',
       'rows',
     ]) {
@@ -619,10 +621,127 @@ export function PlatformServicesPanel(props: {
   );
 }
 
-export function PlatformTimeline(props: { steps?: ReadonlyArray<TimelineStep>; currentStep?: number; errored?: boolean }) {
-  const steps = props.steps ?? [];
+/**
+ * The five dashboard timeline steps and the runtime BPMN stages that feed each.
+ *
+ * `deployments.listDeployStages` returns raw `deploy_stage_state` rows whose
+ * `stage` is a runtime BPMN id (`compose` | `provision` | `plan` | `render` |
+ * `apply` | `verify`). The dashboard collapses those six stages onto the five
+ * UX steps from the project-dashboard mock:
+ *
+ * - `Queued`     — synthetic; "done" as soon as any stage row exists.
+ * - `Validating` — `compose` (blueprint composed + validated).
+ * - `Building`   — `provision` + `plan` + `render` (deployment plan built).
+ * - `Deploying`  — `apply` (plan applied to the target).
+ * - `Ready`      — `verify` (deployment verified and serving).
+ *
+ * A step is `error` if any backing stage `failed`, `done` if all present
+ * backing stages `succeeded`, `current` if any backing stage is `running`, and
+ * `pending` when no backing stage row exists yet.
+ */
+const TIMELINE_STEPS: ReadonlyArray<{ label: string; stages: readonly string[] }> = [
+  { label: 'Queued', stages: [] },
+  { label: 'Validating', stages: ['compose'] },
+  { label: 'Building', stages: ['provision', 'plan', 'render'] },
+  { label: 'Deploying', stages: ['apply'] },
+  { label: 'Ready', stages: ['verify'] },
+];
+
+type DeployStageRowState = {
+  stage: string;
+  status: string;
+  errorCode?: string;
+  errorMessage?: string;
+  startedAt?: string;
+  finishedAt?: string;
+};
+
+/** Coerces a fetched state row into the `DeployStageRowState` shape. */
+function toDeployStageRow(row: Record<string, unknown>): DeployStageRowState {
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.length > 0 ? v : undefined;
+  return {
+    stage: str(row.stage) ?? '',
+    status: str(row.status) ?? '',
+    errorCode: str(row.errorCode),
+    errorMessage: str(row.errorMessage),
+    startedAt: str(row.startedAt),
+    finishedAt: str(row.finishedAt),
+  };
+}
+
+/** Formats an ISO timestamp as a `HH:MM:SS` clock label, mirroring the mock. */
+function clockTime(iso: string | undefined): string | undefined {
+  if (!iso) return undefined;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString().slice(11, 19);
+}
+
+/**
+ * Folds `deployments.listDeployStages` rows into the five ordered timeline
+ * steps. Returns the steps plus whether any stage failed, so the caller can
+ * flag the timeline as errored.
+ */
+function timelineFromState(value: unknown): { steps: TimelineStep[]; errored: boolean } {
+  const rows = rowsFromState(value).map(toDeployStageRow);
+  const byStage = new Map<string, DeployStageRowState>();
+  for (const row of rows) {
+    if (row.stage.length > 0) byStage.set(row.stage, row);
+  }
+  let errored = false;
+  const steps = TIMELINE_STEPS.map((definition, index) => {
+    const backing =
+      index === 0
+        ? rows
+        : definition.stages.map((s) => byStage.get(s)).filter((r): r is DeployStageRowState => r !== undefined);
+    let state: TimelineStep['state'] = 'pending';
+    if (index === 0) {
+      state = rows.length > 0 ? 'done' : 'pending';
+    } else if (backing.length === 0) {
+      state = 'pending';
+    } else if (backing.some((r) => r.status === 'failed')) {
+      state = 'error';
+      errored = true;
+    } else if (backing.some((r) => r.status === 'running')) {
+      state = 'current';
+    } else if (backing.every((r) => r.status === 'succeeded') && backing.length === definition.stages.length) {
+      state = 'done';
+    } else {
+      state = 'current';
+    }
+    const failed = backing.find((r) => r.status === 'failed');
+    const times = backing
+      .map((r) => clockTime(r.finishedAt) ?? clockTime(r.startedAt))
+      .filter((t): t is string => t !== undefined);
+    const step: TimelineStep = { label: definition.label, state };
+    if (times.length > 0) step.time = times[times.length - 1]!;
+    if (failed?.errorMessage) {
+      step.meta = failed.errorMessage;
+    } else if (failed?.errorCode) {
+      step.meta = failed.errorCode;
+    }
+    return step;
+  });
+  return { steps, errored };
+}
+
+export function PlatformTimeline(props: {
+  steps?: ReadonlyArray<TimelineStep>;
+  currentStep?: number;
+  errored?: boolean;
+  statePath?: string;
+}) {
+  const store = useStateStore();
+  // When a `statePath` is wired, the timeline is state-driven: stage rows from
+  // `deployments.listDeployStages` are folded onto the five Queued -> Validating
+  // -> Building -> Deploying -> Ready steps, each carrying its own `state` so
+  // the `currentStep` index is not needed. Without a `statePath`, the component
+  // falls back to the literal `steps` prop unchanged.
+  const derived = props.statePath ? timelineFromState(store.get(props.statePath)) : null;
+  const steps = derived ? derived.steps : props.steps ?? [];
   const current = props.currentStep ?? steps.length;
-  const errored = props.errored === true;
+  const errored = derived ? derived.errored : props.errored === true;
   return React.createElement(
     'ol',
     { className: 'rntme-timeline', style: { listStyle: 'none', margin: 0, padding: 0 } },

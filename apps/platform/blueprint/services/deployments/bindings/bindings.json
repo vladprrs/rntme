@@ -138,6 +138,24 @@
         "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
       }
     },
+    "listDeployStages": {
+      "graph": "readDeployStages",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/stages",
+        "parameters": [
+          { "name": "organizationId", "in": "query", "bindTo": "organizationId", "required": true },
+          { "name": "projectId", "in": "query", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
     "getDeployment": {
       "graph": "getDeployment",
       "target": { "engine": "native", "dialect": "platform" },
