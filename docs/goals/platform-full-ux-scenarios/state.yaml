@@ -64,7 +64,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T007
+active_task: T023
 
 tasks:
   - id: T001
@@ -1341,7 +1341,7 @@ tasks:
   - id: T007
     type: pm
     assignee: PM
-    status: active
+    status: done
     reasoning_hint: medium
     objective: "Perform documentation-touch follow-up required by implemented changes, or record why current docs remain sufficient."
     inputs:
@@ -1359,12 +1359,29 @@ tasks:
     expected_output:
       - "Docs updated, or explicit no-docs-needed reason."
       - "Changed docs list if any."
-    receipt: null
+    receipt:
+      result: done
+      changed_docs:
+        - "docs/current/owners/apps/platform.md — added 6 rows to the Native operations table (listProjectServices, getProjectArtifactSummary, getProjectArtifact, listProjectEndpoints, listProjectUiComponents, listProjectGraphs) and a UI-section paragraph documenting the 4 explorer screens (data-model/api/ui/graph) + the PlatformPageHeader/PlatformSummaryGrid statePath support, cross-linking decision-system.md §3.6."
+      not_touched:
+        - "docs/decision-system.md — §3.6 F8 entry already recorded by T020; no further edit needed."
+        - "apps/platform/README.md, apps/platform/ui-module/README.md — stubs; no local-command change, per AGENTS.md docs-touch rules no update needed."
+        - "AGENTS.md / root README / CLAUDE.md — no navigation/positioning/bootstrap change."
+      handoff_notes:
+        - "Pre-existing out-of-scope: platform-deployments-handler.test.ts:1206 (TS2352 ProvisionerInput cast) — confirmed on clean HEAD by T004, belongs to the deployments-handler owner, not a goal deliverable."
+      commit: "64d8f1e3 docs(platform): document artifact-explorer operations + explorer screens"
+      summary: >-
+        Documentation-touch follow-up complete. The platform owner doc now
+        reflects the six new read-only artifact-inspection native operations
+        and the four explorer screens; decision-system.md §3.6 was already
+        recorded by T020. Stub READMEs and root docs need no change per
+        AGENTS.md docs-touch rules.
+      needs_judge: false
 
   - id: T999
     type: judge
     assignee: Judge
-    status: queued
+    status: done
     reasoning_hint: high
     objective: "Final audit: determine whether the full platform UX scenario outcome is complete on code, verification, and live/operator evidence."
     inputs:
@@ -1384,13 +1401,51 @@ tasks:
       - "Scenario-by-scenario evidence map"
       - "Missing evidence"
       - "Next task if not complete"
-    receipt: null
+    receipt:
+      result: blocked
+      decision: not_complete
+      full_outcome_complete: false
+      rationale: >-
+        All local implementation, verification (blueprint 84/84, ui 18/18,
+        depcruise clean, only the pre-existing
+        platform-deployments-handler.test.ts:1206 typecheck failure), docs,
+        commits 0171dcbb + 64d8f1e3, and the CLI rebuild are done and
+        independently re-verified by T999. Four explorer screens
+        (data-model/api/ui/graph) + the project detail screen are real and
+        statePath-driven; six runtime-native artifact-inspection handlers are
+        present. The sole remaining gap is the credential-gated live deploy:
+        PLATFORM_SECRET_ENCRYPTION_KEY is absent from this environment
+        (grep count 0 in .env) though platform.target.json requires it. T023
+        captures the one-command operator handoff precisely. The charter
+        requires platform.rntme.com to serve the integrated UX and the
+        operator to confirm deployed projects + artifact inspection in the
+        browser, so the goal is not yet complete.
+      scenario_map_summary: >-
+        Done: project detail (services/summary/header/deploy-timeline wired to
+        live bindings) + all four explorer screens (data-model 2.2.3, api 2.4,
+        ui 2.3, graph 2.5) as definition-inspection. Deferred-with-recorded-
+        reason: UI-elements live preview (T019 — out-of-charter ui-runtime
+        change), React Flow graph canvas (T020 F8 ruling), CC-02 streaming
+        deploy status (T002/T011 — polling interim), Environment/Published-by/
+        alerts placeholders (T017 — no data source). Out of charter scope: CLI
+        flow 2.1, P1/P2 enhancements. Missing: the live operator acceptance
+        on platform.rntme.com.
+      missing_evidence:
+        - "Live platform.rntme.com redeploy with the new blueprint (explorer routes respond 401 not 404)."
+        - "Operator browser confirmation: deployed projects visible + all artifacts inspectable on the live platform."
+      blocked_task_legitimacy: >-
+        T013 (dropped/superseded by T016 per T019 F8 ruling), T006 and T023
+        (blocked on the absent PLATFORM_SECRET_ENCRYPTION_KEY) are all
+        legitimately blocked — honest scope/credential decisions, not dodged
+        work. Substantial readiness work was completed before each block.
+      next_allowed_task: T023
+      needs_judge: false
 
 checks:
   dirty_fingerprint: unknown
   last_verification:
     result: pass_with_known_preexisting
-    task: T006
+    task: T999
     commands:
       - "bun run build => all packages built, exit 0"
       - "bun run --filter @rntme/platform-blueprint test => 84 pass, 0 fail"
