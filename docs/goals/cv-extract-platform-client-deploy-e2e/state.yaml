@@ -3613,6 +3613,23 @@ tasks:
     blocked_on:
       - "No `PLATFORM_BROWSER_JWT` is currently present."
       - "No explicit Auth0 M2M client-grant authorization has been given."
+    receipt:
+      result: active_blocked_on_operator_input
+      summary: |
+        Rechecked the live bootstrap inputs on 2026-05-14. `PLATFORM_BROWSER_JWT`
+        is still absent. The existing Auth0 Management API client is still not
+        authorized for the platform API audience; a client-credentials request
+        returned HTTP 403 `access_denied` with an explicit `client-grant`
+        requirement. No Auth0 tenant policy was changed, no client grant was
+        created, and no bearer/PAT secret was printed or persisted.
+      evidence:
+        - "PLATFORM_BROWSER_JWT=absent."
+        - "AUTH0_DOMAIN, AUTH0_MANAGEMENT_CLIENT_ID, AUTH0_MANAGEMENT_CLIENT_SECRET, and RNTME_TOKEN are present as environment keys."
+        - "Auth0 `/oauth/token` client_credentials for audience `https://platform.rntme.com/api` returned 403 `access_denied`; no access token was issued."
+      next_unblocked_actions:
+        - "If a real browser Auth0 JWT is supplied in `PLATFORM_BROWSER_JWT`, POST `/api/tokens`, hold the returned plaintext PAT only in shell memory, verify `/api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1` returns 200, then resume platform-client cv-extract publish/deploy/dashboard proof."
+        - "If explicit authorization is given for the Auth0 client-grant path, create or enable the client grant for the platform API audience, mint a short-lived M2M token without printing it, create a PAT, then resume the same proof."
+        - "Otherwise no non-bypass local or live action remains that can complete the platform dashboard requirement."
 
 checks:
   dirty_fingerprint: "platform.target.json + untracked redeploy logs and goal/notes (unrelated dirty preserved)"
@@ -3624,4 +3641,5 @@ checks:
       - "PLATFORM_BROWSER_JWT check -> absent"
       - "GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 with shell PAT -> 401 JSON RUNTIME_AUTH_TOKEN_INVALID"
       - "GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 without Authorization -> 401 JSON RUNTIME_AUTH_TOKEN_INVALID"
+      - "Auth0 client_credentials for audience https://platform.rntme.com/api -> 403 access_denied requiring client-grant"
       - "git diff --check -- docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml -> pass"
