@@ -20,12 +20,46 @@ describe('platform UI artifact', () => {
     expect(ui?.manifest.routes['/:orgId/deployments/:deploymentId']).toMatchObject({ screen: 'deployment' });
     expect(ui?.manifest.routes['/:orgId/projects/:projectId/data-model']).toMatchObject({ screen: 'data-model' });
     expect(ui?.screens.org?.data?.['/data/projects']?.path).toBe('/api/projects');
+    expect(ui?.screens.org?.spec.elements.projects).toMatchObject({
+      type: 'PlatformDataTable',
+      props: {
+        columns: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'open',
+            label: 'Open',
+            value: 'Open',
+            hrefTemplate: '/{orgId}/projects/{id}',
+          }),
+        ]),
+      },
+    });
     expect(ui?.screens.deployment?.data?.['/data/logs']?.path).toBe('/api/deployments/{deploymentId}/logs');
     expect(ui?.screens.project?.data?.['/data/versions']?.path).toBe('/api/projects/{projectId}/versions');
-    expect(ui?.screens.project?.spec.elements.header).toMatchObject({
+    const projectHeader = ui?.screens.project?.spec.elements.header;
+    expect(projectHeader).toMatchObject({
       type: 'PlatformPageHeader',
       props: { statePath: '/data/versions' },
     });
+    expect(projectHeader?.props.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Data model',
+          hrefTemplate: '/{orgId}/projects/{projectId}/data-model',
+        }),
+        expect.objectContaining({
+          label: 'API',
+          hrefTemplate: '/{orgId}/projects/{projectId}/api',
+        }),
+        expect.objectContaining({
+          label: 'UI',
+          hrefTemplate: '/{orgId}/projects/{projectId}/ui',
+        }),
+        expect.objectContaining({
+          label: 'Graph',
+          hrefTemplate: '/{orgId}/projects/{projectId}/graph',
+        }),
+      ]),
+    );
     expect(ui?.screens.project?.data?.['/data/services']?.path).toBe('/api/projects/{projectId}/services');
     expect(ui?.screens.project?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
     expect(ui?.screens.project?.spec.elements.servicesPanel).toMatchObject({

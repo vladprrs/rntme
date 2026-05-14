@@ -25,7 +25,13 @@
         "columns": [
           { "key": "slug", "label": "Slug" },
           { "key": "displayName", "label": "Name" },
-          { "key": "status", "label": "Status" }
+          { "key": "status", "label": "Status" },
+          {
+            "key": "open",
+            "label": "Open",
+            "value": "Open",
+            "hrefTemplate": "/{orgId}/projects/{id}"
+          }
         ]
       }
     }

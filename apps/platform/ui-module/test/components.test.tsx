@@ -134,6 +134,32 @@ describe('@rntme/platform-ui components', () => {
     expect(html).toContain('v0.3.2');
   });
 
+  it('renders page header actions as route-aware links when hrefTemplate is provided', () => {
+    const store = createTestStore({
+      route: {
+        params: {
+          orgId: 'org_uZUWhpWgK54VWC2X',
+          projectId: 'p1',
+        },
+      },
+    });
+    const actions = [
+      { label: 'Data model', hrefTemplate: '/{orgId}/projects/{projectId}/data-model' },
+      { label: 'API', hrefTemplate: '/{orgId}/projects/{projectId}/api', variant: 'primary' },
+    ];
+    const html = renderWithStore(
+      React.createElement(PlatformPageHeader, {
+        title: 'Project overview',
+        actions,
+      }),
+      store,
+    );
+
+    expect(html).toContain('<a href="/org_uZUWhpWgK54VWC2X/projects/p1/data-model"');
+    expect(html).toContain('<a href="/org_uZUWhpWgK54VWC2X/projects/p1/api"');
+    expect(html).not.toContain('<button');
+  });
+
   it('renders panel children through React', () => {
     const html = renderToStaticMarkup(
       React.createElement(PlatformPanel, { title: 'Panel' }, React.createElement('span', null, 'inside')),
@@ -195,6 +221,38 @@ describe('@rntme/platform-ui components', () => {
     expect(html).toContain('<td>cv-extract</td>');
     expect(html).toContain('<td>CV Extract</td>');
     expect(html).toContain('<td>active</td>');
+  });
+
+  it('renders data table link columns from row fields and route params', () => {
+    const store = createTestStore({
+      route: { params: { orgId: 'org_uZUWhpWgK54VWC2X' } },
+      data: {
+        projects: {
+          status: 'ok',
+          projects: [
+            { id: 'p1', slug: 'cv-extract', displayName: 'CV Extract', status: 'active' },
+          ],
+        },
+      },
+    });
+    const columns = [
+      { key: 'displayName', label: 'Name' },
+      {
+        key: 'open',
+        label: 'Open',
+        value: 'Open',
+        hrefTemplate: '/{orgId}/projects/{id}',
+      },
+    ];
+    const html = renderWithStore(
+      React.createElement(PlatformDataTable, {
+        statePath: '/data/projects',
+        columns,
+      }),
+      store,
+    );
+
+    expect(html).toContain('<a href="/org_uZUWhpWgK54VWC2X/projects/p1">Open</a>');
   });
 
   it('renders data table rows from a bare-array statePath', () => {

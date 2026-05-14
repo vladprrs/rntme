@@ -17,8 +17,26 @@
           { "label": "Published by", "value": "CLI" }
         ],
         "actions": [
-          { "label": "View logs", "variant": "secondary" },
-          { "label": "Open API", "variant": "primary" }
+          {
+            "label": "Data model",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/data-model"
+          },
+          {
+            "label": "API",
+            "variant": "primary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/api"
+          },
+          {
+            "label": "UI",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/ui"
+          },
+          {
+            "label": "Graph",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/graph"
+          }
         ]
       }
     },

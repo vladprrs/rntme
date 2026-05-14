@@ -221,7 +221,10 @@ node-edge tables) with the existing `Platform*` component set; no interactive
 graph-canvas dependency is used (see `docs/decision-system.md` §3.6).
 `PlatformPageHeader` and `PlatformSummaryGrid` accept an optional `statePath`
 so screen specs bind them to live data while remaining backward-compatible
-with static-prop callers.
+with static-prop callers. `PlatformPageHeader` actions and `PlatformDataTable`
+columns also accept `hrefTemplate` route templates; templates can reference
+route params and, for table links, row fields (for example
+`/{orgId}/projects/{id}`).
 
 The `/:orgId/tokens` screen includes `PlatformTokenIssuer`, a platform UI
 module component that uses the browser Auth0 transport to call

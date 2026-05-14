@@ -168,17 +168,48 @@ type TimelineStep = {
   state?: 'done' | 'current' | 'pending' | 'error';
 };
 
+type LinkTemplateContext = {
+  row?: Record<string, unknown>;
+  routeParams?: Record<string, unknown>;
+};
+
+function objectFromState(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function resolveTemplate(template: string, context: LinkTemplateContext): string {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_match, key: string) => {
+    const raw = context.row?.[key] ?? context.routeParams?.[key];
+    if (raw === null || raw === undefined) return '';
+    if (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') {
+      return encodeURIComponent(String(raw));
+    }
+    return '';
+  });
+}
+
+function actionHref(
+  action: { href?: string; hrefTemplate?: string },
+  routeParams: Record<string, unknown>,
+): string | undefined {
+  if (action.hrefTemplate) return resolveTemplate(action.hrefTemplate, { routeParams });
+  return action.href;
+}
+
 /* =========================================================
    Exported platform components
    ========================================================= */
 
 export function PlatformDataTable(props: {
   statePath?: string;
-  columns?: ReadonlyArray<{ key: string; label: string }>;
+  columns?: ReadonlyArray<{ key: string; label: string; value?: string; href?: string; hrefTemplate?: string }>;
 }) {
   const store = useStateStore();
   const columns = props.columns ?? [];
   const rows = props.statePath ? rowsFromState(store.get(props.statePath)) : [];
+  const routeParams = objectFromState(store.get('/route/params'));
 
   return React.createElement(
     'div',
@@ -210,13 +241,20 @@ export function PlatformDataTable(props: {
                 'No records',
               ),
             )
-          : rows.map((row, rowIndex) =>
+            : rows.map((row, rowIndex) =>
               React.createElement(
                 'tr',
                 { key: typeof row.id === 'string' ? row.id : rowIndex },
-                ...columns.map((column) =>
-                  React.createElement('td', { key: column.key }, formatCellValue(row[column.key])),
-                ),
+                ...columns.map((column) => {
+                  const href = column.hrefTemplate
+                    ? resolveTemplate(column.hrefTemplate, { row, routeParams })
+                    : column.href;
+                  const label = column.value ?? formatCellValue(row[column.key]);
+                  const cell = href
+                    ? React.createElement('a', { href }, label)
+                    : label;
+                  return React.createElement('td', { key: column.key }, cell);
+                }),
               ),
             ),
       ),
@@ -385,7 +423,7 @@ export function PlatformPageHeader(props: {
   title?: string;
   meta?: ReadonlyArray<PageHeaderMetaItem>;
   statePath?: string;
-  actions?: ReadonlyArray<{ label: string; variant?: string; onClick?: string; href?: string }>;
+  actions?: ReadonlyArray<{ label: string; variant?: string; onClick?: string; href?: string; hrefTemplate?: string }>;
 }) {
   const store = useStateStore();
   // When a `statePath` is wired, the `Blueprint`/`Status` cells are derived from
@@ -396,6 +434,7 @@ export function PlatformPageHeader(props: {
     ? [...versionMetaFromState(store.get(props.statePath)), ...(props.meta ?? [])]
     : props.meta ?? [];
   const actions = props.actions ?? [];
+  const routeParams = objectFromState(store.get('/route/params'));
   return React.createElement(
     'header',
     { className: 'rntme-page-head' },
@@ -433,17 +472,22 @@ export function PlatformPageHeader(props: {
       ? React.createElement(
           'div',
           { className: 'rntme-page-head-actions' },
-          ...actions.map((a, i) =>
-            React.createElement(
+          ...actions.map((a, i) => {
+            const className = `rntme-btn is-small ${a.variant ? `is-${a.variant}` : 'is-secondary'}`;
+            const href = actionHref(a, routeParams);
+            if (href) {
+              return React.createElement('a', { key: i, href, className }, a.label);
+            }
+            return React.createElement(
               'button',
               {
                 key: i,
                 type: 'button',
-                className: `rntme-btn is-small ${a.variant ? `is-${a.variant}` : 'is-secondary'}`,
+                className,
               },
               a.label,
-            ),
-          ),
+            );
+          }),
         )
       : null,
   );
