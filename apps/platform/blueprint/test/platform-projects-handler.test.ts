@@ -98,11 +98,100 @@ function createProjectsDb(): SqliteDatabase {
       last_event_version INTEGER NOT NULL,
       applied_at TEXT NOT NULL
     );
+    CREATE TABLE project_versions (
+      id TEXT NOT NULL PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      bundle_digest TEXT NOT NULL,
+      bundle_object_key TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_event_id TEXT NOT NULL,
+      last_event_version INTEGER NOT NULL,
+      applied_at TEXT NOT NULL
+    );
   `);
   return db;
 }
 
 describe('publishProjectBundleHandler', () => {
+  it('publishes with the runtime-native edge-authenticated call shape', async () => {
+    const db = createProjectsDb();
+    try {
+      db.prepare(`
+        INSERT INTO projects (
+          id,
+          organization_id,
+          slug,
+          display_name,
+          status,
+          created_at,
+          last_event_id,
+          last_event_version,
+          applied_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        'proj-runtime-1',
+        'org_uZUWhpWgK54VWC2X',
+        'cv-extract',
+        'CV Extract',
+        'active',
+        '2026-05-13T00:00:00.000Z',
+        'evt-project',
+        1,
+        '2026-05-13T00:00:00.000Z',
+      );
+      const { bytes, digest } = makeBundleBytes();
+
+      const out = await publishProjectBundleHandler(
+        {
+          authorization: 'Bearer redacted',
+          projectId: 'cv-extract',
+          bodyBytes: bytes,
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        } as never,
+        {
+          qsmDb: db,
+          nextId: (() => {
+            let i = 0;
+            return () => `id-${++i}`;
+          })(),
+          now: () => '2026-05-14T00:00:00.000Z',
+          correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+        } as never,
+      );
+
+      expect(out.status).toBe('created');
+      if (out.status !== 'created') return;
+      expect(out.version.projectId).toBe('proj-runtime-1');
+      expect(out.version.orgId).toBe('org_uZUWhpWgK54VWC2X');
+      expect(out.version.seq).toBe(1);
+      expect(out.version.bundleDigest).toBe(digest);
+      expect(out.version.uploadedByAccountId).toBe('acct-runtime-1');
+
+      const row = db.prepare('SELECT * FROM project_versions WHERE id = ?').get(out.version.id) as {
+        project_id: string;
+        sequence: number;
+        bundle_digest: string;
+        status: string;
+      };
+      expect(row).toMatchObject({
+        project_id: 'proj-runtime-1',
+        sequence: 1,
+        bundle_digest: digest,
+        status: 'published',
+      });
+
+      const bundleRow = db.prepare('SELECT bundle_bytes FROM project_version_bundles WHERE version_id = ?').get(out.version.id) as
+        | { bundle_bytes: Uint8Array }
+        | undefined;
+      expect(bundleRow?.bundle_bytes).toEqual(bytes);
+    } finally {
+      db.close();
+    }
+  });
+
   it('publishes a new ProjectVersion when authorized and bundle is valid', async () => {
     const ctx = await setup();
     const ids = new RandomIds();

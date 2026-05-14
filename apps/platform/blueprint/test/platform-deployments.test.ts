@@ -20,4 +20,12 @@ describe('platform deployments service', () => {
     expect(result.value.bindingRegistry['deployments.updateDeployTarget']?.path).toBe('/api/deployments/targets/{slug}/actions/update');
     expect(result.value.bindingRegistry['deployments.deleteDeployTarget']?.path).toBe('/api/deployments/targets/{slug}/actions/delete');
   });
+
+  it('materializes the project operations read table needed by runtime-native deployment start', async () => {
+    const result = await loadComposedBlueprint(blueprintRoot);
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.services.deployments?.qsmValidated?.projections.ProjectOperationView).toBeDefined();
+  });
 });

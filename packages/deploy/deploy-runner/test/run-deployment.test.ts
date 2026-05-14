@@ -83,6 +83,33 @@ describe('runDeployment', () => {
     expect(applyResultEmitted).toBe(true);
   });
 
+  it('does not apply or verify when configOverrides.dryRun is true', async () => {
+    const lines: SanitizedLogLine[] = [];
+    let applyResultEmitted = false;
+    let verifyResultEmitted = false;
+    const inputs = makeRunDeploymentInputsFromExecutorFixture({
+      hooks: {
+        onLog: (line) => void lines.push(line),
+        onApplyResult: () => void (applyResultEmitted = true),
+        onVerifyResult: () => void (verifyResultEmitted = true),
+      },
+    });
+
+    const result = await runDeployment({
+      ...inputs,
+      configOverrides: { dryRun: true },
+    });
+
+    expect(result).toEqual({ ok: true, kind: 'succeeded' });
+    expect(inputs.applyPlan).not.toHaveBeenCalled();
+    expect(inputs.smoker?.verify).not.toHaveBeenCalled();
+    expect(applyResultEmitted).toBe(false);
+    expect(verifyResultEmitted).toBe(false);
+    expect(lines.map((line) => line.message)).toContain(
+      'Dry run complete; skipping apply and verify',
+    );
+  });
+
   it('returns the same TerminalResult that was emitted via onTerminal', async () => {
     let emitted: TerminalResult | undefined;
     const inputs = makeRunDeploymentInputsFromExecutorFixture({

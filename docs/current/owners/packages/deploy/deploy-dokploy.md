@@ -56,11 +56,12 @@ are observed.
 Domain services whose deployment plan marks `persistence.mode: "persistent"`
 render as project-stack services with a writable named volume mounted at the
 planned path. The renderer also emits `RNTME_PERSISTENCE_MODE=persistent`,
-`RNTME_EVENT_STORE_PATH`, and `RNTME_QSM_PATH` so `@rntme/runtime` opens the
-mounted SQLite files. Persistent runtime services also render `user: "0:0"`
-so first-boot named volumes are writable with the current runtime image; remove
-that override only after the runtime image owns the mounted data directory for
-the non-root `bun` user. Ephemeral domain services continue to render only
+`RNTME_EVENT_STORE_PATH`, and `RNTME_QSM_PATH` as service-local literal env so
+multiple services may share a named volume while keeping different SQLite file
+paths. Persistent runtime services also render `user: "0:0"` so first-boot
+named volumes are writable with the current runtime image; remove that override
+only after the runtime image owns the mounted data directory for the non-root
+`bun` user. Ephemeral domain services continue to render only
 `RNTME_PERSISTENCE_MODE=ephemeral` and no writable state volume.
 
 After a successful project-stack apply, the apply pipeline lists existing
@@ -156,7 +157,8 @@ When `plan.infrastructure.objectStorage.kind === "s3-compatible"` and
 
 - a `rustfs` service on `dokploy-network`;
 - a persistent named volume;
-- secret env entries for `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY`;
+- secret env entries for `RUSTFS_ROOT_USER` and `RUSTFS_ROOT_PASSWORD`, whose
+  values are the configured access-key and secret-key refs;
 - a sibling compose service `object-storage-public` (`serviceClass: 'infrastructure-proxy'`, `workloadKind: 'infrastructure-proxy'`) running `nginx:1.27-alpine`, bound to `storage.publicBaseUrl` via a Compose-level domain entry on the project-stack;
 - `STORAGE_S3_*` env entries on `@rntme/storage-s3` integration-module workloads.
 
@@ -257,6 +259,18 @@ Domain-service workloads always receive `RNTME_EVENT_BUS_BROKERS` and
 - `RNTME_EVENT_BUS_USERNAME` with `secret: true`
 - `RNTME_EVENT_BUS_PASSWORD` with `secret: true`
 - optional `RNTME_EVENT_BUS_TOPIC_PREFIX`
+
+## Body-limit routes
+
+`kind: "body-limit"` middleware renders both `client_max_body_size <value>` and
+`proxy_request_buffering off` on the location. Upload routes should stream large
+request bodies to the upstream service instead of depending on Nginx client-body
+temp-file buffering.
+
+Generated `auth_request` internal locations set `client_max_body_size 0` while
+also using `proxy_pass_request_body off`. The protected route owns the real body
+limit; the auth subrequest must not inherit Nginx's 1 MiB default and turn large
+authorized uploads into edge-generated 500 responses.
 
 The runtime applies its own KafkaJS connection-timeout default for external
 brokers. Targets that need a non-default handshake budget can provide

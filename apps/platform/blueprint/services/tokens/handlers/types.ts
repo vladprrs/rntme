@@ -14,13 +14,13 @@ export type AuthSubject = {
   };
   readonly role: 'admin' | 'member';
   readonly scopes: readonly string[];
-  readonly tokenId?: string | null;
+  readonly tokenId: string | null | undefined;
 };
 
 export type ApiTokenProviderLike = {
   readonly authenticate: (input: {
-    readonly authorizationHeader?: string;
-    readonly cookieHeader?: string;
+    readonly authorizationHeader: string | undefined;
+    readonly cookieHeader: string | undefined;
   }) => Promise<
     | { readonly ok: true; readonly value: AuthSubject }
     | { readonly ok: false; readonly errors: readonly { readonly code: string; readonly message: string }[] }

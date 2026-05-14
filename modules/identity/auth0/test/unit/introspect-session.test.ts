@@ -23,11 +23,21 @@ async function setupKeys() {
   return { kid, privateKey, jwksResolver };
 }
 
-async function signAccessToken(subject: string, opts: { aud?: string; iss?: string; exp?: number; privateKey?: KeyLike; kid?: string } = {}) {
+async function signAccessToken(
+  subject: string,
+  opts: {
+    aud?: string;
+    iss?: string;
+    exp?: number;
+    privateKey?: KeyLike;
+    kid?: string;
+    claims?: Record<string, unknown>;
+  } = {},
+) {
   const { kid, privateKey, jwksResolver } = opts.privateKey && opts.kid
     ? { kid: opts.kid, privateKey: opts.privateKey, jwksResolver: undefined }
     : await setupKeys();
-  const token = await new SignJWT({})
+  const token = await new SignJWT(opts.claims ?? {})
     .setProtectedHeader({ alg: 'RS256', kid })
     .setIssuer(opts.iss ?? issuer)
     .setSubject(subject)
@@ -135,6 +145,36 @@ describe('IntrospectSession', () => {
     expect(reasonOf(malformed)).toBe('MALFORMED');
     expect(missing.status).not.toBe(SessionStatus.SESSION_STATUS_ACTIVE);
     expect(reasonOf(missing)).toBe('MALFORMED');
+  });
+
+  it('populates Session.organization_id from the org_id claim', async () => {
+    const { token, jwksResolver } = await signAccessToken('auth0|alice', {
+      claims: { org_id: 'org_uZUWhpWgK54VWC2X', org_name: 'vladprsib' },
+    });
+
+    const mod = createAuth0IdentityModule(stubAuth0Adapter(), {
+      auth0Issuer: issuer,
+      jwksResolver,
+    });
+
+    const session = await mod.IntrospectSession({ token, audience });
+
+    expect(session.status).toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect(session.organization_id).toBe('org_uZUWhpWgK54VWC2X');
+  });
+
+  it('leaves organization_id empty when the token carries no org_id claim', async () => {
+    const { token, jwksResolver } = await signAccessToken('auth0|alice');
+
+    const mod = createAuth0IdentityModule(stubAuth0Adapter(), {
+      auth0Issuer: issuer,
+      jwksResolver,
+    });
+
+    const session = await mod.IntrospectSession({ token, audience });
+
+    expect(session.status).toBe(SessionStatus.SESSION_STATUS_ACTIVE);
+    expect(session.organization_id ?? '').toBe('');
   });
 
   it('returns UNKNOWN for unexpected verification failures without throwing', async () => {

@@ -27,6 +27,20 @@ describe('apiCall', () => {
     if (!r.ok) expect(r.error).toMatchObject({ kind: 'http', code: 'CLI_RESPONSE_PARSE_FAILED' });
   });
 
+  it('2xx native handler error envelope → ApiError with platform code', async () => {
+    stubGlobal('fetch', mock().mockResolvedValue(new Response(JSON.stringify({
+      status: 'error',
+      errors: [{ code: 'PLATFORM_DEPLOY_RUNNER_UNAVAILABLE', message: 'deploy runner unavailable' }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const r = await apiCall({ method: 'POST', path: '/x', baseUrl: 'https://p', token: null, responseSchema: OkSchema });
+    expect(r.ok).toBe(false);
+    if (!r.ok && r.error.kind === 'http') {
+      expect(r.error.status).toBe(200);
+      expect(r.error.code).toBe('PLATFORM_DEPLOY_RUNNER_UNAVAILABLE');
+      expect(r.error.message).toBe('deploy runner unavailable');
+    }
+  });
+
   it('4xx envelope → ApiError with platform code', async () => {
     stubGlobal('fetch', mock().mockResolvedValue(new Response(JSON.stringify({
       error: { code: 'PLATFORM_AUTH_INVALID', message: 'bad token' },

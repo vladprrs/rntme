@@ -112,16 +112,18 @@ opt into runtime SQLite persistence with:
   persistence: {
     mode: 'persistent',
     eventStorePath: '/srv/data/events.sqlite',
-    qsmPath: '/srv/data/qsm.sqlite'
+    qsmPath: '/srv/data/qsm.sqlite',
+    volumeName?: 'shared-control-data'
   }
 }
 ```
 
 The planner turns that request into a deterministic writable volume named from
 `rntme-<org>-<project>-<service>-data`, mounted at `/srv/data`, and carries the
-explicit event-store/QSM paths into the workload. The current platform deploy
-conversion uses this only for the `rntme-platform` `tokens` service so platform
-PAT rows survive runtime image redeploys.
+explicit event-store/QSM paths into the workload. When `volumeName` is present,
+that named volume is used instead of the service-derived default. This is for
+intentional shared runtime state such as the platform control-plane QSM store;
+services sharing a volume must still use service-specific event-store files.
 
 ## BPMN workflow planning
 

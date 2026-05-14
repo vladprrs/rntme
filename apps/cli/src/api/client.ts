@@ -99,6 +99,21 @@ export async function apiCall<T>(opts: ApiCallOptions<T>): Promise<Result<T, Cli
   }
 
   if (res.ok) {
+    const nativeError = parseNativeHandlerErrorEnvelope(parsedBody);
+    if (nativeError !== null) {
+      return err({
+        kind: 'http',
+        status: res.status,
+        code: nativeError.code,
+        message: nativeError.message,
+        stage: nativeError.stage,
+        pkg: nativeError.pkg,
+        path: nativeError.path,
+        requestId: echoedRequestId,
+        nested: nativeError.nested,
+      });
+    }
+
     const schemaResult = opts.responseSchema.safeParse(parsedBody);
     if (!schemaResult.success) {
       return err({
@@ -130,6 +145,23 @@ export async function apiCall<T>(opts: ApiCallOptions<T>): Promise<Result<T, Cli
     requestId: echoedRequestId,
     nested: envelope?.nested,
   });
+}
+
+function parseNativeHandlerErrorEnvelope(body: unknown):
+  | { code: string; message: string; stage?: string | undefined; pkg?: string | undefined; path?: string | undefined; nested?: NestedError[] | undefined }
+  | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  if (b.status !== 'error' || !Array.isArray(b.errors) || b.errors.length === 0) return null;
+  const first = parseNestedError(b.errors[0]);
+  return {
+    code: first.code,
+    message: first.message,
+    stage: first.stage,
+    pkg: first.pkg,
+    path: first.path,
+    nested: b.errors.map(parseNestedError),
+  };
 }
 
 function parseErrorEnvelope(body: unknown):

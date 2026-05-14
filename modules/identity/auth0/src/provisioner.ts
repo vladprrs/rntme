@@ -12,7 +12,9 @@ export type Auth0PublicConfig = {
   // Auth0 reconciliation knob in publicConfig.
   allowedOrigins?: string[];
   allowedLogoutUrls?: string[];
-  organizationsCapability?: 'allow' | 'deny';
+  // `require` makes every interactive login on the SPA client organization-
+  // scoped, so the issued access token always carries an `org_id` claim.
+  organizationsCapability?: 'allow' | 'deny' | 'require';
   m2mClients?: ReadonlyArray<{ name: string; scopes: string[] }>;
 };
 
@@ -62,6 +64,11 @@ export async function provision(input: ProvisionInput) {
     allowed_origins: allowedOrigins,
     allowed_logout_urls: allowedLogoutUrls,
     organization_usage: organizationsCapability,
+    // When org membership is required, Auth0 prompts the user to pick their
+    // organization before login so the access token carries `org_id`.
+    ...(organizationsCapability === 'require'
+      ? { organization_require_behavior: 'pre_login_prompt' as const }
+      : {}),
   };
   const spaResult = await reconcileClient(mgmt, cfg.appName, spaDesired);
   if (!spaResult.ok) return err(spaResult.errors);

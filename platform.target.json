@@ -12,10 +12,11 @@
         "tenantDomain": { "source": "env", "name": "AUTH0_DOMAIN" },
         "mgmtClientId": { "source": "env", "name": "AUTH0_MANAGEMENT_CLIENT_ID" },
         "mgmtClientSecret": { "source": "env", "name": "AUTH0_MANAGEMENT_CLIENT_SECRET" }
-      }
+      },
+      "platform-secret-encryption-key": { "source": "env", "name": "PLATFORM_SECRET_ENCRYPTION_KEY" }
     }
   },
-  "eventBus": { "kind": "in-memory" },
+  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" },
   "workflows": {
     "engine": {
       "kind": "operaton",
@@ -23,7 +24,7 @@
       "image": "operaton/operaton:2.1.0"
     },
     "worker": {
-      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:e2e-bpmn-4e3f55d-json-1"
+      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:runtime-e2e-platform-deployrunner-rustfs-5f47d886"
     }
   },
   "auth": {
@@ -41,11 +42,23 @@
       }
     }
   },
+  "services": {
+    "deployments": {
+      "secretRefs": {
+        "PLATFORM_SECRET_ENCRYPTION_KEY": "platform-secret-encryption-key"
+      }
+    }
+  },
   "policyValues": {
     "requestContext": {
       "default": {}
+    },
+    "bodyLimit": {
+      "projectBundle": {
+        "maxBodySize": "10m"
+      }
     }
   },
-  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-8707e652-052054",
+  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-platform-deployrunner-rustfs-5f47d886",
   "publicBaseUrl": "https://platform.rntme.com"
 }

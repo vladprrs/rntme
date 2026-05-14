@@ -125,7 +125,7 @@ export function renderBpmnWorker(
     workloadSlug: workload.slug,
     name: workload.resourceName,
     image: workload.image,
-    command: workload.command,
+    command: workerImageCommand(workload.command),
     env: [
       ...workerEventBusEnv(plan.infrastructure.eventBus),
       {
@@ -162,6 +162,12 @@ export function renderBpmnWorker(
     ),
     files: files.value,
   });
+}
+
+function workerImageCommand(command: string | undefined): string {
+  if (command === undefined || command === 'rntme-bpmn-worker') return 'packages/runtime/bpmn-worker/dist/bin/worker.js';
+  if (command === 'rntme-bpmn-poll-worker') return 'packages/runtime/bpmn-worker/dist/bin/poll.js';
+  return command;
 }
 
 function workflowServiceEndpointsJson(

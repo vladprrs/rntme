@@ -61,6 +61,11 @@ const ModuleConfigSchema = z
   })
   .catchall(z.unknown());
 
+const DomainServiceConfigSchema = z.object({
+  env: z.record(z.string().min(1), z.string()).optional(),
+  secretRefs: z.record(z.string().min(1), z.string().min(1)).optional(),
+});
+
 const PolicyValuesSchema = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
 
 const DokployTargetFileSchema = z.object({
@@ -96,6 +101,7 @@ const DokployTargetFileSchema = z.object({
       auth0: Auth0TargetAuthSchema.optional(),
     })
     .optional(),
+  services: z.record(z.string().min(1), DomainServiceConfigSchema).optional(),
   modules: z.record(z.string().min(1), ModuleConfigSchema).optional(),
   policyValues: PolicyValuesSchema.optional(),
   runtimeImage: z.string().min(1).optional(),

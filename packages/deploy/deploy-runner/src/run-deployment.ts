@@ -142,6 +142,11 @@ export async function runDeployment(inputs: RunDeploymentInputs): Promise<Termin
       message: `Rendered Dokploy plan digest ${renderOut.rendered.digest}`,
     });
 
+    if (inputs.configOverrides['dryRun'] === true) {
+      await log({ level: 'info', step: 'dry-run', message: 'Dry run complete; skipping apply and verify' });
+      return await terminalSuccess(hooks);
+    }
+
     await log({ level: 'info', step: 'apply', message: 'Applying Dokploy plan' });
     await emitStageBegin(hooks, 'apply');
     let applyOut;

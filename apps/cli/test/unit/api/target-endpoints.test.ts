@@ -85,7 +85,7 @@ describe('targetEndpoints HTTP calls', () => {
     expect(url).not.toContain('/v1/');
   });
 
-  it('create — POST with organizationId in body', async () => {
+  it('create — POST with organizationId plus nested binding body', async () => {
     const fetchMock = mock().mockResolvedValue(
       new Response(JSON.stringify({ target: targetRow }), { status: 201 }),
     );
@@ -102,14 +102,46 @@ describe('targetEndpoints HTTP calls', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toEqual({
       organizationId: 'org-uuid',
-      slug: 'prod',
-      displayName: 'Production',
-      kind: 'dokploy',
+      body: {
+        slug: 'prod',
+        displayName: 'Production',
+        kind: 'dokploy',
+      },
     });
     expect(url).not.toContain('/v1/');
   });
 
-  it('setConfig — POST to /actions/update with organizationId in body', async () => {
+  it('create — maps native handler status:error payloads to platform errors', async () => {
+    const fetchMock = mock().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: 'error',
+          errors: [
+            {
+              code: 'PLATFORM_STORAGE_DB_UNAVAILABLE',
+              message: 'runtime-native deploy target creation requires encrypted target-secret storage',
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    stubGlobal('fetch', fetchMock);
+
+    const res = await targetEndpoints.create(ctx, 'org-uuid', {
+      slug: 'prod',
+      displayName: 'Production',
+      kind: 'dokploy',
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.kind).toBe('http');
+    if (res.error.kind !== 'http') return;
+    expect(res.error.code).toBe('PLATFORM_STORAGE_DB_UNAVAILABLE');
+    expect(res.error.status).toBe(200);
+  });
+
+  it('setConfig — POST to /actions/update with organizationId plus nested binding body', async () => {
     const fetchMock = mock().mockResolvedValue(
       new Response(JSON.stringify({ target: targetRow }), { status: 200 }),
     );
@@ -124,12 +156,14 @@ describe('targetEndpoints HTTP calls', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toEqual({
       organizationId: 'org-uuid',
-      publicBaseUrl: 'https://prod.example',
+      body: {
+        publicBaseUrl: 'https://prod.example',
+      },
     });
     expect(url).not.toContain('/v1/');
   });
 
-  it('delete — POST to /actions/delete with organizationId in body', async () => {
+  it('delete — POST to /actions/delete without unused body fields', async () => {
     const fetchMock = mock().mockResolvedValue(
       new Response(JSON.stringify({ target: targetRow }), { status: 200 }),
     );
@@ -140,7 +174,7 @@ describe('targetEndpoints HTTP calls', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://platform.example/api/deployments/targets/prod/actions/delete');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({ organizationId: 'org-uuid' });
+    expect(init.body).toBeNull();
     expect(url).not.toContain('/v1/');
   });
 });

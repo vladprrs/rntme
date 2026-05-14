@@ -137,6 +137,17 @@ describe('toDeployCoreInput', () => {
     if (!composed.ok) return;
 
     const result = await toDeployCoreInput(composed.value, platformDir);
+    expect(result.workflows?.definitions[0]?.id).toBe('runDeployment');
+    expect(result.workflows?.nativeTasks?.map((task) => task.taskId)).toEqual([
+      'compose',
+      'plan',
+      'provision',
+      'render',
+      'apply',
+      'verify',
+    ]);
+    expect(result.workflowFiles?.['run-deployment.bpmn']).toContain('runDeployment');
+
     const app = result.services['app'];
 
     expect(app?.kind).toBe('domain');
@@ -159,8 +170,12 @@ describe('toDeployCoreInput', () => {
     // route prefix (e.g. /api/projects, /api/tokens/introspect).
     const projectsManifest = JSON.parse(
       result.services.projects?.runtimeFiles?.['manifest.json'] ?? '{}',
-    ) as { surface?: { http?: { bindingBasePath?: string } } };
+    ) as { surface?: { http?: { bindingBasePath?: string; bodyLimit?: { enabled?: boolean; maxBytes?: number } } } };
     expect(projectsManifest.surface?.http?.bindingBasePath).toBe('/');
+    expect(projectsManifest.surface?.http?.bodyLimit).toEqual({
+      enabled: true,
+      maxBytes: 10 * 1024 * 1024,
+    });
 
     const projectsBindings = JSON.parse(
       result.services.projects?.runtimeFiles?.['bindings.json'] ?? '{}',
@@ -177,6 +192,18 @@ describe('toDeployCoreInput', () => {
     expect(result.services.tokens?.persistence).toEqual({
       mode: 'persistent',
       eventStorePath: '/srv/data/events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    });
+    expect(result.services.projects?.persistence).toEqual({
+      mode: 'persistent',
+      volumeName: 'rntme-platform-control-data',
+      eventStorePath: '/srv/data/projects-events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    });
+    expect(result.services.deployments?.persistence).toEqual({
+      mode: 'persistent',
+      volumeName: 'rntme-platform-control-data',
+      eventStorePath: '/srv/data/deployments-events.sqlite',
       qsmPath: '/srv/data/qsm.sqlite',
     });
 

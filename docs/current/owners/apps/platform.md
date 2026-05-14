@@ -71,6 +71,12 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 `POST /actions/delete` sub-routes (rather than `PUT`/`DELETE`) because the
 bindings HTTP runtime is GET/POST-only.
 
+The `/api/projects` edge route mounts `projectBundleBodyLimit`
+(`kind: "body-limit"`, policy `projectBundle`) because project bundle publish
+streams raw artifact bytes through that route. Platform deploy targets must
+provide `policyValues.bodyLimit.projectBundle.maxBodySize` large enough for the
+expected bundle size; the production bootstrap target currently uses `10m`.
+
 ## Workflows
 
 The platform blueprint declares a project-level `workflows` section
@@ -107,7 +113,7 @@ The platform target file therefore needs to declare both:
       "image": "ghcr.io/operaton/operaton:latest"
     }
   },
-  "eventBus": { "mode": "provisioned" }
+  "eventBus": { "kind": "kafka", "mode": "provisioned", "provider": "redpanda" }
 }
 ```
 
@@ -120,11 +126,21 @@ production deploys ship the runtime image with the blueprint artifacts
 copied into `/srv/artifacts` via the `Dockerfile.template` in
 `packages/runtime/runtime/`.
 
-The platform `tokens` domain service is the first platform service that opts
-into persistent runtime SQLite. Deploy conversion marks only this service as
-persistent today, and Dokploy mounts `/srv/data` so the runtime uses
-`/srv/data/events.sqlite` and `/srv/data/qsm.sqlite` instead of ephemeral
-container-local databases.
+The platform `tokens`, `projects`, and `deployments` domain services opt into
+persistent runtime SQLite. `tokens` has its own volume. `projects` and
+`deployments` share the `rntme-platform-control-data` volume and QSM database
+so runtime-native deployment handlers can read projects, versions, targets,
+operations, and deployments together, while keeping separate event-store files
+for each service.
+
+Runtime-native deploy target creation encrypts Dokploy API tokens and target
+extras with `PLATFORM_SECRET_ENCRYPTION_KEY`, supplied to the `deployments`
+service through a target secret ref. Runtime-native deployment start
+materializes the saved project-version bundle, loads bundled provisioner entry
+files from `assets/provisioners/<safe>.entry.js`, and calls
+`@rntme/deploy-runner` in-process. Runtime deployment log line ids are global
+within `deployment_log_lines` because the QSM projection keys that table by
+`id`, not `(deployment_id, id)`.
 
 ## Identity
 

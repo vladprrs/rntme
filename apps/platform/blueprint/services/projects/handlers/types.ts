@@ -17,6 +17,10 @@ export type PublishProjectBundleHandlerInput = {
   readonly projectId: string;
   /** Raw canonical bundle bytes (gzip-decoded JSON bytes, exactly as the client uploaded them). */
   readonly bodyBytes: Uint8Array;
+  /** Advisory edge-auth subject header forwarded by nginx after auth_request succeeds. */
+  readonly sessionSubject?: string | null;
+  /** Advisory edge-auth status header forwarded by nginx after auth_request succeeds. */
+  readonly sessionStatus?: string | null;
 };
 
 export type PublishProjectBundleHandlerDeps = {

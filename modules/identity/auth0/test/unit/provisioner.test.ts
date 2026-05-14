@@ -154,6 +154,42 @@ describe('provision — optional field defaults', () => {
   });
 });
 
+describe('provision — organizationsCapability require', () => {
+  it('provisions the SPA client with organization_usage=require and a pre-login org prompt', async () => {
+    let spaPostBody: Record<string, unknown> | undefined;
+    const fetcher = mock(async (url: string, init?: RequestInitLike) => {
+      const u = new URL(url);
+      if (u.pathname === '/oauth/token') return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+      if (u.pathname === '/api/v2/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/clients' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        if (body.app_type === 'spa') spaPostBody = body;
+        return new Response(JSON.stringify({ client_id: `cid_${body.app_type}`, ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/resource-servers' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname === '/api/v2/resource-servers' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        return new Response(JSON.stringify({ id: 'rs_1', ...body }), { status: 201 });
+      }
+      if (u.pathname === '/api/v2/connections') return new Response(JSON.stringify([{ id: 'conn_1', name: 'Username-Password-Authentication' }]), { status: 200 });
+      if (u.pathname === '/api/v2/connections/conn_1/clients' && (!init?.method || init.method === 'GET')) return new Response('[]', { status: 200 });
+      if (u.pathname.startsWith('/api/v2/connections/conn_1/clients/') && init?.method === 'POST') return new Response(null, { status: 204 });
+      throw new Error(`unhandled ${u.pathname}`);
+    });
+
+    const out = await provision({
+      ...baseInput,
+      publicConfig: { ...baseInput.publicConfig, organizationsCapability: 'require', m2mClients: [] } as never,
+      fetch: fetcher as unknown as FetchFn,
+    });
+
+    expect(out.ok).toBe(true);
+    expect(spaPostBody).toBeDefined();
+    expect(spaPostBody!.organization_usage).toBe('require');
+    expect(spaPostBody!.organization_require_behavior).toBe('pre_login_prompt');
+  });
+});
+
 describe('provision — reconcile resource server', () => {
   it('PATCH /resource-servers/{id} body excludes immutable identifier and id', async () => {
     let rsPatchBody: Record<string, unknown> | undefined;

@@ -12,7 +12,7 @@ const auth0Mock = {
   isAuthenticated: mock(async () => false),
   handleRedirectCallback: mock(async () => undefined),
   getTokenSilently: mock(async () => 'tok'),
-  getIdTokenClaims: mock(async () => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
+  getIdTokenClaims: mock(async (): Promise<Record<string, unknown>> => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
   loginWithRedirect: mock(async () => undefined),
   logout: mock(async () => undefined),
 };
@@ -121,6 +121,26 @@ describe('boot', () => {
 
     expect(auth0Mock.handleRedirectCallback).toHaveBeenCalledTimes(1);
     expect(replaceState).toHaveBeenCalledWith({}, '', '/no-org');
+  });
+
+  it('redirects to the org route from the id token org_id claim after redirect callback', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    auth0Mock.getIdTokenClaims.mockResolvedValue({
+      sub: 'auth0|abc',
+      email: 'e@x',
+      name: 'Eve',
+      org_id: 'org_uZUWhpWgK54VWC2X',
+    });
+    window.history.replaceState({}, '', '/auth/callback?code=abc&state=xyz');
+    const replaceState = spyOn(window.history, 'replaceState');
+    replaceState.mockClear();
+    const { ctx } = makeCtx();
+    ctx.config = { ...cfg, redirectUri: 'https://app.example.test/auth/callback', postLoginRedirectPath: '/no-org' };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/org_uZUWhpWgK54VWC2X');
   });
 
   it('moves authenticated users away from configured anonymous routes without a fresh callback', async () => {
