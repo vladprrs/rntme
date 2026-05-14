@@ -138,6 +138,12 @@ adapter defaults for that call.
 `rntme.issue-tracker.*`; messages outside the requested pattern are not delivered to
 that consumer.
 
+The event pipeline wires `projection-consumer` with an `onError` callback.
+Apply failures log `projection_consumer_batch_failed` with batch/event metadata
+only (topic, offset, event id/type, aggregate id/type), then the consumer keeps
+draining later batches. The failed batch is not offset-committed by real Kafka
+adapters; the in-memory preview bus has no durable offset store.
+
 `SurfaceContext` hands a mounted surface the running `ValidatedService`, the live `EventStore`, the QSM `DbHandle`, and the `actorFromRequest` resolver. `HttpSurface` composes three sub-apps: the bindings router under `/api`, the UI runtime app at `/`, and `mountObservability` at `/health` + `/metrics`. Service identity metadata is exposed at `/service.json` so the UI shell owns `/` and SPA deep-link fallbacks. When `loadService` finds a `ui-assets.json` in the artifact directory, `HttpSurface` passes it as `assetManifest` to `@rntme/ui-runtime`'s `createApp`, enabling the `/_ui-assets.json` endpoint and module-contributed static asset serving.
 
 Contract suites for all three interfaces live in `src/plugins/contract-tests.ts` (importable only from test code — the file imports `bun:test` and must not be loaded in production processes).

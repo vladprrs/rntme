@@ -79,6 +79,7 @@ export async function startService(
 
   const pipeline = wireEventPipeline(service, db, bus, {
     topicPrefix: eventBusTopicPrefix,
+    ...(runtimeConfig.logger ? { logger: runtimeConfig.logger } : {}),
   });
 
   if (service.seed !== null && !runtimeConfig.skipSeed) {

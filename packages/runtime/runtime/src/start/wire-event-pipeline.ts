@@ -10,7 +10,9 @@ import {
   bootstrapProjections,
   createProjectionConsumer,
   type ProjectionConsumer,
+  type KafkaBatch,
 } from '@rntme/projection-consumer';
+import type { Logger } from 'pino';
 import type { DbHandle, DbDriver, EventBus } from '../plugins/interfaces.js';
 import type { ValidatedService } from '../types.js';
 
@@ -25,6 +27,7 @@ export type EventPipeline = {
 
 export type EventPipelineOptions = {
   topicPrefix?: string | null;
+  logger?: Pick<Logger, 'error'>;
 };
 
 export function wireEventPipeline(
@@ -69,6 +72,7 @@ export function wireEventPipeline(
     }),
     plan: service.projectionApplyPlan,
     db: qsmDb,
+    onError: (err, batch) => logProjectionConsumerError(options.logger, err, batch),
   });
 
   return {
@@ -87,4 +91,34 @@ export function wireEventPipeline(
       qsmDb.close();
     },
   };
+}
+
+function logProjectionConsumerError(
+  logger: Pick<Logger, 'error'> | undefined,
+  err: unknown,
+  batch: KafkaBatch,
+): void {
+  const eventMetadata = batch.messages.map((message) => ({
+    topic: message.topic,
+    partition: message.partition,
+    offset: message.offset,
+    eventId: message.envelope.id,
+    eventType: message.envelope.eventType,
+    aggregateType: message.envelope.rntAggregateType,
+    aggregateId: message.envelope.rntAggregateId,
+  }));
+  const details = {
+    msg: 'projection_consumer_batch_failed',
+    err,
+    batchSize: batch.messages.length,
+    events: eventMetadata,
+  };
+
+  if (logger !== undefined) {
+    logger.error(details, 'projection consumer batch failed');
+    return;
+  }
+
+  // eslint-disable-next-line no-console
+  console.error('[projection-consumer] batch failed', details);
 }
