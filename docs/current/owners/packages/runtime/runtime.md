@@ -123,6 +123,10 @@ Re-exported types: `ValidatedService`, `RunningService`, `ServiceError`, `GraphS
 
 Domain-service executable command-handler files are no longer a runtime extension point. A project blueprint with `services/<domain>/commands/handlers.mjs` is rejected by `@rntme/blueprint`; runtime artifacts execute domain behavior through Graph IR `emit`, `call`, `branch`, and `result` nodes.
 
+Graph IR `call` node policies are honored when the runtime calls integration
+modules: `timeoutMs` becomes the gRPC deadline and retry settings override the
+adapter defaults for that call.
+
 | Interface | Default impl | Key methods |
 |---|---|---|
 | `DbDriver` | `BunSqliteDriver` | `open(opts: { purpose: 'event-store' \| 'qsm'; path: string \| ':memory:' }): DbHandle` |

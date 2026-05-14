@@ -18,11 +18,10 @@ import type {
   EventBus,
   ExternalAdapterClient,
 } from '../plugins/interfaces.js';
-import { DEFAULT_RETRY, DEFAULT_TIMEOUT_MS } from '../plugins/interfaces.js';
 import { GraphOperationExecutor } from '../plugins/executors/graph-operation-executor.js';
 import { NativeOperationExecutor } from '../plugins/executors/native-operation-executor.js';
 import { buildDefaultGraphIrOperationMap } from '@rntme/bindings-http';
-import type { OperationCallClient, OperationRegistry, OperationTarget } from '@rntme/graph-ir-compiler';
+import type { OperationRegistry, OperationTarget } from '@rntme/graph-ir-compiler';
 import type { RunningService, ValidatedService } from '../types.js';
 import { applySeed } from '@rntme/seed';
 import { defaultTopicOf } from '@rntme/event-store';
@@ -43,6 +42,7 @@ import {
   type RuntimeConfig,
 } from './runtime-config.js';
 import { runtimeModuleOperationEffect } from './runtime-module-operations.js';
+import { toOperationCallClient } from './operation-call-client.js';
 
 export type { RuntimeConfig } from './runtime-config.js';
 
@@ -316,39 +316,6 @@ function buildManifestOperationRegistry(manifest: ValidatedService['manifest']):
         idempotency: effect === 'action' ? 'optional' : 'none',
         inputShape: `${target.operation}Request`,
         outputShape: `${target.operation}Response`,
-      };
-    },
-  };
-}
-
-function toOperationCallClient(client: ExternalAdapterClient): OperationCallClient {
-  return {
-    async call(input) {
-      const target = input.target.target;
-      if (!('module' in target)) {
-        return {
-          ok: false,
-          error: {
-            code: 'EXTERNAL_SERVICE_CALL_UNSUPPORTED',
-            message: 'service-to-service call targets are not supported by the runtime adapter client',
-          },
-        };
-      }
-      const result = await client.call(target.module, target.operation, input.payload, {
-        idempotencyKey: input.idempotencyKey ?? '',
-        timeoutMs: DEFAULT_TIMEOUT_MS,
-        retry: DEFAULT_RETRY,
-        correlationId: input.correlationId,
-      });
-      if (result.ok) return { ok: true, value: result.value };
-      const first = result.errors[0];
-      return {
-        ok: false,
-        error: {
-          code: first?.code ?? 'EXTERNAL_MODULE_INTERNAL',
-          message: first?.message ?? 'external module call failed',
-          detail: first?.detail,
-        },
       };
     },
   };

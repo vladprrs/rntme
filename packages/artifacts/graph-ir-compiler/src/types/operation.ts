@@ -3,6 +3,7 @@ import type { ActorRef, EventStore } from '@rntme/event-store';
 import type { ValidatedPdm } from '@rntme/pdm';
 import type { ValidatedQsm } from '@rntme/qsm';
 import type { CanonicalGraph } from './canonical.js';
+import type { CallPolicy } from './authoring.js';
 import type { EmitPlan } from './command.js';
 import type { EffectSummary } from './effects.js';
 
@@ -38,6 +39,7 @@ export interface OperationCallClient {
     payload: Record<string, unknown>;
     idempotencyKey: string | null;
     correlationId: string;
+    policy: CallPolicy;
   }): Promise<
     | { ok: true; value: unknown }
     | { ok: false; error: { code: string; message: string; detail?: unknown } }

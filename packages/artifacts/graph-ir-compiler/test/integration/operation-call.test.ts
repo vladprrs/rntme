@@ -115,6 +115,9 @@ describe('operation call nodes', () => {
     );
 
     expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      policy: { timeoutMs: 500, onError: 'fail' },
+    });
     expect(out.value).toEqual({ approved: true });
   });
 

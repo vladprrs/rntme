@@ -117,6 +117,7 @@ export async function executeOperation(
         payload,
         idempotencyKey: registryEntry.effect === 'action' ? ctx.idempotencyKey : null,
         correlationId: ctx.correlation.correlationId,
+        policy: node.policy,
       });
       if (!callResult.ok) {
         throw runtimeError(

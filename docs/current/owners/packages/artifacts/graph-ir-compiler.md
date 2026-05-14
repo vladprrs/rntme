@@ -177,6 +177,10 @@ The operation path uses `call` nodes plus `$ref` expressions, for example `{ "$r
 
 Call-node `input` values may be nested composite JSON templates. Use `$param`, `$ref`, `$node`, and operators at any depth inside objects or arrays; wrap literal strings in `$literal` so they are not interpreted as field/output paths. `$literal` itself remains an escape hatch for raw values and is not recursively evaluated.
 
+`executeOperation` passes the canonical call node `policy` to
+`OperationCallClient.call`, so runtimes must honor graph-authored timeout and
+retry settings at the external module/service boundary.
+
 ## API
 
 ### Top-level functions
