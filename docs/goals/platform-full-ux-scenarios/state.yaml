@@ -1327,7 +1327,8 @@ tasks:
       - "T006 receipt — local verification green, commit 0171dcbb made, CLI dist freshly rebuilt with the new blueprint; only blocker is the missing PLATFORM_SECRET_ENCRYPTION_KEY env var."
       - "platform.target.json secrets.extras.platform-secret-encryption-key (source: env PLATFORM_SECRET_ENCRYPTION_KEY)"
     blocked_on: "Operator must supply PLATFORM_SECRET_ENCRYPTION_KEY in the environment (or run the deploy themselves where it is available)."
-    allowed_files: []
+    allowed_files:
+      - ".rntme-platform-redeploy-2026-05-14-platform-ux.jsonl"
     verify:
       - "set -a; source .env; set +a (+ PLATFORM_SECRET_ENCRYPTION_KEY) then: bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-redeploy-2026-05-14-platform-ux.jsonl"
       - "Confirm the redeploy log terminal:ok and the verify stage smoke checks pass."
