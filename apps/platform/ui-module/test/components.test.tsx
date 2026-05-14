@@ -8,6 +8,7 @@ import {
   PlatformDataTable,
   PlatformPageHeader,
   PlatformPanel,
+  PlatformServicesPanel,
   PlatformSidebar,
   PlatformTokenIssuer,
 } from '../src/client.js';
@@ -86,13 +87,116 @@ describe('@rntme/platform-ui components', () => {
     expect(html).toContain('Projects');
   });
 
+  function renderWithStore(element: React.ReactElement, store: ReturnType<typeof createTestStore>): string {
+    return renderToStaticMarkup(
+      React.createElement(StoreProvider, { value: store as never }, element),
+    );
+  }
+
   it('renders the product data table marker', () => {
-    const html = renderToStaticMarkup(
+    const store = createTestStore({});
+    const html = renderWithStore(
       React.createElement(PlatformDataTable, { statePath: '/data/projects' }),
+      store,
     );
 
     expect(html).toContain('data-rntme-component="DataTable"');
     expect(html).toContain('/data/projects');
+  });
+
+  it('renders data table rows from an envelope-wrapped statePath', () => {
+    const store = createTestStore({
+      data: {
+        projects: {
+          status: 'ok',
+          projects: [
+            { id: 'p1', slug: 'cv-extract', displayName: 'CV Extract', status: 'active' },
+          ],
+        },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformDataTable, {
+        statePath: '/data/projects',
+        columns: [
+          { key: 'slug', label: 'Slug' },
+          { key: 'displayName', label: 'Name' },
+          { key: 'status', label: 'Status' },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('<td>cv-extract</td>');
+    expect(html).toContain('<td>CV Extract</td>');
+    expect(html).toContain('<td>active</td>');
+  });
+
+  it('renders data table rows from a bare-array statePath', () => {
+    const store = createTestStore({
+      data: { versions: [{ sequence: 1, status: 'published' }] },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformDataTable, {
+        statePath: '/data/versions',
+        columns: [
+          { key: 'sequence', label: '#' },
+          { key: 'status', label: 'Status' },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('<td>1</td>');
+    expect(html).toContain('<td>published</td>');
+  });
+
+  it('renders a data table with no rows when state is missing without throwing', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformDataTable, {
+        statePath: '/data/projects',
+        columns: [{ key: 'slug', label: 'Slug' }],
+      }),
+      store,
+    );
+
+    expect(html).toContain('data-rntme-component="DataTable"');
+    expect(html).not.toContain('<td>cv-extract</td>');
+  });
+
+  it('renders services panel cards from a statePath', () => {
+    const store = createTestStore({
+      data: {
+        services: [
+          { name: 'svc-app', status: 'Ready', description: 'Domain service.' },
+          { name: 'mod-openrouter', status: 'Ready' },
+        ],
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformServicesPanel, {
+        title: 'Services',
+        statePath: '/data/services',
+      }),
+      store,
+    );
+
+    expect(html).toContain('svc-app');
+    expect(html).toContain('mod-openrouter');
+  });
+
+  it('renders services panel from literal props.services when no statePath is given', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformServicesPanel, {
+        title: 'Services',
+        services: [{ name: 'projects', status: 'Ready' }],
+      }),
+      store,
+    );
+
+    expect(html).toContain('projects');
   });
 
   it('mints a browser-session PAT and displays plaintext only locally', async () => {

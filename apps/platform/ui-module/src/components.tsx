@@ -16,6 +16,66 @@ const STATUS_GLYPH: Record<StatusVariant, string> = {
    Internal helpers
    ========================================================= */
 
+/**
+ * Normalises a fetched data-endpoint body to an array of rows.
+ *
+ * The UI runtime stores the raw response body at a screen's `statePath`. Live
+ * platform list endpoints are not consistent: some return a bare array
+ * (`/api/projects/{id}/versions`), others wrap the rows in a status envelope
+ * (`/api/projects` -> `{ status, projects }`, `/api/deployments` ->
+ * `{ status, deployments }`, `/api/deployments/targets` -> `{ status, targets }`,
+ * `/api/tokens` -> `{ tokens }`, `/api/audit` -> `{ events }`). This unwraps the
+ * common shapes so `statePath`-driven components render regardless.
+ */
+function rowsFromState(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value as Array<Record<string, unknown>>;
+  if (value !== null && typeof value === 'object') {
+    const envelope = value as Record<string, unknown>;
+    for (const key of [
+      'projects',
+      'deployments',
+      'targets',
+      'deployTargets',
+      'tokens',
+      'events',
+      'versions',
+      'logs',
+      'items',
+      'rows',
+    ]) {
+      const candidate = envelope[key];
+      if (Array.isArray(candidate)) return candidate as Array<Record<string, unknown>>;
+    }
+  }
+  return [];
+}
+
+/** Coerces a fetched state row into the `ServiceInput` shape the panel renders. */
+function toServiceInput(row: Record<string, unknown>): ServiceInput {
+  const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+  return {
+    name: str(row.name) ?? '',
+    status: str(row.status),
+    description: str(row.description),
+    entities: num(row.entities),
+    schemas: num(row.schemas),
+    graphs: num(row.graphs),
+    endpoints: num(row.endpoints),
+    uiComponents: num(row.uiComponents),
+    lastDeployedAt: str(row.lastDeployedAt),
+  };
+}
+
+/** Renders a single data-table cell value as text. */
+function formatCellValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
 function StatusBadge(props: { variant?: string; label?: string; size?: string }) {
   const variant = (props.variant ?? 'queued') as StatusVariant;
   const isLg = props.size === 'lg';
@@ -112,8 +172,56 @@ type TimelineStep = {
    Exported platform components
    ========================================================= */
 
-export function PlatformDataTable(props: { statePath?: string; columns?: ReadonlyArray<{ key: string; label: string }> }) {
-  return React.createElement('div', { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' });
+export function PlatformDataTable(props: {
+  statePath?: string;
+  columns?: ReadonlyArray<{ key: string; label: string }>;
+}) {
+  const store = useStateStore();
+  const columns = props.columns ?? [];
+  const rows = props.statePath ? rowsFromState(store.get(props.statePath)) : [];
+
+  return React.createElement(
+    'div',
+    { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' },
+    React.createElement(
+      'table',
+      { className: 'rntme-data-table' },
+      React.createElement(
+        'thead',
+        null,
+        React.createElement(
+          'tr',
+          null,
+          ...columns.map((column) =>
+            React.createElement('th', { key: column.key }, column.label),
+          ),
+        ),
+      ),
+      React.createElement(
+        'tbody',
+        null,
+        rows.length === 0
+          ? React.createElement(
+              'tr',
+              { className: 'rntme-data-table-empty' },
+              React.createElement(
+                'td',
+                { colSpan: columns.length > 0 ? columns.length : 1 },
+                'No records',
+              ),
+            )
+          : rows.map((row, rowIndex) =>
+              React.createElement(
+                'tr',
+                { key: typeof row.id === 'string' ? row.id : rowIndex },
+                ...columns.map((column) =>
+                  React.createElement('td', { key: column.key }, formatCellValue(row[column.key])),
+                ),
+              ),
+            ),
+      ),
+    ),
+  );
 }
 
 export function PlatformTokenIssuer(props: {
@@ -359,7 +467,12 @@ export function PlatformServicesPanel(props: {
   statePath?: string;
   services?: ReadonlyArray<ServiceInput>;
 }) {
-  const services = props.services ?? [];
+  const store = useStateStore();
+  // When a `statePath` is wired, the panel is state-driven (even if empty);
+  // otherwise it falls back to the literal `services` prop.
+  const services: ReadonlyArray<ServiceInput> = props.statePath
+    ? rowsFromState(store.get(props.statePath)).map(toServiceInput)
+    : props.services ?? [];
   return React.createElement(
     'section',
     { className: 'rntme-panel' },
