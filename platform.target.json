@@ -24,7 +24,7 @@
       "image": "operaton/operaton:2.1.0"
     },
     "worker": {
-      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:runtime-e2e-platform-deployrunner-rustfs-5f47d886"
+      "image": "ghcr.io/vladprrs/rntme-bpmn-worker:org-auth-15c9d005"
     }
   },
   "auth": {
@@ -36,7 +36,7 @@
   },
   "modules": {
     "identity-auth0": {
-      "image": "ghcr.io/vladprrs/rntme-identity-auth0:identity-auth0-e2e-2e001d60-044928",
+      "image": "ghcr.io/vladprrs/rntme-identity-auth0:org-auth-15c9d005",
       "env": {
         "AUTH0_DOMAIN": "demo-rntme.us.auth0.com"
       }
@@ -59,6 +59,6 @@
       }
     }
   },
-  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:runtime-e2e-platform-deployrunner-rustfs-5f47d886",
+  "runtimeImage": "ghcr.io/vladprrs/rntme-runtime:org-auth-15c9d005",
   "publicBaseUrl": "https://platform.rntme.com"
 }
