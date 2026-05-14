@@ -581,6 +581,40 @@ describe('listProjectServicesHandler', () => {
     return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   }
 
+  /** A bundle with per-service artifacts so counts can be asserted. */
+  function makeServicesArtifactBundleBytes(): Uint8Array {
+    const bundle = {
+      version: 2,
+      files: {
+        'project.json': {
+          name: 'cv-extract',
+          services: ['app', 'projects'],
+          routes: { ui: { '/': 'app' }, http: {} },
+          middleware: {},
+          mounts: [],
+        },
+        // Project-level entities — must NOT be attributed to any service.
+        'pdm/entities/Project.json': { name: 'Project' },
+        'pdm/entities/ProjectVersion.json': { name: 'ProjectVersion' },
+        // projects service: 1 shapes, 2 graphs, 3 endpoints, 0 ui.
+        'services/projects/service.json': { kind: 'domain' },
+        'services/projects/graphs/shapes.json': { shapes: {} },
+        'services/projects/graphs/listProjects.json': { id: 'listProjects' },
+        'services/projects/graphs/createProject.json': { id: 'createProject' },
+        'services/projects/bindings/bindings.json': {
+          bindings: { listProjects: {}, createProject: {}, listProjectVersions: {} },
+        },
+        // app service: 1 shapes, 0 graphs, 0 endpoints, 2 ui specs.
+        'services/app/service.json': { kind: 'domain' },
+        'services/app/graphs/shapes.json': { shapes: {} },
+        'services/app/ui/screens/project.spec.json': { root: 'page', elements: {} },
+        'services/app/ui/layouts/main.spec.json': { root: 'shell', elements: {} },
+      },
+    };
+    const bytes = Buffer.from(canonicalize(bundle), 'utf8');
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+
   it('parses the latest published bundle into deployed service rows', async () => {
     const db = createProjectsDb();
     try {
@@ -612,11 +646,66 @@ describe('listProjectServicesHandler', () => {
 
       expect(out.status).toBe('ok');
       if (out.status !== 'ok') return;
+      // A bundle with no per-service artifact files yields all-zero counts.
       expect(out.services).toEqual([
-        { name: 'app', status: 'Ready' },
-        { name: 'organizations', status: 'Ready' },
-        { name: 'projects', status: 'Ready' },
+        { name: 'app', status: 'Ready', schemas: 0, graphs: 0, endpoints: 0, uiComponents: 0, entities: 0 },
+        { name: 'organizations', status: 'Ready', schemas: 0, graphs: 0, endpoints: 0, uiComponents: 0, entities: 0 },
+        { name: 'projects', status: 'Ready', schemas: 0, graphs: 0, endpoints: 0, uiComponents: 0, entities: 0 },
       ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('counts per-service artifacts scoped by the services/<service>/ path prefix', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      const published = await publishProjectBundleHandler(
+        {
+          authorization: 'Bearer redacted',
+          projectId: 'cv-extract',
+          bodyBytes: makeServicesArtifactBundleBytes(),
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        } as never,
+        {
+          qsmDb: db,
+          nextId: (() => {
+            let i = 0;
+            return () => `id-${++i}`;
+          })(),
+          now: () => '2026-05-14T00:00:00.000Z',
+          correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+        } as never,
+      );
+      expect(published.status).toBe('created');
+
+      const out = listProjectServicesHandler(
+        { projectId: 'cv-extract', sessionSubject: 'acct-runtime-1', sessionStatus: 'ACTIVE' },
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.services).toEqual([
+        { name: 'app', status: 'Ready', schemas: 1, graphs: 0, endpoints: 0, uiComponents: 2, entities: 0 },
+        {
+          name: 'projects',
+          status: 'Ready',
+          schemas: 1,
+          graphs: 2,
+          endpoints: 3,
+          uiComponents: 0,
+          entities: 0,
+        },
+      ]);
+      // Project-level pdm/entities/* files are never attributed to a service.
+      for (const row of out.services) {
+        expect(row.entities).toBe(0);
+        expect(row).not.toHaveProperty('description');
+        expect(row).not.toHaveProperty('lastDeployedAt');
+      }
     } finally {
       db.close();
     }
@@ -652,7 +741,9 @@ describe('listProjectServicesHandler', () => {
       );
       expect(out.status).toBe('ok');
       if (out.status !== 'ok') return;
-      expect(out.services).toEqual([{ name: 'app', status: 'Ready' }]);
+      expect(out.services).toEqual([
+        { name: 'app', status: 'Ready', schemas: 0, graphs: 0, endpoints: 0, uiComponents: 0, entities: 0 },
+      ]);
     } finally {
       db.close();
     }

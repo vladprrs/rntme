@@ -60,7 +60,7 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 | `GET /api/tokens/introspect` | `IntrospectToken` | `services/tokens/handlers/introspect-token.ts` (`introspectTokenHandler`) — runtime-native PAT introspection entrypoint; missing or invalid bearer values throw typed `PLATFORM_AUTH_*` errors |
 | `GET /api/projects` | `listProjects` | `services/projects/handlers/list-org-projects.ts` (`listOrgProjectsHandler`) — supports the runtime-native edge-authenticated call shape for dashboard and CLI proof paths |
 | `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
-| `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows |
+| `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows with per-service artifact counts (see the `ProjectServiceRow` contract below) |
 | `GET /api/projects/{projectId}/artifact-summary` | `getProjectArtifactSummary` | `services/projects/handlers/get-project-artifact-summary.ts` (`getProjectArtifactSummaryHandler`) — per-project artifact counts (services/entities/schemas/graphs/endpoints/uiComponents + versions) derived from the bundle blob |
 | `GET /api/projects/{projectId}/artifacts` | `getProjectArtifact` | `services/projects/handlers/get-project-artifact.ts` (`getProjectArtifactHandler`) — returns a single named artifact body (or a prefix listing) from the bundle blob; takes an `artifactPath` query param |
 | `GET /api/projects/{projectId}/endpoints` | `listProjectEndpoints` | `services/projects/handlers/list-project-endpoints.ts` (`listProjectEndpointsHandler`) — flattens every per-service `bindings.json` into `{service,operation,method,path}` endpoint rows |
@@ -83,6 +83,40 @@ The `/api/projects` edge route mounts `projectBundleBodyLimit`
 streams raw artifact bytes through that route. Platform deploy targets must
 provide `policyValues.bodyLimit.projectBundle.maxBodySize` large enough for the
 expected bundle size; the production bootstrap target currently uses `10m`.
+
+### `ProjectServiceRow` contract (`listProjectServices`)
+
+Each row `listProjectServices` returns carries, per service named in the
+bundle's `project.json.services` array:
+
+- `name` — service slug.
+- `status` — always `"Ready"`; the published bundle has no per-service status
+  field yet.
+- `schemas` / `graphs` / `endpoints` / `uiComponents` — per-service artifact
+  counts. These fold the bundle's file tree scoped to the
+  `services/<service>/` path prefix, reusing the exact per-file classification
+  `getProjectArtifactSummary` applies project-wide (the shared
+  `artifactCountsForFile` helper in `get-project-artifact-summary.ts`), so
+  per-service counts and the project summary stay consistent.
+- `entities` — **always `0`**. PDM entities are project-level: the bundle
+  layout stores them under `pdm/entities/*.json` and has no
+  `services/<service>/pdm/` split, so entity counts cannot be attributed to an
+  individual service. Per-service entity counts are not derivable from the
+  bundle and are intentionally not invented; the project-wide entity count
+  stays in `getProjectArtifactSummary`.
+- `description` — **omitted**. The only per-service manifest in the bundle is
+  `services/<service>/service.json`, which carries `{ "kind": "domain" }` and
+  no description field. Surfacing a description would require a publish-time
+  schema change in `packages/**` (out of scope), so it is omitted.
+- `lastDeployedAt` — **omitted**. The projects handler reads only the published
+  bundle blob through `qsmDb`; no per-service deployment timestamp is reachable
+  without a cross-table JOIN to the deployments service's state, which the
+  single-table `ctx.qsmDb.prepare` handler pattern does not support. It is
+  omitted rather than faked.
+
+The `PlatformServicesPanel` / `ServiceCard` UI components already render every
+field above (counts as artifact chips, `description` and `lastDeployedAt`
+conditionally); omitted fields simply do not render.
 
 ## Workflows
 

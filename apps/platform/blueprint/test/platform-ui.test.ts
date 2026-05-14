@@ -118,6 +118,12 @@ describe('platform UI artifact', () => {
     expect(result.value.catalogManifest?.components.map((c) => c.type)).toEqual(
       expect.arrayContaining(['PlatformPageHeader', 'PlatformDataTable', 'PlatformSidebar']),
     );
+    // PlatformTimeline is driven by `/data/deploy-status`; the catalog must
+    // declare the `statePath` prop so the screen spec binding resolves.
+    const timelineComponent = result.value.catalogManifest?.components.find(
+      (c) => c.type === 'PlatformTimeline',
+    );
+    expect(timelineComponent?.props).toMatchObject({ statePath: { type: 'string' } });
     expect(result.value.uiAssetManifest?.stylesheets[0]).toMatchObject({
       id: 'platform-ui',
       moduleKey: 'platformUi',

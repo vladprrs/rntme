@@ -12,7 +12,7 @@
       { "type": "PlatformTopbar", "props": { "crumbs": { "type": "array" }, "actions": { "type": "array" } } },
       { "type": "PlatformSummaryGrid", "props": { "items": { "type": "array" }, "statePath": { "type": "string" } } },
       { "type": "PlatformServicesPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "statePath": { "type": "string" }, "services": { "type": "array" } } },
-      { "type": "PlatformTimeline", "props": { "steps": { "type": "array" }, "currentStep": { "type": "number" }, "errored": { "type": "boolean" } } },
+      { "type": "PlatformTimeline", "props": { "steps": { "type": "array" }, "currentStep": { "type": "number" }, "errored": { "type": "boolean" }, "statePath": { "type": "string" } } },
       { "type": "PlatformAlertList", "props": { "variant": { "type": "string" }, "items": { "type": "array" } } },
       { "type": "PlatformBanner", "props": { "variant": { "type": "string" }, "title": { "type": "string" }, "message": { "type": "string" }, "artifact": { "type": "string" }, "jsonPath": { "type": "string" }, "suggestedAction": { "type": "string" } } },
       { "type": "PlatformEmptyState", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "body": { "type": "string" }, "command": { "type": "string" }, "docsLabel": { "type": "string" }, "docsHref": { "type": "string" } } },

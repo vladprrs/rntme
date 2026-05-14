@@ -71,8 +71,46 @@ export type ProjectServiceRow = {
    * yet, so this defaults to "Ready" for every service in a published bundle.
    */
   readonly status: string;
-  /** Optional human description; omitted when the bundle carries none. */
+  /**
+   * Optional human description. The bundle's `services/<service>/service.json`
+   * carries no description field, so this is currently always omitted — see
+   * the owner doc for the source-or-omitted decision.
+   */
   readonly description?: string;
+  /**
+   * Count of per-service `shapes.json` artifact files under
+   * `services/<service>/`.
+   */
+  readonly schemas: number;
+  /**
+   * Count of per-service graph files under `services/<service>/graphs/`,
+   * excluding `shapes.json`.
+   */
+  readonly graphs: number;
+  /**
+   * Total HTTP endpoint bindings declared across this service's
+   * `bindings.json` files.
+   */
+  readonly endpoints: number;
+  /**
+   * Count of UI component spec files (`*.spec.json`) under
+   * `services/<service>/`.
+   */
+  readonly uiComponents: number;
+  /**
+   * Count of PDM entity files attributable to this service. PDM entities live
+   * project-level under `pdm/entities/` with no `services/<service>/pdm/`
+   * split in the bundle layout, so this is always 0 — entity counts are a
+   * project-level summary concern, not per-service. See the owner doc.
+   */
+  readonly entities: number;
+  /**
+   * Last deployment timestamp for this service. Always omitted: the projects
+   * handler reads only the published bundle blob via `qsmDb`, and no
+   * per-service deployment timestamp is reachable without a cross-table JOIN
+   * the handler pattern does not support. See the owner doc.
+   */
+  readonly lastDeployedAt?: string;
 };
 
 export type ListProjectServicesHandlerInput = {

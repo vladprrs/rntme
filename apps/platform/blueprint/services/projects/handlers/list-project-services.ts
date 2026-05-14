@@ -4,6 +4,7 @@ import {
   parseCanonicalBundle,
   type PlatformError,
 } from '@rntme/platform-core';
+import { artifactCountsForFile } from './get-project-artifact-summary.js';
 import type {
   ListProjectServicesHandlerInput,
   ListProjectServicesHandlerOutput,
@@ -41,11 +42,21 @@ type ProjectVersionBundleRow = {
  * bytes persisted in `project_version_bundles`, parses them, and returns the
  * deployed services declared in the bundle's `project.json`.
  *
- * The published bundle's `project.json.services` is a string array, so each
- * service row carries only `{ name, status: "Ready" }`. Per-service artifact
- * counts and descriptions are intentionally absent here — they belong to a
- * later slice. When the project has no published version yet, this returns an
- * empty list rather than an error.
+ * The published bundle's `project.json.services` is a string array. Each
+ * service row carries `{ name, status: "Ready" }` plus per-service artifact
+ * counts (`schemas`, `graphs`, `endpoints`, `uiComponents`) derived by folding
+ * the bundle's file tree scoped to that service's `services/<service>/` path
+ * prefix — the same per-file classification `getProjectArtifactSummary` uses.
+ *
+ * `entities` is always 0 per service: PDM entities live project-level under
+ * `pdm/entities/` and the bundle layout has no `services/<service>/pdm/`
+ * split, so they cannot be attributed to an individual service. `description`
+ * and `lastDeployedAt` are omitted — the bundle's `service.json` carries no
+ * description, and no per-service deployment timestamp is reachable through
+ * the projects handler's `qsmDb` read pattern. See the owner doc.
+ *
+ * When the project has no published version yet, this returns an empty list
+ * rather than an error.
  */
 export function listProjectServicesHandler(
   input: ListProjectServicesHandlerInput,
@@ -94,7 +105,8 @@ export function listProjectServicesHandler(
     return { status: 'error', errors: parsed.errors };
   }
 
-  const projectFile = parsed.value.bundle.files['project.json'];
+  const files = parsed.value.bundle.files;
+  const projectFile = files['project.json'];
   if (!isRecord(projectFile)) {
     return error(
       'PROJECT_VERSION_BUNDLE_INVALID_SHAPE',
@@ -109,11 +121,38 @@ export function listProjectServicesHandler(
     );
   }
 
-  const services: ProjectServiceRow[] = Array.isArray(rawServices)
-    ? rawServices
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-        .map((name) => ({ name, status: 'Ready' }))
+  const serviceNames: string[] = Array.isArray(rawServices)
+    ? rawServices.filter(
+        (value): value is string => typeof value === 'string' && value.length > 0,
+      )
     : [];
+
+  const services: ProjectServiceRow[] = serviceNames.map((name) => {
+    const prefix = `services/${name}/`;
+    let schemas = 0;
+    let graphs = 0;
+    let endpoints = 0;
+    let uiComponents = 0;
+    for (const [path, content] of Object.entries(files)) {
+      if (!path.startsWith(prefix)) continue;
+      const counts = artifactCountsForFile(path, content);
+      schemas += counts.schemas;
+      graphs += counts.graphs;
+      endpoints += counts.endpoints;
+      uiComponents += counts.uiComponents;
+    }
+    return {
+      name,
+      status: 'Ready',
+      schemas,
+      graphs,
+      endpoints,
+      uiComponents,
+      // PDM entities are project-level (`pdm/entities/`); no per-service split
+      // exists in the bundle layout, so per-service entity counts are 0.
+      entities: 0,
+    };
+  });
 
   return { status: 'ok', services };
 }

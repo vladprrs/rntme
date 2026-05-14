@@ -310,6 +310,40 @@ describe('@rntme/platform-ui components', () => {
     expect(html).toContain('mod-openrouter');
   });
 
+  it('renders per-service artifact counts on each service card', () => {
+    const store = createTestStore({
+      data: {
+        services: [
+          {
+            name: 'projects',
+            status: 'Ready',
+            schemas: 1,
+            graphs: 2,
+            endpoints: 3,
+            uiComponents: 0,
+            entities: 0,
+          },
+        ],
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformServicesPanel, {
+        title: 'Services',
+        statePath: '/data/services',
+      }),
+      store,
+    );
+
+    expect(html).toContain('projects');
+    expect(html).toContain('rntme-artifact-chip');
+    // schemas / graphs / endpoints / entities counts surface as chips.
+    expect(html).toContain('schemas');
+    expect(html).toContain('graphs');
+    expect(html).toContain('endpoints');
+    expect(html).toContain('>2<');
+    expect(html).toContain('>3<');
+  });
+
   it('renders services panel from literal props.services when no statePath is given', () => {
     const store = createTestStore({});
     const html = renderWithStore(
