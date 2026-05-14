@@ -1,5 +1,6 @@
 import { runtimeError } from '../types/errors.js';
 import type { Expr } from '../types/authoring.js';
+import { readOutputPath } from './path.js';
 
 export type NodeOutputs = Record<string, unknown>;
 
@@ -17,10 +18,10 @@ export function evalOperationExpr(
   outputs: NodeOutputs,
 ): unknown {
   if (expr === null || typeof expr === 'number' || typeof expr === 'boolean') return expr;
-  if (typeof expr === 'string') return readPath(outputs, expr);
+  if (typeof expr === 'string') return readOutputPath(outputs, expr);
   if ('$literal' in expr) return expr.$literal;
   if ('$param' in expr) return params[expr.$param] ?? null;
-  if ('$ref' in expr) return readPath(outputs, expr.$ref);
+  if ('$ref' in expr) return readOutputPath(outputs, expr.$ref);
   if ('$node' in expr) return outputs[expr.$node] ?? null;
 
   const eval2 = (e: Expr): unknown => evalOperationExpr(e, params, outputs);
@@ -105,14 +106,4 @@ function evalTemplateValue(
 
 function isExprObject(value: Record<string, unknown>): boolean {
   return Object.keys(value).some((key) => key.startsWith('$') || OPERATORS.has(key));
-}
-
-function readPath(root: NodeOutputs, path: string): unknown {
-  let cur: unknown = root;
-  for (const part of path.split('.')) {
-    if (cur === null || cur === undefined) return null;
-    if (typeof cur !== 'object' || Array.isArray(cur)) return null;
-    cur = (cur as Record<string, unknown>)[part];
-  }
-  return cur ?? null;
 }

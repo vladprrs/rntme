@@ -1,6 +1,7 @@
 import type { Expr } from '../types/authoring.js';
 import type { EmitPlan } from '../types/command.js';
 import { runtimeError } from '../types/errors.js';
+import { readOutputPath } from '../operation/path.js';
 
 export function evalExprAtRuntime(
   expr: Expr,
@@ -17,6 +18,7 @@ export function evalExprAtRuntime(
       return v === undefined ? null : v;
     }
     if ('$literal' in expr) return (expr as { $literal: string }).$literal;
+    if ('$ref' in expr) return readOutputPath(nodeOutputs ?? {}, (expr as { $ref: string }).$ref);
     if ('$node' in expr) {
       const nodeId = (expr as { $node: string }).$node;
       const value = nodeOutputs?.[nodeId];

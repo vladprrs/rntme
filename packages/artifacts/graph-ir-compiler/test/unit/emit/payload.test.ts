@@ -11,6 +11,15 @@ describe('evalExprAtRuntime', () => {
     expect(evalExprAtRuntime({ $literal: 'open' }, {})).toBe('open');
     expect(evalExprAtRuntime(null, {})).toBe(null);
   });
+  it('resolves $ref from node outputs', () => {
+    expect(
+      evalExprAtRuntime(
+        { $ref: 'download.result.presigned.url' },
+        {},
+        { download: { result: { presigned: { url: 'https://files.example/download.pdf' } } } },
+      ),
+    ).toBe('https://files.example/download.pdf');
+  });
   it('throws on unsupported expr shapes', () => {
     expect(() => evalExprAtRuntime({ eq: ['a', 1] } as never, {})).toThrow();
   });

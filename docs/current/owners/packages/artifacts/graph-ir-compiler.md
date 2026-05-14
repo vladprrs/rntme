@@ -79,7 +79,7 @@ src/
   emit/
     plan.ts                                 (internal) buildEmitPlans(graph, pdm) — for each emit node, joins canonical config with PDM's derived event-type table to produce EmitPlan[].
     event-type.ts                           (entry — deriveEventTypeName) deriveEventTypeName(aggregate, transition) = default PascalCase(aggregate)+PascalCase(transition); lookupEventTypeSpec(pdm, agg, t) honors PDM eventType overrides.
-    payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly for local emits; field paths are rejected at runtime.
+    payload.ts                              (internal) derivePayload / evalExprAtRuntime — runtime payload assembly for local emits; field paths are rejected at runtime; `$ref` resolves node outputs.
 
   command-runtime/
     replay.ts                               (internal) replayAggregateState(events) — reduces EventEnvelopes to { state, version }; before:null events replace, otherwise merge after into running state.
@@ -175,7 +175,9 @@ const rows = execute(r.value, { limit: 5 }, db);
 
 The operation path uses `call` nodes plus `$ref` expressions, for example `{ "$ref": "session.result.user_id" }`. New binding-driven module or service calls belong in graph operation nodes, not binding-side prefetch metadata.
 
-Call-node `input` values may be nested composite JSON templates. Use `$param`, `$ref`, `$node`, and operators at any depth inside objects or arrays; wrap literal strings in `$literal` so they are not interpreted as field/output paths. `$literal` itself remains an escape hatch for raw values and is not recursively evaluated.
+Call-node `input` values may be nested composite JSON templates. Use `$param`, `$ref`, `$node`, and operators at any depth inside objects or arrays; wrap literal strings in `$literal` so they are not interpreted as field/output paths. `$literal` itself remains an escape hatch for raw values and is not recursively evaluated. Runtime `$ref` paths can traverse arrays with bracket indexes, for example `completion.result.content[0].text.text`.
+
+Emit payload expressions support `$param`, `$literal`, `$node`, and `$ref`; plain field-path strings remain rejected at runtime because local emits do not have a row scope.
 
 `executeOperation` passes the canonical call node `policy` to
 `OperationCallClient.call`, so runtimes must honor graph-authored timeout and
