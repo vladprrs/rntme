@@ -1313,13 +1313,16 @@ tasks:
   - id: T023
     type: worker
     assignee: Worker
-    status: blocked
+    status: active
     reasoning_hint: high
     objective: >-
       Complete the live platform.rntme.com redeploy once
       PLATFORM_SECRET_ENCRYPTION_KEY is available, then probe the live explorer
       routes and record non-secret deploy/verify evidence for the operator
-      acceptance check.
+      acceptance check. BLOCKED_ON an operator-supplied credential — no
+      autonomous progress is possible until the env var is provided; all other
+      deploy prerequisites (commit 0171dcbb, fresh CLI dist, green local
+      verification) are already done.
     inputs:
       - "T006 receipt — local verification green, commit 0171dcbb made, CLI dist freshly rebuilt with the new blueprint; only blocker is the missing PLATFORM_SECRET_ENCRYPTION_KEY env var."
       - "platform.target.json secrets.extras.platform-secret-encryption-key (source: env PLATFORM_SECRET_ENCRYPTION_KEY)"
@@ -1334,9 +1337,7 @@ tasks:
       - "PLATFORM_SECRET_ENCRYPTION_KEY is still unavailable."
       - "The redeploy verify stage fails or the live platform diverges from local verified behavior — needs a new Scout/Judge diagnosis."
       - "The operation would be destructive or change unrelated live resources."
-    receipt:
-      result: blocked
-      blocked_on: "PLATFORM_SECRET_ENCRYPTION_KEY env var absent from this environment; operator must supply it or run the (one-command) deploy themselves. All other deploy prerequisites are done (commit 0171dcbb, fresh CLI dist, local verification green)."
+    receipt: null
 
   - id: T007
     type: pm
@@ -1402,7 +1403,7 @@ tasks:
       - "Missing evidence"
       - "Next task if not complete"
     receipt:
-      result: blocked
+      result: done
       decision: not_complete
       full_outcome_complete: false
       rationale: >-
