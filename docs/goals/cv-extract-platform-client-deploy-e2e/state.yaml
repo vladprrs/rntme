@@ -89,7 +89,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T037  # Blocked on approved browser JWT or explicit Auth0 client-grant authorization; T038 safe adjacent UI is complete.
+active_task: T042  # Await approved browser JWT or explicit Auth0 client-grant authorization; T040 direct-mode adjacent proof is complete.
 
 tasks:
   - id: T001
@@ -3386,30 +3386,242 @@ tasks:
       blocker:
         - "T037 valid-PAT proof still needs a real browser Auth0 JWT or explicit Auth0 client-grant authorization."
 
+  - id: T039
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: medium
+    objective: "Evaluate whether direct-mode cv-extract deploy/smoke can safely advance the goal while T037 platform PAT/dashboard proof remains blocked."
+    constraints:
+      - "Read-only against source and live services except for this GoalBuddy receipt."
+      - "Do not print or persist secret values."
+      - "Do not treat direct-mode proof as full completion; the original platform-client/dashboard proof remains required."
+    receipt:
+      result: done
+      outcome: direct_mode_adjacent_possible_but_not_ready
+      summary: |
+        Direct-mode deploy is a valid adjacent proof path because the decision
+        system explicitly keeps CLI direct deploy as a first-class mode that
+        does not require a running platform. It cannot satisfy the original
+        platform-client/dashboard outcome by itself, but it could produce a
+        real cv-extract URL and smoke result while T037 waits for a real browser
+        Auth0 JWT or approved client grant.
+      evidence:
+        - "demo/cv-extract-blueprint owner doc confirms the app has no app-level auth and the smoke path is public: prepare upload, PUT presigned URL, commit, POST /api/resumes, GET /api/resumes/{id}."
+        - "Direct-mode CLI docs show `rntme deploy <blueprint-dir> --target <file>` goes through the same deploy-runner stages without the platform server."
+        - "deploy-core and deploy-dokploy already support provisioned RustFS object storage and storage-s3 env rendering."
+        - "CLI target loading currently hardcodes `storage: { mode: 'external' }` and the target-file schema has no `storage` field, so a direct target cannot request provisioned RustFS today."
+        - "GHCR public Docker manifests exist for the runtime image, but `ghcr.io/vladprrs/rntme-ai-llm-openrouter:dev` and `ghcr.io/vladprrs/rntme-storage-s3:dev` returned `manifest unknown`; module images must be published before live deploy."
+        - "DNS resolves for `cv-extract.rntme.com`, `files-cv-extract.rntme.com`, and `marketing-cv-extract.rntme.com` to the Dokploy host."
+      non_completion:
+        - "T037 remains blocked: no `PLATFORM_BROWSER_JWT`, no explicit Auth0 M2M client-grant authorization, no valid PAT 200 proof."
+        - "Dashboard access for `vladprsib` / `org_uZUWhpWgK54VWC2X` would remain unproven after direct-mode deploy."
+        - "Direct-mode deploy would not produce a platform project version sequence or platform deployment id."
+      next_task: T040
+
+  - id: T040
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "After explicit approval, add the smallest support needed for direct-mode cv-extract proof: CLI provisioned-storage target parsing, module image publishing, and a direct cv-extract deploy/smoke receipt."
+    allowed_files:
+      - "apps/cli/src/deploy-engine/target-schema.ts"
+      - "apps/cli/src/deploy-engine/load-target.ts"
+      - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "apps/cli/test/fixtures/target-dokploy.json"
+      - "apps/cli/README.md"
+      - "docs/current/owners/apps/cli.md"
+      - ".github/workflows/module-images.yml"
+      - "packages/deploy/deploy-core/**"
+      - "packages/deploy/deploy-dokploy/**"
+      - "packages/deploy/deploy-runner/**"
+      - "packages/runtime/runtime/**"
+      - "packages/runtime/bindings-http/**"
+      - "packages/artifacts/graph-ir-compiler/**"
+      - "modules/storage/s3/**"
+      - "modules/ai-llm/openrouter/**"
+      - "demo/cv-extract-blueprint/**"
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+    proposed_design:
+      - "Extend the direct-mode target JSON schema with `storage: { mode: 'provisioned', provider: 'rustfs', publicBaseUrl, accessKeyRef, secretKeyRef, image? }` and preserve the existing default of external storage when omitted."
+      - "Add a red/green load-target unit test proving provisioned RustFS survives normalization into `target.storage`."
+      - "Add a dispatch-only GitHub Actions workflow that publishes the OpenRouter and storage-s3 module images to GHCR with an explicit tag; do not change CI push behavior."
+      - "Use a temp target file, not dirty `platform.target.json`, for direct cv-extract deploy with `publicBaseUrl=https://cv-extract.rntme.com`, `storage.publicBaseUrl=https://files-cv-extract.rntme.com`, `target.modules.marketing-site.primaryDomain=https://marketing-cv-extract.rntme.com`, the latest runtime image, and one-time in-shell RustFS credentials."
+      - "Run `demo/cv-extract-blueprint/scripts/smoke-cv-extract.ts` against the deployed app and record only non-secret identifiers and smoke output."
+    verify:
+      - "bun test apps/cli/test/unit/deploy-engine/load-target.test.ts"
+      - "bun run --filter @rntme/cli test"
+      - "git diff --check"
+      - "GitHub Actions module image workflow completes for the chosen tag."
+      - "./apps/cli/dist/bin/cli.js deploy demo/cv-extract-blueprint --target /tmp/cv-extract-direct.json --log-file .rntme-cv-extract-direct-T040.jsonl"
+      - "RNTME_CV_BASE_URL=https://cv-extract.rntme.com bun --env-file=.env run --cwd demo/cv-extract-blueprint smoke"
+    docs_touch:
+      decision_system: "No; direct mode and provisioned RustFS are existing current-default/locked-pending decisions."
+      cli_owner: "Yes; document direct-mode target `storage` support."
+      cli_readme: "Yes; update the target JSON example if storage support is added."
+      goal_state: "Yes; record deploy/smoke evidence and remaining platform-dashboard blocker."
+    stop_if:
+      - "No explicit approval is given for this behavior change."
+      - "Module images cannot be published to GHCR without new credentials or repository settings."
+      - "Direct deploy would overwrite the live platform compose or reuse `platform.rntme.com`."
+      - "The smoke needs a forged platform token, direct database seed, or Auth0 tenant-policy change."
+    receipt:
+      result: done
+      outcome: direct_mode_smoke_passed_platform_dashboard_still_blocked
+      summary: |
+        Direct-mode cv-extract proof is complete. CLI support for provisioned
+        RustFS direct targets, module image publishing, direct deploy support,
+        runtime/app fixes, and the cv-extract readback regression all landed
+        and were pushed. `https://cv-extract.rntme.com` deploys outside the
+        platform-client path and passes the public resume upload/extract/read
+        smoke. This does not replace T037: platform-client publish/deploy and
+        dashboard access for `vladprsib` / `org_uZUWhpWgK54VWC2X` still need
+        an approved browser JWT or Auth0 client-grant path to mint a valid live
+        platform PAT.
+      commits:
+        - "fd381193 feat(cli): support direct deploy storage targets"
+        - "4b1796c8 fix(deploy): support cv extract direct storage runtime"
+        - "3b95c429 fix(storage-s3): normalize upload int64 inputs"
+        - "ef73ff2f fix(openrouter): make sqlite volume writable"
+        - "6d4b4bed fix(cv-extract): evaluate nested module call payloads"
+        - "7b337b92 fix(deploy-runner): resolve compose secret env refs"
+        - "78863a68 fix(runtime): honor graph call timeouts"
+        - "4de567cd fix(graph-ir): resolve emit payload refs"
+        - "9b5f2af6 fix(runtime): log projection consumer apply failures"
+        - "11ab519f fix(demo): return cv extract resume readback row"
+      changed_files:
+        - "apps/cli/src/deploy-engine/target-schema.ts"
+        - "apps/cli/src/deploy-engine/load-target.ts"
+        - "apps/cli/test/unit/deploy-engine/load-target.test.ts"
+        - "apps/cli/test/fixtures/target-dokploy.json"
+        - "apps/cli/README.md"
+        - "docs/current/owners/apps/cli.md"
+        - ".github/workflows/module-images.yml"
+        - "packages/deploy/deploy-core/**"
+        - "packages/deploy/deploy-dokploy/**"
+        - "packages/deploy/deploy-runner/**"
+        - "packages/runtime/runtime/**"
+        - "packages/runtime/bindings-http/**"
+        - "packages/artifacts/graph-ir-compiler/**"
+        - "modules/storage/s3/**"
+        - "modules/ai-llm/openrouter/**"
+        - "demo/cv-extract-blueprint/**"
+        - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+      runtime_image:
+        tag: "cv-extract-direct-9b5f2af6-012401"
+        image: "ghcr.io/vladprrs/rntme-runtime:cv-extract-direct-9b5f2af6-012401"
+        digest: "sha256:ca25422183b45974bdf3692ec9bd38064f4dfed9493b385e9b25fec2f04a1506"
+        github_actions_run: "25836106137"
+        status: "completed/success"
+      direct_deploy:
+        compose_id: "pALGurTE47Lz3EOHkPTnA"
+        base_url: "https://cv-extract.rntme.com"
+        files_url: "https://files-cv-extract.rntme.com"
+        marketing_url: "https://marketing-cv-extract.rntme.com"
+        latest_log: ".rntme-cv-extract-direct-T040-retry20.jsonl"
+        render_digest: "sha256:e0f6f80ce4ab37da8204e3f7985f76343c16adf486f7c37631a2278f9b679a5f"
+        built_in_verify: pass
+      local_verification:
+        - cmd: "bun run --filter @rntme/runtime test"
+          result: pass
+          notes: "188 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/runtime typecheck"
+          result: pass
+        - cmd: "bun test demo/cv-extract-blueprint/test/integration/runtime-readback.test.ts"
+          result: pass
+          notes: "Regression failed before the getResume/ResumeView fix with an empty readback array; passes after the fix."
+        - cmd: "bun run --filter @rntme/demo-cv-extract-blueprint test"
+          result: pass
+          notes: "20 pass / 1 skip / 0 fail / 101 expects."
+        - cmd: "git diff --check"
+          result: pass
+      commands:
+        - cmd: "bun run --filter @rntme/runtime test"
+          status: pass
+          notes: "188 pass / 0 fail."
+        - cmd: "bun run --filter @rntme/runtime typecheck"
+          status: pass
+        - cmd: "bun run --filter @rntme/demo-cv-extract-blueprint test"
+          status: pass
+          notes: "20 pass / 1 skip / 0 fail / 101 expects."
+        - cmd: "RNTME_CV_BASE_URL=https://cv-extract.rntme.com bun run --cwd demo/cv-extract-blueprint smoke"
+          status: pass
+          notes: "Fresh 2026-05-14T02:00Z live smoke returned ok=true with completed resume."
+      live_smoke:
+        - cmd: "RNTME_CV_BASE_URL=https://cv-extract.rntme.com bun run --cwd demo/cv-extract-blueprint smoke"
+          result: pass
+          notes: "2026-05-14T02:00Z fresh run returned ok=true, resumeId=c3207b3f-1c26-4ec6-9279-4196435f1f5d, status=complete, fileId present, extractedJson present, and a presigned RustFS download URL present but not recorded."
+      non_completion:
+        - "Direct mode produced no platform project version sequence or platform deployment id."
+        - "2026-05-14T02:00Z `PLATFORM_BROWSER_JWT` was absent."
+        - "2026-05-14T02:00Z `GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1` with the shell PAT still returned 401 JSON `{code:RUNTIME_AUTH_TOKEN_INVALID,message:authentication required}`."
+        - "Platform dashboard access for `vladprsib` / `org_uZUWhpWgK54VWC2X` remains unproven."
+
+  - id: T041
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Completion audit after T040 direct-mode proof."
+    constraints:
+      - "Do not mark the thread goal complete unless every explicit completion proof in goal.md is covered by real evidence."
+      - "Do not treat direct-mode smoke as a proxy for platform-client/dashboard proof."
+      - "Do not print or persist bearer tokens, PAT plaintext, presigned URL signatures, Auth0 secrets, or Dokploy secrets."
+    receipt:
+      result: done
+      outcome: not_complete
+      full_outcome_complete: false
+      prompt_to_artifact_checklist:
+        - requirement: "Implement existing CV extract platform-client deploy E2E plan through repo and CLI."
+          evidence: "Repo implementation and local verification receipts T001-T038 plus pushed commits through 11ab519f."
+          status: partial
+          gap: "Platform-client live publish/deploy remains blocked by valid platform PAT bootstrap."
+        - requirement: "Deploy `demo/cv-extract-blueprint` and return a working cv-extract URL."
+          evidence: "T040 direct deploy at https://cv-extract.rntme.com; fresh 2026-05-14 smoke resumeId c3207b3f-1c26-4ec6-9279-4196435f1f5d completed."
+          status: satisfied_for_direct_mode
+          gap: "This is not the platform-client deploy path named in the original request."
+        - requirement: "Smoke-test live resume upload, commit, extract, and read flow."
+          evidence: "T040 fresh smoke executed `prepare-upload`, PUT presigned file, `commit-upload`, `POST /api/resumes`, and `GET /api/resumes/{id}` until status complete."
+          status: satisfied_for_direct_mode
+        - requirement: "Platform dashboard for user/org `vladprsib` / `org_uZUWhpWgK54VWC2X` shows access to deployed project."
+          evidence: "T036/T038 fail-closed checks and 2026-05-14 fresh probe show `/api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1` still returns 401 with current shell PAT; `PLATFORM_BROWSER_JWT` absent."
+          status: missing
+          gap: "Need real browser Auth0 JWT or explicit Auth0 client-grant authorization to mint a durable live PAT, then rerun dashboard transcript."
+        - requirement: "Record deployment id, target slug, project version sequence, app base URL, marketing URL, and smoke result."
+          evidence: "Direct-mode compose id/base URLs/smoke result recorded in T040."
+          status: partial
+          gap: "Platform deployment id, platform target slug, and project version sequence are still missing because platform-client deployment has not run."
+      decision: not_complete
+      next_active_task: T037
+
+  - id: T042
+    type: pm
+    assignee: PM
+    status: active
+    reasoning_hint: low
+    objective: "Obtain approved live platform bootstrap input, then resume T037 platform-client/dashboard proof."
+    constraints:
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, or Dokploy secrets."
+      - "Use only a real browser Auth0 JWT supplied in-shell as `PLATFORM_BROWSER_JWT`, or an explicitly authorized Auth0 client-grant path."
+      - "Do not forge internal edge headers or seed the token database directly unless the user explicitly approves an emergency bypass."
+      - "Do not mark the goal complete until `/api/projects?organizationId=org_uZUWhpWgK54VWC2X` returns 200 with a valid live platform credential and the platform-client cv-extract deploy/dashboard proof is recorded."
+    expected_output:
+      - "Approved bootstrap path and credential availability without exposing secret material."
+      - "A valid live platform PAT minted through the approved path, held only in shell memory."
+      - "Platform dashboard transcript and resumed platform-client cv-extract deploy proof."
+    blocked_on:
+      - "No `PLATFORM_BROWSER_JWT` is currently present."
+      - "No explicit Auth0 M2M client-grant authorization has been given."
+
 checks:
   dirty_fingerprint: "platform.target.json + untracked redeploy logs and goal/notes (unrelated dirty preserved)"
   last_verification:
-    result: pass
-    task: T038
+    result: partial_pass_not_complete
+    task: T041
     commands:
-      - "bun install --frozen-lockfile"
-      - "bun run --filter @rntme/ui-runtime test"
-      - "bun test --cwd apps/platform/ui-module"
-      - "bun run --cwd apps/platform/ui-module typecheck"
-      - "bun run --cwd apps/platform/ui-module lint"
-      - "bun run --filter @rntme/ui-runtime build"
-      - "bun run --cwd apps/platform/ui-module build"
-      - "bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test"
-      - "bun run --filter @rntme/deploy-dokploy test"
-      - "bun run --filter @rntme/deploy-dokploy typecheck"
-      - "bun run --filter @rntme/deploy-dokploy build"
-      - "bun run --filter @rntme/deploy-dokploy lint"
-      - "bun run depcruise"
-      - "git diff --check && git diff --cached --check"
-      - "GitHub Actions runtime-image.yml run 25826616070 -> runtime-e2e-66e64829-210955"
-      - "./apps/cli/dist/bin/cli.js platform up --target /tmp/rntme-platform-target-T038.json --log-file .rntme-platform-redeploy-2026-05-13-T038-retry2.jsonl"
-      - "curl /health -> 200 ok"
-      - "curl /_manifest.json -> 200 routeCount 12 includes /:orgId/tokens"
-      - "curl /_screens/tokens.json -> 200 contains PlatformTokenIssuer and omits stale prefix/create action"
-      - "curl missing Authorization /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
-      - "curl unknown PAT /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 -> 401 JSON"
+      - "RNTME_CV_BASE_URL=https://cv-extract.rntme.com bun run --cwd demo/cv-extract-blueprint smoke -> ok=true, resumeId c3207b3f-1c26-4ec6-9279-4196435f1f5d, status complete"
+      - "PLATFORM_BROWSER_JWT check -> absent"
+      - "GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 with shell PAT -> 401 JSON RUNTIME_AUTH_TOKEN_INVALID"
+      - "GET /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=1 without Authorization -> 401 JSON RUNTIME_AUTH_TOKEN_INVALID"
+      - "git diff --check -- docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml -> pass"
