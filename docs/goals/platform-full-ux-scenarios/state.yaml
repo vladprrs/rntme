@@ -64,7 +64,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: T006
+active_task: T007
 
 tasks:
   - id: T001
@@ -1261,7 +1261,7 @@ tasks:
   - id: T006
     type: worker
     assignee: Worker
-    status: queued
+    status: blocked
     reasoning_hint: high
     objective: "Perform live-platform readiness or deployment proof once implementation slices are locally verified, using non-secret evidence and the prior cv-extract verification pattern."
     allowed_files: []
@@ -1281,12 +1281,67 @@ tasks:
       - "Live deploy requires credentials that are absent."
       - "The required operation is destructive or changes unrelated live resources."
       - "Live platform behavior diverges from local verified behavior and needs a new Scout/Judge diagnosis."
-    receipt: null
+    receipt:
+      result: blocked
+      executed_by: PM
+      readiness_done:
+        - "Full local verification green: bun run build (all packages), platform-blueprint test 84/84, platform-ui test 18/18, platform-ui lint clean, depcruise clean (827 modules). Typecheck = only the known pre-existing platform-deployments-handler.test.ts:1206."
+        - "Operator-authorized commit made: 0171dcbb 'feat(platform): full UX scenarios — artifact explorers + live project data' on branch feat/cv-extract-platform-client-org-auth (29 files; .rntme-ui-build/ build artifact excluded). 1 commit ahead of origin, not pushed."
+        - "CLI rebuilt — apps/cli/dist/platform-blueprint re-copied from the committed apps/platform/blueprint; verified the bundled copy contains all 4 explorer screen pairs (data-model/api/ui/graph), all 6 new handlers, and the ui-module module.json statePath declarations."
+        - "Live baseline probed (unauthenticated): https://platform.rntme.com/service.json -> {\"name\":\"app\"} (nginx not stale), /health -> ok, /api/projects?organizationId=probe -> 401 (auth-gated route exists). The new explorer routes/handlers are NOT yet live (pre-deploy)."
+      stopped_because: >-
+        stop_if fired — "Live deploy requires credentials that are absent."
+        `rntme platform up --target platform.target.json` exited with
+        CLI_DEPLOY_SECRET_MISSING: env var PLATFORM_SECRET_ENCRYPTION_KEY not
+        set (required by platform.target.json secrets.extras). The repo .env
+        carries DOKPLOY_URL/DOKPLOY_API_KEY/AUTH0_* but NOT
+        PLATFORM_SECRET_ENCRYPTION_KEY. No secret value was printed or
+        persisted.
+      handoff: >-
+        The deploy is one command away. Once PLATFORM_SECRET_ENCRYPTION_KEY is
+        available in the environment (add to .env or export it), run from the
+        repo root: `set -a; source .env; set +a; export
+        PLATFORM_SECRET_ENCRYPTION_KEY=<value>; bun apps/cli/dist/bin/cli.js
+        platform up --target platform.target.json --log-file
+        .rntme-platform-redeploy-2026-05-14-platform-ux.jsonl`. The CLI dist is
+        already freshly built with the new blueprint. After it reports
+        terminal ok, probe the live explorer routes and confirm the operator
+        browser acceptance. Tracked as follow-up task T023.
+      spawned_tasks:
+        - T023
+
+  - id: T023
+    type: worker
+    assignee: Worker
+    status: blocked
+    reasoning_hint: high
+    objective: >-
+      Complete the live platform.rntme.com redeploy once
+      PLATFORM_SECRET_ENCRYPTION_KEY is available, then probe the live explorer
+      routes and record non-secret deploy/verify evidence for the operator
+      acceptance check.
+    inputs:
+      - "T006 receipt — local verification green, commit 0171dcbb made, CLI dist freshly rebuilt with the new blueprint; only blocker is the missing PLATFORM_SECRET_ENCRYPTION_KEY env var."
+      - "platform.target.json secrets.extras.platform-secret-encryption-key (source: env PLATFORM_SECRET_ENCRYPTION_KEY)"
+    blocked_on: "Operator must supply PLATFORM_SECRET_ENCRYPTION_KEY in the environment (or run the deploy themselves where it is available)."
+    allowed_files: []
+    verify:
+      - "set -a; source .env; set +a (+ PLATFORM_SECRET_ENCRYPTION_KEY) then: bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-redeploy-2026-05-14-platform-ux.jsonl"
+      - "Confirm the redeploy log terminal:ok and the verify stage smoke checks pass."
+      - "Probe platform.rntme.com: /service.json says app, and the new explorer routes/handlers respond (401 not 404 for the new /api/projects/{id}/services|artifact-summary|artifacts|endpoints|ui-components|graphs)."
+      - "Record any operator/browser confirmation requirement that cannot be automated."
+    stop_if:
+      - "PLATFORM_SECRET_ENCRYPTION_KEY is still unavailable."
+      - "The redeploy verify stage fails or the live platform diverges from local verified behavior — needs a new Scout/Judge diagnosis."
+      - "The operation would be destructive or change unrelated live resources."
+    receipt:
+      result: blocked
+      blocked_on: "PLATFORM_SECRET_ENCRYPTION_KEY env var absent from this environment; operator must supply it or run the (one-command) deploy themselves. All other deploy prerequisites are done (commit 0171dcbb, fresh CLI dist, local verification green)."
 
   - id: T007
     type: pm
     assignee: PM
-    status: queued
+    status: active
     reasoning_hint: medium
     objective: "Perform documentation-touch follow-up required by implemented changes, or record why current docs remain sufficient."
     inputs:
@@ -1335,9 +1390,11 @@ checks:
   dirty_fingerprint: unknown
   last_verification:
     result: pass_with_known_preexisting
-    task: T018
+    task: T006
     commands:
+      - "bun run build => all packages built, exit 0"
       - "bun run --filter @rntme/platform-blueprint test => 84 pass, 0 fail"
-      - "bun run --filter @rntme/platform-ui test => 14 pass, 0 fail"
+      - "bun run --filter @rntme/platform-ui test => 18 pass, 0 fail"
+      - "bun run --filter @rntme/platform-ui lint => exit 0"
       - "bun run depcruise => no violations, 827 modules"
       - "bun run --filter @rntme/platform-blueprint typecheck => pre-existing failure only at platform-deployments-handler.test.ts:1206 (TS2352, confirmed on clean HEAD)"

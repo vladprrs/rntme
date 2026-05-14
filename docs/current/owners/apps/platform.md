@@ -60,6 +60,12 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 | `GET /api/tokens/introspect` | `IntrospectToken` | `services/tokens/handlers/introspect-token.ts` (`introspectTokenHandler`) — runtime-native PAT introspection entrypoint; missing or invalid bearer values throw typed `PLATFORM_AUTH_*` errors |
 | `GET /api/projects` | `listProjects` | `services/projects/handlers/list-org-projects.ts` (`listOrgProjectsHandler`) — supports the runtime-native edge-authenticated call shape for dashboard and CLI proof paths |
 | `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
+| `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows |
+| `GET /api/projects/{projectId}/artifact-summary` | `getProjectArtifactSummary` | `services/projects/handlers/get-project-artifact-summary.ts` (`getProjectArtifactSummaryHandler`) — per-project artifact counts (services/entities/schemas/graphs/endpoints/uiComponents + versions) derived from the bundle blob |
+| `GET /api/projects/{projectId}/artifacts` | `getProjectArtifact` | `services/projects/handlers/get-project-artifact.ts` (`getProjectArtifactHandler`) — returns a single named artifact body (or a prefix listing) from the bundle blob; takes an `artifactPath` query param |
+| `GET /api/projects/{projectId}/endpoints` | `listProjectEndpoints` | `services/projects/handlers/list-project-endpoints.ts` (`listProjectEndpointsHandler`) — flattens every per-service `bindings.json` into `{service,operation,method,path}` endpoint rows |
+| `GET /api/projects/{projectId}/ui-components` | `listProjectUiComponents` | `services/projects/handlers/list-project-ui-components.ts` (`listProjectUiComponentsHandler`) — flattens the bundle's UI component `*.spec.json` artifacts |
+| `GET /api/projects/{projectId}/graphs` | `listProjectGraphs` | `services/projects/handlers/list-project-graphs.ts` (`listProjectGraphsHandler`) — flattens the bundle's `*/graphs/*.json` artifacts into `{service,graph,nodeCount}` rows |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
 | `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
 | `GET /api/deployments/targets/{slug}` | `getDeployTarget` | `services/deployments/handlers/deploy-targets.ts` |
@@ -204,6 +210,18 @@ SPA callback leaves the callback/login route before `ui-runtime` performs its
 first route match. It also lists `/`, `/login`, and `/auth/callback` in
 `authenticatedRedirectPaths` so an already-authenticated browser does not stay
 on the login screen after reload.
+
+The project detail screen (`/:orgId/projects/:projectId`) and four artifact
+explorer screens — `/data-model`, `/api`, `/ui`, `/graph` under that project
+path — read live published-bundle data through the `listProjectServices`,
+`getProjectArtifactSummary`, `getProjectArtifact`, `listProjectEndpoints`,
+`listProjectUiComponents`, and `listProjectGraphs` native operations above.
+The explorers render as definition-inspection (artifact lists + JSON bodies /
+node-edge tables) with the existing `Platform*` component set; no interactive
+graph-canvas dependency is used (see `docs/decision-system.md` §3.6).
+`PlatformPageHeader` and `PlatformSummaryGrid` accept an optional `statePath`
+so screen specs bind them to live data while remaining backward-compatible
+with static-prop callers.
 
 The `/:orgId/tokens` screen includes `PlatformTokenIssuer`, a platform UI
 module component that uses the browser Auth0 transport to call
