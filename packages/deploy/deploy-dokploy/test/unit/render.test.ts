@@ -174,12 +174,8 @@ describe('renderDokployPlan', () => {
     expect(stack.kind).toBe('compose');
     if (stack.kind !== 'compose') return;
     const tokens = stack.services.find((service) => service.name === 'svc-tokens');
-    expect(tokens?.env).toEqual(
-      expect.arrayContaining([
-        { name: 'RNTME_EVENT_STORE_PATH', value: '/srv/data/events.sqlite', secret: false },
-        { name: 'RNTME_QSM_PATH', value: '/srv/data/qsm.sqlite', secret: false },
-      ]),
-    );
+    expect(tokens?.literalEnv?.RNTME_EVENT_STORE_PATH).toBe('/srv/data/events.sqlite');
+    expect(tokens?.literalEnv?.RNTME_QSM_PATH).toBe('/srv/data/qsm.sqlite');
     expect(tokens?.literalEnv?.RNTME_PERSISTENCE_MODE).toBe('persistent');
     expect(tokens?.volumes).toContainEqual({
       source: 'rntme-acme-commerce-tokens-data',
@@ -188,8 +184,76 @@ describe('renderDokployPlan', () => {
     });
     expect(tokens?.user).toBe('0:0');
     expect(stack.composeFile).toContain('rntme-acme-commerce-tokens-data:/srv/data');
+    expect(stack.composeFile).toContain('RNTME_EVENT_STORE_PATH: /srv/data/events.sqlite');
+    expect(stack.composeFile).toContain('RNTME_QSM_PATH: /srv/data/qsm.sqlite');
     expect(stack.composeFile).toContain('volumes:\n  rntme-acme-commerce-tokens-data: {}\n');
     expect(stack.composeFile).toContain('    user: 0:0');
+  });
+
+  it('renders shared persistent volumes with service-specific event stores', () => {
+    const r = renderDokployPlan(
+      {
+        ...plan,
+        workloads: [
+          {
+            kind: 'domain-service',
+            slug: 'projects',
+            serviceSlug: 'projects',
+            resourceName: 'rntme-acme-commerce-projects',
+            runtime: { image: 'rntme-runtime' },
+            artifact: { source: 'composed-project', serviceSlug: 'projects' },
+            runtimeFiles: { 'manifest.json': '{"service":{"name":"projects"}}' },
+            publicConfigJson: '{}',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-platform-control-data',
+              mountPath: '/srv/data',
+              eventStorePath: '/srv/data/projects-events.sqlite',
+              qsmPath: '/srv/data/qsm.sqlite',
+            },
+          } as never,
+          {
+            kind: 'domain-service',
+            slug: 'deployments',
+            serviceSlug: 'deployments',
+            resourceName: 'rntme-acme-commerce-deployments',
+            runtime: { image: 'rntme-runtime' },
+            artifact: { source: 'composed-project', serviceSlug: 'deployments' },
+            runtimeFiles: { 'manifest.json': '{"service":{"name":"deployments"}}' },
+            publicConfigJson: '{}',
+            persistence: {
+              mode: 'persistent',
+              volumeName: 'rntme-platform-control-data',
+              mountPath: '/srv/data',
+              eventStorePath: '/srv/data/deployments-events.sqlite',
+              qsmPath: '/srv/data/qsm.sqlite',
+            },
+          } as never,
+          ...plan.workloads.filter((w) => w.kind !== 'domain-service'),
+        ],
+      },
+      {
+        endpoint: 'https://dokploy.example.com',
+        projectId: 'project_123',
+        publicBaseUrl: 'https://commerce.example.com',
+      },
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const projects = stack.services.find((service) => service.name === 'svc-projects');
+    const deployments = stack.services.find((service) => service.name === 'svc-deployments');
+    expect(projects?.literalEnv?.RNTME_EVENT_STORE_PATH).toBe('/srv/data/projects-events.sqlite');
+    expect(deployments?.literalEnv?.RNTME_EVENT_STORE_PATH).toBe('/srv/data/deployments-events.sqlite');
+    expect(projects?.literalEnv?.RNTME_QSM_PATH).toBe('/srv/data/qsm.sqlite');
+    expect(deployments?.literalEnv?.RNTME_QSM_PATH).toBe('/srv/data/qsm.sqlite');
+    expect(stack.env.some((entry) => entry.name === 'RNTME_EVENT_STORE_PATH')).toBe(false);
+    expect(stack.composeFile).toContain('RNTME_EVENT_STORE_PATH: /srv/data/projects-events.sqlite');
+    expect(stack.composeFile).toContain('RNTME_EVENT_STORE_PATH: /srv/data/deployments-events.sqlite');
+    expect(stack.composeFile.match(/rntme-platform-control-data: \{\}/g)).toHaveLength(1);
   });
 
   it('renders oversized runtime artifacts through chunked bootstrap mounts', () => {
@@ -476,8 +540,8 @@ describe('renderDokployPlan', () => {
       image: 'rustfs/rustfs:1.0.0-beta.1',
       command: 'server /data',
       env: [
-        { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },
-        { name: 'RUSTFS_SECRET_KEY', value: 'RUSTFS_SECRET_KEY', secret: true },
+        { name: 'RUSTFS_ROOT_USER', value: 'RUSTFS_ACCESS_KEY', secret: true },
+        { name: 'RUSTFS_ROOT_PASSWORD', value: 'RUSTFS_SECRET_KEY', secret: true },
       ],
       restart: { container: 'unless-stopped' },
     });
@@ -755,6 +819,42 @@ describe('renderDokployPlan', () => {
       { name: 'A_SECRET', value: 'secret/a', secret: true },
       { name: 'Z_SECRET', value: 'secret/z', secret: true },
     ]);
+  });
+
+  it('renders domain service env and secret refs', () => {
+    const domainPlan: ProjectDeploymentPlan = {
+      ...plan,
+      workloads: plan.workloads.map((workload) =>
+        workload.kind === 'domain-service' && workload.slug === 'catalog'
+          ? {
+              ...workload,
+              env: { Z_VAR: 'z', A_VAR: 'a' },
+              secretRefs: { PLATFORM_SECRET_ENCRYPTION_KEY: 'platform-secret-encryption-key' },
+            }
+          : workload,
+      ),
+    };
+
+    const r = renderDokployPlan(domainPlan, {
+      endpoint: 'https://dokploy.example.com',
+      projectId: 'project_123',
+      publicBaseUrl: 'https://commerce.example.com',
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    const stack = r.value.resources[0];
+    expect(stack.kind).toBe('compose');
+    if (stack.kind !== 'compose') return;
+    const domainService = stack.services.find((service) => service.name === 'svc-catalog');
+    expect(domainService?.env).toContainEqual({ name: 'A_VAR', value: 'a', secret: false });
+    expect(domainService?.env).toContainEqual({ name: 'Z_VAR', value: 'z', secret: false });
+    expect(domainService?.env).toContainEqual({
+      name: 'PLATFORM_SECRET_ENCRYPTION_KEY',
+      value: 'platform-secret-encryption-key',
+      secret: true,
+    });
   });
 
   it('exposes ports 50051 and 50052 on integration-module workloads', () => {
@@ -1306,9 +1406,9 @@ describe('renderDokployPlan', () => {
     const stack = r.value.resources[0];
     if (stack.kind !== 'compose') throw new Error('expected compose stack');
 
-    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ACCESS_KEY');
+    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ROOT_USER');
     expect(accessKey).toEqual({
-      name: 'RUSTFS_ACCESS_KEY',
+      name: 'RUSTFS_ROOT_USER',
       value: 'rntme-rustfs-access-key',
       secret: true,
     });

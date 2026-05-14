@@ -65,6 +65,7 @@ export async function loadTargetFile(
         dokployProjectName: file.config.dokployProjectName ?? null,
         allowCreateProject: file.config.allowCreateProject ?? false,
         eventBus: file.eventBus ?? { kind: 'kafka', mode: 'external', brokers: ['localhost:9092'] },
+        ...(file.services === undefined ? {} : { services: file.services }),
         modules: file.modules ?? {},
         workflows,
         storage,

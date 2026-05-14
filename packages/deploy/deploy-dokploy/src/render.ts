@@ -674,7 +674,7 @@ function renderRedpandaService(plan: ProjectDeploymentPlan): RenderedComposeServ
     logicalId: 'event-bus',
     serviceClass: 'event-bus',
     image: eventBus.image,
-    command: redpandaCommand(eventBus, workflowMessageStartTopics(plan)),
+    entrypoint: ['/bin/sh', '-c', redpandaCommand(eventBus, workflowMessageStartTopics(plan))],
     env: [],
     ports: [9092],
     restart: infraRestartPolicy(),
@@ -692,8 +692,8 @@ function renderRustfsService(plan: ProjectDeploymentPlan): RenderedComposeServic
     image: storage.image,
     command: 'server /data',
     env: [
-      { name: 'RUSTFS_ACCESS_KEY', value: storage.credentials.accessKeyRef, secret: true },
-      { name: 'RUSTFS_SECRET_KEY', value: storage.credentials.secretKeyRef, secret: true },
+      { name: 'RUSTFS_ROOT_USER', value: storage.credentials.accessKeyRef, secret: true },
+      { name: 'RUSTFS_ROOT_PASSWORD', value: storage.credentials.secretKeyRef, secret: true },
     ],
     ports: [9000],
     restart: infraRestartPolicy(),
@@ -734,15 +734,13 @@ function redpandaCommand(
     'redpanda start --mode=dev-container --smp=1 --memory=512M --reserve-memory=0M --overprovisioned --kafka-addr=internal://0.0.0.0:9092',
     '--advertise-kafka-addr=internal://redpanda:9092',
   ].join(' ');
-  if (seedTopics.length === 0) return startArgs;
-  return shellSingleQuote(
-    [
-      `rpk ${startArgs} & pid=$$!`,
-      'until rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1; do sleep 1; done',
-      `rpk topic create --brokers redpanda:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
-      'wait "$$pid"',
-    ].join('; '),
-  );
+  if (seedTopics.length === 0) return `rpk ${startArgs}`;
+  return [
+    `rpk ${startArgs} & pid=$$!`,
+    'until rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1; do sleep 1; done',
+    `rpk topic create --brokers redpanda:9092 ${seedTopics.map(shellWord).join(' ')} || true`,
+    'wait "$$pid"',
+  ].join('; ');
 }
 
 function rustfsProxyNginxConfig(upstream: string): string {
@@ -861,7 +859,8 @@ function renderResource(
       ...(artifactMounts.entrypoint === undefined ? {} : { entrypoint: artifactMounts.entrypoint }),
       env: [
         ...eventBusEnv(plan.infrastructure.eventBus),
-        ...persistentRuntimeEnv(workload.persistence),
+        ...literalEnvFromRecord(workload.env ?? {}),
+        ...secretEnvFromRecord(workload.secretRefs ?? {}),
         {
           name: 'RNTME_ARTIFACTS_DIR',
           value: '/srv/artifacts',
@@ -892,6 +891,7 @@ function renderResource(
       literalEnv: {
         RNTME_RUNTIME_ARTIFACTS_DIGEST: artifactMounts.digest,
         RNTME_PERSISTENCE_MODE: workload.persistence.mode,
+        ...persistentRuntimeLiteralEnv(workload.persistence),
       },
       labels,
       files,
@@ -903,20 +903,28 @@ function renderResource(
   return assertNever(workload);
 }
 
+function literalEnvFromRecord(env: Readonly<Record<string, string>>): RenderedEnvVar[] {
+  return sortedEntries(env).map(([name, value]) => ({ name, value, secret: false }));
+}
+
+function secretEnvFromRecord(secretRefs: Readonly<Record<string, string>>): RenderedEnvVar[] {
+  return sortedEntries(secretRefs).map(([name, value]) => ({ name, value, secret: true }));
+}
+
 function moduleRuntimeFileMounts(files: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
   return Object.fromEntries(
     sortedEntries(files).map(([path, content]) => [`/srv/${path.replace(/^\/+/, '')}`, content]),
   );
 }
 
-function persistentRuntimeEnv(
+function persistentRuntimeLiteralEnv(
   persistence: Extract<DeploymentWorkload, { kind: 'domain-service' }>['persistence'],
-): RenderedEnvVar[] {
-  if (persistence.mode !== 'persistent') return [];
-  return [
-    { name: 'RNTME_EVENT_STORE_PATH', value: persistence.eventStorePath, secret: false },
-    { name: 'RNTME_QSM_PATH', value: persistence.qsmPath, secret: false },
-  ];
+): Readonly<Record<string, string>> {
+  if (persistence.mode !== 'persistent') return {};
+  return {
+    RNTME_EVENT_STORE_PATH: persistence.eventStorePath,
+    RNTME_QSM_PATH: persistence.qsmPath,
+  };
 }
 
 function persistentRuntimeVolumes(

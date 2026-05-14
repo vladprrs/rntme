@@ -93,6 +93,11 @@ export type IntegrationModuleDeploymentConfig = {
   readonly [key: string]: unknown;
 };
 
+export type DomainServiceDeploymentConfig = {
+  readonly env?: Readonly<Record<string, string>>;
+  readonly secretRefs?: Readonly<Record<string, string>>;
+};
+
 export type RateLimitPolicyConfig = {
   readonly requestsPerMinute: number;
   readonly burst: number;
@@ -134,6 +139,7 @@ export type ProjectDeploymentConfig = {
   readonly mode: DeploymentMode;
   readonly eventBus?: EventBusConfig;
   readonly storage?: StorageConfig;
+  readonly services?: Readonly<Record<string, DomainServiceDeploymentConfig>>;
   readonly modules?: Readonly<Record<string, IntegrationModuleDeploymentConfig>>;
   readonly policies?: DeploymentPolicyConfig;
   readonly auth?: ProjectAuthConfig;

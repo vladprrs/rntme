@@ -1,0 +1,19 @@
+{
+  "metadata": { "title": "UI explorer" },
+  "data": {
+    "/data/summary": {
+      "binding": "projects.getProjectArtifactSummary",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/uiComponents": {
+      "binding": "projects.listProjectUiComponents",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

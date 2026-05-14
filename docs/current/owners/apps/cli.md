@@ -97,6 +97,11 @@ deploy target secrets. Direct-mode deploy commands read target JSON files,
 resolve environment-backed secret references in-process, and call Dokploy
 through the deploy-runner adapter.
 
+The platform blueprint HTTP runtime may return action failures as HTTP 200
+payloads shaped like `{ "status": "error", "errors": [...] }`. The CLI API
+client normalizes those payloads to platform-coded command failures instead of
+reporting response-schema parse errors.
+
 ### Deploying a workflow-enabled blueprint
 
 Workflow demos need a deploy target with provisioned Redpanda, Operaton, and a

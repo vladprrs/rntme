@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'bun:test';
@@ -215,6 +215,39 @@ describe('project workflows', () => {
   it('loads validated workflows into composed blueprint', async () => {
     const result = await loadComposedBlueprint(scaffoldProject());
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.workflows?.definitions[0]?.id).toBe(
+        'orderFulfillment',
+      );
+    }
+  });
+
+  it('loads workflows from the project-declared manifest path', async () => {
+    const dir = scaffoldProject();
+    mkdirSync(join(dir, 'services/orders/workflows'), { recursive: true });
+    renameSync(
+      join(dir, 'workflows/workflows.json'),
+      join(dir, 'services/orders/workflows/workflows.json'),
+    );
+    renameSync(
+      join(dir, 'workflows/order-fulfillment.bpmn'),
+      join(dir, 'services/orders/workflows/order-fulfillment.bpmn'),
+    );
+    rmSync(join(dir, 'workflows'), { recursive: true, force: true });
+    writeJson(join(dir, 'project.json'), {
+      name: 'order-fulfillment',
+      services: ['orders', 'inventory'],
+      routes: {
+        http: { '/api/orders': 'orders', '/api/inventory': 'inventory' },
+      },
+      workflows: {
+        manifest: 'services/orders/workflows/workflows.json',
+      },
+    });
+
+    const result = await loadComposedBlueprint(dir);
+
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors, null, 2)).toBe(true);
     if (result.ok) {
       expect(result.value.workflows?.definitions[0]?.id).toBe(
         'orderFulfillment',

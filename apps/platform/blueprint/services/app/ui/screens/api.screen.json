@@ -1,0 +1,19 @@
+{
+  "metadata": { "title": "API explorer" },
+  "data": {
+    "/data/summary": {
+      "binding": "projects.getProjectArtifactSummary",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/endpoints": {
+      "binding": "projects.listProjectEndpoints",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

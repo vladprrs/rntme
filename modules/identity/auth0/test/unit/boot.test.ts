@@ -12,7 +12,7 @@ const auth0Mock = {
   isAuthenticated: mock(async () => false),
   handleRedirectCallback: mock(async () => undefined),
   getTokenSilently: mock(async () => 'tok'),
-  getIdTokenClaims: mock(async () => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
+  getIdTokenClaims: mock(async (): Promise<Record<string, unknown>> => ({ sub: 'auth0|abc', email: 'e@x', name: 'Eve' })),
   loginWithRedirect: mock(async () => undefined),
   logout: mock(async () => undefined),
 };
@@ -123,6 +123,26 @@ describe('boot', () => {
     expect(replaceState).toHaveBeenCalledWith({}, '', '/no-org');
   });
 
+  it('redirects to the org route from the id token org_id claim after redirect callback', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    auth0Mock.getIdTokenClaims.mockResolvedValue({
+      sub: 'auth0|abc',
+      email: 'e@x',
+      name: 'Eve',
+      org_id: 'org_uZUWhpWgK54VWC2X',
+    });
+    window.history.replaceState({}, '', '/auth/callback?code=abc&state=xyz');
+    const replaceState = spyOn(window.history, 'replaceState');
+    replaceState.mockClear();
+    const { ctx } = makeCtx();
+    ctx.config = { ...cfg, redirectUri: 'https://app.example.test/auth/callback', postLoginRedirectPath: '/no-org' };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/org_uZUWhpWgK54VWC2X');
+  });
+
   it('moves authenticated users away from configured anonymous routes without a fresh callback', async () => {
     auth0Mock.isAuthenticated.mockResolvedValue(true);
     window.history.replaceState({}, '', '/login');
@@ -140,6 +160,33 @@ describe('boot', () => {
 
     expect(auth0Mock.handleRedirectCallback).not.toHaveBeenCalled();
     expect(replaceState).toHaveBeenCalledWith({}, '', '/no-org');
+  });
+
+  it('forces a fresh org-scoped login when an authenticated session has no org but org is required', async () => {
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    // Default claims carry no org_id — a stale pre-org session.
+    window.history.replaceState({}, '', '/');
+    const { ctx } = makeCtx();
+    ctx.config = { ...cfg, organizationsCapability: 'require', postLoginRedirectPath: '/no-org' };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.loginWithRedirect).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not force re-login from a callback even if the session still lacks an org', async () => {
+    // Guard against a redirect loop: if we just came back from a callback and
+    // somehow still have no org, fall through rather than logging in again.
+    auth0Mock.isAuthenticated.mockResolvedValue(true);
+    window.history.replaceState({}, '', '/auth/callback?code=abc&state=xyz');
+    const { ctx } = makeCtx();
+    ctx.config = { ...cfg, redirectUri: 'https://app.example.test/auth/callback', organizationsCapability: 'require', postLoginRedirectPath: '/no-org' };
+    const { boot } = await import('../../client/index.js');
+
+    await boot(ctx);
+
+    expect(auth0Mock.loginWithRedirect).not.toHaveBeenCalled();
   });
 
   it('injects Authorization without mutating the original request and clears auth state on 401', async () => {

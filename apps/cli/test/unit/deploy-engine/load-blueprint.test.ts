@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { readdir } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { cp, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadBlueprintForDeploy } from '../../../src/deploy-engine/load-blueprint.js';
 
@@ -23,6 +23,31 @@ describe('loadBlueprintForDeploy', () => {
       expect(entries.filter((entry) => /^[0-9a-f]{64}\.tar\.gz$/.test(entry))).toHaveLength(1);
     } finally {
       await result.value.cleanup();
+    }
+  });
+
+  it('materializes a copied platform blueprint without copied module aliases', async () => {
+    const source = join(repoRoot, 'apps', 'platform', 'blueprint');
+    const parent = join(repoRoot, 'apps', 'cli', 'dist');
+    await mkdir(parent, { recursive: true });
+    const temp = await mkdtemp(join(parent, 'platform-blueprint-copy-'));
+    await cp(source, temp, {
+      recursive: true,
+      force: true,
+      filter: (entry) => {
+        const rel = relative(source, entry).split(sep).join('/');
+        if (rel === '') return true;
+        return !rel.split('/').some((part) => part === 'node_modules' || part === '.rntme-ui-build' || part === 'test');
+      },
+    });
+
+    const result = await loadBlueprintForDeploy(temp);
+    try {
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.composedBlueprint.name).toBe('rntme-platform');
+    } finally {
+      if (result.ok) await result.value.cleanup();
+      await rm(temp, { recursive: true, force: true });
     }
   });
 });

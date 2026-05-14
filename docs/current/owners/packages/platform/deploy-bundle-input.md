@@ -32,6 +32,26 @@ runtime artifact ships `surface.http.bindingBasePath: "/"`, and the rendered
 edge nginx is the single layer that translates the public project route into
 the in-container path.
 
+## Runtime body limits
+
+Domain services whose resolved bindings use `inputFrom.*.from: "bodyBytes"` get
+`surface.http.bodyLimit.maxBytes: 10485760` in their synthesized runtime
+manifest. This keeps raw artifact upload endpoints such as platform project
+bundle publish above the runtime default 1 MiB API body limit without changing
+ordinary JSON endpoints.
+
+## Platform control-plane persistence
+
+When converting the platform blueprint, `tokens` keeps its own persistent
+runtime SQLite volume. `projects` and `deployments` intentionally share the
+`rntme-platform-control-data` volume so deployment handlers can read project,
+version, target, operation, and deployment projections from one QSM database.
+They do **not** share an event-store file: `projects` uses
+`/srv/data/projects-events.sqlite`, `deployments` uses
+`/srv/data/deployments-events.sqlite`, and both use `/srv/data/qsm.sqlite`.
+Sharing event stores across services is invalid because event-store databases
+are initialized for a single service name.
+
 ## Where to look first
 
 - `src/to-deploy-core-input.ts` - conversion, UI bundling, workflow file reads, module static asset copying.

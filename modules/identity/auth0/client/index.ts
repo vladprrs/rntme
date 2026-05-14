@@ -12,6 +12,9 @@ type AuthConfig = {
   postLoginRedirectPath?: string;
   authenticatedRedirectPaths?: string[];
   scope?: string;
+  // `require` means every session must be organization-scoped — a cached
+  // session without an org is stale and is re-authenticated on boot.
+  organizationsCapability?: 'allow' | 'deny' | 'require';
 };
 
 type AuthUser = {
@@ -37,8 +40,9 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   });
 
   let token: string | null = null;
-  let postCallbackPath: string | null = null;
   let callbackFallbackPath: string | null = null;
+  let returnToPath: string | null = null;
+  let cameFromCallback = false;
 
   ctx.transport.use(async (req, next) => {
     const headers = new Headers(req.headers);
@@ -55,21 +59,39 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
   const url = new URL(window.location.href);
   if (url.searchParams.has('code') && url.searchParams.has('state')) {
     const result = await client.handleRedirectCallback();
+    cameFromCallback = true;
     callbackFallbackPath = url.pathname;
-    postCallbackPath =
-      normalizeLocalRedirectPath(readReturnTo(result)) ??
-      normalizeLocalRedirectPath(cfg.postLoginRedirectPath) ??
-      callbackFallbackPath;
+    returnToPath = normalizeLocalRedirectPath(readReturnTo(result));
   }
 
   let authed = false;
   if (await client.isAuthenticated()) {
     try {
       token = await client.getTokenSilently();
-      ctx.state.set('/auth/user', authUserFromClaims(await client.getIdTokenClaims()));
+      const claims = await client.getIdTokenClaims();
+      ctx.state.set('/auth/user', authUserFromClaims(claims));
       ctx.state.set('/auth/status', 'authed');
       authed = true;
-      const redirectPath = postCallbackPath ?? authenticatedRedirectPath(cfg);
+      // Auth0 organization-scoped logins carry the org id in `org_id`. Route
+      // the user to their org dashboard (`/:orgId`) so the UI lists projects;
+      // a token without `org_id` falls back to the configured post-login path.
+      const orgPath = orgRedirectPath(claims);
+      // Stale pre-org session: authenticated, but the cached token has no org
+      // while this app requires one (e.g. the SPA client only recently became
+      // organization_usage=require). Re-authenticate so the user gets the
+      // Auth0 org-selection prompt instead of dead-ending on /no-org. Guarded
+      // by `!cameFromCallback` so a fresh callback that still lacks an org
+      // cannot loop.
+      if (!orgPath && !cameFromCallback && cfg.organizationsCapability === 'require') {
+        await client.loginWithRedirect();
+        return;
+      }
+      const redirectPath = cameFromCallback
+        ? returnToPath ??
+          orgPath ??
+          normalizeLocalRedirectPath(cfg.postLoginRedirectPath) ??
+          callbackFallbackPath
+        : authenticatedRedirectPath(cfg, orgPath);
       if (redirectPath) window.history.replaceState({}, '', redirectPath);
     } catch {
       // Cached session present but refresh failed (revoked / expired refresh
@@ -109,8 +131,10 @@ function normalizeLocalRedirectPath(value: unknown): string | null {
   }
 }
 
-function authenticatedRedirectPath(cfg: AuthConfig): string | null {
-  const target = normalizeLocalRedirectPath(cfg.postLoginRedirectPath);
+function authenticatedRedirectPath(cfg: AuthConfig, orgPath: string | null): string | null {
+  // Prefer the org dashboard when the session is org-scoped; otherwise the
+  // configured post-login path. Only redirect away from anonymous routes.
+  const target = orgPath ?? normalizeLocalRedirectPath(cfg.postLoginRedirectPath);
   if (!target || !Array.isArray(cfg.authenticatedRedirectPaths)) return null;
 
   for (const raw of cfg.authenticatedRedirectPaths) {
@@ -119,6 +143,14 @@ function authenticatedRedirectPath(cfg: AuthConfig): string | null {
     if (new URL(path, window.location.origin).pathname === window.location.pathname) return target;
   }
   return null;
+}
+
+/** `/:orgId` route derived from the id token `org_id` claim, or null. */
+function orgRedirectPath(claims: unknown): string | null {
+  if (!claims || typeof claims !== 'object') return null;
+  const orgId = (claims as { org_id?: unknown }).org_id;
+  if (typeof orgId !== 'string' || orgId.trim() === '') return null;
+  return normalizeLocalRedirectPath(`/${encodeURIComponent(orgId.trim())}`);
 }
 
 function authUserFromClaims(claims: unknown): AuthUser {

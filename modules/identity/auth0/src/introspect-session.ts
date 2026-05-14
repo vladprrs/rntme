@@ -26,6 +26,8 @@ const PUBLIC_CLAIMS = [
   'iss',
   'aud',
   'azp',
+  'org_id',
+  'org_name',
 ] as const;
 
 export type IntrospectJwtDeps = {
@@ -80,9 +82,15 @@ export async function introspectJwtToSession(request: IntrospectSessionRequest, 
           }
         : undefined;
 
+    // Auth0 organization-scoped logins carry the org id in the `org_id` claim.
+    // Surfacing it on Session.organization_id lets graphs scope by org without
+    // a runtime Auth0 Management API call (the deployed module only has JWKS).
+    const organization_id = typeof payload.org_id === 'string' ? payload.org_id : '';
+
     return {
       session_id: typeof payload.jti === 'string' && payload.jti.length > 0 ? payload.jti : `jwt:${sub}`,
       user_id: sub,
+      organization_id,
       status: SessionStatus.SESSION_STATUS_ACTIVE,
       token_type: TokenType.TOKEN_TYPE_JWT_ACCESS,
       expires_at,

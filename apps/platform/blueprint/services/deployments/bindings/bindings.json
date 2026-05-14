@@ -15,7 +15,11 @@
         ]
       },
       "exposure": "read",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
     },
     "getDeployTarget": {
       "graph": "getDeployTarget",
@@ -36,13 +40,16 @@
       "http": {
         "method": "POST",
         "path": "/targets",
-        "parameters": [
-          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
-          { "name": "body", "in": "body", "bindTo": "body", "required": true }
-        ]
+        "parameters": []
       },
       "exposure": "action",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false },
+        "organizationId": { "from": "body", "path": "organizationId" },
+        "body": { "from": "body" }
+      }
     },
     "updateDeployTarget": {
       "graph": "updateDeployTarget",
@@ -51,12 +58,17 @@
         "method": "POST",
         "path": "/targets/{slug}/actions/update",
         "parameters": [
-          { "name": "slug", "in": "path", "bindTo": "slug", "required": true },
-          { "name": "body", "in": "body", "bindTo": "body", "required": true }
+          { "name": "slug", "in": "path", "bindTo": "slug", "required": true }
         ]
       },
       "exposure": "action",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false },
+        "organizationId": { "from": "body", "path": "organizationId" },
+        "body": { "from": "body" }
+      }
     },
     "deleteDeployTarget": {
       "graph": "deleteDeployTarget",
@@ -77,16 +89,19 @@
       "http": {
         "method": "POST",
         "path": "/",
-        "parameters": [
-          { "name": "organizationId", "in": "body", "bindTo": "organizationId", "required": true },
-          { "name": "projectId", "in": "body", "bindTo": "projectId", "required": true },
-          { "name": "projectVersionSeq", "in": "body", "bindTo": "projectVersionSeq", "required": true },
-          { "name": "targetSlug", "in": "body", "bindTo": "targetSlug", "required": true },
-          { "name": "configOverrides", "in": "body", "bindTo": "configOverrides", "required": false }
-        ]
+        "parameters": []
       },
       "exposure": "action",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false },
+        "organizationId": { "from": "body", "path": "organizationId" },
+        "projectId": { "from": "body", "path": "projectId" },
+        "projectVersionSeq": { "from": "body", "path": "projectVersionSeq" },
+        "targetSlug": { "from": "body", "path": "targetSlug" },
+        "configOverrides": { "from": "body", "path": "configOverrides" }
+      }
     },
     "queueDeployment": {
       "graph": "queueDeployment",
@@ -106,7 +121,7 @@
     },
     "listDeployments": {
       "graph": "listDeployments",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "GET",
         "path": "/",
@@ -117,11 +132,15 @@
         ]
       },
       "exposure": "read",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
     },
     "getDeployment": {
       "graph": "getDeployment",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "GET",
         "path": "/{id}",
@@ -130,7 +149,11 @@
         ]
       },
       "exposure": "read",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
     },
     "markDeploymentRunning": {
       "graph": "markDeploymentRunning",
@@ -194,17 +217,22 @@
     },
     "readDeploymentLogs": {
       "graph": "readDeploymentLogs",
-      "target": { "engine": "sqlite", "dialect": "sqlite" },
+      "target": { "engine": "native", "dialect": "platform" },
       "http": {
         "method": "GET",
         "path": "/{deploymentId}/logs",
         "parameters": [
           { "name": "deploymentId", "in": "path", "bindTo": "deploymentId", "required": true },
+          { "name": "sinceLineId", "in": "query", "bindTo": "sinceLineId", "required": false },
           { "name": "limit", "in": "query", "bindTo": "limit", "required": false }
         ]
       },
       "exposure": "read",
-      "inputFrom": { "authorization": { "from": "header", "name": "authorization", "required": true } }
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
     }
   }
 }

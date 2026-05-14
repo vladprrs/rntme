@@ -14,7 +14,8 @@ export type Auth0Client = {
   web_origins?: string[];
   allowed_origins?: string[];
   allowed_logout_urls?: string[];
-  organization_usage?: 'allow' | 'deny';
+  organization_usage?: 'allow' | 'deny' | 'require';
+  organization_require_behavior?: 'no_prompt' | 'pre_login_prompt' | 'post_login_prompt';
 };
 
 export type Auth0ResourceServer = {

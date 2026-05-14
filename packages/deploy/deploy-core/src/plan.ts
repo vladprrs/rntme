@@ -40,6 +40,8 @@ export type DomainServiceWorkload = {
   readonly artifact: { readonly source: 'composed-project'; readonly serviceSlug: string };
   readonly runtimeFiles: Readonly<Record<string, string>>;
   readonly publicConfigJson: string;
+  readonly env?: Readonly<Record<string, string>>;
+  readonly secretRefs?: Readonly<Record<string, string>>;
   readonly persistence:
     | { readonly mode: 'ephemeral' }
     | {
@@ -357,6 +359,7 @@ function buildWorkloads(
 
   for (const service of Object.values(project.services)) {
     if (service.kind === 'domain') {
+      const serviceConfig = config.services?.[service.slug];
       workloads.push({
         kind: 'domain-service',
         slug: service.slug,
@@ -366,6 +369,8 @@ function buildWorkloads(
         artifact: { source: 'composed-project', serviceSlug: service.slug },
         runtimeFiles: service.runtimeFiles ?? {},
         publicConfigJson,
+        env: serviceConfig?.env ?? {},
+        secretRefs: serviceConfig?.secretRefs ?? {},
         persistence: planServicePersistence(config.orgSlug, project.name, service),
       });
       continue;
@@ -420,7 +425,7 @@ function planServicePersistence(
   if (service.persistence?.mode !== 'persistent') return { mode: 'ephemeral' };
   return {
     mode: 'persistent',
-    volumeName: `${resourceName(orgSlug, projectSlug, service.slug)}-data`,
+    volumeName: service.persistence.volumeName ?? `${resourceName(orgSlug, projectSlug, service.slug)}-data`,
     mountPath: '/srv/data',
     eventStorePath: service.persistence.eventStorePath,
     qsmPath: service.persistence.qsmPath,

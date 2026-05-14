@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { EventTypeSpec } from '@rntme/pdm';
 import {
   parseWorkflowArtifact,
@@ -17,12 +17,25 @@ import { ERROR_CODES, err, ok, type Result } from '../types/result.js';
 
 export function loadProjectWorkflows(input: {
   readonly rootDir: string;
+  readonly manifestPath?: string;
   readonly services: Readonly<Record<string, ValidatedServiceMember>>;
   readonly bindingRegistry: Readonly<Record<string, RoutedBindingEntry>>;
 }): Result<ValidatedWorkflows | null> {
-  const relPath = 'workflows/workflows.json';
+  const manifest = resolveWorkflowManifest(input.manifestPath);
+  if (!manifest.ok) return manifest;
+  const { relPath, workflowDir, required } = manifest.value;
   const absPath = join(input.rootDir, relPath);
-  if (!existsSync(absPath)) return ok(null);
+  if (!existsSync(absPath)) {
+    if (!required) return ok(null);
+    return err([
+      {
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_WORKFLOWS_INVALID,
+        message: `workflow manifest "${relPath}" does not exist`,
+        path: relPath,
+      },
+    ]);
+  }
 
   let raw: unknown;
   try {
@@ -44,6 +57,7 @@ export function loadProjectWorkflows(input: {
 
   const ctx = buildWorkflowContext(
     input.rootDir,
+    workflowDir,
     input.services,
     input.bindingRegistry,
   );
@@ -53,8 +67,30 @@ export function loadProjectWorkflows(input: {
   return ok(validated.value);
 }
 
+function resolveWorkflowManifest(
+  manifestPath: string | undefined,
+): Result<{ readonly relPath: string; readonly workflowDir: string; readonly required: boolean }> {
+  const relPath = manifestPath ?? 'workflows/workflows.json';
+  if (!isSafeRelativePath(relPath)) {
+    return err([
+      {
+        layer: 'composition',
+        code: ERROR_CODES.BLUEPRINT_WORKFLOWS_INVALID,
+        message: `workflow manifest path "${relPath}" must be a relative path inside the project`,
+        path: 'project.workflows.manifest',
+      },
+    ]);
+  }
+  return ok({
+    relPath,
+    workflowDir: dirname(relPath).split('\\').join('/'),
+    required: manifestPath !== undefined,
+  });
+}
+
 function buildWorkflowContext(
   rootDir: string,
+  workflowDir: string,
   services: Readonly<Record<string, ValidatedServiceMember>>,
   bindingRegistry: Readonly<Record<string, RoutedBindingEntry>>,
 ): WorkflowCrossRefContext {
@@ -71,7 +107,7 @@ function buildWorkflowContext(
   return {
     services: Object.keys(services),
     fileExists: (relativePath) =>
-      isRegularWorkflowFile(rootDir, relativePath),
+      isRegularWorkflowFile(rootDir, workflowDir, relativePath),
     resolveEvent: (ref: WorkflowEventRef) =>
       events.has(eventKey(ref.service, ref.aggregateType, ref.eventType))
         ? {
@@ -97,12 +133,21 @@ function buildWorkflowContext(
   };
 }
 
-function isRegularWorkflowFile(rootDir: string, relativePath: string): boolean {
+function isRegularWorkflowFile(rootDir: string, workflowDir: string, relativePath: string): boolean {
+  if (!isSafeRelativePath(relativePath)) return false;
   try {
-    return statSync(join(rootDir, 'workflows', relativePath)).isFile();
+    return statSync(join(rootDir, workflowDir, relativePath)).isFile();
   } catch {
     return false;
   }
+}
+
+function isSafeRelativePath(path: string): boolean {
+  if (path === '') return false;
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
+  return path.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 function eventKey(

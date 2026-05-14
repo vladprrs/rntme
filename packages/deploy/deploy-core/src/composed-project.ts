@@ -20,6 +20,7 @@ export type ComposedProjectService = {
     | { readonly mode: 'ephemeral' }
     | {
         readonly mode: 'persistent';
+        readonly volumeName?: string;
         readonly eventStorePath: string;
         readonly qsmPath: string;
       };

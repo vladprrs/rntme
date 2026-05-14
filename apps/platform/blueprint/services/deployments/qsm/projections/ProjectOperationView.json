@@ -1,0 +1,7 @@
+{
+  "backing": "entity-mirror",
+  "source": { "entity": "ProjectOperation" },
+  "keys": ["id"],
+  "grain": ["id"],
+  "exposed": ["organizationId", "projectId", "kind", "status", "inputJson", "resultJson"]
+}

@@ -55,6 +55,109 @@
         "authorization": { "from": "header", "name": "authorization", "required": true }
       }
     },
+    "listProjectServices": {
+      "graph": "listProjectServices",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/services",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "getProjectArtifactSummary": {
+      "graph": "getProjectArtifactSummary",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/artifact-summary",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "getProjectArtifact": {
+      "graph": "getProjectArtifact",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/artifacts",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true },
+          { "name": "artifactPath", "in": "query", "bindTo": "artifactPath", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "listProjectEndpoints": {
+      "graph": "listProjectEndpoints",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/endpoints",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "listProjectUiComponents": {
+      "graph": "listProjectUiComponents",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/ui-components",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "listProjectGraphs": {
+      "graph": "listProjectGraphs",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/graphs",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
     "publishProjectBundle": {
       "graph": "publishProjectBundle",
       "target": { "engine": "native", "dialect": "platform" },
@@ -67,7 +170,9 @@
       },
       "inputFrom": {
         "authorization": { "from": "header", "name": "authorization", "required": true },
-        "bodyBytes": { "from": "bodyBytes" }
+        "bodyBytes": { "from": "bodyBytes" },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
       },
       "exposure": "action"
     }

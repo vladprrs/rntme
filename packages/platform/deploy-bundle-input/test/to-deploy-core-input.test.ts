@@ -137,12 +137,40 @@ describe('toDeployCoreInput', () => {
     if (!composed.ok) return;
 
     const result = await toDeployCoreInput(composed.value, platformDir);
+    expect(result.workflows?.definitions[0]?.id).toBe('runDeployment');
+    expect(result.workflows?.nativeTasks?.map((task) => task.taskId)).toEqual([
+      'compose',
+      'plan',
+      'provision',
+      'render',
+      'apply',
+      'verify',
+    ]);
+    expect(result.workflowFiles?.['run-deployment.bpmn']).toContain('runDeployment');
+
     const app = result.services['app'];
 
     expect(app?.kind).toBe('domain');
     expect(app?.runtimeFiles?.['ui/manifest.json']).toContain('"rntme Platform"');
     expect(app?.runtimeFiles?.['bindings.json']).toContain('"projects.listProjects"');
     expect(app?.runtimeFiles?.['graphs/projects.listProjects.json']).toContain('"id": "projects.listProjects"');
+    // Native-operation bindings (operations.json handlers, no graph file) must
+    // still land in the UI host's bindings registry — the UI host calls the
+    // owning service over HTTP and never executes the graph. Regression guard
+    // for the artifact-explorer screens whose `/data/*` bindings target these.
+    const appBindings = JSON.parse(app?.runtimeFiles?.['bindings.json'] ?? '{}') as {
+      bindings?: Record<string, { http?: { path?: string } }>;
+    };
+    for (const [qualifiedId, expectedPath] of [
+      ['projects.listProjectServices', '/projects/{projectId}/services'],
+      ['projects.getProjectArtifactSummary', '/projects/{projectId}/artifact-summary'],
+      ['projects.getProjectArtifact', '/projects/{projectId}/artifacts'],
+      ['projects.listProjectEndpoints', '/projects/{projectId}/endpoints'],
+      ['projects.listProjectUiComponents', '/projects/{projectId}/ui-components'],
+      ['projects.listProjectGraphs', '/projects/{projectId}/graphs'],
+    ] as const) {
+      expect(appBindings.bindings?.[qualifiedId]?.http?.path).toBe(expectedPath);
+    }
     expect(app?.runtimeFiles?.['manifest.json']).toContain('"name": "identity-auth0"');
     expect(Object.keys(app?.runtimeFiles ?? {}).some((path) => path.startsWith('ui-build/'))).toBe(true);
     for (const slug of ['organizations', 'projects', 'tokens', 'audit', 'deployments']) {
@@ -159,8 +187,12 @@ describe('toDeployCoreInput', () => {
     // route prefix (e.g. /api/projects, /api/tokens/introspect).
     const projectsManifest = JSON.parse(
       result.services.projects?.runtimeFiles?.['manifest.json'] ?? '{}',
-    ) as { surface?: { http?: { bindingBasePath?: string } } };
+    ) as { surface?: { http?: { bindingBasePath?: string; bodyLimit?: { enabled?: boolean; maxBytes?: number } } } };
     expect(projectsManifest.surface?.http?.bindingBasePath).toBe('/');
+    expect(projectsManifest.surface?.http?.bodyLimit).toEqual({
+      enabled: true,
+      maxBytes: 10 * 1024 * 1024,
+    });
 
     const projectsBindings = JSON.parse(
       result.services.projects?.runtimeFiles?.['bindings.json'] ?? '{}',
@@ -177,6 +209,18 @@ describe('toDeployCoreInput', () => {
     expect(result.services.tokens?.persistence).toEqual({
       mode: 'persistent',
       eventStorePath: '/srv/data/events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    });
+    expect(result.services.projects?.persistence).toEqual({
+      mode: 'persistent',
+      volumeName: 'rntme-platform-control-data',
+      eventStorePath: '/srv/data/projects-events.sqlite',
+      qsmPath: '/srv/data/qsm.sqlite',
+    });
+    expect(result.services.deployments?.persistence).toEqual({
+      mode: 'persistent',
+      volumeName: 'rntme-platform-control-data',
+      eventStorePath: '/srv/data/deployments-events.sqlite',
       qsmPath: '/srv/data/qsm.sqlite',
     });
 

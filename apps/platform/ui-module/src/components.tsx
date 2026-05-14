@@ -16,6 +16,66 @@ const STATUS_GLYPH: Record<StatusVariant, string> = {
    Internal helpers
    ========================================================= */
 
+/**
+ * Normalises a fetched data-endpoint body to an array of rows.
+ *
+ * The UI runtime stores the raw response body at a screen's `statePath`. Live
+ * platform list endpoints are not consistent: some return a bare array
+ * (`/api/projects/{id}/versions`), others wrap the rows in a status envelope
+ * (`/api/projects` -> `{ status, projects }`, `/api/deployments` ->
+ * `{ status, deployments }`, `/api/deployments/targets` -> `{ status, targets }`,
+ * `/api/tokens` -> `{ tokens }`, `/api/audit` -> `{ events }`). This unwraps the
+ * common shapes so `statePath`-driven components render regardless.
+ */
+function rowsFromState(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value as Array<Record<string, unknown>>;
+  if (value !== null && typeof value === 'object') {
+    const envelope = value as Record<string, unknown>;
+    for (const key of [
+      'projects',
+      'deployments',
+      'targets',
+      'deployTargets',
+      'tokens',
+      'events',
+      'versions',
+      'logs',
+      'items',
+      'rows',
+    ]) {
+      const candidate = envelope[key];
+      if (Array.isArray(candidate)) return candidate as Array<Record<string, unknown>>;
+    }
+  }
+  return [];
+}
+
+/** Coerces a fetched state row into the `ServiceInput` shape the panel renders. */
+function toServiceInput(row: Record<string, unknown>): ServiceInput {
+  const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+  return {
+    name: str(row.name) ?? '',
+    status: str(row.status),
+    description: str(row.description),
+    entities: num(row.entities),
+    schemas: num(row.schemas),
+    graphs: num(row.graphs),
+    endpoints: num(row.endpoints),
+    uiComponents: num(row.uiComponents),
+    lastDeployedAt: str(row.lastDeployedAt),
+  };
+}
+
+/** Renders a single data-table cell value as text. */
+function formatCellValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
 function StatusBadge(props: { variant?: string; label?: string; size?: string }) {
   const variant = (props.variant ?? 'queued') as StatusVariant;
   const isLg = props.size === 'lg';
@@ -112,8 +172,56 @@ type TimelineStep = {
    Exported platform components
    ========================================================= */
 
-export function PlatformDataTable(props: { statePath?: string; columns?: ReadonlyArray<{ key: string; label: string }> }) {
-  return React.createElement('div', { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' });
+export function PlatformDataTable(props: {
+  statePath?: string;
+  columns?: ReadonlyArray<{ key: string; label: string }>;
+}) {
+  const store = useStateStore();
+  const columns = props.columns ?? [];
+  const rows = props.statePath ? rowsFromState(store.get(props.statePath)) : [];
+
+  return React.createElement(
+    'div',
+    { 'data-rntme-component': 'DataTable', 'data-state-path': props.statePath ?? '' },
+    React.createElement(
+      'table',
+      { className: 'rntme-data-table' },
+      React.createElement(
+        'thead',
+        null,
+        React.createElement(
+          'tr',
+          null,
+          ...columns.map((column) =>
+            React.createElement('th', { key: column.key }, column.label),
+          ),
+        ),
+      ),
+      React.createElement(
+        'tbody',
+        null,
+        rows.length === 0
+          ? React.createElement(
+              'tr',
+              { className: 'rntme-data-table-empty' },
+              React.createElement(
+                'td',
+                { colSpan: columns.length > 0 ? columns.length : 1 },
+                'No records',
+              ),
+            )
+          : rows.map((row, rowIndex) =>
+              React.createElement(
+                'tr',
+                { key: typeof row.id === 'string' ? row.id : rowIndex },
+                ...columns.map((column) =>
+                  React.createElement('td', { key: column.key }, formatCellValue(row[column.key])),
+                ),
+              ),
+            ),
+      ),
+    ),
+  );
 }
 
 export function PlatformTokenIssuer(props: {
@@ -237,13 +345,56 @@ export function PlatformTokenIssuer(props: {
   );
 }
 
+type PageHeaderMetaItem = { label: string; value: string; status?: string };
+
+/**
+ * Derives the live `Blueprint`/`Status` header meta cells from a fetched
+ * project-version list.
+ *
+ * `projects.listProjectVersions` returns `ProjectVersionView` rows
+ * (`{ projectId, sequence, status, ... }`). The latest version is the row with
+ * the highest `sequence`; its `sequence` becomes `Blueprint vN` and its
+ * `status` becomes the `Status` cell (mapped to a `ready` badge when
+ * `published`). When no version row is present yet, both fall back to `—` so
+ * the header stays populated before the first fetch resolves.
+ */
+function versionMetaFromState(value: unknown): PageHeaderMetaItem[] {
+  const rows = rowsFromState(value);
+  let latest: Record<string, unknown> | undefined;
+  for (const row of rows) {
+    const seq = typeof row.sequence === 'number' ? row.sequence : -1;
+    const bestSeq = latest && typeof latest.sequence === 'number' ? latest.sequence : -1;
+    if (!latest || seq > bestSeq) latest = row;
+  }
+  const sequence = latest && typeof latest.sequence === 'number' ? latest.sequence : undefined;
+  const status = latest && typeof latest.status === 'string' ? latest.status : undefined;
+  const statusItem: PageHeaderMetaItem =
+    status === 'published'
+      ? { label: 'Status', value: 'Ready', status: 'ready' }
+      : status === 'rejected'
+        ? { label: 'Status', value: 'Rejected', status: 'error' }
+        : { label: 'Status', value: status ?? '—' };
+  return [
+    { label: 'Blueprint', value: sequence !== undefined ? `v${sequence}` : '—' },
+    statusItem,
+  ];
+}
+
 export function PlatformPageHeader(props: {
   eyebrow?: string;
   title?: string;
-  meta?: ReadonlyArray<{ label: string; value: string; status?: string }>;
+  meta?: ReadonlyArray<PageHeaderMetaItem>;
+  statePath?: string;
   actions?: ReadonlyArray<{ label: string; variant?: string; onClick?: string; href?: string }>;
 }) {
-  const meta = props.meta ?? [];
+  const store = useStateStore();
+  // When a `statePath` is wired, the `Blueprint`/`Status` cells are derived from
+  // the project-version list and merged ahead of any remaining literal `meta`
+  // entries (e.g. `Environment`, `Published by`). Without a `statePath`, the
+  // header falls back to the literal `meta` prop unchanged.
+  const meta: ReadonlyArray<PageHeaderMetaItem> = props.statePath
+    ? [...versionMetaFromState(store.get(props.statePath)), ...(props.meta ?? [])]
+    : props.meta ?? [];
   const actions = props.actions ?? [];
   return React.createElement(
     'header',
@@ -298,8 +449,48 @@ export function PlatformPageHeader(props: {
   );
 }
 
-export function PlatformSummaryGrid(props: { items?: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }> }) {
-  const items = props.items ?? [];
+/** Ordered (key, label) pairs for the artifact-summary counts a `statePath` carries. */
+const SUMMARY_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ['versions', 'Versions'],
+  ['services', 'Services'],
+  ['entities', 'Entities'],
+  ['schemas', 'Schemas'],
+  ['graphs', 'Graphs'],
+  ['endpoints', 'Endpoints'],
+  ['uiComponents', 'UI components'],
+];
+
+/**
+ * Unwraps a fetched artifact-summary body into labelled summary cells.
+ *
+ * The summary endpoint returns a single object (not a list), either bare or
+ * wrapped in a `{ status, summary }` envelope. Missing fields render as `0`
+ * so the grid stays populated even before the first fetch resolves.
+ */
+function summaryItemsFromState(value: unknown): Array<{ label: string; value: string | number }> {
+  let record: Record<string, unknown> = {};
+  if (value !== null && typeof value === 'object') {
+    const envelope = value as Record<string, unknown>;
+    const inner = envelope.summary;
+    record = inner !== null && typeof inner === 'object'
+      ? (inner as Record<string, unknown>)
+      : envelope;
+  }
+  return SUMMARY_FIELDS.map(([key, label]) => {
+    const raw = record[key];
+    return { label, value: typeof raw === 'number' ? raw : 0 };
+  });
+}
+
+export function PlatformSummaryGrid(props: {
+  items?: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }>;
+  statePath?: string;
+}) {
+  const store = useStateStore();
+  // When a `statePath` is wired, the grid is state-driven (counts parsed from
+  // the artifact-summary endpoint); otherwise it falls back to literal `items`.
+  const items: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }> =
+    props.statePath ? summaryItemsFromState(store.get(props.statePath)) : props.items ?? [];
   const cols = Math.min(Math.max(items.length, 2), 7);
   return React.createElement(
     'div',
@@ -359,7 +550,12 @@ export function PlatformServicesPanel(props: {
   statePath?: string;
   services?: ReadonlyArray<ServiceInput>;
 }) {
-  const services = props.services ?? [];
+  const store = useStateStore();
+  // When a `statePath` is wired, the panel is state-driven (even if empty);
+  // otherwise it falls back to the literal `services` prop.
+  const services: ReadonlyArray<ServiceInput> = props.statePath
+    ? rowsFromState(store.get(props.statePath)).map(toServiceInput)
+    : props.services ?? [];
   return React.createElement(
     'section',
     { className: 'rntme-panel' },

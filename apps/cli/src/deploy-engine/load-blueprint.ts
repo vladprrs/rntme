@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, cp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
-import { createRequire } from 'node:module';
 import { dirname, relative, resolve, sep, join } from 'node:path';
-import { loadComposedBlueprint } from '@rntme/blueprint';
+import { defaultResolvePackage, loadComposedBlueprint } from '@rntme/blueprint';
 import type { ComposedProjectInput } from '@rntme/deploy-core';
 import type { Result } from '../result.js';
 import { ok, err } from '../result.js';
@@ -102,7 +101,6 @@ async function linkDeclaredWorkspaceModules(sourceRoot: string, tempDir: string)
   const rawProject = JSON.parse(await readFile(join(sourceRoot, 'project.json'), 'utf8')) as {
     modules?: Record<string, { package?: unknown }>;
   };
-  const req = createRequire(join(sourceRoot, 'package.json'));
   const packageNames = new Set<string>();
   for (const moduleRef of Object.values(rawProject.modules ?? {})) {
     if (typeof moduleRef.package === 'string' && moduleRef.package.length > 0) {
@@ -111,7 +109,7 @@ async function linkDeclaredWorkspaceModules(sourceRoot: string, tempDir: string)
   }
 
   for (const packageName of [...packageNames].sort()) {
-    const packageDir = dirname(req.resolve(`${packageName}/package.json`));
+    const packageDir = await defaultResolvePackage(packageName, sourceRoot);
     const linkPath = join(tempDir, 'node_modules', ...packageName.split('/'));
     await mkdir(dirname(linkPath), { recursive: true });
     await symlink(packageDir, linkPath, 'dir');

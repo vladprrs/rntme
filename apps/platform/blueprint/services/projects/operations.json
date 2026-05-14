@@ -10,7 +10,9 @@
       "input": {
         "authorization": { "type": "string", "mode": "required" },
         "projectId": { "type": "string", "mode": "required" },
-        "bodyBytes": { "type": "bytes", "mode": "required" }
+        "bodyBytes": { "type": "bytes", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
       },
       "output": { "type": "PublishProjectBundleResult" },
       "effect": "write",
@@ -30,6 +32,97 @@
         "sessionStatus": { "type": "string", "mode": "optional" }
       },
       "output": { "type": "ListOrgProjectsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "listProjectServices": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-project-services.ts",
+        "export": "listProjectServicesHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "ListProjectServicesResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "getProjectArtifactSummary": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/get-project-artifact-summary.ts",
+        "export": "getProjectArtifactSummaryHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "GetProjectArtifactSummaryResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "getProjectArtifact": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/get-project-artifact.ts",
+        "export": "getProjectArtifactHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "artifactPath": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "GetProjectArtifactResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "listProjectEndpoints": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-project-endpoints.ts",
+        "export": "listProjectEndpointsHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "ListProjectEndpointsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "listProjectUiComponents": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-project-ui-components.ts",
+        "export": "listProjectUiComponentsHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "ListProjectUiComponentsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "listProjectGraphs": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-project-graphs.ts",
+        "export": "listProjectGraphsHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "ListProjectGraphsResult" },
       "effect": "read",
       "idempotency": "none"
     }

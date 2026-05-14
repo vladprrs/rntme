@@ -1,0 +1,45 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "PlatformPage",
+      "props": {},
+      "children": ["header", "summary", "uiComponentsPanel"]
+    },
+    "header": {
+      "type": "PlatformPageHeader",
+      "props": {
+        "eyebrow": "Project · UI",
+        "title": "UI components",
+        "meta": [
+          { "label": "Source", "value": "Latest published bundle" }
+        ]
+      }
+    },
+    "summary": {
+      "type": "PlatformSummaryGrid",
+      "props": {
+        "statePath": "/data/summary"
+      }
+    },
+    "uiComponentsPanel": {
+      "type": "PlatformPanel",
+      "props": {
+        "title": "UI component definitions",
+        "subtitle": "Definition inspection of each *.spec.json artifact — no live preview"
+      },
+      "children": ["uiComponentsTable"]
+    },
+    "uiComponentsTable": {
+      "type": "PlatformDataTable",
+      "props": {
+        "statePath": "/data/uiComponents",
+        "columns": [
+          { "key": "kind", "label": "Kind" },
+          { "key": "name", "label": "Component" },
+          { "key": "path", "label": "Artifact path" }
+        ]
+      }
+    }
+  }
+}
