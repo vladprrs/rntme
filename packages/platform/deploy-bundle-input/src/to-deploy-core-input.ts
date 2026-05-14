@@ -564,11 +564,17 @@ function buildUiHostBindingArtifacts(project: ComposedBlueprint): {
     const sourceBinding = sourceBindings.artifact.bindings[entry.bindingId];
     if (sourceBinding === undefined) continue;
 
-    const sourceGraph = sourceGraphSpec.graphs[sourceBinding.graph];
-    if (sourceGraph === undefined) continue;
-
+    // Graph-backed bindings carry their graph definition into the UI-host
+    // registry. Native-operation bindings (operations.json handlers with no
+    // graph file) are still emitted: the UI host never executes them — it only
+    // needs the binding's HTTP method/path to call the owning service through
+    // the edge. Skipping them here previously left the UI's `/data/*` bindings
+    // unresolved at boot (UI_INVALID / UNRESOLVED_BINDING).
     const graphId = `${entry.service}.${sourceBinding.graph}`;
-    graphs[graphId] = { ...sourceGraph, id: graphId };
+    const sourceGraph = sourceGraphSpec.graphs[sourceBinding.graph];
+    if (sourceGraph !== undefined) {
+      graphs[graphId] = { ...sourceGraph, id: graphId };
+    }
     bindings[entry.qualifiedId] = {
       ...sourceBinding,
       graph: graphId,

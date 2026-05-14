@@ -154,6 +154,23 @@ describe('toDeployCoreInput', () => {
     expect(app?.runtimeFiles?.['ui/manifest.json']).toContain('"rntme Platform"');
     expect(app?.runtimeFiles?.['bindings.json']).toContain('"projects.listProjects"');
     expect(app?.runtimeFiles?.['graphs/projects.listProjects.json']).toContain('"id": "projects.listProjects"');
+    // Native-operation bindings (operations.json handlers, no graph file) must
+    // still land in the UI host's bindings registry — the UI host calls the
+    // owning service over HTTP and never executes the graph. Regression guard
+    // for the artifact-explorer screens whose `/data/*` bindings target these.
+    const appBindings = JSON.parse(app?.runtimeFiles?.['bindings.json'] ?? '{}') as {
+      bindings?: Record<string, { http?: { path?: string } }>;
+    };
+    for (const [qualifiedId, expectedPath] of [
+      ['projects.listProjectServices', '/projects/{projectId}/services'],
+      ['projects.getProjectArtifactSummary', '/projects/{projectId}/artifact-summary'],
+      ['projects.getProjectArtifact', '/projects/{projectId}/artifacts'],
+      ['projects.listProjectEndpoints', '/projects/{projectId}/endpoints'],
+      ['projects.listProjectUiComponents', '/projects/{projectId}/ui-components'],
+      ['projects.listProjectGraphs', '/projects/{projectId}/graphs'],
+    ] as const) {
+      expect(appBindings.bindings?.[qualifiedId]?.http?.path).toBe(expectedPath);
+    }
     expect(app?.runtimeFiles?.['manifest.json']).toContain('"name": "identity-auth0"');
     expect(Object.keys(app?.runtimeFiles ?? {}).some((path) => path.startsWith('ui-build/'))).toBe(true);
     for (const slug of ['organizations', 'projects', 'tokens', 'audit', 'deployments']) {
