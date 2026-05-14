@@ -476,8 +476,8 @@ describe('renderDokployPlan', () => {
       image: 'rustfs/rustfs:1.0.0-beta.1',
       command: 'server /data',
       env: [
-        { name: 'RUSTFS_ACCESS_KEY', value: 'RUSTFS_ACCESS_KEY', secret: true },
-        { name: 'RUSTFS_SECRET_KEY', value: 'RUSTFS_SECRET_KEY', secret: true },
+        { name: 'RUSTFS_ROOT_USER', value: 'RUSTFS_ACCESS_KEY', secret: true },
+        { name: 'RUSTFS_ROOT_PASSWORD', value: 'RUSTFS_SECRET_KEY', secret: true },
       ],
       restart: { container: 'unless-stopped' },
     });
@@ -1342,9 +1342,9 @@ describe('renderDokployPlan', () => {
     const stack = r.value.resources[0];
     if (stack.kind !== 'compose') throw new Error('expected compose stack');
 
-    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ACCESS_KEY');
+    const accessKey = stack.env.find((entry) => entry.name === 'RUSTFS_ROOT_USER');
     expect(accessKey).toEqual({
-      name: 'RUSTFS_ACCESS_KEY',
+      name: 'RUSTFS_ROOT_USER',
       value: 'rntme-rustfs-access-key',
       secret: true,
     });

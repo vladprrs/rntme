@@ -692,8 +692,8 @@ function renderRustfsService(plan: ProjectDeploymentPlan): RenderedComposeServic
     image: storage.image,
     command: 'server /data',
     env: [
-      { name: 'RUSTFS_ACCESS_KEY', value: storage.credentials.accessKeyRef, secret: true },
-      { name: 'RUSTFS_SECRET_KEY', value: storage.credentials.secretKeyRef, secret: true },
+      { name: 'RUSTFS_ROOT_USER', value: storage.credentials.accessKeyRef, secret: true },
+      { name: 'RUSTFS_ROOT_PASSWORD', value: storage.credentials.secretKeyRef, secret: true },
     ],
     ports: [9000],
     restart: infraRestartPolicy(),
