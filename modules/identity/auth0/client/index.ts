@@ -12,6 +12,9 @@ type AuthConfig = {
   postLoginRedirectPath?: string;
   authenticatedRedirectPaths?: string[];
   scope?: string;
+  // `require` means every session must be organization-scoped — a cached
+  // session without an org is stale and is re-authenticated on boot.
+  organizationsCapability?: 'allow' | 'deny' | 'require';
 };
 
 type AuthUser = {
@@ -73,6 +76,16 @@ export async function boot(ctx: ModuleBootContext): Promise<void> {
       // the user to their org dashboard (`/:orgId`) so the UI lists projects;
       // a token without `org_id` falls back to the configured post-login path.
       const orgPath = orgRedirectPath(claims);
+      // Stale pre-org session: authenticated, but the cached token has no org
+      // while this app requires one (e.g. the SPA client only recently became
+      // organization_usage=require). Re-authenticate so the user gets the
+      // Auth0 org-selection prompt instead of dead-ending on /no-org. Guarded
+      // by `!cameFromCallback` so a fresh callback that still lacks an org
+      // cannot loop.
+      if (!orgPath && !cameFromCallback && cfg.organizationsCapability === 'require') {
+        await client.loginWithRedirect();
+        return;
+      }
       const redirectPath = cameFromCallback
         ? returnToPath ??
           orgPath ??
