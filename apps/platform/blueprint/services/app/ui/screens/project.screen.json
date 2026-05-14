@@ -8,6 +8,29 @@
         "limit": 100
       },
       "refetchOn": ["mount", "params"]
+    },
+    "/data/services": {
+      "binding": "projects.listProjectServices",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/summary": {
+      "binding": "projects.getProjectArtifactSummary",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/deployments": {
+      "binding": "deployments.listDeployments",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "projectId": { "$state": "/route/params/projectId" },
+        "limit": 10
+      },
+      "refetchOn": ["mount", "params"]
     }
   }
 }

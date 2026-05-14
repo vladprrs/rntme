@@ -10,6 +10,7 @@ import {
   PlatformPanel,
   PlatformServicesPanel,
   PlatformSidebar,
+  PlatformSummaryGrid,
   PlatformTokenIssuer,
 } from '../src/client.js';
 import {
@@ -61,12 +62,76 @@ function createTestStore(initial: Record<string, unknown>) {
 
 describe('@rntme/platform-ui components', () => {
   it('renders the page header with platform class names', () => {
+    const store = createTestStore({});
     const html = renderToStaticMarkup(
-      React.createElement(PlatformPageHeader, { eyebrow: 'Project', title: 'Deployments' }),
+      React.createElement(
+        StoreProvider,
+        { value: store as never },
+        React.createElement(PlatformPageHeader, { eyebrow: 'Project', title: 'Deployments' }),
+      ),
     );
 
     expect(html).toContain('rntme-page-head');
     expect(html).toContain('Deployments');
+  });
+
+  it('renders page header meta from a statePath, deriving Blueprint/Status from the latest version', () => {
+    const store = createTestStore({
+      data: {
+        versions: [
+          { projectId: 'p1', sequence: 1, status: 'published' },
+          { projectId: 'p1', sequence: 3, status: 'published' },
+          { projectId: 'p1', sequence: 2, status: 'rejected' },
+        ],
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformPageHeader, {
+        eyebrow: 'Project',
+        title: 'Project overview',
+        statePath: '/data/versions',
+        meta: [
+          { label: 'Environment', value: 'Preview' },
+          { label: 'Published by', value: 'CLI' },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('v3');
+    expect(html).toContain('Ready');
+    expect(html).toContain('Environment');
+    expect(html).toContain('Published by');
+    expect(html).not.toContain('v0.3.2');
+  });
+
+  it('renders page header version meta as placeholders when the statePath is missing', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformPageHeader, {
+        title: 'Project overview',
+        statePath: '/data/versions',
+      }),
+      store,
+    );
+
+    expect(html).toContain('Blueprint');
+    expect(html).toContain('Status');
+    expect(html).toContain('—');
+  });
+
+  it('renders page header from literal props.meta when no statePath is given', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformPageHeader, {
+        title: 'Project overview',
+        meta: [{ label: 'Blueprint', value: 'v0.3.2' }],
+      }),
+      store,
+    );
+
+    expect(html).toContain('Blueprint');
+    expect(html).toContain('v0.3.2');
   });
 
   it('renders panel children through React', () => {
@@ -197,6 +262,87 @@ describe('@rntme/platform-ui components', () => {
     );
 
     expect(html).toContain('projects');
+  });
+
+  it('renders summary grid counts from an envelope-wrapped statePath', () => {
+    const store = createTestStore({
+      data: {
+        summary: {
+          status: 'ok',
+          summary: {
+            versions: 3,
+            services: 2,
+            entities: 7,
+            schemas: 2,
+            graphs: 5,
+            endpoints: 11,
+            uiComponents: 4,
+          },
+        },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformSummaryGrid, { statePath: '/data/summary' }),
+      store,
+    );
+
+    expect(html).toContain('Versions');
+    expect(html).toContain('>3<');
+    expect(html).toContain('Endpoints');
+    expect(html).toContain('>11<');
+    expect(html).toContain('UI components');
+    expect(html).toContain('>4<');
+  });
+
+  it('renders summary grid zeros when the statePath is missing without throwing', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformSummaryGrid, { statePath: '/data/summary' }),
+      store,
+    );
+
+    expect(html).toContain('rntme-summary');
+    expect(html).toContain('Entities');
+    expect(html).toContain('>0<');
+  });
+
+  it('renders summary grid from literal props.items when no statePath is given', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformSummaryGrid, {
+        items: [{ label: 'Versions', value: '—' }],
+      }),
+      store,
+    );
+
+    expect(html).toContain('Versions');
+    expect(html).toContain('—');
+  });
+
+  it('declares the PlatformSummaryGrid statePath prop in module.json', async () => {
+    const moduleManifest = (await import('../module.json', { with: { type: 'json' } })).default as {
+      client: { components: Array<{ type: string; props: Record<string, unknown> }> };
+    };
+    const summaryGrid = moduleManifest.client.components.find(
+      (component) => component.type === 'PlatformSummaryGrid',
+    );
+    expect(summaryGrid?.props).toMatchObject({
+      items: { type: 'array' },
+      statePath: { type: 'string' },
+    });
+  });
+
+  it('declares the PlatformPageHeader statePath prop in module.json', async () => {
+    const moduleManifest = (await import('../module.json', { with: { type: 'json' } })).default as {
+      client: { components: Array<{ type: string; props: Record<string, unknown> }> };
+    };
+    const pageHeader = moduleManifest.client.components.find(
+      (component) => component.type === 'PlatformPageHeader',
+    );
+    expect(pageHeader?.props).toMatchObject({
+      meta: { type: 'array' },
+      statePath: { type: 'string' },
+    });
   });
 
   it('mints a browser-session PAT and displays plaintext only locally', async () => {

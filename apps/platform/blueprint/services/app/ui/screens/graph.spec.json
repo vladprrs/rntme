@@ -1,0 +1,45 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "PlatformPage",
+      "props": {},
+      "children": ["header", "summary", "graphsPanel"]
+    },
+    "header": {
+      "type": "PlatformPageHeader",
+      "props": {
+        "eyebrow": "Project · Graphs",
+        "title": "Graph definitions",
+        "meta": [
+          { "label": "Source", "value": "Latest published bundle" }
+        ]
+      }
+    },
+    "summary": {
+      "type": "PlatformSummaryGrid",
+      "props": {
+        "statePath": "/data/summary"
+      }
+    },
+    "graphsPanel": {
+      "type": "PlatformPanel",
+      "props": {
+        "title": "Graphs by service",
+        "subtitle": "Definition inspection of each services/*/graphs/*.json artifact — node counts, no interactive canvas"
+      },
+      "children": ["graphsTable"]
+    },
+    "graphsTable": {
+      "type": "PlatformDataTable",
+      "props": {
+        "statePath": "/data/graphs",
+        "columns": [
+          { "key": "service", "label": "Service" },
+          { "key": "graph", "label": "Graph" },
+          { "key": "nodeCount", "label": "Nodes" }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "metadata": { "title": "Data model" },
+  "data": {
+    "/data/summary": {
+      "binding": "projects.getProjectArtifactSummary",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
+    },
+    "/data/entities": {
+      "binding": "projects.getProjectArtifact",
+      "params": {
+        "projectId": { "$state": "/route/params/projectId" },
+        "artifactPath": "pdm/entities"
+      },
+      "refetchOn": ["mount", "params"]
+    }
+  }
+}

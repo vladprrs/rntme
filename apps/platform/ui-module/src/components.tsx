@@ -345,13 +345,56 @@ export function PlatformTokenIssuer(props: {
   );
 }
 
+type PageHeaderMetaItem = { label: string; value: string; status?: string };
+
+/**
+ * Derives the live `Blueprint`/`Status` header meta cells from a fetched
+ * project-version list.
+ *
+ * `projects.listProjectVersions` returns `ProjectVersionView` rows
+ * (`{ projectId, sequence, status, ... }`). The latest version is the row with
+ * the highest `sequence`; its `sequence` becomes `Blueprint vN` and its
+ * `status` becomes the `Status` cell (mapped to a `ready` badge when
+ * `published`). When no version row is present yet, both fall back to `—` so
+ * the header stays populated before the first fetch resolves.
+ */
+function versionMetaFromState(value: unknown): PageHeaderMetaItem[] {
+  const rows = rowsFromState(value);
+  let latest: Record<string, unknown> | undefined;
+  for (const row of rows) {
+    const seq = typeof row.sequence === 'number' ? row.sequence : -1;
+    const bestSeq = latest && typeof latest.sequence === 'number' ? latest.sequence : -1;
+    if (!latest || seq > bestSeq) latest = row;
+  }
+  const sequence = latest && typeof latest.sequence === 'number' ? latest.sequence : undefined;
+  const status = latest && typeof latest.status === 'string' ? latest.status : undefined;
+  const statusItem: PageHeaderMetaItem =
+    status === 'published'
+      ? { label: 'Status', value: 'Ready', status: 'ready' }
+      : status === 'rejected'
+        ? { label: 'Status', value: 'Rejected', status: 'error' }
+        : { label: 'Status', value: status ?? '—' };
+  return [
+    { label: 'Blueprint', value: sequence !== undefined ? `v${sequence}` : '—' },
+    statusItem,
+  ];
+}
+
 export function PlatformPageHeader(props: {
   eyebrow?: string;
   title?: string;
-  meta?: ReadonlyArray<{ label: string; value: string; status?: string }>;
+  meta?: ReadonlyArray<PageHeaderMetaItem>;
+  statePath?: string;
   actions?: ReadonlyArray<{ label: string; variant?: string; onClick?: string; href?: string }>;
 }) {
-  const meta = props.meta ?? [];
+  const store = useStateStore();
+  // When a `statePath` is wired, the `Blueprint`/`Status` cells are derived from
+  // the project-version list and merged ahead of any remaining literal `meta`
+  // entries (e.g. `Environment`, `Published by`). Without a `statePath`, the
+  // header falls back to the literal `meta` prop unchanged.
+  const meta: ReadonlyArray<PageHeaderMetaItem> = props.statePath
+    ? [...versionMetaFromState(store.get(props.statePath)), ...(props.meta ?? [])]
+    : props.meta ?? [];
   const actions = props.actions ?? [];
   return React.createElement(
     'header',
@@ -406,8 +449,48 @@ export function PlatformPageHeader(props: {
   );
 }
 
-export function PlatformSummaryGrid(props: { items?: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }> }) {
-  const items = props.items ?? [];
+/** Ordered (key, label) pairs for the artifact-summary counts a `statePath` carries. */
+const SUMMARY_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ['versions', 'Versions'],
+  ['services', 'Services'],
+  ['entities', 'Entities'],
+  ['schemas', 'Schemas'],
+  ['graphs', 'Graphs'],
+  ['endpoints', 'Endpoints'],
+  ['uiComponents', 'UI components'],
+];
+
+/**
+ * Unwraps a fetched artifact-summary body into labelled summary cells.
+ *
+ * The summary endpoint returns a single object (not a list), either bare or
+ * wrapped in a `{ status, summary }` envelope. Missing fields render as `0`
+ * so the grid stays populated even before the first fetch resolves.
+ */
+function summaryItemsFromState(value: unknown): Array<{ label: string; value: string | number }> {
+  let record: Record<string, unknown> = {};
+  if (value !== null && typeof value === 'object') {
+    const envelope = value as Record<string, unknown>;
+    const inner = envelope.summary;
+    record = inner !== null && typeof inner === 'object'
+      ? (inner as Record<string, unknown>)
+      : envelope;
+  }
+  return SUMMARY_FIELDS.map(([key, label]) => {
+    const raw = record[key];
+    return { label, value: typeof raw === 'number' ? raw : 0 };
+  });
+}
+
+export function PlatformSummaryGrid(props: {
+  items?: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }>;
+  statePath?: string;
+}) {
+  const store = useStateStore();
+  // When a `statePath` is wired, the grid is state-driven (counts parsed from
+  // the artifact-summary endpoint); otherwise it falls back to literal `items`.
+  const items: ReadonlyArray<{ label: string; value: string | number; warn?: boolean }> =
+    props.statePath ? summaryItemsFromState(store.get(props.statePath)) : props.items ?? [];
   const cols = Math.min(Math.max(items.length, 2), 7);
   return React.createElement(
     'div',

@@ -117,6 +117,7 @@ Line format: `**<name>** - <one-line what> · Filter: <Fx/Gx> · Status: <status
 - **Error code format `<PKG>_<LAYER>_<KIND>`** · F5, G2 · `locked`
 - **Layering enforced by dependency-cruiser** - modules -> contracts only; contracts are leaves; artifacts/deploy do not import runtime; no cycles · F3, G4 · `locked`
 - **No backwards-compatibility shims** - pre-stable · F7, G6 · `locked-conditional`
+- **Platform artifact explorers render with existing `Platform*` components; no new visualization dependency** - The platform UI's artifact explorers (data-model, API, UI-elements, graph) inspect published-bundle artifacts as definition-inspection using the existing `Platform*` component catalog (`PlatformPage`/`PageHeader`/`SummaryGrid`/`Panel`/`DataTable`), driven by `statePath` bindings over native blob-parsing handlers. Graph artifacts are inspected as node/edge tables, not an interactive canvas. An interactive graph canvas library (e.g. React Flow, ranked P1 in the UX design) is **not adopted now**: it does not yet justify itself against the existing component catalog, would add a maintained-dependency/bus-factor cost, and definition-inspection already satisfies the operator "inspect all artifacts" outcome. React Flow is reserved as a future expansion if interactive graph editing/layout becomes a real need. · F8, G5, G3 · `current-default` · goal `docs/goals/platform-full-ux-scenarios` (T020 ruling)
 
 ### 3.7 Tooling
 

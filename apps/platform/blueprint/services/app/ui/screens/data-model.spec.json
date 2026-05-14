@@ -1,0 +1,44 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "PlatformPage",
+      "props": {},
+      "children": ["header", "summary", "entitiesPanel"]
+    },
+    "header": {
+      "type": "PlatformPageHeader",
+      "props": {
+        "eyebrow": "Project · Data model",
+        "title": "PDM entities",
+        "meta": [
+          { "label": "Source", "value": "Latest published bundle" }
+        ]
+      }
+    },
+    "summary": {
+      "type": "PlatformSummaryGrid",
+      "props": {
+        "statePath": "/data/summary"
+      }
+    },
+    "entitiesPanel": {
+      "type": "PlatformPanel",
+      "props": {
+        "title": "Entities",
+        "subtitle": "Parsed from pdm/entities/*.json"
+      },
+      "children": ["entitiesTable"]
+    },
+    "entitiesTable": {
+      "type": "PlatformDataTable",
+      "props": {
+        "statePath": "/data/entities",
+        "columns": [
+          { "key": "name", "label": "Entity" },
+          { "key": "path", "label": "Artifact path" }
+        ]
+      }
+    }
+  }
+}

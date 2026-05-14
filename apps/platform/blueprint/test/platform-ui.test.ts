@@ -18,8 +18,56 @@ describe('platform UI artifact', () => {
     expect(ui?.manifest.routes['/auth/callback']).toMatchObject({ screen: 'login' });
     expect(ui?.manifest.routes['/:orgId']).toMatchObject({ screen: 'org' });
     expect(ui?.manifest.routes['/:orgId/deployments/:deploymentId']).toMatchObject({ screen: 'deployment' });
+    expect(ui?.manifest.routes['/:orgId/projects/:projectId/data-model']).toMatchObject({ screen: 'data-model' });
     expect(ui?.screens.org?.data?.['/data/projects']?.path).toBe('/api/projects');
     expect(ui?.screens.deployment?.data?.['/data/logs']?.path).toBe('/api/deployments/{deploymentId}/logs');
+    expect(ui?.screens.project?.data?.['/data/versions']?.path).toBe('/api/projects/{projectId}/versions');
+    expect(ui?.screens.project?.spec.elements.header).toMatchObject({
+      type: 'PlatformPageHeader',
+      props: { statePath: '/data/versions' },
+    });
+    expect(ui?.screens.project?.data?.['/data/services']?.path).toBe('/api/projects/{projectId}/services');
+    expect(ui?.screens.project?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
+    expect(ui?.screens.project?.spec.elements.servicesPanel).toMatchObject({
+      type: 'PlatformServicesPanel',
+      props: { statePath: '/data/services' },
+    });
+    expect(ui?.screens.project?.spec.elements.summary).toMatchObject({
+      type: 'PlatformSummaryGrid',
+      props: { statePath: '/data/summary' },
+    });
+    expect(ui?.screens.project?.data?.['/data/deployments']?.path).toBe('/api/deployments');
+    expect(ui?.screens.project?.spec.elements.deployTimeline).toMatchObject({
+      type: 'PlatformDataTable',
+      props: { statePath: '/data/deployments' },
+    });
+    expect(ui?.screens['data-model']?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
+    expect(ui?.screens['data-model']?.data?.['/data/entities']?.path).toBe('/api/projects/{projectId}/artifacts');
+    expect(ui?.screens['data-model']?.spec.elements.entitiesTable).toMatchObject({
+      type: 'PlatformDataTable',
+      props: { statePath: '/data/entities' },
+    });
+    expect(ui?.manifest.routes['/:orgId/projects/:projectId/api']).toMatchObject({ screen: 'api' });
+    expect(ui?.screens.api?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
+    expect(ui?.screens.api?.data?.['/data/endpoints']?.path).toBe('/api/projects/{projectId}/endpoints');
+    expect(ui?.screens.api?.spec.elements.endpointsTable).toMatchObject({
+      type: 'PlatformDataTable',
+      props: { statePath: '/data/endpoints' },
+    });
+    expect(ui?.manifest.routes['/:orgId/projects/:projectId/ui']).toMatchObject({ screen: 'ui' });
+    expect(ui?.screens.ui?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
+    expect(ui?.screens.ui?.data?.['/data/uiComponents']?.path).toBe('/api/projects/{projectId}/ui-components');
+    expect(ui?.screens.ui?.spec.elements.uiComponentsTable).toMatchObject({
+      type: 'PlatformDataTable',
+      props: { statePath: '/data/uiComponents' },
+    });
+    expect(ui?.manifest.routes['/:orgId/projects/:projectId/graph']).toMatchObject({ screen: 'graph' });
+    expect(ui?.screens.graph?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
+    expect(ui?.screens.graph?.data?.['/data/graphs']?.path).toBe('/api/projects/{projectId}/graphs');
+    expect(ui?.screens.graph?.spec.elements.graphsTable).toMatchObject({
+      type: 'PlatformDataTable',
+      props: { statePath: '/data/graphs' },
+    });
     expect(JSON.parse(result.value.publicConfigJson ?? '{}')).toMatchObject({
       '@rntme/identity-auth0': {
         postLoginRedirectPath: '/no-org',

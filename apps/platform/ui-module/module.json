@@ -6,11 +6,11 @@
     "entry": "./dist/client.js",
     "components": [
       { "type": "PlatformPage", "props": {} },
-      { "type": "PlatformPageHeader", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "meta": { "type": "array" }, "actions": { "type": "array" } } },
+      { "type": "PlatformPageHeader", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "meta": { "type": "array" }, "statePath": { "type": "string" }, "actions": { "type": "array" } } },
       { "type": "PlatformPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "flush": { "type": "boolean" } } },
       { "type": "PlatformSidebar", "props": { "brand": { "type": "string" }, "version": { "type": "string" }, "contextLabel": { "type": "string" }, "contextName": { "type": "string" }, "contextMeta": { "type": "string" }, "items": { "type": "array" }, "cliVersion": { "type": "string" } } },
       { "type": "PlatformTopbar", "props": { "crumbs": { "type": "array" }, "actions": { "type": "array" } } },
-      { "type": "PlatformSummaryGrid", "props": { "items": { "type": "array" } } },
+      { "type": "PlatformSummaryGrid", "props": { "items": { "type": "array" }, "statePath": { "type": "string" } } },
       { "type": "PlatformServicesPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "statePath": { "type": "string" }, "services": { "type": "array" } } },
       { "type": "PlatformTimeline", "props": { "steps": { "type": "array" }, "currentStep": { "type": "number" }, "errored": { "type": "boolean" } } },
       { "type": "PlatformAlertList", "props": { "variant": { "type": "string" }, "items": { "type": "array" } } },

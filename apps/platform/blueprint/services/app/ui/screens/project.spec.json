@@ -11,11 +11,10 @@
       "props": {
         "eyebrow": "Project · Dashboard",
         "title": "Project overview",
+        "statePath": "/data/versions",
         "meta": [
           { "label": "Environment", "value": "Preview" },
-          { "label": "Blueprint", "value": "v0.3.2" },
-          { "label": "Published by", "value": "CLI" },
-          { "label": "Status", "value": "Ready", "status": "ready" }
+          { "label": "Published by", "value": "CLI" }
         ],
         "actions": [
           { "label": "View logs", "variant": "secondary" },
@@ -26,15 +25,7 @@
     "summary": {
       "type": "PlatformSummaryGrid",
       "props": {
-        "items": [
-          { "label": "Versions", "value": "—" },
-          { "label": "Services", "value": 0 },
-          { "label": "Entities", "value": 0 },
-          { "label": "Schemas", "value": 0 },
-          { "label": "Graphs", "value": 0 },
-          { "label": "Endpoints", "value": 0 },
-          { "label": "UI components", "value": 0 }
-        ]
+        "statePath": "/data/summary"
       }
     },
     "dashGrid": {
@@ -47,53 +38,7 @@
       "props": {
         "title": "Services",
         "subtitle": "Authored as platform blueprint",
-        "services": [
-          {
-            "name": "organizations",
-            "status": "Ready",
-            "description": "Tenant identity, accounts, and memberships.",
-            "entities": 3,
-            "schemas": 2,
-            "graphs": 2,
-            "endpoints": 4
-          },
-          {
-            "name": "projects",
-            "status": "Ready",
-            "description": "Project and project-version lifecycle.",
-            "entities": 2,
-            "schemas": 2,
-            "graphs": 2,
-            "endpoints": 3
-          },
-          {
-            "name": "deployments",
-            "status": "Ready",
-            "description": "Deploy targets, deployments, log lines, project operations.",
-            "entities": 4,
-            "schemas": 3,
-            "graphs": 3,
-            "endpoints": 6
-          },
-          {
-            "name": "tokens",
-            "status": "Ready",
-            "description": "Machine tokens with prefix and scope metadata.",
-            "entities": 1,
-            "schemas": 1,
-            "graphs": 1,
-            "endpoints": 2
-          },
-          {
-            "name": "audit",
-            "status": "Ready",
-            "description": "Append-only inspectable audit stream.",
-            "entities": 1,
-            "schemas": 1,
-            "graphs": 1,
-            "endpoints": 1
-          }
-        ]
+        "statePath": "/data/services"
       }
     },
     "sidePanel": {
@@ -103,19 +48,18 @@
     },
     "deployPanel": {
       "type": "PlatformPanel",
-      "props": { "title": "Latest deployment", "subtitle": "Live" },
+      "props": { "title": "Recent deployments", "subtitle": "Latest 10" },
       "children": ["deployTimeline"]
     },
     "deployTimeline": {
-      "type": "PlatformTimeline",
+      "type": "PlatformDataTable",
       "props": {
-        "currentStep": 4,
-        "steps": [
-          { "label": "Queued", "time": "—" },
-          { "label": "Validating", "time": "—", "meta": "Artifacts parsed" },
-          { "label": "Building", "time": "—", "meta": "Services compiled" },
-          { "label": "Deploying", "time": "—", "meta": "Routes bound, seeds applied" },
-          { "label": "Ready", "time": "—", "meta": "All services serving traffic" }
+        "statePath": "/data/deployments",
+        "columns": [
+          { "key": "status", "label": "Status" },
+          { "key": "targetId", "label": "Target" },
+          { "key": "projectVersionId", "label": "Version" },
+          { "key": "createdAt", "label": "Created" }
         ]
       }
     },

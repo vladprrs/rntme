@@ -1,0 +1,46 @@
+{
+  "root": "page",
+  "elements": {
+    "page": {
+      "type": "PlatformPage",
+      "props": {},
+      "children": ["header", "summary", "endpointsPanel"]
+    },
+    "header": {
+      "type": "PlatformPageHeader",
+      "props": {
+        "eyebrow": "Project · API",
+        "title": "HTTP endpoints",
+        "meta": [
+          { "label": "Source", "value": "Latest published bundle" }
+        ]
+      }
+    },
+    "summary": {
+      "type": "PlatformSummaryGrid",
+      "props": {
+        "statePath": "/data/summary"
+      }
+    },
+    "endpointsPanel": {
+      "type": "PlatformPanel",
+      "props": {
+        "title": "Endpoints by service",
+        "subtitle": "Flattened from each service's bindings.json"
+      },
+      "children": ["endpointsTable"]
+    },
+    "endpointsTable": {
+      "type": "PlatformDataTable",
+      "props": {
+        "statePath": "/data/endpoints",
+        "columns": [
+          { "key": "service", "label": "Service" },
+          { "key": "operation", "label": "Operation" },
+          { "key": "method", "label": "Method" },
+          { "key": "path", "label": "Path" }
+        ]
+      }
+    }
+  }
+}
