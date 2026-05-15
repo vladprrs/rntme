@@ -17,8 +17,26 @@
           { "label": "Published by", "value": "CLI" }
         ],
         "actions": [
-          { "label": "View logs", "variant": "secondary" },
-          { "label": "Open API", "variant": "primary" }
+          {
+            "label": "Data model",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/data-model"
+          },
+          {
+            "label": "API",
+            "variant": "primary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/api"
+          },
+          {
+            "label": "UI",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/ui"
+          },
+          {
+            "label": "Graph",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/graph"
+          }
         ]
       }
     },
@@ -44,7 +62,18 @@
     "sidePanel": {
       "type": "PlatformBox",
       "props": { "className": "rntme-side-stack" },
-      "children": ["deployPanel", "alertsPanel", "versionsPanel"]
+      "children": ["deployStatusPanel", "deployPanel", "alertsPanel", "versionsPanel"]
+    },
+    "deployStatusPanel": {
+      "type": "PlatformPanel",
+      "props": { "title": "Deployment status", "subtitle": "Latest deployment" },
+      "children": ["deployStatusTimeline"]
+    },
+    "deployStatusTimeline": {
+      "type": "PlatformTimeline",
+      "props": {
+        "statePath": "/data/deploy-status"
+      }
     },
     "deployPanel": {
       "type": "PlatformPanel",

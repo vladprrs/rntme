@@ -4,7 +4,7 @@
     "page": {
       "type": "PlatformPage",
       "props": {},
-      "children": ["header", "summary", "endpointsPanel"]
+      "children": ["header", "summary", "endpointsExplorer"]
     },
     "header": {
       "type": "PlatformPageHeader",
@@ -22,24 +22,12 @@
         "statePath": "/data/summary"
       }
     },
-    "endpointsPanel": {
-      "type": "PlatformPanel",
+    "endpointsExplorer": {
+      "type": "PlatformAPIExplorer",
       "props": {
-        "title": "Endpoints by service",
-        "subtitle": "Flattened from each service's bindings.json"
-      },
-      "children": ["endpointsTable"]
-    },
-    "endpointsTable": {
-      "type": "PlatformDataTable",
-      "props": {
-        "statePath": "/data/endpoints",
-        "columns": [
-          { "key": "service", "label": "Service" },
-          { "key": "operation", "label": "Operation" },
-          { "key": "method", "label": "Method" },
-          { "key": "path", "label": "Path" }
-        ]
+        "endpointsStatePath": "/data/endpoints",
+        "summaryStatePath": "/data/summary",
+        "endpointDetailPathTemplate": "/api/projects/{projectId}/endpoints/{service}/{operation}"
       }
     }
   }

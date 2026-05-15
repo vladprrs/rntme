@@ -103,6 +103,23 @@
       "effect": "read",
       "idempotency": "none"
     },
+    "readDeployStages": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/deployments.ts",
+        "export": "listDeployStagesHandler"
+      },
+      "input": {
+        "authorization": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" },
+        "organizationId": { "type": "string", "mode": "required" },
+        "projectId": { "type": "string", "mode": "required" }
+      },
+      "output": { "type": "ListDeployStagesResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
     "createDeployTarget": {
       "handler": {
         "kind": "native",

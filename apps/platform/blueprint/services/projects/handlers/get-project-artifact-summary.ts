@@ -139,29 +139,67 @@ export function getProjectArtifactSummaryHandler(
       entities += 1;
       continue;
     }
-    const fileName = path.slice(path.lastIndexOf('/') + 1);
-    if (fileName === 'shapes.json') {
-      schemas += 1;
-      continue;
-    }
-    if (fileName === 'bindings.json') {
-      endpoints += countBindings(content);
-      continue;
-    }
-    if (path.includes('/graphs/') && path.endsWith('.json')) {
-      graphs += 1;
-      continue;
-    }
-    if (path.endsWith('.spec.json')) {
-      uiComponents += 1;
-      continue;
-    }
+    const counts = artifactCountsForFile(path, content);
+    schemas += counts.schemas;
+    graphs += counts.graphs;
+    endpoints += counts.endpoints;
+    uiComponents += counts.uiComponents;
   }
 
   return {
     status: 'ok',
     summary: { versions, services, entities, schemas, graphs, endpoints, uiComponents },
   };
+}
+
+/**
+ * Per-service artifact counts derived from a single bundle file entry.
+ *
+ * `entities` is intentionally absent: PDM entities live project-level under
+ * `pdm/entities/` and the bundle layout carries no `services/<service>/pdm/`
+ * split, so entity counts cannot be attributed to an individual service.
+ */
+export type ServiceScopedArtifactCounts = {
+  readonly schemas: number;
+  readonly graphs: number;
+  readonly endpoints: number;
+  readonly uiComponents: number;
+};
+
+const NO_ARTIFACT_COUNTS: ServiceScopedArtifactCounts = {
+  schemas: 0,
+  graphs: 0,
+  endpoints: 0,
+  uiComponents: 0,
+};
+
+/**
+ * Classifies one bundle file entry into its artifact-count contribution.
+ *
+ * This is the same per-file classification `getProjectArtifactSummary` folds
+ * over the whole bundle; `listProjectServices` reuses it scoped to each
+ * `services/<service>/` path prefix so per-service counts and the
+ * project-wide summary stay consistent. PDM entity files (`pdm/entities/*`)
+ * are handled by the caller because they are project-level, not per-service.
+ */
+export function artifactCountsForFile(
+  path: string,
+  content: unknown,
+): ServiceScopedArtifactCounts {
+  const fileName = path.slice(path.lastIndexOf('/') + 1);
+  if (fileName === 'shapes.json') {
+    return { ...NO_ARTIFACT_COUNTS, schemas: 1 };
+  }
+  if (fileName === 'bindings.json') {
+    return { ...NO_ARTIFACT_COUNTS, endpoints: countBindings(content) };
+  }
+  if (path.includes('/graphs/') && path.endsWith('.json')) {
+    return { ...NO_ARTIFACT_COUNTS, graphs: 1 };
+  }
+  if (path.endsWith('.spec.json')) {
+    return { ...NO_ARTIFACT_COUNTS, uiComponents: 1 };
+  }
+  return NO_ARTIFACT_COUNTS;
 }
 
 /**

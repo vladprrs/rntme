@@ -30,6 +30,19 @@
       "createdAt": { "type": "datetime", "nullable": false }
     }
   },
+  "DeployStageStateView": {
+    "fields": {
+      "id": { "type": "string", "nullable": false },
+      "deploymentId": { "type": "string", "nullable": false },
+      "orgId": { "type": "string", "nullable": false },
+      "stage": { "type": "string", "nullable": false },
+      "status": { "type": "string", "nullable": false },
+      "errorCode": { "type": "string", "nullable": true },
+      "errorMessage": { "type": "string", "nullable": true },
+      "startedAt": { "type": "datetime", "nullable": false },
+      "finishedAt": { "type": "datetime", "nullable": true }
+    }
+  },
   "ActionResult": {
     "fields": {
       "id": { "type": "string", "nullable": false },

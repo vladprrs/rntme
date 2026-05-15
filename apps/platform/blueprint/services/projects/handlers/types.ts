@@ -71,8 +71,46 @@ export type ProjectServiceRow = {
    * yet, so this defaults to "Ready" for every service in a published bundle.
    */
   readonly status: string;
-  /** Optional human description; omitted when the bundle carries none. */
+  /**
+   * Optional human description. The bundle's `services/<service>/service.json`
+   * carries no description field, so this is currently always omitted — see
+   * the owner doc for the source-or-omitted decision.
+   */
   readonly description?: string;
+  /**
+   * Count of per-service `shapes.json` artifact files under
+   * `services/<service>/`.
+   */
+  readonly schemas: number;
+  /**
+   * Count of per-service graph files under `services/<service>/graphs/`,
+   * excluding `shapes.json`.
+   */
+  readonly graphs: number;
+  /**
+   * Total HTTP endpoint bindings declared across this service's
+   * `bindings.json` files.
+   */
+  readonly endpoints: number;
+  /**
+   * Count of UI component spec files (`*.spec.json`) under
+   * `services/<service>/`.
+   */
+  readonly uiComponents: number;
+  /**
+   * Count of PDM entity files attributable to this service. PDM entities live
+   * project-level under `pdm/entities/` with no `services/<service>/pdm/`
+   * split in the bundle layout, so this is always 0 — entity counts are a
+   * project-level summary concern, not per-service. See the owner doc.
+   */
+  readonly entities: number;
+  /**
+   * Last deployment timestamp for this service. Always omitted: the projects
+   * handler reads only the published bundle blob via `qsmDb`, and no
+   * per-service deployment timestamp is reachable without a cross-table JOIN
+   * the handler pattern does not support. See the owner doc.
+   */
+  readonly lastDeployedAt?: string;
 };
 
 export type ListProjectServicesHandlerInput = {
@@ -240,4 +278,218 @@ export type ListProjectGraphsHandlerInput = {
 
 export type ListProjectGraphsHandlerOutput =
   | { readonly status: 'ok'; readonly graphs: readonly ProjectGraphRow[] }
+  | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
+
+export type ProjectDataModelEndpoint = {
+  readonly service: string;
+  readonly operation: string;
+  readonly method: string;
+  readonly path: string;
+  readonly graph: string;
+};
+
+export type ProjectDataModelField = {
+  readonly name: string;
+  readonly type: string;
+  readonly nullable: boolean;
+  readonly column: string;
+  readonly generated?: string;
+  readonly primaryKey: boolean;
+  readonly stateField: boolean;
+  readonly qsmProjections: readonly string[];
+};
+
+export type ProjectDataModelRelation = {
+  readonly name: string;
+  readonly target: string;
+  readonly cardinality: string;
+  readonly localKey: string;
+  readonly foreignKey: string;
+  readonly missingTarget: boolean;
+};
+
+export type ProjectDataModelStateMachine = {
+  readonly stateField: string;
+  readonly states: readonly string[];
+  readonly transitions: readonly string[];
+};
+
+export type ProjectDataModelEntity = {
+  readonly name: string;
+  readonly ownerService: string;
+  readonly kind: string;
+  readonly table: string;
+  readonly path: string;
+  readonly keys: readonly string[];
+  readonly fields: readonly ProjectDataModelField[];
+  readonly relations: readonly ProjectDataModelRelation[];
+  readonly stateMachine?: ProjectDataModelStateMachine;
+  readonly qsmProjections: readonly string[];
+  readonly endpoints: readonly ProjectDataModelEndpoint[];
+  readonly raw: unknown;
+};
+
+export type ProjectDataModelProjectionField = {
+  readonly name: string;
+  readonly type: string;
+  readonly source: string;
+  readonly nullable: boolean;
+  readonly computed: boolean;
+};
+
+export type ProjectDataModelProjection = {
+  readonly name: string;
+  readonly service: string;
+  readonly path: string;
+  readonly backing: string;
+  readonly sourceEntity: string;
+  readonly keys: readonly string[];
+  readonly grain: readonly string[];
+  readonly exposed: readonly string[];
+  readonly table?: string;
+  readonly fields: readonly ProjectDataModelProjectionField[];
+  readonly endpoints: readonly ProjectDataModelEndpoint[];
+  readonly raw: unknown;
+};
+
+export type ProjectDataModelRelationship = {
+  readonly source: string;
+  readonly name: string;
+  readonly target: string;
+  readonly cardinality: string;
+  readonly localKey: string;
+  readonly foreignKey: string;
+  readonly path: string;
+  readonly missingTarget: boolean;
+};
+
+export type ProjectDataModelFinding = {
+  readonly kind: 'warning' | 'error';
+  readonly entity?: string;
+  readonly projection?: string;
+  readonly service?: string;
+  readonly artifact: string;
+  readonly jsonPath: string;
+  readonly message: string;
+  readonly suggestedAction?: string;
+};
+
+export type ProjectDataModel = {
+  readonly summary: {
+    readonly entities: number;
+    readonly fields: number;
+    readonly relationships: number;
+    readonly qsmProjections: number;
+    readonly warnings: number;
+    readonly errors: number;
+  };
+  readonly entities: readonly ProjectDataModelEntity[];
+  readonly qsmProjections: readonly ProjectDataModelProjection[];
+  readonly relationships: readonly ProjectDataModelRelationship[];
+  readonly findings: readonly ProjectDataModelFinding[];
+};
+
+export type ListProjectDataModelHandlerInput = {
+  /** Canonical project id (uuid) or org-scoped project slug. */
+  readonly projectId: string;
+  /** Advisory edge-auth subject header forwarded by nginx after auth_request succeeds. */
+  readonly sessionSubject?: string | null;
+  /** Advisory edge-auth status header forwarded by nginx after auth_request succeeds. */
+  readonly sessionStatus?: string | null;
+};
+
+export type ListProjectDataModelHandlerOutput =
+  | { readonly status: 'ok'; readonly dataModel: ProjectDataModel }
+  | { readonly status: 'error'; readonly errors: readonly PlatformError[] };
+
+/**
+ * A single declared parameter for an HTTP endpoint detail (request schema row,
+ * query/path/body slot, or a response field row).
+ *
+ * `description` is currently always omitted (handler ships `null`) because no
+ * source artifact exposes per-field documentation strings yet — the
+ * `getProjectEndpointDetail` handler keeps the field in the contract so the
+ * Slice B follow-up that adds richer per-field descriptions does not need a
+ * shape change.
+ */
+export type ProjectEndpointParameter = {
+  readonly name: string;
+  readonly in: 'path' | 'query' | 'body';
+  readonly required: boolean;
+  readonly description?: string | null;
+};
+
+export type ProjectEndpointRequestSchema = {
+  readonly pathParams: readonly ProjectEndpointParameter[];
+  readonly queryParams: readonly ProjectEndpointParameter[];
+  /**
+   * Aggregated body slot. `null` when the endpoint declares no body parameters.
+   * `schemaName` is `null` when the body shape cannot be derived from the graph
+   * `signature.inputs` and the per-service `shapes.json` lookup the handler
+   * supports today (see `getProjectEndpointDetail` for the exact lookup).
+   */
+  readonly body: {
+    readonly schemaName: string | null;
+    readonly fields: readonly ProjectEndpointParameter[];
+  } | null;
+};
+
+/**
+ * Response schema rows for an HTTP endpoint detail. In Slice B1 every field
+ * other than `schemaName` and `fields` is pinned to the listed defaults — those
+ * fields have no source artifact to back them yet (`successStatus`, `example`,
+ * `errors`) and the handler must not invent values.
+ */
+export type ProjectEndpointResponseSchema = {
+  readonly successStatus: number | null;
+  readonly schemaName: string | null;
+  readonly fields: readonly ProjectEndpointParameter[];
+  readonly example: unknown | null;
+  readonly errors: readonly { readonly code: number; readonly message: string }[];
+};
+
+/**
+ * Parsed detail row for one HTTP endpoint binding in the latest published
+ * project bundle. The shape mirrors the field map the API explorer's Overview
+ * pane renders; fields without a source artifact today (`summary`,
+ * `response.successStatus`, `response.example`, `response.errors`,
+ * per-field `description`) ship pinned constants so the UI can keep their
+ * "Not yet exposed by handler" placeholders without inventing data.
+ */
+export type ProjectEndpointDetail = {
+  readonly service: string;
+  readonly operation: string;
+  readonly method: string;
+  readonly path: string;
+  readonly summary: string | null;
+  readonly auth: 'required' | 'public';
+  readonly sourceArtifact: { readonly file: string; readonly key: string };
+  readonly handler: { readonly engine: string; readonly dialect: string; readonly graph: string | null };
+  readonly request: ProjectEndpointRequestSchema;
+  readonly response: ProjectEndpointResponseSchema;
+  /**
+   * Skeleton-only example strings derived from `method` + `path` + parameters.
+   * No request bodies are filled in — body example payloads have no source
+   * artifact in the bundle yet.
+   */
+  readonly examples: { readonly curl: string; readonly fetch: string; readonly openapi: string };
+  /** Verbatim `bindings[<operation>]` JSON object from the per-service `bindings.json`. */
+  readonly rawBinding: unknown;
+};
+
+export type GetProjectEndpointDetailHandlerInput = {
+  /** Canonical project id (uuid) or org-scoped project slug. */
+  readonly projectId: string;
+  /** Owning service slug (the `services/<service>/` segment in the bundle). */
+  readonly service: string;
+  /** Binding key — the bound operation name under `bindings`. */
+  readonly operation: string;
+  /** Advisory edge-auth subject header forwarded by nginx after auth_request succeeds. */
+  readonly sessionSubject?: string | null;
+  /** Advisory edge-auth status header forwarded by nginx after auth_request succeeds. */
+  readonly sessionStatus?: string | null;
+};
+
+export type GetProjectEndpointDetailHandlerOutput =
+  | { readonly status: 'ok'; readonly detail: ProjectEndpointDetail }
   | { readonly status: 'error'; readonly errors: readonly PlatformError[] };

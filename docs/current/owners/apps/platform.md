@@ -60,13 +60,16 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 | `GET /api/tokens/introspect` | `IntrospectToken` | `services/tokens/handlers/introspect-token.ts` (`introspectTokenHandler`) — runtime-native PAT introspection entrypoint; missing or invalid bearer values throw typed `PLATFORM_AUTH_*` errors |
 | `GET /api/projects` | `listProjects` | `services/projects/handlers/list-org-projects.ts` (`listOrgProjectsHandler`) — supports the runtime-native edge-authenticated call shape for dashboard and CLI proof paths |
 | `POST /api/projects/{projectId}/versions` | `publishProjectBundle` | `services/projects/handlers/publish-project-bundle.ts` (`publishProjectBundleHandler`) — ingests the `application/rntme-project-bundle+json` body bytes via `inputFrom.bodyBytes` |
-| `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows |
+| `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows with per-service artifact counts (see the `ProjectServiceRow` contract below) |
 | `GET /api/projects/{projectId}/artifact-summary` | `getProjectArtifactSummary` | `services/projects/handlers/get-project-artifact-summary.ts` (`getProjectArtifactSummaryHandler`) — per-project artifact counts (services/entities/schemas/graphs/endpoints/uiComponents + versions) derived from the bundle blob |
 | `GET /api/projects/{projectId}/artifacts` | `getProjectArtifact` | `services/projects/handlers/get-project-artifact.ts` (`getProjectArtifactHandler`) — returns a single named artifact body (or a prefix listing) from the bundle blob; takes an `artifactPath` query param |
+| `GET /api/projects/{projectId}/data-model` | `listProjectDataModel` | `services/projects/handlers/list-project-data-model.ts` (`listProjectDataModelHandler`) — derives the data-model explorer model from the latest bundle blob: project-level PDM entities/fields/relations, service-owned QSM projections, projection-to-endpoint usage via graph/binding references, relationship edges, and empty findings until a real validation-report source exists |
 | `GET /api/projects/{projectId}/endpoints` | `listProjectEndpoints` | `services/projects/handlers/list-project-endpoints.ts` (`listProjectEndpointsHandler`) — flattens every per-service `bindings.json` into `{service,operation,method,path}` endpoint rows |
+| `GET /api/projects/{projectId}/endpoints/{service}/{operation}` | `getProjectEndpointDetail` | `services/projects/handlers/get-project-endpoint-detail.ts` (`getProjectEndpointDetailHandler`) — returns one `ProjectEndpointDetail` row for the named operation: real `auth`, `sourceArtifact`, `handler` reference, `request.body.schemaName` (when derivable), `response.schemaName` (`row<X>` and bare-identifier wrappers only), and the verbatim `bindings[op]` JSON in `rawBinding`. Pinned constants for `summary`, `response.successStatus`, `response.example`, `response.errors`, and per-field `description`s — those have no source artifact in the bundle yet |
 | `GET /api/projects/{projectId}/ui-components` | `listProjectUiComponents` | `services/projects/handlers/list-project-ui-components.ts` (`listProjectUiComponentsHandler`) — flattens the bundle's UI component `*.spec.json` artifacts |
 | `GET /api/projects/{projectId}/graphs` | `listProjectGraphs` | `services/projects/handlers/list-project-graphs.ts` (`listProjectGraphsHandler`) — flattens the bundle's `*/graphs/*.json` artifacts into `{service,graph,nodeCount}` rows |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
+| `GET /api/deployments/stages` | `listDeployStages` | `services/deployments/handlers/deployments.ts` (`listDeployStagesHandler`) — returns the persisted `deploy_stage_state` rows for the project's latest deployment (selected by a `created_at DESC` subquery over `deployments`), powering the dashboard deployment-status timeline; `deploymentId` is `null` when the project has never been deployed |
 | `GET /api/deployments/targets` | `listDeployTargets` | `services/deployments/handlers/deploy-targets.ts` |
 | `GET /api/deployments/targets/{slug}` | `getDeployTarget` | `services/deployments/handlers/deploy-targets.ts` |
 | `POST /api/deployments/targets` | `createDeployTarget` | `services/deployments/handlers/deploy-targets.ts` (`createDeployTargetHandler`) |
@@ -82,6 +85,40 @@ The `/api/projects` edge route mounts `projectBundleBodyLimit`
 streams raw artifact bytes through that route. Platform deploy targets must
 provide `policyValues.bodyLimit.projectBundle.maxBodySize` large enough for the
 expected bundle size; the production bootstrap target currently uses `10m`.
+
+### `ProjectServiceRow` contract (`listProjectServices`)
+
+Each row `listProjectServices` returns carries, per service named in the
+bundle's `project.json.services` array:
+
+- `name` — service slug.
+- `status` — always `"Ready"`; the published bundle has no per-service status
+  field yet.
+- `schemas` / `graphs` / `endpoints` / `uiComponents` — per-service artifact
+  counts. These fold the bundle's file tree scoped to the
+  `services/<service>/` path prefix, reusing the exact per-file classification
+  `getProjectArtifactSummary` applies project-wide (the shared
+  `artifactCountsForFile` helper in `get-project-artifact-summary.ts`), so
+  per-service counts and the project summary stay consistent.
+- `entities` — **always `0`**. PDM entities are project-level: the bundle
+  layout stores them under `pdm/entities/*.json` and has no
+  `services/<service>/pdm/` split, so entity counts cannot be attributed to an
+  individual service. Per-service entity counts are not derivable from the
+  bundle and are intentionally not invented; the project-wide entity count
+  stays in `getProjectArtifactSummary`.
+- `description` — **omitted**. The only per-service manifest in the bundle is
+  `services/<service>/service.json`, which carries `{ "kind": "domain" }` and
+  no description field. Surfacing a description would require a publish-time
+  schema change in `packages/**` (out of scope), so it is omitted.
+- `lastDeployedAt` — **omitted**. The projects handler reads only the published
+  bundle blob through `qsmDb`; no per-service deployment timestamp is reachable
+  without a cross-table JOIN to the deployments service's state, which the
+  single-table `ctx.qsmDb.prepare` handler pattern does not support. It is
+  omitted rather than faked.
+
+The `PlatformServicesPanel` / `ServiceCard` UI components already render every
+field above (counts as artifact chips, `description` and `lastDeployedAt`
+conditionally); omitted fields simply do not render.
 
 ## Workflows
 
@@ -105,6 +142,15 @@ task handlers from `@rntme/deploy-runner#stages.*`. Each stage runs as a
 native task in this worker; cross-stage state is persisted in
 `DeployStageState` rows so the orchestrator can restart or retry a single
 stage without re-running the whole deploy.
+
+The deployments service exposes those rows read-only through the
+`DeployStageStateView` QSM projection (entity-mirror over `deploy_stage_state`,
+exposing `stage`, `status`, `errorCode`, `errorMessage`, `startedAt`,
+`finishedAt`) and the `readDeployStages` read graph, bound at
+`GET /api/deployments/stages` via the `listDeployStages` native operation. The
+runtime BPMN stages (`compose`, `provision`, `plan`, `render`, `apply`,
+`verify`) are not surfaced one-for-one to the UI; the dashboard collapses them
+onto five timeline steps (see UI section below).
 
 The platform target file therefore needs to declare both:
 
@@ -214,14 +260,89 @@ on the login screen after reload.
 The project detail screen (`/:orgId/projects/:projectId`) and four artifact
 explorer screens — `/data-model`, `/api`, `/ui`, `/graph` under that project
 path — read live published-bundle data through the `listProjectServices`,
-`getProjectArtifactSummary`, `getProjectArtifact`, `listProjectEndpoints`,
-`listProjectUiComponents`, and `listProjectGraphs` native operations above.
+`getProjectArtifactSummary`, `getProjectArtifact`, `listProjectDataModel`,
+`listProjectEndpoints`, `listProjectUiComponents`, and `listProjectGraphs`
+native operations above. The data-model explorer is backed by
+`listProjectDataModel`, not the generic artifact listing: it renders a
+definition-inspection model with a six-cell data-model summary, searchable and
+filterable PDM/QSM trees, PDM entity field/relation/usage/raw subtabs, QSM
+projection detail, inferred endpoint usages, raw JSON previews, a field-detail
+side sheet, and a dependency-light relationship diagram. Findings are currently
+empty because publish does not persist a validation-report artifact; do not
+synthesize warnings from missing descriptions or other mock-only fields.
+
+The API explorer screen (`/api`) is backed by `PlatformAPIExplorer`, a
+searchable, service-grouped HTTP endpoint catalogue with HTTP method badges and
+a side detail pane carrying Overview + Request + Response + Examples + Raw
+tabs. It binds to `listProjectEndpoints` (`/data/endpoints`) and
+`getProjectArtifactSummary` (`/data/summary`); the sibling `PlatformSummaryGrid`
+consumes the summary path while the explorer derives per-method counts from the
+endpoint rows. On selection the component fetches per-endpoint detail via
+`useTransport` against `getProjectEndpointDetail` — the URL template is the
+optional `endpointDetailPathTemplate` prop (default
+`/api/projects/{projectId}/endpoints/{service}/{operation}`); the per-endpoint
+binding is _not_ wired through screen.json data because screen-level data
+entries today only parameterize off `/route/params/...`, never off in-page
+selection state. Detail responses are cached in component-local state keyed by
+`${service}:${operation}` so re-selection is instant. The Overview pane
+populates `Service`, `Operation`, `Method`, `Path` from the catalogue row plus
+`Auth`, `Source artifact`, `Handler` reference, `Request schema` name, and
+`Response schema` name from the fetched detail. The remaining placeholder rows
+(`Summary`, `Examples`, `Dependencies`, response status code, response example,
+error responses, per-field descriptions) keep the explicit "Not yet exposed by
+handler" copy. The Request tab renders path / query / body parameter tables
+(sections hide when empty); clicking any parameter row opens a side-sheet
+showing the parameter's name, location chip, required flag, and a copyable
+JSON path, with description and allowed-values fields rendered as "Not yet
+exposed by handler" placeholders; the side-sheet closes on its × button, on
+backdrop click, and on Escape. The Response tab renders the handler's
+`response.fields` as schema rows (with the `schemaName` caption when the
+handler resolved one — currently only for `row<X>` and bare-identifier output
+wrappers); the status code chip, JSON example block, and error-responses list
+render explicit "Not yet exposed by handler" placeholders because the bundle
+carries no per-operation source for those fields. The Examples tab renders the
+handler's `examples.curl`, `examples.fetch`, and `examples.openapi` skeletons
+through inner sub-tabs with copy-to-clipboard. The Raw tab renders the
+verbatim `bindings.json` entry as a JSON `<pre>` preview. Findings panel and
+per-endpoint Status (Valid / Warning / Error) remain deferred to a follow-up
+slice, blocked on the validation-findings source decision recorded in the
+preceding paragraph (publish does not persist a validation-report artifact and
+the doc explicitly forbids synthesizing warnings from missing descriptions or
+other mock-only fields).
+
 The explorers render as definition-inspection (artifact lists + JSON bodies /
 node-edge tables) with the existing `Platform*` component set; no interactive
 graph-canvas dependency is used (see `docs/decision-system.md` §3.6).
-`PlatformPageHeader` and `PlatformSummaryGrid` accept an optional `statePath`
-so screen specs bind them to live data while remaining backward-compatible
-with static-prop callers.
+`PlatformPageHeader`, `PlatformSummaryGrid`, `PlatformServicesPanel`, and
+`PlatformTimeline` accept an optional `statePath` so screen specs bind them to
+live data while remaining backward-compatible with static-prop callers.
+`PlatformPageHeader` actions and `PlatformDataTable` columns also accept
+`hrefTemplate` route templates; templates can reference route params and, for
+table links, row fields (for example `/{orgId}/projects/{id}`).
+
+The project dashboard's deployment-status panel (`deployStatusTimeline` in
+`project.spec.json`) wires `PlatformTimeline` to `/data/deploy-status`, bound to
+`deployments.listDeployStages`. When `statePath` is set, `PlatformTimeline`
+folds the fetched `deploy_stage_state` rows onto five ordered UX steps —
+**Queued → Validating → Building → Deploying → Ready** — using this fixed
+stage-to-step mapping:
+
+| Step | Backing runtime stage(s) |
+| --- | --- |
+| Queued | synthetic — `done` as soon as any stage row exists |
+| Validating | `compose` |
+| Building | `provision` + `plan` + `render` |
+| Deploying | `apply` |
+| Ready | `verify` |
+
+A step is `error` if any backing stage `failed` (and the timeline as a whole is
+flagged errored), `done` when every expected backing stage `succeeded`,
+`current` while any backing stage is `running`, and `pending` when no backing
+stage row exists yet. A failed step also surfaces the stage `errorMessage`
+(falling back to `errorCode`) as its meta line. Without a `statePath`,
+`PlatformTimeline` still renders the literal `steps`/`currentStep`/`errored`
+props unchanged. This is refetch-on-mount/params only — there is no live
+deployment-event push into the panel.
 
 The `/:orgId/tokens` screen includes `PlatformTokenIssuer`, a platform UI
 module component that uses the browser Auth0 transport to call

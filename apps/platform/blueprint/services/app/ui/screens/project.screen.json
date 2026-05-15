@@ -31,6 +31,14 @@
         "limit": 10
       },
       "refetchOn": ["mount", "params"]
+    },
+    "/data/deploy-status": {
+      "binding": "deployments.listDeployStages",
+      "params": {
+        "organizationId": { "$state": "/route/params/orgId" },
+        "projectId": { "$state": "/route/params/projectId" }
+      },
+      "refetchOn": ["mount", "params"]
     }
   }
 }

@@ -1,0 +1,41 @@
+{
+  "id": "readDeployStages",
+  "signature": {
+    "inputs": {
+      "authorization": { "type": "string", "mode": "required" },
+      "organizationId": { "type": "string", "mode": "required" },
+      "projectId": { "type": "string", "mode": "required" }
+    },
+    "output": { "type": "rowset<DeployStageStateView>", "from": "out" }
+  },
+  "nodes": [
+    {
+      "id": "session",
+      "type": "call",
+      "target": {
+        "module": "identity-auth0",
+        "operation": "IntrospectSession"
+      },
+      "input": {
+        "token": { "$param": "authorization" },
+        "audience": { "$literal": "${auth.audience}" }
+      },
+      "policy": {
+        "timeoutMs": 1000,
+        "retry": { "attempts": 2, "retryOn": "transient" },
+        "idempotency": { "mode": "none" },
+        "onError": "fail"
+      }
+    },
+    { "id": "items", "type": "findMany", "config": { "source": { "projection": "DeployStageStateView" } } },
+    {
+      "id": "filtered",
+      "type": "filter",
+      "config": {
+        "input": "items",
+        "expr": { "eq": ["deployStageStateView.orgId", { "$param": "organizationId" }] }
+      }
+    },
+    { "id": "out", "type": "result", "value": { "$ref": "filtered" } }
+  ]
+}

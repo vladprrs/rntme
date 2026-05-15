@@ -1,0 +1,764 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Platform API Explorer"
+  slug: "platform-api-explorer"
+  kind: existing_plan # specific | open_ended | existing_plan | recovery | audit
+  tranche: "Validate the .tmp API Explorer input plan, implement successive safe verified platform slices, and audit against the requested API Explorer outcome."
+  status: done # active | blocked | done — closed 2026-05-15 with Slice C accepted as out-of-scope by operator
+  intake:
+    original_request: "$goalbuddy:goal-prep давай подготовим следующую цель на реализацию .tmp/rntme platform/api-explorer"
+    interpreted_outcome: "Prepare a GoalBuddy execution board for implementing the platform API Explorer capability from the provided .tmp input plan."
+    input_shape: existing_plan # vague | specific | existing_plan | recovery | audit
+    audience: "Platform users and operators inspecting project APIs/endpoints."
+    authority: requested # requested | approved | inferred | needs_approval | blocked
+    proof_type: demo # test | demo | artifact | metric | review | source_backed_answer | decision
+    completion_proof: "Validated input plan, implemented API Explorer behavior, focused tests/typecheck/lint/build passing, docs-touch evaluation recorded, and final audit complete; if production exposure is confirmed in-scope, successful platform up redeploy plus live platform.rntme.com proof."
+    likely_misfire: "Implementing a generic/static endpoint list or stopping at planning instead of delivering the validated API Explorer behavior through the platform UI/API path."
+    blind_spots_considered:
+      - "The exact .tmp path is ambiguous from the chat text and must be resolved by T001."
+      - "The .tmp plan was not inspected during goal-prep and must be validated against current docs/code/tests."
+      - "API Explorer scope may include endpoint catalog, endpoint detail, schemas, request examples, auth-aware testing, or a smaller first tranche."
+      - "Production redeploy scope must be made explicit before live writes."
+      - "Docs touch evaluation is required for every implementation plan."
+    existing_plan_facts:
+      - "User pointed to `.tmp/rntme platform/api-explorer` as the source for the next implementation goal."
+      - "The operator selected no visual board."
+      - "Goal-prep did not inspect the .tmp input or implementation files; T001 must do that during /goal."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  # installed | bundled_not_installed | missing | unknown
+  # If non-installed, /goal can continue through PM fallback; install agents before /goal only when dedicated delegation is required.
+  scout: bundled_not_installed
+  worker: bundled_not_installed
+  judge: bundled_not_installed
+
+visual_board:
+  # none | local | github_projects | both | unknown
+  selected: none
+  local:
+    status: not_requested # not_requested | starting | live | generated | blocked
+    url: null
+    command: "npx goalbuddy board docs/goals/platform-api-explorer"
+  github_projects:
+    status: not_requested # not_requested | needs_approval | dry_run_ready | synced | blocked
+    url: null
+    command: "npx goalbuddy extend github-projects"
+    missing: []
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: high # default | low | medium | high | xhigh
+    objective: "Locate and validate the .tmp API Explorer input plan, then map current platform API-explorer-adjacent docs, code, data paths, and verification commands."
+    inputs:
+      - "AGENTS.md"
+      - "docs/decision-system.md"
+      - "apps/platform/README.md and its owner doc"
+      - "apps/platform/ui-module/README.md and its owner doc"
+      - "` .tmp/rntme platform/api-explorer ` as typed by the user, resolving the exact intended path without assuming it is current truth"
+      - "Current platform UI screens and projects handlers relevant to API/endpoints exploration"
+    constraints:
+      - "Read-only."
+      - "Do not edit implementation files."
+      - "Do not treat the .tmp plan as current-state truth before checking current docs/code/tests."
+      - "Prefer concrete file-path evidence over generic advice."
+      - "Do not print or persist secrets."
+    expected_output:
+      - "Exact located input path or a clear blocked finding if the path is missing/ambiguous."
+      - "Plan facts preserved from the .tmp input."
+      - "Current-state map of relevant platform screens, bindings, handlers, UI module components, and tests."
+      - "Gap analysis between the validated plan and current behavior."
+      - "Recommended verification commands."
+      - "Candidate largest safe implementation slices, including docs-touch surfaces and whether production redeploy appears in-scope."
+    receipt:
+      result: done
+      note: notes/T001-scout-map.md
+      input_path: ".tmp/rntme platform/api-explorer/ (README.md, index.html, app.js, mock-data.js, styles.css)"
+      summary: >-
+        Prototype validated: catalogue + 5-tab detail (Overview / Request / Response /
+        Dependencies / Raw) + parameter side-sheet + findings panel; ~13 new design-system
+        candidates (HTTP method badge, code chips, dep chain, etc.). Platform map: data-model
+        screen is the working precedent (api.screen.json/.spec.json shape with PlatformDataModelExplorer
+        statePath wiring). Projects service already exposes flattened endpoints via native
+        listProjectEndpoints handler bound at GET /api/projects/{projectId}/endpoints. Project
+        dashboard header already links to /{orgId}/projects/{projectId}/api. Gaps: endpoint
+        summary/auth/schemas/examples/errors, dependency chain, and validation findings are
+        NOT exposed (owner doc explicitly defers a findings source). Slice A (catalogue +
+        navigation) needs no new backend handlers and is the recommended first vertical;
+        Slice B adds detail tabs + parameter tables; Slice C adds dep chain + findings
+        (blocked on findings source). Production redeploy out-of-scope by default.
+      evidence:
+        - ".tmp/rntme platform/api-explorer/README.md"
+        - ".tmp/rntme platform/api-explorer/mock-data.js"
+        - "apps/platform/blueprint/services/app/ui/screens/data-model.screen.json"
+        - "apps/platform/blueprint/services/app/ui/screens/data-model.spec.json"
+        - "apps/platform/blueprint/services/projects/operations.json"
+        - "apps/platform/blueprint/services/projects/handlers/list-project-endpoints.ts"
+        - "apps/platform/blueprint/services/projects/handlers/types.ts"
+        - "apps/platform/blueprint/services/projects/bindings/bindings.json"
+        - "apps/platform/blueprint/services/app/ui/screens/project.spec.json"
+        - "apps/platform/ui-module/module.json"
+        - "apps/platform/ui-module/src/components.tsx"
+        - "docs/current/owners/apps/platform.md"
+      recommended_first_slice: "Slice A: endpoints catalogue + navigation (api.screen.json/.spec.json + PlatformAPIExplorer component + dashboard wiring + tests + docs touch). No new backend handlers."
+      open_questions_for_judge:
+        - "Does apps/platform/blueprint/services/app/ui/screens/api.screen.json already exist as a stub, or must T003 create it?"
+        - "Should the docs touch (docs/current/owners/apps/platform.md) live inside the same Worker package or as a tiny PM/docs follow-up?"
+        - "Is summary metadata (endpoint count + http counts) derivable client-side from listProjectEndpoints, or should we add a small enrichment to listProjectEndpoints output rather than a separate handler?"
+      production_redeploy: out_of_scope_by_default
+      spawned_tasks: []
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Validate the Scout findings and choose the first largest safe API Explorer implementation slice."
+    inputs:
+      - "T001 receipt"
+      - "Validated .tmp input plan facts"
+      - "Current platform owner docs/code/test map"
+    constraints:
+      - "Do not implement."
+      - "Pick the largest safe useful vertical slice with explicit allowed_files, verification commands, and stop conditions."
+      - "Record whether production redeploy is part of this goal or a later explicitly approved task."
+      - "Require a docs-touch evaluation in the Worker scope."
+    expected_output:
+      - "Decision: approved | revise | blocked"
+      - "Chosen implementation tranche and rationale"
+      - "Exact Worker objective"
+      - "allowed_files"
+      - "verify"
+      - "stop_if"
+      - "Deferred or blocked tasks"
+    receipt:
+      result: done
+      decision: approved
+      note: notes/T002-judge-decision.md
+      summary: >-
+        Slice picked: replace placeholder PlatformDataTable on the api screen with a new
+        PlatformAPIExplorer component (search + service grouping + HTTP method badges +
+        Overview-only detail shell). UI-only, no new backend handlers. api.screen.json
+        and api.spec.json already exist with the right bindings; the dashboard route is
+        already wired; platform-ui.test.ts:98-104 currently asserts PlatformDataTable
+        and must be updated. Package names corrected vs Scout: blueprint =
+        @rntme/platform-blueprint at apps/platform/, ui-module = @rntme/platform-ui at
+        apps/platform/ui-module/. Slice B will add getProjectEndpointDetail handler +
+        parameter side-sheet + request/response tabs; Slice C (dep chain + findings)
+        stays blocked on the validation-findings source decision.
+      next_allowed_task: T003
+      production_redeploy: out_of_scope
+      docs_touch_required: true
+      blocked_tasks: []
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: >-
+      Replace the placeholder PlatformDataTable on the project API screen with a new
+      PlatformAPIExplorer component that renders a searchable, service-grouped endpoint
+      catalogue with HTTP method badges and a side detail pane (Overview shell populated
+      from listProjectEndpoints fields with explicit "Not yet exposed by handler"
+      placeholders for handler-only fields), bound to the existing /data/endpoints and
+      /data/summary state paths. Update components.test.tsx and platform-ui.test.ts to
+      assert the new component, and register PlatformAPIExplorer in
+      docs/current/owners/apps/platform.md.
+    allowed_files:
+      - apps/platform/blueprint/services/app/ui/screens/api.spec.json
+      - apps/platform/ui-module/src/components.tsx
+      - apps/platform/ui-module/src/client.ts
+      - apps/platform/ui-module/src/index.ts
+      - apps/platform/ui-module/module.json
+      - apps/platform/ui-module/assets/platform-ui.css
+      - apps/platform/ui-module/test/components.test.tsx
+      - apps/platform/blueprint/test/platform-ui.test.ts
+      - docs/current/owners/apps/platform.md
+    verify:
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform typecheck"
+      - "bun test --cwd apps/platform blueprint/test/platform-ui.test.ts"
+    stop_if:
+      - "Need to write any file outside allowed_files (especially: any new handler under apps/platform/blueprint/services/projects/handlers/, any change to operations.json, bindings.json, api.screen.json, or any package.json/tsconfig change)."
+      - "PlatformAPIExplorer rendering needs data fields not present in ProjectEndpointRow ({service, operation, method, path}) AND not derivable client-side — record as deferred to Slice B and stop, do not invent data."
+      - "platform-ui.test.ts cannot be updated to assert PlatformAPIExplorer because the existing endpointsTable shape is fixed by an upstream contract not in allowed_files."
+      - "Verification fails twice for the same reason — escalate with command output."
+      - "Production redeploy is required (it is not — the published bundle already feeds /api/projects/{projectId}/endpoints in production; UI-only)."
+      - "The catalogue/detail UX is genuinely ambiguous after re-reading .tmp/rntme platform/api-explorer/* — escalate the ambiguity rather than guess."
+    receipt:
+      result: done
+      note: notes/T003-worker-receipt.md
+      summary: >-
+        Replaced the placeholder PlatformDataTable on the api screen with a new
+        PlatformAPIExplorer component (search + service grouping + HTTP method
+        badges + Overview detail shell with explicit "Not yet exposed by handler"
+        placeholders for handler-only fields). UI-only slice on existing bindings;
+        no new handlers, operations, or bindings. Component registered in
+        module.json, exported from client/index, with rntme-pae-* CSS namespace
+        reusing existing status-wash tokens. Tests added: 3 PlatformAPIExplorer
+        tests + module.json prop assertion + spec assertion swapped from
+        PlatformDataTable to PlatformAPIExplorer.
+      changed_files:
+        - apps/platform/blueprint/services/app/ui/screens/api.spec.json
+        - apps/platform/ui-module/src/components.tsx
+        - apps/platform/ui-module/src/client.ts
+        - apps/platform/ui-module/src/index.ts
+        - apps/platform/ui-module/module.json
+        - apps/platform/ui-module/assets/platform-ui.css
+        - apps/platform/ui-module/test/components.test.tsx
+        - apps/platform/blueprint/test/platform-ui.test.ts
+        - docs/current/owners/apps/platform.md
+      commands:
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+          detail: "34 tests / 136 expects"
+        - cmd: "bun run --cwd apps/platform typecheck"
+          status: pass
+        - cmd: "bun test --cwd apps/platform blueprint/test/platform-ui.test.ts"
+          status: pass
+          detail: "1 test / 44 expects (pm trust-but-verify rerun confirmed)"
+      docs_touch_done: true
+      production_redeploy: out_of_scope
+      deferred_to_slice_b:
+        - "getProjectEndpointDetail handler + types + binding for per-endpoint enrichment."
+        - "Overview placeholder rows populated with real data (auth/summary/handler/schemas/examples/dependencies)."
+        - "Request tab + parameter tables + parameter side-sheet."
+        - "Response tab + status code chip + schema rows + example block + error responses."
+        - "Code-example tabs (curl/fetch/openapi)."
+        - "Raw artifact preview tab via getProjectArtifact."
+      deferred_to_slice_c:
+        - "Dependencies tab (4-step Endpoint→Binding→Graph→QSM chain + related chips)."
+        - "Findings panel + per-endpoint Status (Valid/Warning/Error) treatment."
+        - "BLOCKED on validation-findings source decision."
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether the implemented API Explorer work satisfies the original user outcome for this tranche."
+    inputs:
+      - "All done task receipts"
+      - "Validated input plan facts"
+      - "Last verification"
+      - "Current dirty diff"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if the broader validated API Explorer outcome still has safe local follow-up slices."
+      - "Reject completion if docs-touch evaluation is missing."
+      - "Reject production-complete claims unless a prod redeploy task was in-scope and verified live."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "missing evidence"
+      - "next task if not complete"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      note: notes/T999-interim-audit-1.md
+      summary: >-
+        Interim audit after Slice A. Slice A landing verified across all 9 allowed_files
+        (api.spec.json swap, PlatformAPIExplorer export, module.json registration,
+        platform-ui.test.ts assertion, docs touch). Full prototype outcome NOT complete:
+        Request/Response/Raw tabs, parameter side-sheet, and populated Overview rows are
+        deferred to Slice B (safe local follow-up — bindings.json already carries
+        parameters[]/inputFrom/target/graph; only response schemas/examples need a Scout
+        source mapping). Findings panel + per-endpoint Status remain BLOCKED on the
+        validation-findings source decision (Slice C). Charter forbids stopping at a
+        single Worker package while safe follow-up remains; advancing the board.
+      next_active_task: T004
+      newly_queued:
+        - T004 (Scout — Slice B handler shape mapping)
+        - T005 (Judge — lock T006 Worker contract)
+        - T006 (Worker — implement Slice B)
+        - T007 (Judge — spot-check T006 landing)
+        - T1000 (Judge — final audit after Slice B)
+      blocked_tasks:
+        - "Slice C (dependencies tab + findings panel) — validation-findings source decision per docs/current/owners/apps/platform.md"
+
+  - id: T004
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: high
+    objective: "Map exactly which per-endpoint detail fields the prototype expects can be sourced from already-published bundle artifacts, and propose the precise shape of a new getProjectEndpointDetail native handler ready for Judge to lock."
+    inputs:
+      - ".tmp/rntme platform/api-explorer/{README.md,mock-data.js,app.js} (re-read detail-tab structure)"
+      - "apps/platform/blueprint/services/projects/handlers/list-project-endpoints.ts (current parsing precedent)"
+      - "apps/platform/blueprint/services/projects/handlers/list-project-data-model.ts (richest existing detail handler precedent)"
+      - "apps/platform/blueprint/services/projects/handlers/types.ts (extend, do not break, existing types)"
+      - "apps/platform/blueprint/services/projects/bindings/bindings.json (what bindings.json carries today: parameters[], inputFrom, target, graph, exposure)"
+      - "Sample per-service shapes.json + per-service graphs/*.json artifacts in a published demo bundle (e.g. demo/notes-blueprint or whatever the projects-handler test fixture loads) to confirm response-schema and example sourcing"
+      - "apps/platform/blueprint/test/platform-projects-handler.test.ts (existing fixture + assertions)"
+      - "docs/current/owners/apps/platform.md (publish/persist contract; what is authoritative)"
+    constraints:
+      - "Read-only. No edits."
+      - "No new operator approvals. Stay inside published-bundle-derived data."
+      - "Distinguish, per detail-pane field, between (a) already in bindings.json, (b) derivable from shapes.json/graphs/*.json, (c) genuinely not present in any published artifact (record as honest 'not-yet-exposed' with placeholder strategy)."
+      - "Do not propose a findings source or any Slice C work — that stays blocked."
+      - "Do not propose UI shape; that is Judge/Worker territory. Stay on handler contract + data sourcing."
+    expected_output:
+      - "Per-field source map for every Overview row + Request-tab + Response-tab + Code-example tab, naming the exact bundle path/key for each."
+      - "Proposed GetProjectEndpointDetailHandlerInput (projectId + service + operation, plus advisory session headers like the others) and GetProjectEndpointDetailHandlerOutput shape with the discriminated status: 'ok' | 'error' union pattern the other handlers use."
+      - "Proposed binding entry in bindings/bindings.json (likely GET /{projectId}/endpoints/{service}/{operation} or GET /{projectId}/endpoints/{endpointId}) and the operations.json registration line."
+      - "Verification commands list (typecheck, focused handler test, ui-module test for any UI rebind, blueprint platform-ui.test.ts re-pin)."
+      - "Honest enumeration of fields that should ship as 'not-yet-exposed' even after Slice B, so Judge sets correct stop_if conditions for Worker."
+      - "Recommended slice sizing: a single Worker package vs split into B1 (handler + Overview population + Raw tab) and B2 (Request/Response/Code-example tabs + side-sheet)."
+    receipt:
+      result: done
+      note: notes/T004-scout-handler-shape.md
+      summary: >-
+        Sampled demo bundles (notes-blueprint, order-fulfillment-blueprint) confirm
+        per-service bindings.json carries parameters[]/inputFrom/target/graph/exposure;
+        graphs/<op>.json carries signature.inputs+output type names; shapes.json maps
+        type names to field lists. (a) bindings.json sources auth, source artifact,
+        handler ref, request params, raw binding. (b)+(c) shapes+graphs source request
+        body schema and response schema fields. (e) not-yet-exposed (must ship as
+        placeholders): summary, response status code, response example, error responses,
+        per-field descriptions, full-body examples for curl/fetch/openapi.
+        Recommendation: SPLIT Slice B into B1 (handler + Overview population + Raw tab)
+        and B2 (Request/Response/Code-example tabs + parameter side-sheet). Verification
+        commands list corrected to Bun (Scout sketch had npx/npm — Judge to adopt Bun
+        list verbatim).
+      recommended_slice_sizing: split
+      next_phase: B1 first (handler + Overview + Raw); B2 follows after T007 spot-check
+      open_questions_for_judge:
+        - "Confirm proposed handler input/output shapes match listProjectDataModel handler precedent before locking T006 allowed_files."
+        - "Confirm operations.json field names (Scout used effect/idempotency; verify against listProjectEndpoints registration)."
+        - "Decide whether getProjectEndpointDetail needs its own pseudo-graph file under apps/platform/blueprint/services/projects/graphs/."
+        - "Confirm sample bundle path used as test fixture matches what platform-projects-handler.test.ts already loads."
+        - "Production redeploy: handler change is local; redeploy is a separate platform up decision and stays out of T006 scope."
+      production_redeploy: out_of_scope
+      spawned_tasks: []
+
+  - id: T005
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Validate T004 source map and lock the T006 Worker contract (allowed_files, exact handler shape, exact UI scope, verify list, stop_if). Decide whether Slice B ships as one Worker or splits into B1/B2 per T004's recommendation. Confirm production redeploy stays out-of-scope."
+    inputs:
+      - "T004 receipt"
+      - "T002 + T003 receipts (slice A context + deferred-to-B list)"
+    constraints:
+      - "Do not implement."
+      - "Pin every detail field to either (a) bindings.json source, (b) shapes/graphs source, or (c) explicit 'not-yet-exposed' placeholder."
+      - "Keep production redeploy out-of-scope unless Scout surfaces a hard requirement."
+      - "Require a docs-touch evaluation in the Worker scope."
+    expected_output:
+      - "Decision: approved | revise | blocked"
+      - "Slice B sizing: single | split (B1/B2)"
+      - "Exact Worker objective(s) + allowed_files + verify + stop_if"
+      - "Deferred or blocked tasks (Slice C status reaffirmed)"
+    receipt:
+      result: done
+      decision: approved
+      note: notes/T005-judge-b1-contract.md
+      slice_sizing: split
+      summary: >-
+        Verified handler precedent (list-project-endpoints.ts) and operations.json field
+        names (effect, idempotency). Confirmed NO pseudo-graph file needed for native
+        handlers. Test fixture pattern: synthetic inline bundle bytes (makeEndpointsBundleBytes)
+        — NOT demo bundles. Locked T006 (B1) contract: 13 allowed_files, 8 Bun verify
+        commands, 6 stop_if conditions. UI binding decision: useTransport on selection
+        (matches PlatformTokenIssuer precedent at components.tsx:268-329), with new
+        optional endpointDetailPathTemplate prop on PlatformAPIExplorer. B1 populates 5
+        real Overview rows (Auth, Source artifact, Handler ref, Request schema name,
+        Response schema name) + Raw tab. B2 (T008) defers Request/Response/Code-example
+        tabs + parameter side-sheet. Slice C remains blocked on validation-findings source.
+      next_allowed_task: T006
+      production_redeploy: out_of_scope
+      docs_touch_required: true
+      blocked_tasks:
+        - "Slice C — validation-findings source decision per docs/current/owners/apps/platform.md"
+
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: >-
+      Slice B1: After this slice, opening any endpoint in the API Explorer for any
+      published bundle shows REAL Auth, Source artifact, Handler reference, Request
+      schema name, and Response schema name in the Overview pane (replacing the current
+      "Not yet exposed by handler" placeholders for those five rows), plus a new "Raw"
+      tab that displays the JSON of that endpoint's bindings entry. Implementation: add
+      the getProjectEndpointDetail native handler + types + bindings.json entry +
+      operations.json registration; extend PlatformAPIExplorer to fetch detail via
+      useTransport on selection (no per-endpoint screen.json data binding); add a new
+      optional endpointDetailPathTemplate prop to PlatformAPIExplorer in module.json
+      (default /api/projects/{projectId}/endpoints/{service}/{operation}); populate
+      the five real Overview rows + Raw tab from the fetched detail; keep Summary,
+      Examples, Dependencies, response status code, response example, error responses,
+      per-field descriptions as explicit "Not yet exposed by handler" placeholders.
+      Wire blueprint UI test + components test + projects handler test + blueprint
+      sanity test + owner doc.
+    allowed_files:
+      - apps/platform/blueprint/services/projects/handlers/get-project-endpoint-detail.ts
+      - apps/platform/blueprint/services/projects/handlers/types.ts
+      - apps/platform/blueprint/services/projects/bindings/bindings.json
+      - apps/platform/blueprint/services/projects/operations.json
+      - apps/platform/blueprint/test/platform-projects-handler.test.ts
+      - apps/platform/blueprint/test/platform-blueprint.test.ts
+      - apps/platform/blueprint/test/platform-ui.test.ts
+      - apps/platform/blueprint/services/app/ui/screens/api.spec.json
+      - apps/platform/ui-module/src/components.tsx
+      - apps/platform/ui-module/assets/platform-ui.css
+      - apps/platform/ui-module/module.json
+      - apps/platform/ui-module/test/components.test.tsx
+      - docs/current/owners/apps/platform.md
+    verify:
+      - "bun run --cwd apps/platform typecheck"
+      - "bun test --cwd apps/platform blueprint/test/platform-projects-handler.test.ts"
+      - "bun test --cwd apps/platform blueprint/test/platform-blueprint.test.ts"
+      - "bun test --cwd apps/platform blueprint/test/platform-ui.test.ts"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "bun test --cwd apps/platform/ui-module"
+    stop_if:
+      - "Need to write any file outside allowed_files (especially: any new screen.json, api.screen.json edit, src/client.ts/src/index.ts edit — PlatformAPIExplorer is already exported there; any change to packages/contracts-client-runtime-v1; any new graph file under apps/platform/blueprint/services/projects/graphs/)."
+      - "Detail field requires a data source not in (a) bindings.json, (b) shapes.json, or (c) graphs/<op>.json — record as not-yet-exposed and stop instead of inventing (Scout enumeration: summary, response status code, response example, error responses, per-field descriptions, example bodies)."
+      - "Verification fails twice for the same reason — escalate with command output instead of looping fixes."
+      - "Production redeploy is required (it is NOT — handler change is local; whether to ship it via platform up is a separate operator decision and stays out-of-scope per goal charter)."
+      - "The fetch-on-selection pattern via useTransport breaks the existing PlatformAPIExplorer test snapshot in a way that cannot be fixed without changing the public component prop schema beyond the single new optional endpointDetailPathTemplate prop — escalate the architectural ambiguity rather than guess."
+      - "Walking shapes.json for the response type name (e.g. row<NoteActionResult> → look up NoteActionResult.fields) requires regex/parsing that goes beyond stripping a single row<...> wrapper and direct shapes lookup — record as not-yet-exposed and ship schemaName: null rather than inventing a generic-type parser."
+    receipt:
+      result: done
+      note: notes/T006-worker-receipt.md
+      summary: >-
+        Slice B1 shipped end-to-end. New native handler getProjectEndpointDetail parses
+        bundle bindings + graphs/<op>.json signature.output (row<X> | bare-id only) +
+        shapes.json field lookup, returning ProjectEndpointDetail with five real
+        handler-backed fields (auth, sourceArtifact, handler, request.body.schemaName,
+        response.schemaName) and pinned constants for not-yet-exposed fields (summary,
+        successStatus, example, errors). PlatformAPIExplorer extended with
+        endpointDetailPathTemplate prop (default /api/projects/{projectId}/endpoints/{service}/{operation}),
+        useTransport-on-selection fetch with in-component cache, Overview/Raw tab bar,
+        and JSON Raw tab. All 8 verifies pass; PM trust-but-verify reran 4 of 8 with
+        identical counts (handler 57+8 new, blueprint 13+1 new, ui-test 1, ui-module 34).
+      changed_files:
+        - apps/platform/blueprint/services/projects/handlers/get-project-endpoint-detail.ts
+        - apps/platform/blueprint/services/projects/handlers/types.ts
+        - apps/platform/blueprint/services/projects/bindings/bindings.json
+        - apps/platform/blueprint/services/projects/operations.json
+        - apps/platform/blueprint/services/app/ui/screens/api.spec.json
+        - apps/platform/blueprint/test/platform-projects-handler.test.ts
+        - apps/platform/blueprint/test/platform-blueprint.test.ts
+        - apps/platform/blueprint/test/platform-ui.test.ts
+        - apps/platform/ui-module/module.json
+        - apps/platform/ui-module/src/components.tsx
+        - apps/platform/ui-module/assets/platform-ui.css
+        - apps/platform/ui-module/test/components.test.tsx
+        - docs/current/owners/apps/platform.md
+      commands:
+        - cmd: "bun run --cwd apps/platform typecheck"
+          status: pass
+        - cmd: "bun test --cwd apps/platform blueprint/test/platform-projects-handler.test.ts"
+          status: pass
+          detail: "57 / 190 (+8 new)"
+        - cmd: "bun test --cwd apps/platform blueprint/test/platform-blueprint.test.ts"
+          status: pass
+          detail: "13 / 81 (+1 new)"
+        - cmd: "bun test --cwd apps/platform blueprint/test/platform-ui.test.ts"
+          status: pass
+          detail: "1 / 44"
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+          detail: "34 / 145"
+      docs_touch_done: true
+      production_redeploy: out_of_scope
+      deferred_to_slice_b2:
+        - "Request tab (path/query/body parameter table + clickable rows opening side-sheet)"
+        - "Response tab (status code chip + schema rows + example block placeholders)"
+        - "Code-example tabs (curl/fetch/openapi skeleton renderers in dedicated tabs)"
+        - "Parameter side-sheet component"
+      deferred_to_slice_c:
+        - "Findings panel + per-endpoint Status (Valid/Warning/Error)"
+        - "Dependencies tab (Endpoint→Binding→Graph→QSM chain + related chips)"
+        - "BLOCKED on validation-findings source decision"
+
+  - id: T007
+    type: judge
+    assignee: PM
+    status: done
+    reasoning_hint: medium
+    objective: "Spot-check T006 landed correctly: confirm new handler + binding + UI changes match the locked contract; verify all four verification suites pass; confirm docs touch lands; decide whether to advance to T1000 or queue further safe local work (e.g., T008 if Slice B was split)."
+    inputs:
+      - "T006 receipt"
+      - "T005 locked contract"
+    constraints:
+      - "Do not implement."
+      - "Spot-check on-disk state matches receipt claims."
+    expected_output:
+      - "Spot-check result"
+      - "Next active task: T1000 or T008"
+    receipt:
+      result: done
+      decision: advance_to_T008
+      summary: >-
+        PM-led lightweight spot-check (no agent dispatch — Judge agent ceremony skipped per
+        charter "do not review every small Worker by habit" since this is a within-slice-family
+        transition and PM trust-but-verify already reran 4 of 8 verifies). Confirmed on-disk:
+        get-project-endpoint-detail.ts file present; getProjectEndpointDetail registered in
+        operations.json (1 entry) and bindings.json (1 entry); types.ts has ProjectEndpointDetail
+        + GetProjectEndpointDetailHandlerOutput at line 459/493; endpointDetailPathTemplate set
+        in api.spec.json:30 and module.json:21; docs/current/owners/apps/platform.md:68 has the
+        new operation row and lines 274/281 update the API explorer description.
+      next_active_task: T008
+      verification_reran:
+        - "bun test --cwd apps/platform blueprint/test/platform-projects-handler.test.ts → 57/190 ✓"
+        - "bun test --cwd apps/platform blueprint/test/platform-blueprint.test.ts → 13/81 ✓"
+        - "bun test --cwd apps/platform blueprint/test/platform-ui.test.ts → 1/44 ✓"
+        - "bun test --cwd apps/platform/ui-module → 34/145 ✓"
+      blocked_tasks: []
+
+  - id: T008
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: >-
+      Slice B2: After this slice, opening any endpoint in the API Explorer shows
+      a real Request tab (path/query/body parameter table; clicking a parameter
+      row opens a side-sheet with the parameter's name/in/required + JSON path
+      copy action and a placeholder for description), a Response tab (real
+      response.fields rows from the handler; status code chip + JSON example
+      block as explicit "Not yet exposed by handler" placeholders; error
+      responses placeholder), and dedicated Code-example tabs (curl / fetch /
+      openapi skeletons derived from method + path + parameters with copy-to-
+      clipboard actions). The detail-pane tab bar grows from "Overview / Raw"
+      (B1) to "Overview / Request / Response / Examples / Raw". UI-only — no
+      new handlers, no new bindings, no new screen.json/spec edits beyond the
+      explorer's own children. Consume the same getProjectEndpointDetail output
+      already locked in B1.
+    allowed_files:
+      - apps/platform/ui-module/src/components.tsx
+      - apps/platform/ui-module/assets/platform-ui.css
+      - apps/platform/ui-module/test/components.test.tsx
+      - docs/current/owners/apps/platform.md
+    verify:
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "bun test --cwd apps/platform/ui-module"
+    stop_if:
+      - "Need to write any file outside allowed_files (especially: any new handler, any change to bindings.json/operations.json/types.ts/api.spec.json/api.screen.json/module.json/blueprint tests; any change to client.ts/index.ts — PlatformAPIExplorer is already exported there; any change to packages/contracts-client-runtime-v1)."
+      - "Detail field requires a data source not in the existing ProjectEndpointDetail output — record as not-yet-exposed and stop instead of inventing data."
+      - "Verification fails twice for the same reason — escalate."
+      - "Production redeploy is required (it is NOT — UI-only)."
+      - "The Request/Response tab rendering needs a structural change to PlatformAPIExplorer's prop schema beyond what is already in module.json — escalate the architectural ambiguity rather than silently widening the prop contract."
+      - "The parameter side-sheet requires a portal/dialog primitive not present in components.tsx today and re-implementing one would exceed the slice — escalate."
+    receipt:
+      result: done
+      note: notes/T008-worker-receipt.md
+      summary: >-
+        Slice B2 shipped end-to-end as UI-only consumption of B1's
+        getProjectEndpointDetail. Detail tab bar grew to Overview/Request/Response/
+        Examples/Raw. Request tab renders path/query/body parameter tables (sections
+        hidden when empty); clicking a row opens a parameter side-sheet (backdrop +
+        Escape close). Response tab renders schema fields when handler resolves them;
+        status code, example, errors render explicit "Not yet exposed by handler"
+        placeholders. Examples tab has inner curl/fetch/openapi sub-tabs with
+        copy-to-clipboard. Two-run delivery (first run timed out after impl + CSS;
+        second run added the missing 6 B2 test cases). All 4 verifies pass; PM
+        trust-but-verify reran ui-module test suite — 40 / 179 (was 34 / 145).
+      changed_files:
+        - apps/platform/ui-module/src/components.tsx
+        - apps/platform/ui-module/assets/platform-ui.css
+        - apps/platform/ui-module/test/components.test.tsx
+        - docs/current/owners/apps/platform.md
+      commands:
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+          detail: "40 / 179 (+6 tests / +34 expects)"
+      docs_touch_done: true
+      production_redeploy: out_of_scope
+      deferred_to_slice_c:
+        - "Findings panel + per-endpoint Status (Valid/Warning/Error)"
+        - "Dependencies tab (Endpoint→Binding→Graph→QSM chain + related chips)"
+        - "BLOCKED on validation-findings source decision"
+
+  - id: T1000
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Final audit after Slice B: decide full_outcome_complete: true | false against the original user request and validated prototype, accounting for the explicit Slice C blocker."
+    inputs:
+      - "All done task receipts"
+      - "Validated input plan facts"
+      - "Last verification"
+      - "Current dirty diff"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if a safe local follow-up slice still exists (Slice C only counts if validation-findings source decision is resolved)."
+      - "Document Slice C blocker honestly if still open."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "missing evidence"
+      - "Slice C status (still blocked or unblocked)"
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: >-
+        Verified all three slice landings on disk (T003 spec swap, T006 handler +
+        getProjectEndpointDetail registration + Overview population + Raw tab,
+        T008 Request/Response/Examples tabs + parameter side-sheet with full
+        data-pae-* selectors). Compared against the .tmp prototype: catalogue,
+        Overview, Request, Response, Examples, Raw, side-sheet all DONE; Findings
+        panel + per-endpoint Status (Valid/Warning/Error) + Dependencies tab
+        deferred to Slice C. Slice C is GENUINELY blocked on operator decision —
+        owner doc lines 270-272 explicitly forbid synthesizing warnings from
+        missing descriptions or mock-only fields, so a structural-check synthesizer
+        would violate recorded policy. ONE safe local gap caught: the API explorer
+        paragraph in docs/current/owners/apps/platform.md (lines 274-295) was
+        stale — still claimed "Overview + Raw tabs" and labelled B2 surfaces as
+        "deferred to a follow-up slice" despite T008 shipping all of them. T008's
+        docs_touch_done: true was overstated.
+      next_active_task: T011
+      blocked_tasks:
+        - "Slice C — validation-findings source decision; owner doc explicitly forbids synthesized findings"
+      operator_decisions_surfaced:
+        - "Slice C unblock: either (a) publish a validation-report artifact during publishProjectBundle, or (b) amend docs/current/owners/apps/platform.md and docs/decision-system.md to permit synthesizing findings from in-bundle structural checks. Not blocking the current tranche."
+
+  - id: T011
+    type: worker
+    assignee: PM
+    status: done
+    reasoning_hint: low
+    objective: "Close the docs touch gap T1000 caught: extend the API explorer paragraph in docs/current/owners/apps/platform.md (lines 274-295) to reflect Slice B2's shipped surfaces (Overview + Request + Response + Examples + Raw tab bar; parameter side-sheet with backdrop+Escape close; Examples sub-tabs with copy; Response placeholders for status code/example/errors). Replace the closing 'follow-up slice' sentence with an explicit reference to Slice C as the only remaining deferred surface, blocked on the validation-findings source decision."
+    inputs:
+      - "T1000 audit"
+      - "Current docs/current/owners/apps/platform.md"
+    constraints:
+      - "docs-only edit; no code changes."
+      - "Single paragraph rewrite; do not exceed ~50 lines."
+    expected_output:
+      - "Updated paragraph reflecting B2"
+    receipt:
+      result: done
+      changed_files:
+        - docs/current/owners/apps/platform.md
+      summary: >-
+        Rewrote the API explorer paragraph (was lines 274-295) to describe the
+        Overview + Request + Response + Examples + Raw tab bar; parameter
+        side-sheet UX (path/query/body tables, location chip, JSON-path copy,
+        backdrop+Escape close, description/allowed-values placeholders); Response
+        tab schema rows + explicit not-yet-exposed placeholders for status code,
+        example, errors; Examples tab inner sub-tabs (curl/fetch/openapi) with
+        copy-to-clipboard. Closing sentence now names Slice C (Findings panel +
+        per-endpoint Status) as the only remaining deferred surface, blocked on
+        the validation-findings source decision recorded in the preceding
+        paragraph.
+      docs_touch_done: true
+      production_redeploy: out_of_scope
+
+  - id: T012
+    type: judge
+    assignee: PM
+    status: done
+    reasoning_hint: medium
+    objective: "Final tranche audit: confirm T011 closed the docs gap, verify all done receipts, and decide tranche_complete with Slice C surfaced as the only remaining operator-blocked work."
+    inputs:
+      - "T011 receipt"
+      - "T1000 audit"
+      - "All prior done receipts"
+    constraints:
+      - "Do not implement."
+      - "Confirm docs paragraph reflects B2."
+      - "Confirm no other safe local work remains."
+    expected_output:
+      - "tranche_complete | not_complete"
+      - "Slice C status"
+      - "Operator decision summary"
+    receipt:
+      result: done
+      decision: tranche_complete
+      full_outcome_complete: false
+      note: notes/T012-final-tranche-audit.md
+      summary: >-
+        All safe local work for the validated API Explorer outcome has shipped:
+        Slice A (catalogue + dashboard wiring), Slice B1 (getProjectEndpointDetail
+        handler + Overview population + Raw tab), Slice B2 (Request/Response/Examples
+        tabs + parameter side-sheet), and the docs-touch fix (T011) closing the
+        gap T1000 caught. All seven verification suites pass; docs paragraph at
+        platform.md:274-309 accurately describes the shipped UX. Slice C
+        (Findings panel + per-endpoint Status + Dependencies tab) remains
+        DEFERRED — genuinely blocked on operator decision because owner doc
+        platform.md:270-272 explicitly forbids synthesizing warnings from
+        missing descriptions/mock-only fields, and a synthesizer would violate
+        recorded policy. Tranche is complete; goal stays active pending the
+        operator's Slice C decision (see operator_decisions_surfaced).
+      blocked_tasks:
+        - "Slice C — validation-findings source decision"
+      operator_decisions_surfaced:
+        - "Slice C unblock — choose: (a) add a validation-report artifact to publishProjectBundle, (b) amend platform.md+decision-system.md to permit synthesizing findings from in-bundle structural checks, or (c) accept Slice C as out-of-scope and close the goal permanently."
+
+checks_final:
+  tranche: complete
+  full_outcome: true # relative to operator-accepted scope (Slice C removed from outcome by operator decision 2026-05-15)
+  full_outcome_against_original_prototype: false # Slice C surfaces (Findings panel, per-endpoint Status, Dependencies tab) explicitly accepted as out-of-scope
+  blocked_on: null
+  goal_status: done
+  closed_at: "2026-05-15"
+  closed_by: operator
+  operator_decision: "Accept Slice C out-of-scope; close the goal."
+
+checks:
+  dirty_fingerprint: "not checked during goal-prep"
+  last_verification:
+    result: "goal-prep only; implementation verification not run"
+    task: null
+    commands:
+      - "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-update.mjs --json -> ok, no update available"

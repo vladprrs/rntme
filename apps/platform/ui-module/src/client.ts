@@ -1,7 +1,9 @@
 export {
   PlatformAlertList,
+  PlatformAPIExplorer,
   PlatformBanner,
   PlatformBox,
+  PlatformDataModelExplorer,
   PlatformDataTable,
   PlatformEmptyState,
   PlatformPage,
