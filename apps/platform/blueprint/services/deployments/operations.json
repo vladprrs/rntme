@@ -103,7 +103,7 @@
       "effect": "read",
       "idempotency": "none"
     },
-    "listDeployStages": {
+    "readDeployStages": {
       "handler": {
         "kind": "native",
         "entry": "./handlers/deployments.ts",
