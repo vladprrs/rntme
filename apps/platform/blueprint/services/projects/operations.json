@@ -81,6 +81,21 @@
       "effect": "read",
       "idempotency": "none"
     },
+    "listProjectDataModel": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/list-project-data-model.ts",
+        "export": "listProjectDataModelHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "ListProjectDataModelResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
     "listProjectEndpoints": {
       "handler": {
         "kind": "native",
@@ -93,6 +108,23 @@
         "sessionStatus": { "type": "string", "mode": "optional" }
       },
       "output": { "type": "ListProjectEndpointsResult" },
+      "effect": "read",
+      "idempotency": "none"
+    },
+    "getProjectEndpointDetail": {
+      "handler": {
+        "kind": "native",
+        "entry": "./handlers/get-project-endpoint-detail.ts",
+        "export": "getProjectEndpointDetailHandler"
+      },
+      "input": {
+        "projectId": { "type": "string", "mode": "required" },
+        "service": { "type": "string", "mode": "required" },
+        "operation": { "type": "string", "mode": "required" },
+        "sessionSubject": { "type": "string", "mode": "optional" },
+        "sessionStatus": { "type": "string", "mode": "optional" }
+      },
+      "output": { "type": "GetProjectEndpointDetailResult" },
       "effect": "read",
       "idempotency": "none"
     },

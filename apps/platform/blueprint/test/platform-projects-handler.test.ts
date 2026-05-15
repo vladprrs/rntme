@@ -18,8 +18,10 @@ import { listProjectServicesHandler } from '../services/projects/handlers/list-p
 import { getProjectArtifactSummaryHandler } from '../services/projects/handlers/get-project-artifact-summary.js';
 import { getProjectArtifactHandler } from '../services/projects/handlers/get-project-artifact.js';
 import { listProjectEndpointsHandler } from '../services/projects/handlers/list-project-endpoints.js';
+import { getProjectEndpointDetailHandler } from '../services/projects/handlers/get-project-endpoint-detail.js';
 import { listProjectUiComponentsHandler } from '../services/projects/handlers/list-project-ui-components.js';
 import { listProjectGraphsHandler } from '../services/projects/handlers/list-project-graphs.js';
+import { listProjectDataModelHandler } from '../services/projects/handlers/list-project-data-model.js';
 
 async function setup(): Promise<{
   store: FakeStore;
@@ -1647,6 +1649,701 @@ describe('listProjectGraphsHandler', () => {
     try {
       const out = listProjectGraphsHandler(
         { projectId: 'no-such-project', sessionSubject: 'acct-runtime-1', sessionStatus: 'ACTIVE' },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PLATFORM_TENANCY_PROJECT_NOT_FOUND');
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('listProjectDataModelHandler', () => {
+  function seedProject(db: SqliteDatabase): void {
+    db.prepare(`
+      INSERT INTO projects (
+        id, organization_id, slug, display_name, status, created_at,
+        last_event_id, last_event_version, applied_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'proj-runtime-1',
+      'org_uZUWhpWgK54VWC2X',
+      'sales-ops',
+      'Sales Ops',
+      'active',
+      '2026-05-13T00:00:00.000Z',
+      'evt-project',
+      1,
+      '2026-05-13T00:00:00.000Z',
+    );
+  }
+
+  function makeDataModelBundleBytes(): Uint8Array {
+    const bundle = {
+      version: 2,
+      files: {
+        'project.json': {
+          name: 'sales-ops',
+          services: ['sales', 'app'],
+          routes: { ui: { '/': 'app' }, http: {} },
+          middleware: {},
+          mounts: [],
+        },
+        'pdm/entities/Customer.json': {
+          ownerService: 'sales',
+          kind: 'owned',
+          table: 'customers',
+          fields: {
+            id: { type: 'string', nullable: false, column: 'id', generated: 'id' },
+            name: { type: 'string', nullable: false, column: 'name' },
+            status: { type: 'string', nullable: false, column: 'status' },
+          },
+          keys: ['id'],
+          stateMachine: {
+            stateField: 'status',
+            initial: null,
+            states: ['active', 'archived'],
+            transitions: {
+              create: { from: null, to: 'active', affects: ['name'] },
+              archive: { from: 'active', to: 'archived' },
+            },
+          },
+        },
+        'pdm/entities/Order.json': {
+          ownerService: 'sales',
+          kind: 'owned',
+          table: 'orders',
+          fields: {
+            id: { type: 'string', nullable: false, column: 'id', generated: 'id' },
+            customerId: { type: 'string', nullable: false, column: 'customer_id' },
+            status: { type: 'string', nullable: false, column: 'status' },
+          },
+          relations: {
+            customer: {
+              to: 'Customer',
+              cardinality: 'one',
+              localKey: 'customerId',
+              foreignKey: 'id',
+            },
+          },
+          keys: ['id'],
+          stateMachine: {
+            stateField: 'status',
+            initial: null,
+            states: ['open', 'closed'],
+            transitions: {
+              create: { from: null, to: 'open', affects: ['customerId'] },
+              close: { from: 'open', to: 'closed' },
+            },
+          },
+        },
+        'services/sales/qsm/qsm.json': { version: '1', relations: {} },
+        'services/sales/qsm/projections/CustomerView.json': {
+          backing: 'entity-mirror',
+          source: { entity: 'Customer' },
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['name', 'status'],
+        },
+        'services/sales/graphs/listCustomers.json': {
+          id: 'listCustomers',
+          signature: { output: { type: 'rowset<CustomerView>', from: 'out' } },
+          nodes: [
+            { id: 'items', type: 'findMany', config: { source: { projection: 'CustomerView' } } },
+            { id: 'out', type: 'result', value: { '$ref': 'items' } },
+          ],
+        },
+        'services/sales/bindings/bindings.json': {
+          bindings: {
+            listCustomers: {
+              graph: 'listCustomers',
+              http: { method: 'GET', path: '/customers' },
+            },
+          },
+        },
+      },
+    };
+    const bytes = Buffer.from(canonicalize(bundle), 'utf8');
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+
+  async function publish(db: SqliteDatabase, bodyBytes: Uint8Array): Promise<void> {
+    const published = await publishProjectBundleHandler(
+      {
+        authorization: 'Bearer redacted',
+        projectId: 'sales-ops',
+        bodyBytes,
+        sessionSubject: 'acct-runtime-1',
+        sessionStatus: 'ACTIVE',
+      } as never,
+      {
+        qsmDb: db,
+        nextId: (() => {
+          let i = 0;
+          return () => `id-${++i}`;
+        })(),
+        now: () => '2026-05-14T00:00:00.000Z',
+        correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+      } as never,
+    );
+    expect(published.status).toBe('created');
+  }
+
+  it('returns PDM entities, QSM projections, relationships, and endpoint usages from the latest bundle', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDataModelBundleBytes());
+
+      const out = listProjectDataModelHandler(
+        { projectId: 'sales-ops', sessionSubject: 'acct-runtime-1', sessionStatus: 'ACTIVE' },
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.dataModel.summary).toEqual({
+        entities: 2,
+        fields: 6,
+        relationships: 1,
+        qsmProjections: 1,
+        warnings: 0,
+        errors: 0,
+      });
+      expect(out.dataModel.entities.map((entity) => entity.name)).toEqual(['Customer', 'Order']);
+      expect(out.dataModel.entities[0]).toMatchObject({
+        name: 'Customer',
+        ownerService: 'sales',
+        kind: 'owned',
+        table: 'customers',
+        path: 'pdm/entities/Customer.json',
+        keys: ['id'],
+        qsmProjections: ['CustomerView'],
+        endpoints: [
+          {
+            service: 'sales',
+            operation: 'listCustomers',
+            method: 'GET',
+            path: '/customers',
+            graph: 'listCustomers',
+          },
+        ],
+      });
+      expect(out.dataModel.entities[0]?.fields).toEqual([
+        {
+          name: 'id',
+          type: 'string',
+          nullable: false,
+          column: 'id',
+          generated: 'id',
+          primaryKey: true,
+          stateField: false,
+          qsmProjections: [],
+        },
+        {
+          name: 'name',
+          type: 'string',
+          nullable: false,
+          column: 'name',
+          primaryKey: false,
+          stateField: false,
+          qsmProjections: ['CustomerView'],
+        },
+        {
+          name: 'status',
+          type: 'string',
+          nullable: false,
+          column: 'status',
+          primaryKey: false,
+          stateField: true,
+          qsmProjections: ['CustomerView'],
+        },
+      ]);
+      expect(out.dataModel.relationships).toEqual([
+        {
+          source: 'Order',
+          name: 'customer',
+          target: 'Customer',
+          cardinality: 'one',
+          localKey: 'customerId',
+          foreignKey: 'id',
+          path: 'pdm/entities/Order.json',
+          missingTarget: false,
+        },
+      ]);
+      expect(out.dataModel.qsmProjections).toEqual([
+        {
+          name: 'CustomerView',
+          service: 'sales',
+          path: 'services/sales/qsm/projections/CustomerView.json',
+          backing: 'entity-mirror',
+          sourceEntity: 'Customer',
+          keys: ['id'],
+          grain: ['id'],
+          exposed: ['name', 'status'],
+          fields: [
+            { name: 'name', type: 'string', source: 'Customer.name', nullable: false, computed: false },
+            { name: 'status', type: 'string', source: 'Customer.status', nullable: false, computed: false },
+          ],
+          endpoints: [
+            {
+              service: 'sales',
+              operation: 'listCustomers',
+              method: 'GET',
+              path: '/customers',
+              graph: 'listCustomers',
+            },
+          ],
+          raw: {
+            backing: 'entity-mirror',
+            source: { entity: 'Customer' },
+            keys: ['id'],
+            grain: ['id'],
+            exposed: ['name', 'status'],
+          },
+        },
+      ]);
+      expect(out.dataModel.findings).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns an empty data model when the project has no published version', () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      const out = listProjectDataModelHandler(
+        { projectId: 'sales-ops', sessionSubject: 'acct-runtime-1', sessionStatus: 'ACTIVE' },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.dataModel).toEqual({
+        summary: {
+          entities: 0,
+          fields: 0,
+          relationships: 0,
+          qsmProjections: 0,
+          warnings: 0,
+          errors: 0,
+        },
+        entities: [],
+        qsmProjections: [],
+        relationships: [],
+        findings: [],
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PLATFORM_AUTH_INVALID without an active edge session', () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      const out = listProjectDataModelHandler(
+        { projectId: 'sales-ops', sessionSubject: null, sessionStatus: null },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PLATFORM_AUTH_INVALID');
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('getProjectEndpointDetailHandler', () => {
+  function seedProject(db: SqliteDatabase): void {
+    db.prepare(`
+      INSERT INTO projects (
+        id, organization_id, slug, display_name, status, created_at,
+        last_event_id, last_event_version, applied_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'proj-runtime-1',
+      'org_uZUWhpWgK54VWC2X',
+      'cv-extract',
+      'CV Extract',
+      'active',
+      '2026-05-13T00:00:00.000Z',
+      'evt-project',
+      1,
+      '2026-05-13T00:00:00.000Z',
+    );
+  }
+
+  function makeDetailBundleBytes(): Uint8Array {
+    const bundle = {
+      version: 2,
+      files: {
+        'project.json': {
+          name: 'cv-extract',
+          services: ['app'],
+          routes: { ui: { '/': 'app' }, http: {} },
+          middleware: {},
+          mounts: [],
+        },
+        'services/app/bindings/bindings.json': {
+          bindings: {
+            createNote: {
+              graph: 'createNote',
+              target: { engine: 'sqlite', dialect: 'sqlite' },
+              http: {
+                method: 'POST',
+                path: '/notes',
+                parameters: [
+                  { name: 'title', in: 'body', bindTo: 'title', required: true },
+                  { name: 'body', in: 'body', bindTo: 'body', required: true },
+                ],
+              },
+              exposure: 'action',
+              inputFrom: {
+                authorization: { from: 'header', name: 'authorization', required: true },
+              },
+            },
+            listNotes: {
+              graph: 'listNotes',
+              target: { engine: 'sqlite', dialect: 'sqlite' },
+              http: {
+                method: 'GET',
+                path: '/notes',
+                parameters: [
+                  { name: 'limit', in: 'query', bindTo: 'limit', required: false },
+                ],
+              },
+              exposure: 'read',
+            },
+            getNote: {
+              graph: 'getNote',
+              target: { engine: 'sqlite', dialect: 'sqlite' },
+              http: {
+                method: 'GET',
+                path: '/notes/{id}',
+                parameters: [
+                  { name: 'id', in: 'path', bindTo: 'id', required: true },
+                ],
+              },
+              exposure: 'read',
+              inputFrom: {
+                authorization: { from: 'header', name: 'authorization', required: true },
+              },
+            },
+          },
+        },
+        'services/app/graphs/shapes.json': {
+          NoteActionResult: {
+            fields: {
+              noteId: { type: 'string', nullable: false },
+              version: { type: 'integer', nullable: true },
+            },
+          },
+        },
+        'services/app/graphs/createNote.json': {
+          id: 'createNote',
+          signature: {
+            inputs: {
+              title: { type: 'string', mode: 'required' },
+              body: { type: 'string', mode: 'required' },
+              authorization: { type: 'string', mode: 'required' },
+            },
+            output: { type: 'row<NoteActionResult>', from: 'out' },
+          },
+          nodes: [],
+        },
+        'services/app/graphs/listNotes.json': {
+          id: 'listNotes',
+          signature: {
+            inputs: {
+              limit: { type: 'integer', mode: 'defaulted', default: 100 },
+            },
+            output: { type: 'rowset<NoteView>', from: 'out' },
+          },
+          nodes: [],
+        },
+        'services/app/graphs/getNote.json': {
+          id: 'getNote',
+          signature: {
+            inputs: {
+              id: { type: 'string', mode: 'required' },
+            },
+            output: { type: 'NoteActionResult', from: 'out' },
+          },
+          nodes: [],
+        },
+      },
+    };
+    const bytes = Buffer.from(canonicalize(bundle), 'utf8');
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+
+  async function publish(db: SqliteDatabase, bodyBytes: Uint8Array): Promise<void> {
+    const published = await publishProjectBundleHandler(
+      {
+        authorization: 'Bearer redacted',
+        projectId: 'cv-extract',
+        bodyBytes,
+        sessionSubject: 'acct-runtime-1',
+        sessionStatus: 'ACTIVE',
+      } as never,
+      {
+        qsmDb: db,
+        nextId: (() => {
+          let i = 0;
+          return () => `id-${++i}`;
+        })(),
+        now: () => '2026-05-14T00:00:00.000Z',
+        correlation: { commandId: 'cmd-1', correlationId: 'corr-1', traceparent: null },
+      } as never,
+    );
+    expect(published.status).toBe('created');
+  }
+
+  it('returns the populated detail row for the named operation, with auth + source artifact + handler reference + raw binding', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDetailBundleBytes());
+
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'createNote',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      const detail = out.detail;
+      expect(detail.service).toBe('app');
+      expect(detail.operation).toBe('createNote');
+      expect(detail.method).toBe('POST');
+      expect(detail.path).toBe('/notes');
+      expect(detail.summary).toBeNull();
+      expect(detail.auth).toBe('required');
+      expect(detail.sourceArtifact).toEqual({
+        file: 'services/app/bindings/bindings.json',
+        key: 'createNote',
+      });
+      expect(detail.handler).toEqual({
+        engine: 'sqlite',
+        dialect: 'sqlite',
+        graph: 'createNote',
+      });
+      expect(detail.request.pathParams).toEqual([]);
+      expect(detail.request.queryParams).toEqual([]);
+      expect(detail.request.body).toEqual({
+        schemaName: null,
+        fields: [
+          { name: 'title', in: 'body', required: true, description: null },
+          { name: 'body', in: 'body', required: true, description: null },
+        ],
+      });
+      // row<NoteActionResult> → resolves to the named shape and field rows.
+      expect(detail.response.schemaName).toBe('NoteActionResult');
+      expect(detail.response.fields).toEqual([
+        { name: 'noteId', in: 'body', required: true, description: null },
+        { name: 'version', in: 'body', required: false, description: null },
+      ]);
+      expect(detail.response.successStatus).toBeNull();
+      expect(detail.response.example).toBeNull();
+      expect(detail.response.errors).toEqual([]);
+      expect(detail.examples.curl).toContain('POST');
+      expect(detail.examples.curl).toContain('/notes');
+      expect(detail.examples.fetch).toContain('await fetch');
+      expect(detail.examples.openapi).toContain('post');
+      expect(detail.rawBinding).toEqual({
+        graph: 'createNote',
+        target: { engine: 'sqlite', dialect: 'sqlite' },
+        http: {
+          method: 'POST',
+          path: '/notes',
+          parameters: [
+            { name: 'title', in: 'body', bindTo: 'title', required: true },
+            { name: 'body', in: 'body', bindTo: 'body', required: true },
+          ],
+        },
+        exposure: 'action',
+        inputFrom: {
+          authorization: { from: 'header', name: 'authorization', required: true },
+        },
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('marks operations without authorization input as public auth', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDetailBundleBytes());
+
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'listNotes',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.detail.auth).toBe('public');
+      expect(out.detail.request.queryParams).toEqual([
+        { name: 'limit', in: 'query', required: false, description: null },
+      ]);
+      expect(out.detail.request.body).toBeNull();
+      // rowset<NoteView> wrapper is not the supported `row<...>` form, so the
+      // response schema is recorded as not-yet-exposed rather than invented.
+      expect(out.detail.response.schemaName).toBeNull();
+      expect(out.detail.response.fields).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('resolves a bare-identifier output type against the per-service shapes table', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDetailBundleBytes());
+
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'getNote',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('ok');
+      if (out.status !== 'ok') return;
+      expect(out.detail.response.schemaName).toBe('NoteActionResult');
+      expect(out.detail.response.fields.length).toBeGreaterThan(0);
+      expect(out.detail.request.pathParams).toEqual([
+        { name: 'id', in: 'path', required: true, description: null },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PROJECT_VERSION_BUNDLE_INVALID_SHAPE when the service is not in the bundle', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDetailBundleBytes());
+
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'no-such-service',
+          operation: 'createNote',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PROJECT_VERSION_BUNDLE_INVALID_SHAPE');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PROJECT_VERSION_BUNDLE_INVALID_SHAPE when the operation is not declared', async () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      await publish(db, makeDetailBundleBytes());
+
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'noSuchOperation',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PROJECT_VERSION_BUNDLE_INVALID_SHAPE');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PROJECT_VERSION_NOT_FOUND when the project has no published version', () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'createNote',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PROJECT_VERSION_NOT_FOUND');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PLATFORM_AUTH_INVALID without an active edge session', () => {
+    const db = createProjectsDb();
+    try {
+      seedProject(db);
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'cv-extract',
+          service: 'app',
+          operation: 'createNote',
+          sessionSubject: null,
+          sessionStatus: null,
+        },
+        { qsmDb: db } as never,
+      );
+      expect(out.status).toBe('error');
+      if (out.status !== 'error') return;
+      expect(out.errors[0]?.code).toBe('PLATFORM_AUTH_INVALID');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns PLATFORM_TENANCY_PROJECT_NOT_FOUND for an unknown project', () => {
+    const db = createProjectsDb();
+    try {
+      const out = getProjectEndpointDetailHandler(
+        {
+          projectId: 'no-such-project',
+          service: 'app',
+          operation: 'createNote',
+          sessionSubject: 'acct-runtime-1',
+          sessionStatus: 'ACTIVE',
+        },
         { qsmDb: db } as never,
       );
       expect(out.status).toBe('error');

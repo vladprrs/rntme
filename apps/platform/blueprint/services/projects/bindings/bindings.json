@@ -107,6 +107,23 @@
         "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
       }
     },
+    "listProjectDataModel": {
+      "graph": "listProjectDataModel",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/data-model",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
     "listProjectEndpoints": {
       "graph": "listProjectEndpoints",
       "target": { "engine": "native", "dialect": "platform" },
@@ -115,6 +132,25 @@
         "path": "/{projectId}/endpoints",
         "parameters": [
           { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true }
+        ]
+      },
+      "exposure": "read",
+      "inputFrom": {
+        "authorization": { "from": "header", "name": "authorization", "required": true },
+        "sessionSubject": { "from": "header", "name": "x-rntme-user-sub", "required": false },
+        "sessionStatus": { "from": "header", "name": "x-rntme-session-status", "required": false }
+      }
+    },
+    "getProjectEndpointDetail": {
+      "graph": "getProjectEndpointDetail",
+      "target": { "engine": "native", "dialect": "platform" },
+      "http": {
+        "method": "GET",
+        "path": "/{projectId}/endpoints/{service}/{operation}",
+        "parameters": [
+          { "name": "projectId", "in": "path", "bindTo": "projectId", "required": true },
+          { "name": "service", "in": "path", "bindTo": "service", "required": true },
+          { "name": "operation", "in": "path", "bindTo": "operation", "required": true }
         ]
       },
       "exposure": "read",

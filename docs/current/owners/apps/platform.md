@@ -63,7 +63,9 @@ graphs are, so the runtime's compiled operation map covers both kinds.
 | `GET /api/projects/{projectId}/services` | `listProjectServices` | `services/projects/handlers/list-project-services.ts` (`listProjectServicesHandler`) — parses the latest published bundle blob from `project_version_bundles` and returns deployed service rows with per-service artifact counts (see the `ProjectServiceRow` contract below) |
 | `GET /api/projects/{projectId}/artifact-summary` | `getProjectArtifactSummary` | `services/projects/handlers/get-project-artifact-summary.ts` (`getProjectArtifactSummaryHandler`) — per-project artifact counts (services/entities/schemas/graphs/endpoints/uiComponents + versions) derived from the bundle blob |
 | `GET /api/projects/{projectId}/artifacts` | `getProjectArtifact` | `services/projects/handlers/get-project-artifact.ts` (`getProjectArtifactHandler`) — returns a single named artifact body (or a prefix listing) from the bundle blob; takes an `artifactPath` query param |
+| `GET /api/projects/{projectId}/data-model` | `listProjectDataModel` | `services/projects/handlers/list-project-data-model.ts` (`listProjectDataModelHandler`) — derives the data-model explorer model from the latest bundle blob: project-level PDM entities/fields/relations, service-owned QSM projections, projection-to-endpoint usage via graph/binding references, relationship edges, and empty findings until a real validation-report source exists |
 | `GET /api/projects/{projectId}/endpoints` | `listProjectEndpoints` | `services/projects/handlers/list-project-endpoints.ts` (`listProjectEndpointsHandler`) — flattens every per-service `bindings.json` into `{service,operation,method,path}` endpoint rows |
+| `GET /api/projects/{projectId}/endpoints/{service}/{operation}` | `getProjectEndpointDetail` | `services/projects/handlers/get-project-endpoint-detail.ts` (`getProjectEndpointDetailHandler`) — returns one `ProjectEndpointDetail` row for the named operation: real `auth`, `sourceArtifact`, `handler` reference, `request.body.schemaName` (when derivable), `response.schemaName` (`row<X>` and bare-identifier wrappers only), and the verbatim `bindings[op]` JSON in `rawBinding`. Pinned constants for `summary`, `response.successStatus`, `response.example`, `response.errors`, and per-field `description`s — those have no source artifact in the bundle yet |
 | `GET /api/projects/{projectId}/ui-components` | `listProjectUiComponents` | `services/projects/handlers/list-project-ui-components.ts` (`listProjectUiComponentsHandler`) — flattens the bundle's UI component `*.spec.json` artifacts |
 | `GET /api/projects/{projectId}/graphs` | `listProjectGraphs` | `services/projects/handlers/list-project-graphs.ts` (`listProjectGraphsHandler`) — flattens the bundle's `*/graphs/*.json` artifacts into `{service,graph,nodeCount}` rows |
 | `POST /api/deployments` | `startDeployment` | `services/deployments/handlers/*` (`startDeploymentHandler`) — accepts `projectVersionSeq` and `targetSlug` |
@@ -258,8 +260,56 @@ on the login screen after reload.
 The project detail screen (`/:orgId/projects/:projectId`) and four artifact
 explorer screens — `/data-model`, `/api`, `/ui`, `/graph` under that project
 path — read live published-bundle data through the `listProjectServices`,
-`getProjectArtifactSummary`, `getProjectArtifact`, `listProjectEndpoints`,
-`listProjectUiComponents`, and `listProjectGraphs` native operations above.
+`getProjectArtifactSummary`, `getProjectArtifact`, `listProjectDataModel`,
+`listProjectEndpoints`, `listProjectUiComponents`, and `listProjectGraphs`
+native operations above. The data-model explorer is backed by
+`listProjectDataModel`, not the generic artifact listing: it renders a
+definition-inspection model with a six-cell data-model summary, searchable and
+filterable PDM/QSM trees, PDM entity field/relation/usage/raw subtabs, QSM
+projection detail, inferred endpoint usages, raw JSON previews, a field-detail
+side sheet, and a dependency-light relationship diagram. Findings are currently
+empty because publish does not persist a validation-report artifact; do not
+synthesize warnings from missing descriptions or other mock-only fields.
+
+The API explorer screen (`/api`) is backed by `PlatformAPIExplorer`, a
+searchable, service-grouped HTTP endpoint catalogue with HTTP method badges and
+a side detail pane carrying Overview + Request + Response + Examples + Raw
+tabs. It binds to `listProjectEndpoints` (`/data/endpoints`) and
+`getProjectArtifactSummary` (`/data/summary`); the sibling `PlatformSummaryGrid`
+consumes the summary path while the explorer derives per-method counts from the
+endpoint rows. On selection the component fetches per-endpoint detail via
+`useTransport` against `getProjectEndpointDetail` — the URL template is the
+optional `endpointDetailPathTemplate` prop (default
+`/api/projects/{projectId}/endpoints/{service}/{operation}`); the per-endpoint
+binding is _not_ wired through screen.json data because screen-level data
+entries today only parameterize off `/route/params/...`, never off in-page
+selection state. Detail responses are cached in component-local state keyed by
+`${service}:${operation}` so re-selection is instant. The Overview pane
+populates `Service`, `Operation`, `Method`, `Path` from the catalogue row plus
+`Auth`, `Source artifact`, `Handler` reference, `Request schema` name, and
+`Response schema` name from the fetched detail. The remaining placeholder rows
+(`Summary`, `Examples`, `Dependencies`, response status code, response example,
+error responses, per-field descriptions) keep the explicit "Not yet exposed by
+handler" copy. The Request tab renders path / query / body parameter tables
+(sections hide when empty); clicking any parameter row opens a side-sheet
+showing the parameter's name, location chip, required flag, and a copyable
+JSON path, with description and allowed-values fields rendered as "Not yet
+exposed by handler" placeholders; the side-sheet closes on its × button, on
+backdrop click, and on Escape. The Response tab renders the handler's
+`response.fields` as schema rows (with the `schemaName` caption when the
+handler resolved one — currently only for `row<X>` and bare-identifier output
+wrappers); the status code chip, JSON example block, and error-responses list
+render explicit "Not yet exposed by handler" placeholders because the bundle
+carries no per-operation source for those fields. The Examples tab renders the
+handler's `examples.curl`, `examples.fetch`, and `examples.openapi` skeletons
+through inner sub-tabs with copy-to-clipboard. The Raw tab renders the
+verbatim `bindings.json` entry as a JSON `<pre>` preview. Findings panel and
+per-endpoint Status (Valid / Warning / Error) remain deferred to a follow-up
+slice, blocked on the validation-findings source decision recorded in the
+preceding paragraph (publish does not persist a validation-report artifact and
+the doc explicitly forbids synthesizing warnings from missing descriptions or
+other mock-only fields).
+
 The explorers render as definition-inspection (artifact lists + JSON bodies /
 node-edge tables) with the existing `Platform*` component set; no interactive
 graph-canvas dependency is used (see `docs/decision-system.md` §3.6).

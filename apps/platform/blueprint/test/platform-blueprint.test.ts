@@ -21,7 +21,9 @@ describe('platform blueprint', () => {
     expect(result.value.bindingRegistry['projects.listProjectServices']?.path).toBe('/api/projects/{projectId}/services');
     expect(result.value.bindingRegistry['projects.getProjectArtifactSummary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
     expect(result.value.bindingRegistry['projects.getProjectArtifact']?.path).toBe('/api/projects/{projectId}/artifacts');
+    expect(result.value.bindingRegistry['projects.listProjectDataModel']?.path).toBe('/api/projects/{projectId}/data-model');
     expect(result.value.bindingRegistry['projects.listProjectEndpoints']?.path).toBe('/api/projects/{projectId}/endpoints');
+    expect(result.value.bindingRegistry['projects.getProjectEndpointDetail']?.path).toBe('/api/projects/{projectId}/endpoints/{service}/{operation}');
     expect(result.value.bindingRegistry['projects.listProjectUiComponents']?.path).toBe('/api/projects/{projectId}/ui-components');
     expect(result.value.bindingRegistry['projects.listProjectGraphs']?.path).toBe('/api/projects/{projectId}/graphs');
     expect(result.value.bindingRegistry['tokens.listTokens']?.path).toBe('/api/tokens');
@@ -175,6 +177,37 @@ describe('platform blueprint', () => {
     ]);
   });
 
+  it('registers listProjectDataModel as a native projects operation + GET binding', async () => {
+    const operationsPath = join(here, '../services/projects/operations.json');
+    const operations = JSON.parse(await readFile(operationsPath, 'utf8'));
+    expect(operations.operations.listProjectDataModel).toEqual({
+      handler: {
+        kind: 'native',
+        entry: './handlers/list-project-data-model.ts',
+        export: 'listProjectDataModelHandler',
+      },
+      input: {
+        projectId: { type: 'string', mode: 'required' },
+        sessionSubject: { type: 'string', mode: 'optional' },
+        sessionStatus: { type: 'string', mode: 'optional' },
+      },
+      output: { type: 'ListProjectDataModelResult' },
+      effect: 'read',
+      idempotency: 'none',
+    });
+    expect(existsSync(join(here, '../services/projects/handlers/list-project-data-model.ts'))).toBe(true);
+
+    const bindingsPath = join(here, '../services/projects/bindings/bindings.json');
+    const bindings = JSON.parse(await readFile(bindingsPath, 'utf8'));
+    expect(bindings.bindings.listProjectDataModel.graph).toBe('listProjectDataModel');
+    expect(bindings.bindings.listProjectDataModel.target).toEqual({ engine: 'native', dialect: 'platform' });
+    expect(bindings.bindings.listProjectDataModel.http.method).toBe('GET');
+    expect(bindings.bindings.listProjectDataModel.http.path).toBe('/{projectId}/data-model');
+    expect(bindings.bindings.listProjectDataModel.http.parameters).toEqual([
+      { name: 'projectId', in: 'path', bindTo: 'projectId', required: true },
+    ]);
+  });
+
   it('registers listProjectEndpoints as a native projects operation + GET binding', async () => {
     const operationsPath = join(here, '../services/projects/operations.json');
     const operations = JSON.parse(await readFile(operationsPath, 'utf8'));
@@ -203,6 +236,41 @@ describe('platform blueprint', () => {
     expect(bindings.bindings.listProjectEndpoints.http.path).toBe('/{projectId}/endpoints');
     expect(bindings.bindings.listProjectEndpoints.http.parameters).toEqual([
       { name: 'projectId', in: 'path', bindTo: 'projectId', required: true },
+    ]);
+  });
+
+  it('registers getProjectEndpointDetail as a native projects operation + GET binding', async () => {
+    const operationsPath = join(here, '../services/projects/operations.json');
+    const operations = JSON.parse(await readFile(operationsPath, 'utf8'));
+    expect(operations.operations.getProjectEndpointDetail).toEqual({
+      handler: {
+        kind: 'native',
+        entry: './handlers/get-project-endpoint-detail.ts',
+        export: 'getProjectEndpointDetailHandler',
+      },
+      input: {
+        projectId: { type: 'string', mode: 'required' },
+        service: { type: 'string', mode: 'required' },
+        operation: { type: 'string', mode: 'required' },
+        sessionSubject: { type: 'string', mode: 'optional' },
+        sessionStatus: { type: 'string', mode: 'optional' },
+      },
+      output: { type: 'GetProjectEndpointDetailResult' },
+      effect: 'read',
+      idempotency: 'none',
+    });
+    expect(existsSync(join(here, '../services/projects/handlers/get-project-endpoint-detail.ts'))).toBe(true);
+
+    const bindingsPath = join(here, '../services/projects/bindings/bindings.json');
+    const bindings = JSON.parse(await readFile(bindingsPath, 'utf8'));
+    expect(bindings.bindings.getProjectEndpointDetail.graph).toBe('getProjectEndpointDetail');
+    expect(bindings.bindings.getProjectEndpointDetail.target).toEqual({ engine: 'native', dialect: 'platform' });
+    expect(bindings.bindings.getProjectEndpointDetail.http.method).toBe('GET');
+    expect(bindings.bindings.getProjectEndpointDetail.http.path).toBe('/{projectId}/endpoints/{service}/{operation}');
+    expect(bindings.bindings.getProjectEndpointDetail.http.parameters).toEqual([
+      { name: 'projectId', in: 'path', bindTo: 'projectId', required: true },
+      { name: 'service', in: 'path', bindTo: 'service', required: true },
+      { name: 'operation', in: 'path', bindTo: 'operation', required: true },
     ]);
   });
 

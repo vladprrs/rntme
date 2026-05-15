@@ -80,18 +80,31 @@ describe('platform UI artifact', () => {
       type: 'PlatformTimeline',
       props: { statePath: '/data/deploy-status' },
     });
-    expect(ui?.screens['data-model']?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
-    expect(ui?.screens['data-model']?.data?.['/data/entities']?.path).toBe('/api/projects/{projectId}/artifacts');
-    expect(ui?.screens['data-model']?.spec.elements.entitiesTable).toMatchObject({
-      type: 'PlatformDataTable',
-      props: { statePath: '/data/entities' },
+    const dataModelScreen = ui?.screens['data-model'];
+    if (!dataModelScreen) {
+      throw new Error('data-model screen is missing');
+    }
+    expect(dataModelScreen.data?.['/data/summary']).toBeUndefined();
+    expect(dataModelScreen.data?.['/data/model']?.path).toBe('/api/projects/{projectId}/data-model');
+    const dataModelPage = dataModelScreen.spec.elements.page;
+    if (!dataModelPage) {
+      throw new Error('data-model page element is missing');
+    }
+    expect(dataModelPage.children).toEqual(['header', 'explorer']);
+    expect(dataModelScreen.spec.elements.explorer).toMatchObject({
+      type: 'PlatformDataModelExplorer',
+      props: { statePath: '/data/model' },
     });
     expect(ui?.manifest.routes['/:orgId/projects/:projectId/api']).toMatchObject({ screen: 'api' });
     expect(ui?.screens.api?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
     expect(ui?.screens.api?.data?.['/data/endpoints']?.path).toBe('/api/projects/{projectId}/endpoints');
-    expect(ui?.screens.api?.spec.elements.endpointsTable).toMatchObject({
-      type: 'PlatformDataTable',
-      props: { statePath: '/data/endpoints' },
+    expect(ui?.screens.api?.spec.elements.endpointsExplorer).toMatchObject({
+      type: 'PlatformAPIExplorer',
+      props: {
+        endpointsStatePath: '/data/endpoints',
+        summaryStatePath: '/data/summary',
+        endpointDetailPathTemplate: '/api/projects/{projectId}/endpoints/{service}/{operation}',
+      },
     });
     expect(ui?.manifest.routes['/:orgId/projects/:projectId/ui']).toMatchObject({ screen: 'ui' });
     expect(ui?.screens.ui?.data?.['/data/summary']?.path).toBe('/api/projects/{projectId}/artifact-summary');
@@ -116,7 +129,7 @@ describe('platform UI artifact', () => {
     expect(result.value.virtualEntrySource).toContain("import('@rntme/identity-auth0/client')");
     expect(result.value.virtualEntrySource).toContain("bootContract: 'identity'");
     expect(result.value.catalogManifest?.components.map((c) => c.type)).toEqual(
-      expect.arrayContaining(['PlatformPageHeader', 'PlatformDataTable', 'PlatformSidebar']),
+      expect.arrayContaining(['PlatformPageHeader', 'PlatformDataTable', 'PlatformDataModelExplorer', 'PlatformSidebar']),
     );
     // PlatformTimeline is driven by `/data/deploy-status`; the catalog must
     // declare the `statePath` prop so the screen spec binding resolves.
