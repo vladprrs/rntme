@@ -4,7 +4,7 @@
     "page": {
       "type": "PlatformPage",
       "props": {},
-      "children": ["header", "summary", "entitiesPanel"]
+      "children": ["header", "explorer"]
     },
     "header": {
       "type": "PlatformPageHeader",
@@ -16,28 +16,10 @@
         ]
       }
     },
-    "summary": {
-      "type": "PlatformSummaryGrid",
+    "explorer": {
+      "type": "PlatformDataModelExplorer",
       "props": {
-        "statePath": "/data/summary"
-      }
-    },
-    "entitiesPanel": {
-      "type": "PlatformPanel",
-      "props": {
-        "title": "Entities",
-        "subtitle": "Parsed from pdm/entities/*.json"
-      },
-      "children": ["entitiesTable"]
-    },
-    "entitiesTable": {
-      "type": "PlatformDataTable",
-      "props": {
-        "statePath": "/data/entities",
-        "columns": [
-          { "key": "name", "label": "Entity" },
-          { "key": "path", "label": "Artifact path" }
-        ]
+        "statePath": "/data/model"
       }
     }
   }
