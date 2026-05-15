@@ -1351,7 +1351,7 @@ describe('runtime provisioner resolver', () => {
         'dist/provisioner.entry.js',
         projectDir,
       );
-      const provision = resolved.provision as (() => Promise<Record<string, unknown>>) | undefined;
+      const provision = resolved.provision as unknown as (() => Promise<Record<string, unknown>>) | undefined;
 
       expect(typeof provision).toBe('function');
       expect(await provision?.()).toEqual({ source: 'bundle-asset' });
