@@ -67,13 +67,14 @@ function collectFiles(root: string): Result<string[], CliError> {
   function walk(dir: string): void {
     for (const name of readdirSync(dir).sort()) {
       const abs = resolve(dir, name);
+      const relPath = relative(root, abs).split(sep).join('/');
+      if (!shouldVisitBundlePath(relPath)) continue;
       const st = statSync(abs);
       if (st.isDirectory()) {
         walk(abs);
         continue;
       }
       if (!st.isFile()) continue;
-      const relPath = relative(root, abs).split(sep).join('/');
       if (shouldBundleFile(root, relPath)) out.push(relPath);
     }
   }
@@ -86,6 +87,20 @@ function collectFiles(root: string): Result<string[], CliError> {
 
   out.sort();
   return ok(out);
+}
+
+function shouldVisitBundlePath(relPath: string): boolean {
+  if (!relPath.startsWith('node_modules/')) return true;
+  const parts = relPath.split('/');
+  if (parts.length === 1) return true;
+
+  if (parts[1]?.startsWith('@')) {
+    if (parts.length <= 3) return true;
+    return parts.length === 4 && (parts[3] === 'module.json' || parts[3] === 'package.json');
+  }
+
+  if (parts.length <= 2) return true;
+  return parts.length === 3 && (parts[2] === 'module.json' || parts[2] === 'package.json');
 }
 
 function shouldBundleFile(root: string, relPath: string): boolean {
