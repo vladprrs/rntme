@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { Buffer } from 'node:buffer';
 import * as grpc from '@grpc/grpc-js';
 import { proto } from '@rntme/contracts-storage-v1';
 import { createStorageGrpcServer } from '../../src/server.js';

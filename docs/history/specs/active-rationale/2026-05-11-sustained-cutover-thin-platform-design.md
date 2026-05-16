@@ -1,3 +1,8 @@
+> Status: active-rationale.
+> Date: 2026-05-11.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Recent Superpowers design rationale preserved during project cleanup; it is not current-state truth by itself.
+
 # Sustained Cutover to Thin Bootable Platform
 
 Date: 2026-05-11
@@ -17,7 +22,7 @@ and a documented list of 3-4 more gaps behind it. Full receipt:
 `docs/goals/dokploy-platform-e2e-deploy/notes/T005-partial-receipt-stop.md`.
 
 The 2026-05-10 spec
-(`docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`)
+(`docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`)
 sets the architectural target: CLI universal deploy front, BPMN-orchestrated
 deploys inside the deployed platform, `apps/platform-http` deleted. Plan-1
 through plan-2 are in motion. Plan-3 (BPMN inside the platform) and

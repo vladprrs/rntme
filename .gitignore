@@ -24,6 +24,12 @@ core.*
 .vscode/
 .idea/
 
+# Local deploy / generated runtime artifacts
+.rntme*.jsonl
+.rntme-ui-build/
+.goalbuddy-board/
+.clone/
+
 # Editor / patch artifacts
 *.swp
 *.swo

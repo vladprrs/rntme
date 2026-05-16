@@ -67,4 +67,4 @@ Example:
 
 ## Specs
 
-- [`../../../superpowers/specs/2026-05-08-project-lifecycle-init-design.md`](/docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md)
+- [`docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md`](/docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md)

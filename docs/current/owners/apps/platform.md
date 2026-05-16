@@ -370,4 +370,4 @@ bun run -F @rntme/blueprint test -- ../../../apps/platform/blueprint/test
 
 ## Specs
 
-- [`../../superpowers/specs/2026-05-09-platform-as-blueprint-design.md`](/docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md)
+- [`docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md`](/docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md)

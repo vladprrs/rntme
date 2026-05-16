@@ -7,7 +7,7 @@ Mode: read-only decision; reasoning_hint: high.
 ## Inputs consulted
 
 - `T001` scout receipt (`notes/T001-scout-receipt.md`).
-- `docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`
+- `docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`
   (operator-supplied context).
 - Operator answers via `AskUserQuestion`:
   - Path: Option A (extend CLI direct-mode; use `rntme platform up`).

@@ -1,3 +1,8 @@
+> Status: active-rationale.
+> Date: 2026-05-10.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Recent Superpowers design rationale preserved during project cleanup; it is not current-state truth by itself.
+
 # CLI Universal Deploy and platform-http Removal Design
 
 Date: 2026-05-10
@@ -101,7 +106,7 @@ preservation, no deprecation paths.
 `docs/decision-system.md` already carries:
 
 > **Platform as blueprint** — locked-pending — spec
-> `docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md`
+> `docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md`
 
 > **Deployments service + adapter boundary** — locked-pending — same spec
 

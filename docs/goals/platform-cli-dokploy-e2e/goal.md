@@ -6,7 +6,7 @@ Plan and execute a full e2e deployment test of `apps/platform` through `apps/cli
 
 ## Original Request
 
-`$goalbuddy нужно запланировать полный e2e тест деплоя apps/platform через apps/cli (docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md) в dokploy (.env содержит DOKPLOY_URL и DOKPLOY_API_KEY) по пути будут находиться проблемы, задача - не блокироваться, а последовательно решать их в соответствии с docs/decision-system.md`
+`$goalbuddy нужно запланировать полный e2e тест деплоя apps/platform через apps/cli (docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md) в dokploy (.env содержит DOKPLOY_URL и DOKPLOY_API_KEY) по пути будут находиться проблемы, задача - не блокироваться, а последовательно решать их в соответствии с docs/decision-system.md`
 
 ## Intake Summary
 
@@ -17,7 +17,7 @@ Plan and execute a full e2e deployment test of `apps/platform` through `apps/cli
 - Completion proof: a documented command transcript or receipts proving `apps/platform` was deployed through `apps/cli` to the configured Dokploy target, smoke/health verification passed against the deployed platform, and any encountered blockers were fixed or explicitly recorded with remaining safe follow-up tasks.
 - Likely misfire: stopping after writing a test plan, local build fixes, or a partial deploy attempt without proving the real CLI -> Dokploy -> deployed platform path works end to end.
 - Blind spots considered: live Dokploy changes may be destructive; secrets must not be committed; current implementation may diverge from the design spec; failures should be triaged against `docs/decision-system.md` rather than patched ad hoc; platform bootstrap/direct/client mode boundaries must stay clear.
-- Existing plan facts: use `docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`; deploy `apps/platform` via `apps/cli`; target is Dokploy at `DOKPLOY_URL` from `.env`; API key is provided by `.env`; use `docs/decision-system.md`; continue through discovered issues instead of blocking at first failure.
+- Existing plan facts: use `docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`; deploy `apps/platform` via `apps/cli`; target is Dokploy at `DOKPLOY_URL` from `.env`; API key is provided by `.env`; use `docs/decision-system.md`; continue through discovered issues instead of blocking at first failure.
 
 ## Goal Kind
 

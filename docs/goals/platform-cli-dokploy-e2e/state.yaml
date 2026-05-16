@@ -22,7 +22,7 @@ goal:
       - "Failures should be classified against docs/decision-system.md rather than patched ad hoc."
       - "Platform bootstrap/direct/client mode boundaries must stay consistent with the CLI universal deploy design."
     existing_plan_facts:
-      - "Design context: docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "Design context: docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
       - "Decision authority: docs/decision-system.md"
       - "Deploy subject: apps/platform"
       - "Deploy entry point: apps/cli"
@@ -77,7 +77,7 @@ tasks:
     objective: "Map the current CLI/platform/deploy implementation and identify the exact safe e2e command path to deploy apps/platform to Dokploy."
     inputs:
       - "docs/decision-system.md"
-      - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
       - "apps/cli/README.md and its current owner doc"
       - "apps/platform/README.md and its current owner doc"
       - "packages/deploy/deploy-runner/README.md and its current owner doc"

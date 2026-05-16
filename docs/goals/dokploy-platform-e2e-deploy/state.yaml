@@ -114,7 +114,7 @@ tasks:
     objective: "Выбрать первый безопасный Worker-срез для первой фазы деплоя и e2e, с учётом рисков из T001."
     inputs:
       - "T001 receipt"
-      - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
       - "operator decisions via AskUserQuestion"
     constraints:
       - "Read-only."
