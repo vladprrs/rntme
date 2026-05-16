@@ -1,10 +1,18 @@
 import { endpoints } from '../../api/endpoints.js';
-import type { ProjectOperationResponse, ProjectOperationStatus } from '../../api/types.js';
-import { cliError } from '../../errors/codes.js';
-import { err, isOk, type Result } from '../../result.js';
+import type {
+  ProjectOperationResponse,
+  ProjectOperationLogsResponseSchema,
+  ProjectOperationStatus,
+} from '../../api/types.js';
+import { cliError, type CliError } from '../../errors/codes.js';
+import { err, type Result } from '../../result.js';
 import type { ClientError } from '../../api/client.js';
 import { runCommand, type CommonFlags } from '../harness.js';
 import { validateUuid } from '../../util/uuid.js';
+import { pollUntilTerminal } from '../poll-until-terminal.js';
+import type { z } from 'zod';
+
+type ProjectOperationLogsResponse = z.infer<typeof ProjectOperationLogsResponseSchema>;
 
 const TERMINAL = new Set<ProjectOperationStatus>(['succeeded', 'failed']);
 
@@ -14,7 +22,7 @@ export type ProjectOperationWatchArgs = {
   readonly timeoutSec?: number | undefined;
 };
 
-export async function watchProjectOperationUntilTerminal(opts: {
+export function watchProjectOperationUntilTerminal(opts: {
   apiCtx: { baseUrl: string; token: string | null };
   org: string;
   project: string;
@@ -22,35 +30,23 @@ export async function watchProjectOperationUntilTerminal(opts: {
   pollIntervalMs?: number | undefined;
   timeoutMs?: number | undefined;
   printLogs?: boolean | undefined;
-}): Promise<Result<ProjectOperationResponse, ClientError | ReturnType<typeof cliError>>> {
-  const { apiCtx, org, project, operationId, pollIntervalMs = 2_000, timeoutMs, printLogs = true } = opts;
-  let sinceLineId = 0;
-  const started = Date.now();
-
-  while (true) {
-    if (timeoutMs !== undefined && Date.now() - started > timeoutMs) {
-      return err(cliError('CLI_NETWORK_TIMEOUT', `project operation watch timed out after ${timeoutMs}ms`));
-    }
-
-    const status = await endpoints.projectOperations.show(apiCtx, org, project, operationId);
-    if (!isOk(status)) return status;
-
-    const logs = await endpoints.projectOperations.logs(apiCtx, org, project, operationId, {
-      sinceLineId,
-      limit: 200,
-    });
-    if (!isOk(logs)) return logs;
-
-    if (printLogs) {
-      for (const line of logs.value.lines) {
-        process.stdout.write(`[${line.level}] ${line.step}: ${line.message}\n`);
-      }
-    }
-    sinceLineId = logs.value.lastLineId;
-
-    if (TERMINAL.has(status.value.operation.status)) return status;
-    await sleep(pollIntervalMs);
-  }
+}): Promise<Result<ProjectOperationResponse, ClientError | CliError>> {
+  const { apiCtx, org, project, operationId, pollIntervalMs, timeoutMs, printLogs } = opts;
+  return pollUntilTerminal<ProjectOperationResponse, ProjectOperationLogsResponse>({
+    pollIntervalMs,
+    timeoutMs,
+    printLogs,
+    label: 'project operation watch',
+    fetchStatus: () => endpoints.projectOperations.show(apiCtx, org, project, operationId),
+    fetchLogsSince: (sinceLineId) =>
+      endpoints.projectOperations.logs(apiCtx, org, project, operationId, {
+        sinceLineId,
+        limit: 200,
+      }),
+    isTerminal: (s) => TERMINAL.has(s.operation.status),
+    getLogLines: (l) => l.lines,
+    getLastLineId: (l) => l.lastLineId,
+  });
 }
 
 export async function runProjectOperationWatch(args: ProjectOperationWatchArgs, flags: CommonFlags): Promise<number> {
@@ -97,8 +93,4 @@ export function renderOperation(d: ProjectOperationResponse): string {
 
 export function operationExitCode(status: ProjectOperationStatus): number {
   return status === 'failed' ? 10 : 0;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

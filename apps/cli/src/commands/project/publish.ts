@@ -50,10 +50,14 @@ export async function runProjectPublish(args: ProjectPublishArgs, flags: CommonF
 
       const composed = await materializeAndCompose(built.value.bundle);
       if (!composed.ok) {
+        const n = composed.errors.length;
+        const firstCode = composed.errors[0]?.code ?? 'UNKNOWN';
         return err(
           cliError(
             'CLI_VALIDATE_LOCAL_FAILED',
-            composed.errors.map((e) => `${e.code}: ${e.message}`).join('; '),
+            n === 1
+              ? `${firstCode}: ${composed.errors[0]?.message ?? ''}`
+              : `${n} blueprint compose errors (first: ${firstCode}); see nested for details`,
             undefined,
             composed.errors,
           ),

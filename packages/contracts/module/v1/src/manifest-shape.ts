@@ -27,7 +27,7 @@ export const ModuleCapabilitiesSchema = z
     edgeAuth: EdgeAuthDescriptorSchema.optional(),
     search_tiers: z.array(z.string().min(1)).optional(),
     labeled_associations: z.boolean().optional(),
-    bulk_operations: z.record(z.unknown()).optional(),
+    bulk_operations: z.record(z.string(), z.unknown()).optional(),
     input_modalities: z.array(z.enum(['text', 'image', 'audio', 'file'])).optional(),
     reasoning_visibility_supported: z.array(z.enum(['hidden', 'summary', 'full'])).optional(),
     thread: z.boolean().optional(),
@@ -53,7 +53,7 @@ export const PropSchemaSchema = z
 export const ComponentDeclarationSchema = z
   .object({
     type: z.string().min(1),
-    props: z.record(PropSchemaSchema),
+    props: z.record(z.string(), PropSchemaSchema),
   })
   .strict();
 
@@ -61,13 +61,13 @@ export const OperationDeclarationSchema = z
   .object({
     name: z.string().min(1),
     appliesTo: z.array(z.string().min(1)).optional(),
-    params: z.record(PropSchemaSchema).optional(),
+    params: z.record(z.string(), PropSchemaSchema).optional(),
   })
   .strict();
 
 export const ClientConfigSchema = z
   .object({
-    schema: z.record(PropSchemaSchema),
+    schema: z.record(z.string(), PropSchemaSchema),
   })
   .strict();
 
@@ -151,7 +151,7 @@ export const ClientPresetSchema = z
     kind: z.literal('fragment'),
     path: ClientRelativePathSchema,
     description: z.string().min(1).optional(),
-    inputs: z.record(PropSchemaSchema).default({}),
+    inputs: z.record(z.string(), PropSchemaSchema).default({}),
   })
   .strict();
 

@@ -1,15 +1,19 @@
 import { endpoints } from '../../api/endpoints.js';
-import type { DeploymentResponseSchema, DeploymentStatus } from '../../api/types.js';
-import { err, isOk } from '../../result.js';
-import { cliError } from '../../errors/codes.js';
+import type {
+  DeploymentResponseSchema,
+  DeploymentLogsResponseSchema,
+  DeploymentStatus,
+} from '../../api/types.js';
 import { runCommand, type CommonFlags } from '../harness.js';
 import { validateUuid } from '../../util/uuid.js';
+import { pollUntilTerminal } from '../poll-until-terminal.js';
 import type { z } from 'zod';
 import type { Result } from '../../result.js';
 import type { CliError } from '../../errors/codes.js';
 import type { ClientError } from '../../api/client.js';
 
 type DeploymentResponse = z.infer<typeof DeploymentResponseSchema>;
+type DeploymentLogsResponse = z.infer<typeof DeploymentLogsResponseSchema>;
 
 export type ProjectDeploymentWatchArgs = {
   readonly deploymentId: string;
@@ -23,41 +27,26 @@ const TERMINAL = new Set<DeploymentStatus>([
   'failed_orphaned',
 ]);
 
-export async function watchUntilTerminal(opts: {
+export function watchUntilTerminal(opts: {
   apiCtx: { baseUrl: string; token: string | null };
   deploymentId: string;
   pollIntervalMs?: number | undefined;
   timeoutMs?: number | undefined;
   printLogs?: boolean | undefined;
 }): Promise<Result<DeploymentResponse, ClientError | CliError>> {
-  const { apiCtx, deploymentId, pollIntervalMs = 2_000, timeoutMs, printLogs = true } = opts;
-  let sinceLineId = 0;
-  const startTime = Date.now();
-
-  while (true) {
-    if (timeoutMs !== undefined && Date.now() - startTime > timeoutMs) {
-      return err(cliError('CLI_NETWORK_TIMEOUT', `deployment watch timed out after ${timeoutMs}ms`));
-    }
-
-    const status = await endpoints.deployments.show(apiCtx, deploymentId);
-    if (!isOk(status)) return status;
-
-    const logs = await endpoints.deployments.logs(apiCtx, deploymentId, {
-      sinceLineId,
-      limit: 200,
-    });
-    if (!isOk(logs)) return logs;
-
-    if (printLogs) {
-      for (const line of logs.value.lines) {
-        process.stdout.write(`[${line.level}] ${line.step}: ${line.message}\n`);
-      }
-    }
-    sinceLineId = logs.value.lastLineId;
-
-    if (TERMINAL.has(status.value.deployment.status)) return status;
-    await sleep(pollIntervalMs);
-  }
+  const { apiCtx, deploymentId, pollIntervalMs, timeoutMs, printLogs } = opts;
+  return pollUntilTerminal<DeploymentResponse, DeploymentLogsResponse>({
+    pollIntervalMs,
+    timeoutMs,
+    printLogs,
+    label: 'deployment watch',
+    fetchStatus: () => endpoints.deployments.show(apiCtx, deploymentId),
+    fetchLogsSince: (sinceLineId) =>
+      endpoints.deployments.logs(apiCtx, deploymentId, { sinceLineId, limit: 200 }),
+    isTerminal: (s) => TERMINAL.has(s.deployment.status),
+    getLogLines: (l) => l.lines,
+    getLastLineId: (l) => l.lastLineId,
+  });
 }
 
 export async function runProjectDeploymentWatch(args: ProjectDeploymentWatchArgs, flags: CommonFlags): Promise<number> {
@@ -96,8 +85,4 @@ export async function runProjectDeploymentWatch(args: ProjectDeploymentWatchArgs
       });
     },
   );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

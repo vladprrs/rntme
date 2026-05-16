@@ -108,6 +108,11 @@ Application lifecycle is `configure -> deploy -> start -> inspect` when the inje
 
 The project-stack Compose resource has its own post-apply lifecycle: `configure -> configure compose domains -> deploy -> start compose -> load compose services -> inspect compose tasks`. `configureComposeDomains` is called when the rendered resource carries `domains` (project-level edge route plus any infrastructure-proxy domains). `loadComposeServices` lets the platform match Dokploy's live service names back to the rendered service summaries; `inspectComposeTasks` then queries Swarm task state and only surfaces inspections when at least one task is not in a healthy running state. That filtered set is the signal the post-apply verification uses to fail the deployment with `DEPLOY_VERIFY_WORKLOAD_CRASH_LOOP` when failed/rejected/exited workload tasks are observed. Each compose lifecycle step maps a thrown client error to a `partialFailure` with phase `configure`, `deploy`, or `inspect`, so operators can see which stage broke without losing the structured cleanup behavior.
 
+Compose YAML is rendered from a typed object model and serialized at the
+boundary with the `yaml` package. Do not reintroduce hand-rolled scalar
+concatenation: literal environment values such as `"true"`, `"123"`, or
+`"{token}"` must remain strings after YAML parsing.
+
 Existing-resource comparison is typed by resource kind instead of raw object
 serialization. Apply compares common fields (`image`, env entries, labels),
 then compose `composeFile` or application build/ports/ingress/files. Env vars,

@@ -45,7 +45,12 @@ export function formatFailure(mode: OutputMode, fail: FailureOutput['error']): s
 
 export function toFailureOutput(e: CliError | ClientError): FailureOutput['error'] {
   if ('kind' in e && e.kind === 'cli') {
-    return { code: e.code, message: e.message, hint: e.hint };
+    return {
+      code: e.code,
+      message: e.message,
+      hint: e.hint,
+      nested: extractNestedFromCause(e.cause),
+    };
   }
   if ('kind' in e && e.kind === 'network') {
     return { code: 'CLI_NETWORK_TIMEOUT', message: e.message };
@@ -62,4 +67,31 @@ export function toFailureOutput(e: CliError | ClientError): FailureOutput['error
     };
   }
   return { code: 'PLATFORM_INTERNAL', message: 'unknown error' };
+}
+
+/**
+ * When a CliError carries `cause` produced by upstream validators
+ * (e.g. `@rntme/blueprint` returns `Result<…, { layer, code, message, path }[]>`),
+ * surface each item as a nested entry so users see every failure with its
+ * artifact path, not a semicolon-joined one-liner. See F046.
+ */
+function extractNestedFromCause(cause: unknown): FailureOutput['error']['nested'] {
+  if (!Array.isArray(cause) || cause.length === 0) return undefined;
+  const nested: NonNullable<FailureOutput['error']['nested']> = [];
+  for (const item of cause) {
+    if (item === null || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const code = typeof obj.code === 'string' ? obj.code : undefined;
+    const message = typeof obj.message === 'string' ? obj.message : undefined;
+    if (code === undefined || message === undefined) continue;
+    const path = typeof obj.path === 'string' && obj.path !== '' ? obj.path : undefined;
+    const pkg = typeof obj.pkg === 'string' ? obj.pkg : undefined;
+    const stage = typeof obj.stage === 'string'
+      ? obj.stage
+      : typeof obj.layer === 'string'
+        ? obj.layer
+        : undefined;
+    nested.push({ code, message, path, pkg, stage });
+  }
+  return nested.length > 0 ? nested : undefined;
 }

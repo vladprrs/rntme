@@ -11,7 +11,8 @@
   "dependencies": {
     "@rntme/blueprint": "workspace:*",
     "@rntme/deploy-runner": "workspace:*",
-    "@rntme/platform-core": "workspace:*"
+    "@rntme/platform-core": "workspace:*",
+    "@rntme/platform-storage": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

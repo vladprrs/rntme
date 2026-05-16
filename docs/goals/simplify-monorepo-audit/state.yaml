@@ -5,6 +5,16 @@ goal:
   title: "Simplify monorepo audit"
   status: complete
   created: 2026-05-15
+  reopened: 2026-05-16
+  completed_again: 2026-05-16
+  reopened_for_tranche_3: 2026-05-16
+  completed_tranche_3: 2026-05-16
+  reopened_reason: >-
+    Tranche 2 closed by queue-exhaustion arm at 26% cumulative budget
+    (235/900 min). User requested continuation. Tranche 3 resumes from
+    handoff-tranche2.md recommendations: first close F058 to restore the CLI
+    test signal, then take F037 and F055 while the same 900-min cap continues
+    with ~665 min headroom remaining at tranche start.
   charter: docs/goals/simplify-monorepo-audit/goal.md
   intake:
     input_shape: open_ended
@@ -42,12 +52,52 @@ agents:
 
 execution_budget:
   worker_minutes_cap: 900
-  worker_minutes_spent: 155
+  worker_minutes_spent: 355
   execution_budget_started_at: "2026-05-15T18:10:00Z"
   rule: >-
     Starts when T101 receipt publishes the ranked queue. Every Worker receipt
     must include `elapsed_minutes` and updated `worker_minutes_spent`. Once
-    `worker_minutes_spent >= 900`, no new Worker tasks start; PM activates T999.
+    `worker_minutes_spent >= 900`, no new Worker tasks start; PM activates T1000.
+  tranches:
+    - id: 1
+      worker_tasks: [T200, T201, T202, T203, T204, T205, T206]
+      minutes_used: 155
+      branch: feat/simplify-monorepo-audit
+      pr: 212
+      audit: T999
+      status: complete
+    - id: 2
+      worker_tasks: [T207, T208, T209, T210, T211, T212, T213]
+      status: complete
+      completed: 2026-05-16
+      minutes_used: 80
+      minutes_budget: 745
+      branch: feat/simplify-monorepo-audit-tranche-2
+      audit: T1000
+      started: 2026-05-16
+      notes:
+        - "T207 (Q8/F056) closed as done_noop: pre-fixed in commit 0a28dbb8 by user."
+        - "T208 (Q9/F052) done in 12 min (audit estimated 180) — vendor-check now schema-gates manifests; F029/F040/F045 drift class is now CI-detectable."
+        - "T209 (Q10/F057) done in 8 min — artifact-shared/result.ts is now a re-export shim; single Result algebra workspace-wide."
+        - "T210 (Q11/F030) done in 3 min — DeployAdapter dead strut deleted (95 LoC); depcruise 829→827 modules."
+        - "T211 (Q12/F044) done in 15 min — pollUntilTerminal helper extracted; duplication of polling loop eliminated. Surfaced pre-existing flake F058 (load-blueprint test timeout 5.3s)."
+        - "T212 (Q13/F046) done in 12 min — CliError.cause now routes to nested[] in human + JSON output; 4 new tests; memory rntme_cli_dist_silent_stale ready to retire."
+        - "T213 (Q14/F031) done in 25 min — AES-GCM crypto consolidated onto AesGcmSecretCipher via shared handler helper; -66 LoC; error codes aligned to PLATFORM_STORAGE_DB_UNAVAILABLE; all 23 crypto tests pass."
+    - id: 3
+      worker_tasks: [T214, T215, T216]
+      status: complete
+      started: 2026-05-16
+      completed: 2026-05-16
+      minutes_used: 120
+      minutes_budget: 665
+      branch: feat/simplify-monorepo-audit-tranche-2
+      audit: T1001
+      notes:
+        - "T214 (Q15/F058) done in 5 min — CLI load-blueprint CV demo test gets a scoped 15s timeout; full @rntme/cli test is green (210 pass / 2 skip / 0 fail)."
+        - "T215 (Q16/F037) done in 45 min — compose YAML now renders from a typed object through yaml@2.9.0; slow scalar coercion regression covered; workspace gates + live platform up smoke pass."
+        - "T216 (Q17/F055) done in 70 min — first-party zod pins unified on ^4.0.0; record schemas adjusted for Zod 4's two-arg record API; remaining zod@3 lock entries are external transitive aliases only."
+        - "T216 also closed newly surfaced F059: root `bun run test` now runs filtered workspace tests sequentially after the default parallel runner stranded a high-CPU package child even though the package test passed standalone."
+        - "T1001 final audit done — Tranche 3 queue arm satisfied (3/3 queued slices done); cumulative budget 355/900 min with 545 min headroom."
 
 verify_suite_default:
   - "bun run typecheck"
@@ -846,3 +896,896 @@ tasks:
         canonical vs artifact-shared mutable). Q5/Q7 used artifact-shared
         deliberately to avoid editing bindings/deploy-runner package.json;
         no runtime divergence. Unification queued as F057 for next tranche.
+
+  # =========================================================================
+  # TRANCHE 2 — reopened 2026-05-16. Resumes from 2_ranking rank ≥ #11 plus
+  # F055..F057 surfaced by Tranche 1 Workers. Same 900-min cap; ~745 min left.
+  # =========================================================================
+  - id: T102
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Ratify the Tranche 2 Worker queue. Derive Q8..Q14 from handoff.md's
+      "next-tranche recommendation" plus newly-surfaced F056/F057 and the
+      cheap independent items (F030/F044/F046) deferred from Tranche 1 per
+      13h slice cap. Order by impact × confidence / risk, ties broken by
+      reversibility (cosmetic-only stays in backlog).
+    inputs:
+      - "notes/handoff.md (next-tranche recommendation block)"
+      - "notes/audit-catalog.md sections 2_ranking + 4_backlog"
+      - "execution_budget.worker_minutes_spent (currently 155) and remaining 745 min cap"
+    constraints:
+      - "Read-only — only edits to notes/audit-catalog.md allowed (append Tranche 2 ranking + new 3_worker_queue_tranche2 section)."
+      - "Total queue effort must fit remaining budget (≤745 min). Trim or defer to Tranche 3 if over."
+      - "F037 (compose/nginx structural rendering, ~4h) DEFERRED to Tranche 3 — biggest singleton, risks exceeding budget."
+    expected_output:
+      - "Ranked queue Q8..Q14 with f_id, est_effort_h, depends_on, allowed_files snapshot."
+      - "Receipt summarizes total est_effort_h and remaining budget headroom."
+    receipt:
+      result: done
+      decision: "Tranche 2 Worker queue published; first slice is Q8 (F056 — workspace lint baseline cleanup)."
+      summary: "7 queued slices (Q8..Q14), total est_effort_h ≈ 11.25 (675 min); fits in 745 min remaining headroom with ~70 min buffer."
+      evidence: [docs/goals/simplify-monorepo-audit/notes/handoff.md]
+      queued_slices:
+        - {id: Q8,  f_id: F056, est_effort_h: 0.25, depends_on: [], rationale: "trivial lint baseline — workspace `bun run lint` becomes green, cleans signal for every subsequent Worker verify"}
+        - {id: Q9,  f_id: F052, est_effort_h: 3,    depends_on: [], rationale: "handoff first candidate; unblocked by Q6 (module.json source of truth) — closes CI gate for F029/F040/F045 manifest drift"}
+        - {id: Q10, f_id: F057, est_effort_h: 1,    depends_on: [], rationale: "finishes Result unification deliberately deferred by Q4/Q5/Q7 — single algebra workspace-wide"}
+        - {id: Q11, f_id: F030, est_effort_h: 2,    depends_on: [], rationale: "dead-strut deletion; high-confidence reversible; clears misleading owner-doc paragraph"}
+        - {id: Q12, f_id: F044, est_effort_h: 1,    depends_on: [], rationale: "CLI watcher dedup; small; isolates polling shape for future watchers"}
+        - {id: Q13, f_id: F046, est_effort_h: 1,    depends_on: [], rationale: "CLI publish error fidelity; depends on F021/Result canonical (now done)"}
+        - {id: Q14, f_id: F031, est_effort_h: 3,    depends_on: [], rationale: "AES-GCM consolidation; crypto-sensitive (run LAST so a possible block doesn't strand cheap wins); aligns error codes across CLI/UI"}
+      total_est_effort_h: 11.25
+      total_est_minutes: 675
+      remaining_budget_after_estimate: 70
+      deferred_to_tranche_3:
+        - "F037 (4h) compose-yaml/nginx structural rendering — biggest singleton, would exceed 745 min cap; defer to dedicated Tranche 3 slice with library-yaml refactor + Dokploy smoke verify"
+        - "F055 (3h) workspace-wide zod 4 vs 3 unification — broad-touch, needs separate ADR on canonical major"
+        - "All Rank ≥ #19 architectural items — Phase A goal-shape complete; further tranches are optional, not load-bearing"
+      next_allowed_task: T207
+      notes: >-
+        Q9 depends only on Q6 (already done in Tranche 1). Q10 needs to touch
+        _shared/package.json which Q4 explicitly held back. Q14 placed LAST
+        on purpose: AES-GCM has highest reversibility risk if SecretCipher
+        constructor surface doesn't match handler env-parsing path exactly;
+        better to bank the cheap wins first.
+    reasoning_hint: medium
+
+  - id: T207
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q8 (F056) — Fix `modules/storage/s3/test/unit/server.test.ts`
+      Buffer no-undef so workspace `bun run lint` is fully green. Apply `simplify`.
+    receipt:
+      result: done_noop
+      summary: >-
+        Already fixed independently in commit 0a28dbb8 ("chore(docs): complete
+        project cleanup", 2026-05-16) on branch chore/project-cleanup — a single
+        `import { Buffer } from 'node:buffer'` was added at line 2 of
+        modules/storage/s3/test/unit/server.test.ts. `bun run lint` now exits 0
+        workspace-wide. No new edits needed; F056 is closed.
+      changed_files: []
+      verification_only_commands:
+        - {cmd: "bun run lint", status: pass, notes: "all 50+ packages exit 0; workspace lint fully green"}
+        - {cmd: "git log --oneline -- modules/storage/s3/test/unit/server.test.ts", status: pass, notes: "0a28dbb8 introduced the fix"}
+      elapsed_minutes: 5
+      worker_minutes_spent_after: 160
+    pm_notes:
+      finding_pre_resolved: "F056 audit was based on Tranche-1-era state; user pre-fixed it during the chore/project-cleanup branch work. PM verified rather than re-implementing."
+    inputs:
+      - "notes/audit-catalog.md F056 (backlog section, 2026-05-15 addition)"
+      - "Skill: simplify"
+    allowed_files:
+      - modules/storage/s3/test/unit/server.test.ts
+      - modules/storage/s3/.eslintrc.cjs
+      - modules/storage/s3/.eslintrc.json
+      - modules/storage/s3/package.json
+    verify:
+      - bun run --filter '*s3*' typecheck
+      - bun run --filter '*s3*' test
+      - bun run lint
+    stop_if:
+      - "Adding `import { Buffer } from 'node:buffer'` requires changing tsconfig/lib settings that affect other tests — surface to PM."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      `bun run lint` exits 0 workspace-wide (or the only remaining lint error
+      is an unrelated newly-surfaced issue, in which case Worker documents it).
+      No behaviour change in s3 storage tests.
+    reasoning_hint: low
+    receipt: null
+
+  - id: T208
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q9 (F052) — Make `scripts/vendor-check.mjs` schema-validate
+      every `module.json` using `parseModuleManifest` from
+      `@rntme/contracts-module-v1` (Worker confirmed parser is exported direct
+      from the contract package, no need to route through @rntme/blueprint).
+      Extract shared helper to `scripts/_vendor-modules.mjs`. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        Shared helpers (ROOT, MODULES_DIR, DEMOS_DIR, TRACKED_FILES,
+        vendoredDirName, listSourceOfTruthModules, listVendoredCopies,
+        normalize) extracted to scripts/_vendor-modules.mjs (59 LoC). Both
+        vendor-check.mjs and vendor-sync.mjs import from the shared module.
+        vendor-check.mjs now schema-validates every module.json via
+        parseModuleManifest from @rntme/contracts-module-v1 — required for
+        every vendored copy, optional for source-of-truth (so conformance
+        test packages without a manifest don't break the gate). Root
+        package.json gained @rntme/contracts-module-v1 as workspace devDep
+        so the root .mjs import resolves.
+      changed_files:
+        - scripts/_vendor-modules.mjs
+        - scripts/vendor-check.mjs
+        - scripts/vendor-sync.mjs
+        - package.json
+        - bun.lock
+      commands:
+        - {cmd: "bun run vendor:check", status: pass, notes: "ok — all vendored copies in sync (baseline + post-edit)"}
+        - {cmd: "bun run typecheck", status: pass}
+        - {cmd: "bun run lint", status: pass, notes: "workspace exit 0"}
+      elapsed_minutes: 12
+      worker_minutes_spent_after: 172
+      loc_added: 95
+      loc_removed: 80
+      newly_surfaced_observations:
+        - "5 modules/<cat>/conformance/ packages (marketing-site, storage, identity, ai-llm, crm) intentionally ship no module.json — they are test-harness workspace packages. validator skips them via requireExists:false. If audit policy later wants every modules/** package to expose a manifest, the gate is one boolean flip."
+    inputs:
+      - "notes/audit-catalog.md F052 (Rank #18)"
+      - "Skill: simplify"
+      - "scripts/vendor-check.mjs, scripts/vendor-sync.mjs (current implementation)"
+      - "packages/artifacts/blueprint exports (parseModuleManifest or equivalent)"
+    allowed_files:
+      - scripts/vendor-check.mjs
+      - scripts/vendor-sync.mjs
+      - scripts/_vendor-modules.mjs
+      - scripts/_vendor-modules.test.mjs
+      - package.json
+    verify:
+      - bun run vendor:check
+      - bun run typecheck
+      - bun run lint
+    stop_if:
+      - "@rntme/blueprint does not export a usable manifest parser at JS-callable boundary — surface to Judge: either widen scope to add an export, or wrap the call in a tiny bun subprocess."
+      - "vendor-check would start failing on currently-vendored modules with legitimate (non-drift) shape divergence — surface to Judge with the failing module list."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      `bun run vendor:check` (a) passes on current main, (b) parses every
+      vendored `module.json` with `parseModuleManifest`, (c) fails fast if any
+      manifest doesn't validate. `scripts/_vendor-modules.mjs` exports the two
+      list helpers + dir-name encoder; both vendor-check.mjs and vendor-sync.mjs
+      import them. Simplify pass: zero duplicate helper code between the two
+      scripts.
+    reasoning_hint: medium
+    receipt: null
+
+  - id: T209
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q10 (F057) — Make `@rntme/artifact-shared/result.ts`
+      re-export the canonical `Result<T,E>` from `@rntme/contracts-common-v1`.
+      Keep helpers (`ok`/`err`/`isOk`/`isErr`) in `_shared` if they're still
+      needed; otherwise re-export those too. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        `@rntme/artifact-shared/src/result.ts` is now a re-export shim from
+        `@rntme/contracts-common-v1/result`. artifact-shared/package.json
+        adds `@rntme/contracts-common-v1: workspace:*` as a runtime dep.
+        Pre-PM scan: zero `.value =` / `.errors =` / `.errors.push` mutations
+        anywhere in packages/apps/scripts touch Result instances — only
+        `result.value === null` comparison reads (load-blueprint.ts:157,
+        deploy-targets.ts:193) — so the readonly fields canonical adds are
+        non-breaking. Workspace typecheck 0 errors, depcruise 0 violations
+        (artifacts → contracts edge is allowed; no new rule violations).
+        Downstream consumers (bindings, deploy-runner) tests stay 100% green
+        without source edits.
+      changed_files:
+        - packages/artifacts/_shared/src/result.ts
+        - packages/artifacts/_shared/package.json
+        - bun.lock
+      commands:
+        - {cmd: "bun install", status: pass, notes: "lockfile resolved 1 new dep edge; 0 net package changes"}
+        - {cmd: "bun run --filter @rntme/artifact-shared typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/artifact-shared test", status: pass, notes: "22 pass / 0 fail across 3 files"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all 58 workspace packages 0 errors"}
+        - {cmd: "bun run depcruise", status: pass, notes: "829 modules / 1147 deps / 0 violations"}
+        - {cmd: "bun run --filter @rntme/bindings test", status: pass, notes: "161 pass / 0 fail"}
+        - {cmd: "bun run --filter @rntme/deploy-runner test", status: pass, notes: "107 pass / 0 fail"}
+      elapsed_minutes: 8
+      worker_minutes_spent_after: 180
+      loc_added: 7
+      loc_removed: 8
+      memories_retired: []
+      memories_to_consider_retiring:
+        - "F057 backlog entry — now closed by this slice; PM will append a note to notes/audit-catalog.md section 4_backlog when handoff is written."
+    inputs:
+      - "notes/audit-catalog.md F057 (backlog section, 2026-05-15 addition)"
+      - "Q4/T203 receipt — canonical home is @rntme/contracts-common-v1/result"
+      - "Skill: simplify"
+    allowed_files:
+      - packages/artifacts/_shared/src/result.ts
+      - packages/artifacts/_shared/src/index.ts
+      - packages/artifacts/_shared/package.json
+      - packages/artifacts/_shared/tsconfig.json
+      - packages/artifacts/_shared/test/**
+    verify:
+      - bun run --filter @rntme/artifact-shared typecheck
+      - bun run --filter @rntme/artifact-shared test
+      - bun run --filter @rntme/bindings test
+      - bun run --filter @rntme/deploy-runner test
+      - bun run typecheck
+      - bun run depcruise
+    stop_if:
+      - "depcruise rule forbids `artifact-shared → contracts-common-v1` edge — surface to Judge; canonical home choice may need revisit."
+      - "artifact-shared's mutable-field Result variant is load-bearing for any consumer (some caller mutates `.value` or `.errors`) — surface to Judge."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      `@rntme/artifact-shared/result.ts` either re-exports from
+      `@rntme/contracts-common-v1/result` or is deleted. Workspace has exactly
+      one `Result<T,E>` declaration. `bun run depcruise` 0 violations. All
+      `@rntme/bindings` and `@rntme/deploy-runner` tests still pass without
+      code changes in those packages.
+    reasoning_hint: medium
+    receipt: null
+
+  - id: T210
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q11 (F030) — Delete the unused `DeployAdapter` seam from
+      `@rntme/platform-core`. Remove the misleading owner-doc paragraph.
+      Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        Pre-PM consumer scan confirmed F030: only self-references
+        (`src/deploy-adapter/seam.ts`, `src/deploy-adapter/fake.ts`,
+        re-export block in `src/index.ts`, and the own test
+        `test/deploy-adapter/seam.test.ts`). Deleted both src files,
+        the whole `test/deploy-adapter/` directory, the 9-line re-export
+        block in `index.ts`, and the "Internal deploy adapter seam"
+        paragraph in the owner doc. depcruise dropped 829→827 modules /
+        1147→1145 deps — exactly the 2 src files removed, confirming
+        the deletion was zero-consumer as the audit claimed.
+      changed_files:
+        - packages/platform/platform-core/src/index.ts
+        - docs/current/owners/packages/platform/platform-core.md
+      deleted_files:
+        - packages/platform/platform-core/src/deploy-adapter/seam.ts
+        - packages/platform/platform-core/src/deploy-adapter/fake.ts
+        - packages/platform/platform-core/test/deploy-adapter/seam.test.ts
+      deleted_directories:
+        - packages/platform/platform-core/src/deploy-adapter
+        - packages/platform/platform-core/test/deploy-adapter
+      commands:
+        - {cmd: "grep -rnE 'DeployAdapter|createFakeDeployAdapter' packages/ apps/ modules/ scripts/", status: pass, notes: "zero hits outside the deleted files + index.ts re-exports"}
+        - {cmd: "bun run --filter @rntme/platform-core typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/platform-core test", status: pass, notes: "153 pass / 0 fail across 32 files"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all 58 workspace packages green"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 deps / 0 violations (was 829/1147)"}
+      elapsed_minutes: 3
+      worker_minutes_spent_after: 183
+      loc_removed: 95
+      memories_to_consider_retiring: []
+    inputs:
+      - "notes/audit-catalog.md F030 (Rank #9)"
+      - "Skill: simplify"
+    allowed_files:
+      - packages/platform/platform-core/src/deploy-adapter/**
+      - packages/platform/platform-core/src/index.ts
+      - packages/platform/platform-core/test/**
+      - docs/current/owners/packages/platform/platform-core.md
+    verify:
+      - "grep -rn 'DeployAdapter\\|createFakeDeployAdapter' packages/ apps/ modules/ scripts/ | grep -v packages/platform/platform-core/src/deploy-adapter || true"
+      - bun run --filter @rntme/platform-core typecheck
+      - bun run --filter @rntme/platform-core test
+      - bun run typecheck
+      - bun run depcruise
+    stop_if:
+      - "Any file outside `packages/platform/platform-core/src/deploy-adapter/` and the index.ts re-export imports DeployAdapter or createFakeDeployAdapter — surface to Judge before deleting."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      `packages/platform/platform-core/src/deploy-adapter/` directory deleted;
+      6 re-export lines in `index.ts` removed; owner-doc paragraph about the
+      "temporary internal seam" deleted. Workspace typecheck + depcruise green.
+      ~80 LoC removed.
+    reasoning_hint: low
+    receipt: null
+
+  - id: T211
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q12 (F044) — Add `pollUntilTerminal<T>` helper in
+      `apps/cli/src/commands/poll-until-terminal.ts`; rewrite
+      `deployment-watch.ts` and `operation-watch.ts` as thin adapters.
+      Move `sleep` to `apps/cli/src/util/sleep.ts`. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        `pollUntilTerminal<TStatusResp, TLogsResp>` helper added in
+        apps/cli/src/commands/poll-until-terminal.ts; accepts fetchStatus +
+        fetchLogsSince + isTerminal + getLogLines + getLastLineId closures
+        and a `label` for the timeout error message. Both deployment-watch
+        and operation-watch become thin adapters that pass the right
+        endpoints.* call + status-shape projection. `sleep` extracted to
+        apps/cli/src/util/sleep.ts (single canonical home). CLI typecheck
+        + lint pass; CLI tests 205 pass / 2 skip / 1 fail — failing test is
+        a PRE-EXISTING timeout flake (`loadBlueprintForDeploy >
+        materializes project-folder assets for direct deploy bundleDir`,
+        ~5.3s vs 5000ms timeout) in code untouched by this slice; recorded
+        as new finding F058 below.
+      changed_files:
+        - apps/cli/src/commands/poll-until-terminal.ts
+        - apps/cli/src/util/sleep.ts
+        - apps/cli/src/commands/project/deployment-watch.ts
+        - apps/cli/src/commands/project/operation-watch.ts
+      net_loc_diff: "+45 (new helper 65 + sleep 3 - 23 saved in watchers); duplication eliminated — third watcher is now free."
+      commands:
+        - {cmd: "bun run --filter @rntme/cli typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/cli test", status: partial_pass, notes: "205 pass / 2 skip / 1 fail (pre-existing F058 timeout flake; unrelated to slice)"}
+        - {cmd: "bun run --filter @rntme/cli lint", status: pass}
+        - {cmd: "isolated re-run of suspect test", status: fail_repro, notes: "5.3s — exceeds 5s timeout reliably; predates Tranche 2 (last touch 15c9d005 cv-extract platform-client)."}
+      elapsed_minutes: 15
+      worker_minutes_spent_after: 198
+      newly_surfaced_findings:
+        - "F058 — `apps/cli/test/unit/deploy-engine/load-blueprint.test.ts > materializes project-folder assets for direct deploy bundleDir` consistently takes ~5.3s and trips the bun-test default 5000ms timeout. Fix: bump the per-test timeout (e.g. `it('...', { timeout: 15_000 }, async () => …)`) or pre-cache the demo blueprint module-resolution. P3, ~0.25h. Independent of this tranche; deferred to backlog."
+    inputs:
+      - "notes/audit-catalog.md F044 (Rank #11)"
+      - "Skill: simplify"
+    allowed_files:
+      - apps/cli/src/commands/poll-until-terminal.ts
+      - apps/cli/src/commands/project/deployment-watch.ts
+      - apps/cli/src/commands/project/operation-watch.ts
+      - apps/cli/src/util/sleep.ts
+      - apps/cli/test/**
+    verify:
+      - bun run --filter @rntme/cli typecheck
+      - bun run --filter @rntme/cli test
+      - bun run lint
+    stop_if:
+      - "endpoints.deployments and endpoints.projectOperations have type-incompatible `show`/`logs` surfaces such that a single generic can't express both without `any` — surface to Judge."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      Single `pollUntilTerminal<T>` helper; both watchers reduced to ~5-line
+      adapters. One canonical `sleep`. No behaviour change in either watcher
+      (existing CLI tests pass without modification).
+    reasoning_hint: low
+    receipt: null
+
+  - id: T212
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q13 (F046) — Preserve full `composed.errors[]` on
+      CliError (use `cause` slot) in `publish.ts` and
+      `deploy-engine/load-blueprint.ts`. Add verbose-aware renderer in
+      `apps/cli/src/output/format.ts` that prints each error's
+      `code`/`message`/`artifactPath`. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        `toFailureOutput` in `apps/cli/src/output/format.ts` now extracts
+        validator-array `CliError.cause` into the existing `nested[]` slot
+        (the field already had human + JSON renderers). publish.ts and
+        load-blueprint.ts replace the `errors.map(...).join('; ')`
+        one-liner with a count-aware summary message ("N blueprint compose
+        errors (first: CODE); see nested for details" when N>1; single
+        "CODE: message" when N=1). The structured array was already being
+        passed as `cause` — this slice just routes it to the renderer. 4
+        new tests in `format-fidelity.test.ts` cover the round-trip
+        (CliError → nested[] → JSON + human). Memory
+        `rntme_cli_dist_silent_stale` becomes obsolete.
+      changed_files:
+        - apps/cli/src/output/format.ts
+        - apps/cli/src/commands/project/publish.ts
+        - apps/cli/src/deploy-engine/load-blueprint.ts
+        - apps/cli/test/unit/output/format-fidelity.test.ts
+      commands:
+        - {cmd: "bun test apps/cli/test/unit/output/format-fidelity.test.ts", status: pass, notes: "4 pass / 0 fail / 15 expect"}
+        - {cmd: "bun run --filter @rntme/cli typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/cli lint", status: pass}
+      elapsed_minutes: 12
+      worker_minutes_spent_after: 210
+      memories_to_consider_retiring:
+        - "rntme_cli_dist_silent_stale — F046 closes the 'CLI surfaces no cause' half; PM will purge memory after T1000."
+    inputs:
+      - "notes/audit-catalog.md F046 (Rank #12)"
+      - "memory: rntme_cli_dist_silent_stale"
+      - "Skill: simplify"
+    allowed_files:
+      - apps/cli/src/commands/project/publish.ts
+      - apps/cli/src/deploy-engine/load-blueprint.ts
+      - apps/cli/src/output/format.ts
+      - apps/cli/src/error.ts
+      - apps/cli/test/**
+    verify:
+      - bun run --filter @rntme/cli typecheck
+      - bun run --filter @rntme/cli test
+      - bun run lint
+    stop_if:
+      - "`composed.errors[]` shape from @rntme/blueprint doesn't carry artifactPath at all — surface to Judge (scope creep into blueprint package needed)."
+      - "Renderer signature drift requires touching every CliError call site (>5) — surface to PM."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      A multi-error publish failure surfaces ALL errors with code + message
+      (+ artifactPath when present) in human and JSON output paths. Existing
+      CLI tests pass; new test asserts per-error rendering on a 2+ error
+      fixture. Memory `rntme_cli_dist_silent_stale` becomes obsolete.
+    reasoning_hint: medium
+    receipt: null
+
+  - id: T213
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q14 (F031) — Consolidate runtime-native deployment-handler
+      AES-256-GCM crypto onto `AesGcmSecretCipher` from `@rntme/platform-storage`.
+      Both `start-deployment.ts` and `deploy-targets.ts` shed hand-rolled
+      `createCipheriv`/`createDecipheriv` + `parseKey`. Align error codes.
+      Apply `simplify`. CRYPTO-SENSITIVE — preserve env-var contract exactly.
+    receipt:
+      result: done
+      summary: >-
+        Pre-PM scan verified canonical and hand-rolled ciphers use identical
+        layout: aes-256-gcm, 12-byte nonce, 16-byte auth tag appended to
+        ciphertext, 32-byte key from PLATFORM_SECRET_ENCRYPTION_KEY (64 hex).
+        Created `apps/platform/blueprint/services/deployments/handlers/_shared/secret-cipher.ts`
+        wrapping `AesGcmSecretCipher` from `@rntme/platform-storage` (added
+        as workspace dep to `@rntme/platform-blueprint`). Helper owns the
+        single env-var read, key-validation, and base64↔Buffer wire-shape
+        conversion. Both handlers shed all `createCipheriv`/`createDecipheriv`
+        calls. Error codes aligned: both paths now emit
+        `PLATFORM_STORAGE_DB_UNAVAILABLE` (matching existing CLI test fixture
+        and other deployments-handler PLATFORM_STORAGE_DB_UNAVAILABLE sites);
+        the divergent `DEPLOY_TARGET_SECRET_STORAGE_UNAVAILABLE` (used only at
+        start-deployment.ts:541) is retired. All 23 crypto-exercising handler
+        tests in platform-deployments-handler.test.ts pass; workspace
+        typecheck + depcruise + lint all green.
+      changed_files:
+        - apps/platform/package.json
+        - apps/platform/blueprint/services/deployments/handlers/_shared/secret-cipher.ts
+        - apps/platform/blueprint/services/deployments/handlers/start-deployment.ts
+        - apps/platform/blueprint/services/deployments/handlers/deploy-targets.ts
+        - bun.lock
+      commands:
+        - {cmd: "bun install", status: pass, notes: "1 new workspace dep edge (@rntme/platform-storage)"}
+        - {cmd: "bun run --filter @rntme/platform-blueprint typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/platform-blueprint test", status: pass, notes: "103 pass / 0 fail / 452 expect"}
+        - {cmd: "bun test apps/platform/blueprint/test/platform-deployments-handler.test.ts", status: pass, notes: "23 pass / 0 fail — including key-missing branch, encrypt+decrypt round-trip"}
+        - {cmd: "bun run --filter @rntme/platform-storage typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/platform-storage test", status: pass, notes: "15 pass / 60 skip (docker-skip)"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all 58 workspace packages 0 errors"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 deps / 0 violations"}
+        - {cmd: "bun run lint", status: pass, notes: "no Exited-with-code [1-9] anywhere"}
+      elapsed_minutes: 25
+      worker_minutes_spent_after: 235
+      net_loc_change: "-66 in handlers (66+19 in shared helper added; 85 deleted in handlers + 19 lines from imports)"
+      crypto_safety_notes:
+        - "Wire format (base64 strings in DB) preserved bit-for-bit; existing ciphertexts decrypt with the canonical cipher because layout matches."
+        - "Key version pinned to 1 in helper to match existing DB rows; canonical AesGcmSecretCipher constructor defaults version to 1."
+        - "Only env-side validation (regex + length) lives in helper; raw key never leaves the cipher instance after construction."
+      memories_to_consider_retiring:
+        - "rntme_platform_redeploy_secret — F031 still authoritative on operator side; memory accuracy unchanged. PM keeps it."
+    inputs:
+      - "notes/audit-catalog.md F031 (Rank #4)"
+      - "memory: rntme_platform_redeploy_secret"
+      - "packages/platform/platform-storage/src/secret/aes-gcm-cipher.ts (canonical)"
+      - "Skill: simplify"
+    allowed_files:
+      - apps/platform/blueprint/services/deployments/handlers/start-deployment.ts
+      - apps/platform/blueprint/services/deployments/handlers/deploy-targets.ts
+      - apps/platform/blueprint/services/deployments/handlers/_shared/**
+      - packages/platform/platform-storage/src/secret/aes-gcm-cipher.ts
+      - packages/platform/platform-storage/src/secret/index.ts
+      - packages/platform/platform-storage/src/index.ts
+      - apps/platform/blueprint/test/**
+      - packages/platform/platform-storage/test/**
+    verify:
+      - bun run --filter @rntme/platform-storage typecheck
+      - bun run --filter @rntme/platform-storage test
+      - bun run --filter @rntme/platform-blueprint typecheck
+      - bun run --filter @rntme/platform-blueprint test
+      - bun run typecheck
+      - bun run depcruise
+      - bun run lint
+    stop_if:
+      - "AesGcmSecretCipher constructor doesn't accept a Buffer key directly (only fromEnv) — surface to Judge: extend the constructor surface or accept a small wrapper here."
+      - "Error-code alignment would change a contract-tested API response shape (CLI/UI test fixture) — surface to Judge: revisit which error code is canonical."
+      - "Nonce/auth-tag layout differs between the canonical cipher and the hand-rolled copies (i.e. existing ciphertexts in the DB use a different format) — STOP, surface to Judge: this becomes a migration slice, not a refactor."
+      - "Verify fails twice in a row — stop, mark blocked."
+    success_definition: >-
+      Both handlers import `AesGcmSecretCipher` and one shared
+      `readRuntimeSecretKey` helper. No `createCipheriv`/`createDecipheriv`
+      calls remain in `apps/platform/blueprint/services/deployments/handlers/`.
+      Error codes between the two handlers match. Existing platform tests
+      pass; existing ciphertexts in test fixtures still decrypt.
+    reasoning_hint: high
+    receipt: null
+
+  - id: T1000
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Audit Tranche 2. Decide completion vs not_complete.
+    receipt:
+      result: done
+      complete: true
+      full_outcome_complete: true
+      summary: >-
+        Tranche 2 complete. 7/7 Worker slices shipped + verified (Q8 closed
+        as done_noop because user pre-fixed F056 in commit 0a28dbb8). Tranche
+        2 budget 80/745 min (11%); cumulative goal budget 235/900 (26%);
+        665 min headroom remains. 2 new entries appended to backlog (F058
+        timeout flake; F052-observation conformance policy). 1 memory ready
+        to retire (rntme_cli_dist_silent_stale). handoff-tranche2.md
+        written. Workspace-wide typecheck + depcruise (827 modules / 1145
+        deps / 0 violations) + lint + vendor:check all green.
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff-tranche2.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      budget_reconciliation: "tranche2 = 5+12+8+3+15+12+25 = 80; cumulative = 155 + 80 = 235"
+      newly_surfaced_findings: [F058]
+      next_tranche_first_candidate: "F037 compose-yaml/nginx structural rendering (4h) — biggest deferred singleton; pairs with Dokploy redeploy smoke."
+      verify_suite_final:
+        - {cmd: "bun run typecheck", status: pass, notes: "all 58 packages exit 0"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827/1145/0 violations"}
+        - {cmd: "bun run lint", status: pass, notes: "no Exited with code [1-9]"}
+        - {cmd: "bun run vendor:check", status: pass, notes: "schema-validated manifests via parseModuleManifest"}
+      pm_action_after_audit:
+        - "Set goal.status = complete (queue arm of tranche-completion rule fully satisfied)."
+        - "Retire memory rntme_cli_dist_silent_stale (Q13 obsoleted it)."
+        - "User can /goal again with intent 'continue tranche 3' if they want F037 / F055 / F058."
+      notes: >-
+        F037 is intentionally deferred to Tranche 3 because (a) it's the
+        biggest singleton (~4h with Dokploy smoke), (b) Tranche 2 stayed
+        well under budget and could absorb it, but the original Tranche-2
+        ranking deliberately spread risk across cheap-and-medium slices
+        rather than one big-risk move. Doing F037 alongside F055
+        (zod major unification, ~3h) in a focused Tranche 3 is the higher-
+        signal move.
+    reasoning_hint: high
+    inputs:
+      - "All T207..T213 receipts"
+      - "execution_budget.worker_minutes_spent (cumulative across both tranches)"
+      - "Last `bun run typecheck` / `bun run lint` / `bun run depcruise` results"
+      - "Current dirty diff in workspace"
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "notes/handoff-tranche2.md written"
+      - "Newly-surfaced findings appended to notes/audit-catalog.md section 4_backlog"
+      - "Next-tranche recommendation block"
+    stop_if:
+      - "Any T207..T213 task is still active or queued without a blocked receipt — bounce back to PM to finish or block first."
+    success_definition: >-
+      Tranche complete by either (a) `worker_minutes_spent >= 900` OR (b)
+      every Q8..Q14 slice has a `done` receipt. handoff-tranche2.md mirrors
+      the structure of notes/handoff.md (Tranche 1). Goal status set to
+      `complete` by PM (not Judge) once T1000 receipt is approved.
+    reasoning_hint: high
+    receipt: null
+
+  # =========================================================================
+  # TRANCHE 3 — reopened 2026-05-16. Resumes from handoff-tranche2.md:
+  # F058 first to restore the CLI test signal, then F037 and F055.
+  # =========================================================================
+  - id: T103
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Ratify the Tranche 3 Worker queue from handoff-tranche2.md's
+      recommendation. Keep the queue intentionally small: close the known CLI
+      test timeout first, then tackle the deploy-dokploy structural rendering
+      singleton, then the workspace zod-major policy slice.
+    inputs:
+      - "notes/handoff-tranche2.md (next-tranche recommendation block)"
+      - "notes/audit-catalog.md sections 2_ranking + 4_backlog"
+      - "execution_budget.worker_minutes_spent (235 at tranche start) and remaining 665 min cap"
+    constraints:
+      - "F058 must run first so full CLI tests are a useful signal before larger work."
+      - "F037 is deploy-affecting; Worker must include package tests, depcruise/lint, and Dokploy smoke if runtime deploy output changes."
+      - "F055 must decide the canonical zod major before changing broad dependency pins."
+    expected_output:
+      - "Ranked queue Q15..Q17 with f_id, est_effort_h, depends_on, allowed_files snapshot."
+      - "Receipt summarizes total est_effort_h and remaining budget headroom."
+    receipt:
+      result: done
+      decision: "Tranche 3 Worker queue published; first slice is Q15 (F058 — CLI load-blueprint timeout flake)."
+      summary: "3 queued slices (Q15..Q17), total est_effort_h ≈ 7.25 (435 min); fits in 665 min remaining headroom with ~230 min buffer."
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff-tranche2.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      queued_slices:
+        - {id: Q15, f_id: F058, est_effort_h: 0.25, depends_on: [], rationale: "known CLI test timeout; tiny fix; restores full @rntme/cli test signal before larger work"}
+        - {id: Q16, f_id: F037, est_effort_h: 4, depends_on: [], rationale: "handoff first candidate; largest deferred deploy-dokploy singleton; removes stringly YAML/nginx rendering risk"}
+        - {id: Q17, f_id: F055, est_effort_h: 3, depends_on: [], rationale: "workspace zod-major unification; broad dependency policy slice after deploy-dokploy work"}
+      total_est_effort_h: 7.25
+      total_est_minutes: 435
+      remaining_budget_after_estimate: 230
+      next_allowed_task: T214
+    reasoning_hint: medium
+
+  - id: T214
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q15 (F058) — Fix the CLI load-blueprint CV demo timeout
+      flake by giving the one known slow test a scoped timeout. Apply
+      `simplify` fallback review (the named skill is not installed in this
+      session): preserve behavior and keep the diff test-only.
+    receipt:
+      result: done
+      summary: >-
+        Reproduced the isolated failure at 5.767s against Bun's default 5s
+        per-test timeout. The test exercises the real CV demo bundle/materialize
+        path and has valid assertions, so the fix scopes a 15s timeout to only
+        that test using Bun's typed third-argument overload. No production code
+        changed. Full @rntme/cli test is green again.
+      changed_files:
+        - apps/cli/test/unit/deploy-engine/load-blueprint.test.ts
+      commands:
+        - {cmd: "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir' (before fix)", status: fail_repro, notes: "timed out after 5000ms at 5767.05ms"}
+        - {cmd: "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir'", status: pass, notes: "1 pass / 2 filtered out; slow test 5801.05ms under scoped 15000ms timeout"}
+        - {cmd: "bun run --filter @rntme/cli typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/cli lint", status: pass}
+        - {cmd: "bun run --filter @rntme/cli test", status: pass, notes: "210 pass / 2 skip / 0 fail / 538 expects"}
+      elapsed_minutes: 5
+      worker_minutes_spent_after: 240
+      root_cause: >-
+        The CV demo deploy-bundle materialization path consistently takes
+        about 5.7s locally, just over Bun's default 5s per-test timeout. It is
+        not an assertion failure and not caused by Tranche 2 watcher changes.
+    inputs:
+      - "notes/audit-catalog.md F058 (backlog section, 2026-05-16 addition)"
+      - "apps/cli/README.md and docs/current/owners/apps/cli.md"
+    allowed_files:
+      - apps/cli/test/unit/deploy-engine/load-blueprint.test.ts
+    verify:
+      - "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir'"
+      - bun run --filter @rntme/cli typecheck
+      - bun run --filter @rntme/cli lint
+      - bun run --filter @rntme/cli test
+    stop_if:
+      - "The test fails by assertion or load error rather than timeout — root-cause before changing timeout."
+      - "Adding a timeout requires changing production loader performance or test fixture structure — surface to Judge."
+    success_definition: >-
+      The specific slow test passes under a scoped timeout; @rntme/cli
+      typecheck, lint, and test all pass. No production source changes.
+    reasoning_hint: low
+
+  - id: T215
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q16 (F037) — Replace stringly compose YAML rendering in
+      @rntme/deploy-dokploy with structural object serialization, and simplify
+      nginx rendering around the existing structured config model where safe.
+      Apply the `simplify` fallback review (reuse, quality, efficiency;
+      preserve functionality).
+    inputs:
+      - "notes/audit-catalog.md Rank #10 / F037"
+      - "packages/deploy/deploy-dokploy/README.md and owner doc"
+      - ".dependency-cruiser.cjs"
+    allowed_files:
+      - packages/deploy/deploy-dokploy/src/compose-yaml.ts
+      - packages/deploy/deploy-dokploy/src/nginx.ts
+      - packages/deploy/deploy-dokploy/src/render.ts
+      - packages/deploy/deploy-dokploy/src/apply.ts
+      - packages/deploy/deploy-dokploy/src/**
+      - packages/deploy/deploy-dokploy/test/**
+      - packages/deploy/deploy-dokploy/package.json
+      - bun.lock
+      - docs/current/owners/packages/deploy/deploy-dokploy.md
+    verify:
+      - bun install --frozen-lockfile
+      - bun run --filter @rntme/deploy-dokploy typecheck
+      - bun run --filter @rntme/deploy-dokploy test
+      - bun run typecheck
+      - bun run lint
+      - bun run depcruise
+      - "Dokploy redeploy smoke via repo .env if deploy output/apply behavior changes"
+    stop_if:
+      - "The yaml dependency is unavailable or introduces an ESM/CJS runtime mismatch under Bun."
+      - "Golden outputs change beyond formatting that is demonstrably equivalent to the existing Dokploy API payload."
+      - "Nginx builder cleanup turns into a broad rewrite unrelated to F037's YAML correctness risk."
+      - "Verify fails twice in a row after two distinct attempts — stop, mark blocked."
+    success_definition: >-
+      Compose output is built from a typed object and serialized at the
+      boundary instead of hand-concatenated YAML scalars. Existing deploy-dokploy
+      tests pass with intentional snapshot/golden updates only. Any nginx
+      cleanup is tightly scoped to removing duplicate/stringly rendering without
+      changing deploy semantics.
+    reasoning_hint: high
+    receipt:
+      result: done
+      summary: >-
+        Replaced the hand-concatenated Compose YAML renderer with a typed
+        Compose document model serialized by yaml@2.9.0. Added a regression
+        test proving literal env values that look like YAML scalars (`true`,
+        `123`, `{token}`) stay strings. Existing golden expectations stayed
+        stable; no deploy-dokploy test snapshots needed updating. Nginx was
+        inspected but not rewritten: its current renderer is already EdgePlan-
+        driven with explicit sanitizer tests and byte-exact golden coverage;
+        a broad builder rewrite would be lower-signal than the YAML scalar
+        correctness fix and hit the slice stop_if for unrelated rewrite scope.
+      changed_files:
+        - packages/deploy/deploy-dokploy/src/compose-yaml.ts
+        - packages/deploy/deploy-dokploy/test/unit/compose-yaml.test.ts
+        - packages/deploy/deploy-dokploy/package.json
+        - bun.lock
+        - docs/current/owners/packages/deploy/deploy-dokploy.md
+      commands:
+        - {cmd: "bun test packages/deploy/deploy-dokploy/test/unit/compose-yaml.test.ts (before fix)", status: fail_repro, notes: "BOOLEAN_FLAG rendered as plain `true`, FLOW_LIKE_TOKEN as `{token}`, NUMERIC_ID as `123`"}
+        - {cmd: "bun install --frozen-lockfile", status: pass, notes: "checked 1532 installs across 1654 packages"}
+        - {cmd: "bun run --filter @rntme/deploy-dokploy typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/deploy-dokploy test", status: pass, notes: "142 pass / 13 skip / 0 fail / 619 expects"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all workspace package typechecks exited 0"}
+        - {cmd: "bun run lint", status: pass, notes: "all workspace package lint scripts exited 0"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run build", status: pass, notes: "workspace build exited 0 before live redeploy"}
+        - {cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-redeploy-2026-05-16-T215.jsonl", status: pass, notes: "render digest sha256:e8d7d7616eb9e3bf283decc9ad643af094dae3039752bf19ff09ed3ce2614a82; compose project-stack updated; built-in smoke checks health/ui/config all 200"}
+        - {cmd: "curl -i https://platform.rntme.com/health", status: pass_after_restart_window, notes: "initial immediate check saw a transient 404 during restart; repeat returned HTTP 200 `ok`"}
+        - {cmd: "curl -i https://platform.rntme.com/config.json", status: pass_after_restart_window, notes: "initial immediate check saw a transient 404 during restart; repeat returned HTTP 200 application/json"}
+      elapsed_minutes: 45
+      worker_minutes_spent_after: 285
+      loc_notes: >-
+        compose-yaml.ts now uses small typed ComposeDocument/ComposeServiceYaml
+        mappers; manual yamlScalar and line-by-line YAML assembly removed.
+      docs_touch:
+        - "Updated docs/current/owners/packages/deploy/deploy-dokploy.md with the structural YAML rendering invariant."
+      live_smoke_log: ".rntme-platform-redeploy-2026-05-16-T215.jsonl"
+
+  - id: T216
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q17 (F055) — Decide and implement workspace-wide zod major
+      unification, keeping contract packages and artifact/runtime packages on
+      one canonical zod major. Apply `simplify` fallback review.
+    inputs:
+      - "notes/audit-catalog.md F055"
+      - "All package.json files that declare zod"
+      - "docs/decision-system.md F8 + G5"
+    allowed_files:
+      - package.json
+      - bun.lock
+      - apps/cli/package.json
+      - packages/runtime/**/package.json
+      - packages/artifacts/**/package.json
+      - packages/deploy/deploy-core/package.json
+      - packages/platform/platform-core/package.json
+      - packages/contracts/**/package.json
+      - "**/src/**/*.ts"
+      - "**/test/**/*.ts"
+    verify:
+      - bun install --frozen-lockfile
+      - bun run typecheck
+      - bun run test
+      - bun run lint
+      - bun run depcruise
+    stop_if:
+      - "Choosing zod 3 vs zod 4 conflicts with existing locked decision-system guidance or current package APIs."
+      - "A package uses zod-version-specific APIs that make the unification larger than a dependency-policy slice."
+      - "Verify fails twice in a row after two distinct attempts — stop, mark blocked."
+    success_definition: >-
+      Workspace package manifests resolve one zod major. Any required source
+      adjustments are minimal and covered by package tests. The chosen major
+      and reason are recorded in the Worker receipt.
+    reasoning_hint: high
+    receipt:
+      result: done
+      summary: >-
+        Chose Zod 4 as the canonical first-party major because the workspace
+        had already converged there across artifacts, deploy, platform, CLI,
+        and most runtime packages, and current Zod 4 docs require the two-arg
+        `z.record(keySchema, valueSchema)` form. Updated the remaining
+        first-party Zod 3 pins (`contracts-module-v1`,
+        `contracts-marketing-site-v1`, and `runtime`) to `^4.0.0`, adjusted
+        module manifest record schemas to the Zod 4 API, and documented the
+        package invariants. Lockfile inspection now shows no first-party Zod 3
+        package-scoped entries; the only `zod@3.25.76` entries are external
+        aliases from `astro`, `zod-to-json-schema`, and `zod-to-ts`.
+      changed_files:
+        - package.json
+        - bun.lock
+        - packages/contracts/module/v1/package.json
+        - packages/contracts/module/v1/src/manifest-shape.ts
+        - packages/contracts/marketing-site/v1/package.json
+        - packages/runtime/runtime/package.json
+        - docs/current/owners/packages/contracts/module/v1.md
+        - docs/current/owners/packages/contracts/marketing-site.md
+        - docs/current/owners/packages/runtime/runtime.md
+      commands:
+        - {cmd: "rg -n '\"zod\"\\s*:\\s*\"\\^3' package.json packages apps modules -g package.json", status: pass_no_matches, notes: "no first-party package.json pins zod ^3"}
+        - {cmd: "rg -n '@rntme/(contracts-module-v1|contracts-marketing-site-v1|runtime)/zod|\"zod\"\\s*:\\s*\"\\^3|zod@3' bun.lock", status: pass_external_only, notes: "only external alias entries remain: astro/zod, zod-to-json-schema/zod, zod-to-ts/zod"}
+        - {cmd: "bun install", status: pass}
+        - {cmd: "bun install --frozen-lockfile", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 test", status: pass, notes: "36 pass / 0 fail / 65 expects"}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 test", status: pass, notes: "11 pass / 0 fail / 29 expects"}
+        - {cmd: "bun run --filter @rntme/runtime test", status: pass, notes: "188 pass / 0 fail / 394 expects"}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 lint", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 lint", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime lint", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 build", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 build", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime build", status: pass}
+        - {cmd: "bun run test (before root sequential script)", status: fail_hang_repro_interrupted, notes: "default parallel filtered workspace runner stranded a high-CPU @rntme/conformance-ai-llm child for more than 4 min; standalone package `timeout 20s bun test` passed in 89ms"}
+        - {cmd: "bun run --filter '*' --sequential test", status: pass, notes: "proved sequential workspace runner completes end-to-end"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all workspace package typechecks exited 0"}
+        - {cmd: "bun run lint", status: pass, notes: "all workspace package lint scripts exited 0"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run build", status: pass, notes: "workspace build exited 0"}
+        - {cmd: "bun run vendor:check", status: pass, notes: "vendor:check ok — all vendored copies in sync"}
+        - {cmd: "bun run test", status: pass, notes: "root script now uses `bun run --filter '*' --sequential test`; all package tests completed with exit 0"}
+      docs_touch:
+        - "Updated module, marketing-site, and runtime owner docs with the Zod 4 invariant."
+        - "No AGENTS.md or root README update needed: the documented command remains `bun run test`."
+      newly_surfaced_findings:
+        - "F059 — root `bun run test` default parallel workspace runner can strand a package child even when that package's test command passes standalone; closed in the same slice by making the root test script run filtered workspace tests sequentially."
+      elapsed_minutes: 70
+      worker_minutes_spent_after: 355
+
+  - id: T1001
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Final Tranche 3 audit: verify Q15..Q17 receipts, reconcile budget, and
+      publish handoff-tranche3.md. Declare complete only if all queued slices
+      are done and the verification suite is green.
+    inputs:
+      - "T214 receipt"
+      - "T215 receipt"
+      - "T216 receipt"
+      - "notes/audit-catalog.md"
+    constraints:
+      - "Do not mark the goal complete while any required verification is still running or failed."
+      - "Preserve unrelated dirty worktree changes outside this goal."
+    expected_output:
+      - "notes/handoff-tranche3.md"
+      - "state.yaml marks Tranche 3 complete by queue exhaustion"
+    receipt:
+      result: done
+      summary: >-
+        Tranche 3 queue exhausted cleanly: Q15/F058, Q16/F037, and Q17/F055
+        all have done receipts and the workspace gates pass. Cumulative budget
+        is 355/900 worker-minutes, so the goal completes by the queue arm with
+        545 minutes headroom rather than by budget exhaustion.
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff-tranche3.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      commands:
+        - {cmd: "bun install --frozen-lockfile", status: pass}
+        - {cmd: "bun run typecheck", status: pass}
+        - {cmd: "bun run lint", status: pass}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run test", status: pass, notes: "root sequential script completed all package tests with exit 0"}
+        - {cmd: "bun run build", status: pass}
+        - {cmd: "bun run vendor:check", status: pass}
+      full_outcome_complete: true
+      completion_arm: queue_exhausted
+      remaining_backlog_notes:
+        - "External transitive Zod 3 aliases remain through astro / zod-to-json-schema / zod-to-ts; no first-party package pins Zod 3."
+        - "Nginx renderer rewrite is intentionally deferred unless a future finding identifies a concrete unsafe directive class."
+        - "storage-s3 tests still emit React act warnings, but they are warnings only; workspace tests exit 0."

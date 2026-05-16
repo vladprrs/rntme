@@ -58,6 +58,8 @@ Provision-time codes are declared here so vendor modules can share the canonical
 ## Invariants
 
 - This package is a contract leaf. It may depend on `zod` and `@rntme/contracts-common-v1`; it must not import implementation packages or modules.
+- Exported schemas target Zod 4, matching the rest of the first-party workspace
+  packages.
 - The contract has no RPC surface in v1.
 - Every bundle source is immutable by sha256. Provisioners must verify bytes before hosting.
 - Do not bypass `validateMarketingSiteConfig` with casts at package boundaries.
