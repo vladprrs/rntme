@@ -29,6 +29,7 @@
     "depcruise": "bunx depcruise --config .dependency-cruiser.cjs packages modules"
   },
   "devDependencies": {
+    "@rntme/contracts-module-v1": "workspace:*",
     "@rntme/seed": "workspace:*",
     "dependency-cruiser": "^17.4.0"
   }

@@ -55,14 +55,4 @@ export * from './repos/outbox-repo.js';
 export * from './blob/store.js';
 export * from './testing/fakes.js';
 
-export type {
-  DeployAdapter,
-  DeployAdapterFailure,
-  DeployAdapterInput,
-  DeployAdapterLogLine,
-  DeployAdapterResult,
-  DeployAdapterSuccess,
-} from './deploy-adapter/seam.js';
-export { createFakeDeployAdapter } from './deploy-adapter/fake.js';
-
 export { ApiTokenProvider } from './auth/api-token-provider.js';

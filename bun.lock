@@ -5,6 +5,7 @@
     "": {
       "name": "rntme",
       "devDependencies": {
+        "@rntme/contracts-module-v1": "workspace:*",
         "@rntme/seed": "workspace:*",
         "dependency-cruiser": "^17.4.0",
       },
@@ -76,6 +77,7 @@
         "@rntme/blueprint": "workspace:*",
         "@rntme/deploy-runner": "workspace:*",
         "@rntme/platform-core": "workspace:*",
+        "@rntme/platform-storage": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.1.14",
@@ -494,6 +496,7 @@
       "name": "@rntme/artifact-shared",
       "version": "0.0.0",
       "dependencies": {
+        "@rntme/contracts-common-v1": "workspace:*",
         "zod": "^4.0.0",
       },
       "devDependencies": {

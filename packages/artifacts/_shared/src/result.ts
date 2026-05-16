@@ -1,8 +1,6 @@
-export type Ok<T> = { ok: true; value: T };
-export type Err<E> = { ok: false; errors: readonly E[] };
-export type Result<T, E> = Ok<T> | Err<E>;
-
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-export const err = <E>(errors: readonly E[]): Err<E> => ({ ok: false, errors });
-export const isOk = <T, E>(r: Result<T, E>): r is Ok<T> => r.ok;
-export const isErr = <T, E>(r: Result<T, E>): r is Err<E> => !r.ok;
+// Re-export the canonical Result/Ok/Err algebra from @rntme/contracts-common-v1.
+// Kept as a re-export shim so existing `@rntme/artifact-shared` importers
+// (bindings, deploy-runner, blueprint, runtime, …) don't need to change.
+// See docs/goals/simplify-monorepo-audit (Q10/F057).
+export { ok, err, isOk, isErr } from '@rntme/contracts-common-v1/result';
+export type { Ok, Err, Result } from '@rntme/contracts-common-v1/result';

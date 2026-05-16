@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { createDecipheriv, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { materializeBundle } from '@rntme/blueprint';
 import {
@@ -18,6 +18,7 @@ import {
   type TerminalResult,
 } from '@rntme/deploy-runner';
 import { requireActiveRuntimeSession, resolveAuthorizedOrg } from './shared.js';
+import { decryptRuntimeSecret, readRuntimeSecretKey } from './_shared/secret-cipher.js';
 import type {
   StartDeploymentHandlerDeps,
   StartDeploymentHandlerInput,
@@ -512,8 +513,8 @@ function readRuntimeTargetSecrets(ctx: RuntimeCtx, targetId: string):
   }
 
   try {
-    const apiToken = decryptRuntimeSecret(row.api_token_ciphertext, row.api_token_nonce, key.value);
-    const targetSecretsRaw = decryptRuntimeSecret(row.target_secrets_ciphertext, row.target_secrets_nonce, key.value);
+    const apiToken = decryptRuntimeSecret(key.cipher, row.api_token_ciphertext, row.api_token_nonce);
+    const targetSecretsRaw = decryptRuntimeSecret(key.cipher, row.target_secrets_ciphertext, row.target_secrets_nonce);
     const parsed = JSON.parse(targetSecretsRaw) as unknown;
     return {
       status: 'ok',
@@ -529,29 +530,6 @@ function readRuntimeTargetSecrets(ctx: RuntimeCtx, targetId: string):
       message: 'deploy target secrets could not be decrypted',
     };
   }
-}
-
-function readRuntimeSecretKey():
-  | { readonly status: 'ok'; readonly value: Buffer }
-  | { readonly status: 'error'; readonly code: string; readonly message: string } {
-  const raw = process.env.PLATFORM_SECRET_ENCRYPTION_KEY;
-  if (typeof raw !== 'string' || !/^[0-9a-fA-F]{64}$/.test(raw.trim())) {
-    return {
-      status: 'error',
-      code: 'DEPLOY_TARGET_SECRET_STORAGE_UNAVAILABLE',
-      message: 'runtime deployment requires a 32-byte hex PLATFORM_SECRET_ENCRYPTION_KEY',
-    };
-  }
-  return { status: 'ok', value: Buffer.from(raw.trim(), 'hex') };
-}
-
-function decryptRuntimeSecret(ciphertext: string, nonce: string, key: Buffer): string {
-  const payload = Buffer.from(ciphertext, 'base64');
-  const tag = payload.subarray(payload.length - 16);
-  const encrypted = payload.subarray(0, payload.length - 16);
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(nonce, 'base64'));
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 }
 
 function runtimeTargetForRunner(row: DeployTargetRow): RunDeploymentInputs['target'] {

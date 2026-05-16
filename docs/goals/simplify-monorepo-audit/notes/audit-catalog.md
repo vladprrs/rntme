@@ -1724,4 +1724,18 @@ Items deferred from the ranked list. Includes (a) cosmetic-only P3 with low impa
 
 - **F055** — Wider workspace `zod` 4 vs 3 split. T202 closed `contracts-marketing-site-v1` only; `apps/cli`, `packages/runtime/bindings-http`, `packages/runtime/ui-runtime`, all `packages/artifacts/*`, `packages/deploy/deploy-core`, `packages/platform/platform-core` still pin `zod ^4`. P2, ~3h. Decide canonical major before the next contract-authoring slice.
 - **F056** — `modules/storage/s3/test/unit/server.test.ts` references `Buffer` without an eslint `env: { node: true }` declaration. Pre-existing lint failure surfaced repeatedly by T200/T201/T202 verify runs; out-of-scope for every Q1..Q7 slice. P3, ~0.25h. One-line eslintrc override or `import { Buffer } from "node:buffer"`.
-- **F057** — `@rntme/artifact-shared` keeps a second (structurally compatible, mutable-fields) `Result<T,E>` shape after Q4. Q5 + Q7 chose it deliberately (already a dep of bindings + deploy-runner) but the workspace now has two type aliases for the same algebra. Unify with `@rntme/contracts-common-v1/result` once `_shared/package.json` is in scope. P2, ~1h.
+- **F057** — `@rntme/artifact-shared` keeps a second (structurally compatible, mutable-fields) `Result<T,E>` shape after Q4. Q5 + Q7 chose it deliberately (already a dep of bindings + deploy-runner) but the workspace now has two type aliases for the same algebra. Unify with `@rntme/contracts-common-v1/result` once `_shared/package.json` is in scope. P2, ~1h. **CLOSED by Q10/T209 (Tranche 2, 2026-05-16).**
+
+### Tranche-1-era findings closed by Tranche 2
+
+- **F056** — CLOSED. Pre-fixed by user in commit `0a28dbb8` ("chore(docs): complete project cleanup", 2026-05-16) — `import { Buffer } from 'node:buffer'` added at line 2 of `modules/storage/s3/test/unit/server.test.ts`. Workspace `bun run lint` now exits 0. T207 confirmed via verification-only run.
+- **F030, F031, F033, F044, F046, F052** — all closed by Q11/Q14/Q2/Q12/Q13/Q9 receipts. See `2_ranking` for their original entries.
+
+### Newly surfaced by tranche 2 Worker execution (added by T1000, 2026-05-16)
+
+- **F058** — `apps/cli/test/unit/deploy-engine/load-blueprint.test.ts > materializes project-folder assets for direct deploy bundleDir` consistently runs ~5.3s and trips the bun-test default 5000ms timeout. Predates Tranche 2 (last touch in commit `15c9d005`, unrelated to CLI watchers / poll helper / output renderer). Fix: bump per-test timeout via `it('...', { timeout: 15_000 }, …)` or pre-cache demo-blueprint module-resolution. P3, ~0.25h. *Surfaced by T211 isolated re-run.*
+- **F052-observation** (policy note, not a fix) — All 5 `modules/<cat>/conformance/` packages (`marketing-site`, `storage`, `identity`, `ai-llm`, `crm`) intentionally ship no `module.json`. vendor-check (after Q9) skips them via `requireExists:false`. If audit policy later wants every `modules/**` package to expose a manifest, the gate is one boolean flip in `validateManifest`. P3, decision-only. *Surfaced by T208.*
+
+### Memories retired by Tranche 2
+
+- `rntme_cli_dist_silent_stale` — ready to retire (Q13/T212 closed the "CLI surfaces no cause" half). PM action after T1000.

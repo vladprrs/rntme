@@ -26,8 +26,12 @@ import type {
 import {
   isRuntimeCtx,
 } from '../../tokens/handlers/runtime-token-store.js';
-import { createCipheriv, randomBytes, randomUUID } from 'node:crypto';
-import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
+import {
+  encryptJson,
+  encryptRuntimeSecret as encryptString,
+  readRuntimeSecretKey,
+} from './_shared/secret-cipher.js';
 
 type RuntimeCtx = {
   readonly qsmDb: {
@@ -253,7 +257,7 @@ function createDeployTargetRuntimeNative(
     };
   }
   const key = readRuntimeSecretKey();
-  if (key.status === 'error') return key.output;
+  if (key.status === 'error') return { status: 'error', errors: [{ code: key.code, message: key.message }] };
 
   ensureRuntimeSecretTable(ctx);
   const existing = ctx.qsmDb.prepare<[string, string], DeployTargetRow>(`
@@ -309,8 +313,8 @@ function createDeployTargetRuntimeNative(
     now,
   );
 
-  const apiToken = encryptString(parsed.data.apiToken, key.value);
-  const targetSecrets = encryptJson(readTargetSecrets(body), key.value);
+  const apiToken = encryptString(key.cipher, parsed.data.apiToken);
+  const targetSecrets = encryptJson(key.cipher, readTargetSecrets(body));
   ctx.qsmDb.prepare(`
     INSERT INTO deploy_target_secrets (
       target_id,
@@ -403,55 +407,6 @@ function readTargetSecrets(req: CreateDeployTargetInput['body'] | UpdateDeployTa
   return { ...(value as Record<string, unknown>) };
 }
 
-function readRuntimeSecretKey():
-  | { readonly status: 'ok'; readonly value: Buffer }
-  | { readonly status: 'error'; readonly output: Extract<CreateDeployTargetOutput, { readonly status: 'error' }> } {
-  const raw = process.env.PLATFORM_SECRET_ENCRYPTION_KEY;
-  if (typeof raw !== 'string' || raw.trim() === '') {
-    return unavailableSecretStorage();
-  }
-  if (!/^[0-9a-fA-F]{64}$/.test(raw.trim())) {
-    return {
-      status: 'error',
-      output: {
-        status: 'error',
-        errors: [{
-          code: 'PLATFORM_STORAGE_DB_UNAVAILABLE',
-          message: 'runtime-native deploy target creation requires a 32-byte hex PLATFORM_SECRET_ENCRYPTION_KEY',
-        }],
-      },
-    };
-  }
-  return { status: 'ok', value: Buffer.from(raw.trim(), 'hex') };
-}
-
-function unavailableSecretStorage(): { readonly status: 'error'; readonly output: Extract<CreateDeployTargetOutput, { readonly status: 'error' }> } {
-  return {
-    status: 'error',
-    output: {
-      status: 'error',
-      errors: [{
-        code: 'PLATFORM_STORAGE_DB_UNAVAILABLE',
-        message: 'runtime-native deploy target creation requires encrypted target-secret storage',
-      }],
-    },
-  };
-}
-
-function encryptJson(value: unknown, key: Buffer): { readonly ciphertext: string; readonly nonce: string; readonly keyVersion: 1 } {
-  return encryptString(JSON.stringify(value), key);
-}
-
-function encryptString(plaintext: string, key: Buffer): { readonly ciphertext: string; readonly nonce: string; readonly keyVersion: 1 } {
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, nonce);
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  return {
-    ciphertext: Buffer.concat([encrypted, cipher.getAuthTag()]).toString('base64'),
-    nonce: nonce.toString('base64'),
-    keyVersion: 1,
-  };
-}
 
 function nextId(ctx: RuntimeCtx): string {
   return ctx.nextId?.() ?? randomUUID();
@@ -600,7 +555,7 @@ function updateRuntimeTargetSecrets(
   if (!hasTargetSecrets && !hasApiToken) return { status: 'ok' };
 
   const key = readRuntimeSecretKey();
-  if (key.status === 'error') return { status: 'error', errors: key.output.errors };
+  if (key.status === 'error') return { status: 'error', errors: [{ code: key.code, message: key.message }] };
   ensureRuntimeSecretTable(ctx);
 
   const existing = ctx.qsmDb.prepare<[string], {
@@ -631,15 +586,15 @@ function updateRuntimeTargetSecrets(
   }
 
   const apiToken = hasApiToken
-    ? encryptString(String(record.apiToken ?? ''), key.value)
+    ? encryptString(key.cipher, String(record.apiToken ?? ''))
     : {
         ciphertext: existing?.api_token_ciphertext ?? '',
         nonce: existing?.api_token_nonce ?? '',
         keyVersion: existing?.api_token_key_version ?? 1,
       };
-  const emptyTargetSecrets = existing === undefined ? encryptJson({}, key.value) : null;
+  const emptyTargetSecrets = existing === undefined ? encryptJson(key.cipher, {}) : null;
   const targetSecrets = hasTargetSecrets
-    ? encryptJson(readTargetSecrets(body), key.value)
+    ? encryptJson(key.cipher, readTargetSecrets(body))
     : {
         ciphertext: existing?.target_secrets_ciphertext ?? emptyTargetSecrets!.ciphertext,
         nonce: existing?.target_secrets_nonce ?? emptyTargetSecrets!.nonce,

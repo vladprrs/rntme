@@ -22,11 +22,14 @@ export async function loadBlueprintForDeploy(dir: string): Promise<Result<Loaded
   const composed = await loadComposedBlueprint(prepared.value.bundleDir);
   if (!composed.ok) {
     await prepared.value.cleanup();
+    const n = composed.errors.length;
     const first = composed.errors[0];
     return err(
       cliError(
         'CLI_DEPLOY_BLUEPRINT_INVALID',
-        `failed to compose blueprint at ${prepared.value.bundleDir}: ${first?.code ?? 'UNKNOWN'}: ${first?.message ?? ''}`,
+        n === 1
+          ? `failed to compose blueprint at ${prepared.value.bundleDir}: ${first?.code ?? 'UNKNOWN'}: ${first?.message ?? ''}`
+          : `failed to compose blueprint at ${prepared.value.bundleDir}: ${n} errors (first: ${first?.code ?? 'UNKNOWN'}); see nested for details`,
         undefined,
         composed.errors,
       ),

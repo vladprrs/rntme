@@ -21,6 +21,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/contracts-common-v1": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {
