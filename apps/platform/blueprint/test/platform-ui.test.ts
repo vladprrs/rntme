@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadComposedBlueprint } from '../../../../packages/artifacts/blueprint/src/index.js';
@@ -143,5 +144,99 @@ describe('platform UI artifact', () => {
       href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
     });
     expect(result.value.virtualEntrySource).toContain("import('@rntme/platform-ui/client')");
+  });
+});
+
+// Drift detector: every prop a screen or layout spec passes to a component
+// declared by `@rntme/platform-ui/module.json` must be present in that
+// module's component schema. Adding an unknown prop to a screen spec must
+// fail CI here — silent drift between specs and module.json is what F040
+// (simplify-monorepo-audit Q6) was chartered to eliminate.
+describe('platform UI module.json schema drift', () => {
+  type ModuleComponent = { type: string; props?: Record<string, unknown> };
+  type ModuleManifest = { client?: { components?: ModuleComponent[] } };
+
+  function readJson(path: string): unknown {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  }
+
+  function collectSpecPropPairs(): Map<string, Map<string, Set<string>>> {
+    // type -> propName -> Set<spec file label>
+    const pairs = new Map<string, Map<string, Set<string>>>();
+    const specDirs = [
+      join(blueprintRoot, 'services/app/ui/screens'),
+      join(blueprintRoot, 'services/app/ui/layouts'),
+    ];
+    function walk(node: unknown, fileLabel: string): void {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        for (const item of node) walk(item, fileLabel);
+        return;
+      }
+      const obj = node as Record<string, unknown>;
+      const type = obj.type;
+      const props = obj.props;
+      if (
+        typeof type === 'string'
+        && props
+        && typeof props === 'object'
+        && !Array.isArray(props)
+      ) {
+        let perType = pairs.get(type);
+        if (!perType) {
+          perType = new Map();
+          pairs.set(type, perType);
+        }
+        for (const prop of Object.keys(props as Record<string, unknown>)) {
+          let usedIn = perType.get(prop);
+          if (!usedIn) {
+            usedIn = new Set();
+            perType.set(prop, usedIn);
+          }
+          usedIn.add(fileLabel);
+        }
+      }
+      for (const key of Object.keys(obj)) walk(obj[key], fileLabel);
+    }
+    for (const dir of specDirs) {
+      for (const file of readdirSync(dir)) {
+        if (!file.endsWith('.spec.json')) continue;
+        const fullPath = join(dir, file);
+        walk(readJson(fullPath), `${dir.split('/').slice(-2).join('/')}/${file}`);
+      }
+    }
+    return pairs;
+  }
+
+  it('declares every component prop that any screen or layout spec passes', () => {
+    const moduleManifestPath = join(here, '../../ui-module/module.json');
+    const manifest = readJson(moduleManifestPath) as ModuleManifest;
+    const declared = new Map<string, Set<string>>();
+    for (const component of manifest.client?.components ?? []) {
+      const propNames = new Set<string>(
+        component.props && typeof component.props === 'object'
+          ? Object.keys(component.props as Record<string, unknown>)
+          : [],
+      );
+      declared.set(component.type, propNames);
+    }
+
+    const pairs = collectSpecPropPairs();
+    const violations: string[] = [];
+    for (const [type, propMap] of pairs) {
+      const declaredProps = declared.get(type);
+      // Skip types not declared by @rntme/platform-ui — those belong to other
+      // modules (Button, Input, LoginScreen, Slot, etc.) whose schemas are
+      // out of scope for this drift check.
+      if (!declaredProps) continue;
+      for (const [prop, usedIn] of propMap) {
+        if (!declaredProps.has(prop)) {
+          violations.push(
+            `${type}.${prop} is passed by ${[...usedIn].sort().join(', ')} but is not declared in ui-module/module.json`,
+          );
+        }
+      }
+    }
+    expect(violations).toEqual([]);
   });
 });

@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import type { Pool } from 'pg';
 import {
   err,
   ok,
@@ -16,6 +15,7 @@ import {
   type VerificationReport,
 } from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
+import { withOptionalTransaction, withSystemRlsDisabled } from '../pg/tx.js';
 
 type DbRow = Record<string, unknown>;
 
@@ -317,7 +317,7 @@ export class PgDeploymentRepo implements DeploymentRepo {
         db.query(
           `SELECT id, org_id
            FROM deployment
-           WHERE status='running'
+           WHERE status IN ('queued','running')
              AND (last_heartbeat_at IS NULL OR last_heartbeat_at < now() - ($1 * interval '1 second'))
            ORDER BY queued_at ASC`,
           [staleAfterSeconds],
@@ -518,68 +518,6 @@ async function audit(
       jsonParam(args.payload),
     ],
   );
-}
-
-async function withOptionalTransaction<T>(
-  db: PgQueryable,
-  fn: (db: PgQueryable) => Promise<Result<T, PlatformError>>,
-): Promise<Result<T, PlatformError>> {
-  if (!isPool(db)) return fn(db);
-
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    if (result.ok) {
-      await client.query('COMMIT');
-    } else {
-      await client.query('ROLLBACK');
-    }
-    return result;
-  } catch (cause) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // ignore rollback failures and return the original error below
-    }
-    throw cause;
-  } finally {
-    client.release();
-  }
-}
-
-async function withSystemRlsDisabled<T>(
-  db: PgQueryable,
-  fn: (db: PgQueryable) => Promise<T>,
-): Promise<T> {
-  if (!isPool(db)) {
-    // System sweeps run outside an org-scoped tenant transaction. This assumes
-    // the caller supplied an owner/admin client that can disable RLS locally.
-    await db.query('SET LOCAL row_security = off');
-    return fn(db);
-  }
-
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SET LOCAL row_security = off');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (cause) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // ignore rollback failures and return the original error below
-    }
-    throw cause;
-  } finally {
-    client.release();
-  }
-}
-
-function isPool(db: PgQueryable): db is Pool {
-  return typeof (db as { release?: unknown }).release !== 'function';
 }
 
 function invalidTransition(id: string): Result<never, PlatformError> {

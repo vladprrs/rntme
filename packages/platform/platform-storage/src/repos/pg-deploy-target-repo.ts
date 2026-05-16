@@ -1,5 +1,4 @@
 import type { Buffer } from 'node:buffer';
-import type { Pool } from 'pg';
 import {
   err,
   ok,
@@ -17,6 +16,7 @@ import {
   type Result,
 } from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
+import { withOptionalTransaction } from '../pg/tx.js';
 
 type DbRow = Record<string, unknown>;
 
@@ -387,38 +387,6 @@ async function audit(
       JSON.stringify(args.payload),
     ],
   );
-}
-
-async function withOptionalTransaction<T>(
-  db: PgQueryable,
-  fn: (db: PgQueryable) => Promise<Result<T, PlatformError>>,
-): Promise<Result<T, PlatformError>> {
-  if (!isPool(db)) return fn(db);
-
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    if (result.ok) {
-      await client.query('COMMIT');
-    } else {
-      await client.query('ROLLBACK');
-    }
-    return result;
-  } catch (cause) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // ignore rollback failures and return the original error below
-    }
-    throw cause;
-  } finally {
-    client.release();
-  }
-}
-
-function isPool(db: PgQueryable): db is Pool {
-  return typeof (db as { release?: unknown }).release !== 'function';
 }
 
 function notFound(slug: string): Result<never, PlatformError> {

@@ -1,0 +1,848 @@
+version: 2
+active_task: null
+goal:
+  slug: simplify-monorepo-audit
+  title: "Simplify monorepo audit"
+  status: complete
+  created: 2026-05-15
+  charter: docs/goals/simplify-monorepo-audit/goal.md
+  intake:
+    input_shape: open_ended
+    interpreted_outcome: >-
+      Catalog architectural problems, duplicate implementations, and suboptimal
+      solutions across every non-vendored package/app, then apply the
+      `simplify` skill to highest-impact fixes within a 15-hour worker budget.
+    authority: approved
+    proof_type: artifact_plus_verify
+    completion_proof: >-
+      Final Judge audit declares tranche complete when worker_minutes_spent >= 900
+      OR all top-N ranked slices done; remaining items remain as a clean backlog
+      with stable IDs in notes/audit-catalog.md.
+    likely_misfire: >-
+      Drift into rename/move sprees or cosmetic simplifications; miss the
+      actual architectural duplications and dead struts that are the win.
+    blind_spots:
+      - "15h budget is wall-clock from T101; without per-task elapsed_minutes the budget cannot be enforced."
+      - "simplify skill is normally applied post-edit; for this goal Worker uses it as a guided review-and-fix pass per slice."
+      - "Cross-package duplications are the highest-value find; per-package scouts must surface them, not bury them per-wave."
+    existing_plan_facts:
+      - "User asked for package-by-package walk → translated to Phase A waves grouped by packages/ subtree + apps/ + non-vendored demo sources."
+      - "User authorized unsafe actions and Dokploy redeploys via repo .env for this goal."
+  non_goals:
+    - "demo/notes-blueprint/node_modules/rntme_* and any other vendored node_modules/rntme_* snapshots — out of scope (publishable snapshots, not sources)."
+  visual_board:
+    mode: file_only
+    note: "User chose file-only board; no local live board, no GitHub Projects."
+
+agents:
+  scout: installed
+  judge: installed
+  worker: installed
+  notes: "Verified at /home/coder/.claude/agents/{goal-scout,goal-judge,goal-worker}.md."
+
+execution_budget:
+  worker_minutes_cap: 900
+  worker_minutes_spent: 155
+  execution_budget_started_at: "2026-05-15T18:10:00Z"
+  rule: >-
+    Starts when T101 receipt publishes the ranked queue. Every Worker receipt
+    must include `elapsed_minutes` and updated `worker_minutes_spent`. Once
+    `worker_minutes_spent >= 900`, no new Worker tasks start; PM activates T999.
+
+verify_suite_default:
+  - "bun run typecheck"
+  - "bun run --filter @rntme/<pkg> test  # or `bun run test` for cross-package"
+  - "bun run lint"
+  - "bun run depcruise"
+  - "Dokploy redeploy smoke via repo .env (only when slice touches deploy-affecting code)"
+
+tasks:
+  # =========================================================================
+  # Phase A — Audit (Scout, read-only). Produces notes/audit-catalog.md.
+  # =========================================================================
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Initialize notes/audit-catalog.md with the schema below and produce a
+      one-page workspace map: every workspace package (apps/, packages/**, and
+      non-vendored demo sources), its purpose, owner doc, and a one-line
+      health signal (last touched commit, presence of tests, presence of
+      docs/current/owners doc).
+    inputs:
+      - "Bun workspace root, package.json, AGENTS.md"
+      - "docs/current/owners/** index"
+    constraints:
+      - "Read-only. No edits to source files."
+      - "Do NOT descend into demo/*/node_modules — vendored, off-limits."
+    expected_output:
+      - "notes/audit-catalog.md created with sections: 0_workspace_map, 1_findings (empty), 2_ranking (empty), 3_worker_queue (empty), 4_backlog (empty)."
+      - "Catalog finding schema documented at top of file: id (F###), package(s), kind (architectural|duplication|suboptimal|complexity|dead_strut|risk), severity (P0|P1|P2|P3), impact (high|med|low), confidence (high|med|low), reversibility (high|med|low), est_effort_h, evidence_paths[], summary, proposed_fix."
+    receipt:
+      result: done
+      summary: >-
+        Mapped 60 workspace entries (58 packages with package.json + 2 demo blueprint
+        source trees); scaffold + four empty placeholder sections in place.
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      workspace_package_count: 60
+      anomalies:
+        - "Missing owner docs: packages/artifacts/_shared, modules/marketing-site/conformance, modules/marketing-site/static-html, modules/storage/conformance, packages/contracts/storage/v1."
+        - "apps/platform/ui-module shares owner doc with apps/platform."
+        - "demo/notes-blueprint and demo/order-fulfillment-blueprint have no package.json — listed as blueprint source trees; Judge to decide scope in T100."
+        - "Two recent broad commits dominate last-touched: 4f7b6753 (2026-05-10) and 15c9d005 (2026-05-14) — Phase B should note their scope."
+
+  - id: T002
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 1 — packages/runtime/**: bindings-grpc, bindings-http,
+      bpmn-worker, event-store, projection-consumer, runtime, sqlite,
+      ui-runtime. Find architectural problems, multiple implementations,
+      dead struts, suboptimal patterns. Append findings to
+      notes/audit-catalog.md.
+    inputs:
+      - "packages/runtime/**"
+      - "docs/current/owners/runtime/**"
+    constraints:
+      - "Read-only."
+      - "Cross-reference earlier waves' findings before adding a new one — duplicates collapse, not multiply."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md section 1_findings."
+      - "Receipt lists count of new findings + any cross-cutting suspicions to flag for later waves."
+    receipt:
+      result: done
+      summary: >-
+        10 findings (F001–F010) appended: 3 architectural (OperationExecutor + generic
+        HTTP middleware live in bindings-http; GrpcSurface is no-op), 4 duplications
+        (gRPC ids/Struct codec across grpc+bpmn-worker; type-string parser across
+        runtime+blueprint; in-memory Kafka adapter; env parser), 1 suboptimal
+        (RuntimeConfig hand-rolled validators vs zod), 1 dead-strut (DbDriver), 1
+        duplication (bpmn-worker dual dispatch loops).
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010]
+      cross_wave_suspicions:
+        - target_packages: ["@rntme/blueprint", "@rntme/bindings"]
+          hint: "F006: blueprint's binding-resolvers + runtime's load-service both regex-parse `scalar | list<T> | row<Shape>` type strings. Canonical parser belongs in @rntme/bindings or an artifact-shared lib."
+        - target_packages: ["@rntme/graph-ir-compiler"]
+          hint: "F001: OperationExecutor wraps graph-ir-compiler's CompiledOperation/OperationResult — check whether graph-ir-compiler should own it instead of bindings-http."
+        - target_packages: ["@rntme/platform-core", "@rntme/deploy-core"]
+          hint: "F008 (DbDriver dead-strut): confirm platform-core/deploy-core never instantiate a non-Bun DbDriver before removing the abstraction."
+      notes: >-
+        Biggest signal — bindings-http is not really the HTTP package: it owns OperationExecutor + generic Hono middleware, so bindings-grpc and HttpSurface depend on it for non-HTTP reasons. F001+F002+F005 together suggest a re-cut: extract runtime-contracts + runtime-http-middleware. Three independent gRPC client surfaces all hand-roll protobufjs method/Struct codec; expect more duplication in Wave 4.
+
+  - id: T003
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 2 — packages/artifacts/**: bindings, blueprint,
+      graph-ir-compiler, init, pdm, qsm, seed, _shared, ui, workflows.
+    inputs:
+      - "packages/artifacts/**"
+      - "docs/current/owners/artifacts/**"
+    constraints:
+      - "Read-only."
+      - "Pay attention to: graph-ir-compiler vs blueprint compilation overlap; pdm/qsm/seed overlapping responsibilities."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md."
+      - "Cross-wave duplication candidates flagged in receipt."
+    receipt:
+      result: done
+      summary: >-
+        9 findings (F011–F019). Themes: layering violations (artifacts→runtime,
+        blueprint→platform-core), blueprint vs graph-ir-compiler authoring-parse
+        duplication, seed vs graph-ir state-machine/payload duplication,
+        parse-template boilerplate, pdm/qsm load-dir error-code asymmetry.
+        F006/F001 cross-wave hypotheses both confirmed from the artifacts side.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F011, F012, F013, F014, F015, F016, F017, F018, F019]
+      cross_wave_suspicions:
+        - target_packages: ["@rntme/bindings-http", "@rntme/bindings-grpc"]
+          hint: "F014: OperationExecutor seam should move into graph-ir-compiler (resolves F001 from the artifact side). Worker picks one home — coordinate with F001."
+        - target_packages: ["@rntme/event-store", "@rntme/sqlite", "@rntme/contracts/*"]
+          hint: "F012: depcruise rule `artifacts-must-not-import-runtime` is silently violated by graph-ir-compiler and seed. Worker must run `bun run depcruise` to confirm enforcement, and consider moving event-store TYPES to a contracts package."
+        - target_packages: ["@rntme/platform-core"]
+          hint: "F016: CanonicalBundle ownership is inverted. Wave 3 should map producer vs consumer."
+        - target_packages: ["@rntme/cli", "@rntme/runtime"]
+          hint: "F013: confirm runtime/load/load-service.ts and cli loaders share blueprint's hand-rolled graph parsing; if so, adopting parseAuthoringSpec is a single fix that lands everywhere."
+      notes: >-
+        Surprises: graph-ir-compiler imports SqliteDatabase + EventStore from runtime
+        despite explicit depcruise prohibition (rule may not be enforced — Worker to verify);
+        `command-runtime/` subdir inside an artifact package smells runtime-shaped;
+        `_shared` is well-designed but pdm vs qsm loaders produce divergent error fidelity (F019);
+        `derivePayload` and `wrapPayloads` both build {before,after} envelopes → single owner in
+        canonical-event-shape package is natural.
+
+  - id: T004
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 3 — packages/contracts/**: ai-llm, analytics, client-runtime,
+      _common, crm, handlers, identity, marketing-site, module, provisioner,
+      storage.
+    inputs:
+      - "packages/contracts/**"
+      - "docs/current/owners/contracts/**"
+    constraints:
+      - "Read-only."
+      - "Look for: contract schemas that duplicate runtime types; abandoned contract modules; inconsistent naming conventions."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md."
+    receipt:
+      result: done
+      summary: >-
+        9 findings (F020–F028). client-runtime contract carries runtime logic
+        + React (P1); Result duplicated in 3 packages (P1); divergent zod majors;
+        3-way drift in error-codes; 5× near-identical proto gen scripts; abandoned
+        analytics contract; phantom bindings-http devDep in handlers; parse/validate
+        logic inside module+marketing-site contracts. No OperationExecutor /
+        ServiceDefinition / CanonicalBundle / EventEnvelope contract exists yet —
+        F001/F004/F012/F016 candidate homes all open.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F020, F021, F022, F023, F024, F025, F026, F027, F028]
+      cross_wave_suspicions:
+        - target_packages: ["@rntme/bindings-http", "@rntme/contracts-handlers-v1", "@rntme/graph-ir-compiler"]
+          hint: "F001/F014 home: no OperationExecutor contract exists; handlers/v1 has a phantom bindings-http devDep (F026) likely from a planned move that never landed."
+        - target_packages: ["@rntme/contracts-provisioner-v1", "@rntme/artifact-shared", "@rntme/deploy-core"]
+          hint: "F021: Result duplicated in 3 packages with one comment apologizing. Promote to contracts/_common/v1 or a tiny @rntme/result package."
+        - target_packages: ["@rntme/platform-core", "@rntme/blueprint"]
+          hint: "F016: no contract currently holds the deployable-bundle shape. Adding it to contracts/module/v1 or contracts/blueprint-bundle/v1 would fit."
+        - target_packages: ["@rntme/contracts-client-runtime-v1", "@rntme/ui-runtime", "modules/**"]
+          hint: "F020: vendor modules import factories+hooks from client-runtime; Wave 4/5 must trace each call site when the contract is split."
+        - target_packages: ["packages/contracts/*/scripts/gen.mjs"]
+          hint: "F024: 5 proto-gen scripts diff by ≤3 lines. Single scripts/build-proto.mjs at contracts/_shared."
+      notes: >-
+        Confirms F001/F004/F012/F016 candidate contract homes are all unoccupied.
+        Phantom bindings-http devDep on contracts-handlers-v1 (F026) suggests an
+        abandoned earlier attempt to host OperationExecutor there.
+
+  - id: T005
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 4 — packages/platform/** (deploy-bundle-input, platform-core,
+      platform-storage) and packages/deploy/** (deploy-core, deploy-dokploy,
+      deploy-runner).
+    inputs:
+      - "packages/platform/**"
+      - "packages/deploy/**"
+      - "docs/current/owners/platform/**"
+      - "docs/current/owners/deploy/**"
+    constraints:
+      - "Read-only."
+      - "Highlight: provisioner-resolver gap (see rntme_provisioner_resolver_gap), orphan-detect-queued gap, platform-redeploy secret handling."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md."
+    receipt:
+      result: done
+      summary: >-
+        10 findings (F029–F038). Confirms F008/F016/F021. Highlights:
+        DeployAdapter seam dead (0 consumers), AES-GCM crypto re-implemented in
+        deployments handlers, 8/12 repos use raw SQL despite Drizzle schema,
+        deploy-runner ships 190 LoC of "import-free" mirror types but already
+        deps platform-core/storage, hard-coded platform persistence, stringly-
+        built compose/nginx output, queued-orphan bug confirmed
+        (rntme_orphan_detect_queued_gap memory valid).
+        STALE memory: `rntme_provisioner_resolver_gap` — resolveProvisioner
+        now imports from bundle assets (already fixed); memory should be retired.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F029, F030, F031, F032, F033, F034, F035, F036, F037, F038]
+      confirmed_earlier_findings: [F008, F016, F021]
+      cross_wave_suspicions:
+        - target_packages: ["@rntme/bindings-grpc", "@rntme/deploy-bundle-input"]
+          hint: "emitProto is the only thing deploy-bundle-input needs from bindings-grpc. Tiny @rntme/proto-emitter would erase runtime→deploy edge — pairs with F001/F014 seam relocation."
+        - target_packages: ["@rntme/contracts-module-v1", "@rntme/deploy-bundle-input"]
+          hint: "Vendor-category→proto mapping hard-coded in runtime-module-wiring; contracts-module-v1 already has module.category — natural lookup key."
+        - target_packages: ["@rntme/blueprint", "@rntme/deploy-core", "@rntme/platform-core"]
+          hint: "F016+F038 together: persistence schema needs blueprint+platform-core agreement; that's the right moment to also relocate CanonicalBundle."
+        - target_packages: ["packages/runtime/ui-runtime", "@rntme/deploy-bundle-input"]
+          hint: "readUiRuntimeCss path-walks ui-runtime/build/main.css. Make ui-runtime publish CSS via package.json#exports."
+      stale_memory_entries:
+        - rntme_provisioner_resolver_gap
+
+  - id: T006
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 5 — apps/**: cli, landing, platform (blueprint + ui-module +
+      submodules), EXCLUDING any vendored node_modules under demo/ or apps/.
+    inputs:
+      - "apps/**"
+      - "docs/current/owners/apps/**"
+    constraints:
+      - "Read-only."
+      - "Skip apps/platform/blueprint/services/*/node_modules and demo/**/node_modules entirely."
+      - "Look for: per-screen ad-hoc state, duplicated explorer/editor patterns, spec.json drift vs handler reality."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md."
+    receipt:
+      result: done
+      summary: >-
+        10 findings (F039–F048). components.tsx is 3746 LoC with 25+ exports
+        and 2 explorers reimplementing same pattern; module.json schema omits
+        9+ props that screen specs pass (drift); 4 explorer headers duplicated
+        across 5 spec files; ~30 bindings × 3-key sessionSubject inputFrom
+        repeats; CLI and platform handler bytewise-duplicate
+        resolveBundledProvisioner; duplicated watch loops; 3 orphan landing
+        components; error-fidelity loss in publish; two-package apps/platform
+        layout explains T001 anomaly; one-line back-link bug. Confirms F018,
+        F036; partial F029/F038.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F039, F040, F041, F042, F043, F044, F045, F046, F047, F048]
+      confirmed_earlier_findings: [F018, F036]
+      cross_wave_suspicions:
+        - target_packages: ["packages/blueprint/blueprint"]
+          hint: "compose-time spec.json validation should fail F040-class drift (props not declared in module.json) — check whether a validator exists and is bypassed for platform-ui."
+        - target_packages: ["packages/deploy/deploy-runner"]
+          hint: "ResolveProvisioner contract implemented twice (F043); single buildResolveProvisioner helper belongs here."
+      notes: >-
+        apps/platform is two packages, not one — T001 anomaly has a structural
+        cause (F047). spec.json health is "honest data bindings, drifty
+        component-prop schema". CLI commands are well-factored via harness.ts
+        except the two watch loops. Landing has dead components from a reverted
+        slice.
+
+  - id: T007
+    type: scout
+    assignee: Scout
+    status: done
+    objective: >-
+      Audit Wave 6 — packages/tooling/** (bundle-publish, module-scaffold)
+      and non-vendored demo sources (demo/cv-extract-blueprint/src,
+      demo/notes-blueprint source files NOT under node_modules,
+      demo/order-fulfillment-blueprint).
+    inputs:
+      - "packages/tooling/**"
+      - "demo/cv-extract-blueprint/{src,package.json,blueprint.json,*.md}"
+      - "demo/notes-blueprint/* — only non-node_modules files"
+      - "demo/order-fulfillment-blueprint/**"
+    constraints:
+      - "Read-only."
+      - "Do NOT touch or read demo/notes-blueprint/node_modules/rntme_* (vendored snapshots)."
+      - "Compare demo blueprints to detect copy-paste drift."
+    expected_output:
+      - "New F### entries in notes/audit-catalog.md."
+    receipt:
+      result: done
+      summary: >-
+        6 findings (F049–F054). Highlights: notes-demo snake_case naming
+        forces a dedicated alias regex in @rntme/blueprint (mechanical
+        cleanup); pdmRef/qsmRef/graphSpecRef/bindingsRef are dead fields
+        runtime overrides anyway; vendor-check.mjs doesn't schema-validate
+        manifests (F029/F040/F045 drift uncaught by CI); 4th Result<T,E>
+        impl lives in bundle-publish; module-scaffold has duplicate tests;
+        three demos diverge on get-by-id graph topology. Confirms F018/F029/F040/F045.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      new_finding_ids: [F049, F050, F051, F052, F053, F054]
+      confirmed_earlier_findings: [F018, F029, F040, F045]
+      cross_wave_suspicions: []
+      notes: >-
+        cv-extract is the only "full" demo; notes/order-fulfillment have no
+        package.json so bun workspaces silently skip them — explains T001 anomaly.
+        Adding zod parse to vendor-check.mjs is a near-zero-cost CI gate.
+
+  # =========================================================================
+  # Phase B — Aggregation + prioritization (Judge, read-only).
+  # =========================================================================
+  - id: T100
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Aggregate Phase A findings. Collapse cross-wave duplicates into single
+      entries with combined evidence_paths. Re-score each finding for impact,
+      confidence, reversibility, est_effort_h. Update notes/audit-catalog.md
+      section 2_ranking with the merged ranked list, sorted by
+      (impact * confidence) / risk_descending. Cosmetic-only items go to
+      section 4_backlog.
+    inputs:
+      - "notes/audit-catalog.md (all Phase A findings)"
+      - "All T002–T007 receipts"
+    constraints:
+      - "Read-only — only edits to notes/audit-catalog.md allowed."
+      - "Apply the goal's likely_misfire test: if a candidate is mostly rename/move with no architectural payoff, push it to backlog."
+    expected_output:
+      - "Ranked list in 2_ranking with rank #, F###, score breakdown, and est_effort_h."
+      - "Receipt summarizes top-10 candidates and total est_effort_h of the top of the ranked list."
+    receipt:
+      result: done
+      summary: >-
+        41 merged ranked entries (54 findings, ~24% collapse) + 10 backlog.
+        Top-10 effort = 22h; T101 must trim to ≤13h.
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      decision: "Phase A aggregated/ranked; top-N candidates ready for T101 queue build."
+      top_10_ids: [F021, F006, F034, F031, F040, F043, F022, F033, F030, F037]
+      top_10_total_effort_h: 22
+      next_allowed_task: T101
+      notes: >-
+        Kept F029/F036/F042/F037/F033 separate (distinct fixes, not one cluster).
+        F053 split: bundle-publish Result→Rank#1; module-scaffold→backlog.
+        F040 must run BEFORE F052 (or vendor-check gate fails on day-1 manifests).
+        Six Rank-1 entries at score 9.0 in 12h combined; T101 should evaluate
+        disjoint-allowed_files parallelism (F034 platform-storage repos vs F040
+        platform-ui module.json vs F022 contracts package.json vs F021 cross-pkg
+        Result). F047 + F048 → backlog per likely_misfire (rename/move only).
+
+  - id: T101
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Build the executable Worker queue.
+    receipt:
+      result: done
+      summary: "7 queued slices (Q1..Q7), total est_effort_h = 13 (exact cap), budget started 2026-05-15T18:10:00Z."
+      evidence: [docs/goals/simplify-monorepo-audit/notes/audit-catalog.md]
+      decision: "Worker queue published; first slice is Q1 (F034 — fix stale-queued orphan sweep in platform-storage)."
+      execution_budget_started_at: "2026-05-15T18:10:00Z"
+      queued_slices:
+        - {id: Q1, f_id: F034, est_effort_h: 1, depends_on: []}
+        - {id: Q2, f_id: F033, est_effort_h: 1, depends_on: []}
+        - {id: Q3, f_id: F022, est_effort_h: 1, depends_on: []}
+        - {id: Q4, f_id: F021, est_effort_h: 3, depends_on: []}
+        - {id: Q5, f_id: F006, est_effort_h: 3, depends_on: [Q4]}
+        - {id: Q6, f_id: F040, est_effort_h: 2, depends_on: []}
+        - {id: Q7, f_id: F043, est_effort_h: 2, depends_on: [Q4]}
+      total_est_effort_h: 13
+      deferred_to_backlog:
+        - "F037 (4h) compose-yaml/nginx structural rendering — Dokploy-touching, biggest singleton; would push to 17h."
+        - "F031 (3h) AES-GCM dedup in deployments handlers — crypto-sensitive."
+        - "F044, F046 (1h each) CLI watcher dedup + publish error-fidelity — independent/cheap, kept buffer."
+        - "F030 (2h) DeployAdapter dead-strut deletion — independent."
+        - "F052 (3h) vendor-check schema validation — depends on Q6, defer to next tranche."
+        - "All ranks ≥ #11 — deferred per 13h cap."
+      next_allowed_task: T200
+      notes: >-
+        Q5 + Q7 depend on Q4. Parallel-safe (disjoint files): (Q1,Q3), (Q2,Q3),
+        (Q1,Q6), (Q2,Q6), (Q3,Q6), (Q4,Q6). Q1 and Q2 share files in platform-storage
+        — NOT parallel-safe with each other. F040 before F052 honored (F052 deferred).
+        PM mints T200..T206 from Q1..Q7 with allowed_files/verify copied verbatim.
+
+  # =========================================================================
+  # Phase C — Execution (Worker). Seeded with one placeholder; PM expands
+  # to one Worker task per queued slice (Q1..QN) after T101 receipt.
+  # =========================================================================
+  - id: T200
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q1 (F034) — Fix stale-queued orphan sweep in
+      platform-storage repos. Apply the `simplify` skill.
+    receipt:
+      result: done
+      summary: >-
+        findStaleRunning in both pg-deployment-repo and pg-project-operation-repo
+        now reaps queued OR running rows; interface docstrings + integration tests
+        updated. Memory `rntme_orphan_detect_queued_gap` is obsolete.
+      changed_files:
+        - packages/platform/platform-storage/src/repos/pg-deployment-repo.ts
+        - packages/platform/platform-storage/src/repos/pg-project-operation-repo.ts
+        - packages/platform/platform-core/src/repos/deployment-repo.ts
+        - packages/platform/platform-core/src/repos/project-operation-repo.ts
+        - packages/platform/platform-storage/test/integration/pg-deployment-repo.test.ts
+        - packages/platform/platform-storage/test/integration/pg-project-operation-repo.test.ts
+      commands:
+        - {cmd: "bun run --filter @rntme/platform-storage typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/platform-storage test", status: pass, notes: "9 pass, 60 skip (no docker)"}
+        - {cmd: "bun run --filter @rntme/platform-core typecheck", status: pass}
+        - {cmd: "bun run lint", status: pass_in_scope, notes: "platform-core/platform-storage clean; workspace exits 1 due to pre-existing errors in @rntme/cli (will be touched by Q7) and modules/storage/s3 test (out of scope — backlog)."}
+      elapsed_minutes: 8
+      worker_minutes_spent_after: 8
+      pre_existing_lint_findings:
+        - "apps/cli/src/deploy-engine/resolve-provisioner.ts:44 — NodeJS undef (Q7 will touch this file)."
+        - "modules/storage/s3/test/unit/server.test.ts — Buffer undef (out of Q1-Q7 scope; record as backlog)."
+    inputs:
+      - "notes/audit-catalog.md section 3_worker_queue Q1"
+      - "Skill: simplify"
+      - "Memory: rntme_orphan_detect_queued_gap"
+    allowed_files:
+      - packages/platform/platform-storage/src/repos/pg-deployment-repo.ts
+      - packages/platform/platform-storage/src/repos/pg-project-operation-repo.ts
+      - packages/platform/platform-storage/test/**
+      - packages/platform/platform-core/src/repos/deployment-repo.ts
+      - packages/platform/platform-core/src/repos/project-operation-repo.ts
+    verify:
+      - bun run --filter @rntme/platform-storage typecheck
+      - bun run --filter @rntme/platform-storage test
+      - bun run --filter @rntme/platform-core typecheck
+      - bun run lint
+    stop_if:
+      - "findStaleRunning is used by code outside platform-storage/platform-core (re-scope needed)."
+      - "Changing the predicate breaks any existing integration test fixture assuming a queued row is 'live forever'."
+      - "Renaming the method is required (split into two interface methods) — surface to Judge before touching deploy-runner/handler call sites."
+      - "Slice needs files outside allowed_files — stop, request PM to redefine slice."
+      - "verify suite fails twice in a row after two distinct attempts — stop, mark blocked."
+      - "execution_budget.worker_minutes_spent + elapsed_minutes_so_far would exceed 900 — finalize current change cleanly and stop."
+    reasoning_hint: medium
+    success_definition: >-
+      findStaleRunning in both pg-deployment-repo and pg-project-operation-repo
+      matches BOTH `queued` and `running`. Interface contract in platform-core
+      reflects new semantics (rename or doc-only). Test inserts a stale
+      `queued` row, calls findStaleRunning, asserts the row returned.
+      Simplify pass: identical predicate text across both repos.
+    receipt: null
+
+  - id: T201
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q2 (F033) — Consolidate withOptionalTransaction +
+      withSystemRlsDisabled into pg/tx.ts. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        4 helper copies → 1 canonical pair in pg/tx.ts. All 3 repos import; all
+        SET LOCAL row_security = off (transaction-scoped). Audit hypothesis about
+        session-scoped SET was off — source already used SET LOCAL; real divergence
+        was the inlined-vs-named isPool predicate. 6 new unit tests added.
+      changed_files:
+        - packages/platform/platform-storage/src/pg/tx.ts
+        - packages/platform/platform-storage/src/repos/pg-deployment-repo.ts
+        - packages/platform/platform-storage/src/repos/pg-deploy-target-repo.ts
+        - packages/platform/platform-storage/src/repos/pg-project-operation-repo.ts
+        - packages/platform/platform-storage/test/unit/pg/tx.test.ts
+      commands:
+        - {cmd: "bun run --filter @rntme/platform-storage typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/platform-storage test", status: pass, notes: "15 pass / 60 skip"}
+        - {cmd: "bun run lint", status: pass_in_scope}
+      elapsed_minutes: 22
+      worker_minutes_spent_after: 30
+    allowed_files:
+      - packages/platform/platform-storage/src/pg/tx.ts
+      - packages/platform/platform-storage/src/repos/pg-deployment-repo.ts
+      - packages/platform/platform-storage/src/repos/pg-deploy-target-repo.ts
+      - packages/platform/platform-storage/src/repos/pg-project-operation-repo.ts
+      - packages/platform/platform-storage/test/**
+    verify:
+      - bun run --filter @rntme/platform-storage typecheck
+      - bun run --filter @rntme/platform-storage test
+      - bun run lint
+    stop_if:
+      - "Local copies have diverged in ways that aren't reconcilable to a single helper."
+      - "`SET row_security = off` vs `SET LOCAL row_security = off` decision changes RLS scope for any non-test caller."
+    reasoning_hint: medium
+
+  - id: T202
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q3 (F022) — Pin single zod major across contracts.
+      Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        marketing-site/v1 pinned to zod ^3.24.2 matching module/v1; schema.ts
+        used zero zod-4-only APIs so no code changes were needed. Lockfile now
+        resolves a single shared zod@3.25.76 for both contract packages.
+      changed_files:
+        - packages/contracts/marketing-site/v1/package.json
+        - bun.lock
+      commands:
+        - {cmd: "bun install", status: pass, notes: "Lockfile was dirty from uncommitted Q1/Q2 changes."}
+        - {cmd: "bun install --frozen-lockfile", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 test", status: pass, notes: "11 pass / 0 fail"}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 test", status: pass, notes: "36 pass / 0 fail"}
+        - {cmd: "bun run lint", status: pass_in_scope, notes: "Contract packages lint clean; workspace still red on pre-existing storage-s3 + cli errors."}
+      elapsed_minutes: 8
+      worker_minutes_spent_after: 38
+      newly_discovered_findings:
+        - "F055: Wider workspace still has TWO zod majors. apps/cli, packages/runtime/bindings-http, packages/runtime/ui-runtime, all packages/artifacts/*, packages/deploy/deploy-core, packages/platform/platform-core pin zod ^4. F022 closed for contracts; broader unification is a new slice — add to backlog."
+    allowed_files:
+      - packages/contracts/module/v1/package.json
+      - packages/contracts/marketing-site/v1/package.json
+      - packages/contracts/marketing-site/v1/src/schema.ts
+      - packages/contracts/marketing-site/v1/src/index.ts
+      - packages/contracts/marketing-site/v1/test/**
+    verify:
+      - bun install --frozen-lockfile
+      - bun run --filter @rntme/contracts-marketing-site-v1 typecheck
+      - bun run --filter @rntme/contracts-marketing-site-v1 test
+      - bun run --filter @rntme/contracts-module-v1 typecheck
+      - bun run --filter @rntme/contracts-module-v1 test
+      - bun run lint
+    stop_if:
+      - "Back-port to zod 3 requires marketing-site to lose a zod-4-only API with no zod-3 equivalent (>1h)."
+      - "A consumer outside contracts/* pulls zod 4 explicitly — surface to Judge."
+    reasoning_hint: medium
+
+  - id: T203
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q4 (F021) — Promote Result<T,E> to single shared home;
+      collapse 5 duplicates. Apply `simplify`. **Retry: scope expanded by PM
+      after Worker correctly stopped at allowed_files boundary.**
+    receipt:
+      result: done
+      summary: >-
+        Option B.1: @rntme/contracts-common-v1/result is the canonical home for
+        Result/Ok/Err types + ok/err/isOk/isErr helpers (readonly, array-arg).
+        provisioner-v1, deploy-core, platform-core, bundle-publish reduced to
+        thin re-export shims. deploy-core + platform-core preserve their default-
+        param wrappers as one-line aliases. platform-core/types/result.ts keeps
+        ERROR_CODES/PlatformError unchanged. bundle-publish/publish-folder.ts
+        adjusted 5 call sites to array-arg err(). artifact-shared left untouched
+        (structurally compatible). Workspace typecheck + depcruise + lint
+        (in-scope) all green.
+      canonical_home: "@rntme/contracts-common-v1/result"
+      approach: "Option B.1 — contracts-common-v1 owns types AND helpers"
+      changed_files:
+        - packages/contracts/_common/v1/src/result.ts
+        - packages/contracts/_common/v1/src/index.ts
+        - packages/contracts/_common/v1/tsconfig.json
+        - packages/contracts/_common/v1/package.json
+        - packages/contracts/provisioner/v1/src/result.ts
+        - packages/contracts/provisioner/v1/package.json
+        - packages/deploy/deploy-core/src/result.ts
+        - packages/deploy/deploy-core/package.json
+        - packages/platform/platform-core/src/types/result.ts
+        - packages/platform/platform-core/package.json
+        - packages/tooling/bundle-publish/src/result.ts
+        - packages/tooling/bundle-publish/src/publish-folder.ts
+        - packages/tooling/bundle-publish/package.json
+        - bun.lock
+      commands:
+        - {cmd: "bun run typecheck", status: pass, notes: "0 errors across 58 workspace packages"}
+        - {cmd: "bun run --filter <touched + consumers> test", status: pass}
+        - {cmd: "bun run lint (touched packages)", status: pass}
+        - {cmd: "bun run depcruise", status: pass, notes: "828 modules / 1146 deps, 0 violations"}
+      elapsed_minutes: 45  # PM estimate; Worker didn't report explicit number
+      worker_minutes_spent_after: 83
+      pre_existing_lint_issues_for_followup:
+        - "modules/storage/s3/test/unit/server.test.ts — Buffer no-undef (4 errors)"
+        - "apps/cli/src/deploy-engine/resolve-provisioner.ts:44 — NodeJS no-undef (1 error; Q7 touches this file)"
+      followups_for_future_tranche:
+        - "artifact-shared/result.ts still has its own (mutable-fields) copy; could be unified once _shared/package.json becomes editable."
+    pm_notes:
+      first_attempt_outcome: "blocked — depcruise contracts-must-stay-leaves and tooling-only-imports-contracts forbid contracts/* and tooling/* from importing @rntme/artifact-shared. Must use Option B: new @rntme/contracts-common-v1 package owns the Result type; helpers stay in artifact-shared but re-import the type."
+      structural_facts:
+        - "platform-core/result.ts ALSO owns ERROR_CODES/PlatformError/PlatformErrorNode/ErrorCode — only the Result algebra is re-exported, the rest stays."
+        - "bundle-publish.err uses rest-args (`err(...errors)`); canonical is array (`err(errors[])`). 5 call sites in publish-folder.ts must be rewritten to pass arrays."
+      decision: "Adopt Option B. Allowed_files expanded to include the four duplicate packages' package.json + bundle-publish/src/publish-folder.ts."
+    allowed_files:
+      - packages/contracts/_common/v1/**
+      - packages/artifacts/_shared/src/result.ts
+      - packages/artifacts/_shared/src/index.ts
+      - packages/artifacts/_shared/test/**
+      - packages/contracts/provisioner/v1/src/result.ts
+      - packages/contracts/provisioner/v1/src/index.ts
+      - packages/contracts/provisioner/v1/package.json
+      - packages/deploy/deploy-core/src/result.ts
+      - packages/deploy/deploy-core/src/index.ts
+      - packages/deploy/deploy-core/package.json
+      - packages/platform/platform-core/src/types/result.ts
+      - packages/platform/platform-core/src/index.ts
+      - packages/platform/platform-core/package.json
+      - packages/tooling/bundle-publish/src/result.ts
+      - packages/tooling/bundle-publish/src/index.ts
+      - packages/tooling/bundle-publish/src/publish-folder.ts
+      - packages/tooling/bundle-publish/package.json
+    verify:
+      - bun run typecheck
+      - bun run test
+      - bun run lint
+      - bun run depcruise
+    stop_if:
+      - "Any consumer outside the 5 duplicate packages transitively re-types Result via nominal pattern that structural unification breaks (>5 sites needing rewrite) — surface to PM."
+      - "Creating @rntme/contracts-common-v1 introduces a new depcruise violation that can't be resolved by adjusting the canonical home — surface to PM."
+      - "Verify fails twice in a row — stop, mark blocked."
+    reasoning_hint: medium
+
+  - id: T204
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q5 (F006) — Move scalar/list/row type-string parser into
+      @rntme/bindings; delete duplicates. Depends on Q4. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        Canonical parseScalarType/parseFieldType/parseInputType/parseOutputType
+        (+ TypeParseError) now live in @rntme/bindings, returning Result<...>.
+        Blueprint + runtime delete inline regex copies, import the canonical.
+        Used @rntme/artifact-shared's Result (already a bindings dep) rather
+        than @rntme/contracts-common-v1 to avoid editing bindings/package.json.
+        Grammar reconciliations documented at parser site (array vs list kept
+        distinct; blueprint's narrower accept widened to runtime grammar; null
+        vs throw collapsed to Result with adapter-level unwrap).
+      changed_files:
+        - packages/artifacts/bindings/src/types/resolvers.ts
+        - packages/artifacts/bindings/src/index.ts
+        - packages/artifacts/bindings/test/unit/types/parse-types.test.ts
+        - packages/artifacts/blueprint/src/compose/binding-resolvers.ts
+        - packages/artifacts/blueprint/test/unit/binding-resolvers.test.ts
+        - packages/runtime/runtime/src/load/load-service.ts
+      commands:
+        - {cmd: "bun run --filter @rntme/bindings test", status: pass, notes: "161 pass"}
+        - {cmd: "bun run --filter @rntme/blueprint test", status: pass, notes: "146 pass"}
+        - {cmd: "bun run --filter @rntme/runtime test", status: pass, notes: "188 pass"}
+        - {cmd: "bun run depcruise", status: pass, notes: "0 violations"}
+      elapsed_minutes: 22
+      worker_minutes_spent_after: 105
+    allowed_files:
+      - packages/artifacts/bindings/src/types/resolvers.ts
+      - packages/artifacts/bindings/src/index.ts
+      - packages/artifacts/bindings/test/**
+      - packages/artifacts/blueprint/src/compose/binding-resolvers.ts
+      - packages/artifacts/blueprint/test/**
+      - packages/runtime/runtime/src/load/load-service.ts
+      - packages/runtime/runtime/test/**
+    verify:
+      - bun run --filter @rntme/bindings typecheck
+      - bun run --filter @rntme/bindings test
+      - bun run --filter @rntme/blueprint typecheck
+      - bun run --filter @rntme/blueprint test
+      - bun run --filter @rntme/runtime typecheck
+      - bun run --filter @rntme/runtime test
+      - bun run lint
+      - bun run depcruise
+    stop_if:
+      - "Two existing implementations have semantic divergence that cannot be reconciled without behaviour change (e.g. `array<scalar>` vs `list<scalar>` documented alias) — surface to Judge."
+      - "Moving parser to bindings introduces circular dep — re-evaluate target package."
+    reasoning_hint: medium
+
+  - id: T205
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q6 (F040) — Make module.json source of truth + add
+      drift-detection test. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        Walked every spec.json, found 3 top-level prop drifts
+        (PlatformTopbar.crumbsFromRoute, PlatformAPIExplorer.graphHrefTemplate,
+        PlatformAPIExplorer.pdmHrefTemplate); all accepted by components.tsx
+        (no drift bug). Added them to module.json. Drift-detection test
+        appended to platform-ui.test.ts. F040 audit estimate of "≥9 props"
+        included array-element shapes (sidebar items, column entries) which
+        are inside array-typed parent props, not separate top-level props.
+        Future unknown prop now fails CI.
+      changed_files:
+        - apps/platform/ui-module/module.json
+        - apps/platform/blueprint/test/platform-ui.test.ts
+      commands:
+        - {cmd: "bun run --filter @rntme/platform-ui test", status: pass, notes: "50 pass"}
+        - {cmd: "bun run --filter @rntme/platform-blueprint test", status: pass, notes: "103 pass incl. new drift detector"}
+        - {cmd: "bun run lint (in-scope)", status: pass}
+      missing_props_added: 3
+      drift_bugs_found: []
+      elapsed_minutes: 25
+      worker_minutes_spent_after: 130
+    allowed_files:
+      - apps/platform/ui-module/module.json
+      - apps/platform/blueprint/test/platform-ui.test.ts
+      - apps/platform/blueprint/test/**
+    verify:
+      - bun run --filter @rntme/platform-ui typecheck
+      - bun run --filter @rntme/platform-ui test
+      - bun run --filter @rntme/platform-blueprint typecheck
+      - bun run --filter @rntme/platform-blueprint test
+      - bun run lint
+    stop_if:
+      - "Screen spec passes a prop components.tsx does NOT actually accept — surface to Judge (drift bug, not manifest gap)."
+      - "Manifest schema cannot express a polymorphic prop without changing @rntme/contracts-module-v1 — defer affected prop."
+    reasoning_hint: medium
+
+  - id: T206
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q7 (F043) — Extract resolveBundledProvisioner into
+      @rntme/deploy-runner. Depends on Q4. Apply `simplify`.
+    receipt:
+      result: done
+      summary: >-
+        buildResolveProvisioner({bundleAssetDir?, manifestPath?, errorCodePrefix?})
+        in @rntme/deploy-runner. CLI + platform start-deployment handler delegate
+        to it. ~120 LoC duplication removed. Pre-existing CLI NodeJS lint error
+        fixed via `ReturnType<typeof createRequire>` swap.
+      helper_signature: "buildResolveProvisioner({ bundleAssetDir?: string; manifestPath?: string; errorCodePrefix?: string }): ResolveProvisioner"
+      changed_files:
+        - packages/deploy/deploy-runner/src/resolve-provisioner.ts
+        - packages/deploy/deploy-runner/src/index.ts
+        - packages/deploy/deploy-runner/test/resolve-provisioner.test.ts
+        - apps/cli/src/deploy-engine/resolve-provisioner.ts
+        - apps/platform/blueprint/services/deployments/handlers/start-deployment.ts
+      commands:
+        - {cmd: "bun run --filter @rntme/deploy-runner test", status: pass, notes: "107 pass"}
+        - {cmd: "bun run --filter @rntme/cli test", status: pass, notes: "206 pass"}
+        - {cmd: "bun run --filter @rntme/platform-blueprint test", status: pass, notes: "103 pass"}
+        - {cmd: "bun run lint", status: pass, notes: "CLI NodeJS-undef fixed; only pre-existing storage-s3 Buffer remains"}
+        - {cmd: "bun run depcruise", status: pass, notes: "829 modules, 1147 deps, 0 violations"}
+      loc_deleted: 120
+      cli_lint_fixed: true
+      elapsed_minutes: 25
+      worker_minutes_spent_after: 155
+    allowed_files:
+      - packages/deploy/deploy-runner/src/types.ts
+      - packages/deploy/deploy-runner/src/resolve-provisioner.ts
+      - packages/deploy/deploy-runner/src/index.ts
+      - packages/deploy/deploy-runner/test/**
+      - apps/cli/src/deploy-engine/resolve-provisioner.ts
+      - apps/cli/test/**
+      - apps/platform/blueprint/services/deployments/handlers/start-deployment.ts
+      - apps/platform/blueprint/test/**
+    verify:
+      - bun run --filter @rntme/deploy-runner typecheck
+      - bun run --filter @rntme/deploy-runner test
+      - bun run --filter @rntme/cli typecheck
+      - bun run --filter @rntme/cli test
+      - bun run --filter @rntme/platform-blueprint typecheck
+      - bun run --filter @rntme/platform-blueprint test
+      - bun run lint
+      - bun run depcruise
+    stop_if:
+      - "CLI and handler call sites diverge beyond `manifestPath` vs `bundleAssetDir` — surface to Judge."
+      - "Moving helper introduces runtime→artifact depcruise violation — relocate to deploy-core."
+      - "Path-safety check drifted between CLI and handler — surface to Judge."
+    reasoning_hint: medium
+
+  # PM creates T201, T202, ... mirroring T200 for slices Q2..QN after T101
+  # publishes the queue. Each one carries that slice's allowed_files / verify
+  # / stop_if and updates execution_budget.worker_minutes_spent on completion.
+
+  # =========================================================================
+  # Phase D — Final audit (Judge).
+  # =========================================================================
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Audit the tranche. Decide completion vs not.
+    receipt:
+      result: done
+      complete: true
+      full_outcome_complete: true
+      summary: >-
+        Tranche complete. 7/7 Worker slices shipped + verified. Budget
+        155/900 min used (17%). 3 new findings (F055, F056, F057) deferred
+        to backlog. handoff written. typecheck + depcruise green workspace-wide;
+        lint red only on pre-existing F056 (storage-s3 Buffer no-undef).
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      budget_reconciliation: "155 = 8+22+8+45+22+25+25"
+      newly_surfaced_findings: [F055, F056, F057]
+      next_tranche_first_candidate: "F052 vendor-check schema validation (unblocked by Q6)"
+      notes: >-
+        Two structurally-compatible Result shapes survive (contracts-common-v1
+        canonical vs artifact-shared mutable). Q5/Q7 used artifact-shared
+        deliberately to avoid editing bindings/deploy-runner package.json;
+        no runtime divergence. Unification queued as F057 for next tranche.

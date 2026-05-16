@@ -20,10 +20,10 @@ export async function publishFolder(
   const start = Date.now();
 
   if (!existsSync(folder)) {
-    return err({ code: 'BUNDLE_PUBLISH_FOLDER_MISSING', message: `folder not found: ${folder}` });
+    return err([{ code: 'BUNDLE_PUBLISH_FOLDER_MISSING', message: `folder not found: ${folder}` }]);
   }
   if (!existsSync(join(folder, 'index.html'))) {
-    return err({ code: 'BUNDLE_PUBLISH_NO_INDEX_HTML', message: 'index.html required at folder root' });
+    return err([{ code: 'BUNDLE_PUBLISH_NO_INDEX_HTML', message: 'index.html required at folder root' }]);
   }
 
   const ignore = opts.ignore ?? ['.git', '.git/**', 'node_modules', 'node_modules/**'];
@@ -33,7 +33,7 @@ export async function publishFolder(
     bundle = await buildDeterministicTarGz(folder, ignore, maxBytes);
   } catch (error) {
     if (error instanceof Error && error.message === 'BUNDLE_PUBLISH_TOO_LARGE') {
-      return err({ code: 'BUNDLE_PUBLISH_TOO_LARGE', message: `bundle exceeds ${maxBytes} bytes` });
+      return err([{ code: 'BUNDLE_PUBLISH_TOO_LARGE', message: `bundle exceeds ${maxBytes} bytes` }]);
     }
     throw error;
   }
@@ -48,9 +48,9 @@ export async function publishFolder(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/credentials/i.test(message)) {
-      return err({ code: 'BUNDLE_PUBLISH_S3_CREDS_MISSING', message, cause: error });
+      return err([{ code: 'BUNDLE_PUBLISH_S3_CREDS_MISSING', message, cause: error }]);
     }
-    return err({ code: 'BUNDLE_PUBLISH_S3_PUT_FAILED', message, cause: error });
+    return err([{ code: 'BUNDLE_PUBLISH_S3_PUT_FAILED', message, cause: error }]);
   }
 
   const ref: S3Reference = withOptionalS3Fields(

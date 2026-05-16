@@ -9,7 +9,7 @@
       { "type": "PlatformPageHeader", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "meta": { "type": "array" }, "statePath": { "type": "string" }, "actions": { "type": "array" } } },
       { "type": "PlatformPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "flush": { "type": "boolean" } } },
       { "type": "PlatformSidebar", "props": { "brand": { "type": "string" }, "version": { "type": "string" }, "contextLabel": { "type": "string" }, "contextName": { "type": "string" }, "contextMeta": { "type": "string" }, "items": { "type": "array" }, "cliVersion": { "type": "string" } } },
-      { "type": "PlatformTopbar", "props": { "crumbs": { "type": "array" }, "actions": { "type": "array" } } },
+      { "type": "PlatformTopbar", "props": { "crumbs": { "type": "array" }, "crumbsFromRoute": { "type": "boolean" }, "actions": { "type": "array" } } },
       { "type": "PlatformSummaryGrid", "props": { "items": { "type": "array" }, "statePath": { "type": "string" } } },
       { "type": "PlatformServicesPanel", "props": { "title": { "type": "string" }, "subtitle": { "type": "string" }, "statePath": { "type": "string" }, "services": { "type": "array" } } },
       { "type": "PlatformTimeline", "props": { "steps": { "type": "array" }, "currentStep": { "type": "number" }, "errored": { "type": "boolean" }, "statePath": { "type": "string" } } },
@@ -18,7 +18,7 @@
       { "type": "PlatformEmptyState", "props": { "eyebrow": { "type": "string" }, "title": { "type": "string" }, "body": { "type": "string" }, "command": { "type": "string" }, "docsLabel": { "type": "string" }, "docsHref": { "type": "string" } } },
       { "type": "PlatformDataTable", "props": { "statePath": { "type": "string" }, "columns": { "type": "array" } } },
       { "type": "PlatformDataModelExplorer", "props": { "statePath": { "type": "string" } } },
-      { "type": "PlatformAPIExplorer", "props": { "endpointsStatePath": { "type": "string" }, "summaryStatePath": { "type": "string" }, "endpointDetailPathTemplate": { "type": "string" } } },
+      { "type": "PlatformAPIExplorer", "props": { "endpointsStatePath": { "type": "string" }, "summaryStatePath": { "type": "string" }, "endpointDetailPathTemplate": { "type": "string" }, "graphHrefTemplate": { "type": "string" }, "pdmHrefTemplate": { "type": "string" } } },
       { "type": "PlatformTokenIssuer", "props": { "defaultName": { "type": "string" }, "defaultScopesJson": { "type": "string" }, "orgStatePath": { "type": "string" } } },
       { "type": "PlatformBox", "props": { "className": { "type": "string" }, "as": { "type": "string" } } }
     ],

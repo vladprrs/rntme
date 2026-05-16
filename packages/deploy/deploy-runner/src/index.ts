@@ -73,6 +73,9 @@ export type { ProjectDeleteExecutorDeps } from './project-delete.js';
 
 export { runDeployment, deployErrorsToPlatformError } from './run-deployment.js';
 
+export { buildResolveProvisioner } from './resolve-provisioner.js';
+export type { BuildResolveProvisionerOptions } from './resolve-provisioner.js';
+
 export { stages, StageError } from './stages/index.js';
 export type {
   StageContext,

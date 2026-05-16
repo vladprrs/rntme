@@ -65,5 +65,12 @@ export interface ProjectOperationRepo {
     limit: number;
   }): Promise<Result<{ lines: readonly ProjectOperationLogLine[]; lastLineId: number }, PlatformError>>;
 
+  /**
+   * Returns project_operation rows whose status is `queued` or `running` and
+   * whose `last_heartbeat_at` is either NULL or older than `staleAfterSeconds`
+   * ago. The method name is preserved for stability; queued rows are included
+   * so that operations stuck in `queued` (never picked up by a runner) can be
+   * reaped by the orphan detector, not only abandoned `running` rows.
+   */
   findStaleRunning(staleAfterSeconds: number): Promise<Result<readonly { id: string; orgId: string; projectId: string }[], PlatformError>>;
 }

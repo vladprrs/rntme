@@ -116,6 +116,64 @@ d('PgProjectOperationRepo', () => {
     if (finalized.ok) expect(finalized.value.result).toEqual({ deletedResources: 1 });
   });
 
+  it('finds queued or running operations with null or stale heartbeats', async () => {
+    const targetId = randomUUID();
+    await h.pool.query(
+      `INSERT INTO deploy_target (
+         id, org_id, slug, display_name, kind, dokploy_url, dokploy_project_id,
+         allow_create_project, api_token_ciphertext, api_token_nonce, api_token_key_version,
+         event_bus_config, module_config, auth_config, policy_values
+       ) VALUES ($1,$2,'dokploy','Dokploy','dokploy','https://dokploy.example.com','dokploy-project',false,'x'::bytea,'n'::bytea,1,'{"kind":"kafka","mode":"external","brokers":["redpanda:9092"]}'::jsonb,'{}'::jsonb,'{}'::jsonb,'{}'::jsonb)`,
+      [targetId, orgId],
+    );
+
+    const insertOp = async (id: string) => {
+      await h.pool.query(
+        `INSERT INTO project_operation (
+           id, org_id, project_id, kind, requested_by_account_id, target_id, input
+         ) VALUES ($1,$2,$3,'update',$4,$5,'{}'::jsonb)`,
+        [id, orgId, projectId, accountId, targetId],
+      );
+    };
+
+    const nullHeartbeatId = randomUUID();
+    const oldHeartbeatId = randomUUID();
+    const freshHeartbeatId = randomUUID();
+    const staleQueuedId = randomUUID();
+    const freshQueuedId = randomUUID();
+    await insertOp(nullHeartbeatId);
+    await insertOp(oldHeartbeatId);
+    await insertOp(freshHeartbeatId);
+    await insertOp(staleQueuedId);
+    await insertOp(freshQueuedId);
+
+    await h.pool.query(
+      `UPDATE project_operation SET status='running', started_at=now(), last_heartbeat_at=NULL WHERE id=$1`,
+      [nullHeartbeatId],
+    );
+    await h.pool.query(
+      `UPDATE project_operation SET status='running', started_at=now(), last_heartbeat_at=now() - interval '2 minutes' WHERE id=$1`,
+      [oldHeartbeatId],
+    );
+    await h.pool.query(
+      `UPDATE project_operation SET status='running', started_at=now(), last_heartbeat_at=now() WHERE id=$1`,
+      [freshHeartbeatId],
+    );
+    // staleQueuedId stays 'queued' with NULL heartbeat — must be reaped.
+    await h.pool.query(
+      `UPDATE project_operation SET last_heartbeat_at=now() WHERE id=$1`,
+      [freshQueuedId],
+    );
+
+    const stale = await new PgProjectOperationRepo(h.pool).findStaleRunning(60);
+    expect(stale.ok).toBe(true);
+    if (!stale.ok) return;
+    const ids = stale.value.map((row) => row.id);
+    expect(ids).toEqual(expect.arrayContaining([nullHeartbeatId, oldHeartbeatId, staleQueuedId]));
+    expect(ids).not.toContain(freshHeartbeatId);
+    expect(ids).not.toContain(freshQueuedId);
+  });
+
   it('finds active deployments and applied resources by project', async () => {
     const versionId = randomUUID();
     const targetId = randomUUID();

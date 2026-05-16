@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.650.0",
+    "@rntme/contracts-common-v1": "workspace:*",
     "tar-stream": "^3.2.0"
   },
   "devDependencies": {

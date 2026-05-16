@@ -18,12 +18,12 @@ import {
 } from '@rntme/qsm';
 import {
   parseBindingArtifact,
+  parseInputType,
+  parseOutputType,
   validateBindings,
   generateOpenApi,
   type BindingResolvers,
   type GraphSignature,
-  type InputType,
-  type OutputType,
   type ResolvedShape,
   type ScalarPrimitive,
   type InputMode,
@@ -48,14 +48,6 @@ import type { DerivedHandler } from '@rntme/projection-consumer';
 // Manifest schema version, not the npm package semver.
 const RUNTIME_VERSION = { major: 1, minor: 0, patch: 0 };
 
-const SCALAR_PRIMITIVES: readonly ScalarPrimitive[] = [
-  'integer', 'decimal', 'string', 'boolean', 'date', 'datetime',
-];
-
-function asScalarPrimitive(raw: string): ScalarPrimitive | null {
-  return (SCALAR_PRIMITIVES as readonly string[]).includes(raw) ? (raw as ScalarPrimitive) : null;
-}
-
 type GraphJson = {
   id: string;
   signature: {
@@ -65,34 +57,19 @@ type GraphJson = {
   nodes: unknown[];
 };
 
-function parseInputType(raw: string): InputType {
-  const scalar = asScalarPrimitive(raw);
-  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
-  const list = /^list<(\w+)>$/.exec(raw);
-  if (list) {
-    const element = asScalarPrimitive(list[1]!);
-    if (element !== null) return { kind: 'list', element };
-  }
-  const row = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
-  if (row) {
-    return { kind: row[1] as 'rowset' | 'row', shape: row[2] as string };
-  }
-  throw new Error(`unsupported input type: "${raw}"`);
-}
-
-function parseOutputType(raw: string): OutputType {
-  const scalar = asScalarPrimitive(raw);
-  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
-  const m = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
-  if (!m) throw new Error(`unsupported output type: "${raw}"`);
-  return { kind: m[1] as 'rowset' | 'row', shape: m[2] as string };
-}
-
 function toGraphSignature(g: GraphJson): GraphSignature {
   const inputs: GraphSignature['inputs'] = {};
   for (const [name, decl] of Object.entries(g.signature.inputs)) {
-    const base = { type: parseInputType(decl.type), mode: decl.mode };
+    const parsed = parseInputType(decl.type);
+    if (!parsed.ok) {
+      throw new Error(`unsupported input type: "${decl.type}"`);
+    }
+    const base = { type: parsed.value, mode: decl.mode };
     inputs[name] = decl.default !== undefined ? { ...base, default: decl.default } : base;
+  }
+  const outputParsed = parseOutputType(g.signature.output.type);
+  if (!outputParsed.ok) {
+    throw new Error(`unsupported output type: "${g.signature.output.type}"`);
   }
   const emitNodes = Array.isArray(g.nodes)
     ? g.nodes.filter((n) => typeof n === 'object' && n !== null && (n as { type?: string }).type === 'emit')
@@ -100,7 +77,7 @@ function toGraphSignature(g: GraphJson): GraphSignature {
   return {
     id: g.id,
     inputs,
-    output: { type: parseOutputType(g.signature.output.type), from: g.signature.output.from },
+    output: { type: outputParsed.value, from: g.signature.output.from },
     effects: {
       localReads: true,
       localEmits: emitNodes.map((node) => {

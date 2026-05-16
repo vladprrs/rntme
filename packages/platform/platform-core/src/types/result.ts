@@ -1,11 +1,14 @@
-export type Ok<T> = { readonly ok: true; readonly value: T };
-export type Err<E> = { readonly ok: false; readonly errors: readonly E[] };
-export type Result<T, E = PlatformError> = Ok<T> | Err<E>;
+import type {
+  Ok as CommonOk,
+  Err as CommonErr,
+  Result as CommonResult,
+} from '@rntme/contracts-common-v1/result';
 
-export const ok = <T>(value: T): Ok<T> => ({ ok: true, value });
-export const err = <E>(errors: readonly E[]): Err<E> => ({ ok: false, errors });
-export const isOk = <T, E>(r: Result<T, E>): r is Ok<T> => r.ok === true;
-export const isErr = <T, E>(r: Result<T, E>): r is Err<E> => r.ok === false;
+export { ok, err, isOk, isErr } from '@rntme/contracts-common-v1/result';
+
+export type Ok<T> = CommonOk<T>;
+export type Err<E> = CommonErr<E>;
+export type Result<T, E = PlatformError> = CommonResult<T, E>;
 
 export const ERROR_CODES = {
   PLATFORM_AUTH_MISSING: 'PLATFORM_AUTH_MISSING',

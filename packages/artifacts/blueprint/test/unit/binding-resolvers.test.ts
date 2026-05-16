@@ -45,15 +45,21 @@ function graphSpecWithScalar(primitive: string): ServiceGraphSpec {
 }
 
 describe('createServiceBindingResolvers scalar primitives', () => {
-  it('delegates scalar validation to bindings without a local scalar set', () => {
+  it('delegates type-string parsing to @rntme/bindings without a local parser', () => {
     const source = readFileSync(
       join(here, '../../src/compose/binding-resolvers.ts'),
       'utf8',
     );
 
-    expect(source).toContain('isScalarPrimitive');
+    // Type-string parsing must come from @rntme/bindings — no inline regex
+    // copies, no local scalar primitive set.
+    expect(source).toContain('parseFieldType');
+    expect(source).toContain('parseInputType');
+    expect(source).toContain('parseOutputType');
     expect(source).not.toContain('const SCALARS');
     expect(source).not.toContain('new Set([');
+    expect(source).not.toContain('/^array<');
+    expect(source).not.toContain('/^(rowset|row)<');
   });
 
   it.each([...SCALAR_PRIMITIVES])(

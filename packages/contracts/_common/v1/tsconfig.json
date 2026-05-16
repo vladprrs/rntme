@@ -6,6 +6,6 @@
     "composite": false,
     "allowJs": false
   },
-  "include": ["src/index.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "test"]
 }

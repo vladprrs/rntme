@@ -270,15 +270,17 @@ d('PgDeploymentRepo', () => {
     );
   });
 
-  it('finds running deployments with null or stale heartbeats', async () => {
+  it('finds queued or running deployments with null or stale heartbeats', async () => {
     const nullHeartbeatId = randomUUID();
     const oldHeartbeatId = randomUUID();
     const freshHeartbeatId = randomUUID();
-    const queuedId = randomUUID();
+    const staleQueuedId = randomUUID();
+    const freshQueuedId = randomUUID();
     await createDeployment(nullHeartbeatId);
     await createDeployment(oldHeartbeatId);
     await createDeployment(freshHeartbeatId);
-    await createDeployment(queuedId);
+    await createDeployment(staleQueuedId);
+    await createDeployment(freshQueuedId);
     await h.pool.query(
       `UPDATE deployment
        SET status='running', started_at=now(), last_heartbeat_at=NULL
@@ -297,6 +299,15 @@ d('PgDeploymentRepo', () => {
        WHERE id=$1`,
       [freshHeartbeatId],
     );
+    // staleQueuedId stays in 'queued' with NULL heartbeat (default) — this
+    // simulates a row that was queued but never picked up by a runner. The
+    // orphan detector must reap it; see memory rntme_orphan_detect_queued_gap.
+    await h.pool.query(
+      `UPDATE deployment
+       SET last_heartbeat_at=now()
+       WHERE id=$1`,
+      [freshQueuedId],
+    );
 
     const stale = await new PgDeploymentRepo(h.pool).findStaleRunning(60);
 
@@ -305,13 +316,14 @@ d('PgDeploymentRepo', () => {
       expect.arrayContaining([
         { id: nullHeartbeatId, orgId },
         { id: oldHeartbeatId, orgId },
+        { id: staleQueuedId, orgId },
       ]),
     );
     expect(isOk(stale) ? stale.value.map((row) => row.id) : []).not.toContain(
       freshHeartbeatId,
     );
     expect(isOk(stale) ? stale.value.map((row) => row.id) : []).not.toContain(
-      queuedId,
+      freshQueuedId,
     );
   });
 
