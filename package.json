@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "bun run --filter '*' build",
-    "test": "bun run --filter '*' test",
+    "test": "bun run --filter '*' --sequential test",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "bun run --filter '*' lint",
     "vendor:check": "bun run scripts/vendor-check.mjs",

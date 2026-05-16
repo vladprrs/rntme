@@ -7,11 +7,14 @@ goal:
   created: 2026-05-15
   reopened: 2026-05-16
   completed_again: 2026-05-16
+  reopened_for_tranche_3: 2026-05-16
+  completed_tranche_3: 2026-05-16
   reopened_reason: >-
-    Tranche 1 closed by queue-exhaustion arm at 17% of budget (155/900 min).
-    User requested continuation. Tranche 2 resumes from 2_ranking rank ≥ #11
-    plus newly-surfaced F055..F057, per handoff.md "next-tranche recommendation".
-    Same 900-min cap continues; ~745 min headroom remaining.
+    Tranche 2 closed by queue-exhaustion arm at 26% cumulative budget
+    (235/900 min). User requested continuation. Tranche 3 resumes from
+    handoff-tranche2.md recommendations: first close F058 to restore the CLI
+    test signal, then take F037 and F055 while the same 900-min cap continues
+    with ~665 min headroom remaining at tranche start.
   charter: docs/goals/simplify-monorepo-audit/goal.md
   intake:
     input_shape: open_ended
@@ -49,7 +52,7 @@ agents:
 
 execution_budget:
   worker_minutes_cap: 900
-  worker_minutes_spent: 235
+  worker_minutes_spent: 355
   execution_budget_started_at: "2026-05-15T18:10:00Z"
   rule: >-
     Starts when T101 receipt publishes the ranked queue. Every Worker receipt
@@ -80,6 +83,21 @@ execution_budget:
         - "T211 (Q12/F044) done in 15 min — pollUntilTerminal helper extracted; duplication of polling loop eliminated. Surfaced pre-existing flake F058 (load-blueprint test timeout 5.3s)."
         - "T212 (Q13/F046) done in 12 min — CliError.cause now routes to nested[] in human + JSON output; 4 new tests; memory rntme_cli_dist_silent_stale ready to retire."
         - "T213 (Q14/F031) done in 25 min — AES-GCM crypto consolidated onto AesGcmSecretCipher via shared handler helper; -66 LoC; error codes aligned to PLATFORM_STORAGE_DB_UNAVAILABLE; all 23 crypto tests pass."
+    - id: 3
+      worker_tasks: [T214, T215, T216]
+      status: complete
+      started: 2026-05-16
+      completed: 2026-05-16
+      minutes_used: 120
+      minutes_budget: 665
+      branch: feat/simplify-monorepo-audit-tranche-2
+      audit: T1001
+      notes:
+        - "T214 (Q15/F058) done in 5 min — CLI load-blueprint CV demo test gets a scoped 15s timeout; full @rntme/cli test is green (210 pass / 2 skip / 0 fail)."
+        - "T215 (Q16/F037) done in 45 min — compose YAML now renders from a typed object through yaml@2.9.0; slow scalar coercion regression covered; workspace gates + live platform up smoke pass."
+        - "T216 (Q17/F055) done in 70 min — first-party zod pins unified on ^4.0.0; record schemas adjusted for Zod 4's two-arg record API; remaining zod@3 lock entries are external transitive aliases only."
+        - "T216 also closed newly surfaced F059: root `bun run test` now runs filtered workspace tests sequentially after the default parallel runner stranded a high-CPU package child even though the package test passed standalone."
+        - "T1001 final audit done — Tranche 3 queue arm satisfied (3/3 queued slices done); cumulative budget 355/900 min with 545 min headroom."
 
 verify_suite_default:
   - "bun run typecheck"
@@ -1461,3 +1479,313 @@ tasks:
     reasoning_hint: high
     receipt: null
 
+  # =========================================================================
+  # TRANCHE 3 — reopened 2026-05-16. Resumes from handoff-tranche2.md:
+  # F058 first to restore the CLI test signal, then F037 and F055.
+  # =========================================================================
+  - id: T103
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Ratify the Tranche 3 Worker queue from handoff-tranche2.md's
+      recommendation. Keep the queue intentionally small: close the known CLI
+      test timeout first, then tackle the deploy-dokploy structural rendering
+      singleton, then the workspace zod-major policy slice.
+    inputs:
+      - "notes/handoff-tranche2.md (next-tranche recommendation block)"
+      - "notes/audit-catalog.md sections 2_ranking + 4_backlog"
+      - "execution_budget.worker_minutes_spent (235 at tranche start) and remaining 665 min cap"
+    constraints:
+      - "F058 must run first so full CLI tests are a useful signal before larger work."
+      - "F037 is deploy-affecting; Worker must include package tests, depcruise/lint, and Dokploy smoke if runtime deploy output changes."
+      - "F055 must decide the canonical zod major before changing broad dependency pins."
+    expected_output:
+      - "Ranked queue Q15..Q17 with f_id, est_effort_h, depends_on, allowed_files snapshot."
+      - "Receipt summarizes total est_effort_h and remaining budget headroom."
+    receipt:
+      result: done
+      decision: "Tranche 3 Worker queue published; first slice is Q15 (F058 — CLI load-blueprint timeout flake)."
+      summary: "3 queued slices (Q15..Q17), total est_effort_h ≈ 7.25 (435 min); fits in 665 min remaining headroom with ~230 min buffer."
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff-tranche2.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      queued_slices:
+        - {id: Q15, f_id: F058, est_effort_h: 0.25, depends_on: [], rationale: "known CLI test timeout; tiny fix; restores full @rntme/cli test signal before larger work"}
+        - {id: Q16, f_id: F037, est_effort_h: 4, depends_on: [], rationale: "handoff first candidate; largest deferred deploy-dokploy singleton; removes stringly YAML/nginx rendering risk"}
+        - {id: Q17, f_id: F055, est_effort_h: 3, depends_on: [], rationale: "workspace zod-major unification; broad dependency policy slice after deploy-dokploy work"}
+      total_est_effort_h: 7.25
+      total_est_minutes: 435
+      remaining_budget_after_estimate: 230
+      next_allowed_task: T214
+    reasoning_hint: medium
+
+  - id: T214
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q15 (F058) — Fix the CLI load-blueprint CV demo timeout
+      flake by giving the one known slow test a scoped timeout. Apply
+      `simplify` fallback review (the named skill is not installed in this
+      session): preserve behavior and keep the diff test-only.
+    receipt:
+      result: done
+      summary: >-
+        Reproduced the isolated failure at 5.767s against Bun's default 5s
+        per-test timeout. The test exercises the real CV demo bundle/materialize
+        path and has valid assertions, so the fix scopes a 15s timeout to only
+        that test using Bun's typed third-argument overload. No production code
+        changed. Full @rntme/cli test is green again.
+      changed_files:
+        - apps/cli/test/unit/deploy-engine/load-blueprint.test.ts
+      commands:
+        - {cmd: "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir' (before fix)", status: fail_repro, notes: "timed out after 5000ms at 5767.05ms"}
+        - {cmd: "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir'", status: pass, notes: "1 pass / 2 filtered out; slow test 5801.05ms under scoped 15000ms timeout"}
+        - {cmd: "bun run --filter @rntme/cli typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/cli lint", status: pass}
+        - {cmd: "bun run --filter @rntme/cli test", status: pass, notes: "210 pass / 2 skip / 0 fail / 538 expects"}
+      elapsed_minutes: 5
+      worker_minutes_spent_after: 240
+      root_cause: >-
+        The CV demo deploy-bundle materialization path consistently takes
+        about 5.7s locally, just over Bun's default 5s per-test timeout. It is
+        not an assertion failure and not caused by Tranche 2 watcher changes.
+    inputs:
+      - "notes/audit-catalog.md F058 (backlog section, 2026-05-16 addition)"
+      - "apps/cli/README.md and docs/current/owners/apps/cli.md"
+    allowed_files:
+      - apps/cli/test/unit/deploy-engine/load-blueprint.test.ts
+    verify:
+      - "bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir'"
+      - bun run --filter @rntme/cli typecheck
+      - bun run --filter @rntme/cli lint
+      - bun run --filter @rntme/cli test
+    stop_if:
+      - "The test fails by assertion or load error rather than timeout — root-cause before changing timeout."
+      - "Adding a timeout requires changing production loader performance or test fixture structure — surface to Judge."
+    success_definition: >-
+      The specific slow test passes under a scoped timeout; @rntme/cli
+      typecheck, lint, and test all pass. No production source changes.
+    reasoning_hint: low
+
+  - id: T215
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q16 (F037) — Replace stringly compose YAML rendering in
+      @rntme/deploy-dokploy with structural object serialization, and simplify
+      nginx rendering around the existing structured config model where safe.
+      Apply the `simplify` fallback review (reuse, quality, efficiency;
+      preserve functionality).
+    inputs:
+      - "notes/audit-catalog.md Rank #10 / F037"
+      - "packages/deploy/deploy-dokploy/README.md and owner doc"
+      - ".dependency-cruiser.cjs"
+    allowed_files:
+      - packages/deploy/deploy-dokploy/src/compose-yaml.ts
+      - packages/deploy/deploy-dokploy/src/nginx.ts
+      - packages/deploy/deploy-dokploy/src/render.ts
+      - packages/deploy/deploy-dokploy/src/apply.ts
+      - packages/deploy/deploy-dokploy/src/**
+      - packages/deploy/deploy-dokploy/test/**
+      - packages/deploy/deploy-dokploy/package.json
+      - bun.lock
+      - docs/current/owners/packages/deploy/deploy-dokploy.md
+    verify:
+      - bun install --frozen-lockfile
+      - bun run --filter @rntme/deploy-dokploy typecheck
+      - bun run --filter @rntme/deploy-dokploy test
+      - bun run typecheck
+      - bun run lint
+      - bun run depcruise
+      - "Dokploy redeploy smoke via repo .env if deploy output/apply behavior changes"
+    stop_if:
+      - "The yaml dependency is unavailable or introduces an ESM/CJS runtime mismatch under Bun."
+      - "Golden outputs change beyond formatting that is demonstrably equivalent to the existing Dokploy API payload."
+      - "Nginx builder cleanup turns into a broad rewrite unrelated to F037's YAML correctness risk."
+      - "Verify fails twice in a row after two distinct attempts — stop, mark blocked."
+    success_definition: >-
+      Compose output is built from a typed object and serialized at the
+      boundary instead of hand-concatenated YAML scalars. Existing deploy-dokploy
+      tests pass with intentional snapshot/golden updates only. Any nginx
+      cleanup is tightly scoped to removing duplicate/stringly rendering without
+      changing deploy semantics.
+    reasoning_hint: high
+    receipt:
+      result: done
+      summary: >-
+        Replaced the hand-concatenated Compose YAML renderer with a typed
+        Compose document model serialized by yaml@2.9.0. Added a regression
+        test proving literal env values that look like YAML scalars (`true`,
+        `123`, `{token}`) stay strings. Existing golden expectations stayed
+        stable; no deploy-dokploy test snapshots needed updating. Nginx was
+        inspected but not rewritten: its current renderer is already EdgePlan-
+        driven with explicit sanitizer tests and byte-exact golden coverage;
+        a broad builder rewrite would be lower-signal than the YAML scalar
+        correctness fix and hit the slice stop_if for unrelated rewrite scope.
+      changed_files:
+        - packages/deploy/deploy-dokploy/src/compose-yaml.ts
+        - packages/deploy/deploy-dokploy/test/unit/compose-yaml.test.ts
+        - packages/deploy/deploy-dokploy/package.json
+        - bun.lock
+        - docs/current/owners/packages/deploy/deploy-dokploy.md
+      commands:
+        - {cmd: "bun test packages/deploy/deploy-dokploy/test/unit/compose-yaml.test.ts (before fix)", status: fail_repro, notes: "BOOLEAN_FLAG rendered as plain `true`, FLOW_LIKE_TOKEN as `{token}`, NUMERIC_ID as `123`"}
+        - {cmd: "bun install --frozen-lockfile", status: pass, notes: "checked 1532 installs across 1654 packages"}
+        - {cmd: "bun run --filter @rntme/deploy-dokploy typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/deploy-dokploy test", status: pass, notes: "142 pass / 13 skip / 0 fail / 619 expects"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all workspace package typechecks exited 0"}
+        - {cmd: "bun run lint", status: pass, notes: "all workspace package lint scripts exited 0"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run build", status: pass, notes: "workspace build exited 0 before live redeploy"}
+        - {cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-redeploy-2026-05-16-T215.jsonl", status: pass, notes: "render digest sha256:e8d7d7616eb9e3bf283decc9ad643af094dae3039752bf19ff09ed3ce2614a82; compose project-stack updated; built-in smoke checks health/ui/config all 200"}
+        - {cmd: "curl -i https://platform.rntme.com/health", status: pass_after_restart_window, notes: "initial immediate check saw a transient 404 during restart; repeat returned HTTP 200 `ok`"}
+        - {cmd: "curl -i https://platform.rntme.com/config.json", status: pass_after_restart_window, notes: "initial immediate check saw a transient 404 during restart; repeat returned HTTP 200 application/json"}
+      elapsed_minutes: 45
+      worker_minutes_spent_after: 285
+      loc_notes: >-
+        compose-yaml.ts now uses small typed ComposeDocument/ComposeServiceYaml
+        mappers; manual yamlScalar and line-by-line YAML assembly removed.
+      docs_touch:
+        - "Updated docs/current/owners/packages/deploy/deploy-dokploy.md with the structural YAML rendering invariant."
+      live_smoke_log: ".rntme-platform-redeploy-2026-05-16-T215.jsonl"
+
+  - id: T216
+    type: worker
+    assignee: Worker
+    status: done
+    objective: >-
+      Execute slice Q17 (F055) — Decide and implement workspace-wide zod major
+      unification, keeping contract packages and artifact/runtime packages on
+      one canonical zod major. Apply `simplify` fallback review.
+    inputs:
+      - "notes/audit-catalog.md F055"
+      - "All package.json files that declare zod"
+      - "docs/decision-system.md F8 + G5"
+    allowed_files:
+      - package.json
+      - bun.lock
+      - apps/cli/package.json
+      - packages/runtime/**/package.json
+      - packages/artifacts/**/package.json
+      - packages/deploy/deploy-core/package.json
+      - packages/platform/platform-core/package.json
+      - packages/contracts/**/package.json
+      - "**/src/**/*.ts"
+      - "**/test/**/*.ts"
+    verify:
+      - bun install --frozen-lockfile
+      - bun run typecheck
+      - bun run test
+      - bun run lint
+      - bun run depcruise
+    stop_if:
+      - "Choosing zod 3 vs zod 4 conflicts with existing locked decision-system guidance or current package APIs."
+      - "A package uses zod-version-specific APIs that make the unification larger than a dependency-policy slice."
+      - "Verify fails twice in a row after two distinct attempts — stop, mark blocked."
+    success_definition: >-
+      Workspace package manifests resolve one zod major. Any required source
+      adjustments are minimal and covered by package tests. The chosen major
+      and reason are recorded in the Worker receipt.
+    reasoning_hint: high
+    receipt:
+      result: done
+      summary: >-
+        Chose Zod 4 as the canonical first-party major because the workspace
+        had already converged there across artifacts, deploy, platform, CLI,
+        and most runtime packages, and current Zod 4 docs require the two-arg
+        `z.record(keySchema, valueSchema)` form. Updated the remaining
+        first-party Zod 3 pins (`contracts-module-v1`,
+        `contracts-marketing-site-v1`, and `runtime`) to `^4.0.0`, adjusted
+        module manifest record schemas to the Zod 4 API, and documented the
+        package invariants. Lockfile inspection now shows no first-party Zod 3
+        package-scoped entries; the only `zod@3.25.76` entries are external
+        aliases from `astro`, `zod-to-json-schema`, and `zod-to-ts`.
+      changed_files:
+        - package.json
+        - bun.lock
+        - packages/contracts/module/v1/package.json
+        - packages/contracts/module/v1/src/manifest-shape.ts
+        - packages/contracts/marketing-site/v1/package.json
+        - packages/runtime/runtime/package.json
+        - docs/current/owners/packages/contracts/module/v1.md
+        - docs/current/owners/packages/contracts/marketing-site.md
+        - docs/current/owners/packages/runtime/runtime.md
+      commands:
+        - {cmd: "rg -n '\"zod\"\\s*:\\s*\"\\^3' package.json packages apps modules -g package.json", status: pass_no_matches, notes: "no first-party package.json pins zod ^3"}
+        - {cmd: "rg -n '@rntme/(contracts-module-v1|contracts-marketing-site-v1|runtime)/zod|\"zod\"\\s*:\\s*\"\\^3|zod@3' bun.lock", status: pass_external_only, notes: "only external alias entries remain: astro/zod, zod-to-json-schema/zod, zod-to-ts/zod"}
+        - {cmd: "bun install", status: pass}
+        - {cmd: "bun install --frozen-lockfile", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime typecheck", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 test", status: pass, notes: "36 pass / 0 fail / 65 expects"}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 test", status: pass, notes: "11 pass / 0 fail / 29 expects"}
+        - {cmd: "bun run --filter @rntme/runtime test", status: pass, notes: "188 pass / 0 fail / 394 expects"}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 lint", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 lint", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime lint", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-module-v1 build", status: pass}
+        - {cmd: "bun run --filter @rntme/contracts-marketing-site-v1 build", status: pass}
+        - {cmd: "bun run --filter @rntme/runtime build", status: pass}
+        - {cmd: "bun run test (before root sequential script)", status: fail_hang_repro_interrupted, notes: "default parallel filtered workspace runner stranded a high-CPU @rntme/conformance-ai-llm child for more than 4 min; standalone package `timeout 20s bun test` passed in 89ms"}
+        - {cmd: "bun run --filter '*' --sequential test", status: pass, notes: "proved sequential workspace runner completes end-to-end"}
+        - {cmd: "bun run typecheck", status: pass, notes: "all workspace package typechecks exited 0"}
+        - {cmd: "bun run lint", status: pass, notes: "all workspace package lint scripts exited 0"}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run build", status: pass, notes: "workspace build exited 0"}
+        - {cmd: "bun run vendor:check", status: pass, notes: "vendor:check ok — all vendored copies in sync"}
+        - {cmd: "bun run test", status: pass, notes: "root script now uses `bun run --filter '*' --sequential test`; all package tests completed with exit 0"}
+      docs_touch:
+        - "Updated module, marketing-site, and runtime owner docs with the Zod 4 invariant."
+        - "No AGENTS.md or root README update needed: the documented command remains `bun run test`."
+      newly_surfaced_findings:
+        - "F059 — root `bun run test` default parallel workspace runner can strand a package child even when that package's test command passes standalone; closed in the same slice by making the root test script run filtered workspace tests sequentially."
+      elapsed_minutes: 70
+      worker_minutes_spent_after: 355
+
+  - id: T1001
+    type: judge
+    assignee: Judge
+    status: done
+    objective: >-
+      Final Tranche 3 audit: verify Q15..Q17 receipts, reconcile budget, and
+      publish handoff-tranche3.md. Declare complete only if all queued slices
+      are done and the verification suite is green.
+    inputs:
+      - "T214 receipt"
+      - "T215 receipt"
+      - "T216 receipt"
+      - "notes/audit-catalog.md"
+    constraints:
+      - "Do not mark the goal complete while any required verification is still running or failed."
+      - "Preserve unrelated dirty worktree changes outside this goal."
+    expected_output:
+      - "notes/handoff-tranche3.md"
+      - "state.yaml marks Tranche 3 complete by queue exhaustion"
+    receipt:
+      result: done
+      summary: >-
+        Tranche 3 queue exhausted cleanly: Q15/F058, Q16/F037, and Q17/F055
+        all have done receipts and the workspace gates pass. Cumulative budget
+        is 355/900 worker-minutes, so the goal completes by the queue arm with
+        545 minutes headroom rather than by budget exhaustion.
+      evidence:
+        - docs/goals/simplify-monorepo-audit/notes/handoff-tranche3.md
+        - docs/goals/simplify-monorepo-audit/notes/audit-catalog.md
+      commands:
+        - {cmd: "bun install --frozen-lockfile", status: pass}
+        - {cmd: "bun run typecheck", status: pass}
+        - {cmd: "bun run lint", status: pass}
+        - {cmd: "bun run depcruise", status: pass, notes: "827 modules / 1145 dependencies / 0 violations"}
+        - {cmd: "bun run test", status: pass, notes: "root sequential script completed all package tests with exit 0"}
+        - {cmd: "bun run build", status: pass}
+        - {cmd: "bun run vendor:check", status: pass}
+      full_outcome_complete: true
+      completion_arm: queue_exhausted
+      remaining_backlog_notes:
+        - "External transitive Zod 3 aliases remain through astro / zod-to-json-schema / zod-to-ts; no first-party package pins Zod 3."
+        - "Nginx renderer rewrite is intentionally deferred unless a future finding identifies a concrete unsafe directive class."
+        - "storage-s3 tests still emit React act warnings, but they are warnings only; workspace tests exit 0."

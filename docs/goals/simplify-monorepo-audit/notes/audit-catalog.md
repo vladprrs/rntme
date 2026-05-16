@@ -1695,6 +1695,44 @@ Total queued est_effort_h = 13 (exactly at cap with 2h buffer held in reserve fo
 - success_definition: |
     `@rntme/deploy-runner` exports `buildResolveProvisioner({ bundleAssetDir?, manifestPath? }): ResolveProvisioner` (or equivalent). Both `apps/cli/src/deploy-engine/resolve-provisioner.ts` and `apps/platform/blueprint/services/deployments/handlers/start-deployment.ts` import + use the shared builder; their hand-rolled `resolveBundledProvisioner` + `provisionerKey` + `resolvePackageRoot` + `resolvePackageEntry` + `importProvisioner` bodies are deleted (~57 LoC × 2 = ~115 LoC removed). The path-safety check exists in exactly one place. `bun run depcruise` passes. Simplify pass: two bytewise-duplicate contract impls → one builder; drift surface eliminated. Returns `Result<...>` typed against the Q4-unified type.
 
+### Tranche 3 queue — Q15..Q17 (opened 2026-05-16)
+
+Tranche 3 resumes from `notes/handoff-tranche2.md`. Cumulative budget at
+tranche start: 235 / 900 worker-minutes; remaining headroom: 665 minutes.
+
+#### Q15 — F058 — Fix CLI load-blueprint timeout flake
+- status: **done** by T214
+- est_effort_h: 0.25
+- allowed_files: `apps/cli/test/unit/deploy-engine/load-blueprint.test.ts`
+- verify:
+  - `bun test apps/cli/test/unit/deploy-engine/load-blueprint.test.ts -t 'materializes project-folder assets for direct deploy bundleDir'`
+  - `bun run --filter @rntme/cli typecheck`
+  - `bun run --filter @rntme/cli lint`
+  - `bun run --filter @rntme/cli test`
+- receipt: scoped the known slow CV demo materialization test to a 15s Bun timeout. Full CLI test is green: 210 pass / 2 skip / 0 fail.
+
+#### Q16 — F037 — Structural compose/nginx rendering in @rntme/deploy-dokploy
+- status: **done** by T215
+- est_effort_h: 4
+- allowed_files: `packages/deploy/deploy-dokploy/**`, `bun.lock`, and owner doc only if public package gotchas change
+- verify:
+  - `bun install --frozen-lockfile`
+  - `bun run --filter @rntme/deploy-dokploy typecheck`
+  - `bun run --filter @rntme/deploy-dokploy test`
+  - `bun run typecheck`
+  - `bun run lint`
+  - `bun run depcruise`
+  - Dokploy redeploy smoke via repo `.env` if deploy output/apply behavior changes
+- stop_if: golden outputs change beyond demonstrably equivalent formatting, or nginx cleanup becomes a broad rewrite unrelated to F037's correctness risk.
+- receipt: Compose YAML now renders from a typed object model through `yaml@2.9.0`. A new regression test covers YAML-looking literal env strings (`true`, `123`, `{token}`) so they remain strings. Nginx was intentionally left unchanged because the existing renderer is already `EdgePlan`-driven with sanitizer and byte-exact golden tests; a broad builder rewrite would be lower-signal than the YAML correctness fix and outside the safe slice.
+
+#### Q17 — F055 — Workspace-wide zod major unification
+- status: **done** by T216
+- est_effort_h: 3
+- verify: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run test`, `bun run lint`, `bun run depcruise`
+- stop_if: the zod major choice conflicts with current package APIs or becomes larger than a dependency-policy slice.
+- receipt: Zod 4 is now the canonical first-party major. `contracts-module-v1`, `contracts-marketing-site-v1`, and `runtime` moved from `zod ^3.24.2` to `^4.0.0`; module manifest record schemas were updated to Zod 4's two-argument `z.record(z.string(), valueSchema)` form. Workspace `bun install --frozen-lockfile`, typecheck, lint, depcruise, test, build, and vendor-check all pass. Remaining `zod@3` lockfile entries are external transitive aliases only (`astro`, `zod-to-json-schema`, `zod-to-ts`).
+
 
 ## 4_backlog
 
@@ -1722,7 +1760,7 @@ Items deferred from the ranked list. Includes (a) cosmetic-only P3 with low impa
 
 ### Newly surfaced by tranche 1 Worker execution (added by T999, 2026-05-15)
 
-- **F055** — Wider workspace `zod` 4 vs 3 split. T202 closed `contracts-marketing-site-v1` only; `apps/cli`, `packages/runtime/bindings-http`, `packages/runtime/ui-runtime`, all `packages/artifacts/*`, `packages/deploy/deploy-core`, `packages/platform/platform-core` still pin `zod ^4`. P2, ~3h. Decide canonical major before the next contract-authoring slice.
+- **F055** — Wider workspace `zod` 4 vs 3 split. T202 closed `contracts-marketing-site-v1` only; `apps/cli`, `packages/runtime/bindings-http`, `packages/runtime/ui-runtime`, all `packages/artifacts/*`, `packages/deploy/deploy-core`, `packages/platform/platform-core` still pin `zod ^4`. P2, ~3h. Decide canonical major before the next contract-authoring slice. **CLOSED by Q17/T216 (Tranche 3, 2026-05-16).**
 - **F056** — `modules/storage/s3/test/unit/server.test.ts` references `Buffer` without an eslint `env: { node: true }` declaration. Pre-existing lint failure surfaced repeatedly by T200/T201/T202 verify runs; out-of-scope for every Q1..Q7 slice. P3, ~0.25h. One-line eslintrc override or `import { Buffer } from "node:buffer"`.
 - **F057** — `@rntme/artifact-shared` keeps a second (structurally compatible, mutable-fields) `Result<T,E>` shape after Q4. Q5 + Q7 chose it deliberately (already a dep of bindings + deploy-runner) but the workspace now has two type aliases for the same algebra. Unify with `@rntme/contracts-common-v1/result` once `_shared/package.json` is in scope. P2, ~1h. **CLOSED by Q10/T209 (Tranche 2, 2026-05-16).**
 
@@ -1735,6 +1773,16 @@ Items deferred from the ranked list. Includes (a) cosmetic-only P3 with low impa
 
 - **F058** — `apps/cli/test/unit/deploy-engine/load-blueprint.test.ts > materializes project-folder assets for direct deploy bundleDir` consistently runs ~5.3s and trips the bun-test default 5000ms timeout. Predates Tranche 2 (last touch in commit `15c9d005`, unrelated to CLI watchers / poll helper / output renderer). Fix: bump per-test timeout via `it('...', { timeout: 15_000 }, …)` or pre-cache demo-blueprint module-resolution. P3, ~0.25h. *Surfaced by T211 isolated re-run.*
 - **F052-observation** (policy note, not a fix) — All 5 `modules/<cat>/conformance/` packages (`marketing-site`, `storage`, `identity`, `ai-llm`, `crm`) intentionally ship no `module.json`. vendor-check (after Q9) skips them via `requireExists:false`. If audit policy later wants every `modules/**` package to expose a manifest, the gate is one boolean flip in `validateManifest`. P3, decision-only. *Surfaced by T208.*
+
+### Tranche-2-era findings closed by Tranche 3
+
+- **F058** — CLOSED by Q15/T214 (2026-05-16). The slow CV demo materialization test now has a scoped 15s timeout using Bun's typed third-argument overload. Verification: isolated test pass at ~5.8s, `@rntme/cli` typecheck/lint pass, and full `@rntme/cli` test pass (210 pass / 2 skip / 0 fail).
+- **F037** — CLOSED by Q16/T215 (2026-05-16) for the load-bearing Compose YAML scalar correctness risk. `renderComposeYaml` now emits a typed object through `yaml@2.9.0`; deploy-dokploy tests, workspace typecheck/lint/depcruise/build, and live `platform up` smoke all pass. Nginx builder rewrite remains deferred as low-signal unless a future finding names a concrete unsafe directive class.
+- **F055** — CLOSED by Q17/T216 (2026-05-16). First-party workspace packages now pin one Zod major (`^4.0.0`), Zod 4 record API adjustments are in source, and the module/marketing-site/runtime owner docs record the invariant. Lockfile `zod@3` entries are external transitive aliases only.
+
+### Newly surfaced by tranche 3 Worker execution (added by T1001, 2026-05-16)
+
+- **F059** — Root `bun run test` used Bun's default parallel filtered workspace runner and could strand a high-CPU package child (`@rntme/conformance-ai-llm`) even though that package's test command passed standalone in ~89ms. **CLOSED by Q17/T216 (2026-05-16):** the root `test` script now runs `bun run --filter '*' --sequential test`, preserving the documented `bun run test` command while making the workspace test gate deterministic.
 
 ### Memories retired by Tranche 2
 
