@@ -18,6 +18,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/contracts-module-v1": "workspace:*",
     "@rntme/contracts-provisioner-v1": "workspace:*",
     "@rntme/workflows": "workspace:*",

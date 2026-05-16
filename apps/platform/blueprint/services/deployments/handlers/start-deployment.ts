@@ -1,11 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { createDecipheriv, randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { materializeBundle, safeProvisionerName } from '@rntme/blueprint';
+import { materializeBundle } from '@rntme/blueprint';
 import {
   isOk,
   parseCanonicalBundle,
@@ -13,6 +9,7 @@ import {
   startProjectUpdateOperation,
 } from '@rntme/platform-core';
 import {
+  buildResolveProvisioner,
   createDokployClientFactory,
   runDeployment,
   type ResolveProvisioner,
@@ -599,66 +596,11 @@ function buildRuntimeDokployClient(
 }
 
 export function createRuntimeResolveProvisioner(): ResolveProvisioner {
-  return async (packageName, entry, projectDir) => {
-    const bundleAsset = resolveBundleAssetProvisioner(projectDir, packageName);
-    if (bundleAsset !== null) return importProvisioner(bundleAsset);
-
-    const legacyBundle = resolveBundledProvisioner(projectDir, packageName, entry);
-    if (legacyBundle !== null) return importProvisioner(legacyBundle);
-
-    const req = createRequire(`${projectDir}/package.json`);
-    const packageRoot = resolvePackageRoot(req, packageName);
-    return importProvisioner(resolvePackageEntry(packageRoot, entry));
-  };
-}
-
-type ProvisionerManifest = {
-  readonly entries?: Readonly<Record<string, string>>;
-};
-
-function resolveBundleAssetProvisioner(projectDir: string, packageName: string): string | null {
-  const safe = safeProvisionerName(packageName);
-  const resolved = resolve(projectDir, 'assets', 'provisioners', `${safe}.entry.js`);
-  return existsSync(resolved) ? resolved : null;
-}
-
-function resolveBundledProvisioner(projectDir: string, packageName: string, entry: string): string | null {
-  const manifestPath = resolve(projectDir, '.provisioners', 'manifest.json');
-  if (!existsSync(manifestPath)) return null;
-
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as ProvisionerManifest;
-  const rel = manifest.entries?.[`${packageName}::${entry.replace(/\\/g, '/')}`];
-  if (rel === undefined || rel === '') return null;
-
-  const resolved = isAbsolute(rel) ? rel : resolve(projectDir, rel);
-  const provisionerRoot = resolve(projectDir, '.provisioners');
-  if (resolved !== provisionerRoot && !resolved.startsWith(`${provisionerRoot}/`)) {
-    throw new Error(`DEPLOY_PROVISIONER_MANIFEST_PATH_INVALID:${packageName}`);
-  }
-  return resolved;
-}
-
-function resolvePackageRoot(req: NodeJS.Require, packageName: string): string {
-  try {
-    return dirname(req.resolve(`${packageName}/package.json`));
-  } catch {
-    return dirname(req.resolve(`${packageName}/module.json`));
-  }
-}
-
-function resolvePackageEntry(packageRoot: string, entry: string): string {
-  const resolved = resolve(packageRoot, entry);
-  const back = relative(packageRoot, resolved).split(sep).join('/');
-  if (back === '..' || back.startsWith('../') || back === '') {
-    throw new Error(`DEPLOY_PROVISIONER_ENTRY_PATH_INVALID:${entry}`);
-  }
-  return resolved;
-}
-
-async function importProvisioner(path: string): Promise<Awaited<ReturnType<ResolveProvisioner>>> {
-  const mod = (await import(pathToFileURL(path).href)) as { default?: Awaited<ReturnType<ResolveProvisioner>> } & Awaited<ReturnType<ResolveProvisioner>>;
-  if (mod.default && typeof mod.default === 'object') return mod.default;
-  return mod;
+  return buildResolveProvisioner({
+    bundleAssetDir: 'assets/provisioners',
+    manifestPath: '.provisioners/manifest.json',
+    errorCodePrefix: 'DEPLOY_PROVISIONER',
+  });
 }
 
 function markRuntimeDeploymentRunning(ctx: RuntimeCtx, deploymentId: string, operationId: string, startedAt: string): void {

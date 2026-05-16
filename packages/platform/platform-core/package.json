@@ -19,6 +19,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@rntme/contracts-common-v1": "workspace:*",
     "@rntme/pdm": "workspace:*",
     "@rntme/qsm": "workspace:*",
     "@rntme/bindings": "workspace:*",

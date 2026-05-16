@@ -1,12 +1,10 @@
 import {
-  isScalarPrimitive,
+  parseFieldType,
+  parseInputType,
+  parseOutputType,
   type BindingResolvers,
-  type FieldType,
   type GraphSignature,
-  type InputType,
-  type OutputType,
   type ResolvedShape,
-  type ScalarPrimitive,
 } from '@rntme/bindings';
 import type { PdmResolver } from '@rntme/pdm';
 import type { ServiceGraphSpec } from '../types/artifact.js';
@@ -33,11 +31,11 @@ export function createServiceBindingResolvers(input: {
 
     for (const [fieldName, field] of Object.entries(shape.fields)) {
       const parsed = parseFieldType(field.type);
-      if (parsed === null) {
+      if (!parsed.ok) {
         errors.push(graphError(input.serviceSlug, graphPath, field.type));
         continue;
       }
-      fields[fieldName] = { type: parsed, nullable: field.nullable };
+      fields[fieldName] = { type: parsed.value, nullable: field.nullable };
     }
 
     customShapes[shapeName] = {
@@ -72,35 +70,6 @@ export function createServiceBindingResolvers(input: {
   });
 }
 
-function parseScalar(raw: string): ScalarPrimitive | null {
-  return isScalarPrimitive(raw) ? raw : null;
-}
-
-function parseInputType(raw: string): InputType | null {
-  const scalar = parseScalar(raw);
-  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
-  return null;
-}
-
-function parseFieldType(raw: string): FieldType | null {
-  const scalar = parseScalar(raw);
-  if (scalar !== null) return { kind: 'scalar', primitive: scalar };
-
-  const array = /^array<([a-z]+)>$/.exec(raw);
-  if (array === null) return null;
-  const element = parseScalar(array[1]!);
-  return element === null ? null : { kind: 'array', element };
-}
-
-function parseOutputType(raw: string): OutputType | null {
-  const match = /^(rowset|row)<([A-Za-z_][A-Za-z0-9_]*)>$/.exec(raw);
-  if (match === null) return null;
-  return {
-    kind: match[1] as 'rowset' | 'row',
-    shape: match[2]!,
-  };
-}
-
 function toGraphSignature(
   serviceSlug: string,
   graphPath: string,
@@ -111,24 +80,26 @@ function toGraphSignature(
 
   for (const [name, declaration] of Object.entries(graph.signature.inputs)) {
     const parsed = parseInputType(declaration.type);
-    if (parsed === null) {
+    if (!parsed.ok) {
       errors.push(graphError(serviceSlug, graphPath, declaration.type));
       continue;
     }
 
-    const base = { type: parsed, mode: declaration.mode };
+    const base = { type: parsed.value, mode: declaration.mode };
     inputs[name] =
       declaration.default !== undefined
         ? { ...base, default: declaration.default }
         : base;
   }
 
-  const outputType = parseOutputType(graph.signature.output.type);
-  if (outputType === null) {
+  const outputParsed = parseOutputType(graph.signature.output.type);
+  if (!outputParsed.ok) {
     errors.push(graphError(serviceSlug, graphPath, graph.signature.output.type));
   }
 
-  if (errors.length > 0) return err(errors);
+  if (errors.length > 0 || !outputParsed.ok) {
+    return err(errors);
+  }
 
   const emitNodes = graph.nodes.filter(
     (node) => typeof node === 'object' && node !== null && (node as { type?: string }).type === 'emit',
@@ -138,7 +109,7 @@ function toGraphSignature(
     id: graph.id,
     inputs,
     output: {
-      type: outputType!,
+      type: outputParsed.value,
       from: graph.signature.output.from,
     },
     effects: {

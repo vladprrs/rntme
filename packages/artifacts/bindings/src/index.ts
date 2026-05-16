@@ -50,6 +50,11 @@ export type {
 export {
   SCALAR_PRIMITIVES,
   isScalarPrimitive,
+  isShapeName,
+  parseScalarType,
+  parseFieldType,
+  parseInputType,
+  parseOutputType,
 } from './types/resolvers.js';
 
 export type {
@@ -64,6 +69,7 @@ export type {
   FieldType,
   ScalarPrimitive,
   ShapeOrigin,
+  TypeParseError,
 } from './types/resolvers.js';
 
 export type {

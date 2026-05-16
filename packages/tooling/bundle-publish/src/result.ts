@@ -1,5 +1,2 @@
-export type Result<T, E> = { ok: true; value: T } | { ok: false; errors: readonly E[] };
-
-export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
-
-export const err = <E>(...errors: E[]): Result<never, E> => ({ ok: false, errors });
+export type { Result, Ok, Err } from '@rntme/contracts-common-v1/result';
+export { ok, err, isOk, isErr } from '@rntme/contracts-common-v1/result';

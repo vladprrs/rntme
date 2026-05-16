@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import type { Pool } from 'pg';
 import {
   err,
   ok,
@@ -10,6 +9,7 @@ import {
   type Result,
 } from '@rntme/platform-core';
 import type { PgQueryable } from '../pg/pool.js';
+import { withSystemRlsDisabled } from '../pg/tx.js';
 
 const LOG_MESSAGE_LIMIT_BYTES = 8 * 1024;
 const TRUNCATED_SUFFIX = '... (truncated)';
@@ -222,7 +222,7 @@ export class PgProjectOperationRepo implements ProjectOperationRepo {
         db.query(
           `SELECT id, org_id, project_id, kind
            FROM project_operation
-           WHERE status='running'
+           WHERE status IN ('queued','running')
              AND (last_heartbeat_at IS NULL OR last_heartbeat_at < now() - ($1 * interval '1 second'))
            ORDER BY queued_at ASC`,
           [staleAfterSeconds],
@@ -313,30 +313,6 @@ async function audit(
      VALUES ($1,$2,$3,$4,'project_operation',$5,$6::jsonb)`,
     [args.orgId, args.actorAccountId, args.actorTokenId, args.action, args.resourceId, jsonParam(args.payload)],
   );
-}
-
-async function withSystemRlsDisabled<T>(db: PgQueryable, fn: (db: PgQueryable) => Promise<T>): Promise<T> {
-  if (typeof (db as { release?: unknown }).release === 'function') {
-    await db.query('SET LOCAL row_security = off');
-    return fn(db);
-  }
-  const client = await (db as Pool).connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SET LOCAL row_security = off');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (cause) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // ignore rollback failures and return the original error below
-    }
-    throw cause;
-  } finally {
-    client.release();
-  }
 }
 
 function dbErr(cause: unknown): Result<never, PlatformError> {
