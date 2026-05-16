@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildProjectBundle, canonicalBundleDigest } from '../../../src/bundle/build.js';
@@ -155,6 +155,31 @@ describe('buildProjectBundle', () => {
       }));
       mkdirSync(join(dir, 'node_modules', 'ordinary-dep'), { recursive: true });
       writeFileSync(join(dir, 'node_modules', 'ordinary-dep', 'package.json'), '{ invalid json');
+
+      const r = await buildProjectBundle(dir);
+
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(Object.keys(r.value.bundle.files)).toEqual([
+        'node_modules/dep/module.json',
+        'node_modules/dep/package.json',
+        'project.json',
+      ]);
+    });
+  });
+
+  it('does not stat ignored package internals under node_modules', async () => {
+    await withTmp(async (dir) => {
+      writeFileSync(join(dir, 'project.json'), JSON.stringify({ name: 'demo', services: [] }));
+      mkdirSync(join(dir, 'node_modules', 'dep', 'proto-deps'), { recursive: true });
+      writeFileSync(join(dir, 'node_modules', 'dep', 'module.json'), JSON.stringify({
+        name: '@rntme/dep',
+        version: '1.0.0',
+      }));
+      writeFileSync(join(dir, 'node_modules', 'dep', 'package.json'), JSON.stringify({
+        name: '@rntme/dep',
+      }));
+      symlinkSync('/missing/generated/staging.proto', join(dir, 'node_modules', 'dep', 'proto-deps', 'staging.proto'));
 
       const r = await buildProjectBundle(dir);
 
