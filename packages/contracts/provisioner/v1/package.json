@@ -23,9 +23,10 @@
   "types": "./dist/index.d.ts",
   "files": ["dist", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build:deps": "bun run -F @rntme/contracts-common-v1 build",
+    "build": "bun run build:deps && tsc -p tsconfig.json",
     "test": "bun test",
-    "typecheck": "tsc -p tsconfig.check.json",
+    "typecheck": "bun run build:deps && tsc -p tsconfig.check.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
