@@ -15,6 +15,7 @@ import {
   PlatformSummaryGrid,
   PlatformTimeline,
   PlatformTokenIssuer,
+  PlatformTopbar,
 } from '../src/client.js';
 import {
   createTransportChain,
@@ -276,12 +277,147 @@ describe('@rntme/platform-ui components', () => {
   });
 
   it('renders the platform sidebar brand', () => {
-    const html = renderToStaticMarkup(
+    const store = createTestStore({});
+    const html = renderWithStore(
       React.createElement(PlatformSidebar, { brand: 'rntme', items: [{ label: 'Projects', href: '/' }] }),
+      store,
     );
 
     expect(html).toContain('rntme-sidebar');
     expect(html).toContain('Projects');
+  });
+
+  it('resolves sidebar item hrefTemplate against route params', () => {
+    const store = createTestStore({
+      route: { path: '/org_X', params: { orgId: 'org_X' } },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformSidebar, {
+        brand: 'rntme',
+        items: [
+          { label: 'Dashboard', hrefTemplate: '/{orgId}', section: 'Project' },
+          { label: 'Audit log', hrefTemplate: '/{orgId}/audit', section: 'Account' },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('href="/org_X"');
+    expect(html).toContain('href="/org_X/audit"');
+  });
+
+  it('marks the sidebar item active when the resolved href matches /route/path exactly', () => {
+    const store = createTestStore({
+      route: { path: '/org_X/audit', params: { orgId: 'org_X' } },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformSidebar, {
+        brand: 'rntme',
+        items: [
+          { label: 'Dashboard', hrefTemplate: '/{orgId}', section: 'Project' },
+          { label: 'Audit log', hrefTemplate: '/{orgId}/audit', section: 'Account' },
+        ],
+      }),
+      store,
+    );
+
+    // Audit log is the current path; Dashboard must not be active.
+    expect(html).toContain('href="/org_X/audit" class="is-active" aria-current="page"');
+    expect(html).not.toContain('href="/org_X" class="is-active"');
+  });
+
+  it('marks the sidebar item active via matchPattern startsWith on nested routes', () => {
+    const store = createTestStore({
+      route: {
+        path: '/org_X/projects/p1/data-model',
+        params: { orgId: 'org_X', projectId: 'p1' },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformSidebar, {
+        brand: 'rntme',
+        items: [
+          {
+            label: 'Projects',
+            hrefTemplate: '/{orgId}',
+            matchPattern: '/{orgId}/projects',
+            section: 'Project',
+          },
+        ],
+      }),
+      store,
+    );
+
+    // matchPattern resolves with route params and a startsWith match keeps the
+    // Projects entry active under any /projects/* sub-path.
+    expect(html).toContain('class="is-active"');
+  });
+
+  it('renders the platform topbar with literal crumbs when crumbsFromRoute is absent', () => {
+    const store = createTestStore({});
+    const html = renderWithStore(
+      React.createElement(PlatformTopbar, {
+        crumbs: [
+          { label: 'platform' },
+          { label: 'dashboard', current: true },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('rntme-topbar');
+    expect(html).toContain('platform');
+    expect(html).toContain('<b>dashboard</b>');
+  });
+
+  it('derives topbar crumbs from /route/path when crumbsFromRoute is true', () => {
+    const store = createTestStore({
+      route: {
+        path: '/org_uZUWhpWgK54VWC2X/projects/p1/data-model',
+        params: { orgId: 'org_uZUWhpWgK54VWC2X', projectId: 'p1' },
+      },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformTopbar, { crumbsFromRoute: true }),
+      store,
+    );
+
+    expect(html).toContain('platform');
+    expect(html).toContain('Projects');
+    expect(html).toContain('<b>Data model</b>');
+  });
+
+  it('skips auth-flow path segments when deriving topbar crumbs', () => {
+    const store = createTestStore({
+      route: { path: '/auth/callback', params: {} },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformTopbar, { crumbsFromRoute: true }),
+      store,
+    );
+
+    // `auth` and `callback` segments are explicitly skipped so the topbar
+    // renders only the leading `platform` crumb on the SPA bootstrap route.
+    expect(html).toContain('platform');
+    expect(html).not.toContain('callback');
+    expect(html).not.toContain('>auth<');
+  });
+
+  it('resolves topbar action hrefTemplate against route params', () => {
+    const store = createTestStore({
+      route: { path: '/org_X', params: { orgId: 'org_X' } },
+    });
+    const html = renderWithStore(
+      React.createElement(PlatformTopbar, {
+        crumbsFromRoute: true,
+        actions: [
+          { label: 'Org settings', hrefTemplate: '/{orgId}/tokens', variant: 'ghost' },
+        ],
+      }),
+      store,
+    );
+
+    expect(html).toContain('href="/org_X/tokens"');
   });
 
   function renderWithStore(element: React.ReactElement, store: ReturnType<typeof createTestStore>): string {
@@ -373,6 +509,50 @@ describe('@rntme/platform-ui components', () => {
     );
 
     expect(html).toContain('<a href="/org_uZUWhpWgK54VWC2X/projects/p1">Open</a>');
+  });
+
+  it('dispatches data table link template per row via hrefTemplateMap', () => {
+    // Simulates the platform audit table: each row has a `targetType`
+    // (`deployment` / `project` / `deploy-target`) and a `targetId`; the
+    // column should route each row to a different detail screen and leave
+    // unknown types as plain text without producing a non-resolving URL.
+    const store = createTestStore({
+      route: { params: { orgId: 'org_X' } },
+      data: {
+        events: [
+          { id: 'a1', targetType: 'deployment', targetId: 'dep-1' },
+          { id: 'a2', targetType: 'project', targetId: 'p1' },
+          { id: 'a3', targetType: 'membership', targetId: 'm1' },
+        ],
+      },
+    });
+    const columns = [
+      {
+        key: 'targetId',
+        label: 'Target',
+        hrefTemplateMap: {
+          typeField: 'targetType',
+          byType: {
+            deployment: '/{orgId}/deployments/{targetId}',
+            project: '/{orgId}/projects/{targetId}',
+          },
+        },
+      },
+    ];
+    const html = renderWithStore(
+      React.createElement(PlatformDataTable, {
+        statePath: '/data/events',
+        columns,
+      }),
+      store,
+    );
+
+    expect(html).toContain('<a href="/org_X/deployments/dep-1">dep-1</a>');
+    expect(html).toContain('<a href="/org_X/projects/p1">p1</a>');
+    // The unknown targetType row renders as plain text — no anchor wrapper
+    // and no non-resolving deployment URL.
+    expect(html).toContain('<td>m1</td>');
+    expect(html).not.toContain('href="/org_X/deployments/m1"');
   });
 
   it('renders data table rows from a bare-array statePath', () => {
@@ -1102,6 +1282,7 @@ describe('@rntme/platform-ui components', () => {
   function setupExplorerB2Harness(input: {
     detail: Record<string, unknown>;
     url?: string;
+    routeParams?: Record<string, unknown>;
   }) {
     const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
       url: input.url ?? 'https://platform.rntme.com/org/projects/p1/api',
@@ -1137,7 +1318,7 @@ describe('@rntme/platform-ui components', () => {
         },
         summary: { status: 'ok', summary: { endpoints: 1 } },
       },
-      route: { params: { projectId: 'p1' } },
+      route: { params: { projectId: 'p1', ...(input.routeParams ?? {}) } },
     });
     const transport = createTransportChain(async () =>
       globalThis.Response.json({ status: 'ok', detail: input.detail }),
@@ -1165,6 +1346,7 @@ describe('@rntme/platform-ui components', () => {
     store: ReturnType<typeof createTestStore>;
     transport: ReturnType<typeof createTransportChain>;
     tab: 'overview' | 'request' | 'response' | 'examples' | 'raw';
+    extraProps?: Record<string, unknown>;
   }) {
     const rootEl = document.querySelector('#root') as Parameters<typeof createRoot>[0] | null;
     if (!rootEl) throw new Error('missing test root');
@@ -1181,6 +1363,7 @@ describe('@rntme/platform-ui components', () => {
             React.createElement(PlatformAPIExplorer, {
               endpointsStatePath: '/data/endpoints',
               summaryStatePath: '/data/summary',
+              ...(input.extraProps ?? {}),
             }),
           ),
         ),
@@ -1500,6 +1683,107 @@ describe('@rntme/platform-ui components', () => {
       const openapiSnippet = document.querySelector('[data-pae-example-snippet="openapi"]');
       expect(openapiSnippet).not.toBeNull();
       expect(openapiSnippet?.textContent ?? '').toContain('paths:');
+
+      await act(async () => {
+        root.unmount();
+      });
+    } finally {
+      harness.teardown();
+    }
+  });
+
+  it('renders Overview cross-links to graph and PDM screens when templates are provided', async () => {
+    // Slice D — when api.spec.json passes `graphHrefTemplate` and
+    // `pdmHrefTemplate`, the Overview pane wraps the Handler / Source
+    // artifact / Request schema / Response schema values in anchor tags
+    // pointing at the project graph and data-model screens. Substitutions
+    // pull `orgId` / `projectId` from /route/params, the handler graph from
+    // the fetched detail, and the schema name per row.
+    const detail = requestCannedDetail();
+    (detail.response as Record<string, unknown>) = {
+      successStatus: null,
+      schemaName: 'ProjectListResponse',
+      fields: [{ name: 'projects', in: 'body', required: true, description: null }],
+      example: null,
+      errors: [],
+    };
+    const harness = setupExplorerB2Harness({
+      detail,
+      routeParams: { orgId: 'org_X' },
+    });
+    try {
+      const { root } = await mountExplorerAndOpenTab({
+        dom: harness.dom,
+        store: harness.store,
+        transport: harness.transport,
+        tab: 'overview',
+        extraProps: {
+          graphHrefTemplate: '/{orgId}/projects/{projectId}/graph',
+          pdmHrefTemplate: '/{orgId}/projects/{projectId}/data-model',
+        },
+      });
+
+      // Handler / Source artifact rows link to the Graph screen with the
+      // handler's `graph` value substituted in (also exposed as a path
+      // segment in case a future graph route surfaces it). Both rows share
+      // the same Graph link target because they both originate from the
+      // handler reference.
+      const handlerLink = document.querySelector(
+        '[data-pae-overview-link="Handler"]',
+      );
+      const sourceLink = document.querySelector(
+        '[data-pae-overview-link="Source artifact"]',
+      );
+      expect(handlerLink).not.toBeNull();
+      expect(sourceLink).not.toBeNull();
+      expect(handlerLink?.getAttribute('href')).toBe('/org_X/projects/p1/graph');
+      expect(sourceLink?.getAttribute('href')).toBe('/org_X/projects/p1/graph');
+
+      // Both Request and Response schemas have names in this canned detail,
+      // so both render PDM links. Templates that omit `{schemaName}`
+      // (as the data-model screen does today) still resolve correctly —
+      // the PDM screen is per-project, not per-schema.
+      const requestSchemaLink = document.querySelector(
+        '[data-pae-overview-link="Request schema"]',
+      );
+      expect(requestSchemaLink).not.toBeNull();
+      expect(requestSchemaLink?.getAttribute('href')).toBe(
+        '/org_X/projects/p1/data-model',
+      );
+      const responseSchemaLink = document.querySelector(
+        '[data-pae-overview-link="Response schema"]',
+      );
+      expect(responseSchemaLink).not.toBeNull();
+      expect(responseSchemaLink?.getAttribute('href')).toBe(
+        '/org_X/projects/p1/data-model',
+      );
+
+      await act(async () => {
+        root.unmount();
+      });
+    } finally {
+      harness.teardown();
+    }
+  });
+
+  it('falls back to plain text in the Overview pane when cross-link templates are absent', async () => {
+    // Sanity check — without the new templates, Overview rows stay as
+    // plain text so existing screens that do not opt into cross-links keep
+    // their current (non-link) behaviour.
+    const detail = requestCannedDetail();
+    const harness = setupExplorerB2Harness({ detail });
+    try {
+      const { root } = await mountExplorerAndOpenTab({
+        dom: harness.dom,
+        store: harness.store,
+        transport: harness.transport,
+        tab: 'overview',
+      });
+
+      expect(document.querySelector('[data-pae-overview-link="Handler"]'))
+        .toBeNull();
+      expect(document.querySelector('[data-pae-overview-link="Source artifact"]'))
+        .toBeNull();
 
       await act(async () => {
         root.unmount();

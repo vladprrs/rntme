@@ -13,6 +13,28 @@
         "title": "HTTP endpoints",
         "meta": [
           { "label": "Source", "value": "Latest published bundle" }
+        ],
+        "actions": [
+          {
+            "label": "Back to project",
+            "variant": "ghost",
+            "hrefTemplate": "/{orgId}/projects/{projectId}"
+          },
+          {
+            "label": "Data model",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/data-model"
+          },
+          {
+            "label": "UI",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/ui"
+          },
+          {
+            "label": "Graph",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/graph"
+          }
         ]
       }
     },
@@ -27,7 +49,9 @@
       "props": {
         "endpointsStatePath": "/data/endpoints",
         "summaryStatePath": "/data/summary",
-        "endpointDetailPathTemplate": "/api/projects/{projectId}/endpoints/{service}/{operation}"
+        "endpointDetailPathTemplate": "/api/projects/{projectId}/endpoints/{service}/{operation}",
+        "graphHrefTemplate": "/{orgId}/projects/{projectId}/graph",
+        "pdmHrefTemplate": "/{orgId}/projects/{projectId}/data-model"
       }
     }
   }

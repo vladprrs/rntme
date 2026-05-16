@@ -159,6 +159,8 @@ function ServiceCard(props: ServiceInput) {
 type NavItem = {
   label: string;
   href?: string;
+  hrefTemplate?: string;
+  matchPattern?: string;
   count?: number | string;
   active?: boolean;
   section?: string;
@@ -205,9 +207,49 @@ function actionHref(
    Exported platform components
    ========================================================= */
 
+type DataTableColumn = {
+  key: string;
+  label: string;
+  value?: string;
+  href?: string;
+  hrefTemplate?: string;
+  /**
+   * Per-row link dispatch. When set, the rendered link template is chosen by
+   * looking up `row[typeField]` in `byType`; rows whose type has no entry (or
+   * resolves to an empty string) render as plain text. Lets a single column
+   * carry multiple link targets (e.g. audit-row targets that fan out to
+   * deployment / project / target detail screens) without per-row
+   * runtime-level routing.
+   */
+  hrefTemplateMap?: {
+    typeField: string;
+    byType: Record<string, string>;
+  };
+};
+
+function resolveColumnHref(
+  column: DataTableColumn,
+  row: Record<string, unknown>,
+  routeParams: Record<string, unknown>,
+): string | undefined {
+  if (column.hrefTemplateMap) {
+    const { typeField, byType } = column.hrefTemplateMap;
+    const rawType = row[typeField];
+    if (typeof rawType !== 'string' || rawType.length === 0) return undefined;
+    const template = byType[rawType];
+    if (typeof template !== 'string' || template.length === 0) return undefined;
+    const resolved = resolveTemplate(template, { row, routeParams });
+    return resolved.length > 0 ? resolved : undefined;
+  }
+  if (column.hrefTemplate) {
+    return resolveTemplate(column.hrefTemplate, { row, routeParams });
+  }
+  return column.href;
+}
+
 export function PlatformDataTable(props: {
   statePath?: string;
-  columns?: ReadonlyArray<{ key: string; label: string; value?: string; href?: string; hrefTemplate?: string }>;
+  columns?: ReadonlyArray<DataTableColumn>;
 }) {
   const store = useStateStore();
   const columns = props.columns ?? [];
@@ -249,9 +291,7 @@ export function PlatformDataTable(props: {
                 'tr',
                 { key: typeof row.id === 'string' ? row.id : rowIndex },
                 ...columns.map((column) => {
-                  const href = column.hrefTemplate
-                    ? resolveTemplate(column.hrefTemplate, { row, routeParams })
-                    : column.href;
+                  const href = resolveColumnHref(column, row, routeParams);
                   const label = column.value ?? formatCellValue(row[column.key]);
                   const cell = href
                     ? React.createElement('a', { href }, label)
@@ -1992,7 +2032,29 @@ export function PlatformSidebar(props: {
   items?: ReadonlyArray<NavItem>;
   cliVersion?: string;
 }) {
+  const store = useStateStore();
   const items = props.items ?? [];
+  // Route-aware nav: resolve `hrefTemplate` against `/route/params` and compute
+  // active-state against `/route/path` (`matchPattern` startsWith match wins;
+  // otherwise the fully-resolved href matches the current path; explicit
+  // `item.active` is the last fallback for static-prop callers).
+  const routeParams = objectFromState(store.get('/route/params'));
+  const rawPath = store.get('/route/path');
+  const currentPath = typeof rawPath === 'string' ? rawPath : '';
+  function resolveItemHref(item: NavItem): string {
+    if (item.hrefTemplate) return resolveTemplate(item.hrefTemplate, { routeParams });
+    return item.href ?? '#';
+  }
+  function isItemActive(item: NavItem, resolvedHref: string): boolean {
+    if (currentPath.length > 0) {
+      if (item.matchPattern) {
+        const resolvedPattern = resolveTemplate(item.matchPattern, { routeParams });
+        if (resolvedPattern.length > 0) return currentPath.startsWith(resolvedPattern);
+      }
+      if (resolvedHref && resolvedHref !== '#') return currentPath === resolvedHref;
+    }
+    return Boolean(item.active);
+  }
   // Group by section, preserving order of first occurrence.
   const sections: Array<{ name: string; items: NavItem[] }> = [];
   for (const item of items) {
@@ -2037,24 +2099,26 @@ export function PlatformSidebar(props: {
         React.createElement(
           'ul',
           { key: `l-${si}`, className: 'rntme-sidebar-nav-list' },
-          ...section.items.map((item, ii) =>
-            React.createElement(
+          ...section.items.map((item, ii) => {
+            const href = resolveItemHref(item);
+            const active = isItemActive(item, href);
+            return React.createElement(
               'li',
               { key: ii, className: 'rntme-sidebar-nav-item' },
               React.createElement(
                 'a',
                 {
-                  href: item.href ?? '#',
-                  className: item.active ? 'is-active' : '',
-                  'aria-current': item.active ? 'page' : undefined,
+                  href,
+                  className: active ? 'is-active' : '',
+                  'aria-current': active ? 'page' : undefined,
                 },
                 item.label,
                 item.count !== undefined
                   ? React.createElement('span', { className: 'rntme-sidebar-nav-count' }, String(item.count))
                   : null,
               ),
-            ),
-          ),
+            );
+          }),
         ),
       ]),
     ),
@@ -2073,12 +2137,59 @@ export function PlatformSidebar(props: {
   );
 }
 
+/**
+ * Maps a `/route/path` segment to a breadcrumb label. Segments not in the
+ * table are humanized via title-case so unknown ids (e.g. `org_*`) still
+ * render. `skip: true` drops the segment entirely (used for auth-flow
+ * segments that the user does not navigate to).
+ */
+const TOPBAR_CRUMB_LABELS: Record<string, { label?: string; skip?: boolean }> = {
+  'data-model': { label: 'Data model' },
+  api: { label: 'API' },
+  ui: { label: 'UI' },
+  graph: { label: 'Graph' },
+  deployments: { label: 'Deployments' },
+  'deploy-targets': { label: 'Deploy targets' },
+  tokens: { label: 'API tokens' },
+  audit: { label: 'Audit log' },
+  projects: { label: 'Projects' },
+  versions: { label: 'Version' },
+  'no-org': { label: 'No organization' },
+  auth: { skip: true },
+  callback: { skip: true },
+  login: { label: 'Login' },
+};
+
+function crumbsFromPath(path: string): Array<{ label: string; current?: boolean }> {
+  const segments = path.split('/').filter(Boolean);
+  const out: Array<{ label: string; current?: boolean }> = [{ label: 'platform' }];
+  const labels: string[] = [];
+  for (const segment of segments) {
+    const entry = TOPBAR_CRUMB_LABELS[segment];
+    if (entry?.skip) continue;
+    if (entry?.label) labels.push(entry.label);
+    else labels.push(segment);
+  }
+  labels.forEach((label, idx) => {
+    const isLast = idx === labels.length - 1;
+    out.push(isLast ? { label, current: true } : { label });
+  });
+  return out;
+}
+
 export function PlatformTopbar(props: {
   crumbs?: ReadonlyArray<{ label: string; current?: boolean }>;
-  actions?: ReadonlyArray<{ label: string; variant?: string; href?: string }>;
+  crumbsFromRoute?: boolean;
+  actions?: ReadonlyArray<{ label: string; variant?: string; href?: string; hrefTemplate?: string }>;
 }) {
-  const crumbs = props.crumbs ?? [];
+  const store = useStateStore();
+  const rawPath = store.get('/route/path');
+  const currentPath = typeof rawPath === 'string' ? rawPath : '';
+  const crumbs: ReadonlyArray<{ label: string; current?: boolean }> = props.crumbsFromRoute
+    ? crumbsFromPath(currentPath)
+    : props.crumbs ?? [];
   const actions = props.actions ?? [];
+  const routeParams = objectFromState(store.get('/route/params'));
   return React.createElement(
     'header',
     { className: 'rntme-topbar' },
@@ -2097,17 +2208,18 @@ export function PlatformTopbar(props: {
       ? React.createElement(
           'div',
           { className: 'rntme-topbar-actions' },
-          ...actions.map((a, i) =>
-            React.createElement(
+          ...actions.map((a, i) => {
+            const href = actionHref(a, routeParams) ?? '#';
+            return React.createElement(
               'a',
               {
                 key: i,
-                href: a.href ?? '#',
+                href,
                 className: `rntme-btn is-small ${a.variant ? `is-${a.variant}` : 'is-ghost'}`,
               },
               a.label,
-            ),
-          ),
+            );
+          }),
         )
       : null,
   );
@@ -2390,6 +2502,19 @@ export function PlatformAPIExplorer(props: {
   endpointsStatePath?: string;
   summaryStatePath?: string;
   endpointDetailPathTemplate?: string;
+  /**
+   * Optional cross-link template for the Graph screen. When provided, the
+   * Overview pane renders the `Handler` row as a link to this template
+   * resolved against `/route/params` plus the handler's `graph` value.
+   */
+  graphHrefTemplate?: string;
+  /**
+   * Optional cross-link template for the PDM (data model) screen. When
+   * provided, the Overview pane renders the `Request schema` and
+   * `Response schema` rows as links to this template resolved against
+   * `/route/params` plus the schema's `schemaName` value.
+   */
+  pdmHrefTemplate?: string;
 }) {
   const store = useStateStore();
   // `useTransport` returns `null` in test/SSR environments without a provider.
@@ -2401,6 +2526,9 @@ export function PlatformAPIExplorer(props: {
   const summaryPath = props.summaryStatePath ?? '/data/summary';
   const detailTemplate =
     props.endpointDetailPathTemplate ?? '/api/projects/{projectId}/endpoints/{service}/{operation}';
+  const graphHrefTemplate = props.graphHrefTemplate ?? null;
+  const pdmHrefTemplate = props.pdmHrefTemplate ?? null;
+  const routeParams = objectFromState(store.get('/route/params'));
 
   const endpointsRaw = store.get(endpointsPath);
   // The summary path is read so the component reacts to summary updates and so
@@ -2697,6 +2825,9 @@ export function PlatformAPIExplorer(props: {
                 const ok = copyToClipboard(text);
                 setCopyToast(ok ? `Copied ${label}` : `Could not copy ${label}`);
               },
+              graphHrefTemplate,
+              pdmHrefTemplate,
+              routeParams,
             })
           : React.createElement(
               'div',
@@ -2755,7 +2886,28 @@ type APIDetailRenderInput = {
   exampleTab: APIExampleTab;
   onSelectExampleTab: (tab: APIExampleTab) => void;
   onCopyText: (text: string, label: string) => void;
+  graphHrefTemplate?: string | null;
+  pdmHrefTemplate?: string | null;
+  routeParams?: Record<string, unknown>;
 };
+
+/**
+ * Resolve a per-row API explorer cross-link template against the active route
+ * params plus an extra context (e.g. `graph` or `schemaName`). Returns `null`
+ * when the template is absent or when the extra value is empty so callers can
+ * fall back to plain-text rendering.
+ */
+function resolveCrossLink(
+  template: string | null | undefined,
+  routeParams: Record<string, unknown>,
+  extra: Record<string, string>,
+): string | null {
+  if (template === null || template === undefined || template.length === 0) return null;
+  const allEmpty = Object.values(extra).every((v) => v.length === 0);
+  if (allEmpty) return null;
+  const merged: Record<string, unknown> = { ...routeParams, ...extra };
+  return resolveTemplate(template, { routeParams: merged });
+}
 
 function renderAPIDetail(input: APIDetailRenderInput): React.ReactElement {
   const {
@@ -2768,6 +2920,9 @@ function renderAPIDetail(input: APIDetailRenderInput): React.ReactElement {
     exampleTab,
     onSelectExampleTab,
     onCopyText,
+    graphHrefTemplate,
+    pdmHrefTemplate,
+    routeParams,
   } = input;
   const detail =
     detailEntry !== undefined && !('error' in detailEntry)
@@ -2787,12 +2942,40 @@ function renderAPIDetail(input: APIDetailRenderInput): React.ReactElement {
   const responseSchemaName = detail?.response?.schemaName ?? null;
   const authValue = detail?.auth ?? null;
 
-  const handlerBackedRows: ReadonlyArray<readonly [string, string | null]> = [
-    ['Auth', authValue === 'required' ? 'Required' : authValue === 'public' ? 'Public' : null],
-    ['Source artifact', sourceArtifactSummary],
-    ['Handler', handlerSummary],
-    ['Request schema', requestSchemaName],
-    ['Response schema', responseSchemaName],
+  // Resolve optional cross-link templates so the Overview pane can render
+  // `Source artifact` / `Handler` as a link to the Graph screen and
+  // `Request schema` / `Response schema` as links to the PDM (data-model)
+  // screen. Templates are resolved against `/route/params` plus a per-row
+  // value (`graph` for handler/source-artifact links; `schemaName` for
+  // schema links). When the template is absent or the per-row value is
+  // empty, the link falls back to plain text.
+  const params = routeParams ?? {};
+  const graph = detail?.handler?.graph ?? '';
+  const handlerLink = handlerSummary === null
+    ? null
+    : resolveCrossLink(graphHrefTemplate ?? null, params, { graph });
+  const sourceArtifactLink = sourceArtifactSummary === null
+    ? null
+    : resolveCrossLink(graphHrefTemplate ?? null, params, { graph });
+  const requestSchemaLink = requestSchemaName === null
+    ? null
+    : resolveCrossLink(pdmHrefTemplate ?? null, params, { schemaName: requestSchemaName });
+  const responseSchemaLink = responseSchemaName === null
+    ? null
+    : resolveCrossLink(pdmHrefTemplate ?? null, params, { schemaName: responseSchemaName });
+
+  const handlerBackedRows: ReadonlyArray<
+    readonly [string, string | null, string | null]
+  > = [
+    [
+      'Auth',
+      authValue === 'required' ? 'Required' : authValue === 'public' ? 'Public' : null,
+      null,
+    ],
+    ['Source artifact', sourceArtifactSummary, sourceArtifactLink],
+    ['Handler', handlerSummary, handlerLink],
+    ['Request schema', requestSchemaName, requestSchemaLink],
+    ['Response schema', responseSchemaName, responseSchemaLink],
   ];
 
   return React.createElement(
@@ -2865,30 +3048,30 @@ function renderOverviewPane(input: {
   endpoint: APIEndpointRow;
   detailError: string | null;
   isLoading: boolean;
-  handlerBackedRows: ReadonlyArray<readonly [string, string | null]>;
+  handlerBackedRows: ReadonlyArray<readonly [string, string | null, string | null]>;
 }): React.ReactElement {
   const { endpoint, detailError, isLoading, handlerBackedRows } = input;
-  type Row = readonly [string, string, boolean];
+  type Row = readonly [string, string, boolean, string | null];
   const baseRows: Row[] = [
-    ['Service', endpoint.service || '—', false],
-    ['Operation', endpoint.operation || '—', false],
-    ['Method', endpoint.method || '—', false],
-    ['Path', endpoint.path || '—', false],
+    ['Service', endpoint.service || '—', false, null],
+    ['Operation', endpoint.operation || '—', false, null],
+    ['Method', endpoint.method || '—', false, null],
+    ['Path', endpoint.path || '—', false, null],
   ];
-  const detailDerivedRows: Row[] = handlerBackedRows.map(([label, value]) => {
+  const detailDerivedRows: Row[] = handlerBackedRows.map(([label, value, href]) => {
     if (value !== null && value.length > 0) {
-      return [label, value, false];
+      return [label, value, false, href];
     }
     if (isLoading) {
-      return [label, 'Loading…', true];
+      return [label, 'Loading…', true, null];
     }
     if (detailError !== null) {
-      return [label, API_DETAIL_PLACEHOLDER_TEXT, true];
+      return [label, API_DETAIL_PLACEHOLDER_TEXT, true, null];
     }
-    return [label, API_DETAIL_PLACEHOLDER_TEXT, true];
+    return [label, API_DETAIL_PLACEHOLDER_TEXT, true, null];
   });
   const placeholderRows: Row[] = API_DETAIL_DEFERRED_PLACEHOLDERS.map(
-    ([label, value]) => [label, value, true] as Row,
+    ([label, value]) => [label, value, true, null] as Row,
   );
   const overviewRows: ReadonlyArray<Row> = [...baseRows, ...detailDerivedRows, ...placeholderRows];
   return React.createElement(
@@ -2899,8 +3082,20 @@ function renderOverviewPane(input: {
       'aria-label': 'Endpoint overview',
       'data-pae-pane': 'overview',
     },
-    ...overviewRows.map(([label, value, placeholder]) =>
-      React.createElement(
+    ...overviewRows.map(([label, value, placeholder, href]) => {
+      const valueChild =
+        href !== null && href.length > 0
+          ? React.createElement(
+              'a',
+              {
+                className: 'rntme-pae-overview-link',
+                href,
+                'data-pae-overview-link': label,
+              },
+              value,
+            )
+          : value;
+      return React.createElement(
         'div',
         { key: label, className: 'rntme-pae-overview-row' },
         React.createElement('span', { className: 'rntme-pae-overview-label' }, label),
@@ -2910,10 +3105,10 @@ function renderOverviewPane(input: {
             className: `rntme-pae-overview-value${placeholder ? ' is-placeholder' : ''}`,
             'data-pae-placeholder': placeholder ? 'true' : 'false',
           },
-          value,
+          valueChild,
         ),
-      ),
-    ),
+      );
+    }),
   );
 }
 

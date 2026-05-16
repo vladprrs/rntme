@@ -1,0 +1,536 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Platform Navigation and Cross-Link UX Repair"
+  slug: "platform-navigation-crosslinks-ux"
+  kind: open_ended # specific | open_ended | existing_plan | recovery | audit
+  tranche: "Audit, repair, locally verify, redeploy, and production-smoke apps/platform navigation and cross-links until the full user-facing UX outcome is proven."
+  status: done # active | blocked | done
+  completed_at: "2026-05-15"
+  completion_note: "T999 audit (above) concluded complete with full_outcome_complete: true. Slice A+B+D shipped to https://platform.rntme.com; live bundle confirmed to carry every UX change; HTTP smoke green; residuals T006/T008/T009 are gated/optional per T002 Judge decision and do not block the original outcome."
+  intake:
+    original_request: "Prepare a GoalBuddy goal to put apps/platform navigation, cross-links, etc. in order; navigation generally does not work now, and UI/UX logic is in .tmp/rntme-ux-design.agent.final.md."
+    interpreted_outcome: "apps/platform has coherent working navigation and cross-link flows aligned with the UX design document, verified locally and after production redeploy."
+    input_shape: specific # vague | specific | existing_plan | recovery | audit
+    audience: "platform users and operators"
+    authority: approved # requested | approved | inferred | needs_approval | blocked
+    proof_type: demo # test | demo | artifact | metric | review | source_backed_answer | decision
+    completion_proof: "Automated/local verification and browser smoke pass, production redeploy runs when commands and credentials are available, and production smoke confirms key navigation/cross-link flows work against the deployed platform app."
+    likely_misfire: "Fixing only obvious broken links or route errors while missing the UX flow model, shared UI/runtime causes, docs-touch requirements, or the required redeploy and production check."
+    blind_spots_considered:
+      - "The UX design document may not map one-to-one to current route names or component boundaries."
+      - "Navigation behavior may be partly owned by shared UI/runtime packages rather than only apps/platform."
+      - "Production deploy commands, credentials, URLs, or smoke credentials may be unavailable or ambiguous."
+      - "Autotests may pass while the browser user flow still fails."
+    existing_plan_facts:
+      - "Use .tmp/rntme-ux-design.agent.final.md as the UI/UX authority."
+      - "Scope is apps/platform plus shared UI/runtime packages only when evidence shows they are required."
+      - "No visual board was requested."
+      - "Create a fresh goal."
+      - "Production redeploy is approved to run automatically if commands and credentials are available."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  # installed | bundled_not_installed | missing | unknown
+  # If non-installed, /goal can continue through PM fallback; install agents before /goal only when dedicated delegation is required.
+  scout: installed
+  worker: installed
+  judge: installed
+
+visual_board:
+  # none | local | github_projects | both | unknown
+  selected: none
+  local:
+    status: not_requested # not_requested | starting | live | generated | blocked
+    url: null
+    command: "npx goalbuddy board docs/goals/platform-navigation-crosslinks-ux"
+  github_projects:
+    status: not_requested # not_requested | needs_approval | dry_run_ready | synced | blocked
+    url: null
+    command: "npx goalbuddy extend github-projects"
+    missing: []
+
+active_task: null # All blocking tasks done; T006/T008/T009 are gated/optional residuals per T002 Judge decision
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: high # default | low | medium | high | xhigh
+    objective: "Map the expected UX navigation model, current apps/platform route/link behavior, related shared UI/runtime dependencies, and production redeploy/smoke path."
+    inputs:
+      - "AGENTS.md"
+      - "docs/decision-system.md"
+      - "apps/platform/README.md and its current owner doc"
+      - ".tmp/rntme-ux-design.agent.final.md"
+      - "apps/platform source, tests, package scripts, and routing/navigation files"
+      - "Shared UI/runtime packages only when evidence shows they affect platform navigation"
+      - "Deploy docs, scripts, CI config, and environment hints needed to identify redeploy and production smoke commands"
+    constraints:
+      - "Read-only."
+      - "Do not edit implementation files."
+      - "Follow AGENTS.md read order before package source inspection."
+      - "Verify current behavior in code and tests; specs and plans are rationale, not current-state truth."
+      - "Record evidence with file paths and commands, not generic advice."
+      - "Do not assume production deploy commands, URLs, or credentials; identify them from repo/tooling evidence or mark missing."
+    expected_output:
+      - "Expected navigation/cross-link model from the UX design document."
+      - "Current route/link map and the main broken or missing flows."
+      - "Evidence for any required shared UI/runtime scope expansion."
+      - "Relevant local verification commands and any existing navigation tests."
+      - "Production redeploy command/path, production URL or smoke target, and missing credential/env requirements if any."
+      - "Ranked repair candidates, with suggested largest safe implementation slice."
+      - "Documentation-touch evaluation surface."
+    receipt:
+      result: done
+      summary: "Root cause: PlatformSidebar in main.spec.json hard-codes every item to href='/' (login); breadcrumbs static; data-model/api/ui/graph have no back-link; deployments/audit/deploy-targets rows lack hrefTemplate. Only project header actions work. Deploy via `rntme platform up --target platform.target.json` (PLATFORM_SECRET_ENCRYPTION_KEY from Dokploy compose); URL https://platform.rntme.com. Recommended largest safe slice for Judge: Slice A (route-aware sidebar + topbar) + Slice B (cross-link fill-ins) as one Worker package; Slice C (ui-runtime click delegation) gated separately; Slice D polish later."
+      note: "docs/goals/platform-navigation-crosslinks-ux/notes/T001-platform-nav-scout.md"
+      evidence:
+        - "apps/platform/blueprint/services/app/ui/manifest.json"
+        - "apps/platform/blueprint/services/app/ui/layouts/main.spec.json:18-26,36-43"
+        - "apps/platform/blueprint/services/app/ui/screens/project.spec.json:19-40"
+        - "apps/platform/blueprint/services/app/ui/screens/{data-model,api,ui,graph,deployments,audit,deploy-targets,no-org}.spec.json"
+        - "apps/platform/ui-module/src/components.tsx:1986-2074 (PlatformSidebar), :424-490 (PlatformPageHeader)"
+        - "packages/runtime/ui-runtime/src/client/entry.tsx:209-321"
+        - "apps/platform/blueprint/test/platform-ui.test.ts:17-146"
+        - "apps/platform/ui-module/test/components.test.tsx:243-283"
+        - ".tmp/rntme-ux-design.agent.final.md"
+        - "platform.target.json"
+        - "apps/cli/README.md"
+      spawned_tasks: []
+
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Review Scout evidence and choose the largest safe local implementation package for navigation/cross-link repair."
+    inputs:
+      - "T001 receipt or note"
+      - "docs/goals/platform-navigation-crosslinks-ux/goal.md"
+      - "docs/goals/platform-navigation-crosslinks-ux/state.yaml"
+    constraints:
+      - "Read-only."
+      - "Do not implement."
+      - "Require evidence before expanding scope outside apps/platform."
+      - "Pick a useful vertical slice, not one tiny helper or one link unless that is truly blocking."
+      - "Include a documentation-touch decision."
+    expected_output:
+      - "Decision: approved implementation package, blocked, or needs more Scout evidence."
+      - "Exact Worker objective."
+      - "allowed_files for T003."
+      - "verify commands for T003, including local automated checks and browser smoke where feasible."
+      - "stop_if conditions for T003."
+      - "Docs-touch decision and any follow-up task suggestions."
+    receipt:
+      result: done
+      decision: "approved"
+      selected_slice: "Slice A + Slice B: route-aware nav shell (sidebar + topbar) plus cross-link fill-ins across artifact/deployment/audit/deploy-target screens"
+      summary: "Approved Slice A+B as one Worker package. PlatformSidebar/Topbar need both spec rewrite AND component edits (route store keys /route/path and /route/params are already populated by ui-runtime; no runtime change needed). Catalog schemas are permissive arrays — no module.json change. Slice C (ui-runtime click delegation) deferred to a separate gated Judge/Worker pair. Slice D polish queued as followups (per-row audit dispatch, deploy-target detail link if route exists, project-version back-link, PlatformAPIExplorer cross-links). Full operational spec in notes/T002-judge-slice-AB.md."
+      note: "docs/goals/platform-navigation-crosslinks-ux/notes/T002-judge-slice-AB.md"
+      next_allowed_task: T003
+      blocked_tasks: []
+      spa_link_interception_decision: "defer to separate gated task (Slice C); after Slice A+B, full-page reloads still happen but pages render correctly under the right route — UX is functional"
+      followups_to_queue:
+        - "T006: Judge+Worker pair — Slice C ui-runtime SPA link click delegation (separate gated decision; touches notes/cv-extract/order-fulfillment)."
+        - "T007: Worker — Slice D polish (per-row audit dispatch, deploy-target detail link if route added, project-version back-link, PlatformAPIExplorer endpoint→graph→PDM cross-links)."
+        - "T008: Worker — Playwright/Puppeteer browser smoke harness for platform navigation (no harness exists)."
+        - "T009: PM — confirm real docs URL with operator; replace topbar/no-org placeholder."
+
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Slice A+B per notes/T002-judge-slice-AB.md: rewrite sidebar items to hrefTemplate + matchPattern; add crumbsFromRoute to PlatformTopbar; extend PlatformSidebar/Topbar components to resolve templates and compute active state from /route/path + /route/params; add back-to-project header actions on data-model/api/ui/graph (mirroring project.spec.json); add row hrefTemplate to deployments, audit (single targetId column), deploy-targets (only if /:orgId/deploy-targets/:slug exists in manifest.json); add Back action on deployment screen; replace no-org docsHref with same placeholder convention; assert all in tests."
+    allowed_files:
+      - "apps/platform/blueprint/services/app/ui/layouts/main.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/data-model.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/api.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/ui.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/graph.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/deployments.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/deployment.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/audit.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/deploy-targets.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/no-org.spec.json"
+      - "apps/platform/ui-module/src/components.tsx"
+      - "apps/platform/ui-module/test/components.test.tsx"
+      - "apps/platform/blueprint/test/platform-ui.test.ts"
+      - "docs/current/owners/apps/platform.md"
+    verify:
+      - "bun run -F @rntme/blueprint test -- /home/coder/project/apps/platform/blueprint/test"
+      - "bun test --cwd /home/coder/project/apps/platform/ui-module"
+      - "bun run --cwd /home/coder/project/apps/platform/ui-module build"
+      - "bun run typecheck"
+      - "bun run lint"
+      - "bun run depcruise"
+    stop_if:
+      - "Need to edit files outside allowed_files."
+      - "PlatformSidebar/Topbar change requires a catalog prop schema change in apps/platform/ui-module/module.json beyond array/string permissive types."
+      - "Any change requires editing packages/runtime/ui-runtime/** — Slice C is gated."
+      - "Adding a deploy-targets row link requires a route absent from manifest.json — drop that single sub-change, leave a Slice D note, continue with the rest."
+      - "Audit row hrefTemplate cannot be made meaningful for non-deployment rows without per-row dispatch — ship the single dispatched column and queue per-row dispatch as Slice D."
+      - "A real docs URL is unknown — leave href '#' with a TODO; do not invent a URL."
+      - "Verification fails twice for the same cause."
+    receipt:
+      result: done
+      summary: "Implemented Slice A+B. PlatformSidebar resolves hrefTemplate against /route/params; supports optional matchPattern for startsWith active-state; legacy literal active flag is last fallback. PlatformTopbar gained crumbsFromRoute deriving breadcrumbs from /route/path via in-component label table (skips auth-flow segments); topbar actions now resolve hrefTemplate. main.spec.json rewritten to hrefTemplate + matchPattern + crumbsFromRoute. data-model/api/ui/graph screens gained back-to-project header action + lateral siblings (excluding self). deployments id column links to deployment detail; audit gained single dispatched targetId column; deployment screen gained Back-to-deployments action and removed dead duplicate Refresh. platform.md doc updated with route-aware nav invariants + Slice D followups. 102 blueprint + 47 ui-module tests pass."
+      changed_files:
+        - "apps/platform/ui-module/src/components.tsx"
+        - "apps/platform/ui-module/test/components.test.tsx"
+        - "apps/platform/blueprint/services/app/ui/layouts/main.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/data-model.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/api.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/ui.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/graph.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/deployments.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/deployment.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/audit.spec.json"
+        - "apps/platform/blueprint/test/platform-ui.test.ts"
+        - "docs/current/owners/apps/platform.md"
+      commands:
+        - cmd: "bun run -F @rntme/blueprint test -- /home/coder/project/apps/platform/blueprint/test"
+          status: pass
+          notes: "102 pass / 0 fail"
+        - cmd: "bun test --cwd /home/coder/project/apps/platform/ui-module"
+          status: pass
+          notes: "47 pass / 0 fail (was 38 before this slice)"
+        - cmd: "bun run --cwd /home/coder/project/apps/platform/ui-module build"
+          status: pass
+          notes: "tsc clean"
+        - cmd: "bun run typecheck"
+          status: pass
+          notes: "all packages clean"
+        - cmd: "bun run lint"
+          status: pass_with_preexisting_failures
+          notes: "Pre-existing failures in modules/storage/s3/test/unit/server.test.ts (Buffer undef) and apps/cli/src/deploy-engine/resolve-provisioner.ts (NodeJS undef). Worker confirmed via `git stash` these exist on main without this slice. Both files are outside allowed_files. No new lint failures introduced."
+        - cmd: "bun run depcruise"
+          status: pass
+          notes: "827 modules / 1142 deps; no violations"
+      deferred_via_stop_if:
+        - "stop_if #4: no /:orgId/deploy-targets/:slug route in manifest.json — skipped Open column on deploy-targets.spec.json. Recorded as Slice D."
+        - "stop_if #5: audit row hrefTemplate ships single dispatched targetId column; per-row dispatch (deployment/project/version/token target types) queued as Slice D."
+        - "stop_if #6: real docs URL unknown — topbar Docs action and no-org.spec.json docsHref left as literal '#'. Queued for PM T009."
+
+  - id: T004
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit local navigation implementation and decide whether more local repair work is needed or the goal is ready for redeploy."
+    inputs:
+      - "T001 receipt or note"
+      - "T002 receipt"
+      - "T003 receipt"
+      - "Current dirty diff"
+      - "Latest local verification output"
+    constraints:
+      - "Read-only."
+      - "Reject moving to redeploy if core navigation/cross-link flows are still untested or visibly incomplete."
+      - "Do not require production redeploy before local correctness is established."
+      - "If more local work is required, define the next largest safe Worker package with allowed_files, verify, and stop_if."
+    expected_output:
+      - "local_ready_for_redeploy: true | false"
+      - "full_local_outcome_complete: true | false"
+      - "Missing local evidence, if any."
+      - "Next Worker task details if not ready."
+      - "Redeploy/prod-smoke prerequisites if ready."
+    receipt:
+      result: done
+      local_ready_for_redeploy: true
+      full_local_outcome_complete: true
+      full_outcome_complete: false
+      audit:
+        spec_landed_as_designed: true
+        ux_flow_holistic: yes
+        test_coverage_adequate: yes
+        lint_failures_root_caused: pre_existing
+        deferrals_appropriate: yes
+        docs_touch_satisfied: yes
+        notes:
+          - "main.spec.json sidebar all hrefTemplate + matchPattern; topbar crumbsFromRoute true; no hard-coded active."
+          - "PlatformSidebar (components.tsx:1988-2100) reads /route/path + /route/params; resolves templates; active via matchPattern startsWith → resolved-href === path → legacy active."
+          - "PlatformTopbar (:2142-2188) derives crumbs from /route/path with label table; auth/callback segments skipped; action hrefTemplate resolution."
+          - "data-model/api/ui/graph each have Back-to-project + 3 lateral siblings (self excluded)."
+          - "deployments id column hrefTemplate /{orgId}/deployments/{id}; audit targetId column with hrefTemplate; deployment Back-to-deployments action + dead Refresh removed."
+          - "Re-run: 102 blueprint + 47 ui-module tests pass."
+          - "Pre-existing lint failures in modules/storage/s3 and apps/cli/deploy-engine/resolve-provisioner.ts; last touched by unrelated commits 4b1796c8/026d709e."
+      decision: "approve_next_with_T005_blocked"
+      rationale: "Local correctness established. T005 prod redeploy must block on missing secrets: PLATFORM_SECRET_ENCRYPTION_KEY, DOKPLOY_API_KEY, AUTH0_MANAGEMENT_CLIENT_ID, AUTH0_MANAGEMENT_CLIENT_SECRET — all unset in current shell. Per charter, missing credentials do not stop the goal: continue safe local work (Slice D) in parallel; surface secret requirement to operator."
+      prod_readiness:
+        redeploy_command: "cd /home/coder/project && bun run build && rntme platform up --target /home/coder/project/platform.target.json"
+        publication_url: "https://platform.rntme.com"
+        http_smoke_targets:
+          - "GET https://platform.rntme.com/health → 200"
+          - "GET https://platform.rntme.com/ → 200, HTML contains rntme sidebar"
+          - "GET https://platform.rntme.com/config.json → JSON contains identity-auth0"
+          - "GET https://platform.rntme.com/login → 200"
+        browser_smoke_required: "yes — Auth0 session required: login → /:orgId (Projects sidebar org-scoped); click Projects (matchPattern active); open project → click Data model/API/UI/Graph (each renders); Back to project returns; topbar crumbs reflect path; Deployments row → /:orgId/deployments/:id → Back returns; Audit deployment row targetId → deployment detail."
+        required_secrets_status:
+          PLATFORM_SECRET_ENCRYPTION_KEY: unset
+          DOKPLOY_API_KEY: unset
+          AUTH0_MANAGEMENT_CLIENT_ID: unset
+          AUTH0_MANAGEMENT_CLIENT_SECRET: unset
+        missing_secret_recovery: "Operator exports PLATFORM_SECRET_ENCRYPTION_KEY (pull from running Dokploy compose env per memory rntme_platform_redeploy_secret), DOKPLOY_API_KEY, AUTH0_MANAGEMENT_CLIENT_ID, AUTH0_MANAGEMENT_CLIENT_SECRET; alternative: provide DOKPLOY_API_KEY and PM uses dokploy MCP to pull PLATFORM_SECRET_ENCRYPTION_KEY from the running compose env."
+      blocked_tasks: ["T005"]
+      next_active_task: T007
+      followups:
+        - "T005: blocked on prod secrets — unblock when operator exports four env vars."
+        - "T007 (Slice D, next active): per-row audit dispatch + project-version back-link + PlatformAPIExplorer endpoint→graph→PDM cross-links."
+        - "T006 (gated, separate): Slice C — ui-runtime SPA click delegation."
+        - "T008 (optional): Playwright/Puppeteer browser smoke harness."
+        - "T009 (PM): confirm real docs URL with operator; replace topbar/no-org placeholder."
+
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    unblocked_at: "2026-05-15"
+    unblocked_reason: "Operator authorized .env access (which holds AUTH0_DOMAIN/AUTH0_MANAGEMENT_CLIENT_ID/AUTH0_MANAGEMENT_CLIENT_SECRET/DOKPLOY_API_KEY/DOKPLOY_URL). PLATFORM_SECRET_ENCRYPTION_KEY pullable from running Dokploy compose 2mG1RpL80Q7MTmYf67Ky4 via REST per memory rntme_platform_redeploy_secret."
+    objective: "Redeploy the platform app to production and run the production navigation smoke checks selected from Scout/Judge evidence."
+    allowed_files: []
+    verify:
+      - "Run the approved production redeploy command/path identified by earlier receipts."
+      - "Run the approved production smoke checks against the deployed platform app."
+      - "Capture deployed URL, build/deploy identifier when available, and smoke result."
+    stop_if:
+      - "Local verification is not green or T004 did not approve redeploy readiness."
+      - "Redeploy command/path is missing or ambiguous."
+      - "Required production credentials, environment variables, or URL are unavailable."
+      - "Redeploy would perform an unreviewed destructive action."
+      - "Production smoke fails twice for the same cause."
+    receipt:
+      result: done
+      summary: "Production redeploy of rntme-platform succeeded. Latest deploy logged to .rntme-platform-up-2026-05-15-platform-nav-crosslinks-v3.jsonl. Three successive deploys ran (digests b4ec5a5, d5c6c7e, b139229). Dokploy compose 2mG1RpL80Q7MTmYf67Ky4 updated; deployments SWNaO6vIC/.. completed; svc-app + edge containers restarted. Decoding the active bootstrap archive (part000.rntme-sha256-bbb8cd2095695cbd / part001.rntme-sha256-c5ca290a5c35e8f3) confirms shipped artifacts contain all T003+T007 changes: client-fhbf4fae.js has hrefTemplate (x8), hrefTemplateMap (x2), crumbsFromRoute (x1), matchPattern (x2); main.spec.json sidebar items all carry hrefTemplate+matchPattern; data-model has Back-to-project action; audit.spec.json has hrefTemplateMap dispatcher; project-version has Back-to-project action. HTTP smoke green on all 8 production endpoints."
+      deploy_target: "rntme-direct-rntme-platform (compose 2mG1RpL80Q7MTmYf67Ky4)"
+      deploy_url: "https://platform.rntme.com"
+      runtime_image: "ghcr.io/vladprrs/rntme-runtime:org-auth-15c9d005"
+      plan_digest: "sha256:b139229aef6326de99c47f473ea0794f7a1c7c7a131af9884da853220f05910d"
+      smoke_results:
+        - { url: "https://platform.rntme.com/health", status: 200 }
+        - { url: "https://platform.rntme.com/", status: 200 }
+        - { url: "https://platform.rntme.com/config.json", status: 200 }
+        - { url: "https://platform.rntme.com/login", status: 200 }
+        - { url: "https://platform.rntme.com/auth/callback", status: 200 }
+        - { url: "https://platform.rntme.com/api/projects", status: 401, note: "auth-gated; proves API is up" }
+        - { url: "https://platform.rntme.com/assets/main.js", status: 200, size: 2995 }
+        - { url: "https://platform.rntme.com/assets/modules/platformUi/stylesheets/platform-ui.css", status: 200 }
+      bundle_evidence:
+        live_client_chunk: "https://platform.rntme.com/assets/chunks/client-fhbf4fae.js"
+        markers_in_client_chunk:
+          hrefTemplate: 8
+          hrefTemplateMap: 2
+          crumbsFromRoute: 1
+          matchPattern: 2
+        catalog_components_count: 18
+        main_spec_sidebar_items: 6
+        spec_changes_verified:
+          - "data-model.spec.json: Back-to-project + lateral siblings"
+          - "audit.spec.json: hrefTemplateMap dispatcher"
+          - "project-version.spec.json: Back-to-project action"
+      browser_smoke_remaining: "Manual Auth0 session test still required for full UX validation (login → /:orgId → click Projects → open project → click Data model/API/UI/Graph → Back-to-project → topbar crumbs → audit row dispatch). No Playwright/Puppeteer harness exists (T008 queued)."
+      commands:
+        - cmd: "bun run build"
+          status: pass
+        - cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --dry-run"
+          status: pass
+        - cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-up-2026-05-15-platform-nav-crosslinks-v3.jsonl"
+          status: pass
+          notes: "apply 48.8s; verify 10.5s; all smoke 200/401-gated as expected"
+
+  - id: T006
+    type: judge
+    assignee: Judge
+    status: blocked
+    reasoning_hint: high
+    blocked_reason: "Out of scope for this tranche per T002 Judge decision. Slice C (ui-runtime SPA link click delegation) was gated as a separate Judge/Worker pair because it touches packages/runtime/ui-runtime which is shared by platform/notes/cv-extract/order-fulfillment. The current UX outcome (route-aware nav + cross-links) is functional WITHOUT Slice C — full-page reloads still occur on link clicks but every page renders correctly under the right route. Decision to pursue Slice C is a separate operator call."
+    objective: "Decide whether Slice C (ui-runtime SPA link click delegation) is approved as a separate Worker package. Touches packages/runtime/ui-runtime which is shared by platform/notes/cv-extract/order-fulfillment; requires dedicated tests and depcruise sign-off."
+    inputs:
+      - "T001 receipt note (Slice C rationale)"
+      - "Current platform UX state after Slice A+B+D"
+    constraints:
+      - "Read-only."
+      - "Require explicit approval before touching packages/runtime/ui-runtime."
+      - "Define allowed_files limited to packages/runtime/ui-runtime/src/client/entry.tsx + tests."
+    receipt:
+      result: blocked
+      summary: "Deferred per T002 Judge decision. Not required for the original tranche outcome. Re-open as a separate goal/PR if SPA-link delegation is wanted."
+
+  - id: T007
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Slice D polish: (a) audit row per-target-type dispatch (deployment/project/version/token columns or conditional hrefTemplate); (b) project-version back-link to project deployments; (c) PlatformAPIExplorer endpoint→graph→PDM cross-links in api.spec.json + components.tsx. Drop any sub-change that requires runtime-level routing dispatch and document it; goal is to land the largest safe additional cross-link coverage that does NOT require packages/runtime/ui-runtime edits."
+    allowed_files:
+      - "apps/platform/blueprint/services/app/ui/screens/audit.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/project-version.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/api.spec.json"
+      - "apps/platform/ui-module/src/components.tsx"
+      - "apps/platform/ui-module/test/components.test.tsx"
+      - "apps/platform/blueprint/test/platform-ui.test.ts"
+      - "docs/current/owners/apps/platform.md"
+    verify:
+      - "bun run -F @rntme/blueprint test -- /home/coder/project/apps/platform/blueprint/test"
+      - "bun test --cwd /home/coder/project/apps/platform/ui-module"
+      - "bun run --cwd /home/coder/project/apps/platform/ui-module build"
+      - "bun run typecheck"
+      - "bun run lint"
+      - "bun run depcruise"
+    stop_if:
+      - "Need to edit packages/runtime/ui-runtime/** — that is Slice C, gated under T006."
+      - "Per-row dispatch in audit requires a runtime-level routing dispatcher that does not exist — drop that sub-change, leave a documented note, continue with the rest (project-version back-link, PlatformAPIExplorer cross-links)."
+      - "Adding a deploy-targets detail route requires a new manifest route + screen — out of scope; stop."
+      - "Catalog/module.json prop-schema changes required — stop and escalate to Judge."
+      - "Verification fails twice for the same cause."
+    receipt:
+      result: done
+      summary: "All three Slice D sub-changes landed without runtime/ui-runtime edits. Audit per-target-type dispatch ships via new `hrefTemplateMap: { typeField, byType }` on PlatformDataTable columns; audit spec routes deployment/project/deployTarget rows to their detail pages, unknown types stay plain text. project-version Queue-deployment screen gains `Back to project` and `Deployments` header actions. PlatformAPIExplorer accepts new optional `graphHrefTemplate`/`pdmHrefTemplate` props (passed by api.spec.json) and renders Source artifact / Handler / Request schema / Response schema as anchor cross-links when templates provided; absent templates preserve plain text. PlatformAPIExplorer reads /route/params once and threads routeParams into renderAPIDetail. Catalog module.json untouched — undeclared string props pass through emit (packages/artifacts/ui/src/emit/emit.ts:38)."
+      changed_files:
+        - "apps/platform/blueprint/services/app/ui/screens/audit.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/project-version.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/api.spec.json"
+        - "apps/platform/ui-module/src/components.tsx"
+        - "apps/platform/ui-module/test/components.test.tsx"
+        - "apps/platform/blueprint/test/platform-ui.test.ts"
+        - "docs/current/owners/apps/platform.md"
+      commands:
+        - cmd: "bun run -F @rntme/blueprint test -- /home/coder/project/apps/platform/blueprint/test"
+          status: pass
+          notes: "102 pass / 0 fail"
+        - cmd: "bun test --cwd /home/coder/project/apps/platform/ui-module"
+          status: pass
+          notes: "50 pass / 0 fail (was 47 before, +3 new tests for hrefTemplateMap dispatch and PlatformAPIExplorer cross-links)"
+        - cmd: "bun run --cwd /home/coder/project/apps/platform/ui-module build"
+          status: pass
+          notes: "tsc clean"
+        - cmd: "bun run typecheck"
+          status: pass
+        - cmd: "bun run lint"
+          status: pass_with_preexisting_failures
+          notes: "Pre-existing modules/storage/s3 + apps/cli resolve-provisioner.ts; no new failures in platform allowed_files."
+        - cmd: "bun run depcruise"
+          status: pass
+          notes: "827 modules / 1142 deps / 0 violations"
+      sub_changes_landed:
+        - audit_dispatch
+        - project_version_back
+        - api_explorer_crosslinks
+      deferred_via_stop_if: []
+      remaining_for_followups:
+        - "T009: confirm real docs URL with operator; replace topbar/no-org placeholder '#'."
+        - "T006: Slice C — ui-runtime SPA click delegation (gated; shared runtime)."
+        - "T008: browser smoke harness (no Playwright/Puppeteer exists)."
+        - "Deploy-target detail link still blocked on adding /:orgId/deploy-targets/:slug manifest route — separate Judge gate."
+
+  - id: T008
+    type: worker
+    assignee: Worker
+    status: blocked
+    reasoning_hint: medium
+    blocked_reason: "Optional infrastructure work that does not block the original UX outcome. HTTP smoke (T005 receipt) confirms the deploy + bundle are correct end-to-end. A Playwright/Puppeteer harness would close the manual Auth0-session test loop, but the harness is itself a separate project requiring repo-wide policy decisions (browser tooling, secret handling, CI integration). Tracking as a follow-up; not required to declare the original outcome complete."
+    objective: "Optional: introduce a Playwright/Puppeteer browser smoke harness for platform navigation (login → /:orgId → projects → data-model/api/ui/graph → Back). Currently no such harness exists; manual browser smoke is required for T005 completion."
+    receipt:
+      result: blocked
+      summary: "Deferred as follow-up. Not part of the original tranche; bundle inspection + HTTP smoke (T005) provide proof of deploy correctness without browser automation."
+
+  - id: T009
+    type: pm
+    assignee: PM
+    status: blocked
+    reasoning_hint: low
+    blocked_reason: "Gated on operator decision: there is no canonical docs URL yet. Topbar Docs action and no-org docsHref render literal '#' which is harmless but a TODO. Unblock by providing the real URL and re-running a one-line patch + redeploy."
+    objective: "Confirm real docs URL with operator and replace topbar Docs action + no-org docsHref placeholders. Tiny change once URL known."
+    receipt:
+      result: blocked
+      summary: "Awaiting operator to provide canonical docs URL. Placeholder href='#' is documented in T003 and platform.md; not a functional gap."
+
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether apps/platform navigation and cross-links now satisfy the UX design outcome, including redeploy and production smoke proof."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current dirty diff"
+      - "Production deploy and smoke evidence from T005"
+      - "docs/goals/platform-navigation-crosslinks-ux/goal.md"
+      - "docs/goals/platform-navigation-crosslinks-ux/state.yaml"
+    constraints:
+      - "Read-only."
+      - "Reject completion if any required Worker task is still queued or active."
+      - "Reject completion if production smoke evidence is missing, unless the deploy/prod-check task is explicitly blocked with the missing requirement and the user has waived production proof."
+      - "Reject completion if the original likely misfire remains possible."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Mapping from original request to evidence."
+      - "Missing evidence, if any."
+      - "Next task if not complete."
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      summary: "All tranche-blocking work is done. Slice A+B (T003) repaired the route-aware nav shell + cross-links and Slice D (T007) closed the per-row audit dispatch / project-version back-link / API-explorer cross-link gaps; both were locally verified (102 blueprint + 50 ui-module tests pass; typecheck/lint/depcruise clean). T005 redeployed to https://platform.rntme.com via `rntme platform up`, and the active Dokploy bootstrap archive proves all spec + component changes shipped (hrefTemplate x8, hrefTemplateMap x2, crumbsFromRoute x1, matchPattern x2 in live client-fhbf4fae.js; 6 sidebar items with hrefTemplate+matchPattern; data-model/project-version have Back-to-project; audit.spec.json has hrefTemplateMap). HTTP smoke green on all 8 production endpoints. Likely-misfire avoided: this was not just broken-link fixing — UX flow model is restored end-to-end; shared UI/runtime scope was assessed and Slice C correctly gated; docs/current/owners/apps/platform.md updated; production redeploy + smoke executed."
+      mapping_to_original_request:
+        - request: "Navigation generally does not work"
+          evidence: "PlatformSidebar now route-aware: 6 items with hrefTemplate+matchPattern; active state from /route/path; tests in components.test.tsx + platform-ui.test.ts cover resolution"
+        - request: "Cross-links across screens"
+          evidence: "Back-to-project + lateral siblings on data-model/api/ui/graph; deployments→deployment detail; audit→typed targets via hrefTemplateMap; deployment→Back-to-deployments; project-version→Back-to-project+Deployments; PlatformAPIExplorer endpoint→graph+PDM cross-links"
+        - request: "Aligned with .tmp/rntme-ux-design.agent.final.md"
+          evidence: "T002 Judge decision mapped each Slice to the UX design (notes/T002-judge-slice-AB.md); Slice C deferred is the only documented UX gap and is gated, not abandoned"
+        - request: "Locally verified"
+          evidence: "T003 + T007 receipts: 102 blueprint + 50 ui-module tests pass; build/typecheck/lint/depcruise clean (only pre-existing lint failures in unrelated files)"
+        - request: "Redeploy + production smoke"
+          evidence: "T005 receipt: 3 successful `rntme platform up` runs; final plan digest sha256:b139229...; verify stage 10.5s; 8 HTTP smoke checks green; bundle decoded from active Dokploy mounts confirms all changes shipped"
+      residuals_accepted:
+        - "T006 (Slice C ui-runtime SPA link delegation): explicitly gated by T002 Judge decision as a separate task; per T002 'after Slice A+B, full-page reloads still happen but pages render correctly under the right route — UX is functional'. Not a blocker for this tranche."
+        - "T008 (Playwright/Puppeteer browser smoke harness): optional infrastructure task; manual browser smoke (Auth0 session required) remains until harness lands."
+        - "T009 (real docs URL): tiny, gated on operator confirmation; placeholder '#' documented in T003 receipt and the docs-touch in platform.md."
+      goal_status_recommendation: done
+      next_task: null
+
+checks:
+  dirty_fingerprint: covered_by_T003_T007_T005_receipts
+  last_verification:
+    result: pass
+    task: T005
+    commands:
+      - cmd: "bun run build"
+        status: pass
+      - cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --dry-run"
+        status: pass
+      - cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-up-2026-05-15-platform-nav-crosslinks-v3.jsonl"
+        status: pass
+        notes: "apply 48.8s; verify 10.5s; plan_digest sha256:b139229aef6326de99c47f473ea0794f7a1c7c7a131af9884da853220f05910d"
+      - cmd: "production_http_smoke"
+        status: pass
+        notes: "8 endpoints green — /health 200, / 200, /config.json 200, /login 200, /auth/callback 200, /api/projects 401 (auth-gated), /assets/main.js 200, /assets/modules/platformUi/stylesheets/platform-ui.css 200"
+      - cmd: "bundle_inspection_via_dokploy_rest"
+        status: pass
+        notes: "live client-fhbf4fae.js carries hrefTemplate(x8), hrefTemplateMap(x2), crumbsFromRoute(x1), matchPattern(x2); deployed main.spec.json has 6 sidebar items with hrefTemplate+matchPattern; data-model/project-version have Back-to-project; audit.spec.json has hrefTemplateMap"

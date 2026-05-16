@@ -12,7 +12,11 @@
         "eyebrow": "Deployment",
         "title": "Deployment detail",
         "actions": [
-          { "label": "Refresh", "variant": "secondary" }
+          {
+            "label": "Back to deployments",
+            "variant": "ghost",
+            "hrefTemplate": "/{orgId}"
+          }
         ]
       }
     },

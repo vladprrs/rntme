@@ -1,0 +1,420 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Platform Data Model Explorer"
+  slug: "platform-data-model-explorer"
+  kind: existing_plan
+  tranche: "continuous execution: implement the platform data-model explorer end to end across UI, routes/API handlers, PDM/QSM data plumbing, verification, and required docs touches"
+  status: done
+  intake:
+    original_request: "$goalbuddy:goal-prep Привести просмотр моделей данных в apps/platform к виду .tmp/rntme platform/data-model-explorer помимо UI доработай нужные ручки, PDM/QSM и тд. для того чтобы реализовать полноценно .tmp/rntme-ux-design.agent.final.md"
+    interpreted_outcome: "The platform data-model explorer matches the supplied UX target and is backed by real platform API/data-model behavior rather than static UI."
+    input_shape: existing_plan
+    audience: "platform users/operators inspecting project data models"
+    authority: requested
+    proof_type: demo
+    completion_proof: "A final audit proves the explorer UX matches the supplied .tmp inputs, renders real data through platform routes/handlers and PDM/QSM plumbing, passes focused verification, and records any required docs updates or a justified no-docs decision."
+    likely_misfire: "A visually similar static explorer is added while routes, handlers, PDM/QSM projections, artifact data, errors, or verification remain incomplete."
+    blind_spots_considered:
+      - ".tmp materials are inputs to validate, not current-state truth."
+      - "The current platform and UI-module owner docs may constrain route, component, and data-binding conventions."
+      - "PDM/QSM changes may cross artifact/compiler/runtime boundaries and must respect dependency-cruiser layering."
+      - "Data model explorer content may require artifact-body access, derived projections, or new handler operations; Judge must choose the smallest coherent architecture before Worker writes."
+      - "Completion needs backend/data proof, not only screenshot similarity."
+      - "Docs-touch evaluation is mandatory for public API, invariants, gotchas, or navigation changes."
+    existing_plan_facts:
+      - "Target app: apps/platform."
+      - "UX target path: .tmp/rntme platform/data-model-explorer."
+      - "Design/rationale input: .tmp/rntme-ux-design.agent.final.md."
+      - "Scope explicitly includes UI plus required routes/handlers, PDM, QSM, and related data plumbing."
+      - "AGENTS.md requires research -> plan -> implement for non-trivial work."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  # Dedicated GoalBuddy role-agent configs were not found in the checked local/project locations,
+  # but bundled goal_scout/goal_worker/goal_judge templates exist with the installed skill.
+  # /goal can proceed through PM fallback when dedicated agents are unavailable.
+  scout: bundled_not_installed
+  worker: bundled_not_installed
+  judge: bundled_not_installed
+
+visual_board:
+  selected: none
+  local:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy board docs/goals/platform-data-model-explorer"
+  github_projects:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy extend github-projects"
+    missing: []
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: high
+    objective: "Map the supplied data-model explorer UX/design inputs against current apps/platform, UI-module, PDM, QSM, API/handler, docs, and verification surfaces before any implementation."
+    inputs:
+      - "AGENTS.md"
+      - "docs/decision-system.md"
+      - "apps/platform/README.md"
+      - "apps/platform/ui-module/README.md"
+      - "packages/artifacts/pdm/README.md"
+      - "packages/artifacts/qsm/README.md"
+      - "Current owner docs linked from those README stubs"
+      - ".tmp/rntme-ux-design.agent.final.md"
+      - ".tmp/rntme platform/data-model-explorer"
+      - "apps/platform"
+      - "apps/platform/ui-module"
+      - "Relevant package.json scripts, tests, and dependency-cruiser rules"
+    constraints:
+      - "Read-only."
+      - "Do not edit implementation files."
+      - "Follow README stub -> owner doc navigation before package source."
+      - "Treat .tmp materials as inputs to validate, not as automatically correct current-state truth."
+      - "Prefer concrete file-path evidence over generic UX or architecture advice."
+      - "Identify documentation-touch needs but do not edit docs in this Scout task."
+      - "Do not print or persist secret values."
+    expected_output:
+      - "UX requirement inventory for the data-model explorer, mapped to supplied .tmp evidence."
+      - "Current platform route/component/state/API gap map with file-path evidence."
+      - "Current PDM/QSM data-source and projection gap map with file-path evidence."
+      - "Relevant existing tests and focused verification commands."
+      - "Architecture risks or decisions requiring Judge review, including data source, endpoint shape, validation/error behavior, and layering."
+      - "Ranked candidate vertical Worker slices with suggested allowed_files, verify commands, and stop_if conditions."
+      - "Documentation-touch evaluation surfaces and likely updates."
+    receipt:
+      result: done
+      note: notes/T001-scout-map.md
+      summary: "Mapped the .tmp data-model explorer UX to current platform/native-handler/PDM/QSM/UI-module surfaces. Found current implementation is a thin artifact listing; a real first slice needs a typed data-model endpoint plus a PlatformDataModelExplorer component backed by latest published bundle data."
+      evidence:
+        - docs/decision-system.md
+        - docs/current/owners/apps/platform.md
+        - docs/current/owners/packages/artifacts/pdm.md
+        - docs/current/owners/packages/artifacts/qsm.md
+        - apps/platform/blueprint/services/app/ui/screens/data-model.screen.json
+        - apps/platform/blueprint/services/app/ui/screens/data-model.spec.json
+        - apps/platform/blueprint/services/projects/handlers/get-project-artifact.ts
+        - apps/platform/blueprint/services/projects/handlers/get-project-artifact-summary.ts
+        - apps/platform/ui-module/src/components.tsx
+        - .tmp/rntme platform/data-model-explorer/README.md
+        - .tmp/rntme-ux-design.agent.final.md
+
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Convert Scout evidence into an implementation plan and choose the largest safe first vertical slice for the data-model explorer."
+    inputs:
+      - "T001 receipt or note"
+      - "Goal charter"
+      - "Current state.yaml"
+    constraints:
+      - "Read-only."
+      - "Do not implement."
+      - "Do not approve a UI-only slice unless Scout proves backend/data plumbing already exists and is verified."
+      - "Respect AGENTS.md, docs/decision-system.md, owner docs, dependency-cruiser layering, and validation/error-code rules."
+      - "Pick a slice that is coherent, reversible, and verifiable with local commands or a clearly marked demo/manual proof."
+    expected_output:
+      - "Decision: approved first Worker slice, blocked, or more evidence required."
+      - "Ordered implementation slices for completing the explorer end to end."
+      - "Exact first Worker objective."
+      - "allowed_files for the first Worker."
+      - "verify commands/checks for the first Worker."
+      - "stop_if conditions."
+      - "Docs touch decision for the first slice."
+      - "Risks deferred to later Judge or PM tasks."
+    receipt:
+      result: done
+      note: notes/T002-judge-plan.md
+      decision: approved
+      full_outcome_complete: false
+      summary: "Approved the first Worker slice: add a typed projects.listProjectDataModel native operation over latest published bundle PDM/QSM artifacts, wire the data-model screen to it, render a PlatformDataModelExplorer baseline, add focused tests, and update the platform owner doc."
+      next_task: T003
+
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Implement the first real-data platform data-model explorer slice: expose a new projects.listProjectDataModel native API over latest published bundle PDM/QSM artifacts, wire the platform UI screen to it, render a PlatformDataModelExplorer with PDM and QSM tabs/detail views using existing platform UI/CSS patterns, add focused tests, and update the platform owner doc."
+    allowed_files:
+      - "apps/platform/blueprint/services/projects/handlers/types.ts"
+      - "apps/platform/blueprint/services/projects/handlers/list-project-data-model.ts"
+      - "apps/platform/blueprint/services/projects/operations.json"
+      - "apps/platform/blueprint/services/projects/bindings/bindings.json"
+      - "apps/platform/blueprint/services/app/ui/screens/data-model.screen.json"
+      - "apps/platform/blueprint/services/app/ui/screens/data-model.spec.json"
+      - "apps/platform/blueprint/test/platform-blueprint.test.ts"
+      - "apps/platform/blueprint/test/platform-projects-handler.test.ts"
+      - "apps/platform/blueprint/test/platform-ui.test.ts"
+      - "apps/platform/ui-module/src/components.tsx"
+      - "apps/platform/ui-module/src/index.ts"
+      - "apps/platform/ui-module/src/client.ts"
+      - "apps/platform/ui-module/module.json"
+      - "apps/platform/ui-module/assets/platform-ui.css"
+      - "apps/platform/ui-module/test/components.test.tsx"
+      - "docs/current/owners/apps/platform.md"
+    verify:
+      - "bun run -F @rntme/platform-blueprint test"
+      - "bun run -F @rntme/platform-blueprint typecheck"
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Behavior, data source, endpoint shape, validation, or layering is ambiguous."
+      - "Verification fails twice without a clear local fix."
+      - "The slice would become UI-only while backend/data plumbing is still required."
+      - "A strategic/architectural/convention decision is needed before implementation can continue."
+    receipt:
+      result: done
+      summary: "Implemented a real-data platform data-model explorer slice: added projects.listProjectDataModel over latest published bundle PDM/QSM artifacts, wired the data-model screen to the new endpoint, rendered the PlatformDataModelExplorer component, added focused backend/UI tests, and updated the platform owner doc."
+      changed_files:
+        - "apps/platform/blueprint/services/projects/handlers/types.ts"
+        - "apps/platform/blueprint/services/projects/handlers/list-project-data-model.ts"
+        - "apps/platform/blueprint/services/projects/operations.json"
+        - "apps/platform/blueprint/services/projects/bindings/bindings.json"
+        - "apps/platform/blueprint/services/app/ui/screens/data-model.screen.json"
+        - "apps/platform/blueprint/services/app/ui/screens/data-model.spec.json"
+        - "apps/platform/blueprint/test/platform-blueprint.test.ts"
+        - "apps/platform/blueprint/test/platform-projects-handler.test.ts"
+        - "apps/platform/blueprint/test/platform-ui.test.ts"
+        - "apps/platform/ui-module/src/components.tsx"
+        - "apps/platform/ui-module/src/index.ts"
+        - "apps/platform/ui-module/src/client.ts"
+        - "apps/platform/ui-module/module.json"
+        - "apps/platform/ui-module/assets/platform-ui.css"
+        - "apps/platform/ui-module/test/components.test.tsx"
+        - "docs/current/owners/apps/platform.md"
+      commands:
+        - cmd: "bun run -F @rntme/platform-blueprint test"
+          status: pass
+        - cmd: "bun run -F @rntme/platform-blueprint typecheck"
+          status: pass
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+          status: pass
+      docs_touch: "Updated docs/current/owners/apps/platform.md because the platform gained a new native project data-model API and UI component contract."
+
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: low
+    objective: "Clear the existing platform-blueprint TypeScript blocker so the data-model explorer slice can complete its required package typecheck verification."
+    allowed_files:
+      - "apps/platform/blueprint/test/platform-deployments-handler.test.ts"
+    verify:
+      - "bun run -F @rntme/platform-blueprint typecheck"
+      - "bun run -F @rntme/platform-blueprint test"
+      - "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+    stop_if:
+      - "The blocker is not limited to the existing provisioner function cast in platform-deployments-handler.test.ts."
+      - "Fixing the blocker requires production implementation changes outside the allowed test file."
+      - "A second unrelated typecheck failure appears after this one is fixed."
+    receipt:
+      result: done
+      summary: "Cleared the platform-blueprint typecheck blocker by making the intentional test-only provisioner function cast explicit through unknown."
+      changed_files:
+        - "apps/platform/blueprint/test/platform-deployments-handler.test.ts"
+      commands:
+        - cmd: "bun run -F @rntme/platform-blueprint typecheck"
+          status: pass
+        - cmd: "bun run -F @rntme/platform-blueprint test"
+          status: pass
+        - cmd: "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+          status: pass
+
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether the platform data-model explorer fully satisfies the original user outcome."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current dirty diff"
+      - "Goal charter"
+      - ".tmp/rntme-ux-design.agent.final.md"
+      - ".tmp/rntme platform/data-model-explorer"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if the explorer is only visually similar but lacks real routes/handlers/PDM/QSM/data proof."
+      - "Reject completion if docs-touch requirements were ignored."
+      - "Reject stopping only because a slice needs owner input, credentials, production access, destructive operations, or policy decisions."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Mapping from original request to implemented UI, routes/handlers, PDM/QSM/data, verification, and docs evidence."
+      - "Missing evidence."
+      - "Next task if not complete."
+    receipt:
+      result: done
+      decision: not_complete
+      full_outcome_complete: false
+      summary: "The first real-data slice satisfies the backend/API/PDM/QSM baseline and focused verification, but it does not yet fully match the supplied data-model explorer prototype."
+      implemented_evidence:
+        - "GET /api/projects/{projectId}/data-model is registered as projects.listProjectDataModel."
+        - "The handler parses latest published bundle PDM entities, QSM projections, relationships, and endpoint usages."
+        - "The data-model screen uses PlatformDataModelExplorer with /data/model instead of generic artifact summary/listing data."
+        - "Focused platform and UI-module tests/typechecks/lint/build pass."
+        - "docs/current/owners/apps/platform.md documents the new native operation and UI behavior."
+      missing_evidence:
+        - "Prototype tree interactions are still missing: service grouping, search, status/service filters, and related-row highlighting."
+        - "Entity detail does not yet use the prototype's subtabs for Fields, Relationships, Used by, and Raw artifact."
+        - "Field row interaction, copy actions, toast, and field side-sheet are absent."
+        - "Relationship view is still a list, not the prototype-style visual relationship diagram with selected/related/missing-target treatments."
+        - "Findings can be carried by the contract, but no persisted validation-report source exists; do not fake warning/error counts."
+      next_task: T005
+
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Close the remaining prototype-match UI gaps that can be implemented over the current real data contract: grouped/searchable/filterable PDM and QSM trees, entity and projection detail subtabs, relationship target navigation and diagram treatment, field detail side-sheet with copy/toast actions, findings display when supplied, focused tests, and owner-doc update if behavior changes."
+    allowed_files:
+      - "apps/platform/ui-module/src/components.tsx"
+      - "apps/platform/ui-module/assets/platform-ui.css"
+      - "apps/platform/ui-module/test/components.test.tsx"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/goals/platform-data-model-explorer/state.yaml"
+    verify:
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+    stop_if:
+      - "The UI needs backend data that is not already available in the data-model contract."
+      - "A new visualization dependency, persisted validation-report source, or architecture decision becomes necessary."
+      - "Implementation would require changing generated screen specs or platform handlers beyond the current contract."
+    receipt:
+      result: done
+      summary: "Closed the remaining UI prototype-match gaps over the existing data-model contract: grouped/searchable/filterable PDM and QSM trees, entity/projection subtabs, field side-sheet with copy/toast actions, clickable relationship targets, findings display, and a dependency-light relationship diagram."
+      changed_files:
+        - "apps/platform/ui-module/src/components.tsx"
+        - "apps/platform/ui-module/assets/platform-ui.css"
+        - "apps/platform/ui-module/test/components.test.tsx"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/goals/platform-data-model-explorer/state.yaml"
+      commands:
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+          status: pass
+      docs_touch: "Updated docs/current/owners/apps/platform.md because the data-model explorer gained searchable/filterable trees, subtabs, a field side sheet, and a relationship diagram."
+
+  - id: T006
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Final audit: decide whether the platform data-model explorer now fully satisfies the original user outcome after T003-T005."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current dirty diff"
+      - "Goal charter"
+      - ".tmp/rntme-ux-design.agent.final.md"
+      - ".tmp/rntme platform/data-model-explorer"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if any Worker task is queued or active."
+      - "Reject completion if UI similarity lacks real route/handler/PDM/QSM proof."
+      - "Reject completion if docs-touch requirements were ignored."
+      - "Call out known non-blocking limits, especially absence of a persisted validation-report source."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Mapping from original request to implemented UI, routes/handlers, PDM/QSM/data, verification, and docs evidence."
+      - "Missing evidence or non-blocking limits."
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      summary: "The platform data-model explorer now satisfies the original outcome: the UI is backed by real platform data-model API behavior over latest published bundle PDM/QSM artifacts and the explorer matches the supplied prototype's core information architecture and interactions without adding a visualization dependency."
+      mapping:
+        - "UI target: PlatformDataModelExplorer renders the six-cell model summary, searchable/filterable PDM and QSM trees, entity/projection detail subtabs, field side sheet, copy/toast actions, findings display, clickable relationship targets, and a relationship diagram treatment."
+        - "Routes/handlers: GET /api/projects/{projectId}/data-model is registered as projects.listProjectDataModel and wired to the data-model screen at /data/model."
+        - "PDM/QSM/data plumbing: listProjectDataModel parses the latest bundle blob, extracts PDM entities/fields/relations, QSM projections, projection-to-endpoint usage through graph/binding references, relationship edges, raw artifacts, and empty findings from current source truth."
+        - "Docs: docs/current/owners/apps/platform.md documents the native operation and the richer explorer behavior."
+        - "Verification: focused platform blueprint tests/typecheck, UI-module tests/typecheck/lint/build, GoalBuddy state check, and git diff whitespace check all pass."
+      non_blocking_limits:
+        - "Publish does not persist a validation-report artifact yet, so findings are supported by the contract/UI but the handler returns [] instead of synthesizing warnings from mock-only fields."
+      commands:
+        - cmd: "bun run -F @rntme/platform-blueprint test"
+          status: pass
+        - cmd: "bun run -F @rntme/platform-blueprint typecheck"
+          status: pass
+        - cmd: "bun test --cwd apps/platform/ui-module"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module typecheck"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module lint"
+          status: pass
+        - cmd: "bun run --cwd apps/platform/ui-module build"
+          status: pass
+        - cmd: "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+          status: pass
+        - cmd: "git diff --check"
+          status: pass
+
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: pass
+    task: T006
+    commands:
+      - "bun run -F @rntme/platform-blueprint test"
+      - "bun run -F @rntme/platform-blueprint typecheck"
+      - "bun test --cwd apps/platform/ui-module"
+      - "bun run --cwd apps/platform/ui-module typecheck"
+      - "bun run --cwd apps/platform/ui-module lint"
+      - "bun run --cwd apps/platform/ui-module build"
+      - "node /home/coder/.shared-config/codex/plugins/cache/goalbuddy/goalbuddy/0.3.6/skills/goalbuddy/scripts/check-goal-state.mjs docs/goals/platform-data-model-explorer/state.yaml"
+      - "git diff --check"

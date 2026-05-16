@@ -13,6 +13,28 @@
         "title": "PDM entities",
         "meta": [
           { "label": "Source", "value": "Latest published bundle" }
+        ],
+        "actions": [
+          {
+            "label": "Back to project",
+            "variant": "ghost",
+            "hrefTemplate": "/{orgId}/projects/{projectId}"
+          },
+          {
+            "label": "API",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/api"
+          },
+          {
+            "label": "UI",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/ui"
+          },
+          {
+            "label": "Graph",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/graph"
+          }
         ]
       }
     },

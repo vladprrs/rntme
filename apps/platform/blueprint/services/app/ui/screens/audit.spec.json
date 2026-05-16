@@ -26,6 +26,19 @@
           { "key": "actorId", "label": "Actor" },
           { "key": "action", "label": "Action" },
           { "key": "targetType", "label": "Target type" },
+          {
+            "key": "targetId",
+            "label": "Target",
+            "hrefTemplateMap": {
+              "typeField": "targetType",
+              "byType": {
+                "deployment": "/{orgId}/deployments/{targetId}",
+                "project": "/{orgId}/projects/{targetId}",
+                "deployTarget": "/{orgId}/deploy-targets",
+                "deploy-target": "/{orgId}/deploy-targets"
+              }
+            }
+          },
           { "key": "status", "label": "Status" },
           { "key": "createdAt", "label": "Time" }
         ]

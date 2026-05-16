@@ -10,7 +10,19 @@
       "type": "PlatformPageHeader",
       "props": {
         "eyebrow": "Project · Version",
-        "title": "Queue deployment"
+        "title": "Queue deployment",
+        "actions": [
+          {
+            "label": "Back to project",
+            "variant": "ghost",
+            "hrefTemplate": "/{orgId}/projects/{projectId}"
+          },
+          {
+            "label": "Deployments",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/deployments"
+          }
+        ]
       }
     },
     "panel": {
