@@ -8,7 +8,9 @@ goal:
   slug: "platform-full-ux-scenarios"
   kind: existing_plan
   tranche: "continuous execution: integrate supplied platform UX scenarios/components, verify without Docker dependency, and prove the live platform operator outcome"
-  status: done
+  status: active
+  audit_result: not_complete
+  full_outcome_complete: false
   intake:
     original_request: "Turn MVP apps/platform into a full platform using UX scenarios from .tmp/rntme-ux-design.agent.final.md and prepared components from .tmp/rntme platform; verify on platform.rntme.com."
     interpreted_outcome: "The live platform renders a complete user scenario experience with deployed projects and inspectable artifacts, backed by verified code changes in apps/platform/ui-module and apps/platform."
@@ -64,7 +66,7 @@ visual_board:
     command: "npx goalbuddy extend github-projects"
     missing: []
 
-active_task: null
+active_task: T027
 
 tasks:
   - id: T001
@@ -1531,18 +1533,253 @@ tasks:
         - "Operator acceptance ritual (non-blocking): sign in to platform.rntme.com, open a project, visually confirm the services panel + summary grid + 4 artifact explorers (data-model/api/ui/graph) render real published-bundle data."
         - "Pre-existing, out of goal scope: platform-deployments-handler.test.ts:1206 (TS2352 ProvisionerInput cast) — owner handoff for the deployments-handler owner."
       needs_judge: false
+    superseded_by: T024
+
+  - id: T024
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Recovery audit after operator report that platform.rntme.com does not show the described scenarios; determine the real blocker and keep the goal open until signed-in dashboard proof exists."
+    constraints:
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, Dokploy secrets, or presigned URL signatures."
+      - "Do not treat unauthenticated 401 route-existence probes as proof that the signed-in dashboard renders deployed projects or artifact explorers."
+      - "Do not mark this goal complete until platform.rntme.com is proven with a valid live platform credential and/or operator browser confirmation that opens a real project and inspects the services panel, summary grid, and data-model/api/ui/graph artifact explorers."
+      - "Use the cv-extract platform-client/dashboard goal as related blocker context, but do not declare this goal complete through direct-mode cv-extract proof alone."
+    expected_output:
+      - "Corrected goal completion state."
+      - "Root-cause evidence for why the prior T999 completion was invalid."
+      - "Next unblocked action or exact operator/security authorization needed."
+    receipt:
+      result: done
+      summary: >-
+        Operator report accepted. The prior T999 completion was invalid because
+        its live proof only established deployment health and route existence
+        (200 for /, /service.json, /health; 401-not-404 for new protected API
+        routes). It did not prove the signed-in browser dashboard can show
+        deployed projects or inspect real published-bundle artifacts. Fresh
+        2026-05-14 checks reproduce the gap: platform.rntme.com serves the
+        new manifest/screens and the Auth0 SPA client is configured for
+        organization login, but the available shell PAT still gets 401 from
+        /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=10 and no
+        PLATFORM_BROWSER_JWT is present. The related cv-extract
+        platform-client/dashboard goal is also active and blocked on the same
+        valid live platform credential / dashboard proof path.
+        After explicit operator authorization for the M2M client-grant path,
+        the platform API credential chain was proven without printing JWT/PAT
+        material: M2M access token issued, POST /api/tokens succeeded, the
+        minted PAT introspected, and GET /api/projects for
+        org_uZUWhpWgK54VWC2X returned the active cv-extract project.
+      evidence:
+        - "Live shell: https://platform.rntme.com/service.json -> 200 {name:app}; /health -> 200; / -> 200."
+        - "Live shell: /api/projects/{probe}/services, /artifact-summary, /artifacts, /endpoints, /ui-components, /graphs all return 401 JSON RUNTIME_AUTH_TOKEN_INVALID, proving auth-gated route existence only."
+        - "Live manifest: /_manifest.json includes /:orgId/projects/:projectId plus /data-model, /api, /ui, and /graph explorer routes."
+        - "Live screens: /_screens/org.json and /_screens/no-org.json are served; /_screens/org.json binds /data/projects to GET /api/projects."
+        - "Live config: Auth0 SPA client rntme-platform uses organizationsCapability=require, postLoginRedirectPath=/no-org, and authenticatedRedirectPaths [/, /login, /auth/callback]."
+        - "Auth0 Management read-only check: rntme-platform client organization_usage=require and organization_require_behavior=pre_login_prompt; vladprsib@gmail.com is a member of org_uZUWhpWgK54VWC2X."
+        - "Credential check: current .env RNTME_TOKEN returns 401 for /api/tokens/introspect and /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=10."
+        - "Related blocker: docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml T042 is active; platform dashboard proof remains blocked without PLATFORM_BROWSER_JWT or explicit Auth0 client-grant authorization."
+        - "After explicit authorization: M2M token for audience https://platform.rntme.com/api issued; POST /api/tokens -> 200; minted PAT /api/tokens/introspect -> 200; minted PAT /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=10 -> 200 with project cv-extract id d5f9a57d-2acd-40a9-adc5-af899141638d."
+        - "Project artifact proof with minted PAT: services -> 200 (app/openrouter/storage-s3); artifact-summary -> 200 (versions=1, services=3, entities=1, schemas=1, graphs=4, endpoints=4, uiComponents=2); data-model/api/ui/graph explorer APIs all -> 200 with real rows."
+        - "Browser route shell proof: /org_uZUWhpWgK54VWC2X, project detail, and all four explorer route URLs return 200 HTML."
+      root_cause: >-
+        Completion criteria were weakened from "signed-in operator can see
+        deployed projects and inspect artifacts" to "the new routes exist and
+        are protected." The platform code and live deploy may contain the
+        explorer surfaces. The credential/data half is now proven, but a
+        remaining product navigation gap explains the operator report: the org
+        screen renders project rows as a plain table with no project-detail
+        link, and the project detail header actions are inert buttons rather
+        than links to the artifact explorers.
+      next_unblocked_actions:
+        - "T025: add a minimal navigation slice so the org project table links to project detail and project detail links to data-model/api/ui/graph explorers; then rebuild/redeploy and ask for browser acceptance confirmation."
+      needs_operator_input: false
+      needs_judge: false
+
+  - id: T025
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: "Implement the minimal platform UX navigation fix so an authenticated operator can discover the project detail and artifact explorer scenarios from the UI without hand-typing URLs."
+    proposed_design:
+      recommended: >-
+        Extend PlatformDataTable column definitions with hrefTemplate support,
+        substituting row fields and route params. Add an Open column on the org
+        projects table linking to /{orgId}/projects/{id}. Extend
+        PlatformPageHeader actions with hrefTemplate and render links when href
+        is present. Replace inert project-detail actions with Data model, API,
+        UI, and Graph explorer links.
+      alternatives:
+        - "Add a dedicated project navigation/tabs component: richer UX, but more component/CSS work."
+        - "Redirect after login directly to the first project: fast, but hides the org dashboard and scales poorly."
+    constraints:
+      - "Do not add a new visualization dependency."
+      - "Do not touch backend data handlers unless tests reveal the navigation fix cannot work with existing route/state data."
+      - "Use TDD: failing ui-module tests and platform-ui blueprint assertions before production edits."
+    allowed_files:
+      - "apps/platform/ui-module/src/components.tsx"
+      - "apps/platform/ui-module/test/components.test.tsx"
+      - "apps/platform/ui-module/module.json"
+      - "apps/platform/blueprint/services/app/ui/screens/org.spec.json"
+      - "apps/platform/blueprint/services/app/ui/screens/project.spec.json"
+      - "apps/platform/blueprint/test/platform-ui.test.ts"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/goals/platform-full-ux-scenarios/state.yaml"
+    verify:
+      - "bun run --filter @rntme/platform-ui test"
+      - "bun run --filter @rntme/platform-blueprint test"
+      - "bun run --filter @rntme/platform-ui lint"
+      - "Redeploy platform and re-probe live route/data surfaces after implementation."
+    stop_if:
+      - "A backend data handler, runtime package, or deploy package change proves necessary."
+      - "The UI-runtime renderer cannot pass route params to module components through the existing state store."
+      - "The change needs a new component or visualization dependency instead of simple links."
+      - "Tests fail twice with the same root cause."
+      - "Live redeploy would require new secrets or destructive platform operations."
+    receipt:
+      result: done
+      changed_files:
+        - "apps/platform/ui-module/src/components.tsx"
+        - "apps/platform/ui-module/test/components.test.tsx"
+        - "apps/platform/blueprint/services/app/ui/screens/org.spec.json"
+        - "apps/platform/blueprint/services/app/ui/screens/project.spec.json"
+        - "apps/platform/blueprint/test/platform-ui.test.ts"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/goals/platform-full-ux-scenarios/state.yaml"
+      commands:
+        - cmd: "bun run --filter @rntme/platform-ui test"
+          status: pass
+          detail: "20 pass, 0 fail; includes hrefTemplate header/action and data-table link regression tests"
+        - cmd: "bun run --filter @rntme/platform-blueprint test -- platform-ui.test.ts"
+          status: pass
+          detail: "84 pass, 0 fail; includes org Open column and project explorer action assertions"
+        - cmd: "bun run --filter @rntme/platform-ui lint"
+          status: pass
+          detail: "exit 0"
+        - cmd: "bun run --filter @rntme/platform-ui typecheck"
+          status: pass
+          detail: "exit 0"
+        - cmd: "bun run build"
+          status: pass
+          detail: "all packages built before redeploy; CLI postbuild copied the updated platform blueprint into apps/cli/dist/platform-blueprint"
+        - cmd: "bun run depcruise"
+          status: pass
+          detail: "no dependency violations found (827 modules, 1142 dependencies cruised)"
+        - cmd: "bun apps/cli/dist/bin/cli.js platform up --target platform.target.json --log-file .rntme-platform-redeploy-2026-05-14-T025-navigation.jsonl"
+          status: pass
+          detail: "deployment succeeded; render digest sha256:33e3e538a93b146c64615c934ddb746507c10d2a956c14f4f31598b56e5acac9; verify stage passed edge-health/ui/config-json"
+      live_evidence:
+        - "https://platform.rntme.com/_screens/org.json -> 200; org projects table includes an Open column with hrefTemplate /{orgId}/projects/{id}."
+        - "https://platform.rntme.com/_screens/project.json -> 200; project header actions link to /data-model, /api, /ui, and /graph under /{orgId}/projects/{projectId}."
+        - "Live asset /assets/main.js imports a current chunk whose code contains hrefTemplate handling."
+        - "Browser route shells all return 200 HTML with /assets/main.js: /org_uZUWhpWgK54VWC2X, /org_uZUWhpWgK54VWC2X/projects/d5f9a57d-2acd-40a9-adc5-af899141638d, and data-model/api/ui/graph explorer URLs."
+        - "M2M client-grant path remains valid after redeploy: short-lived PAT minted with project:read, /api/tokens/introspect -> 200, /api/projects?organizationId=org_uZUWhpWgK54VWC2X&limit=10 -> 200 with cv-extract."
+        - "Project explorer APIs with that PAT: services -> 200 count 3; artifact-summary -> 200 counts versions=1, services=3, entities=1, schemas=1, graphs=4, endpoints=4, uiComponents=2; data-model artifacts -> 200 count 1 Resume.json; endpoints -> 200 count 4; ui-components -> 200 count 2; graphs -> 200 count 4."
+      docs_touch:
+        - "docs/current/owners/apps/platform.md updated to document PlatformPageHeader action hrefTemplate and PlatformDataTable column hrefTemplate route templates."
+        - "apps/platform/README.md and apps/platform/ui-module/README.md unchanged: current-doc links and local commands are still accurate."
+        - "docs/decision-system.md unchanged: this is a route-discoverability/UI authoring addition, not a new strategic or architectural decision."
+      known_failures:
+        - "bun run --filter @rntme/platform-blueprint typecheck still fails only at the pre-existing platform-deployments-handler.test.ts:1206 TS2352; the T025-added platform-ui optional-access issue was fixed and no T025 type errors remain."
+      summary: >-
+        Added route-aware links to the existing platform UI components and
+        wired them into the platform screens. Organization project rows now
+        expose an Open link to the project detail route, and the project detail
+        header links directly to the data-model, API, UI, and graph explorer
+        routes. Redeployed platform.rntme.com with the new bundle and proved
+        the live screen specs, route shells, and protected project/explorer data
+        path through a freshly minted short-lived PAT. JWT/PAT/plaintext and
+        PLATFORM_SECRET_ENCRYPTION_KEY values were handled in process memory and
+        were not written to repo files.
+      needs_judge: false
+
+  - id: T026
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: "Final PM audit after T025: decide whether the operator-reported live UX gap is resolved on code, deploy, and live data evidence."
+    constraints:
+      - "Read-only audit except state.yaml receipt updates."
+      - "Do not mark complete from unauthenticated 401 route-existence probes alone."
+      - "Reject completion if live platform screen specs still lack navigation into project detail or artifact explorers."
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      rationale: >-
+        T024 correctly reopened the goal because previous completion only
+        proved protected routes existed. T025 fixed the actual discoverability
+        blocker the operator experienced: the org dashboard had no project
+        detail link, and project actions were inert buttons. The new code is
+        covered by focused UI tests, the platform blueprint test suite, lint,
+        typecheck for @rntme/platform-ui, full build, and depcruise. The live
+        platform was redeployed successfully, and live platform.rntme.com now
+        serves screen specs containing the org Open hrefTemplate and project
+        explorer action hrefTemplates. A fresh M2M-created short-lived PAT
+        proves the same live project/explorer APIs return real cv-extract
+        published-bundle data, not just 401 route existence.
+      scenario_evidence:
+        - "Organization project discovery: live /_screens/org.json includes Open -> /{orgId}/projects/{id}; live /api/projects returns cv-extract under org_uZUWhpWgK54VWC2X."
+        - "Project overview: live /_screens/project.json binds summary/services/deployments/versions; live summary/services return real counts/rows."
+        - "Artifact explorers: live project header links to data-model/api/ui/graph; corresponding route shells return 200 and APIs return real rows."
+        - "Credential path: operator-authorized Auth0 M2M grant can mint a platform PAT; PAT introspection and project reads return 200."
+      residual_risk: >-
+        This environment has no installed browser/Playwright/Chromium, so the
+        final proof is live screen-spec + JS chunk + HTTP route/data evidence
+        rather than a screenshot of an Auth0-signed-in browser. The remaining
+        human check is a normal browser hard refresh/sign-in, not an identified
+        code or deploy blocker.
+      outcome: "Goal complete as of 2026-05-14 after live redeploy sha256:33e3e538a93b146c64615c934ddb746507c10d2a956c14f4f31598b56e5acac9."
+    superseded_by: T027
+
+  - id: T027
+    type: pm
+    assignee: PM
+    status: active
+    reasoning_hint: high
+    objective: "Recovery audit after the operator reports that platform.rntme.com still does not work from the real browser perspective; separate proven backend/screen evidence from unproven browser DOM/Auth0 acceptance and identify the next fix."
+    constraints:
+      - "Do not mark complete from API, screen JSON, route-shell, or Auth0 Management evidence alone."
+      - "Treat the operator's browser report as authoritative acceptance failure until a real browser/screenshot/operator confirmation proves otherwise."
+      - "Do not print or persist bearer tokens, PAT plaintext, Auth0 secrets, Dokploy secrets, or presigned URL signatures."
+    receipt:
+      result: active
+      current_evidence:
+        - "Rechecked 2026-05-14: /service.json, /health, /config.json, /_manifest.json, login/no-org/org/project screen JSON all return 200."
+        - "Live /config.json contains @rntme/identity-auth0 public config with organizationsCapability=require, redirectUri=https://platform.rntme.com/auth/callback, and postLoginRedirectPath=/no-org."
+        - "Live /_screens/org.json contains the Open hrefTemplate; /_screens/project.json contains Data model/API/UI/Graph hrefTemplates."
+        - "Live route shells for /, /login, /no-org, org, project, and four explorer URLs all return 200 HTML with /assets/main.js."
+        - "Fresh M2M-created short-lived PAT can read /api/projects and the services/summary/data-model/api/ui/graph explorer APIs with 200 responses and cv-extract rows/counts."
+        - "Auth0 Management check: rntme-platform client still has organization_usage=require and organization_require_behavior=pre_login_prompt."
+        - "Recent Auth0 logs include a successful platform login carrying organization_id=org_uZUWhpWgK54VWC2X."
+        - "Live JS chunks contain both the Auth0 org self-heal/loginWithRedirect logic and hrefTemplate handling."
+      missing_evidence:
+        - "No real Auth0-signed browser DOM screenshot/proof from this environment; Playwright/Chromium is not installed and I cannot complete Google/Auth0 browser login autonomously."
+        - "Operator reports the live page still does not work; therefore T026 completion was again too strong."
+      next_debug_step: >-
+        Need the exact browser symptom/URL/state (for example: stuck on login,
+        /no-org page, org page empty, project page empty, explorer page empty,
+        or console/network error). With that, reproduce the failing layer and
+        implement the minimal fix instead of inferring from API-only proof.
 
 checks:
   dirty_fingerprint: unknown
   last_verification:
-    result: pass_with_known_preexisting
-    task: T023
+    result: pass_complete
+    task: T026
     commands:
       - "bun run build => all packages built, exit 0"
       - "bun run --filter @rntme/deploy-bundle-input test => 20 pass, 0 fail (incl. native-op UI-host binding regression test)"
-      - "bun run --filter @rntme/platform-blueprint test => 84 pass, 0 fail"
-      - "bun run --filter @rntme/platform-ui test => 18 pass, 0 fail"
-      - "bun run depcruise => no violations, 827 modules"
-      - "bun run --filter @rntme/platform-blueprint typecheck => pre-existing failure only at platform-deployments-handler.test.ts:1206 (TS2352, confirmed on clean HEAD)"
-      - "rntme platform up => deployment succeeded, render digest sha256:e84595b1ee950cfbaeee816872287f08974099867a750d5bd73c219acf04680e, verify stage pass"
-      - "live probe => platform.rntme.com / + /service.json + /health 200; 6 new explorer API routes 401 (auth-gated, exist); all 12 containers running"
+      - "bun run --filter @rntme/platform-ui test => 20 pass, 0 fail"
+      - "bun run --filter @rntme/platform-blueprint test -- platform-ui.test.ts => 84 pass, 0 fail"
+      - "bun run --filter @rntme/platform-ui lint => exit 0"
+      - "bun run --filter @rntme/platform-ui typecheck => exit 0"
+      - "bun run depcruise => no violations, 827 modules / 1142 dependencies"
+      - "bun run --filter @rntme/platform-blueprint typecheck => pre-existing failure only at platform-deployments-handler.test.ts:1206 (TS2352, confirmed earlier on clean HEAD); no T025 type errors remain"
+      - "rntme platform up => deployment succeeded, render digest sha256:33e3e538a93b146c64615c934ddb746507c10d2a956c14f4f31598b56e5acac9, verify stage pass"
+      - "live screen proof => /_screens/org.json has Open hrefTemplate /{orgId}/projects/{id}; /_screens/project.json has Data model/API/UI/Graph hrefTemplates"
+      - "live data proof => M2M-created short-lived PAT introspects and reads /api/projects plus services/summary/data-model/api/ui/graph explorer APIs, all 200 with cv-extract rows/counts"
+      - "browser route shell proof => org, project, and four explorer URLs all return 200 HTML with /assets/main.js"
+      - "live asset proof => /assets/main.js imports a current chunk containing hrefTemplate handling"

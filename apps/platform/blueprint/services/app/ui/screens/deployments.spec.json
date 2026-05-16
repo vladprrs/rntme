@@ -23,7 +23,7 @@
       "props": {
         "statePath": "/data/deployments",
         "columns": [
-          { "key": "id", "label": "ID" },
+          { "key": "id", "label": "ID", "hrefTemplate": "/{orgId}/deployments/{id}" },
           { "key": "status", "label": "Status" },
           { "key": "targetId", "label": "Target" },
           { "key": "projectVersionId", "label": "Version" }

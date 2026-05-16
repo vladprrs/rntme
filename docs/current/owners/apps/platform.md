@@ -320,6 +320,59 @@ live data while remaining backward-compatible with static-prop callers.
 `hrefTemplate` route templates; templates can reference route params and, for
 table links, row fields (for example `/{orgId}/projects/{id}`).
 
+### Route-aware nav shell
+
+`PlatformSidebar` and `PlatformTopbar` are route-aware. Both read `/route/path`
+and `/route/params` from the runtime state store; cross-link templates live in
+the layout/screen specs, not in component source.
+
+- **Sidebar items** accept `hrefTemplate` (resolved against `/route/params`)
+  alongside the legacy literal `href`. Active-state is computed by the
+  component, not authored: an optional `matchPattern` (also template-resolved)
+  drives a `startsWith` match for nested routes (e.g. `Projects` stays active
+  on every `/{orgId}/projects/...` page); otherwise the resolved href must
+  match the current path exactly. The legacy literal `active` flag is the last
+  fallback. **Do not hard-code `active: true` in the layout spec** — route
+  change will not clear it.
+- **Topbar `crumbsFromRoute: true`** derives breadcrumbs from `/route/path`
+  using an in-component label table (`data-model` → "Data model", `api` →
+  "API", `auth`/`callback` segments are dropped, etc.). The first crumb is
+  always the literal `platform`; the last crumb is marked `current`. Setting
+  `crumbsFromRoute: false`/absent keeps the legacy literal `crumbs` prop.
+- **Topbar actions** support `hrefTemplate` the same way page-header actions do
+  (resolved through `/route/params`).
+- The Docs link on the topbar and the provisioning docs link on the `no-org`
+  empty state are placeholder `href: "#"` values pending an operator-confirmed
+  documentation URL (Slice D follow-up — do not invent a URL).
+
+### Slice D polish — per-row link dispatch and cross-link templates
+
+- **Audit row link dispatch.** `PlatformDataTable` columns accept an
+  `hrefTemplateMap: { typeField, byType }` instead of a single `hrefTemplate`.
+  The column reads `row[typeField]` and picks the matching template from
+  `byType`; rows whose type is not in the map render as plain text (no
+  non-resolving deployment URL). The audit screen uses this on the `targetId`
+  column with `targetType` to route `deployment` rows to
+  `/{orgId}/deployments/{targetId}`, `project` rows to
+  `/{orgId}/projects/{targetId}`, and `deployTarget` / `deploy-target` rows to
+  `/{orgId}/deploy-targets`. Other event target types stay text.
+- **Project-version back-link.** The Queue-deployment screen
+  (`/:orgId/projects/:projectId/versions/:versionId`, `project-version.spec.json`)
+  renders a `Back to project` header action templated to
+  `/{orgId}/projects/{projectId}` plus a `Deployments` sibling templated to
+  `/{orgId}/projects/{projectId}/deployments`.
+- **`PlatformAPIExplorer` endpoint → graph → PDM cross-links.** The component
+  accepts optional `graphHrefTemplate` and `pdmHrefTemplate` props (resolved
+  against `/route/params` plus the active row's `graph` / `schemaName`). When
+  set, the Overview pane renders `Source artifact` and `Handler` as links to
+  the project Graph screen and `Request schema` / `Response schema` as links
+  to the project PDM (data-model) screen. Templates are absent on screens that
+  do not opt in, so the existing plain-text rendering is preserved. The
+  `api.spec.json` screen passes `/{orgId}/projects/{projectId}/graph` and
+  `/{orgId}/projects/{projectId}/data-model` as the defaults.
+- **Still deferred (out of scope here).** A deploy-target detail link column
+  remains queued — no `/:orgId/deploy-targets/:slug` route exists yet.
+
 The project dashboard's deployment-status panel (`deployStatusTimeline` in
 `project.spec.json`) wires `PlatformTimeline` to `/data/deploy-status`, bound to
 `deployments.listDeployStages`. When `statePath` is set, `PlatformTimeline`

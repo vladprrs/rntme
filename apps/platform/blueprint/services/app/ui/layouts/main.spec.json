@@ -16,12 +16,41 @@
         "contextMeta": "Preview · v0.3.2",
         "cliVersion": "0.3.2",
         "items": [
-          { "label": "Dashboard", "href": "/", "section": "Project", "active": true },
-          { "label": "Projects", "href": "/", "section": "Project" },
-          { "label": "Deployments", "href": "/", "section": "Project" },
-          { "label": "Deploy targets", "href": "/", "section": "Project" },
-          { "label": "API tokens", "href": "/", "section": "Account" },
-          { "label": "Audit log", "href": "/", "section": "Account" }
+          {
+            "label": "Dashboard",
+            "hrefTemplate": "/{orgId}",
+            "section": "Project"
+          },
+          {
+            "label": "Projects",
+            "hrefTemplate": "/{orgId}",
+            "matchPattern": "/{orgId}/projects",
+            "section": "Project"
+          },
+          {
+            "label": "Deployments",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/deployments",
+            "matchPattern": "/{orgId}/projects/{projectId}/deployments",
+            "section": "Project"
+          },
+          {
+            "label": "Deploy targets",
+            "hrefTemplate": "/{orgId}/deploy-targets",
+            "matchPattern": "/{orgId}/deploy-targets",
+            "section": "Project"
+          },
+          {
+            "label": "API tokens",
+            "hrefTemplate": "/{orgId}/tokens",
+            "matchPattern": "/{orgId}/tokens",
+            "section": "Account"
+          },
+          {
+            "label": "Audit log",
+            "hrefTemplate": "/{orgId}/audit",
+            "matchPattern": "/{orgId}/audit",
+            "section": "Account"
+          }
         ]
       }
     },
@@ -33,10 +62,7 @@
     "topbar": {
       "type": "PlatformTopbar",
       "props": {
-        "crumbs": [
-          { "label": "platform" },
-          { "label": "dashboard", "current": true }
-        ],
+        "crumbsFromRoute": true,
         "actions": [
           { "label": "Docs", "variant": "ghost", "href": "#" }
         ]

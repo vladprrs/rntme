@@ -13,6 +13,28 @@
         "title": "Graph definitions",
         "meta": [
           { "label": "Source", "value": "Latest published bundle" }
+        ],
+        "actions": [
+          {
+            "label": "Back to project",
+            "variant": "ghost",
+            "hrefTemplate": "/{orgId}/projects/{projectId}"
+          },
+          {
+            "label": "Data model",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/data-model"
+          },
+          {
+            "label": "API",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/api"
+          },
+          {
+            "label": "UI",
+            "variant": "secondary",
+            "hrefTemplate": "/{orgId}/projects/{projectId}/ui"
+          }
         ]
       }
     },

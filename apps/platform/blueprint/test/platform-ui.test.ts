@@ -144,6 +144,149 @@ describe('platform UI artifact', () => {
       href: '/assets/modules/platformUi/stylesheets/platform-ui.css',
     });
     expect(result.value.virtualEntrySource).toContain("import('@rntme/platform-ui/client')");
+
+    // Slice A — route-aware nav shell: sidebar items expose `hrefTemplate`
+    // (templated against /route/params at render) and the topbar derives its
+    // breadcrumbs from /route/path via the `crumbsFromRoute` flag. The
+    // hard-coded `active: true` is removed; active-state is now computed by
+    // the component from the current route path.
+    const mainLayout = ui?.layouts.main;
+    if (!mainLayout) throw new Error('main layout is missing');
+    const sidebar = mainLayout.spec.elements.sidebar;
+    expect(sidebar).toMatchObject({ type: 'PlatformSidebar' });
+    const sidebarItems = sidebar?.props.items as Array<Record<string, unknown>> | undefined;
+    expect(sidebarItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Dashboard', hrefTemplate: '/{orgId}' }),
+        expect.objectContaining({ label: 'Projects', hrefTemplate: '/{orgId}', matchPattern: '/{orgId}/projects' }),
+        expect.objectContaining({
+          label: 'Deployments',
+          hrefTemplate: '/{orgId}/projects/{projectId}/deployments',
+        }),
+        expect.objectContaining({ label: 'Deploy targets', hrefTemplate: '/{orgId}/deploy-targets' }),
+        expect.objectContaining({ label: 'API tokens', hrefTemplate: '/{orgId}/tokens' }),
+        expect.objectContaining({ label: 'Audit log', hrefTemplate: '/{orgId}/audit' }),
+      ]),
+    );
+    // No item carries the legacy hard-coded `active: true` flag.
+    expect(sidebarItems?.every((item) => item.active === undefined)).toBe(true);
+    const topbar = mainLayout.spec.elements.topbar;
+    expect(topbar).toMatchObject({
+      type: 'PlatformTopbar',
+      props: { crumbsFromRoute: true },
+    });
+
+    // Slice B — cross-link fill-ins: explorer screens expose lateral siblings
+    // and a back-to-project header action; the deployments table id column
+    // links to the deployment detail screen; the audit table exposes a
+    // dispatched targetId link column; the deployment detail back-link
+    // returns to the org dashboard (the route does not carry projectId).
+    const dataModelActions = (ui?.screens['data-model']?.spec.elements.header?.props.actions ??
+      []) as Array<Record<string, unknown>>;
+    expect(dataModelActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Back to project',
+          hrefTemplate: '/{orgId}/projects/{projectId}',
+        }),
+        expect.objectContaining({ label: 'API', hrefTemplate: '/{orgId}/projects/{projectId}/api' }),
+        expect.objectContaining({ label: 'UI', hrefTemplate: '/{orgId}/projects/{projectId}/ui' }),
+        expect.objectContaining({ label: 'Graph', hrefTemplate: '/{orgId}/projects/{projectId}/graph' }),
+      ]),
+    );
+    // Self-link is intentionally excluded from the lateral siblings list.
+    expect(dataModelActions.some((a) => a.label === 'Data model')).toBe(false);
+    const apiActions = (ui?.screens.api?.spec.elements.header?.props.actions ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(apiActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Back to project' }),
+        expect.objectContaining({ label: 'Data model' }),
+        expect.objectContaining({ label: 'UI' }),
+        expect.objectContaining({ label: 'Graph' }),
+      ]),
+    );
+    expect(apiActions.some((a) => a.label === 'API')).toBe(false);
+    const uiActions = (ui?.screens.ui?.spec.elements.header?.props.actions ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(uiActions.some((a) => a.label === 'UI')).toBe(false);
+    expect(uiActions.some((a) => a.label === 'Back to project')).toBe(true);
+    const graphActions = (ui?.screens.graph?.spec.elements.header?.props.actions ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(graphActions.some((a) => a.label === 'Graph')).toBe(false);
+    expect(graphActions.some((a) => a.label === 'Back to project')).toBe(true);
+
+    const deploymentsCols = (ui?.screens.deployments?.spec.elements.deployments?.props
+      .columns ?? []) as Array<Record<string, unknown>>;
+    expect(deploymentsCols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'id', hrefTemplate: '/{orgId}/deployments/{id}' }),
+      ]),
+    );
+
+    // Slice D — audit row link dispatches on `targetType` so non-deployment
+    // rows route to their own detail screen (project / deploy target) instead
+    // of a non-resolving deployment URL. Rows whose `targetType` is not in
+    // the map render as plain text.
+    const auditCols = (ui?.screens.audit?.spec.elements.events?.props.columns ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(auditCols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'targetId',
+          hrefTemplateMap: expect.objectContaining({
+            typeField: 'targetType',
+            byType: expect.objectContaining({
+              deployment: '/{orgId}/deployments/{targetId}',
+              project: '/{orgId}/projects/{targetId}',
+            }),
+          }),
+        }),
+      ]),
+    );
+
+    const deploymentActions = (ui?.screens.deployment?.spec.elements.header?.props.actions ??
+      []) as Array<Record<string, unknown>>;
+    expect(deploymentActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Back to deployments', hrefTemplate: '/{orgId}' }),
+      ]),
+    );
+    // The dead duplicate `Refresh` header action has been removed; the working
+    // refresh button is still on the deployment panel.
+    expect(deploymentActions.some((a) => a.label === 'Refresh')).toBe(false);
+
+    // Slice D — project-version (Queue deployment) screen carries a Back
+    // header action so the user is not stranded inside the Queue form.
+    const versionActions = (ui?.screens['project-version']?.spec.elements.header?.props.actions ??
+      []) as Array<Record<string, unknown>>;
+    expect(versionActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Back to project',
+          hrefTemplate: '/{orgId}/projects/{projectId}',
+        }),
+        expect.objectContaining({
+          label: 'Deployments',
+          hrefTemplate: '/{orgId}/projects/{projectId}/deployments',
+        }),
+      ]),
+    );
+
+    // Slice D — API explorer screen passes graph + PDM route templates to
+    // PlatformAPIExplorer so the Overview pane can render Handler / Source
+    // artifact / Request schema / Response schema as cross-links.
+    expect(ui?.screens.api?.spec.elements.endpointsExplorer).toMatchObject({
+      type: 'PlatformAPIExplorer',
+      props: {
+        graphHrefTemplate: '/{orgId}/projects/{projectId}/graph',
+        pdmHrefTemplate: '/{orgId}/projects/{projectId}/data-model',
+      },
+    });
   });
 });
 
