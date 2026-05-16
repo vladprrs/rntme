@@ -1,0 +1,428 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Blueprint Authoring Guides"
+  slug: "blueprint-authoring-guides"
+  kind: existing_plan
+  tranche: "Implement the approved guide-set design for external-agent blueprint authoring under docs/current/guides."
+  status: complete
+  intake:
+    original_request: "$goalbuddy:goal-prep подготовь цель по реализации docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md"
+    interpreted_outcome: "Prepare and then execute a GoalBuddy board that updates docs/current/guides into the approved practical blueprint-authoring guide set."
+    input_shape: existing_plan
+    audience: "External coding agents authoring rntme blueprints."
+    authority: approved
+    proof_type: artifact
+    completion_proof: "The approved guide set exists in docs/current/guides, forbidden paths appear only as explicit warnings, examples align with current demo fixtures, local checks pass, and final audit maps implementation to the design spec."
+    likely_misfire: "Producing stale reference docs or broad package inventories instead of a practical external-agent authoring playbook."
+    blind_spots_considered:
+      - "Existing guides are stale relative to operation-era Graph IR and bindings."
+      - "QSM uses relations, not removed relationRoles."
+      - "Native handlers exist internally but must not be documented as third-party authoring."
+      - "Modules exist but module authoring is out of scope."
+      - "Deploy is explicitly out of scope."
+      - "Examples must correspond to current demo blueprints or be compact valid snippets."
+    existing_plan_facts:
+      - "Source design spec: docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md."
+      - "Use compact guide-set approach: entrypoint plus narrow authoring guides."
+      - "Target docs/current/guides as the main edit surface."
+      - "Modules are mention-only."
+      - "Deploy is out of scope."
+      - "Native handlers, operations.json, handlers/*.ts, target.engine:\"native\", and workflow nativeTasks are forbidden as recommended external authoring paths."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  scout: bundled_not_installed
+  worker: bundled_not_installed
+  judge: bundled_not_installed
+
+visual_board:
+  selected: none
+  local:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy board docs/goals/blueprint-authoring-guides"
+  github_projects:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy extend github-projects"
+    missing: []
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: default
+    objective: "Map the current docs/current/guides files, owner docs, demo blueprints, and verification commands against the approved design spec."
+    inputs:
+      - "docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md"
+      - "docs/current/guides/"
+      - "docs/current/owners/packages/artifacts/blueprint.md"
+      - "docs/current/owners/packages/artifacts/pdm.md"
+      - "docs/current/owners/packages/artifacts/qsm.md"
+      - "docs/current/owners/packages/artifacts/graph-ir-compiler.md"
+      - "docs/current/owners/packages/artifacts/bindings.md"
+      - "docs/current/owners/packages/artifacts/ui.md"
+      - "docs/current/owners/packages/artifacts/workflows.md"
+      - "demo/notes-blueprint/"
+      - "demo/order-fulfillment-blueprint/"
+      - "demo/cv-extract-blueprint/"
+    constraints:
+      - "Read-only."
+      - "Do not edit docs/current/guides yet."
+      - "Prefer concrete file-path evidence over generic documentation advice."
+      - "Flag any design-spec assumption that conflicts with current owner docs or demo fixtures."
+    expected_output:
+      - "Evidence map from design guide names to current source files and examples."
+      - "List of stale/current guide issues that implementation must fix."
+      - "Recommended verification commands."
+      - "Risks or ambiguous scope items for Judge."
+    receipt: |
+      Scout evidence map:
+      - Existing guide files are only bindings-authoring.md, bindings-examples.md, graph-ir-authoring.md, and graph-ir-examples.md; the approved entrypoint, project structure, PDM, QSM, split Graph IR query/operation, UI, workflows, seed, and blueprint examples guides are missing.
+      - Owner docs confirm current sources: blueprint loads project.json, pdm/pdm.json plus pdm/entities/*.json, services/<svc> optional qsm/graphs/bindings/ui/seed/storage, and workflows/workflows.json; PDM state machines drive event types; QSM uses projections plus relations, not relationRoles; Graph IR operation path supports call, branch, uuid, emit, result; bindings require exposure read/action.
+      - Demo evidence: demo/notes-blueprint has authenticated read/action Graph IR operations, bindings with exposure/inputFrom, UI data/actions, QSM entity mirror, and seed; demo/order-fulfillment-blueprint has workflows mapping BPMN service tasks to project-routed action bindings plus branch/emit operation examples; demo/cv-extract-blueprint shows module-backed AI/storage calls and UI/storage patterns without teaching module authoring.
+      Stale/current guide issues:
+      - docs/current/guides/graph-ir-authoring.md still documents removed QSM relationRoles.
+      - docs/current/guides/bindings-authoring.md is pre-exposure and says only rowset output can be bound, conflicting with current row/rowset binding owner doc.
+      - Existing graph/bindings example files are package-reference style and do not point external agents through current project-blueprint authoring order.
+      - Missing guide family must be created under docs/current/guides without editing owner docs unless a real owner-doc defect appears.
+      Verification commands:
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+      - rg -n "exposure" docs/current/guides/bindings-authoring.md
+      - rg -n "deploy|Dokploy|target set-config|project deploy" docs/current/guides
+      - bun -e "import { loadComposedBlueprint } from './packages/artifacts/blueprint/src/index.js'; const r = await loadComposedBlueprint('demo/notes-blueprint'); if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } console.log('OK');"
+      Current verification:
+      - Forbidden-path grep currently finds relationRoles in graph-ir-authoring.md.
+      - exposure grep currently finds nothing in bindings-authoring.md.
+      - deploy grep currently finds nothing in docs/current/guides.
+      - notes-blueprint composition command prints OK.
+      Risks for Judge:
+      - Keep native handlers as explicit warnings only, because bindings/runtime still support target.engine native internally.
+      - Keep module examples by reference only; do not teach module implementation.
+      - Preserve legacy graph-ir-authoring.md and graph-ir-examples.md only as short redirects/compatibility indexes if needed so stale references do not remain parallel truth.
+
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Validate the implementation approach from the design spec and Scout evidence, then choose the first safe Worker package."
+    inputs:
+      - "T001 receipt"
+      - "docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md"
+    constraints:
+      - "Do not implement."
+      - "Reject any approach that teaches native handlers, module authoring, or deploy."
+      - "Pick the largest safe useful documentation slice with allowed_files, verify commands, and stop conditions."
+    expected_output:
+      - "Decision: approved | revise_board | blocked."
+      - "Exact first Worker objective."
+      - "allowed_files."
+      - "verify commands."
+      - "stop_if conditions."
+      - "Any board edits required before Worker starts."
+    receipt: |
+      Decision: approved.
+      First Worker objective:
+      - Implement the entrypoint and foundation guide slice: blueprint-authoring.md, project-structure-authoring.md, pdm-authoring.md, and qsm-authoring.md.
+      Allowed files:
+      - docs/current/guides/blueprint-authoring.md
+      - docs/current/guides/project-structure-authoring.md
+      - docs/current/guides/pdm-authoring.md
+      - docs/current/guides/qsm-authoring.md
+      Verify commands:
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+      - rg -n "deploy|Dokploy|target set-config|project deploy" docs/current/guides/blueprint-authoring.md docs/current/guides/project-structure-authoring.md
+      Stop if:
+      - The slice needs edits outside allowed files.
+      - Owner docs contradict the approved design spec.
+      - The guide would need module-authoring, deploy, or native-handler recommendations to remain coherent.
+      Board edits required:
+      - None; existing T003 already matches this decision.
+
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Implement the entrypoint and project/data-model foundation guides: blueprint-authoring, project structure, PDM, and QSM."
+    allowed_files:
+      - "docs/current/guides/blueprint-authoring.md"
+      - "docs/current/guides/project-structure-authoring.md"
+      - "docs/current/guides/pdm-authoring.md"
+      - "docs/current/guides/qsm-authoring.md"
+    verify:
+      - "rg -n \"relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks\" docs/current/guides"
+      - "rg -n \"deploy|Dokploy|target set-config|project deploy\" docs/current/guides/blueprint-authoring.md docs/current/guides/project-structure-authoring.md"
+    stop_if:
+      - "Need to edit files outside allowed_files."
+      - "Owner docs contradict the approved design spec."
+      - "Need to document module authoring or deploy to make the guide coherent."
+      - "Verification finds forbidden paths used as recommendations rather than explicit warnings."
+    receipt: |
+      Implemented foundation guide package.
+      Files changed:
+      - docs/current/guides/blueprint-authoring.md
+      - docs/current/guides/project-structure-authoring.md
+      - docs/current/guides/pdm-authoring.md
+      - docs/current/guides/qsm-authoring.md
+      Coverage:
+      - Added the external-agent entrypoint with authoring order, cross-cutting JSON/source-of-truth/Graph IR behavior rules, native-handler warning, module mention-only stance, local composition check, and current demo pointers.
+      - Added project shell guide covering project.json, service.json, optional qsm/graphs/bindings/ui/seed/storage/workflows paths, file ownership, and validation clues.
+      - Added PDM guide covering entity-per-file layout, ownerService/kind/table/fields/keys/relations/stateMachine/event-type consequences, scalar/generated constraints, and common repairs.
+      - Added QSM guide covering qsm.json, entity-mirror projections, current relations map, parity with PDM relations, dot-navigation prerequisites, many-cardinality caveat, and common repairs.
+      Verification:
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+        Result: finds explicit warning lines in blueprint-authoring.md and qsm-authoring.md; also finds pre-existing stale relationRoles recommendations in graph-ir-authoring.md, which T004 owns.
+      - rg -n "deploy|Dokploy|target set-config|project deploy" docs/current/guides/blueprint-authoring.md docs/current/guides/project-structure-authoring.md
+        Result: no matches.
+      Notes:
+      - No owner-doc edits were needed for this slice.
+      - Full outcome is not complete; Graph IR and bindings guides remain stale/missing and are active next.
+
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Implement current Graph IR query, Graph IR operation, and bindings authoring guides."
+    allowed_files:
+      - "docs/current/guides/graph-ir-authoring.md"
+      - "docs/current/guides/graph-ir-examples.md"
+      - "docs/current/guides/graph-ir-query-authoring.md"
+      - "docs/current/guides/graph-ir-operation-authoring.md"
+      - "docs/current/guides/bindings-authoring.md"
+      - "docs/current/guides/bindings-examples.md"
+    verify:
+      - "rg -n \"exposure\" docs/current/guides/bindings-authoring.md"
+      - "rg -n \"result|call|branch|emit\" docs/current/guides/graph-ir-operation-authoring.md"
+      - "rg -n \"relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks\" docs/current/guides"
+    stop_if:
+      - "Need to edit files outside allowed_files."
+      - "Cannot decide whether to replace or redirect legacy graph-ir-authoring.md / graph-ir-examples.md without Judge."
+      - "Examples cannot be tied to current demo or package test fixtures."
+      - "Verification finds forbidden paths used as recommendations rather than explicit warnings."
+    receipt: |
+      Implemented Graph IR and bindings guide package.
+      Files changed:
+      - docs/current/guides/graph-ir-authoring.md
+      - docs/current/guides/graph-ir-examples.md
+      - docs/current/guides/graph-ir-query-authoring.md
+      - docs/current/guides/graph-ir-operation-authoring.md
+      - docs/current/guides/bindings-authoring.md
+      - docs/current/guides/bindings-examples.md
+      Coverage:
+      - Replaced the stale broad Graph IR guide with a compatibility entry that points to split query and operation guides.
+      - Added query authoring guidance for graph files, shapes, signatures, read nodes, expressions, dot paths, result nodes, and read binding expectations.
+      - Added operation guidance for result, call, branch, uuid, emit, PDM transition checks, expression references, effect/exposure rules, and native-handler avoidance.
+      - Replaced stale Graph IR examples with compact current patterns backed by notes, order-fulfillment, and cv-extract demo files.
+      - Replaced bindings authoring with current exposure/read-action/inputFrom/response/row-rowset guidance.
+      - Replaced bindings examples with current read, action, path/body, module-backed action, and redirect callback shapes using exposure.
+      Verification:
+      - rg -n "exposure" docs/current/guides/bindings-authoring.md
+        Result: matches current exposure guidance and examples.
+      - rg -n "result|call|branch|emit" docs/current/guides/graph-ir-operation-authoring.md
+        Result: matches required operation nodes and rules.
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+        Result: only explicit warning lines remain in blueprint-authoring.md and qsm-authoring.md.
+      Notes:
+      - Full outcome is not complete; UI, workflow, seed, and cross-blueprint example guides remain active next.
+
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Implement UI, workflow, seed, and cross-blueprint example guides."
+    allowed_files:
+      - "docs/current/guides/ui-authoring.md"
+      - "docs/current/guides/workflows-authoring.md"
+      - "docs/current/guides/seed-authoring.md"
+      - "docs/current/guides/blueprint-examples.md"
+      - "docs/current/guides/bindings-examples.md"
+      - "docs/current/guides/graph-ir-examples.md"
+    verify:
+      - "rg -n \"nativeTasks|operations\\.json|handlers/|target\\.engine.*native\" docs/current/guides"
+      - "rg -n \"project deploy|Dokploy|target set-config\" docs/current/guides"
+      - "rg -n \"demo/notes-blueprint|demo/order-fulfillment-blueprint|demo/cv-extract-blueprint\" docs/current/guides/blueprint-examples.md"
+    stop_if:
+      - "Need to edit files outside allowed_files."
+      - "Workflow guidance requires nativeTasks or deploy details."
+      - "Examples cannot be backed by current demo files or compact valid snippets."
+      - "Verification finds deploy commands or module authoring instructions in guide recommendations."
+    receipt: |
+      Implemented UI, workflow, seed, and examples guide package.
+      Files changed:
+      - docs/current/guides/ui-authoring.md
+      - docs/current/guides/workflows-authoring.md
+      - docs/current/guides/seed-authoring.md
+      - docs/current/guides/blueprint-examples.md
+      Coverage:
+      - Added UI authoring guide covering manifest, layout/screen pairs, fragments, element-tree rules, data bindings, command actions, navigation/refetch actions, state-path coverage, and current UI examples.
+      - Added workflow authoring guide covering workflows.json, BPMN definitions, PDM event message starts, service task mappings to action bindings, mapping expressions, and explicit nativeTasks warning.
+      - Added seed authoring guide using the current seedVersion 1 event-envelope shape from code and demo fixtures, with event type, payload, actor, version, and state-machine ordering rules.
+      - Added blueprint examples index covering minimal read endpoint, state-machine-backed actions, authenticated service consumption, UI data+command screen, workflow-to-action bindings, and module-backed capability consumption across all three demos.
+      Verification:
+      - rg -n "nativeTasks|operations\\.json|handlers/|target\\.engine.*native" docs/current/guides
+        Result: only explicit warning lines in blueprint-authoring.md and workflows-authoring.md.
+      - rg -n "project deploy|Dokploy|target set-config" docs/current/guides
+        Result: no matches.
+      - rg -n "demo/notes-blueprint|demo/order-fulfillment-blueprint|demo/cv-extract-blueprint" docs/current/guides/blueprint-examples.md
+        Result: matches all three demo families.
+      Notes:
+      - Full outcome is not complete; consistency cleanup, composition verification, and final audit remain.
+
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Run documentation consistency cleanup and local compose verification for the guide set."
+    allowed_files:
+      - "docs/current/guides/"
+    verify:
+      - "rg -n \"relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks\" docs/current/guides"
+      - "rg -n \"exposure\" docs/current/guides/bindings-authoring.md"
+      - "bun -e \"import { loadComposedBlueprint } from './packages/artifacts/blueprint/src/index.js'; const r = loadComposedBlueprint('demo/notes-blueprint'); if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } console.log('OK');\""
+    stop_if:
+      - "Need to edit files outside docs/current/guides."
+      - "Composition check fails for reasons unrelated to guide changes."
+      - "Forbidden-path grep finds recommendations rather than explicit warnings."
+    receipt: |
+      Ran documentation consistency cleanup and local compose verification.
+      Files changed:
+      - No additional guide edits were needed during T006.
+      Verification:
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+        Result: only explicit warning lines in qsm-authoring.md, blueprint-authoring.md, and workflows-authoring.md.
+      - rg -n "exposure" docs/current/guides/bindings-authoring.md
+        Result: matches current exposure guidance and binding example.
+      - bun -e "import { loadComposedBlueprint } from './packages/artifacts/blueprint/src/index.js'; const r = await loadComposedBlueprint('demo/notes-blueprint'); if (!r.ok) { console.error(JSON.stringify(r.errors, null, 2)); process.exit(1); } console.log('OK');"
+        Result: OK.
+      Additional check:
+      - rg -n "project deploy|Dokploy|target set-config|relationRoles" docs/current/guides
+        Result: only qsm-authoring.md explicit relationRoles warning; no prohibited rollout command references.
+      Notes:
+      - Guide set now contains the intended entrypoint plus narrow authoring guides.
+      - Full outcome still requires final Judge/PM audit.
+
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether docs/current/guides fully implements the approved blueprint authoring guide-set design."
+    inputs:
+      - "All done task receipts."
+      - "Last verification."
+      - "Current dirty diff."
+      - "docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md."
+    constraints:
+      - "Do not implement."
+      - "Reject completion if any required guide surface from the design spec is missing."
+      - "Reject completion if native handlers, deploy, or module authoring are recommended paths."
+      - "Reject completion if examples are stale or unsupported."
+    expected_output:
+      - "complete | not_complete."
+      - "full_outcome_complete: true | false."
+      - "Design-spec coverage map."
+      - "Missing evidence or next task if not complete."
+    receipt: |
+      complete.
+      full_outcome_complete: true
+
+      Objective restated:
+      - Implement docs/superpowers/specs/2026-05-16-blueprint-authoring-guides-design.md so docs/current/guides is a practical external-agent authoring playbook for working rntme blueprints.
+
+      Prompt-to-artifact checklist:
+      - Entrypoint guide blueprint-authoring.md: present; covers authoring order, JSON/source-of-truth rules, Graph IR behavior path, native-handler warning, module mention-only stance, local composition command, and demo pointers.
+      - Project structure guide: present; covers project.json, pdm/pdm.json, pdm/entities/*.json, service.json, optional qsm/graphs/bindings/ui/seed/storage, and workflows/workflows.json paths.
+      - PDM guide: present; covers entity-per-file layout, fields/columns, keys, relations, generated fields, state machines, event-type consequences, and validator repairs.
+      - QSM guide: present; covers entity-mirror projections, keys/grain/exposed/table, current relations map, PDM relation parity, dot-navigation prerequisites, and many-cardinality caveat.
+      - Graph IR query guide: present; covers graph files, shapes, signatures, findMany/findOne/filter/map/reduce/sort/limit/result, expressions, predicate_optional, dot paths, and read binding expectations.
+      - Graph IR operation guide: present; covers result, call, branch with exactly one default case, uuid, emit, PDM transition checks, expression references, local read + emit patterns, and read/action exposure constraints.
+      - Bindings guide: present and updated in place; covers exposure read/action, graph target, http parameters, inputFrom, response/redirects, row and rowset outputs, POST actions, GET redirect callbacks, and action query-parameter constraints.
+      - UI guide: present; covers manifest.json, layout/screen pairs, fragments, data bindings, command actions, navigation/refetch actions, and state-path coverage rules.
+      - Workflow guide: present; covers workflows.json, BPMN definitions, message starts from PDM event types, service task mapping to project-routed action bindings, and nativeTasks warning.
+      - Seed guide: present; covers current seedVersion 1 event-envelope shape, service-local seed/seed.json, PDM-derived event types, payload validation, version/id invariants, and state-machine ordering.
+      - Blueprint examples index: present; maps minimal read endpoint, state-machine-backed actions, authenticated service consumption, UI data+command screen, workflow-to-action binding, and module-backed capability consumption to current demo files.
+      - Existing graph-ir-authoring.md treatment: replaced with compatibility redirect to split query/operation guides, so stale broad reference content no longer remains parallel truth.
+      - Existing graph-ir-examples.md treatment: replaced with focused current examples backed by demo files.
+      - Existing bindings-examples.md treatment: replaced with current examples containing exposure.
+      - Existing bindings-authoring.md treatment: updated in place.
+      - Native handler prohibition: grep finds only explicit warning contexts in blueprint-authoring.md and workflows-authoring.md; graph-ir-operation-authoring.md also states native handlers are platform internals, not an external authoring path.
+      - Removed QSM relationRoles: grep finds only qsm-authoring.md explicit "removed field" warning.
+      - Module authoring exclusion: module references are consumption-only; blueprint-examples.md explicitly says it is not module implementation guidance and module internals are not authored here.
+      - Production rollout exclusion: rg -n "deploy" docs/current/guides returns no matches; prohibited command grep returns no matches.
+      - Example source validity: referenced guide and demo files checked with test -f; no missing paths printed.
+      - Local composition proof: loadComposedBlueprint succeeded for demo/notes-blueprint, demo/order-fulfillment-blueprint, and demo/cv-extract-blueprint.
+      - Board proof: T001-T006 receipts are done and T999 audit maps implementation to the design spec.
+
+      Fresh verification evidence:
+      - find docs/current/guides -maxdepth 1 -type f -printf '%f\n' | sort
+        Result: 14 guide files, including the entrypoint and all narrow guides required by the design spec.
+      - rg -n "relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks" docs/current/guides
+        Result: only explicit warning contexts in qsm-authoring.md, blueprint-authoring.md, and workflows-authoring.md.
+      - rg -n "project deploy|Dokploy|target set-config" docs/current/guides
+        Result: no matches.
+      - rg -n "deploy" docs/current/guides
+        Result: no matches.
+      - rg -n "exposure" docs/current/guides/bindings-authoring.md
+        Result: matches current exposure guidance.
+      - rg -n "result|call|branch|emit" docs/current/guides/graph-ir-operation-authoring.md
+        Result: matches required operation guidance.
+      - rg -n "demo/notes-blueprint|demo/order-fulfillment-blueprint|demo/cv-extract-blueprint" docs/current/guides/blueprint-examples.md
+        Result: matches all three demo families.
+      - test -f loop over required guide/demo paths
+        Result: no missing paths printed.
+      - bun -e loadComposedBlueprint('demo/notes-blueprint')
+        Result: notes OK.
+      - bun -e loadComposedBlueprint('demo/order-fulfillment-blueprint')
+        Result: order OK.
+      - bun -e loadComposedBlueprint('demo/cv-extract-blueprint')
+        Result: cv OK.
+
+      Missing evidence or next task:
+      - None.
+
+checks:
+  dirty_fingerprint: "pre-existing dirty worktree outside this goal; preserve unrelated platform/goals changes"
+  last_verification:
+    result: pass
+    task: T999
+    commands:
+      - "find docs/current/guides -maxdepth 1 -type f -printf '%f\\n' | sort"
+      - "rg -n \"relationRoles|target\\.engine.*native|operations\\.json|handlers/|nativeTasks\" docs/current/guides"
+      - "rg -n \"project deploy|Dokploy|target set-config\" docs/current/guides"
+      - "rg -n \"deploy\" docs/current/guides"
+      - "rg -n \"exposure\" docs/current/guides/bindings-authoring.md"
+      - "rg -n \"result|call|branch|emit\" docs/current/guides/graph-ir-operation-authoring.md"
+      - "rg -n \"demo/notes-blueprint|demo/order-fulfillment-blueprint|demo/cv-extract-blueprint\" docs/current/guides/blueprint-examples.md"
+      - "test -f loop over required guide/demo paths"
+      - "bun -e loadComposedBlueprint('demo/notes-blueprint')"
+      - "bun -e loadComposedBlueprint('demo/order-fulfillment-blueprint')"
+      - "bun -e loadComposedBlueprint('demo/cv-extract-blueprint')"
