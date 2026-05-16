@@ -1,3 +1,8 @@
+> Status: active-rationale.
+> Date: 2026-05-09.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Recent Superpowers design rationale preserved during project cleanup; it is not current-state truth by itself.
+
 # Platform As Blueprint Design
 
 Date: 2026-05-09

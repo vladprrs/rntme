@@ -1,0 +1,573 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "Project Cleanup"
+  slug: "project-cleanup"
+  kind: open_ended
+  tranche: "Complete broad repo cleanup through safe inventory, judged cleanup batches, verified deletes or docs moves, and a final CI-equivalent audit."
+  status: done
+  intake:
+    original_request: "Prepare a goal to clean up the project, remove unnecessary files, delete Superpowers plans while keeping specs, and allow docs moves to improve structure."
+    interpreted_outcome: "The repository has been cleaned of confirmed-unnecessary files, Superpowers plans are removed while specs remain, docs are reorganized where useful, and verification proves the cleanup did not break the project."
+    input_shape: vague
+    audience: repository maintainers and future coding agents
+    authority: requested
+    proof_type: test
+    completion_proof: "A cleanup inventory exists, only confirmed unnecessary files were deleted or moved, specs were preserved, docs references were updated, and build/typecheck/test/lint/depcruise/vendor checks pass or exact blockers are recorded."
+    likely_misfire: "A large cleanup diff deletes historical rationale, active docs, fixtures, package metadata, vendor metadata, or user work because it looked stale without evidence."
+    blind_spots_considered:
+      - "Destructive deletions need evidence and reversibility."
+      - "Docs moves can break README stubs, owner-doc links, and references."
+      - "Specs are rationale and must be preserved even when not current-state truth."
+      - "Generated or fixture files may be intentionally committed."
+      - "Dirty worktree changes must not be reverted or overwritten."
+    existing_plan_facts:
+      - "No visual board."
+      - "Create a fresh goal."
+      - "Perform broad repo cleanup."
+      - "Delete Superpowers plan files."
+      - "Preserve specs."
+      - "Within docs, moving files is allowed when it improves structure."
+      - "Protect history/docs and generated-sensitive surfaces unless Judge explicitly permits a change."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: false
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  # installed | bundled_not_installed | missing | unknown
+  # Bundled templates were found with the GoalBuddy skill; installed agent configs were not found during prep.
+  scout: bundled_not_installed
+  worker: bundled_not_installed
+  judge: bundled_not_installed
+
+visual_board:
+  # none | local | github_projects | both | unknown
+  selected: none
+  local:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy board docs/goals/project-cleanup"
+  github_projects:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy extend github-projects"
+    missing: []
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: default
+    objective: "Build a read-only cleanup inventory for unnecessary files, Superpowers plan files, docs move opportunities, and protected surfaces."
+    inputs:
+      - "AGENTS.md"
+      - "docs/decision-system.md"
+      - "local README stubs and linked docs/current owner docs as needed"
+      - "docs/current/**"
+      - "docs/history/**"
+      - "package.json"
+      - ".dependency-cruiser.cjs"
+      - "git status and file references found by rg"
+    constraints:
+      - "Read-only."
+      - "Do not delete, move, or edit files."
+      - "Use rg for reference checks."
+      - "Classify each candidate as delete, move, keep, or defer."
+      - "Identify exact Superpowers plan files separately from specs."
+      - "Preserve specs and protected surfaces unless later Judge explicitly approves a bounded touch."
+    expected_output:
+      - "Candidate inventory with exact paths and category: delete, move, keep, or defer."
+      - "Exact list of Superpowers plan files proposed for deletion."
+      - "Exact list of specs and protected surfaces that must remain untouched."
+      - "Docs move opportunities with required reference updates."
+      - "Recommended first cleanup batch and risk notes."
+    receipt:
+      result: done
+      note: notes/T001-cleanup-inventory.md
+      summary: "Built cleanup inventory: 19 Superpowers plan delete candidates, 10 Superpowers specs to preserve or move, generated/log delete candidates, protected surfaces, dirty worktree risks, and a recommended first docs cleanup batch."
+      evidence:
+        - "docs/goals/project-cleanup/notes/T001-cleanup-inventory.md"
+        - "GoalBuddy update check: current version 0.3.6, no update available."
+        - "GoalBuddy state check: ok, warnings only for bundled_not_installed agents."
+        - "git status --short showed pre-existing platform/UI/vendor/goal edits plus untracked generated artifacts."
+
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Review the Scout inventory and choose the first largest safe cleanup batch."
+    inputs:
+      - "T001 receipt or note"
+      - "Current git status"
+      - "Goal constraints from goal.md and state.yaml"
+    constraints:
+      - "Do not implement."
+      - "Approve only files with evidence that deletion or movement is safe."
+      - "Do not approve spec deletion."
+      - "Treat protected surfaces as requiring explicit rationale and stronger verification."
+      - "If docs files move, require reference updates in the same Worker allowed_files."
+    expected_output:
+      - "Decision: approved | needs_more_scouting | blocked"
+      - "Exact Worker objective for the first cleanup batch."
+      - "allowed_files for the Worker."
+      - "verify commands for the Worker."
+      - "stop_if conditions."
+      - "Deferred candidates and why they are not in the first batch."
+    receipt:
+      result: done
+      decision: approved
+      full_outcome_complete: false
+      rationale: "The first largest safe batch is the explicit user requirement: delete tracked Superpowers plan files while preserving specs. Current docs have only five live references to those plan files, so the Worker can delete the plans and repair current-doc references without touching specs, historical plans, old GoalBuddy receipts, or unrelated dirty platform/UI files."
+      worker_objective: "Delete the 19 tracked Superpowers plan files under docs/superpowers/plans/** and remove or replace current-doc references to those deleted plan paths."
+      allowed_files:
+        - "docs/superpowers/plans/2026-05-08-project-lifecycle-init-foundation.md"
+        - "docs/superpowers/plans/2026-05-08-provisioned-rustfs-storage.md"
+        - "docs/superpowers/plans/2026-05-09-bun-first-toolchain-migration.md"
+        - "docs/superpowers/plans/2026-05-09-dokploy-single-compose-deploy.md"
+        - "docs/superpowers/plans/2026-05-09-platform-blueprint-foundation.md"
+        - "docs/superpowers/plans/2026-05-09-platform-deployments-service.md"
+        - "docs/superpowers/plans/2026-05-09-platform-identity-auth0.md"
+        - "docs/superpowers/plans/2026-05-09-platform-runtime-cutover.md"
+        - "docs/superpowers/plans/2026-05-09-platform-ui-artifact.md"
+        - "docs/superpowers/plans/2026-05-10-bearer-token-validation-to-services-tokens.md"
+        - "docs/superpowers/plans/2026-05-10-bpmn-orchestrated-deploy-services-deployments.md"
+        - "docs/superpowers/plans/2026-05-10-cli-direct-mode.md"
+        - "docs/superpowers/plans/2026-05-10-deploy-runner-extraction.md"
+        - "docs/superpowers/plans/2026-05-10-lift-http-middleware-to-runtime.md"
+        - "docs/superpowers/plans/2026-05-10-platform-http-deletion.md"
+        - "docs/superpowers/plans/2026-05-11-sustained-cutover-thin-platform.md"
+        - "docs/superpowers/plans/2026-05-12-module-client-ui-design-system.md"
+        - "docs/superpowers/plans/2026-05-13-cv-extract-platform-client-deploy-e2e.md"
+        - "docs/superpowers/plans/2026-05-13-platform-multi-provider-edge-auth.md"
+        - "docs/decision-system.md"
+        - "docs/current/owners/packages/deploy/deploy-runner.md"
+      verify:
+        - "test ! -d docs/superpowers/plans || test -z \"$(find docs/superpowers/plans -type f -print -quit)\""
+        - "rg -n \"docs/superpowers/plans/\" docs/decision-system.md docs/current docs/README.md AGENTS.md README.md CLAUDE.md"
+        - "git diff --check -- docs/superpowers/plans docs/decision-system.md docs/current/owners/packages/deploy/deploy-runner.md"
+      stop_if:
+        - "Need to edit files outside allowed_files."
+        - "Any spec under docs/superpowers/specs/** or docs/history/specs/** would be deleted."
+        - "A current-doc reference to a deleted plan cannot be removed or replaced without a decision-system change."
+        - "Unrelated dirty platform/UI/vendor files would be overwritten."
+      deferred:
+        - "Move docs/superpowers/specs/** into docs/history/specs/active-rationale/** with banners and reference updates."
+        - "Delete untracked .rntme*.jsonl logs, .rntme-ui-build output, .goalbuddy-board output, and duplicate .clone/** after a separate Judge decision."
+        - "Decide whether untracked done GoalBuddy goal folders should be tracked, archived, or deleted."
+        - "Historical GoalBuddy receipts may retain point-in-time references to deleted plan files unless a later audit requires full historical link cleanup."
+
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Delete the 19 tracked Superpowers plan files under docs/superpowers/plans/** and remove or replace current-doc references to those deleted plan paths."
+    allowed_files:
+      - "docs/superpowers/plans/2026-05-08-project-lifecycle-init-foundation.md"
+      - "docs/superpowers/plans/2026-05-08-provisioned-rustfs-storage.md"
+      - "docs/superpowers/plans/2026-05-09-bun-first-toolchain-migration.md"
+      - "docs/superpowers/plans/2026-05-09-dokploy-single-compose-deploy.md"
+      - "docs/superpowers/plans/2026-05-09-platform-blueprint-foundation.md"
+      - "docs/superpowers/plans/2026-05-09-platform-deployments-service.md"
+      - "docs/superpowers/plans/2026-05-09-platform-identity-auth0.md"
+      - "docs/superpowers/plans/2026-05-09-platform-runtime-cutover.md"
+      - "docs/superpowers/plans/2026-05-09-platform-ui-artifact.md"
+      - "docs/superpowers/plans/2026-05-10-bearer-token-validation-to-services-tokens.md"
+      - "docs/superpowers/plans/2026-05-10-bpmn-orchestrated-deploy-services-deployments.md"
+      - "docs/superpowers/plans/2026-05-10-cli-direct-mode.md"
+      - "docs/superpowers/plans/2026-05-10-deploy-runner-extraction.md"
+      - "docs/superpowers/plans/2026-05-10-lift-http-middleware-to-runtime.md"
+      - "docs/superpowers/plans/2026-05-10-platform-http-deletion.md"
+      - "docs/superpowers/plans/2026-05-11-sustained-cutover-thin-platform.md"
+      - "docs/superpowers/plans/2026-05-12-module-client-ui-design-system.md"
+      - "docs/superpowers/plans/2026-05-13-cv-extract-platform-client-deploy-e2e.md"
+      - "docs/superpowers/plans/2026-05-13-platform-multi-provider-edge-auth.md"
+      - "docs/decision-system.md"
+      - "docs/current/owners/packages/deploy/deploy-runner.md"
+    verify:
+      - "test ! -d docs/superpowers/plans || test -z \"$(find docs/superpowers/plans -type f -print -quit)\""
+      - "rg -n \"docs/superpowers/plans/\" docs/decision-system.md docs/current docs/README.md AGENTS.md README.md CLAUDE.md"
+      - "git diff --check -- docs/superpowers/plans docs/decision-system.md docs/current/owners/packages/deploy/deploy-runner.md"
+    stop_if:
+      - "Need to touch files outside allowed_files."
+      - "A deletion or move lacks evidence."
+      - "A docs move requires reference updates outside allowed_files."
+      - "A candidate is a spec or protected surface without explicit Judge approval."
+      - "Verification fails twice."
+      - "Dirty worktree changes appear that are unrelated and would be overwritten."
+    receipt:
+      result: done
+      changed_files:
+        - "docs/decision-system.md"
+        - "docs/current/owners/packages/deploy/deploy-runner.md"
+        - "docs/superpowers/plans/2026-05-08-project-lifecycle-init-foundation.md"
+        - "docs/superpowers/plans/2026-05-08-provisioned-rustfs-storage.md"
+        - "docs/superpowers/plans/2026-05-09-bun-first-toolchain-migration.md"
+        - "docs/superpowers/plans/2026-05-09-dokploy-single-compose-deploy.md"
+        - "docs/superpowers/plans/2026-05-09-platform-blueprint-foundation.md"
+        - "docs/superpowers/plans/2026-05-09-platform-deployments-service.md"
+        - "docs/superpowers/plans/2026-05-09-platform-identity-auth0.md"
+        - "docs/superpowers/plans/2026-05-09-platform-runtime-cutover.md"
+        - "docs/superpowers/plans/2026-05-09-platform-ui-artifact.md"
+        - "docs/superpowers/plans/2026-05-10-bearer-token-validation-to-services-tokens.md"
+        - "docs/superpowers/plans/2026-05-10-bpmn-orchestrated-deploy-services-deployments.md"
+        - "docs/superpowers/plans/2026-05-10-cli-direct-mode.md"
+        - "docs/superpowers/plans/2026-05-10-deploy-runner-extraction.md"
+        - "docs/superpowers/plans/2026-05-10-lift-http-middleware-to-runtime.md"
+        - "docs/superpowers/plans/2026-05-10-platform-http-deletion.md"
+        - "docs/superpowers/plans/2026-05-11-sustained-cutover-thin-platform.md"
+        - "docs/superpowers/plans/2026-05-12-module-client-ui-design-system.md"
+        - "docs/superpowers/plans/2026-05-13-cv-extract-platform-client-deploy-e2e.md"
+        - "docs/superpowers/plans/2026-05-13-platform-multi-provider-edge-auth.md"
+      commands:
+        - cmd: "test ! -d docs/superpowers/plans || test -z \"$(find docs/superpowers/plans -type f -print -quit)\""
+          status: pass
+        - cmd: "rg -n \"docs/superpowers/plans/\" docs/decision-system.md docs/current docs/README.md AGENTS.md README.md CLAUDE.md"
+          status: pass
+          note: "No matches; rg exited 1 as expected for no results."
+        - cmd: "git diff --check -- docs/superpowers/plans docs/decision-system.md docs/current/owners/packages/deploy/deploy-runner.md"
+          status: pass
+        - cmd: "git status --short docs/superpowers/specs docs/history/specs"
+          status: pass
+          note: "No output; specs were not modified."
+      summary: "Deleted 19 tracked Superpowers plan files and removed current-doc references to deleted plan paths from the decision system and deploy-runner owner doc. Superpowers specs remain tracked and untouched."
+
+  - id: T004
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Review the completed cleanup batch and decide whether to queue the next cleanup batch, require more scouting, or proceed to final audit."
+    inputs:
+      - "T001 inventory"
+      - "T002 decision"
+      - "T003 receipt"
+      - "Current git diff"
+      - "Latest verification results"
+    constraints:
+      - "Do not implement."
+      - "Do not call the full outcome complete if cleanup candidates remain that can be safely handled."
+      - "Prefer a next coherent Worker batch over tiny per-file tasks when evidence is adequate."
+    expected_output:
+      - "Decision: continue_cleanup | more_scouting | final_audit_ready | blocked"
+      - "If continuing, exact next Worker objective, allowed_files, verify, and stop_if."
+      - "If final audit is ready, list required full verification commands."
+      - "Risk notes or deferred items."
+    receipt:
+      result: done
+      decision: continue_cleanup
+      full_outcome_complete: false
+      rationale: "T003 completed the explicit Superpowers plan deletion, but docs/superpowers/specs/** remains outside the lifecycle paths documented in AGENTS.md and docs/README.md. Moving those specs into docs/history/specs/active-rationale/** preserves the specs while improving docs structure. This is a coherent docs move with known reference updates and no spec deletion."
+      next_worker_objective: "Move the 10 Superpowers specs into docs/history/specs/active-rationale/**, add the required history banners, and update all repo references from docs/superpowers/specs/** to the new paths."
+      allowed_files:
+        - "docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md"
+        - "docs/superpowers/specs/2026-05-08-provisioned-rustfs-storage-design.md"
+        - "docs/superpowers/specs/2026-05-09-bun-first-toolchain-migration-design.md"
+        - "docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md"
+        - "docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md"
+        - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+        - "docs/superpowers/specs/2026-05-11-sustained-cutover-thin-platform-design.md"
+        - "docs/superpowers/specs/2026-05-12-module-client-ui-design-system-design.md"
+        - "docs/superpowers/specs/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+        - "docs/superpowers/specs/2026-05-13-platform-multi-provider-edge-auth-design.md"
+        - "docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md"
+        - "docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md"
+        - "docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+        - "docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md"
+        - "docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md"
+        - "docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+        - "docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
+        - "docs/decision-system.md"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/current/owners/packages/artifacts/init.md"
+        - "docs/current/owners/packages/deploy/deploy-runner.md"
+        - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+        - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+        - "docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md"
+        - "docs/goals/platform-cli-dokploy-e2e/goal.md"
+        - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      verify:
+        - "test ! -d docs/superpowers/specs || test -z \"$(find docs/superpowers/specs -type f -print -quit)\""
+        - "test \"$(find docs/history/specs/active-rationale -maxdepth 1 -type f -name '2026-05-0*-*-design.md' -o -name '2026-05-1*-*-design.md' | rg '/2026-05-(08|09|10|11|12|13)-' | wc -l | tr -d ' ')\" -ge 10"
+        - "rg -n \"docs/superpowers/specs/\" docs/decision-system.md docs/current docs/goals docs/history/specs/active-rationale docs/README.md AGENTS.md README.md CLAUDE.md"
+        - "for f in docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md; do sed -n '1,4p' \"$f\" | rg -q \"Status: active-rationale|Date: 2026-05-|Current source: docs/current/\\*\\*|Why retained:\" || exit 1; done"
+        - "rg -n \"[ \\t]+$\" docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
+        - "git diff --check -- docs/superpowers/specs docs/history/specs/active-rationale docs/decision-system.md docs/current/owners/apps/platform.md docs/current/owners/packages/artifacts/init.md docs/current/owners/packages/deploy/deploy-runner.md docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml docs/goals/dokploy-platform-e2e-deploy/state.yaml docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md docs/goals/platform-cli-dokploy-e2e/goal.md docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      stop_if:
+        - "Need to edit files outside allowed_files."
+        - "Any spec content would be deleted rather than moved."
+        - "A moved spec collides with an existing history spec."
+        - "Updating docs/current/owners/apps/platform.md would overwrite unrelated in-flight content instead of only changing the spec link."
+        - "Verification finds remaining docs/superpowers/specs/** references outside project-cleanup control notes."
+
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Move the 10 Superpowers specs into docs/history/specs/active-rationale/**, add the required history banners, and update all repo references from docs/superpowers/specs/** to the new paths."
+    allowed_files:
+      - "docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md"
+      - "docs/superpowers/specs/2026-05-08-provisioned-rustfs-storage-design.md"
+      - "docs/superpowers/specs/2026-05-09-bun-first-toolchain-migration-design.md"
+      - "docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md"
+      - "docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md"
+      - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "docs/superpowers/specs/2026-05-11-sustained-cutover-thin-platform-design.md"
+      - "docs/superpowers/specs/2026-05-12-module-client-ui-design-system-design.md"
+      - "docs/superpowers/specs/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+      - "docs/superpowers/specs/2026-05-13-platform-multi-provider-edge-auth-design.md"
+      - "docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md"
+      - "docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md"
+      - "docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md"
+      - "docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md"
+      - "docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md"
+      - "docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+      - "docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md"
+      - "docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md"
+      - "docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+      - "docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
+      - "docs/decision-system.md"
+      - "docs/current/owners/apps/platform.md"
+      - "docs/current/owners/packages/artifacts/init.md"
+      - "docs/current/owners/packages/deploy/deploy-runner.md"
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+      - "docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md"
+      - "docs/goals/platform-cli-dokploy-e2e/goal.md"
+      - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    verify:
+      - "test ! -d docs/superpowers/specs || test -z \"$(find docs/superpowers/specs -type f -print -quit)\""
+      - "rg -n \"docs/superpowers/specs/\" docs/decision-system.md docs/current docs/goals docs/history/specs/active-rationale docs/README.md AGENTS.md README.md CLAUDE.md"
+      - "for f in docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md; do sed -n '1,4p' \"$f\" | rg -q \"Status: active-rationale|Date: 2026-05-|Current source: docs/current/\\*\\*|Why retained:\" || exit 1; done"
+      - "rg -n \"[ \\t]+$\" docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
+      - "git diff --check -- docs/superpowers/specs docs/history/specs/active-rationale docs/decision-system.md docs/current/owners/apps/platform.md docs/current/owners/packages/artifacts/init.md docs/current/owners/packages/deploy/deploy-runner.md docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml docs/goals/dokploy-platform-e2e-deploy/state.yaml docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md docs/goals/platform-cli-dokploy-e2e/goal.md docs/goals/platform-cli-dokploy-e2e/state.yaml"
+    stop_if:
+      - "Need to touch files outside allowed_files."
+      - "Any spec content would be deleted rather than moved."
+      - "A moved spec collides with an existing history spec."
+      - "Updating docs/current/owners/apps/platform.md would overwrite unrelated in-flight content instead of only changing the spec link."
+      - "Verification finds remaining docs/superpowers/specs/** references outside project-cleanup control notes."
+    receipt:
+      result: done
+      changed_files:
+        - "docs/history/specs/active-rationale/2026-05-08-project-lifecycle-init-design.md"
+        - "docs/history/specs/active-rationale/2026-05-08-provisioned-rustfs-storage-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-bun-first-toolchain-migration-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md"
+        - "docs/history/specs/active-rationale/2026-05-09-platform-as-blueprint-design.md"
+        - "docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+        - "docs/history/specs/active-rationale/2026-05-11-sustained-cutover-thin-platform-design.md"
+        - "docs/history/specs/active-rationale/2026-05-12-module-client-ui-design-system-design.md"
+        - "docs/history/specs/active-rationale/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+        - "docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
+        - "docs/superpowers/specs/2026-05-08-project-lifecycle-init-design.md"
+        - "docs/superpowers/specs/2026-05-08-provisioned-rustfs-storage-design.md"
+        - "docs/superpowers/specs/2026-05-09-bun-first-toolchain-migration-design.md"
+        - "docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md"
+        - "docs/superpowers/specs/2026-05-09-platform-as-blueprint-design.md"
+        - "docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md"
+        - "docs/superpowers/specs/2026-05-11-sustained-cutover-thin-platform-design.md"
+        - "docs/superpowers/specs/2026-05-12-module-client-ui-design-system-design.md"
+        - "docs/superpowers/specs/2026-05-13-cv-extract-platform-client-deploy-e2e-design.md"
+        - "docs/superpowers/specs/2026-05-13-platform-multi-provider-edge-auth-design.md"
+        - "docs/decision-system.md"
+        - "docs/current/owners/apps/platform.md"
+        - "docs/current/owners/packages/artifacts/init.md"
+        - "docs/current/owners/packages/deploy/deploy-runner.md"
+        - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
+        - "docs/goals/dokploy-platform-e2e-deploy/state.yaml"
+        - "docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md"
+        - "docs/goals/platform-cli-dokploy-e2e/goal.md"
+        - "docs/goals/platform-cli-dokploy-e2e/state.yaml"
+      commands:
+        - cmd: "test ! -d docs/superpowers/specs || test -z \"$(find docs/superpowers/specs -type f -print -quit)\""
+          status: pass
+        - cmd: "find docs/history/specs/active-rationale ... 2026-05-08..13 moved spec count"
+          status: pass
+          note: "Count returned 10 and each expected moved spec file exists."
+        - cmd: "rg -n \"docs/superpowers/specs/\" docs/decision-system.md docs/current docs/goals docs/history/specs/active-rationale docs/README.md AGENTS.md README.md CLAUDE.md --glob '!docs/goals/project-cleanup/**'"
+          status: pass
+          note: "No matches outside project-cleanup control receipts; rg exited 1 as expected."
+        - cmd: "banner check over 10 moved specs"
+          status: pass
+          note: "Each moved spec starts with Status, Date, Current source, and Why retained banner lines."
+        - cmd: "rg -n \"[ \\t]+$\" <10 moved specs>"
+          status: pass
+          note: "No trailing whitespace; rg exited 1 as expected."
+        - cmd: "git diff --check -- docs/superpowers/specs docs/history/specs/active-rationale docs/decision-system.md docs/current/owners/apps/platform.md docs/current/owners/packages/artifacts/init.md docs/current/owners/packages/deploy/deploy-runner.md docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml docs/goals/dokploy-platform-e2e-deploy/state.yaml docs/goals/dokploy-platform-e2e-deploy/notes/T002-judge-receipt.md docs/goals/platform-cli-dokploy-e2e/goal.md docs/goals/platform-cli-dokploy-e2e/state.yaml"
+          status: pass
+      summary: "Moved 10 Superpowers specs into docs/history/specs/active-rationale, added standard history banners, and updated current docs plus tracked GoalBuddy references to the new spec paths. Existing dirty content in docs/current/owners/apps/platform.md was preserved; only the spec link was changed."
+
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Delete untracked generated/deploy artifacts and add .gitignore guards for recurrence."
+    allowed_files:
+      - ".gitignore"
+      - ".rntme*.jsonl"
+      - ".clone/**"
+      - "demo/cv-extract-blueprint/.rntme-ui-build/**"
+      - "docs/goals/cv-extract-platform-client-deploy-e2e/.goalbuddy-board/**"
+    verify:
+      - "test -z \"$(find . -maxdepth 1 -type f -name '.rntme*.jsonl' -print -quit)\""
+      - "test ! -e .clone"
+      - "test ! -e demo/cv-extract-blueprint/.rntme-ui-build"
+      - "test ! -e docs/goals/cv-extract-platform-client-deploy-e2e/.goalbuddy-board"
+      - "rg -n \"^\\.rntme\\*\\.jsonl$|^\\.rntme-ui-build/$|^\\.goalbuddy-board/$|^\\.clone/$\" .gitignore"
+      - "git diff --check -- .gitignore"
+    stop_if:
+      - "Need to delete tracked files other than .gitignore."
+      - "A candidate log/build/board file is not under the approved generated-artifact patterns."
+      - "A file appears to contain unsummarized source or docs content rather than generated runtime output."
+      - "Unrelated dirty files would be overwritten."
+    receipt:
+      result: done
+      changed_files:
+        - ".gitignore"
+        - ".rntme*.jsonl"
+        - ".clone/**"
+        - "demo/cv-extract-blueprint/.rntme-ui-build/**"
+        - "docs/goals/cv-extract-platform-client-deploy-e2e/.goalbuddy-board/**"
+      commands:
+        - cmd: "test -z \"$(find . -maxdepth 1 -type f -name '.rntme*.jsonl' -print -quit)\""
+          status: pass
+        - cmd: "test ! -e .clone && test ! -e demo/cv-extract-blueprint/.rntme-ui-build && test ! -e docs/goals/cv-extract-platform-client-deploy-e2e/.goalbuddy-board"
+          status: pass
+        - cmd: "rg -n \"^\\.rntme\\*\\.jsonl$|^\\.rntme-ui-build/$|^\\.goalbuddy-board/$|^\\.clone/$\" .gitignore"
+          status: pass
+          note: "Matched .gitignore lines 28-31."
+        - cmd: "git diff --check -- .gitignore"
+          status: pass
+        - cmd: "git status --short .gitignore .clone '.rntme*.jsonl' demo/cv-extract-blueprint/.rntme-ui-build docs/goals/cv-extract-platform-client-deploy-e2e/.goalbuddy-board"
+          status: pass
+          note: "Only .gitignore remains modified in the generated-artifact cleanup scope."
+      summary: "Deleted 73 untracked root .rntme*.jsonl logs, removed the duplicate .clone worktree artifact, removed generated demo .rntme-ui-build output, removed generated GoalBuddy board output, and added .gitignore guards for those artifact patterns."
+
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Audit whether the project cleanup goal is fully complete."
+    inputs:
+      - "All done task receipts"
+      - "Final cleanup inventory state"
+      - "Current git diff"
+      - "Last verification"
+      - "Goal original request and constraints"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if Superpowers plan handling is not proven."
+      - "Reject completion if specs preservation is not proven."
+      - "Reject completion if docs moves happened without reference checks."
+      - "Reject completion if full verification was not run or exact blockers were not recorded."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "Evidence that unnecessary files were deleted or deferred correctly."
+      - "Evidence that Superpowers plans were deleted and specs preserved."
+      - "Evidence that docs moves updated references."
+      - "Results for bun run build, bun run typecheck, bun run test, bun run lint, bun run depcruise, and bun run vendor:check, or exact blockers."
+      - "Next task if not complete."
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      evidence:
+        - "T001 documented the cleanup inventory and protected surfaces in docs/goals/project-cleanup/notes/T001-cleanup-inventory.md."
+        - "T003 deleted 19 tracked Superpowers plan files under docs/superpowers/plans/** and removed current-doc references to deleted plan paths."
+        - "T005 moved 10 Superpowers specs into docs/history/specs/active-rationale/** with active-rationale banners and updated current docs plus tracked spec references."
+        - "T006 deleted untracked generated/runtime artifacts (.rntme*.jsonl, .clone/**, demo/cv-extract-blueprint/.rntme-ui-build/**, and .goalbuddy-board/**) and added .gitignore guards."
+        - "Final audit removed empty docs/superpowers directories after plan/spec cleanup."
+        - "Historical GoalBuddy receipts may still mention former deleted Superpowers plan paths as point-in-time provenance; current owner docs, decision docs, root docs, and spec references are clean."
+      docs_touch_evaluation:
+        - "docs/decision-system.md updated for current rationale links and removal of deleted plan references."
+        - "docs/current/owners/** updated where public owner docs referenced moved specs or deleted plans."
+        - ".gitignore updated for recurring generated cleanup artifacts."
+        - "No README.md, AGENTS.md, CLAUDE.md, or docs/README.md update was needed because their navigation and command guidance did not change."
+        - "modules/storage/s3/test/unit/server.test.ts received a narrow lint fix only; no public API or owner-doc invariant changed."
+      verification:
+        - cmd: "bun run build"
+          status: pass
+        - cmd: "bun run typecheck"
+          status: pass
+        - cmd: "bun run test"
+          status: pass
+          note: "The final test run passed after the storage-s3 lint fix. Existing React act(...) warnings in storage-s3 tests remain warnings only."
+        - cmd: "bun run lint"
+          status: pass
+          note: "Initial run exposed a pre-existing storage-s3 test no-undef on Buffer; root cause was a missing explicit node:buffer import, fixed and re-verified."
+        - cmd: "bun run --filter @rntme/storage-s3 lint"
+          status: pass
+        - cmd: "bun run --filter @rntme/storage-s3 test"
+          status: pass
+        - cmd: "bun run depcruise"
+          status: pass
+        - cmd: "bun run vendor:check"
+          status: pass
+        - cmd: "test ! -e docs/superpowers"
+          status: pass
+        - cmd: "moved spec count under docs/history/specs/active-rationale for 2026-05-08..13"
+          status: pass
+          note: "Count returned 10."
+        - cmd: "rg -n \"docs/superpowers/plans/\" docs/decision-system.md docs/current docs/README.md AGENTS.md README.md CLAUDE.md"
+          status: pass
+          note: "No current-doc/root-doc matches; rg exited 1 as expected."
+        - cmd: "rg -n \"docs/superpowers/specs/\" docs/decision-system.md docs/current docs/goals docs/history/specs/active-rationale docs/README.md AGENTS.md README.md CLAUDE.md --glob '!docs/goals/project-cleanup/**'"
+          status: pass
+          note: "No matches; rg exited 1 as expected."
+        - cmd: "generated artifact absence check for .rntme*.jsonl, .clone, demo .rntme-ui-build, and .goalbuddy-board"
+          status: pass
+        - cmd: "git diff --check"
+          status: pass
+      conclusion: "The full cleanup outcome is complete: confirmed-unnecessary files were deleted or moved, specs were preserved, docs references needed for current navigation were updated, recurrence guards were added, and the CI-equivalent command set passes."
+
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: pass
+    task: T999
+    commands:
+      - "bun run build -> pass"
+      - "bun run typecheck -> pass"
+      - "bun run test -> pass"
+      - "bun run lint -> pass"
+      - "bun run --filter @rntme/storage-s3 lint -> pass"
+      - "bun run --filter @rntme/storage-s3 test -> pass"
+      - "bun run depcruise -> pass"
+      - "bun run vendor:check -> pass"
+      - "test ! -e docs/superpowers -> pass"
+      - "moved spec count under docs/history/specs/active-rationale -> 10"
+      - "current-doc/root-doc docs/superpowers/plans reference check -> pass, no matches"
+      - "docs/superpowers/specs reference check outside project-cleanup receipts -> pass, no matches"
+      - "generated artifact absence check -> pass"
+      - "git diff --check -> pass"

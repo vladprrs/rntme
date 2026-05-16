@@ -1197,7 +1197,7 @@ tasks:
     objective: "Run read-only preflight and branch hygiene for the platform multi-provider edge-auth plan."
     inputs:
       - "docs/superpowers/plans/2026-05-13-platform-multi-provider-edge-auth.md"
-      - "docs/superpowers/specs/2026-05-13-platform-multi-provider-edge-auth-design.md"
+      - "docs/history/specs/active-rationale/2026-05-13-platform-multi-provider-edge-auth-design.md"
       - "docs/goals/cv-extract-platform-client-deploy-e2e/notes/T012-live-deploy.md"
       - "docs/goals/cv-extract-platform-client-deploy-e2e/state.yaml"
       - "Current git status and recent local commits."

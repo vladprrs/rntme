@@ -184,5 +184,4 @@ can return while routing is still converging. Tests may pass
 
 ## Specs
 
-- [`docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`](/docs/superpowers/specs/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md)
-- [`docs/superpowers/plans/2026-05-10-deploy-runner-extraction.md`](/docs/superpowers/plans/2026-05-10-deploy-runner-extraction.md)
+- [`docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md`](/docs/history/specs/active-rationale/2026-05-10-cli-universal-deploy-and-platform-http-removal-design.md)

@@ -1,3 +1,8 @@
+> Status: active-rationale.
+> Date: 2026-05-12.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Recent Superpowers design rationale preserved during project cleanup; it is not current-state truth by itself.
+
 # Module Client UI Design System
 
 Date: 2026-05-12

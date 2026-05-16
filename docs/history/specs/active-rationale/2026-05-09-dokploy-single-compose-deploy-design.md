@@ -1,3 +1,8 @@
+> Status: active-rationale.
+> Date: 2026-05-09.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Recent Superpowers design rationale preserved during project cleanup; it is not current-state truth by itself.
+
 # Dokploy Single Compose Deploy Design
 
 Date: 2026-05-09
@@ -66,7 +71,7 @@ This spec adds a locked-pending Deploy bet to `docs/decision-system.md`:
 > with per-workload Compose services, not as multiple Dokploy Applications.
 > This preserves blueprint-as-deploy-unit and a canonical Dokploy topology. ·
 > G1, G5, F6 · `locked-pending` · spec
-> `docs/superpowers/specs/2026-05-09-dokploy-single-compose-deploy-design.md`
+> `docs/history/specs/active-rationale/2026-05-09-dokploy-single-compose-deploy-design.md`
 
 ## Topology
 
