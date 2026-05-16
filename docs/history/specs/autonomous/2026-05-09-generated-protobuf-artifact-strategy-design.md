@@ -2,6 +2,7 @@
 > Date: 2026-05-09.
 > Current source: Multica issue RNT-533, RNT-525 LOC audit, `docs/decision-system.md`, current contracts owner docs, current package scripts/workflows, protobufjs-cli upstream README, and code/tests on `origin/main` at `a28ca4e3`.
 > Why retained: SPEC rationale for treating generated protobuf JS/DTS as committed contract artifacts with explicit generated-file classification and freshness gates; verify current truth against code/tests before implementation.
+> Rebased note, 2026-05-16: command examples were reconciled with current `origin/main`, which has moved to the Bun-first toolchain and `bun.lock`.
 
 # Generated protobuf artifact strategy - design
 
@@ -98,13 +99,13 @@ Build/publish shape today:
 CI today runs:
 
 ```text
-pnpm install --frozen-lockfile
-pnpm -r run build
-pnpm -r run typecheck
-pnpm -r run test
-pnpm -r run lint
-pnpm depcruise
-pnpm vendor:check
+bun install --frozen-lockfile
+bun run build
+bun run typecheck
+bun run test
+bun run lint
+bun run depcruise
+bun run vendor:check
 ```
 
 Only `@rntme/contracts-identity-v1` currently proves generated output is fresh
@@ -114,7 +115,7 @@ by regenerating and comparing snapshots during `test`.
 
 - **G1 / F6 Repeatability:** generated artifacts are acceptable only if the
   canonical input (`proto/*.proto` plus pinned generator dependency in
-  `pnpm-lock.yaml`) and generated output stay synchronized. CI must catch drift.
+  `bun.lock`) and generated output stay synchronized. CI must catch drift.
 - **G2 / F5 LLM-authorability:** agents changing `.proto` files need fail-fast
   feedback that says "run proto:gen and commit output" instead of discovering a
   broken package later during publish or consumer use.
@@ -134,8 +135,8 @@ by regenerating and comparing snapshots during `test`.
 Applicable locked bets include **Leaf contracts in
 `packages/contracts/<category>/v1/`**, **gRPC between services**,
 **CloudEvents 1.0 envelope end-to-end**, **Layering enforced by
-dependency-cruiser**, and **pnpm + Node 20 + tsc + vitest + esbuild** as the
-current-default tooling stack. This design does not contradict any Goal,
+dependency-cruiser**, and **Bun-first toolchain + scoped `tsc` exception** as
+the current-default tooling stack. This design does not contradict any Goal,
 Filter, or locked Bet.
 
 ## Options
@@ -242,20 +243,20 @@ Add a shared checker, for example `scripts/check-proto-generated.mjs`, that:
 4. compares regenerated output with the snapshot;
 5. restores original files before exit so the check is read-only;
 6. removes package-local `proto-deps/`;
-7. fails with package/file names and "run `pnpm -F <pkg> proto:gen` and commit
-   output" guidance when drift is found.
+7. fails with package/file names and "run `bun run --filter <pkg> proto:gen`
+   and commit output" guidance when drift is found.
 
 Expose it through root `package.json` as:
 
 ```json
 {
   "scripts": {
-    "proto:check": "node scripts/check-proto-generated.mjs"
+    "proto:check": "bun scripts/check-proto-generated.mjs"
   }
 }
 ```
 
-Then run `pnpm proto:check` in CI after install and before `pnpm -r run build`.
+Then run `bun run proto:check` in CI after install and before `bun run build`.
 Identity can either keep its package-local `proto:check` for focused package
 testing or delegate to the shared checker with a package filter if the checker
 supports one.
@@ -269,9 +270,9 @@ The new CI freshness gate is the deterministic guard.
 Future package publishing should require:
 
 ```text
-pnpm proto:check
-pnpm -F @rntme/contracts-<category>-v1 build
-npm publish from package root
+bun run proto:check
+bun run --filter @rntme/contracts-<category>-v1 build
+bun publish from package root
 ```
 
 Consumers of published packages should receive `dist/index.js`,
@@ -284,8 +285,8 @@ Update current owner docs for the affected contract packages to state:
 
 - `.proto` files are hand-edited source;
 - `src/proto.gen.{js,d.ts}` are committed generated contract bindings;
-- generated files are regenerated with `pnpm -F <pkg> proto:gen`;
-- CI/root freshness is enforced with `pnpm proto:check`;
+- generated files are regenerated with `bun run --filter <pkg> proto:gen`;
+- CI/root freshness is enforced with `bun run proto:check`;
 - generated files are never edited by hand.
 
 Storage needs a current owner doc or a corrected owner-doc link because its
@@ -331,7 +332,7 @@ Package scripts:
 
 Workflow:
 
-- `.github/workflows/ci.yml` should run `pnpm proto:check` after install and
+- `.github/workflows/ci.yml` should run `bun run proto:check` after install and
   before build.
 
 Docs:
@@ -360,14 +361,14 @@ Evidence inspected:
 
 Implementation validation should include:
 
-- `pnpm install --frozen-lockfile`
-- `pnpm proto:check`
-- `pnpm -F @rntme/contracts-common-v1 test`
-- `pnpm -F @rntme/contracts-identity-v1 test`
-- `pnpm -F @rntme/contracts-ai-llm-v1 test`
-- `pnpm -F @rntme/contracts-crm-v1 test`
-- `pnpm -F @rntme/contracts-storage-v1 test`
-- `pnpm depcruise` if root scripts/workflow/docs imports change package
+- `bun install --frozen-lockfile`
+- `bun run proto:check`
+- `bun run --filter @rntme/contracts-common-v1 test`
+- `bun run --filter @rntme/contracts-identity-v1 test`
+- `bun run --filter @rntme/contracts-ai-llm-v1 test`
+- `bun run --filter @rntme/contracts-crm-v1 test`
+- `bun run --filter @rntme/contracts-storage-v1 test`
+- `bun run depcruise` if root scripts/workflow/docs imports change package
   boundaries
 
 ## Risks
