@@ -1,4 +1,3 @@
----
 > Status: active-rationale.
 > Date: 2026-05-07.
 > Current source: docs/current/**, docs/decision-system.md, and current code/tests.
