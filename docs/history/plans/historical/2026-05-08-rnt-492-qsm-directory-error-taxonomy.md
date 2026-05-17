@@ -1,3 +1,8 @@
+> Status: historical.
+> Date: 2026-05-08.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Completed RNT-492 execution plan retained as historical rationale and handoff context; it is not current-state truth by itself.
+
 # RNT-492 QSM Directory Error Taxonomy Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
