@@ -1,7 +1,7 @@
-> Status: autonomous-plan.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: Multica issue RNT-491, approved spec, docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Execution handoff for making the PDM directory loader return only validated PDM.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Completed RNT-491 execution plan retained as historical rationale and handoff context; it is not current-state truth by itself.
 
 # PDM Directory Load Validation Implementation Plan
 
@@ -737,7 +737,7 @@ Expected changed areas:
 
 ```text
 docs/history/specs/autonomous/2026-05-08-rnt-491-pdm-directory-load-validation-design.md
-docs/history/plans/autonomous/2026-05-08-rnt-491-pdm-directory-load-validation.md
+docs/history/plans/historical/2026-05-08-rnt-491-pdm-directory-load-validation.md
 docs/current/owners/packages/artifacts/pdm.md
 packages/artifacts/_shared/src/load.ts
 packages/artifacts/_shared/test/load.test.ts

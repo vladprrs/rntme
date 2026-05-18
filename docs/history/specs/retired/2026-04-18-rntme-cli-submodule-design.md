@@ -1,7 +1,7 @@
 > Status: retired.
 > Date: 2026-04-18.
 > Current source: docs/history/specs/active-rationale/2026-04-30-merge-rntme-cli-back-design.md, AGENTS.md, docs/current/owners/apps/cli.md, and current code/tests.
-> Why retired: Superseded by the merge-back design; the private submodule and `@rntme-cli/*` workspace shape no longer exist.
+> Why retained: Superseded by the merge-back design; the private submodule and `@rntme-cli/*` workspace shape no longer exist.
 
 > **Status:** SUPERSEDED by `2026-04-30-merge-rntme-cli-back-design.md` (submodule merge-back planned for this PR; original privacy rationale obsoleted when the repo was made public).
 

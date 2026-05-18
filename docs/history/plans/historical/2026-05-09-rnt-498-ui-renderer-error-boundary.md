@@ -1,7 +1,7 @@
-> Status: autonomous-plan.
+> Status: historical.
 > Date: 2026-05-09.
-> Current source: Multica issue RNT-498, approved SPEC, SPEC-REVIEW comment, `docs/decision-system.md`, current `@rntme/ui-runtime` owner docs, and current code/tests.
-> Why retained: Execution handoff for making generated UI renderer failures visible, local, sanitized, and recoverable.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Completed RNT-498 execution plan retained as historical rationale and handoff context; it is not current-state truth by itself.
 
 # UI Renderer ErrorBoundary Implementation Plan
 
