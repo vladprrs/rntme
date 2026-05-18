@@ -1,7 +1,7 @@
-> Status: autonomous-plan.
+> Status: historical.
 > Date: 2026-05-08.
-> Current source: Multica issue RNT-499, approved spec, SPEC-REVIEW comment, docs/current/**, docs/decision-system.md, and current code/tests.
-> Why retained: Execution handoff for making blueprint binding-resolver scalar validation consume the canonical bindings scalar primitive contract.
+> Current source: docs/current/**, docs/decision-system.md, and current code/tests.
+> Why retained: Completed RNT-499 execution plan retained as historical rationale and handoff context; it is not current-state truth by itself.
 
 # Blueprint Binding Scalars Implementation Plan
 

@@ -1,7 +1,7 @@
 > Status: retired.
 > Date: 2026-04-18.
 > Current source: docs/history/specs/active-rationale/2026-04-18-drizzle-adoption-design.md, docs/decision-system.md, and current code/tests.
-> Why retired: Superseded by the Drizzle adoption decision; `@rntme/db-studio` was removed, so this design points at a deleted package.
+> Why retained: Superseded by the Drizzle adoption decision; `@rntme/db-studio` was removed, so this design points at a deleted package.
 
 # DB Studio — libSQL Hrana read-only endpoint for rntme runtimes
 

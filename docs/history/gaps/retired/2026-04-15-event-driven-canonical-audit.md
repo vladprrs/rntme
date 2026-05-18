@@ -1,7 +1,7 @@
 > Status: retired.
 > Date: 2026-04-15.
 > Current source: docs/decision-system.md, docs/current/owners/packages/runtime/event-store.md, docs/gaps/infra-and-operability-gaps.md, and current code/tests.
-> Why retired: Point-in-time ADR-vs-implementation audit now conflicts with current topic naming and references removed demo/package paths as live evidence; live event gaps are tracked in current owner docs and infra gaps.
+> Why retained: Point-in-time ADR-vs-implementation audit now conflicts with current topic naming and references removed demo/package paths as live evidence; live event gaps are tracked in current owner docs and infra gaps.
 
 # Gaps: Event-Driven Canonical Audit
 

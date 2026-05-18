@@ -1,7 +1,7 @@
 > Status: retired.
 > Date: 2026-04-18.
 > Current source: docs/history/specs/active-rationale/2026-04-30-merge-rntme-cli-back-design.md, AGENTS.md, docs/current/owners/apps/cli.md, and current code/tests.
-> Why retired: Implementation checklist for the removed private CLI submodule; current CLI work lives under `apps/cli` and `packages/**` with `@rntme/*` packages.
+> Why retained: Implementation checklist for the removed private CLI submodule; current CLI work lives under `apps/cli` and `packages/**` with `@rntme/*` packages.
 
 > **Path note:** paths in this document reflect the pre-merge layout (`rntme-cli/packages/...`, `@rntme-cli/*`). After the merge-back PR lands they move per `2026-04-30-merge-rntme-cli-back-design.md` (e.g. `apps/platform-http`, `packages/deploy/deploy-core`, `@rntme/platform-core`).
 

@@ -1,7 +1,7 @@
 > Status: retired.
 > Date: 2026-04-27.
 > Current source: docs/current/owners/demo/notes-blueprint.md, docs/history/specs/active-rationale/2026-04-29-notes-demo-auth0-design.md, docs/decision-system.md, and current code/tests.
-> Why retired: Execution checklist for the superseded no-auth preview deploy; use the current Notes owner doc and Auth0/ownership rationale instead.
+> Why retained: Execution checklist for the superseded no-auth preview deploy; use the current Notes owner doc and Auth0/ownership rationale instead.
 
 # Notes Demo E2E Implementation Plan
 
